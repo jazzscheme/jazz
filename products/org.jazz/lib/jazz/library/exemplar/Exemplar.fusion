@@ -1,0 +1,253 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exemplar Programming
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.exemplar.Exemplar jazz
+
+
+(import (jazz.library))
+
+
+(class Exemplar extends Node
+  
+  
+  (slot protected domain)
+  (slot protected base)
+  (slot protected ascendant)
+  (slot protected inited?)
+  (slot protected persistent?)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((domain null) (base null) . others) rest
+      (apply nextmethod others)
+      (set! [domain self] domain)
+      (set! [base self] base)
+      (set! [ascendant self] null)
+      (set! [inited? self] false)
+      (set! [persistent? self] true)
+      (when domain
+        (install))))
+  
+  
+  (method (copy-object deep?)
+    (let ((exemplar (nextmethod deep?)))
+      (set! [domain exemplar] domain)
+      (set! [base exemplar] base)
+      exemplar))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((and (= (nextmethod target) :equal)
+                (= base [base target]))
+           :equal)
+          (else
+           :not-equal)))
+
+  
+  (method (print printer readably)
+    (format printer "~{{a}{k :empty-value null}{k}}"
+            (type-name (class-of self))
+            (list
+             name: name
+             :base base)
+            (owned-properties)))
+  
+  
+  ;;;
+  ;;;; Inheritance
+  ;;;
+  
+  
+  (method (install)
+    (init))
+  
+  
+  (method (init)
+    (unless inited?
+      (if (null? base)
+          (set! ascendant null)
+        (set! ascendant (locate~ domain base))
+        (setup-inherited))
+      (set! inited? true)))
+  
+  
+  (method (setup-inherited)
+    (for-each (function dynamic (property)
+                (unless (memq? property owned)
+                  (set-value property (get-value~ ascendant property))))
+              (node-properties)))
+  
+  
+  (method public (inherits? target)
+    (if (eq? name target)
+        true
+      (call/ec
+        (lambda (return)
+          (for-each-ascendant
+            (function dynamic (ascendant)
+              (when (eq? [name ascendant] target)
+                (return true))))
+          false))))
+  
+  
+  (method public (has-ascendant? base)
+    (has-ascendant?~ domain self base))
+  
+  
+  (method public (for-each-ascendant proc)
+    (when ascendant
+      (proc ascendant)
+      (for-each-ascendant~ ascendant proc)))
+    
+  
+  (method public (extend . rest)
+    (bind-keywords ((domain domain)) rest
+      (let ((exemplar (new (class-of self))))
+        (set! [domain exemplar] domain)
+        (cond ((null? name)
+               (set! [base exemplar] base)
+               (copy-properties exemplar)
+               (set! [owned exemplar] (copy owned))
+               (set! [inited? exemplar] true))
+              (else
+               (set! [base exemplar] name)
+               (install~ exemplar)))
+        exemplar)))
+  
+  
+  (method (copy-properties exemplar)
+    (for-each (function dynamic (property)
+                (set-value~ exemplar property (get-value property)))
+              (node-properties)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method protected (update)
+    (reset)
+    (init)
+    (when (named?)
+      (update-descendants)))
+  
+  
+  (method (update-descendants)
+    (when domain
+      (update-descendants~ domain self)))
+  
+  
+  ;;;
+  ;;;; Modify
+  ;;;
+  
+  
+  (method public (modify-from from)
+    (unless (eq? self from)
+      (set! name [name from])
+      (set! base [base from])
+      (for-each (function dynamic (property)
+                  (set-value property (get-value~ from property)))
+                (node-properties))
+      (set! owned (copy [owned from]))
+      (set! persistent? [persistent? from])
+      (update)))
+  
+  
+  ;;;
+  ;;;; Reset
+  ;;;
+  
+  
+  (method (reset)
+    (when inited?
+      @should-not-reset-to-nil-but-to-slot-initalize--we-skip-since-init-also-*set-value*
+      (for-each reset-property (node-properties))
+      (set! inited? false)))
+  
+  
+  (method (reset-property property <Object>)
+    (unless (memq? property owned)
+      (set-value property null)))
+  
+  
+  ;;;
+  ;;;; Domain
+  ;;;
+  
+  
+  (method public (get-domain)
+    domain)
+  
+  
+  (method public (set-domain d)
+    (set! domain d)
+    (install))
+  
+  
+  (method public (register)
+    (add~ domain self))
+  
+  
+  ;;;
+  ;;;; Base
+  ;;;
+  
+  
+  (method public (get-base)
+    base)
+  
+  
+  (method public (set-base b)
+    (set! base b)
+    (update))
+  
+  
+  ;;;
+  ;;;; Persistence
+  ;;;
+  
+  
+  (method public (get-persistent?)
+    persistent?)
+  
+  
+  (method public (set-persistent? value)
+    (set! persistent? value))))

@@ -1,0 +1,259 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JML Elements
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jml.model.JML-Element jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class JML-Element extends JML-Node
+  
+  
+  (slot tag)
+  (slot properties initialize '())
+  (slot children   initialize '())
+  
+  
+  (method (initialize parent tag . rest)
+    (bind-keywords ((properties null)) rest
+      (nextmethod parent)
+      (set! [tag self] tag)
+      (set! [properties self] properties)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (if (null? properties)
+            (format printer "{s}" tag)
+          (format printer "{s} {s}" tag properties)))))
+  
+  
+  (method public (clone . rest)
+    (bind-keywords ((parent null) (children null)) rest
+      (let ((clone (new JML-Element parent tag)))
+        (set-properties~ clone properties)
+        (set-children~ clone children)
+        clone)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tag)
+    tag)
+
+
+  (method public (get-properties)
+    properties)
+
+
+  (method public (set-properties value)
+    (set! properties value))
+
+
+  (method public (get-children)
+    children)
+
+
+  (method public (set-children value)
+    (set! children value))
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method public (has-property? property)
+    (let ((symbol (symbolize-property property))
+          (not-found {Box}))
+      (neq? (getf properties symbol :key symbolize-property :not-found not-found) not-found)))
+  
+  
+  (method public (get-property property . rest)
+    (bind-optionals ((not-found null)) rest
+      (let ((symbol (symbolize-property property))
+            (scan properties))
+        (call/ec
+          (lambda (return)
+            (while scan
+              (let ((property (car scan)))
+                (if (= symbol (symbolize-property property))
+                    (return (cadr scan))
+                  (set! scan (cddr scan)))))
+            not-found)))))
+  
+  
+  (method public (set-property property value)
+    (let ((symbol (symbolize-property property))
+          (scan properties))
+      (call/ec
+        (lambda (return)
+          (while scan
+            (let ((property (car scan)))
+              (if (= symbol (symbolize-property property))
+                  (begin
+                    (set-car! (cdr scan) value)
+                    (return nil))
+                (set! scan (cddr scan)))))
+          (set! properties (append properties (list symbol value)))))))
+  
+  
+  (method public (remove-property target)
+    (let ((symbol (symbolize-property target))
+          (fact (new List-Factory)))
+      (for-each-property (function dynamic (property value)
+                           (when (/= symbol (symbolize-property property))
+                             (put~ fact property)
+                             (put~ fact value)))
+                         properties)
+      (set! properties (get-output~ fact))))
+  
+  
+  ;;;
+  ;;;; Children
+  ;;;
+  
+  
+  (definition Flattened-Tags
+    '(div img input span))
+  
+  
+  (method public (first-child)
+    (car children))
+  
+  
+  (method public virtual (add-child node)
+    (set! children (append! children (list node))))
+  
+  
+  (method public (composite?)
+    (not (simple?)))
+  
+  
+  (method public (simple?)
+    (let ((children (effective-children)))
+      (or (and (= 1 (length children))
+               (let ((child (car children)))
+                 (and (is? child JML-Element)
+                      (memq? (get-tag~ child) Flattened-Tags)
+                      (simple?~ child))))
+          (every? (function dynamic (sub)
+                    (is? sub JML-Text))
+                  children))))
+  
+  
+  (method (effective-children)
+    children)
+  
+  
+  (method public (find-by predicate)
+    (find-if predicate children))
+  
+  
+  (method public (find-node tag)
+    (find-by
+      (function dynamic (child)
+        (and (is? child JML-Element)
+             (= (get-tag~ child) tag)))))
+  
+  
+  (method public virtual (find-name name)
+    (find-by
+      (function dynamic (child)
+        (and (is? child JML-Element)
+             (= (get-property~ child 'name) name)))))
+  
+  
+  (method public (find-property property value)
+    (find-by
+      (function dynamic (child)
+        (and (is? child JML-Element)
+             (= (get-property~ child property) value)))))
+  
+  
+  (method public (get-child-text)
+    (get-text~ (first-child)))
+  
+  
+  ;;;
+  ;;;; Location
+  ;;;
+  
+  
+  (method (get-child-location child)
+    (list (+ 1
+             (length properties)
+             (get-rank child children))))
+  
+  
+  ;;;
+  ;;;; JML
+  ;;;
+  
+  
+  (method (->jml)
+    `(,(tag->jml) ,@(properties->jml) ,@(children->jml)))
+  
+  
+  (method public (tag->jml)
+    (string->symbol (format "<{a}>" tag)))
+  
+  
+  (method public (properties->jml)
+    (let ((fact (new List-Factory)))
+      (for-each-property (function dynamic (property value)
+                           (put~ fact (property->jml property))
+                           (put~ fact value))
+                         properties)
+      (get-output~ fact)))
+  
+  
+  (method public (property->jml property)
+    (string->symbol (format "{a}:" property)))
+  
+  
+  (method public (children->jml)
+    (map (function dynamic (child)
+           (->jml~ child))
+         children))))

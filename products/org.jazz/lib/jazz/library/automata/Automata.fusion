@@ -1,0 +1,204 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Finite State Automata
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.automata.Automata jazz
+
+
+(definition no-char '(no-char))
+
+
+(class Automata extends Object
+  
+  
+  (slot nbVectored)
+  (slot nbListed)
+  (slot nbLettered)
+  (slot start)
+  
+  
+  (method (initialize s)
+    (set! [nbVectored self] 0)
+    (set! [nbListed self] 0)
+    (set! [nbLettered self] 0)
+    (set! [start self] s))
+  
+  
+  (method public (run tape)
+    (let loop ((state [start self]))
+       (if (not-nil? state)
+           (loop (transition~ state))))))
+           
+
+(class Tape extends Object
+  
+  
+  (slot paragraphs)
+  (slot limit)
+  (slot row)
+  (slot col)
+  (slot scan)
+  (slot start-row)
+  (slot start-col)
+  (slot found)
+  
+  
+  (method (initialize p l r c)
+    (set! [paragraphs self] p)
+    (set! [limit self] l)
+    (set! [row self] r)
+    (set! [col self] c)
+    (set! [scan self] (get-string~ (element paragraphs row)))
+    (set! [start-row self] 0)
+    (set! [start-col self] 0)
+    (set! [found self] (new Queue)))
+  
+  
+  (method public (get-next)
+    (if (= [col self] (length [scan self]))
+        (if (< [row self] [limit self])
+            (begin
+              (set! [row self] (+ [row self] 1))
+              (set! [col self] 0)
+              (set! [scan self] (get-string~ (element paragraphs row)))
+              #\newline)
+          no-char)
+      (set! [col self] (+ [col self] 1))
+      (element [scan self] (- [col self] 1))))
+  
+  
+  (method public (add-found info)
+    (enqueue~ [found self] info))
+  
+  
+  (method public (get-found)
+    (queue-list~ [found self])))
+  
+  
+(class Transitions extends Object
+  
+  
+  (method public virtual (add-transition char state))
+  (method public virtual (follow char)))
+  
+  
+(definition NbAscii 256)
+(definition NbTransitions (+ NbAscii 2))
+(definition EOFTransition NbAscii)
+(definition NotAsciiTransition (+ NbAscii 1))
+
+
+(class VectoredTransitions extends Transitions
+  
+  
+  (slot protected vector)
+  
+  
+  (method (initialize . rest)
+    (set! [vector self] (make-vector NbTransitions Nil)))
+  
+  
+  (method (add-transition c state)
+    (set-element! [vector self] (char->integer (if (> c NbAscii) NotAsciiTransition c)) state))
+  
+  
+  (method (follow c)
+    (element [vector self] (char->integer (if (> c NbAscii) NotAsciiTransition c)))))
+  
+
+(class State extends Object
+  
+  
+  (slot name)
+  (slot transitions)
+  
+  
+  (method (initialize n t)
+    (set! [name self] n)
+    (set! [transitions self] t))
+  
+  
+  (method public (add-transition c state)
+    (add-transition~ transitions c state))
+  
+  
+  (method public virtual (transition tape)
+    (let ((c (get-next~ tape)))
+      (if (neq? c no-char)
+          (follow c)
+        (action~ (follow EOFTransition) tape)
+        Nil)))
+  
+  
+  (method public (follow c)
+    (follow~ transitions c))
+  
+  
+  (method public virtual (action tape)))
+
+
+(class StartState extends State
+  
+  (method (initialize t)
+    (nextmethod "start" t))
+  
+  
+  (method (transition tape)
+    (set! [start-row tape] [row tape])
+    (set! [start-col tape] [col tape])
+    (nextmethod tape)))
+
+
+(class FoundState extends State
+  
+  
+  (slot found)
+  (slot next-state)
+  
+  
+  (method (initialize f ns)
+    (set! [found self] f)
+    (set! [next-state self] ns)
+    (nextmethod "found" Nil))
+  
+  
+  (method (transition tape)
+    (action~ tape)
+    [next-state tape])
+  
+  
+  (method (action tape)
+    (add-found~ tape (list [found self] [start-row tape] [start-col tape])))))

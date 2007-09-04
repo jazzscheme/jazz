@@ -1,0 +1,280 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Mandelbrot
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.utilities.mandelbrot)
+
+
+(class Mandelbrot extends View
+  
+  
+  (property iterations initialize 10 accessors generate)
+  
+  
+  (slot ch)
+  (slot cv)
+  (slot scale)
+  (slot c)
+  (slot n)
+  (slot pixels initialize (new List-Factory))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Mandelbrot")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 50 50})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 700 500})
+  
+  
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  (method (setup-coordinates)
+    (let* ((width (get-width))
+           (height (get-height))
+           (ch (/ width 2))
+           (cv (/ height 2))
+           (scale (/ (- (min width height) 50) 5)))
+      (set! [ch self] ch)
+      (set! [cv self] cv)
+      (set! [scale self] scale)))
+  
+  
+  (method (complex->view r i)
+    (new Point (floor (+ ch (* r scale))) (floor (+ cv (* i scale)))))
+  
+  
+  (method (view->complex h v . rest)
+    (let ((r (/ (- h ch) scale))
+          (i (/ (- v cv) scale)))
+      (new Complex r i)))
+  
+  
+  ;;;
+  ;;;; Iteration
+  ;;;
+  
+  
+  (method (iterate dragging?)
+    (let ((dc (new View-DC self)))
+      (set-pen~ dc (new Pen :color {Color name: Dark-Red}))
+      (let ((z {Complex 0 0})
+            (pixel null)
+            (outside? false))
+        (loop (for n from 0 below iterations)
+              (do (unless outside?
+                    (let ((next (+ (* z z) c)))
+                      (when (not dragging?)
+                        (line dc [r z] [i z] [r next] [i next])
+                        (sleep 100))
+                      (let ((norm (norm next)))
+                        (if (> norm 2)
+                            (begin
+                              (set! pixel (new Pixel c (complex->view [r c] [i c]) n (iteration-color n)))
+                              (set! outside? true))
+                          (set! z next)))))))
+        (when (not outside?)
+          (set! pixel (new Pixel c (complex->view [r c] [i c]) null (iteration-color null))))
+        (put~ pixels pixel)
+        (if dragging?
+            (draw-pixel dc pixel)
+          (loop (for radius from 0 to Pixel-Radius)
+                (do (draw-pixel dc pixel radius)
+                    (sleep 50)))))
+      (when (not dragging?)
+        (sleep 250))
+      (close~ dc)))
+  
+  
+  (method (change-iterations)
+    (let ((new-iterations (request-string :title "Iterations" :prefix "Iterations" :initial-value (->string iterations))))
+      (set! iterations (parse-integer new-iterations))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (setup-coordinates)
+    (recalculate-pixel-positions))
+  
+  
+  (method (recalculate-pixel-positions)
+    (for-each (function dynamic (pixel)
+                (let ((c [c pixel]))
+                  (set! [pos pixel] (complex->view [r c] [i c]))))
+              (get-output~ pixels)))
+
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (definition Colors
+    '({Color name: Blue}
+      {Color name: Green}
+      {Color name: Yellow}
+      {Color name: Orange}
+      {Color name: Red}
+      {Color name: Purple}))
+  
+  (definition Background-Color
+    {Color name: Dark-Gray})
+  
+  (definition Radius-Color
+    {Color name: Gray})
+  
+  (definition Pixel-Radius
+    10)
+
+  (definition Draw-Outside?
+    true)
+  
+  
+  (method (draw dc context update lh lv)
+    (with ((bounds (get-bounds)))
+      (fill-rect~ dc bounds Background-Color)
+      (set-pen~ dc {Pen name: White})
+      (line dc -2 0 2 0)
+      (line dc 0 -2 0 2)
+      (let ((lt (complex->view -2 -2))
+             (rb (complex->view 2 2)))
+        (ellipse~ dc (new Rect [h lt] [v lt] [h rb] [v rb]) Radius-Color null))
+      (for-each (function dynamic (pixel)
+                  (draw-pixel dc pixel))
+                (get-output~ pixels))))
+  
+  
+  (method (draw-pixel dc pixel . rest)
+    (bind-optionals ((radius Pixel-Radius)) rest
+      (let ((pos [pos pixel])
+            (color [color pixel]))
+        (when Draw-Outside?
+          (ellipse~ dc (new Rect (- [h pos] radius) (- [v pos] radius) (+ [h pos] radius) (+ [v pos] radius)) color color)))))
+  
+  
+  (method (iteration-color n)
+    (if (null? n)
+        {Color name: Black}
+      (element Colors (modulo n (length Colors)))))
+  
+  
+  (method (line dc r i dr di)
+    (let ((src (complex->view r i))
+          (dst (complex->view dr di)))
+      (line~ dc [h src] [v src] [h dst] [v dst])))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-down pos)
+    (acquire-focus)
+    (let ((c (view->complex [h pos] [v pos])))
+      (set! [c self] c)
+      (set! [n self] 0)
+      (iterate false)
+      (redraw-view)))
+  
+  
+  (method (drag-move pos)
+    (let ((c (view->complex [h pos] [v pos])))
+      (set! [c self] c)
+      (set! [n self] 0)
+      (iterate true)))
+  
+  
+  (method (mouse-up pos)
+    (redraw-view))
+  
+  
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (key-press char)
+    (case char
+      ((#\c) (clear))
+      ((#\i) (change-iterations))))
+  
+  
+  (method (clear)
+    (reset~ pixels)
+    (redraw-view))
+  
+  
+  ;;;
+  ;;;; Pixel
+  ;;;
+  
+  
+  (class Pixel extends Object
+    
+    
+    (slot c)
+    (slot pos)
+    (slot iter)
+    (slot color)
+    
+    
+    (method (initialize c pos iter color)
+      (nextmethod)
+      (set! [c self] c)
+      (set! [pos self] pos)
+      (set! [iter self] iter)
+      (set! [color self] color))))

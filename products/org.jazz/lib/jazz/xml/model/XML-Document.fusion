@@ -1,0 +1,123 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; XML Documents
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.xml.model.XML-Document jazz
+
+
+(import (jazz.xml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class XML-Document extends Object
+
+
+  (slot root)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-root)
+    root)
+  
+  
+  ;;;
+  ;;;; Load
+  ;;;
+  
+  
+  (method public (load file)
+    (with-closed ((doc (cocreate [DOMDocument40 MSXML2])))
+      (put-async~ doc false)
+      (put-validateOnParse~ doc false)
+      (put-resolveExternals~ doc false)
+      (load~ doc (parse~ file))
+      (let ((root (new XML-Element self self)))
+        (with-closed ((doc-element (get-documentElement~ doc)))
+          (set! root (process doc-element null))))))
+  
+  
+  (method (process node document parent)
+    (ecase (get-nodeType~ node)
+      (([NODE_INVALID MSXML2])                (process-unimplement node document parent))
+      (([NODE_ELEMENT MSXML2])                (process-element node document parent))
+      (([NODE_ATTRIBUTE MSXML2])              (process-attribute node document parent))
+      (([NODE_TEXT MSXML2])                   (process-text node document parent))
+      (([NODE_CDATA_SECTION MSXML2])          (process-cdata node document parent))
+      (([NODE_ENTITY_REFERENCE MSXML2])       (process-unimplement node document parent))
+      (([NODE_ENTITY MSXML2])                 (process-unimplement node document parent))
+      (([NODE_PROCESSING_INSTRUCTION MSXML2]) (process-unimplement node document parent))
+      (([NODE_COMMENT MSXML2])                (process-comment node document parent))
+      (([NODE_DOCUMENT MSXML2])               (process-unimplement node document parent))
+      (([NODE_DOCUMENT_TYPE MSXML2])          (process-unimplement node document parent))
+      (([NODE_DOCUMENT_FRAGMENT MSXML2])      (process-unimplement node document parent))
+      (([NODE_NOTATION MSXML2])               (process-unimplement node document parent))))
+  
+  
+  (method (process-children node document parent)
+    (when (hasChildNodes~ node)
+      (with-closed ((lst (get-childNodes~ node)))
+        (loop (for n from 0 below (get-length~ lst))
+              (do (with-closed ((child (get-item~ lst n)))
+                    (process node document parent)))))))
+
+
+  (method (process-element node document parent)
+    (new XML-Element document parent name: (get-nodeName~ node)))
+
+
+  (method (process-attribute node document parent)
+    (new XML-Attribute))
+
+
+  (method (process-text node document parent)
+    (new XML-Text))
+
+
+  (method (process-cdata node document parent)
+    (new XML-Data))
+
+
+  (method (process-comment node document parent)
+    (new XML-Comment))
+
+
+  (method (process-unimplement node document parent)
+    (unimplemented 'process-unimplement))))

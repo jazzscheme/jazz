@@ -1,0 +1,178 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Menubars
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.menu.Menubar jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Menubar extends Menu
+  
+  
+  (slot showing? initialize false)
+  
+
+  (form
+    (<install>                       size: {Dimension 1024 20} visible?: #t
+      (<Frame-Button> name: minimize visible?: #f type: minimize tooltip?: #t tooltip-text: "Minimize" action-handler: {Event-Handler form: on-minimize})
+      (<Frame-Button> name: restore  visible?: #f type: restore tooltip?: #t tooltip-text: "Restore" action-handler: {Event-Handler form: on-restore})
+      (<Frame-Button> name: close    visible?: #f type: close tooltip?: #t tooltip-text: "Close" action-handler: {Event-Handler form: on-close})))
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  (method (host-activate)
+    (let ((appl (get-application)))
+      (set-menubar~ appl self)))
+  
+  
+  (method (host-deactivate)
+    (let ((appl (get-application)))
+      (set-menubar~ appl null)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-minimize evt)
+    (let ((frame (current-frame)))
+      (show-window~ frame SW_MINIMIZE))
+    (restore~ (get-stage)))
+  
+  
+  (method (on-restore evt)
+    (restore~ (get-stage)))
+  
+  
+  (method (on-close evt)
+    (validate-focus)
+    (let ((frame (current-frame)))
+      (send-message~ frame WM_CLOSE 0 0)))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method public (maximize)
+    (show-buttons))
+  
+  
+  (method public (restore)
+    (hide-buttons))
+  
+  
+  (method public (update-buttons)
+    (let* ((stage (get-stage))
+           (frames (get-windows~ stage)))
+      (if (and frames (get-maximized?~ stage))
+          (show-buttons)
+        (hide-buttons))))
+  
+  
+  (method (show-buttons)
+    (unless (always-maximized?)
+      (set-visible?~ (locate 'minimize) true)
+      (set-visible?~ (locate 'restore) true)
+      (set-visible?~ (locate 'close) true)))
+  
+  
+  (method (hide-buttons)
+    (set-visible?~ (locate 'minimize) false)
+    (set-visible?~ (locate 'restore) false)
+    (set-visible?~ (locate 'close) false))
+  
+  
+  (method protected virtual (always-maximized?)
+    false)
+  
+  
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method (minimize-rect top right)
+    (new Rect (- right 53) (+ top 4) (- right 37) (+ top 18)))
+  
+  
+  (method (restore-rect top right)
+    (new Rect (- right 37) (+ top 4) (- right 21) (+ top 18)))
+  
+  
+  (method (close-rect top right)
+    (new Rect (- right 19) (+ top 4) (- right  3) (+ top 18)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let* ((bounds (get-bounds))
+           (top 0)
+           (right (+ [right bounds] 3)))
+      (set-rect~ (locate 'minimize) (minimize-rect top right))
+      (set-rect~ (locate 'restore) (restore-rect top right))
+      (set-rect~ (locate 'close) (close-rect top right))))
+  
+  
+  (method (layout-menu)
+    (let ((height (get-height))
+          (h 0))
+      (for-each-view
+        (function dynamic (view)
+          (when (is? view Item)
+            (set-position~ view (new Point h 2))
+            (let ((width (preferred-body-width~ view)))
+              (set-size~ view (new Dimension width (- height 2)))
+              (increase! h width)))))))))

@@ -1,0 +1,499 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Console Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.console.Console-Text-View jazz
+
+
+(import (jazz.console)
+        (jazz.library)
+        (jazz.utilities)
+        (jazz.platform)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals))
+
+
+(class Console-Text-View extends IDE-Text-View
+
+
+  (slot evaluating?    initialize false)
+  (slot last-inserted  initialize {})
+  (slot inserted-where initialize {})
+  (slot prompt         initialize "> ")
+  (slot console-printer)
+    
+  
+  (form
+    (<install> wrap?: #t left-padding: 2 default-style: {Text-Style name: Default :font {Font name: Code}}))
+
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'console-text)
+
+
+  (method (default-tool?)
+    true)
+
+
+  (method (default-console?)
+    true)
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set! console-printer (new Text-Printer self)))
+   
+
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Console"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Console")
+
+  
+  ;;;
+  ;;;; Document
+  ;;;
+  
+  
+  (method (position-host host)
+    (set-size~ host {Dimension 1280 100}))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (focus-actions)
+    (cons (find-actions 'console-text)
+          (nextmethod)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-insert-return evt)
+    (insert-string (format "{%}")))
+  
+  
+  (method (on-fresh-prompt evt)
+    (fresh-prompt :force? true))
+  
+  
+  (method (on-evaluate evt)
+    (set! completion-active? false)
+    (console-evaluate))
+  
+  
+  (method (on-insert-previous evt)
+    (if (has-completion?)
+        (end-completion)
+      (insert-previous-expression)))
+  
+  
+  (method (on-insert-next evt)
+    (if (has-completion?)
+        (end-completion)
+      (insert-next-expression)))
+  
+  
+  (method (mouse-down pos)
+    (nextmethod pos)
+    (prompt-at-end))
+
+  
+  (method (return-press key)
+    (set! completion-active? false)
+    (let* ((pos (get-start))
+           (prompt (previous-prompt pos)))
+      (if (null? prompt)
+          (fresh-prompt)
+        (let ((last (last-prompt)))
+          (if (= prompt last)
+              (console-evaluate)
+            (fresh-prompt)
+            (when (= [row pos] [row prompt])
+              (insert-string (prompt-command prompt))))))))
+
+
+  (method (tab-press key modifiers)
+    (if (has-completion?)
+        (end-completion)
+      (if (shift-key? modifiers)
+          (insert-next-expression)
+        (insert-previous-expression))))
+  
+  
+  (method (scrollee-size)
+    (if wrap?
+        (new Dimension (get-display-width) (scrollee-height))
+      (nextmethod)))
+
+
+  (method (context-menu pos)
+    (bind-values (shift? control? alt?) (modifiers-down)
+      (if (and (not control?) (not shift?) (not alt?))
+          (begin
+            (context-menu-click pos)
+            (track-popup-menu (new Console-Menu) pos))
+        (nextmethod pos))))
+  
+  
+  (method public (set-selection range . rest)
+    (apply nextmethod range rest)
+    (set! inserted-where null))
+    
+
+  ;;;
+  ;;;; Banner
+  ;;;
+
+  
+  (method public virtual (display-banner)
+    (let ((appl (get-application))
+          (start (get-start)))
+      (insert-string (format "{a} {a}{%}{%}" (process-name~ appl) (present~ (process-version~ appl))))
+      (colorize Banner-Color start)
+      (display-prompt)))
+  
+  
+  (method public (clear-console)
+    (clear-all)
+    (display-banner))
+
+
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (method (console-evaluate)
+    (unwind-protect
+        (begin
+          (set! evaluating? true)
+          (eval-from-prompt))
+      (set! evaluating? false)
+      (fresh-prompt)))
+
+  
+  (method (eval-from-prompt)
+    (let ((info (current-command)))
+      (when info
+        (bind-values (range command) info
+          (set-caret (text-ending))
+          (insert-string (crlf))
+          (unless (empty-string? command)
+            (display-evaluation (eval-command range {} command true) true))))))
+  
+  
+  (method public virtual (eval-command range name command console?)
+    )
+  
+  
+  (method public virtual (eval-commands range names commands console?)
+    )
+  
+  
+  (method public virtual (display-evaluation results console?)
+    (evaluation-break)
+    (for-each (function dynamic (result)
+                (with-colored-output (eval-color)
+                  (function dynamic ()
+                    (print-evaluation result console-printer)))
+                (fresh-line console-printer))
+              results))
+  
+  
+  (method public virtual (print-evaluation result console-printer)
+    (unless (nil? result)
+      (display result console-printer)))
+  
+  
+  (method public (with-colored-output color proc)
+    (let ((start (get-start)))
+      (proc)
+      (colorize color start)
+      (for-each (function dynamic (row)
+                  (colorize color (new Cell row 0)))
+                (naturals (+ [row start] 1) (+ [row (get-start)] 1)))))
+  
+  
+  (method public (evaluation-break)
+    (set-caret (text-ending))
+    (fresh-line console-printer))
+
+
+  ;;;
+  ;;;; Text
+  ;;;
+
+
+  (method (get-modified?)
+    false)
+  
+  
+  (method (get-tooltip-context pos)
+    null)
+  
+  
+  (method (home-column row)
+    (if (and (>= (paragraph-length row) 2) (= (get-string (new Range (new Cell row 0) (new Cell row 2))) "> "))
+        2
+      0))
+
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method (current-history-item)
+    null)
+
+
+  ;;;
+  ;;;; Coloring
+  ;;;
+      
+  
+  (method (recolorize-text start end-row)
+    )
+  
+  
+  (method public virtual (expression-color)
+    Expression-Color)
+  
+  
+  (method public virtual (eval-color)
+    Eval-Color)
+
+
+  ;;;
+  ;;;; Prompt
+  ;;;
+  
+  
+  (method public (get-prompt)
+    prompt)
+  
+  
+  (method public (set-prompt value)
+    (set! prompt value))
+
+
+  (method public (fresh-prompt . rest)
+    (bind-keywords ((force? false)) rest
+      (when (or force? (not evaluating?))
+        (prompt-at-end)
+        (set-caret (text-ending))
+        (let ((pos (get-end)))
+          (unless (at-prompt? pos)
+            (when (/= [col pos] 0)
+              (insert-string (crlf)))
+            (display-prompt))))))
+  
+  
+  (method (at-prompt? pos)
+    (let ((row [row pos])
+          (col [col pos])
+          (prompt (current-prompt)))
+      (and (= col (length prompt)) (= (paragraph-string row) (current-prompt)))))
+  
+  
+  (method (current-prompt)
+    prompt)
+
+
+  (method protected (display-prompt)
+    (let ((start (get-start))
+          (prompt (current-prompt)))
+      (insert-string prompt)
+      (colorize Prompt-Color start (+ start (- (length prompt) 1)))
+      (colorize Expression-Color (get-end))
+      (prompt-at-end)
+      (update-view)))
+  
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+
+
+  (method public (prompt-at-end)
+    (set! last-inserted (get-end))
+    (set! inserted-where null))
+
+
+  (method (previous-prompt pos)
+    (let* ((found? false)
+           (expl (new Jazz-Explorer self :start pos :end pos))
+           (prompt (current-prompt))
+           (len (length prompt)))
+      (while (not (or found? (at-beginning?~ expl)))
+        (let ((cr (char-backward~ expl len))
+              (c1 (char-backward~ expl 1))
+              (c0 (char-backward~ expl 0)))
+          (if (and (= c0 #\space)
+                   (= c1 #\>)
+                   (or (null? cr) (= cr #\return)))
+              (set! found? true)
+            (backward~ expl))))
+      (essay found? (get-start~ expl))))
+  
+  
+  (method (next-prompt pos)
+    (let* ((found? false)
+           (expl (new Jazz-Explorer self :start pos :end pos))
+           (prompt (current-prompt))
+           (len (length prompt)))
+      (while (not (or found? (at-ending?~ expl)))
+        (let ((cr (char-forward~ expl 0))
+              (c1 (char-forward~ expl (- len 1)))
+              (c2 (char-forward~ expl (- len 0))))
+          (if (and (= cr #\return)
+                   (= c1 #\>)
+                   (= c2 #\space))
+              (set! found? true)
+            (forward~ expl))))
+      (when found?
+        (let ((prompt (next~ expl (get-end~ expl) (+ len 1))))
+          (when (< [row prompt] (get-limit))
+            prompt)))))
+  
+  
+  (method (last-prompt)
+    (let ((pos (text-ending)))
+      (previous-prompt pos)))
+  
+  
+  (method (backward-prompt)
+    (let ((previous (previous-prompt (previous-cell last-inserted))))
+      (when previous
+        (set! last-inserted previous))))
+  
+  
+  (method (forward-prompt)
+    (let ((next (next-prompt last-inserted)))
+      (when next
+        (set! last-inserted next))))
+  
+  
+  (method (current-command)
+    (let ((range (current-command-range)))
+      (when range
+        (values range (get-string range)))))
+  
+  
+  (method protected (current-command-range)
+    (let* ((end (text-ending))
+           (prompt (previous-prompt end)))
+      (when prompt
+        (new Range prompt end))))
+  
+  
+  (method (prompt-command prompt)
+    (let ((end (text-ending))
+          (pos prompt))
+      (while (and (< pos end) (/= (get-char pos) #\return))
+        (set! pos (next-cell pos)))
+      (get-string (new Range prompt pos))))
+
+  
+  (method (insert-previous-expression)
+    (let ((done? false))
+      (while (not done?)
+        (if (null? (backward-prompt))
+            (set! done? true)
+          (let ((command (prompt-command last-inserted)))
+            (unless (empty-string? command)
+              (when inserted-where
+                (set-selection inserted-where))
+              (let ((start (get-start)))
+                (insert-string command)
+                (set! inserted-where (new Range start (get-start))))
+              (set! done? true)))))))
+
+  
+  (method (insert-next-expression)
+    (let ((done? false))
+      (while (not done?)
+        (if (null? (forward-prompt))
+            (set! done? true)
+          (let ((command (prompt-command last-inserted)))
+            (unless (empty-string? command)
+              (when inserted-where
+                (set-selection inserted-where))
+              (let ((start (get-start)))
+                (insert-string command)
+                (set! inserted-where (new Range start (get-start))))
+              (set! done? true))))))))
+
+
+;;;
+;;;; Console-Menu
+;;;
+
+
+(class Console-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: evaluate        title: "&Evaluate" icon: {Bitmap-Resource "Import"} action: {Action console-text evaluate})
+      (<Label-Item>     name: fresh-prompt    title: "&Fresh Prompt" action: {Action console-text fresh-prompt})
+      (<Separator-Item>)
+      (<Label-Item>     name: edit-definition title: "Edit &Definition" icon: {Bitmap-Resource "Edit"} action: {Action code-text edit-definition})
+      (<Separator-Item>)
+      (<Label-Item>     name: insert-previous title: "Insert &Previous" icon: {Bitmap-Resource "FindBackward"} action: {Action console-text insert-previous})
+      (<Label-Item>     name: insert-next     title: "Insert &Next" icon: {Bitmap-Resource "FindForward"} action: {Action console-text insert-next})))))

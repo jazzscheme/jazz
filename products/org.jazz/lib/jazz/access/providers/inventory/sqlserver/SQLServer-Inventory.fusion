@@ -1,0 +1,334 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQLServer Inventory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.sqlserver.SQLServer-Inventory jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class SQLServer-Inventory extends Inventory
+  
+  
+  ;; It seems that SQLServer caches many collections like databases, tables, relations, ...
+  ;; so that closing them won't decrease the refcount on their owner!? If this is really the
+  ;; case, then having a memory leak trace of 3 5 at the end should be normal...
+  
+  
+  (slot server       initialize {})
+  (slot database     initialize {})
+  (slot system-types initialize '())
+  
+  
+  (method (initialize connection servername username password . rest)
+    (bind-optionals ((databasename null)) rest
+      (nextmethod connection)
+      (set! server (cocreate [SQLServer SQLDMO] :error? false))
+      (when (null? server)
+        (error "Unable to locate SQLServer"))
+      (Connect~ server servername username password)
+      (validate-version "SQLServer" 'sqlserver null (get-version) :register :sqlserver-version :cleanup destroy-inventory)
+      (when databasename
+        (with-closed ((databases (get-Databases~ server)))
+          (set! database (Item~ databases databasename null))))
+      (destroy-mandatory)))
+  
+  
+  (method (destroy)
+    (destroy-inventory)
+    (nextmethod))
+  
+  
+  (method (destroy-inventory)
+    (when system-types
+      (corelease system-types)
+      (set! system-types null))
+    (when database
+      @debug-memory-leaks
+      (debug '*** (cointerface-refcount server) (cointerface-refcount database))
+      (corelease database)
+      (set! database null))
+    (when server
+      (DisConnect~ server)
+      @debug-memory-leaks
+      (debug '*** (cointerface-refcount server))
+      (corelease server)
+      (set! server null)))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+  
+  
+  (method (get-version)
+    (let ((major (get-VersionMajor~ server))
+          (minor (get-VersionMinor~ server))
+          (release 0))
+      (new Version major minor release)))
+          
+  
+  ;;;
+  ;;;; System Types
+  ;;;
+    
+  
+  (method (load-system-types)
+    (get-SystemDatatypes~ database))
+
+  
+  (method public (get-system-types)
+    (unless system-types
+      (set! system-types (load-system-types)))
+    system-types)
+  
+  
+  (method public (get-system-type name)
+    (Item~ (get-system-types) name))
+  
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-database)
+    database)
+  
+  
+  ;;;
+  ;;;; Tables
+  ;;;
+  
+  
+  (method (get-tables)
+    (with-closed ((tables (get-Tables~ database)))
+      (let ((fact (new List-Factory)))
+        (loop (for n from 1 to (get-Count~ tables))
+              (let ((table (Item~ tables n null)))
+                (if (get-SystemObject~ table)
+                    (corelease table)
+                  (put~ fact (new SQLServer-Inventory-Table self self table)))))
+        (get-output~ fact))))
+  
+  
+  (method (get-table name)
+    (with-closed ((tables (get-Tables~ database)))
+      (new SQLServer-Inventory-Table self self (Item~ tables name null))))
+  
+  
+  (method (create-table name)
+    (let ((new-table (cocreate [Table SQLDMO])))
+      (put-Name~ new-table name)
+      (new SQLServer-Inventory-Table self self new-table)))
+  
+  
+  (method (append-table table)
+    (with-closed ((tables (get-Tables~ database)))
+      (Add~ tables (get-handle~ table))))
+
+  
+  (method (remove-table name)
+    (with-closed ((tables (get-Tables~ database)))
+      (Remove~ tables name null)))
+  
+  
+  (method (columns-ordinal-position-consecutive?)
+    false)
+  
+  
+  ;;;
+  ;;;; Views
+  ;;;
+  
+  
+  (method (get-views)
+    (with-closed ((views (get-Views~ database)))
+      (let ((fact (new List-Factory))) 
+        (loop (for n from 1 to (get-Count~ views))
+              (let ((view (Item~ views n null)))
+                (if (not (get-SystemObject~ view))
+                    (put~ fact (new SQLServer-Inventory-View self self view))
+                  (corelease view))))
+        (get-output~ fact))))
+  
+  
+  (method (get-view name . rest)
+    (bind-keywords ((error? true)) rest
+      (with-closed ((views (get-Views~ database)))
+        (let* ((action
+                (function dynamic ()
+                  (Item~ views name null)))
+               (view
+                (if error?
+                    (action)
+                  (cotry (action) (Object-Not-Existant null)))))
+          (when view
+            (new SQLServer-Inventory-View self self view))))))
+  
+  
+  (method (create-view name)
+    (let ((new-view (cocreate [View SQLDMO])))
+      (put-Name~ new-view name)
+      (new SQLServer-Inventory-View self self new-view)))
+  
+  
+  (method (append-view view)
+    (with-closed ((views (get-Views~ database)))
+      (Add~ views (get-handle~ view))))
+  
+  
+  (method (remove-view name)
+    (with-closed ((views (get-Views~ database)))
+      (Remove~ views name null)))
+  
+  
+  ;;;
+  ;;;; Relations
+  ;;;
+  
+  
+  (method (get-relations)
+    (let ((fact (new List-Factory))
+          (tables (get-tables)))
+      (for-each (function dynamic (table)
+                  (let ((relations (get-table-relations~ table)))
+                    (if relations
+                        (put-sequence~ fact relations)
+                      (close~ table))))
+                tables)
+      (get-output~ fact)))
+  
+  
+  (method (create-relation-complete relation-name primary-table primary-fields foreign-table foreign-fields)
+    (let ((new-key (cocreate [Key SQLDMO])))
+      (put-Name~ new-key relation-name)
+      (put-Type~ new-key [SQLDMOKey_Foreign SQLDMO])
+      (with-closed ((columns (get-KeyColumns~ new-key)))
+        (for-each (function dynamic (field)
+                    (Add~ columns field))
+                  foreign-fields))
+      (put-ReferencedTable~ new-key primary-table)
+      (with-closed ((columns (get-ReferencedColumns~ new-key)))
+        (for-each (function dynamic (field)
+                    (Add~ columns field))
+                  primary-fields))
+      (with-closed ((tables (get-Tables~ database))
+                    (foreign-table (Item~ tables foreign-table null))
+                    (foreign-keys (get-Keys~ foreign-table)))
+        (Add~ foreign-keys new-key))
+      (new SQLServer-Inventory-Relation self self new-key)))
+  
+  
+  (method (remove-relation relation-name table-name)
+    (with-closed ((tables (get-Tables~ database)) 
+                  (table (Item~ tables table-name null))
+                  (keys (get-Keys~ table)))
+      (Remove~ keys relation-name)))
+  
+  
+  ;;;
+  ;;;; Procedures
+  ;;;
+  
+  @tempo
+  (method (create-procedure-by-sql script-create-procedure)
+    (let ((marker (tie "~{%}GO~{%}")))
+      (when (ends-with? script-create-procedure marker)
+        (set! script-create-procedure (subseq script-create-procedure 0
+                                                (- (length script-create-procedure) (length marker))))))
+    (execute~ connection script-create-procedure))
+  
+
+  (method (get-procedures)
+    (with-closed ((procedures (get-StoredProcedures~ database)))
+      (let ((fact (new List-Factory))) 
+        (loop (for n from 1 to (get-Count~ procedures))
+              (let ((procedure (Item~ procedures n null)))
+                (if (not (get-SystemObject~ procedure))
+                    (put~ fact (new SQLServer-Inventory-Procedure self self procedure))
+                  (corelease procedure))))
+        (get-output~ fact))))
+  
+  
+  (constant Object-Not-Existant
+    #x80045510)
+  
+  
+  (method (get-procedure name . rest)
+    (bind-keywords ((error? true)) rest
+      (with-closed ((procedures (get-StoredProcedures~ database)))
+        (let* ((action
+                (function dynamic ()
+                  (Item~ procedures name null)))
+               (procedure
+                (if error?
+                    (action)
+                  (cotry (action) (Object-Not-Existant null)))))
+          (when procedure
+            (new SQLServer-Inventory-Procedure self self procedure))))))
+
+
+  (method (create-procedure name)
+    (let ((new-procedure (cocreate [StoredProcedure SQLDMO])))
+      (put-Name~ new-procedure name)
+      (new SQLServer-Inventory-Procedure self self new-procedure)))
+  
+  
+  (method (append-procedure procedure)
+    (with-closed ((procedures (get-StoredProcedures~ database)))
+      (Add~ procedures (get-handle~ procedure))))
+  
+  
+  (method (remove-procedure name)
+    (with-closed ((procedures (get-StoredProcedures~ database)))
+      (Remove~ procedures name null)))
+  
+  
+  ;;;
+  ;;;; Restore
+  ;;;
+  
+  
+  (method public (restore-database database backup)
+    (with-closed ((restore (cocreate [Restore SQLDMO])))
+      (put-Database~ restore database)
+      (put-Files~ restore (parse~ backup))
+      (SQLRestore~ restore server)))))

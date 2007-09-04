@@ -1,0 +1,1301 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Window
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Assem Hakmeh
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.Window jazz
+
+
+(import (jazz.library)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.utilities)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.platform.cairo.cairo-win32)
+        (jazz.literals))
+
+
+(definition (window-class)
+  "JWindow")
+
+
+(definition (class-style)
+  (bit-or CS_OWNDC CS_DBLCLKS))
+
+
+(definition (class-background)
+  (GetSysColorBrush COLOR_BTNFACE))
+
+
+;;;
+;;;; Orphanage
+;;;
+
+
+(definition Orphanage
+  null)
+
+
+(definition public (get-orphanage)
+  (unless Orphanage
+    (set! Orphanage (new Orphanage-Window)))
+  Orphanage)
+
+
+(class Window-Class extends Figure-Class
+  
+  
+  (definition registered?
+    false)
+  
+  
+  (method (initialize)
+    (nextmethod)
+    (unless registered?
+      (register-class)
+      (set! registered? true)))
+  
+  
+  @convert
+  (method protected virtual (window-class)
+    "JWindow")
+
+
+  @convert
+  (method protected virtual (class-style)
+    (bit-or CS_OWNDC CS_DBLCLKS))
+
+
+  @convert
+  (method protected virtual (class-background)
+    COLOR_BTNFACE)
+  
+
+  (method public (register-class . rest)
+    (bind-keywords ((class (window-class)) (icon null)) rest
+      (let ((instance (current-instance))
+            (background (class-background))
+            (wc (make-WNDCLASS)))
+        (WNDCLASS-style-set! wc          (class-style))
+        (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
+        (WNDCLASS-cbClsExtra-set! wc     0)
+        (WNDCLASS-cbWndExtra-set! wc     0)
+        (WNDCLASS-hInstance-set! wc      #f)
+        (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon :width 16 :height 16) NULL)
+        (WNDCLASS-hCursor-set! wc        NULL)
+        ;; To-Fix Remettre le handle brush
+        (WNDCLASS-hbrBackground-set! wc  (class-background))
+        (WNDCLASS-lpszMenuName-set! wc   NULL)
+        (WNDCLASS-lpszClassName-set! wc  class)
+        (RegisterClass wc))))
+
+
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public (get-thread/process-id hwnd)
+    (unimplemented 'get-thread)
+    @convert
+    (GetWindowThreadProcessId hwnd NULL))
+
+
+  ;;;
+  ;;;; Class
+  ;;;
+  
+  
+  (method public (get-class-name hwnd)
+    (unimplemented 'get-class-name)
+    @unimp
+    (let* ((size 256)
+           (name (make-string size)))
+      (if (= (GetClassName hwnd name size) 0)
+          null
+        (adjust-string name)
+        name)))
+
+
+  ;;;
+  ;;;; Management
+  ;;;
+  
+  
+  (method public (select-foreground-hwnd hwnd)
+    (SetForegroundWindow hwnd))
+  
+  
+  (method public (get-hwnd-title hwnd)
+    (unimplemented 'get-hwnd-title)
+    @unimp
+    (let* ((size (GetWindowTextLength hwnd))
+           (string (make-string size)))
+      (GetWindowText hwnd string (+ size 1))
+      string)))
+
+
+(class Window metaclass Window-Class extends Figure implements Message-Consumer
+ 
+
+  (property title         initialize {} getter get-title setter set-title)
+  (property surface-class initialize {} accessors generate)
+  
+
+  (slot hwnd             initialize {})
+  (slot previous-size    initialize {})
+  (slot subclassed-proc  initialize {})
+  (slot message-consumer initialize {})
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (slot hwnd-class initialize {})
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((window-class null) . others) rest
+      (if (not (primary-thread?))
+          (error "Unable to create window outside the primary thread")
+        (set! hwnd-class window-class)
+        (set! message-consumer self)
+        (apply nextmethod others))))
+
+
+  (method (initially-visible?)
+    false)
+  
+  
+  (method protected virtual (child-style? rest)
+    true)
+
+
+  (method protected virtual (window-style rest)
+    (bit-or (if (child-style? rest) WS_CHILD 0)
+            WS_CLIPCHILDREN
+            WS_CLIPSIBLINGS))
+
+
+  (method protected virtual (window-ex-style rest)
+    0)
+
+
+  (method protected virtual (window-parent)
+    (if (null? parent)
+        NULL
+      (get-hwnd~ parent)))
+  
+
+  (method protected virtual (create-hwnd rest)
+    (CreateWindowEx
+      (window-ex-style rest)
+      (either hwnd-class (window-class))
+      NULL
+      (window-style rest)
+      0 0 500 500
+      (window-parent)
+      NULL
+      NULL
+      NULL))
+  
+  
+  (method (setup-hwnd hwnd)
+    (set-window hwnd self)
+    (set-hwnd hwnd))
+
+
+  (method (prepare-hwnd rest)
+    (bind-keywords ((hwnd null) . others) rest
+      (set-in-creation self)
+      (let ((hwnd (create-hwnd rest)))
+        (if (eq? hwnd NULL)
+            (error "Unable to create window {t} error {t}"
+                   (list :class (window-class) :style (window-style rest) :ex-style (window-ex-style rest) parent: (window-parent))
+                   (GetLastError))
+          (setup-hwnd hwnd)
+          (DragAcceptFiles hwnd true)))))
+
+
+  (method (default-parent)
+    (get-orphanage))
+
+
+  (method (prepare rest)
+    (nextmethod rest)
+    (prepare-hwnd rest))
+  
+  
+  (method (conclude rest)
+    (nextmethod rest)
+    (size-change (get-size)))
+  
+  
+  (method public (open?)
+    (/= hwnd NULL))
+
+
+  (method (show)
+    (nextmethod)
+    (show-window SW_SHOWNORMAL))
+
+
+  (method (hide)
+    (nextmethod)
+    (when hwnd
+      (show-window SW_HIDE)))
+
+
+  (method (close)
+    (DestroyWindow hwnd))
+
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (if (null? hwnd)
+            (format printer "orphaned")
+          (let ((position (get-position))
+                (size (get-size)))
+            (if (or (null? title) (empty-string? title))
+                (format printer "{a} {a}" position size)
+              (format printer "{a} {a} {a}" title position size)))))))
+  
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (add-child child)
+    (set! children (cons child children)))
+  
+  
+  (method (add-form parent-form child-form)
+    (add-child~ parent-form child-form))
+
+
+  ;;;
+  ;;;; Dispatch
+  ;;;
+
+
+  (method public (call-dispatch-message msg <int> wparam <int> lparam <int>)
+    (dispatch-message~ message-consumer msg wparam lparam))
+  
+
+  (method public (get-message-consumer)
+    message-consumer)
+  
+  
+  (method public (set-message-consumer consumer <Object>)
+    (set! message-consumer consumer))
+
+
+  (method (dispatch-message msg <int> wparam <int> lparam <int>)
+    (if (eq? (process-window-message msg wparam lparam) unprocessed)
+        (DefWindowProc hwnd msg wparam lparam)
+      0))
+
+
+  ;;;
+  ;;;; Messages
+  ;;;
+
+  
+  (method (process-window-message msg <int> wparam <int> lparam <int>)
+    (ecase msg
+      ((WM_ERASEBKGND)      (erase-background wparam))
+      ((WM_PAINT)           (paint wparam))
+      ((WM_SETCURSOR)       (cursor-update (loword lparam)))
+      ((WM_MOUSEMOVE)       (mouse-move (loword lparam) (hiword lparam)))
+      ((WM_MOUSEHOVER)      (mouse-hover (loword lparam) (hiword lparam)))
+      ((WM_MOUSEWHEEL)      (mouse-wheel (hiword wparam)))
+      ((WM_LBUTTONDOWN)     (mouse-down (loword lparam) (hiword lparam)))
+      ((WM_LBUTTONUP)       (mouse-up (loword lparam) (hiword lparam)))
+      ((WM_LBUTTONDBLCLK)   (double-click (loword lparam) (hiword lparam)))
+      ((WM_MBUTTONDOWN)     (middle-mouse-down (loword lparam) (hiword lparam)))
+      ((WM_MBUTTONUP)       (middle-mouse-up (loword lparam) (hiword lparam)))
+      ((WM_RBUTTONDOWN)     (right-mouse-down (loword lparam) (hiword lparam)))
+      ((WM_RBUTTONUP)       (right-mouse-up (loword lparam) (hiword lparam)))
+      ((WM_CONTEXTMENU)     (call-context-menu (loword lparam) (hiword lparam)))
+      ((WM_SYSKEYDOWN)      (system-key-down wparam))
+      ((WM_SYSKEYUP)        (system-key-up wparam))
+      ((WM_KEYDOWN)         (call-key-down wparam))
+      ((WM_KEYUP)           (call-key-up wparam))
+      ((WM_CHAR)            (call-key-press wparam))
+      ((WM_COMMAND)         (on-command lparam wparam))
+      ((WM_SYSCOMMAND)      (on-system-command (bit-and wparam #xFFF0)))
+      ((WM_MOVE)            (call-position-change (loword lparam) (hiword lparam)))
+      ((WM_SIZE)            (call-size-change wparam (loword lparam) (hiword lparam)))
+      ((WM_MOUSEACTIVATE)   (on-mouse-activate))
+      ((WM_ACTIVATE)        (on-activate (loword wparam)))
+      ((WM_ACTIVATEAPP)     (on-activate-app wparam))
+      ((WM_CLOSE)           (on-close null))
+      ((WM_DESTROY)         (window-destroy))
+      ((WM_NCDESTROY)       (on-nc-destroy null))
+      ((WM_CAPTURECHANGED)  (call-lost-capture lparam))
+      ((WM_SETFOCUS)        (call-focus-gain))
+      ((WM_KILLFOCUS)       (call-focus-lose wparam))
+      ((WM_DROPFILES)       (drop-files wparam))
+      ((WM_SETTINGCHANGE)   (setting-change wparam))
+      ((WM_TIMER)           (on-timer wparam))
+      (else                 unprocessed)))
+
+
+  ;;;
+  ;;;; Paint
+  ;;;
+
+
+  (method protected virtual (erase-background hdc)
+    (if (equal? (class-background) NULL)
+        processed
+      unprocessed))
+  
+
+  (method protected virtual (paint hdc)
+    (paint-window hdc))
+  
+  
+  (method protected (paint-window hdc)
+    (with ((ps (make-PAINTSTRUCT)))
+      (let ((hdc (BeginPaint hwnd ps)))
+        (with ((dc (new Cairo-Win32-Surface (cairo_win32_surface_create hdc))))
+          (draw dc ps)
+          (close~ dc)
+          (EndPaint hwnd ps))))
+    processed)
+  
+
+  (method protected virtual (draw dc ps)
+    )
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method protected virtual (mouse-hover h v)
+    unprocessed)
+  
+  
+  (method protected virtual (mouse-wheel delta)
+    unprocessed)
+
+  
+  (method protected virtual (mouse-down h v)
+    unprocessed)
+  
+  
+  ;; should be protected -> a temp patch because the metaclass still doesn't have access to protected fields
+  (method public virtual (mouse-move h v)
+    unprocessed)
+  
+  
+  (method protected virtual (mouse-up h v)
+    unprocessed)
+  
+  
+  (method protected virtual (double-click h v)
+    (mouse-down h v))
+  
+  
+  (method protected virtual (middle-mouse-down h v)
+    unprocessed)
+  
+  
+  (method protected virtual (middle-mouse-up h v)
+    unprocessed)
+  
+  
+  (method protected virtual (right-mouse-down h v)
+    unprocessed)
+  
+  
+  (method protected virtual (right-mouse-up h v)
+    unprocessed)
+  
+  
+  (method (call-context-menu h v)
+    (let ((pos (acquire (get-desktop) (new Point h v))))
+      (context-menu [h pos] [v pos])))
+  
+  
+  (method protected virtual (context-menu h v)
+    unprocessed)
+
+
+  ;;;
+  ;;;; Capture
+  ;;;
+  
+  
+  (method (call-lost-capture hwnd)
+    unprocessed)
+
+
+  (method public virtual (on-lost-capture evt)
+    unprocessed)
+  
+  
+  (method public (acquire-capture)
+    (SetCapture hwnd))
+  
+  
+  (method public (release-capture)
+    (ReleaseCapture))
+
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+  
+  (method protected virtual (cursor-update hit)
+    (if (= hit HTCLIENT)
+        processed
+      unprocessed))
+
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (system-key-down wparam)
+    (if (/= wparam VK_MENU)
+        unprocessed
+      (view-update-cursor)
+      processed))
+  
+  
+  (method (system-key-up wparam)
+    (if (/= wparam VK_MENU)
+        unprocessed
+      (view-update-cursor)
+      processed))
+  
+  
+  (method (modifier-changed wparam)
+    (when (memq? wparam '(16 17))
+      (view-update-cursor)))
+  
+  
+  (method (call-key-down wparam)
+    (modifier-changed wparam)
+    (key-down (int-char wparam)))
+  
+  
+  (method (call-key-up wparam)
+    (modifier-changed wparam)
+    (key-up (int-char wparam)))
+  
+  
+  (method (call-key-press wparam)
+    (key-press (int-char wparam)))
+
+
+  (method public virtual (key-down char)
+    unprocessed)
+
+
+  (method public virtual (key-up char)
+    unprocessed)
+
+
+  (method public virtual (key-press char)
+    unprocessed)
+
+
+  ;;;
+  ;;;; Handlers
+  ;;;
+  
+  
+  (method public (call-position-change h v)
+    (position-change (new Point h v)))
+  
+  
+  (method protected virtual (position-change position)
+    unprocessed)
+
+
+  (method public (call-size-change type width height)
+    ;; Windows sends a size message with both the width
+    ;; and the height equal to zero when minimizing a window...
+    (when (or (/= width 0) (/= height 0))
+      (when (get-installed?)
+        (let ((size (new Dimension width height)))
+          (size-change size)
+          (set! previous-size size)))))
+
+
+  (method protected virtual (size-change size)
+    unprocessed)
+
+
+  (method protected virtual (on-command lparam wparam)
+    (unimplemented 'on-command)
+    @Shortcut
+    (if (= lparam NULL)
+        (let ((action-item/shortcut (get-id-cookie (loword wparam))))
+          (if (null? action-item/shortcut)
+              unprocessed
+            (if (is? action-item/shortcut Shortcut)
+                (dispatch-shortcut~ (get-application) action-item/shortcut)
+              (invoke~ action-item/shortcut self null)
+              processed)))
+      (let ((object (get-window lparam)))
+        (if (null? object)
+            unprocessed
+          (process-action~ object self)
+          processed))))
+
+
+  (method protected virtual (on-system-command type)
+    unprocessed)
+
+
+  (method protected virtual (on-mouse-activate)
+    unprocessed)
+
+
+  ;; when a toplevel window (including palettes) is activated or deactivated
+  (method protected virtual (on-activate kind)
+    (if (= kind WA_INACTIVE)
+        (on-deactivate-palette)
+      (on-activate-palette))
+    unprocessed)
+
+  
+  (method protected virtual (on-activate-palette)
+    )
+  
+  
+  (method protected virtual (on-deactivate-palette)
+    )
+
+
+  ;; Called when a toplevel window (including palettes)
+  ;; is activated or deactivated by a change of the active application
+  (method protected virtual (on-activate-app status)
+    unprocessed)
+
+
+  (method protected virtual (on-close evt)
+    unprocessed)
+
+
+  (method (window-destroy)
+    (destroy-component)
+    unprocessed)
+
+
+  (method (on-nc-destroy evt)
+    (set-window hwnd null)
+    (set-hwnd NULL)
+    unprocessed)
+
+
+  (method (call-focus-gain)
+    (focus-gain))
+
+
+  (method protected virtual (call-focus-lose wparam)
+    (focus-lose (get-window wparam)))
+
+
+  (method protected virtual (focus-gain)
+    unprocessed)
+
+
+  (method protected virtual (focus-lose receiving)
+    unprocessed)
+  
+  
+  ;;;
+  ;;;; Drop Files
+  ;;;
+  
+  
+  (method (drop-files wparam)
+    (unimplemented 'drop-files)
+    @get-toplevel-hwnd
+    (let ((files (received-files wparam))
+          (pt (POINT-make)))
+      (DragQueryPoint wparam pt)
+      (DragFinish wparam)
+      (let ((pos (POINT->point pt)))
+        (receive-files pos files))
+      (SetForegroundWindow (get-toplevel-hwnd))))
+  
+  
+  (method (received-files wparam)
+    (unimplemented 'received-files)
+    @adjust-string
+    (let ((count (DragQueryFile wparam -1 NULL 0)))
+      (map (function dynamic (n)
+             (let* ((size MAX_PATH)
+                    (filename (WCHAR-array-make size)))
+               (WCHAR-array-set! filename 0 #\nul)
+               (let ((filename (WCHAR-string filename)))
+                 (DragQueryFile wparam n filename size)
+                 (adjust-string filename)
+                 (let* ((attributes (GetFileAttributes filename))
+                        (directory? (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY))
+                        (pathname (new (if directory? Directory File) (tokenise filename))))
+                   (anchorize~ pathname))))
+             (naturals 0 count)))))
+  
+  
+  (method protected virtual (receive-files pos files)
+    )
+  
+  
+  ;;;
+  ;;;; Settings
+  ;;;
+  
+  
+  (method protected virtual (setting-change wparam)
+    )
+  
+  
+  ;;;
+  ;;;; Timers
+  ;;;
+  
+  
+  (method (on-timer address)
+    (unimplemented 'on-timer)
+    @address-object-unsafe
+    (let ((object (address-object-unsafe address)))
+      (call-pulse~ object)))
+
+
+  ;;;
+  ;;;; Style
+  ;;;
+
+
+  (method (get-style)
+    (GetWindowLong hwnd GWL_STYLE))
+
+
+  (method (set-style style)
+    (SetWindowLong hwnd GWL_STYLE style))
+
+
+  (method (get-ex-style)
+    (GetWindowLong hwnd GWL_EXSTYLE))
+
+
+  (method (set-ex-style style)
+    (SetWindowLong hwnd GWL_EXSTYLE style))
+  
+  
+  (method (child-window?)
+    (mask-bit-set? (get-style) WS_CHILD))
+
+
+  ;;;
+  ;;;; Layers
+  ;;;
+  
+  
+  (method public (get-layered?)
+    (mask-bit-set? (get-ex-style) WS_EX_LAYERED))
+  
+  
+  (method public (set-layered? flag)
+    (SetWindowLong hwnd GWL_EXSTYLE (mask-bit-set (GetWindowLong hwnd GWL_EXSTYLE) WS_EX_LAYERED flag)))
+  
+  
+  (method public (set-alpha-blending n)
+    (unimplemented 'set-alpha-blending)
+    @SetLayeredWindowAttributes(
+    (set-layered? true)
+    (SetLayeredWindowAttributes hwnd 0 n LWA_ALPHA)
+    (RedrawWindow hwnd NULL NULL (bit-or RDW_ERASE RDW_INVALIDATE))))
+  
+  
+  (method public (fade-in . rest)
+    (unimplemented 'fade-in)
+    @clocks/seconds
+    (bind-keywords ((fade-speed null)) rest
+      (set-alpha-blending 0)
+      (set-visible? true)
+      (update-window)
+      (let* ((max 255)
+             (delay (* (clocks/second) 0.15))
+             (now (clock))
+             (start now))
+        (while (< now (+ start delay))
+          (set-alpha-blending (ceil (* (- now start) (/ max delay))))
+          (set! now (clock)))
+        (set-alpha-blending max))
+      (set-layered? false)))
+  
+  
+  (method public (fade-out)
+    @need-to-get-layered-attributes
+    (bind-keywords ((to 0) (step 5)) rest
+      (let ((alpha))
+        (loop (for n from 0 to to by step)
+              (set-alpha-blending n)
+              (set! alpha n))
+        (unless (= alpha to)
+          (set-alpha-blending to)))))
+
+
+  ;;;
+  ;;;; Hosting
+  ;;;
+  
+  
+  (method public (find-host guest-type)
+    (with ((proc <Procedure>
+            (function dynamic (window)
+              (and (is? window View-Host)
+                   (is? (get-guest~ window) guest-type)))))
+      (find-if proc children)))
+  
+  
+  (method public (find-guest guest-type)
+    (let ((host (find-host guest-type)))
+      (when host
+        (get-guest~ host))))
+  
+  
+  (method public (collect-guest guest-type)
+    (collect (function dynamic (window)
+               (when (is? window View-Host)
+                 (let ((guest (get-guest~ window)))
+                   (when (is? guest guest-type)
+                     guest))))
+             children))
+
+
+  ;;;
+  ;;;; Tracking
+  ;;;
+  
+  
+  (method public (track-mouse-event flags . rest)
+    (bind-keywords ((time HOVER_DEFAULT)) rest
+      (with ((rec (TRACKMOUSEEVENT-make)))
+        (TRACKMOUSEEVENT-cbSize-set! rec (size-of-TRACKMOUSEEVENT))
+        (TRACKMOUSEEVENT-dwFlags-set! rec flags)
+        (TRACKMOUSEEVENT-hwndTrack-set! rec hwnd)
+        (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
+        (TrackMouseEvent rec))))
+
+
+  ;;;
+  ;;;; Management
+  ;;;
+
+
+  (method public (send-message msg wparam lparam)
+    (SendMessage hwnd msg wparam lparam))
+
+
+  (method public (post-message msg wparam lparam)
+    (PostMessage hwnd msg wparam lparam))
+
+
+  (method public (get-hwnd)
+    hwnd)
+
+
+  (method public (set-hwnd hw <int>)
+    (set! hwnd hw))
+
+
+  (method public (set-parent parent)
+    (nextmethod parent)
+    (SetParent hwnd (if parent (get-hwnd~ parent) NULL)))
+
+
+  (method (get-frame)
+    (if (is? self Frame)
+        self
+      (when parent
+        (get-frame~ parent))))
+  
+  
+  (method public (get-overlapped)
+    (if (is? self Overlapped)
+        self
+      (get-overlapped~ parent)))
+  
+  
+  (method public (get-window-owner)
+    (get-window (GetWindow hwnd GW_OWNER)))
+  
+  
+  (method public (get-root-owner)
+    (let ((root (get-window-owner)))
+      (when root
+        (let ((owner))
+          (while (set! owner (get-window-owner~ root))
+            (set! root owner))
+          root))))
+  
+  
+  (method public (get-top-window)
+    (get-window (GetTopWindow hwnd)))
+  
+
+  (method public virtual (get-title)
+    title)
+  
+
+  (method public virtual (set-title value)
+    (set! title value)
+    (set-window-title (localize title)))
+  
+
+  (method public (get-window-title)
+    "HELLO"
+    @JEREMIE
+    (get-hwnd-title hwnd))
+  
+
+  (method public (set-window-title title)
+    (SetWindowText hwnd title))
+  
+
+  (method public (acquire window shape)
+    (typecase shape
+      ((Point)
+        (with ((acquired (point->POINT shape)))
+          (MapWindowPoints (get-hwnd~ window) hwnd acquired 1)
+          (POINT->point acquired)))
+      ((Rect)
+        (with ((acquired (rect->RECT shape)))
+          (MapWindowPoints (get-hwnd~ window) hwnd (RECT->POINTS acquired) 2)
+          (RECT->rect acquired)))
+      (else
+        (error "Unable to translate {t}" shape))))
+
+
+  (method (get-position)
+    (with ((rect (RECT-make)))
+      (GetWindowRect hwnd rect)
+      (when (and parent (child-window?))
+        (MapWindowPoints NULL (get-hwnd~ parent) (RECT->POINTS rect) 2))
+      (new Point (RECT-left-ref rect) (RECT-top-ref rect))))
+  
+  
+  (method public (get-window-position)
+    (with ((pos (new-point 0 0)))
+      (MapWindowPoints hwnd NULL pos 1)
+      (new Point (POINT-x-ref pos) (POINT-y-ref pos))))
+  
+
+  (method (set-position pos)
+    (SetWindowPos hwnd NULL [h pos] [v pos] 0 0 (bit-or SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
+
+
+  (method public (move-window dh dv)
+    (let ((pos (get-position)))
+      (set-position (new Point (+ [h pos] dh) (+ [v pos] dv)))))
+
+
+  (method (get-size)
+    (with ((rect (RECT-make)))
+      (GetClientRect hwnd rect)
+      (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))))
+
+
+  (method (set-size size)
+    (let ((delta (- size (get-size))))
+      (set-window-size (+ (get-window-size) delta))))
+
+
+  (method public (size-window dwidth dheight)
+    (let ((size (get-size)))
+      (set-size (new Dimension (+ [width size] dwidth) (+ [height size] dheight)))))
+
+
+  (method public (get-window-size)
+    (let ((rect (RECT-make)))
+      (GetWindowRect hwnd rect)
+      (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
+                     (- (RECT-bottom-ref rect) (RECT-top-ref rect)))))
+
+
+  (method public (set-window-size size)
+    (SetWindowPos hwnd NULL 0 0 [width size] [height size] (bit-or SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
+  
+  
+  (method public (set-bounds rect)
+    (SetWindowPos hwnd NULL [left rect] [top rect] (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
+  
+  
+  (method public (grow-bounds dh dv dwidth dheight)
+    (let ((pos (+ (get-position) (new Point dh dv)))
+          (size (+ (get-window-size) (new Dimension dwidth dheight))))
+      (set-window-size size)
+      (set-position pos)))
+
+
+  ;; to-fix [width (get-size)]
+  (method public (get-width)
+    (let ((size (get-size)))
+      [width size]))
+
+  
+  ;; to-fix [width (get-size)]
+  (method public (get-height)
+    (let ((size (get-size)))
+      [height size]))
+  
+
+  (method public (get-rect)
+    (with ((rect (RECT-make)))
+      (GetWindowRect hwnd rect)
+      (when parent
+        (MapWindowPoints NULL (get-hwnd~ parent) (RECT->POINTS rect) 2))
+      (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+  
+
+  (method public (get-bounds)
+    (with ((rect (RECT-make)))
+      (GetWindowRect hwnd rect)
+      (MapWindowPoints NULL hwnd (RECT->POINTS rect) 2)
+      (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+  
+  
+  (method public (ensure-displayed)
+    (let ((outer (if (null? parent) (get-size~ (get-desktop)) (get-size~ parent)))
+          (rect (get-rect)))
+      (bind-values (new-position new-size) (fit-within outer rect :padding 8)
+        (set-size new-size)
+        (set-position new-position))))
+
+
+  (method public (mouse-position)
+    (with ((point (POINT-make)))
+      (GetCursorPos point)
+      (acquire (get-desktop) (new Point (POINT-x-ref point) (POINT-y-ref point)))))
+
+
+  (method public (mouse-window)
+    (find-window (mouse-position)))
+
+
+  (method public (mouse-in-window?)
+    (point-in-window? (mouse-position)))
+
+
+  (method public (point-in-window? point)
+    (let ((size (get-window-size)))
+      (and (in-interval? [h point] 0 [width size])
+           (in-interval? [v point] 0 [height size]))))
+
+
+  (method public (find-window point)
+    (with ((pt (POINT-make)))
+      (POINT-x-set! pt [h point])
+      (POINT-y-set! pt [v point])
+      (get-window (WindowFromPoint pt))))
+  
+  
+  (method public (find-child-window point)
+    (with ((pt (POINT-make)))
+      (POINT-x-set! pt [h point])
+      (POINT-y-set! pt [v point])
+      (let ((window (get-window (ChildWindowFromPointEx hwnd pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT)))))
+        (if (or (null? window) (eq? window self))
+            window
+          (find-child-window~ window (acquire~ window self point))))))
+
+
+  (method public (flash-window)
+    (unimplemented 'flash-window)
+    @FlashWindow
+    (loop (repeat 3)
+          (FlashWindow hwnd true)
+          (sleep 100)
+          (FlashWindow hwnd false)
+          (sleep 100)))
+
+
+  (method public (move x y cx cy)
+    (MoveWindow hwnd x y cx cy true))
+
+
+  (method public (acquire-focus)
+    (set-window-focus self))
+  
+  
+  (method public (get-enabled?)
+    (IsWindowEnabled hwnd))
+  
+  
+  (method public (enable-window)
+    (EnableWindow hwnd true))
+  
+  
+  (method public (disable-window)
+    (EnableWindow hwnd false))
+
+
+  (method public (get-client-rect)
+    (with ((rect (RECT-make)))
+      (GetClientRect hwnd rect)
+      (RECT->rect rect)))
+
+
+  (method public (scroll-window dh dv rect . rest)
+    (bind-keywords ((clip-rect null) (erase? true)) rest
+      (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
+        (with ((rect (rect->RECT rect))
+               (clip-rect (rect->RECT clip-rect)))
+          (ScrollWindowEx hwnd dh dv rect clip-rect NULL NULL flags)))))
+
+  
+  ;; tofix foreign-address
+  (method public (invalidate-rect rect . rest)
+    (bind-optionals ((erase? false)) rest
+      (when (foreign-address hwnd)
+        (with ((rect (rect->RECT rect)))
+          (InvalidateRect hwnd rect erase?)))))
+
+  
+  ;; tofix foreign-address
+  (method public (invalidate-region region . rest)
+    (bind-optionals ((erase? false)) rest
+      (when (foreign-address hwnd)
+        (InvalidateRgn hwnd (get-handle~ region) erase?))))
+
+  
+  ;; tofix foreign-address
+  (method public (invalidate-window . rest)
+    (bind-optionals ((erase? false)) rest
+      (when (foreign-address hwnd)
+        (InvalidateRect hwnd NULL erase?))))
+
+  
+  ;; tofix foreign-address
+  (method public (redraw-window . rest)
+    (bind-keywords ((rect null) (region null)) rest
+      (when (foreign-address hwnd)
+        ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
+        ;; toplevel would redraw it's children. Hope it doesn't break any code...
+        (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
+          (with ((rect (if (null? rect) NULL (rect->RECT rect))))
+            (RedrawWindow hwnd rect (if region (get-handle~ region) NULL) flags))))))
+
+
+  (method public (invalidate-border . rest)
+    (bind-keywords ((insets {Rect 1 1 1 1})) rest
+      (with-closed ((region (border-region :insets insets)))
+        (invalidate-region region))))
+
+
+  (method public (redraw-border . rest)
+    (bind-keywords ((insets {Rect 1 1 1 1})) rest
+      (with-closed ((region (border-region :insets insets)))
+        (redraw-window :region region))))
+
+
+  (method public (border-region . rest)
+    (bind-keywords ((insets {Rect 1 1 1 1})) rest
+      (frame-region (get-client-rect) :insets insets)))
+  
+  
+  ;; Should only be called inside size-change and before the call to super...
+  @to-convert
+  (method public (invalidate-edges width height right-edge bottom-edge)
+    (when (/= width previous-width)
+      (invalidate-rect (new Rect (- previous-width right-edge) 0 previous-width previous-height) true)
+      (invalidate-rect (new Rect (- width right-edge) 0 width height) true))
+    (when (/= height previous-height)
+      (invalidate-rect (new Rect 0 (- previous-height bottom-edge) previous-width previous-height) true)
+      (invalidate-rect (new Rect 0 (- height bottom-edge) width height) true)))
+
+
+  (method public (get-update-rect)
+    (with ((rect (RECT-make)))
+      (GetUpdateRect hwnd rect false)
+      (RECT->rect rect)))
+
+
+  (method public (get-update-region)
+    (let ((region (new Region)))
+      (GetUpdateRgn hwnd (get-handle~ region) false)
+      region))
+
+
+  (method public (get-class-background)
+    (GetClassLong hwnd GCL_HBRBACKGROUND))
+
+
+  (method public (show-window . rest)
+    (bind-optionals ((state SW_SHOW)) rest
+      (ShowWindow hwnd state)))
+
+
+  (method public (update-window)
+    (UpdateWindow hwnd))
+  
+  
+  (method public (show-noactivate)
+    (SetWindowPos hwnd HWND_TOP 0 0 0 0 (bit-or SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  
+  
+  (method public (hide-noactivate)
+    (SetWindowPos hwnd 0 0 0 0 0 (bit-or SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+
+
+  ;;;
+  ;;;; Children
+  ;;;
+
+
+  (method public (first-window)
+    (car (get-windows)))
+
+
+  (method public (last-window)
+    (last (get-windows)))
+    
+  
+  (method public (get-windows . rest)
+    (bind-keywords ((include-invisibles? false)) rest
+      (with ((proc <Procedure>
+              (function dynamic (child)
+                (and (is? child Window)
+                     (or include-invisibles? (get-visible?~ child))))))
+        (collect-if proc (get-children)))))
+
+
+  (method public (front-window?)
+    (eq? self (first-window~ parent)))
+
+
+  ;;;
+  ;;;; Layer
+  ;;;
+  
+  
+  (method (bring-to-front)
+    (nextmethod)
+    (BringWindowToTop hwnd))
+
+
+  (method (send-to-back)
+    (nextmethod)
+    (SetWindowPos hwnd HWND_BOTTOM 0 0 0 0 (bit-or SWP_NOMOVE SWP_NOSIZE)))
+
+
+  ;;;
+  ;;;; Layout
+  ;;;
+
+
+  (method (get-location)
+    location)
+
+
+  (method (set-location loc)
+    (set! location loc))
+  
+  
+  (method public (layout-window)
+    (layout))
+  
+  
+  (method public virtual (layout)
+    )
+  
+  
+  ;;;
+  ;;;; View
+  ;;;
+  
+  
+  (method public (mouse-view)
+    (find-view (mouse-position)))
+  
+  
+  (method public (find-view pos)
+    (let ((window (find-window pos)))
+      (when (is? window View-Player)
+        (let ((root (get-root~ window)))
+          (find-drawing~ root (acquire~ window self pos))))))
+  
+  
+  (method public (to-view shape view)
+    (let* ((player (get-player~ view))
+           (acquired (acquire~ player self shape)))
+      (acquire~ view (get-root~ player) acquired)))
+
+
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public virtual (debug-window pos)
+    (unimplemented 'debug-window)
+    @Development
+    (set-%~ Development self))
+
+
+  (method public virtual (describe-window pos)
+    (unimplemented 'describe-window)
+    @WINSTYLE(
+    (format :console "{%}")
+    (format :console "Class:            {s}{%}" (class-of self))
+    (format :console "Name:             {s}{%}" (get-name))
+    (format :console "Class Background: {s}{%}" (get-class-background))
+    (format :console "Clip Children?:   {s}{%}" (mask-bit-set? (get-style) WS_CLIPCHILDREN))
+    (format :console "Clip Siblings?:   {s}{%}" (mask-bit-set? (get-style) WS_CLIPSIBLINGS))
+    (format :console "Position:         {s}{%}" (get-position))
+    (format :console "Size:             {s}{%}" (get-size))
+    (format :console "Window rect:      {s}{%}" (get-bounds))
+    (format :console "Client rect:      {s}{%}" (get-client-rect))
+    (format :console "Style:            {s}{%}" (bits->symbolic (get-style) WINSTYLE))
+    (format :console "Extended Style:   {s}{%}" (bits->symbolic (get-ex-style) WINEXSTYLE))))))

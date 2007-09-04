@@ -1,0 +1,188 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Console-Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.console.Jazz-Console-Text-View jazz
+
+
+(import (jazz.console)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Jazz-Console-Text-View extends Console-Text-View
+  
+  
+  (form
+    (<install> context: jazz))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (focus-actions)
+    (cons (find-actions 'jazz-console-text)
+          (nextmethod)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-touch-class evt)
+    @convert
+    (let ((symbol (current-jazz-symbol)))
+      (if (null? symbol)
+          (bell)
+        (let ((source (get-manifest-source symbol)))
+          (if (null? source)
+              (bell)
+            (touch~ source)
+            (user-message "{s} touched" source))))))
+
+
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (method (eval-command range name command console?)
+    (unimplemented 'eval-command)
+    @convert
+    (let* ((appl (get-application))
+           (user (get-user~ appl))
+           (forms (read-text-forms range :string command :console? true)))
+      (if (and (not-null? forms) (console-command~ user (car forms) (cdr forms)))
+          null
+        (map (function dynamic (form)
+               ;; until implemented remotly...
+               (let* ((debugger (get-controller-debugger-server~ appl))
+                      (process (essay debugger (get-selected-debuggee~ debugger)))
+                      (frame (essay (is? process Local-Proxy) (let ((frame (active-frame~ Debugger))) (essay (is? frame Execution-Frame) (get-address~ frame)))))
+                      (binder (if frame (frame-closure-frame frame) null))
+                      (variables (if binder (frame-variables binder) null)))
+                 (execute-form form
+                               (if binder (frame-context binder) (either Interactive-Object user))
+                               (append (list
+                                        Kernel
+                                        Language
+                                        Utilities
+                                        Development
+                                        Interpreter
+                                        System
+                                        COM
+                                        Windows
+                                        WinAdv
+                                        WinBase
+                                        WinDDE
+                                        WinDef
+                                        WinDlg
+                                        WinError
+                                        WinGDI
+                                        WinIDL
+                                        WinImg
+                                        WinInet
+                                        WinKernel
+                                        WinOLE
+                                        WinPerf
+                                        WinNT
+                                        WinMM
+                                        WinShell
+                                        WinShlw
+                                        WinStatus
+                                        WinUser)
+                                       (user-packages~ (get-user~ appl)))
+                               variables
+                               binder)))
+             forms))))
+  
+  
+  (method (evaluate-form? form)
+    (and (pair? form)
+         (memq? (car form) '(class interface package enumeration structure external winexternal coexternal definition method comethod macro syntax))))
+  
+  
+  (method (execute-form form object packages variables frame)
+    (unimplemented 'execute-form)
+    @convert
+    (let* ((appl (get-application))
+           (debugger (get-local-debugger-server~ appl))
+           (process (essay debugger (get-selected-debuggee~ debugger)))
+           (pref (get-preferences '(tools console)))
+           (detail (get-print-detail~ pref)))
+      ;; until implemented remotly...
+      (if (or true (null? process) (> (get-level~ (get-loop~ appl)) 0))
+          @new-unified-evaluate/execute
+          (let ((result (evaluate (list form) object (class-of object) packages)))
+            (if (nil? result)
+                null
+              (set! ? result)
+              (->string result detail)))
+          (let ((evaluate? (evaluate-form? form)))
+            (if evaluate?
+                (car (evaluate (list form) object (class-of object) packages))
+              (let* ((anonymous (list (list 'function '() form)))
+                     (result (privileged-execute anonymous object packages variables frame 'Console)))
+                (if (nil? result)
+                    nil
+                  (set! ? result)
+                  (->string result detail)))))
+        (if (is? process Local-Proxy)
+            (execute~ process (get-string (current-command-range)) object (map type-name packages) variables frame)
+          (execute~ process (get-string (current-command-range)) null (map type-name packages) null null)))))
+  
+
+  (method (current-toplevel-info)
+    (unimplemented 'current-toplevel-info)
+    @convert
+    (values null
+            (list (either Interactive-Object (get-user~ (get-application)))
+                  :extends (list Language
+                                 Utilities
+                                 Development
+                                 Utilities
+                                 System
+                                 Windows
+                                 WinKernel
+                                 WinUser
+                                 WinGDI
+                                 WinDlg))))))

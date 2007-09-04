@@ -1,0 +1,141 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Ruler
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Ruler jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Ruler extends Header-View
+
+
+  (form
+    (<install>               shown?: #f
+      (<!>     name: content layout-type: fill)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (get-header-height)
+    (if shown? 22 0))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Tabbed-Pen
+    (new Pen :color {Color name: Dark-Red}))
+  
+  (definition Untabbed-Pen
+    (new Pen :color (new Color :red 90 :green 90 :blue 90)))
+  
+  
+  (method (draw dc context update lh lv)
+    (with ((update-rect (get-update-rect dc update lh lv)))
+      (let ((width (get-width))
+            (height (get-header-height)))
+        (when (< [top update-rect] height)
+          (draw-ruler dc width height)))))
+  
+  
+  (method (draw-ruler dc width height)
+    (draw-border dc width height)
+    (draw-measurements dc width height))
+  
+  
+  (method (draw-border dc width height)
+    (with ((outer (new Rect 0 0 width height))
+           (inner (inflate-rect outer -1 -1)))
+      (draw-edge~ dc outer :inner 'raised :edges 'rectangle)
+      (fill-rect~ dc inner {Color name: Medium})))
+  
+  
+  (method (draw-measurements dc width height)
+    (let* ((unit 8)
+           (major 4)
+           (number (quotient width unit))
+           (limit (- width 1))
+           (left (get-left-padding~ client))
+           (tabs [user-tabs client]))
+      (set-pen~ dc {Pen name: Black})
+      (for-each (function dynamic (n)
+                  (let* ((rank (* n unit))
+                         (pixel (+ left rank)))
+                    (unless (>= pixel limit)
+                      (let* ((tab? (memq? rank tabs))
+                             (major? (= (modulo n major) 0))
+                             (offset (if major? 5 8)))
+                        (set-pen~ dc (if tab? Tabbed-Pen Untabbed-Pen))
+                        (move-to~ dc pixel offset)
+                        (line-to~ dc pixel (- height offset))))))
+                (naturals 0 (+ number 1)))))
+  
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method (cursor-update pos)
+    (set-cursor :arrow))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-down pos)
+    )
+  
+  
+  (method (drag-move pos)
+    )
+  
+  
+  (method (drag-up pos . rest)
+    )))

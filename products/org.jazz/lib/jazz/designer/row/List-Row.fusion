@@ -1,0 +1,219 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; List Row
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.row.List-Row jazz
+
+
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class List-Row extends Value-Row)
+
+
+@WAIT (
+
+
+(class List-Row extends Value-Row
+  
+  
+  (slot current-rank initialize 0)
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present value)
+    (if (null? value)
+        "null"
+      (let ((n (length value)))
+        (format "{a} item{a} (...)" n (format-plural n)))))
+  
+  
+  ;;;
+  ;;;; Rank
+  ;;;
+  
+  
+  (method (reset-rank)
+    (set! current-rank 0))
+  
+  
+  (method (next-rank)
+    (prog1 current-rank
+      (increase! current-rank)))
+  
+  
+  ;;;
+  ;;;; Auto
+  ;;;
+  
+  
+  (method (auto-inplace?)
+    false)
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method (get-edited-value)
+    (get-list-edited-value))
+  
+  
+  (method (get-edited-modified?)
+    (get-list-edited-modified?))
+  
+  
+  (method (set-edited-modified? flag)
+    (set-list-edited-modified? flag))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (edit)
+    (reset-rank)
+    (edit-in-list))
+  
+  
+  (method (add-value value class)
+    (add-row self (next-rank) value :class class))
+  
+  
+  (method (close-editor)
+    (close-in-list-editor))
+  
+  
+  (method (select-editor)
+    )
+  
+  
+  (method (focus-editor . rest)
+    )
+  
+  
+  (method (focused-editor)
+    null)
+  
+  
+  (method (update value)
+    (set-value value)
+    (let ((tree (get-tree))
+          (data (second (get-children))))
+      (set-property-modified? true)
+      (set-title~ data (present value))
+      (invalidate-cell~ tree (new Cell (row-rank~ tree self) 1))))
+  
+  
+  (method (in-edition?)
+    (get-sons))
+  
+  
+  ;;;
+  ;;;; Items
+  ;;;
+  
+  
+  (method public virtual (auto-number?)
+    true)
+  
+  
+  (method public virtual (add-item)
+    (let ((row (add-value (new-value) (get-subrow-class))))
+      (edit-row~ row)
+      (focus-editor~ row)
+      (set-modified? true)
+      row))
+  
+  
+  (method public virtual (new-value)
+    null)
+  
+  
+  (method public virtual (remove-item item)
+    (let ((tree (get-tree)))
+      (remove-row~ tree item)
+      (set-auto-expanded-row~ tree self)
+      (set-modified? true)))
+  
+  
+  (method public (rename-item item)
+    (let* ((current (get-title~ item))
+           (title (request-title current)))
+      (set-title~ item title)))
+  
+  
+  (method protected virtual (request-title . rest)
+    (bind-optionals ((current null)) rest
+      (request-string :title "Enter Title" :prefix "Title" :initial-value current)))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (get-menu-class)
+    List-Menu))
+
+
+;;;
+;;;; List-Menu
+;;;
+
+
+(class List-Menu extends Value-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: add-item title: "&Add Item" icon: {Bitmap-Resource "Add"} action-handler: {Event-Handler form: on-add-item})))
+  
+  
+  (method (on-add-item evt)
+    (let* ((row (add-item~ value-row))
+           (tree (get-tree~ row))
+           (rank (row-rank~ tree row)))
+      (set-selection~ tree (list rank))))))
+)

@@ -1,0 +1,901 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Cairo WIN32 Surface
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.graphic.Cairo-Win32-Surface jazz
+
+
+(import (jazz.library)
+        (jazz.ui)
+        (jazz.platform.cairo.cairo-win32)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Cairo-Win32-Surface extends Object
+  
+  
+  (slot clipper <Rect+>)
+  
+  
+  (slot surface <Integer+>)
+  (slot hdc     <Integer+>)
+  (slot context <Integer+>)
+  
+  
+  (slot highlight-color    initialize null)
+  
+  
+  (slot dash-array         initialize false)
+  (slot empty-array        initialize false)
+  
+  
+  (slot glyph-array        initialize false)
+  (slot array-length       initialize 0)
+
+  
+  (method (initialize surface <int> . rest)
+    (nextmethod)  
+    (set! [surface self] surface)
+    (set! [hdc self] (cairo_win32_surface_get_dc surface))
+    (set! [context self] (cairo_create surface))
+    (destroy-mandatory))
+
+
+  (method (destroy)
+    (destroy-context)
+    (destroy-surface)
+    (nextmethod))
+  
+  
+  (method public (new-context)
+    (destroy-context)
+    (set! [context self] (cairo_create surface)))
+  
+  
+  (method protected virtual (destroy-context)
+    (cairo_destroy context))
+  
+  
+  (method protected virtual (destroy-surface)
+    (unless (nil? surface)
+      (cairo_surface_destroy surface)))
+  
+  
+  (method public (cairo-finish)
+    (cairo_surface_finish surface))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-context)
+    context)
+  
+  
+  (method public (get-surface)
+    surface)
+  
+  
+  ;;;
+  ;;;; Device
+  ;;;
+
+
+  (method public (logical->device shape <Object>)
+    (typecase shape
+      ((Point)
+       (let ((array (cairo_user_to_device context (exact->inexact [h shape]) (exact->inexact [v shape]))))
+         (new Point (double-array-ref array 0) (double-array-ref array 1))))))
+  
+  
+  (method public (device->logical shape <Object>)
+    (typecase shape
+      ((Point)
+       (let ((array (cairo_device_to_user context (exact->inexact [h shape]) (exact->inexact [v shape]))))
+         (new Point (double-array-ref array 0) (double-array-ref array 1))))
+      ((Rect)
+       (let ((array1 (cairo_device_to_user context (exact->inexact [left shape]) (exact->inexact [top shape])))
+             (array2 (cairo_device_to_user context (exact->inexact [right shape]) (exact->inexact [bottom shape]))))
+         (new Rect (double-array-ref array1 0) (double-array-ref array1 1) (double-array-ref array2 0) (double-array-ref array2 1))))))
+  
+  
+  ;;;
+  ;;;; Context Saving
+  ;;;
+  
+  
+  (method (with-saved-context thunk)
+    (cairo_save context)
+    (let ((result (thunk)))
+      (cairo_restore context)
+      result))
+  
+  
+  ;;;
+  ;;;; Clipping
+  ;;;
+  
+  
+  (method public (setup-clipper clipper <Rect>)
+    (set! [clipper self] clipper))
+  
+  
+  (method public (get-clipper)
+    (new Rect [left clipper]
+              [top clipper]
+              [right clipper]
+              [bottom clipper]))
+  
+  
+  (method public (set-clipper rect <Rect>)
+    (set! [left clipper] [left rect])
+    (set! [top clipper] [top rect])
+    (set! [right clipper] [right rect])
+    (set! [bottom clipper] [bottom rect])
+    (select-clipper clipper))
+
+
+  (method public (select-clipper rect <Rect>)
+    (cairo_reset_clip context)
+    (draw-rectangle rect)
+    (cairo_clip context))
+  
+  
+  (method public (with-clipper clip-rect <Rect> proc <Procedure>)
+    (unimplemented 'with-clipper)
+    @rect-intersection
+    (with ((old-clipper (get-clipper))
+           (new-clipper (rect-intersection old-clipper clip-rect)))
+      (let ((selected? false))
+        (unwind-protect
+            (begin
+              (set-clipper new-clipper)
+              (set! selected? true)
+              (proc))
+          (when selected?
+            (set-clipper old-clipper))))))
+  
+  
+  ;;;
+  ;;;; Transform
+  ;;;
+  
+  
+  ;; lh lv : position of the drawing relative to the player
+  ;; sh sv : position of the scaled view relative to the player
+  ;; dh dv : position of the drawing relative to the scaled view, i.e. s - l
+  ;; ch cv : position of the clipper in device coordinates
+  ;; cwidth cheight : size of the clipper in device coordinates
+  
+  
+  (method public (with-transform drawing <Drawing> lh <int> lv <int> width <int> height <int> sh <int> sv <int> sc <Real> sc? <bool> proc <Procedure>)
+    (let* ((dh (- lh sh))
+           (dv (- lv sv))
+           (ch (if (not sc?) lh (floor (+ sh (* dh sc))))) 
+           (cv (if (not sc?) lv (floor (+ sv (* dv sc)))))
+           (cwidth (if (not sc?) width (+ 1 (ceiling (* width sc)))))
+           (cheight (if (not sc?) height (+ 1 (ceiling (* height sc))))))
+      (let ((old-matrix (cairo_matrix_t-make)))
+        (cairo_get_matrix context old-matrix)
+        (cairo_identity_matrix context)
+        (let* ((clipper (new Rect ch cv (+ ch cwidth) (+ cv cheight)))
+               (old-clipper (get-clipper))
+               (new-clipper (rect-intersection old-clipper clipper)))
+          (set-clipper new-clipper)
+          (if sc?
+              (begin 
+                (cairo_translate context (exact->inexact (- sh)) (exact->inexact (- sv)))
+                (cairo_scale context sc sc)))
+          (cairo_translate context (exact->inexact lh) (exact->inexact lv))
+          (proc)
+          (cairo_identity_matrix context)
+          (set-clipper old-clipper)
+          (cairo_set_matrix context old-matrix)))))
+  
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method public (set-text-color color <Color>)
+    (set-color color))
+  
+   
+  (method public (get-char-widths . rest)
+    (let ((ext (cairo_text_extents_t-make))
+          (gly (cairo_glyph_t-make)))
+      (bind-keywords ((first 0) (last 255)) rest
+        (let ((array (alloc-int-array (+ (- last first) 1))))
+          (loop (for i from first to last)
+                (do
+                  ;; cairo starts glyphs at char 29
+                  (if (< i 29)
+                      (int-array-set! array i 0)
+                    (begin
+                      (cairo_glyph_t-index-set! gly (- i 29))
+                      (cairo_glyph_t-x-set! gly (exact->inexact 0))
+                      (cairo_glyph_t-y-set! gly (exact->inexact 0))
+                      (cairo_glyph_extents context gly 1 ext)
+                      (int-array-set! array i (round (cairo_text_extents_t-x_advance-ref ext)))))))
+          array))))
+  
+
+  (method public (get-text-extent text <Sequence>)
+    (with ((extents (cairo_text_extents_t-make))
+           (metrics (get-text-metrics)))
+      (cairo_text_extents context text extents)
+      (new Dimension 
+        (round (cairo_text_extents_t-x_advance-ref extents)) 
+        (round (cairo_font_extents_t-height-ref metrics)))))
+    
+  
+  (method public (get-font-height)
+    (with ((extents (cairo_font_extents_t-make)))
+      (cairo_font_extents context extents)
+      (round (cairo_font_extents_t-height-ref extents))))
+  
+  
+  (method public (get-text-metrics)
+    (let ((info (cairo_font_extents_t-make)))
+      (cairo_font_extents context info)
+      info))
+  
+  
+  (method public (cairo_extents->dimension extents)
+    (new Dimension 
+      (ceiling (cairo_text_extents_t-width-ref extents)) 
+      (ceiling (cairo_text_extents_t-height-ref extents))))
+  
+
+  (method public (get-text-width text <Sequence>)
+    (with ((extents (cairo_text_extents_t-make)))
+      (cairo_text_extents context text extents)
+      (ceiling (cairo_text_extents_t-x_advance-ref extents))))
+  
+  
+  (method public (with-highlight-color color proc)
+    (let ((old-color highlight-color))
+      (set! highlight-color color)
+      (let ((result (proc)))
+        (set! highlight-color old-color)
+        result)))
+      
+  
+  (method public (draw-text h v string <String> . rest)
+    (let ((uph h)
+          (font-ext (cairo_font_extents_t-make))
+          (extents (cairo_text_extents_t-make))
+          (lgt (length string)))
+      (if (< array-length lgt)
+          (begin
+            (if (not (null? glyph-array))
+                (free-glyph-array glyph-array))
+            (set! [glyph-array self] (alloc-glyph-array (* lgt 2)))
+            (set! [array-length self] (* lgt 2))))
+      (cairo_font_extents context font-ext)
+      (let ((y (+ v (cairo_font_extents_t-ascent-ref font-ext))))
+        (let loop ((i 0))
+             (if (< i lgt)
+                 (let ((glyph (glyph-array-ref glyph-array i)))
+                   (cairo_glyph_t-index-set! glyph (- (char->integer (string-ref string i)) 29))
+                   (cairo_glyph_t-x-set! glyph (exact->inexact uph))
+                   (cairo_glyph_t-y-set! glyph (exact->inexact y))
+                   (cairo_glyph_extents (get-context) glyph 1 extents)
+                   (set! uph (+ uph (cairo_text_extents_t-x_advance-ref extents)))
+                   (loop (+ i 1)))))
+        @Unimplemented
+        (when highlight-color
+          (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
+        (cairo_show_glyphs context glyph-array lgt)
+        (round (- uph h)) 0)))
+  
+  
+  (method public (draw-tabbed-text h v string <Sequence> tab-stops origin)
+    (let ((uph h)
+          (begin 0)
+          (tab tab-stops))
+      (loop (for i from 0 below (length string))
+            (when (eq? (element string i) #\tab)
+              (when (not (= begin i))
+                (set! uph (+ uph (draw-text uph v (subseq string begin i)))))
+              (while (<= (+ origin (car tab)) (+ uph 1))
+                (set! tab (cdr tab)))
+              (set! uph (+ origin (car tab)))
+              (set! begin (+ i 1))
+              (set! tab (cdr tab))))
+      (- (+ uph (draw-text uph v (subseq string begin (length string))))
+           h)))
+  
+  
+  (method public (fill-region region <Region> color)
+    (loop (for rect in [rectangles region])
+          (do (fill-rect rect color))))
+  
+  
+  (method public (gradient-fill rect <Rect> start end . rest)
+    (with-saved-context
+      (function dynamic ()
+        (let* ((mid (/ (- [bottom rect] [top rect]) 2))
+               (pattern (cairo_pattern_create_linear (exact->inexact [left rect]) (exact->inexact mid) (exact->inexact [right rect]) (exact->inexact mid))))
+          (add-color-stop-rgb pattern 0 start)
+          (add-color-stop-rgb pattern 1 end)
+          (draw-rectangle rect)
+          (cairo_set_source context pattern)
+          (fill)
+          (cairo_pattern_destroy pattern)))))
+  
+  
+  (method public (ellipse rect <Rect> outside inside)
+    (with-saved-context
+      (function dynamic ()  
+        (let ((left [left rect])
+              (right [right rect])
+              (top [top rect])
+              (bottom [bottom rect]))
+          (let ((w (- right left))
+                (h (- bottom top)))
+            (cairo_translate context (+ left (/ w 2)) (+ top (/ h 2)))
+            (cairo_scale context (/ w 2) (/ h 2))
+            (cairo_arc context 0 0 1 0 (* 2 M_PI))
+            (cairo_scale context (/ 2 w) (/ 2 w))))
+        (if (not (null? outside))
+            (begin
+              (set-color (if (is? outside Color)
+                             outside
+                           (get-color-for-object outside)))
+              (set-line-width (if (and (is? outside Pen) (not (nil? (get-width~ outside))))
+                                  (get-width~ outside)
+                                1))
+              (stroke-preserve)))
+        (if (not (null? inside))
+            (begin
+              (set-color (if (is? inside Color)
+                             inside
+                           (get-color-for-object inside)))
+              (fill))))))
+  
+  
+  (method public (draw-image handle h v)
+    @JEREMIE
+    (with-saved-context
+      (function dynamic ()
+        (cairo_set_source_surface context handle h v)
+        (cairo_paint context))))
+  
+  
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method public (draw-scroll-bar rect <Rect> direction)
+    (with-saved-context
+      (function dynamic ()
+        (draw-rectangle rect)
+        (set-color {Color name: Draw-Edge-Light})
+        (fill)
+        (draw-edge rect :inner 'raised :outer 'raised :edges 'rectangle)
+        (let ((dh (cond ((eq? direction 'left) 1)
+                        ((eq? direction 'right) 2)
+                        ((eq? direction 'up) 1)
+                        ((eq? direction 'down) 1)))
+              (dv (cond ((eq? direction 'up) 1)
+                        ((eq? direction 'down) 1)
+                        (else 0))))
+          (set-color {Color name: Black})
+          (draw-arrow-tip (+ [left rect] 3 dh) (+ [top rect] 4 dv) 3 direction)))))
+   
+  
+  (method public (draw-caption rect <Rect> type . rest)
+    (bind-optionals ((pushed? false)) rest
+      (with-saved-context
+        (function dynamic ()
+          (draw-rectangle rect)
+          (set-color {Color name: Draw-Edge-Light})
+          (fill)
+          (if pushed?
+              (begin
+                (draw-edge rect :inner 'sunken :edges 'rectangle)
+                (draw-edge (new Rect (+ [left rect] 1) (+ [top rect] 1) (- [right rect] 1) (- [bottom rect] 1)) :outer 'sunken :edges 'rectangle))
+            (draw-edge rect :inner 'raised :outer 'raised :edges 'rectangle))
+          (set-color {Color name: Black})
+          (let ((rect (if pushed? (new Rect (+ [left rect] 1) (+ [top rect] 1) (+ [right rect] 1) (+ [bottom rect] 1)) rect)))
+            (cond ((eq? type 'close)
+                   (set-line-width 1)
+                   (move-to (+ [left rect] 4) (+ [top rect] 3))
+                   (line-to (- [right rect] 4) (- [bottom rect] 4))
+                   (move-to (- [right rect] 4) (+ [top rect] 3))
+                   (line-to (+ [left rect] 4) (- [bottom rect] 4))
+                   (stroke))
+                  ((eq? type 'minimize)
+                   (set-line-width 1)
+                   (move-to (+ [left rect] 4) (- [bottom rect] 5))
+                   (line-to (- [right rect] 6) (- [bottom rect] 5))
+                   (move-to (+ [left rect] 4) (- [bottom rect] 4))
+                   (line-to (- [right rect] 6) (- [bottom rect] 4))
+                   (stroke))
+                  ((eq? type 'restore)
+                   (set-line-width 1)
+                   (move-to (+ [left rect] 3) (- [bottom rect] 3 0.5))
+                   (line-to-rel 5.5 0)
+                   (line-to-rel 0 -4)
+                   (line-to-rel -5.5 0)
+                   (move-to-rel 0 -1)
+                   (line-to-rel 6 0)
+                   (move-to-rel -5.5 0)
+                   (line-to-rel 0 5)
+                   (move-to (+ [left rect] 8) (- [bottom rect] 6 0.5))
+                   (line-to-rel 2.5 0)
+                   (line-to-rel 0 -4)
+                   (line-to-rel -5.5 0)
+                   (move-to-rel 0 -1)
+                   (line-to-rel 6 0)
+                   (move-to-rel -5.5 0)
+                   (line-to-rel 0 3)             
+                   (stroke))
+                  ((eq? type 'maximize)
+                   (move-to (+ [left rect] 3) (- [bottom rect] 3 0.5))
+                   (line-to-rel 8.5 0)
+                   (line-to-rel 0 -7)
+                   (line-to-rel -8.5 0)
+                   (move-to-rel 0 -1)
+                   (line-to-rel 9 0)
+                   (move-to-rel -8.5 0)
+                   (line-to-rel 0 7.5)
+                   (stroke))))))))
+  
+  
+  (method public (draw-radio-button rect <Rect> . rest)
+    (bind-keywords ((inactive? false) (selected? false)) rest
+      (with-saved-context
+        (function dynamic ()
+          (let ((x (+ [left rect] (/ (- [right rect] [left rect]) 2)))
+                (y (+ [top rect] (/ (- [bottom rect] [top rect]) 2)))
+                (r (/ (- [right rect] [left rect]) 2)))
+            (cairo_arc context x y r 0 (* 2 M_PI))
+            (set-color (if inactive? 
+                           {Color name: Light-Background}
+                         {Color name: White}))
+            (fill)
+            (set-line-width 1)
+            (cairo_arc context x y r (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+            (set-color {Color name: Draw-Edge-Medium})
+            (stroke)
+            (cairo_arc context x y (- r 1) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+            (set-color {Color name: Draw-Edge-Dark})
+            (stroke)
+            (cairo_arc context x y r (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+            (set-color {Color name: White})
+            (stroke)
+            (cairo_arc context x y (- r 1) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+            (set-color {Color name: Draw-Edge-Light})
+            (stroke)
+            (when selected?
+              (cairo_arc context x y (/ r 3) 0 (* 2 M_PI))
+              (set-color {Color name: Black})
+              (fill)))))))
+  
+  
+  (method public (draw-push-button rect <Rect> . rest)
+    (bind-optionals ((pushed? false)) rest
+      (with-saved-context
+        (function dynamic ()
+          (set-line-width 1)
+          (if pushed?
+              (begin
+                (set-color {Color name: Draw-Edge-Dark})
+                (line [left rect] [top rect] (- [right rect] 1) [top rect])
+                (line [left rect] [top rect] [left rect] (- [bottom rect] 1))
+                (set-color {Color name: Draw-Edge-Medium})
+                (line (+ [left rect] 1) (+ [top rect] 1) (- [right rect] 2) (+ [top rect] 1))
+                (line (+ [left rect] 1) (+ [left rect] 1) (+ [left rect] 1) (- [bottom rect] 2))
+                (set-color {Color name: White})
+                (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])
+                (line (- [right rect] 1) (- [bottom rect] 1) [left rect] (- [bottom rect] 1)))
+            (set-color {Color name: White})
+            (move-to [left rect] (- [bottom rect] 1))
+            (line-to-no-stroke [left rect] [top rect])
+            (line-to-no-stroke (- [right rect] 1) [top rect])
+            (stroke)
+            (set-line-width 1)
+            (set-color {Color name: Draw-Edge-Dark})
+            (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])
+            (line (- [right rect] 1) (- [bottom rect] 1) [left rect] (- [bottom rect] 1))
+            (set-color {Color name: Draw-Edge-Medium})
+            (line (- [right rect] 2) (+ [top rect] 1) (- [right rect] 2) (- [bottom rect] 1))
+            (line (- [right rect] 2) (- [bottom rect] 2) (+ [left rect] 1) (- [bottom rect] 2)))))))
+     
+  
+  ;;;
+  ;;;; Bliting
+  ;;;
+  
+  
+  (method public (bit-blit dest-dc <Cairo-Win32-Surface> . rest)
+    (bind-keywords ((position {Point 0 0}) (destination {Point 0 0}) (destination-size null)) rest
+      (let ((dest-context (get-context~ dest-dc)))
+        (cairo_save dest-context)
+        (cairo_set_source_surface dest-context (get-surface) [h destination] [v destination])
+        (paint~ dest-dc)
+        (cairo_restore dest-context))))
+  
+  
+  ;;;
+  ;;;; Select Object
+  ;;;
+  
+  
+  (method public (set-font font <Font>)
+    (cairo_set_font_face context (get-cairo-font~ font))
+    (cairo_set_font_size context (exact->inexact (/ (* (get-point-size~ font) 96) 72))))
+  
+  
+  (method public (set-pen pen <Pen>)
+    (set-line-width (get-width~ pen))
+    (set-color (get-color~ pen)))
+  
+  
+  (method public (draw-edge rect <Rect> . rest)
+    (bind-keywords ((edges 'rectangle) (inner null) (outer null)) rest
+      (let ((edges (if (eq? edges 'rectangle) '(left right top bottom) edges)))
+        (with-saved-context
+          (function dynamic ()
+            (set-line-width 1)
+            (when (memq? 'top edges)
+              (cond ((eq? inner 'raised)
+                     (set-color {Color name: White})
+                     (if outer                
+                         (line [left rect] (+ [top rect] 1) [right rect] (+ [top rect] 1))
+                       (line [left rect] [top rect] [right rect] [top rect])))
+                    ((eq? inner 'sunken)
+                     (set-color {Color name: Draw-Edge-Dark})
+                     (if outer                
+                         (line [left rect] (+ [top rect] 1) [right rect] (+ [top rect] 1))
+                       (line [left rect] [top rect] [right rect] [top rect])))))
+            (when (memq? 'left edges)
+              (cond ((eq? inner 'raised)
+                     (set-color {Color name: White})
+                     (if outer                
+                         (line (+ [left rect] 1) [top rect] (+ [left rect] 1) [bottom rect])
+                       (line [left rect] [top rect] [left rect] [bottom rect])))
+                    ((eq? inner 'sunken)
+                     (set-color {Color name: Draw-Edge-Dark})
+                     (if outer                
+                         (line (+ [left rect] 1) [top rect] (+ [left rect] 1) [bottom rect])
+                       (line [left rect] [top rect] [left rect] [bottom rect])))))
+            (when (memq? 'right edges)
+              (cond ((eq? inner 'raised)
+                     (set-color {Color name: Draw-Edge-Medium})
+                     (if outer                
+                         (line (- [right rect] 2) [top rect] (- [right rect] 2) [bottom rect])
+                       (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])))
+                    ((eq? inner 'sunken)
+                     (set-color (new Color :red 241 :green 239 :blue 226))
+                     (if outer               
+                         (line (- [right rect] 2) [top rect] (- [right rect] 2) [bottom rect])
+                       (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])))))
+            (when (memq? 'bottom edges)
+              (cond ((eq? inner 'raised)
+                     (set-color {Color name: Draw-Edge-Medium})
+                     (if outer                
+                         (line [left rect] (- [bottom rect] 2) [right rect] (- [bottom rect] 2))
+                       (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1))))
+                    ((eq? inner 'sunken)
+                     (set-color {Color name: Draw-Edge-Light})
+                     (if outer                
+                         (line [left rect] (- [bottom rect] 2) [right rect] (- [bottom rect] 2))
+                       (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1))))))
+            (when (memq? 'top edges)
+              (cond ((eq? outer 'raised)
+                     (set-color {Color name: Draw-Edge-Light})
+                     (line [left rect] [top rect] [right rect] [top rect]))
+                    ((eq? outer 'sunken)
+                     (set-color {Color name: Draw-Edge-Medium})
+                     (line [left rect] [top rect] [right rect] [top rect]))))
+            (when (memq? 'left edges)
+              (cond ((eq? outer 'raised)
+                     (set-color {Color name: Draw-Edge-Light})
+                     (line [left rect] [top rect] [left rect] [bottom rect]))
+                    ((eq? outer 'sunken)
+                     (set-color {Color name: Draw-Edge-Medium})
+                     (line [left rect] [top rect] [left rect] [bottom rect]))))
+            (when (memq? 'right edges)
+              (cond ((eq? outer 'raised)
+                     (set-color {Color name: Draw-Edge-Dark})
+                     (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect]))
+                    ((eq? outer 'sunken)
+                     (set-color {Color name: White})
+                     (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect]))))
+            (when (memq? 'bottom edges)
+              (cond ((eq? outer 'raised)
+                     (set-color {Color name: Draw-Edge-Dark})
+                     (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1)))
+                    ((eq? outer 'sunken)
+                     (set-color {Color name: White})
+                     (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1))))))))))
+  
+
+  (method public (fill-rect rect <Rect> color)
+    (with-saved-context
+      (function dynamic ()
+        (set-color color)
+        (draw-rectangle rect)
+        (fill))))
+        
+  
+  (method public (draw-check h <int> v <int>)
+    (line (+ h 0) (+ v 2) (+ h 0) (+ v 5))
+    (line (+ h 1) (+ v 3) (+ h 1) (+ v 6))
+    (line (+ h 2) (+ v 4) (+ h 2) (+ v 7))
+    (line (+ h 3) (+ v 3) (+ h 3) (+ v 6))
+    (line (+ h 4) (+ v 2) (+ h 4) (+ v 5))
+    (line (+ h 5) (+ v 1) (+ h 5) (+ v 4))
+    (line (+ h 6) (+ v 0) (+ h 6) (+ v 3))
+    (stroke))
+  
+  
+  (method public (draw-raised rect <Rect>)
+    (with-saved-context
+      (function dynamic ()
+        (set-pen (new Pen color: {Color name: Light-Background})))
+        (move-to [left rect] (- [bottom rect] 1))
+        (line-to-no-stroke [left rect] [top rect])
+        (line-to-no-stroke (- [right rect] 1) [top rect])
+        (stroke)
+        (set-pen (new Pen color: {Color name: Dark}))
+        (move-to (- [right rect] 1) [top rect])
+        (line-to-no-stroke (- [right rect] 1) (- [bottom rect] 1))
+        (line-to [left rect] (- [bottom rect] 1))))
+  
+  
+  (method public (draw-arrow-tip h <int> v <int> size direction)
+    (with-saved-context
+      (function dynamic ()
+        (set-line-width 1)
+        (case direction
+          ((up)
+           (let ((width (- (+ size size) 1)))
+             (increase! v (- size 1))
+             (for-each (function dynamic (n)
+                         (line h v (+ h width) v)
+                         (increase! h)
+                         (decrease! v)
+                         (decrease! width 2))
+                       (naturals 0 size))))
+          ((down)
+           (let ((width (- (+ size size) 1)))
+             (for-each (function dynamic (n)
+                         (line h v (+ h width) v)
+                         (increase! h)
+                         (increase! v)
+                         (decrease! width 2))
+                       (naturals 0 size))))
+          ((left)
+           (let ((height (- (+ size size) 1)))
+             (increase! h (- size 1))
+             (for-each (function dynamic (n)
+                         (line h v h (+ v height))
+                         (decrease! h)
+                         (increase! v)
+                         (decrease! height 2))
+                       (naturals 0 size))))
+          ((right)
+           (let ((height (- (+ size size) 1)))
+             (for-each (function dynamic (n)
+                         (line h v h (+ v height))
+                         (increase! h)
+                         (increase! v)
+                         (decrease! height 2))
+                       (naturals 0 size))))))))
+  
+  
+  (method (with-outside/inside outside inside procedure)
+    (with-saved-context
+      (function dynamic ()
+        (procedure)
+        (if (not (null? outside))
+            (begin
+              (set-color (if (is? outside Color)
+                             outside
+                           (get-color-for-object outside)))
+              (set-line-width (if (and (is? outside Pen) (not (nil? (get-width~ outside))))
+                                  (get-width~ outside)
+                                1))
+              (stroke-preserve)))
+        (if (not (null? inside))
+            (begin
+              (set-color (if (is? inside Color)
+                             inside
+                           (get-color-for-object inside)))
+              (fill))))))
+  
+  
+  (method public (frame-rect rect <Rect> color)
+    (with-saved-context
+      (function dynamic ()
+        (set-line-width 1)
+        (set-color color)
+        (draw-rectangle 
+          (new Rect 
+            (+ [left rect] 0.5)
+            (+ [top rect] 0.5)
+            (- [right rect] 0.5)
+            (- [bottom rect] 0.5)))
+        (stroke))))
+  
+  
+  (method public (rectangle rect <Rect> outside inside)
+    (with-outside/inside outside inside
+      (function dynamic ()
+        (draw-rectangle rect))))
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method public (get-color-for-object object)
+    (cond
+      ((is? object Pen)
+       (let ((color (get-color~ object)))
+         (if (nil? color)
+             (eval-symbol (get-name~ object) Color)
+           color)))))
+  
+  
+  ;;;
+  ;;;; Cairo Primitives
+  ;;;
+  
+  
+  (method public (move-to h v)
+    (cairo_move_to context (exact->inexact h) (exact->inexact v)))
+  
+  
+  (method public (line-to h v)
+    (line-to-no-stroke (exact->inexact h) (exact->inexact v))
+    (stroke))
+  
+  
+  (method public (line-to-preserve h v)
+    (line-to-no-stroke (exact->inexact h) (exact->inexact v))
+    (stroke-preserve))
+  
+
+  (method public (line-to-no-stroke h v)
+    (let* ((pt (cairo_current_point context))
+           (cur-h (get-point-x pt))
+           (cur-v (get-point-y pt)))
+      (let ((h (if (= cur-h h)
+                   (begin
+                     (move-to (+ cur-h 0.5) cur-v) 
+                     (+ h 0.5))
+                 h))
+            (v (if (= cur-v v)
+                   (begin
+                     (move-to cur-h (+ cur-v 0.5))
+                     (+ v 0.5))
+                 v)))
+        (cairo_line_to context (exact->inexact h) (exact->inexact v)))))
+  
+  
+  (method public (line-to-rel dh dv)
+    (cairo_rel_line_to context (exact->inexact dh) (exact->inexact dv)))
+  
+  
+  (method public (move-to-rel dh dv)
+    (cairo_rel_move_to context (exact->inexact dh) (exact->inexact dv)))
+  
+  
+  (method public (line h v dest-h dest-v)
+    (move-to h v)
+    (line-to dest-h dest-v))
+  
+  
+  (method public (pixel-to h v)
+    (move-to h v)
+    (line-to (+ h 1) v))
+  
+  
+  (method public (set-line-width w)
+    (cairo_set_line_width context (exact->inexact w)))
+  
+  
+  (method public (get-line-width)
+    (cairo_get_line_width context))
+  
+  
+  (method public (set-color-alpha r g b a)
+    (cairo_set_source_rgba context r g b a))
+  
+  
+  (method public (stroke)
+    (cairo_stroke context))
+  
+  
+  (method public (stroke-preserve)
+    (cairo_stroke_preserve context))
+  
+  
+  (method public (paint)
+    (cairo_paint context))
+  
+  
+  (method public (fill)
+    (cairo_fill context))
+  
+  
+  (method public (draw-rectangle rect <Rect>)
+    (let ((x [left rect])
+          (y [top rect])
+          (w (- [right rect] [left rect]))
+          (h (- [bottom rect] [top rect])))
+      (cairo_rectangle context
+                      (exact->inexact x)
+                      (exact->inexact y)
+                      (exact->inexact w)
+                      (exact->inexact h))))
+  
+  
+  (method public (set-color color <Color>)    
+    (let ((r (/ [red color] 255.0))
+          (g (/ [green color] 255.0))
+          (b (/ [blue color] 255.0)))  
+      (cairo_set_source_rgb context 
+                            (exact->inexact r) 
+                            (exact->inexact g) 
+                            (exact->inexact b))))
+  
+  
+  (method (add-color-stop-rgb pattern offset color)
+    (let ((red (/ [red color] 255))
+          (green (/ [green color] 255))
+          (blue (/ [blue color] 255)))
+      (cairo_pattern_add_color_stop_rgb pattern (exact->inexact offset) (exact->inexact red) (exact->inexact green) (exact->inexact blue))))
+  
+  
+  (method public (cairo-status)
+    (cairo_status context))
+  
+  
+  (method public (cairo-surface-status)
+    (cairo_surface_status surface))))

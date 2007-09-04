@@ -1,0 +1,208 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Connectors
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Connector jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Connector extends Line-View
+
+
+  (property client initialize {} getter get-client setter set-client)
+  (property start  initialize {} getter get-start  setter set-start)
+  (property end    initialize {} getter get-end    setter set-end)
+  
+  
+  (slot start-view initialize {})
+  (slot end-view   initialize {})
+    
+  
+  (method (initially-visible?)
+    false)
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client value)
+    (set! client value))
+
+
+  (method public (get-start)
+    start)
+
+
+  (method public (set-start value)
+    (set! start value)
+    (when start-view
+      (ending-removed start-view)
+      (set! start-view null)))
+
+
+  (method public (get-end)
+    end)
+
+
+  (method public (set-end value)
+    (set! end value)
+    (when end-view
+      (ending-removed end-view)
+      (set! end-view null)))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method protected virtual (default-client)
+    parent)
+  
+
+  ;;;
+  ;;;; Find
+  ;;;
+  
+  
+  (method public (get-start-view)
+    (either start-view (essay start (set! start-view (setup-ending start)))))
+  
+  
+  (method public (get-end-view)
+    (either end-view (essay end (set! end-view (setup-ending end)))))
+  
+  
+  (method (setup-ending name)
+    (let ((client (if client (find-component client) (default-client))))
+      (when client
+        (let ((view (find-ending client name)))
+          (when view
+            (ending-added view)
+            view)))))
+  
+  
+  (method protected virtual (find-ending client name)
+    (find-component~ client name))
+  
+  
+  (method protected virtual (ending-added view)
+    )
+  
+  
+  (method protected virtual (ending-removed view)
+    )
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method public (update)
+    (let ((s (get-start-view))
+          (e (get-end-view)))
+      (when (and s e)
+        (let* ((s (get-center~ s))
+               (e (get-center~ e))
+               (lw (ceil (+ (/ (line-width) 2) Tolerance)))
+               (top (- (min [v s] [v e]) lw))
+               (left (- (min [h s] [h e]) lw))
+               (right (+ (max [h s] [h e]) lw))
+               (bottom (+ (max [v s] [v e]) lw)))
+          (set-bounds (new Rect left top right bottom))
+          (let ((p (get-position)))
+            (set-from (- s p))
+            (set-to (- e p)))))))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  
+  (definition Unselected-Color
+    {Color name: Black})
+  
+  
+  (method protected virtual (unselected-color)
+    Unselected-Color)
+
+  
+  (method (line-color)
+    (let ((rank (selection-rank~ surrogate)))
+      (if rank
+          (selected-color~ (get-editor~ surrogate) rank)
+        (unselected-color))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+
+  
+  @convert-descriptor
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((start) "Start")
+      ((end)   "End")
+      (else (nextmethod property))))
+  
+  
+  (method (component-surrogate)
+    Connector-Surrogate)
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((start end) (new String-Row :nullable? true))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(start end))))

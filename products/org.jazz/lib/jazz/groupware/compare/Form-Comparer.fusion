@@ -1,0 +1,107 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Forms
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Form-Comparer jazz
+
+
+(import (jazz.groupware)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Form-Comparer extends Tree-Comparer
+  
+  
+  (method (compare-nodes/leaves nodes leaves)
+    (leaves)
+    (nodes))
+  
+  
+  ;;;
+  ;;;; Form
+  ;;;
+  
+  
+  (method (form-present form)
+    (get-name~ form)
+    @code-present
+    (get-presentation~ form))
+  
+  
+  ;;;
+  ;;;; Item
+  ;;;
+    
+  
+  (method (create-item item)
+    (if (is? item Form)
+        (let ((title (form-present item)))
+          (if (null? title)
+              (error "Sorry, for now every component must have a name to be compared")
+            (make-item item title null)))
+      (make-item item (car item) (cdr item))))
+    
+  
+  (method (get-item-content item kind)
+    (let* ((form [moniker item])
+           (content (case kind ((nodes) (get-nodes form)) ((leaves) (get-leaves form)))))
+      (map create-item content)))
+  
+  
+  (method (get-nodes form)
+    (get-children~ form))
+  
+  
+  (method (get-leaves form)
+    (let ((leaves null))
+      (for-each-property (function dynamic (property value)
+                           (let ((symbol (if (field? property) (field-name property) property)))
+                             (set! leaves (cons (cons symbol value) leaves))))
+                         (get-properties~ form))
+      leaves))
+  
+  
+  (method (get-item-type item)
+    (if (is? item Form)
+        'node
+      'leaf))
+  
+  
+  (method (different? leaf1 leaf2 check-algorithm)
+    (let ((value1 [value leaf1])
+          (value2 [value leaf2]))
+      (/= value1 value2)))))

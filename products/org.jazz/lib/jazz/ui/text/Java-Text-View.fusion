@@ -1,0 +1,330 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Java Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Java-Text-View jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Java-Text-View extends CppJava-Text-View
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'java-text)
+  
+  
+  (method (preferences)
+    (get-preferences '(documents java-text)))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (frame-workspaces)
+    '(text))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (new Java-Text-Menu))
+
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+
+
+  (method (favorite-completions)
+    (get-completions~ (get-preferences '(documents java-text))))
+
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (method (get-first-special?)
+    false)
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("#pragma"
+      "#define"
+      "#undef"
+      "#if"
+      "#elif"
+      "#else"
+      "#endif"
+      "defined"
+      "static"
+      "abstract"
+      "final"
+      "class"
+      "interface"
+      "extends"
+      "implements"
+      "synchronized"
+      "throws"
+      "new"
+      "this"
+      "public"
+      "protected"
+      "private"
+      "virtual"
+      "native"
+      "if"
+      "else"
+      "instanceof"
+      "while"
+      "for"
+      "do"
+      "switch"
+      "case"
+      "default"
+      "break"
+      "continue"
+      "return"
+      "try"
+      "catch"
+      "finally"
+      "throw"
+      "true"
+      "false"
+      "nil"
+      "void"
+      "boolean"
+      "char"
+      "int"
+      "short"
+      "long"
+      "double"
+      "float"
+      "import"
+      "package"
+      nextmethod))
+  
+  
+  (method (get-keywords)
+    Keywords)
+    
+  
+  ;;;
+  ;;;; User
+  ;;;
+
+  
+  (method (get-user-macros user)
+    (get-macros~ (get-preferences '(documents java-text))))
+
+  
+  (method (get-user-keywords user)
+    (get-keywords~ (get-preferences '(documents java-text))))
+
+  
+  (method (get-user-types user)
+    (get-types~ (get-preferences '(documents java-text))))
+      
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (definition Syntax-Targets
+    null)
+  
+  (definition Syntax-Automata
+    null)
+  
+  
+  (method (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method (get-parsed-entries)
+    (let ((moniker (get-moniker))
+          (cataloguer (get-cataloguer~ (get-application))))
+      (if (and moniker (file? moniker) (not (get-modified?)) cataloguer)
+          (let* ((entries (get-file-entries~ cataloguer moniker :context '(cpp/java)))
+                 (file-entry (car entries)))
+            (if (and file-entry (= (get-time~ file-entry) (get-moniker-time~ (get-controller))))
+                (get-definitions~ file-entry)
+              (get-parsed-entries-from moniker)))
+        (let ((file (create-temporary-file)))
+          (save-lines~ file (get-content) (get-limit))
+          (unwind-protect
+              (get-parsed-entries-from file)
+            (delete-file~ file))))))
+  
+  
+  (method (get-parsed-entries-from file)
+    (catch (Parse-Error err
+             (user-message "Error at line {s}" [row (get-start~ err)])
+             null)
+      (let* ((ast (parse-java file Java-AST))
+             (definitions (java-definitions ast :include-references? false)))
+        (clear-user-message)
+        definitions)))
+
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method (save-content moniker)
+    (nextmethod moniker)
+    (let ((pref (get-preferences 'catalogs :error? false)))
+      (when (and pref (get-recolorize-on-save?~ pref))
+        (recolorize-entries))))
+    
+  
+  ;;;
+  ;;;; Wizard
+  ;;;
+
+  
+  (method (on-insert-accessors evt)
+    (let* ((entries (get-parsed-entries))
+           (class (car entries))
+           (properties (gather-properties class))
+           (start (get-start))
+           (printer (new Text-Printer self)))
+      (with-atomic-undo~ undoer
+        (function dynamic ()
+          (set-caret (new Cell [row start] 0))
+          (insert-accessors class properties printer)))))
+  
+  
+  (method (gather-properties class)
+    (let ((definitions (get-definitions~ class)))
+      (coerce (collect-if (function dynamic (entry)
+                            (and (is? entry Variable-Entry)
+                                 (not (has-modifier?~ entry 'static))))
+                          definitions)
+              List)))
+  
+  
+  (method (insert-accessors class properties printer)
+    (for-each (function dynamic (property)
+                (format printer "{%}{%}")
+                (insert-getter property printer)
+                (format printer "{%}{%}")
+                (insert-setter property printer))
+              properties)
+    (format printer "{%}{%}")
+    (insert-tostring class properties printer))
+  
+  
+  (method (insert-getter property printer)
+    (let ((name (get-name~ property))
+          (type (get-type~ property)))
+      (format printer "{& 1}public {a} get{a}(){%}" type (capitalize name))
+      (format printer "{& 1}~{{%}")
+      (format printer "{& 2}return {a};{%}" name)
+      (format printer "{& 1}}{%}")))
+  
+  
+  (method (insert-setter property printer)
+    (let ((name (get-name~ property))
+          (type (get-type~ property)))
+      (format printer "{& 1}public set{a}({a} value){%}" (capitalize name) type)
+      (format printer "{& 1}~{{%}")
+      (format printer "{& 2}{a} = value;{%}" name)
+      (format printer "{& 1}}{%}")))
+  
+  
+  (method (insert-tostring class properties printer)
+    (format printer "{& 1}public String toString(){%}")
+    (format printer "{& 1}~{{%}")
+    (format printer "{& 2}StringWriter sw = new StringWriter();{%}{%}")
+    (format printer "{& 2}sw.write(\"[{a}]\");{%}" (get-name~ class))
+    (let* ((names (map (function dynamic (property) (capitalize (get-name~ property))) properties))
+           (max (apply generic-max (map length names))))
+      (for-each (function dynamic (name)
+                  (format printer "{& 2}sw.write(\"\\n{a}{_ :v} :\" + get{a}());{%}"
+                          name (- max (length name))
+                          name))
+                names))
+    (format printer "{& 2}sw.write(\"\\n\");{%}{%}")
+    (format printer "{& 2}return sw.toString();{%}")
+    (format printer "{& 1}}{%}")))
+
+
+;;;
+;;;; Java-Text-Menu
+;;;
+
+
+(class Java-Text-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: update-catalog    title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
+      (<Label-Item>     name: recolorize-syntax title: "&Recolorize Syntax" icon: {Bitmap-Resource "Refresh"} action: {Action code-text recolorize-syntax})
+      (<Separator-Item>)
+      (<Label-Item>     name: insert-accessors  title: "Insert &Accessors" before: get-latest action: {Action java-text insert-accessors})
+      (<Label-Item>     name: goto-line         title: "&Goto Line" action: {Action text goto-line})
+      (<Separator-Item>)
+      (<Label-Item>                             title: "&Column"
+        (<Column-Menu>))
+      (<Label-Item>                             title: "&Format"
+        (<Format-Menu>))))))

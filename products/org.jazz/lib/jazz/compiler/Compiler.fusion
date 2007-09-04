@@ -1,0 +1,4635 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz->C++ Compiler
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.compiler.Compiler jazz
+
+
+(import (jazz.compiler)
+        (jazz.library)
+        (jazz.utilities))
+
+
+;;;
+;;;; File Lexicon
+;;;
+
+
+;; f      -> function
+;; g      -> typed function
+;; l      -> local function
+;; e      -> external
+;;
+;; sym    -> symbol
+;; cst    -> constant
+;; off    -> slot-offset
+;; fld    -> direct field
+;; inh    -> inherited field
+;; met    -> meta field
+;; out    -> outer field
+;; typ    -> typed field
+;; ipr    -> imported definition
+;;
+;; init    -> init object
+;; make    -> make object
+;; setup   -> setup class
+;; link    -> link class
+;; protect -> gc protect class
+;; install -> install class
+;; load    -> load class
+
+
+;;;
+;;;; Code Lexicon
+;;;
+
+
+;; s -> self
+;; p -> function parameters
+;; e -> lexical environments
+;;
+;; r -> result
+;; v -> local variable
+;; h -> heap allocated local variables
+;; b -> lexical ptr
+;; f -> call stack
+;; k -> used by bind-keywords
+;; x -> dispatch context
+;; y -> dispatch form accessor
+;; t -> bind target
+;;
+;; [acdgijlmnoquwz] -> unused
+;;
+;; SLG -> slot get
+;; FDG -> final definition get
+;; CVG -> class virtual definition get
+;; IVG -> interface virtual definition get
+;; IVS -> interface virtual definition set
+;;
+;; DG  -> dispatch getter structure
+;; DS  -> dispatch setter structure
+;; CDG -> call dispatch getter
+;; CDS -> call dispatch setter
+;;
+;; LOC -> get local variable
+
+
+;;;
+;;;; Variable Lexicon
+;;;
+
+
+;; v0, v1, v2, ... : for not referenced functions
+;; LOC(b, ...) with b stack allocated : for dynamic functions
+;; LOC(b, ...) with b heap allocated : for all other functions
+
+
+;;;
+;;;; Reference Lexicon
+;;;
+
+
+;; constant  -> literal value
+;; imported  -> imported field
+;; inherited -> inherited field
+;; metaref   -> meta field
+;; outerref  -> outer class field
+;; typedref  -> typed field referencing an outside class
+
+
+;;;
+;;;; Optimization Lexicon
+;;;
+
+
+;; inlined external
+;; inlined method
+;; distribution?
+;;   dont track allocation
+;;   dont count arguments for bind-optional
+;; generate-symbols?
+;;   include jazz method name in C++ name
+;; procedure-frames?
+;;   dont put CompiledProcedureFrame
+;; sealed?
+;;   hard-code slot offset, not evaluated at runtime
+;;   dont count param/rest for CompiledCoClosure/CompiledMethod/CompiledFunction
+;;   dont use eval_procedure for external definitions
+;;   dont use eval_procedure for local non-virtual definitions
+;;   dont check CompiledClosure function
+;;   typed-access? direct method call when type available
+
+
+;;;
+;;;; Class Initialization
+;;;
+
+
+;;	void initX0(jObject s, cObject model)
+;;	{
+;;		static cObject ascendant;
+;;	
+;;		if (! ascendant)
+;;			ascendant = castClass(model->ascendantGet());
+;;	
+;;		(*ascendant->initprocGet())(s, ascendant);
+;;	}
+;;	
+;;	jObject makeX0(jObject context, cObject model, jObjectPtr rest)
+;;	{
+;;		jObject object;
+;;		track_allocation(model);
+;;		object = model->allocate(model, rest);
+;;		object->initialize(rest);
+;;		return object;
+;;	}
+;;	
+;;	void setupX0()
+;;	{
+;;		sym0 = intern(L"benchmark");
+;;		sym1 = intern(L"Boolean");
+;;	}
+;;	
+;;	void linkX0()
+;;	{
+;;		ipr0 = RESOLVE_IMPORTED(L"Kernel-Foundation1", L"reverse", 0);
+;;	}
+;;	
+;;	void protectX0()
+;;	{
+;;	}
+;;	
+;;	void installX0(jObject n, jUnit u)
+;;	{
+;;		cObject c = castClass(u);
+;;	
+;;		fld0[0] = definition_install(u, 1, 0, true, false, false, 0, L"foo", JcNewCompiledMethod(foo_f00, 1, false), false);
+;;		fld0[1] = definition_install(u, 1, 0, true, false, false, 0, L"bar", JcNewCompiledMethod(bar_f01, 1, false), false);
+;;	
+;;		if (n)
+;;			set_value(n, u);
+;;	
+;;		JcInitializeUnit(u);
+;;	
+;;		JcInstallCostubTables(castClass(u));
+;;	
+;;		u->isDefinedSet(true);
+;;	}
+;;	
+;;	jUnit loadX0()
+;;	{
+;;		fld0 = new jField[2];
+;;	
+;;		add_root(protectX0);
+;;		setupX0();
+;;		linkX0();
+;;	
+;;		jPackage p = JcResolvePackage(sym0);
+;;		jUnit a = load_unit(L"Object");
+;;		jUnit u = new_class(castMetaclass(loadXClass1(a)), intern(L"X"), p, NULL, false, true, false, a, varlist(NOOBJECT), 0, 0, 2, 0, Nil, makeX0, initX0);
+;;	
+;;		installX0(intern(L"X"), castClass(u));
+;;	
+;;		return u;
+;;	}
+;;	
+;;	int dummy = register_unit(intern(L"X"), loadX0, 127274712660000000L, false);
+
+
+;;;
+;;;; Object Initialization
+;;;
+
+
+;; init   -> init object
+;; make   -> make object
+
+
+;;;
+;;;; Compiler
+;;;
+
+
+(class Compiler extends Object uses (Interpreter Development Utilities System Windows COM)
+
+
+  ;; This should really be an advanced property in user preferences...
+  (definition meta Allow-Edited-C++?
+    false)
+  
+  
+  (definition RESULT
+    "r")
+
+
+  (slot name)
+  (slot project)
+  (slot environment)
+  (slot c++-compiler-class)
+  (slot unit)
+  (slot unit-name)
+  (slot object?)
+  (slot manifest-properties)
+  (slot configuration)
+  (slot parent)
+  (slot toplevel)
+  (slot toplevel?)
+  (slot distribution?)
+  (slot sealed?)
+  (slot procedure-frames?)
+  (slot direct-externals?)
+  (slot typed-access?)
+  (slot printer)
+  (slot sequencer)
+  (slot metaclass-stage?)
+  (slot metaclass-name)
+  (slot metaclass-rank)
+  (slot package-constant)
+  (slot properties-constant)
+  (slot unit-rank)
+  (slot unique-rank)
+  (slot inner-units)
+  (slot method-rank)
+  (slot function-rank)
+  (slot external-rank)
+  (slot symbol-rank)
+  (slot constant-rank)
+  (slot slot-offset-rank)
+  (slot inherited-rank)
+  (slot metaref-rank)
+  (slot outerref-rank)
+  (slot imported-rank)
+  (slot typed-rank)
+  (slot unique-id)
+  (slot forms)
+  (slot forms-size)
+  (slot symbols)
+  (slot constants)
+  (slot slot-offsets)
+  (slot functions)
+  (slot inherited)
+  (slot metaref)
+  (slot outerref)
+  (slot imported)
+  (slot typed)
+  (slot structures)
+  (slot prototypes)
+  (slot target-files)
+  (slot source-file)
+  (slot object-file)
+  (slot target-hashtable)
+  (slot extra-entries)
+  (slot generate-symbols?)
+
+
+  (method (initialize . rest)
+    (bind-keywords ((unit-name null) (settings-name null) (settings-files null) (hashtable-name null) (hashtable-files null) (extra-entries null) (project null) (object? false) (manifest-properties null) (unit null) (configuration 'debug) (parent null) (toplevel self) (metaclass-stage? false)) rest
+      (nextmethod)
+      (setup-c++-compiler)
+      (cond ((or unit-name unit)
+             (setup-unit unit-name project object? manifest-properties unit configuration parent toplevel metaclass-stage?))
+            (settings-name
+             (setup-settings settings-name settings-files extra-entries project))
+            (hashtable-name
+             (setup-hashtable hashtable-name hashtable-files extra-entries project)))))
+  
+  
+  (method (setup-c++-compiler)
+    (set! c++-compiler-class (get-compiler-class)))
+
+
+  (method (setup-unit n prj o? mp unt cfg p top ms?)
+    (set! name n)
+    (set! project prj)
+    (set! object? (if (not ms?) (memq? n '(Object Unit Type)) o?)) ;; ultra vomis
+    (set! manifest-properties mp)
+    (set! configuration cfg)
+    (set! parent p)
+    (set! toplevel top)
+    (set! toplevel? (= self toplevel))
+    (set! distribution? (get-distribution?~ (current-policy)))
+    (set! sealed? (get-sealed?~ (current-policy)))
+    (set! procedure-frames? (not distribution?))
+    (set! direct-externals? sealed?)
+    (set! typed-access? false @w (and sealed? (not object?)))
+    (set! metaclass-stage? ms?)
+    (set! metaclass-name null)
+    (set! metaclass-rank null)
+    (set! unit unt)
+    (set! generate-symbols? true @it-seems-absolutly-no-info-about-names-is-preserved-in-the-exe (get-generate-symbols?~ (current-policy)))
+    (set! inner-units null)
+    (set! method-rank 0)
+    (set! function-rank 0)
+    (set! external-rank 0)
+    (set! symbol-rank 0)
+    (set! constant-rank 0)
+    (set! slot-offset-rank 0)
+    (set! inherited-rank 0)
+    (set! metaref-rank 0)
+    (set! outerref-rank 0)
+    (set! imported-rank 0)
+    (set! typed-rank 0)
+    (set! unique-id 0)
+    (set! symbols (new List-Factory))
+    (set! constants (new List-Factory))
+    (set! slot-offsets (new List-Factory))
+    (set! functions null)
+    (set! inherited (new List-Factory))
+    (set! metaref (new List-Factory))
+    (set! outerref (new List-Factory))
+    (set! structures null)
+    (set! prototypes null)
+    (when (not toplevel?)
+      (setup-forms))
+    (cond (toplevel?
+           (set! unique-rank 0)
+           (set! imported (new List-Factory))
+           (set! typed (new List-Factory)))
+          (else
+           (set! printer [printer toplevel])
+           (set! sequencer [sequencer toplevel])))
+    (set! unit-rank (get-unique-rank~ toplevel)))
+  
+  
+  (method (setup-files)
+    (when toplevel?
+      (set! target-files (list (get-unit-file~ project name)))
+      (set! source-file (get-source-file~ project name false))
+      (set! object-file (get-object-file~ project name false))))
+  
+  
+  (method (setup-environment)
+    (set! environment (new-environment (project-analyser-map~ project) null)))
+  
+  
+  (method (setup-forms)
+    (setup-environment)
+    (when (null? unit)
+      (set! unit (get-unit name environment)))
+    (set! unit-name (type-name unit))
+    (set! forms (collect-forms unit))
+    (set! forms-size (length forms)))
+
+
+  (method (setup-settings n f e prj)
+    (set! name n)
+    (set! target-files f)
+    (set! target-hashtable (new-target-hashtable))
+    (set! extra-entries e)
+    (set! project prj)
+    (set! source-file (get-source-file~ project name true))
+    (set! object-file (get-object-file~ project name true)))
+
+
+  (method (setup-hashtable n f e prj)
+    (set! name n)
+    (set! target-files f)
+    (set! target-hashtable (new-target-hashtable))
+    (set! extra-entries e)
+    (set! project prj)
+    ;; this is something of a temporary patch because my change to fold-symbol caused a problem
+    (set! symbols null)
+    (set! source-file (get-source-file~ project name true))
+    (set! object-file (get-object-file~ project name true)))
+  
+  
+  (method (new-target-hashtable)
+    (let ((hashtable (new-hashtable :eq?)))
+      (for-each (function dynamic (file)
+                  (load-hashtable hashtable file false))
+                target-files)
+      hashtable))
+  
+  
+  (method (some-target-modified?)
+    (some? (function dynamic (file)
+             (> (get-modification-time~ file) (get-modification-time~ source-file)))
+           target-files))
+
+
+  (method (collect-forms unit)
+    (map (function dynamic (info)
+           (bind (name . value) info
+             (list (essay name (unit-field unit name)) value (if (and generate-symbols? name) (symbolic-name name) "") null)))
+         (unit-forms unit)))
+
+
+  (method public (compile-toplevel . rest)
+    (bind-keywords ((force? false) (reporter null) (log null) (output null)) rest
+      (setup-files)
+      (let ((source-absent?)
+            (object-absent?)
+            (target-modified?)
+            (source-modified?))
+        (when (or force?
+                  (set! source-absent? (not (exists?~ source-file)))
+                  (set! object-absent? (not (exists?~ object-file)))
+                  (set! target-modified? (some-target-modified?))
+                  (set! source-modified? (> (get-modification-time~ source-file) (get-modification-time~ object-file))))
+          (when reporter
+            (user-message~ reporter "Compiling {s}..." name))
+          (let ((timer (new Timer)))
+            (if (and Allow-Edited-C++?
+                     (not force?)
+                     (not source-absent?)
+                     (not object-absent?)
+                     (not target-modified?)
+                     source-modified?)
+                (begin
+                  (invoke-c++-compiler name log output)
+                  true)
+              (setup-forms)
+              (with-closed ((prt (new File-Printer :temporary? true :readable? true)))
+                (set! printer prt)
+                (set! sequencer (new Print-Sequencer printer))
+                (let ((header     (emit-toplevel-header))
+                      (toplevel   (emit-toplevel))
+                      (register   (emit-registration))
+                      (import     (emit-import-declarations)
+        (jazz.library)
+        (jazz.utilities))
+                      (typed      (emit-typed-declarations))
+                      (structures (emit-structure-declarations))
+                      (footer     (emit-toplevel-footer)))
+                  (put-sections~ sequencer header)
+                  (put-sections~ sequencer import)
+                  (put-sections~ sequencer typed)
+                  (put-sections~ sequencer structures)
+                  (put-sections~ sequencer toplevel)
+                  (put-sections~ sequencer register)
+                  (put-sections~ sequencer footer)
+                  (with-closed ((output (new File-Printer :pathname source-file)))
+                    (print-sections~ sequencer output))))
+              (when reporter
+                (user-message~ reporter "Compiling {s}... {s} seconds"
+                  unit-name
+                  (get-duration-in-seconds~ timer)))
+              (invoke-c++-compiler unit-name log output)
+              true))))))
+  
+  
+  (method (emit-toplevel-header)
+    (list
+      (emit-file-header)))
+  
+  
+  (method (emit-toplevel)
+    (let ((sections (new List-Factory)))
+      (compile-unit sections)
+      (get-output~ sections)))
+
+
+  (method (compile-unit sections)
+    (unless (or metaclass-stage? (memq? unit-name '(Unit Type)))
+      (compile-metaclass sections))
+    (compile-inner-units sections)
+    (compile-unit-proper sections))
+  
+  
+  ;; unit = <class Package> -> (class-of unit) = Object~Class, not Package~Class
+  (method (compile-metaclass sections)
+    (let ((metaclass-compiler (new Compiler :project project :unit (class-of unit) :configuration configuration :toplevel toplevel :object? object? :metaclass-stage? true)))
+      (compile-unit~ metaclass-compiler sections)
+      (set! metaclass-name [unit-name metaclass-compiler])
+      (set! metaclass-rank [unit-rank metaclass-compiler])))
+
+
+  (method (compile-inner-units sections)
+    (for-each (function dynamic (info rank)
+                (bind (field value symbolic) info
+                  (when (compilation-unit? value)
+                    (let ((inner-compiler (new Compiler :project project :unit value :configuration configuration parent: self :toplevel toplevel)))
+                      (compile-unit~ inner-compiler sections)
+                      (set! inner-units (cons (list value [unit-rank inner-compiler] symbolic) inner-units))))))
+              forms
+              (naturals 0 forms-size)))
+
+
+  (method (compile-unit-proper sections)
+    (let ((header     (emit-section-header (->string unit-name) metaclass-stage?))
+          (package    (emit-package))
+          (properties (emit-properties))
+          (code       (emit-unit-code))
+          (init       (emit-init-proc))
+          (make       (emit-make-proc))
+          (setup      (emit-setup-proc))
+          (install    (emit-install-proc))
+          (protect    (emit-protect-proc))
+          (link       (emit-link-proc))
+          (load       (emit-load-proc))
+          (declare    (emit-declarations))
+          (prototypes (emit-prototypes)))
+      (put~ sections header)
+      (put~ sections declare)
+      (put~ sections package)
+      (put~ sections properties)
+      (put~ sections prototypes)
+      (put-sequence~ sections code)
+      (put-sequence~ sections setup)
+      (put~ sections link)
+      (put~ sections protect)
+      (put~ sections install)
+      (put~ sections load)))
+
+
+  ;;;
+  ;;;; Sequencer
+  ;;;
+  
+  
+  (method (end-section)
+    (end-section~ sequencer))
+
+
+  ;;;
+  ;;;; Symbolic
+  ;;;
+  
+  
+  (definition Symbolic-Names
+    (new-map))
+  
+  
+  (method (symbolic-name name)
+    (if generate-symbols?
+        (either (map-ref Symbolic-Names name)
+                (map-set! Symbolic-Names name (c++-name name)))
+      ""))
+  
+  
+  (method (symbolic-function-name prefix rank n symbolic)
+    (if (empty-string? symbolic)
+        (format "{s}{s}{s}" prefix rank n)
+      (format "{a}_{s}{s}{s}" symbolic prefix rank n)))
+  
+  
+  (method (symbolic-external-name prefix n symbolic)
+    (if (empty-string? symbolic)
+        (format "{s}{s}" prefix n)
+      (format "{a}_{s}{s}" symbolic prefix n)))
+  
+  
+  (method (symbolic-stub-name prefix n symbolic)
+    (if (empty-string? symbolic)
+        (format "{s}{s}" prefix n)
+      (format "{a}_{s}{s}" symbolic prefix n)))
+
+
+  ;;;
+  ;;;; Settings
+  ;;;
+
+
+  (method public (bind-settings reporter log output)
+    (when (or (not (exists?~ source-file))
+              (not (exists?~ object-file))
+              ;; no way at the moment to determine if something has changed...
+              true)
+      (when reporter
+        (user-message~ reporter "Binding {a}..." name))
+      (with-closed ((prt (new File-Printer :temporary? true :readable? true)))
+        (set! printer prt)
+        (set! sequencer (new Print-Sequencer printer))
+        (let ((header (emit-settings-header))
+              (code   (emit-settings-code)))
+          (put-section~ sequencer header)
+          (put-section~ sequencer code)
+          (with-closed ((output (new File-Printer :pathname source-file)))
+            (print-sections~ sequencer output))))
+      (invoke-c++-compiler (append "_" name) log output)
+      true))
+  
+  
+  (method (emit-settings-header)
+    (format printer "#include \"Jazz.h\"{%}")
+    (format printer "#include \"JBoot.h\"{%}")
+    (format printer "#include \"JCompiledSettings.h\"{%}")
+    (format printer "#include \"JSettings.h\"{%}")
+    (emit-section-header "Settings" false))
+  
+  
+  (method (emit-settings-code)
+    (format printer "{%}")
+    (format printer "void initialize_settings(){%}")
+    (format printer "~{{%}")
+    (for-each-hash emit-setting-entry target-hashtable)
+    (for-each-property emit-setting-entry extra-entries)
+    (format printer "}{%}")
+    (end-section))
+  
+  
+  (method (emit-setting-entry name value)
+    (format printer "{&}add_setting(\"{s}\", \"{a}\");{%}"
+            name
+            (typecase value
+              ((Boolean) (c-boolean value))
+              (else (->string value :reader)))))
+
+
+  ;;;
+  ;;;; Hashtable
+  ;;;
+
+
+  (method public (bind-hashtable reporter log output)
+    (when (or (not (exists?~ source-file))
+              (not (exists?~ object-file))
+              ;; no way at the moment to determine if something has changed...
+              true)
+      (when reporter
+        (user-message~ reporter "Binding {a}..." name))
+      (with-closed ((prt (new File-Printer :temporary? true :readable? true)))
+        (set! printer prt)
+        (set! sequencer (new Print-Sequencer printer))
+        (let ((header   (emit-hashtable-header))
+               (loader   (emit-hashtable-loader))
+               (register (emit-hashtable-registration))
+               (footer   (emit-hashtable-footer)))
+          (put-sections~ sequencer header)
+          (put-sections~ sequencer loader)
+          (put-sections~ sequencer register)
+          (put-sections~ sequencer footer)
+          (with-closed ((output (new File-Printer :pathname source-file)))
+            (print-sections~ sequencer output))))
+      (invoke-c++-compiler (append "_" name) log output)
+      true))
+  
+  
+  (method (emit-hashtable-header)
+    (list
+      (emit-file-header)
+      (emit-section-header name false)))
+
+
+  (method (emit-hashtable-loader)
+    (format printer "{%}")
+    (format printer "void i(jHashtable m){%}")
+    (format printer "~{{%}")
+    (for-each-hash emit-hashtable-entry target-hashtable)
+    (for-each-property emit-hashtable-entry extra-entries)
+    (format printer "}{%}")
+    (list (end-section)))
+  
+  
+  (method (emit-hashtable-entry name value)
+    (format printer "{&}hash_set(m, intern(L\"{a}\"), " name)
+    (if (symbol? value)
+        (format printer "intern(L\"{a}\")" value)
+      (fold value))
+    (format printer ");{%}"))
+
+
+  (method (emit-hashtable-registration)
+    (format printer "{%}")
+    (format printer "int dummy = register_hashtable(intern(L{s}), i);{%}"
+            name)
+    (list (end-section)))
+
+
+  (method (emit-hashtable-footer)
+    (format printer "}{%}")
+    (list (end-section)))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-unique-rank)
+    (prog1 unique-rank
+      (increase! unique-rank)))
+
+
+  (method (get-rank)
+    unit-rank)
+
+
+  (method (get-unique-id)
+    (prog1 unique-id
+      (increase! unique-id)))
+
+
+  (method (unique prefix)
+    (string->symbol (append prefix (->string (get-unique-id)))))
+
+
+  ;;;
+  ;;;; Emit
+  ;;;
+
+
+  (method (emit-file-header)
+    (case (get-output-type~ project)
+      ((dll)  (format printer "#include \"JAll.h\"{%}"))
+      (else (format printer "#include \"Jazz.h\"{%}")
+            (format printer "#include \"JBoot.h\"{%}")))
+    (format printer "#include \"JCompiled.h\"{%}{%}")
+    (emit-file-header~ c++-compiler-class printer)
+    (format printer "namespace ~{{%}")
+    (end-section))
+
+
+  (method (emit-section-header section-name metaclass-stage?)
+    (format printer "{%}")
+    (let* ((metaclass (if metaclass-stage? " Metaclass" ""))
+           (length (+ (length section-name) (length metaclass)))
+           (filler (make-string (+ length 4) #\-)))
+      (format printer "//{a}{%}" filler)
+      (format printer "/// {a}{a}{%}" section-name metaclass)
+      (format printer "//{a}{%}" filler)
+      (end-section)))
+  
+  
+  (method (emit-package)
+    (unless metaclass-stage?
+      (let* ((package (unit-package unit))
+             (name (essay package (type-name package))))
+        (set! package-constant (register-constant name))))
+    (end-section))
+  
+  
+  (method (emit-properties)
+    (set! properties-constant (register-constant (unit-properties unit)))
+    (end-section))
+
+
+  (method (emit-unit-code)
+    (let ((sections (new List-Factory)))
+      (compile-forms sections)
+      (compile-functions sections)
+      (get-output~ sections)))
+  
+  
+  (method (emit-prototypes)
+    (when prototypes
+      (format printer "{%}")
+      (for-each (function dynamic (reference)
+                  (bind (name . prototype) reference
+                    (format printer "{a};{%}" prototype)))
+                prototypes))
+    (end-section))
+  
+  
+  (method (method-prototype name)
+    (format "jObject {a}(jObject, jObjectPtr)" name))
+  
+  
+  (method (closure-prototype name)
+    (format "jObject {a}(jObject, jObjectPtr, tPtrPtr)" name))
+  
+  
+  (method (emit-init-proc)
+    (when (class? unit)
+      (let ((object "s")
+            (level 1)
+            (result "r")
+            (asc (type-ascendant unit)))
+        (format printer "void init{a}{s}(jObject {a}, cObject model){%}"
+                (symbolic-name unit-name)
+                (get-rank)
+                object)
+        (format printer "~{{%}")
+        (when asc
+          (format printer "{& :v}static cObject ascendant;{%}{%}" level)
+          (format printer "{& :v}if (! ascendant){%}" level)
+          (format printer "{& :v}ascendant = castClass(model->ascendantGet());{%}{%}" (+ level 1))
+          (format printer "{& :v}(*ascendant->initprocGet())({a}, ascendant);{%}" level object))
+        (let ((first? true))
+          (for-each (function dynamic (slot)
+                      (let* ((typeref (get-typeref slot))
+                             (type (resolve-type typeref)))
+                        (unless (eq? type void)
+                          (when first?
+                            (when asc
+                              (format printer "{%}"))
+                            (format printer "{& :v}jObject r;{%}" level)
+                            (format printer "{& :v}r;{%}" level)
+                            @buggy-see-Compiler-Benchmark.test
+                            (let ((offset (class-first-slot-offset unit)))
+                              (format printer "{& :v}jObjectPtr ptr = (jObjectPtr) ({a}->get_slots() + {a});{%}" level object offset))
+                            (format printer "{& :v}jObjectPtr ptr = (jObjectPtr) ((tPtr) {a} + model->firstSlotOffsetGet() + model->baseSizeGet());{%}" level object)
+                            (set! first? false))
+                          (let* ((initializer (slot-initializer slot))
+                                 (code (if (nil? initializer) "UNBOUND" (get-code~ (compile initializer object level result) null))))
+                            (format printer "{& :v}*ptr++ = {a};{%}" level code)))))
+                    (class-slots unit)))
+        (format printer "}{%}{%}"))))
+  
+  
+  (method (emit-make-proc)
+    (when (class? unit)
+      (format printer "jObject make{a}{s}(jObject context, cObject model, jObjectPtr rest){%}"
+              (symbolic-name unit-name)
+              (get-rank))
+      (format printer "~{{%}")
+      (format printer "{&}jObject object;{%}")
+      (unless distribution?
+        (format printer "{&}track_allocation(model);{%}"))
+      (format printer "{&}object = model->allocate(model, rest);{%}")
+      (when (unit-inner? unit)
+        (format printer "{&}object->set_object_container(context);{%}"))
+      (when (class-synchronized? unit)
+        (format printer "{&}object->set_object_monitor(NULL);{%}"))
+      (format printer "{&}object->initialize(rest);{%}")
+      (format printer "{&}return object;{%}")
+      (format printer "}{%}{%}")))
+
+
+  (method (emit-setup-proc)
+    (let ((start-section)
+          (symbols-section)
+          (constants-section)
+          (finish-section))
+      ;; start
+      (format printer "void setup{a}{s}(){%}"
+              (symbolic-name unit-name)
+              (get-rank))
+      (format printer "~{")
+      (set! start-section (end-section))
+      (let ((constants (get-output~ constants)))
+        ;; constants
+        (emit-constants constants)
+        (set! constants-section (end-section))
+        (let ((symbols (get-output~ symbols)))
+          ;; symbols
+          (emit-symbols symbols)
+          (when (and (null? symbols) (null? constants))
+            (format printer "{%}"))
+          (set! symbols-section (end-section))))
+      ;; finish
+      (format printer "}{%}")
+      (set! finish-section (end-section))
+      (list start-section symbols-section constants-section finish-section)))
+
+
+  (method (emit-link-proc)
+    (format printer "{%}")
+    (format printer "void link{a}{s}(){%}"
+            (symbolic-name unit-name)
+            (get-rank))
+    (format printer "~{")
+    (when toplevel?
+      (emit-imported)
+      (emit-typed))
+    (format printer "{$}}{%}")
+    (end-section))
+
+
+  (method (emit-protect-proc)
+    (format printer "{%}")
+    (format printer "void protect{a}{s}(){%}" (symbolic-name unit-name) (get-rank))
+    (format printer "~{{%}")
+    (for-each (function dynamic (info)
+                (bind (value . rank) info
+                  (format printer "{&}MRK(cst{s});{%}" rank)))
+              (get-output~ constants))
+    (format printer "}{%}")
+    (end-section))
+
+
+  (method (emit-install-proc)
+    (format printer "{%}")
+    (format printer "void install{a}{s}({a}jUnit u){%}"
+            (symbolic-name unit-name)
+            (get-rank)
+            (if toplevel? "jObject n, " ""))
+    (format printer "~{")
+    (when (class? unit)
+      (format printer "{%}")
+      (format printer "{&}cObject c = castClass(u);{%}"))
+    (emit-inherited)
+    (emit-metaref)
+    (emit-outerref)
+    (emit-slot-offsets)
+    (install-forms)
+    (when toplevel?
+      (format printer "{$}")
+      (format printer "{&}if (n){%}")
+      (format printer "{& 2}set_value(n, u);"))
+    (install-inners)
+    (when (and (not metaclass-stage?) (type-ascendant unit) (not (memq? unit-name '(Unit Type Object))))
+      (format printer "{$}{%}")
+      (format printer "{&}JcInitializeUnit(u);{%}"))
+    (cond ((class? unit)
+           (format printer "{$}")
+           (format printer "{&}JcInstallCostubTables(castClass(u));{%}"))
+          ((interface? unit)
+           (format printer "{$}")
+           (format printer "{&}JcInstallCointerface(castInterface(u), false);{%}")))
+    (format printer "{%}{&}u->isDefinedSet(true);{%}")
+    (format printer "}{%}")
+    (end-section))
+  
+  
+  ;;;
+  ;;;; Declarations
+  ;;;
+  
+  
+  (method (emit-declarations)
+    (emit-symbols-declarations)
+    (emit-constants-declarations)
+    (emit-slot-offsets-declarations)
+    (emit-inherited-declarations)
+    (emit-meta-declarations)
+    (emit-outer-declarations)
+    (emit-direct-declarations)
+    (end-section))
+  
+  
+  (method (output-declarations fact type prefix)
+    (let ((output (get-output~ fact)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (ignore . rank) info
+                    (format printer "{a} {a}{s};{%}" type prefix rank)))
+                output)))
+  
+  
+  (method (emit-symbols-declarations)
+    (output-declarations symbols "jObject" "sym"))
+  
+  
+  (method (emit-constants-declarations)
+    (output-declarations constants "jObject" "cst"))
+  
+  
+  (method (emit-slot-offsets-declarations)
+    (output-declarations slot-offsets "tInt" "off"))
+  
+  
+  (method (emit-inherited-declarations)
+    (output-declarations inherited "jField" "inh"))
+  
+  
+  (method (emit-meta-declarations)
+    (output-declarations metaref "jField" "met"))
+  
+  
+  (method (emit-outer-declarations)
+    (output-declarations outerref "jField" "out"))
+  
+  
+  (method (emit-import-declarations)
+    (let ((output (get-output~ imported)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (definition rank direct-external?) info
+                    (if direct-external?
+                        (format printer "jDefinition ipr{s}; CEP ipp{s}; CEE ipe{s};{%}" rank rank rank)
+                      (format printer "jDefinition ipr{s};{%}" rank))))
+                output))
+    (list (end-section)))
+  
+  
+  (method (emit-typed-declarations)
+    (let ((output (get-output~ typed)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (field rank) info
+                    (format printer "jField typ{s};{%}" rank)))
+                output))
+    (list (end-section)))
+  
+  
+  (method (emit-structure-declarations)
+    (when structures
+      (format printer "{%}")
+      (for-each (function dynamic (size)
+                  (format printer "typedef struct ~{ tByte pad[{s}]; } tS{s};{%}" size size))
+                structures))
+    (list (end-section)))
+  
+  
+  (method (emit-direct-declarations)
+    (when (> forms-size 0)
+      (format printer "{%}")
+      (format printer "jFieldPtr fld{s};{%}" (get-rank))))
+  
+  
+  ;;;
+  ;;;; Definitions
+  ;;;
+
+
+  (method (emit-imported)
+    (let ((output (get-output~ imported)))
+      (when output
+        (format printer "{%}")
+        (for-each (function dynamic (info)
+                    (bind (definition rank direct-external?) info
+                      (emit-imported-definition definition rank direct-external?)))
+                  output))))
+
+
+  (method (emit-imported-definition definition rank direct-external?)
+    (format printer "{&}ipr{s} = {a}(L\"{s}\", L\"{s}\", {s});{%}"
+            rank
+            (if direct-external? "RESOLVE_IMPORTED_EXTERNAL" "RESOLVE_IMPORTED")
+            (type-name (metaclass-instance (field-creator (definition-origin definition))))
+            (field-name definition)
+            rank))
+
+
+  (method (emit-typed)
+    (let ((output (get-output~ typed)))
+      (when output
+        (format printer "{%}")
+        (for-each (function dynamic (info)
+                    (bind (field rank) info
+                      (emit-typed-field field rank)))
+                  output))))
+
+
+  (method (emit-typed-field field rank)
+    (let* ((creator (field-creator field))
+           (meta? (metaclass? creator))
+           (resolve (if meta? "resolve_typed_meta" "resolve_typed"))
+           (model (type-name (if meta? (metaclass-instance creator) creator))))
+      (format printer "{&}typ{s} = {a}(L\"{s}\", L\"{s}\");{%}"
+              rank
+              resolve
+              model
+              (field-name field))))
+
+
+  (method (emit-symbols symbols)
+    (when symbols
+      (format printer "{%}"))
+    (for-each (function dynamic (info)
+                (bind (symbol . rank) info
+                  (emit-symbol-definition symbol rank)))
+              symbols))
+
+
+  (method (emit-symbol-definition symbol rank)
+    (format printer "{&}sym{s} = intern(L\"{s}\");{%}" rank symbol))
+
+
+  (method (emit-constants constants)
+    (when constants
+      (format printer "{%}"))
+    (for-each (function dynamic (info)
+                (bind (value . rank) info
+                  (emit-constant-definition value rank)))
+              constants))
+
+
+  (method (emit-constant-definition value rank)
+    (format printer "{&}cst{s} = " rank)
+    (fold value)
+    (format printer ";{%}"))
+
+
+  (method (emit-slot-offsets)
+    (let ((slot-offsets (get-output~ slot-offsets)))
+      (when slot-offsets
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (slot . rank) info
+                    (emit-slot-offset-definition slot rank)))
+                slot-offsets)))
+
+
+  (method (emit-slot-offset-definition slot rank)
+    (let ((slot-creator (field-creator slot)))
+      (cond ((= unit slot-creator)
+             (let ((relative-slot-offset (- (slot-relative-offset slot) (class-first-slot-offset unit))))
+               (format printer "{&}off{s} = c->firstSlotOffsetGet() + c->baseSizeGet() + {s};{%}"
+                       rank
+                       relative-slot-offset)))
+            ((subtype? unit slot-creator)
+             (format printer "{&}off{s} = resolve_slot_offset(c, L\"{s}\");{%}"
+                     rank
+                     (field-name slot)))
+            (else
+             ;; this can still potentially have a compilation dependency problem but
+             ;; because 99% of non-inherited slots are accessed via getters it is a
+             ;; really minor problem
+             (format printer "{&}off{s} = {s};  // {s}{%}"
+                     rank
+                     (slot-offset slot)
+                     (object-name slot-creator))))))
+
+
+  (method (emit-inherited)
+    (let ((output (get-output~ inherited)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (field . rank) info
+                    (emit-inherited-definition field rank)))
+                output)))
+
+
+  (method (emit-inherited-definition field rank)
+    (format printer "{&}inh{s} = resolve_inherited(c, L\"{s}\");{%}"
+                  rank
+                  (field-name field)))
+
+
+  (method (emit-metaref)
+    (let ((output (get-output~ metaref)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (field . rank) info
+                    (emit-metaref-field field rank)))
+                output)))
+
+
+  (method (emit-metaref-field field rank)
+    (format printer "{&}met{s} = resolve_metaref(u, L\"{s}\");{%}"
+                  rank
+                  (field-name field)))
+
+
+  (method (emit-outerref)
+    (let ((output (get-output~ outerref)))
+      (when output
+        (format printer "{%}"))
+      (for-each (function dynamic (info)
+                  (bind (field . rank) info
+                    (emit-outerref-field field rank)))
+                output)))
+
+
+  (method (emit-outerref-field field rank)
+    (format printer "{&}out{s} = resolve_outerref(u, {s}, L\"{s}\");{%}"
+                  rank
+                  (outer-level unit (field-name field))
+                  (field-name field)))
+
+
+  ;;;
+  ;;;; Install
+  ;;;
+
+
+  (method (install-forms)
+    (when forms
+      (format printer "{%}")
+      (for-each (function dynamic (info rank)
+                  (bind (field value symbolic install-info) info
+                    (install-form field value symbolic install-info rank)))
+                forms
+                (naturals 0 forms-size))))
+
+
+  (method (install-form field value symbolic info rank)
+    (typecase field
+      ((Property)
+        (bind (attr sz g s) info
+          (format printer "{&}fld{s}[{s}] = property_install(c, {s}, {s}, {a}, L\"{s}\", {a}, {a}, {a});{%}"
+                  (get-rank)
+                  rank
+                  (field-access field)
+                  (field-modifiers-count field)
+                  attr
+                  (field-name field)
+                  sz
+                  g
+                  s)))
+      ((Slot)
+        (bind (attr sz) info
+          (format printer "{&}fld{s}[{s}] = slot_install(c, {s}, {s}, {a}, L\"{s}\", {a});{%}"
+                  (get-rank)
+                  rank
+                  (field-access field)
+                  (field-modifiers-count field)
+                  attr
+                  (field-name field)
+                  sz)))
+      ((Definition)
+        ;; This optimization cannot be done while there is still some C code that calls into the Lisp code!!!
+        (when true @w (or (not sealed?) (not (field-private? field)) (get-annotation field :referenced?))
+          (bind (attr . info) info
+            (let ((value (cond ((is? value Constant)
+                                (format "{a}" info))
+                               ((external? value)
+                                (bind (var . rank) info
+                                  (let ((entry-name (external-entry-name value)))
+                                    (format "newCompiledExternal(getCompiledExternalClass(), {a}, {a}, {a}, {s}, {a}, {a})"
+                                            (either var "NULL")
+                                            (if entry-name (format "\"{a}\"" entry-name) "NULL")
+                                            (proxy-total-size value)
+                                            (proxy-nb-in value)
+                                            (c-boolean (proxy-rest? value))
+                                            (symbolic-external-name 'e rank symbolic)))))
+                               ((coexternal? value)
+                                (format "newCompiledCoExternal(getCompiledCoExternalClass(), \"{a}\", {s}, {s}, {a})"
+                                        (proxy-name value)
+                                        (coexternal-cooffset value)
+                                        (proxy-nb-in value)
+                                        (if (coexternal-unimplemented? value)
+                                            "NULL"
+                                          (symbolic-external-name 'e info symbolic))))
+                               ((structure? value)
+                                (format "newStructure(NULL, L\"{a}\", {s}, f{s}{s})"
+                                        (structure-name value)
+                                        (structure-pack value)
+                                        (get-rank)
+                                        info))
+                               ((integer? info)
+                                (format "f{s}{s}(NULL, NULL)" (get-rank) info))
+                               ((cofunction? value)
+                                (bind ((n . f) . (stub . parameters-size)) info
+                                  (if (not sealed?)
+                                      (format "newCompiledCoClosure(getCompiledCoClosureClass(), newCompiledCoFunction(getCompiledCoFunctionClass(), {a}, {s}, {s}), NULL, {a}, {s})"
+                                              (symbolic-function-name 'f (get-rank) n symbolic)
+                                              (function-nb-parameters f)
+                                              (c-boolean (function-has-rest? f))
+                                              stub
+                                              parameters-size)
+                                    (format "newCompiledCoClosure(getCompiledCoClosureClass(), {a}, NULL, {a}, {s})"
+                                            (symbolic-function-name 'f (get-rank) n symbolic)
+                                            stub
+                                            parameters-size))))
+                               ((definition-method? field)
+                                (bind (n . f) info
+                                  (let ((level (function-level f))
+                                        (new-method (cond ((is? f %syntax) "JcNewCompiledSyntax")
+                                                          ((is? f %macro) "JcNewCompiledMacro")
+                                                          (else "JcNewCompiledMethod"))))
+                                    (if (not sealed?)
+                                        (format "{a}({a}, {s}, {a})"
+                                                new-method
+                                                (symbolic-function-name 'f (get-rank) n symbolic)
+                                                (function-nb-parameters f)
+                                                (c-boolean (function-has-rest? f)))
+                                      (format "{a}({a})"
+                                              new-method
+                                              (symbolic-function-name 'f (get-rank) n symbolic))))))
+                               (else
+                                "UNBOUND"))))
+              (format printer "{&}fld{s}[{s}] = definition_install(u, {s}, {s}, {a}, {a}, false, false, {s}, {a}, L\"{s}\", {a}, {a});{%}"
+                      (get-rank)
+                      rank
+                      (field-access field)
+                      (definition-declared-propagation field)
+                      (c-boolean (definition-method? field))
+                      (c-boolean (definition-macro? field))
+                      (field-modifiers-count field)
+                      attr
+                      (field-name field)
+                      value
+                      (c-boolean (definition-codefinition? field)))))))
+      (else
+        (format printer "{&}f{s}(NULL, NULL);{%}"
+                info))))
+
+
+  ;;;
+  ;;;; Inner
+  ;;;
+
+
+  (method (install-inners)
+    (when forms
+      (for-each (function dynamic (info rank)
+                  (bind (field value symbolic install-info) info
+                    (when (compilation-unit? value)
+                      (install-inner field value symbolic install-info rank))))
+                forms
+                (naturals 0 forms-size))))
+
+
+  (method (install-inner field value symbolic info rank)
+    (bind (inner-unit inner-rank inner-symbolic) (assoc value inner-units)
+      (let ((attr (car info)))
+        (format printer "{%}{&}fld{s}[{s}] = definition_install(u, {s}, {s}, {a}, {a}, false, false, {s}, {a}, L\"{s}\", load{a}{s}(u, fld{s}), {a});"
+                (get-rank)
+                rank
+                (field-access field)
+                (definition-declared-propagation field)
+                (c-boolean (definition-method? field))
+                (c-boolean (definition-macro? field))
+                (field-modifiers-count field)
+                attr
+                (field-name field)
+                inner-symbolic
+                inner-rank
+                (get-rank)
+                (c-boolean (definition-codefinition? field))))))
+  
+  
+  ;;;
+  ;;;; Load
+  ;;;
+
+
+  (method (emit-load-proc)
+    (format printer "{%}")
+    (cond (metaclass-stage?
+           (format printer "jUnit load{a}{s}(jUnit a){%}" (symbolic-name unit-name) (get-rank)))
+          (toplevel?
+           (format printer "jUnit load{a}{s}(){%}" (symbolic-name unit-name) (get-rank)))
+          (else
+           (format printer "jUnit load{a}{s}(jUnit cnt, jFieldPtr cd){%}" (symbolic-name unit-name) (get-rank))))
+    (format printer "~{{%}")
+    (when (> forms-size 0)
+      (format printer "{&}fld{s} = new jField[{s}];{%}{%}"
+              (get-rank)
+              forms-size))
+    (format printer "{&}add_root(protect{a}{s});{%}" (symbolic-name unit-name) (get-rank))
+    (format printer "{&}setup{a}{s}();{%}"
+            (symbolic-name unit-name)
+            (get-rank))
+    (format printer "{&}link{a}{s}();{%}{%}"
+            (symbolic-name unit-name)
+            (get-rank))
+    (unless metaclass-stage?
+      (format printer "{&}jPackage p = JcResolvePackage({a});{%}" package-constant)
+      (format printer "{&}jUnit a = ")
+      (let ((asc (type-ascendant unit)))
+        (if (null? asc)
+            (format printer "NULL;{%}")
+          (emit-unit asc)
+          (format printer ";{%}"))))
+    (let ((container (if toplevel? "NULL" "cnt"))
+          (inner? (unit-inner? unit)))
+      (cond ((class? unit)
+             (format printer "{&}jUnit u = {a}({a}, intern(L\"{s}\"), "
+                     (if metaclass-stage? "new_metaclass" "new_class")
+                     (if (or metaclass-stage? (memq? unit-name '(Unit Type Object))) "getObjectMetaclass()" (format "castMetaclass(load{a}{s}(a))" (symbolic-name metaclass-name) metaclass-rank))
+                     unit-name)
+             (unless metaclass-stage?
+               (format printer "p, "))
+             (unless metaclass-stage?
+               (format printer "{a}, " container))
+             (unless metaclass-stage?
+               (format printer "{a}, " (c-boolean inner?)))
+             (unless metaclass-stage?
+               (format printer "{a}, " (c-boolean toplevel?)))
+             (unless metaclass-stage?
+               (format printer "{a}, " (c-boolean (class-synchronized? unit))))
+             (if metaclass-stage?
+                 (format printer "a ? a->get_class() : NULL, ")
+               (format printer "a, "))
+             (format printer "varlist(")
+             (for-each (function dynamic (interface)
+                         (emit-unit interface)
+                         (format printer ", "))
+                       (class-interfaces unit))
+             (format printer "NOOBJECT)")
+             (format printer ", {s}, {s}, {s}, {s}, {a}, {a}, {a}{a});{%}"
+                     (class-slots-size unit)
+                     (class-nb-slots unit)
+                     (unit-nb-definitions unit)
+                     (unit-nb-virtuals unit)
+                     properties-constant
+                     (format "make{a}{s}" (symbolic-name unit-name) (get-rank))
+                     (format "init{a}{s}" (symbolic-name unit-name) (get-rank))
+                     (if (not metaclass-stage?)
+                         ""
+                       (let ((instance (metaclass-instance unit)))
+                         (if (type-ascendant instance)
+                             ""
+                           (cond ((class? instance) ", getObjectMetaclass()")
+                                 ((interface? instance) ", getInterfaceClass()")
+                                 ((package? instance) ", getPackageClass()"))))))
+             (format printer "{%}"))
+            ((interface? unit)
+             (format printer "{&}jUnit u = new_interface(castMetaclass(load{a}{s}(a)), intern(L\"{s}\"), p, {a}, {a}, a, "
+                     (symbolic-name metaclass-name)
+                     metaclass-rank
+                     unit-name
+                     container
+                     (c-boolean inner?))
+             (format printer "{s}, {a});{%}"
+                     (unit-nb-virtuals unit)
+                     properties-constant)
+             (format printer "{%}"))
+            ((package? unit)
+             (format printer "{&}jUnit u = new_package(castMetaclass(load{a}{s}(a)), intern(L\"{s}\"), p, {a}, {a}, a, "
+                     (symbolic-name metaclass-name)
+                     metaclass-rank
+                     unit-name
+                     container
+                     (c-boolean inner?))
+             (format printer "{s}, {a});{%}"
+                     (unit-nb-definitions unit)
+                     properties-constant)
+             (format printer "{%}"))))
+    (format printer "{&}install{a}{s}({a}{a});{%}{%}"
+            (symbolic-name unit-name)
+            (get-rank)
+            (if toplevel? (format "intern(L\"{s}\"), " unit-name) "")
+            (cond ((class? unit) "castClass(u)") (else "u")))
+    (when (and (not metaclass-stage?) (eq? unit-name 'Object))
+      (format printer "{&}load_unit(intern(L\"Unit\"));{%}")
+      (format printer "{&}u->modelSet(castClass(load{a}{s}(a)));{%}{%}" (symbolic-name metaclass-name) metaclass-rank))
+    (format printer "{&}return u;{%}")
+    (format printer "}{%}")
+    (end-section))
+  
+  
+  (method (emit-unit unit)
+    (let* ((name (type-name unit))
+           (container (unit-container unit))
+           (field (essay container (unit-field container name))))
+      (if (null? field)
+          (format printer "load_unit(L\"{s}\")" name)
+        (let ((n (find-field field [forms parent])))
+          (if n
+              (format printer "castUnit(FDG(cd[{s}]))" n)
+            (format printer "castUnit(FDG(resolve_inherited(castClass(cnt), L\"{s}\")))" (field-name field)))))))
+
+
+  (method (emit-registration)
+    (let* ((target (car target-files))
+           (time (get-elapse~ (get-modification-time~ target))))
+      (format printer "{%}")
+      (format printer "int dummy = register_unit(intern(L\"{s}\"), load{a}{s}, MAKELONGLONG({a}, {a}), {a});{%}"
+              unit-name
+              (symbolic-name unit-name)
+              (get-rank)
+              (lolong time)
+              (hilong time)
+              (c-manifest-properties manifest-properties))
+      (list (end-section))))
+  
+  
+  (method (c-manifest-properties manifest-properties)
+    (let ((properties (collect-boolean-properties manifest-properties)))
+      (if (null? properties)
+          "Nil"
+        (let ((printer (new String-Printer)))
+          (format printer "varlist(")
+          (for-each (function dynamic (property)
+                      (bind (key . value) property
+                        (format printer "intern(L\"{a}\"), {a}, " key (if value "True" "False"))))
+                    properties)
+          (format printer "NOOBJECT)")
+          (get-output~ printer)))))
+  
+  
+  ;; Only boolean values are supported in manifest properties for the moment
+  (method (collect-boolean-properties manifest-properties)
+    (let ((fact (new List-Factory)))
+      (for-each-property (function dynamic (key value)
+                           (when (boolean? value)
+                             (put~ fact (cons key value))))
+                         manifest-properties)
+      (get-output~ fact)))
+
+
+  (method (emit-toplevel-footer)
+    (format printer "}{%}")
+    (list (end-section)))
+
+
+  ;;;
+  ;;;; Registration
+  ;;;
+  
+  
+  (method (add-prefix prefix rank)
+    (format "{a}{s}" prefix rank))
+  
+  
+  (method (register-prototype name prototype)
+    (set! prototypes (cons (cons name prototype) prototypes)))
+
+
+  (method (register-constant constant)
+    (cond ((nil? constant)
+           "Null")
+          ((null? constant)
+           "Nil")
+          ((boolean? constant)
+           (if constant "True" "False"))
+          ((symbol? constant)
+           (register-symbol-constant constant))
+          (else
+           (register-composite-constant constant))))
+  
+
+  (method (register-symbol-constant symbol)
+    (add-prefix "sym"
+      (either (cdr (assq symbol (get-list~ symbols)))
+              (let ((rank [symbol-rank toplevel]))
+                (increase! [symbol-rank toplevel])
+                (put~ symbols (cons symbol rank))
+                rank))))
+
+  
+  (method (register-composite-constant constant)
+    (add-prefix "cst"
+      (either (cdr (assq constant (get-list~ constants)))
+              (let ((rank [constant-rank toplevel]))
+                (increase! [constant-rank toplevel])
+                (put~ constants (cons constant rank))
+                rank))))
+
+  
+  (method (register-slot-offset slot)
+    (if sealed?
+        (slot-offset slot)
+      (add-prefix "off"
+        (either (cdr (assq slot (get-list~ slot-offsets)))
+                (let ((rank [slot-offset-rank toplevel]))
+                  (increase! [slot-offset-rank toplevel])
+                  (put~ slot-offsets (cons slot rank))
+                  rank)))))
+
+
+  (method (register-inherited field)
+    (add-prefix "inh"
+      (either (cdr (assq field (get-list~ inherited)))
+              (let ((rank [inherited-rank toplevel]))
+                (increase! [inherited-rank toplevel])
+                (put~ inherited (cons field rank))
+                rank))))
+
+
+  (method (register-metaref field)
+    (add-prefix "met"
+      (either (cdr (assq field (get-list~ metaref)))
+              (let ((rank [metaref-rank toplevel]))
+                (increase! [metaref-rank toplevel])
+                (put~ metaref (cons field rank))
+                rank))))
+
+
+  (method (register-outerref field)
+    (add-prefix "out"
+      (either (cdr (assq field (get-list~ outerref)))
+              (let ((rank [outerref-rank toplevel]))
+                (increase! [outerref-rank toplevel])
+                (put~ outerref (cons field rank))
+                rank))))
+
+
+  (method (register-imported field)
+    (add-prefix "ipr"
+      (let ((info (assq field (get-list~ [imported toplevel]))))
+        (if info
+            (second info)
+          (let ((rank [imported-rank toplevel]))
+            (increase! [imported-rank toplevel])
+            (put~ [imported toplevel] (list field rank (direct-external-definition? field)))
+            rank)))))
+  
+  
+  (method (register-typedref field)
+    (add-prefix "typ"
+      (let ((info (assq field (get-list~ [typed toplevel]))))
+        (if info
+            (second info)
+          (let ((rank [typed-rank toplevel]))
+            (increase! [typed-rank toplevel])
+            (put~ [typed toplevel] (list field rank))
+            rank)))))
+  
+  
+  (method (register-structure size)
+    (unless (memq? size [structures toplevel])
+      (set! [structures toplevel] (cons size [structures toplevel])))
+    (format "tS{s}" size))
+  
+  
+  (method (direct-external-definition? field)
+    (and direct-externals?
+         (definition? field)
+         (external? (definition-value field))))
+
+
+  (method (register-function fn)
+    (let ((rank [function-rank toplevel]))
+      (increase! [function-rank toplevel])
+      (set! functions (append functions (list (cons rank fn))))
+      rank))
+
+
+  ;;;
+  ;;;; C++
+  ;;;
+  
+  
+  (method (invoke-c++-compiler name log output)
+    (let ((compiler (new c++-compiler-class :project project :file source-file)))
+      (compile~ compiler :log log :output output)))
+
+
+  ;;;
+  ;;;; Compilation
+  ;;;
+  
+  
+  (method (compilation-unit? object)
+    (and (unit? object)
+         (not (structure? object))))
+
+
+  (method (language-field name)
+    (if (= unit-name 'Kernel)
+        (unit-field unit name)
+      (unit-field (class-of (get-unit 'Kernel environment)) name)))
+
+
+  (method (compile-forms sections)
+    (format printer "{%}")
+    (for-each (function dynamic (info rank)
+                (bind (field value symbolic) info
+                  (let ((install-info (compile-form field value symbolic rank sections)))
+                    (when install-info
+                      (set-fourth! info install-info)))))
+              forms
+              (naturals 0 forms-size)))
+
+
+  (method (compile-form field value symbolic rank sections)
+    (cond ((structure? value)
+           (compile-structure-form field value rank symbolic sections))
+          ((class? value)
+           (compile-class-form field value rank symbolic sections))
+          ((interface? value)
+           (compile-interface-form field value rank symbolic sections))
+          ((external? value)
+           (compile-external-form field value rank symbolic sections))
+          ((coexternal? value)
+           (compile-coexternal-form field value rank symbolic sections))
+          (else
+           (typecase field
+             ((Property)   (compile-property-form   field value rank symbolic sections))
+             ((Slot)       (compile-slot-form       field value rank symbolic sections))
+             ((Definition) (compile-definition-form field value rank symbolic sections))
+             (else       (error "Unknown form: {t}" field))))))
+
+
+  (method (compile-functions sections)
+    (while functions
+      (let ((info (car functions)))
+        (set! functions (cdr functions))
+        (bind (rank . fn) info
+          (compile-registered-function rank "" fn 0 sections)))))
+
+
+  (method (compile-form-form form rank symbolic sections)
+    (when form
+      (register-constant form)
+      null))
+
+
+  (method (compile-class-form definition class rank symbolic sections)
+    (list (register-constant (get-attributes definition))))
+
+
+  (method (compile-interface-form definition interface rank symbolic sections)
+    (list (register-constant (get-attributes definition))))
+
+
+  (method (compile-property-form property value rank symbolic sections)
+    (let* ((typeref (get-typeref property))
+           (type (resolve-type typeref))
+           (getter (property-getter property))
+           (setter (property-setter property)))
+      (list
+        (register-constant (get-attributes property))
+        (if (null? type) -1 (size-of type))
+        (register-constant (if (field? getter) (field-name getter) getter))
+        (register-constant (if (field? setter) (field-name setter) setter)))))
+
+
+  (method (compile-slot-form slot value rank symbolic sections)
+    (let* ((typeref (get-typeref slot))
+           (type (resolve-type typeref)))
+      (list
+        (register-constant (get-attributes slot))
+        (if (null? type)
+            -1
+          (size-of type)))))
+
+
+  (method (compile-definition-form definition value rank symbolic sections)
+    (cons (register-constant (get-attributes definition))
+          (if (function? value)
+              (let ((info (compile-method-form definition value rank symbolic sections)))
+                (if (cofunction? value)
+                    (cons info (compile-costub value rank symbolic 0))
+                  info))
+            (if (is? value Constant)
+                (register-constant (get-value~ value))
+              (compile-function-form 'f rank "" null null 0 false false false false false 0 true (list value) "s" (field-name definition) 0 sections)))))
+
+
+  (method (compile-external-form definition external rank symbolic sections)
+    (let* ((lib (external-library external))
+           (cnst (essay lib (register-constant (library-name lib))))
+           (rank [external-rank toplevel])
+           (debug-info (proxy-name external)))
+      (increase! [external-rank toplevel])
+      (format printer "jObject {a}(jObject s, jObjectPtr p, tProc e) // {s}{%}" (symbolic-external-name 'e rank symbolic) debug-info)
+      (format printer "~{{%}")
+      ;; Only important for externals into Jazz because they can potentially make callbacks into Jazz code.
+      (when (and procedure-frames? (null? lib))
+        (format printer "{&}CompiledProcedureFrame cpf(L\"{a}.{a}\", s, p);{%}" unit-name debug-info))
+      (compile-external
+        external
+        (proxy-result external)
+        (proxy-contextual? external)
+        (proxy-nb-parameters external)
+        (proxy-nb-in external)
+        (proxy-nb-out external)
+        (proxy-rest? external)
+        (proxy-nb-values external)
+        (proxy-parameters external)
+        sections)
+      (format printer "}{%}{%}")
+      (cons (register-constant (get-attributes definition))
+            (cons cnst rank))))
+
+
+  (method (compile-coexternal-form definition coexternal rank symbolic sections)
+    (cons (register-constant (get-attributes definition))
+          (unless (coexternal-unimplemented? coexternal)
+            (let ((rank [external-rank toplevel])
+                  (debug-info (proxy-name coexternal)))
+              (increase! [external-rank toplevel])
+              (format printer "jObject {a}(jObject s, jObjectPtr p, tAddress cp, tProc e) // {s}{%}" (symbolic-external-name 'e rank symbolic) debug-info)
+              (format printer "~{{%}")
+              (compile-coexternal
+               coexternal
+               (proxy-result coexternal)
+               (proxy-nb-parameters coexternal)
+               (proxy-nb-in coexternal)
+               (proxy-nb-out coexternal)
+               (proxy-nb-values coexternal)
+               (proxy-parameters coexternal)
+               sections)
+              (format printer "}{%}{%}")
+              rank))))
+
+
+  (method (compile-structure-form definition structure rank symbolic sections)
+    (let ((parts (map (function dynamic (info)
+                        (bind (typeref . rest) info
+                          (let ((reference (get-reference~ typeref))
+                                (nullable? (get-nullable?~ typeref))
+                                (pointer? (get-pointer?~ typeref)))
+                            (new-call (language-field 'cons)
+                                      (list reference (new-quote (cons nullable? (cons pointer? rest))))))))
+                      (structure-form structure))))
+      (cons (register-constant (get-attributes definition))
+            (compile-function-form 'f rank "" null null 0 false true false false false 0 true (list (new-call (language-field 'list) parts)) "s" (field-name definition) 0 sections))))
+
+
+  (method (compile-method-form definition method rank symbolic sections)
+    (let ((name (field-name definition)))
+      (cons (compile-function-form 'f rank (symbolic-name name) method (function-parameters method) (function-nb-parameters method) (function-has-rest? method) (function-inlined? method) (function-synchronized? method) (function-return-block? method) (function-return-block-cross-level? method) (function-area-size method) (function-stack-allocate? method) (function-body method) "s" name 0 sections)
+            method)))
+
+
+  (method (compile-registered-function rank symbolic function level sections)
+    (let ((name (local-function-name function)))
+      (compile-function-form 'l rank (symbolic-name name) function (function-parameters function) (function-nb-parameters function) (function-has-rest? function) (function-inlined? function) (function-synchronized? function) (function-return-block? function) (function-return-block-cross-level? function) (function-area-size function) (function-stack-allocate? function) (function-body function) "s" (format "{a}.{a}" name (function-level function)) level sections)))
+  
+  
+  (method (local-function-name function)
+    (field-name (object-definer function)))
+  
+  
+  (method (not-referenced? function)
+    (not (function-referenced? function)))
+
+  
+  (method (compile-function-form name rank symbolic fn parameters nb-parameters has-rest? inlined? synchronized? return-block? return-block-cross-level? area-size stack-allocate? body object debug-info level sections)
+    ;; optimize has to be treated somewhat specialy when it is at the toplevel of
+    ;; a function in order for it to apply to the function's compilation as a whole
+    (let ((first (car body)))
+      (if (is? first optimize)
+          (with-optimize-settings (optimize-settings first)
+            (function dynamic ()
+              (compile-function-internal name rank symbolic fn parameters nb-parameters has-rest? inlined? synchronized? return-block? return-block-cross-level? area-size stack-allocate? (optimize-body first) object debug-info level sections)))
+        (compile-function-internal name rank symbolic fn parameters nb-parameters has-rest? inlined? synchronized? return-block? return-block-cross-level? area-size stack-allocate? body object debug-info level sections))))
+
+  
+  (method (compile-function-internal name rank symbolic fn parameters nb-parameters has-rest? inlined? synchronized? return-block? return-block-cross-level? area-size stack-allocate? body object debug-info level sections)
+    (if (or (null? fn) (function-method? fn))
+        (format printer "{& :v}jObject {a}(jObject s, jObjectPtr p) // {a}{%}" level (symbolic-function-name name (get-rank) rank symbolic) debug-info)
+      (format printer "{& :v}jObject {a}(jObject s, jObjectPtr p, tPtrPtr e) // {a}{%}" level (symbolic-function-name name (get-rank) rank symbolic) debug-info))
+    (format printer "{& :v}~{{%}" level)
+    (when (and procedure-frames? (not inlined?) body)
+      (format printer "{& :v}CompiledProcedureFrame cpf(L\"{a}.{a}\", s, p);{%}" (+ level 1) unit-name debug-info))
+    (if (or (null? fn) (not-referenced? fn))
+        (begin
+          (for-each (function dynamic (rank)
+                      (let* ((parameter (element parameters rank))
+                             (typeref (get-typeref parameter)))
+                        (format printer "{& :v}{a} v{s} = {a};{%}" (+ level 1) (primitive-type typeref) rank (convert-type typeref null "*p++"))))
+                    (naturals 0 nb-parameters))
+          (when has-rest?
+            (format printer "{& :v}jObject v{s} = (jObject) p;{%}" (+ level 1) nb-parameters)))
+      (if stack-allocate?
+          (if (and (= area-size 0) (not return-block-cross-level?))
+              (format printer "{& :v}char* b = NULL;{%}" (+ level 1))
+            (begin
+              (format printer "{& :v}char b[{s}];{%}" (+ level 1) (if (= area-size 0) 1 (* area-size 4)))
+              (for-each (function dynamic (rank)
+                          (let* ((parameter (element parameters rank))
+                                 (typeref (get-typeref parameter)))
+                            (format printer "{& :v}LOC(b, {a}, {s}) = {a};{%}" (+ level 1) (primitive-type typeref) (* rank 4) (convert-type typeref null "*p++"))))
+                        (naturals 0 nb-parameters))
+              (when has-rest?
+                (format printer "{& :v}LOC(b, jObject, {s}) = (jObject) p;{%}" (+ level 1) (* nb-parameters 4)))))
+        (format printer "{& :v}jCompiledLocals h = newCompiledLocals(getCompiledLocalsClass(), {s});{%}" (+ level 1) (* area-size 4))
+        (format printer "{& :v}char* b = h->get_locals();{%}" (+ level 1))
+        (for-each (function dynamic (rank)
+                    (let* ((parameter (element parameters rank))
+                           (typeref (get-typeref parameter)))
+                      (format printer "{& :v}LOC(b, {a}, {s}) = {a};{%}" (+ level 1) (primitive-type typeref) (* rank 4) (convert-type typeref null "*p++"))))
+                  (naturals 0 nb-parameters))
+        (when has-rest?
+          (format printer "{& :v}LOC(b, jObject, {s}) = (jObject) p;{%}" (+ level 1) (* nb-parameters 4)))))
+      (if (null? body)
+          (format printer "{& :v}return Null;{%}" (+ level 1))
+        (when synchronized?
+          (format printer "{& :v}WithMonitor {a}(s->get_object_monitor());{%}" (+ level 1) (unique "with_monitor")))
+        (if return-block-cross-level?
+            (begin
+              (format printer "{& :v}tAddress ar = &b;{%}" (+ level 1))
+              (format printer "{& :v}jObject r = Null;{%}" (+ level 1))
+              (format printer "{& :v}try{%}" (+ level 1))
+              (format printer "{& :v}~{{%}" (+ level 1))
+              (compile-list-result body object (+ level 2) "r")
+              (format printer "{& :v}}{%}" (+ level 1))
+              (format printer "{& :v}catch (JCompiledReturned rtn){%}" (+ level 1))
+              (format printer "{& :v}~{{%}" (+ level 1))
+              (format printer "{& :v}if (rtn.area == ar && rtn.name == Nil){%}" (+ level 2))
+              (format printer "{& :v}r = rtn.value;{%}" (+ level 3))
+              (format printer "{& :v}else{%}" (+ level 2))
+              (format printer "{& :v}throw;{%}" (+ level 3))
+              (format printer "{& :v}}{%}" (+ level 1))
+              (format printer "{& :v}return r;{%}" (+ level 1)))
+          (let ((item (embed-list body object)))
+            (if (is? item C-Expr)
+                (format printer "{& :v}return {a};{%}" (+ level 1) (get-code~ item null))
+              (format printer "{& :v}jObject r = Null;{%}" (+ level 1))
+              (compile-list-result body object (+ level 1) "r")
+              (format printer "{& :v}return r;{%}" (+ level 1))))))
+    (format printer "{& :v}}{%}{%}" level)
+    (put~ sections (end-section))
+    rank)
+
+
+  ;;;
+  ;;;; Compile
+  ;;;
+  
+  
+  ;; If the expression can be compiled as embedded code, returns it without
+  ;; modifying the print stream, else uses full compilation into the result
+  ;; variable and returns the results variable.
+  (method (compile expr object level result . rest)
+    (bind-optionals ((implicit-dispatch null)) rest
+      (either (embed expr object implicit-dispatch)
+              (compile-complex expr object level result implicit-dispatch))))
+  
+  
+  ;; Compiles a complex expression by outputting compiled code to the print stream.
+  (method (compile-complex expr object level result implicit-dispatch)
+    (if (special? expr)
+        (compile-special expr object level result)
+      (typecase expr
+        ((Dispatch)           (compile-dispatch           expr object level result))
+        ((Meta-Reference)     (compile-meta-reference     expr object level result))
+        ((Outer-Reference)    (compile-outer-reference    expr object level result))
+        ((Imported-Reference) (compile-imported-reference expr object level result))
+        ((Syntax-Expansion)   (compile-syntax-expansion   expr object level result))
+        ((Syntax-Relocation)  (compile-syntax-relocation  expr object level result))
+        ((Call)               (compile-call               expr object level result implicit-dispatch))
+        ((Body)               (compile-body               expr object level result))
+        (else               (error "This should not happen")))))
+  
+  
+  ;; Compiles an expression into the result variable even if its an embeddable
+  ;; expression. This is a side effect method that returns no meaningful result.
+  (method (compile-result expr object level result)
+    (let ((item (compile expr object level result)))
+      (output-result~ item printer level result)))
+
+
+  ;; Compiles a list of expressions discarding every result except the last one.
+  (method (compile-list body object level result)
+    (if (null? body)
+        (let ((item (embed-null nil object)))
+          (output-result~ item printer level result))
+      (for-each-pair (function dynamic (pair)
+                       (let* ((expr (car pair))
+                              (last? (null? (cdr pair)))
+                              (result (if last? result null))
+                              (item (compile expr object level result)))
+                         (output-result~ item printer level result)))
+                     body))
+    (new C-Form self null result))
+  
+  
+  (method (embed-list body object)
+    (when (= (length body) 1)
+      (embed (car body) object)))
+
+
+  ;; Compiles a list of expressions into the result variable even if its an.
+  ;; embeddable list. This is a side effect method that returns no meaningful result.
+  (method (compile-list-result body object level result)
+    (let ((item (compile-list body object level result)))
+      (output-result~ item printer level result)))
+  
+  
+  (method (put-result result)
+    (if (null? result)
+        ""
+      (format "{a} = " result)))
+  
+  
+  (method (result-type result)
+    null)
+
+
+  (method (compile-dispatch dispatch object level result)
+    (let ((new-context (unique "x"))
+           (context (dispatch-context dispatch))
+           (form (dispatch-form dispatch)))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}// [... {a}]{%}" (+ level 1) (present-dispatch form))
+      (let ((context-item (compile context object (+ level 1) RESULT)))
+        (format printer "{& :v}jObject {s} = {a};{%}" (+ level 1) new-context (get-code~ context-item null))
+        (let* ((context-type (get-type~ context-item))
+               (item (compile-dispatched form object new-context context-type (+ level 1) result null)))
+          (output-result~ item printer (+ level 1) result))
+        (format printer "{& :v}}{%}" level)
+        (new C-Form self null result))))
+
+
+  (method (compile-dispatched expr object context context-type level result implicit-dispatch)
+    (typecase expr
+      ((Call) (compile-dispatched-call   expr object context context-type level result implicit-dispatch))
+      ((Self) (compile-dispatched-self   expr object context context-type level result implicit-dispatch))
+      (else (compile-dispatched-target expr object context context-type level result implicit-dispatch false))))
+
+
+  (method (compile-dispatched-target target object context context-type level result implicit-dispatch from-call?)
+    (if (null? implicit-dispatch)
+        (let ((target (explicit-dispatch-target target)))
+          (typecase target
+            ((Variable) (compile-dispatched-variable target object context context-type level result))
+            ((Symbol)   (compile-dispatched-symbol   target object context context-type level result from-call?))
+            (else     (error "Unable to compile dispatched target: {t}" target))))
+      (compile-dispatched-field target object context context-type level result implicit-dispatch)))
+  
+  
+  (method (explicit-dispatch-target target)
+    (typecase target
+      ((Variable Symbol) target)
+      ((Field-Reference) (field-name (field-reference-form target)))
+      (else null)))
+
+
+  (method (compile-dispatched-variable variable object context context-type level result)
+    (let ((item (embed-variable variable object)))
+      (output-result~ item printer level result))
+    (new C-Form self null result))
+
+
+  (method (compile-dispatched-symbol symbol object context context-type level result from-call?)
+    (let ((field (explicit-field context-type symbol)))
+      (if (if typed-access? (not-null? field) (slot? field))
+          @wait-typedref-fixed
+          field
+          (compile-dispatched-field field object context context-type level result 'explicit)
+        (let ((c (register-constant symbol))
+              (y (unique "y")))
+          (format printer "{& :v}static DG {s}({a});{%}" level y c)
+          (let* ((partial (format "CDG({s}, {s})" context y))
+                 (code (if from-call? partial (format "field_reference({s}, {a})" context partial))))
+            (format printer "{& :v}{a}{a};{%}" level (put-result result) code))
+          (new C-Form self null result)))))
+  
+  
+  (method (compile-dispatched-field field object context context-type level result implicit-dispatch)
+    (typecase field
+      ((Slot)       (compile-dispatched-slot       field object context context-type level result))
+      ((Definition) (compile-dispatched-definition field object context context-type level result implicit-dispatch))))
+  
+  
+  (method (compile-dispatched-slot slot object context level result)
+    (format printer "{& :v}{a} = {a};{%}" level result (get-code~ (embed-slot slot context) null))
+    (new C-Form self null result))
+  
+  
+  (method (compile-dispatched-definition definition object context context-type level result implicit-dispatch)
+    (let ((variable (resolve-field definition implicit-dispatch))
+          (creator (field-creator (definition-origin definition))))
+      (if (definition-virtual? definition)
+          (if (class? creator)
+              (format printer "{& :v}{a} = CVG({s}, {s}, {a}); // {s}{%}"
+                      level
+                      result
+                      context
+                      (class-level creator)
+                      variable
+                      (field-name definition))
+            (format printer "{& :v}{a} = IVG({s}, {a}); // {s}{%}"
+                    level
+                    result
+                    context
+                    variable
+                    (field-name definition)))
+        (format printer "{& :v}{a} = FDG({a}); // {s}{%}"
+                level
+                result
+                variable
+                (field-name definition))))
+    (new C-Form self null result))
+
+
+  (method (compile-meta-reference reference object level result)
+    (let ((new-context (unique "x")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}jObject {s} = {a}->get_class();{%}" (+ level 1) new-context object)
+      (compile-dispatched (field-reference-form reference) object new-context null (+ level 1) result 'meta)
+      (when (and (field-reference-method? reference) (field-reference-closure? reference))
+        (format printer "{& :v}{a} = castClosable({a})->context_closure({a});{%}" (+ level 1) result result new-context))
+      (format printer "{& :v}}{%}" level)
+      (new C-Form self null result)))
+
+
+  (method (compile-outer-reference reference object level result)
+    (let ((new-context (unique "x")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}jObject {s} = {a}" (+ level 1) new-context object)
+      (for-each (function dynamic (n)
+                  (format printer "->get_object_container()"))
+                (naturals 0 (outer-reference-level reference)))
+      (format printer ";{%}")
+      (compile-dispatched (field-reference-form reference) object new-context null (+ level 1) result 'outer)
+      (when (and (field-reference-method? reference) (field-reference-closure? reference))
+        (format printer "{& :v}{a} = castClosable({a})->context_closure({a});{%}" (+ level 1) result result new-context))
+      (format printer "{& :v}}{%}" level)
+      (new C-Form self null result)))
+
+
+  (method (compile-imported-reference reference object level result)
+    (if (and (field-reference-method? reference)
+             ;; do no process calls to inlined methods
+             (let ((form (field-reference-form reference)))
+                (or (is-not? form Call)
+                    (not (function-inlined? (closure-function (definition-value (call-called form))))))))
+        (let ((const (register-constant (type-name (imported-reference-creator reference))))
+              (new-context (unique "x")))
+          (format printer "{& :v}~{{%}" level)
+          (format printer "{& :v}jObject {s} = global_value({a});{%}" (+ level 1) new-context const)
+          (compile-dispatched (field-reference-form reference) object new-context null (+ level 1) result 'imported)
+          (when (field-reference-closure? reference)
+            (format printer "{& :v}{a} = castClosable({a})->context_closure({a});{%}" (+ level 1) result result new-context))
+          (format printer "{& :v}}{%}" level)
+          (new C-Form self null result))
+      (compile (field-reference-form reference) object level result 'imported)))
+  
+  
+  (method (compile-syntax-expansion expansion object level result)
+    (compile (get-expression~ expansion) object level result))
+  
+  
+  (method (compile-syntax-relocation relocation object level result)
+    (compile (get-expr~ relocation) object level result))
+
+
+  (method (compile-constant value object level result)
+    (let ((c (register-constant value)))
+      (format printer "{& :v}{a} = {a};{%}"
+              level
+              result
+              c)))
+
+
+  (method (compile-dispatched-self s object context level result implicit-dispatch)
+    (format printer "{& :v}{a} = {s};{%}"
+            level
+            result
+            context)
+    (new C-Form self null result))
+  
+  
+  (method (referenced-definition expr)
+    (if (definition? expr)
+        expr
+      (when (is? expr Field-Reference)
+        (let ((field (field-reference-form expr)))
+          (when (definition? field)
+            field)))))
+  
+  
+  (method (static-imported-rank expr implicit-dispatch)
+    (essay direct-externals?
+           (eq? implicit-dispatch 'imported)
+           (let ((field (if (is? expr Field-Reference) (field-reference-form expr) expr)))
+             (essay (definition? field)
+                    (let ((creator (field-creator field)))
+                      (essay (metaclass? creator)
+                             (package? (metaclass-instance creator))
+                             ;; I am not 100% sure of this modification
+                             (neq? creator (class-of unit))
+                             (begin
+                               (register-imported field)
+                               (let ((info (assq field (get-list~ [imported toplevel]))))
+                                 (when info
+                                   (bind (definition rank direct-external?) info
+                                     (when direct-external?
+                                       rank)))))))))))
+
+
+  (method (compile-call call object level result implicit-dispatch)
+    (let* ((expr (call-called call))
+           (definition (referenced-definition expr))
+           (name (essay definition (field-name definition)))
+           (value (essay definition (definition-value definition))))
+      (cond ((and (arithmetic? name) (integral-call? call))
+             (compile-arithmetic-integral-call call object level result))
+            ((and (external? value) (external-inlined-name value))
+             (compile-inlined-external-call call value object level result))
+            ((and (closure? value) (function-inlined? (closure-function value)))
+             (compile-inlined-call call value object level result))
+            ;; non virtual calls in the same file
+            ;; @wait-this-implies-that-a-redefine-impacts-the-whole-file
+            ((and sealed? definition (not (definition-virtual? definition)) (closure? value) (function-method? (closure-function value)) (eq? (field-creator definition) unit))
+             (compile-final-call call expr definition object level result))
+            (else
+             (let ((parameters (call-parameters call))
+                   (rank (static-imported-rank expr implicit-dispatch)))
+               (format printer "{& :v}~{{%}" level)
+               (format printer "{& :v}// ({a} ...){%}" (+ level 1) expr)
+               (when (not rank)
+                 (let ((item (compile expr object (+ level 1) RESULT implicit-dispatch)))
+                   (format printer "{& :v}jProcedure p = ({a});{%}" (+ level 1) (get-code~ item (new Typeref environment null Procedure)))))
+               (let ((nb (length parameters)))
+                 (format printer "{& :v}jObject f[{s}];{%}" (+ level 1) (+ nb 1))
+                 (for-each (function dynamic (param n)
+                             (let ((item (compile param object (+ level 1) RESULT)))
+                               (format printer "{& :v}f[{s}] = {a};{%}" (+ level 1) n (get-code~ item null))))
+                           parameters
+                           (naturals 0 nb))
+                 (format printer "{& :v}f[{s}] = NOOBJECT;{%}" (+ level 1) nb)
+                 (if (not rank)
+                     (begin
+                       (format printer "{& :v}VCD(p, {a});{%}" (+ level 1) nb)
+                       (format printer "{& :v}{a}p->eval_procedure({a}, f);{%}" (+ level 1) (put-result result) object))
+                   (format printer "{& :v}{a}(* ipp{s})({a}, f, ipe{s});{%}" (+ level 1) (put-result result) rank object rank)))
+               (format printer "{& :v}}{%}" level)))))
+    (new C-Form self null result))
+  
+  
+  (method (integral-call? call)
+    (every? (function dynamic (param)
+              (integral-type? (resolve-type (get-typeref param))))
+            (call-parameters call)))
+  
+  
+  (method (real-call? call)
+    (every? (function dynamic (param)
+              (real-type? (resolve-type (get-typeref param))))
+            (call-parameters call)))
+  
+  
+  (method (compile-arithmetic-integral-call call object level result)
+    (let* ((expr (call-called call))
+           (parameters (call-parameters call))
+           (operator expr))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}// ({a} ...){%}" (+ level 1) expr)
+      (let ((nb (length parameters)))
+        (for-each (function dynamic (param n)
+                    (format printer "{& :v}jObject r{a};{%}" (+ level 1) n)
+                    (let ((res (string->symbol (format "r{a}" n))))
+                      (compile-result param object (+ level 1) res)))
+                  parameters
+                  (naturals 0 nb))
+        (format printer "{& :v}{a}put_tInt(" (+ level 1) (put-result result))
+        (let ((first? true))
+          (for-each (function dynamic (param n)
+                      (if first?
+                          (set! first? false)
+                        (format printer " {a} " operator))
+                      (format printer "fetch_tInt(r{a})" n))
+                    parameters
+                    (naturals 0 nb)))
+        (format printer ");{%}"))
+      (format printer "{& :v}}{%}" level)))
+  
+  
+  (method (compile-inlined-external-call call intrinsic object level result)
+    (let* ((expr (call-called call))
+           (parameters (call-parameters call))
+           (types-info (proxy-parameters intrinsic))
+           (result-typeref (proxy-result intrinsic))
+           (contextual? (proxy-contextual? intrinsic))
+           (has-rest? (proxy-rest? intrinsic))
+           (name (external-inlined-name intrinsic))
+           (count (length parameters))
+           (nb (proxy-nb-parameters intrinsic))
+           (f (essay has-rest? (unique "f"))))
+      (if (or (< count nb) (and (not has-rest?) (> count nb)))
+          (error "Wrong number of arguments for {a}" name)
+        (let* ((required (subseq parameters 0 nb))
+               (embedded (map (function dynamic (param) (either (embed param object) (unique "r"))) required)))
+          (for-each (function dynamic (item param)
+                      (when (symbol? item)
+                        (format printer "{& :v}jObject {a};{%}" level item)
+                        (compile-result param object level item)))
+                    embedded
+                    required)
+          (when has-rest?
+            (let* ((lst (subseq parameters nb))
+                   (count (length lst)))
+              (format printer "{& :v}jObject {a}[{s}];{%}" level f (+ count 1))
+              (for-each (function dynamic (param n)
+                          (let ((item (compile param object level RESULT)))
+                            (format printer "{& :v}{a}[{s}] = {a};{%}" level f n (get-code~ item null))))
+                        lst
+                        (naturals 0 count))
+              (format printer "{& :v}{a}[{s}] = NOOBJECT;{%}" level f count)))
+          (let ((out (new String-Printer)))
+            (format out "{a}(" name)
+            (let ((first? true))
+              (when contextual?
+                (format out "s")
+                (set! first? false))
+              (for-each (function dynamic (item typeref)
+                          (if first?
+                              (set! first? false)
+                            (format out ", "))
+                          (format out "{a}" (if (symbol? item) (convert-type typeref null item) (get-code~ item typeref))))
+                        embedded
+                        types-info))
+            (when has-rest?
+              (format out "{a}{a}" (if (> nb 0) ", " "") f))
+            (format out ")")
+            (if (eq? (get-type~ result-typeref) void)
+                (let ((code (get-output~ out)))
+                  (format printer "{& :v}{a};{%}" level code)
+                  (format printer "{& :v}{a}Null;{%}" level (put-result result)))
+              (let ((code (convert-type null result-typeref (get-output~ out))))
+                (format printer "{& :v}{a}{a};{%}" level (put-result result) code)))))))
+    (new C-Form self null result))
+  
+  
+  (method (compile-inlined-call call closure object level result)
+    (let* ((fn (closure-function closure))
+           (body (function-body fn)))
+      (for-each (function dynamic (arg param)
+                  (let ((count (count-deep body param)))
+                    (assert (or (<= count 1) (inlineable-argument? arg)))
+                    (let ((casted-arg (casted-expr arg (get-typeref~ param))))
+                      (set! body (substitute-deep body param casted-arg)))))
+                (call-parameters call)
+                (function-parameters fn))
+      (let ((casted-body (casted-expr body (get-typeref fn))))
+        ;; cannot use the cast directly as we are compiling a list of expressions...
+        (compile-list-result body object level result)))
+    (new C-Form self null result))
+  
+  
+  (method (compile-final-call call expr definition object level result)
+    (let* ((parameters (call-parameters call))
+           (creator (field-creator definition))
+           (rank (find-field definition forms))
+           (symbolic (symbolic-name (field-name definition)))
+           (name (symbolic-function-name 'f (get-rank) rank symbolic)))
+      (unless (member? name prototypes :key car)
+        (register-prototype name (method-prototype name)))
+      (format printer "{& :v}~{{%}" level)
+      (let ((nb (length parameters)))
+        (format printer "{& :v}jObject f[{s}];{%}" (+ level 1) (+ nb 1))
+        (for-each (function dynamic (param n)
+                    (let ((item (compile param object (+ level 1) RESULT)))
+                      (format printer "{& :v}f[{s}] = {a};{%}" (+ level 1) n (get-code~ item null))))
+                  parameters
+                  (naturals 0 nb))
+        (format printer "{& :v}f[{s}] = NOOBJECT;{%}" (+ level 1) nb)
+        (format printer "{& :v}{a}{a}({a}, f);{%}" (+ level 1) (put-result result) name object))
+      (format printer "{& :v}}{%}" level)))
+
+
+  (method (compile-dispatched-call call object context context-type level result implicit-dispatch)
+    (let* ((form (call-called call))
+           (field (explicit-field context-type form))
+           @wait-typedref-fixed
+           (field-item (essay field (embed-dispatched-field field object context context-type))))
+      (format printer "{& :v}~{{%}" level)
+      (when true @wait-typedref-fixed (null? field)
+        (compile-dispatched-target form object context context-type (+ level 1) RESULT implicit-dispatch true)
+        (format printer "{& :v}jProcedure p = ({a});{%}" (+ level 1) (convert-type (new Typeref environment null Procedure) null RESULT)))
+      (let* ((parameters (call-parameters call))
+             (nb (length parameters)))
+        (format printer "{& :v}jObject f[{s}];{%}" (+ level 1) (+ nb 1))
+        (for-each (function dynamic (param n)
+                    (let ((item (compile param object (+ level 1) RESULT)))
+                      (format printer "{& :v}f[{s}] = {a};{%}" (+ level 1) n (get-code~ item null))))
+                  parameters
+                  (naturals 0 nb))
+        (format printer "{& :v}f[{s}] = NOOBJECT;{%}" (+ level 1) nb)
+        (format printer "{& :v}VCD({a}, {a});{%}" (+ level 1) "p" nb)
+        (format printer "{& :v}{a}{a}->eval_procedure({s}, f);{%}" (+ level 1) (put-result result) "p" @wait-typedref-fixed (if false field (format "castProcedure({a})" (get-code~ field-item null)) "p") context)
+        (format printer "{& :v}}{%}" level)))
+    (new C-Form self null result))
+
+
+  (method (compile-body body object level result)
+    (for-each (function dynamic (expr)
+                (compile-result expr object level result))
+              (body-list body))
+    (new C-Form self null result))
+
+
+  ;;;
+  ;;;; Embed
+  ;;;
+
+
+  ;; For simple expressions returns compiled code as a string
+  ;; without modifying the print stream, else returns nil.
+  (method (embed expr object . rest)
+    (bind-optionals ((implicit-dispatch null)) rest
+      (if (nil? expr)
+          (embed-null expr object)
+        (typecase expr
+          ((quote)              (embed-quote              expr object))
+          ((%and)               (embed-and                expr object))
+          ((or)                 (embed-or                 expr object))
+          ((cast)               (embed-cast               expr object))
+          ((%function)          (embed-function           expr object))
+          ((Variable)           (embed-variable           expr object))
+          ((Boolean)            (embed-boolean            expr object))
+          ((Nil)                (embed-nil                expr object))
+          ((Self)               (embed-self               expr object))
+          ((Super)              (embed-super              expr object))
+          ((Dispatch)           (embed-dispatch           expr object))
+          ((Constant)           (embed-constant           expr object))
+          ((Global-Reference)   (embed-global-reference   expr object))
+          ((Manifest-Reference) (embed-manifest-reference expr object))
+          ((Meta-Reference)     (embed-meta-reference     expr object))
+          ((Outer-Reference)    (embed-outer-reference    expr object))
+          ((Imported-Reference) (embed-imported-reference expr object))
+          ((Field-Reference)    (embed-field-reference    expr object))
+          ((Syntax-Expansion)   (embed-syntax-expansion   expr object))
+          ((Syntax-Relocation)  (embed-syntax-relocation  expr object))
+          ((Field)              (embed-field              expr object implicit-dispatch))
+          ((Symbol)             (embed-symbol             expr object))
+          ((Call)               (embed-call               expr object))
+          (else               null)))))
+
+
+  (method (embed-quote special object)
+    (let ((expr (quote-expr special)))
+      (new C-Expr self (new Typeref environment null (class-of expr)) (register-constant expr))))
+  
+  
+  (method (embed-and special object)
+    (let ((form (and-form special)))
+      (if (null? form)
+          (embed true object)
+        (let ((embedded (map (function dynamic (expr) (embed expr object)) form)))
+          (when (every? (function dynamic (item)
+                          (is? item C-Expr))
+                        embedded)
+            (let ((printer (new String-Printer)))
+              (format printer "({a}" (get-bool-code (car embedded)))
+              (for-each (function dynamic (item)
+                          (format printer " && {a}" (get-bool-code item)))
+                        (cdr embedded))
+              (format printer ")")
+              (new C-Expr self (new Typeref environment null bool) (get-output~ printer))))))))
+  
+  
+  (method (embed-or special object)
+    (let ((form (or-form special)))
+      (if (null? form)
+          (embed false object)
+        (let ((embedded (map (function dynamic (expr) (embed expr object)) form)))
+          (when (every? (function dynamic (item)
+                          (is? item C-Expr))
+                        embedded)
+            (let ((printer (new String-Printer)))
+              (format printer "({a}" (get-bool-code (car embedded)))
+              (for-each (function dynamic (item)
+                          (format printer " || {a}" (get-bool-code item)))
+                        (cdr embedded))
+              (format printer ")")
+              (new C-Expr self (new Typeref environment null bool) (get-output~ printer))))))))
+  
+  
+  (method (embed-cast special object)
+    (let ((item (embed (cast-expr special) object)))
+      (when item
+        (let ((typeref (cast-typeref special)))
+          (new C-Expr self typeref (get-code~ item typeref))))))
+
+
+  (method (embed-function special object)
+    (let* ((n (register-function special))
+           (c (if (not sealed?) (register-constant (list :function special n)) null))
+           (t (function-container special))
+           (b (cond ((or (null? t) (not-referenced? t)) "NULL") ((function-stack-allocate? t) "b") (else "b")))
+           (hlv (if (or (null? t) (not-referenced? t) (function-stack-allocate? t)) "NULL" "h"))
+           (level (function-level special))
+           (name (essay sealed? (symbolic-function-name 'l (get-rank) n (symbolic-name (local-function-name special)))))
+           (compiled-function (if sealed? name (format "castCompiledFunction({a})" c))))
+      (when sealed?
+        (register-prototype name (closure-prototype name)))
+      (new C-Expr self
+        (new Typeref environment null Object)
+        (if hlv
+            (format "JcNewCompiledClosureLexical({a}, {a}, {a}, {a}, {s}, {a}, {s})"
+                    compiled-function
+                    object
+                    b
+                    (if (= level 1) "NULL" "e")
+                    (- level 1)
+                    hlv
+                    level)
+          (case level
+            ((1)
+             (format "JcNewCompiledClosure1({a}, {a}, {a})"
+                     compiled-function
+                     object
+                     b))
+            (else
+             (format "JcNewCompiledClosure({a}, {a}, {a}, {a}, {s}, {s})"
+                     compiled-function
+                     object
+                     b
+                     (if (= level 1) "NULL" "e")
+                     (- level 1)
+                     level)))))))
+
+
+  (method (embed-variable variable object)
+    (let ((location (variable-location variable))
+          (typeref (get-typeref variable)))
+      (new C-Expr self
+        typeref
+        (if (rest-variable? variable)
+            (format "collect_stack((jObjectPtr) {a})" location)
+          location))))
+  
+  
+  (method (variable-explicit? variable)
+    (not-referenced? (variable-definer variable)))
+  
+  
+  (method (variable-location variable)
+    (let ((lev (variable-level variable))
+          (rnk (variable-rank variable))
+          (typeref (get-typeref variable)))
+      (cond ((not-referenced? (variable-definer variable))
+             (format "v{s}" rnk))
+            ((= lev 0)
+             (format "LOC(b, {a}, {s})" (primitive-type typeref) (* rnk 4)))
+            (else
+             (format "LOC(e[{s}], {a}, {s})"
+                     (- lev 1)
+                     (primitive-type typeref)
+                     (* rnk 4))))))
+
+
+  (method (embed-boolean boolean object)
+    (new C-Expr self
+      (new Typeref environment null Object)
+      (if boolean
+          "True"
+        "False")))
+
+
+  (method (embed-null n object)
+    (new C-Expr self null "Null"))
+
+
+  (method (embed-nil n object)
+    (new C-Expr self
+      (new Typeref environment null Object)
+      "Nil"))
+
+
+  (method (embed-self s object)
+    (new C-Expr self
+      (new Typeref environment null Object)
+      object))
+
+
+  (method (embed-super s object)
+    (new C-Expr self
+      (new Typeref environment null Object)
+      (format "FDG({a})"
+              (register-inherited (get-definition~ s)))))
+
+
+  (method (embed-dispatch dispatch object)
+    (let* ((context (dispatch-context dispatch))
+           (context-item (embed context object)))
+      (when context-item
+        (let* ((context-type (get-type~ context-item))
+               (form (dispatch-form dispatch))
+               (form-item (embed-dispatched form object (get-code~ context-item null) context-type null)))
+          form-item))))
+  
+  
+  (method (explicit-field context-type form)
+    (when context-type
+      (let ((name (explicit-field-name form)))
+        (when name
+          (let ((field (unit-field context-type name)))
+            (either field (if (kernel-class? context-type 'Object)
+                              null
+                            (error "Unable to find field {t} of {t}" name context-type))))))))
+  
+  
+  (method (explicit-field-name form)
+    (cond ((symbol? form) form)
+          ((is? form Call) (call-called form))
+          (else null)))
+
+
+  (method (embed-dispatched expr object context context-type implicit-dispatch)
+    (typecase expr
+      ((Call) null)
+      ((Self) null)
+      (else (embed-dispatched-target expr object context context-type implicit-dispatch))))
+
+
+  (method (embed-dispatched-target target object context context-type implicit-dispatch)
+    (if (null? implicit-dispatch)
+        (typecase target
+          ((Variable) (embed-dispatched-variable target object context context-type))
+          ((Symbol)   (embed-dispatched-symbol   target object context context-type implicit-dispatch))
+          (else     (error "Unable to compile reference target: {t}" target)))
+      (embed-dispatched-field target object context context-type implicit-dispatch)))
+
+
+  (method (embed-dispatched-variable variable object context context-type)
+    (embed-variable variable object))
+
+
+  (method (embed-dispatched-symbol symbol object context context-type implicit-dispatch)
+    (when context-type
+      (let ((field (explicit-field context-type symbol)))
+        (when (if typed-access? (not-null? field) (slot? field))
+          @wait-typedref-fixed
+          field
+          (embed-dispatched-field field object context context-type 'explicit)))))
+  
+  
+  (method (embed-dispatched-field field object context context-type implicit-dispatch)
+    (typecase field
+      ((Slot)       (embed-dispatched-slot       field object context context-type))
+      ((Definition) (embed-dispatched-definition field object context context-type implicit-dispatch))))
+  
+  
+  (method (embed-dispatched-slot slot object context context-type)
+    (embed-slot slot context))
+  
+  
+  (method (embed-dispatched-definition definition object context context-type implicit-dispatch)
+    (let ((variable (resolve-field definition implicit-dispatch))
+          (creator (field-creator (definition-origin definition))))
+      (new C-Expr self
+        null
+        (if (definition-virtual? definition)
+            (if (class? creator)
+                (format "CVG({s}, {s}, {a})"
+                        context
+                        (class-level creator)
+                        variable)
+              (format "IVG({s}, {a})"
+                      context
+                      variable))
+          (format "FDG({a})" variable)))))
+
+
+  (method (embed-constant constant object)
+    (let* ((typeref (get-typeref constant))
+           (type (resolve-type typeref))
+           (value (get-value~ constant)))
+      (cond ((kernel-class? type 'Integer)
+             (new C-Expr self (new Typeref environment null int)
+                  (if (patch-negative-unsigned?~ c++-compiler-class value)
+                      (format "0x{x}" value)
+                    (->string value))))
+            ((kernel-class? type 'Real)
+             (new C-Expr self (new Typeref environment null double) (->string value)))
+            (else
+             (new C-Expr self typeref (register-constant value))))))
+
+
+  (method (embed-global-reference reference object)
+    (let ((const (register-constant (get-symbol~ reference))))
+      (new C-Expr self
+        null
+        (format "get_value({a})" const))))
+
+
+  (method (embed-manifest-reference reference object)
+    (let ((const (register-constant (manifest-reference-symbol reference)))
+          (typeref (get-typeref reference)))
+      (new C-Expr self
+        typeref
+        (format "global_value({a})" const))))
+
+
+  (method (embed-meta-reference reference object)
+    (unless (and (field-reference-method? reference) (field-reference-closure? reference))
+      (let ((new-context (format "{a}->get_class()" object)))
+        (embed-dispatched (field-reference-form reference) object new-context null 'meta))))
+  
+
+  (method (embed-outer-reference reference object)
+    (unless (and (field-reference-method? reference) (field-reference-closure? reference))
+      (let ((printer (new String-Printer)))
+        (format printer "{a}" object)
+        (for-each (function dynamic (n)
+                    (format printer "->get_object_container()"))
+                  (naturals 0 (outer-reference-level reference)))
+        (let ((new-context (get-output~ printer)))
+          (embed-dispatched (field-reference-form reference) object new-context null 'outer)))))
+  
+
+  (method (embed-imported-reference reference object)
+    (unless (and (field-reference-method? reference) (field-reference-closure? reference))
+      (let ((form (field-reference-form reference)))
+        (either (embed-constant-reference form object)
+                (embed form object 'imported)))))
+  
+  
+  ;; This introduces a compiler bug where an expression like (length~ null)
+  ;; where null is a constant to '() will not compile properly anymore...
+  (method (embed-constant-reference form object)
+    (when (and (definition? form)
+               (definition-constant? form))
+      (bind-values (constant? constant) (definition-constant form)
+        (when (and constant?
+                   (embedable-constant? constant))
+          (embed constant object)))))
+  
+  
+  ;; Only embed eq? constants, e.g. not a list that would have
+  ;; to be recreated in every file that uses that constant...
+  (method (embedable-constant? value)
+    (or (nil? value)
+        (null? value)
+        (boolean? value)
+        (static-integer? value)))
+  
+  
+  (method (definition-constant form)
+    (let ((value (definition-value form)))
+      (cond ((is? value Constant)
+             (values true (get-value~ value)))
+            ((is? value quote)
+             (values true (quote-expr value)))
+            (else
+             (values false {})))))
+  
+
+  (method (embed-field-reference reference object)
+    (let ((form (field-reference-form reference)))
+      (either (embed-constant-reference form object)
+              (let ((item (embed form object)))
+                (annotate-expr form :referenced? true)
+                (if (and (field-reference-method? reference) (field-reference-closure? reference))
+                    (new C-Expr self
+                         null
+                         (format "castClosable({a})->context_closure({a})" [code item] object))
+                  item)))))
+  
+  
+  (method (embed-syntax-expansion expansion object)
+    (embed (get-expression~ expansion) object))
+  
+  
+  (method (embed-syntax-relocation relocation object)
+    (embed (get-expr~ relocation) object))
+
+  
+  (method (embed-field field object implicit-dispatch)
+    (typecase field
+      ((Slot)       (embed-slot       field object))
+      ((Definition) (embed-definition field object implicit-dispatch))))
+
+
+  (method (embed-slot slot object)
+    (let* ((offset (register-slot-offset slot))
+           (code (format "SLG({a}, {a})" object offset))
+           (typeref (get-typeref slot))
+           (type (resolve-type typeref)))
+      ;; Until slots are able to directly contain primitive types...
+      (if (primitive-class? type)
+          (new C-Expr self typeref (convert-type typeref null code))
+        (new C-Expr self typeref code))))
+
+
+  (method (embed-definition definition object implicit-dispatch)
+    (let ((variable (resolve-field definition implicit-dispatch))
+          (typeref (get-typeref definition)))
+      (new C-Expr self
+        typeref
+        (if (definition-virtual? definition)
+            (let ((creator (field-creator (definition-origin definition))))
+              (if (class? creator)
+                  (format "CVG({a}, {s}, {a})"
+                          object
+                          (class-level creator)
+                          variable)
+                (format "IVG({a}, {a})"
+                        object
+                        variable)))
+          (format "FDG({a})" variable)))))
+  
+
+  (method (embed-symbol symbol object)
+    (if (keyword? symbol)
+        (new C-Expr self (new Typeref environment null Object) (register-constant symbol))
+      (error "Free symbol '{t} in {t}{%}" symbol unit-name)))
+
+
+  (method (embed-call call object)
+    (let* ((expr (call-called call))
+           (definition (referenced-definition expr))
+           (name (essay definition (field-name definition)))
+           (value (essay definition (definition-value definition))))
+      (cond ((eq? name 'is?)
+             (embed-is-call name call value object))
+            ((arithmetic? name)
+             (embed-arithmetic-call name call value object))
+            ((min/max? name)
+             (embed-min/max-call name call value object))
+            ((rounder? name)
+             (embed-rounder-call name call value object))
+            ((relational? name)
+             (embed-relational-call name call value object))
+            ((bitwise? name)
+             (embed-bitwise-call name call value object))
+            ((external? value)
+             (let ((c-name (external-inlined-name value)))
+               (cond ((= c-name :compiler-intrinsic)
+                      (embed-compiler-intrinsic name call value object))
+                     (c-name
+                      (embed-inlined-external-call name c-name call value object))
+                     (else
+                      null))))
+            ((and (closure? value) (function-inlined? (closure-function value)))
+             (embed-inlined-call call value object))
+            (else
+             null))))
+  
+  
+  (method (arithmetic? name)
+    (memq? name '(+ - * /)))
+  
+  
+  (method (min/max? name)
+    (memq? name '(min max)))
+  
+  
+  (method (rounder? name)
+    (memq? name '(floor round ceil)))
+  
+  
+  (method (relational? name)
+    (memq? name '(= /= < <= > >=)))
+  
+  
+  (method (bitwise? name)
+    (memq? name '(bit-not bit-and bit-or bit-xor bit-set?)))
+  
+  
+  (method (integral-type? type)
+    (or (eq? type int) (kernel-class? type 'Integer)))
+  
+  
+  (method (real-type? type)
+    (or (integral-type? type) (eq? type double) (kernel-class? type 'Real)))
+  
+  
+  (method (symbol-type? type)
+    (kernel-class? type 'Symbol))
+  
+  
+  (method (char-type? type)
+    (kernel-class? type 'Char))
+  
+  
+  (method (embed-is-call name call value object)
+    (let ((parameters (call-parameters call)))
+      (when (= 2 (length parameters))
+        (let ((type (second parameters)))
+          (when (is? type Manifest-Reference)
+            (let ((symbol (manifest-reference-symbol type)))
+              (cond ((primitive-classname? symbol)
+                     (let ((item (embed (first parameters) object)))
+                       (when item
+                         (new C-Expr self
+                              (new Typeref environment null bool)
+                              (format "is{a}({a})" symbol [code item])))))
+                    ;; here should optimize when type is a class to call is_class_subtype directly
+                    (else
+                     null))))))))
+  
+  
+  (method (embed-arithmetic-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (cond ((every? (function dynamic (item)
+                       (and (is? item C-Expr)
+                            (integral-type? (get-type~ item))))
+                     embedded)
+             (letrec ((proc
+                       (function dynamic (embedded)
+                         (case (length embedded)
+                           ((0)
+                            (case name
+                              (+ (new C-Expr self (new Typeref environment null int) "0"))
+                              (* (new C-Expr self (new Typeref environment null int) "1"))
+                              (else (error "Too many arguments for {t}" name))))
+                           ((1)
+                            (let* ((item (car embedded))
+                                   (code (get-int-code item)))
+                              (case name
+                                ((+ *) (new C-Expr self (new Typeref environment null int) code))
+                                ((- /) (new C-Expr self (new Typeref environment null int)
+                                            (case name
+                                              ((-) (format "(- ({a}))" code))
+                                              ((/) (format "(1.0 / ({a}))" code))))))))
+                           ((2)
+                            (new C-Expr self
+                                 (new Typeref environment null int)
+                                 (let ((out (new String-Printer)))
+                                   (format out "(")
+                                   (let ((first? true))
+                                     (for-each (function dynamic (item)
+                                                 (if first?
+                                                     (set! first? false)
+                                                   (format out " {a} " name))
+                                                 (format out "{a}" (get-int-code item)))
+                                               embedded))
+                                   (format out ")")
+                                   (get-output~ out))))
+                           (else
+                            (let ((f (car embedded))
+                                  (s (cadr embedded))
+                                  (r (cddr embedded)))
+                              (proc (cons (proc (list f s)) r))))))))
+               (proc embedded)))
+            ((every? (function dynamic (item)
+                       (and (is? item C-Expr)
+                            (real-type? (get-type~ item))))
+                     embedded)
+             (letrec ((proc
+                       (function dynamic (embedded)
+                         (case (length embedded)
+                           ((0)
+                            (case name
+                              (+ (new C-Expr self (new Typeref environment null double) "0"))
+                              (* (new C-Expr self (new Typeref environment null double) "1"))
+                              (else (error "Too many arguments for {t}" name))))
+                           ((1)
+                            (let* ((item (car embedded))
+                                   (type (get-type~ item))
+                                   (code (get-numeric-code item)))
+                              (case name
+                                ((+ *) (new C-Expr self (new Typeref environment null double) code))
+                                ((- /) (new C-Expr self (new Typeref environment null double) (format "({a} {a})" name code))))))
+                           ((2)
+                            (new C-Expr self
+                                 (new Typeref environment null double)
+                                 (let ((out (new String-Printer)))
+                                   (format out "(")
+                                   (let ((first? true))
+                                     (for-each (function dynamic (item)
+                                                 (if first?
+                                                     (set! first? false)
+                                                   (format out " {a} " name))
+                                                 (format out "{a}" (get-numeric-code item)))
+                                               embedded))
+                                   (format out ")")
+                                   (get-output~ out))))
+                           (else
+                            (let ((f (car embedded))
+                                  (s (cadr embedded))
+                                  (r (cddr embedded)))
+                              (proc (cons (proc (list f s)) r))))))))
+               (proc embedded)))
+            (else
+             null))))
+  
+  
+  (method (embed-min/max-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (every? (function dynamic (item)
+                      (and (is? item C-Expr)
+                           (integral-type? (get-type~ item))))
+                    embedded)
+        (new C-Expr self
+             (new Typeref environment null int)
+             (bind (first second) embedded
+               (format "{a}({a}, {a})"
+                       name
+                       (get-int-code first)
+                       (get-int-code second)))))))
+  
+  
+  (method (embed-rounder-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (every? (function dynamic (item)
+                      (and (is? item C-Expr)
+                           (real-type? (get-type~ item))))
+                    embedded)
+        (new C-Expr self
+             (new Typeref environment null int)
+             (let ((item (car embedded)))
+               (format "((tInt) {a}({a}))"
+                       name
+                       (get-double-code item)))))))
+  
+  
+  @to-test
+  (method (embed-arithmetic-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters))
+           (all-numbers? (every? (function dynamic (item)
+                                   (and (is? item C-Expr)
+                                        (real-type? (get-type~ item))))
+                                 embedded))
+           (all-integers? (and all-numbers?
+                               (every? (function dynamic (item)
+                                         (and (is? item C-Expr)
+                                              (integral-type? (get-type~ item))))
+                                       embedded)))
+           (actual-type (if all-integers? int double)))
+      (when all-numbers?
+        (case (length embedded)
+          ((0)
+           (case name
+             (+ (new C-Expr self (new Typeref environment null actual-type) "0"))
+             (* (new C-Expr self (new Typeref environment null actual-type) "1"))
+             (else (error "Not enough arguments for {t}" name))))
+          ((1)
+           (let* ((item (car embedded))
+                  (code (if all-integers?
+                            (get-int-code item)
+                          (get-numeric-code item))))
+             (case name
+               ((+ *) (new C-Expr self (new Typeref environment null actual-type) code))
+               ((- /) (new C-Expr self (new Typeref environment null actual-type) (format "({a} {a})" name code))))))
+          (else
+           (new C-Expr self
+                (new Typeref environment null actual-type)
+                (let ((out (new String-Printer)))
+                  (format out "(")
+                  (let ((first? true))
+                    (for-each (function dynamic (item)
+                                (if first?
+                                    (set! first? false)
+                                  (format out " {a} " name))
+                                (format out "{a}" (get-numeric-code item)))
+                              embedded)
+                    (format out ")")
+                    (get-output~ out)))))))))
+  
+  
+  (method (eq-testable? type)
+    (or (symbol-type? type)
+        (char-type? type)))
+    
+  
+  (method (embed-relational-call name call value object)
+    (let* ((operator (case name ((=) "==") ((/=) "!=") (else name)))
+           (parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (cond ((and (= (length embedded) 2)
+                  (memq? name '(= /=))
+                  (is? (first embedded) C-Expr)
+                  (is? (second embedded) C-Expr)
+                  (or (eq-testable? (get-type~ (first embedded))) (eq-testable? (get-type~ (second embedded)))))
+             (new C-Expr self
+                  (new Typeref environment null bool)
+                  (format "({a} {a} {a})"
+                          [code (first embedded)]
+                          operator
+                          [code (second embedded)])))
+            ((every? (function dynamic (item)
+                       (and (is? item C-Expr)
+                            (integral-type? (get-type~ item))))
+                     embedded)
+             (letrec ((proc
+                       (function dynamic (embedded)
+                         (case (length embedded)
+                           ((0 1)
+                            (error "Too many arguments for {t}" name))
+                           ((2)
+                            (new C-Expr self
+                                 (new Typeref environment null bool)
+                                 (let ((out (new String-Printer)))
+                                   (format out "(")
+                                   (let ((first? true))
+                                     (for-each (function dynamic (item)
+                                                 (if first?
+                                                     (set! first? false)
+                                                   (format out " {a} " operator))
+                                                 (format out "{a}" (get-int-code item)))
+                                               embedded))
+                                   (format out ")")
+                                   (get-output~ out))))
+                           (else
+                            ;; This is not so easy to embed because (< a b c) should be compiled as
+                            ;; (a < b) && (b < c) but the b expression should be evaluated only once.
+                            null)))))
+               (proc embedded)))
+            ((every? (function dynamic (item)
+                       (and (is? item C-Expr)
+                            (real-type? (get-type~ item))))
+                     embedded)
+             (letrec ((proc
+                       (function dynamic (embedded)
+                         (case (length embedded)
+                           ((0 1)
+                            (error "Too many arguments for {t}" name))
+                           ((2)
+                            (new C-Expr self
+                                 (new Typeref environment null bool)
+                                 (let ((out (new String-Printer)))
+                                   (format out "(")
+                                   (let ((first? true))
+                                     (for-each (function dynamic (item)
+                                                 (if first?
+                                                     (set! first? false)
+                                                   (format out " {a} " operator))
+                                                 (format out "{a}" (get-double-code item)))
+                                               embedded))
+                                   (format out ")")
+                                   (get-output~ out))))
+                           (else
+                            ;; This is not so easy to embed because (< a b c) should be compiled as
+                            ;; (a < b) && (b < c) but the b expression should be evaluated only once.
+                            null)))))
+               (proc embedded)))
+            (else
+             null))))
+    
+  
+  (method (embed-bitwise-call name call value object)
+    (case name
+      ((bit-not)  (embed-bit-not-call  name call value object))
+      ((bit-and)  (embed-bit-and-call  name call value object))
+      ((bit-or)   (embed-bit-or-call   name call value object))
+      ((bit-xor)  (embed-bit-xor-call  name call value object))
+      ((bit-set?) (embed-bit-set?-call name call value object))
+      (else null)))
+  
+
+  (method (embed-bit-not-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (and (= (length embedded) 1)
+                 (every? (function dynamic (item)
+                           (and (is? item C-Expr)
+                                (integral-type? (get-type~ item))))
+                         embedded))
+        (new C-Expr self
+             (new Typeref environment null int)
+             (format "(~~{a})"
+                     (get-int-code (first embedded)))))))
+  
+  
+  (method (embed-bit-and-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (and (>= (length embedded) 2)
+                 (every? (function dynamic (item)
+                           (and (is? item C-Expr)
+                                (integral-type? (get-type~ item))))
+                         embedded))
+        (new C-Expr self
+             (new Typeref environment null int)
+             (format "({a})" (join (map get-int-code embedded) " & "))))))
+  
+  
+  (method (embed-bit-or-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (and (>= (length embedded) 2)
+                 (every? (function dynamic (item)
+                           (and (is? item C-Expr)
+                                (integral-type? (get-type~ item))))
+                         embedded))
+        (new C-Expr self
+             (new Typeref environment null int)
+             (format "({a})" (join (map get-int-code embedded) " | "))))))
+  
+  
+  (method (embed-bit-xor-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (and (>= (length embedded) 2)
+                 (every? (function dynamic (item)
+                           (and (is? item C-Expr)
+                                (integral-type? (get-type~ item))))
+                         embedded))
+        (new C-Expr self
+             (new Typeref environment null int)
+             (format "({a})" (join (map get-int-code embedded) " ^ "))))))
+  
+  
+  (method (embed-bit-set?-call name call value object)
+    (let* ((parameters (call-parameters call))
+           (embedded (map (function dynamic (param) (embed param object)) parameters)))
+      (when (and (= (length embedded) 2)
+                 (every? (function dynamic (item)
+                           (and (is? item C-Expr)
+                                (integral-type? (get-type~ item))))
+                         embedded))
+        (new C-Expr self
+             (new Typeref environment null bool)
+             (format "(({a} & {a}) != 0)"
+                     (get-int-code (first embedded))
+                     (get-int-code (second embedded)))))))
+  
+
+  (method (embed-inlined-external-call name c-name call intrinsic object)
+    (let ((expr (call-called call))
+          (parameters (call-parameters call))
+          (has-rest? (proxy-rest? intrinsic)))
+      (unless has-rest?
+        (if (/= (length parameters) (proxy-nb-parameters intrinsic))
+            (error "Wrong number of arguments for {a}" c-name)
+          (let ((types-info (proxy-parameters intrinsic))
+                 (result-typeref (proxy-result intrinsic))
+                 (embedded (map (function dynamic (param) (embed param object)) parameters)))
+            ;; Todo: make it work when result-typeref is void...
+            (unless (or (memq? null embedded) (eq? (get-type~ result-typeref) void))
+              (let ((out (new String-Printer)))
+                (format out "{a}(" c-name)
+                (let ((first? true))
+                  (for-each (function dynamic (item typeref)
+                              (if first?
+                                  (set! first? false)
+                                (format out ", "))
+                              (format out "{a}" (get-code~ item typeref)))
+                            embedded
+                            types-info))
+                (format out ")")
+                (new C-Expr self result-typeref (get-output~ out)))))))))
+  
+  
+  (method (embed-compiler-intrinsic name call intrinsic object)
+    (let ((code (case name
+                  ((%rest-empty?) "NOOBJECT==*p")
+                  ((%rest-current) "*p")
+                  ((%rest-next) "p++")))
+          (result-typeref (proxy-result intrinsic)))
+      (new C-Expr self result-typeref code)))
+  
+  
+  (method (embed-inlined-call call closure object)
+    (let* ((fn (closure-function closure))
+           (body (function-body fn)))
+      (when (= (length body) 1)
+        (for-each (function dynamic (arg param)
+                    (let ((count (count-deep body param)))
+                      (assert (or (<= count 1) (inlineable-argument? arg)))
+                      (let ((casted-arg (casted-expr arg (get-typeref~ param))))
+                        (set! body (substitute-deep body param casted-arg)))))
+                  (call-parameters call)
+                  (function-parameters fn))
+        (let ((casted-body (casted-expr (car body) (get-typeref fn))))
+          (embed casted-body object)))))
+  
+  
+  ;; creating a local let for repeated complex arguments is really not simple
+  ;; as the code walker has already analysed the code for the enclosing function
+  (method (inlineable-argument? arg)
+    (or (variable? arg)
+        (is? arg Constant)))
+  
+  
+  (method (casted-expr expr typeref)
+    (if (null? typeref)
+        expr
+      (new-cast expr typeref)))
+
+
+  ;;;
+  ;;;; Special
+  ;;;
+
+
+  (method (compile-special special object level result)
+    (typecase special
+      ((%if)            (compile-if             special object level result))
+      ((%while)         (compile-while          special object level result))
+      ((%let)           (compile-let            special object level result))
+      ((%letstar)       (compile-letstar        special object level result))
+      ((with-closed)    (compile-with-closed    special object level result))
+      ((bind)           (compile-bind           special object level result))
+      ((bind-keywords)  (compile-bind-keywords  special object level result))
+      ((bind-optionals) (compile-bind-optionals special object level result))
+      ((bind-values)    (compile-bind-values    special object level result))
+      ((block)          (compile-block          special object level result))
+      ((return)         (compile-return         special object level result))
+      ((return-from)    (compile-return-from    special object level result))
+      ((%and)           (compile-and            special object level result))
+      ((or)             (compile-or             special object level result))
+      ((%set!)          (compile-set            special object level result))
+      ((cast)           (compile-cast           special object level result))
+      ((synchronize)    (compile-synchronize    special object level result))
+      ((optimize)       (compile-optimize       special object level result))
+      ((%profile)       (compile-profile        special object level result))
+      (else           (error "Unable to compile {t}" special))))
+
+
+  (method (compile-if special object level result)
+    (format printer "{& :v}// if{%}" level)
+    (let ((item (compile (if-test special) object level RESULT)))
+      (format printer "{& :v}if ({a}){%}" level (get-bool-code item)))
+    (format printer "{& :v}~{{%}" level)
+    (compile-result (if-yes special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (format printer "{& :v}else{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (compile-list-result (if-no special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-while special object level result)
+    (format printer "{& :v}// while{%}" level)
+    (let ((test (while-test special))
+          (test-item (embed (while-test special) object)))
+      (if (is-not? test-item C-Expr)
+          (format printer "{& :v}while (true){%}" level)
+        (format printer "{& :v}while ({a}){%}" level (get-bool-code test-item)))
+      (format printer "{& :v}~{{%}" level)
+      (when (is-not? test-item C-Expr)
+        (let ((item (compile (while-test special) object (+ level 1) RESULT)))
+          (format printer "{& :v}if (! {a}){%}" (+ level 1) (get-bool-code item)))
+        (format printer "{& :v}break;{%}" (+ level 2)))
+      (compile-list-result (while-body special) object (+ level 1) result)
+      (format printer "{& :v}}{%}" level)
+      (new C-Form self null result)))
+
+
+  (method (compile-let special object level result)
+    (format printer "{& :v}// let{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (for-each (function dynamic (couple)
+                (bind (variable expr expr?) couple
+                  (let ((symbol (variable-symbol variable)))
+                    (unless (generated-symbol? symbol)
+                      (format printer "{& :v}// : {s}{%}" (+ level 1) symbol)))
+                  (let ((variable-typeref (get-typeref variable)))
+                    (when (variable-explicit? variable)
+                      (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                    (if (not expr?)
+                        (compile-initialize-variable variable (new C-Expr self null "Null") object (+ level 1) null)
+                      (let ((value-item (compile expr object (+ level 1) RESULT)))
+                        (compile-set-variable variable value-item object (+ level 1) null))))))
+              (let-bindings special))
+    (compile-list-result (let-body special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-letstar special object level result)
+    (format printer "{& :v}// let*{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (for-each (function dynamic (couple)
+                (bind (variable expr expr?) couple
+                  (let ((symbol (variable-symbol variable)))
+                    (unless (generated-symbol? symbol)
+                      (format printer "{& :v}// : {s}{%}" (+ level 1) symbol)))
+                  (let ((variable-typeref (get-typeref variable)))
+                    (when (variable-explicit? variable)
+                      (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                    (if (not expr?)
+                        (compile-initialize-variable variable (new C-Expr self null "Null") object (+ level 1) null)
+                      (let ((value-item (compile expr object (+ level 1) RESULT)))
+                        (compile-set-variable variable value-item object (+ level 1) null))))))
+              (letstar-bindings special))
+    (compile-list-result (letstar-body special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-with-closed special object level result)
+    (let ((size (with-closed-area-size special)))
+      (format printer "{& :v}// with-closed{%}" level)
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}jObject v[{s}];{%}" (+ level 1) size)
+      (format printer "{& :v}jObjectPtr vs = v;{%}" (+ level 1))
+      (format printer "{& :v}{a}Null;{%}" (+ level 1) (put-result result))
+      (format printer "{& :v}Destroyers {a}(v, &vs);{%}" (+ level 1) (unique "destroyers"))
+      (for-each (function dynamic (couple)
+                  (let ((default-item
+                         (if (null? (cdr couple))
+                             (embed-null nil object)
+                           (compile (cdr couple) object (+ level 1) RESULT))))
+                    (format printer "{& :v}{a} = {a};{%}" (+ level 1) RESULT (get-code~ default-item null))
+                    (format printer "{& :v}*vs++ = {a};{%}" (+ level 1) RESULT)
+                    (let* ((variable (if (variable? couple) couple (car couple)))
+                           (variable-typeref (get-typeref variable)))
+                      (when (variable-explicit? variable)
+                        (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                      (compile-set-variable variable (new C-Expr self null RESULT) object (+ level 1) result))))
+                (with-closed-bindings special))
+      (compile-result (with-closed-body special) object (+ level 1) result)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+  
+  
+  (method (compile-bind-variables variables level)
+    (when variables
+      (if (variable? variables)
+          (let ((variable-typeref (get-typeref variables)))
+            (when (variable-explicit? variables)
+              (format printer "{& :v}{a} {a};{%}" level (primitive-type variable-typeref) (variable-location variables))))
+        (compile-bind-variables (car variables) level)
+        (compile-bind-variables (cdr variables) level))))
+
+
+  (method (compile-bind-tree variables tree object level result)
+    (when variables
+      (if (variable? variables)
+          (begin
+            (format printer "{& :v}{a} = {s};{%}" level result tree)
+            (compile-set-variable variables (new C-Expr self null result) object level result))
+        (let ((l (unique "t"))
+              (r (unique "t")))
+          (format printer "{& :v}~{{%}" level)
+          (format printer "{& :v}jObject {s} = car({s});{%}" (+ level 1) l tree)
+          (compile-bind-tree (car variables) l object (+ level 1) result)
+          (format printer "{& :v}}{%}" level)
+          (format printer "{& :v}~{{%}" level)
+          (format printer "{& :v}jObject {s} = cdr({s});{%}" (+ level 1) r tree)
+          (compile-bind-tree (cdr variables) r object (+ level 1) result)
+          (format printer "{& :v}}{%}" level)))))
+
+
+  (method (compile-bind special object level result)
+    (format printer "{& :v}// bind{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (format printer "{& :v}jObject t;{%}" (+ level 1))
+    (let ((values-item (compile (bind-values-get special) object (+ level 1) RESULT)))
+      (format printer "{& :v}t = {a};{%}" (+ level 1) (get-code~ values-item null)))
+    (let ((tree (bind-tree special)))
+      (compile-bind-variables tree level)
+      (compile-bind-tree tree 't object (+ level 1) RESULT))
+    (compile-result (bind-body special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-bind-keywords special object level result)
+    (format printer "{& :v}// bind-keywords{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (let* ((values-expr (bind-keywords-values special))
+           (rest? (rest-variable? values-expr)))
+      (let ((item
+             (if rest?
+                 (new C-Expr self null (format "(jObjectPtr) {a}" (variable-location values-expr)))
+               (compile values-expr object (+ level 1) result))))
+        (format printer "{& :v}{a} k = {a};{%}" (+ level 1) (if rest? "jObjectPtr" "jObject") (get-code~ item null)))
+      (for-each (function dynamic (couple)
+                  (let* ((variable (car couple))
+                         (default (cdr couple))
+                         (symbol (variable-symbol variable))
+                         (const (register-constant (if rest? (symbol->keyword symbol) symbol)))
+                         (variable-typeref (get-typeref variable)))
+                    (when (variable-explicit? variable)
+                      (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                    (format printer "{& :v}{a} = {a}({a}, k);{%}" (+ level 1) result (if rest? "find_keyword_on_stack" "find_keyword_in_list") const)
+                    (format printer "{& :v}if ({a} == NOOBJECT){%}" (+ level 1) result)
+                    (format printer "{& :v}~{{%}" (+ level 1))
+                    (let ((default-item (compile default object (+ level 2) RESULT)))
+                      (format printer "{& :v}{a} = {a};{%}" (+ level 2) RESULT (get-code~ default-item null)))
+                    (format printer "{& :v}}{%}" (+ level 1))
+                    (compile-set-variable variable (new C-Expr self null RESULT) object (+ level 1) null)))
+                (bind-keywords-bindings special))
+      (let ((others (bind-keywords-others special)))
+        (when others
+          (when (variable-explicit? others)
+            (format printer "{& :v}jObject {a};{%}" (+ level 1) (variable-location others)))
+          (if rest?
+              (format printer "{& :v}{a} = collect_stack(k);{%}" (+ level 1) result)
+            (format printer "{& :v}{a} = k;{%}" (+ level 1) result))
+          (compile-set-variable others (new C-Expr self null result) object (+ level 1) result)))
+      (compile-result (bind-keywords-body special) object (+ level 1) result)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  (method (compile-bind-optionals special object level result)
+    (format printer "{& :v}// bind-optionals{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (let* ((values-expr (bind-optionals-values special))
+           (rest? (rest-variable? values-expr)))
+      (format printer "{& :v}{a} v;{%}" (+ level 1) (if rest? "jObjectPtr" "jObject"))
+      (let ((item
+             (if rest?
+                 (new C-Expr self null (format "(jObjectPtr) {a}" (variable-location values-expr)))
+               (compile values-expr object (+ level 1) RESULT))))
+        (format printer "{& :v}v = {a};{%}" (+ level 1) (get-code~ item null)))
+      (for-each (function dynamic (couple)
+                  (let* ((variable (car couple))
+                         (default (cdr couple))
+                         (variable-typeref (get-typeref variable)))
+                    (when (variable-explicit? variable)
+                      (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                    (if rest?
+                        (format printer "{& :v}if (*v == NOOBJECT){%}" (+ level 1))
+                      (format printer "{& :v}if (v == Nil){%}" (+ level 1)))
+                    (format printer "{& :v}~{{%}" (+ level 1))
+                    (let ((default-item (compile default object (+ level 2) RESULT)))
+                      (format printer "{& :v}{a} = {a};{%}" (+ level 2) RESULT (get-code~ default-item null)))
+                    (format printer "{& :v}}{%}" (+ level 1))
+                    (format printer "{& :v}else{%}" (+ level 1))
+                    (format printer "{& :v}~{{%}" (+ level 1))
+                    (cond (rest?
+                           (format printer "{& :v}{a} = *v++;{%}" (+ level 2) RESULT))
+                          (else
+                           (format printer "{& :v}{a} = car(v);{%}" (+ level 2) RESULT)
+                           (format printer "{& :v}v = cdr(v);{%}" (+ level 2))))
+                    (format printer "{& :v}}{%}" (+ level 1))
+                    (compile-set-variable variable (new C-Expr self null RESULT) object (+ level 1) null)))
+                (bind-optionals-bindings special))
+      (unless distribution?
+        (cond (rest?
+               (format printer "{& :v}if (*v != NOOBJECT){%}" (+ level 1))
+               (format printer "{& :v}error(L\"Too many arguments for bind-optionals\");{%}" (+ level 2)))
+              (else
+               (format printer "{& :v}if (v != Nil){%}" (+ level 1))
+               (format printer "{& :v}error(L\"Too many arguments for bind-optionals\");{%}" (+ level 2)))))
+      (compile-result (bind-optionals-body special) object (+ level 1) result)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  (method (compile-bind-values special object level result)
+    (format printer "{& :v}// bind-values{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (let ((values-item (compile (bind-values-values special) object (+ level 1) RESULT)))
+      (format printer "{& :v}jObjectPtr vp = castValues({a})->get_values();{%}" (+ level 1) (get-code~ values-item null)))
+    (for-each (function dynamic (variable)
+                (let ((variable-typeref (get-typeref variable)))
+                  (when (variable-explicit? variable)
+                    (format printer "{& :v}{a} {a};{%}" (+ level 1) (primitive-type variable-typeref) (variable-location variable)))
+                  (format printer "{& :v}{a} = *vp++;{%}" (+ level 1) RESULT)
+                (compile-set-variable variable (new C-Expr self null RESULT) object (+ level 1) null)))
+              (bind-values-bindings special))
+    (compile-result (bind-values-body special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-block special object level result)
+    (let ((name (block-name special)))
+      (format printer "{& :v}// block {a}{%}" level name)
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}tAddress ar = &b;{%}" (+ level 1))
+      (format printer "{& :v}try{%}" (+ level 1))
+      (format printer "{& :v}~{{%}" (+ level 1))
+      (compile-list-result (block-body special) object (+ level 2) result)
+      (format printer "{& :v}}{%}" (+ level 1))
+      (format printer "{& :v}catch (JCompiledReturned rtn){%}" (+ level 1))
+      (format printer "{& :v}~{{%}" (+ level 1))
+      (let ((const (register-constant name)))
+        (format printer "{& :v}if (rtn.area == ar && rtn.name == {a}){%}" (+ level 2) const))
+      (format printer "{& :v}~{{%}" (+ level 2))
+      (format printer "{& :v}{a} = rtn.value;{%}" (+ level 3) result)
+      (format printer "{& :v}}{%}" (+ level 2))
+      (format printer "{& :v}else{%}" (+ level 2))
+      (format printer "{& :v}throw;{%}" (+ level 3))
+      (format printer "{& :v}}{%}" (+ level 1))
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  (method (compile-return special object level result)
+    (format printer "{& :v}// return{%}" level)
+    (let ((lvl (return-level special))
+           (item
+            (if (return-expr? special)
+                (compile (return-expr special) object level RESULT)
+              (embed-null nil object))))
+      (if (= lvl 0)
+          (format printer "{& :v}return {a};{%}"
+                  level
+                  (get-code~ item null))
+        (format printer "{& :v}throw JCompiledReturned({a}, Nil, {a});{%}"
+                level
+                (if (= lvl 0) "b" (format "e[{a}]" (- lvl 1)))
+                (get-code~ item null))))
+    (new C-Form self null result))
+
+
+  (method (compile-return-from special object level result)
+    (let ((name (return-from-name special)))
+      (format printer "{& :v}// return-from {a}{%}" level name)
+      (let ((const (register-constant name))
+             (lvl (return-from-level special))
+             (item
+              (if (return-from-expr? special)
+                  (compile (return-from-expr special) object level RESULT)
+                (embed-null nil object))))
+        (format printer "{& :v}throw JCompiledReturned({a}, {a}, {a});{%}"
+                level
+                (if (= lvl 0) "b" (format "e[{a}]" (- lvl 1)))
+                const
+                (get-code~ item null))))
+    (new C-Form self null result))
+
+
+  (method (compile-and special object level result)
+    (format printer "{& :v}// and{%}" level)
+    (let ((res (unique "r")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}bool {a} = true;{%}" (+ level 1) res)
+      (letrec ((form (and-form special))
+               (proc
+                (function dynamic (form level)
+                  (let* ((expr (car form))
+                         (item (compile expr object level RESULT)))
+                    (format printer "{& :v}{a} = ({a} != 0);{%}" level res (get-bool-code item)))
+                  (when (cdr form)
+                    (format printer "{& :v}if ({a}){%}" level res)
+                    (format printer "{& :v}~{{%}" level)
+                    (proc (cdr form) (+ level 1))
+                    (format printer "{& :v}}{%}" level)))))
+        (when form
+          (proc form (+ level 1))))
+      (format printer "{& :v}{a} = put_tBool({a});{%}" (+ level 1) result res)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  (method (compile-or special object level result)
+    (format printer "{& :v}// or{%}" level)
+    (let ((res (unique "r")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}bool {a} = false;{%}" (+ level 1) res)
+      (letrec ((form (or-form special))
+               (proc
+                (function dynamic (form level)
+                  (let* ((expr (car form))
+                         (item (compile expr object level RESULT)))
+                    (format printer "{& :v}{a} = ({a} != 0);{%}" level res (get-bool-code item)))
+                  (when (cdr form)
+                    (format printer "{& :v}if (! {a}){%}" level res)
+                    (format printer "{& :v}~{{%}" level)
+                    (proc (cdr form) (+ level 1))
+                    (format printer "{& :v}}{%}" level)))))
+        (when form
+          (proc form (+ level 1))))
+      (format printer "{& :v}{a} = put_tBool({a});{%}" (+ level 1) result res)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  ;; this is a special case because we want variables to be initialized to nil
+  ;; even if their type is not nullable!!! use only by let for the moment...
+  (method (compile-initialize-variable variable value-item/code object level result)
+    (let* ((location (variable-location variable))
+           (variable-typeref (get-typeref variable))
+           (variable-nullable-typeref (essay variable-typeref (new Typeref environment (get-reference~ variable-typeref) (get-type~ variable-typeref) true)))
+           (value-code (if (string? value-item/code) value-item/code (get-code~ value-item/code variable-nullable-typeref)))
+           (code (format "{a} = {a}" location value-code)))
+      (format printer "{& :v}{a}{a};{%}" level (put-result result) (if result (convert-type (result-type result) variable-typeref code) code)))
+    (new C-Form self null result))
+
+
+  (method (compile-set special object level result)
+    (let ((value-item (compile (set-expr special) object level RESULT)))
+      (compile-set-location (set-location special) value-item object level result)))
+
+
+  (method (compile-set-location location value-item/code object level result)
+    (if (variable? location)
+        (compile-set-variable location value-item/code object level result)
+      (let ((value-code (if (string? value-item/code) value-item/code (get-code~ value-item/code null))))
+        (typecase location
+          ((Symbol)          (compile-set-symbol          location value-code object level result))
+          ((Slot)            (compile-set-slot            location value-code object level result))
+          ((Definition)      (compile-set-definition      location value-code object level result))
+          ((Dispatch)        (compile-set-dispatch        location value-code object level result))
+          ((Meta-Reference)  (compile-set-meta-reference  location value-code object level result))
+          ((Outer-Reference) (compile-set-outer-reference location value-code object level result))
+          ((Field-Reference) (compile-set-field-reference location value-code object level result))
+          (else            (error "Unable to compile {t}: {t}" (type-name location) location))))))
+
+
+  (method (compile-set-variable variable value-item/code object level result)
+    (if (rest-variable? variable)
+        (error ". rest variables are read-only")
+      (let* ((location (variable-location variable))
+             (variable-typeref (get-typeref variable))
+             (value-code (if (string? value-item/code) value-item/code (get-code~ value-item/code variable-typeref)))
+             (code (format "{a} = {a}" location value-code)))
+        (format printer "{& :v}{a}{a};{%}" level (put-result result) (if result (convert-type (result-type result) variable-typeref code) code)))
+      (new C-Form self null result)))
+
+
+  (method (compile-set-symbol symbol value-code object level result)
+    (error "Free symbol '{t} in {t}{%}" symbol unit-name))
+
+
+  (method (compile-set-slot slot value-code object level result)
+    (let ((offset (register-slot-offset slot)))
+      (format printer "{& :v}{a}SLS({a}, {a}, {a});{%}"
+              level
+              (put-result result)
+              object
+              offset
+              value-code))
+    (new C-Form self null result))
+
+
+  (method (compile-set-definition definition value-code object level result)
+    (let ((variable (resolve-field definition null)))
+      (if (definition-virtual? definition)
+          (let ((creator (field-creator (definition-origin definition))))
+            (if (class? creator)
+                (format printer "{& :v}{a}CVS({a}, {a}, {a}, {a});{%}"
+                        level
+                        (put-result result)
+                        object
+                        (class-level creator)
+                        variable
+                        value-code)
+              (format printer "{& :v}{a}IVS({s}, {a}, {a});{%}"
+                      level
+                      (put-result result)
+                      object
+                      variable
+                      value-code)))
+        (format printer "{& :v}{a}FDS({a}, {a});{%}"
+                level
+                (put-result result)
+                variable
+                value-code)))
+    (new C-Form self null result))
+
+
+  (method (compile-set-dispatch dispatch value-code object level result)
+    (format printer "{& :v}~{{%}" level)
+    (let ((res (symbol->string (unique "r"))))
+      (format printer "{& :v}jObject {a} = {a};{%}" (+ level 1) res value-code)
+      (let* ((context-item (compile (dispatch-context dispatch) object (+ level 1) RESULT))
+             (context-type (get-type~ context-item)))
+        (format printer "{& :v}jObject c = {a};{%}" (+ level 1) (get-code~ context-item null))
+        (compile-set-dispatched (dispatch-form dispatch) res object 'c context-type (+ level 1) result null)))
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+
+
+  (method (compile-set-dispatched target value-code object context context-type level result implicit-dispatch)
+    (if (null? implicit-dispatch)
+        (let ((target (explicit-dispatch-target target)))
+          (typecase target
+            ((Symbol) (compile-set-dispatched-symbol target value-code object context context-type level result))
+            (else   (error "Unable to compile dispatched set target: {t}" target))))
+      (compile-set-dispatched-field target value-code object context level result implicit-dispatch)))
+
+
+  (method (compile-set-dispatched-symbol symbol value-code object context context-type level result)
+    (let ((field (explicit-field context-type symbol)))
+      (if (if typed-access? (not-null? field) (slot? field))
+          @wait-typedref-fixed
+          field
+          (compile-set-dispatched-field field value-code object context level result 'explicit)
+        (let ((c (register-constant symbol))
+              (y (unique "y")))
+          (format printer "{& :v}static DS {s}({a}); // {s}{%}" level y c symbol)
+          (format printer "{& :v}{a}CDS({s}, {s}, {a});{%}" level (put-result result) context y value-code)))))
+  
+  
+  (method (compile-set-field-reference reference value-code object level result)
+    (compile-set-location (field-reference-form reference) value-code object level result))
+
+
+  (method (compile-set-meta-reference reference value-code object level result)
+    (let ((new-context (unique "x")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}jObject {s} = {a}->get_class();{%}" (+ level 1) new-context object)
+      (compile-set-dispatched (field-reference-form reference) value-code object new-context null (+ level 1) result 'meta)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+
+
+  (method (compile-set-outer-reference reference value-code object level result)
+    (let ((new-context (unique "x")))
+      (format printer "{& :v}~{{%}" level)
+      (format printer "{& :v}jObject {s} = {a}" (+ level 1) new-context object)
+      (for-each (function dynamic (n)
+                  (format printer "->get_object_container()"))
+                (naturals 0 (outer-reference-level reference)))
+      (format printer ";{%}")
+      (compile-set-dispatched (field-reference-form reference) value-code object new-context null (+ level 1) result 'outer)
+      (format printer "{& :v}}{%}" level))
+    (new C-Form self null result))
+  
+  
+  (method (compile-set-dispatched-field field value-code object context level result implicit-dispatch)
+    (typecase field
+      ((Slot)       (compile-set-dispatched-slot       field value-code object context level result))
+      ((Definition) (compile-set-dispatched-definition field value-code object context level result implicit-dispatch))))
+  
+  
+  (method (compile-set-dispatched-slot slot value-code object context level result)
+    (compile-set-slot slot value-code context level result))
+  
+  
+  (method (compile-set-dispatched-definition definition value-code object context level result implicit-dispatch)
+    (let ((variable (resolve-field definition implicit-dispatch))
+          (creator (field-creator (definition-origin definition))))
+      (if (definition-virtual? definition)
+          (if (class? creator)
+              (format printer "{& :v}{a}CVS({a}, {a}, {a}, {a}); // {s}{%}"
+                      level
+                      (put-result result)
+                      context
+                      (class-level creator)
+                      variable
+                      value-code
+                      (field-name definition))
+            (format printer "{& :v}{a}IVS({s}, {a}, {a}); // {s}{%}"
+                    level
+                    (put-result result)
+                    context
+                    variable
+                    value-code
+                    (field-name definition)))
+        (format printer "{& :v}{a}FDS({a}, {a}); // {s}{%}"
+                level
+                (put-result result)
+                variable
+                value-code
+                (field-name definition))))
+    (new C-Form self null result))
+
+
+  (method (compile-cast special object level result)
+    (let* ((expr (cast-expr special))
+           (typeref (cast-typeref special))
+           (value-item (compile expr object level result)))
+      (new C-Expr self typeref (get-code~ value-item typeref)))) 
+
+
+  (method (compile-synchronize special object level result)
+    (format printer "{& :v}// synchronize{%}" level)
+    (format printer "{& :v}~{{%}" level)
+    (let ((item (compile (synchronize-expr special) object (+ level 1) result)))
+      (format printer "{& :v}WithMonitor {a}({a}->get_object_monitor());{%}" (+ level 1) (unique "with_monitor") (get-code~ item null)))
+    (compile-list-result (synchronize-body special) object (+ level 1) result)
+    (format printer "{& :v}}{%}" level)
+    (new C-Form self null result))
+  
+  
+  (method (with-optimize-settings settings proc)
+    (let ((opf procedure-frames?))
+      (unwind-protect
+          (begin
+            (let ((pf (getf settings :frame? :not-found 'default)))
+              (unless (eq? pf 'default)
+                (set! procedure-frames? pf)))
+            (proc))
+        (set! procedure-frames? opf))))
+
+
+  (method (compile-optimize special object level result)
+    (format printer "{& :v}// optimize{%}" level)
+    (with-optimize-settings (optimize-settings special)
+      (function dynamic ()
+        (compile-list-result (optimize-body special) object level result))))
+  
+  
+  (method (compile-profile special object level result)
+    (let ((body (profile-special-body special)))
+      (format printer "{& :v}// profile{%}" level)
+      (let ((name (register-constant (profile-special-name special)))
+            (condition (register-constant (profile-special-condition special))))
+        (format printer "{& :v}~{{%}" level)
+        (format printer "{& :v}ProfileFrame f({a}, {a});{%}" (+ level 1) name condition)
+        (compile-list-result body object (+ level 1) result)
+        (format printer "{& :v}}{%}" level)))
+    (new C-Form self null result))
+
+
+  ;;;
+  ;;;; Resolve
+  ;;;
+  
+  
+  (method (resolve-field field implicit-dispatch)
+    (if (null? implicit-dispatch)
+        (resolve-internal-field field)
+      (case implicit-dispatch
+        ((meta)
+         (register-metaref field))
+        ((outer)
+         (register-outerref field))
+        ((imported)
+         (register-imported field))
+        ((explicit)
+         (register-typedref field)))))
+  
+  
+  (method (resolve-internal-field field)
+    (let ((creator (field-creator field)))
+      (cond ((subtype? unit creator)
+             (let ((n (find-field field forms)))
+               (if (null? n)
+                   (register-inherited field)
+                 (format "fld{s}[{s}]" (get-rank) n))))
+            (else
+             ;; temp because compile-structure creates a call to list on the fly...
+             (register-imported field)
+             @w
+             (unimplemented 'resolve-internal-field)
+             @w
+             (register-typedref field)))))
+  
+  
+  (method (find-field field forms)
+    (find field forms :key car :return 'position))
+
+
+  ;;;
+  ;;;; External
+  ;;;
+
+
+  ;; typedef tBOOL (*proc)(tInt, tInt*, tInt*);
+  ;; tInt o0;
+  ;; tInt o1;
+  ;; jObject r = put_tBool(((proc) e)(fetch_tInt(p[0]), &o0, &o1) != 0);
+  ;; SetWinError(GetLastError());
+  ;; return new_values(r, put_tInt(o0), put_tInt(o1));
+
+  (method (compile-external external result contextual? nb-parameters nb-in nb-out rest? nb-values parameters sections)
+    (output-typedef result parameters (essay contextual? "jObject") rest?)
+    (reserve-out-parameters parameters)
+    (let ((out (new String-Printer))
+          (winexternal? (is? external WinExternal)))
+      (format out "((proc) e)(")
+      (let ((first? true))
+        (when contextual?
+          (format out "s")
+          (set! first? false))
+        (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                              (if first?
+                                  (set! first? false)
+                                (format out ", "))
+                              (if (= (get-direction~ param) '<in>)
+                                  (if (get-pointer?~ (get-typeref~ param))
+                                      (format out "{a}" (unbox-pointer param (format "p[{s}]" in-rank)))
+                                    (format out "{a}" (write-parameter param (format "p[{s}]" in-rank))))
+                                (format out "&o{s}" out-rank)))
+                            parameters)
+        (when rest?
+          (format out "{a}p + {s}" (if first? "" ", ") nb-parameters)))
+      (format out ")")
+      (let ((void? (eq? (get-type~ result) void))
+            (call (get-output~ out)))
+        (if (= nb-values 0)
+            (if void?
+                (begin
+                  (format printer "{& :v}{a};{%}" 1 call)
+                  (when winexternal?
+                    (format printer "{& :v}SetWinError(GetLastError());{%}" 1))
+                  (format printer "{& :v}return Null;{%}" 1))
+              (let ((code (read-parameter result call)))
+                (if (not winexternal?)
+                    (format printer "{& :v}return {a};{%}" 1 code)
+                  (format printer "{& :v}jObject r = {a};{%}" 1 code)
+                  (format printer "{& :v}SetWinError(GetLastError());{%}" 1)
+                  (format printer "{& :v}return r;{%}" 1))))
+          (if void?
+              (format printer "{& :v}{a};{%}" 1 call)
+            (format printer "{& :v}jObject r = " 1)
+            (format printer "{a};{%}" (read-parameter result call)))
+          (when winexternal?
+            (format printer "{& :v}SetWinError(GetLastError());{%}" 1))
+          (format printer "{& :v}return new_values(" 1)
+          (let ((first? true))
+            (when (not void?)
+              (format printer "r")
+              (set! first? false))
+            (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                                  (when (out-going?~ param)
+                                    (if first?
+                                        (set! first? false)
+                                      (format printer ", "))
+                                    (format printer (read-parameter param (format "o{s}" out-rank)))))
+                                parameters))
+          (format printer ");{%}"))))
+    (put~ sections (end-section)))
+
+
+  ;;;
+  ;;;; CoExternal
+  ;;;
+  
+  
+  (method (compile-coexternal external result nb-parameters nb-in nb-out nb-values parameters sections)
+    (output-typedef result parameters "tAddress" false)
+    (reserve-parameters parameters)
+    (let ((out (new String-Printer)))
+      (format out "((proc) e)(cp")
+      (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                            (format out ", ")
+                            (if (out-going?~ param)
+                                (format out "&o{s}" rank)
+                              (format out "o{s}" rank)))
+                          parameters)
+      (format out ")")
+      (let ((void? (eq? (get-type~ result) void))
+            (hresult? (coexternal-has-hresult? external))
+            (call (get-output~ out)))
+        (if void?
+            (format printer "{& :v}{a};{%}" 1 call)
+          (format printer "{& :v}{a} res = {a};{%}" 1 (primitive-type result true) call))
+        (when hresult?
+          (format printer "{& :v}validate_hresult(res, s);{%}" 1))
+        (clear-parameters parameters)
+        (if (= nb-values 0)
+            (let ((retval (coexternal-retval external)))
+              (if (null? retval)
+                  (format printer "{& :v}return Null;{%}" 1)
+                ;; do it for the only out parameter
+                (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                                      (when (out-going?~ param)
+                                        (format printer "{& :v}return " 1)
+                                        (format printer (read-parameter retval (format "o{s}" rank)))
+                                        (format printer ";{%}")))
+                                    parameters)))
+          (let ((first? true))
+            (format printer "{& :v}return new_values(" 1)
+            (when (and (not hresult?) (/= (get-type~ result) void))
+              (format printer "{a}" (read-parameter result "res"))
+              (set! first? false))
+            (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                                  (when (out-going?~ param)
+                                    (if first?
+                                        (set! first? false)
+                                      (format printer ", "))
+                                    (format printer (read-parameter param (format "o{s}" rank)))))
+                                parameters))
+          (format printer ");{%}"))))
+    (put~ sections (end-section)))
+
+
+  ;;;
+  ;;;; CoStub
+  ;;;
+    
+  
+  (method (compile-costub cofunction rank symbolic level)
+    (let* ((costub (cofunction-costub cofunction))
+           (parameters-size (stub-parameters-size costub))
+           (result-type (stub-result-type costub))
+           (parameters (stub-parameters costub))
+           (nb-in (stub-nb-in costub))
+           (nb-out (stub-nb-out costub))
+           (has-result? (neq? result-type void))
+           (name (symbolic-stub-name 'stb rank symbolic)))
+      (format printer "{& :v}long {a}(jObject s, jProcedure c, tDataFrame f, tPtr a) // {a}{%}" level name symbolic)
+      (format printer "{& :v}~{{%}" level)
+      (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                            (let ((type (resolve-type param))
+                                   (direction (get-direction~ param))
+                                   (pointer? (get-pointer?~ (get-typeref~ param)))
+                                   (primitive (primitive-type param true)))
+                              (format printer "{& :v}// {a} {a}{a}{%}" 1 direction primitive (if pointer? "*" ""))
+                              (case direction
+                                ((<in>)
+                                 (if pointer?
+                                     (begin
+                                       (format printer "{& :v}f->push({a});{%}" (+ level 1) (read-parameter param (format "** ({a}**) a" primitive)))
+                                       (format printer "{& :v}a += sizeof({a}*);{%}" (+ level 1) primitive))
+                                   (format printer "{& :v}f->push({a});{%}" (+ level 1) (read-parameter param (format "* ({a}*) a" primitive)))
+                                   (format printer "{& :v}a += sizeof({a});{%}" (+ level 1) primitive)))
+                                ((<out>)
+                                 (format printer "{& :v}{a}* o{s} = * ({a}**) a;{%}" (+ level 1) primitive out-rank primitive)
+                                 (format printer "{& :v}a += sizeof({a}*);{%}" (+ level 1) primitive))
+                                ((<in-out>)
+                                 (format printer "{& :v}{a}* o{s} = * ({a}**) a;{%}" (+ level 1) primitive out-rank primitive)
+                                 (format printer "{& :v}f->push({a});{%}" (+ level 1) (read-parameter param (format "*o{s}" out-rank)))
+                                 (format printer "{& :v}a += sizeof({a}*);{%}" (+ level 1) primitive)))))
+                          parameters)
+      (format printer "{& :v}f->push(NOOBJECT);{%}" (+ level 1))
+      (format printer "{& :v}f->activate();{%}" (+ level 1))
+      (format printer "{& :v}jObject r = c->eval_procedure(s, f->get_stack());{%}" (+ level 1))
+      (if (= nb-out 0)
+          (if has-result?
+              (format printer "{& :v}return fetch_tInt(r);{%}" (+ level 1))
+            (format printer "{& :v}return 0;{%}" (+ level 1)))
+        (format printer "{& :v}jObjectPtr ptr = castValues(r)->get_values();{%}" (+ level 1))
+        (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                              (when (out-going?~ param)
+                                (format printer "{& :v}*o{s} = {a};{%}" (+ level 1) out-rank (write-parameter param (format "ptr[{s}]" (+ out-rank 1)) false))))
+                            parameters)
+        (format printer "{& :v}return fetch_tInt(ptr[0]);{%}" (+ level 1)))
+      (format printer "{& :v}}{%}{%}" level)
+      (cons name parameters-size)))
+
+
+  ;;;
+  ;;;; Parameters
+  ;;;
+  
+  
+  (method (for-each-parameter proc parameters)
+    (let ((rank 0)
+           (in-rank 0)
+           (out-rank 0))
+      (for-each (function dynamic (param)
+                  (proc param rank in-rank out-rank)
+                  (increase! rank)
+                  (when (in-going?~ param)
+                    (increase! in-rank))
+                  (when (out-going?~ param)
+                    (increase! out-rank)))
+                parameters)))
+  
+  
+  (method (output-typedef result parameters context rest?)
+    (format printer "{& :v}typedef {a} (JAZZCALL *proc)(" 1 (primitive-type result true))
+    (let ((first? true))
+      (when context
+        (format printer "{a}" context)
+        (set! first? false))
+      (for-each (function dynamic (param)
+                  (if first?
+                      (set! first? false)
+                    (format printer ", "))
+                  (format printer "{a}" (primitive-type param true))
+                  (when (get-pointer?~ (get-typeref~ param))
+                    (format printer "*")))
+              parameters)
+      (when rest?
+        (format printer "{a}jObjectPtr" (if first? "" ", "))))
+    (format printer ");{%}"))
+  
+  
+  (method (reserve-parameters parameters)
+    (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                          (let ((primitive (primitive-type param true))
+                                (variable (format "o{s}" rank))
+                                (in-pointer? (and (eq? (get-direction~ param) '<in>) (get-pointer?~ (get-typeref~ param)))))
+                            (format printer "{& :v}{a}{a} {a}" 1 primitive (if in-pointer? "*" "") variable)
+                            (when (in-going?~ param)
+                              (format printer " = {a}" (if in-pointer?
+                                                           (unbox-pointer param (format "p[{s}]" rank))
+                                                         (write-parameter param (format "p[{s}]" rank)))))
+                            (format printer ";{%}")
+                            (when (eq? (get-direction~ param) '<out>)
+                              (let ((init (init-parameter param variable)))
+                                (when init
+                                  (format printer "{& :v}{a}{%}" 1 init))))))
+                        parameters))
+  
+  
+  (method (reserve-out-parameters parameters)
+    (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                          (when (out-going?~ param)
+                            (let ((primitive (primitive-type param true))
+                                  (variable (format "o{s}" out-rank)))
+                              (format printer "{& :v}{a} {a}" 1 primitive variable)
+                              (when (in-going?~ param)
+                                (format printer " = {a}" (write-parameter param (format "p[{s}]" in-rank) false)))
+                              (format printer ";{%}")
+                              (when (eq? (get-direction~ param) '<out>)
+                                (let ((init (init-parameter param variable)))
+                                  (when init
+                                    (format printer "{& :v}{a}{%}" 1 init)))))))
+                        parameters))
+  
+  
+  (method (init-parameter param variable)
+    (let ((type (resolve-type param)))
+      (ecase type
+        ((<variant>) (format "VariantInit(&{a});" variable))
+        (else null))))
+  
+  
+  (method (clear-parameters parameters)
+    (for-each-parameter (function dynamic (param rank in-rank out-rank)
+                          (let ((primitive (primitive-type param true))
+                                (variable (format "o{s}" rank)))
+                            (let ((clear (clear-parameter param variable)))
+                              (when clear
+                                (format printer "{& :v}{a}{%}" 1 clear)))))
+                        parameters))
+  
+  
+  (method (clear-parameter param variable)
+    (when (and (eq? (get-direction~ param) '<in>)
+               (not (get-pointer?~ (get-typeref~ param))))
+      (let ((type (resolve-type param)))
+        (if (or (coclass? type) (cointerface? type))
+            (format "cointerface_clear({a});" variable)
+          (ecase type
+            ((<bstr>) (format "bstr_clear({a});" variable))
+            ((<variant>) (format "variant_clear({a});" variable))
+            (else null))))))
+  
+  
+  (method (write-parameter typeref code . rest)
+    (bind-optionals ((pointer? (resolve-pointer? typeref))) rest
+      (let ((reference (resolve-reference typeref))
+            (type (resolve-type typeref)))
+        (cond ((coclass? type)
+               (format "cointerface_to_native(NULL, {a})" code))
+              ((cointerface? type)
+               (format "cointerface_to_native(NULL, {a})" code))
+              ((enumeration? type)
+               (format "fetch_tInt({a})" code))
+              ((structure? type)
+               (let ((item (embed reference "s")))
+                 (if (is-not? item C-Expr)
+                     (error "Cannot embed {t}" reference)
+                   (let ((s (register-structure (size-of type))))
+                     (format "* ({a}*) fetch_tRecord({a}, castClass({a}))" s code (get-code~ item null))))))
+              (else
+               (fetch-type typeref code))))))
+  
+  
+  (method (read-parameter typeref code)
+    (let ((reference (resolve-reference typeref))
+          (type (resolve-type typeref))
+          (pointer? (resolve-pointer? typeref)))
+      (cond ((eq? type void)
+             "Null")
+            ((coclass? type)
+             (let ((item (embed reference "s")))
+               (if (is-not? item C-Expr)
+                   (error "Cannot embed {t}" reference)
+                 (let ((cprim (if (in-going?~ typeref) "native_to_cointerface_clear" "native_to_cointerface")))
+                   (format "{a}(get_cointerface_class(castClass({a})->default_cointerfaceGet()), (void*) &{a})" cprim (get-code~ item null) code)))))
+            ((cointerface? type)
+             (let ((item (embed reference "s")))
+               (if (is-not? item C-Expr)
+                   (error "Cannot embed {t}" reference)
+                 (let ((cprim (if (in-going?~ typeref) "native_to_cointerface_clear" "native_to_cointerface")))
+                   (format "{a}(get_cointerface_class({a}), (void*) &{a})" cprim (get-code~ item null) code)))))
+            ((enumeration? type)
+             (format "put_tInt({a})" code))
+            ((structure? type)
+             (if true @w pointer?
+                 (let ((item (embed reference "s")))
+                   (if (is-not? item C-Expr)
+                       (error "Cannot embed {t}" reference)
+                     (format "put_tRecord(&{a}, castClass({a}))" code (get-code~ item null))))
+               (error "Cannot put records by value")))
+            (else
+             (put-type typeref code)))))
+
+
+  ;;;
+  ;;;; Unbox
+  ;;;
+  
+  
+  (method protected (unbox-pointer typeref code)
+    (let ((type (resolve-type typeref)))
+      (cond ((structure? type)
+             (let* ((reference (resolve-reference typeref))
+                    (item (embed reference "s"))
+                    (s (register-structure (size-of type))))
+               (format "({a}*) fetch_tRecord({a}, castClass({a}))" s code (get-code~ item null))))
+            (else
+             (ecase type
+               ((<guid>)    (format "castGUID({a})->guid_address()" code))
+               ((<variant>) (format "{a}({a})" (if (get-pointer?~ (get-typeref~ typeref)) "object_to_variant_ptr" "object_to_variant") code))
+               ;; this is a quick quick quicky to make DAO compile (***** to fix *****)
+               (else      "NULL" @w (error "Unable to unbox pointer for type {t}" type)))))))
+
+
+  ;;;
+  ;;;; Fetch
+  ;;;
+  
+  
+  (method protected (fetch-type typeref code)
+    (let ((reference (resolve-reference typeref))
+          (type (resolve-type typeref))
+          (nullable? (resolve-nullable? typeref))
+          (pointer? (resolve-pointer? typeref)))
+      (cond ((null? type) code)
+            ((primitive-class? type) (format "cast{a}{a}({a})" (type-name type) (if nullable? "Nullable" "") code))
+            (else (ecase type
+                    ((<void>)         code)
+                    ((<bool>)         (format "fetch_tBool({a})" code))
+                    ((<byte>)         (format "fetch_tInt({a})" code))
+                    ((<short>)        (format "fetch_tInt({a})" code))
+                    ((<int>)          (format "fetch_tInt({a})" code))
+                    ((<long>)         (format "fetch_tLong({a})" code))
+                    ((<float>)        (format "fetch_tFloat({a})" code))
+                    ((<double>)       (format "fetch_tDouble({a})" code))
+                    ((<string>)       (format "string_to_native({a})" code))
+                    ((<ansistring>)   (format "ansi_string_to_native({a})" code))
+                    ((<record>)       (format "fetch_tRecord({a})" code))
+                    ((<array>)        (format "fetch_tArray({a})" code))
+                    ((<data>)         (format "fetch_tData({a})" code))
+                    ((<resname>)      (format "fetch_tResname({a})" code))
+                    ((<param>)        (format "fetch_tParam({a})" code))
+                    ((<type>)         (format "castType({a})" code))
+                    ((<class>)        (format "castClass({a})" code))
+                    ((<frame>)        (format "frame_to_native({a})" code))
+                    ((<vtbool>)       (format "fetch_vtBool({a})" code))
+                    ((<vtdate>)       (format "fetch_vtDate({a})" code))
+                    ((<guid>)         (format "guid_to_native({a})" code))
+                    ((<bstr>)         (format "bstr_to_native({a})" code))
+                    ((<variant>)      (if false @w pointer?
+                                        (format "object_to_variant_ptr({a})" code)
+                                      (format "object_to_variant({a})" code)))
+                    ((<unpl>)         (format "fetch_unimplemented({a})" code))
+                    (else           (if (unit? type)
+                                        (let ((reference (resolve-reference typeref)))
+                                          (if (null? reference)
+                                              code
+                                            (let ((item (embed reference null)))
+                                              ;; not really necessary as cast is a macro that does nothing in sealed but it makes the code easier to read
+                                              (if sealed?
+                                                  code
+                                                (format "{a}({a}, castType({a}))" (if nullable? "cast_nullable" "cast") code (get-code~ item null))))))
+                                      (error "Unable to fetch parameters of type {t}" type))))))))
+
+
+  ;;;
+  ;;;; Put
+  ;;;
+  
+  
+  (method protected (put-type typeref code)
+    (let ((type (resolve-type typeref))
+          (pointer? (resolve-pointer? typeref)))
+      (cond ((null? type) code)
+            ((kernel-class? type) code)
+            (else (ecase type
+                    ((<void>)        (format "JcCastNull((jObject) {a})" code))
+                    ((<bool>)        (format "put_tBool({a} != 0)" code))
+                    ((<byte>)        (format "put_tInt({a})" code))
+                    ((<short>)       (format "put_tInt({a})" code))
+                    ((<int>)         (format "put_tInt({a})" code))
+                    ((<float>)       (format "put_tFloat({a})" code))
+                    ((<double>)      (format "put_tDouble({a})" code))
+                    ((<string>)      (format "native_cnt_to_string({a})" code))
+                    ((<record>)      (format "put_unknown_record({a})" code))
+                    ((<vtbool>)      (format "put_vtBool({a})" code))
+                    ((<vtdate>)      (format "put_vtDate({a})" code))
+                    ((<guid>)        (format "native_to_guid({a})" code))
+                    ((<bstr>)        (format "native_to_bstr_clear({a})" code))
+                    ((<variant>)     (format "variant_to_object_clear(&{a})" code))
+                    ((<unpl>)        (format "put_unimplemented({a})" code))
+                    (else          (if (unit? type)
+                                       code
+                                     (error "Unable to put parameters of type {t}" type))))))))
+
+
+  ;;;
+  ;;;; Conversion
+  ;;;
+  
+  
+  (method protected (convert-type dst-typeref src-typeref code)
+    (let ((dst-type (resolve-type dst-typeref))
+          (src-type (resolve-type src-typeref))
+          (dst-nullable? (resolve-nullable? dst-typeref)))
+      (cond @buggy ((equal? code "Nil")
+             code)
+            ((and (eq? src-type int) (eq? dst-type double))
+             (format "((tDouble) ({a}))" code))
+            ((and (kernel-class? dst-type 'Object) dst-nullable?)
+             (put-type src-typeref code))
+            ((eq? dst-type src-type)
+             code)
+            ((and (kernel-class? dst-type 'Object) (null? src-type))
+             (format "VLV({a})" code))
+            (else
+             (fetch-type dst-typeref (put-type src-typeref code))))))
+  
+  
+  (method (get-bool-code item)
+    (get-code~ item (new Typeref environment null bool)))
+  
+  
+  (method (get-int-code item)
+    (get-code~ item (new Typeref environment null int)))
+  
+  
+  (method (get-double-code item)
+    (get-code~ item (new Typeref environment null double)))
+  
+  
+  (method (get-numeric-code item)
+    (let ((type (get-type~ item)))
+      (cond ((integral-type? type) (get-int-code item))
+            ((real-type? type) (get-double-code item)))))
+
+
+  ;;;
+  ;;;; Types
+  ;;;
+  
+  
+  (definition Primitive-Classnames
+    '(Object Boolean Char Integer Real Nil List Pair Sequence Procedure Hashtable Map String Symbol Definition Field Slot))
+  
+  
+  (method (primitive-classname? name)
+    (memq? name Primitive-Classnames))
+    
+  
+  (method (primitive-class? type)
+    (and (kernel-class? type)
+         (primitive-classname? (type-name type))))
+
+  
+  (method (primitive-type typeref . rest)
+    (bind-optionals ((external? false)) rest
+      (let ((type (resolve-type typeref)))
+        (cond
+         ((null? type) "jObject")
+         ((primitive-class? type) (append "j" (symbol->string (type-name type))))
+         ((enumeration? type) "tInt")
+         ((and external? (structure? type)) (register-structure (size-of type)))
+         ((or (coclass? type) (cointerface? type)) "coInterface")
+         (else (ecase type
+                 ((<void>)       "void")
+                 ((<bool>)       (if external? "tBOOL" "tBool"))
+                 ((<byte>)       "tByte")
+                 ((<short>)      "tShort")
+                 ((<int>)        "tInt")
+                 ((<long>)       "tLong")
+                 ((<float>)      "tFloat")
+                 ((<double>)     "tDouble")
+                 ((<string>)     "tString")
+                 ((<ansistring>) "tAnsiString")
+                 ((<frame>)      "tFrame")
+                 ((<record>)     "tRecord")
+                 ((<array>)      "tArray")
+                 ((<data>)       "tData")
+                 ((<resname>)    "tResname")
+                 ((<param>)      "tParam")
+                 ((<hresult>)    "coResult")
+                 ((<bstr>)       "tBSTR")
+                 ((<variant>)    "vtVariant")
+                 ((<guid>)       "tGUID")
+                 ((<vtbool>)     "vtBool")
+                 ((<vtdate>)     "vtDate")
+                 ((<Object>)     "jObject")
+                 ((<class>)      "cObject")
+                 ((<type>)       "jType")
+                 ((<unpl>)       "tInt")
+                 (else         (if (unit? type)
+                                   "jObject"
+                                 (error "Unable to get compiled type of {t}" type)))))))))
+  
+  
+  (method (resolve-reference typeref)
+    (essay typeref (get-reference~ (extract-typeref typeref))))
+  
+  
+  (method (resolve-type typeref)
+    (essay typeref (get-type~ (extract-typeref typeref))))
+  
+  
+  (method (resolve-nullable? typeref)
+    (if (null? typeref)
+        true
+      (get-nullable?~ (extract-typeref typeref))))
+  
+  
+  (method (resolve-pointer? typeref)
+    (if (null? typeref)
+        false
+      (get-pointer?~ (extract-typeref typeref))))
+  
+  
+  ;; A big simplification for now...
+  (method (extract-typeref typeref)
+    (if (is? typeref Typeref)
+        typeref
+      (get-typeref~ typeref)))
+
+
+  ;;;
+  ;;;; Folding
+  ;;;
+  
+  
+  (method (foldable-object? expr)
+    (or (typed? expr 'Boolean)
+        (typed? expr 'Char)
+        (typed? expr 'Integer)
+        (typed? expr 'Real)
+        (typed? expr 'String)
+        (typed? expr 'Nil)
+        (typed? expr 'Null)
+        (typed? expr 'Pair)
+        (typed? expr 'Symbol)
+        (typed? expr 'Library)
+        (and ;; a quick patch because this crashes
+             (not (special? expr))
+             (foldable?~ expr))))
+
+
+  (method public (fold expr)
+    (if (and (pair? expr) (eq? (car expr) :function))
+        (fold-function (cdr expr))
+      (cond
+        ;; quick patch until I have the time to do the actual compilation...
+        ((typed? expr 'Generic)   (format printer "NULL"))
+        ;; quick patch until I have the time to do the actual compilation...
+        ((typed? expr 'Java-External) (format printer "NULL"))
+        ((typed? expr 'Boolean)       (fold-boolean   expr))
+        ((typed? expr 'Char)          (fold-char      expr))
+        ((typed? expr 'Integer)       (fold-integer   expr))
+        ((typed? expr 'Real)          (fold-real      expr))
+        ((typed? expr 'String)        (fold-string    expr))
+        ((typed? expr 'Nil)           (fold-nil       expr))
+        ((typed? expr 'Null)          (fold-null      expr))
+        ((typed? expr 'Pair)          (fold-pair      expr))
+        ((typed? expr 'Reference)     (fold-reference expr))
+        ((typed? expr 'Symbol)        (fold-symbol    expr))
+        ((typed? expr 'Library)       (fold-library   expr))
+        (else                         (fold-object    expr)))))
+
+
+  (method public (fold-more expr)
+    (format printer ", ")
+    (fold expr))
+
+
+  (method public (fold-key-pair key value)
+    (fold-more key)
+    (fold-more value))
+
+
+  (method (fold-boolean boolean)
+    (format printer (if boolean "True" "False")))
+
+
+  (method (fold-char char)
+    (format printer "newChar({s})" (coerce char Integer)))
+
+
+  (method (fold-integer integer)
+    (format printer "put_tInt(0x{x})" integer))
+
+
+  (method (fold-real real)
+    (format printer "put_tDouble({s})" real))
+
+
+  (method (fold-string string)
+    (format printer "put_tString(L{s})" string))
+  
+  
+  (method (fold-nil pair)
+    (format printer "Nil"))
+  
+  
+  (method (fold-null pair)
+    (format printer "Null"))
+  
+  
+  (method (fold-pair pair)
+    (if (proper-list? pair)
+        (fold-list pair)
+      (format printer "cons(")
+      (fold (car pair))
+      (format printer ", ")
+      (fold (cdr pair))
+      (format printer ")")))
+  
+  
+  (method (fold-list list)
+    (if (null? list)
+        (format printer "Nil")
+      (let ((small? (<= (length list) 8)))
+        (if small?
+            (format printer "list(")
+          (format printer "varlist("))
+        (fold (car list))
+        (for-each (function dynamic (expr)
+                    (format printer ", ")
+                    (fold expr))
+                  (cdr list))
+        (if small?
+            (format printer ")")
+          (format printer ", NOOBJECT)")))))
+  
+  
+  (method (fold-reference reference)
+    (format printer "newReference(getReferenceClass(), ")
+    (fold (reference-context reference))
+    (format printer ", ")
+    (fold (reference-form reference))
+    (format printer ")"))
+
+
+    ;; this is something of a temporary patch because my change to fold-symbol caused a problem
+  (method (fold-symbol symbol)
+    (if (null? symbols)
+        (format printer "intern(L\"{s}\")" symbol)
+      (format printer "{a}" (register-constant symbol))))
+
+
+  (method (fold-function info)
+    (bind (f n) info
+      (if (not sealed?)
+          (format printer "JcNewCompiledFunction({a}, {s}, {a})"
+                  (symbolic-function-name 'l (get-rank) n (symbolic-name (local-function-name f)))
+                  (function-nb-parameters f)
+                  (c-boolean (function-has-rest? f)))
+        (format printer "JcNewCompiledFunction({a})"
+                (symbolic-function-name 'l (get-rank) n (symbolic-name (local-function-name f)))))))
+
+
+  (method (fold-object object)
+    (fold-object~ object self))
+
+
+  (method (fold-library library)
+    (fold (library-filename library)))
+  
+  
+  (method public (output string . rest)
+    (apply format printer string rest))
+
+
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method (c-boolean bool)
+    (if bool
+        "true"
+      "false"))
+  
+  
+  (method (present-dispatch form)
+    (typecase form
+      ((Call)     (format "({a} ...)" (call-called form)))
+      ((Self)     form)
+      ((Variable) (variable-symbol form))
+      ((Symbol)   form)
+      (else     null)))
+
+
+  ;;;
+  ;;;; External
+  ;;;
+
+
+  (external Jazz Object (c++-name Object) "JzCppName")))

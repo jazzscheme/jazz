@@ -1,0 +1,458 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Images
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.image.Image jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.platform.cairo.cairo-win32)
+        (jazz.literals))
+
+
+(definition public (load-image type image . rest)
+  (unimplemented 'load-image)
+  @convert-ansi-string
+  (case type
+    ((bitmap)  
+     (let* ((image (if (resource? image) (find-bitmap-file~ Portfolio image) image))
+            (ident (parse~ image)))
+       (cairo_image_surface_create_from_png (coerce ident Ansi-String))))
+    ((icon)
+     (let* ((image (cond ((integer? image) (find-icon-file~ Portfolio {Icon-Resource "Jedi"}))
+                         ((resource? image) (find-icon-file~ Portfolio image))
+                         (else image)))
+            (ident (parse~ image)))
+       (cairo_image_surface_create_from_png (coerce ident Ansi-String))))
+    ((cursor)
+     (bind-keywords ((width 0) (height 0) (error? true)) rest
+       (let* ((module (if (resource? image) (current-instance) NULL))
+              (ident  (if (file? image) (parse~ image) (int-resource image)))
+              (flags  (bit-or (if (file? image) LR_LOADFROMFILE LR_SHARED))))
+         (LoadImage module ident IMAGE_CURSOR width height flags))))))
+
+
+(class Image extends Object
+
+
+  (slot icon          initialize {})
+  (slot bitmap        initialize {})
+  (slot metafile      initialize {})
+  (slot portfolio     initialize {})
+  (slot image-name    initialize {})
+  (slot moniker       initialize {})
+  (slot source        initialize {})
+  (slot scaled?       initialize false)
+  (slot scaling       initialize 1.0)
+  (slot cache?        initialize false)
+  (slot handle        initialize {})
+  (slot size          initialize {})
+  (slot view-position initialize {Point 0 0})
+  (slot view-size     initialize {})
+  (slot mode          initialize {})
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((cache? false) (portfolio null) (image-name null) (view-position {Point 0 0}) (view-size null)) rest
+      (nextmethod)
+      (set! [cache? self] cache?)
+      (set! [portfolio self] portfolio)
+      (set! [image-name self] image-name)
+      (set! [view-position self] view-position)
+      (set! [view-size self] view-size)))
+  
+  
+  (method public (get-bounds)
+    (unimplemented 'get-bounds)
+    @windows-specific
+    (cond (metafile
+           (let ((size (size-of ENHMETAHEADER)))
+             (with ((header (new ENHMETAHEADER)))
+               (set header 'nSize size)
+               (GetEnhMetaFileHeader metafile size header)
+               (let ((proc
+                      (function dynamic (bounds)
+                        (if scaled?
+                            (scale bounds scaling)
+                          bounds))))
+                 (proc (RECT->rect (get header 'rclBounds)))))))
+          (else
+           (error "Unable to get image bounds for {t}" self))))
+  
+  
+  (method public (get-size . rest)
+    (unimplemented 'get-size)
+    @windows-specific
+    (bind-keywords ((error? true)) rest
+      (cond (source
+             size)
+            (bitmap
+             (let ((info (new BITMAP)))
+               (GetObject (either handle (load-image 'bitmap bitmap)) (size-of BITMAP) info)
+               (new Dimension
+                 (get info 'bmWidth)
+                 (get info 'bmHeight))))
+            (metafile
+             (with ((bounds (get-bounds)))
+               (new Dimension
+                 (+ (rect-width bounds) 1)
+                 (+ (rect-height bounds) 1))))
+            (else
+             (when error?
+               (error "Unable to get image size for {t}" self))))))
+  
+  
+  (method public (get-width)
+    (cond (portfolio (get-width~ portfolio))
+          (else [width (get-size)])))
+  
+  
+  (method public (get-height)
+    (cond (portfolio (get-height~ portfolio))
+          (else [height (get-size)])))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method public (draw dc context h v . rest)
+    @JEREMIE
+    (bind-keywords ((size (get-size :error? false)) (style ILD_TRANSPARENT) (enabled? true)) rest
+      (let ((h (+ [h view-position] h))
+            (v (+ [v view-position] v)))
+        (draw-image-aux dc context h v size style enabled?))))
+  
+  
+  (method protected (draw-image-aux dc context h v size style enabled?)
+    (cond (icon (draw-icon dc context h v size))
+          (bitmap (draw-bitmap dc h v size))
+          (metafile (draw-metafile dc h v size))
+          (portfolio (draw-image dc context h v size style enabled?))
+          (source (draw-source dc h v size))
+          ((and handle cache?) (draw-bitmap dc h v size))))
+
+
+  (method (draw-icon dc context h v size)
+    (let ((icon (either handle (load-image 'icon icon))))
+      (draw-image~ dc icon h v)))
+  
+  
+  (method (draw-bitmap dc h v size)
+    (let ((bitmap (either handle (load-image 'bitmap bitmap))))
+      (draw-image~ dc icon h v)))
+  
+  
+  (method (draw-metafile dc h v size)
+    (unimplemented 'draw-metafile)
+    @windows-specific
+    (with ((bounds (get-bounds))
+           (rect (rect->RECT bounds)))
+      (PlayEnhMetaFile (get-hdc~ dc) metafile rect)))
+
+
+  (method (draw-image dc context h v size style enabled?)
+    (when image-name
+      (draw-image~ portfolio dc context image-name h v :style style :enabled? enabled?)))
+
+
+  (method (draw-source dc h v size)
+    (case mode
+      ((centered) (draw-centered dc h v))
+      ((tiled) (draw-tiled dc h v))
+      ((filled) (draw-positioned dc 0 0))
+      ((stretched) (draw-centered dc h v))
+      (else (draw-positioned dc h v))))
+
+
+  (method (draw-source-bitmap dc h v)
+    (unimplemented 'draw-source-bitmap)
+    @windows-specific
+    (when handle
+      (draw-HBITMAP~ Imaging (get-hdc~ dc) handle h v [width size] [height size] NULL)))
+
+
+  (method (draw-centered dc h v)
+    (let ((centered (center size view-size)))
+      (when (or (> [width view-size] [width size])
+                (> [height view-size] [height size]))
+        (with ((rect (new Rect 0 0 [width view-size] [height view-size])))
+          (fill-rect~ dc rect {Color name: Black})))
+      (draw-source-bitmap dc [h centered] [v centered])))
+
+
+  (method (draw-tiled dc h v)
+    (let ((v 0))
+      (while (< v [height view-size])
+        (let ((h 0))
+          (while (< h [width view-size])
+            (draw-source-bitmap dc h v)
+            (increase! h [width size])))
+        (increase! v [height size]))))
+
+
+  (method (draw-positioned dc h v)
+    (draw-source-bitmap dc (+ [h view-position] h) (+ [v view-position] v)))
+  
+  
+  ;;;
+  ;;;; Preload
+  ;;;
+  
+  
+  (method public (preload-image)
+    (when (and portfolio image-name)
+      (preload~ portfolio image-name)))
+
+
+  ;;;
+  ;;;; Scaling
+  ;;;
+
+
+  (method public (get-scaled?)
+    scaled?)
+
+
+  (method public (set-scaled? value)
+    (set! scaled? value))
+
+
+  (method public (get-scaling)
+    scaling)
+
+
+  (method public (set-scaling value)
+    (set! scaling value))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-mode)
+    mode)
+
+
+  (method public (set-mode md)
+    (when (/= mode md)
+      (let ((old mode))
+        (set! mode md)
+        (when (or (= old 'filled) (= mode 'filled)
+                  (= old 'stretched) (= mode 'stretched))
+          (update-image :force? true)))))
+
+
+  (method public (get-view-position)
+    view-position)
+
+
+  (method public (set-view-position pos)
+    (set! view-position pos))
+
+
+  (method public (get-view-size)
+    view-size)
+
+
+  (method public (set-view-size s)
+    (set! view-size s))
+
+
+  (method public (get-icon)
+    icon)
+
+
+  (method public (set-icon icn)
+    (set! icon icn))
+
+
+  (method public (get-portfolio)
+    portfolio)
+
+
+  (method public (set-portfolio pf)
+    (set! portfolio pf))
+
+
+  (method public (get-image-name)
+    image-name)
+
+
+  (method public (set-image-name name)
+    (set! image-name name))
+
+
+  (method public (get-bitmap)
+    bitmap)
+
+
+  (method public (set-bitmap b)
+    (unimplemented 'set-bitmap)
+    @windows-specific (
+    (set! bitmap b)
+    (when cache?
+      (when handle
+        @convert-delete
+        (DeleteObject handle)
+        (set! handle null))
+      (when bitmap
+        (set! handle (load-image 'bitmap bitmap))))))
+  
+  
+  (method public (get-handle)
+    handle)
+  
+  
+  (method public (set-handle hnd)
+    (set! handle hnd))
+
+
+  (method public (get-source)
+    source)
+
+
+  (method public (set-source file)
+    (unimplemented 'set-source)
+    @windows-specific (
+    (set! source null)
+    (when handle
+      @convert-delete
+      (DeleteObject handle)
+      (set! handle null))
+    (when file
+      (load-image-source file))))
+  
+  
+  (method public (get-moniker)
+    (either moniker bitmap source))
+  
+  
+  (method public (set-moniker mnk)
+    (set! moniker mnk)
+    (let ((ext (get-extension~ moniker)))
+      (cond (false @this-is-not-clear-and-there-is-a-bug-with-set-bitmap (ci= ext "bmp")
+             (set-bitmap moniker))
+            ((member? ext '("wmf" "emf") :test ci=)
+             (load-metafile moniker))
+            (else
+             (set-source moniker)))))
+  
+  
+  (method (load-metafile moniker)
+    (unimplemented 'load-metafile)
+    @windows-specific
+    (set! metafile (GetEnhMetaFile (parse~ moniker))))
+
+
+  (method public (update-image . rest)
+    (bind-keywords ((force? false)) rest
+      (when (or force? (= mode 'filled) (= mode 'stretched))
+        (set-source source))))
+
+
+  (method (load-image-source file)
+    (unimplemented 'load-image-source)
+    @windows-specific
+    (let ((src (open-source file)))
+      (bind-values (rgb w h) (read-source file src)
+        (close-source~ Imaging src)
+        (if (= rgb NULL)
+            (error "Unable to read image source: {t}" file)
+          (when view-size
+            (case mode
+              ((filled)
+                (let* ((nw [width view-size])
+                       (nh [height view-size])
+                       (resized-rgb (heap-alloc (* nw nh 3))))
+                  (resize-RGB~ Imaging rgb w h resized-rgb nw nh)
+                  (heap-free rgb)
+                  (set! rgb resized-rgb)
+                  (set! w nw)
+                  (set! h nh)))
+              ((stretched)
+                (let* ((rw (/ [width view-size] w))
+                       (rh (/ [height view-size] h))
+                       (ratio (if (> rw rh) rh rw))
+                       (nw (round (* w ratio)))
+                       (nh (round (* h ratio)))
+                       (resized-rgb (heap-alloc (* nw nh 3))))
+                  (resize-RGB~ Imaging rgb w h resized-rgb nw nh)
+                  (heap-free rgb)
+                  (set! rgb resized-rgb)
+                  (set! w nw)
+                  (set! h nh)))))
+          (with-closed ((compatibility-dc (new Cairo-Client-Surface (get-desktop))))
+            (let ((bmp (RGB->HBITMAP~ Imaging rgb w h NULL (get-hdc~ compatibility-dc))))
+              (heap-free rgb)
+              (set! source file)
+              (set! handle bmp)
+              (set! size (new Dimension w h))))))))
+  
+  
+  (method (open-source source)
+    (unimplemented 'open-source)
+    @windows-specific
+    (if (file? source)
+        (open-file-source~ Imaging (coerce (parse~ source) Ansi-String))
+      (open-memory-source~ Imaging (get-handle~ source) (length source))))
+
+
+  (method (read-source source src)
+    (unimplemented 'read-source)
+    @windows-specific
+    (case (source-type source)
+      ((bmp) (read-BMP->RGB~ Imaging src))
+      ((png) (read-PNG->RGB~ Imaging src))
+      ((jpg) (read-JPG->RGB~ Imaging src))
+      ((tiff) (read-TIFF->RGB~ Imaging src))))
+
+
+  (method (source-type source)
+    (if (file? source)
+        (let ((ext (get-extension~ source)))
+          (cond ((ci= ext "bmp") 'bmp)
+                ((ci= ext "png") 'png)
+                ((member? ext '("jpg" "jpeg") :test ci=) 'jpg)
+                ((member? ext '("tif" "tiff") :test ci=) 'tiff)
+                (else (error "Unable to display image type: {t}" ext))))
+      'jpg))))

@@ -1,0 +1,141 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Page Setup
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.print.Page-Setup jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Page-Setup extends Layout-View
+  
+
+  (property fit          initialize 'width         accessors generate)
+  (property resolution   initialize 60             accessors generate)
+  (property orientation  initialize 'portrait      accessors generate)
+  (property paper-size   initialize DMPAPER_LETTER accessors generate)
+  (property paper-source initialize DMBIN_AUTO     accessors generate)
+
+  
+  (form
+    (<install>                            size: {Dimension 510 660} layout-type: fill layout-insets: {Rect 10 10 10 10} background: {Color name: White}
+      (<Page-Printable>   name: printable layout-type: fill layout-insets: {Rect 50 50 50 50}
+        (<Page-Document>  name: document
+          (<Page-Header>  name: header    size: {Dimension 100 19} location: north)
+          (<Page-Content> name: content   location: center)
+          (<Page-Footer>  name: footer    size: {Dimension 100 19} location: south)))))
+
+
+  ;;;
+  ;;;; Printable
+  ;;;
+  
+  
+  (method public (get-printable)
+    (locate 'printable))
+
+
+  ;;;
+  ;;;; Document
+  ;;;
+  
+  
+  (method public (get-document)
+    (locate 'document))
+
+
+  ;;;
+  ;;;; Header
+  ;;;
+  
+  
+  (method public (get-header)
+    (locate 'header))
+
+
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (get-content)
+    (locate 'content))
+  
+  
+  (method public (get-content-rect)
+    (let ((content (get-content)))
+      (acquire content (get-bounds~ content))))
+  
+  
+  (method public (scale-content client dest-resolution)
+    (let ((area (get-print-area~ client null))
+           (content-rect (get-content-rect)))
+      (/ (* (fit-rects area content-rect fit) dest-resolution) resolution)))
+
+
+  ;;;
+  ;;;; Footer
+  ;;;
+  
+  
+  (method public (get-footer)
+    (locate 'footer))
+
+
+  ;;;
+  ;;;; Wrap
+  ;;;
+  
+  
+  (method public (wrap-header/footer context)
+    (wrap-content~ (get-header) context)
+    (wrap-content~ (get-footer) context))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (get-drawing-background context)
+    (if (getf context :printing?)
+        (nextmethod context)
+      {Color :red 193 :green 193 :blue 255}))))

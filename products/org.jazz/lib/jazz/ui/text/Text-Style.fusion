@@ -1,0 +1,172 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Style
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Text-Style jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library))
+
+
+(class Text-Style extends Style
+  
+  
+  (attributes (alignment)
+    (font-family initialize {})
+    (font-size   initialize {})
+    (font-weight initialize {})
+    (font-style  initialize {})
+    (decoration  initialize {})
+    (font        initialize {})
+    (color       initialize {})
+    (highlight   initialize {})
+    (frame       initialize {}))
+  
+  
+  ;;;
+  ;;;; Size
+  ;;;
+  
+  
+  (method (get-height)
+    (get-height~ (get-metrics~ font)))
+  
+  
+  (method (run-width run)
+    (let ((string [string run]))
+      (text-width~ font string)))
+  
+  
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  (method (scan h start end tabs run proc)
+    (let ((string [string run]))
+      (let ((left)
+            (mid)
+            (right h)
+            (len (length string)))
+        (loop (for n from start below (max start (min end len)))
+              (let ((c (element string n)))
+                (if (= c #\tab)
+                    (begin
+                      (while (<= (car tabs) right)
+                        (set! tabs (cdr tabs)))
+                      (let ((width (- (car tabs) right)))
+                        (set! left right)
+                        (set! mid (+ right (round (/ width 2))))
+                        (set! right (+ left width))))
+                  (let ((width (get-char-width~ font c)))
+                    (set! left right)
+                    (set! mid (+ right (round (/ width 2))))
+                    (increase! right width)))
+                (proc c n left mid right))))))
+  
+  
+  ;;;
+  ;;;; Wrap
+  ;;;
+  
+  
+  (definition Break-Characters
+    '(#\space))
+  
+  
+  (method (wrap context margin h v width tabs place break run)
+    (let* ((start h)
+           (string [string run])
+           (len (length string))
+           (end (- len 1))
+           (offset 0)
+           (brk null)
+           (brk-right)
+           (rightmost h))
+      (scan h 0 len tabs run
+        (function dynamic (c n left mid right)
+          (set! rightmost right)
+          (when (memq? c Break-Characters)
+            (set! brk (+ n 1))
+            (set! brk-right right))
+          (when (and (> (+ h (- right start margin)) width)
+                     (or (null? brk)
+                         (not (memq? c Break-Characters))))
+            (let ((n (either brk n)))
+              (place (new Run (subseq! string offset n) self))
+              (break right)
+              (set! h margin)
+              (set! start (if brk brk-right left))
+              (set! offset n)
+              (set! brk null)))
+          (when (>= n end)
+            (if (= offset 0)
+                (place run)
+              (place (new Run (subseq! string offset) self))))))
+      (+ h (- rightmost start))))
+  
+  
+  (method (height-update height)
+    )
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw-style dc <Surface> context string <Sequence> h <int> v <int> line-height <int> tab-stops left enabled?)
+    @convert-having-a-color-literal-here-creates-problems (
+    (set-font~ dc font)
+    (if (getf context :print-black/white?)
+        (set-text-color~ dc {Color name: Black})
+      (set-text-color~ dc (either color {Color name: Black})))
+    (let* ((font-height (get-height~ (get-metrics~ font)))
+           (v (+ v (justify-element font-height line-height))))
+      (if (not enabled?)
+          (begin
+            (draw-text~ dc h v string false)
+            0)
+        (let* ((extent (with-highlight-color~ dc highlight
+                         (function dynamic ()
+                           (draw-tabbed-text~ dc h v string tab-stops left))))
+               (width (loword extent)))
+          (when (not-null? frame)
+            (with ((rect (new Rect h v (+ h width) (+ v line-height))))
+              (frame-rect~ dc rect frame)))
+          width)))))))

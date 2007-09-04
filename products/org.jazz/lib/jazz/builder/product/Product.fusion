@@ -1,0 +1,299 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Products
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.builder.product.Product jazz
+
+
+(import (jazz.builder)
+        (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Product extends Jazz-File
+  
+  
+  (property title              initialize {}   accessors generate)
+  (property include-extensions initialize {}   accessors generate)
+  (property catalog-extensions initialize {}   accessors generate)
+  (property documentation      initialize {}   accessors generate)
+  (property editable?          initialize {}   accessors generate)
+  (property active?            initialize true accessors generate)
+
+
+  (slot workbench)
+  (slot parent-product initialize {})
+  (slot catalog        initialize {})
+  
+  
+  (form
+    (<install> build?: #f))
+
+  
+  (method (initer-property? name)
+    (or (nextmethod name)
+        (eq? name 'workbench)))
+  
+  
+  (method (default-name)
+    (type-name (class-of self)))
+  
+  
+  (method (prepare rest)
+    (nextmethod rest)
+    (let ((arg (getf rest :workbench)))
+      (when arg
+        (set! workbench arg))))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a}"
+                title))))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-workbench)
+    workbench)
+
+
+  (method public (set-workbench value)
+    (set! workbench value))
+
+
+  (method public (get-parent-product)
+    parent-product)
+
+
+  (method public (set-parent-product value)
+    (set! parent-product value))
+  
+  
+  (method public virtual (product-title)
+    (either title (->string (type-name (class-of self)))))
+
+
+  (method public (get-catalog)
+    catalog)
+
+
+  (method public (set-catalog value)
+    (set! catalog value))
+
+
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  @convert
+  (method (get-effective-source)
+    (get-manifest-source name))
+
+
+  ;;;
+  ;;;; Catalog
+  ;;;
+  
+  
+  (method (require-catalog)
+    (if catalog?
+        (begin
+          (unless catalog
+            (set! catalog (create/register-catalog)))
+          catalog)
+      (require-catalog~ parent-product)))
+  
+  
+  (method (create/register-catalog)
+    (let ((catalog (create-catalog)))
+      (add-catalog~ (get-cataloguer~ (get-application)) catalog)
+      catalog))
+  
+  
+  (method (create-catalog)
+    #f
+    @convert
+    (let ((output (catalog-output)))
+      (new Product-Catalog self name output {} {} {} true true {} {} {})))
+  
+  
+  @convert
+  (method protected virtual (catalog-output)
+    (new-brother~ (get-source~ Manifest name) (format "{a}.jcat" name)))
+
+
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method public virtual (get-effective-editable?)
+    (if (nil? editable?)
+        (get-effective-editable?~ parent-product)
+      editable?))
+
+
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (for-each-file proc . rest)
+    (bind-optionals ((type Product-File)) rest
+      (for-each-descendant
+        (function dynamic (descendant level)
+          (when (is? descendant type)
+            (proc descendant))))))
+
+
+  (method public (collect-files . rest)
+    (bind-optionals ((type Product-File)) rest
+      (let ((fact (new List-Factory)))
+        (for-each-file
+          (function dynamic (file)
+            (when (is? file type)
+              (put~ fact file))))
+        (get-output~ fact))))
+  
+  
+  (method public (fold-files proc seed . rest)
+    (bind-optionals ((type Product-File)) rest
+      (letrec ((fold
+                 (function dynamic (x f s)
+                   (let ((ps (if (is? x type)
+                                 (f x s)
+                               s)))
+                     (if (eq? ps :skip)
+                         {}
+                       (for-each (function dynamic (c)
+                                   (fold c f ps))
+                                 (get-children~ x))
+                       ps)))))
+        (fold self proc seed))))
+
+
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method (add-to-index name component)
+    (set-workbench (find-workbench))
+    (add-to-product~ workbench self name component))
+  
+  
+  (method (remove-from-index name component)
+    (remove-from-product~ workbench self name component))
+  
+  
+  (method protected virtual (find-workbench)
+    (let ((product (either creator workbench)))
+      (if (is? product Workbench)
+          product
+        (find-ascendant Workbench))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "Component"})
+  
+  
+  @convert-descriptor
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((title) "Title")
+      ((include-extensions) "Include Extensions")
+      ((catalog-extensions) "Catalog Extensions")
+      ((documentation) "Documentation")
+      ((catalog?) "Catalog?")
+      ((active?) "Active?")
+      ((editable?) "Editable?")
+      (else (nextmethod property))))
+  
+  
+  (method (presentation-property? property)
+    (memq? (field-name property) '(title)))
+  
+  
+  (method (get-presentation)
+    (either title (->string (type-name (class-of self)))))
+  
+  
+  (method (set-presentation designer presentation)
+    (set-property~ designer self :title presentation))
+  
+  
+  (method (addable-class? class)
+    (or (subtype? class Product-File)
+        (subtype? class Product-Group)))
+  
+  
+  (method (get-addable-classes)
+    (list
+      Product-Group
+      ;null
+      ;Project-Dependency
+      ;null
+      ;Jazz-File
+      ;Cpp-File
+      ;Java-File
+      ))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((title) (new String-Row :nullable? true))
+      ((include-extensions catalog-extensions) (new Value-Row))
+      ((documentation) (new File-Row))
+      ((catalog? active?) (new Boolean-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(title include-extensions catalog-extensions documentation catalog? active?))))

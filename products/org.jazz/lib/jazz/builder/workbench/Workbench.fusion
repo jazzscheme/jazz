@@ -1,0 +1,343 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Workbench
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.builder.workbench.Workbench jazz
+
+
+(import (jazz.builder)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.utilities))
+
+
+(class Workbench extends Product
+  
+  
+  (slot products-hashtable  initialize (new-hashtable :eq?))
+  (slot units-hashtable     initialize (new-hashtable :eq?))
+  (slot resources-hashtable initialize (new-hashtable :equal?))
+  ;; this is clearly not maintained up to date perfectly but it'll do for now
+  (slot sources-hashtable   initialize (new-hashtable :equal?))
+  
+
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (require-form-model form)
+    (if (get-execution-context)
+        (with-continue
+          (function dynamic ()
+            (nextmethod form)))
+      (nextmethod form)))
+
+
+  ;;;
+  ;;;; Products
+  ;;;
+  
+  
+  (method public (get-products-hashtable)
+    products-hashtable)
+  
+  
+  (method public (find-product type-name)
+    (hash-ref products-hashtable type-name))
+  
+  
+  (method public (find-project type-name)
+    (let ((product (find-product type-name)))
+      (if (is? product Project)
+          product
+        null)))
+  
+  
+  (method public (require-project type-name)
+    (either (find-project type-name)
+            (error "Unable to find project: {s}" type-name)))
+
+
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (find-source source)
+    (get-source-entry source))
+  
+  
+  (method public (find-filename filename)
+    (call/ec
+      (lambda (return)
+        (for-each-product-file
+          (function dynamic (descendant)
+            (when (ci= (get-name~ (get-effective-source~ descendant)) filename)
+              (return descendant))))
+        null)))
+
+
+  ;;;
+  ;;;; Catalogs
+  ;;;
+  
+  
+  @convert
+  (method (catalog-output)
+    {File User "Settings" "Workbench.jcat"})
+  
+  
+  (method public (load-catalogs)
+    (with-cursor :wait
+      (function dynamic ()
+        (user-message "Loading catalogs...")
+        (for-each-product
+          (function dynamic (product)
+            (when (get-catalog?~ product)
+              (load-content~ (require-catalog~ product))))
+          :include-self? true)
+        (user-message "Done"))))
+
+
+  ;;;
+  ;;;; Editable
+  ;;;
+  
+  
+  (method (get-effective-editable?)
+    true)
+
+
+  ;;;
+  ;;;; Add/Remove
+  ;;;
+  
+  
+  (method protected (add-to-product product name component)
+    (typecase component
+      ((Product-File)
+        (when (is? component Product)
+          (set-workbench~ component self)
+          (set-parent-product~ component product)
+          (hash-set! products-hashtable (type-name (class-of component)) component))
+        (set-product~ component product)
+        (let ((source (get-source~ component)))
+          (add-source source component)
+          (typecase component
+            ((Resource-File)
+             (let ((type (resource-type~ (resource-class~ component))))
+               (add-resource type source)))
+            ((Jazz-File)
+             (add-entry name component)))))))
+  
+  
+  (method protected (remove-from-product product name component)
+    (typecase component
+      ((Product-File)
+        (when (is? component Product)
+          (hash-clear products-hashtable (type-name (class-of component))))
+        (let ((source (get-source~ component)))
+          (remove-source source component)
+          (typecase component
+            ((Resource-File)
+             (let ((type (resource-type~ (resource-class~ component))))
+               (remove-resource type source)))
+            ((Jazz-File)
+             (remove-entry name)))))))
+
+
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (for-each-product proc . rest)
+    (bind-keywords ((include-self? false)) rest
+      (for-each-descendant
+        (function dynamic (descendant level)
+          (when (is? descendant Product)
+            (proc descendant)))
+        :include-self? include-self?)))
+  
+  
+  (method public (for-each-product-file proc . rest)
+    (bind-keywords ((include-self? false)) rest
+      (for-each-descendant
+        (function dynamic (descendant level)
+          (when (is? descendant Product-File)
+            (proc descendant)))
+        :include-self? include-self?)))
+  
+  
+  (method public (for-each-jazz-file proc . rest)
+    (bind-keywords ((include-self? false)) rest
+      (for-each-descendant
+        (function dynamic (descendant level)
+          (when (is? descendant Jazz-File)
+            (proc descendant)))
+        :include-self? include-self?)))
+  
+  
+  (method public (add-entry unit-name entry)
+    (hash-set! units-hashtable unit-name entry))
+  
+  
+  (method public (remove-entry unit-name)
+    (hash-clear units-hashtable unit-name))
+  
+  
+  (method public (get-entry unit-name)
+    (hash-ref units-hashtable unit-name))
+  
+  
+  (method public (get-entry-source unit-name)
+    (let ((file (get-entry unit-name)))
+      (when file
+        (get-source~ file))))
+  
+  
+  (method (add-resource type source)
+    (let* ((name (get-base~ source))
+           (key (cons type name)))
+      (hash-set! resources-hashtable key source)))
+  
+  
+  (method (remove-resource type source)
+    (let* ((name (get-base~ source))
+           (key (cons type name)))
+      (hash-clear resources-hashtable key)))
+  
+  
+  (method public (get-resource type name)
+    (let ((key (cons type name)))
+      (hash-ref resources-hashtable key)))
+  
+  
+  (method public (get-bitmap resource)
+    (get-resource 'bitmap (get-name~ resource)))
+  
+  
+  (method public (get-icon name)
+    (get-resource 'icon name))
+  
+  
+  (method public (add-source source entry)
+    (when source
+      (let ((name (get-name~ source)))
+        (hash-set! sources-hashtable name (cons entry (hash-ref sources-hashtable name))))))
+  
+  
+  (method public (remove-source source entry)
+    (when source
+      (let ((name (get-name~ source)))
+        (hash-set! sources-hashtable name (remove! entry (hash-ref sources-hashtable name))))))
+  
+  
+  (method public (get-source-entry source)
+    (let* ((name (get-name~ source))
+           (entries (hash-ref sources-hashtable name)))
+      (find-if (function dynamic (entry)
+                 (pathname= (get-effective-source~ entry) source))
+               entries)))
+
+
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method (find-workbench)
+    self)
+
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method public (update)
+    (empty-hashtable products-hashtable)
+    (empty-hashtable sources-hashtable)
+    (empty-hashtable units-hashtable)
+    (empty-hashtable resources-hashtable))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "ProjectsManager"})
+    
+  
+  @convert
+  (method (get-presentation)
+    (format "Workbench - {a}"
+            [Current-Policy Workbench-Manager]))
+  
+  
+  @convert
+  (method (can-cut-component?)
+    false)
+  
+  
+  @convert
+  (method (can-copy-component?)
+    false)
+  
+  
+  @convert
+  (method (can-rename-component?)
+    false)
+  
+  
+  @convert
+  (method (can-delete-component?)
+    false)
+  
+  
+  @convert
+  (method (can-move-component?)
+    false)
+  
+  
+  @convert
+  (method (get-addable-classes)
+    (list
+      Product-Group))))

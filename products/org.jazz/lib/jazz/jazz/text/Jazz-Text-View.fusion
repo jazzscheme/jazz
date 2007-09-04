@@ -1,0 +1,1094 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.text.Jazz-Text-View jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.shell)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Jazz-Text-View extends Lisp-Text-View
+
+  
+  (form
+    (<install> tooltip?: #t))
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style name: 'Title                    :base 'Default :color (get-title-color~ pref)))
+      (add-style (new Text-Style name: 'Comment                  :base 'Default :color (get-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Expr-Comment             :base 'Default :color (get-expr-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Declaration-Keyword      :base 'Default :color (get-declaration-keyword-color~ pref)))
+      (add-style (new Text-Style name: 'Documented-Declaration   :base 'Default :color (get-documented-declaration-color~ pref)))
+      (add-style (new Text-Style name: 'Undocumented-Declaration :base 'Default :color (get-undocumented-declaration-color~ pref)))
+      (add-style (new Text-Style name: 'Keyword                  :base 'Default :color (get-keyword-color~ pref)))
+      (add-style (new Text-Style name: 'Tag                      :base 'Default :color (get-tag-color~ pref)))
+      (add-style (new Text-Style name: 'Specifier                :base 'Default :color (get-specifier-color~ pref)))
+      (add-style (new Text-Style name: 'Char                     :base 'Default :color (get-char-color~ pref)))
+      (add-style (new Text-Style name: 'Number                   :base 'Default :color (get-number-color~ pref)))
+      (add-style (new Text-Style name: 'Boolean                  :base 'Default :color (get-boolean-color~ pref)))
+      (add-style (new Text-Style name: 'String                   :base 'Default :color (get-string-color~ pref)))
+      (add-style (new Text-Style name: 'Delimited-String         :base 'Default :color (get-delimited-string-color~ pref)))
+      (add-style (new Text-Style name: 'Named-String             :base 'Default :color (get-named-string-color~ pref)))
+      (add-style (new Text-Style name: 'Quotation                :base 'Default :color (get-quotation-color~ pref)))
+      (add-style (new Text-Style name: 'Literal                  :base 'Default :color (get-literal-color~ pref)))
+      (add-style (new Text-Style name: 'Feature                  :base 'Default :color (get-feature-color~ pref)))
+      (add-style (new Text-Style name: 'Reference                :base 'Default :frame {Color name: Red}))
+      (add-style (new Text-Style name: 'Walk-Warning             :base 'Default :frame {Color name: Orange}))
+      (add-style (new Text-Style name: 'Walk-Fatal               :base 'Default :frame {Color name: Red}))
+      (add-style (new Text-Style name: 'Break                    :base 'Default :highlight {Color name: Red}))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'jazz-text)
+  
+  
+  (method (default-extension)
+    "jazz")
+  
+  
+  (method (extensions)
+    '(("Jazz Texts (*.jazz)" . "*.jazz")))
+  
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (focus-actions)
+    (cons (find-actions 'jazz-text)
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (let* ((menu (new Jazz-Text-Menu))
+           (controller (get-controller))
+           (moniker (get-moniker~ controller)))
+      (when (or (null? moniker) (read/write?~ moniker))
+        (set-visible?~ (locate~ menu 'set-read/write) false))
+      (layout-menu~ menu)
+      menu))
+    
+  
+  ;;;
+  ;;;; Design
+  ;;;
+
+  
+  (method (on-design-form evt)
+    (unimplemented 'on-design-form)
+    @convert
+    (let* ((name (current-unit-name))
+           (class (autoload name)))
+      (if (not (subtype? class Component))
+          (error "Only Component classes can be designed")
+        (let* ((form (get-self-form~ class))
+               (frame (essay form (find-editor form))))
+            (if frame
+                (begin
+                  (bring-to-front~ frame)
+                  (set-visible?~ frame true))
+              (let* ((component (new class))
+                     (editor-class (if (is? component View) View-Editor Manager-View)))
+                (new-frame editor-class :client component)))))))
+  
+  
+  @old
+  (method (on-design-form evt)
+    (let* ((name (current-unit-name))
+           (class (autoload name))
+           (metaclass (class-of class)))
+      (if (not (subtype? class Component))
+          (error "Only Component classes can be designed")
+        (let* ((definition (unit-field metaclass 'class-form))
+               (owner? (eq? (field-creator definition) metaclass)))
+          (when (not owner?)
+            (install-class-form definition name)
+            (set! definition (unit-field metaclass 'class-form)))
+          (let* ((form (definition-value definition))
+                 (frame (find-editor form)))
+            (if frame
+                (begin
+                  (bring-to-front~ frame)
+                  (set-visible?~ frame true))
+              (let* ((component (new class))
+                     (editor-class (if (is? component View) View-Editor Manager-View)))
+                (new-frame editor-class :client component))))))))
+  
+  
+  (method (install-class-form definition model-name)
+    (unimplemented 'install-class-form)
+    @convert
+    (bind-values (in unit-info) (current-toplevel-info)
+      (bind (unit kind meta? name keywords) unit-info
+        (let ((imports (getf keywords 'uses))
+              (form (new Form :action 'new :model-name model-name)))
+          (evaluate~ Interpreter (list '(form (<install>))) null unit imports)
+          @old
+          (evaluate-code (list (list 'definition 'meta 'class-form form)) unit imports)))))
+  
+  
+  (method (find-editor form)
+    (let ((stage (get-stage)))
+      (call/ec
+        (lambda (return)
+          (for-each (function dynamic (frame)
+                      (when (is? frame View-Host)
+                        (let ((guest (get-guest~ frame)))
+                          (when (is? guest Editor-View)
+                            (let ((designer (get-designer~ guest)))
+                              (when (and designer (eq? form (get-form~ designer)))
+                                (return frame)))))))
+                    (get-children~ stage))
+          null))))
+  
+  
+  (method (on-copy-list evt)
+    (let ((appl (get-application))
+          (list (map (function dynamic (object) (->string object :reader)) (read-string-content (get-selected-string)))))
+      (push-clipboard-list~ appl list)
+      (user-message "Pushed {a} elements onto the clipboard stack" (length list))))
+  
+  
+  (method (on-paste-pathname evt)
+    (let* ((string (get-clipboard))
+           (content (tokenise string))
+           (directory (new Directory content))
+           (anchorized (anchorize~ directory)))
+      (insert-string (->string anchorized :reader))))
+
+  
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+
+  (method (get-tooltip-context view)
+    (unimplemented 'get-tooltip-context)
+    @convert-manifest-stuff
+    (when (and (in-manifest? 'Debugger) (debugging?~ Debugger))
+      (let* ((pos (view->text view))
+             (expl (new Jazz-Explorer self :start pos :end pos)))
+        (catch (Explore-Error err null)
+          (when (outer-expr~ expl :composite? false :outer-composite? false)
+            (let ((kind (get-kind~ expl)))
+              (when (= kind 'symbol)
+                (let* ((range (get-range~ expl))
+                       (location (range-location range))
+                       (text (essay location (present-location location))))
+                  (when text
+                    (let ((bounds (row-rect [row start range] [col start range] [col end range])))
+                      (when (in-rect? view bounds)
+                        (new Tooltip-Context
+                          :view self
+                          :text text
+                          :position (+ (rect-position bounds) (new Point -10 (rect-height bounds)))
+                          :bounds bounds
+                          :font {Font name: Ansi-Var}))))))))))))
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+    
+  
+  (definition default-preferences
+    (form>>
+      (<Jazz-Text-Preferences> title-color: {Color name: Dark-Red} comment-color: {Color name: Purple} expr-comment-color: {Color name: Dark-Orange} documented-declaration-color: {Color name: Purple} undocumented-declaration-color: {Color name: Dark-Green} keyword-color: {Color name: Dark-Blue} completions: ())))
+
+  
+  (method (preferences)
+    (get-preferences '(documents jazz-text)))
+  
+  
+  (method (declaration-style documented?)
+    (if documented?
+        'Documented-Declaration
+      'Undocumented-Declaration))
+  
+  
+  (method (colorize-tag colorizer start end)
+    (apply-coloring colorizer start end 'Tag))
+  
+  
+  (method (colorize-specifier colorizer start end)
+    (apply-coloring colorizer start end 'Specifier))
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+
+
+  (constant Specials
+    '((annotate                 #f 1)
+      (assert                   #f 1)
+      (attribute                #f 1)
+      (attributes               #f 1)
+      (begin                    #f 0)
+      (bind                     #f 2)
+      (bind-keywords            #f 2)
+      (bind-optionals           #f 2)
+      (bind-values              #f 2)
+      (block                    #f 1)
+      (call-with-catch          #f 3)
+      (case                     #f 1)
+      (catch                    #f 1)
+      (class                    #t 0)
+      (comment                  #f -1)
+      (constant                 #t 1)
+      (cotry                    #f 1)
+      (c-definition             #f 5)
+      (c-structure              #f 1)
+      (datacontainer            #f 1)
+      (definition               #t 1)
+      (dialect                  #f -1)
+      (ecase                    #f 1)
+      (enumeration              #f 1)
+      (form                     #f 0)
+      (form>>                   #f 0)
+      (for-each-source          #f 0)
+      (function                 #t 1)
+      (generic                  #t 1)
+      (if                       #f 2)
+      (in                       #f -1)
+      (inline                   #t 1)
+      (interface                #t 0)
+      (jml                      #f 0)
+      (jml>>                    #f 0)
+      (lambda                   #t 1)
+      (let                      #f 1)
+      (let*                     #f 1)
+      (letrec                   #f 1)
+      (library                  #f -1)
+      (macro                    #t 1)
+      (method                   #t 1)
+      (module                   #f -1)
+      (monitor                  #f 1)
+      (new                      #f 1)
+      (optimize                 #f 1)
+      (package                  #t 0)
+      (parameterize             #f 1)
+      (profile                  #f -1)
+      (prog1                    #f 1)
+      (receive                  #f 0)
+      (remote-proxy             #t 0)
+      (specific                 #t 1)
+      (structure                #f 1)
+      (substitution             #f 1)
+      (synchronize              #f 1)
+      (syntax                   #t 1)
+      (template                 #f 1)
+      (typecase                 #f 1)
+      (unless                   #f 1)
+      (unwind-protect           #f 1)
+      (when                     #f 1)
+      (while                    #f 1)
+      (with                     #f 1)
+      (with-closed              #f 1)
+      (xsl-transformation       #f 1)
+      (xml>>                    #f 0)))
+  
+  
+  (method (get-specials)
+    Specials)
+
+  
+  ;;;
+  ;;;; Translation
+  ;;;
+  
+  
+  (method (translate-key key)
+    key
+    @convert
+    (translate-jazz-key~ syntax key))
+  
+  
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (method protected virtual (on-evaluate evt)
+    @convert
+    (with-safe-explore
+      (function dynamic ()
+        (let ((range (current-definition-range)))
+          (when range
+            (with-cursor :wait
+              (function dynamic ()
+                (remove-highlights range)
+                (sleep 100)
+                (let ((unit-name (current-unit-name)))
+                  (when (and unit-name (not (in-manifest? unit-name)))
+                    (let* ((file (get-moniker))
+                           (name (string->symbol (get-base~ file)))
+                           (code (message-box (format "Unable to evaluate expression because {s} is not registered in the manifest. Add to manifest?" name)
+                                              :type 'confirmation)))
+                      (case code
+                        ((yes) (let ((map (get-manifest)))
+                               (map-set! map name (list :source file))
+                               (user-message "{s} added to manifest" name)))
+                        ((no) (error "Unable to evaluate expression"))
+                        ((cancel) (throw-cancel))))))
+                (let ((info (current-toplevel-info))
+                      (forms (read-text-forms range)))
+                  (when forms
+                    (let ((classes (current-classes range)))
+                      (when classes
+                        (let ((toplevel (car classes)))
+                          (if (and (get-modified?) (not (unit-loaded? toplevel)))
+                              (let ((code (message-box (format "Do you want to save {s}?{%}{%}Because this unit has not yet been loaded in memory, it needs to be saved to disk for correct evaluation." toplevel)
+                                                       :type 'confirmation)))
+                                (case code
+                                  ((yes)
+                                   (save)
+                                   (autoload toplevel))
+                                  ((no))
+                                  ((cancel)
+                                   (throw-cancel))))
+                            (bind-values (in unit-info) info
+                              (bind (unit kind meta? name keywords) unit-info
+                                (let ((appl (get-application))
+                                      (class (location-class classes :load? true))
+                                      (imports (getf keywords 'uses)))
+                                  (expand-macro-evaluations unit forms)
+                                  (evaluate-forms range forms class (if (list? imports) imports (list imports)))))))))))))))))))
+  
+  
+  (method (evaluate-forms range forms class packages)
+    (let ((names (evaluate-code range forms class packages)))
+      (user-message "Evaluated: {l}" names)
+      ;; this could go into a separate output log to keep the console clean
+      (let ((console (get-console-text)))
+        (when console
+          (evaluation-break~ console)
+          (display-evaluation~ console names false)
+          (fresh-prompt~ console)))))
+    
+  
+  (method (evaluate-code range forms unit packages)
+    @convert (
+    (let* ((model (if (or (package? unit) (interface? unit)) (class-of unit) unit))
+           (field-names (evaluate~ Interpreter forms null model packages)))
+      (for-each (function dynamic (field-name)
+                  (when (eq? field-name 'class-form)
+                    (let ((form (definition-value (unit-field (class-of unit) field-name))))
+                      (setup-toplevel-context~ form unit))))
+                field-names)
+      field-names)))
+  
+  
+  ;;;
+  ;;;; Fusion
+  ;;;
+  
+  
+  (method public (jazz-expression range)
+    (jazz-add-declarations range))
+  
+  
+  (method (jazz-add-declarations range)
+    (let ((text (get-string range))
+          (expl (new Fusion-Explorer self :range range)))
+      (while (outer-expr~ expl)
+        (when (jazz-declaration?~ expl)
+          (let* ((declaration (jazz-declaration~ expl))
+                 (header (join declaration " ")))
+            (set! text (format "({a}{%}{a})" header text)))))
+      text))
+
+
+  ;;;
+  ;;;; Breaks
+  ;;;
+  
+  
+  (method public (on-add-break evt)
+    @convert
+    (let* ((range (current-expr-range))
+           (loc (range-location range)))
+      (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter loc)
+        (if (not resolved?)
+            (error "Unable to resolve location: {t}" loc)
+          (add-break~ Interpreter object)
+          (apply-style 'Break (get-start~ range) (+ (get-start~ range) 1))))))
+  
+  
+  (method public (on-remove-break evt)
+    @convert
+    (let* ((range (current-expr-range))
+           (loc (range-location range)))
+      (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter loc)
+        (if (not resolved?)
+            (bell)
+          (remove-break~ Interpreter object)
+          (let ((run (get-run-at (+ (get-start~ range) 1))))
+            (when run
+              (set-style~ run default-style)
+              (invalidate-paragraph (get-paragraph (get-row~ (get-start~ range))))))))))
+
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present-location location)
+    @convert
+    (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter location)
+      (when (and resolved? in-context?)
+        (let ((frame (active-frame~ Debugger)))
+          (present-expr frame object)))))
+
+
+  (method (present-expr frame object)
+    @convert (
+    @to-debug-field-logic
+    (format "{s} : {s}" (class-of object) object)
+    (typecase object
+      ((Global-Reference)   (present-global   frame object))
+      ((Manifest-Reference) (present-global   frame object))
+      ((Self)               (present-self     frame object))
+      ((Variable)           (present-variable frame object))
+      ((Field-Reference)    (present-field    frame object))
+      ((Symbol)             (present-constant frame object))
+      (else               (present-unknown  frame object)))))
+  
+  
+  (method (present-global frame object)
+    (format "{s}" (eval-symbol object self)))
+  
+  
+  (method (present-self frame object)
+    @convert
+    (when frame
+      ;; todo temp patch until converted to the new remote debugger
+      (let* ((binder (frame-closure-frame~ Interpreter (get-address~ frame)))
+             (context (frame-context binder)))
+        (format "self = {a}"
+                (present-value context)))))
+  
+  
+  (method (present-variable frame var)
+    @convert
+    (when frame
+      ;; todo temp patch until converted to the new remote debugger
+      (set! frame (get-address~ frame))
+      (let* ((binder (frame-closure-frame~ Interpreter frame))
+             (variables (frame-variables binder))
+             ;; it is important to take the variable from the frame-variables list
+             ;; because it is the one that has its level member set correctly
+             (variable-base [variable-base Interpreter])
+             (variable (find (variable-base var) variables :key variable-base :test eq?)))
+        (when variable
+          (let ((value (variable-value~ Interpreter variable binder)))
+            (format "{s} = {a}"
+                    (variable-symbol~ Interpreter variable)
+                    (present-value value)))))))
+  
+  
+  (method (present-field frame reference)
+    @convert
+    (when frame
+      ;; todo temp patch until converted to the new remote debugger
+      (set! frame (get-address~ frame))
+      (let* ((binder (frame-closure-frame~ Interpreter frame))
+             (context (frame-context binder))
+             (field (field-reference-form~ Interpreter reference)))
+        (when (is? context (field-creator field))
+          (unless (and (definition? field) (definition-method? field))
+            (let ((value (get-value context field)))
+              (format "{s} = {a}"
+                      (field-name field)
+                      (present-value value))))))))
+  
+  
+  (method (present-constant frame object)
+    (format "{s}" object))
+  
+  
+  (method (present-unknown frame object)
+    null)
+  
+  
+  (method (present-value value)
+    (cond ((closure? value) "<closure>")
+          (else (format "{s}" value))))
+
+  ;;;
+  ;;;; Location
+  ;;;
+  
+  
+  (method (current-location)
+    (position->location (get-start)))
+  
+  
+  (method (position->location pos)
+    (let ((expl (new Jazz-Explorer self :start pos :end pos)))
+      (when (outer-expr~ expl :outer-composite? false)
+        (let ((range (get-range~ expl)))
+          (range-location range)))))
+  
+  
+  (method (location-class loc . rest)
+    @convert
+    (bind-keywords ((load? false)) rest
+      (let* ((class-name (car loc))
+             (class (global-value~ class-name load?)))
+        (if (null? class)
+            (error "Unable to find class: {t}" class-name)
+          (let ((meta? false))
+            (for-each (function dynamic (name)
+                        (if (eq? name 'meta)
+                            (set! meta? true)
+                          (set! class (definition-value (unit-field (if meta? (class-of class) class) name)))
+                          (set! meta? false)))
+                      (cdr loc)))
+          class))))
+  
+  
+  (method (split-location location)
+    (let ((scan location)
+          (definition (new List-Factory)))
+      (while (symbol? (car scan))
+        (put~ definition (car scan))
+        (set! scan (cdr scan)))
+      (values (get-output~ definition) scan)))
+  
+  
+  (method (definition-name-info object)
+    (unimplemented 'definition-name-info)
+    @convert
+    (cond ((unit? object)
+           (values 1 false))
+          ((slot? object)
+           (values (+ 1 (field-modifiers-count object)) false))
+          ((field? object)
+           (let ((value (definition-value object)))
+             (cond ((closure? value) (values (+ 1 (field-modifiers-count object)) true))
+                   ((external? value) (values (+ 2 (field-modifiers-count object) 1) true))
+                   (else null))))
+          (else
+           null)))
+  
+  
+  (method (definition-name-location? object internal-location)
+    (let ((info (definition-name-info object)))
+      (when info
+        (bind-values (skip inside-allowed?) info
+          (or (= internal-location (list skip))
+              (and inside-allowed? (= internal-location (list skip 0))))))))
+
+
+  (method (range-location range)
+    (let ((expl (new Jazz-Explorer self :start [start range] :end [end range]))
+          (location null)
+          (previous-def? false)
+          (rank))
+      (while (set! rank (outer-expr~ expl))
+        (let ((def? (definition-expr?~ expl)))
+          (if def?
+              (bind-values (package? meta? name) (definition-name~ expl)
+                (let ((loc (if previous-def? location (cons rank location))))
+                  (cond (package?
+                         (set! location (cons name (cons 'meta loc))))
+                        (meta?
+                         (set! location (cons 'meta (cons name loc))))
+                        (else
+                         (set! location (cons name loc))))))
+            (set! location (cons rank location)))
+          (set! previous-def? def?)))
+      location))
+
+
+  (method public (location-range location . rest)
+    (bind-keywords ((toplevel-location null)) rest
+      (let ((expl (new Jazz-Explorer self :end (text-beginning))))
+        (forward-in~ expl)
+        (forward-whites~ expl)
+        (set-start~ expl (get-end~ expl))
+        (forward-location~ expl location :toplevel-location toplevel-location)
+        (get-range~ expl))))
+
+
+  ;;;
+  ;;;; Documentation
+  ;;;
+  
+  
+  (method (on-edit-documentation evt)
+    (let ((symbol (current-symbol)))
+      (if (null? symbol)
+          (bell)
+        (let ((appl (get-application)))
+          (edit-documentation~ appl symbol)))))
+  
+  
+  @old-doc-editor
+  (method (on-edit-documentation evt)
+    (edit-documentation (current-location)))
+  
+  
+  @old-doc-editor
+  (method (edit-documentation location)
+    (if (null? location)
+        (bell)
+      (autoload (car location))
+      (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter location)
+        (if (and resolved? in-context? object (is? object Field-Reference))
+            (edit-field-reference-documentation (field-reference-form~ Interpreter object))
+          (edit-field-documentation location)))))
+  
+  
+  @old-doc-editor
+  (method (edit-field-reference-documentation field)
+    (let ((appl (get-application))
+          (location (list (type-name (field-creator field)) (field-name field))))
+      (edit-documentation~ appl location field null null)))
+  
+  
+  @old-doc-editor
+  (method (edit-field-documentation location)
+    (let ((appl (get-application)))
+      (bind-values (field-location internal-location) (split-location location)
+        (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter field-location)
+          (if (and resolved? in-context? (definition-name-location? object internal-location))
+              (edit-documentation~ appl field-location object self location)
+            (bell))))))
+  
+  
+  (method (on-present-documentation evt)
+    (present-documentation (current-symbol)))
+
+  
+  (method (present-documentation symbol)
+    (unimplemented 'present-documentation)
+    @convert
+    (if (null? symbol)
+        (bell)
+      (let* ((appl (get-application))
+             (doc (get-documentation~ appl symbol)))
+        (if (null? doc)
+            (let ((classname (symbol->string symbol)))
+              (if false @wait (class-exists?~ JVM classname)
+                  (open-java-documentation classname)
+                (bell)))
+          (let ((jml (present-text~ doc)))
+            (if (null? jml)
+                (bell)
+              (let* ((view (new Documentation-View :size {Dimension 600 300}))
+                     (text (locate~ view 'text))
+                     (pos {Point 100 100})
+                     (alternate {Point 100 100})
+                     (border (new Border-View :border-insets {Rect 5 5 5 5} :border-type 'solid) @w (new Border-View :border-type 'edge :style 'entry))
+                     (display (get-display)))
+                (set-text~ text (transform-jml (parse-jml jml) (new DocToText-Transformation)))
+                (popup~ display view pos :alternate-position alternate :border border))))))))
+  
+  
+  (method (open-java-documentation classname)
+    (unimplemented 'open-java-documentation)
+    @convert
+    (let* ((appl (get-application))
+           (user (get-user~ appl))
+           (apidocs (java-apidocs~ user)))
+      (bind-values (package name) (parse-classname~ Java classname)
+        (for-each (function dynamic (dir)
+                    (let ((file (new-file~ dir (append package (list (format "{a}.html" name))))))
+                      (when (exists?~ file)
+                        (shell-execute file)
+                        (return))))
+                  apidocs)
+        (bell))))
+  
+  
+  ;;;
+  ;;;; Arguments
+  ;;;
+  
+  
+  ;; todo
+  ;;   make work in console
+  ;;   support for { [ ...
+
+  
+  (method (show-arguments)
+    @wait-fucking-intermitent-bug-fix
+    (when (empty-selection?)
+      (let ((expl (new Jazz-Explorer self :start (get-start) :end (get-end))))
+        (when (and (backward-expr~ expl)
+                   (= (get-kind~ expl) 'symbol))
+          (case (char-backward~ expl 0)
+            ((#\open-parenthesis) (show-method-arguments expl))
+            ((#\open-bracket) (show-unit-fields)))))))
+  
+  
+  (method (show-method-arguments expl)
+    (let ((name (get-marked~ expl))
+          (info (current-toplevel-info)))
+      (when info
+        (bind-values (in unit-info) info
+          (bind (unit kind meta? name keywords) unit-info
+            (when unit
+              (let ((symbol (find-symbol name)))
+                (when symbol
+                  (let ((imports (getf keywords 'uses)))
+                    (show-symbol-arguments symbol unit imports))))))))))
+
+
+  (method (show-symbol-arguments symbol class packages)
+    (unimplemented 'show-symbol-arguments)
+    @convert
+    (let ((field (find-in symbol class packages)))
+      (when field
+        (let ((value (definition-value field)))
+          (typecase value
+            ((External)
+              (show-external-arguments symbol value))
+            ((%function)
+              (show-function-arguments symbol value))
+            ((Closure)
+              (show-function-arguments symbol (closure-function~ Interpreter value))))))))
+
+
+  (method (show-external-arguments symbol external)
+    @convert
+    (user-message "({s} {l}{a}) {s}"
+                  symbol
+                  (map type-name (map-to List (function dynamic (param) (get-type~ param)) (proxy-parameters~ Interpreter external)))
+                  (if (proxy-rest?~ Interpreter external) " . rest" "")
+                  (type-name (get-type~ (proxy-result~ Interpreter external)))))
+
+  
+  (method (show-function-arguments symbol function)
+    @convert
+    (let* ((parameters (function-parameters~ Interpreter function))
+           (printer (new String-Printer))
+           (rest (when (not (proper-list? parameters))
+                   (let* ((body (function-body~ Interpreter function))
+                          (expr (car body)))
+                     (typecase expr
+                       ((bind-optionals) (present-bind-optionals expr))
+                       ((bind-keywords) (present-bind-keywords expr))
+                       (else null))))))
+      (present-parameters parameters rest printer)
+      (user-message "({a} {a})" symbol (get-output~ printer))))
+  
+  
+  (method (present-parameters parameters bind printer)
+    (when parameters
+      (cond ((list? parameters)
+             (present-parameter (car parameters) printer)
+             (format printer " ")
+             (present-parameters (cdr parameters) bind printer))
+            (bind
+             (format printer "{a}" bind))
+            (else
+             (format printer ". {a}" parameters)))))
+  
+  
+  (method (present-parameter parameter printer)
+    @convert
+    (typecase parameter
+      ((Variable) (format printer "{s}" (variable-symbol~ Interpreter parameter)))
+      (else (format printer "{s}" parameter))))
+  
+  
+  (method (present-bind-optionals bind-optionals)
+    @convert
+    (format "&opt {a}"
+            (join (map (function dynamic (binding)
+                         (->string binding))
+                       (bind-optionals-bindings~ Interpreter bind-optionals))
+                  " ")))
+  
+  
+  (method (present-bind-keywords bind-keywords)
+    @convert
+    (format "&key {a}"
+            (join (map (function dynamic (binding)
+                         (let ((variable (car binding))
+                               (value (cdr binding)))
+                           (format "({a} {a})" variable value)))
+                       (bind-keywords-bindings~ Interpreter bind-keywords))
+                  " ")))
+
+  
+  (method (find-in symbol class packages)
+    @need-to-convert
+    (call/ec
+      (lambda (return)
+        (for-each (function dynamic (package)
+                    (let* ((name (type-name package))
+                           (package (either (get-interpreted-unit~ Interpreter-Services name) package))
+                           (field (unit-field (class-of package) symbol)))
+                      (when field
+                        (return field))))
+                  packages)
+        null)))
+  
+  
+  (method (show-unit-fields)
+    @wait
+    (let ((popup (new Completion-Popup :owner-text self :position {Point 500 500})))
+      (show~ popup)))
+   
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method (explorer-class)
+    Jazz-Explorer)
+
+  
+  ;;;
+  ;;;; Form
+  ;;;
+  
+  
+  (method public (current-class-form)
+    (let ((range (with-safe-explore (function dynamic () (current-definition-range)))))
+      (when range
+        (let ((info (current-toplevel-info))
+              (forms (read-text-forms range)))
+          (when (= (length forms) 1)
+            (let ((form (car forms)))
+              (when (and (= (length form) 4)
+                         (eq? (first form) 'definition)
+                         (eq? (second form) 'meta)
+                         (eq? (third form) 'class-form)
+                         (is? (fourth form) Form))
+                (values range (fourth form)))))))))
+
+  
+  ;;;
+  ;;;; Unit
+  ;;;
+  
+
+  (method protected virtual (current-toplevel-info)
+    (let* ((expl (new Jazz-Explorer self :end (text-beginning)))
+           (in   (forward-in~ expl))
+           (unit (forward-unit~ expl)))
+      (values in unit)))
+  
+  
+  (method (current-classes range)
+    (let ((expl (new Jazz-Explorer self :range range))
+          (classes null))
+      (while (outer-expr~ expl)
+        (when (unit-expr?~ expl)
+          (bind-values (package? meta? name) (definition-name~ expl)
+            (set! classes (cons name classes))
+            (when meta?
+              (set! classes (cons 'meta classes))))))
+      classes))
+  
+  
+  (method (current-unit-name)
+    (bind-values (in unit-info) (current-toplevel-info)
+      (bind (unit kind meta? name keywords) unit-info
+        name)))
+  
+  
+  (method (toplevel-expr pos)
+    (let ((expl (new Jazz-Explorer self :start pos :end pos))
+          (range null))
+      (while (outer-expr~ expl)
+        (set! range (get-range~ expl)))
+      range))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+    
+  
+  (method (edit-symbol-class symbol)
+    @convert
+    (when (in-manifest? symbol)
+      (edit-class~ (get-application) symbol)
+      true))
+    
+  
+  ;;;
+  ;;;; Wizard
+  ;;;
+
+  
+  (method (on-insert-properties evt)
+    (let ((names (get-modal Properties-Wizard)))
+      (if (null? names)
+          (bell)
+        (let ((start (get-start))
+              (printer (new Text-Printer self)))
+          (with-atomic-undo~ undoer
+            (function dynamic ()
+              (set-caret (new Cell [row start] 0))
+              (format printer "{%}{%}")
+              (insert-properties (map ->string names) printer)))))))
+  
+  
+  (method (insert-properties names printer)
+    (let ((max (apply generic-max (map length names))))
+      (for-each (function dynamic (name)
+                  (insert-property name max printer))
+                names)
+      (for-each (function dynamic (name)
+                  (format printer "{%}{%}")
+                  (insert-getter name printer)
+                  (format printer "{%}{%}")
+                  (insert-setter name printer))
+                names)))
+  
+  
+  (method (insert-property name max printer)
+    (format printer "  (property {a}{_ :v} initialize {} getter get-{a}{_ :v} setter set-{a}){%}"
+            name (- max (length name))
+            name (- max (length name))
+            name))
+  
+  
+  (method (insert-getter name printer)
+    (format printer "  (method public (get-{a}){%}" name)
+    (format printer "    {a}){%}" name))
+  
+  
+  (method (insert-setter name printer)
+    (format printer "  (method public (set-{a} value){%}" name)
+    (format printer "    (set! {a} value)){%}" name)))
+
+
+;;;
+;;;; Documentation-View
+;;;
+
+
+(class Documentation-View extends Layout-View
+  
+  
+  (form
+    (<install>                                     layout-type: fill
+      (<Scroller-View>                             hscroll?: #f vscroll?: #t flat?: #t
+        (<!>                         name: content layout-type: fill
+          (<Documentation-Text-View> name: text    background: {Color name: Tooltip} editable?: #f))))))
+
+
+;;;
+;;;; Jazz-Text-Menu
+;;;
+
+
+(class Jazz-Text-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: evaluate             title: "&Evaluate" icon: {Bitmap-Resource "Execute"} action: {Action jazz-text evaluate})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: design-form          title: "Design &Form" icon: {Bitmap-Resource "Designer"} action: {Action jazz-text design-form})
+      (<Separator-Item>)
+      (<Label-Item>     name: edit-definition      title: "Edit &Definition" icon: {Bitmap-Resource "Edit"} action: {Action code-text edit-definition})
+      (<Label-Item>     name: edit-references      title: "Edit &References" action: {Action code-text edit-references})
+      (<Label-Item>     name: edit-documentation   title: "Edit Do&cumentation" action: {Action jazz-text edit-documentation})
+      @waiting
+      (<Label-Item>     name: add-to-favorites     title: "&Add To Favorites..." icon: {Bitmap-Resource "Favorites"} action: {Action jazz-text add-to-favorites})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: add-break            title: "&Add Break" icon: {Bitmap-Resource "AddBreak"} action: {Action jazz-text add-break})
+      @waiting
+      (<Label-Item>     name: remove-break         title: "&Remove Break" icon: {Bitmap-Resource "RemoveBreak"} action: {Action jazz-text remove-break})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: paste-pathname       title: "&Paste Pathname" icon: {Bitmap-Resource "Paste"} action: {Action jazz-text paste-pathname})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: get-latest           title: "Get &Latest" icon: {Bitmap-Resource "GetLatest"} action: {Action text get-latest})
+      @waiting
+      (<Label-Item>     name: checkout             title: "Check &Out" icon: {Bitmap-Resource "Checkout"} action: {Action text checkout})
+      @waiting
+      (<Label-Item>     name: checkin              title: "Check &In" icon: {Bitmap-Resource "Checkin"} action: {Action text checkin})
+      @waiting
+      (<Label-Item>     name: undo-checkout        title: "&Undo Checkout" icon: {Bitmap-Resource "UndoCheckout"} action: {Action text undo-checkout})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: show-history         title: "Show &History..." icon: {Bitmap-Resource "ShowHistory"} action: {Action text show-history})
+      @waiting
+      (<Label-Item>     name: show-changes         title: "Show &Changes..." icon: {Bitmap-Resource "ShowChanges"} action: {Action text show-changes})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: patch-file           title: "&Patch File" action: {Action jazz-text patch-file})
+      (<Separator-Item>)
+      (<Label-Item>     name: insert-properties    title: "Insert &Properties..." action: {Action jazz-text insert-properties})
+      (<Label-Item>     name: set-read/write       title: "&Set Read/Write" action: {Action jazz-text set-read/write})
+      (<Label-Item>     name: update-catalog       title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
+      (<Label-Item>     name: recolorize-syntax    title: "&Recolorize Syntax" icon: {Bitmap-Resource "Refresh"} action: {Action code-text recolorize-syntax})
+      (<Separator-Item>)
+      (<Label-Item>                                title: "&Column"
+        (<Column-Menu>))
+      (<Label-Item>                                title: "&Format"
+        (<Format-Menu>))))))

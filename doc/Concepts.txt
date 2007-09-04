@@ -1,0 +1,216 @@
+;;;
+;;;; Concepts
+;;;
+
+
+- Jazz as a language is built of two types of constructs (like Scheme) :
+  - Definitions : where Scheme has only one type of definition (define), Jazz definitions
+    form a hierarchy (classes, slots, definitions, methods, inner classes, ...)
+  - Expressions : corresponds to executable code (variables, functions, special forms, macros, ...)
+
+
+- Dependencies
+  - Declared dependencies in Jazz must form a DAG. Any cyclic dependency will be detected by the language
+    at compile time. Regarding generated code efficiency: in a module, any reference to a direct dependency
+    will get compiled to a direct static access while other references will be compiled using a level of
+    indirection to ensure delayed loading of the dependency.
+
+
+- Packages
+  - Each declaration has a name
+  - An identifier is a symbol that can optionaly contain periods. An identifier needs a package context to uniquely
+    identify a declaration
+  - A fully qualified identifier is called a locator. Locators are usually built automatically by the package system
+    from the context and an identifier. Locators are symbols that can be used in Scheme to gain access to any Jazz
+    declaration.
+
+
+- Modules
+  - Represent loadable code usually packaged in a file and accessible through the manifest
+  - Referencing unit and packages will autoload the module in which they are defined
+  - Pure modules (not unit or package) have to be explicitly loaded and it's content has to be
+    explicitly referenced. This enables amongst other things, interfacing with native Scheme
+    libraries. Explicit references can use the ^ syntax or a to be determined way of embedding
+    direct Scheme access. Examples of the ^ syntax: (ui^l&f) (^reverse)
+
+  - Very simple and pragmatic approach to runtime vs compiletime problems (still in the proof of concept stage)
+    where, the compiler or interpreter or expander or whatever are just modules like anyother with their own
+    dependencies with full flexibility
+  - On top of the module system is built a language framework where jazz is just one language defined with
+    this framework. The module system is independant of the underlying language and so modules can be freely
+    composed of different languages (scheme, jazz, c, java, c#, ...)
+
+  - As a design decision, to keep the language simple and to enable features while still not breaking the
+    compilation model (how can you compile a file once when many versions of the code are possible because
+    of internal uses of cond-expand?), all feature support is done declaratively at the module level. Modules
+    can include submodules based on desired features but the code of each module is consistent and independant
+    of features.
+
+  - Compared to R6RS libraries, Jazz's have almost the same semantics. The two main differences are:
+    - Jazz expands the export keyword to implement module composition and delayed loading semantics. Note that
+      a module exporting another one not only makes explicitly naming the exported symbols unecessary but it
+      also bypasses any conflict with other imports as the module itself does not need the symbols, it just
+      'forward' exports them.
+    - Using the previous features, Jazz tries to simplify all of R6RS phases and visit concepts and
+      having to potentialy load the same library multiple times by a pragmatic but arguably less elegant
+      approach where runtime and syntax code live in distinct submodules exported by their parent module
+      under the 'runtime' and 'syntax' phase: feature.
+
+  - I think it is possible to unify Jazz's module features with the much more loosely controlled cond-expand
+    features of Scheme. Jazz's modules would use the underlying features and thus enable code to use cond-expand
+    inside the same file. If module M is loaded with features F1, F7 and F23, we generate a unique namespace
+    something like M$F1_F7_F23$ so that M can actually be loaded many times around for different features with no
+    name clash. This also solves very elegantly compilation in respect to different feature sets as you name the
+    resulting .o1 file exactly the same way something like M$F1_F7_F23$.o1. Note also that this could easily enable
+    building of fat distributions that for example work as is on gambit / chicken / plt or that work as is on
+    win32 / x11 / mac, ...
+
+  - As I do not like to redefine concepts inside a tower, I think I will have explicitly 2 module concepts:
+    - Module : basic unit of code that manages loading
+    - Library : adds namespace management and feature based loading and ...
+    Modules correspond pretty much to standard Scheme code where no compile time desambiguation is done on symbols
+    and so can be used to easily interface existing Scheme modules
+
+- Libraries
+  - To reflect the fact that import statements will expand into load-module code at the beginning of the expanded code,
+    the import statement must be unique and follow the dialect when present (uniform with r6rs). Contrary to r6rs, export
+    statements are just normal declarations that can appear multiple times and so can be put next to the code defining the
+    exported symbol if so desired for better locality.
+  - An important concept is that to walk a library, it's imported libraries do not have to be loaded, only their declarations
+    or the library itself if it is marked as syntax.
+    - declarations
+    - syntax
+    - runtime
+
+- Language tower
+  - As a design decision, Jazz is implemented by a language tower versus the approach where you try to use
+    your new language as soon as possible by compiling it with itself. The compile approach is very fragile
+    as any incompatible change to the language can leave you in a state where it is impossible to compile
+    the code to the new version. Also it is a code generation approach basically which is always less
+    interesting (management of multiple files, ...). The tower approach requires more work and has to be carefuly
+    designed but on top of beeing extremely clean, different users with different needs can decide to use any
+    part of the tower as fits their needs (especially as all the tower parts except the module one are simply
+    modules you have to import).
+
+  - module
+  - core
+  - class
+  - generic
+  - walker
+  - library
+  - scheme
+  - jazz
+
+
+- Encapsulation
+  - Any definition or method defined inside a class is considered encapsulated. Jazz will enforce access rights
+    (public protected private) on calls. Also, encapsulated definitions can be dynamically accessed through the
+    (f~ obj x y z ...) syntax.
+  - Anything inside a class is accessed dynamically through the ~ syntax wheras anything defined outside, e.g. at
+    the library level with be statically scoped by the library system.
+
+
+- Format
+  - In format arguments, lowercase is prefered {a} {s} in order to distinguish
+    more easily from literals that use uppercase {Point 2 3}...
+
+
+- Indentation
+  - Because you always have to be inside a module / library, indenting at that level doesn't add alot of information.
+    On the contrary, by not indenting them, code that appears in column 0 can easily be identified to functional code
+    whereas code appearing in column > 0 (usually 2) can easily be identified to methods inside a class.
+
+
+- Design goal: most specific info that is more important to the programmer is to the left. Example: put.X.isaix.com
+  like in url addresses.
+
+
+- package / in / module (!?)
+- definition / expression / generic / specific
+- class / interface
+- slot / initialize / method (macro)
+
+
+- Note that Jazz has exactly the same lexical structure as Scheme in regards to internal definitions.
+  e.g. in:
+  a
+    b
+      c
+        d
+  d can access c, b and a and for each one their internal definitions (at the first level, which is
+  where the . notation of Jazz can be used to go dynamically inside another definition (this is why
+  the Jazz code walker has to create the whole declaration tree and not just the first levels)). Also,
+  generic methods by their global nature (even if they are package scoped in Jazz) makes it very unatural
+  to define classes lexically. This is not a big limitations as inner classes and similar constructs can
+  be implemented very easily using the package structure of classes and in a fashion where nothing is
+  hidden making the constructs cleaner:
+  (in p
+  (class X
+    (class Iter extends Iterator
+      (slot x)
+      (method (next iter)
+        (get-next x))) ;; or (X.get-next x)
+    (method (iterate x)
+      (new Iter x))))
+
+
+- Property
+  - properties are slots that remember their getter and setter for efficient access
+  - components present only properties to user edition
+
+
+- Object : everything is Jazz is an object. Every object's behavior is full defined by it's class.
+- Structure : the structure macro defines the structure of a Jazz class, e.g. only the
+  slots but not the methods. It also does this in a pure Scheme way by using plain accessor
+  functions. This is the basis of the bootstrapping process necessary to make every object a
+  Jazz object. Another important element in the bootstrapping process is that the base files
+  located in the Jazz folder can all be loaded without loading any units from their .jazz files.
+- Manifest : a hierarchycal recursive structure associating class names to their source files. The
+  hierarchy represents the packages hierarchy. Manifests can be loaded into the global manifest at
+  any time.
+- Module : a code module contains any Jazz code but is structured. The restriction on modules in that
+  code residing in a module is in a specific package. Packages and unit can both be viewed as modules.
+- Declaration : represent the whole declaration tree of a Jazz class. They are used to provide
+  information about the class beeing defined and externally referenced classes in a uniform way.
+  By using declarations, the macro expansion used by the interpreter and the compiler does not
+  have to actually load any class so that the old Jazz environments are not needed anymore.
+  At expand time, the declaration has to be available and the code generated will validate at
+  runtime that the definition linked to is consistent with the declaration used (implementation
+  will do this validation only once of course). I see that at the level of externally referred units
+  (any reference to a unit other that ourself) where we build a declaration of that unit containing
+  recursively all used declarations (e.g. slot a at offset 12, method f with signature sig, ...) and
+  we validate this declaration against the actually loaded class at runtime. In a fully interpreted
+  mode, that declaration would actually be empty (we do not depend on anything).
+- Code Walker : here the code walker only walks the code, e.g. the Scheme implementation methods.
+  Extracting declaration structure is done elsewhere...
+- Identifier : names a type in a way that it is possible to obtain a declaration of that type
+  at expand time and a runtime version at runtime. Identifiers are used in extends, implements,
+  typeref, ... (NOTE TO CLARIFY an identifier and a typeref are distinct beasts as one specifies a class
+  and the other one a type of object so that X in the first refers to the class X and X in the second
+  refers to instances of X...)
+- Encapsulation : classes defined in their own package through the class macro can control access to
+  their fields. Note that packages can also control access to their fields. Implications of this
+  encapsulation are: access control, classification through packages, compile time detection of free
+  symbols, better performance of generic methods that can be implemented through vtables, better tools
+  through a language that is now 100% non ambiguous
+- Reference : references from a declaration must be previously defined to be accessible. This is consistent
+  with the Scheme runtime model of evaluating the definitions in the order they appear. References from
+  expressions can freely refer to declarations appearing before or after.
+
+
+- Classes and interfaces are full fledged packages. This implies that if Y extends X, then it is legal to
+  load-package 'Y and this will in turn load-package 'X but note that none of these will actually load either
+  the X or Y classes!
+
+
+- It is clear that Jazz to be a well defined language cannot give free access to the underlying Scheme
+  in an uncontrolled fashion (this would completly make impossible early detection of unresolved references).
+  On the other hand Jazz permits full access to native Scheme code in a controlled way through the native
+  special form. So it is possible to define a few native calls and program in Jazz or even define one native
+  call and program a whole module in the underlying Scheme.
+
+
+- A key concept is the clean solution to special form vs macro implementation dilema where we use macros
+  but keep a full declarative tree of the original language constructs that the expanded form points too
+  through annotated expressions. Thus we have the ease of implementation of macros and the expanded form
+  can be well behaved in interpreted mode and when we compile we just remove the annotations et voila!

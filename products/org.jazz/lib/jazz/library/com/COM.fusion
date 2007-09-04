@@ -1,0 +1,221 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Component Object Model
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library COM jazz
+
+
+@WAIT (
+
+
+  (method public (unit-guid unit)
+    (unit-property unit :guid))
+
+
+  (method public (unit-helpstring unit)
+    (unit-property unit :helpstring))
+
+
+  (method public (clsid<-progid progid)
+    (let* ((clsid (create-guid))
+           (err (CLSIDFromProgID progid clsid)))
+      (if (succeeded? err)
+          clsid
+        (system-error err))))
+  
+  
+  (method public (coinitialize)
+    (CoInitializeEx NULL COINIT_APARTMENTTHREADED))
+
+
+  (method public (comarshal object)
+    (->string object :reader))
+
+
+  (method public (counmarshal string)
+    (read-string-element string))
+
+
+  ;;;
+  ;;;; CoClosure
+  ;;;
+
+
+  (method public (coclosure? object)
+    (typed? object 'CoClosure))
+
+
+  ;;;
+  ;;;; CoExternal
+  ;;;
+
+
+  (method public (coexternal? object)
+    (typed? object 'CoExternal))
+
+
+  (external Jazz int             (coexternal-cooffset                     Object)                                                                                            "JzCoExternalCooffset")
+  (external Jazz bool            (coexternal-has-hresult?                 Object)                                                                                            "JzCoExternalHasHResult")
+  (external Jazz Object          (coexternal-retval                       Object)                                                                                            "JzCoExternalRetval")
+  (external Jazz bool            (coexternal-unimplemented?               Object)                                                                                            "JzCoExternalIsUnimplemented")
+
+
+  ;;;
+  ;;;; CoFactory
+  ;;;
+
+
+  (external Jazz void            (register-cofactory                      Object int)                                                                                        "JzRegisterCoFactory")
+  (external Jazz void            (unregister-cofactory                    Object)                                                                                            "JzUnregisterCoFactory")
+  (external Jazz int             (cofactory-new-instance                  Object Object)                                                                                     "JzCoFactoryNewInstance")
+  (external Jazz Object          (cofactory-coserver                      Object)                                                                                            "JzCoFactoryCoServer")
+  (external Jazz Object          (cofactory-instances                     Object)                                                                                            "JzCoFactoryInstances")
+
+
+  ;;;
+  ;;;; CoInterface
+  ;;;
+
+
+  (external Jazz Object          (cocreate-instance                       Object Object bool)                                                                                "JzCoCreateInstance")
+  (external Jazz int             (coquery-interface                       Object Object)                                                                                     "JzCoQueryInterface")
+  (external Jazz int             (corelease-interface                     Object)                                                                                            "JzCoReleaseInterface")
+  (external Jazz bool            (cointerface-bound?                      Object)                                                                                            "JzIsCoInterfaceBound")
+  (external Jazz int             (cointerface-pointer                     Object)                                                                                            "JzCoInterfacePointer")
+
+
+  (method public (conew coclass)
+    (let ((interface (class-default-cointerface coclass)))
+      (new (interface-cointerface interface)
+        (cofactory-new-instance
+          (find-cofactory~ (get-application) coclass)
+          (unit-guid interface)))))
+
+
+  (method public (cocreate coclass . rest)
+    (bind-keywords ((interface (class-default-cointerface coclass)) (error? true)) rest
+      (let ((instance (cocreate-instance (unit-guid coclass) (unit-guid interface) error?)))
+        (when instance
+          (new (interface-cointerface interface)
+            instance)))))
+  
+  
+  (method public (cobind vptr interface)
+    (new (interface-cointerface interface)
+      vptr))
+
+
+  (method public (coquery cointerface interface)
+    (new (interface-cointerface interface)
+      (coquery-interface cointerface (unit-guid interface))))
+
+
+  (method public (corelease cointerface)
+    (corelease-interface cointerface))
+  
+  
+  (method public (coclass? object)
+    (and (class? object)
+         (subtyped? object 'CoObject)))
+  
+  
+  (method public (cointerface? object)
+    (and (interface? object)
+         (subtyped? object 'IUnknown)))
+
+
+  ;;;
+  ;;;; CoFunction
+  ;;;
+
+
+  (method public (cofunction? object)
+    (is? object cofunction))
+
+
+  (external Jazz Object          (cofunction-costub                       Object)                                                                                            "JzCoFunctionCoStub")
+
+
+  ;;;
+  ;;;; CoObject
+  ;;;
+
+
+  ;;;
+  ;;;; CoStub
+  ;;;
+
+
+  ;;;
+  ;;;; CoUtilities
+  ;;;
+
+
+  (external Jazz bool            (succeeded?                              int)                                                                                               "JzSucceeded")
+  (external Jazz bool            (failed?                                 int)                                                                                               "JzFailed")
+  (external Jazz int             (hresult-severity                        int)                                                                                               "JzHResultSeverity")
+  (external Jazz int             (hresult-facility                        int)                                                                                               "JzHResultFacility")
+  (external Jazz int             (hresult-code                            int)                                                                                               "JzHResultCode")
+  (external Jazz Object          (read-variant                            int)                                                                                               "JzReadVariant")
+  (external Jazz void            (write-variant                           int Object bool)                                                                                   "JzWriteVariant")
+  (external Jazz Object          (get-ignored-coerrors)                                                                                                                      "JzGetIgnoredCoerrors")
+  (external Jazz void            (set-ignored-coerrors                    Object)                                                                                            "JzSetIgnoredCoerrors")
+  (external Jazz int             (get-returned-coerror)                                                                                                                      "JzGetReturnedCoerror")
+
+
+  (method public (decompose-hresult hresult)
+    (values
+      (hresult-severity hresult)
+      (hresult-facility hresult)
+      (hresult-code hresult)))
+  
+  
+  (method public (assert-hresult hresult)
+    (unless (succeeded? hresult)
+      (set-clipboard (->string hresult))
+      (error "COM error #x{x}" hresult)))
+  
+  
+  (method public (without-coerrors coerrors call proc)
+    (let ((preserved-ignored-coerrors (get-ignored-coerrors)))
+      (unwind-protect
+          (begin
+            (set-ignored-coerrors coerrors)
+            (let ((result (call))
+                  (hresult (get-returned-coerror)))
+              (proc hresult result)))
+        (set-ignored-coerrors preserved-ignored-coerrors)))))
+)

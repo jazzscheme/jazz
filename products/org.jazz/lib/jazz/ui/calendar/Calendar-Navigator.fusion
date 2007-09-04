@@ -1,0 +1,133 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Calendar Navigator
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.calendar.Calendar-Navigator jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Calendar-Navigator extends Layout-View
+
+
+  (form
+    (<install>                                      layout-type: border
+      (<Layout-View>          name: tools           size: {Dimension 300 24} location: north layout-type: center
+        (<Layout-View>        name: centered        size: {Dimension 164 24} layout-type: flow
+          (<Push-Tool>        name: previous-month  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Previous Month" image-name: {Bitmap-Resource "Backward"} portfolio: :icons action-handler: {Event-Handler form: on-previous-month})
+          (<Layout-View>      name: month-header    size: {Dimension 120 22} layout-type: center layout-insets: {Rect 0 2 0 0}
+            (<Label-View>     name: month           justification: center font: {Font :font-name "Times New Roman" :point-size 12 :color () :bold? #f :italic? #f :underline? #f :monospace? #f} double-click-handler: {Event-Handler form: on-double-click}))
+          (<Push-Tool>        name: next-month      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Next Month" image-name: {Bitmap-Resource "Forward"} portfolio: :icons action-handler: {Event-Handler form: on-next-month})))
+      (<Border-View>          name: calendar-border size: {Dimension 320 240} location: center border-type: edge style: entry
+        (<Navigator-Calendar> name: calendar))))
+  
+  
+  ;;;
+  ;;;; Hosting
+  ;;;
+  
+  
+  (method (finish host)
+    (nextmethod host)
+    (layout-view~ (locate 'month-header))
+    (layout-view~ (locate 'centered))
+    (layout-view~ (locate 'tools))
+    (update-month (get-date~ (get-calendar))))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    (locate 'tree))
+  
+  
+  (method public (get-calendar)
+    (locate 'calendar))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-double-click evt)
+    (case (get-name~ (get-sender~ evt))
+      ((month)
+        (let* ((date (day-date~ (local-date)))
+               (month (month-date~ date))
+               (calendar (get-calendar)))
+          (set-date~ calendar month)
+          (set-selection~ calendar (find-calendar-day~ calendar date))))))
+  
+  
+  (method (on-previous-month evt)
+    (let ((calendar (get-calendar)))
+      (goto-previous-month~ calendar)))
+  
+  
+  (method (on-next-month evt)
+    (let ((calendar (get-calendar)))
+      (goto-next-month~ calendar)))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method public (update-month date)
+    (set-title~ (locate 'month) (format "{a} {a}" (localize (month-name~ date)) (get-year~ date)))))
+
+
+;;;
+;;;; Navigator-Calendar
+;;;
+
+
+(class Navigator-Calendar extends Calendar-View
+  
+  
+  (method (date-update)
+    (nextmethod)
+    (update-month~ (get-parent~ parent) date))))

@@ -1,0 +1,220 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Manager View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.designer.Manager-View jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jedi))
+
+
+(class Manager-View extends Editor-View
+
+
+  (form
+    (<install>                                                 size: {Dimension 650 400} layout-type: border
+      (<Layout-View>                  name: toolbar            size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>                  name: new                size: {Dimension 22 22} tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler form: on-new})
+        (<Push-Tool>                  name: open               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-open})
+        (<Push-Tool>                  name: save               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save" image-name: {Bitmap-Resource "Save"} portfolio: :icons action-handler: {Event-Handler form: on-save})
+        (<Separator>                  name: end-open-group     size: {Dimension 16 0})
+        (<Push-Tool>                  name: undo               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Undo" image-name: {Bitmap-Resource "Undo"} portfolio: :icons action-handler: {Event-Handler form: on-undo})
+        (<Push-Tool>                  name: redo               size: {Dimension 22 22} tooltip?: #t tooltip-text: "Redo" image-name: {Bitmap-Resource "Redo"} portfolio: :icons action-handler: {Event-Handler form: on-redo})
+        (<Separator>                  name: end-undo-group     size: {Dimension 16 0})
+        (<Push-Tool>                  name: edit-form          size: {Dimension 22 22} tooltip?: #t tooltip-text: "View" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-edit-form}))
+      (<Center-View>                  name: center             size: {Dimension 650 367} location: center
+        (<Border-View>                name: branches-border    position: {Point 1 0} size: {Dimension 229 130} border-type: edge style: entry
+          (<Scroller-View>            name: scroller           style: document hscroll?: #t vscroll?: #t flat?: #t
+            (<!>                      name: content            layout-type: fill
+              (<Tree-Header>          name: header             style: document
+                (<!>                  name: content
+                  (<Branches-Tree>    name: branches
+                    (<!>              name: branch             width: 183)))))))
+        (<Splitter>                   name: left               position: {Point 1 130} size: {Dimension 229 3} orientation: horz move-handler: {Event-Handler form: on-splitter-move})
+        (<Border-View>                name: descendants-border position: {Point 1 133} size: {Dimension 229 233} border-type: edge style: entry
+          (<Scroller-View>            name: scroller           style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content            layout-type: fill
+              (<Tree-Header>          name: header             style: document
+                (<!>                  name: content
+                  (<Descendants-Tree> name: descendants        tab-press-handler: {Event-Handler form: on-tab-press}
+                    (<!>              name: descendant         width: 183)))))))
+        (<Splitter>                   name: right              position: {Point 230 0} size: {Dimension 3 366} move-handler: {Event-Handler form: on-splitter-move})
+        (<Layout-View>                name: card-contour       position: {Point 233 0} size: {Dimension 416 366} layout-type: fill
+          (<Border-View>              name: card-border        border-type: edge style: entry
+            (<Properties-Card>        name: card))))))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Doc"})
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 100 80})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 650 400})
+  
+  
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  (method (new-controller)
+    (new Manager-View-Controller self))
+  
+  
+  (class Manager-View-Controller extends Editor-View-Controller
+    
+    
+    (method (name-status)
+      (editor-title~ document)))
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'branches) self)
+    (set-editor~ (locate 'descendants) self)
+    (set-editor~ (locate 'card) self))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (guest-actions)
+    (cons (find-actions 'manager)
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (let ((toolbar (locate-component 'toolbar)))
+      (when toolbar
+        (set-size~ toolbar (new Dimension [width size] (get-height~ toolbar))))))
+  
+  
+  (method protected virtual (resize-center dh dv)
+    (size-figure~ (locate 'descendants-border) 0 dv)
+    (size-figure~ (locate 'right) 0 dv)
+    (size-figure~ (locate 'card-contour) dh dv))
+  
+  
+  (method public (on-splitter-move evt)
+    (let ((sender (get-sender~ evt))
+          (delta (get-property~ evt :delta)))
+      (case (get-name~ sender)
+        ((left)
+         (size-figure~ (locate 'branches-border) 0 delta)
+         (move-figure~ (locate 'descendants-border) 0 delta)
+         (size-figure~ (locate 'descendants-border) 0 (- delta)))
+        ((right)
+         (size-figure~ (locate 'branches-border) delta 0)
+         (size-figure~ (locate 'left) delta 0)
+         (size-figure~ (locate 'descendants-border) delta 0)
+         (move-figure~ (locate 'card-contour) delta 0)
+         (size-figure~ (locate 'card-contour) (- delta) 0)))
+      (update-view)))
+  
+  
+  (method (on-new evt)
+    (new-form))
+  
+  
+  (method (on-open evt)
+    (open-form))
+  
+  
+  (method (on-edit-form evt)
+    (edit-form))
+  
+  
+  (method (on-tab-press evt)
+    (let ((tree (get-tree~ (locate 'card))))
+      (acquire-focus~ tree)
+      (let ((rank (get-single-selection~ tree)))
+        (when rank
+          (auto-select~ (get-row~ tree rank))))))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (install-current-designer component form)
+    (nextmethod component form)
+    (set-title (editor-title)))
+  
+  
+  ;;;
+  ;;;; Center-View
+  ;;;
+  
+  
+  (class Center-View extends View
+    
+    
+    (method (resize dh dv)
+      (nextmethod dh dv)
+      (resize-center dh dv)))))

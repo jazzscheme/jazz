@@ -1,0 +1,44 @@
+
+
+  
+  (method (load-schedule-data connection schedules)
+    (let* ((id-list (format "({a})" (join (map ->string schedules) ", ")))
+          (request
+           `(<sql>
+              (<select>
+                (<column> name: c.intCommunity)
+                (<column> name: c.txtName)
+                (<column> name: d.intCommunityOCDepartment)
+                (<column> name: d.txtName)
+                (<column> name: s.intOCSchedule)
+                (<column> name: s.txtName)
+                (<column> name: s.dteStart)
+                (<column> name: s.dteEnd)
+                (<column> name: h.intOCScheduleShift)
+                (<column> name: h.txtShift)
+                (<column> name: h.txtStart)
+                (<column> name: h.txtEnd)
+                (<column> name: h.intNextDay)
+                (<column> name: e.intOCScheduleEvent)
+                (<column> name: e.intType)
+                (<column> name: e.dteStart)
+                (<column> name: e.dteEnd)
+                (<column> name: e.intUser))
+              (<from>
+                (<table> name: tblCommunity as: c)
+                (<table> name: tblCommunityOCDepartment as: d)
+                (<table> name: tblOCSchedule as: s)
+                (<table> name: tblOCScheduleShift as: h)
+                (<table> name: tblOCScheduleEvent as: e))
+              (<where>
+                (<clause> (in s.intOCSchedule ,id-list))
+                (<clause> (= e.intOCScheduleShift h.intOCScheduleShift))
+                (<clause> (= h.intOCSchedule s.intOCSchedule))
+                (<clause> (= s.intCommunityOCDepartment d.intCommunityOCDepartment))
+                (<clause> (= d.intCommunity c.intCommunity)))
+              (<order-by>
+                (<column> name: c.intCommunity)
+                (<column> name: d.intCommunityOCDepartment)
+                (<column> name: s.intOCSchedule)
+                (<column> name: h.intOCScheduleShift)))))
+      [connection (load-request request :data-class Data-Schedule)]))

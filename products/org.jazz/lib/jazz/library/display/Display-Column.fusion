@@ -1,0 +1,163 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Display Column
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.display.Display-Column jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Display-Column extends Object
+  
+  
+  (slot displayer)
+  (slot factory)
+  (slot content)
+  (slot current)
+  (slot border       <Integer> initialize 0)
+  (slot border-after <Integer> initialize 0)
+  (slot minimum      <Integer> initialize 0)
+  (slot line         <Integer> initialize 0)
+  (slot empty?       <Boolean> initialize true)
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (initialize displayer . rest)
+    (bind-keywords ((border 0) (border-after 0) (minimum 0)) rest
+      (nextmethod)
+      (set! [displayer self] displayer)
+      (set! [factory self] (new List-Factory))
+      (set! [border self] border)
+      (set! [border-after self] border-after)
+      (set! [minimum self] minimum)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-border)
+    border)
+
+
+  (method public (set-border value)
+    (set! border value))
+
+
+  (method public (get-border-after)
+    border-after)
+
+
+  (method public (set-border-after value)
+    (set! border-after value))
+  
+  
+  (method public (get-empty?)
+    empty?)
+  
+  
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (output data . rest)
+    (fill-empty)
+    (put-data data rest)
+    (when data
+      (set! empty? false))
+    (increase-line))
+  
+  
+  (method public virtual (put-data data rest)
+    (put~ factory data))
+  
+  
+  (method public virtual (increase-line)
+    (increase! line))
+  
+  
+  (method protected (get-next)
+    (when current
+      (prog1 (car current)
+        (set! current (cdr current)))))
+  
+  
+  (method public (rewind)
+    (set! content (get-output~ factory))
+    (set! current content))
+  
+  
+  (method public (fill-empty)
+    (let ((main [line displayer]))
+      (while (< line main)
+        (put~ factory null)
+        (increase! line))))
+  
+  
+  (method protected (replace-empty previous-column previous-data)
+    (let ((data (car current)))
+      (if (null? data)
+          (let ((replacement (empty-replacement previous-column previous-data)))
+            (set-car! current replacement)
+            (set! current (cdr current))
+            replacement)
+        (set! current (cdr current))
+        data)))
+  
+  
+  (method protected virtual (empty-replacement previous-column previous-data)
+    "")
+  
+  
+  ;;;
+  ;;;; Printing
+  ;;;
+  
+  
+  (method public virtual (prepare-print)
+    (rewind))
+  
+  
+  (method public virtual (print-to data previous-column previous-data printer)
+    (format printer "{_ :v}{a}{_ :v}" border data border-after))))

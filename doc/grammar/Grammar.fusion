@@ -1,0 +1,496 @@
+;;;
+;;;; Formal Syntax
+;;;
+
+
+;; ? -> 0 or 1
+;; * -> 0, 1, 2, ...
+;; + -> 1, 2, ...
+;; { ... } -> group
+
+
+;;;
+;;;; Lexical Structure
+;;;
+
+
+<content> ::= <read>+
+<read> ::= <ws> <expr>
+
+<expr> ::= <token> | <sequence> | <quote> | <string>
+
+<sequence> ::=
+	"(" <read>* { <ws> "." <read> }? ")"
+	| "[" <read>+ "]"
+	| "{" <symbol> <read>* "}"
+
+<quote> ::= "'" <read>
+<string> ::= """ { <string-char> | <escape> }* """
+
+<token> ::=
+	<type-specifier>
+	| <symbol>
+	| <hexadecimal>
+	| <binary>
+	| <integer>
+	| <long>
+	| <double>
+
+<type-specifier> ::= "<" <symbol> ">" "+"?
+<symbol> ::= <symbol-first> <symbol-subsequent>*
+
+<hexadecimal> ::= "0x" <hexdigit>+
+<binary> ::= "0b" <binarydigit>+
+<integer> ::= <sign>? <digit>+
+<long> ::= <sign>? <digit>+ L
+<double> ::= <sign>? <digit>+ "." <digit>+
+<escape> ::= "\" <any>
+<comment> ::= ";" <comment-char> {cr | lf}
+<expression-comment> ::= "@" <read> <read>
+<ws> ::= <whitespace>*
+<whitespace> ::=
+	<comment>
+	| <expression-comment>
+	| tab
+	| cr
+	| lf
+	| space
+
+<symbol-first> ::= <letter> | <digit> | <special>
+<symbol-subsequent> ::= <symbol-first> | <sign> | "."
+
+<letter> ::= [A-Za-z]
+<digit> ::= [0-9]
+<special> ::= [!#$%&*/:<=>?^_|~]
+<hexdigit> ::= [0-9A-Fa-f]
+<binarydigit> ::= "0" | "1"
+<sign> ::= "+" | "-"
+<string-char> ::= <any> except """ | "\"
+<comment-char> ::= <any> except cr | lf
+
+
+;;;
+;;;; Program Structure
+;;;
+
+
+<jazz-source-file> ::=
+	<package>? <in>? <uses>* <module>
+
+<package>? ::=
+	"(" "package" <package-identifier> ")"
+
+<in> ::=
+	"(" "in" <package-identifier> ")"
+
+<uses> ::=
+	"(" "uses" <package-identifier> ")"
+
+;; modules
+
+<module> ::=
+	"(" "class" "Object" <class-body> ")"
+	| <toplevel-class>
+	| <toplevel-interface>
+
+<toplevel-class> ::=
+	"(" "class" <module-modifiers> <class-identifier>
+	"extends" <class-identifier>
+	{ "implements" <interface-list> }?
+	<class-body> ")"
+
+<toplevel-interface> ::=
+	"(" "interface" <module-modifiers> <interface-identifier>
+	"extends" <interface-identifier>
+	<interface-body> ")"
+
+;; inner units
+
+<inner-unit> ::=
+	<inner-class> | <inner-interface>
+
+<inner-class> ::=
+	"(" "class" <inner-unit-modifiers> <class-identifier>
+	"extends" <class-identifier>
+	{ "implements" <interface-list> }?
+	<class-body> ")"
+
+<inner-interface> ::=
+	"(" "interface" <inner-unit-modifiers> <interface-identifier>
+	{ "extends" <interface-identifier> }?
+	<interface-body> ")"
+
+;; unit definition
+
+<interface-list> ::=
+	<interface-identifier>
+	| "(" <interface-identifier>+ ")"
+
+<class-body> ::=
+	<class-member>*
+
+<interface-body> ::=
+	<interface-member>*
+
+<package-body> ::=
+	<package-member>*
+
+;; members
+
+<class-member> ::=
+	<slot>
+	| <property>
+	| <macro>
+	| <method>
+	| <unit-member>
+
+<interface-member> ::=
+	<method-signature>
+	| <unit-member>
+
+<package-member> ::=
+	<macro>
+	| <method>
+	| <unit-member>
+
+<unit-member> ::=
+	<unit>
+	| <external>
+
+<slot> ::=
+	"(" "slot" <member-modifiers> <slot-identifier> { "initialize" <expression> }? ")"
+
+<property> ::=
+	"(" "property" <member-modifiers> <property-identifier> { "initialize" <expression> }? { "getter" <method-identifier> }? { "setter" <method-identifier> }? ")"
+
+<constant> ::=
+	"(" "constant" <member-modifiers> <constant-identifier> <expression> ")"
+
+<structure> ::=
+	"(" "structure" <member-modifiers> <structure-identifier> <expression> ")"
+
+<macro> ::=
+	"(" "macro" <macro-modifiers> "(" <macro-identifier> <parameter-list> ")" <body> ")"
+
+<method-signature> ::=
+	"(" <method-signature-body> ")"
+
+<method-signature-body> ::=
+	"method" <method-modifiers> "(" <method-identifier> <parameter-list> ")"
+
+<method> ::=
+	"(" <method-signature-body> <body> ")"
+
+<external> ::=
+	"(" "external" <library-identifier> <member-modifiers> "(" <external-identifier> <typed-parameter-list> ")" <body> ")"
+
+;; parameters
+
+<parameter-list> ::=
+	<parameter>* { "." <parameter-identifier> }?
+
+<parameter> ::=
+	<parameter-identifier> <type-specifier>?
+
+<typed-parameter-list> ::=
+	<typed-parameter>* { "." <parameter-identifier> }?
+
+<typed-parameter> ::=
+	<direction>? <parameter-identifier> <type-specifier>
+
+<direction> ::=
+	<in>
+	| <out>
+	| <in-out>
+
+;; modifiers
+
+<toplevel-unit-modifiers> ::= <module-modifier>*
+<inner-unit-modifiers> ::= <member-modifier>*
+<macro-modifiers> ::= <member-modifier>*
+<method-modifiers> ::= { <definition-modifier> | <method-modifier-extra> }*
+<member-modifiers> ::= <member-modifier>*
+
+<member-modifier> ::= <module-modifier> | "private"
+<module-modifier> ::= "meta" | "protected" | "public"
+<method-modifier-extra> ::= "chained" | "abstract" | "inline" | "synchronized" | "remote"
+
+
+;;;
+;;;; External Representations
+;;;
+
+
+<datum> ::=
+	<boolean> | <number> | <character> | <string> | <symbol> | <list>
+
+<symbol> ::= <identifier>
+<list> ::= "(" <datum>* ")" | "(" <datum>+ "." <datum> ")"
+
+
+;;;
+;;;; Expressions
+;;;
+
+
+<expression> ::=
+	<literal>
+	| <self>
+	| <meta>
+    | <outer>
+	| <variable>
+	| <function-call>
+	| <object-invocation>
+
+<virtual-method-expression> ::=
+    <expression>
+    | <super>
+
+<literal> ::=
+	<quotation> | <self-evaluating>
+
+<variable> ::=
+	<identifier>
+
+<generalized-variable> ::=
+	<variable>
+	| <slot-access>
+
+<quotation> ::=
+	"'" <datum> | <quote>
+
+<function-call> ::=
+	"(" ")"
+
+<object-invocation> ::=
+	"[" "]"
+
+<self> ::=
+	"self"
+
+<meta> ::=
+	"meta"
+
+<outer> ::=
+	"outer"
+
+<super> ::=
+	nextmethod
+
+<body> ::=
+	<expression>*
+
+<virtual-method-body> ::=
+    <virtual-method-expression>*
+
+;; derived expressions
+
+<derived-expression> ::=
+	<enumeration>
+    | <quote> | <if> | <when> | <unless> | <while> | <begin> | <prog1> | <loop>
+	| <cond> | <case> | <ecase> | <typecase> | <and> | <or> | <essay> | <either>
+	| <set!> | <increase> | <decrease> | <cast> | <synchronize>
+	| <lambda> | <function> | <let> | <letrec> | <with> | <with-closed>
+	| <bind> | <bind-keywords> | <bind-optionals> | <bind-values> | <bind-properties> | <tie>
+	| <cotry> | <block> | <return-from> | <return> | <catch> | <unwind-protect>
+	| <error?> | <assert> | <assert-type> | <optimize> | <profile>
+
+<quote> ::=
+	"(" "quote" <expression> ")"
+
+<if> ::=
+	"(" "if" <test> <consequent> <alternate>+ ")"
+<test> ::= <expression>
+<consequent> ::= <expression>
+<alternate> ::= <expression>
+
+<while> ::=
+	"(" "while" <test> <body> ")"
+
+<and> ::=
+	"(" "and" <expression>* ")"
+
+<or> ::=
+	"(" "or" <expression>* ")"
+
+<set!> ::=
+	"(" "set!" <generalized-variable> <expression> ")"
+
+<cast> ::=
+	"(" "cast" <expression> <type-specifier> ")"
+
+<synchronize> ::=
+	"(" "synchronize" <expression>* ")"
+
+<lambda> ::=
+	"(" "lambda"  ")"
+
+<function> ::=
+	"(" "function"  ")"
+
+<let> ::=
+	"(" "let" <bindings> <body> ")"
+
+<with> ::=
+	"(" "with" <bindings> <body> ")"
+
+<with-closed> ::=
+	"(" "with-closed" <bindings> <body> ")"
+
+<bind> ::=
+	"(" "bind" <tree-bindings> <expression> <body> ")"
+
+<bind-keywords> ::=
+	"(" "bind-keywords" <keyword-bindings> <expression> <body> ")"
+
+<bind-optionals> ::=
+	"(" "bind-optionals" <optional-bindings> <expression> <body> ")"
+
+<bind-values> ::=
+	"(" "bind-values" <value-bindings> <expression> <body> ")"
+
+<bind-properties> ::=
+	"(" "bind-properties" <property-bindings> <expression> <body> ")"
+
+<block> ::=
+	"(" "block" <identifier> <body> ")"
+
+<return-from> ::=
+	"(" "return-from" <identifier> <expression> ")"
+
+<return> ::=
+	"(" "return" <expression> ")"
+
+<catch> ::=
+	"(" "catch"  ")"
+
+<optimize> ::=
+	"(" "optimize" <optimize-settings> <expression>* ")"
+<optimize-settings> ::= "(" <optimize-setting>* ")"
+<optimize-setting> ::=
+	":frame?" <boolean>
+
+<profile> ::=
+	"(" "profile" <boolean> <profile-body> ")"
+	| "(" "profile" <profile-body> ")"
+<profile-body> ::= <profile-name> <profile-condition> <body>
+<profile-name> ::= <identifier>
+<profile-condition> ::= <identifier>
+
+;; macros
+
+<enumeration> ::=
+	"(" "enumeration" <member-modifiers> <enumeration-identifier> <expression> ")"
+
+<when> ::=
+	"(" "when" <test> <consequent>+ ")"
+
+<unless> ::=
+	"(" "unless" <test> <consequent>+ ")"
+
+<begin> ::=
+	"(" "begin" <body> ")"
+
+<prog1> ::=
+	"(" "prog1" <expression> <body> ")"
+
+<loop> ::=
+	"(" "loop" <loop-clause>* ")"
+<loop-clause> ::=
+	"(" "for" <loop-for-clause> ")"
+	| "(" "repeat" <loop-repeat-clause> ")"
+	| "(" "do" <loop-do-clause> ")"
+	| "(" "sum" <loop-sum-clause> ")"
+	| "(" "collect" <loop-collect-clause> ")"
+	| <expression>
+<loop-for-clause> ::=
+	<variable> "in" <expression>
+	| "(" <variable> <variable> ")" "in-properties" <expression>
+	| <variable> "iterate" <expression>
+	| <variable> "from" <loop-for-from-clause>?
+<loop-for-from-clause> ::=
+	"to" <expression>
+	| "below" <expression>
+	| "downto" <expression>
+<loop-repeat-clause> ::= <expression>
+<loop-do-clause> ::= <expression>*
+<loop-sum-clause> ::= <expression>
+<loop-collect-clause> ::= <expression>
+
+<cond> ::=
+	"(" "cond" <cond-clause>* ")"
+
+<case> ::= "(" "case" <target> <case-clause>+ ")"
+<case> ::= "(" "case" <target> <case-clause>* "(" "else" <expression>* ")" ")"
+
+<ecase> ::=
+	"(" "ecase" <ecase-clause>* ")"
+
+<typecase> ::=
+	"(" "typecase" <typecase-clause>* ")"
+
+<essay> ::=
+	"(" "essay" <expression>+ ")"
+
+<either> ::=
+	"(" "either" <expression>+ ")"
+
+<increase> ::=
+	"(" "increase" <generalized-variable> <expression>? ")"
+
+<decrease> ::=
+	"(" "decrease" <generalized-variable> <expression>? ")"
+
+<letrec> ::=
+	"(" "letrec" <bindings> <body> ")"
+
+<tie> ::=
+	"(" "tie" <string> ")"
+
+<cotry> ::=
+	"(" "cotry" <expression> <cotry-clauses> ")"
+<cotry-clauses> ::= <cotry-clause>*
+<cotry-clause> ::= <ecase-clause>
+
+<unwind-protect> ::=
+	"(" "unwind-protect" <protected-expression> <protection-expressions> ")"
+<protected-expression> ::= <expression>
+<protection-expressions> ::= <expression>*
+
+<error?> ::=
+	"(" "error?" <expression>* ")"
+
+<assert> ::=
+	"(" "assert" <expression> ")"
+	| "(" "assert" <function> <expression> ")"
+
+<assert-type> ::=
+	"(" "assert-type" <expression> <type-specifier> ")"
+
+;; identifiers
+
+<class-identifier> ::= <identifier>
+<interface-identifier> ::= <identifier>
+<package-identifier> ::= <identifier>
+<constant-identifier> ::= <identifier>
+<enumeration-identifier> ::= <identifier>
+<structure-identifier> ::= <identifier>
+<slot-identifier> ::= <identifier>
+<property-identifier> ::= <identifier>
+<macro-identifier> ::= <identifier>
+<method-identifier> ::= <identifier>
+<external-identifier> ::= <identifier>
+<parameter-identifier> ::= <identifier>
+
+<library-identifier> ::=
+	"Jazz"
+	| "Kernel"
+	| "GDI"
+	| ...
+
+<primitive-identifier> ::=
+	"void" |
+	"bool" |
+	"byte" | "ubyte" | "short" | "int" | "long" | "float" | "double" |
+	"string" | "ansistring" |
+	"hresult" | "variant" | "guid"

@@ -1,0 +1,201 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Logs
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.log.Log jazz
+
+
+(import (jazz.library)
+        (jazz.jml)
+        (jazz.utilities))
+
+
+(class Log extends Object
+  
+  
+  (slot name           initialize {})
+  (slot file           initialize {})
+  (slot last-mark      initialize {})
+  (slot read-error?    initialize false)
+  (slot current-node   initialize {})
+  (slot toplevel-nodes initialize '())
+  
+  
+  (method (initialize . rest)
+    (nextmethod)
+    (bind-keywords ((name null) (file null) (load? false)) rest
+      (set! [name self] name)
+      (set! [file self] file)
+      (set! [current-node self] null)
+      (set! [toplevel-nodes self] (new List-Factory))
+      (when load?
+        (load-toplevel-nodes))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (get-file)
+    file)
+  
+  
+  (method public (get-current-node)
+    current-node)
+  
+  
+  (method public (get-toplevel-nodes)
+    (get-list~ toplevel-nodes))
+  
+  
+  ;;;
+  ;;;; I/O
+  ;;;
+  
+  
+  (method public (reload)
+    (if (null? file)
+        (error "Log {s} has no associated file" name)
+      (load-toplevel-nodes)))
+  
+  
+  ;; Should create a Mark class to encapsulate those four values
+  (method (get-mark-position mark)
+    (first mark))
+  
+  
+  (method (get-mark-line mark)
+    (third mark))
+  
+  
+  (method (get-mark-column mark)
+    (fourth mark))
+  
+  
+  (method (handle-read-error current-mark)
+    (if (and read-error? (= (get-mark-position last-mark)
+                            (get-mark-position current-mark)))
+        (let ((file-path (parse~ file))
+               (line (+ 1 (get-mark-line current-mark)))
+               (column (+ 1 (get-mark-column current-mark))))
+          (message-box (format "Cannot process log file {a}{%}at line {a}, column {a}" file-path line column)))
+      (set! read-error? true)))
+  
+  
+  (method (load-toplevel-nodes)
+    (with-closed ((reader (new File-Reader file :sharing 'read/write)))
+      (when last-mark
+        (set-reader-file-mark reader last-mark))
+      (let ((done? false)
+            (current-mark last-mark))
+        (catch (Error err
+                      (handle-read-error current-mark))
+          (while (not done?)
+            (set! current-mark (reader-file-mark reader))
+            (let ((expr (read reader)))
+              (if (eof-object? expr)
+                  (set! done? true)
+                (let ((node (parse-jml expr)))
+                  (put~ toplevel-nodes node)))))
+          (set! read-error? false))
+        (set! last-mark current-mark))))
+  
+  
+  ;;;
+  ;;;; Toplevel
+  ;;;
+  
+  
+  (method (add-toplevel-node node)
+    (when (null? file)
+      (put~ toplevel-nodes node)))
+  
+  
+  (method (output-toplevel-node node)
+    (when file
+      (with-closed ((printer (new File-Printer :pathname file :mode 'append :sharing 'read)))
+        (pretty-print~ node printer))))
+  
+  
+  ;;;
+  ;;;; Logging
+  ;;;
+  
+  
+  (method public (with-node node proc)
+    (let ((parent current-node)
+          (preserved current-node))
+      (when (null? parent)
+        (add-toplevel-node node))
+      (prog1 (unwind-protect
+                 (begin
+                   (set-parent~ node parent)
+                   (set! current-node node)
+                   (proc node))
+               (set! current-node preserved))
+        (when (null? parent)
+          (output-toplevel-node node)))))
+  
+  
+  (method public (log-node node)
+    (let ((parent current-node))
+      (set-parent~ node parent)
+      (when (null? parent)
+        (add-toplevel-node node)
+        (output-toplevel-node node))
+      node))
+  
+  
+  (method public (log-entry tag name message data)
+    (log-node (new-entry tag name message data)))
+  
+  
+  (method public (new-entry tag name message data)
+    (let ((entry (new JML-Element null (either tag 'entry))))
+      (set-property~ entry 'name name)
+      (set-property~ entry 'message message)
+      (set-property~ entry 'data data)
+      entry))
+  
+  
+  (method public (clear)
+    ;; clear memory and file content
+    (unimplemented 'clear))))

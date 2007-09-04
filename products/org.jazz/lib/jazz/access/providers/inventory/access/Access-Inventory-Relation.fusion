@@ -1,0 +1,178 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Access Inventory Relation
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.access.Access-Inventory-Relation jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Access-Inventory-Relation extends Inventory-Relation
+  
+  
+  (slot handle)
+  
+  
+  (method (initialize inventory parent handle)
+    (nextmethod inventory parent)
+    (set! [handle self] handle)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (corelease handle)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Relation
+  ;;;
+  
+  
+  (method public (get-handle)
+    handle)
+  
+  
+  (method public (get-title)
+    (get-Name~ handle))
+  
+  
+  (method (get-primary-table)
+    (get-Table~ handle))
+  
+  
+  (method (set-primary-table value)
+    (put-Table~ handle value))
+    
+  
+  (method (get-primary-field-names)
+    (with-closed ((fields (get-Fields~ handle)))
+      (map (function dynamic (n)
+             (with-closed ((field (get-Item~ fields n)))
+               (get-Name~ field)))
+           (naturals 0 (get-Count~ fields)))))
+  
+  
+  (method (set-primary-field-names values)
+    (with-closed ((fields (get-Fields~ handle)))
+      (for-each (function dynamic (field-name)
+                  (with-closed ((field (CreateField~ handle field-name null null)))
+                    (Append~ fields field)))
+                values)))
+  
+  
+  (method (get-foreign-table)
+    (get-ForeignTable~ handle))
+  
+  
+  (method (set-foreign-table value)
+    (put-ForeignTable~ handle value))
+  
+  
+  (method (get-foreign-field-names)
+    (with-closed ((fields (get-Fields~ handle)))
+      (map (function dynamic (n)
+             (with-closed ((field (get-Item~ fields n)))
+               (get-ForeignName~ field)))
+           (naturals 0 (get-Count~ fields)))))
+  
+  
+  (method (set-foreign-field-names values)
+    (with-closed ((fields (get-Fields~ handle)))
+      (for-each (function dynamic (field-name i)
+                  (with-closed ((field (get-Item~ fields i)))
+                    (put-ForeignName~ field field-name)))
+                values
+                (naturals 0 (length values)))))
+  
+  
+  (method (get-unique?)
+    (mask-bit-set? (get-attribute) [dbRelationUnique DAO]))
+  
+  
+  (method public (set-unique? value)
+    (set-attribute (mask-bit-set (get-attribute) [dbRelationUnique DAO] value)))
+  
+  
+  (method (get-dont-enforce?)
+    (mask-bit-set? (get-attribute) [dbRelationDontEnforce DAO]))
+  
+  
+  (method (get-inherited?)
+    (mask-bit-set? (get-attribute) [dbRelationInherited DAO]))
+  
+  
+  (method (get-update-cascade?)
+    (mask-bit-set? (get-attribute) [dbRelationUpdateCascade DAO]))
+  
+  
+  (method public (set-update-cascade? value)
+    (set-attribute (mask-bit-set (get-attribute) [dbRelationUpdateCascade DAO] value)))
+  
+  
+  (method (get-delete-cascade?)
+    (mask-bit-set? (get-attribute) [dbRelationDeleteCascade DAO]))
+  
+  
+  (method public (set-delete-cascade? value)
+    (set-attribute (mask-bit-set (get-attribute) [dbRelationDeleteCascade DAO] value)))
+  
+  
+  (method (get-left?)
+    (mask-bit-set? (get-attribute) [dbRelationLeft DAO]))
+  
+  
+  (method public (set-left? value)
+    (set-attribute (mask-bit-set (get-attribute) [dbRelationLeft DAO] value)))
+  
+  
+  (method (get-right?)
+    (mask-bit-set? (get-attribute) [dbRelationRight DAO]))
+  
+  
+  (method public (set-right? value)
+    (set-attribute (mask-bit-set (get-attribute) [dbRelationRight DAO] value)))
+  
+  
+  (method (get-attribute)
+    (get-Attributes~ handle))
+  
+  
+  (method (set-attribute value)
+    (put-Attributes~ handle value))))

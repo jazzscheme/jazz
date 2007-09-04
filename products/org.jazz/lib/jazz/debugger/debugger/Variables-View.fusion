@@ -1,0 +1,189 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Variables View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debugger.Variables-View jazz
+
+
+(import (jazz.debugger)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Variables-View extends Layout-View
+
+  
+  (property debuggee initialize {} getter get-debuggee setter set-debuggee)
+  (property frame    initialize {} getter get-frame    setter set-frame)
+
+
+  (form
+    (<install>                                       layout-type: fill
+      (<Scroller-View>               name: scroller  vscroll?: #t hscroll?: #t flat?: #t
+        (<!>                         name: content   layout-type: fill
+          (<Tree-Header>                             flat?: #t
+            (<!>                     name: content
+              (<Variables-Inspector> name: variables multiple-selection?: #f selection-mode: row
+                (<!>                 name: name      width: 130)
+                (<!>                 name: value     width: 303))))))))
+          
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'variables-view)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Spy"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Variables")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (focus-default)
+    (let ((tree (locate 'variables)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (let ((listener (new Event-Handler :target self :method-name 'on-frame-change)))
+      (add-debugger-listener listener)
+      (destroy-mandatory)))
+
+
+  (method (destroy)
+    (remove-debugger-listener self)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-debuggee)
+    (get-debuggee~ (locate 'variables)))
+
+
+  (method public (set-debuggee debuggee)
+    (set-debuggee~ (locate 'variables) debuggee))
+
+
+  (method public (get-frame)
+    frame)
+
+
+  (method public (set-frame frm)
+    (set! frame frm)
+    (set-client~ (locate 'variables) (essay frame (cons frame :frame))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method public (on-frame-change evt)
+    (let ((frame (get-property~ evt :frame)))
+      (typecase frame
+        ((Execution-Frame)
+         (set-debuggee (get-debuggee~ (get-thread~ frame)))
+         (set-frame frame))
+        ((Frame-Snapshot)
+         (set-debuggee null)
+         (set-frame frame))
+        (else
+         (set-debuggee null)
+         (set-frame null))))))
+
+
+;;;
+;;;; Inspector
+;;;
+
+
+(class Variables-Inspector extends Inspector
+  
+  
+  (method (inspect data kind)
+    (case kind
+      ((:frame)   (inspect-frame data))
+      ((:context) (inspect-slots data))
+      (else     (nextmethod data kind))))
+  
+  
+  (method (inspect-frame frame)
+    (typecase frame
+      ((Execution-Frame) (inspect-frame~ (get-thread~ frame) (get-address~ frame)))
+      ((Frame-Snapshot) (let ((parameters (get-parameters~ frame)))
+                          (map (function dynamic (parameter rank)
+                                 (if (pair? parameter)
+                                     (bind (name value) parameter
+                                       (list name 0 value false null))
+                                   (list rank 0 parameter false null)))
+                               parameters
+                               (naturals 0 (length parameters)))))))))

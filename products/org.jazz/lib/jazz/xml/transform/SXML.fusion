@@ -1,0 +1,173 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SXML Module
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Dominique Boucher.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library SXML jazz
+
+
+@WAIT (
+  
+  ;;;
+  ;;;; SXML processor function
+  ;;;
+  ;; This function traverses an X-expression and 
+  ;; calls the appropriate functions of a XML consumer.
+  ;; This can be used to format X-expressions in XML format
+  ;; or build DOM objects from an X-expression.
+  
+  (method (process-sxml xexpr consumer <XML-Handler>)
+    (begin-document~ consumer)
+    (process-sxml-node xexpr consumer)
+    (end-document~ consumer))
+  
+  
+  (method private (process-sxml-node xexpr consumer)
+    (cond
+     ((sxml-text? xexpr)
+      (text~ consumer (sxml-text-data xexpr)))
+     ((sxml-element? xexpr) 
+      (process-sxml-element xexpr consumer))
+     (else                  
+      (error "invalid x-expression"))))
+  
+  
+  (method private (process-sxml-element xexpr consumer)
+    (bind-values (tag attributes children) (sxml-decompose-element xexpr)
+      (let ((tag-name (symbol->string tag)))
+        (begin-element~ consumer tag-name)
+        (process-sxml-attributes attributes consumer)
+        (process-sxml-elements children consumer)
+        (end-element~ consumer tag-name))))
+  
+  
+  (method private (process-sxml-elements lst consumer)
+    (for-each (function dynamic (element)
+                (process-sxml-node element consumer))
+              lst))
+  
+  
+  (method private (process-sxml-attributes attributes consumer)
+    (for-each (function dynamic (attribute)
+                (add-attribute~ consumer (symbol->string (car attribute)) (cadr attribute)))
+              attributes))
+  
+  
+  ;;;
+  ;;;; SXML API
+  ;;;
+  ;; The extraction functions (sxml-element-tag, sxml-text-data, etc.)
+  ;; all assume that the argument is of the proper format.
+  
+  
+  (definition sxml-text-tag    ':text)
+  (definition sxml-comment-tag ':comment)
+  (definition sxml-pi-tag      ':pi)
+  
+  
+  (method (sxml-element? xexpr)
+    (and (pair? xexpr)
+         (symbol? (car xexpr))))
+  
+  
+  (method (sxml-element-tag xexpr)
+    (car xexpr))
+  
+  
+  (method (sxml-element-attributes xexpr)
+    (bind-values (tag attrs children) (sxml-decompose-element xexpr)
+      attrs))
+  
+  
+  (method (sxml-element-children xexpr)
+    (bind-values (tag attrs children) (sxml-decompose-element xexpr)
+      children))
+  
+  
+  (method (sxml-decompose-element xexpr)
+    (let ((attrs/children (cdr xexpr)))
+      (if (and (pair? attrs/children)
+               (list? (car attrs/children))
+               (every? sxml-attribute? (car attrs/children)))
+          (values (car xexpr) (car attrs/children) (cdr attrs/children))
+        (values (car xexpr) '() attrs/children))))
+  
+  
+  (method (sxml-attribute? object)
+    (and (list? object)
+         (= (length object) 2)
+         (symbol? (car object))
+         (string? (cadr object))))
+  
+  
+  (method (sxml-attribute-name attribute)
+    (car attribute))
+  
+  
+  (method (sxml-attribute-value attribute)
+    (cadr attribute))
+  
+  
+  (method (sxml-text? xexpr)
+    (or (string? xexpr)
+        (and (list? xexpr)
+             (= (length xexpr) 2)
+             (eq? (car xexpr) sxml-text-tag)
+             (string? (cadr xexpr)))))
+  
+  
+  (method (sxml-text-data xexpr)
+    (if (string? xexpr)
+        xexpr
+      (cadr xexpr)))
+  
+  
+  (method (sxml-comment? xexpr)
+    (and (list? xexpr)
+         (= (length xexpr) 2)
+         (eq? (car xexpr) sxml-comment-tag)
+         (string? (cadr xexpr))))
+  
+  
+  (method (sxml-comment-data xexpr)
+    (cadr xexpr))
+  
+  
+  (method (sxml-pi? xexpr)
+    (and (list? xexpr)
+         (= (length xexpr) 2)
+         (eq? (car xexpr) sxml-pi-tag)
+         (string? (cadr xexpr)))))
+)

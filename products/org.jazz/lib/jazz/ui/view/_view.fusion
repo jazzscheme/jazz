@@ -1,0 +1,627 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; View Definitions
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view jazz
+
+
+(import (jazz.utilities)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.window))
+
+
+;;;
+;;;; Mouse
+;;;
+
+
+(definition mouse-in          null)
+(definition mouse-down?       false)
+(definition mouse-right-down? false)
+(definition mouse-down-view   null)
+(definition mouse-down-point  null)
+
+
+;; Support for mouse down actions that have to occur at mouse up time. See Application.activate for an example usage
+(definition delayed-mouse-action
+  {})
+
+
+(definition public (set-delayed-mouse-action action)
+  (set! delayed-mouse-action action))
+
+
+(definition public (get-mouse-down?)
+  mouse-down?)
+
+
+(definition public (get-mouse-down-view)
+  mouse-down-view)
+
+
+(definition public (mouse-view)
+  (either Captured-View mouse-in))
+
+
+;; This covers the special case where a mouse-down event triggers
+;; a modal dialog. In this case, Windows will not generate the
+;; mouse-up event, hence this bizarre code...
+(definition public (toplevel-deactivate)
+  (set! mouse-down? false)
+  (set! mouse-down-view null)
+  (set! mouse-down-point null))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+(definition public (update-cursor)
+  (when (and mouse-in (in-player?~ mouse-in))
+    (call-cursor-update~ mouse-in (mouse-position~ mouse-in))))
+
+
+;;;
+;;;; Dnd
+;;;
+
+
+(definition Current-Drag-Drop
+  null)
+
+
+;;;
+;;;; Capture
+;;;
+
+
+(definition Captured-View
+  null)
+
+
+(definition (get-captured-view)
+  Captured-View)
+
+
+(definition (release-captured-view)
+  (unimplemented 'release-captured-view)
+  @ReleaseCapture
+  (when Captured-View
+    (set! Captured-View null)
+    (ReleaseCapture)))
+
+
+;;;
+;;;; Guest
+;;;
+
+
+(definition public (get-modal guest . rest)
+  (receive-primary
+    (function dynamic ()
+      (bind-values (process? dialog/result) (apply new-dialog guest :host-visible? false rest)
+        (if (not process?)
+            dialog/result
+          (process-modal~ dialog/result))))))
+
+
+(definition public (new-dialog guest-class . rest)
+  (bind-keywords ((host-title (dialog-title)) (host-sizable? (dialog-sizable?)) (host-closable? (dialog-closable?)) (host-visible? true) (guest null) (initialize null) . others) rest
+    (let* ((host (new (dialog-class) :in-parent? false :sizable? host-sizable? :closable? host-closable? :visible? false))
+           (guest (either guest (new-guest guest-class others)))
+           (size (either (dialog-size) (get-size~ guest)))
+           (pos (either (dialog-position) (center-dialog size))))
+      (when host-title
+        (set-title~ host host-title))
+      (set-size~ host size)
+      (set-position~ host pos)
+      (set-guest~ host guest)
+      ;; Should initialisations done here generate errors, at least
+      ;; parent install is still not done at this point.
+      (when initialize
+        (initialize host guest))
+      ;; Wait until the last moment possible before installing in parent in case
+      ;; some errors should occur.
+      (parent-add-child~ host)
+      (if (has-dialog-result?~ guest)
+          (values false (get-modal-result~ host))
+        (when host-visible?
+          (set-visible?~ host true))
+        (values true host)))))
+
+
+;;;
+;;;; Guest
+;;;
+
+
+(definition (new-guest guest-class rest)
+  (apply new guest-class rest))
+
+
+;;;
+;;;; Frame
+;;;
+
+
+@convert
+(definition public (new-event . rest)
+  (apply new-frame rest))
+
+
+(definition public (new-frame guest-class . rest)
+  (bind-keywords ((host-title (frame-title)) (host-position (frame-position)) (host-size (frame-size)) (host-workspace null) (host-visible? true) (host-focus? true) (guest null) (initialize null) . others) rest
+    (let ((host (new (frame-class) :in-parent? false :visible? false)))
+      (when host-title
+        (set-title~ host host-title))
+      (when host-position
+        (set-position~ host host-position))
+      (when host-size
+        (set-size~ host host-size))
+      (when host-workspace
+        (set-workspace~ host host-workspace))
+      ;; It is important to set the frame's size before installing the guest
+      ;; in order to minimize layouting by having the size right the first time!
+      (let ((guest (either guest (new-guest guest-class others))))
+        (set-guest~ host guest)
+        ;; Should initialisations done here generate errors, at least
+        ;; parent install is still not done at this point.
+        (when initialize
+          (initialize host guest))
+        ;; Wait until the last moment possible before installing in parent in case
+        ;; some errors should occur.
+        (parent-add-child~ host)
+        (ensure-displayed~ host)
+        (when host-visible?
+          (bring-to-front~ host)
+          (set-visible?~ host true)
+          (when host-focus?
+            (acquire-focus~ host)))
+        host))))
+
+
+(definition public (frame-class)
+  Host-Frame)
+
+
+(definition public (frame-icon)
+  {Bitmap-Resource "Window"})
+
+
+(definition public (frame-title)
+  nil)
+
+
+(definition public (frame-position)
+  nil)
+
+
+(definition public (frame-size)
+  nil)
+
+
+;;;
+;;;; Palette
+;;;
+
+
+(definition Palettes
+  (new-hashtable :eq?))
+
+
+(definition public (singleton-palette guest-class name . rest)
+  (new-palette guest-class :host-visible? false)
+  @convert
+  (let ((ref (either name (type-name self))))
+    (either (hash-ref Palettes ref)
+            (let ((palette (new-palette guest-class :host-visible? false)))
+              (hash-set! Palettes ref palette)
+              palette))))
+
+
+(definition public (new-palette guest-class . rest)
+  (bind-keywords ((host-title (palette-title)) (host-position (palette-position)) (host-size (palette-size)) (host-visible? true) (guest null) (initialize null) . others) rest
+    (let ((host (new (palette-class) :in-parent? false :visible? false)))
+      (when host-title
+        (set-title~ host host-title))
+      (when host-position
+        (set-position~ host host-position))
+      (when host-size
+        (set-size~ host host-size))
+      ;; It is important to set the palette's size before installing the guest
+      ;; in order to minimize layouting by having the size right the first time!
+      (let ((guest (either guest (new-guest guest-class others))))
+        (set-guest~ host guest)
+        ;; Should initialisations done here generate errors, at least
+        ;; parent install is still not done at this point.
+        (when initialize
+          (initialize host guest))
+        ;; Wait until the last moment possible before installing in parent in case
+        ;; some errors should occur.
+        (parent-add-child~ host)
+        (layout-view~ (get-content~ (get-root~ host)))
+        (when host-visible?
+          (fade-in~ host))
+        host))))
+
+
+(definition public (show-palette guest-class . rest)
+  (unimplemented 'show-palette)
+  @convert
+  (let* ((toplevel (get-toplevel))
+         (palette (find-host~ toplevel self)))
+    (if (null? palette)
+        (apply new-palette guest-class rest)
+      (let ((guest (get-guest~ palette))
+            (initialize (getf rest :initialize)))
+        (when initialize
+          (initialize palette guest))
+        (client-activate~ guest)
+        (let ((visible? (get-visible?~ palette)))
+          (bring-to-front~ palette)
+          (unless visible?
+            (fade-in~ palette)))
+        palette))))
+
+
+(definition public (palette-class)
+  Host-Palette)
+
+
+(definition public (palette-icon)
+  {Bitmap-Resource "Window"})
+
+
+(definition public (palette-title)
+  nil)
+
+
+(definition public (palette-position)
+  nil)
+
+
+(definition public (palette-size)
+  nil)
+
+
+;;;
+;;;; Docked
+;;;
+
+
+(definition public (singleton-docked guest-class name . rest)
+  (new-docked guest-class name: name)
+  @convert
+  (let ((ref (either name (external-name))))
+    (either (hash-ref Palettes ref)
+            (let ((palette (new-docked guest-class name: name)))
+              (hash-set! Palettes ref palette)
+              palette))))
+
+
+(definition public (new-docked guest-class . rest)
+  (bind-keywords ((host-title (palette-title)) (host-location null) . others) rest
+    (let ((host (new (docked-class) :visible? false)))
+      (when host-title
+        (set-title~ host host-title))
+      (when host-location
+        (set-location~ host host-location))
+      (set-guest~ host (new-guest guest-class others))
+      host)))
+
+
+(definition public (docked-class)
+  Host-Docked)
+
+
+;;;
+;;;; Root
+;;;
+
+
+;; This is the root of the currently focused view
+(definition *focused-root*
+  null)
+
+
+(definition public (get-focused-root)
+  *focused-root*)
+
+
+(definition public (set-focused-root focused-root)
+  (set! *focused-root* focused-root))
+
+
+;;;
+;;;; Toolbar
+;;;
+
+
+(definition public (singleton-toolbar guest-class name . rest)
+  (new-toolbar guest-class name: name)
+  @convert
+  (let ((ref (either name (type-name self))))
+    (either (hash-ref Palettes ref)
+            (let ((palette (new-toolbar guest-class name: name)))
+              (hash-set! Palettes ref palette)
+              palette))))
+
+
+(definition public (new-toolbar guest-class . rest)
+  (bind-keywords ((host-title (palette-title)) (host-location null) . others) rest
+    (let ((host (new (toolbar-class) :visible? false)))
+      (when host-title
+        (set-title~ host host-title))
+      (when host-location
+        (set-location~ host host-location))
+      (set-guest~ host (new-guest guest-class others))
+      host)))
+
+
+(definition public (toolbar-class)
+  Host-Toolbar)
+
+
+;;;
+;;;; Dialog
+;;;
+
+
+(definition public (dialog-class)
+  Host-Dialog)
+
+
+(definition public (dialog-title)
+  nil)
+
+
+(definition public (dialog-position)
+  nil)
+
+
+(definition public (dialog-size)
+  nil)
+
+
+(definition public (dialog-sizable?)
+  false)
+
+
+(definition public (dialog-closable?)
+  true)
+
+
+(definition public (center-dialog inner)
+  (let* ((outer (get-size~ (get-desktop)))
+         (pos (center inner outer)))
+    (new Point [h pos] (- [v pos] 50))))
+
+
+;;;
+;;;; Various
+;;;
+
+
+(definition public (get-workspace-splitter)
+  (find-type~ (get-toplevel) Workspace-Splitter))
+
+
+(definition public (get-workspace-preferences)
+  (get-preferences~ (get-workspace-splitter)))
+
+
+(definition public (get-stage-border)
+  (get-parent~ (get-stage)))
+
+
+(definition public (get-console)
+  (unimplemented)
+  @convert
+  (get-guest~ (singleton-docked Jazz-Console-Manager null)))
+
+
+(definition public (get-console-text)
+  (get-text~ (get-console)))
+
+
+(definition public (get-output-log)
+  (get-output-log~ (get-application)))
+
+
+(definition public (get-active-results)
+  (get-active-results~ (get-application)))
+
+
+@wait
+(definition public (get-dialect-console)
+  (get-guest~ (singleton-docked Dialect-Console-Manager null)))
+
+
+@wait
+(definition public (get-dialect-console-text)
+  (get-text~ (get-dialect-console)))
+
+
+(definition public (get-debugger-console)
+  (unimplemented 'get-debugger-console)
+  @Debugger-Console-Manager
+  (get-guest~ (singleton-docked Debugger-Console-Manager null)))
+
+
+(definition public (get-debugger-console-text)
+  (get-text~ (get-debugger-console)))
+
+
+(definition public (get-debuggers-view)
+  (unimplemented 'get-debuggers-view)
+  @Debugger-View
+  (get-guest~ (singleton-docked Debuggers-View null)))
+
+
+(definition public (get-sql-console)
+  (unimplemented 'get-sql-console)
+  @sql-can-wait
+  (get-guest~ (singleton-docked SQL-Console-Manager null)))
+
+
+(definition public (get-sql-console-text)
+  (unimplemented 'get-sql-console-text)
+  @sql-can-wait
+  (get-text~ (get-sql-console)))
+
+
+(definition public (get-sql-tree-output)
+  (unimplemented 'get-sql-tree-output)
+  @sql-can-wait
+  (get-guest~ (singleton-docked SQL-Tree-Output null)))
+
+
+(definition public (get-sql-output-tree)
+  (get-tree~ (get-sql-tree-output)))
+
+
+(definition public (get-sql-text-output)
+  (unimplemented 'get-sql-text-output)
+  @SQL-Text-Output
+  (get-guest~ (singleton-docked SQL-Text-Output null)))
+
+
+(definition public (get-sql-output-text)
+  (get-text~ (get-sql-text-output)))
+
+
+(definition public (get-sql-connections)
+  (unimplemented 'get-sql-connections)
+  @sql-can-wait
+  (get-guest~ (singleton-docked SQL-Connections-Manager null)))
+
+
+(definition public (find-palette class)
+  (let ((toplevel (get-toplevel)))
+    (when toplevel
+      (either (find-type~ toplevel class)
+              (find-palette~ (get-workspace-splitter) class)))))
+
+
+(definition public (select-palette class . rest)
+  (bind-keywords ((name null) (workspace 'home) (focus? false)) rest
+    (let ((guest (find-palette class))
+          (proc
+            (function dynamic (view)
+              (when view
+                (let* ((host (get-host~ view))
+                       (parent (get-parent~ host)))
+                  (when (is? parent Pad-Window)
+                    (set-selection~ parent host))
+                  (for-each-splitter (if (is? parent Splitter-Window) host parent)
+                                     (function dynamic (splitter window)
+                                       (when (and (eq? (get-state~ splitter) 'zoom)
+                                                  (neq? (get-zoomed~ splitter) window))
+                                         (unzoom~ splitter))))
+                  (when focus?
+                    (acquire-focus~ host))
+                  view)))))
+      (if guest
+          (proc guest)
+        (when workspace
+          (apply-preferences~ (get-preferences (list 'workspaces workspace)))
+          (proc (find-palette class)))))))
+
+
+(definition public (for-each-docked proc)
+  (let ((splitter (get-workspace-splitter)))
+    (for-each-palette~ splitter
+      (function dynamic (palette)
+        (when (is? palette Host-Docked)
+          (proc (get-guest~ palette)))))))
+
+
+(definition public (for-each-splitter window proc)
+  (let ((splitter (get-parent~ window))
+        (splitter-class Splitter-Window))
+    (while (is? splitter splitter-class)
+      (proc splitter window)
+      (set! window splitter)
+      (set! splitter (get-parent~ splitter)))))
+
+
+(definition public (current-frame)
+  (let ((stage (get-stage)))
+    (when stage
+      (first-window~ stage))))
+
+
+(definition public (current-document)
+  (let ((frame (current-frame)))
+    (when (is? frame Host-Frame)
+      (get-guest~ frame))))
+
+
+(definition public (current-guest)
+  (let ((root (get-focused-root)))
+    (when root
+      (get-guest~ root))))
+
+
+(definition public (focus-guest)
+  (let ((focus (get-focus)))
+    (when focus
+      (get-guest~ focus))))
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+(definition public (cleanup-mouse-processing)
+  (release-captured-view)
+  (complete-drag-and-drop)
+  (complete-drag-up false))
+
+
+(definition (complete-drag-and-drop)
+  (when Current-Drag-Drop
+    (drag-end~ (get-view~ (get-source~ Current-Drag-Drop)))))
+
+
+(definition (complete-drag-up dragging?)
+  (when mouse-down?
+    (let ((pos (mouse-position~ mouse-down-view)))
+      (process-drag-up~ mouse-down-view pos dragging?)))))

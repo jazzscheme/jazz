@@ -1,0 +1,210 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Image Portfolios
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.image.Portfolio jazz
+
+
+(import (jazz.library)
+        (jazz.platform.cairo.cairo-win32)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(definition public (find-bitmap-file object)
+  (unimplemented 'find-bitmap-file)
+  @convert-manifest-stuff
+  (let ((workbench (get-workbench)))
+    (if workbench
+        (get-bitmap~ workbench object)
+      (get-manifest-resource 'bitmap (get-name~ object)))))
+
+
+(definition public (find-icon-file object)
+  (unimplemented 'find-icon-file)
+  @convert-manifest-stuff
+  (let ((workbench (get-workbench)))
+    (if workbench
+        (get-icon~ workbench (get-name~ object))
+      (get-manifest-resource 'icon (get-name~ object)))))
+
+
+(class Portfolio extends Component
+
+
+  (property width   initialize 16   getter get-width   setter set-width)
+  (property height  initialize 16   getter get-height  setter set-height)
+  (property masked? initialize true getter get-masked? setter set-masked?)
+  (property mask    initialize {}   getter get-mask    setter set-mask)
+  (property icons   initialize '()  getter get-icons   setter set-icons)
+  (property bitmaps initialize '()  getter get-bitmaps setter set-bitmaps)
+
+
+  (slot handle initialize {})
+  (slot images initialize (new-hashtable :equal?))
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method public (get-handle)
+    false)
+     
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (let ((nb (+ (length icons) (length bitmaps))))
+      (for-each add-icon icons)
+      (for-each add-bitmap bitmaps)
+      (destroy-mandatory)))
+
+
+  (method (destroy)
+    (for-each destroy-image (gather-values~ images))
+    (nextmethod))
+  
+  
+  (method (destroy-image image)
+    (cairo_surface_destroy image))
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-width)
+    width)
+  
+  
+  (method (set-width w)
+    (set! width w))
+  
+  
+  (method (get-height)
+    height)
+  
+  
+  (method (set-height h)
+    (set! height h))
+  
+  
+  (method (get-masked?)
+    masked?)
+  
+  
+  (method (set-masked? flag)
+    (set! masked? flag))
+  
+  
+  (method (get-mask)
+    mask)
+  
+  
+  (method (set-mask msk)
+    (set! mask msk))
+  
+  
+  (method (get-icons)
+    icons)
+  
+  
+  (method (set-icons list)
+    (set! icons list))
+  
+  
+  (method (get-bitmaps)
+    bitmaps)
+  
+  
+  (method (set-bitmaps list)
+    (set! bitmaps list))
+  
+  
+  ;;;
+  ;;;; Interface
+  ;;;
+
+  
+  ;; In Cairo the hash table contains pointers to the surfaces.
+  (method public (add-icon object)
+    (let ((icon (load-image~ Image 'icon object :width width :height height)))
+          (hash-set! images (get-name~ object) icon)))
+
+
+  (method public (add-bitmap object)
+    (let ((bitmap (get-bitmap-handle object)))
+          (hash-set! images (get-name~ object) bitmap)))
+  
+  
+  (method public (add-masked-bitmap bitmap mask)
+    false)
+  
+  
+  (method (get-bitmap-handle object)
+    nil
+    @convert
+    (if (is? object Bitmap)
+        (get-handle~ object)
+      (let* ((file (find-bitmap-file object))
+             (bitmap (if (and file (exists?~ file)) file object)))
+        (load-image~ Image 'bitmap bitmap :error? error?))))
+  
+  
+  (method public (preload image)
+    (get-image image))
+
+
+  (method public (get-image image)
+    (if (integer? image)
+        image
+      (let ((name (get-name~ image)))
+        (either (hash-ref images name)
+                (begin
+                  (add-bitmap image)
+                  (hash-ref images name))))))
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+
+
+  (method public (draw-image dc context image h v . rest)
+    (let ((image (get-image image)))
+      (draw-image~ dc image h v)))))

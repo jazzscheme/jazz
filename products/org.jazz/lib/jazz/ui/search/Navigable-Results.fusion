@@ -1,0 +1,220 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Navigable Results
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Navigable-Results jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Navigable-Results extends Layout-View
+
+
+  (form
+    (<install>                            size: {Dimension 650 400} layout-type: border
+      (<Layout-View>       name: tools
+        (<Push-Tool>       name: edit     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit Selection" image-name: {Bitmap-Resource "EditResult"} portfolio: :icons action-handler: {Event-Handler form: on-edit-selection})
+        (<Separator>                      size: {Dimension 4 0})
+        (<Push-Tool>       name: clear    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear Results" image-name: {Bitmap-Resource "ClearResults"} portfolio: :icons action-handler: {Event-Handler form: on-clear-results}))
+      (<Scroller-View>     name: scroller location: center vscroll?: #t hscroll?: #t flat?: #t
+        (<!>               name: content  layout-type: fill
+          (<Tree-Header>   name: header   flat?: #t
+            (<!>           name: content
+              (<Tree-View> name: results  selection-mode: row portfolio: :icons selection-mode: row double-click-handler: {Event-Handler form: on-double-click} return-press-handler: {Event-Handler form: on-return-press})))))))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (invalidate-columns~ (get-tree)))
+
+
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools)
+    (locate 'tools))
+  
+  
+  (method (root-activated)
+    (let ((appl (get-application)))
+      (set-active-results~ appl self)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    (locate 'results))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (on-double-click evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((results)
+          (edit-selection true)))))
+  
+  
+  (method (on-return-press evt)
+    (edit-selection true))
+  
+  
+  (method (on-edit-selection evt)
+    (edit-selection true))
+  
+  
+  (method (on-clear-results evt)
+    (clear-results))
+  
+  
+  ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method public virtual (clear-results)
+    (remove-every-row~ (get-tree)))
+
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+  
+  (method public (edit-next)
+    (let* ((tree (get-tree))
+           (selection (get-selection~ tree))
+           (current (essay selection (last selection)))
+           (rank (next-editable current)))
+      (if (null? rank)
+          (begin
+            (set-selection~ tree null)
+            false)
+        (set-selection~ tree (list rank))
+        (update-view~ tree)
+        (edit-selection true)
+        true)))
+  
+  
+  (method public (edit-previous)
+    (let* ((tree (get-tree))
+           (current (car (get-selection~ tree)))
+           (rank (previous-editable current)))
+      (if (null? rank)
+          (begin
+            (set-selection~ tree null)
+            false)
+        (set-selection~ tree (list rank))
+        (edit-selection false)
+        true)))
+  
+  
+  (method public (edit-current)
+    (edit-selection true))
+  
+
+  (method protected virtual (edit-selection forward?)
+    )
+  
+  
+  (method protected virtual (editable-row? user-data)
+    user-data)
+  
+  
+  (method (next-editable current)
+    (let* ((tree (get-tree))
+           (count (get-visible-count~ tree))
+           (rank (if current (+ current 1) 0)))
+      (call/ec
+        (lambda (return)
+          (while (< rank count)
+            (let ((row (get-row~ tree rank)))
+              (if (editable-row? (get-user-data~ row))
+                  (return rank)
+                (increase! rank))))
+          null))))
+  
+  
+  (method (previous-editable current)
+    (let* ((tree (get-tree))
+           (count (get-visible-count~ tree))
+           (rank (if current (- current 1) (- count 1))))
+      (call/ec
+        (lambda (return)
+          (while (>= rank 0)
+            (let ((row (get-row~ tree rank)))
+              (if (editable-row? (get-user-data~ row))
+                  (return rank)
+                (decrease! rank))))
+          null))))
+  
+  
+  (method public (select-results)
+    (when (get-active?~ (get-application))
+      (let ((tree (get-tree)))
+        (acquire-focus~ tree))))
+  
+  
+  (method public (select-first)
+    (let ((tree (get-tree))
+          (rank (next-editable null)))
+      (if (null? rank)
+          (bell)
+        (set-selection~ tree (list rank)))))))

@@ -1,0 +1,121 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Colorizer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Text-Colorizer jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Text-Colorizer extends Object
+  
+  
+  (slot text <Text-View>)
+  (slot row  <Integer+>     initialize {})
+  (slot col  <Integer>)
+  (slot runs <List-Factory>)
+  
+  
+  (method (initialize t <Object>)
+    (nextmethod)
+    (set! text t)
+    (set! col 0)
+    (set! runs (new List-Factory)))
+  
+  
+  (method public (apply-style start <Cell> end <Cell> name/style <Object>)
+    (let ((sr [row start])
+          (er [row end])
+          (style (get-style~ text name/style)))
+      (if (= sr er)
+          (add-run sr [col start] [col end] style)
+        (add-runs start end style))))
+  
+  
+  (method (add-run n <int> start <int> end <int> style <Object>)
+    (when (or (nil? row) (/= n row))
+      (finish-current)
+      (set! row n)
+      (set! col 0)
+      (reset~ runs))
+    (let* ((paragraph <Paragraph> (get-paragraph~ text row))
+           (string [string paragraph]))
+      (when (> start col)
+        (let ((from 0))
+          (for-each (function dynamic (run)
+                      (let* ((str (get-string~ run))
+                             (to (+ from (length str))))
+                        (when (and (< col to) (< from start))
+                          (if (< to start)
+                              (if (< col from)
+                                  (put~ runs run)
+                                (put-run (subseq! string col to) (get-style~ run)))
+                            (if (< col from)
+                                (put-run (subseq! string from start) (get-style~ run))
+                              (put-run (subseq! string col start) (get-style~ run)))))
+                        (set! from to)))
+                  (get-runs~ paragraph))))
+      (put-run (subseq! string start end) style)
+      (set! col end)))
+  
+  
+  (method (add-runs start <Cell> end <Cell> style <Object>)
+    (let ((begin [row start])
+          (limit [row end]))
+      (loop (for n from begin to limit)
+            (let ((paragraph <Paragraph> (get-paragraph~ text n)))
+              (cond ((= n begin) (add-run n [col start] (length [string paragraph]) style))
+                    ((= n limit) (add-run n 0 [col end] style))
+                    (else        (add-run n 0 (length [string paragraph]) style)))))))
+  
+  
+  (method (put-run string <Sequence> style <Object>)
+    (put~ runs (new Run string style)))
+  
+  
+  (method public (finish-current)
+    (when (and (not-nil? row) runs)
+      (let* ((paragraph <Paragraph> (get-paragraph~ text row))
+             (string [string paragraph])
+             (len (length string)))
+        (when (> len col)
+          (put~ runs (new Run (subseq! string col len) (get-style~ text 'Default))))
+        (let ((runs (get-output~ runs)))
+          (set! [runs paragraph] runs)
+          (wrap-paragraph~ text null paragraph)))))))

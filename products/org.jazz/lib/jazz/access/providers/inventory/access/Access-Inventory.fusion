@@ -1,0 +1,258 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Access Database Inventory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.access.Access-Inventory jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Access-Inventory extends Inventory
+  
+  
+  (slot engine   initialize {})
+  (slot database initialize {})
+  
+  
+  (method (initialize connection pathname password . rest)
+    (bind-keywords ((read-only? false)) rest
+      (nextmethod connection)
+      (unless (exists?~ pathname)
+        (error (format "'{a}' is not a valid path.  Make sure that the path name is spelled correctly and that you are connected to the server on which the file resides."
+                       (parse~ pathname))))
+      (set! engine (cocreate [DBEngine DAO]))
+      (validate-version "DAO" 'dao null (get-DAO-version) :register :dao-version :cleanup destroy-inventory)
+      (with-closed ((workspaces (get-Workspaces~ engine))
+                    (workspace (get-Item~ workspaces 0)))
+        (set! database (OpenDatabase~ workspace (parse~ pathname) 0 read-only? (format "{a};PWD={a}" (type-connection-string) password)))
+        (validate-version "Access database" 'access-database (get-name~ pathname) (get-version) :register :access-database-version :cleanup destroy-inventory))
+      (destroy-mandatory)))
+
+  
+  (method (destroy)
+    (destroy-inventory)
+    (nextmethod))
+  
+  
+  (method (destroy-inventory)
+    (when database
+      (Close~ database)
+      @debug-memory-leaks
+      (debug '*** (cointerface-refcount engine) (cointerface-refcount database))
+      (corelease database)
+      (set! database null))
+    (when engine
+      @debug-memory-leaks
+      (debug '*** (cointerface-refcount engine))
+      (corelease engine)
+      (set! engine null)))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+  
+  
+  (method (get-version)
+    (let ((string (get-Version~ database)))
+      (bind (major minor) (map parse-integer (split string "."))
+        (new Version major minor 0))))
+    
+  
+  (method public (get-DAO-version)
+    (let ((string (get-Version~ engine)))
+      (bind (major minor) (map parse-integer (split string "."))
+        (new Version major minor 0))))
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method (type-connection-string)
+    "")
+  
+  
+  ;;;
+  ;;;; Tables
+  ;;;
+  
+
+  (method (get-tables)
+    (with-closed ((tables (get-TableDefs~ database)))
+      (let ((fact (new List-Factory)))
+        (loop (for n from 0 below (get-Count~ tables))
+              (let ((table (get-Item~ tables n)))
+                (if (mask-bit-set? (get-Attributes~ table) [dbSystemObject DAO])
+                    (corelease table)
+                  (put~ fact (new Access-Inventory-Table self self table)))))
+        (get-output~ fact))))
+  
+  
+  (method (get-table name)
+    (with-closed ((tables (get-TableDefs~ database)))
+      (let ((table (get-Item~ tables name)))
+        (if (not (mask-bit-set? (get-Attributes~ table) [dbSystemObject DAO]))
+            (new Access-Inventory-Table self self table)
+          (corelease table)
+          null))))
+  
+  
+  (method (create-table name)
+    (new Access-Inventory-Table self self (CreateTableDef~ database name null null null)))
+  
+  
+  (method (append-table table)
+    (with-closed ((tabledefs (get-TableDefs~ database)))
+      (Append~ tabledefs (get-handle~ table))))
+ 
+  
+  (method (remove-table name)
+    (with-closed ((tabledefs (get-TableDefs~ database)))
+      (Delete~ tabledefs name)))
+  
+  
+  ;; Needs much work. Maybe a two dimensional array of supported properties!?
+  (method (column-supports-property? object property)
+    (case property
+      ((allow-zero-length?) (let ((datatype (third (get-datatype~ object))))
+                              (member? (get-name~ datatype) '("Text" "Memo") :test equal?)))
+      (else true)))
+  
+  
+  ;;;
+  ;;;; Views
+  ;;;
+  
+  
+  (method (get-views)
+    null)
+  
+  
+  (method (get-view name . rest)
+    null)
+  
+  
+  (method (create-view name)
+    (views-unsupported))
+  
+  
+  (method (append-view view)
+    (views-unsupported))
+  
+  
+  (method (remove-view name)
+    (views-unsupported))
+  
+  
+  (method (views-unsupported)
+    (error "Access doesn't support views"))
+  
+  
+  ;;;
+  ;;;; Relations
+  ;;;
+  
+  
+  (method (get-relations)
+    (with-closed ((relations (get-Relations~ database)))
+      (loop (for n from 0 below (get-Count~ relations))
+            (collect (new Access-Inventory-Relation self self (get-Item~ relations n))))))
+
+  
+  (method (get-relation name)
+    (with-closed ((relations (get-Relations~ database)))
+      (new Access-Inventory-Relation self self (get-Item~ relations name))))
+  
+
+  (method (create-relation name)
+    (new Access-Inventory-Relation self self (CreateRelation~ database name null null null)))
+  
+  
+  (method (append-relation relation)
+    (with-closed ((relations (get-Relations~ database)))
+      (Append~ relations (get-handle~ relation))))
+
+
+  (method (remove-relation name)
+    (with-closed ((relations (get-Relations~ database)))
+      (Delete~ relations name)))
+  
+  
+  ;;;
+  ;;;; Procedures
+  ;;;
+  
+  
+  (method (get-procedures)
+    (with-closed ((procedures (get-QueryDefs~ database)))
+      (loop (for n from 0 below (get-Count~ procedures))
+            (collect (new Access-Inventory-Procedure self self (get-Item~ procedures n))))))
+  
+  
+   (constant Procedure-Not-Existant
+    #x800A0CC1)
+  
+  
+  (method (get-procedure name . rest)
+    (bind-keywords ((error? true)) rest
+      (with-closed ((procedures (get-QueryDefs~ database)))
+        (let ((action
+               (function dynamic ()
+                 (get-Item~ procedures name))))
+          (let ((procedure
+                 (if error?
+                     (action)
+                   (cotry (action) (Procedure-Not-Existant null)))))
+            (when procedure
+              (new Access-Inventory-Procedure self self procedure)))))))
+
+  
+  (method (create-procedure name)
+    (new Access-Inventory-Procedure self self (CreateQueryDef~ database name null)))
+  
+  
+  (method (append-procedure procedure)
+    ;; Nothing to do
+    )
+
+  
+  (method (remove-procedure name)
+    (DeleteQueryDef~ database name))))

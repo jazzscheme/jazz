@@ -1,0 +1,221 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Frame Windows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.Frame jazz
+
+
+(import (jazz.utilities)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.ui.workspace))
+
+
+(class Frame extends View-Player
+  
+  
+  (slot site initialize {})
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (window-style rest)
+    (bit-or WS_CHILD WS_SYSMENU WS_CLIPCHILDREN WS_CLIPSIBLINGS))
+
+
+  (method (default-parent)
+    (get-stage))
+  
+  
+  (method (conclude rest)
+    (nextmethod rest)
+    (bring-to-front)
+    (destroy-mandatory))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  @windows-specific
+  (method public (get-site)
+    (unless site
+      (set! site (create-site)))
+    site)
+  
+  
+  @windows-specific
+  (method (create-site)
+    (let ((site (conew CDocument)))
+      (setup-site site)
+      site))
+  
+  
+  @windows-specific
+  (method (setup-site site)
+    ;; wow! this way of getting the object is really ugly!
+    (let* ((appl (get-application))
+           (factory (find-cofactory~ appl CDocument))
+           (object (car (cofactory-instances factory))))
+      (set-frame~ object self)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (on-close evt)
+    (close-popups)
+    (confirm-close)
+    @windows-specific
+    unprocessed)
+  
+  
+  (method (on-mouse-activate)
+    (bring-to-front)
+    (nextmethod))
+  
+  
+  (method (mouse-down h v)
+    (bring-to-front)
+    (nextmethod h v))
+  
+  
+  ;;;
+  ;;;; Activate
+  ;;;
+  
+  
+  (method (activate-frame . rest)
+    #f
+    @windows-specific
+    (bind-keywords ((force? false)) rest
+      (when (or force? (neq? self Active-Frame))
+        (BringWindowToTop hwnd)
+        (set! Active-Frame self)
+        (process-activation)
+        (update-windowing-actions~ (get-application)))))
+
+  
+  (method (deactivate-frame)
+    (when (eq? self Active-Frame)
+      (set! Active-Frame null)
+      (process-deactivation)))
+    
+
+  ;;;
+  ;;;; Overwrites
+  ;;;
+  
+  
+  (method (destroy)
+    (when (get-surrogate)
+      (remove-surrogate))
+    (let* ((was-active? (eq? self Active-Frame))
+           (new-active (essay was-active? (cadr (get-windows~ parent)))))
+      (nextmethod)
+      (when was-active?
+        (deactivate-frame)
+        (when new-active
+          (activate-frame~ new-active)
+          (acquire-focus~ new-active))))
+    (update-windowing-actions~ (get-application)))
+  
+  
+  (method (show)
+    (nextmethod)
+    (activate-front :force? true))
+  
+  
+  (method (bring-to-front)
+    (nextmethod)
+    (when (get-visible?)
+      (activate-front)))
+  
+  
+  (method (send-to-back)
+    (nextmethod)
+    (activate-front))
+  
+
+  ;;;
+  ;;;; Activation
+  ;;;
+
+
+  (method (process-activation)
+    (close-popups)
+    (send-child-to-front~ parent self)
+    (let ((stage (get-stage)))
+      (when (get-maximized?~ stage)
+        (set-caption~ (get-toplevel) (get-window-title))))
+    (unless (get-locked-activations?)
+      (for-each-docked
+        (function dynamic (view)
+          (client-activate~ view)))
+      @wait
+      (new Thread
+        :context self
+        :execute (function (thread)
+                   (post-primary
+                     (function ()
+                       (for-each-docked
+                         (function dynamic (view)
+                           (client-activate~ view))))))))
+    (frame-activate))
+
+
+  (method (process-deactivation)
+    (frame-deactivate)
+    (let ((stage (get-stage)))
+      (when (null? (get-windows~ stage))
+        (stage-activate~ stage))))
+  
+  
+  (method public virtual (frame-activate)
+    )
+  
+  
+  (method public virtual (frame-deactivate)
+    )))

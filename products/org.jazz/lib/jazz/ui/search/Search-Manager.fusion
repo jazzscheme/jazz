@@ -1,0 +1,295 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Search Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Search-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Search-Manager extends View
+  
+
+  (form
+    (<install>              size: {Dimension 865 196}
+      (<Tab-View> name: tab position: {Point 4 5} size: {Dimension 856 186})))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'search-manager)
+    
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Find"})
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 300 220})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 865 196})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Search")
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (load-session))
+  
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method (load-session)
+    (let* ((pref (get-preferences '(tools search-manager)))
+           (active (get-active~ pref))
+           (tab (locate 'tab)))
+      (set-selection-name~ tab active)
+      (for-each (function dynamic (config)
+                  (let* ((name (get-name~ config))
+                         (sheet (find-component~ tab name)))
+                    (when sheet
+                      (set-session-properties~ (first-child~ (get-content~ sheet)) config))))
+                (get-children~ pref))))
+  
+  
+  (method (confirm-close)
+    (save-session))
+  
+  
+  (method (save-session)
+    @to-convert
+    (let ((info
+           (list (external-name)
+                 :position (get-position)
+                 :size     (get-size))))
+      (push-property~ properties 'Opened-Windows info)
+      (set-property~ properties 'Search-Manager (get-session-properties))))
+  
+  
+  (method (get-session-properties)
+    (let ((tab (locate 'tab)))
+      (cons (get-selection-name~ tab)
+            (map (function dynamic (sheet)
+                   (cons (get-name~ sheet) (get-session-properties~ (first-child~ (get-content~ sheet)))))
+                 (get-children~ tab)))))
+        
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (guest-actions)
+    (cons (find-actions 'search-manager)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (resize dh dv)
+    (size-figure~ (locate 'tab) dh dv))
+  
+  
+  (method (on-ignore-case evt)
+    @w
+    (debug "Ca marche"))
+
+  
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method public (get-search)
+    (let* ((tab (locate 'tab))
+           (sheet (selected-sheet~ tab)))
+      (get-sheet-search sheet)))
+  
+  
+  (method public (get-search-named name)
+    (let* ((tab (locate 'tab))
+           (sheet (child~ tab name)))
+      (when sheet
+        (get-sheet-search sheet))))
+  
+  
+  (method public (get-searches)
+    (let ((tab (locate 'tab)))
+      (map get-sheet-search (get-children~ tab))))
+  
+  
+  (method (get-sheet-search sheet)
+    (first-child~ (get-content~ sheet)))
+  
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method (current-history-item)
+    (current-history-item~ (get-search)))
+  
+  
+  (method protected (install-history-item item)
+    (install-history-item~ (get-search) item))
+  
+  
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (method public (edit-definitions name definitions)
+    (search-definitions~ (get-search-named 'definitions) name definitions)
+    (set-selection-name~ (locate 'tab) 'definitions))
+  
+  
+  (method public (edit-references name references context)
+    (search-references~ (get-search-named 'definitions) name references context)
+    (set-selection-name~ (locate 'tab) 'definitions))
+
+  
+  ;;;
+  ;;;; Checkout/Checkin
+  ;;;
+  
+  
+  (method (selected-files)
+    (let* ((tree (locate 'results))
+           (selection (get-selection~ tree)))
+      (map (function dynamic (item)
+             (let ((info (get-user-data~ tree item)))
+               (if (and (pair? info) (file? (car info)))
+                   (car info)
+                 (error "Unable to apply operation to item"))))
+           selection)))
+  
+  
+  (method public (checkout-selection)
+    (present-checkin/out-results (checkout-files (selected-files)) "out"))
+  
+  
+  (method (checkout-files files)
+    (let ((repository (require-repository~ Repository))
+          (processed 0)
+          (already-done 0)
+          (unprocessed (new List-Factory)))
+      (for-each (function dynamic (file)
+                  (let ((status (get-file-status~ repository file)))
+                    (if (= status 'checked-out-me)
+                        (increase! already-done)
+                      (checkout-file~ repository file)
+                      (increase! processed))))
+                files)
+      (values processed already-done (get-output~ unprocessed))))
+  
+  
+  (method public (checkin-selection)
+    (present-checkin/out-results (checkin-files (selected-files)) "in"))
+  
+  
+  (method (checkin-files files)
+    (let ((repository (require-repository~ Repository))
+          (processed 0)
+          (already-done 0)
+          (unprocessed (new List-Factory)))
+      (for-each (function dynamic (file)
+                  (let ((status (get-file-status~ repository file)))
+                    (if (/= status 'checked-out-me)
+                        (increase! already-done)
+                      (if (checkin-needs-merge?~ repository file)
+                          (put~ unprocessed (cons file (format "Version numbers have changed. This file will have to be manually checked in and possibly merged")))
+                        (checkin-file~ repository file)
+                        (increase! processed)))))
+                files)
+      (values processed already-done (get-output~ unprocessed))))
+  
+  
+  (method (present-checkin/out-results info oper)
+    (bind-values (processed already-done unprocessed) info
+      (let ((title (format "Check{a} Status" oper))
+            (header-processed (format "{a} file{a} checked {a}." (format-cardinality processed) (format-plural processed) oper))
+            (header-already (if (= already-done 0) "" (format "{%}{a} file{a} {a} alreaded checked {a}." already-done (format-plural already-done) (format-was/were already-done) oper))))
+        (if (null? unprocessed)
+            (message-box (format "{a}{a}" header-processed header-already) :title title)
+          (let* ((nb (length unprocessed))
+                 (header-unprocessed (format "{%}{a} file{a} could not be processed:" nb (format-plural nb)))
+                 (printer (new String-Printer)))
+            (for-each (function dynamic (info)
+                        (bind (file . reason) info
+                          (let ((base (get-base~ file)))
+                            (format printer "{a} : {a}{%}" base reason))))
+                      unprocessed)
+            (let ((output (get-output~ printer)))
+              (message-box (format "{a}{a}{a}{%}{%}{a}" header-processed header-already header-unprocessed output) :title title)
+              (set-clipboard output)))))
+      (user-message "Done")))))

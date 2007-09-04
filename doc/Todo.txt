@@ -1,0 +1,277 @@
+;;;
+;;;; Todo
+;;;
+
+
+- Is catch & throw really necessary and not the goto to call/cc !?!?
+
+- (in p (class X ... (definition some-x (new X)))) devrait generer une erreur runtime genre
+  Class X is not fully loaded (probl utiliser le meme mecanisme pour detecteur les load circulaires)
+
+- Because specifics don't have associated declarations, walk error in them get wrongly reported as beeing
+  in their parent. Using the generic declaration is not correct as it will create illegal access problems.
+  I will probably have to create dummy specific declarations or maybe this is yet again a macro problem
+  that has to be solved with the complete macro solution...
+
+
+- Determine the exact redefinition rules
+  - Jazz -> Blues -> C++ -> Compiled Code
+  - Jazz -> Blues -> Interpreted Code
+- Policies
+  - Debug
+  - Release
+  - Distribution
+- Actions
+  - add slot
+  - redefine slot
+  - remove slot
+  - add method
+  - redefine method
+  - remove method
+  - modify visibility
+  - modify virtual
+  - change slot -> definition
+  - change definition -> slot
+
+
+- Not allocate void slots
+- (let ((list 2)) (set! list 3)) will say illegal to assign to an export!
+
+
+- Source code -> code walk -> tree of Jazz expressions -> analyse and optimise -> compile -> scheme code
+
+- Instead of on the fly compilation, before the kernel is loaded i should probably always load the
+  compiled file and note somewhere if the .scm was more recent.
+
+
+- Lookup in used packages should probably be that if 2 or more symbols are found then an
+  ambiguity error is raised...
+
+
+- Now that the language (at least in debug where the Jazz compiler doesn't do optimisations)
+  is 100% :
+  - functional calls
+  - macros
+  - special forms
+  all that is left for interpreter / debugger support is :
+  - a clean and completed solution to macros
+  - everything else boils down to: a solution to the Jazz code walker doing static package
+    desambiguations which will create problems when changing definitions...
+
+
+- I should not use I think, Gambit's compiler functions but instead use shell-command to invoke
+  gsc so that I won't have to link gsc's code into the Jazz IDE
+
+
+- A strong argument against using tail-call recursion in Jazz (even if we do support it) is that
+  it is difficult to debug as many frame are simply not there. Note that you can't say we will leave
+  the frames in debug mode as the programs rely on tail-call recursion not to blow the stack. This adds
+  to the argument against using tail-call recursion and continuations that they are not implementable
+  naturally in languages like Java, C#, ... (not even C++ but C++ is a low level language so this is
+  correct...)
+
+
+- The clean solution to bad C error messages due to not having access to format is to make error
+  message like (ERR_BAD_CALL expr1 expr2) and have Lisp display them. This will also be important
+  for localizing Jazz. This could also apply to Fusion to enable format to be implemented in pure Jazz.
+
+
+- Maybe unify the compiler and interpreter dependencies databases so that as for
+  compiled code, a change in code could for a reinterpret of some files. First thing
+  though is clearly to make everything work 100% in fully-dynamic mode for simplicity.
+
+
+- Think about if static definitions of variables should not be lowercase instead of the current
+  capitalized convention...
+
+
+- Identify where Gambit's Scheme implementations (like the interpreter for instance) have advantages
+  over the Jazz language and evaluate if they could be added to Jazz
+  - Ability to splice data into the object's structure for direct access (ex: a gambit rte is
+    #(back-rte var0 var1 var2 ...)
+
+
+- Very interesting idea to pretty-print results in the repl...
+
+
+- The optimisation of having a language construct that splices a slot's content at the end of the
+  object's vector could be correct i think if limited to final classes...
+
+
+- The implementation of c-types seems like a good base for the inclusion of other kind of objects
+  like constants, enumerations, inlines, ...
+
+- Optimise delayed-load code :
+  - For method calls where a redifining function could be used
+  - When in 'car' position of a method call
+  ...
+
+- Interesting idea to force the (call-next-method) to always have no argument and the language
+  automatically supplies the same ones (enables some optimisations).
+
+- One way to enforce X extends Y => class(X) extends class(Y) is to not permit classes to use the
+  extends keyword...
+
+
+NOTES
+- When implementing the Jazz macros, we will be doing so over an existing Scheme implementation with
+  its own code walker. Jazz should not have to reimplement the whole Scheme analysis, so how does
+  the lower language give access to it's analysis to the higher one? Probably through constructs like
+  let-syntax to establish inner macros like method and through hooks like ones when analysing variables!?
+  Because the Scheme I am basing the prototype on is Jazz and Jazz currently doesnt have these
+  mecanisms, the simplest is to have the new language do a whole parse. This will also be usefull as
+  I want the Scheme analyser to be written in Scheme too
+
+- An interesting concept is to extend the RMI concept to inter-thread communication which would result in
+  calling a thread connector through a proxy. What is nice is that the thread could be included in the IOR
+  and the call be made directly even from another process. On the other hand it is very heavy to have to
+  always marshall when calling in process between threads... We will see when the remote debugger implements
+  the concept directly to support multi-thread debugging...
+
+
+EXPERIMENTAL
+- At the same time I do inner classes, I should also look into the possibility of supporting local classes
+  (method (foo a b)
+    (let ((x-class (class X extends Object
+                     (slot x initialize a)
+                     (method (f)
+                       (list x b)))))
+      (new x-class)))
+  where the local class definitions have to close around the lexical environment (can probably be very
+  simple to implement as all these are Scheme functions).
+  (method (foo a b)
+    (class x-class extends Object
+      (slot x initialize a)
+      (method (f)
+        (list x b)))
+    (new x-class))
+;;
+  (method (foo a b)
+    (new (class extends Object
+           (slot x initialize a)
+           (method (f)
+             (list x b)))))
+
+
+- I think that to support elegantly and correctly inner classes, local classes, ... it is important
+  that the class concept only defines the class. The class's metaclass should only be available through
+  the class itself (this is the tough part to implement as it is the class's metaclass that instanciates
+  the class!!!
+
+
+- Don Box's blog on teaching his kids programming says that he would have liked to teach them
+  Lisp and that the main problem was the lack of a good Lisp IDE...
+
+
+
+Inheritance Tree
+Classes:
+Object
+  Unit
+    Class
+      Object~Class
+        X~Class
+          Y~Class
+    Interface
+      I~Interface
+        J~Interface
+  X
+    Y
+Interfaces:
+I
+  J
+
+
+Instantiation Tree
+Class
+  Unit
+  Interface
+  Object~Class
+    Object
+      <Object> <Object> ...
+  X~Class
+    X
+      <X> <X> <X> ...
+  Y~Class
+    Y
+  I~Interface
+    I
+  J~Interface
+    J
+
+
+- Une idee fort interessante est l'implementation du dispatch rmi et autres par:
+  [X.foo x y z] qui est equivalent a
+  (Dispatchable.dispatch x 'X.foo y z)
+  (class IOR
+    (method (dispatch ...)
+      (rmi-call ...)))
+  Ca correspont a une implementation tres simple du dispatch rmi via un dynamic invoke (comme dans
+  la nouvelle version de Java)
+
+
+- Access to private fields should only be a file based concept, e.g. for a class itself or any inner
+  classes. An external class that does (in P ...) should not have access to private fields of P.
+- If evaluating an inner class field returns a class closure then we never have to pass a extra context
+  when we want to pass a class to be instantiated!
+
+
+- An important design goal is to have the Blues language compiled to various Blues runtimes like
+  BluesC++, BluesJava, BluesDotNet, ... but also by the fact that Jazz is macro of top of Scheme
+  support people using Jazz in Chicken, Gambit, ... and making calls to non-blues features like
+  call/cc, ... with the platform native compiler then used of course.
+
+
+Java 1.5
+- Unicode
+- Primitive datatypes
+- Exceptions
+- Assertions
+- Generics (bof)
+- Enumerated Types
+- Annotations
+
+
+;;;
+;;;; Implementation
+;;;
+
+
+Jazz Scheme implementations:
+- Chicken
+- Bigloo
+- Gambit (coming up)
+- Blues (coming up)
+
+
+;;;
+;;;; Blues
+;;;
+
+
+FOUNDATION
+SCHEME
+- Reader: #f #t #\c symbol integer (...) "..." ' ` , ,@ ;
+- Definitions: define
+- Syntax: quote quasiquote unquote unquote-splicing if cond case begin lambda let let* letrec set!
+- List: cons car cdr c...r set-car! set-cdr! length null? pair? list? list append reverse memq assq
+- String: string? string=? string<? make-string substring string-length string-append
+- Symbol: symbol? symbol->string string->symbol
+- Vector: make-vector vector-ref vector-set! vector-length vector?
+- Boolean: not and or eq? eqv?
+- Integer: + - = < <= > >= integer? min max
+- Character: char->integer char-whitespace?
+- Control: apply for-each map
+- Values: values call-with-values
+- Port: call-with-input-file read read-char peek-char eof-object? write-char display write newline
+- System: load (slash separators)
+SRFI
+- SRFI  0 : Feature-based conditional expansion construct : cond-expand
+- SRFI  6 : Basic string ports : open-input-string open-output-string get-output-string
+- SRFI  8 : Binding to multiple values : receive
+- SRFI 23 : Error reporting mechanism : error with-exception-handler
+- SRFI 69 : Basic hash tables : make-hash-table hash-table-ref/default hash-table-set! hash-table-keys
+EXTENSIONS
+- Reader: set-read-syntax!
+- Definitions: define-macro
+- List: copy last-pair sort

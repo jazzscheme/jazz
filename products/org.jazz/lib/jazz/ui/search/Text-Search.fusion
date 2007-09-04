@@ -1,0 +1,224 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Search
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Text-Search jazz
+
+
+(import (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.activity)
+        (jazz.utilities))
+
+
+(class Text-Search extends Search-View
+
+  
+  (form
+    (<install>
+      (<!>              name: domain         title: "Recherche de textes"
+        (<Radio-Button> name: active-window  title: "Active Window" position: {Point 15 26} size: {Dimension 120 18})
+        (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 15 46} size: {Dimension 120 18})
+        (<Radio-Button> name: cpp/java-files title: "Cpp/Java Files" position: {Point 15 66} size: {Dimension 120 18}))))
+  
+
+  ;;;
+  ;;;; Domains
+  ;;;
+
+  
+  (method (get-search-domains)
+    '(active-window
+      jazz-files
+      cpp/java-files))
+  
+  
+  (method (get-active-window-domain)
+    'active-window)
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (search-targets targets)
+    (case (get-search-domain)
+      ((active-window)
+       (search-active-window targets))
+      (else
+       (new Thread
+         name: "Search"
+         :information targets
+         :context self
+         :execute (function (thread)
+                    (search-threaded targets))))))
+  
+  
+  (method synchronized (search-threaded targets)
+    (let* ((reporter (get-search-reporter (count-files)))
+           (found (search targets reporter)))
+      (execute-primary
+        (function dynamic ()
+		  (let ((results (get-results)))
+            (set-mode~ results 'text)
+            (add-results~ results found (get-search-targets))
+            (select-results~ results))))
+      (when reporter
+        (let ((manager (get-activity-manager)))
+          (unregister-activity~ manager reporter)
+          (close-manager~ manager)))))
+
+
+  (method (search targets reporter)
+    (case (get-search-domain)
+      ((jazz-files)     (search-jazz-files     targets reporter))
+      ((cpp/java-files) (search-cpp/java-files targets reporter))))
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method (set-session-properties config)
+    (nextmethod config)
+    (set-search-domain (get-active-domain~ config)))
+
+
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (method (count-files)
+    (case (get-search-domain)
+      ((jazz-files)     (count-jazz-files))
+      ((cpp/java-files) (count-cpp/java-files))))
+  
+  
+  (definition Jazz-Count
+    null)
+  
+  
+  (method (count-jazz-files)
+    (unless Jazz-Count
+      (set! Jazz-Count (count-jazz-directory (jazz-search-directory))))
+    Jazz-Count)
+  
+  
+  (method (count-jazz-directory directory)
+    (let ((count 0))
+      (iterate-directory~ directory
+        (function dynamic (file)
+          (when (member? (get-extension~ file) '("jazz") :test ci=)
+            (increase! count)))
+        :ignored-directories '("Debug" "Release" "Work"))
+      count))
+  
+  
+  (method (jazz-search-directory)
+    (cond ((is-alias? 'Jazz-Branch)
+           {Directory Jazz-Branch})
+          ((is-alias? 'Root)
+           {Directory Root})
+          (else
+           {Directory Home})))
+  
+  
+  (definition Cpp/Java-Count
+    null)
+  
+  
+  (method (count-cpp/java-files)
+    (let ((count
+           (function dynamic ()
+             (let ((count 0))
+               (for-each (function dynamic (directory)
+                           (iterate-directory~ directory
+                             (function dynamic (file)
+                               (when (member? (get-extension~ file) '("c" "cpp" "h" "java"))
+                                 (increase! count)))))
+                         (get-cpp/java-directories~ (get-preferences '(tools search-manager))))
+               count))))
+      (unless Cpp/Java-Count
+        (set! Cpp/Java-Count (count)))
+      Cpp/Java-Count))
+  
+  
+  (method (setup-search-reporter reporter count)
+    (set-range~ reporter (new Range 1 count))
+    (set-pos~ reporter 1)
+    (set-step~ reporter 1))
+
+
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method (search-active-window strings)
+    (let ((frames (get-windows~ (get-stage))))
+      (when (>= (length frames) 1)
+        (let ((frame (car frames)))
+          (when (is? frame Host-Frame)
+            (let ((guest (get-guest~ frame)))
+              (when (is? guest Text-View)
+                (set-caret~ guest (get-start~ guest))
+                (find-forward guest strings false)
+                (bring-to-front~ frame)
+                (acquire-focus~ guest))))))))
+  
+  
+  (method (search-jazz-files targets reporter)
+    (let ((factory (new List-Factory))
+          (whole-words? (get-whole-words?))
+          (ignore-case? (get-ignore-case?))
+          (expression? (get-expression?)))
+      (search-in-directories targets (list (jazz-search-directory)) '("jazz" "jml") whole-words? ignore-case? expression? jazz-constituent? factory reporter)
+      (get-output~ factory)))
+  
+  
+  (method (search-cpp/java-files targets reporter)
+    (let ((factory (new List-Factory))
+          (whole-words? (get-whole-words?~ (get-application)))
+          (ignore-case? (get-ignore-case?~ (get-application)))
+          (expression? (get-expression?~ (get-application)))
+          (directories (get-cpp/java-directories~ (get-preferences '(tools search-manager)))))
+      (search-in-directories targets directories '("c" "cpp" "h" "java") whole-words? ignore-case? expression? cpp/java-constituent? factory reporter)
+      (get-output~ factory)))))

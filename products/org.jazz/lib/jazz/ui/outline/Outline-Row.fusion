@@ -1,0 +1,531 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Outline Rows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.outline.Outline-Row jazz
+
+
+(import (jazz.utilities)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library))
+
+
+(class Outline-Row extends Drawing
+  
+  
+  (property protected father     initialize {}         getter get-father     setter set-father)
+  (property protected sons       initialize null        getter get-sons       setter set-sons)
+  (property protected level      initialize {}         getter get-level      setter set-level)
+  (property protected state      initialize 'collapsed getter get-state      setter set-state)
+  (property protected row-height initialize {}         getter get-row-height setter set-row-height)
+  
+  
+  (slot protected previous initialize {})
+  (slot protected next     initialize {})
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+  
+  ;; Because outline row components can be allocated in huge numbers in
+  ;; texts and trees, its initialization process has to be streamlined...
+  (method (initialize-component rest)
+    )
+    
+  
+  (method (install-in-parent)
+    )
+  
+  
+  (method (set-parent prt)
+    (set! parent prt))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-outline)
+    parent)
+  
+  
+  (method public (get-father)
+    father)
+  
+  
+  (method public (set-father row)
+    (set! father row))
+  
+  
+  (method public (get-sons)
+    sons)
+  
+  
+  (method public (set-sons s)
+    (set! sons s))
+  
+  
+  (method public (get-level)
+    level)
+  
+  
+  (method public (set-level lvl)
+    (set! level lvl))
+  
+  
+  (method public (get-state)
+    state)
+  
+  
+  (method public (set-state s)
+    (set! state s))
+  
+  
+  (method public (get-row-height)
+    row-height)
+  
+  
+  (method public (set-row-height height)
+    (set! row-height height))
+  
+  
+  ;;;
+  ;;;; Father
+  ;;;
+  
+  
+  (method public (change-father father-row . rest)
+    (bind-keywords ((position null)) rest
+      (when father
+        (remove-son~ father self))
+      (set-father father-row)
+      (when father
+        (add-son~ father self (either position (length [sons father]))))))
+  
+  
+  (method public (for-each-father proc)
+    (when father
+      (proc father)
+      (for-each-father~ father proc)))
+  
+  
+  (method public (for-each-ancestor proc)
+    (proc self)
+    (for-each-father proc))
+  
+  
+  ;;;
+  ;;;; Sons
+  ;;;
+  
+  
+  (method public (remove-every-son)
+    (let ((outline (get-outline)))
+      (for-each (function dynamic (son)
+                  (remove-row~ outline son))
+                sons)))
+  
+  
+  (method public (son-rank son)
+    (find son sons :return 'position))
+  
+  
+  (method public (last-son)
+    (last sons))
+
+  
+  ;;;
+  ;;;; Transparency
+  ;;;
+
+  
+  (method (get-transparent?)
+    true)
+
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public (expanded?)
+    (= state 'expanded))
+  
+  
+  (method public (collapsed?)
+    (= state 'collapsed))
+  
+  
+  (method public (expandable?)
+    (or (= state 'dynamic)
+        (first-visible-son)))
+  
+  
+  (method public (collapsable?)
+    (= state 'expanded))
+  
+  
+  ;;;
+  ;;;; Level
+  ;;;
+  
+  
+  (method protected (set-descendants-level lvl <int>)
+    (set! level lvl)
+    (for-each (function dynamic (son)
+                (set-descendants-level~ son (+ level 1)))
+              sons))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method public virtual (get-effective-width)
+    (get-width))
+  
+  
+  (method public (get-effective-height)
+    (either row-height (get-height)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw dc context update lh lv)
+    (nextmethod dc context update lh lv)
+    (when (getf context :selected?)
+      (draw-selection dc)))
+  
+  
+  (method protected virtual (draw-selection dc <Surface>)
+    (with ((outer (get-bounds))
+           (inner (inflate-rect outer -1 -1)))
+      (frame-rect~ dc outer {Color name: Black})
+      (frame-rect~ dc inner {Color name: Light-Gray})))
+  
+  
+  ;;;
+  ;;;; Visibility
+  ;;;
+
+
+  (method (show)
+    (unless (get-visible-flag)
+      (let* ((last (last-descendant))
+             (previous (previous-visible-row self))
+             (next (if previous
+                       [next previous]
+                     (essay father (first-visible-son~ father)))))
+        (nextmethod)
+        (if parent
+            (let ((visible? (visible-in-father?)))
+              (show-rows~ parent self last previous next visible? false false))
+          (link previous self)
+          (link last next)))))
+
+
+  (method (hide)
+    (when (get-visible-flag)
+      (let ((last (either (last-descendant) self))
+            (in-collapse? false))
+        (nextmethod)
+        (if parent
+            (hide-rows~ parent self last (visible-in-father?) in-collapse?)
+          (unlink self last)))))
+
+
+  ;; root-row not visible - is this ok?
+  (method (get-visible?)
+    (and father (row-visible?)))
+  
+  
+  (method public (row-visible?)
+    (and (get-visible-flag)
+         (visible-in-father?)))
+  
+  
+  (method public (visible-in-father?)
+    (or (null? father)
+        (and (expanded?~ father) (row-visible?~ father))))
+  
+  
+  (method public (count-visible)
+    (let ((scan next)
+          (count 0))
+      (while (and scan (> [level scan] level))
+        (set! scan [next scan])
+        (increase! count))
+      count))
+  
+  
+  (method public (node-height)
+    (+ (get-effective-height) [row-spacing parent] (sons-height)))
+  
+  
+  (method public (sons-height)
+    (let ((scan next)
+          (total 0)
+          (rs [row-spacing parent]))
+      (while (and scan (> [level scan] level))
+        (increase! total (+ (get-effective-height~ scan) rs))
+        (set! scan [next scan]))
+      total))
+  
+  
+  (method public (sons-width)
+    (let ((scan next)
+          (width 0))
+      (while (and scan (> [level scan] level))
+        (let ((w (get-effective-width~ scan)))
+          (when (and w (> w width))
+            (set! width w)))
+        (set! scan [next scan]))
+      width))
+  
+  
+  (method public (first-visible-son)
+    (when sons
+      (let ((first (first sons)))
+        ;; optimize the 99.999% case
+        (if (get-visible-flag~ first)
+            first
+          (find-if (function dynamic (son) (get-visible-flag~ son))
+                   sons)))))
+  
+  
+  (method public (previous-visible-row target)
+    (let ((previous-visible-sibling (previous-visible-sibling~ target))
+          (father [father target]))
+      (either (essay previous-visible-sibling (last-descendant~ previous-visible-sibling))
+              (essay father (expanded?~ father) father))))
+  
+  
+  (method public (previous-visible-sibling)
+    (let* ((sibling null)
+           (siblings (essay father [sons father]))
+           (scan (first siblings))
+           (found-self? false))
+      (for-each (function dynamic (scan)
+                  (unless found-self?
+                    (if (= scan self)
+                        (set! found-self? true)
+                      (when (get-visible-flag~ scan)
+                        (set! sibling scan)))))
+                siblings)
+      sibling))
+  
+  
+  (method protected (last-visible-descendant)
+    (let ((scan (first-visible-son)))
+      (when scan
+        (while (and [next scan] (> [level next scan] level))
+          (set! scan [next scan]))
+        scan)))
+  
+  
+  ;;;
+  ;;;; Hierarchy
+  ;;;
+  
+  
+  (method public (add-son row position)
+    (when (null? sons)
+      (let ((class [sons-class parent]))
+        (when class
+          (set! sons (new (eval-symbol class self))))))
+    (set-father~ row self)
+    (let* ((expanded? (= state 'expanded))
+           (end (last-descendant~ row))
+           (count (length sons))
+           (pos (cond ((null? position) count)
+                      ((> position count) count)
+                      (else position))))
+      (when (get-visible-flag~ row)
+        (let* ((before (cond ((= pos 0) (if expanded? self null))
+                             ((= pos count) (if expanded? (last-descendant) (last-visible-descendant)))
+                             (else (previous-visible-row (element sons pos)))))
+               (following (essay before [next before]))
+               (after (cond (expanded? following)
+                            (following (essay (> [level following] level) following))
+                            ((and (= pos 0)(/= count 0)) (first-visible-son))
+                            (else null))))
+          (link before row)
+          (link end after)))
+      ;; when insert! will be optimised and avoids copying the lists this whole expression should shrink to the last line
+      (if (is? sons List)
+          (if (= pos 0)
+              (set! sons (cons row sons))
+            (let ((pair (tail sons (- pos 1))))
+              (set-cdr! pair (cons row (cdr pair)))))
+        (set! sons (insert! row sons pos)))))
+  
+  
+  (method public (remove-son row)
+    (let ((following (next-non-descendant~ row)))
+      (when [previous row]
+        (set! [next previous row] following))
+      (when following
+        (set! [previous following] [previous row]))
+      (set! sons (remove! row sons))))
+  
+  
+  (method public (relink replacement before after)
+    (let ((before before))
+      (for-each (function dynamic (row)
+                  (when (get-visible-flag~ row)
+                    (link before row)
+                    (set! before (either (when (expanded?~ row) (last-descendant~ row)) row))))
+                replacement)
+      (link before after)))
+  
+  
+  (method public (replace-sons replacement start-row start end-row end)
+    (let ((before (essay start-row [previous start-row]))
+          (after end-row))
+      (relink replacement before after)
+      (set! sons (replace-subseq! sons start end replacement))))
+  
+  
+  (method public (reorder-sons replacement)
+    (let ((before (when (expanded?) self))
+          (after (when (expanded?) (next-non-descendant))))
+      (relink replacement before after)
+      (set! sons replacement)))
+  
+  
+  ;; until we unify link and link-rows
+  (method (link before after)
+    (when before
+      (set! [next before] after))
+    (when after
+      (set! [previous after] before)))
+  
+  
+  ;; until we unify unlink and unlink-rows
+  (method (unlink first last)
+    (let ((previous [previous first])
+          (next [next last]))
+      (link previous next)
+      (set! [previous first] null)
+      (set! [next last] null)))
+  
+  
+  ;;;
+  ;;;; Attached?
+  ;;;
+  
+  
+  (method public (attached?)
+    parent)
+  
+  
+  (method public (detach-descendants)
+    (for-each (function dynamic (subrow)
+                (detach-descendants~ subrow))
+              sons))
+  
+  
+  ;;;
+  ;;;; Descendants
+  ;;;
+  
+  
+  (method protected (first-descendant)
+    (when (and (= state 'expanded) (not (empty? sons)))
+      (first-visible-son)))
+  
+  
+  (method protected (last-proper-descendant)
+    (let ((scan (first-descendant)))
+      (when scan
+        (while (and [next scan] (> [level next scan] level))
+          (set! scan [next scan]))
+        scan)))
+  
+  
+  (method protected (last-descendant)
+    (either (last-proper-descendant)
+            self))
+  
+  
+  (method protected (next-non-descendant)
+    [next (last-descendant)])
+  
+  
+  (method protected (visible-sibling-follows?)
+    (when father
+      (let ((found? false))
+        (some? (function dynamic (son)
+                 (prog1 (and found? (get-visible-flag~ son))
+                   (when (eq? son self)
+                     (set! found? true))))
+               [sons father]))))
+  
+  
+  (method protected (sibling-follows?)
+    (and father (neq? self (last [sons father]))))
+  
+  
+  ;;;
+  ;;;; Spine
+  ;;;
+  
+  
+  (method public (get-spine)
+    (let ((row self)
+          (root [root-row parent])
+          (spine null))
+      (while (neq? row root)
+        (set! spine (cons row spine))
+        (set! row [father row]))
+      spine))
+  
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public (internal-fields)
+    (values level state previous next))))

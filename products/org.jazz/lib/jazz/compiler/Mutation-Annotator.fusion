@@ -1,0 +1,196 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Mutations annotator
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Dominique Boucher.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.compiler.Mutation-Annotator jazz
+
+
+(import (jazz.compiler)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Mutation-Annotator extends Compiler-Pass uses (Interpreter Utilities Development Kernel null)
+  
+  
+  ;;;
+  ;;;; Public interface
+  ;;;  
+  
+  
+  (method (process-form form)
+    (annotate-form form))
+  
+  
+  (method public (annotate-form form)
+    (bind (field value symbol install-info . rest) form
+      (typecase field
+        ((Definition) (annotate-definition field value))
+        (else       null))))
+  
+  
+  ;;;
+  ;;;; Private interface
+  ;;;  
+  
+  
+  (method private (annotate-empty expr)
+    (set-mutated-locals expr '()))
+   
+
+  (method private (annotate-definition field value)
+    (when (definition-method? field)
+      (let ((method-function (closure-function (definition-value field))))
+        (annotate-method-body (function-body method-function)))))
+  
+
+  (method private (annotate-method-body body)
+    (for-each annotate-expression body))
+   
+
+  (method private (annotate-expression expr)
+    (if (nil? expr)
+        (annotate-empty expr)
+      (if (special? expr)
+          (annotate-special expr)
+        (typecase expr
+          ((%function)          (annotate-function expr))
+          ((Dispatch)           (annotate-empty expr))
+          ((Meta-Reference)     (annotate-reference expr))
+          ((Outer-Reference)    (annotate-reference expr))
+          ((Imported-Reference) (annotate-reference expr))
+          ((Syntax-Expansion)   (annotate-expansion expr))
+          ((Syntax-Relocation)  (error "Not yet implemeted"))
+          ((Call)               (annotate-call expr))
+          ((Body)               (annotate-body expr))
+          (else               (annotate-empty expr))))))
+  
+  
+  (method private (annotate-call call-form)
+    (set-mutated-locals
+     call-form
+     (union (annotate-expression (call-called call-form))
+            (annotate-expression-list (call-parameters call-form)))))
+  
+  
+  (method private (annotate-expansion expansion-form)
+    (set-mutated-locals
+     expansion-form
+     (annotate-expression (get-expression~ expansion-form))))
+  
+  
+  (method private (annotate-reference reference-form)
+    (set-mutated-locals 
+     reference-form
+     (annotate-expression (field-reference-form reference-form))))
+  
+
+  (method private (annotate-body body-form)
+    (set-mutated-locals 
+     body-form
+     (apply union (map annotate-expression (body-list body-form)))))
+  
+  
+  (method private (annotate-special special)
+    (typecase special
+      ((%if)            (annotate-if special))
+      ((%while)         (annotate-while special))
+      ((%let)           (annotate-let special))
+      ((%function)      (annotate-function special))
+      ((with)           (error "Not yet implemeted"))
+      ((with-closed)    (error "Not yet implemeted"))
+      ((bind)           (error "Not yet implemeted"))
+      ((bind-keywords)  (error "Not yet implemeted"))
+      ((bind-optionals) (error "Not yet implemeted"))
+      ((bind-values)    (error "Not yet implemeted"))
+      ((block)          (annotate-subforms special (body-list special)))
+      ((return)         (error "Not yet implemeted"))
+      ((return-from)    (error "Not yet implemeted"))
+      ((%and)           (annotate-subforms special (and-form special)))
+      ((or)             (annotate-subforms special (or-form special)))
+      ((%set!)          (annotate-set! special))
+      ((cast)           (error "Not yet implemeted"))
+      ((synchronize)    (error "Not yet implemeted"))
+      ((optimize)       (error "Not yet implemeted"))
+      ((profile)        (error "Not yet implemeted"))
+      (else           (error "Unable to annotate {t}" special))))
+ 
+  
+  (method private (annotate-if special)
+    (set-mutated-locals 
+     special 
+     (union (annotate-expression      (if-test special))
+            (annotate-expression      (if-yes special))
+            (annotate-expression-list (if-no special)))))
+  
+  
+  (method private (annotate-while special)
+    (set-mutated-locals 
+     special
+     (union (annotate-expression      (while-test special))
+            (annotate-expression-list (while-body special)))))
+  
+  
+  (method private (annotate-let let-form)
+    (set-mutated-locals
+     let-form
+     (union (annotate-expression-list (map cadr (let-bindings let-form)))
+            (annotate-expression-list (let-body let-form)))))
+  
+  
+  (method private (annotate-function functional-form)
+    (set-mutated-locals
+     functional-form
+     (annotate-expression-list (function-body functional-form))))
+    
+  
+  (method private (annotate-expression-list lst)
+    (apply union
+           (map annotate-expression lst)))
+  
+  
+  (method private (annotate-set! special)
+    (let* ((location (set-location special))
+           (set      (typecase location
+                       ((Variable) (list (variable-base location)))
+                       (else     '()))))
+      (set-mutated-locals special set)))
+ 
+  
+  (method private (annotate-subforms special forms)
+    (set-mutated-locals 
+     special
+     (annotate-expression-list forms)))))

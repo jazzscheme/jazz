@@ -1,0 +1,230 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Workspace Preferences
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.workspace.Workspace-Preferences jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Workspace-Preferences extends Preferences
+
+
+  (property accelerator          initialize {}    accessors generate)
+  (property frame-model          initialize {}    accessors generate)
+  (property fullscreen?          initialize false accessors generate)
+  (property maximized?           initialize false accessors generate)
+  (property preserve-visibility? initialize false accessors generate)
+  
+  
+  (slot to-restore initialize {})
+  
+  
+  (form
+    (<install> icon: {Bitmap-Resource "Workspace"}))
+
+  
+  ;;;
+  ;;;; Applying
+  ;;;
+  
+  
+  (method (apply-preferences . rest)
+    (validate-focus)
+    (let ((palette null))
+      (when Selected-Workspace
+        (let ((root (get-focused-root)))
+          (when (is? root Docked-Root)
+            (set! palette (get-guest~ (get-host~ root)))))
+        (deactivate~ Selected-Workspace))
+      (unwind-protect
+          (begin
+            (set! Locked-Activations? true)
+            (activate palette))
+        (set! Locked-Activations? false))))
+  
+  
+  ;;;
+  ;;;; Activation
+  ;;;
+  
+  
+  (method (activate palette)
+    (let ((appl (get-application))
+          (stage (get-stage))
+          (toplevel (get-toplevel))
+          (splitter (get-workspace-splitter))
+          (palettes null))
+      (with-locked-update
+        (function dynamic ()
+          (close-palettes)
+          (full-screen-stage~ appl false)
+          (let ((visibility (collect-visibility)))
+            (process-frames visibility false)
+            (for-each (function dynamic (preferences)
+                        (if (is? preferences Splitter-Preferences)
+                            (begin
+                              (apply-to~ preferences splitter)
+                              (set-preferences~ splitter self))
+                          (let* ((name (get-name~ preferences))
+                                 (class (autoload name))
+                                 (palette (singleton-palette~ class name)))
+                            (apply-preferences~ preferences palette)
+                            (set! palettes (cons palette palettes)))))
+                      children)
+            (set! Selected-Workspace self)
+            (set-maximized?~ stage maximized?)
+            (process-frames visibility true))
+          (process-activation)
+          (update-menubar-buttons~ appl)
+          (for-each (function dynamic (palette)
+                      (set-visible?~ palette true))
+                    palettes)
+          (update-status)
+          (process-application-event~ appl 'workspace 'activate self :workspace self)
+          (if palette
+              (select-palette (class-of palette) :workspace null :focus? true)
+            (let ((first (first-child~ stage)))
+              (when first
+                (acquire-focus~ first))))
+          (full-screen-stage~ appl fullscreen?)))))
+  
+  
+  (method public (update-status)
+    (let* ((appl (get-application))
+           (status (get-status-bar~ appl))
+           (label (essay status (find-component~ status 'workspace))))
+      (when label
+        (set-title~ label (get-title))
+        (set-icon~ label (get-icon)))))
+  
+  
+  (method (collect-visibility)
+    (let* ((stage (get-stage))
+           (frames (get-children~ stage)))
+      (map (function dynamic (frame)
+             (let ((visible? (get-visible?~ frame))
+                   (guest (get-guest~ frame)))
+               (when guest
+                 (let* ((ws (get-workspace~ frame))
+                        (lst (if ws (list ws) (effective-frame-workspaces~ guest))))
+                   (if (or (and (memq? name lst) (or visible? (not preserve-visibility?) (memq? frame to-restore)))
+                           (and (null? lst) visible?))
+                       (cons frame true)
+                     (cons frame false))))))
+           frames)))
+  
+  
+  (method (process-frames visibility flag)
+    (for-each (function dynamic (info)
+                (bind (frame . visible?) info
+                  (when (eq? visible? flag)
+                    (set-visible?~ frame visible?)
+                    (unless maximized?
+                      (ensure-displayed~ frame)))))
+              visibility))
+  
+  
+  (method (process-activation)
+    (let* ((stage (get-stage))
+           (frames (get-windows~ stage)))
+      (if (null? frames)
+          (stage-activate~ stage)
+        (for-each-docked
+          (function dynamic (view)
+            (client-activate~ view))))))
+  
+  
+  (method (deactivate)
+    (when preserve-visibility?
+      (let* ((stage (get-stage))
+             (frames (get-children~ stage)))
+        (set! to-restore (collect-if (function dynamic (frame)
+                                       (get-visible?~ frame))
+                                     frames)))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert
+  (method (get-domain property)
+    (case (field-name property)
+      ((fullscreen? maximized? preserve-visibility?) (new Boolean-Domain))
+      (else (nextmethod property))))
+
+  
+  @convert
+  (method (property-presentation property)
+    (case (field-name property)
+      ((fullscreen?) "Fullscreen?")
+      ((maximized?) "Maximized?")
+      ((accelerator) "Accelerator")
+      ((frame-model) "Frame Model")
+      ((preserve-visibility?) "Preserve Visibility?")
+      (else (nextmethod property))))
+  
+  
+  @convert
+  (method (get-addable-classes)
+    (list
+      Splitter-Preferences
+      Pad-Preferences
+      null
+      Docked-Preferences
+      Stage-Preferences))
+    
+  
+  @convert
+  (method (get-categorized-properties)
+    '(title icon fullscreen? maximized? accelerator frame-model preserve-visibility?))
+
+  
+  @convert
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((fullscreen? maximized? preserve-visibility?) (new Boolean-Row))
+      (else (nextmethod property))))))

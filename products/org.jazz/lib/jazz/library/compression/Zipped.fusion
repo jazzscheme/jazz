@@ -1,0 +1,246 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Zipped File Entry
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.compression.Zipped jazz
+
+
+(import (jazz.platform)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Zipped extends Moniker
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  @convert
+  (method meta (get-protocol)
+    'zip)
+  
+  
+  @convert-literal
+  (method meta (construct-literal context file entry)
+    (new self file entry))
+  
+  
+  @convert
+  (method meta public (extract-name filename)
+    (let ((pos (find #\slash filename :reversed? true :return 'position)))
+      (if (null? pos)
+          filename
+        (subseq filename (+ pos 1)))))
+    
+  
+  @convert
+  (method meta public (extract-base filename)
+    (extract-base (extract-name filename)))
+  
+  
+  @convert
+  (method meta public (extract-extension filename)
+    (let ((pos (find #\period filename :reversed? true :return 'position)))
+      (when pos
+        (subseq filename (+ pos 1)))))
+  
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((and (= (get-file) (get-file~ target))
+                (= (get-entry) (get-entry~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (compare-pathname object)
+    (and (is? object Zipped)
+         (pathname= (get-file) (get-file~ object))
+         (ci= (get-entry) (get-entry~ object))))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}}"
+            (type-name (class-of self))
+            (get-file)
+            (get-entry)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method (get-file)
+    (unimplemented 'get-file)
+    @convert
+    (JzZippedFile self))
+
+
+  (method public (get-entry)
+    (unimplemented 'get-entry)
+    @convert
+    (JzZippedEntry self))
+  
+  
+  ;;;
+  ;;;; Interface
+  ;;;
+
+
+  (method (exists?)
+    (exists?~ (get-file)))
+  
+  
+  (method (get-writable?)
+    (get-writable?~ (get-file)))
+  
+  
+  (method (set-writable? flag)
+    (set-writable?~ (get-file) flag))
+  
+  
+  (method (writable?)
+    (writable?~ (get-file)))
+
+
+  (method (get-modification-time)
+    (get-modification-time~ (get-file)))
+
+
+  (method (get-name)
+    (unimplemented 'get-name)
+    @convert
+    (extract-name (get-entry)))
+
+
+  (method (get-base)
+    (unimplemented 'get-base)
+    @convert
+    (extract-base (get-entry)))
+  
+  
+  (method (get-extension)
+    (unimplemented 'get-extension)
+    @convert
+    (extract-extension (get-entry)))
+  
+  
+  (method (get-parent)
+    (get-file))
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+  
+  
+  (method public (read-content)
+    (with-closed ((unzip (new Unzip-File (get-file))))
+      (locate-file~ unzip (get-entry))
+      (read-current-file-content~ unzip)))
+  
+  
+  (method (load-lines)
+    (unimplemented 'load-lines)
+    @convert
+    (JzLoadLines (read-content)))
+  
+  
+  (definition CrLf
+    (coerce (list #\return #\line-feed) String)
+    @convert-ansi-string
+    (coerce (list #\return #\line-feed) Ansi-String))
+
+
+  ;; This method is a bit convoluted because as the zip library doesn't support
+  ;; updating an existing zip file, I am forced to read the full content of the zip
+  ;; file and write it back into a new zip file... Note that the newest version of
+  ;; the library supports reading and writing raw data (so that you dont uselessly
+  ;; uncompress and then recompress) that would at least make this process much faster.
+  (method (save-lines lines limit)
+    (let ((file (get-file))
+          (entry (get-entry))
+          (saved? false))
+      (fail-safe-save file
+        (function dynamic (dest)
+          (with-closed ((zip (new Zip-File dest)))
+            (with-closed ((unzip (new Unzip-File file)))
+              (iterate-files~ unzip
+                (function dynamic (filename size)
+                  (if (= filename entry)
+                      (begin
+                        (save-lines-to lines limit zip entry)
+                        (set! saved? true))
+                    (let ((content (read-current-file-content~ unzip)))
+                      (write-file~ zip filename content))))))
+            (when (not saved?)
+              (save-lines-to lines limit zip entry)))))))
+  
+  
+  (method (save-lines-to lines limit zip entry)
+    (unimplemented 'save-lines-to)
+    @convert-ansi-string
+    (with-new-file-in-zip~ zip entry
+      (function dynamic ()
+        (for-each (function dynamic (line n)
+                    (write-in-file-in-zip~ zip (coerce line Ansi-String))
+                    (when (/= n limit)
+                      (write-in-file-in-zip~ zip CrLf 2)))
+          lines
+          (naturals 0 (+ limit 1))))))
+  
+  
+  ;;;
+  ;;;; Compiler
+  ;;;
+  
+  
+  (method (foldable?)
+    true)
+
+
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler (get-file))
+    (fold-more~ compiler (get-entry))
+    (output~ compiler ")"))))

@@ -1,0 +1,326 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; VSS Repository Item
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.repository.providers.vss.VSS-Repository-Item jazz
+
+
+(import (jazz.repository)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class VSS-Repository-Item extends Repository-Item uses (Utilities System COM SourceSafeTypeLib)
+  
+  
+  (slot handle)
+  
+  
+  (method (initialize repository hnd)
+    (nextmethod repository)
+    (set! handle hnd)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (corelease handle)
+    (nextmethod))
+  
+  
+  (method (connected?)
+    (not-null? handle))
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method (get-name)
+    (get-Name~ handle))
+  
+  
+  (method (get-version-number)
+    (get-VersionNumber~ handle))
+  
+  
+  (method (get-type)
+    (get-Type~ handle))
+  
+  
+  (method (get-file?)
+    (= (get-type) VSSITEM_FILE))
+  
+  
+  (method (get-project?)
+    (= (get-type) VSSITEM_PROJECT))
+  
+  
+  (method (get-binary?)
+    (get-Binary~ handle))
+  
+  
+  (method (get-status)
+    (let ((value (get-IsCheckedOut~ handle)))
+      (ecase value
+        ((VSSFILE_NOTCHECKEDOUT) 'checked-in)
+        ((VSSFILE_CHECKEDOUT)    'checked-out)
+        ((VSSFILE_CHECKEDOUT_ME) 'checked-out-me))))
+  
+  
+  (method (get-spec)
+    (get-Spec~ handle))
+  
+  
+  (method (get-path)
+    (spec->path~ repository (get-spec)))
+  
+  
+  (method (get-pathname)
+    (let ((localspec (get-localspec))
+           (list (tokenise (get-localspec))))
+      (ecase (get-type)
+        ((VSSITEM_FILE) (new File list))
+        ((VSSITEM_PROJECT) (new Directory list)))))
+  
+  
+  (method (get-localspec)
+    (let ((local (get-LocalSpec~ handle)))
+      (if (empty-string? local)
+          (error "No local path defined for {a}" (get-name))
+        local)))
+  
+  
+  (method (get-deleted?)
+    (get-Deleted~ handle))
+  
+  
+  (method (get-items . rest)
+    (bind-keywords ((deleted? false)) rest
+      (with-closed ((items (get-Items~ handle deleted?)))
+        (let ((count (get-Count~ items)))
+          (map (function dynamic (n)
+                 (new VSS-Repository-Item repository (get-Item~ items n)))
+               (naturals 1 (+ count 1)))))))
+  
+  
+  (method (get-checkouts)
+    (with-closed ((checkouts (get-Checkouts~ handle)))
+      (let ((count (get-Count~ checkouts)))
+        (map (function dynamic (n)
+               (new VSS-Repository-Checkout repository (get-Item~ checkouts n)))
+             (naturals 1 (+ count 1))))))
+  
+  
+  (method (get-checkouts-usernames)
+    (with-closed ((checkouts (get-checkouts)))
+      (map (function dynamic (checkout)
+             (get-username~ checkout))
+           checkouts)))
+  
+  
+  (method (get-user-checkout user)
+    (let ((checkouts (get-checkouts)))
+      (let ((user-checkout (find-if (function dynamic (checkout)
+                                      (= (get-username~ checkout) user))
+                                    checkouts)))
+        (for-each (function dynamic (checkout)
+                    (unless (eq? checkout user-checkout)
+                      (close~ checkout)))
+                  checkouts)
+        user-checkout)))
+  
+  
+  (method (get-version n)
+    (new VSS-Repository-Item repository (get-Version~ handle n)))
+  
+  
+  (method (get-latest-version)
+    (car (get-versions)))
+  
+  
+  (method (get-latest-info)
+    (with-closed ((version (get-latest-version)))
+      (let ((date (get-date~ version))
+            (no (get-version-number~ version)))
+        (values date no))))
+  
+  
+  (method (get-versions)
+    (with-closed ((versions (get-Versions~ handle 0))
+                  (unknown (_NewEnum~ versions))
+                  (enumerator (coquery unknown IEnumVARIANT)))
+      (let ((array (new-array variant 1))
+            (fact  (new List-Factory))
+            (done? false))
+        (while (not done?)
+          (let ((fetched (Next~ enumerator 1 array)))
+            (if (= fetched 0)
+                (set! done? true)
+              (let* ((dispatch (array-ref array 0))
+                     (version (coquery dispatch IVSSVersion)))
+                (put~ fact (new VSS-Repository-Version repository version))))))
+        (get-output~ fact))))
+  
+  
+  (method (get-unlabeled-versions)
+    (collect-if (function dynamic (version)
+                  (not (labeled?~ version)))
+                (get-versions)))
+  
+  
+  (method (get-parent)
+    (new VSS-Repository-Item repository (get-Parent~ handle)))
+  
+  
+  ;;;
+  ;;;; Add
+  ;;;
+  
+  
+  (method (add-file local)
+    (assert (exists?~ local))
+    (new VSS-Repository-Item repository (Add~ handle (parse~ local) "" 0)))
+  
+  
+  (method (add-project name)
+    (new VSS-Repository-Item repository (NewSubproject~ handle name "")))
+  
+  
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method (checkin local . rest)
+    (bind-keywords ((keep-checked-out? false)) rest
+      (Checkin~ handle "" (parse~ local) (if keep-checked-out? VSSFLAG_KEEPYES VSSFLAG_KEEPNO))))
+  
+  
+  (method (checkout local . rest)
+    (bind-keywords ((get? true)) rest
+      (Checkout~ handle "" (parse~ local) (if get? 0 VSSFLAG_GETNO))))
+  
+  
+  (method (undo-checkout local . rest)
+    (bind-keywords ((get? true)) rest
+      (UndoCheckout~ handle (parse~ local) (if get? 0 VSSFLAG_GETNO))))
+  
+  
+  (method (is-different? local)
+    (get-IsDifferent~ handle (parse~ local)))
+  
+  
+  ;;;
+  ;;;; Delete
+  ;;;
+  
+  
+  (method (delete-item)
+    (put-Deleted~ handle true))
+  
+  
+  (method (destroy-item)
+    (Destroy~ handle))
+  
+  
+  ;;;
+  ;;;; Rename
+  ;;;
+  
+  
+  (method (rename-item new-name)
+    (put-Name~ handle new-name))
+  
+  
+  ;;;
+  ;;;; Local
+  ;;;
+
+  
+  (method (get-local local)
+    (Get~ handle (parse~ local) 0))
+  
+  
+  (method (find-unique file)
+    (let ((n 1)
+          (dir (get-parent~ file))
+          (name (get-base~ file))
+          (ext (get-extension~ file)))
+      (while (exists?~ file)
+        (set! file (new-file~ dir (format "{a}{a}.{a}" name n ext)))
+        (increase! n))
+      file))
+
+    
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method (get-content . rest)
+    (bind-keywords ((nodes? true) (leaves? true)) rest
+      (let ((fact (new List-Factory))
+            (items (get-items)))
+        (for-each (function dynamic (item)
+                    (let ((type (get-type~ item)))
+                      (if (or (and nodes? (= type VSSITEM_PROJECT))
+                              (and leaves? (= type VSSITEM_FILE)))
+                          (put~ fact item)
+                        (close~ item))))
+                  items)
+        (get-output~ fact))))
+
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  ;; Until we have integrated file compare, we only allow a file checkin
+  ;; if the version number of the checkout is still the current one in the database
+  (method public (checkin-needs-merge? user)
+    (with-closed ((checkout (get-user-checkout user)))
+      (/= (get-version-number~ checkout) (get-version-number))))
+  
+  
+  (method public (safe-checkin local user)
+    (cond ((/= (get-status) 'checked-out-me)
+           (error "File {t} is already checked in" local))
+          ((checkin-needs-merge? user)
+           (error "Unable to checkin {t}. Version numbers have changed. This file will have to be manually checked in and possibly merged" local))
+          (else
+           (checkin local))))))

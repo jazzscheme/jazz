@@ -1,0 +1,191 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Generating Remote Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jrm.tools.Remotable-Generator jazz
+
+
+(import (jazz.jrm)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Remotable-Generator extends Code-Generator
+
+
+  (slot class)
+  (slot class-name)
+  (slot ascendant)
+
+
+  (method (initialize . rest)
+    (bind-keywords ((class null) (ascendant null)) rest
+      (nextmethod)
+      (set! [class self] class)
+      (set! [class-name self] (type-name class))
+      (set! [ascendant self] ascendant)))
+
+
+  (method public (emit-code)
+    (emit emit-remotable "-Remotable")
+    (emit emit-local-proxy "-Local-Proxy")
+    (emit emit-remote-proxy "-Remote-Proxy")
+    (emit emit-stub "-Stub"))
+  
+  
+  (method (emit proc suffix)
+    (let* ((name (remote-class-name suffix))
+           (file (get-manifest-source name)))
+      (if (null? file)
+          (error "Unable to find {a} in manifest" name)
+        (ensure-read/write file)
+        (with-closed ((printer (new File-Printer :pathname file)))
+          (proc name printer)))))
+  
+  
+  (method (remote-class-name suffix)
+    (string->symbol (append (->string (type-name class)) suffix)))
+  
+  
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (remotable-name)
+    (remote-class-name "-Remotable"))
+  
+  
+  ;;;
+  ;;;; Remote
+  ;;;
+  
+  
+  (method (for-each-remote proc)
+    @convert
+    (for-each (function dynamic (field)
+                (when (field-remote? field)
+                  (let* ((name (field-name field))
+                         (closure (definition-value field))
+                         (function (closure-function~ Interpreter closure))
+                         (parameters (function-parameters~ Interpreter function)))
+                    (proc name parameters))))
+              (unit-fields class)))
+
+
+  ;;;
+  ;;;; Remotable
+  ;;;
+  
+  
+  (method (emit-remotable name printer)
+    (output-header name printer)
+    (format printer "{%}{%}")
+    (let ((extends (if ascendant (format "{a}-Remotable" (type-name ascendant)) "Remotable")))
+      (format printer "(interface {a} extends {a}{%}{%}{%}" name extends))
+    (format printer "  (method meta (proxy-local-class){%}")
+    (format printer "    {a}-Local-Proxy){%}{%}{%}" class-name)
+    (format printer "  (method meta (proxy-remote-class){%}")
+    (format printer "    {a}-Remote-Proxy){%}{%}{%}" class-name)
+    (format printer "  (method meta (stub-class){%}")
+    (format printer "    {a}-Stub)" class-name)
+    (let ((first? true))
+      (for-each-remote
+        (function dynamic (name parameters)
+          (when first?
+            (format printer "{%}{%}")
+            (set! first? false))
+          (format printer "{%}")
+          (format printer "  (method public virtual abstract ({a}" name)
+          (emit-parameters parameters printer)
+          (format printer "))"))))
+    (format printer "){%}"))
+
+
+  ;;;
+  ;;;; Local-Proxy
+  ;;;
+  
+  
+  (method (emit-local-proxy name printer)
+    (output-header name printer)
+    (format printer "{%}{%}")
+    (let ((extends (if ascendant (format "{a}-Local-Proxy" (type-name ascendant)) "Local-Proxy")))
+      (format printer "(class {a} extends {a} implements {a}-Remotable{%}{%}{%}" name extends class-name))
+    (format printer "  (method (remotable-class){%}")
+    (format printer "    {a}-Remotable)" class-name)
+    (for-each-remote
+      (function dynamic (name parameters)
+        (format printer "{%}{%}{%}")
+        (format printer "  (method ({a} . rest){%}" name)
+        (format printer "    (apply [object {a}] rest))" name)))
+    (format printer "){%}"))
+
+
+  ;;;
+  ;;;; Remote-Proxy
+  ;;;
+  
+  
+  (method (emit-remote-proxy name printer)
+    (output-header name printer)
+    (format printer "{%}{%}")
+    (let ((extends (if ascendant (format "{a}-Remote-Proxy" (type-name ascendant)) "Remote-Proxy")))
+      (format printer "(class {a} extends {a} implements {a}-Remotable" name extends class-name))
+    (for-each-remote
+      (function dynamic (name parameters)
+        (format printer "{%}{%}{%}")
+        (format printer "  (method ({a} . rest){%}" name)
+        (format printer "    (apply send-to-stub '{a} rest))" name)))
+    (format printer "){%}"))
+
+
+  ;;;
+  ;;;; Stub
+  ;;;
+  
+  
+  (method (emit-stub name printer)
+    (output-header name printer)
+    (format printer "{%}{%}")
+    (let ((extends (if ascendant (format "{a}-Stub" (type-name ascendant)) "Remote-Stub")))
+      (format printer "(class {a} extends {a}{%}{%}{%}" name extends))
+    (format printer "  (method (invoke method-name arguments){%}")
+    (format printer "    (case method-name{%}")
+    (for-each-remote
+      (function dynamic (name parameters)
+        (format printer "      ({a} (apply [object {a}] arguments)){%}" name name)))
+    (format printer "      (else (nextmethod method-name arguments))))){%}"))))

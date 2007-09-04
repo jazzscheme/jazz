@@ -1,0 +1,635 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Drawable Figures
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Assem Hakmeh
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Drawing jazz
+
+
+(import (jazz.utilities)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.literals))
+
+
+(class Drawing-Class extends Figure-Class
+  
+
+  ;;;
+  ;;;; Offscreen
+  ;;;
+  
+  
+  (definition offscreen
+    null)
+  
+  
+  (method public (get-offscreen dc <Surface> width <int> height <int>)
+    (if (and offscreen
+             (let ((size (get-size~ offscreen)))
+               (and (<= width [width size])
+                    (<= height [height size]))))
+        (begin
+          (new-context~ offscreen)
+          offscreen)
+      (when offscreen
+        (close~ offscreen))
+      (set! offscreen (new-offscreen dc width height))))
+  
+  
+  (method (new-offscreen dc <Surface> width <int> height <int>)
+    (new Cairo-Memory-Surface dc :size (new Dimension width height)))
+
+
+  ;;;
+  ;;;; Effect
+  ;;;
+  
+  
+  (definition effect-offscreen
+    null)
+  
+  
+  (method public (get-effect-offscreen dc <Surface> width <int> height <int>)
+    (if (and effect-offscreen
+             (let ((size (get-size~ effect-offscreen)))
+               (and (<= width [width size])
+                    (<= height [height size]))))
+        effect-offscreen
+      (when effect-offscreen
+        (close~ effect-offscreen))
+      (set! effect-offscreen (new-offscreen dc width height))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (property-presentation property)
+    (case (field-name property)
+      ((offscreen?) "Offscreen")
+      ((effect) "Effect")
+      (else (nextmethod property)))))
+
+
+(class Drawing metaclass Drawing-Class extends Figure
+  
+  
+  ;;;
+  ;;;; Player
+  ;;;
+  
+  
+  (method public virtual (get-player)
+    (essay parent (get-player~ parent)))
+
+  
+  ;;;
+  ;;;; Lie
+  ;;;
+  
+  
+  (method public (get-lie)
+    (bind-values (h <Real> v <Real> sc) (get-lie-parent 0.0 0.0 1.0)
+      (new Point (round h) (round v))))
+  
+  
+  (method protected virtual (get-lie-parent h <Real> v <Real> sc <Real>)
+    (cond ((null? parent)
+           (values h v sc))
+          (else
+           (get-lie-parent~ parent (+ [h position] h) (+ [v position] v) sc))))
+  
+  
+  (method public (set-lie lie <Point>)
+    (with ((actual (get-lie))
+           (delta (- lie actual))
+           (pos (+ position delta)))
+      (set-position pos)))
+
+  
+  ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method public (get-root)
+    (let ((player (get-player)))
+      (if player
+          (get-root~ player)
+        (if (is? self Root-View)
+            self
+          (essay parent (get-root~ parent))))))
+
+  
+  ;;;
+  ;;;; Coordinates
+  ;;;
+
+
+  (method public (acquire origin shape)
+    (bind-values (dh dv sc) (get-delta origin)
+      (acquire-delta dh dv sc shape)))
+
+
+  (method public (acquire-delta dh <Real> dv <Real> sc <Real> shape)
+    (typecase shape
+      ((Point)
+       (let ((h <int> [h shape])
+             (v <int> [v shape]))
+         (new Point (round (+ dh (* h sc)))
+                    (round (+ dv (* v sc))))))
+      ((Rect)
+       (let ((left <int> [left shape])
+             (top <int> [top shape])
+             (right <int> [right shape])
+             (bottom <int> [bottom shape]))
+         (new Rect (round (+ dh (* left sc)))
+                   (round (+ dv (* top sc)))
+                   (round (+ dh (* right sc)))
+                   (round (+ dv (* bottom sc))))))
+      (else
+       (error "Unable to acquire {t}" shape))))
+  
+  
+  (method protected virtual (get-delta origin)
+    (bind-values (origin-h <Real> origin-v <Real> origin-sc <Real>) (get-lie-parent~ origin 0.0 0.0 1.0)
+      (bind-values (dh <Real> dv <Real> sc <Real>) (get-lie-parent 0.0 0.0 1.0)
+        (values (/ (- origin-h dh) sc) (/ (- origin-v dv) sc) (/ origin-sc sc)))))
+
+  
+  ;;;
+  ;;;; Size
+  ;;;
+
+
+  (method (get-size)
+    size)
+  
+
+  (method (set-size sz <Dimension>)
+    (when (/= sz size)
+      (set! size sz)
+      (invalidate-layout)
+      (when (get-finished?)
+        (call-layout))))
+  
+
+  (method public (get-width)
+    [width size])
+  
+  
+  (method public (set-width width <int>)
+    (set-size (new Dimension width (get-height))))
+
+
+  (method public (get-height) <int>
+    [height size])
+  
+  
+  (method public (set-height height <int>)
+    (set-size (new Dimension (get-width) height)))
+  
+  
+  (method public (get-left)
+    [h position])
+  
+  
+  (method public (get-top)
+    [v position])
+  
+  
+  (method public (get-right)
+    (+ [h position] [width size]))
+  
+  
+  (method public (get-bottom)
+    (+ [v position] [height size]))
+
+  
+  (method public (get-bounds)
+    (size-rect (get-size)))
+  
+  
+  (method public (set-bounds bounds <Rect>)
+    (set-position (rect-position bounds))
+    (set-size (rect-size bounds)))
+  
+  
+  (method public (get-rect)
+    (position/size->rect (get-position) (get-size)))
+  
+  
+  (method public (set-rect rect <Rect>)
+    (set-position (rect-position rect))
+    (set-size (rect-size rect)))
+
+  
+  ;;;
+  ;;;; Flags
+  ;;;
+  
+  
+  (method (get-layout-valid?)
+    (mask-bit-set? flags Layout-Valid-Flag))
+  
+  
+  (method (set-layout-valid? flag <bool>)
+    (set! flags (mask-bit-set flags Layout-Valid-Flag flag)))
+  
+  
+  ;;;
+  ;;;; Scaling
+  ;;;
+  
+
+  (method public virtual (get-scaled?)
+    false)
+
+
+  (method public virtual (set-scaled? value)
+    )
+  
+
+  (method public virtual (get-scaling)
+    1.0)
+
+
+  (method public virtual (set-scaling value)
+    )
+
+
+  (method public (logical->device shape . rest)
+    (bind-keywords ((orientation null) (info null)) rest
+      (let ((info (either info (scaling-info))))
+        (if (null? info)
+            shape
+          (bind-values (sh <int> sv <int> sc <Real>) info
+            (let ((horz (function dynamic (lh <int>) (round (+ (* (- lh sh) sc) sh))))
+                  (vert (function dynamic (lv <int>) (round (+ (* (- lv sv) sc) sv)))))
+              (typecase shape
+                ((Point) (new Point (horz [h shape]) (vert [v shape])))
+                ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
+                ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+                ((Integer) (case orientation
+                           ((horz) (horz shape))
+                           ((vert) (vert shape))
+                           (else (error "Unknown orientation: {t}" orientation))))
+                (else (error "Unable to translate {t}" shape)))))))))
+
+
+  (method public (device->logical shape . rest)
+    (bind-keywords ((orientation null) (info null)) rest
+      (let ((info (either info (scaling-info))))
+        (if (null? info)
+            shape
+          (bind-values (sh <int> sv <int> sc <Real>) info
+            (let ((horz (function dynamic (dh <int>) (+ (quotient (- dh sh) sc) sh)))
+                  (vert (function dynamic (dv <int>) (+ (quotient (- dv sv) sc) sv))))
+              (typecase shape
+                ((Point) (new Point (horz [h shape]) (vert [v shape])))
+                ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
+                ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+                ((Integer) (case orientation
+                           ((horz) (horz shape))
+                           ((vert) (vert shape))
+                           (else (error "Unknown orientation: {t}" orientation))))
+                (else (error "Unable to translate {t}" shape)))))))))
+  
+  
+  ;; Maybe this method should be optimized out by setting
+  ;; scaling info in every child of the scaled drawing...
+  (method (scaling-info)
+    (let ((drawing self)
+           (sh <int> 0)
+           (sv <int> 0))
+      (call/ec
+        (lambda (return)
+          (while drawing
+            (let ((sc? (get-scaled?~ drawing))
+                  (sc (get-scaling~ drawing)))
+              (if sc?
+                  (return (values sh sv sc))
+                (let ((pos (get-position~ drawing)))
+                  (decrease! sh [h pos])
+                  (decrease! sv [v pos]))
+                (set! drawing (get-parent~ drawing)))))
+          null))))
+
+  
+  ;;;
+  ;;;; Visibility
+  ;;;
+  
+  
+  (method public (fully-visible?)
+    (and (get-visible?) (or (null? parent) (fully-visible?~ parent))))
+
+  
+  ;;;
+  ;;;; Transparency
+  ;;;
+
+  
+  (method public virtual (get-transparent?)
+    false)
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method protected (invalidate-layout)
+    (set-layout-valid? false))
+  
+  
+  (method protected (call-layout)
+    (unless (get-layout-valid?)
+      (layout)
+      (set-layout-valid? true)))
+  
+  
+  (method public (layout-drawing)
+    ;; No need to layout if the drawing is not initialized, because
+    ;; conclude will call layout once the initialization process is done.
+    (when (get-finished?)
+      (invalidate-layout)
+      (call-layout)))
+  
+  
+  (method public virtual (layout)
+    )
+
+  
+  ;;;
+  ;;;; Iterate
+  ;;;
+  
+  
+  (method public (for-each-drawing proc <Procedure> . rest)
+    (bind-keywords ((include-invisibles? false)) rest
+      (loop (for child in children)
+            (when (and (is? child View)
+                       (or include-invisibles? (get-visible?~ child)))
+              (proc child)))))
+  
+  
+  (method public (for-each-drawing-reversed proc <Procedure> . rest)
+    (bind-keywords ((include-invisibles? false)) rest
+      (with ((proc
+              (function dynamic (child)
+                (when (and (is? child View)
+                           (or include-invisibles? (get-visible?~ child)))
+                  (proc child)))))
+        (for-each-reversed proc children))))
+  
+  
+  ;;;
+  ;;;; Hierarchy
+  ;;;
+  
+  
+  (method public (find-drawing pos <Point>)
+    (when (in-drawing? pos size)
+      (either (find-subdrawing pos)
+              (unless (get-transparent?)
+                self))))
+  
+  
+  (method protected virtual (in-drawing? pos <Point> size <Dimension>)
+    (in-size? pos size))
+  
+  
+  (method protected virtual (find-subdrawing pos <Point>)
+    (call/ec
+      (lambda (return)
+        (with ((proc <Procedure>
+                 (function dynamic (view)
+                   (with ((delta <Point> (- pos (get-position~ view))))
+                     (let* ((scaled? (get-scaled?~ view))
+                            (found (if (not scaled?)
+                                       (find-drawing~ view delta)
+                                     (let ((scaling <Real> (get-scaling~ view)))
+                                       (with ((scaled (new Point
+                                                        (round (/ [h delta] scaling))
+                                                        (round (/ [v delta] scaling)))))
+                                         (find-drawing~ view scaled))))))
+                       (when found
+                         (return found)))))))
+          (for-each-drawing-reversed proc))
+        null)))
+
+
+  ;;;
+  ;;;; Invalidation
+  ;;;
+  
+  
+  (method public (invalidate-drawing)
+    (with ((rect (get-rect)))
+      (invalidate-rect~ parent rect)))
+
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  ;; I think that keeping the update region makes the code complex for not much (and it doesn't work
+  ;; with scaling). Why not always get the bounding box and pass it around. Drawing methods would then
+  ;; always have an update rect available for consultation...
+  
+  
+  (method public (paint dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+    (when (get-visible?)
+      ;; beurk code for testing
+      (if (or (get-scaled?) sc?)
+          (with ((rect (h/v/size->rect lh lv size)))
+            ;; quick patch for the time being
+            (when true @w (rect-intersects-region? [left scaled] [top scaled] (rect-size scaled) update)
+              (paint-displayed dc context update lh lv sh sv sc sc?)))
+        (when (cond ((null? update) true)
+                    ((is? update Rect) (with ((lie (new Point lh lv))) (rects-intersect? update lie size)))
+                    (else (rect-intersects-region? lh lv size update)))
+          (paint-displayed dc context update lh lv sh sv sc sc?)))))
+
+
+  (method public (paint-displayed dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+    (if (not (get-offscreen?))
+        (paint-drawing dc context update lh lv sh sv sc sc?)
+      (let ((offscreen (get-offscreen~ (class-of self) dc [width size] [height size])))
+        (with ((origin (new Point 0 0))
+               (clipper (get-bounds)))
+          (setup-clipper~ offscreen clipper)
+          (paint-drawing offscreen context update lh lv sh sv sc sc?)
+          ;; the next lines are in case an error occurs in the paint process
+          ;; so that on the next pass at least these values will be reset...
+          @JLR-Check-What-This-Does
+          (if (not Cairo?)
+              (begin
+                (SetWindowOrgEx offhdc 0 0 NULL)
+                (SetViewportOrgEx offhdc 0 0 NULL)
+                (SetMapMode offhdc MM_TEXT)
+                (let ((overlay (get-overlay)))
+                  (when overlay
+                    (draw-overlay~ overlay self offscreen [width size] [height size])))))
+          (let ((effect (get-effect)))
+            (bit-blit~ offscreen dc :size size)
+            @not-converted-to-cairo
+            (if (null? effect)
+              (with ((lie (new Point lh lv)))
+                (animate~ effect offscreen dc lie size))
+              (set-effect null)))))))
+
+  
+  (method public (paint-drawing dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+    (let* ((scaled? (get-scaled?))
+           (scaling (get-scaling))
+           (new-sh (if (not scaled?) sh lh))
+           (new-sv (if (not scaled?) sv lv))
+           (new-sc (if (not scaled?) sc scaling))
+           (new-sc? (if (not scaled?) sc? true)))
+      (with-transform~ dc self lh lv [width size] [height size] new-sh new-sv new-sc new-sc?
+        (function dynamic ()
+          (render dc context update lh lv new-sh new-sv new-sc new-sc?)))))
+
+  
+  (method public virtual (render dc <Surface> context update lh lv sh sv sc sc?)
+    (draw-background dc context)
+    (draw-content dc context update lh lv sh sv sc sc?)
+    ;(draw-placeholder dc)
+    (draw-children dc context update lh lv sh sv sc sc?))
+
+  
+  (method public virtual (draw-background dc <Surface> context)
+    )
+  
+  
+  (method public virtual (draw-content dc <Surface> context update lh lv sh sv sc sc?)
+    (draw dc context update lh lv))
+    
+  
+  (method public virtual (draw dc <Surface> context update lh lv)
+    )
+  
+  
+  (definition *colors*
+    '({Color name: Dark-Red}
+      {Color name: Dark-Orange}
+      {Color name: Dark-Yellow}
+      {Color name: Dark-Green}
+      {Color name: Dark-Blue}
+      {Color name: Dark-Purple}))
+  
+  (definition *nb-colors*
+    (length *colors*))
+  
+  (definition *current-color*
+    0)
+  
+
+  (method (draw-placeholder dc)
+    (set-color~ dc {Color name: White})
+    (paint~ dc)
+    (fill-rect~ dc (get-bounds) (element *colors* *current-color*))
+    (set! *current-color* (modulo (+ *current-color* 1) *nb-colors*)))
+  
+  
+  (method public virtual (draw-children dc <Surface> context update lh <int> lv <int> sh sv sc sc?)
+    (with ((proc <Procedure>
+            (function dynamic (drawing)
+              (let ((pos (get-position~ drawing)))
+                (paint~ drawing dc context update (+ lh [h pos]) (+ lv [v pos]) sh sv sc sc?)))))
+      (for-each-drawing proc)))
+  
+  
+  (method protected (get-update-rect dc <Surface> update lh lv)
+    (cond ((null? update) (get-bounds))
+          ((is? update Rect) (device->logical~ dc update))
+          (else
+           (with ((box (get-box~ update))
+                  (logical (device->logical~ dc box))
+                  (bounds (get-bounds)))
+             (rect-intersection logical bounds)))))
+
+
+  ;;;
+  ;;;; Clipping
+  ;;;
+  
+  
+  (method public (get-view-clipper)
+    (get-translated-clipper 0 0))
+  
+  
+  (method protected virtual (get-translated-clipper h v)
+    (with ((b (get-bounds))
+           (r (offset-rect b (round h) (round v))))
+      (if (null? parent)
+          (copy r)
+        (with ((p (get-translated-clipper~ parent (- h [h position]) (- v [v position]))))
+          (rect-intersection p r)))))
+  
+  
+  (method public virtual (get-offscreen?)
+    false)
+  
+  
+  (method public virtual (set-offscreen? flag <bool>)
+    )
+
+
+  ;;;
+  ;;;; Overlay
+  ;;;
+  
+  
+  (method public virtual (get-overlay)
+    null)
+  
+  
+  (method public virtual (set-overlay value)
+    )
+  
+  
+  (method public virtual (get-effect)
+    null)
+  
+  
+  (method public virtual (set-effect value)
+    )))

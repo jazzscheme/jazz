@@ -1,0 +1,120 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Finding Dead Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.analysis.Dead-Code-Analyser jazz
+
+
+(import (jazz.library)
+        (jedi.analysis))
+
+
+(class Dead-Code-Analyser extends Analyser
+  
+
+  (slot references)
+  
+  
+  (method (load-classes?)
+    true)
+  
+  
+  (method (setup)
+    (set! references (new-map)))
+  
+  
+  (method (exception? field)
+    (let ((class (type-name (field-creator field))))
+      (or (memq? class [Class-Exceptions Live-Exceptions])
+          (let ((info (assq class [Field-Exceptions Live-Exceptions])))
+            (and info
+                 (memq? (field-name field) (cdr info)))))))
+
+  
+  @replaced-by-Reference-Analyser
+  (method (dead? field)
+    (let* ((name (field-name field))
+           (references (map-ref references name)))
+      (and (null? references)
+           (every? (function dynamic (m)
+                     (and (zero? (field-references m))
+                          (not (exception? m))))
+                   (field-hierarchy field)))))
+
+
+  (method (dead? field)
+    false)
+  
+  
+  (method (field-hierarchy field)
+    (if (null? field)
+        null
+      (let ((ascendant (type-ascendant (field-creator field))))
+        (cons field (essay ascendant (field-hierarchy (unit-field ascendant (field-name field))))))))
+  
+  
+  (method (sorted-classes)
+    (let ((units null))
+      (for-each-source
+        (function dynamic (unit-name source properties)
+          (set! units (cons unit-name units))))
+      (sort < units)))
+  
+
+  (method (save-results)
+    (with-closed ((output (new File-Printer :file {File Home "Results.text"})))
+      (for-each (function dynamic (symbol)
+                  (let ((dead (sort < (collect-if dead? (unit-fields (class-of symbol))) :key field-name)))
+                    (when dead
+                      (format output "{a}{%}" symbol)
+                      (for-each-pair (function dynamic (pair)
+                                       (bind (field . tail) pair
+                                         (format output "  {a}" (field-name field))
+                                         (when tail
+                                           (newline output))))
+                                     dead)
+                      (newline output))))
+                (sorted-classes))))
+  
+
+  (method (symbol-hook param symbol)
+    (map-set! references symbol (+ (either (map-ref references symbol) 0) 1)))
+
+
+  (method public (go)
+    (setup)
+    (process-all)
+    (save-results))))

@@ -1,0 +1,304 @@
+(library jazz.platform.cairo.cairo-win32 jazz
+
+(import (jazz.platform.external)
+        (jazz.platform.windows))
+
+
+(c-include "<cairo-win32.h>")
+
+
+(constant M_PI 3.14159265358979323846)
+
+(c-type void     (native void))
+(c-type int      (native int))
+(c-type int*     (pointer int))
+(c-type double   (native double))
+(c-type double*  (pointer double double*))
+(c-type ulong    (native unsigned-long))
+(c-type utf8     (native UTF-8-string))
+(c-type string   (native char-string))
+(c-type HDC      (pointer void))
+
+
+(c-type cairo_surface_t (native "cairo_surface_t"))
+(c-type cairo_surface_t* (pointer cairo_surface_t cairo_surface_t*))
+(c-type cairo_t (native "cairo_t"))
+(c-type cairo_t* (pointer cairo_t cairo_t*))
+(c-type cairo_pattern_t (native "cairo_pattern_t"))
+(c-type cairo_pattern_t* (pointer cairo_pattern_t cairo_pattern_t*))
+(c-type cairo_font_face_t  (native "cairo_font_face_t"))
+(c-type cairo_font_face_t* (pointer cairo_font_face_t cairo_font_face_t*))
+
+
+
+(enumeration cairo_content_t
+  (CAIRO_CONTENT_COLOR          #x1000)
+  (CAIRO_CONTENT_ALPHA          #x2000)
+  (CAIRO_CONTENT_COLOR_ALPHA    #x3000))
+
+(c-type cairo_content_t int)
+
+(enumeration cairo_format_t
+  (CAIRO_FORMAT_ARGB32 0)
+  (CAIRO_FORMAT_RGB24  1)
+  (CAIRO_FORMAT_A8     2)
+  (CAIRO_FORMAT_A1     3))
+
+(c-type cairo_format_t int)
+
+(enumeration cairo_font_slant_t
+  (CAIRO_FONT_SLANT_NORMAL  0)
+  (CAIRO_FONT_SLANT_ITALIC  1)
+  (CAIRO_FONT_SLANT_OBLIQUE 2))
+
+(c-type cairo_font_slant_t int)
+
+(enumeration cairo_font_weight_t
+  (CAIRO_FONT_WEIGHT_NORMAL 0)
+  (CAIRO_FONT_WEIGHT_BOLD   1))
+
+(c-type cairo_font_weight_t int)
+
+(enumeration cairo_status_t
+  (CAIRO_STATUS_SUCCESS                 0)
+  (CAIRO_STATUS_NO_MEMORY               1)
+  (CAIRO_STATUS_INVALID_RESTORE         2)
+  (CAIRO_STATUS_INVALID_POP_GROUP       3)
+  (CAIRO_STATUS_NO_CURRENT_POINT        4)
+  (CAIRO_STATUS_INVALID_MATRIX          5)
+  (CAIRO_STATUS_INVALID_STATUS          6)
+  (CAIRO_STATUS_NULL_POINTER            7)
+  (CAIRO_STATUS_INVALID_STRING          8)
+  (CAIRO_STATUS_INVALID_PATH_DATA       9)
+  (CAIRO_STATUS_READ_ERROR              10)
+  (CAIRO_STATUS_WRITE_ERROR             11)
+  (CAIRO_STATUS_SURFACE_FINISHED        12)
+  (CAIRO_STATUS_SURFACE_TYPE_MISMATCH   13)
+  (CAIRO_STATUS_PATTERN_TYPE_MISMATCH   14)
+  (CAIRO_STATUS_INVALID_CONTENT         15)
+  (CAIRO_STATUS_INVALID_FORMAT          16)
+  (CAIRO_STATUS_INVALID_VISUAL          17)
+  (CAIRO_STATUS_FILE_NOT_FOUND          18)
+  (CAIRO_STATUS_INVALID_DASH            19)
+  (CAIRO_STATUS_INVALID_DSC_COMMENT     20)
+  (CAIRO_STATUS_INVALID_INDEX           21)
+  (CAIRO_STATUS_CLIP_NOT_REPRESENTABLE  22))
+
+(c-type cairo_status_t int)
+
+
+
+
+
+(c-structure cairo_font_extents_t
+  (double ascent)
+  (double descent)
+  (double height)
+  (double max_x_advance)
+  (double max_y_advance))
+
+
+
+(c-structure cairo_text_extents_t
+  (double x_bearing)
+  (double y_bearing)
+  (double width)
+  (double height)
+  (double x_advance)
+  (double y_advance))
+
+
+
+(c-structure cairo_matrix_t
+  (double xx)
+  (double yx)
+  (double xy)
+  (double yy)
+  (double x0)
+  (double y0))
+
+(c-structure cairo_glyph_t
+  (ulong index)
+  (double x)
+  (double y))
+
+
+;;;; Current Point
+
+
+(definition cairo_current_point
+  (c-function (cairo_t*) double* 
+     "double* point = calloc(2,sizeof(double));\n
+      cairo_get_current_point(___arg1, point, point+1);\n
+      ___result_voidstar = point;"))
+
+
+(definition cairo_free_point
+  (c-function (double*) void "free(___arg1);"))
+
+
+(definition get-point-x
+  (c-function (double*) double
+     "___result = *___arg1;"))
+
+
+(definition get-point-y
+  (c-function (double*) double
+     "___result = *(___arg1+1);"))
+
+
+;;; Device to User
+
+
+(definition cairo_device_to_user
+  (c-function (cairo_t* double double) double*
+    "double* point = calloc(2,sizeof(double));
+     *point      = ___arg2;
+     *(point+1)  = ___arg3;
+     cairo_device_to_user(___arg1,point,point+1);
+     ___result_voidstar = point;"))
+     
+     
+(definition cairo_user_to_device
+  (c-function (cairo_t* double double) double*
+    "double* point = calloc(2,sizeof(double));
+     *point      = ___arg2;
+     *(point+1)  = ___arg3;
+     cairo_user_to_device(___arg1,point,point+1);
+     ___result_voidstar = point;"))
+
+     
+;;;;  Int Arrays
+
+
+(definition alloc-int-array  (c-function (int) int* "___result_voidstar = calloc(___arg1,sizeof(int));"))
+
+
+(definition int-array-set!   (c-function (int* int int) void "*(___arg1+___arg2) = ___arg3;"))
+
+
+(definition int-array-ref    (c-function (int* int) int "___result = *(___arg1+___arg2);"))
+
+
+;;;  Double Arrays
+
+
+(definition double-array-ref (c-function (double* int) double "___result = *(___arg1+___arg2);"))
+
+
+;;;; Glyph Arrays
+
+
+(definition alloc-glyph-array (c-function (int) cairo_glyph_t* "___result_voidstar = calloc(___arg1,sizeof(cairo_glyph_t));"))
+
+
+(definition free-glyph-array (c-function (cairo_glyph_t*) void "free(___arg1);"))
+
+
+(definition glyph-array-ref (c-function (cairo_glyph_t* int) cairo_glyph_t* "___result_voidstar = (void*)(___arg1+___arg2);"))
+
+
+;;;; Surface
+
+
+(c-external void                       (cairo_surface_destroy cairo_surface_t*))
+(c-external cairo_status_t             (cairo_surface_status cairo_surface_t*))
+(c-external cairo_content_t            (cairo_surface_get_content cairo_surface_t*))
+(c-external void                       (cairo_surface_finish cairo_surface_t*))
+(c-external void                       (cairo_surface_flush cairo_surface_t*))
+
+
+;;;; Win32 Surface
+
+
+(c-external cairo_surface_t*    (cairo_win32_surface_create HDC))
+(c-external HDC                 (cairo_win32_surface_get_dc cairo_surface_t*))
+
+
+;;;; Context
+
+
+(c-external cairo_t*    (cairo_create cairo_surface_t*))
+(c-external void        (cairo_destroy cairo_t*))
+(c-external void        (cairo_save cairo_t*))
+(c-external void        (cairo_restore cairo_t*))
+(c-external cairo_status_t      (cairo_status                            cairo_t*))
+
+(c-external void   (cairo_clip cairo_t*))
+(c-external void   (cairo_reset_clip cairo_t*))
+
+(c-external void   (cairo_fill cairo_t*))
+
+
+(c-external void   (cairo_paint cairo_t*))
+
+
+(c-external void   (cairo_stroke cairo_t*))
+(c-external void   (cairo_stroke_preserve cairo_t*))
+
+
+;;;; Path
+
+
+(c-external void   (cairo_move_to cairo_t* double double))
+(c-external void   (cairo_line_to cairo_t* double double))
+(c-external void   (cairo_rel_line_to cairo_t* double double))
+(c-external void   (cairo_arc cairo_t* double double double double double))
+(c-external void   (cairo_rectangle cairo_t* double double double double))
+(c-external void   (cairo_set_line_width cairo_t* double))
+(c-external double (cairo_get_line_width cairo_t*))
+(c-external void   (cairo_rel_move_to cairo_t* double double))
+
+
+;;;; Source
+
+(c-external void   (cairo_set_source cairo_t* cairo_pattern_t*))
+(c-external void   (cairo_set_source_surface cairo_t* cairo_surface_t* double double))
+(c-external void   (cairo_set_source_rgb cairo_t* double double double))
+(c-external void   (cairo_set_source_rgba cairo_t* double double double double))
+(c-external cairo_pattern_t*    (cairo_get_source cairo_t*))
+(c-external cairo_status_t    (cairo_pattern_get_rgba cairo_pattern_t* double* double* double* double*))
+(c-external cairo_pattern_t*    (cairo_pattern_create_for_surface cairo_surface_t*))
+(c-external cairo_pattern_t*   (cairo_pattern_create_linear double double double double))
+(c-external void   (cairo_pattern_add_color_stop_rgb cairo_pattern_t* double double double double))
+
+
+
+;;;; Text
+
+
+(c-external void   (cairo_show_text cairo_t* utf8))
+(c-external void   (cairo_set_font_face cairo_t* cairo_font_face_t*))
+(c-external void   (cairo_set_font_size cairo_t* double))
+(c-external void   (cairo_font_extents cairo_t* cairo_font_extents_t*))  
+(c-external void   (cairo_glyph_extents cairo_t* cairo_glyph_t* int cairo_text_extents_t*))
+(c-external void   (cairo_select_font_face cairo_t* string cairo_font_slant_t cairo_font_weight_t))
+(c-external void   (cairo_show_glyphs cairo_t* cairo_glyph_t* int))
+(c-external void   (cairo_text_extents cairo_t* utf8 cairo_text_extents_t*))
+
+
+;;;; Matrix
+
+
+(c-external void   (cairo_translate cairo_t* double double))
+(c-external void   (cairo_transform cairo_t* cairo_matrix_t*))
+(c-external void   (cairo_set_matrix cairo_t* cairo_matrix_t*))
+(c-external void   (cairo_get_matrix cairo_t* cairo_matrix_t*))
+(c-external void   (cairo_identity_matrix cairo_t*))
+(c-external void   (cairo_scale cairo_t* double double))
+(c-external void   (cairo_device_to_user_distance cairo_t* double* double*))
+
+
+;;;; Win32 Fonts
+
+
+(c-external cairo_font_face_t*    (cairo_win32_font_face_create_for_logfontw LOGFONTW*))
+(c-external void                  (cairo_font_face_destroy cairo_font_face_t*))
+
+
+;;;; Image Surface
+
+
+(c-external cairo_surface_t*      (cairo_image_surface_create_from_png utf8))
+(c-external cairo_surface_t*      (cairo_image_surface_create cairo_format_t int int))
+(c-external void                  (cairo_pattern_destroy                   cairo_pattern_t*)))

@@ -1,0 +1,534 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Loop
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.dialect.syntax.loop scheme
+
+
+(import (jazz.dialect.kernel)
+        (jazz.dialect.syntax.either (phase syntax))
+        (jazz.dialect.syntax.increase (phase syntax))
+        (jazz.dialect.syntax.bind (phase syntax))
+        (jazz.dialect.syntax.bind-optionals (phase syntax))
+        (jazz.dialect.syntax.bind-values (phase syntax))
+        (jazz.dialect.syntax.while (phase syntax))
+        (jazz.dialect.syntax.macros (phase syntax)))
+
+
+;;;
+;;;; Samples
+;;;
+
+
+#; ;; @macro
+(loop (repeat n)
+      (do (bell)))
+
+#; ;; @expansion
+(let ((rpt0 n))
+  (while (and (> rpt0 0))
+    (bell)
+    (decrease! rpt0)))
+
+
+#; ;; @macro
+(loop (for x from 0 below (upper-bound))
+      (for y in (get-list))
+      (sum (* x y))
+      (do (debug x))
+      (finally (message-box "Done")))
+
+#; ;; @expansion
+(let ((x <int> 0)
+      (end0 <int> (upper-bound))
+      (for1 <Object> (get-list))
+      (y <Object> nil)
+      (res2 <int> 0))
+  (while (and (< x end0) (not (eq? for1 nil)))
+    (set! y (%%car for1))
+    (increase! res2 (* x y))
+    (debug x)
+    (finally (message-box "Done"))
+    (increase! x 1)
+    (set! for1 (%%cdr for1)))
+  res2)
+
+
+#; ;; @macro
+(loop (for x in list)
+      (some (test? x)))
+
+#; ;; @expansion
+(let ((for0 <Object> list)
+      (x <Object>)
+      (res1 <bool> false))
+  (while (and (not (eq? for0 nil)))
+    (set! x (%%car for0))
+    (when (test? x)
+      (set! res1 true))
+    (set! for0 (%%cdr for0)))
+  res1)
+
+
+#; ;; @macro
+(loop (for n in lst)
+      (when (even? n)
+        (return n))
+      (debug n))
+
+#; ;; @expansion
+(let ((for0 <Object> lst)
+      (n <Object>)
+      (dne1 <bool> #f))
+  (while (and (not dne1) (not (eq? for0 nil)))
+    (set! n (%%car for0))
+    (set! for0 (%%cdr for0))
+    (when (even? n)
+      (set! dne1 #t))
+    (when (not dne1)
+      (debug n)))
+  n)
+
+
+#; ;; @macro
+(loop (for n in (naturals 0 10))
+      (when (even? n)
+        (collect (* n n) in even))
+      (when (odd? n)
+        (sum (+ n n) in odd))
+      (finally (list even odd)))
+
+
+(syntax (loop . clauses)
+  (expand-loop clauses))
+
+
+(define noobject
+  (list 'noobject))
+
+
+(define (expand-loop clauses)
+  (let ((bindings    '())
+        (return      noobject)
+        (done        noobject)
+        (tests       '())
+        (withs       '())
+        (befores     '())
+        (actions     '())
+        (afters      '())
+        (epilogue    '())
+        (finally     '())
+        (unique-rank 0))
+    
+  
+  ;;;
+  ;;;; FOR TESTS
+  ;;;
+    
+    
+    ;; for now
+    (define append!
+      append)
+    
+    (define (atom? expr)
+      (not (pair? expr)))
+    
+    (define (specifier? expr)
+      #f)
+    
+    (define (unwrap-syntax expr)
+      expr)
+    
+  
+  ;;;
+  ;;;; Expand
+  ;;;
+
+
+  (define (expand clauses)
+    (set! actions (process-clauses clauses))
+    (expand-loop))
+    
+  
+  ;;;
+  ;;;; Clauses
+  ;;;
+
+  
+  (define (process-clauses clauses)
+    (let ((actions (new-queue)))
+      (while (not-null? clauses)
+        (let ((clause (car clauses)))
+          (if (atom? clause)
+              (add-action clause actions)
+            (bind (key . rest) clause
+              (case (unwrap-syntax key)
+                ((with)    (process-with    actions rest))
+                ((for)     (process-for     actions rest))
+                ((repeat)  (process-repeat  actions rest))
+                ((some)    (process-some    actions rest))
+                ((every)   (process-every   actions rest))
+                ((when)    (process-when    actions rest))
+                ((do)      (process-do      actions rest))
+                ((sum)     (process-sum     actions rest))
+                ((collect) (process-collect actions rest))
+                ((return)  (process-return  actions rest))
+                ((finally) (process-finally actions rest))
+                (else    (add-action clause actions))))))
+        (set! clauses (cdr clauses)))
+      (queue-list actions)))
+
+
+  (define (expand-loop)
+    `(let* ,bindings
+       (while (and ,@tests)
+         ,@befores
+         (let* ,withs
+           ,@actions)
+         ,@afters)
+       ,@epilogue
+       ,@(if (eq? return noobject)
+             finally
+           `((if ,done
+                 ,return
+               (begin
+                 ,@finally))))))
+  
+  
+  (define (unique prefix)
+    (let ((symbol (string->symbol (string-append prefix (->string unique-rank)))))
+      (increase! unique-rank)
+      symbol))
+  
+  
+  (define Unbound
+    (cons null null))
+  
+  
+  (define (add-binding variable type . rest)
+    (bind-optionals ((value Unbound)) rest
+      (let ((binding (cons variable (cons type (if (eq? value Unbound) (list 'nil) (list value))))))
+        (set! bindings (append! bindings (list binding))))
+      variable))
+  
+  
+  (define (add-with with)
+    (set! withs (append! withs (list with))))
+  
+  
+  (define (get-return/done)
+    (when (eq? return noobject)
+      (let ((ret (unique "ret"))
+            (dne (unique "dne")))
+        (add-binding ret '<Object+> 'nil)
+        (add-binding dne '<bool> 'false)
+        (add-initial-test (list 'not dne))
+        (set! return ret)
+        (set! done dne)))
+    (values return done))
+  
+  
+  (define (done-safe actions)
+    (if (eq? done noobject)
+        actions
+      `((when (not-nil? ,done)
+          ,@actions))))
+  
+  
+  (define (add-test test)
+    (set! tests (append! tests (list test))))
+  
+  
+  (define (add-initial-test test)
+    (set! tests (cons test tests)))
+  
+  
+  (define (add-before before)
+    (set! befores (append! befores (done-safe (list before)))))
+  
+  
+  (define (add-action action actions)
+    (add-actions (list action) actions))
+  
+  
+  (define (add-actions action-list actions)
+    (enqueue-list actions (done-safe action-list)))
+  
+  
+  (define (add-after after)
+    (set! afters (append! afters (done-safe (list after)))))
+  
+  
+  (define (add-epilogue expr)
+    (set! epilogue (append! epilogue (list expr))))
+  
+  
+  (define (set-finally lst)
+    (set! finally lst))
+  
+  
+  ;;;
+  ;;;; with
+  ;;;
+
+
+  (define (process-with actions rest)
+    (add-with rest))
+  
+  
+  ;;;
+  ;;;; for
+  ;;;
+
+
+  (define (process-for actions rest)
+    (bind-values (variable type key rest) (parse-for rest)
+      (case (unwrap-syntax key)
+        ((in)
+         (bind (lst . rest) rest
+           (let ((for (unique "for")))
+             (add-binding for '<Object> lst)
+             (add-binding variable (either type '<Object>))
+             (add-test (list 'not (list 'eq? for 'jazz.null)))
+             (add-before (list 'set! variable (list '%%car for)))
+             (add-before (list 'set! for (list '%%cdr for)))
+             (when (not-null? rest)
+               (bind (keyword value) rest
+                 (case (unwrap-syntax keyword)
+                   ((remainder)
+                    (add-binding value '<Object+>)
+                    (add-before (list 'set! value for)))
+                   (else (error "Unknown for in keyword: {t}" keyword))))))))
+        ((in-vector)
+         (bind (vector . rest) rest
+           (let ((vec (unique "vec"))
+                 (for (unique "for"))
+                 (len (unique "len")))
+             (add-binding vec '<Vector> vector)
+             (add-binding for '<int> 0)
+             (add-binding len '<int> (list 'length vec))
+             (add-binding variable (either type '<Object>))
+             (add-test (list '< for len))
+             (add-before (list 'set! variable (list 'element vec for)))
+             (add-before (list 'set! for (list '+ for 1))))))
+        ((in-properties)
+         (bind (keyword value) variable
+           (bind (lst) rest
+             (let ((for (unique "for")))
+               (add-binding for '<Object> lst)
+               (add-binding keyword '<Object> 'jazz.nil)
+               (add-binding value '<Object> 'jazz.nil)
+               (add-test (list 'not (list 'eq? for 'jazz.null)))
+               (add-before (list 'set! keyword (list '%%car for)))
+               (add-before (list 'set! for (list '%%cdr for)))
+               (add-before (list 'set! value (list '%%car for)))
+               (add-before (list 'set! for (list '%%cdr for)))))))
+        ((iterate)
+         (bind (iterator) rest
+           (let ((val (unique "val"))
+                 (itr (unique "itr")))
+             (add-binding val '<Object> iterator)
+             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate val)))
+             (add-binding variable '<Object> 'jazz.nil)
+             (add-test (list 'not (list 'done?~ itr)))
+             (add-before (list 'set! variable (list 'get-next~ itr))))))
+        ((from)
+         (bind (from . rest) rest
+           (let ((to null)
+                 (test null)
+                 (update 'increase!)
+                 (by 1)
+                 (scan rest))
+             (while (not-null? scan)
+               (let ((key (unwrap-syntax (car scan))))
+                 (case key
+                   ((to) (set! to (cadr scan)) (set! test '<=) (set! scan (cddr scan)))
+                   ((below) (set! to (cadr scan)) (set! test '<) (set! scan (cddr scan)))
+                   ((downto) (set! to (cadr scan)) (set! test '>=) (set! update 'decrease!) (set! scan (cddr scan)))
+                   ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
+                   (else (error "Unknown for keyword: {t}" key)))))
+             (add-binding variable '<int> from)
+             (when (not-null? to)
+               (let ((end (if (symbol? to) to (unique "end"))))
+                 (when (not (eq? end to))
+                   (add-binding end '<int> to))
+                 (add-test (list test variable end))))
+             (add-after (list update variable by)))))
+        ((first)
+         (bind (first . rest) rest
+           (add-binding variable '<Object> first)
+           (when (not-null? rest)
+             (bind (then-key then) rest
+               (add-after (list 'set! variable then))))))
+        (else
+         (error "Unknown for keyword: {t}" (unwrap-syntax key))))))
+  
+  
+  (define (parse-for rest)
+    (bind (variable . rest) rest
+      (if (specifier? (unwrap-syntax (car rest)))
+          (bind (type key . rest) rest
+            (values variable type key rest))
+        (bind (key . rest) rest
+          (values variable nil key rest)))))
+  
+  
+  ;;;
+  ;;;; repeat
+  ;;;
+
+
+  (define (process-repeat actions rest)
+    (bind (count) rest
+      (let ((rpt (unique "rpt")))
+        (add-binding rpt '<int> count)
+        (add-test (list '> rpt 0))
+        (add-after (list 'decrease! rpt)))))
+  
+  
+  ;;;
+  ;;;; some
+  ;;;
+
+
+  (define (process-some actions rest)
+    (bind (what . rest) rest
+      (let ((res (if (null? rest) (unique "res") (cadr rest))))
+        (add-binding res '<bool> 'false)
+        (add-test (list 'not res))
+        (add-action (list 'when what (list 'set! res true)) actions)
+        (set-finally (list res)))))
+  
+  
+  ;;;
+  ;;;; every
+  ;;;
+
+
+  (define (process-every actions rest)
+    (bind (what . rest) rest
+      (let ((res (if (null? rest) (unique "res") (cadr rest))))
+        (add-binding res '<bool> 'true)
+        (add-test res)
+        (add-action (list 'when (list 'not what) (list 'set! res false)) actions)
+        (set-finally (list res)))))
+  
+  
+  ;;;
+  ;;;; when
+  ;;;
+
+
+  (define (process-when actions rest)
+    (bind (test . body) rest
+      (let ((when-actions (process-clauses body)))
+        (add-action `(when ,test
+                       ,@when-actions)
+                    actions))))
+  
+  
+  ;;;
+  ;;;; do
+  ;;;
+
+
+  (define (process-do actions rest)
+    (add-actions rest actions))
+  
+  
+  ;;;
+  ;;;; sum
+  ;;;
+
+
+  (define (process-sum actions rest)
+    (bind (what . rest) rest
+      (let ((res (if (null? rest) (unique "res") (cadr rest))))
+        (add-binding res '<int> 0)
+        (add-action (list 'increase! res what) actions)
+        (set-finally (list res)))))
+  
+  
+  ;;;
+  ;;;; collect
+  ;;;
+
+
+  (define (process-collect actions rest)
+    (bind (what . rest) rest
+      (let ((res (if (null? rest) (unique "res") (cadr rest)))
+            (ptr (unique "ptr"))
+            (cns (unique "cns")))
+        (add-binding res '<List> 'jazz.null)
+        (add-binding ptr '<List> 'jazz.null)
+        (add-binding cns '<List>)
+        (add-action (list 'set! cns (list 'cons what 'null)) actions)
+        (add-action (list 'if (list 'jazz.null? ptr)
+                          (list 'begin
+                                (list 'set! ptr cns)
+                                (list 'set! res ptr))
+                          (list '%%set-cdr! ptr cns)
+                          (list 'set! ptr cns))
+                    actions)
+        (set-finally (list res)))))
+  
+  
+  ;;;
+  ;;;; return
+  ;;;
+
+
+  (define (process-return actions rest)
+    (bind-values (ret dne) (get-return/done)
+      (add-action (list 'set! ret (car rest)) actions)
+      (add-action (list 'set! dne true) actions)))
+  
+  
+  ;;;
+  ;;;; finally
+  ;;;
+
+
+  (define (process-finally actions rest)
+    (set-finally rest))
+  
+  
+  ;;;
+  ;;;; Expand
+  ;;;
+  
+  
+  (expand clauses))))

@@ -1,0 +1,169 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Catalog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.jazz.Jazz-Catalog jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Jazz-Catalog extends Filing-Catalog
+
+
+  (method (initialize name file directories extensions recursive? active? references? content-size definitions-size references-size . rest)
+    (nextmethod name file active?))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (in-memory?)
+    true)
+
+
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  (method (in-context? context)
+    (or (eq? context true)
+        (memq? 'jazz context)))
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (method (get-definitions object)
+    (unimplemented 'get-definitions)
+    @convert-manifest-stuff
+    (when (symbol? object)
+      (let ((definitions (who-defines object)))
+        (if (in-manifest? object)
+            (cons (new Jazz-File-Entry object) definitions)
+          (either definitions
+                  ;; not the most elegant but will do for now
+                  (let* ((appl (get-application))
+                         (user (get-user~ appl))
+                         (zipped (get-source~ user object)))
+                    (when (is? zipped Zipped)
+                      (list (new Zipped-Entry zipped null)))))))))
+  
+  
+  (method (get-unit-definitions object)
+    (collect-type Jazz-File-Entry (get-definitions object)))
+  
+  
+  (method (get-file-entry file)
+    (let* ((base (get-base~ file))
+           (name (find-symbol base)))
+      (when (and name (in-manifest? name))
+        (new Jazz-File-Entry name))))
+
+  
+  (method (get-references object)
+    (when (symbol? object)
+      (who-references object)))
+  
+  
+  (method (get-completions object)
+    (complete object))
+
+
+  ;;;
+  ;;;; Runtime Analysis
+  ;;;
+
+  
+  (method (who-defines target)
+    (let ((output (new List-Factory)))
+      (for-each (function dynamic (unit)
+                  (let ((definition (unit-field unit target)))
+                    (when (and definition (eq? (field-creator definition) unit))
+                      (put~ output (new Jazz-Field-Entry definition)))))
+                (all-units))
+      (get-output~ output)))
+
+  
+  (method (who-references target)
+    (let* ((output (new List-Factory))
+           (process-unit
+            (function dynamic (unit)
+              (let ((fields (unit-fields unit)))
+                (when fields
+                  (for-each (function dynamic (definition)
+                              (when (and (definition? definition) (search-deep (definition-value definition) target))
+                                (put~ output (new Jazz-Field-Entry definition))))
+                            fields))))))
+      (for-each (function dynamic (unit)
+                  (process-unit (class-of unit))
+                  (process-unit unit))
+                (all-units))
+      (get-output~ output)))
+
+
+  ;;;
+  ;;;; Completions
+  ;;;
+
+  
+  (method public (complete string)
+    (complete-c++ string))
+  
+
+  (method (complete-c++ string)
+    (JzComplete string))
+  
+  
+  (method (complete-compiled string)
+    (let ((iter (new Symbols-Iterator))
+          (length (length string))
+          (result null))
+      (while (not (done?~ iter))
+        (let ((symbol (get-next~ iter)))
+          (when (compare-n symbol string length)
+            (set! result (cons (symbol->string symbol) result)))))
+      result))
+
+
+  (external Jazz Object (JzWhoReferences string))
+  (external Jazz Object (JzComplete      string))))

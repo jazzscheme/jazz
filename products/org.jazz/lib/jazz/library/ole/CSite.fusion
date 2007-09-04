@@ -1,0 +1,246 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Container Site
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.ole.CSite jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class CSite extends CoObject implements (IOleClientSite IAdviseSink IOleInPlaceSite IOleControlSite) uses (Utilities System OLE WinDef WinError WinUser WinGDI WinOLE)
+  
+  
+  (properties :guid {GUID "25DD6D69-0959-4e2c-A652-65395A0F3C23"})
+  
+  
+  (slot view initialize {})
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-view)
+    view)
+  
+  
+  (method public (set-view v)
+    (set! view v))
+
+  
+  ;;;
+  ;;;; IOleClientSite
+  ;;;
+
+
+  (comethod hresult (SaveObject)
+    (debug-ole 'SaveObject)
+    NOERROR)
+  
+  
+  (comethod hresult (GetMoniker <in> int assign <in> int which <out> int&)
+    (debug-ole 'GetMoniker)
+    (values E_NOTIMPL 0))
+  
+  
+  (comethod hresult (GetContainer <out> IOleContainer&)
+    (debug-ole 'GetContainer)
+    (values E_NOINTERFACE null))
+  
+  
+  (comethod hresult (ShowObject)
+    (debug-ole 'ShowObject)
+    S_OK)
+  
+  
+  (comethod hresult (OnShowWindow <in> bool show?)
+    (debug-ole 'OnShowWindow)
+    (on-show-window~ view show?)
+    S_OK)
+  
+  
+  (comethod hresult (RequestNewObjectLayout)
+    (debug-ole 'RequestNewObjectLayout)
+    E_NOTIMPL)
+
+  
+  ;;;
+  ;;;; IAdviseSink
+  ;;;
+
+
+  (comethod hresult (OnDataChange <in> record format <in> record storage)
+    (debug-ole 'OnDataChange)
+    S_OK)
+
+
+  (comethod hresult (OnViewChange <in> int aspect <in> int index)
+    (debug-ole 'OnViewChange)
+    (on-view-change~ view)
+    S_OK)
+
+
+  (comethod hresult (OnRename <in> IUnknown moniker)
+    (debug-ole 'OnRename)
+    S_OK)
+
+
+  (comethod hresult (OnSave)
+    (debug-ole 'OnSave)
+    S_OK)
+
+
+  (comethod hresult (OnClose)
+    (debug-ole 'OnClose)
+    S_OK)
+  
+  
+  ;;;
+  ;;;; IOleInPlaceSite
+  ;;;
+
+
+  (comethod hresult (CanInPlaceActivate)
+    (debug-ole 'CanInPlaceActivate)
+    (if (and view (can-inplace-activate?~ view))
+        S_OK
+      S_FALSE))
+
+
+  (comethod hresult (OnInPlaceActivate)
+    (debug-ole 'OnInPlaceActivate)
+    S_OK)
+
+
+  (comethod hresult (OnUIActivate)
+    (debug-ole 'OnUIActivate)
+    S_OK)
+
+
+  (comethod hresult (GetWindowContext <out> IOleInPlaceFrame& <out> IOleInPlaceUIWindow& <out> RECT& <out> RECT& <out> OLEINPLACEFRAMEINFO&)
+    (debug-ole 'GetWindowContext)
+    (bind-values (frame document bounds clip info) (get-window-context~ view)
+      (values S_OK frame document bounds clip info)))
+
+
+  (comethod hresult (Scroll <in> SIZE& extent)
+    (debug-ole 'Scroll)
+    E_NOTIMPL)
+
+
+  (comethod hresult (OnUIDeactivate <in> <bool> undoable?)
+    (debug-ole 'OnUIDeactivate)
+    S_OK)
+
+
+  (comethod hresult (OnInPlaceDeactivate)
+    (debug-ole 'OnInPlaceDeactivate)
+    S_OK)
+
+
+  (comethod hresult (DiscardUndoState)
+    (debug-ole 'DiscardUndoState)
+    E_NOTIMPL)
+
+
+  (comethod hresult (DeactivateAndUndo)
+    (debug-ole 'DeactivateAndUndo)
+    E_NOTIMPL)
+
+
+  (comethod hresult (OnPosRectChange <in> RECT& rect)
+    (debug-ole 'OnPosRectChange)
+    S_OK)
+  
+  
+  ;;;
+  ;;;; IOleWindow
+  ;;;
+
+
+  (comethod hresult (GetWindow <out> int&)
+    (debug-ole 'GetWindow)
+    (if (null? view)
+        (values E_NOTIMPL NULL)
+      (values S_OK (get-hwnd~ view))))
+
+
+  (comethod hresult (ContextSensitiveHelp <in> bool enter?)
+    (debug-ole 'ContextSensitiveHelp)
+    E_NOTIMPL)
+  
+  
+  ;;;
+  ;;;; IOleControlSite
+  ;;;
+  
+  
+  (comethod hresult (OnControlInfoChanged)
+    (debug-ole 'OnControlInfoChanged)
+    S_OK)
+  
+  
+  (comethod hresult (LockInPlaceActive <in> bool lock?)
+    (debug-ole 'LockInPlaceActive)
+    E_NOTIMPL)
+  
+  
+  (comethod hresult (GetExtendedControl <out> IDispatch&)
+    (debug-ole 'GetExtendedControl)
+    E_NOTIMPL)
+  
+  
+  (comethod hresult (TransformCoords <in-out> POINT& metric <in-out> POINT& container <in> int flags)
+    (debug-ole 'TransformCoords)
+    E_NOTIMPL)
+  
+  
+  (comethod hresult (TranslateAccelerator <in> MSG& msg <in> int modifiers)
+    (debug-ole 'TranslateAccelerator)
+    S_FALSE)
+  
+  
+  (comethod hresult (OnFocus <in> bool got-focus?)
+    (debug-ole 'OnFocus)
+    S_OK)
+  
+  
+  (comethod hresult (ShowPropertyFrame)
+    (debug-ole 'ShowPropertyFrame)
+    E_NOTIMPL)))

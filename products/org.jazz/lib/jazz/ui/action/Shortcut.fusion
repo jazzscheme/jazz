@@ -1,0 +1,149 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Shortcuts
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.action.Shortcut jazz
+
+
+(import (jazz.ui)
+        (jazz.library))
+
+
+(class Shortcut extends Object
+  
+  
+  (slot modifiers)
+  (slot key)
+  
+  
+  (method (initialize modifiers key)
+    (nextmethod)
+    (set! [modifiers self] (standardize-modifiers modifiers))
+    (set! [key self] key))
+  
+  
+  (method (standardize-modifiers modifiers)
+    (let ((standard '()))
+      (let ((try
+              (function dynamic (modifier)
+                (when (memq? modifier modifiers)
+                  (set! standard (cons modifier standard))))))
+        (try :alt)
+        (try :shift)
+        (try :control)
+        standard)))
+  
+  
+  (method (hash-object)
+    (+ (hash key :equal?)
+       (hash modifiers :equal?)))
+  
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((and (= modifiers [modifiers target])
+                (= key [key target]))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a}{? {l}~} {s}}"
+            (type-name (class-of self))
+            modifiers
+            key))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-modifiers)
+    modifiers)
+
+
+  (method public (get-key)
+    key)
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public (present)
+    (format "{l} {a}" modifiers key))
+
+
+  (method public (present-shortcut)
+    (let ((str ""))
+      (when (memq? :control modifiers)
+        (set! str (append str (localize "Ctrl+"))))
+      (when (memq? :alt modifiers)
+        (set! str (append str (localize "Alt+"))))
+      (when (memq? :shift modifiers)
+        (set! str (append str (localize "Shift+"))))
+      (append str (localize-accelerator (if (char? key) (format "{c}" key) (->string key))))))
+  
+  
+  (definition Localized-Accelerators
+    '((Backspace . "Backspace")
+      (Return    . "Return")
+      (Space     . "Space")
+      (Tab       . "Tab")
+      (Home      . "Home")
+      (End       . "End")
+      (Left      . "Left")
+      (Up        . "Up")
+      (Right     . "Right")
+      (Down      . "Down")
+      (Prior     . "Prior")
+      (Next      . "Next")
+      (Insert    . "Insert")
+      (Delete    . "Delete")
+      (Add       . "Add")
+      (Subtract  . "Subtract")
+      (Multiply  . "Multiply")))
+  
+  
+  (method (localize-accelerator accelerator)
+    (let ((info (assq accelerator Localized-Accelerators)))
+      (if (null? info)
+          accelerator
+        (localize (cdr info)))))))

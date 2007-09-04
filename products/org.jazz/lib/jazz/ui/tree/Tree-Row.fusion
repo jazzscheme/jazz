@@ -1,0 +1,292 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tree Rows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.tree.Tree-Row jazz
+
+
+(import (jazz.library)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Tree-Row extends Outline-Row
+  
+  
+  (property protected user-data initialize {} getter get-user-data  setter set-user-data)
+  
+  
+  (slot protected node-width initialize {})
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a}"
+                (car children)))))
+  
+  
+  (method (default-size)
+    {Dimension 100 17})
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (initialize . rest)
+    (bind-keywords ((parent null) (father null) (level null) (state 'collapsed) (row-height {}) (children null) (visible? true) (user-data null)) rest
+      (nextmethod)
+      (set! [parent self] parent)
+      (set! [father self] father)
+      (set! [level self] level)
+      (set! [state self] state)
+      (set! [row-height self] row-height)
+      (set-children children)
+      (set! [user-data self] user-data)
+      (set-installed? true)
+      (set-finished? true)
+      (set-visible-flag visible?)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    parent)
+  
+  
+  (method public (get-user-data)
+    user-data)
+  
+  
+  (method public (set-user-data data)
+    (set! user-data data))
+  
+  
+  ;;;
+  ;;;; Children
+  ;;;
+  
+  
+  (method (set-children list)
+    (let ((node (car list)))
+      (when (is? node Tree-Node)
+        (set! node-width (text-width~ (get-font~ parent) (localize [title node])))))
+    (for-each (function dynamic (child)
+                (if (is? child View)
+                    (set-parent~ child self)
+                  (add-child child)))
+              list))
+    
+  
+  (method (replace-child rank child)
+    (let ((current (element children rank)))
+      (if (is? current View)
+          (set-parent~ current null)
+        (set! children (remove! current children)))
+      (if (is? child View)
+          (begin
+            (set-parent~ child self)
+            (set! children (insert! child (remove! child children) rank)))
+        (set! children (insert! child children rank)))
+      (layout-scrollee~ parent)))
+  
+  
+  (method public (get-node-child)
+    (find-if (function dynamic (child)
+               (is? child Tree-Node))
+             children))
+  
+  
+  (method public (get-path-child)
+    (find-if (function dynamic (child)
+               (is? child Tree-Path))
+             children))
+
+  
+  ;;;
+  ;;;; Flatten
+  ;;;
+  
+  
+  (method public (flatten root-row)
+    (let ((tree (get-tree)))
+      (for-each (function dynamic (son)
+                  (if (flatten-row?~ tree son)
+                      (disconnect~ son)
+                    (flatten~ son root-row)))
+                sons)))
+  
+  
+  (method public (disconnect)
+    (let* ((path (get-path-child))
+           (father-row (essay path (get-father-row~ path)))
+           (root-row (get-root-row~ (get-tree)))
+           (position (son-rank~ root-row (first (get-spine)))))
+      (change-father root-row :position position)
+      (set-descendants-level 0)))
+  
+  
+  (method public (reconnect)
+    (let ((father-row (get-father-row)))
+      (set-descendants-level (+ 1 (get-level~ father-row)))
+      (change-father father-row)))
+  
+  
+  (method public virtual (disconnected?)
+    (let ((father-row (get-father-row)))
+      (essay father-row (/= father-row father))))
+  
+  
+  (method public virtual (get-father-row)
+    (let ((path (get-path-child)))
+      (essay path (get-father-row~ path))))
+
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (auto-collapsable?)
+    (collapsable?))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method public (layout)
+    (let ((tree (get-tree)))
+      (when (and tree children)
+        (let ((h 0)
+              (cs [column-spacing tree])
+              (height (get-effective-height)))
+          (for-each (function dynamic (column cell)
+                      (let ((width [width column]))
+                        (layout-cell~ column self cell h 0 width height)
+                        (increase! h (+ width cs))))
+                    [columns tree]
+                    children)))))
+  
+  
+  (method (get-effective-width)
+    node-width)
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method public virtual (context-menu pos)
+    )
+  
+  
+  (method public virtual (double-click pos)
+    )
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw-children dc context update lh lv sh sv sc sc?)
+    (let* ((h 0)
+           (v 0)
+           (tree (get-tree))
+           (cs [column-spacing tree])
+           (height (get-height)))
+      (for-each (function dynamic (column cell)
+                  (when (get-visible?~ column)
+                    (let ((width [width column]))
+                      (if (is-not? cell View)
+                          (paint-cell~ column dc context update (+ lh h) (+ lv v) h v width height self cell sh sv sc sc?)
+                        (when (and (is? cell Tree-Cell-View) (get-draw-preserved?~ cell))
+                          (paint-cell~ column dc context update (+ lh h) (+ lv v) h v width height self (get-preserved-data~ cell) sh sv sc sc?))
+                        (when (is? column Tree-Node-Column)
+                          (draw-level~ column dc self cell width height)
+                          (draw-control~ column dc self cell width height))
+                        (let ((pos (get-position~ cell)))
+                          (paint-displayed~ cell dc context update (+ lh [h pos]) (+ lv [v pos]) sh sv sc sc?)))
+                      (increase! h (+ width cs)))))
+                [columns tree]
+                children)))
+  
+  
+  (method (draw-selection dc)
+    )
+
+  
+  ;;;
+  ;;;; Content
+  ;;;
+  
+  
+  (method public (find-by-title title)
+    (find-if (function dynamic (row)
+               (= (get-title~ (first-child~ row)) title))
+             sons))
+  
+  
+  ;;;
+  ;;;; Auto
+  ;;;
+  
+  
+  (method public virtual (auto-inplace?)
+    false)
+  
+  
+  (method public virtual (auto-expand)
+    (when (expandable?)
+      (expand/collapse~ parent self)))
+  
+  
+  (method public virtual (auto-select)
+    )
+  
+  
+  (method public virtual (auto-collapse)
+    (when (collapsable?)
+      (collapse~ parent self)))))

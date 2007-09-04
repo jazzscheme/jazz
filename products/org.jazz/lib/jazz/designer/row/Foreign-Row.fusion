@@ -1,0 +1,185 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Foreign Row
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.row.Foreign-Row jazz
+
+
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Foreign-Row extends Combo-Row
+  
+  
+  (property foreign           getter get-foreign           setter set-foreign)
+  (property foreign-objects   getter get-foreign-objects   setter set-foreign-objects)
+  (property key               getter get-key               setter set-key)
+  (property list?             getter get-list?             setter set-list?)
+  (property allow-duplicates? getter get-allow-duplicates? setter set-allow-duplicates?)
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (initialize . rest)
+    (bind-keywords ((foreign null) (foreign-objects null) (key null) (list? false) (allow-duplicates? false) . others) rest
+      (apply nextmethod others)
+      (set! [foreign self] foreign)
+      (set! [foreign-objects self] foreign-objects)
+      (set! [key self] (either key component-name))
+      (set! [list? self] list?)
+      (set! [allow-duplicates? self] allow-duplicates?)
+      (set-kind 'choose)))
+  
+  
+  ;;;
+  ;;;; Domain
+  ;;;
+  
+  
+  (method public (get-foreign)
+    foreign)
+
+
+  (method public (set-foreign value)
+    (set! foreign value)
+    (set-choices (foreign-choices foreign foreign-objects)))
+  
+  
+  (method public (get-foreign-objects)
+    foreign-objects)
+
+
+  (method public (set-foreign-objects value)
+    (set! foreign-objects value)
+    (set-choices (foreign-choices foreign foreign-objects)))
+  
+  
+  (method public (get-key)
+    key)
+
+
+  (method public (set-key value)
+    (set! key value))
+
+
+  (method public (get-list?)
+    list?)
+
+
+  (method public (set-list? value)
+    (set! list? value))
+
+
+  (method public (get-allow-duplicates?)
+    allow-duplicates?)
+
+
+  (method public (set-allow-duplicates? value)
+    (set! allow-duplicates? value))
+  
+  
+  (method (foreign-choices foreign foreign-objects)
+    (when foreign
+      (map (function dynamic (component)
+             (let ((name (key component)))
+               (list name name)))
+           (if (null? foreign-objects)
+               (get-children~ foreign)
+             (foreign-objects foreign)))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (combo-choose)
+    (let ((value (get-modal Foreign-List-Chooser :foreign foreign :foreign-objects foreign-objects :key key :list? list? :allow-duplicates? allow-duplicates? :value value)))
+      (set-edited-value value)
+      (enter-edited-value)
+      (focus-editor)
+      true))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present value)
+    (cond ((null? value) "null")
+          ((not list?) (if (pair? value) (join value ".") value))
+          (else (join (map (function dynamic (key)
+                             (if (atom? key)
+                                 key
+                               (join key ".")))
+                           value)
+                      ", "))))
+  
+  
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (method (parse-string string)
+    (if (find #\period string)
+        (split string ".")
+      string))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (get-edited-value)
+    (let ((string (get-string-content~ (get-body~ editor))))
+      (if (or (empty-string? string) (= string "null"))
+          null
+        (if (not list?)
+            (parse-string string)
+          (map parse-string (parse-strings string))))))
+  
+  
+  (method (set-edited-value value)
+    (set-string-content~ (get-body~ editor) (present value)))))

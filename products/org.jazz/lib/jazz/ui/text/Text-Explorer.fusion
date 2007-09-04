@@ -1,0 +1,421 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exploring Text
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Text-Explorer jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Text-Explorer extends Explorer
+
+
+  (slot text       <Text-View> initialize {})
+  (slot paragraphs <Sequence>  initialize '())
+  (slot limit      <Integer+>  initialize {})
+  (slot beginning  <Cell+>     initialize {})
+  (slot ending     <Cell+>     initialize {})
+  (slot start      <Cell+>     initialize {})
+  (slot end        <Cell+>     initialize {})
+  (slot kind       <Object>    initialize null)
+  
+  
+  ;; temp document patches
+  (method (initialize txt . rest)
+    (bind-keywords ((direction 'forward) (start nil) (end nil) (range nil)) rest
+      (nextmethod)
+      (set! text txt)
+      (set! paragraphs (get-paragraphs~ text))
+      (set! limit (get-limit~ text))
+      (set! beginning (text-beginning~ text))
+      (set! ending (text-ending~ text))
+      (set-direction direction)
+      (set-start start)
+      (set-end end)
+      (set-range range)))
+  
+  
+  (method protected virtual (get-syntax)
+    )
+
+
+  ;;;
+  ;;;; Accessors
+  ;;;
+
+
+  (method (goto-beginning)
+    (set-start beginning))
+
+
+  (method (goto-ending)
+    (set-end ending))
+
+
+  (method public (at-beginning?)
+    (<= start beginning))
+
+
+  (method public (at-ending?)
+    (>= end ending))
+
+
+  (method public (get-start)
+    (copy start))
+
+
+  (method public (set-start pos <Cell+>)
+    (when pos
+      (if (nil? start)
+          (set! start (copy pos))
+        (set! [row start] [row pos])
+        (set! [col start] [col pos]))))
+
+
+  (method public (get-end)
+    (copy end))
+
+
+  (method public (set-end pos <Cell+>)
+    (when pos
+      (if (nil? end)
+          (set! end (copy pos))
+        (set! [row end] [row pos])
+        (set! [col end] [col pos]))))
+
+
+  (method public (get-range)
+    (new Range (copy start) (copy end)))
+
+
+  (method public (set-range range <Range+>)
+    (when range
+      (set-start [start range])
+      (set-end [end range])))
+  
+  
+  (method public (set-pos pos <Cell+>)
+    (set-start pos)
+    (set-end pos))
+
+
+  ;;;
+  ;;;; Mark
+  ;;;
+
+
+  (method public (get-kind)
+    kind)
+
+
+  (method protected (set-kind knd <Object>)
+    (set! kind knd))
+
+
+  (method public (get-range-string start <Cell> end <Cell>)
+    (get-string~ text (new Range start end)))
+  
+  
+  (method public (get-marked)
+    (get-range-string start end))
+  
+  
+  ;; a quicky for now: will skip the quote in front of a symbol
+  ;; the right thing would probably for backward-expr not to include the quote
+  (method public (get-symbol-string)
+    (if (= (get-char start) #\quote)
+        (get-range-string (+ start 1) end)
+      (get-marked)))
+  
+  
+  (method public (find-marked-symbol)
+    (find-symbol (get-marked)))
+  
+  
+  (method public (intern-marked-symbol)
+    (string->symbol (get-marked)))
+
+
+  (method public (get-range-symbol start end)
+    (find-symbol (get-range-string start end)))
+  
+  
+  (method public (get-mark)
+    (new Explorer-Mark (get-kind) (get-range)))
+
+
+  ;;;
+  ;;;; Moving
+  ;;;
+
+
+  (method (next! pos <Cell>)
+    (unimplemented 'next!)
+    @implement
+    (bind-values (valid? row col) (JzTextSetNext paragraphs limit [row pos] [col pos])
+      (when valid?
+        (set! [row pos] row)
+        (set! [col pos] col))
+      valid?))
+
+
+  (method (previous! pos <Cell>)
+    (unimplemented 'previous!)
+    @implement
+    (bind-values (valid? row col) (JzTextSetPrevious paragraphs limit [row pos] [col pos])
+      (when valid?
+        (set! [row pos] row)
+        (set! [col pos] col))
+      valid?))
+
+
+  (method (next-cell! pos <Cell>)
+    (when (next! pos)
+      pos))
+
+
+  (method (previous-cell! pos <Cell>)
+    (when (previous! pos)
+      pos))
+  
+
+  (method (next pos <Cell> offset <int>)
+    (next~ text pos offset))
+
+
+  (method (previous pos <Cell> offset <int>)
+    (previous~ text pos offset))
+
+  
+  (method (forward)
+    (next! end))
+  
+  
+  (method (backward)
+    (previous! start))
+  
+  
+  (method public (next-char pos <Cell> offset <int>)
+    (unimplemented 'next-char)
+    @implement
+    (JzTextCharForward paragraphs limit [row pos] [col pos] offset))
+  
+  
+  (method public (char-forward offset <int>)
+    (let ((pos (next end offset)))
+      (when (and pos (next-in-text? pos))
+        (get-char pos))))
+  
+
+  (method public (previous-char pos <Cell> offset <int>)
+    (unimplemented 'previous-char)
+    @implement
+    (JzTextCharBackward paragraphs limit [row pos] [col pos] offset))
+  
+  
+  (method public (char-backward offset <int>)
+    (let ((pos (previous start (+ offset 1))))
+      (when pos
+        (get-char pos))))
+  
+  
+  (method (in-text? pos <Cell>)
+    (let ((row [row pos])
+          (col [col pos]))
+      (and (>= row 0) (>= col 0) (or (< row limit) (and (= row limit) (<= col (paragraph-length row)))))))
+  
+  
+  (method (next-in-text? pos <Cell>)
+    (let ((row [row pos])
+          (col [col pos]))
+      (if (< row limit)
+          (in-text? pos)
+        (and (= row limit) (< col (paragraph-length row))))))
+  
+  
+  (method (get-char pos <Cell>)
+    (when (in-text? pos)
+      (if (< [col pos] (paragraph-length [row pos]))
+          (get-char~ text pos)
+        #\return)))
+
+
+  (method (get-paragraph n <int>)
+    (element paragraphs n))
+
+
+  (method (paragraph-string n <int>)
+    (get-string~ (get-paragraph n)))
+
+
+  (method (paragraph-length n <int>)
+    (length (paragraph-string n)))
+  
+  
+  (method public (forward-while predicate <Procedure>)
+    (let ((c))
+      (call/ec
+        (lambda (return)
+          (while (set! c (char-forward 0))
+            (if (predicate c)
+                (unless (forward)
+                  (return false))
+              (return true)))
+          false))))
+  
+  
+  (method public (backward-while predicate <Procedure>)
+    (let ((c))
+      (call/ec
+        (lambda (return)
+          (while (set! c (char-backward 0))
+            (if (predicate c)
+                (unless (backward)
+                  (return false))
+              (return true)))
+          false))))
+  
+  
+  (method public (forward-until predicate <Procedure>)
+    (forward-while (function dynamic (c) (not (predicate c)))))
+  
+  
+  (method public (backward-until predicate <Procedure>)
+    (backward-while (function dynamic (c) (not (predicate c)))))
+  
+  
+  (method public (forward-to char)
+    (forward-until (function dynamic (c) (= c char))))
+  
+  
+  (method public (backward-to char)
+    (backward-until (function dynamic (c) (= c char))))
+  
+  
+  (method public (forward-whitespaces)
+    (forward-while whitespace?))
+  
+  
+  (method public (backward-whitespaces)
+    (backward-while whitespace?))
+
+
+  ;;;
+  ;;;; Word
+  ;;;
+  
+  
+  (method public (forward-word)
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-forward 0)))
+            (cond ((or (null? c) (not (word-constituent? c)))
+                   (return true))
+                  (else
+                   (forward)))))
+        false)))
+  
+  
+  (method public (forward-non-word)
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-forward 0)))
+            (cond ((or (null? c) (word-constituent? c))
+                   (return true))
+                  (else
+                   (forward)))))
+        false)))
+  
+  
+  (method public (backward-word)
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-backward 0)))
+            (cond ((or (null? c) (not (word-constituent? c)))
+                   (return true))
+                  (else
+                   (backward)))))
+        false)))
+  
+  
+  (method public (backward-non-word)
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-backward 0)))
+            (cond ((or (null? c) (word-constituent? c))
+                   (return true))
+                  (else
+                   (backward)))))
+        false)))
+
+
+  (method public virtual (outer-expr . rest)
+    (forward-word)
+    (backward-word))
+
+
+  ;;;
+  ;;;; Paragraph
+  ;;;
+
+
+  (method public (paragraph-start)
+    (set! [col start] 0))
+  
+  
+  (method public (paragraph-end)
+    (set! [col end] (paragraph-length [row end])))
+
+
+  (method public (previous-paragraph)
+    (decrease! [row start])
+    (set! [col start] 0))
+
+
+  (method public (next-paragraph)
+    (increase! [row end])
+    (set! [col end] 0))
+  
+  
+  (method public (paragraph-column)
+    (forward-while (function dynamic (c) (= c #\space))))))

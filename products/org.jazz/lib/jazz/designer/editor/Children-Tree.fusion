@@ -1,0 +1,230 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Children Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.editor.Children-Tree jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Children-Tree extends Components-Tree
+
+
+  (property base    initialize {}  getter get-base    setter set-base)
+  (property details initialize '() getter get-details setter set-details)
+
+
+  (form
+    (<install> draggable?: #t reorderable?: #t portfolio: :icons multiple-selection?: #t selection-mode: row selection-handler: {Event-Handler :self on-selection-change}))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-base)
+    base)
+
+
+  (method public (set-base value)
+    (set! base value))
+
+
+  (method public (get-details)
+    details)
+
+
+  (method public (set-details value)
+    (set! details value))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method (branch-changed)
+    (update))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method (update . rest)
+    (bind-keywords ((expand-state (get-expand-state)) (selected-components (selected-components))) rest
+      (with-update-locked
+        (function dynamic ()
+          (setup-columns)
+          (insert-rows expand-state selected-components)))))
+  
+  
+  (method (setup-columns)
+    (let ((header (get-header)))
+      (set! base (essay client (get-addable-base~ client)))
+      (set-filled-column null)
+      (remove-columns :preserve-node-column? true)
+      (if (or (null? base) (null? details))
+          (set-filled-column (get-name~ node-column))
+        (let ((first? true))
+          (for-each (function dynamic (detail)
+                      (bind (name width filled?) detail
+                        (let* ((property (unit-field base name))
+                               (title (detail-presentation~ base property)))
+                          (when filled?
+                            (set-filled-column name))
+                          (if first?
+                              (begin
+                                (set! first? false)
+                                (let ((column (get-node-column)))
+                                  (set-name~ column name)
+                                  (set-title~ column title)
+                                  (set-width~ column width)))
+                            (add-column :context self :class Tree-Label-Column name: name :title title :width width)))))
+                    details)))))
+  
+  
+  (method (insert-rows expand-state selected-components)
+    (remove-every-row)
+    (when client
+      (let ((recursive? (get-recursive-details?~ client)))
+        (insert-components client null recursive?)
+        (update-selection expand-state selected-components))))
+  
+  
+  (method (insert-components component father recursive?)
+    (let ((components (get-components~ component)))
+      (for-each (function dynamic (child)
+                  (unless (is? child Group)
+                    (insert-component child father recursive?)))
+                (if (sort-components?~ component)
+                    (sort < components :key (function dynamic (component) (get-presentation~ component)))
+                  components))))
+    
+  
+  (method protected virtual (insert-component component father recursive?)
+    (let ((row null))
+      (when (and base details)
+        (bind (first . rest) details
+          (let ((based? (is? component base)))
+            (when (not based?)
+              (set! first '(name-info filled)))
+            (let* ((nn (car first))
+                   (np (unit-field base nn))
+                   (nv (read-property component np))
+                   (nt (present-property~ component np nv))
+                   (ni (get-component-image~ component))
+                   (node (new Tree-Node :title nt :image ni))
+                   (labels (map (function dynamic (detail)
+                                  (if (not based?)
+                                      (new Tree-Label :title "")
+                                    (bind (name width filled?) detail
+                                      (let* ((property (unit-field base name))
+                                             (value (read-property component property))
+                                             (title (present-property~ component property value)))
+                                        (new Tree-Label :title title)))))
+                                rest))
+                   (children (cons node labels)))
+              (set! row (add-row :father father :state 'expanded :children children :user-data component))))))
+        (when recursive?
+          (insert-components component row recursive?))))
+  
+  
+  (method (present-location component)
+    (let ((ascendants (cdr (collect-ascendants~ component))))
+      (if (null? ascendants)
+          ""
+        (join (map (function dynamic (ascendant) (localize (get-presentation~ ascendant))) ascendants) " / "))))
+  
+  
+  @this-reverse-order-is-strange-see-if-it-made-more-sense-in-the-diary-context
+  (method (present-location component)
+    (let ((printer (new String-Printer))
+          (parent (get-parent~ component)))
+      (when parent
+        (format printer "{a}" (get-presentation~ parent))
+        (while (set! parent (get-parent~ parent))
+          (when (get-parent~ parent)
+            (format printer " / {a}" (get-presentation~ parent)))))
+      (get-output~ printer)))
+
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (on-designer evt)
+    (case (get-kind~ evt)
+      ((:child-add) (child-add (get-property~ evt :child) (get-property~ evt parent:)))
+      ((:child-remove) (child-remove (get-property~ evt :child)))
+      ((:property-change) (property-change (get-property~ evt :component) (get-property~ evt :property) (get-property~ evt :value)))))
+  
+  
+  (method (child-add child parent)
+    (unless (or (is? child Group) (neq? parent client))
+      (with-update-locked
+        (function dynamic ()
+          (insert-component child null false)))))
+  
+  
+  (method (child-remove child)
+    (unless (or (is? child Group) (neq? (get-parent~ child) client))
+      (let ((row (component-row child)))
+        (when row
+          (with-update-locked
+            (function dynamic ()
+              (remove-row row)))))))
+  
+  
+  (method (property-change component property value)
+    (unless (or (is? component Group) (neq? (get-parent~ component) client))
+      (let ((col (find (field-name property) details :key car :return 'position)))
+        (when col
+          (for-each-visible-row
+            (function dynamic (row rank)
+              (when (eq? (get-user-data~ row) component)
+                (let* ((cell (new Cell rank col))
+                       (data (get-cell-data cell))
+                       (title (present-property~ component property value)))
+                  (set-title~ data title)
+                  (invalidate-cell cell)))))))))))

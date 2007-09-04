@@ -1,0 +1,627 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Paragraphs
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Paragraph jazz
+
+
+(import (jazz.ui)
+        (jazz.utilities)
+        (jazz.library)
+        (jazz.literals))
+
+
+(class Paragraph extends Outline-Row
+
+
+  (slot protected format initialize {})
+  (slot protected string)
+  (slot protected runs)
+  (slot protected lines)
+  (slot protected walk-state) ;; for SLC experiments on syntax coloring
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (write string printer))))
+  
+
+  ;; temp optimisation that will not work
+  ;; if a text embeds others views in itself
+  (method (set-size sz)
+    (set! size sz))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-format)
+    format)
+  
+  
+  (method public (get-string)
+    string)
+  
+  
+  (method public (set-string value)
+    (set! string value))
+  
+  
+  (method public (get-length)
+    (length string))
+  
+  
+  (method public (get-runs)
+    runs)
+  
+  
+  (method public (get-walk-state)
+    walk-state)
+  
+  
+  (method public (set-walk-state new-state)
+    (set! walk-state new-state))
+  
+  
+  (method public (paragraph-left)
+    (+ [h position] (either (get-left-margin~ format) 0)))
+
+
+  (method public (paragraph-top)
+    [v position])
+  
+  
+  ;;;
+  ;;;; Size
+  ;;;
+  
+  
+  (method public (compute-width)
+    (let ((width (either (get-left-margin~ format) 0)))
+      (for-each (function dynamic (run)
+                  (increase! width (compute-width~ run)))
+                runs)
+      width))
+
+
+  ;;;
+  ;;;; Range
+  ;;;
+
+
+  ;; All these special cases need major cleanup!
+  (method protected (range-region left-padding start end dh dv sc)
+    (let ((rs <int> (either start 0))
+          (re <int> (either end (length string)))
+          (left <int> (paragraph-left))
+          (top <int>  (paragraph-top))
+          (width <int> [width size]))
+      (cond ;; full paragraph
+            ((and (= rs 0) (null? end))
+             (with ((rect (new Rect left top (+ left width) (+ top [height size]))))
+               (new Region :rect (acquire-delta dh dv sc rect))))
+            ;; end of the last line
+            ((and (= rs re) (null? end))
+             (let* ((line (last lines))
+                    (begin [h (col->view~ line re false)])
+                    (right (+ left-padding (- width left))))
+               (with ((rect (new Rect begin [top line] right (get-bottom~ line)))
+                      (offset (offset-rect rect left top)))
+                 (new Region :rect (acquire-delta dh dv sc offset)))))
+            ;; partial range
+            (else
+             (let ((s (col->text rs))
+                   (e (col->text re))
+                   (w (+ left-padding (- width left)))
+                   (region (new Region)))
+               (for-each-range s e 0
+                 (function dynamic (line begin limit)
+                   (with-closed ((sub (range-region~ line left top w begin (if (null? end) null limit) self dh dv sc)))
+                     (combine!~ region sub 'or))))
+               region)))))
+  
+  
+  (method (for-each-range start <Cell> end <Cell> ignored proc <Procedure>)
+    (when (/= start end)
+      (if (= [row start] [row end])
+          (proc (get-line [row start]) [col start] [col end])
+        (let ((begin [row start])
+              (limit [row end]))
+          (loop (for n from begin to limit)
+                (let* ((line (get-line n))
+                       (len (get-length~ line)))
+                  (cond ((= n begin) (proc line [col start] null))
+                        ((= n limit) (proc line null [col end]))
+                        (else        (proc line null null)))))))))
+
+
+  ;;;
+  ;;;; Lines
+  ;;;
+  
+  
+  (method public (get-line n <int>)
+    (element lines n))
+  
+  
+  (method public (get-line-at col)
+    (get-line [row (col->text col)]))
+
+
+  ;;;
+  ;;;; Runs
+  ;;;
+  
+  
+  (method public (get-run col <int>)
+    (call/ec
+      (lambda (return)
+        (for-each-run runs
+          (function dynamic (run offset limit)
+            (when (and (> col offset) (<= col limit))
+              (return run))))
+        null)))
+  
+  
+  (method public (first-run)
+    (car runs))
+  
+  
+  (method protected (range-runs start end)
+    (let ((end (either end (length string)))
+          (fact (new List-Factory))
+          (make
+           (function dynamic (run s e)
+             (new Run (subseq! string s e) [style run]))))
+      (for-each-range-run start end
+        (function dynamic (where run offset limit)
+          (case where
+            ((inside)
+             (put~ fact run))
+            ((over)
+             (put~ fact (make run start end)))
+            ((left)
+             (put~ fact (make run start limit)))
+            ((right)
+             (put~ fact (make run offset end))))))
+      (get-output~ fact)))
+
+  
+  (method (for-each-run runs proc)
+    (let ((offset 0))
+      (for-each (function dynamic (run)
+                  (let* ((len (get-length~ run))
+                         (limit (+ offset len)))
+                    (proc run offset limit)
+                    (set! offset limit)))
+                runs)))
+  
+  
+  ;;        s        e
+  ;;
+  ;; o   l                   o    l    -> outside
+  ;;           o   l                   -> inside
+  ;;    o                   l          -> over
+  ;;      o     l                      -> left
+  ;;              o      l             -> right
+  ;;
+  (method (for-each-range-run start end proc)
+    (for-each-run runs
+      (function dynamic (run offset limit)
+        (proc (cond ((or (<= limit start) (>= offset end))
+                     'outside)
+                    ((and (>= offset start) (<= limit end))
+                     'inside)
+                    ((and (< offset start) (> limit end))
+                     'over)
+                    ((< offset start)
+                     'left)
+                    (else
+                     'right))
+              run
+              offset
+              limit))))
+
+
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method protected (set-style start end style)
+    (modify-style start end
+      (function dynamic (s)
+        style)))
+  
+  
+  (method protected (set-text-alignment start end alignment)
+    (modify-style start end
+      (function dynamic (style)
+        (let ((style (extend~ style)))
+          (set-alignment~ style alignment)
+          style))))
+  
+  
+  (method protected (set-text-font start end font)
+    (modify-style start end
+      (function dynamic (style)
+        (let ((style (extend~ style)))
+          (set-font~ style font)
+          style))))
+  
+  
+  (method protected (set-text-color start end color)
+    (modify-style start end
+      (function dynamic (style)
+        (let ((style (extend~ style)))
+          (set-color~ style color)
+          style))))
+  
+  
+  (method protected (set-highlight-color start end color)
+    (modify-style start end
+      (function dynamic (style)
+        (let ((style (extend~ style)))
+          (set-highlight~ style color)
+          style))))
+  
+  
+  (method protected (set-font-name start end name)
+    (modify-style start end
+      (function dynamic (style)
+        (when (supports?~ style :font)
+          (let* ((style (extend~ style))
+                 (font (extend-font-name~ (get-font~ style) name)))
+            (set-font~ style font)
+            style)))))
+  
+  
+  (method protected (set-point-size start end size)
+    (modify-style start end
+      (function dynamic (style)
+        (when (supports?~ style :font)
+          (let* ((style (extend~ style))
+                 (font (extend-point-size~ (get-font~ style) size)))
+            (set-font~ style font)
+            style)))))
+  
+  
+  (method protected (toggle-bold start end)
+    (modify-style start end
+      (function dynamic (style)
+        (let* ((style (extend~ style))
+               (font (toggle-bold~ (get-font~ style))))
+          (set-font~ style font)
+          style))))
+  
+  
+  (method protected (toggle-italic start end)
+    (modify-style start end
+      (function dynamic (style)
+        (let* ((style (extend~ style))
+               (font (toggle-italic~ (get-font~ style))))
+          (set-font~ style font)
+          style))))
+  
+  
+  (method protected (toggle-underline start end)
+    (modify-style start end
+      (function dynamic (style)
+        (let* ((style (extend~ style))
+               (font (toggle-underline~ (get-font~ style))))
+          (set-font~ style font)
+          style))))
+  
+  
+  (method (modify-style start end proc)
+    (let* ((text parent)
+           (start (either start 0))
+           (end (either end (length string)))
+           (fact (new List-Factory))
+           (split
+            (function dynamic (run s e)
+              (new Run (subseq! string s e) [style run])))
+           (make
+            (function dynamic (run s e)
+              (let* ((style [style run])
+                     (new-style (either (proc style) style)))
+                (new Run (subseq! string s e) (intern-style~ text new-style))))))
+      (for-each-range-run start end
+        (function dynamic (where run offset limit)
+          (case where
+            ((outside)
+             (put~ fact run))
+            ((inside)
+             (put~ fact (make run offset limit)))
+            ((over)
+             (put~ fact (split run offset start))
+             (put~ fact (make run start end))
+             (put~ fact (split run end limit)))
+            ((left)
+             (put~ fact (split run offset start))
+             (put~ fact (make run start limit)))
+            ((right)
+             (put~ fact (make run offset end))
+             (put~ fact (split run end limit))))))
+      (set! runs (coalesce-runs (get-output~ fact)))))
+
+
+  (method protected (remove-coloring default-style)
+    (let ((text parent)
+          (modified? false))
+      (for-each (function dynamic (run)
+                  (let ((style [style run]))
+                    (when (and (is? style Text-Style) (get-color~ style))
+                      (set! [style run] default-style)
+                      (set! modified? true))))
+                runs)
+      modified?))
+  
+  
+  (method (coalesce-runs runs)
+    (let ((previous runs)
+          (scan (cdr runs)))
+      (while scan
+        (let ((previous-style [style (car previous)]))
+          (if (or (neq? previous-style [style (car scan)]) (not (propagate?~ previous-style)))
+              (set! previous scan)
+            (grow-subseq! [string (car previous)] (length [string (car scan)]))
+            (set-cdr! previous (cdr scan)))
+          (set! scan (cdr scan)))))
+    runs)
+
+
+  ;;;
+  ;;;; Wrap
+  ;;;
+  
+  
+  (method protected (flatten)
+    (let ((line (new Line parent runs 0 0 0 0 0)))
+      (set! lines (list line))
+      (set! row-height (get-height~ line))))
+  
+  
+  (method protected (wrap context width)
+    (let* ((text parent)
+           (rank 0)
+           (offset 0)
+           (justification (get-justification~ format))
+           (margin (either (get-left-margin~ format) 0))
+           (spacing (either (get-paragraph-spacing~ text) 0))
+           (left margin)
+           (top 0)
+           (tabs [tab-stops text])
+           (lines (new List-Factory))
+           (lruns (new List-Factory))
+           (place (function dynamic (run)
+                    (put~ lruns run)))
+           (break-line
+            (function dynamic (right)
+              (let* ((runs (get-output~ lruns))
+                     (line-left (case justification ((() left) 0) ((centered) (center right width)) ((right) (justify right width 'tail))))
+                     (line (new Line text runs rank offset line-left top right))
+                     (height (get-height~ line)))
+                (for-each (function dynamic (run) (height-update~ run height)) runs)
+                (put~ lines line)
+                (reset~ lruns)
+                (set! left margin)
+                (increase! top height)
+                (increase! rank)
+                (increase! offset (get-length~ line))
+                top))))
+      (for-each (function dynamic (run)
+                  (set! left (wrap~ run context margin left top width tabs place break-line)))
+                runs)
+      (break-line left)
+      (set! [lines self] (get-output~ lines))
+      (set! row-height (+ top spacing))))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Bullet-Outside
+    {Color name: Blue})
+  
+  (definition Bullet-Inside
+    {Color :red  51 :green 102 :blue 255})
+
+  
+  (method (draw dc context update lh lv)
+    (let* ((text parent)
+           (tab-stops [tab-stops text])
+           (left (either (get-left-margin~ format) 0))
+           (h left)
+           (v 0))
+      (when (get-bulleted?~ format)
+        (draw-bullet dc h v left))
+      (for-each (function dynamic (line)
+                  (draw-line~ line dc context h v tab-stops left)
+                  (increase! v (get-height~ line)))
+                lines)))
+  
+  
+  (method (draw-bullet dc h v left)
+    (let* ((height (get-height~ (car lines)))
+           (size (round (percent 40 height)))
+           (outside (either (get-bullet-outside~ format) Bullet-Outside))
+           (inside (either (get-bullet-inside~ format) Bullet-Inside))
+           (vert (+ (round (/ (- height size) 2)) 1)))
+      ;; Can you believe that drawing an ellipse of size 8 is buggy under Windows!!!
+      (when (= size 8)
+        (set! size 7))
+      (ellipse~ dc (new Rect (- left 7 size) (+ v vert) (- left 7) (+ v vert size)) outside inside)))
+
+
+  ;;;
+  ;;;; Replace
+  ;;;
+  
+  
+  (method protected (replace-range start end str)
+    (let* ((text parent)
+           (inserted (length str))
+           (end (either end (length string)))
+           (new-end (+ start inserted))
+           (delta (- inserted (- end start)))
+           (before (range-runs 0 start))
+           (after (range-runs end (get-length)))
+           (style (if before (find-propagatable-style before) (get-style~ text 'Default))))
+      (set! string (replace-subseq! string start end str))
+      (let* ((replacement (new Run (subseq! string start new-end) style))
+             (replacement-list (if (> (get-length~ replacement) 0) (list replacement) null)))
+        (for-each-run before
+          (function dynamic (run offset limit)
+            (set! [string run] (subseq! string offset limit))))
+        (for-each-run after
+          (function dynamic (run offset limit)
+            (set! [string run] (subseq! string (+ new-end offset) (+ new-end limit)))))
+        (set! runs (coalesce-runs (append! before replacement-list after))))))
+  
+  
+  (method protected (replace-runs start end replacement)
+    (let* ((str (runs->str replacement))
+           (inserted (length str))
+           (end (either end (length string)))
+           (new-end (+ start inserted))
+           (delta (- inserted (- end start)))
+           (before (range-runs 0 start))
+           (after (range-runs end (get-length))))
+      (set! string (replace-subseq! string start end str))
+      (for-each-run before
+        (function dynamic (run offset limit)
+          (set! [string run] (subseq! string offset limit))))
+      (for-each-run replacement
+        (function dynamic (run offset limit)
+          (let ((style [style run]))
+            (when (is? style View-Style)
+              (set-parent~ [view style] self)))
+          (set! [string run] (subseq! string (+ start offset) (+ start limit)))))
+      (for-each-run after
+        (function dynamic (run offset limit)
+          (set! [string run] (subseq! string (+ new-end offset) (+ new-end limit)))))
+      (set! runs (coalesce-runs (append! before replacement after)))))
+  
+  
+  (method (find-propagatable-style runs)
+    (call/ec
+      (lambda (return)
+        (for-each-reversed (function dynamic (run)
+                             (let ((style [style run]))
+                               (when (propagate?~ style)
+                                 (return style))))
+                           runs)
+        (get-default-style~ parent))))
+  
+  
+  (method protected (replace-beginning runs)
+    (replace-runs 0 0 runs))
+  
+  
+  (method protected (replace-ending runs)
+    (let ((len (length string)))
+      (replace-runs len len runs)))
+  
+  
+  (method (runs->str runs)
+    (let ((printer (new String-Printer)))
+      (for-each (function dynamic (run)
+                  (display [string run] printer))
+                runs)
+      (get-output~ printer)))
+
+
+
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  (method protected (view->col view <Point>)
+    (let ((view (new Point (- [h view] (either (get-left-margin~ format) 0)) [v view])))
+      (call/ec
+        (lambda (return)
+          (for-each (function dynamic (line)
+                      (let ((col (view->col~ line view)))
+                        (when col
+                          (return (+ [offset line] col)))))
+                    lines)
+          (get-length)))))
+  
+  
+  (method protected (col->view col)
+    (let ((last (last lines)))
+      (call/ec
+        (lambda (return)
+          (for-each (function dynamic (line)
+                      (let* ((strict? (neq? line last))
+                             (view (col->view~ line (- col [offset line]) strict?)))
+                        (when view
+                          (return (new Point (+ (paragraph-left) [h view]) [v view])))))
+                    lines)))))
+  
+  
+  (method protected (col->text col)
+    (let ((last null))
+      (call/ec
+        (lambda (return)
+          (for-each (function dynamic (line)
+                      (let ((text (col->text~ line col)))
+                        (when text
+                          (return text)))
+                      (set! last line))
+                    lines)
+          (new Cell [rank last] (get-length~ last))))))
+  
+  
+  (method protected (text->col text)
+    )
+  
+  
+  ;; could be optimized...
+  (method protected (view->text view)
+    (col->text (view->col view)))
+  
+  
+  ;; could be optimized...
+  (method protected (text->view text)
+    (col->view (text->col text)))))

@@ -1,0 +1,268 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Scroller Views
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Scroller-View jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.designer)
+        (jazz.utilities))
+
+
+(definition public scrollbar-size
+  13)
+
+
+(class Scroller-View extends Container
+
+  
+  (property client   initialize {}    getter get-client   setter set-client)
+  (property vscroll? initialize false getter get-vscroll? setter set-vscroll?)
+  (property hscroll? initialize false getter get-hscroll? setter set-hscroll?)
+  (property flat?    initialize false getter get-flat?    setter set-flat?)
+  (property style    initialize {}    getter get-style    setter set-style)
+  
+  
+  (slot vscroll initialize {})
+  (slot hscroll initialize {})
+  
+  
+  (method (default-name)
+    'scroller)
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (when (null? client)
+      (let ((content (get-content)))
+        (set-client (get-scroll-client~ content)))))
+
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public (get-client)
+    client)
+  
+  
+  (method public (set-client clt)
+    (when (/= clt client)
+      (set! client clt)
+      (when client
+        (invalidate-layout)
+        (set-scroller~ client self)
+        (layout-scrollee~ client))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    ;; If the client is not the content as for tree headers, then let the
+    ;; client container's own size-change take care of laying out the scrolle...
+    (when (and client (eq? client (get-client~ (get-content))))
+      (layout-scrollee~ client)
+      (layout-scrollee-patch~ client)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((size (get-size)))
+      (let ((content (find-child 'content)))
+        (when content
+          (set-position~ content (content-position size))
+          (set-size~ content (content-size size))
+          (when client
+            (layout-scrollee~ client))))
+      (when vscroll
+        (set-position~ vscroll (vscroll-position size))
+        (set-size~ vscroll (vscroll-size size)))
+      (when hscroll
+        (set-position~ hscroll (hscroll-position size))
+        (set-size~ hscroll (hscroll-size size)))))
+    
+  
+  (method (content-position size)
+    {Point 0 0})
+  
+  
+  (method (content-size size)
+    (new Dimension
+      (- [width size] (if vscroll scrollbar-size 0))
+      (- [height size] (if hscroll scrollbar-size 0))))
+
+  
+  (method (vscroll-position size)
+    (new Point (- [width size] scrollbar-size) 0))
+  
+  
+  (method (vscroll-size size)
+    (new Dimension scrollbar-size (- [height size] (if hscroll scrollbar-size 0))))
+  
+  
+  (method (hscroll-position size)
+    (new Point 0 (- [height size] scrollbar-size)))
+  
+  
+  (method (hscroll-size size)
+    (new Dimension (- [width size] (if vscroll scrollbar-size 0)) scrollbar-size))
+
+  
+  ;;;
+  ;;;; Scroll
+  ;;;
+  
+  
+  (method (set-scroll-pos part pos redraw?)
+    (case part
+      ((vert) (when vscroll (set-pos~ vscroll pos redraw?)))
+      ((horz) (when hscroll (set-pos~ hscroll pos redraw?)))))
+    
+  
+  (method (set-scroll-info part min max page)
+    (case part
+      ((vert) (when vscroll (set-info~ vscroll min max page)))
+      ((horz) (when hscroll (set-info~ hscroll min max page)))))
+
+
+  (method (on-vscroll code thumb-pos orientation)
+    (when client
+      (case code
+        ((line-up)     (scroll~ client (new Point 0    (get-line-size~ client orientation))))
+        ((line-down)   (scroll~ client (new Point 0 (- (get-line-size~ client orientation)))))
+        ((page-up)     (scroll~ client (new Point 0    (get-page-size~ client orientation))))
+        ((page-down)   (scroll~ client (new Point 0 (- (get-page-size~ client orientation)))))
+        ((thumb-track) (scroll~ client (new Point 0 (- (- [v (get-scrolled-position~ client)]) thumb-pos)))))))
+
+
+  (method (on-hscroll code thumb-pos orientation)
+    (when client
+      (case code
+        ((line-up)     (scroll~ client (new Point    (get-line-size~ client orientation)  0)))
+        ((line-down)   (scroll~ client (new Point (- (get-line-size~ client orientation)) 0)))
+        ((page-up)     (scroll~ client (new Point    (get-page-size~ client orientation)  0)))
+        ((page-down)   (scroll~ client (new Point (- (get-page-size~ client orientation)) 0)))
+        ((thumb-track) (scroll~ client (new Point (- (- [h (get-scrolled-position~ client)]) thumb-pos) 0))))))
+
+
+  ;;;
+  ;;;; Scrollbar
+  ;;;
+  
+  
+  (method public (get-vscroll)
+    vscroll)
+  
+  
+  (method public (get-vscroll?)
+    vscroll?)
+  
+  
+  (method public (set-vscroll? flag)
+    (set! vscroll? flag))
+  
+  
+  (method public (set-vscroll-needed? flag)
+    (when (and vscroll? (/= flag (not-null? vscroll)))
+      (if (null? vscroll)
+          (set! vscroll (new Scrollbar parent: self :orientation 'vert :flat? flat? :style style))
+        (close~ vscroll)
+        (set! vscroll null))
+      (layout-view)))
+  
+  
+  (method public (get-hscroll)
+    hscroll)
+  
+  
+  (method public (get-hscroll?)
+    hscroll?)
+  
+  
+  (method public (set-hscroll? flag)
+    (set! hscroll? flag))
+  
+  
+  (method public (set-hscroll-needed? flag)
+    (when (and hscroll? (/= flag (not-null? hscroll)))
+      (if (null? hscroll)
+          (set! hscroll (new Scrollbar parent: self :orientation 'horz :flat? flat? :style style))
+        (close~ hscroll)
+        (set! hscroll null))
+      (layout-view)))
+
+
+  (method public (get-flat?)
+    flat?)
+
+
+  (method public (set-flat? value)
+    (set! flat? value))
+
+
+  (method public (get-style)
+    style)
+
+
+  (method public (set-style value)
+    (set! style value))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "Resize"})
+
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((flat?) (new Boolean-Row))
+      (else (nextmethod property))))))

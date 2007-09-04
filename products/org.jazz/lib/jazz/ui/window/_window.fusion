@@ -1,0 +1,240 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Window Definitions
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window jazz
+
+
+(import (jazz.ui)
+        (jazz.platform)
+        (jazz.platform.windows))
+
+
+(definition public processed '(processed))
+(definition public unprocessed '(unprocessed))
+
+
+;;;
+;;;; Desktop
+;;;
+
+
+(definition desktop {})
+
+
+(definition Desktop-DC null)
+  
+
+(definition public (desktop-dc)
+  (unless Desktop-DC
+    (set! Desktop-DC (new Cairo-Memory-Surface null)))
+  Desktop-DC)
+
+
+(definition public (get-desktop)
+  (unless desktop
+    (set! desktop (new Desktop)))
+  desktop)
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+;; So that the window<->hwnd association can be made on the very first windows message
+(definition in-creation null)
+
+
+(definition (set-in-creation in)
+  (set! in-creation in))
+
+
+(definition (get-in-creation)
+  in-creation)
+
+
+(set! process-hwnd-message
+      (function (hwnd <int> msg <int> wparam <int> lparam <int>)
+        (let ((window (get-window hwnd)))
+          (when (and (null? window) (get-in-creation))
+            (set! window (get-in-creation))
+            (set-hwnd~ window hwnd)
+            (set-window hwnd window)
+            (set-in-creation null))
+          (if (null? window)
+              (DefWindowProc hwnd msg wparam lparam)
+            (call-dispatch-message~ window msg wparam lparam)))))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+(definition Inhibit-View-Cursor?
+  false)
+
+
+(definition public (inhibit-view-cursor flag)
+  (set! Inhibit-View-Cursor? flag))
+
+
+(definition (view-update-cursor)
+  @convert
+  (unless Inhibit-View-Cursor?
+    (update-cursor)))
+
+
+;;;
+;;;; Update
+;;;
+
+
+(definition locked-update?
+  false)
+
+@new-with-locked-update
+(definition locked-rect
+  null)
+
+
+(definition public (with-locked-update proc)
+  (if locked-update?
+      (proc)
+    (let ((toplevel (get-toplevel)))
+      (unwind-protect
+          (begin
+            (LockWindowUpdate (get-hwnd~ toplevel))
+            (set! locked-update? true)
+            (proc))
+        (when locked-update?
+          (LockWindowUpdate NULL)
+          (set! locked-update? false)
+          (update-window~ toplevel))))))
+
+
+@new-with-locked-update
+(definition public (with-locked-update proc)
+  (if locked-update?
+      (proc)
+    (let ((toplevel (get-toplevel)))
+      (unwind-protect
+          (begin
+            (set! locked-rect (new Rect 0 0 0 0))
+            (set! locked-update? true)
+            (proc))
+        (when locked-update?
+          (let ((rect locked-rect)
+                (rect (get-rect~ toplevel)))
+            (set! locked-update? false)
+            (set! locked-rect null)
+            (redraw-window~ toplevel :rect rect :flags (bit-or RDW_INVALIDATE RDW_ERASE RDW_UPDATENOW RDW_ALLCHILDREN))))))))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+
+(definition Escape-Handler
+  null)
+
+
+(definition public (get-escape-handler)
+  Escape-Handler)
+
+
+(definition public (set-escape-handler handler)
+  (set! Escape-Handler handler))
+
+
+;;;
+;;;; Frame
+;;;
+
+
+(definition Active-Frame
+  null)
+
+
+(definition (get-front-frame)
+  #f
+  @windows-specific
+  (let ((stage (get-stage)))
+    (when stage
+      (let ((hwnd (GetWindow (get-hwnd~ stage) GW_CHILD)))
+        (while (and (/= hwnd NULL) (not (IsWindowVisible hwnd)))
+          (set! hwnd (GetWindow hwnd GW_HWNDNEXT)))
+        (when (/= hwnd NULL)
+          (get-window hwnd))))))
+
+
+(definition (activate-front . rest)
+  #f
+  @windows-specific
+  (bind-keywords ((force? false)) rest
+    (let ((front (get-front-frame))
+          (active Active-Frame))
+      (when (or force? (/= front active))
+        (when active
+          (deactivate-frame~ active))
+        (when front
+          (activate-frame~ front))))))
+
+
+(definition public (reactivate-active)
+  (let ((front (get-front-frame)))
+    (when front
+      (activate-frame~ front :force? true))))
+
+
+;;;
+;;;; Popups
+;;;
+
+
+(definition popups
+  null)
+
+
+(definition public (close-all-popups)
+  (for-each close-popup popups))
+
+
+(definition public (close-popup popup)
+  (close~ popup)
+  (set! popups (remove! popup popups))))

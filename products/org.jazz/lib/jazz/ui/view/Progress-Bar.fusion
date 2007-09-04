@@ -1,0 +1,161 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Progress Bars
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Progress-Bar jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Progress-Bar extends View
+  
+  
+  (definition Bar-Width
+    12)
+  
+  (definition Bar-Spacing
+    2)
+  
+  
+  (property infinite? initialize false getter get-infinite? setter set-infinite?)
+  
+  
+  (slot pos   initialize 0)
+  (slot range initialize {Range 0 9})
+  (slot step  initialize 1)
+  (slot bars  initialize 0)
+  
+  
+  (method (default-size)
+    {Dimension 100 20})
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-infinite?)
+    infinite?)
+  
+
+  (method public (set-infinite? flag)
+    (set! infinite? flag))
+  
+  
+  (method public (get-pos)
+    pos)
+  
+  
+  (method public (set-pos p)
+    (set! pos p)
+    (invalidate-bars))
+  
+  
+  (method public (delta-pos increment)
+    (increase! pos increment)
+    (when infinite?
+      (set! pos (modulo pos [end range])))
+    (invalidate-bars))
+  
+  
+  (method public (set-step increment)
+    (set! step increment))
+  
+  
+  (method public (step-it)
+    (delta-pos step))
+  
+  
+  (method public (set-done)
+    (set-pos [end range]))
+  
+  
+  (method public (get-range)
+    range)
+  
+  
+  (method public (set-range rng)
+    (set! range rng)
+    (invalidate-bars))
+  
+  
+  ;;;
+  ;;;; Bars
+  ;;;
+  
+  
+  (method (invalidate-bars)
+    (let ((n (calculate-bars)))
+      (when (/= n bars)
+        (set! bars n)
+        (invalidate-view))))
+  
+  
+  (method (calculate-bars)
+    (let ((start [start range])
+          (end [end range]))
+      (if (= start end)
+          0
+        (let* ((bounds (get-bounds))
+               (width (- (get-width) 2))
+               (right (+ (ceil (/ (* pos width) (- end start))) 1)))
+          (quotient right (+ Bar-Width Bar-Spacing))))))
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (method (draw dc context update lh lv)
+    (draw-edge~ dc (get-bounds) :outer 'sunken :edges 'rectangle)
+    (let* ((width (get-width))
+           (height (get-height))
+           (left 2)
+           (top 2)
+           (max-right (- width 3))
+           (last (- bars 1)))
+      (for-each (function dynamic (n)
+                  (let ((right (+ left Bar-Width)))
+                    (when (or (not infinite?) (= n last))
+                      (fill-rect~ dc (new Rect (min left max-right) top (min right max-right) (- height 2)) {Color name: Focused-Selection})))
+                  (increase! left (+ Bar-Width Bar-Spacing)))
+                (naturals 0 bars))))))

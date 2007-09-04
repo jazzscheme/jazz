@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JML
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jml jazz
+
+
+(export (jazz.jml.autoload))
+(import (jazz.jml.autoload)
+        (jazz.library)
+        (jazz.ui.clipboard)
+        (jazz.utilities))
+
+
+;;;
+;;;; Patch
+;;;
+
+
+(definition Autoclasses
+  (new-hashtable :eq?))
+
+
+(definition public (get-autoclass name)
+  (hashtable-ref Autoclasses name #f))
+
+
+(definition public (set-autoclass name class)
+  (hashtable-set! Autoclasses name class))
+
+
+(definition public (register-autoclass name class)
+  (set-autoclass name class))
+
+
+;;;
+;;;; Parse
+;;;
+
+
+(definition public (parse-jml jml . rest)
+  (bind-keywords ((preferences-class null) (parser-class null)) rest
+    (let* ((pref (new (either preferences-class JML-Preferences)))
+           (parser (new (either parser-class JML-Parser) :preferences pref)))
+      (parse~ parser jml))))
+
+
+;;;
+;;;; Transform
+;;;
+
+
+(definition public (transform-jml node transformation)
+  (transform~ transformation node))
+
+
+;;;
+;;;; Render
+;;;
+
+
+(definition public (render-jml node printer . rest)
+  (bind-keywords ((preferences-class null) (renderer-class null)) rest
+    (let* ((pref (new (either preferences-class JML-Preferences)))
+           (renderer (new (either renderer-class JML-Renderer) pref)))
+      (render~ renderer node printer))))
+
+
+;;;
+;;;; Parsing
+;;;
+
+
+(definition public (parse-jml-properties/children list . rest)
+  (bind-keywords ((keywords? false) (proper? true)) rest
+    (let ((scan list)
+          (properties (new List-Factory))
+          (content null))
+      (while scan
+        (let ((element (car scan)))
+          (if (and (null? content) (keyword? element) (or (not proper?) (jml-keyword? element)))
+              (let ((put
+                      (function dynamic (property value)
+                        (put~ properties property)
+                        (put~ properties value))))
+                (if (jml-keyword? element)
+                    (begin
+                      (put (extract-jml-property element keywords?) (cadr scan))
+                      (set! scan (cddr scan)))
+                  (put element null)
+                  (set! scan (cdr scan))))
+            (when (null? content)
+              (set! content (new List-Factory)))
+            (put~ content element)
+            (set! scan (cdr scan)))))
+      (values (get-output~ properties)
+              (if content (get-output~ content) '())))))
+
+
+(definition (extract-jml-property keyword keywords?)
+  (let ((symbol (string->symbol (keyword->string keyword))))
+    (if (not keywords?)
+        symbol
+      (symbol->keyword symbol))))
+
+
+(definition public (get-jml-property list property . rest)
+  (bind-keywords ((not-found '())) rest
+    (let ((scan list))
+      (call/ec
+        (lambda (return)
+          (while scan
+            (when (eqv? (car scan) property)
+              (return (cadr scan)))
+            (set! scan (cddr scan)))
+          not-found)))))
+
+
+;;;
+;;;; Form
+;;;
+
+
+;; ALL THIS IS A VERY NAIVE FIRST DRAFT IMPLEMENTATION
+
+
+(definition public (jml->form expr)
+  (let* ((parser (new JML-Parser))
+         (node (parse~ parser expr)))
+    (node->form node)))
+
+
+(definition public (jml->form>> expr class)
+  (let ((form (jml->form expr)))
+    (setup-toplevel-context~ form class)
+    form))
+
+
+(definition public (read-jml file)
+  (with-closed ((reader (new File-Reader file)))
+    (read reader)))
+
+
+(definition public (node->form node)
+  (letrec ((node->form
+             (function dynamic (node parent)
+               (if (is? node JML-Text)
+                   node
+                 (let* ((tag (get-tag~ node))
+                        (tag-name (symbol->string tag))
+                        (tag-modify? (and (neq? tag '!) (ends-with? tag-name "!")))
+                        (tag-locate? (and (neq? tag '~) (ends-with? tag-name "~")))
+                        (tag-symbolic? (or tag-modify? tag-locate?))
+                        (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
+                                      ((or (eq? tag '~) tag-symbolic?) 'locate)
+                                      (else 'new)))
+                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) null tag))
+                        (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
+                        (form (new Form :textual? false :action action :model-name model-name name: name :tag-symbolic? tag-symbolic? :tag-source (get-property~ node 'tag-source false) :properties (extract-node-properties node)))
+                        (children (map (function dynamic (node)
+                                         (node->form node form))
+                                       (get-children~ node))))
+                   (set-parent-value~ form parent)
+                   (if (branch-model? tag)
+                       (begin
+                         (set-property~ form 'client-form (car children))
+                         (set-children~ form (cdr children)))
+                     (set-children~ form children))
+                   form)))))
+    (node->form node null)))
+
+
+(definition (extract-node-properties node)
+  (let ((fact (new List-Factory)))
+    (for-each-property (function dynamic (property value)
+                         (when (not (memq? property '(name tag-symbolic? tag-source)))
+                           (put~ fact property)
+                           (put~ fact value)))
+                       (get-properties~ node))
+    (get-output~ fact)))
+
+
+(definition public (form->node form)
+  (letrec ((form->node
+             (function dynamic (form parent)
+               (if (is? form JML-Text)
+                   form
+                 (let* ((action (get-action~ form))
+                        (model-name (get-model-name~ form))
+                        (name (get-name~ form))
+                        (symbolic? (get-tag-symbolic?~ form))
+                        (tag (if symbolic?
+                                 (string->symbol (append (symbol->string name) (case action ((modify) "!") ((locate) "~"))))
+                               (case action ((install) 'install) ((new) model-name) ((modify) '!) ((locate) '~))))
+                        (element (new JML-Element parent tag))
+                        (properties (extract-form-properties form symbolic?))
+                        (children (map (function dynamic (form)
+                                         (form->node form element))
+                                       (get-children~ form))))
+                   (set-properties~ element properties)
+                   (set-children~ element (if (branch-model? model-name) (add-client-form form children) children))
+                   element)))))
+    (form->node form null)))
+
+
+(definition (branch-model? model-name)
+  (memq? model-name '(Branch Design-Diagram Design-Model JSC-Branch Slide Basic-Slide Documentation-Slide Concept-Slide Heading-Slide Test-Branch Test-Branch-Aux Test-Model)))
+
+
+(definition (add-client-form form children)
+  (let ((client-form (get-property~ form 'client-form)))
+    (if (null? client-form)
+        children
+      (cons (form->node client-form) children))))
+
+
+(definition (extract-form-properties form symbolic?)
+  (let ((fact (new List-Factory))
+        (name (get-name~ form))
+        (tag-source (get-tag-source~ form)))
+    (when (and name (not symbolic?))
+      (put~ fact 'name)
+      (put~ fact name))
+    (when tag-source
+      (put~ fact 'tag-source)
+      (put~ fact tag-source))
+    (for-each-property (function dynamic (property value)
+                         (let ((name (if (property? property) (field-name property) property)))
+                           (when (neq? name 'client-form)
+                             (put~ fact name)
+                             (put~ fact value))))
+                       (get-properties~ form))
+    (get-output~ fact)))
+
+
+;;;
+;;;; Utilities
+;;;
+
+
+(definition public (load-jml file)
+  (with-closed ((reader (new File-Reader file)))
+    (let* ((pref (new JML-Preferences))
+           (parser (new JML-Parser :preferences pref)))
+      (parse~ parser reader))))
+
+
+(definition public (save-jml-to-clipboard jml)
+  (let ((printer (new String-Printer)))
+    (pretty-print~ jml printer)
+    (let ((output (get-output~ printer)))
+      (set-clipboard output)))))

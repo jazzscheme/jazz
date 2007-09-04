@@ -1,0 +1,105 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Window Menu
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.menu.External-Menu jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class External-Menu extends Menu
+  
+  
+  (form
+    (<install>          title: "E&xternal"
+      (<Label-Item>     title: "Repository &Manager" icon: {Bitmap-Resource "Repository"} action-handler: {Event-Handler :application on-repository-manager})
+      (<Separator-Item>)
+      (<Label-Item>     title: "&Catalogs Manager" action: {Action jedi catalogs-manager})
+      (<Label-Item>     title: "&Update Main Catalog" action: {Action jedi update-catalog}))))
+
+
+;;;
+;;;; Browse-Menu
+;;;
+
+
+(class Browse-Menu extends Menu
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (for-each (function dynamic (config)
+                (let ((dir (get-directory~ config)))
+                  (new Label-Item parent: self :title (->string (get-base~ dir)) :action-handler (new Event-Handler :target self :method-name 'on-action :properties (list :directory dir)))))
+              (get-children~ (get-preferences '(external browse)))))
+  
+  
+  (method (on-action evt)
+    (let* ((dir (get-property~ evt :directory))
+           (browser (find-if (function dynamic (window)
+                               (and (is? window Directory-Browser)
+                                    (= (get-directory~ window) dir)))
+                             (get-windows~ (get-toplevel~ (get-application))))))
+      (if browser
+          (bring-to-front~ browser)
+        (new-palette Directory-Browser :directory (get-property~ evt :directory))))))
+
+
+;;;
+;;;; Select-Menu
+;;;
+
+
+(class Select-Menu extends Menu
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (for-each (function dynamic (config)
+                (let ((title (get-title~ config))
+                      (toplevel-class (get-toplevel-class~ config))
+                      (accelerator (get-accelerator~ config)))
+                  (new Label-Item parent: self :title title :accelerator accelerator :action-handler (new Event-Handler :target self :method-name 'on-action :properties (list :toplevel-class toplevel-class)))))
+              (get-children~ (get-preferences '(external select)))))
+  
+  
+  (method (on-action evt)
+    (let ((toplevel-class (get-property~ evt :toplevel-class)))
+      (bring-to-front~ External-Tool toplevel-class)))))

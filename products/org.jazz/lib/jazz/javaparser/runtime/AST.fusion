@@ -1,0 +1,149 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Antlr Abstract Syntax Trees
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.javaparser.runtime.AST jazz
+
+
+(import (jazz.javaparser)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class AST extends Object
+  
+  
+  (method protected (assert-kind kind)
+    (unless (= (get-kind) kind)
+      (error "{t} is not of the expected {t} kind" self kind)))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-null?)
+    (ast-null? self))
+
+
+  (method public (get-kind)
+    (ast-kind self))
+
+
+  (method public (get-locatable?)
+    (ast-locatable self))
+
+
+  (method public (get-line)
+    (ast-line self))
+
+
+  (method public (get-column)
+    (ast-column self))
+
+
+  (method public (get-text)
+    (ast-text self))
+
+
+  (method public (get-first-child)
+    (ast-first-child self))
+
+
+  (method public (get-next-sibling)
+    (ast-next-sibling self))
+
+
+  ;;;
+  ;;;; Printing
+  ;;;
+
+
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (if (get-null?)
+            (format printer "nil")
+          (format printer "{a} {a}"
+                  (token-type-name (get-kind))
+                  (description))))))
+  
+  
+  (method public virtual (description)
+    (get-text))
+  
+
+  (method public (describe . rest)
+    (bind-optionals ((level 0)) rest
+      (format :console "{_ :v}{a} {a}{a}{%}"
+              (* level 2)
+              (token-type-name (get-kind))
+              (get-text)
+              (if (get-locatable?)
+                  (format " {a} {a}" (get-line) (get-column))
+                ""))
+      (let ((child (get-first-child))
+            (sibling (get-next-sibling)))
+        (when child
+          (describe~ child (+ level 1)))
+        (when sibling
+          (describe~ sibling level)))))
+  
+  
+  @convert
+  (method meta public (token-type-name type)
+    (value->name~ (token-types) type))
+
+
+  (method meta protected virtual (token-types)
+    )
+
+
+  ;;;
+  ;;;; External
+  ;;;
+
+
+  (external Jazz bool   (ast-null?        Object) "JzIsASTNull")
+  (external Jazz int    (ast-kind         Object) "JzASTKind")
+  (external Jazz bool   (ast-locatable    Object) "JzASTLocatable")
+  (external Jazz int    (ast-line         Object) "JzASTLine")
+  (external Jazz int    (ast-column       Object) "JzASTColumn")
+  (external Jazz Object (ast-text         Object) "JzASTText")
+  (external Jazz Object (ast-first-child  Object) "JzASTFirstChild")
+  (external Jazz Object (ast-next-sibling Object) "JzASTNextSibling")
+  (external Jazz Object (ast-hidden-after Object) "JzASTHiddenAfter")))

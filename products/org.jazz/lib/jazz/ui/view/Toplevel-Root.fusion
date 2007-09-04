@@ -1,0 +1,253 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Toplevel Root
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Toplevel-Root jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Toplevel-Root extends Frame-Root
+  
+  
+  (slot minimized? initialize false)
+
+  
+  (form
+    (<install>
+      (<Frame-Button> name: restore type: restore tooltip?: #t tooltip-text: "Restore" action-handler: {Event-Handler form: on-restore})))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-minimize evt)
+    (minimize))
+  
+  
+  (method (on-maximize evt)
+    (maximize))
+  
+  
+  (method (on-restore evt)
+    (restore))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public (set-state state)
+    (case state
+      ((maximized) (maximize))
+      ((minimized) (minimize))
+      ((restored) (restore))))
+  
+  
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method (caption-rect)
+    (let ((border (if maximized? 0 4))
+          (height 22))
+      (new Rect border border (- (get-width) border) (+ border height))))
+  
+  
+  (method (minimize-rect top right)
+    (new Rect (- right 52) top (- right 36) (+ top 22)))
+  
+  
+  (method (maximize-rect top right)
+    (new Rect (- right 36) top (- right 20) (+ top 22)))
+  
+  
+  (method (close-rect top right)
+    (new Rect (- right 18) top (- right  0) (+ top 22)))
+  
+  
+  ;;;
+  ;;;; Maximize
+  ;;;
+  
+  
+  (method (maximize)
+    (with-locked-update
+      (function dynamic ()
+        (nextmethod)
+        (update-bounds~ player))))
+  
+  
+  ;;;
+  ;;;; Minimize
+  ;;;
+  
+  
+  (method public (toggle-minimized)
+    (if minimized?
+        (restore-minimized)
+      (minimize)))
+  
+  
+  (method public (minimize)
+    (unless minimized?
+      (show-window~ player SW_MINIMIZE)
+      (set! minimized? true)))
+  
+  
+  (method public (restore-minimized)
+    (when minimized?
+      (set-position~ player {Point 0 0})
+      (set! minimized? false)))
+  
+  
+  ;;;
+  ;;;; Restore
+  ;;;
+  
+  
+  (method (restore)
+    (with-locked-update
+      (function dynamic ()
+        (nextmethod)
+        (update-bounds~ player))))
+  
+
+  ;;;
+  ;;;; Layout
+  ;;;
+    
+  
+  (method (layout-buttons)
+    (nextmethod)
+    (let* ((border (buttons-border))
+           (top border)
+           (bounds (get-bounds))
+           (right (- [right bounds] border)))
+      (set-rect~ (locate 'restore) (maximize-rect top right))))
+
+  
+  (method (buttons-border)
+    (if maximized? 0 4))
+
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method public (invalidate-caption)
+    (invalidate-rect (caption-rect)))
+  
+  
+  (method (update-buttons)
+    (let ((visible? (caption-visible?)))
+      (set-visible?~ (locate 'minimize) visible?)
+      (set-visible?~ (locate 'maximize) (and visible? (not maximized?)))
+      (set-visible?~ (locate 'restore) (and visible? maximized?))
+      (set-visible?~ (locate 'close) visible?)))
+
+
+  ;;;
+  ;;;; Caption
+  ;;;
+
+
+  (method (caption-icon)
+    (let ((process (get-process)))
+      (process-icon~ process)))
+
+
+  (method (caption-title)
+    (let ((toplevel (get-toplevel)))
+      (get-window-title~ toplevel)))
+  
+  
+  (method (caption-font)
+    {Font name: Label-Bold})
+  
+  
+  (method (caption-focused?)
+    (let ((appl (get-application)))
+      (get-active?~ appl)))
+  
+  
+  (method (caption-visible?)
+    (or (null? player)
+        (and (get-caption?~ player) (not (get-fullscreen?~ player)))))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (icon-offset)
+    {Point 2 3})
+  
+  
+  (method (title-offset)
+    {Point 22 5})
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (moveable?)
+    (not (get-maximized?)))
+  
+  
+  (method (toggle-maximized)
+    (set-maximized? (not maximized?)))
+  
+  
+  (method (send-host-to-back)
+    )))

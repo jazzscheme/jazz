@@ -1,0 +1,257 @@
+﻿Gambit
+
+EVAL
+
+- Code object: #(parent code-prc cte src stepper child0 child1 ...)
+- Source code object: #(marker code location-container location-position)
+- Code procedure (cprc: the equivalent of a virtual eval method
+- Location object: #(container position)
+  - container: file, text, editor window, ...
+  - position: character offset, line/column index, text bookmark, expression, ...
+- Compile time environment (cte): corresponds to Jazz's code walker
+  - top        #(parent)              end of the environment and container for current state
+  - frame      #(parent vars)         binding context for variables
+  - macro      #(parent name def)     binding context for a macro
+  - namespace  #(parent prefix vars)  binding context for a namespace
+- Runtime environment (rte): #(back-rte var0 var1 var2 ...)
+- The macro-make-gen macro generates a (let (...) (lambda ...)) that wraps a compiled closure
+  around a code object...
+
+- I think that the concept of subprocedure is for returns which are what a continuation returns
+  to... Returns can be still on the stack or in the heap...
+
+
+- What are environment-map ?
+
+
+OBJECT REPRESENTATION
+
+; General object representation.
+
+; Type tags.
+
+(##define-macro (macro-type-fixnum)   0)
+(##define-macro (macro-type-subtyped) 1)
+(##define-macro (macro-type-special)  2)
+(##define-macro (macro-type-pair)     3)
+
+; Subtype tags.
+
+(##define-macro (macro-subtype-vector)       0)
+(##define-macro (macro-subtype-pair)         1)
+(##define-macro (macro-subtype-ratnum)       2)
+(##define-macro (macro-subtype-cpxnum)       3)
+(##define-macro (macro-subtype-structure)    4)
+(##define-macro (macro-subtype-boxvalues)    5)
+(##define-macro (macro-subtype-meroon)       6)
+
+(##define-macro (macro-subtype-symbol)       8)
+(##define-macro (macro-subtype-keyword)      9)
+(##define-macro (macro-subtype-frame)        10)
+(##define-macro (macro-subtype-continuation) 11)
+(##define-macro (macro-subtype-promise)      12)
+(##define-macro (macro-subtype-weak)         13)
+(##define-macro (macro-subtype-procedure)    14)
+(##define-macro (macro-subtype-return)       15)
+
+(##define-macro (macro-subtype-foreign)      18)
+(##define-macro (macro-subtype-string)       19)
+(##define-macro (macro-subtype-s8vector)     20)
+(##define-macro (macro-subtype-u8vector)     21)
+(##define-macro (macro-subtype-s16vector)    22)
+(##define-macro (macro-subtype-u16vector)    23)
+(##define-macro (macro-subtype-s32vector)    24)
+(##define-macro (macro-subtype-u32vector)    25)
+(##define-macro (macro-subtype-f32vector)    26)
+
+; for alignment these 5 must be last:
+(##define-macro (macro-subtype-s64vector)    27)
+(##define-macro (macro-subtype-u64vector)    28)
+(##define-macro (macro-subtype-f64vector)    29)
+(##define-macro (macro-subtype-flonum)       30)
+(##define-macro (macro-subtype-bignum)       31)
+
+- Donc clairement, le type est 2 bits et le sous-type 5 bits.
+- Y a t'il une primitive qui retourne les 7 bits comme un entier (utile pour indexation dans une
+  vecteur de classes...)?
+- Les seuls objets alloués en mémoire sont les subtyped et les pair. Les objets de type special sont
+  les #t, #f, void, ... Les subtypes sont des vecteur speciallement types et que l'on accede par ##vector-ref
+
+
+DECLARATIONS (from _ptree1.scm)
+
+; Dialect related declarations:
+;
+; (ieee-scheme)     use IEEE Scheme
+; (r4rs-scheme)     use R4RS Scheme
+; (r5rs-scheme)     use R5RS Scheme
+; (multilisp)       use Multilisp
+;
+; Partial-evaluation declarations:
+;
+; (constant-fold)                       can constant-fold primitives
+; (not constant-fold)                   can't constant-fold primitives
+;
+; Lambda-lifting declarations:
+;
+; (lambda-lift)                         can lambda-lift user procedures
+; (not lambda-lift)                     can't lambda-lift user procedures
+;
+; Inlining declarations:
+;
+; (inline)                              compiler may inline user procedures
+; (not inline)                          no user procedure will be inlined
+;
+; (inlining-limit n)                    inlined user procedures must not be
+;                                       bigger than 'n'
+;
+; Compilation strategy declarations:
+;
+; (block)     global vars defined are only mutated by code in the current file
+; (separate)  global vars defined can be mutated by other code
+;
+; (core)      toplevel expressions and definitions must be compiled to code
+; (not core)  toplevel expressions and definitions belong to another module
+; 
+; Global variable binding declarations:
+;
+; (standard-bindings)                  compiler can assume standard bindings
+; (standard-bindings <var1> ...)       assume st. bind. for vars specified
+; (not standard-bindings)              can't assume st. bind. for any var
+; (not standard-bindings <var1> ...)   can't assume st. bind. for vars spec.
+;
+; (extended-bindings)                  compiler can assume extended bindings
+; (extended-bindings <var1> ...)       assume ext. bind. for vars specified
+; (not extended-bindings)              can't assume ext. bind. for any var
+; (not extended-bindings <var1> ...)   can't assume ext. bind. for vars spec.
+;
+; (run-time-bindings)                  should check bindings at run-time
+; (run-time-bindings <var1> ...)       check at run-time for vars specified
+; (not run-time-bindings)              should not check bindings at run-time
+; (not run-time-bindings <var1> ...)   don't check at run-time for vars specified
+;
+; Code safety declarations:
+;
+; (safe)                              runtime errors won't crash system
+; (not safe)                          assume program doesn't contain errors
+;
+; (warnings)                          show warnings
+; (not warnings)                      suppress warnings
+;
+; Interrupt checking declarations:
+;
+; (interrupts-enabled)                allow interrupts
+; (not interrupts-enabled)            disallow interrupts
+;
+; Environment map declarations:
+;
+; (environment-map)                   generate environment maps
+; (not environment-map)               don't generate environment maps
+
+
+LEXICON
+
+- cte : compile time environment
+- rte : runtime environment
+- btq : blocked thread queue
+
+
+NOTES
+
+- ##gc to trigger a gc
+- (serial-number->object number #f) can be used as a test
+
+- I should look at SIX which could be interesting for Jazz client scripting
+
+- Can gsc generate a .o of many .scm?
+
+- Load must clearly be atomic (verify with Marc)
+  - Solves set! to global variables
+  - Solves renumerating classes
+
+
+QUESTIONS
+
+    * Y a t'il une facon non bloquante de savoir si du data est disponible sur un socket?
+    * Comment devrais-je implémenter mon interruption du debuggeur qui dois partir un repl dans un thread du debuggee?
+    * Pourquoi (thread-start! (make-thread (lambda () (car 1)))) dans un gsi -:da ne donne t'il pas l'erreur immédiatement?
+          o Y a t'il une facon de switcher de repl quand plus de 1 threads sont en erreur?
+          o Les deux sont je pense un bug Windows qui fait que ca ne reagit que a l'eval suivant...
+    * C'est quoi le concept de subprocedure?
+    * Je pense que ce qui me manque dans l'interprete Gambit c'est des annotations pour entre autre les macros
+      de Jazz, de l'info permettant de distinguer les frames Jazz de ceux de Gambit, ... (peut-etre ajouter cette
+      info aux compiled closures comme le fait Gambit!?)
+
+
+Je continue d'etre faciné comment après 10 ans de travail intense en Gambit et 10 ans de travail intense en Jazz, l'intersection des 2 est minime et donc comment leur union est formidable!
+
+    * Comment puis-je partir un serveur tcp sans specifier le port?
+    * Doc: For TCP/IP, if the port is specified as zero, the service provider assigns a unique port to the application with a value between 1024 and 5000. The application can use getsockname after calling bind to learn the address and the port that has been assigned to it.
+    * Comme je trouve SIX fort intéressant, je ne comprend pas la syntaxe de obj...
+    * Vais-je pouvoir implémenter le break qui va interrompre n'importe quel thread comme le fait ctrl-c?
+    * Quand plus de 1 thread est en erreur, comment fait-on pour switcher de repl? Je pense que c'est buggy sous Windows car evaluer genre 23 switch de repl...
+    * Es-ce que je comprend correctement que faire (##declare (not interrupts-enabled)) est une facon de rendre du code thread safe comme le thread switching se fait par interrupt???
+    * Bug? (open-tcp-client (list server-address: "localhost" port-number: 11637)) ne fait pas d'erreur. Idem pour open-tcp-server qu'on fait 2x de suite
+    * Si je separe Jazz en beaucoup de petits fichiers .scm comme c'est naturels en OO, es-ce que ca va impacter la performance du code généré (car j'imagine ils auront tous des host distincs)?
+    * Il semblerait que un define-macro ne fonctionne plus si le fichier as été compilé. Es-ce vrai? Je compile expand.scm et dans jdb.exe ou _gsi.c est présent, quand je load un .jazz il ne trouve pas la macro in :(
+    * Es-ce un bug que (define (t1)
+        (with-exception-handler
+          (lambda (exc)
+            2)
+          (lambda ()
+            (list 'a (car 1) 'b)))) return (a 2 b) plutot que juste 2
+
+Comment faire pour invoquer une macro definie dans un fichier compilé?
+
+
+
+QUESTIONS NON REPONDUES
+
+Quelques autres questions (ceux de la problématique d'implémentation sont assez complexes et sont plus une mise en situation pour une rencontre...):
+
+   * Es-ce un projet ou un intéret pour toi de supporter Java et/ou
+     .net comme backend? (c'est du long terme pour moi)
+   * Va tu faire une présentation au 'Scheme and Functional Programming
+     2006'?
+         o Je pensait que si Jazz est prêt je pourrais peut-etre y
+           présenter Jazz. Qu'es-ce que tu en pense?
+   * Que veut dire le prefix cprc?
+   * Peut-on débogguer le code Scheme compilé
+         o Comment se fait l'unification entre compilé et interpreté
+           pour que le débuggeur puisse les traiter de facon uniforme?
+           Es-ce que les deux par exemple utilisent la même structure rte?
+         o Il y a t'il un setting pour que le compilateur génère des
+           frames de débuggage?
+         o L'option -debug permet t'elle le debuggage du code C généré
+           ou du code Lisp compilé?
+
+Problématique d'implémentation performante en Gambit:
+
+   * Peut-on étendre les types natifs de Scheme? Je veut pouvoir
+     considérer les types natifs de Scheme comme des classes Jazz
+     aussi. Pour le moment ca fonctionne de facon portable avec mon
+     class-of qui fait genre:
+         o (jazz.define (jazz.class-of expr)
+             (cond ((boolean? expr)
+                    jazz.Boolean)
+                   ((char? expr)
+                    jazz.Char)
+                   ...
+                   ((jazz.object? expr)
+                    (jazz.get-object-class expr))))
+         o  Dans Blues ou on a disons des tags natifs de 1 a n je
+           prévoyait faire pour une solution performante que les
+           classes auraient des tags de n+1... ce qui permettrait
+           d'avoir un vecteur de classes incluant les types natifs de
+           Scheme.
+
+##subtype-set! ##return?
+- Exceptions: Predefined procedures normally raise exceptions by performing a tail-call to the exception
+  handler (the exceptions are "complex" procedures such as eval, compile-file, read, write, etc). This means
+  that the continuation of the exception handler and of the REPL that may be started due to this is normally
+  the continuation of the predefined procedure that raised the exception. By exiting the REPL with
+  the ,(c expression) command it is thus possible to resume the program as though the call to the predefined
+  procedure returned the value of expression
+- Global variable access in Gambit is *not* thread safe. Confirm with Marc that read/read is ok... Ummm if a
+  read of lets say a hashtable is interrupted by a write, even if the write is uninterruptable we can have
+  problems...

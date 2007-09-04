@@ -1,0 +1,225 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Paragraph Lines
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.Line jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Line extends Object
+  
+  
+  (slot protected text)
+  (slot protected runs)
+  (slot protected rank   <Integer>)
+  (slot protected offset <Integer>)
+  (slot protected length <Integer>)
+  (slot protected left   <Integer>)
+  (slot protected top    <Integer>)
+  (slot protected width  <Integer>)
+  (slot protected height <Integer>)
+  
+  
+  (method (initialize text runs rank offset left top width)
+    (nextmethod)
+    (set! [text self] text)
+    (set! [runs self] runs)
+    (set! [rank self] rank)
+    (set! [offset self] offset)
+    (set! [left self] left)
+    (set! [top self] top)
+    (set! [width self] width)
+    (set! [length self] (compute-length))
+    (set! [height self] (compute-height)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (write runs printer))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-runs)
+    runs)
+  
+  
+  (method public (get-length)
+    length)
+  
+  
+  (method public (get-limit)
+    (+ offset length))
+  
+  
+  ;;;
+  ;;;; Length
+  ;;;
+  
+  
+  (method (compute-length)
+    (let ((len 0))
+      (for-each (function dynamic (run)
+                  (increase! len (get-length~ run)))
+                runs)
+      len))
+  
+  
+  ;;;
+  ;;;; Size
+  ;;;
+  
+  
+  (method (compute-height)
+    (if (null? runs)
+        (get-height~ [default-style text])
+      (let ((height 0))
+        (for-each (function dynamic (run)
+                    (let ((run-height (get-height~ run)))
+                      (set! height (max run-height height))))
+                  runs)
+        height)))
+  
+  
+  (method public (get-height)
+    height)
+  
+  
+  (method public (get-bottom)
+    (+ top height))
+  
+  
+  ;;;
+  ;;;; Range
+  ;;;
+
+
+  (method protected (range-region paragraph-left paragraph-top paragraph-width start end paragraph dh dv sc)
+    (let ((left [h (col->view (either start 0) false)])
+          (right (if (null? end) paragraph-width [h (col->view end false)])))
+      (with ((rect (new Rect left top right (get-bottom)))
+             (offset (offset-rect rect paragraph-left paragraph-top)))
+        (new Region :rect (acquire-delta~ paragraph dh dv sc offset)))))
+  
+  
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  (method protected (scan end proc <Procedure>)
+    (let ((b 0)
+          (h left)
+          (tabs [tab-stops text]))
+      (call/ec
+        (lambda (return)
+          (for-each (function dynamic (run)
+                      (let ((nmost 0)
+                            (rightmost 0))
+                        (with ((call
+                                 (function dynamic (c n left mid right)
+                                   (if (and end (>= (+ b n) end))
+                                       (return)
+                                     (proc c (+ b n) left mid right)
+                                     (set! nmost n)
+                                     (set! rightmost right)))))
+                          (let ((len (get-length~ run)))
+                            (scan~ run h 0 len tabs call)))
+                        (increase! b (+ nmost 1))
+                        (set! h rightmost)))
+                    runs)))))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method protected (draw-line dc context h <int> v <int> tabs left)
+    (let ((h (+ [left self] h))
+          (enabled? (draw-enabled?~ text)))
+      (for-each (function dynamic (run)
+                  (let ((width (draw-run~ run dc context h v height tabs left enabled?)))
+                    (increase! h width)))
+                runs)))
+  
+  
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  (method protected (view->col view <Point>)
+    (let ((h [h view])
+          (v [v view]))
+      (when (and (>= [v view] top) (< [v view] (get-bottom)))
+        (call/ec
+          (lambda (return)
+            (scan null
+              (function dynamic (c n left mid right)
+                (when (> mid h)
+                  (return n))))
+            (get-length))))))
+  
+  
+  (method protected (col->view col <int> strict? <bool>)
+    (let ((rightmost 0))
+      (call/ec
+        (lambda (return)
+          (scan null
+            (function dynamic (c n left mid right)
+              (when (= n col)
+                (return (new Point left top)))
+              (set! rightmost right)))
+          ;; Allow the caret on an empty line (runs is null) with a
+          ;; centered or right justification to be correctly aligned.
+          (unless (not-null? runs)
+            (set! rightmost left))
+          (unless strict?
+            (new Point rightmost top))))))
+  
+  
+  (method protected (col->text col <int>)
+    (when (and (>= col offset) (< col (get-limit)))
+      (new Cell rank (- col offset))))))

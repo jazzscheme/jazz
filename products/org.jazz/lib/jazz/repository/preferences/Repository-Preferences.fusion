@@ -1,0 +1,172 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Repository Preferences
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.repository.preferences.Repository-Preferences jazz
+
+
+(import (jazz.jml)
+        (jazz.repository)
+        (jazz.library)
+        (jazz.utilities)
+        (jazz.ui))
+
+
+(class Repository-Preferences extends Preferences
+  
+
+  (property base-project   initialize {}   accessors generate)
+  (property base-directory initialize {}   accessors generate)
+  (property active?        initialize true accessors generate)
+  
+  
+  (form
+    (<install> title: "Repository" icon: {Bitmap-Resource "Repository"}))
+
+
+  ;;;
+  ;;;; Repository
+  ;;;
+  
+  
+  (method public virtual (repository-class)
+    null)
+  
+  
+  (method public virtual (install-preferences designer initargs)
+    (set-property~ designer self 'base-project (getf initargs :base-project))
+    (set-property~ designer self 'base-directory (getf initargs :base-directory)))
+  
+  
+  (method public virtual (install-concrete designer pref)
+    )
+  
+  
+  (method public virtual (gather-concrete-initargs)
+    )
+  
+  
+  (method public virtual (in-repository? file)
+    (and ;; a temporary not 100% elegant patch
+         (is? file Pathname)
+         (not-null? (anchor-to~ file base-directory :error? false))))
+
+
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  ;; Temporary patch: taken from Component to bypass Preferences
+  (method (presentation-property? property)
+    false)
+  
+  
+  ;; Temporary patch: taken from Component to bypass Preferences
+  (method (get-presentation)
+    (name->presentation name))
+  
+  
+  ;; Temporary patch: taken from Component to bypass Preferences
+  (method (set-presentation designer presentation)
+    (set-name~ designer self (presentation->name presentation)))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method meta public virtual (editor-class)
+    )
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-presentation)
+    "Repository")
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "Repository"})
+  
+  
+  @convert-descriptor
+  (method meta (get-name-mandatory?)
+    true)
+  
+  
+  @convert-descriptor
+  (method meta (get-name-unicity?)
+    true)
+  
+  
+  @convert-descriptor
+  (method meta (presentation->name presentation)
+    presentation)
+  
+  
+  @convert-descriptor
+  (method meta (name->presentation name)
+    name)
+  
+  
+  @convert-descriptor
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((base-project) "Base Project")
+      ((base-directory) "Base Directory")
+      ((active?) "Active")
+      (else (nextmethod property))))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((base-project) (new String-Row :nullable? false))
+      ((base-directory) (new Directory-Row))
+      ((active?) (new Boolean-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(base-project
+      base-directory
+      active?))))

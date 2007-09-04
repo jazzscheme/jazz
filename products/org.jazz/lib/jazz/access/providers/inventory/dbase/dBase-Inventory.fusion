@@ -1,0 +1,121 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; dBase Database Inventory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.dbase.dBase-Inventory jazz
+
+
+(import (jazz.access))
+
+
+(class dBase-Inventory extends Inventory
+  
+  
+  (slot engine)
+  (slot database)
+  
+  
+  (method (initialize connection pathname . rest)
+    (bind-keywords ((read-only? false)) rest
+      (nextmethod connection)
+      (set! engine (cocreate [DBEngine DAO]))
+      (with-closed ((workspaces (get-Workspaces~ engine))
+                    (workspace (get-Item~ workspaces 0)))
+        (set! database (OpenDatabase~ workspace (parse~ pathname) 0 read-only? (type-connection-string))))
+      (destroy-mandatory)))
+  
+  
+  (method (destroy)
+    (Close~ database)
+    @debug-memory-leaks
+    (debug '*** (cointerface-refcount engine) (cointerface-refcount database))
+    (corelease database)
+    @debug-memory-leaks
+    (debug '*** (cointerface-refcount engine))
+    (corelease engine)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method (type-connection-string)
+    "dBASE 5.0")
+  
+  
+  (method public (get-database-name)
+    (get-Name~ database))
+  
+  
+  ;;;
+  ;;;; Tables
+  ;;;
+  
+  
+  (method (get-tables)
+    (with-closed ((tables (get-TableDefs~ database)))
+      (loop (for n from 0 below (get-Count~ tables))
+            (collect (new dBase-Inventory-Table self self (get-Item~ tables n))))))
+  
+  
+  (method (get-table name)
+    (with-closed ((tables (get-TableDefs~ database)))
+      (new dBase-Inventory-Table self self (get-Item~ tables name))))
+  
+  
+  (method (create-table name)
+    (new dBase-Inventory-Table self self (CreateTableDef~ database name null null null)))
+  
+  
+  (method (append-table table)
+    (with-closed ((tabledefs (get-TableDefs~ database)))
+      (Append~ tabledefs (get-handle~ table))))
+ 
+  
+  (method (remove-table name)
+    (with-closed ((tabledefs (get-TableDefs~ database)))
+      (Delete~ tabledefs name)))
+  
+  
+  ;;;
+  ;;;; Relations
+  ;;;
+  
+  
+  (method (get-relations)
+    null)))

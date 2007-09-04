@@ -1,0 +1,438 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Search Results
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Search-Results jazz
+
+
+(import (jazz.library)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities)
+        (jazz.literals))
+
+
+(class Search-Results extends Navigable-Results
+
+
+  (slot mode              initialize {})
+  (slot context           initialize {})
+  (slot references-target initialize {})
+  (slot current-results   initialize {})
+  (slot results-stack     initialize '())
+
+
+  (form
+    (<install>
+      (<!>                           name: tools
+        (<!>                         name: clear                       tooltip-text: "Pop Results")
+        (<Separator>                 size: {Dimension 4 0})
+        (<Border-View>                                                 size: {Dimension 120 21} border-insets: {Rect 1 1 1 1} border-color: {Color name: Medium}
+          (<Border-View>                                               border-color: {Color :red 200 :green 188 :blue 166}
+            (<Stack-Combo>           name: stack)))
+        (<Separator>                 name: edit-as-jazz-text-separator size: {Dimension 4 0} location: tail)
+        (<Toggle-Tool>               name: edit-as-jazz-text           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit As Jazz Text" image-name: {Bitmap-Resource "Script"} portfolio: :icons))
+      (<!>                           name: scroller
+        (<!>                         name: content
+          (<!>                       name: header
+            (<!>                     name: content
+              (<!>                   name: results                     filled-column: location multiple-selection?: #t context-menu-handler: {Event-Handler form: on-context-menu}
+                (<Tree-Node-Column>  name: name                        title: "Name" width: 200)
+                (<Tree-Label-Column> name: location                    title: "Location" width: 337)
+                (<Tree-Label-Column> name: type                        title: "Type" width: 100))))))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'search-results)
+  
+  
+  (method (form-model form)
+    (case (get-name~ form)
+      ((results) Search-Results-Tree)
+      (else (nextmethod form))))
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Find"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Search Results")
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-mode)
+    mode)
+  
+  
+  (method public (set-mode value)
+    (set! mode value))
+  
+  
+  (method public (get-context)
+    context)
+  
+  
+  (method public (set-context value)
+    (set! context value))
+  
+  
+  (method public (get-references-target)
+    references-target)
+  
+  
+  (method public (set-references-target value)
+    (set! references-target value))
+  
+  
+  (method public (get-results-stack)
+    results-stack)
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos))
+           (menu (get-context-menu)))
+      (when menu
+        (with-context-click~ sender pos
+          (function dynamic ()
+            (track-popup-menu menu acquired))))))
+  
+  
+  (method (get-context-menu)
+    (new Found-Menu))
+  
+  
+  (method (clear-results)
+    (if (<= (length results-stack) 1)
+        (bell)
+      (pop-results)))
+
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+
+  (method (edit-selection forward?)
+    (let* ((tree (get-tree))
+           (selection (get-selection~ tree)))
+      (when selection
+        (with-locked-update
+          (function dynamic ()
+            (for-each (function dynamic (item)
+                        (edit-item item forward? true))
+                      selection)
+            (acquire-focus~ (first-window~ (get-stage))))))))
+
+
+  (method public (edit-item item forward? focus?)
+    (let* ((tree (get-tree))
+           (definition (get-user-data~ (get-row~ tree item))))
+      (edit-document definition forward? focus?)))
+
+
+  ;;;
+  ;;;; Edition
+  ;;;
+
+
+  (method (edit-document info forward? focus?)
+    (with-cursor :wait
+      (function dynamic ()
+        (if (typed? info 'Catalog-Entry)
+            (case mode
+              ((references)
+               (edit-reference~ info references-target :activate-focus? focus?))
+              (else
+               (edit~ info :activate-focus? focus?)))
+          (if (and (pair? info) (typed? (car info) 'Catalog-Entry))
+              (bind (entry . target) info
+                (case mode
+                  ((references)
+                   (edit-reference~ entry target :activate-focus? focus?))
+                  (else
+                   (edit~ entry :activate-focus? focus?))))
+            (let ((edit
+                   (function dynamic (source targets)
+                     (let* ((appl (get-application))
+                            (jazz? (get-selected?~ (locate 'edit-as-jazz-text)))
+                            (class (if jazz? Jazz-Text-View null)))
+                       (bind-values (frame new?) (edit-document~ appl source :class class :visible? false :return-new? true)
+                         (let ((guest (get-guest~ frame)))
+                           (when (is? guest Text-View)
+                             (if forward?
+                                 (select-expr~ guest targets)
+                               (select-expr-backward~ guest targets)))
+                           (bring-to-front~ frame)
+                           (set-visible?~ frame true)
+                           (values frame new?)))))))
+              (if (is? (car info) Moniker)
+                  (bind (source results targets) info
+                    (edit source targets))
+                (bind (class source results targets) info
+                  (edit source targets)))))))))
+
+
+  ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method protected virtual (item-icon info)
+    (cond
+      ((typed? info 'Class-Entry)         {Bitmap-Resource "Class"})
+      ((typed? info 'Interface-Entry)     {Bitmap-Resource "TypeInterface"})
+      ((typed? info 'Static-Init-Entry)   {Bitmap-Resource "StaticInit"})
+      ((typed? info 'Instance-Init-Entry) {Bitmap-Resource "InstanceInit"})
+      ((typed? info 'Variable-Entry)      {Bitmap-Resource "ClassVariable"})
+      ((typed? info 'Constructor-Entry)   {Bitmap-Resource "ClassConstructor"})
+      ((typed? info 'Method-Entry)        {Bitmap-Resource "ClassMethod"})
+      (else                               {Bitmap-Resource "TypeFile"})))
+  
+  
+  (method protected virtual (item-moniker info)
+    (if (typed? info 'Catalog-Entry)
+        (get-moniker~ info)
+      (if (is? (car info) Moniker)
+          (car info)
+        (cadr info))))
+  
+  
+  (method protected virtual (item-location info)
+    (let ((moniker (item-moniker info)))
+      (if (null? moniker)
+          ""
+        (present-location~ moniker))))
+  
+  
+  (method protected virtual (item-type info)
+    ;; todo necessary until search cleanup...
+    (if (and (interpreter-present?) (typed? info 'Jazz-Field-Entry))
+        "Field"
+      (cond
+        ((typed? info 'Class-Entry) "Class")
+        ((typed? info 'Interface-Entry) "Interface")
+        ((typed? info 'Static-Init-Entry) "Static Init")
+        ((typed? info 'Instance-Init-Entry) "Instance Init")
+        ((typed? info 'Variable-Entry) "Variable")
+        ((typed? info 'Constructor-Entry) "Constructor")
+        ((typed? info 'Method-Entry) "Method")
+        (else ""))))
+
+
+  (method public (present-info info)
+    (if (typed? info 'Catalog-Entry)
+        (present~ info mode)
+      (if (is? (car info) Moniker)
+          (bind (moniker pos target) info
+            (present-name~ moniker))
+        (->string (car info)))))
+
+
+  (method public (add-results results targets . rest)
+    (bind-optionals ((target null)) rest
+      (preserve-current-selection)
+      (set! current-results (list results targets target null))
+      (set! results-stack (cons current-results results-stack))
+      (update-results)
+      (update-stack-combo)))
+  
+  
+  (method (pop-results)
+    (set! results-stack (cdr results-stack))
+    (set! current-results (car results-stack))
+    (update-search-targets)
+    (update-results)
+    (update-stack-combo))
+  
+  
+  (method (set-results info)
+    (preserve-current-selection)
+    (set! current-results info)
+    (update-search-targets)
+    (update-results)
+    (update-stack-combo))
+  
+  
+  (method (preserve-current-selection)
+    (when current-results
+      (set-fourth! current-results (get-selection~ (get-tree)))))
+  
+  
+  (method (update-search-targets)
+    (bind (results targets target) current-results
+      (let ((appl (get-application)))
+        (end-search-edition~ appl)
+        (set-search-targets~ appl targets))))
+  
+  
+  (method (update-stack-combo)
+    (let ((combo (locate 'stack)))
+      (set-choices~ combo (map (function dynamic (info)
+                                 (bind (results targets target) info
+                                   (list info (join (map first targets) ", "))))
+                               results-stack))
+      (set-value~ combo current-results)))
+
+
+  (method (update-results)
+    (bind (results targets target selection) current-results
+      (let ((appl (get-application))
+            (tree (get-tree)))
+        (with-update-locked~ tree
+          (function dynamic ()
+            (let ((flag
+                   (case mode
+                     ((references) true)
+                     (else false))))
+              (set-toplevel-controls?~ (get-node-column~ tree) flag))
+            (remove-every-row~ tree)
+            (for-each (function dynamic (info)
+                        (add-item info :target target))
+                      (sort < results :key present-info))))
+        (when (and results (> (get-visible-count~ tree) 0))
+          (set-selection~ tree (either selection (list 0))))
+        (with-locked-update
+          (function dynamic ()
+            (select-palette Search-Results)))
+        (update-search-actions~ appl))))
+  
+  
+  (method (add-item info . rest)
+    (bind-keywords ((father null) (target null)) rest
+      (let ((tree (get-tree))
+            (state (if (= mode 'references) 'dynamic 'collapsed))
+            (node (new Tree-Node :title (present-info info) :image (item-icon info)))
+            (location (new Tree-Label :title (item-location info)))
+            (type (new Tree-Label :title (item-type info)))
+            (user-data (if target (cons info target) info)))
+        (add-row~ tree :father father :state state :children (list node location type) :user-data user-data))))
+
+  
+  (method protected (update-tree-row row)
+    (case mode
+      ((references)
+        (bind (entry . target) (get-user-data~ row)
+          (let* ((name (get-name~ entry))
+                 (appl (get-application))
+                 (cataloguer (get-cataloguer~ appl))
+                 (definitions (get-references~ cataloguer name :context context)))
+            (for-each (function dynamic (info)
+                        (add-item info :father row :target name))
+                      (sort < definitions :key present-info)))))))
+  
+  
+  (method (selected-files)
+    (let* ((tree (locate 'results))
+           (selection (get-selection~ tree)))
+      (collect (function dynamic (rank)
+                 (let ((info (get-user-data~ (get-row~ tree rank))))
+                   (when (and (is? info Pair) (is? (car info) File))
+                     (car info))))
+               selection)))
+
+  
+  ;;;
+  ;;;; Touch
+  ;;;
+  
+  
+  (method protected (touch-selection)
+    (let* ((files (selected-files))
+           (count (length files)))
+      (for-each (function dynamic (file)
+                  (touch~ file))
+                files)
+      (user-message "{a} file{a} touched" count (format-plural count)))))
+
+
+;;;
+;;;; Stack-Combo
+;;;
+
+
+(class Stack-Combo extends Combo-Box
+  
+  
+  (method (content-change origin)
+    @convert
+    (set-results (get-value))))
+
+
+(register-autoclass 'Stack-Combo Stack-Combo)
+
+
+;;;
+;;;; Found-Menu
+;;;
+
+
+(class Found-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: copy     title: "&Copy" icon: {Bitmap-Resource "Copy"} action-handler: {Event-Handler :focus on-copy})
+      @waiting
+      (<Separator-Item>)
+      @waiting
+      (<Label-Item>     name: checkout title: "Check &Out Files" icon: {Bitmap-Resource "Checkout"} action-handler: {Event-Handler :focus on-checkout-files})
+      @waiting
+      (<Label-Item>     name: checkin  title: "Check &In Files" icon: {Bitmap-Resource "Checkin"} action-handler: {Event-Handler :focus on-checkin-files})
+      (<Separator-Item>)
+      (<Label-Item>     name: touch    title: "&Touch Files" action-handler: {Event-Handler :focus on-touch-files})))))

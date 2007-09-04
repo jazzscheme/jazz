@@ -1,0 +1,117 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Foreign Domains
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.domain.Foreign-Domain jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Foreign-Domain extends Domain)
+
+
+@WAIT
+
+
+(class Foreign-Domain extends Domain
+  
+  
+  (attributes (nullable?)
+    (key      initialize {})
+    (objects  initialize '())
+    (criteria initialize {}))
+  
+  
+  ;;;
+  ;;;; Validation
+  ;;;
+  
+  
+  (method (validate-value property value component root client context manager)
+    (let ((values (foreign-values client key)))
+      (when (not (member? value values))
+        (add-violation~ manager (new Integrity-Violation :message (violation-message value) :property property) component root client))))
+  
+  
+  (method (foreign-values client key)
+    (let ((foreign (child~ client key)))
+      (map component-name (search-descendants~ foreign criteria))))
+  
+  
+  (method protected virtual (violation-message value)
+    (format "Unknown child of {a}: {t}"
+            (cond ((null? key) "root")
+                  ((list? key) (join key ", "))
+                  (else key))
+            value))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present value)
+    (if (null? value)
+        "null"
+      (if (list? value)
+          (join value ".")
+        value)))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+  
+  
+  (method (setup-entry view client)
+    (let ((entry (new Foreign-Entry parent: view)))
+      (set-choices~ (locate~ entry 'combo) (foreign-choices client key))))
+  
+  
+  (method (foreign-choices client key)
+    (let ((objects (either objects (get-children~ (child~ client key)))))
+      (map (function dynamic (component)
+             (let ((name (get-name~ component)))
+               (list name name)))
+           objects)))
+  
+  
+  (method (setup-list-entry view client)
+    (let ((entry (new Foreign-List-Entry parent: view)))
+      (setup~ entry client key)))))

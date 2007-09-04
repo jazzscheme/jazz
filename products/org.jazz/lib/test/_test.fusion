@@ -1,0 +1,393 @@
+(library test jazz
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jedi))
+
+
+;;;
+;;;; Application
+;;;
+
+
+@w(
+(definition (sv obj name)
+  (slot-value obj name))
+
+
+(definition (t . rest)
+  (apply test rest))
+
+
+(definition (bt)
+  (new-alias 'Home '(Native "C:" "Jazz" "dev" "jazz" "products" "org.jedi" "projects" "jedi" "distribution"))
+  (new-alias 'Users '(Native "C:" "Jazz" "dev" "jazz.dev" "Users"))
+  (new-alias 'User '(Users "Guillaume"))
+  (let ((jedi (new Jedi)))
+    (boot-environment~ jedi null)
+    (debug jedi)))
+
+
+(definition (lp)
+  (run-loop~ (get-process)))
+
+
+(definition (tl)
+  (get-toplevel))
+
+
+(definition (gv? c)
+  (get-visible?~ c))
+
+
+(definition (sv? c f)
+  (set-visible?~ c f))
+
+
+(definition (gsz w)
+  (get-size~ w))
+
+
+(definition (ssz w sz)
+  (set-size~ w sz))
+
+
+(definition (gwsz w)
+  (get-window-size~ w))
+
+
+(definition (ctl)
+  (close~ (tl)))
+
+
+(definition (stl)
+  (sv? (tl) #t))
+
+
+(definition (nd w h)
+  (new Dimension w h))
+
+
+(definition (rstl)
+  (ssz (tl) (nd 800 600))))
+
+
+;;;
+;;;; Iteration
+;;;
+
+
+(definition (iter-list lst proc)
+  (when lst
+    (proc (car lst))
+    (iter-list (cdr lst) proc)))
+
+
+(definition (iter-node node proc)
+  (letrec ((iterate
+             (function dynamic (node)
+               (proc node)
+               (for-each iterate (get-children~ node)))))
+    (iterate node)))
+
+
+(definition (iter obj proc)
+  (cond ((list? obj) (iter-list obj proc))
+        ((is? obj JML-Node) (iter-node obj proc))))
+
+
+(definition (foldl-list x f s)
+  (if (nil? x)
+      s
+    (foldl-list (cdr x) f (f (car x) s))))
+
+
+(definition (foldr-list x f s)
+  (if (nil? x)
+      s
+    (f (car x) (foldr-list (cdr x) f s))))
+
+
+(definition (foldl-node x f s)
+  (foldl (get-children~ x)
+         (function dynamic (c s)
+           (foldl-node c f s))
+         (f x s)))
+
+
+(definition (foldr-node x f s)
+  )
+
+
+(definition (foldl-component x f s)
+  (foldl (get-children~ x)
+         (function dynamic (c s)
+           (foldl-component c f s))
+         (f x s)))
+
+
+(definition (foldr-component x f s)
+  )
+
+
+(definition (foldl x f s)
+  (cond ((list? x) (foldl-list x f s))
+        ((is? x JML-Node) (foldl-node x f s))
+        ((is? x Component) (foldl-component x f s))))
+
+
+(definition (foldr x f s)
+  (cond ((list? x) (foldr-list x f s))
+        ((is? x JML-Node) (foldr-node x f s))
+        ((is? x Component) (foldr-component x f s))))
+
+
+(definition (iter-map proc obj)
+  (let ((fact (new List-Factory)))
+    (iter obj
+          (function (x)
+            (put~ fact (proc x))))
+    (get-output~ fact)))
+
+
+(definition (iter-linearize obj)
+  (iter-map identity obj))
+
+
+(definition (fold-map proc obj)
+  (foldr obj
+         (function (x lst)
+           (cons (proc x) lst))
+         nil))
+
+
+(definition (foldl-map proc obj)
+  (foldl obj
+         (function (x lst)
+           (cons (proc x) lst))
+         nil))
+
+
+(definition (fold-linearize obj)
+  (fold-map identity obj))
+
+
+(definition (fold x f s)
+  (cond ((list? x) (foldl-list x f s))
+        ((is? x JML-Node) (fold-node x f s))
+        ((is? x Component) (fold-component x f s))))
+
+
+(definition (fold-node x f s)
+  (let ((ps (f x s)))
+    (for-each (function dynamic (c)
+                (fold-node c f ps))
+              (get-children~ x))
+    ps))
+
+
+(definition (fold-component x f s)
+  (let ((ps (f x s)))
+    (for-each (function dynamic (c)
+                (fold-component c f ps))
+              (get-children~ x))
+    ps))
+
+
+(definition (component->xml x)
+  (fold x
+        (function dynamic (c p)
+          (new JML-Element p (identifier-name (type-name (class-of c))) :properties (list 'name (get-name~ c) 'position (get-position~ c) 'size (get-size~ c) 'serial (object->serial-number c))))
+        {}))
+
+
+(definition (pprint-component x)
+  (pretty-print~
+    (component->xml x)
+    :console))
+
+
+(definition (ppc x)
+  (pprint-component x))
+
+
+(definition (test x)
+  (ppc x))
+
+
+;;;
+;;;; Explore
+;;;
+
+
+@ok
+(let ((e (explore "Hello" :direction 'backward)))
+  (debug e))
+
+
+@ok
+(debug (find #\period "a.b.c" :reversed? true :return 'position))
+
+
+;;;
+;;;; TO FIX
+;;;
+
+
+@to-fix (
+(class A extends Object
+  
+  (method (f)
+    2))
+
+(class B extends A
+  
+  (method (f)
+    3))
+
+
+(let ((a (new A))
+      (b (new B)))
+  (debug (f~ a))
+  (debug (f~ b))))
+
+
+;;;
+;;;; Property
+;;;
+
+
+@ok
+(class A extends Object
+  
+  (property a setter set-aaa)
+  
+  (method (set-aaa v)
+    (set! a (+ v v v)))
+  
+  (method (foo)
+    a
+    (set! a 2)))
+
+@ok
+(let ((a (new A)))
+  (let ((p (unit-field A 'a)))
+    ((property-setter p) a 2)
+    (debug a p ((property-getter p) a))))
+
+
+;;;
+;;;; Loop
+;;;
+
+
+@ok
+(definition (test)
+  (loop (for (property value) in-properties '(a: 2 b: 3 c: 5))
+        (do (debug property value))))
+
+
+;;;
+;;;; Component
+;;;
+
+
+@ok
+(class A extends Component
+  
+  (form
+    (<install> visible?: #t)))
+
+@ok
+(class B extends Component
+  
+  (form
+    (<install> visible?: #f)))
+
+@ok
+(let ((a (new A))
+      (b (new B)))
+  (debug a (get-visible?~ a))
+  (debug b (get-visible?~ b)))
+
+
+;;;
+;;;; File
+;;;
+
+
+@done
+(let ((d (new Directory '(test "Jazz"))))
+  (let ((f (new-file~ d "yo.txt"))
+        (t {File Native "C:" "Jazz" "dev" "jazz" "Todo.txt"}))
+    (debug d f (parse~ f) (exists?~ f) (exists?~ {Directory Native "C:" "Jazz"}))))
+
+
+;;;
+;;;; Reader
+;;;
+
+
+@done
+(with-closed ((r (new File-Reader "a.scm")))
+  (debug (read-char r))
+  (debug (read-delimited r "yo" #\)))
+  (debug (load-lines r)))
+
+
+;;;
+;;;; Printer
+;;;
+
+
+@done
+(with-closed ((p (new File-Printer "b.scm")))
+  (format p "Hello {s}" 'les)
+  (display #\a p)
+  (write "yo" p))
+
+
+;;;
+;;;; Format
+;;;
+
+
+@done
+(with-closed ((p (new String-Printer)))
+  (debug (format "hello"))
+  (format p "Hello {a :width 10} {s} {l}{%}" "a" "b" '(7 "yo" 9))
+  (debug (get-output~ p))
+  (debug (= (format "{?foo{a}bar{c}~}ZZZ{a}" null #\* 'yyy) "ZZZyyy"))
+  (debug (= (format "{?foo{a}bar{c}~}ZZZ{a}" 'hello #\* 'yyy) "foohellobar*ZZZyyy"))
+  (debug (= (format "{?:foo{a}bar{c}~}ZZZ{a}" #f null null 'yyy) "ZZZyyy"))
+  (debug (= (format "{?:foo{a}bar{c}~}ZZZ{a}" #t 'hello #\* 'yyy) "foohellobar*ZZZyyy")))
+
+
+;;;
+;;;; Axis
+;;;
+
+
+@done
+(let ((a (new Axis)))
+  (debug a (length a))
+  (axis-add a 'a)
+  (axis-add a 'b)
+  (axis-add a 'c)
+  (debug a (length a) (element a 1)))
+
+
+;;;
+;;;; Subseq
+;;;
+
+
+@done
+(let* ((s "Hello")
+       (x (subseq s 2 4))
+       (y (subseq! s 2 5)))
+  (debug (new Subseq 1 2 3) s x y)))

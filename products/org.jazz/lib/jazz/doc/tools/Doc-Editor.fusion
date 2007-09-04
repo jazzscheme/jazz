@@ -1,0 +1,207 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Documentation Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.doc.tools.Doc-Editor jazz
+
+
+(import (jazz.doc)
+        (jazz.designer)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Doc-Editor extends Editor-View uses (Utilities Development WinUser)
+
+
+  (property entry initialize {} getter get-entry  setter set-entry)
+  
+  
+  (slot type          initialize {})
+  (slot location      initialize {})
+  (slot expression    initialize {})
+  (slot text-object   initialize {})
+  (slot text-location initialize {})
+  
+  
+  (form
+    (<install>                                                 title: "Documentation Editor" size: {Dimension 650 400} layout-type: border layout-insets: {Rect 2 0 2 2}
+      (<Layout-View>                  name: toolbar            size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>                  name: build              size: {Dimension 22 22} tooltip?: #t tooltip-text: "Build" image-name: {Bitmap-Resource "Build"} portfolio: :icons action-handler: {Event-Handler form: on-build})
+        (<Push-Tool>                  name: edit               size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-edit}))
+      (<Splitter-View>                name: splitter           size: {Dimension 650 367} location: center state: split orientation: horz division: 250
+        (<Border-View>                name: descendants-border size: {Dimension 255 366} location: first border-type: edge style: entry
+          (<Scroller-View>            name: scroller           style: document hscroll?: #t vscroll?: #t
+            (<!>                      name: content            layout-type: fill
+              (<Tree-Header>          name: header             style: document
+                (<!>                  name: content
+                  (<Descendants-Tree> name: descendants
+                    (<!>              name: descendant         width: 183)))))))
+        (<Layout-View>                name: card-contour       size: {Dimension 390 366} location: second layout-type: fill
+          (<Border-View>              name: card-border        border-type: edge style: entry
+            (<Properties-Card>        name: card))))))
+
+  
+  (method (form-model form)
+    (case (get-name~ form)
+      ((descendants) Docs-Tree)
+      (else (nextmethod form))))
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set-title~ (child~ (locate 'descendants) 'descendant) "Doc")
+    (set-filter~ (get-tree~ (locate 'card)) 'categorized)
+    (set-editor~ (locate 'descendants) self)
+    (set-editor~ (locate 'card) self))
+
+  
+  (method (focus-document)
+    (acquire-focus~ (child~ (locate 'descendants) 'descendant)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    (locate '(descendants tree)))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Doc"})
+
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Documentation Editor")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 52 59})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 800 500})
+  
+  
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  @convert
+  (method (new-controller)
+    (new Doc-Editor-Controller self))
+  
+  
+  @convert
+  (class Doc-Editor-Controller extends Editor-View-Controller
+    
+    
+    (method (name-status)
+      (editor-title~ document)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize-center dh dv)
+    (size-figure~ (locate 'descendants-border) 0 dv)
+    (size-figure~ (locate 'card-contour) dh dv))
+  
+  
+  (method (on-build evt)
+    (if (null? client)
+        (bell)
+      (unimplemented 'on-build)))
+  
+  
+  (method (on-edit evt)
+    (edit-form))
+  
+  
+  ;;;
+  ;;;; Entry
+  ;;;
+
+
+  (method public (get-entry)
+    entry)
+
+ 
+  (method public (set-entry info)
+    (set! entry info)
+    (bind (location object text text-location) info
+      (setup location object text text-location)))
+  
+  
+  (method (setup loc object text text-loc)
+    (set! location loc)
+    (set! expression object)
+    (set! text-object text)
+    (set! text-location text-loc))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (editor-title)
+    (let ((reference (get-reference)))
+      (if (null? reference)
+          "Doc Editor"
+        (format "Doc Editor - {a}" (get-base~ (get-origin~ (get-form~ reference)))))))))

@@ -1,0 +1,255 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Directories Chooser 
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.dialog.Directories-Chooser jazz
+
+
+(import (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Directories-Chooser extends View
+
+
+  (property directories initialize '() accessors generate)
+  
+  
+  (slot edited-directory initialize {})
+  
+  
+  (form
+    (<install>                                             size: {Dimension 782 350}
+      (<Label-View>                                        title: "Select the directories that will be displayed" position: {Point 10 9} size: {Dimension 191 16} font: {Font name: Default-GUI})
+      (<Border-View>              name: directories-border position: {Point 9 33} size: {Dimension 671 254} border-type: edge
+        (<Scroller-View>                                   hscroll?: #t vscroll?: #t
+          (<!>                    name: content            layout-type: fill
+            (<Tree-View>          name: directories-tree   filled-column: directory top-padding: 2 portfolio: :icons action-handler: {Event-Handler form: on-action} selection-handler: {Event-Handler form: on-selection-change} return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press}
+              (<Tree-Node-Column> name: directory          toplevel-controls?: #f display-images?: #f width: 400)))))
+      (<Push-Button>              name: move-up            title: "Move Up" position: {Point 691 33} size: {Dimension 80 24} action-handler: {Event-Handler form: on-move-up})
+      (<Push-Button>              name: move-down          title: "Move Down" position: {Point 691 61} size: {Dimension 80 24} action-handler: {Event-Handler form: on-move-down})
+      (<Push-Button>              name: add-directory      title: "Add" position: {Point 692 95} size: {Dimension 80 24} action-handler: {Event-Handler form: on-add-directory})
+      (<Push-Button>              name: remove-directory   title: "Remove" position: {Point 692 123} size: {Dimension 80 24} action-handler: {Event-Handler form: on-remove-directory})
+      (<Horizontal-Line>                                   position: {Point 6 300} size: {Dimension 770 8})
+      (<Push-Button>              name: ok                 title: "OK" position: {Point 610 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>              name: cancel             title: "Cancel" position: {Point 694 315} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((tree (get-tree)))
+      (setup-directories tree)
+      (setup-selection tree)
+      (update-buttons)
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'directories-tree))
+
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Directories-Chooser-Dialog)
+  
+
+  @convert-dialog
+  (class meta Directories-Chooser-Dialog extends Host-Dialog
+    
+    
+    (form
+      (<install> title: "Choose Directories" position: {Point 450 300} size: {Dimension 302 120})))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-action evt)
+    (update-buttons))
+  
+  
+  (method (on-selection-change evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree)))
+      (update-buttons)))
+  
+  
+  (method (on-add-directory evt)
+    (let ((tree (get-tree))
+          (directory (get-modal BrowseFolder-Dialog)))
+      (set! directories (append directories (list directory)))
+      (update)))
+  
+  
+  (method (on-remove-directory evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (directory (element directories selection)))
+      (set! directories (remove directory directories))
+      (update)
+      (when (< selection (get-visible-count~ tree))
+        (set-single-selection~ tree selection))))
+  
+  
+  (method (on-move-up evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (directory (element directories selection)))
+      (set! directories (remove! directory directories))
+      (set! directories (insert! directory directories (- selection 1)))
+      (setup-directories tree)
+      (acquire-focus~ tree)
+      (set-single-selection~ tree (- selection 1))))
+  
+  
+  (method (on-move-down evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (directory (element directories selection)))
+      (set! directories (remove! directory directories))
+      (set! directories (insert! directory directories (+ selection 1)))
+      (setup-directories tree)
+      (acquire-focus~ tree)
+      (set-single-selection~ tree (+ selection 1))))
+  
+  
+  @wait
+  (method (on-reset evt)
+    (unimplemented 'on-reset))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (method (update)
+    (setup-directories (get-tree)))
+
+  
+  (method (setup-directories tree)
+    (with-update-locked~ tree
+      (function dynamic ()
+        (remove-every-row~ tree)
+        (for-each (function dynamic (directory)
+                    (add-row~ tree :children (list (new Tree-Node :title (present~ directory))) :user-data directory))
+                  directories))))
+  
+  
+  (method (setup-selection tree)
+    (when directories
+      (set-selection~ tree (list 0))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-buttons)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (count (get-visible-count~ tree)))
+      (if (null? selection)
+          (begin
+            (set-enabled?~ (locate 'move-up) false)
+            (set-enabled?~ (locate 'move-down) false)
+            (set-enabled?~ (locate 'add-directory) true)
+            (set-enabled?~ (locate 'remove-directory) false))
+        (let ((directory (element directories selection)))
+            (set-enabled?~ (locate 'move-up) (> selection 0))
+            (set-enabled?~ (locate 'move-down) (< selection (- count 1)))
+            (set-enabled?~ (locate 'add-directory) true)
+            (set-enabled?~ (locate 'remove-directory) true))))
+    @wait
+    (set-enabled?~ (locate 'reset) defaults))
+  
+  
+  ;;;
+  ;;;; Edited
+  ;;;
+  
+  
+  (method (edit-directory selection)
+    (enter-directory))
+  
+  
+  (method (enter-directory)
+    )
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (enter-directory)
+    (let ((tree (get-tree))
+          (directories (new List-Factory)))
+      (for-each-visible-row~ tree
+       (function dynamic (row rank)
+         (let ((directory (get-user-data~ row)))
+           (put~ directories directory))))
+      (get-output~ directories)))))

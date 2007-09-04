@@ -1,0 +1,255 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; dBase Inventory Table
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.dbase.dBase-Inventory-Table jazz
+
+
+(import (jazz.access))
+
+
+(class dBase-Inventory-Table extends Inventory-Table
+  
+  
+  (slot handle)
+  (slot indexes         initialize 'not-loaded)
+  (slot pending-columns initialize '())
+  
+  
+  (method (initialize inventory parent handle)
+    (nextmethod inventory parent)
+    (set! [handle self] handle)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (corelease handle)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method public (get-handle)
+    handle)
+  
+  
+  (method (get-title)
+    (get-Name~ handle))
+  
+  
+  ;;;
+  ;;;; Columns
+  ;;;
+  
+  
+  (method (get-columns)
+    (let ((internal-fields (read-dBase-header (new File (list 'Native (format "{a}\\{a}.DBF" (get-database-name~ inventory) (get-Name~ handle)))))))
+      (with-closed ((columns (get-Fields~ handle)))
+        (map (function dynamic (n internal) 
+               (let ((internal-type (essay internal (second internal)))
+                      (scale (if internal (third internal) 0))
+                      (precision (if internal (fourth internal) 0))
+                      (column (get-Item~ columns n)))
+                 (when internal
+                   (assert (= (first internal) (get-Name~ column))))
+                 (new dBase-Inventory-Column inventory self false internal-type scale precision column)))
+             (naturals 0 (get-Count~ columns))
+             internal-fields))))
+    
+  
+  (method (get-column name)
+    (let ((internal-fields (read-dBase-header (new File (list 'Native (format "{a}\\{a}.DBF" (get-database-name~ inventory) (get-Name~ handle)))))))
+      (with-closed ((columns (get-Fields~ handle)))
+        (let* ((column (get-Item~ columns name))
+               (column-no (get-OrdinalPosition~ column))
+               (internal  (element internal-fields column-no))
+               (internal-type (essay internal (second internal)))
+               (scale (essay internal (third internal)))
+               (precision (essay internal (fourth internal))))
+          (when internal
+            (assert (= (first internal) (get-Name~ column))))
+          (new dBase-Inventory-Column inventory self false internal-type scale precision column)))))
+  
+  
+  (method (create-column name)
+    (new dBase-Inventory-Column inventory self false null 0 0 (CreateField~ handle name null null)))
+  
+  
+  (method (append-column column)
+    (with-closed ((fields (get-Fields~ handle)))
+      (Append~ fields (get-handle~ column))))
+
+  
+  (method public (add-pending-column name internal-type scale precision)
+    (set! pending-columns (cons pending-columns (list name internal-type scale precision))))
+  
+  
+  (method (remove-column name)
+    (with-closed ((fields (get-Fields~ handle)))
+      (Delete~ fields name)))
+  
+  
+  ;;;
+  ;;;; Indexes
+  ;;;
+  
+  
+  ;; Commented because it works on Marcel's machine but not on Guillaume's
+  ;; and we could not figure out why (and IsaiX doesn't use dBase indexes)
+  
+  
+  (method (get-indexes)
+    null)
+  
+  
+  @buggy
+  (method (indexes-loaded?)
+    (neq? indexes 'not-loaded))
+  
+  
+  @buggy
+  (method (load-indexes)
+    (unless (indexes-loaded?)
+      (set! indexes (get-effective-indexes))))
+
+
+  @buggy
+  (method (get-indexes)
+    (load-indexes)
+    indexes)
+  
+  
+  @buggy
+  (method (get-effective-indexes)
+    (with-closed ((indexes (get-Indexes~ handle)))
+      (let ((fact (new List-Factory)))
+        (loop (for n from 0 below (get-Count~ indexes))
+              (let ((index (get-Item~ indexes n)))
+                (if (not (get-Foreign~ index))
+                    (put~ fact (new dBase-Inventory-Index inventory self index))
+                  (corelease index))))
+        (get-output~ fact))))
+  
+  
+  @buggy
+  (method (get-index name)
+    (find-if (function dynamic (index)
+               (= (get-title~ index) name))
+             (get-indexes)))
+  
+  
+  @buggy
+  (method (create-index name)
+    (new dBase-Inventory-Index inventory self (CreateIndex~ handle name)))
+  
+  
+  @buggy
+  (method (append-index new-index)
+    (load-indexes)
+    (with-closed ((indexes-handle (get-Indexes~ handle)))
+      (Append~ indexes-handle (get-handle~ new-index)))
+    (set! indexes (cons new-index indexes)))
+
+  
+  @buggy
+  (method (remove-index name)
+    (let ((index (get-index name)))
+      (with-closed ((indexes-handle (get-Indexes~ handle)))
+        (Delete~ indexes-handle name))
+      (set! indexes (remove! index indexes))))
+  
+  
+  ;;;
+  ;;;; dBase
+  ;;;
+  
+  
+  (structure DBF5_HEADER
+    (ubyte dbh_dbt)            ;; indentification field
+    (ubyte dbh_year)           ;; last modification-date
+    (ubyte dbh_month)          ;;          ''
+    (ubyte dbh_day)            ;;          ''
+    (ubyte dbh_records 4)      ;; number of records
+    (ubyte dbh_hlen 2)         ;; length of this header
+    (ubyte dbh_rlen 2)         ;; length of a record
+    (ubyte dbh_stub 20)        ;; misc stuff we don't need
+    (ubyte end_marker 0))
+
+
+  (structure DBF5_FIELD
+    (ubyte dbf_name 11)        ;; field-name terminated with \0
+    (ubyte dbf_type)           ;; field-type
+    (ubyte dbf_reserved 4)     ;; some reserved stuff
+    (ubyte dbf_flen)           ;; field-length
+    (ubyte dbf_dec)            ;; number of decimal positions if type is 'N'
+    (ubyte dbf_stub 14))       ;; stuff we don't need
+
+  
+  (method (read-dBase-header file)
+    (unimplemented 'read-dBase-header)
+    @windows-specific
+    (with-closed ((reader (new File-Reader :pathname file))
+                  (header-block (new Heap-Block :size (size-of DBF5_HEADER))))
+      (read-block~ reader header-block)
+      (let* ((header (coerce (get-handle~ header-block) DBF5_HEADER))
+             (header-size (read-reversed-short (get header 'dbh_hlen)))
+             (fields-count (quotient (- header-size (size-of DBF5_HEADER) 1) (size-of DBF5_FIELD)))
+             (fields-size (* fields-count (size-of DBF5_FIELD))))
+        (with-closed ((fields-block (new Heap-Block :size fields-size)))
+          (read-block~ reader fields-block)
+          (let ((fields (new-array-from-memory DBF5_FIELD fields-count (get-handle~ fields-block))))
+            (map (function dynamic (field-no)
+                   (let* ((field   (array-ref fields field-no))
+                          (type    (coerce (int-char (get field 'dbf_type)) String))
+                          (length  (get field 'dbf_flen)))
+                     (when (or (= type "N") (= type "F"))
+                       (let ((name    (coerce (new-ansi-string-from-memory (record-part-address field 'dbf_name)) String))
+                             (length  (get field 'dbf_flen))
+                             (decimal (get field 'dbf_dec)))
+                         (list name type length decimal)))))
+                 (naturals 0 fields-count)))))))
+  
+  
+  (method (read-reversed-short array)
+    (+ (* (array-ref array 1) 256) (array-ref array 0)))
+  
+  
+  (method (write-reversed-short array short)
+    (array-set! array 0 (modulo short 256))
+    (array-set! array 1 (quotient short 256)))))

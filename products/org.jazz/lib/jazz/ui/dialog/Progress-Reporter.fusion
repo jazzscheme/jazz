@@ -1,0 +1,221 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Progress Reporter
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.dialog.Progress-Reporter jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Progress-Reporter extends View implements Reporter
+    
+  
+  (slot cancelled? initialize false)
+  (slot done?      initialize false)
+
+  
+  (form
+    (<install>                       title: "Progress" size: {Dimension 420 128}
+      (<Image-View>                  position: {Point 10 20} size: {Dimension 32 32} portfolio: :large-icons image-name: {Bitmap-Resource "SetupLarge"})
+      (<Label-View>   name: invite   title: "Please wait" position: {Point 50 23} size: {Dimension 300 16})
+      (<Label-View>   name: message  position: {Point 10 70} size: {Dimension 297 16})
+      (<Progress-Bar> name: progress position: {Point 10 88} size: {Dimension 297 20})
+      (<Push-Button>  name: action   title: "Cancel" position: {Point 319 87} size: {Dimension 90 22} action-handler: {Event-Handler form: on-action} return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press})))
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((progress (locate 'progress)))
+      (set-pos~ progress 0))
+    (acquire-focus~ (locate 'action)))
+    
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-title)
+    "Progress")
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Progress-Reporter-Dialog)
+  
+
+  @convert-dialog
+  (class meta Progress-Reporter-Dialog extends Host-Dialog
+
+
+    (method (on-close evt)
+      (when closable?
+        (request-cancel~ guest))
+      processed))
+
+  
+  ;;;
+  ;;;; Cancel
+  ;;;
+  
+  
+  (method (disable-cancel)
+    (set-enabled?~ (locate 'action) false))
+  
+  
+  (method (cancel-enabled?)
+    (get-enabled?~ (locate 'action)))
+  
+  
+  (method (cancel-requested?)
+    cancelled?)
+  
+  
+  (method (test-cancelled)
+    (when (cancel-requested?)
+      (throw-cancel)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-action evt)
+    (current-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (current-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (escape-press key)
+    (when (cancel-enabled?)
+      (request-cancel)))
+  
+  
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (method (section-title title)
+    (set-message title))
+  
+  
+  (method public (set-message msg)
+    (execute-primary
+      (function dynamic ()
+        (set-title~ (locate 'message) msg))))
+
+
+  (method public (user-message fmt . rest)
+    (set-message (apply format fmt rest)))
+  
+  
+  (method public (set-range range)
+    (execute-primary
+      (function dynamic ()
+        (set-range~ (locate 'progress) range))))
+  
+  
+  (method public (set-pos pos)
+    (execute-primary
+      (function dynamic ()
+        (set-pos~ (locate 'progress) pos))))
+  
+  
+  (method public (delta-pos increment)
+    (execute-primary
+      (function dynamic ()
+        (delta-pos~ (locate 'progress) increment))))
+  
+  
+  (method public (set-step increment)
+    (execute-primary
+      (function dynamic ()
+        (set-step~ (locate 'progress) increment))))
+  
+  
+  (method public (step-it)
+    (execute-primary
+      (function dynamic ()
+        (step-it~ (locate 'progress)))))
+  
+  
+  (method public (set-done)
+    (execute-primary
+      (function dynamic ()
+        (set! done? true)
+        (set-done~ (locate 'progress))
+        (set-title~ (locate 'action) (done-title))
+        (set-default?~ (locate 'action) true))))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (current-action)
+    (if done?
+        (done-action)
+      (request-cancel)))
+  
+  
+  ;; temp patch because protected visibility is not seen by the dialog class
+  (method public virtual (request-cancel)
+    (set! cancelled? true)
+    (set-message "Cancel Requested"))
+  
+  
+  (method protected virtual (done-title)
+    "Close")
+  
+  
+  (method protected virtual (done-action)
+    (let* ((dialog (get-host))
+           (guest (get-guest~ dialog)))
+      (end-modal~ dialog (get-modal-result~ guest))))))

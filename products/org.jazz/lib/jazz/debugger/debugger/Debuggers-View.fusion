@@ -1,0 +1,682 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Debuggers View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debugger.Debuggers-View jazz
+
+
+(import (jazz.debugger)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Debuggers-View extends Layout-View uses (Interpreter Utilities System WinUser)
+
+
+  (definition advanced-view?  false)
+  (definition frame-indicator null)
+
+
+  (property snapshots initialize '() getter get-snapshots setter set-snapshots)
+  
+
+  (form
+    (<install>                               layout-type: border
+      (<Layout-View>        name: tools      size: {Dimension 100 33} layout-type: flow layout-insets: {Rect 0 6 0 0} location: north
+        (<Push-Tool>        name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-open-snapshot})
+        (<Separator>                         size: {Dimension 5 0})
+        (<Push-Tool>        name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler form: on-break})
+        (<Push-Tool>        name: terminate  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Toplevel" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler form: on-toplevel})
+        (<Push-Tool>        name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler form: on-continue})
+        (<Separator>                         size: {Dimension 5 0})
+        (<Toggle-Tool>      name: c++-frames size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show C++ Frames?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler form: on-toggle-c++-frames})
+        (<Separator>                         size: {Dimension 3 0})
+        (<Push-Tool>        name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler form: on-update}))
+      (<Scroller-View>      name: scroller   location: center vscroll?: #t flat?: #t
+        (<!>                name: content    layout-type: fill
+          (<Tree-Header>    name: header     shown?: #f
+            (<!>            name: content
+              (<Stack-View> name: stack      multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler form: on-select-stack #t} context-menu-handler: {Event-Handler form: on-context-menu})))))))
+
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'debuggers-view)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Process"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Debuggers")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (locate 'stack)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (let ((listener (new Event-Handler :target self :method-name 'on-level-change)))
+      (add-level-change-listener~ (get-loop~ (get-application)) listener))
+    (update))
+
+
+  (method (destroy)
+    (remove-level-change-listener~ (get-loop~ (get-application)) self)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-snapshots)
+    snapshots)
+
+
+  (method public (set-snapshots value)
+    (set! snapshots value))
+  
+  
+  (method (show-c++-frames?)
+    (get-selected?~ (locate 'c++-frames)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (function dynamic ()
+          (let ((menu (new-context-menu (selected-object))))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (definition Snapshot-Extensions
+    '(("Crash Files (*.crash)" . "*.crash")))
+  
+  
+  (method (on-open-snapshot evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (let ((file (if (get-shift?~ evt)
+                        (with-preserved-current-directory
+                          (function dynamic ()
+                            (get-modal OpenFile-Dialog :directory {Directory Base} :extensions Snapshot-Extensions)))
+                      (get-modal OpenFile-Dialog :extensions Snapshot-Extensions))))
+          (open-snapshot file)))))
+
+
+  (method (on-select-stack evt)
+    (frame-change)
+    (edit-frame))
+  
+  
+  (method (on-break evt)
+    (unimplemented 'on-break))
+  
+  
+  (method (on-continue evt)
+    (unimplemented 'on-continue))
+  
+  
+  (method (on-toplevel evt)
+    (let ((thread (selected-thread)))
+      (when thread
+        (stop~ thread)
+        (sleep 100)
+        (update))))
+  
+  
+  (method (on-update evt)
+    (update))
+
+
+  (method (on-level-change evt)
+    (let* ((appl (get-application))
+           (loop (get-loop~ appl)))
+      (when (= (get-level~ loop) 0)
+        (uninstall-active-frame-indicator))
+      (update)
+      (frame-change)))
+  
+  
+  (method (on-toggle-c++-frames evt)
+    (let ((tree (locate 'stack)))
+      (with-preserved-selection~ tree
+        (function dynamic ()
+          (update))
+        :use 'data
+        :test equal?)))
+
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (definition Frame-Indication-Color
+    {Color name: Light-Green})
+
+
+  (method (edit-frame)
+    (let ((frame (selected-frame)))
+      (if (null? frame)
+          (uninstall-active-frame-indicator)
+        (typecase frame
+          ((Closure-Frame)
+           (let* ((address (get-address~ frame))
+                  (location (get-frame-location~ (get-thread~ frame) address)))
+             (if (null? location)
+                 (bell)
+               (install-frame-indicator (new Jazz-Code-Location location)))))
+          ((Compiled-Procedure-Frame)
+           (let* ((address (get-address~ frame))
+                  (name (frame-name address))
+                  (pos (find #\period name :return 'position)))
+             (when pos
+               (let* ((model (string->symbol (subseq name 0 pos)))
+                      (name (string->symbol (subseq name (+ pos 1))))
+                      (location (new Jazz-Code-Location (list model name))))
+                 (edit~ location :activate-focus? false :error? false)))))
+          ((Frame-Snapshot)
+           (edit~ frame))))))
+  
+  
+  (method (install-frame-indicator code-location)
+    (uninstall-active-frame-indicator)
+    (catch (Location-Error err
+             (message-box (get-message~ err)))
+      (bind-values (frame text range) (find-location~ code-location)
+        (fill~ text Frame-Indication-Color [start range])
+        (ensure-cell-displayed~ text [start range])
+        (reset-tooltip~ text)
+        (bring-to-front~ frame)
+        (set-visible?~ frame true))
+      (set! frame-indicator code-location)))
+  
+  
+  (method (uninstall-frame-indicator code-location)
+    (catch (Location-Error err
+             (message-box (get-message~ err)))
+      (bind-values (frame text range) (find-location~ code-location)
+        (unfill~ text [start range])
+        (reset-tooltip~ text))))
+
+
+  (method protected (uninstall-active-frame-indicator)
+    (when frame-indicator
+      (uninstall-frame-indicator frame-indicator)
+      (set! frame-indicator null)))
+
+
+  ;; should be protected
+  (method public (update)
+    (update~ (locate 'stack) snapshots))
+  
+  
+  (method (frame-change)
+    (let ((frame (selected-frame)))
+      (when (or (null? frame)
+                (is? frame Execution-Frame)
+                (is? frame Frame-Snapshot))
+        (process-frame-change frame))))
+
+
+  (method (collect-presented stack)
+    (collect-if (function dynamic (frame)
+                  (or (is? frame Closure-Frame)
+                      (is? frame Proxy-Frame)
+                      (is? frame Compiled-Procedure-Frame)))
+                stack))
+  
+  
+  (method public (select-first-frame from)
+    (let ((tree (locate 'stack))
+          (passed? false))
+      (for-each-visible-row~ tree
+       (function dynamic (row rank)
+         (let ((frame (get-user-data~ row)))
+           (when (and (is? frame Execution-Frame)
+                      (= (get-address~ frame) from))
+             (set! passed? true))
+           (when (is? frame Closure-Frame)
+             (set-single-selection~ tree rank)
+             (frame-change)
+             (edit-frame)
+             (return)))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method public (selected-debuggee)
+    (let ((object (selected-object)))
+      (typecase object
+        ((Debuggee-Remotable) object)
+        ((Debuggee-Thread-Remotable) (get-debuggee~ object))
+        ((Execution-Frame) (get-debuggee~ (get-thread~ object)))
+        ((Frame-Snapshot) (get-debuggee~ (get-thread~ object)))
+        (else null))))
+  
+  
+  (method public (selected-thread)
+    (let ((object (selected-object)))
+      (typecase object
+        ((Debuggee-Thread-Remotable) object)
+        ((Execution-Frame) (get-thread~ object))
+        ((Frame-Snapshot) (get-thread~ object))
+        (else null))))
+  
+  
+  (method public (selected-frame)
+    (let ((object (selected-object)))
+      (when (or (is? object Execution-Frame)
+                (is? object Frame-Snapshot))
+        object)))
+  
+  
+  (method public (selected-object)
+    (let* ((tree (locate 'stack))
+           (n (get-single-selection~ tree)))
+      (when n
+        (get-user-data~ (get-row~ tree n)))))
+  
+  
+  ;;;
+  ;;;; Present
+  ;;;
+
+
+  (method (present-stack stack)
+    (let ((presented (collect-if not-null? (map present-frame stack))))
+      (if advanced-view?
+          (map (function dynamic (info)
+                 (bind (frame image text) info
+                   (list frame
+                         image
+                         (format "{a} (#x{x})" text (get-address~ frame)))))
+               presented)
+        presented)))
+  
+  
+  (method (present-frame frame)
+    (list frame (get-image~ frame) (present~ frame)))
+  
+  
+  (method (extract-address string)
+    (unless (empty-string? string)
+      (read-string-element string)))
+  
+  
+  (method (standardize-sym sym)
+    (let ((prefix "`anonymous namespace'::"))
+      (if (starts-with? sym prefix)
+          (subseq sym (length prefix))
+        sym)))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (new-context-menu object)
+    (typecase object
+      ((Debuggee-Remotable) (new Debuggee-Menu))
+      @waiting-as-the-only-item-is-not-implemented-atm
+      ((Debuggee-Thread-Remotable) (new Thread-Menu))
+      ((Execution-Frame) (new Frame-Menu))
+      ((Frame-Snapshot) (new Frame-Menu))
+      ((Pair) (new Snapshot-Menu))
+      (else null)))
+  
+  
+  (method (exit-selected-debuggee)
+    (let ((object (selected-object)))
+      (exit~ object)
+      (sleep 100)
+      (update)))
+  
+  
+  (method (close-selected-snapshot)
+    (let ((object (selected-object)))
+      (set! snapshots (remove! object snapshots))
+      (update)))
+  
+  
+  (method (select-debuggee-toplevel)
+    (let* ((debuggee (selected-debuggee))
+           (toplevel-hwnd (get-toplevel-hwnd~ debuggee)))
+      (select-foreground-hwnd toplevel-hwnd)))
+  
+  
+  (method public (open-snapshot file . rest)
+    (with-closed ((reader (new File-Reader file)))
+      (let* ((snapshot (read reader))
+             (crash-file? (ci= (get-extension~ file) "crash"))
+             (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
+        (unless (or (not crash-file?) (exists?~ executable))
+          (error "Unable to locate snapshot executable: {t}" executable))
+        (add-snapshot snapshot file executable))))
+  
+  
+  (method public (add-snapshot snapshot file executable)
+    (set! snapshots (cons (list snapshot file executable) snapshots))
+    (update)))
+
+
+;;;
+;;;; Stack-View
+;;;
+
+
+(class Stack-View extends Tree-View
+  
+  
+  (form
+    (<install>            portfolio: :icons
+      (<Tree-Node-Column> title: "Process/Thread" width: 431 toplevel-controls?: #t)))
+  
+  
+  (method public (update snapshots)
+    (with-update-locked
+      (function dynamic ()
+        (remove-every-row)
+        (update-debuggees)
+        (update-debuggers)
+        (update-snapshots snapshots))))
+  
+  
+  (method (update-debuggees)
+    (let* ((appl (get-application))
+           (debuggees (get-debuggees~ (get-local-debugger-server~ appl))))
+      (for-each (function dynamic (debuggee)
+                  (let* ((title (get-name~ debuggee))
+                         (threads (reverse! (get-process-threads~ debuggee)))
+                         (debuggee-row (add-row :state 'expanded :children (list (new Tree-Node :title title :image {Bitmap-Resource "Process"})) :user-data debuggee)))
+                    (for-each (function dynamic (thread)
+                                (let* ((title (present~ thread))
+                                       (state (get-state~ thread))
+                                       (primary? (get-primary?~ thread))
+                                       (image (case state ((break) {Bitmap-Resource "ThreadBreak"}) ((error) {Bitmap-Resource "ThreadError"}) (else {Bitmap-Resource "ThreadRun"})))
+                                       (thread-row (add-row :father debuggee-row :state 'expanded :children (list (new Tree-Node :title title :image image)) :user-data thread)))
+                                  (when primary?
+                                    (let* ((stack (get-breaked-stack~ thread))
+                                           (presented (present-stack (collect-presented stack))))
+                                      (for-each (function dynamic (info)
+                                                  (bind (frame image text) info
+                                                    (add-row :father thread-row :children (list (new Tree-Node :title text :image image)) :user-data frame)))
+                                                presented)))))
+                              threads)))
+                debuggees)))
+  
+  
+  ;; the new generic framework that should integrate the other two
+  (method (update-debuggers)
+    (let ((debuggers (get-debuggers)))
+      (for-each (function dynamic (debugger)
+                  (let* ((process (get-process~ debugger))
+                         (title (present~ process))
+                         (threads (get-threads~ process))
+                         (debugger-row (add-row :state 'expanded :children (list (new Tree-Node :title title :image {Bitmap-Resource "Process"})) :user-data debugger)))
+                    (for-each (function dynamic (thread)
+                                (let* ((title (present~ thread))
+                                       (state (get-state~ thread))
+                                       (primary? (get-primary?~ thread))
+                                       (image (case state ((break) {Bitmap-Resource "ThreadBreak"}) ((error) {Bitmap-Resource "ThreadError"}) (else {Bitmap-Resource "ThreadRun"})))
+                                       (thread-row (add-row :father debugger-row :state 'expanded :children (list (new Tree-Node :title title :image image)) :user-data thread)))
+                                  (when (neq? state 'run)
+                                    (let ((frames (get-frames~ thread)))
+                                      (for-each (function dynamic (frame)
+                                                  (let ((title (present~ frame))
+                                                        (image (get-image~ frame)))
+                                                    (add-row :father thread-row :children (list (new Tree-Node :title title :image image)) :user-data frame)))
+                                                frames)))))
+                              threads)))
+                debuggers)))
+  
+  
+  (method (update-snapshots snapshots)
+    (for-each (function dynamic (snapshot)
+                (bind (process file executable) snapshot
+                  (with ((handler (essay executable (new Symbol-Handler executable))))
+                    (let* ((title (format "{a}{? : {a}~}" (get-process~ process) (essay file (get-base~ file))))
+                           (threads (get-threads~ process))
+                           (process-row (add-row :state 'expanded :children (list (new Tree-Node :title title :image {Bitmap-Resource "Spy"})) :user-data snapshot)))
+                      (for-each (function dynamic (thread)
+                                  (let* ((title (get-label~ thread))
+                                         (state (get-state~ thread))
+                                         (image (if (> state 0) {Bitmap-Resource "ThreadError"} {Bitmap-Resource "ThreadRun"}))
+                                         (thread-row (add-row :father process-row :state 'expanded :children (list (new Tree-Node :title title :image image)) :user-data thread))
+                                         (call-stack (get-call-stack~ thread))
+                                         (frames (coalesce-frames thread (map (function dynamic (info)
+                                                                                (bind (address . parameters) info
+                                                                                  (get-frame-snapshot thread handler address parameters)))
+                                                                              call-stack)))
+                                         (c++? (show-c++-frames?)))
+                                    (for-each (function dynamic (frame)
+                                                (let ((title (present~ frame))
+                                                      (image (get-image~ frame)))
+                                                  (when (or c++? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
+                                                    (add-row :father thread-row :children (list (new Tree-Node :title title :image image)) :user-data frame))))
+                                              frames)))
+                                threads)))))
+              snapshots))
+  
+  
+  (method (get-frame-snapshot thread handler address parameters)
+    (let* ((address (->string address))
+           (kind (if (starts-with? address "#x") 'c++ 'lisp)))
+      (case kind
+        ((c++)
+         (let* ((addr (extract-address address))
+                (sym (get-sym-from-addr~ handler addr))
+                (title (standardize-sym sym)))
+           (when title
+             (let ((info (get-line-from-addr~ handler addr)))
+               (if (null? info)
+                   (new Cpp-Frame-Snapshot thread title null null parameters)
+                 (bind-values (filename line) info
+                   (let ((file (new File (tokenise filename))))
+                     (new Cpp-Frame-Snapshot thread title file line parameters))))))))
+        ((lisp)
+         (let* ((title address)
+                (pos (find #\period title :return 'position)))
+           (if (null? pos)
+               (new Lisp-Frame-Snapshot thread title null null parameters)
+             (let* ((model (string->symbol (subseq title 0 pos)))
+                    (method-name (string->symbol (subseq title (+ pos 1) (find #\period title :start (+ pos 1) :return 'position)))))
+               (new Lisp-Frame-Snapshot thread title model method-name parameters))))))))
+  
+  
+  (method (coalesce-frames thread frames)
+    (let ((fact (new List-Factory))
+          (get-type
+            (function dynamic (frame)
+              (cond ((null? frame)
+                     'none)
+                    ((and (is? frame Cpp-Frame-Snapshot)
+                          (let ((title (get-title~ frame)))
+                            (or (starts-with? title "JCompiledClosure::")
+                                (starts-with? title "JCompiledExternal::"))))
+                     'eval)
+                    ((is? frame Cpp-Frame-Snapshot)
+                     'c++)
+                    ((is? frame Lisp-Frame-Snapshot)
+                     'lisp)
+                    (else
+                     'other)))))
+      (while frames
+        (let ((first (car frames)))
+          (set! frames (cdr frames))
+          (when first
+            (let* ((second (car frames))
+                   (third (cadr frames))
+                   (f (get-type first))
+                   (s (get-type second))
+                   (t (get-type third)))
+              (cond ((and (eq? f 'lisp) (memq? s '(none c++)) (eq? t 'eval))
+                     (put~ fact (new Coalesced-Frames-Snapshot thread first second third))
+                     (set! frames (cddr frames)))
+                    ((and (eq? f 'c++) (eq? s 'eval))
+                     (put~ fact (new Coalesced-Frames-Snapshot thread null first second))
+                     (set! frames (cdr frames)))
+                    (else
+                     (put~ fact first)))))))
+      (get-output~ fact))))
+
+
+;;;
+;;;; Debuggee-Menu
+;;;
+
+
+(class Debuggee-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler form: on-select})
+      (<Separator-Item>)
+      (<Label-Item>     name: exit   title: "E&xit" action-handler: {Event-Handler form: on-exit})))
+  
+  
+  (method (on-select evt)
+    (select-debuggee-toplevel))
+  
+  
+  (method (on-exit evt)
+    (exit-selected-debuggee)))
+
+
+;;;
+;;;; Snapshot-Menu
+;;;
+
+
+(class Snapshot-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: close title: "&Close" action-handler: {Event-Handler form: on-close})))
+  
+  
+  (method (on-close evt)
+    (close-selected-snapshot)))
+
+
+;;;
+;;;; Thread-Menu
+;;;
+
+
+(class Thread-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: break title: "&Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler form: on-break})))
+  
+  
+  (method (on-break evt)
+    ))
+
+
+;;;
+;;;; Frame-Menu
+;;;
+
+
+(class Frame-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: edit title: "&Edit" icon: {Bitmap-Resource "Edit"} action-handler: {Event-Handler form: on-edit})))
+  
+  
+  (method (on-edit evt)
+    )))

@@ -1,0 +1,148 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Regular Expressions
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.regexp.Regular-Expression jazz
+
+
+(class Regular-Expression extends Object
+  
+  
+  (slot original)
+  (slot expressions)
+  (slot cardinality)
+  
+  
+  (method (initialize pattern)
+    (nextmethod)
+    (set! original pattern)
+    (set! expressions (parse-expressions pattern))
+    (set! cardinality (length expressions)))
+  
+  
+  (method (parse-expressions pattern)
+    (map parse-expression (parse-strings pattern :separator "|")))
+  
+  
+  (method (parse-expression pattern)
+    (let ((pos (find-star pattern)))
+      (if (null? pos)
+          (new Expression pattern true)
+        (new Expression pattern false
+             (subseq pattern 0 pos)
+             (subseq pattern (+ pos 1))))))
+  
+  
+  (method (find-star pattern)
+    (let ((pos null))
+      (loop (for n from 0 below (length pattern))
+            (let ((c (element pattern n)))
+              (when (= c #\times)
+                (if (null? pos)
+                    (set! pos n)
+                  (error "Multiple stars are not supported in regular expressions")))))
+      pos))
+  
+  
+  ;;;
+  ;;;; Match
+  ;;;
+  
+  
+  (method public (match string)
+    (call/ec
+      (lambda (return)
+        (for-each (function dynamic (expression)
+                    (let ((match (match-expression expression string)))
+                      (when match
+                        (return match))))
+                  expressions)
+        null)))
+  
+  
+  (method (match-expression expression string)
+    (cond ([exact? expression]
+           (if (= string [pattern expression])
+               string
+             null))
+          (else
+           (let ((prefix [prefix expression])
+                 (suffix [suffix expression]))
+             (if (and (starts-with? string prefix)
+                      (ends-with? string suffix))
+                 (subseq string (length prefix) (- (length string) (length suffix)))
+               null)))))
+  
+  
+  (method public (matches? string)
+    (not-null? (match string)))
+  
+  
+  ;;;
+  ;;;; Replace
+  ;;;
+  
+  
+  (method public (replace string)
+    (if (/= cardinality 1)
+        (error "Regular expression must contain exactly one pattern to be used for replacements: {a}" original)
+      (let ((expression (car expressions)))
+        (if [exact? expression]
+            [pattern expression]
+          (append [prefix expression] string [suffix expression]))))))
+
+
+;;;
+;;;; Expression
+;;;
+
+
+(class Expression extends Object
+  
+  
+  (slot pattern)
+  (slot exact?)
+  (slot prefix)
+  (slot suffix)
+  
+  
+  (method (initialize pattern exact? . rest)
+    (bind-optionals ((prefix null) (suffix null)) rest
+      (nextmethod)
+      (set! [pattern self] pattern)
+      (set! [exact? self] exact?)
+      (set! [prefix self] prefix)
+      (set! [suffix self] suffix)))))

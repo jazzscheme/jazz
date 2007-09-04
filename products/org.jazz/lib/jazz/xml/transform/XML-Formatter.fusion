@@ -1,0 +1,132 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; XML-Formatter Module
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Dominique Boucher.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.xml.transform.XML-Formatter jazz
+
+
+(import (jazz.xml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+;;;
+;;;; TODO
+;;;
+
+
+(class XML-Formatter extends Object implements XML-Handler
+  
+  
+  (slot pretty-print? initialize false)
+  (slot level)
+  (slot indentation-width)
+  (slot ostream)
+  (slot printing-element?)
+  
+  
+  (method (initialize . arguments)
+    (nextmethod)
+    (bind-keywords ((pretty false) (stream :console) (indentation 2)) arguments
+      (set! [pretty-print? self] pretty)
+      (set! [ostream self] stream)
+      (set! [indentation-width self] indentation))
+    (set! level 0)
+    (set! printing-element? false))
+  
+  
+  (method private (close-start-tag)
+    (when printing-element?
+      (format ostream ">")
+      (set! printing-element? false)))
+  
+  
+  (method private (increment-level)
+    (increase! level))
+  
+  
+  (method private (decrease-level)
+    (decrease! level))
+
+  
+  (method (get-document)
+    )
+  
+  
+  (method (begin-document)
+    )
+  
+  
+  (method (end-document)
+    )
+  
+  
+  (method (begin-element name <String>)
+    (close-start-tag)
+    (when pretty-print?
+      (format ostream "{%}{& :v}" level))
+    (format ostream "<{a}" name)
+    (increment-level)
+    (set! printing-element? true))
+  
+  
+  (method (end-element name <String>)
+    (decrease-level)
+    (if printing-element?
+        (format ostream "/>")
+      (when pretty-print?
+        (format ostream "{%}{& :v}" level))
+      (format ostream "</{a}>" name))
+    (set! printing-element? false))
+  
+  
+  (method (add-attribute name <String> value <String>)
+    (format ostream " {a}=\"{a}\"" name value))
+  
+  
+  (method (text cdata <String>)
+    (close-start-tag)
+    (when pretty-print?
+      (format ostream "{%}{& :v}" level))
+    (format ostream "{a}" cdata))
+  
+  
+  (method (comment content <String>)
+    (unimplemented 'comment))
+  
+  
+  (method (processing-instruction content <String>)
+    (unimplemented 'processing-instruction))))

@@ -1,0 +1,407 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Login Dialog
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.login.Login-Dialog jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Login-Dialog extends View
+  
+  
+  (property use-user-class? initialize false accessors generate)
+
+
+  (form
+    (<install>                                                size: {Dimension 400 206}
+      (<Label-View>                 name: title               title: "Welcome to Jedi" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Label-Bold})
+      (<Label-View>                 name: description         title: "Please enter the user that will be used for this session" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Default-GUI})
+      (<Group-Box>                  name: content             position: {Point -2 44} size: {Dimension 404 116}
+        (<Radio-Button>             name: new-button          title: "New" position: {Point 25 31} tooltip?: #t tooltip-text: "Create a new user" action-handler: {Event-Handler form: on-new})
+        (<Radio-Button>             name: open-button         title: "Open" position: {Point 25 54} tooltip?: #t tooltip-text: "Open an existing user" action-handler: {Event-Handler form: on-open})
+        (<Radio-Button>             name: standard-button     title: "Standard" position: {Point 25 77} tooltip?: #t tooltip-text: "Open an existing user from the standard Users directory" action-handler: {Event-Handler form: on-standard})
+        (<Vertical-Line>                                      position: {Point 110 15} size: {Dimension 8 91})
+        (<Label-View>               name: new-label           title: "User:" position: {Point 136 42} size: {Dimension 33 16} visible?: #f font: {Font name: Default-GUI})
+        (<Border-View>              name: new-border          position: {Point 173 39} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
+          (<Scroller-View>                                    hscroll?: #f vscroll?: #f
+            (<!>                    name: content             layout-type: fill
+              (<User-Text-View>     name: new-user            left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default :font {Font name: Ansi-Var}} tooltip?: #t tooltip-text: "Username. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press} content-change-handler: {Event-Handler form: on-content-change}))))
+        (<Label-View>               name: new-directory-label title: "Dir:" position: {Point 136 65} size: {Dimension 24 16} visible?: #f font: {Font name: Default-GUI})
+        (<Moniker-Widget>           name: new-directory       position: {Point 173 62} size: {Dimension 219 22} visible?: #f protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler form: on-moniker-update}
+          (<!>                      name: moniker-border      style: entry
+            (<!>                    name: scroller
+              (<!>                  name: content
+                (<!>                name: text                editable?: #f show-unfocused-selection?: #f tooltip?: #t tooltip-text: "Directory where the user will be created" return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press})))))
+        (<Label-View>               name: open-label          position: {Point 136 37} size: {Dimension 120 16} visible?: #f font: {Font name: Default-GUI})
+        (<Moniker-Widget>           name: open-pathname       position: {Point 136 56} size: {Dimension 256 22} visible?: #f display-protocol?: #f moniker-update-handler: {Event-Handler form: on-moniker-update}
+          (<!>                      name: moniker-border      style: entry
+            (<!>                    name: scroller
+              (<!>                  name: content
+                (<!>                name: text                editable?: #f show-unfocused-selection?: #f tooltip?: #t return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press})))))
+        (<Border-View>              name: standard-border     position: {Point 140 20} size: {Dimension 251 82} visible?: #f border-type: edge style: entry
+          (<Scroller-View>                                    vscroll?: #t style: document
+            (<!>                    name: content             layout-type: fill
+              (<Tree-View>          name: users               show-header?: #f font: {Font name: Ansi-Var} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of users found in the standard Users directory" double-click-handler: {Event-Handler form: on-double-click} return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press}
+                (<Tree-Node-Column>                           title: "User" width: 176 toplevel-controls?: #f display-images?: #f))))))
+      (<Push-Button>                name: login               title: "Login" position: {Point 117 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
+      (<Push-Button>                name: cancel              title: "Cancel" position: {Point 203 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+      (<Branch>                     name: new
+        (<install>
+          (<!>                      name: content
+            (<!>                    name: new-label           visible?: #t)
+            (<!>                    name: new-border          visible?: #t)
+            (<!>                    name: new-directory-label visible?: #t)
+            (<!>                    name: new-directory       visible?: #t))))
+      (<Branch>                     name: open
+        (<install>
+          (<!>                      name: content
+            (<!>                    name: open-label          visible?: #t)
+            (<!>                    name: open-pathname       visible?: #t))))
+      (<Branch>                     name: standard
+        (<install>
+          (<!>                      name: content
+            (<!>                    name: standard-border     visible?: #t))))))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-new-user)
+    (setup-open-user)
+    (setup-standard-users))
+  
+  
+  (method (setup-new-user)
+    (set-string-content~ (locate 'new-user) (get-windows-user-name))
+    (set-moniker~ (locate 'new-directory) {Directory Users}))
+  
+  
+  (method (setup-open-user)
+    (let ((label (locate 'open-label))
+          (open (locate 'open-pathname)))
+      (cond ((not use-user-class?)
+             (set-title~ label "User Dir:")
+             (set-protocol~ open 'dir)
+             (set-tooltip-text~ (get-text~ open) "Directory containing the user"))
+            (else
+             (set-title~ label "User Class File:")
+             (set-protocol~ open 'file)
+             (set-parameters~ open '(:extensions (("Jazz Files (*.jazz)" . "*.jazz"))))
+             (set-tooltip-text~ (get-text~ open) "File containing the user class")))))
+  
+  
+  (method (setup-standard-users)
+    (let ((users (collect-standard-users)))
+      (cond ((null? users)
+             (install-new)
+             (set-selected?~ (locate 'new-button) true))
+            (else
+             (install-standard users)
+             (set-selected?~ (locate 'standard-button) true)))))
+  
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Login-Host-Dialog)
+  
+
+  @convert-dialog
+  (class meta Login-Host-Dialog extends Host-Dialog
+    
+    
+    (form
+      (<install> title: "Login" position: {Point 450 300})))
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (validate-dialog)
+    (let ((message (validate-user)))
+      (when message
+        (message-box message)
+        (throw-cancel))))
+  
+  
+  (method (get-modal-result)
+    (case (get-name~ branch)
+      ((new)
+       (let ((dir (get-moniker~ (locate 'new-directory)))
+             (name (get-string-content~ (locate 'new-user))))
+         (cond ((not use-user-class?)
+                (new-directory~ dir name))
+               (else
+                (new-file~ dir (list name (format "{a}.jazz" name)))))))
+      ((open)
+       (get-moniker~ (locate 'open-pathname)))
+      ((standard)
+       (let* ((tree (locate 'users))
+              (rank (get-single-selection~ tree)))
+         (when rank
+           (let ((row (get-row~ tree rank)))
+             (get-user-data~ row)))))))
+  
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (get-tab-stops)
+    (case (get-name~ branch)
+      ((new)
+       (list
+        (locate 'new-user)
+        (get-text~ (locate 'new-directory))))
+      ((open)
+       null)
+      ((standard)
+       null)))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-new evt)
+    (install-new))
+  
+  
+  (method (on-open evt)
+    (install-open))
+  
+  
+  (method (on-standard evt)
+    (install-standard (collect-standard-users)))
+  
+  
+  (method (on-content-change evt)
+    (update-login))
+  
+  
+  (method (on-moniker-update evt)
+    (update-login))
+  
+  
+  (method (on-double-click evt)
+    (when (get-enabled?~ (locate 'login))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (when (get-enabled?~ (locate 'login))
+      (validate-dialog)
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result~ dialog)))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (escape-press key)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Branches
+  ;;;
+  
+  
+  (method (install-new)
+    (set-active-branch (locate 'new))
+    (let* ((text (locate 'new-user))
+           (content (get-string-content~ text))
+           (prefix "user."))
+      (acquire-focus~ text)
+      (select-all~ text))
+    (update-login))
+  
+  
+  (method (install-open)
+    (set-active-branch (locate 'open))
+    (let ((text (get-text~ (locate 'open-pathname))))
+      (acquire-focus~ text)
+      (select-all~ text))
+    (update-login))
+  
+  
+  (method (install-standard users)
+    (set-active-branch (locate 'standard))
+    (let ((tree (locate 'users))
+          (rank (either (find (either (command-argument "defaultuser") (get-system-property 'Default-User)) users :key car :test equal? :return 'position) (essay users 0))))
+      (remove-every-row~ tree)
+      (for-each (function dynamic (info)
+                  (bind (presentation . file) info
+                    (add-row~ tree :children (list (new Tree-Node :title presentation)) :user-data file)))
+                users)
+      (when rank
+        (set-single-selection~ tree rank)
+        (ensure-displayed~ tree))
+      (acquire-focus~ tree))
+    (update-login))
+  
+  
+  (method (collect-standard-users)
+    (let ((dir {Directory Users})
+          (lst null))
+      (iterate-directory~ dir
+        (function dynamic (dir)
+          (cond ((not use-user-class?)
+                 (let ((presentation (get-name~ dir)))
+                   (set! lst (cons (cons presentation dir) lst))))
+                (else
+                 (let ((file (new-file~ dir (format "{a}.jazz" (get-name~ dir)))))
+                   (when (exists?~ file)
+                     (let ((presentation (get-base~ file)))
+                       (set! lst (cons (cons presentation file) lst))))))))
+        :files? false
+        :directories? true
+        :recursive? false)
+      (sort ci< lst :key car)))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-login)
+    (when branch
+      (case (get-name~ branch)
+        ((new)
+         (set-enabled?~ (locate 'login) (and (not (empty-string? (get-string-content~ (locate 'new-user)))) (get-moniker~ (locate 'new-directory)))))
+        ((open)
+         (set-enabled?~ (locate 'login) (get-moniker~ (locate 'open-pathname))))
+        ((standard)
+         (set-enabled?~ (locate 'login) (get-selection~ (locate 'users)))))))
+  
+
+  ;;;
+  ;;;; Validate
+  ;;;
+  
+  
+  (method (validate-user)
+    (case (get-name~ branch)
+      ((new)
+       (let ((username (get-string-content~ (locate 'new-user))))
+         (validate-new-user username)))
+      ((open)
+       (let ((pathname (get-moniker~ (locate 'open-pathname))))
+         (validate-open-user pathname)))
+      (else
+       null)))
+  
+  
+  (method (validate-new-user username)
+    (unimplemented 'validate-new-user)
+    @convert-manifest-stuff
+    (cond ((let ((first (first username)))
+             (not (or (eqv? first #\_)
+                      (alphabetic? first))))
+           "Username must start with a letter or an underscore")
+          ((not (every? (function dynamic (char)
+                          (or (alphabetic? char)
+                              (numeric? char)
+                              (memv? char '(#\minus #\_ #\period))))
+                        username))
+           "Username can only contain letters, digits, dashes, underscores and periods")
+          ((let ((symbol (find-symbol username)))
+             (and symbol (in-manifest? symbol)))
+           (format "The username \"{a}\" already exists as a Jazz class" username))
+          ((let ((dir (new Directory (list 'Users username))))
+             (exists?~ dir))
+           (format "The username \"{a}\" already exists as a standard user" username))
+          (else
+           null)))
+  
+  
+  (method (validate-open-user pathname)
+    (cond ((not use-user-class?)
+           null)
+          (else
+           (let ((base (get-base~ pathname))
+                 (name (get-name~ (get-parent~ pathname))))
+             (cond ((/= name base)
+                    (format "The user file you selected \"{a}\" is invalid. It's name \"{a}\" must match the name of its parent directory \"{a}\""
+                            (parse~ pathname)
+                            base
+                            name))
+                   (else
+                    null))))))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Header-Color
+    (new Color :red 120 :green 120 :blue 255))
+
+  
+  (method (draw dc context update lh lv)
+    (let ((size (get-size)))
+      (gradient-fill~ dc (new Rect 0 0 [width size] 50) {Color name: White} Header-Color))))
+
+
+;;;
+;;;; User-Text-View
+;;;
+
+
+(class User-Text-View extends Plain-Text-View
+  
+  
+  (method (get-context-menu)
+    (new-text-context-menu))))

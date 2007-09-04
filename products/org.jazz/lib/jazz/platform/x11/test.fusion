@@ -1,0 +1,60 @@
+(library jazz.platform.x11.test jazz
+
+(import (jazz.platform.x11)
+        (jazz.platform.cairo)
+        (jazz.platform.x11.X11-Window))
+
+(definition display (XOpenDisplay #f))
+
+(definition window-reg (new-hashtable ':eq?))
+
+(definition (register-window win)
+  (hashtable-set! window-reg (get-window~ win) win))
+
+(definition (unregister-window win)
+  (hashtable-set! window-reg (get-window~ win) #f))
+
+(definition (window-ref handle)
+  (hashtable-ref window-reg handle))
+
+
+
+(definition (event-loop)
+  (let ((ev (XEvent-make)))
+    (let loop ()
+      (XNextEvent display ev)
+      (if (let loop ((lst (table->list window-reg)))
+	    (cond ((null? lst)
+		   false)
+		  ((not (cdar lst))
+		   (loop (cdr lst)))
+		  (else
+		   true)))
+	  (let ((win (window-ref (XAnyEvent-window-ref (XEvent-xany-ref ev)))))
+	    (if win
+		(let ((result (event-handler~ win ev)))
+		  (cond
+		   ((eq? result unprocessed) 
+		    (begin (format ':console "Unprocessed event {s}.\n" (XEvent-type-ref ev))
+			   (loop)))
+		   ((eq? result processed)
+		    (loop))
+		   ((eq? result exit)
+		    (unregister-window win)
+		    (destroy-window~ win)
+		    (loop))
+		   (else                     
+		    (error "Bad event handler response {t}" result))))
+		(loop)))
+	  'Finished))))
+
+(definition (test2)
+  (let ((win1 (new X11-Window 300 300 10 10 1 display)))
+    (register-window win1)
+    
+    (show-window~ win1)
+    
+    (event-loop))))
+  
+  
+

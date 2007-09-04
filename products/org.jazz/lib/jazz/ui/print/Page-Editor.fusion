@@ -1,0 +1,277 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Page Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.print.Page-Editor jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.workspace)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Page-Editor extends Layout-View
+  
+
+  (property client initialize {} getter get-client setter set-client)
+
+  
+  (form
+    (<install>                    layout-type: center background: {Color name: Dark}
+      (<Border-View> name: border position: {Point 0 0} size: {Dimension 514 664} border-type: shadow)))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (frame-workspaces)
+    '(page))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (find-page-setup)
+    (first-child~ (locate 'border)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-print evt)
+    (print-document~ client))
+  
+  
+  (method (on-print-preview evt)
+    (print-preview~ client :from-layout? true))
+  
+  
+  (method (on-page-setup evt)
+    (page-setup))
+  
+  
+  (method (on-layout evt)
+    (let ((layout (get-property~ evt :layout))
+          (page-setup (find-page-setup)))
+      (save-header/footer)
+      (set-active-branch~ page-setup (child~ page-setup layout))
+      (update-page)))
+  
+  
+  (method (on-fit evt)
+    (let ((fit (get-property~ evt :fit)))
+      (set-fit fit)))
+  
+  
+  (method (set-fit fit)
+    (let ((page-setup (find-page-setup))
+          (designer (get-page-setup-designer~ client)))
+      (set-property~ designer page-setup 'fit fit)))
+
+  
+  (method (on-close evt)
+    (close-workspace))
+  
+  
+  (method (escape-press key)
+    (close-workspace))
+
+  
+  ;;;
+  ;;;; Activate
+  ;;;
+  
+  
+  (method protected (activate-page)
+    @would-take-a-tree-to-be-really-nice
+    (setup-branches)
+    (setup-defaults)
+    (update-page))
+  
+  
+  @would-take-a-tree-to-be-really-nice
+  (method (setup-branches)
+    (let ((page-setup (find-page-setup))
+          (designer (get-page-setup-designer~ client)))
+      (setup-branch page-setup designer 'printer)
+      (setup-branch page-setup designer 'file)
+      (when (null? (get-active-branch~ page-setup))
+        (set-active-branch~ page-setup (child~ page-setup 'printer)))))
+  
+  
+  @would-take-a-tree-to-be-really-nice
+  (method (setup-branch page-setup designer name)
+    (when (null? (find-component~ page-setup name))
+      (let ((branch (new Branch parent: page-setup)))
+        (add-child~ designer branch page-setup :branch null)
+        (set-name~ designer branch name :branch null)
+        (set-property~ designer branch :client-form (new Form :textual? false :action 'install) :branch null))))
+  
+  
+  ;; todo
+  (method (setup-defaults)
+    )
+  
+  
+  (method (update-page)
+    (let* ((toplevel (get-toplevel))
+           (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Page-Toolbar))
+           (page-setup (find-page-setup)))
+      @would-take-a-tree-to-be-really-nice
+      (update-branch toolbar page-setup)
+      (update-fit toolbar page-setup)
+      (update-border page-setup)))
+  
+  
+  (method (update-branch toolbar page-setup)
+    (let ((name (get-active-branch-name~ page-setup)))
+      (set-selected?~ (locate~ toolbar name) true)))
+  
+  
+  (method (update-fit toolbar page-setup)
+    (let ((fit (get-fit~ page-setup)))
+      (set-selected?~ (locate~ toolbar fit) true)))
+  
+  
+  (method (update-border page-setup)
+    (let ((border (locate 'border)))
+      (set-size~ border (+ (get-size~ page-setup) {Dimension 4 4}))
+      (layout-view)))
+
+  
+  ;;;
+  ;;;; Close
+  ;;;
+  
+  
+  (method (close-workspace)
+    (let ((frame (get-player))
+          (workspace (selected-workspace)))
+      (save-header/footer)
+      (restore-client)
+      (close~ frame)
+      (apply-preferences~ (get-previous~ workspace))))
+
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client value)
+    (set! client value)
+    (let ((border (locate 'border))
+          (page-setup (get-page-setup-for~ client 'printer)))
+      (set-size~ border (+ (get-size~ page-setup) {Dimension 4 4}))
+      (set-parent~ page-setup border)))
+  
+  
+  (method protected (restore-client)
+    (let ((page-setup (find-page-setup)))
+      (set-parent~ page-setup null)))
+
+  
+  ;;;
+  ;;;; Page Setup
+  ;;;
+  
+  
+  (method (page-setup)
+    (let* ((page-setup (find-page-setup))
+           (resolution (get-resolution~ page-setup))
+           (orientation (get-orientation~ page-setup))
+           (paper-size (get-paper-size~ page-setup))
+           (paper-source (get-paper-source~ page-setup))
+           (printable (get-printable~ page-setup))
+           (min-margins (get-layout-insets~ page-setup))
+           (margins (get-layout-insets~ printable))
+           (dialog-ratio (/ 1000 resolution))
+           (setup-ratio (/ resolution 1000))
+           (designer (get-page-setup-designer~ client)))
+      (bind-values (size min-margins margins orientation paper-size paper-source) (get-modal Page-Setup-Dialog :margins (scale (add-rects min-margins margins) dialog-ratio) :orientation (numerize-orientation orientation) :paper-size paper-size :paper-source paper-source)
+        (set-property~ designer page-setup 'size (scale size setup-ratio))
+        (set-property~ designer page-setup 'layout-insets (scale min-margins setup-ratio))
+        (set-property~ designer page-setup 'orientation (symbolize-orientation orientation))
+        (set-property~ designer page-setup 'paper-size paper-size)
+        (set-property~ designer page-setup 'paper-source paper-source)
+        (set-property~ designer printable 'layout-insets (scale (subtract-rects margins min-margins) setup-ratio))
+        (update-page))))
+  
+  
+  (method (numerize-orientation orientation)
+    (unimplemented 'numerize-orientation)
+    @convert
+    (case orientation
+      ((portrait) DMORIENT_PORTRAIT)
+      ((landscape) DMORIENT_LANDSCAPE)))
+  
+  
+  (method (symbolize-orientation orientation)
+    (unimplemented 'symbolize-orientation)
+    @convert
+    (ecase orientation
+      ((DMORIENT_PORTRAIT) 'portrait)
+      ((DMORIENT_LANDSCAPE) 'landscape)))
+
+  
+  ;;;
+  ;;;; Header/Footer
+  ;;;
+  
+  
+  (method (save-header/footer)
+    (let ((page-setup (find-page-setup))
+          (designer (get-page-setup-designer~ client)))
+      (when designer
+        (let ((header (get-header~ page-setup))
+              (footer (get-footer~ page-setup)))
+          (set-property~ designer header :text-content (get-content~ header))
+          (set-property~ designer footer :text-content (get-content~ footer))))))))

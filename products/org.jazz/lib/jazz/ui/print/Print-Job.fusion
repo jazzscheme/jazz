@@ -1,0 +1,257 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Print Job
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.print.Print-Job jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Print-Job extends Object
+  
+  
+  (slot dc)
+  (slot selection?)
+  (slot from)
+  (slot to)
+  (slot nb-copies)
+  (slot client)
+  (slot page-setup)
+  (slot resolution)
+  (slot scaling)
+  (slot zoom)
+  (slot pages)
+  
+  
+  (method (initialize dc client page-setup resolution . rest)
+    (bind-keywords ((scaling null) (zoom null) (selection? false) (from null) (to null) (nb-copies 1)) rest
+      (nextmethod)
+      (set! [dc self] dc)
+      (set! [selection? self] selection?)
+      (set! [from self] from)
+      (set! [to self] to)
+      (set! [nb-copies self] nb-copies)
+      (set! [client self] client)
+      (set! [page-setup self] page-setup)
+      (set! [resolution self] resolution)
+      (set! [scaling self] (either scaling (scale-content~ page-setup client resolution)))
+      (set! [zoom self] zoom)
+      (set! pages (paginate))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-dc)
+    dc)
+  
+  
+  (method public (get-selection?)
+    selection?)
+  
+  
+  (method public (get-from)
+    from)
+  
+  
+  (method public (get-to)
+    to)
+  
+  
+  (method public (get-nb-copies)
+    nb-copies)
+  
+  
+  (method public (get-client)
+    client)
+  
+  
+  (method public (get-pages)
+    pages)
+  
+  
+  (method public (get-page n)
+    (element pages n))
+  
+  
+  ;;;
+  ;;;; Print
+  ;;;
+  
+  
+  (method public (print-job)
+    (with-document
+      (function dynamic ()
+        (loop (repeat nb-copies)
+              (print-document)))))
+  
+  
+  (method (print-document)
+    (for-each (function dynamic (page no)
+                (with-page no
+                  (function dynamic ()
+                    (print-page dc 0 0 page no))))
+              pages
+              (naturals (if (null? from) 0 (- from 1))
+                        (if (null? to) (length pages) to))))
+  
+  
+  (method (with-orientation dc page clipper proc)
+    (let* ((landscape? (print-landscape?))
+           (proc
+            (function dynamic ()
+              (with-clipper~ dc (if landscape? (inverse-rect clipper) clipper)
+                (function dynamic ()
+                  (proc))))))
+      (with-world~ dc
+        (function dynamic ()
+          (if (not landscape?)
+              (proc)
+            (let ((orientation 'counterclockwise)
+                   (page-size (rect-size page)))
+              (with-landscape~ dc
+                orientation page-size proc)))))))
+  
+  
+  (method public (print-page dc lh lv page no)
+    (let* ((context (print-context no))
+           (zoom (either zoom 1.0))
+           (ratio (* (/ resolution 60) zoom))
+           (scaling (* scaling zoom))
+           (printed (printed-page))
+           (printed-bounds (get-bounds~ printed))
+           (printed-rect (offset-rect (scale printed-bounds ratio) lh lv)))
+      (wrap-header/footer~ page-setup context)
+      (with-orientation dc printed-bounds printed-rect
+        (function dynamic ()
+          (paint-drawing~ printed dc context null lh lv lh lv ratio true)))
+      (let* ((offset (acquire~ page-setup printed {Point 0 0}))
+             (content-rect (scale (offset-rect (get-content-rect~ page-setup) (- [h offset]) (- [v offset])) ratio))
+             (content (offset-rect content-rect lh lv))
+             (left [left content])
+             (top [top content])
+             (new-lh (- left [left page]))
+             (new-lv (- top [top page]))
+             (clipper (offset-rect (scale (offset-rect page (- [left page]) (- [top page])) scaling) left top)))
+        (with-orientation dc page clipper
+          (function dynamic ()
+            (paint-drawing~ client dc context content new-lh new-lv left top scaling true))))))
+  
+  
+  (method protected virtual (printed-page)
+    (get-printable~ page-setup))
+  
+  
+  (method protected virtual (print-landscape?)
+    (eq? (get-orientation~ page-setup) 'landscape))
+  
+  
+  (method (print-context no)
+    (list
+      :printing? true
+      ;; metamodeler-extra : should get this setting from the page-setup
+      :print-black/white? false
+      :print-selection? selection?
+      :filename (either (client-filename) "New")
+      :page-no no
+      :page-count (length pages)
+      :print-date (present-date~ (local-date))
+      :print-time (present-time~ (local-date))))
+  
+  
+  (method (client-filename)
+    (let ((guest (get-guest~ client)))
+      (when (is? guest Document)
+        (let ((moniker (get-moniker~ (get-controller~ guest))))
+          (when moniker
+            (get-name~ moniker))))))
+  
+  
+  ;;;
+  ;;;; Paginate
+  ;;;
+  
+  
+  (method (paginate)
+    (let* ((content (get-content~ page-setup))
+           (width (get-width~ content))
+           (height (get-height~ content))
+           (paginate-width (ceil (/ (/ (* width resolution) 60) scaling)))
+           (paginate-height (ceil (/ (/ (* height resolution) 60) scaling))))
+      (paginate~ client paginate-width paginate-height)))
+  
+  
+  ;;;
+  ;;;; Document
+  ;;;
+  
+  
+  (method public (with-document proc)
+    (start-document)
+    (proc)
+    (end-document))
+  
+  
+  (method protected virtual (start-document)
+    )
+  
+  
+  (method protected virtual (end-document)
+    )
+  
+  
+  ;;;
+  ;;;; Page
+  ;;;
+  
+  
+  (method public (with-page no proc)
+    (start-page no)
+    (proc)
+    (end-page no))
+  
+  
+  (method protected virtual (start-page no)
+    )
+  
+  
+  (method protected virtual (end-page no)
+    )))

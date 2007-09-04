@@ -1,0 +1,130 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Canvas
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.canvas.Canvas jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+;; A canvas is a Jazz database that has a rigid format where
+;; every level knows exactly what type of child is can have.
+;; It is a bit like a Jazz database plus a validating schema...
+
+
+(class Canvas extends Component
+  
+  
+  (property violations initialize '() getter get-violations setter set-violations)
+  
+  
+  (slot violations-factory initialize (new List-Factory))
+
+
+  ;;;
+  ;;;; Integrity
+  ;;;
+  
+  
+  (method (get-integrity-manager)
+    (new Integrity-Manager))
+  
+  
+  (method public (validate-integrity . rest)
+    (bind-keywords ((context null) (reporter null) (report? true)) rest
+      (let ((integrity-manager (get-integrity-manager)))
+        (reset~ violations-factory)
+        (validate-integrity~ integrity-manager self :context context :reporter reporter)
+        (set! violations (get-output~ violations-factory))
+        (when report?
+          (when reporter
+            (user-message~ reporter "Displaying violations..."))
+          (let ((presentation (get-presentation)))
+            (update-violations-manager violations)
+            (if (null? violations)
+                (message-box (format "No integrity violation found in {a}" presentation))
+              (let ((count (length violations)))
+                (message-box (format "Found {a} integrity violation{a} in {a}" count (format-plural count) presentation) :icon IDI_ERROR)
+                (select-violations-manager)))))
+        violations)))
+
+
+  (method (get-violations-manager)
+    (get-guest~ (singleton-docked (violations-manager-class) null)))
+  
+  
+  (method (update-violations-manager violations)
+    (let ((manager (get-violations-manager)))
+      (update~ manager)))
+  
+  
+  (method public (select-violations-manager)
+    (let ((manager (get-violations-manager)))
+      (select-results~ manager)
+      (select-first~ manager))
+    (select-palette (violations-manager-class) :workspace (violations-manager-workspace) :focus? true))
+  
+  
+  (method protected virtual (violations-manager-class)
+    Violations-Manager)
+  
+  
+  (method protected virtual (violations-manager-workspace)
+    null)
+  
+  
+  ;;;
+  ;;;; Violations
+  ;;;
+  
+  
+  (method public (get-violations)
+    violations)
+  
+  
+  (method public (set-violations value)
+    (set! violations value))
+  
+  
+  (method public (add-violation violation)
+    (put~ violations-factory violation))
+  
+  
+  (method public (clear-violations)
+    (reset~ violations-factory)
+    (set! violations null))))

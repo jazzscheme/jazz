@@ -1,0 +1,265 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exploring Scheme Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.text.Scheme-Explorer jazz
+
+
+(import (jazz.jazz)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Scheme-Explorer extends Lisp-Explorer
+
+
+  (definition Modifiers
+    '())
+  
+  
+  (method (get-modifiers)
+    Modifiers)
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (definition Scheme-Toplevels
+    '(define define-macro jazz.define jazz.define-macro))
+  
+  
+  (definition Gambit-Toplevels
+    '(##define-macro
+      define-prim
+      define-check-type
+      define-fail-check-type
+      define-type
+      define-type-of-port
+      define-runtime-macro
+      define-runtime-syntax
+      define-library-type
+      define-library-type-of-exception))
+
+
+  (method (definition-name? name)
+    (or (memq? name Scheme-Toplevels)
+        (memq? name Gambit-Toplevels)))
+
+
+  ;;;
+  ;;;; Declarations
+  ;;;
+  
+  
+  (method (walk-declaration context declaration keyword expression doc line walk-expressions?)
+    (let ((list? (enter-list)))
+      (when (or (null? line) (= [row end] line))
+        (if (not list?)
+            (when (forward-expr)
+              (when (or (null? line) (= [row end] line))
+                (expression context start end 'code kind))
+              true)
+          (when (and (forward-expr) (= kind 'symbol))
+            (let ((symbol (find-marked-symbol)))
+              (case symbol
+                ((begin)
+                 (walk-declarations context declaration keyword expression doc walk-expressions?))
+                ((cond-expand)
+                 (walk-cond-expand context declaration keyword expression doc walk-expressions?))
+                ((library module)
+                 (walk-module context declaration keyword expression doc line walk-expressions?))
+                ((require import export)
+                 (walk-import context declaration keyword expression doc line walk-expressions?))
+                ((define
+                  jazz.define
+                  jazz.define-remote
+                  ;; Gambit
+                  define-prim
+                  define-library-type
+                  define-library-type-of-exception
+                  define-check-type
+                  define-fail-check-type
+                  define-type
+                  define-type-of-port)
+                 (walk-define context declaration keyword expression doc line walk-expressions?))
+                ((jazz.define-generic
+                  jazz.define-specific)
+                 (walk-define-generic/specific context declaration keyword expression doc line walk-expressions?))
+                ((define-macro
+                  define-syntax
+                  jazz.define-macro
+                  jazz.define-special
+                  ;; Gambit
+                  ##define-macro
+                  define-runtime-macro
+                  define-runtime-syntax
+                  macro
+                  syntax)
+                 (walk-define-macro context declaration keyword expression doc line walk-expressions?))
+                ((jazz.define-class jazz.define-class-runtime)
+                 (walk-define-class context declaration keyword expression doc line walk-expressions?))
+                ((;; Gambit
+                  c-define-type)
+                 (walk-type context declaration keyword expression doc line walk-expressions?))
+                ((native)
+                 (walk-native context declaration keyword expression doc line walk-expressions?))
+                (else
+                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))))
+          (exit-list)
+          true))))
+  
+  
+  (method (walk-cond-expand context declaration keyword expression doc walk-expressions?)
+    (let ((done? false))
+      (while (not done?)
+        (let ((enter? (enter-list)))
+          (if (not enter?)
+              (set! done? true)
+            (forward-expr)
+            (when (= (get-kind) 'symbol)
+              (expression context start end 'code 'feature))
+            (walk-declarations context declaration keyword expression doc walk-expressions?)
+            (exit-list))))))
+  
+  
+  (method (walk-module context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= [row end] line)))
+        (set! entry (declaration context start end (get-marked) false))
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+  
+  
+  (method (walk-import context declaration keyword expression doc line walk-expressions?)
+    (keyword context start end))
+  
+  
+  (method (walk-define context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (= (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= [row end] line)))
+          (set! entry (declaration context start end (get-marked) false)))
+        (when list?
+          (walk-parameters entry declaration keyword expression doc line))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+  
+  
+  (method (walk-define-generic/specific context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (enter-list)
+      (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= [row end] line)))
+        (let ((start (get-start))
+              (end (get-end))
+              (name (get-marked)))
+          (forward-whites)
+          (enter-list)
+          (forward-expr)
+          (let ((typename (get-marked)))
+            (set! entry (declaration context start end (list name typename) false)))
+          (exit-list)))
+      (walk-parameters entry declaration keyword expression doc line)
+      (exit-list)
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+  
+  
+  (method (walk-define-macro context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (= (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= [row end] line)))
+          (set! entry (declaration context start end (get-marked) false)))
+        (when list?
+          (walk-expressions entry expression 'code false))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+  
+  
+  (method (walk-define-class context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= [row end] line)))
+        (set! entry (declaration context start end (get-marked) false)))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+  
+  
+  (method (walk-native context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+        (set! entry (declaration context start end (get-marked) false)))
+      entry))
+  
+  
+  (method (walk-type context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (when (and (forward-expr) (= kind 'symbol))
+        (set! entry (declaration context start end (get-marked) false)))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+  
+  
+  (method (walk-unknown context declaration keyword expression doc line walk-expressions?)
+    (when walk-expressions?
+      (walk-expression context expression 'code true)
+      (walk-expressions context expression))
+    context)))

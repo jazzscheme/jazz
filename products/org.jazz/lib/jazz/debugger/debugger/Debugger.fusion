@@ -1,0 +1,382 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Debuggers
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debugger.Debugger jazz
+
+
+(import (jazz.debugger)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.utilities))
+
+
+@WAIT (
+
+
+(definition debuggers
+  null)
+
+
+(definition public (get-debuggers)
+  debuggers)
+
+
+(definition public (register-debugger debugger)
+  (set! debuggers (append! debuggers (list debugger))))
+
+
+(definition public (unregister-debugger debugger)
+  (set! debuggers (remove! debugger debuggers)))
+
+
+;; a temporary quicky
+(definition public (find-debugger type)
+  (find-if (function dynamic (debugger)
+             (is? debugger type))
+           debuggers))
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+(definition Once-Breaks
+  (new-hashtable :eq?))
+
+
+(definition public (add-break-once name)
+  (hash-set! Once-Breaks name true))
+
+
+(definition public (break-once name)
+  (when (hash-ref Once-Breaks name)
+    (hash-set! Once-Breaks name null)
+    (break)))
+
+
+(definition Once-Executes
+  (new-hashtable :eq?))
+
+
+(definition public (add-execute-once name)
+  (hash-set! Once-Executes name true))
+
+
+(definition public (execute-once name proc)
+  (when (hash-ref Once-Executes name)
+    (hash-set! Once-Executes name null)
+    (proc)))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(definition public (break-exception debuggee exception frame accountable)
+  (let* ((message       (get-message~ exception))
+         (closure-frame (essay frame (frame-toplevel-closure-frame frame)))
+         (closure       (essay closure-frame (frame-procedure closure-frame)))
+         (location      (essay closure (object-location accountable (closure-function closure)))))
+    (let* ((process (get-process))
+           (controller-debugger (get-controller-debugger-server~ process))
+           (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
+      (select-debuggee~ controller-debugger debuggee)
+      (select-foreground-hwnd controller-toplevel-hwnd))
+    (break-action :type 'error :message message :location location :frame frame)))
+
+
+;;;
+;;;; Calls
+;;;
+
+
+(definition public (on-call-step-over evt)
+  (on-step-over evt))
+
+
+(definition public (on-call-step-into evt)
+  (if (get-shift?~ evt)
+      (on-step-into-function evt)
+    (on-step-into evt)))
+
+
+(definition public (on-call-step-out evt)
+  (if (get-shift?~ evt)
+      (on-step-outside-function evt)
+    (on-step-out evt)))
+
+
+(definition public (on-call-run-to evt)
+  (if (get-shift?~ evt)
+      (on-run-to-result evt)
+    (on-run-to-cursor evt)))
+
+
+;;;
+;;;; Events
+;;;
+
+
+(definition public (on-break evt)
+  (break-next))
+
+
+(definition public (on-stop evt)
+  (stop))
+
+
+(definition public (on-toplevel evt)
+  (toplevel))
+
+
+(definition public (on-continue evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)))
+
+
+(definition public (on-step-over evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)
+    (step-over)))
+
+
+(definition public (on-step-into evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)
+    (step-into)))
+
+
+(definition public (on-step-into-function evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)
+    (step-into-function)))
+
+
+(definition public (on-step-out evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)
+    (step-out)))
+
+
+(definition public (on-step-outside-function evt)
+  (if (not (debugging?))
+      (bell)
+    (continue)
+    (step-outside-function)))
+
+
+(definition public (on-run-to-cursor evt)
+  )
+
+
+(definition public (on-run-to-result evt)
+  )
+
+
+(definition public (on-debuggers evt)
+  (select-palette Debuggers-View :workspace 'debugger :focus? true))
+
+
+(definition public (on-variables evt)
+  (select-palette Variables-View :workspace 'debugger :focus? true))
+
+
+(definition public (stop)
+  (stop~ (get-loop~ (get-application))))
+
+
+(definition public (toplevel)
+  (toplevel~ (get-loop~ (get-application))))
+
+
+(definition public (continue)
+  (continue~ (get-loop~ (get-application))))
+
+
+(definition public (debugging?)
+  (/= (get-level~ (get-loop~ (get-application))) 0))
+
+
+;;;
+;;;; Debuggee
+;;;
+
+
+(definition public (on-next-debuggee evt)
+  (select-next~ (get-local-debugger-server~ (get-application))))
+
+
+;;;
+;;;; Frame
+;;;
+
+
+(definition public (active-frame)
+  (let ((appl (get-application)))
+    (let ((view (find-palette Debuggers-View)))
+      (either (essay view (selected-frame~ view))
+              (get-frame~ (get-loop~ (get-application)))))))
+
+
+;;;
+;;;; Break
+;;;
+
+
+(definition break-indicator
+  null)
+
+
+(definition Break-Color
+  {Color name: Yellow})
+
+
+(definition public (call-break message edit? location frame)
+  (break-action :message message :edit? edit? :location location :frame frame))
+
+
+(definition public (break-action . rest)
+  (bind-keywords ((type 'break) (message null) (edit? true) (location null) (frame null)) rest
+    (let* ((appl (get-application))
+           (debugger (get-controller-debugger-server~ appl))
+           (location (essay edit? location))
+           (frame (essay edit? frame)))
+      (if (is? debugger Remote-Proxy)
+          (break-loop~ (get-loop~ (get-application)) :type type :message message :frame frame)
+        (let ((code-location (essay location (new Jazz-Code-Location location))))
+          (unwind-protect
+              (break-loop~ (get-loop~ (get-application)) :type type :message message :frame frame :proc (function dynamic () (install-break edit? frame code-location)))
+            (when edit?
+              (uninstall-break))))))))
+
+
+(definition (install-break edit? frame code-location)
+  (catch (Location-Error err
+                         (message-box (get-message~ err)))
+    (when edit?
+      (when code-location
+        (let ((location (find-location~ code-location)))
+          (bind-values (frame text range) location
+            (fill~ text Break-Color [start range]))
+          (set! break-indicator location)))
+      (with-locked-update
+        (function dynamic ()
+          (let ((view (select-palette Debuggers-View :workspace 'debugger)))
+            (when view
+              (select-first-frame~ view frame))))))))
+
+
+(definition (uninstall-break)
+  (when break-indicator
+    (catch (Location-Error err
+                           (message-box (get-message~ err)))
+      (bind-values (frame text range) break-indicator
+        (unfill~ text [start range]))
+      (set! break-indicator null))))
+
+
+;;;
+;;;; Listeners
+;;;
+
+
+(definition listeners
+  '())
+
+
+(definition public (add-debugger-listener listener)
+  (set! listeners (add-listener listener listeners)))
+
+
+(definition public (remove-debugger-listener listener)
+  (set! listeners (remove-listener listener listeners)))
+
+
+(definition public (process-frame-change frame)
+  (when listeners
+    (let ((evt (new Event :frame-change self :frame frame)))
+      (for-each (function dynamic (listener)
+                  (invoke~ listener self evt))
+                listeners))))
+)
+
+;;;
+;;;; Debugger
+;;;
+
+
+(class Debugger extends Object
+
+  
+  ;;;
+  ;;;; Listeners
+  ;;;
+  
+  
+  (slot listeners initialize '())
+  
+  
+  (method public (register-listener listener)
+    (set! listeners (cons listener listeners)))
+  
+  
+  (method public (unregister-listener listener)
+    (set! listeners (remove! listener listeners)))
+
+  
+  (method public (process-output output)
+    (when listeners
+      (for-each (function dynamic (listener)
+                  (debug-output~ listener output))
+                listeners)))
+
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public virtual (get-process)
+    null)))

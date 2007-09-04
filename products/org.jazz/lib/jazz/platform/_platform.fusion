@@ -1,0 +1,2547 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Platform Access
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform jazz
+
+
+(import (jazz.platform.windows)
+        (jazz.library)
+        (jazz.ui))
+
+
+(definition public (bell)
+  @Platform-specific
+    (MessageBeep MB_ICONEXCLAMATION))
+
+
+;;; This stuff is windows specific. It will go in the Windows backend.
+
+
+(definition public (new-point x <int> y <int>)
+  (let ((point (POINT-make)))
+    (POINT-x-set! point x)
+    (POINT-y-set! point y)
+    point))
+
+
+(definition public (POINT->point pt) <Point>
+  (if (eq? pt NULL)
+      null
+    (new Point
+      (POINT-x-ref pt)
+      (POINT-y-ref pt))))
+
+
+(definition public (point->POINT point)
+  (new-point [h point] [v point]))
+
+
+(definition public (POINT->dimension pt) <Dimension>
+  (if (eq? pt NULL)
+      null
+    (new Dimension
+      (POINT-x-ref pt)
+      (POINT-y-ref pt))))
+
+
+(definition public (SIZE->dimension size) <Dimension>
+  (unimplemented '<Dimension>)
+  @convert
+  (if (= size NULL)
+      null
+    (new Dimension
+      (get size 'cx)
+      (get size 'cy))))
+
+
+(definition public (new-rect left <int> top <int> right <int> bottom <int>)
+  (let ((rect (RECT-make)))
+    (RECT-left-set!   rect (inexact->exact left))
+    (RECT-top-set!    rect (inexact->exact top))
+    (RECT-right-set!  rect (inexact->exact right))
+    (RECT-bottom-set! rect (inexact->exact bottom))
+    rect))
+
+
+(definition public (rect->RECT rect)
+  (new-rect (round [left rect])
+            (round [top rect])
+            (round [right rect])
+            (round [bottom rect])))
+
+
+(definition public (RECT->rect rect) <Rect>
+  (if (equal? rect NULL)
+      null
+    (new Rect
+      (RECT-left-ref rect)
+      (RECT-top-ref rect)
+      (RECT-right-ref rect)
+      (RECT-bottom-ref rect))))
+
+
+;;; Windows logging specific
+;;; Not needed right now.
+(definition public (make-event-id code . rest)
+  (unimplemented 'make-event-id)
+  @Platform-Specific
+  (bind-keywords ((severity SEVERITY_SUCCESS) (facility FACILITY_NULL)) rest
+    (+ severity facility code)))
+
+
+;;;
+;;;; Region
+;;;
+
+
+(definition public (frame-region frame <Rect> . rest)
+  (bind-keywords ((insets (new Rect 1 1 1 1))) rest
+    (let ((left   [left frame])
+          (top    [top frame])
+          (right  [right frame])
+          (bottom [bottom frame])
+          (region (new Region)))
+      (with-closed ((l (new Region :left left                     :top top                        :right (+ left [left insets]) :bottom bottom))
+                    (t (new Region :left left                     :top top                        :right right                  :bottom (+ top [top insets])))
+                    (r (new Region :left (- right [right insets]) :top top                        :right right                  :bottom bottom))
+                    (b (new Region :left left                     :top (- bottom [bottom insets]) :right right                  :bottom bottom)))
+        (combine!~ region l 'or)
+        (combine!~ region t 'or)
+        (combine!~ region r 'or)
+        (combine!~ region b 'or)
+        region))))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+;;; We need a platform ind interface for this.
+
+(definition public Current-Cursor
+  null)
+
+(definition public Cursors
+  (list
+    (list :arrow               IDC_ARROW)
+    (list :wait                IDC_WAIT)
+    (list :ibeam               IDC_IBEAM)
+    (list :cross               IDC_CROSS)
+    (list :finger              IDC_HAND)
+    (list :all                 IDC_SIZEALL)
+    (list :west-east           IDC_SIZEWE)
+    (list :no                  IDC_NO)
+    (list :move                IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "Move"})
+    (list :opened-hand         IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "OpenedHand"})
+    (list :closed-hand         IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "ClosedHand"})
+    (list :zoom                IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "Zoom"})
+    (list :zoom-in             IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "ZoomIn"})
+    (list :zoom-out            IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "ZoomOut"})
+    (list :spy                 IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "Spy"})
+    (list :left-arrow          IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "LeftArrow"})
+    (list :vertical-splitter   IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "VerticalSplitter"})
+    (list :horizontal-splitter IDC_ARROW @this-is-temp-broken-because-of-cairo {Cursor-Resource "HorizontalSplitter"})))
+
+
+(definition (get-named-cursor name)
+  (let ((info (assq name Cursors)))
+    (if (null? info)
+        (error "Unknown cursor: {t}" name)
+      (cadr info))))
+
+
+(definition public (get-cursor)
+  Current-Cursor)
+
+
+(definition public (set-cursor cursor)
+  @Unimplemented
+  (unless false @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
+          (set! Current-Cursor cursor)
+          (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
+            (SetCursor (load-image~ Image 'cursor cursor)))))
+
+
+(definition public (reset-cursor)
+  @cursor
+  (update-cursor))
+
+
+(definition public (with-cursor cursor proc . rest)
+  (proc)
+  @reset-cursor
+  (bind-keywords ((duration null)) rest
+    (unwind-protect
+        (begin
+          (set-cursor cursor)
+          (when duration
+            (sleep duration))
+          (proc))
+      (reset-cursor))))
+
+
+(definition public (hide-cursor)
+  @unimplemented
+  (while (>= (ShowCursor false) 0)
+    ))
+
+
+(definition public (show-cursor)
+  @unimplemented
+  (while (< (ShowCursor true) 0)
+    ))
+
+
+;;;
+;;;; Messages
+;;;
+
+
+;;; Messaging for threads. Mailboxes in Gambit-C
+
+;;; This is NOT GOOD VALUE
+(definition WM_APP 0)
+
+;;; This was CONSTANT
+(definition JZ_POST     (+ WM_APP 4))
+(definition JZ_SEND     (+ WM_APP 5))
+(definition JZ_RECEIVE  (+ WM_APP 6))
+(definition JZ_TASKICON (+ WM_APP 7))
+
+
+(definition public Messenger
+  null)
+
+(definition public (setup-messaging)
+  (set! Messenger (new Message-Window)))
+
+
+;; Note that a thread that sends or receives code to the primary thread that generates
+;; an error will maybe generate an error of its own when receiving the unexpected nil
+;; sent by ReplyMessage. Currently this will crash the application simply because thread
+;; debugging is not really functionnal (the break-loop and the stop throw are not done
+;; in the debugged thread!)
+(definition public (restore-messaging)
+  (unimplemented 'restore-messaging)
+  @unimp
+  (when (InSendMessage)
+    (ReplyMessage (object-address nil))))
+
+
+;;;
+;;;; EventLog
+;;;
+
+
+(definition public (log-event type event-id message)
+  (unimplemented 'log-event)
+  @unimplemented
+  (let* ((name (process-event-source~ (get-process)))
+         (handle (RegisterEventSource null name))
+         (strings (new-array string 1)))
+    (array-set! strings 0 message)
+    (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
+
+
+(definition public (log-error-event message . rest)
+  (unimplemented 'log-error-event)
+  @unimp
+  (bind-keywords ((event-id (make-event-id 1 :severity SEVERITY_ERROR))) rest
+    (log-event EVENTLOG_ERROR_TYPE event-id message)))
+
+
+(definition public (log-success-event message . rest)
+  (unimplemented 'log-success-event)
+  @unimp
+  (bind-keywords ((event-id (make-event-id 1))) rest
+    (log-event EVENTLOG_SUCCESS event-id message)))
+
+
+
+
+
+;;;
+;;;; System
+;;;
+
+
+(definition public (play-sound sound . rest)
+  @platform-dependant
+  (bind-keywords ((asynchronous? true)) rest
+    (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
+      (if (file? sound)
+          (PlaySound (parse~ sound) NULL (bit-or SND_FILENAME async-bit))
+        (PlaySound sound NULL async-bit)))))
+
+
+(definition public (with-preserved-current-directory proc)
+  (proc)
+  @unwind-protect
+  (let ((preserved (get-current-directory)))
+    (unwind-protect
+        (proc)
+      (set-current-directory preserved))))
+
+
+(definition public (get-work-area)
+  (new Rect 0 0 1280 994)
+  @platform-dependant
+  (with ((area (new RECT)))
+    (SystemParametersInfo SPI_GETWORKAREA NULL area 0)
+    (adjust-work-area-with-taskbar (RECT->rect area))))
+
+
+;; Because fucking Window's SPI_GETWORKAREA doesn't take autohide into account!
+(definition (adjust-work-area-with-taskbar rect)
+  (unimplemented 'adjust-work-area-with-taskbar)
+  @platform-dependant
+  (let ((state (get-taskbar-state))
+        (edge (get-taskbar-edge)))
+    (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
+        (ecase edge
+          ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
+          ((ABE_TOP)    (expand-rect rect  0  1  0  0))
+          ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
+          ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
+      rect)))
+
+
+(definition public (get-taskbar-state)
+  (unimplemented 'get-taskbar-state)
+  @platform
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETSTATE data)))
+
+
+(definition public (get-taskbar-edge)
+  (unimplemented 'get-taskbar-edge)
+  @platform
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETTASKBARPOS data)
+    (get data 'uEdge)))
+
+
+(definition public (get-computer-name)
+  "YO"
+  @platform
+  (let* ((size (+ MAX_COMPUTERNAME_LENGTH 1))
+         (name (make-string size)))
+    (GetComputerName name size)
+    (adjust-string name)
+    name))
+
+
+(definition public (get-windows-user-name)
+  "YO"
+  @Platform
+  (let ((username (make-string MAX_PATH)))
+    (GetUserName username MAX_PATH)
+    (adjust-string username)
+    username))
+
+
+;;;
+;;;; Version
+;;;
+
+
+(definition public Version-Info
+  null)
+
+
+(definition (version-info)
+  (unless Version-Info
+    (set! Version-Info
+          (let ((info (OSVERSIONINFOEX-make)))
+            (OSVERSIONINFOEX-dwOSVersionInfoSize-set! info sizeof-OSVERSIONINFOEX)
+            (GetVersionEx info)
+            info)))
+  Version-Info)
+
+
+(definition public Windows-Version
+  null)
+
+
+(definition public (get-windows-version)
+  (unless Windows-Version
+    (set! Windows-Version
+          (let ((info (version-info)))
+            (new Version 
+              (OSVERSIONINFOEX-dwMajorVersion-ref info) 
+              (OSVERSIONINFOEX-dwMinorVersion-ref info) 
+              0))))
+  Windows-Version)
+
+
+(definition public (validate-version title what context version . rest)
+  (unimplemented 'validate-version)
+  @unimp
+  (bind-keywords ((register null) (cleanup null)) rest
+    (when register
+      (register-crash-info register context (present~ version)))
+    (let* ((process (get-process))
+           (mandatory (mandatory-version~ process what)))
+      (when (and mandatory (< version mandatory))
+        (when cleanup
+          (cleanup))
+        (error "{a}{a} has version {a} and must be at least {a}"
+               title
+               (if context (format " {a}" context) "")
+               (present~ version)
+               (present~ mandatory))))))
+
+
+
+
+(definition public (get-window-focus)
+  (let ((focus (GetFocus)))
+    (when focus
+      (get-window focus))))
+
+
+(definition public (set-window-focus window)
+  (SetFocus (if window (get-hwnd~ window) NULL)))
+
+
+
+
+
+;;;
+;;;; Message
+;;;
+
+;;; This is now gambit IO.
+
+(definition public (format-system-message id)
+  (unimplemented 'format-system-message)
+  @unimplemented
+  (let* ((size 128)
+         (msg (make-string (- size 1))))
+    (when (/= (FormatMessage FORMAT_MESSAGE_FROM_SYSTEM 0 id 0 msg size NULL) 0)
+      msg)))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+;;; I think this needs to become platform independent.
+;;; Or atleast be compile time but it must hide the
+;;; OS details...
+
+(definition Shift-Bit
+  1)
+
+(definition Control-Bit
+  2)
+
+(definition Alt-Bit
+  4)
+
+
+(definition public NoModifiers
+  0)
+
+
+(definition public (modifiers-keys)
+  (mask-bit-set (mask-bit-set (mask-bit-set 0 Shift-Bit (shift-down?)) Control-Bit (control-down?)) Alt-Bit (alt-down?)))
+
+
+(definition public (shift-key? modifier)
+  (mask-bit-set? modifier Shift-Bit))
+
+
+(definition public (control-key? modifier)
+  (mask-bit-set? modifier Control-Bit))
+
+
+(definition public (alt-key? modifier)
+  (mask-bit-set? modifier Alt-Bit))
+
+
+(definition public (key-down? key)
+  (/= (hibyte (GetAsyncKeyState key)) 0))
+
+
+(definition public (shift-down?)
+  (key-down? VK_SHIFT))
+
+
+(definition public (control-down?)
+  (key-down? VK_CONTROL))
+
+
+(definition public (alt-down?)
+  (key-down? VK_MENU))
+
+
+(definition public (modifiers-down)
+  (values (shift-down?)
+          (control-down?)
+          (alt-down?)))
+
+
+(definition public (mouse-clicked?)
+  (key-down? VK_LBUTTON))
+
+
+;;;
+;;;; Dialog
+;;;
+
+;; Returns NULL used by file dialogs. Windows specific.
+;; We will need a platform independent dialog.
+(definition public (extensions-filter extensions)
+  (unimplemented 'extensions-filter)
+  @returns-NULL
+  (if (null? extensions)
+      NULL
+    (let ((dst (new List-Factory))
+          (separator (make-string 1 #\nul)))
+      (for-each (function dynamic (ext)
+                  (put~ dst (car ext))
+                  (put~ dst (cdr ext)))
+                extensions)
+      (put~ dst separator)
+      (join (get-output~ dst) separator))))
+
+
+;;;
+;;;; Threads
+;;;
+
+;;; Adapt to Gambit-C threads.
+
+;;;
+;;;; Message Post
+;;;
+
+
+(definition public Pending-Posts
+  null)
+
+@unimplemented
+(definition public Post-Primary-Lock
+  (new Lock))
+
+
+(definition public (post-primary proc)
+  (proc)
+  @calls-synchronize (
+  (if (primary-thread?)
+      (proc)
+    (synchronize Post-Primary-Lock
+      (set! Pending-Posts (cons proc Pending-Posts))
+      (post-message~ Messenger JZ_POST (object-address proc) NULL)))
+  null))
+
+
+(definition public (queue-primary proc)
+  (unimplemented 'queue-primary)
+  @calls-synchronize
+  (synchronize Post-Primary-Lock
+    (set! Pending-Posts (cons proc Pending-Posts))
+    (post-message~ Messenger JZ_POST (object-address proc) NULL))
+  null)
+
+
+(definition public (receive-post wparam)
+  (unimplemented 'receive-post)
+  @address-object-unsafe
+  (let ((proc (address-object-unsafe wparam)))
+    (set! Pending-Posts (remove! proc Pending-Posts))
+    (proc)
+    0))
+
+;; All this state manipulation is necessary because I dont
+;; know any Windows API that returns the running state of a thread...
+(definition public (wait-for object/objects . rest)
+  (unimplemented 'wait-for)
+  @unimp
+  (bind-keywords ((timeout null) (error? true)) rest
+    (let* ((get-handle
+             (function dynamic (object)
+               (if (integer? object)
+                   object
+                 (get-handle~ object))))
+           (timeout (either timeout INFINITE))
+           (single? (not (list? object/objects)))
+           (handle/array
+             (if single?
+                 (get-handle object/objects)
+               (let ((handles (remove-nils (map get-handle object/objects))))
+                 (when handles
+                   (let* ((count (length object/objects))
+                          (array (new-array int count)))
+                     (loop (for object in object/objects)
+                           (for n from 0)
+                           (do (array-set! array n (get-handle object))))
+                     array)))))
+           (thread (active-thread))
+           (state (get-state~ thread)))
+      ;; Can happen for instance if the thread has already terminated...
+      (if (null? handle/array)
+          true
+        (unwind-protect
+            (begin
+              (set-state~ thread (+ state 1))
+              (let ((result (if single?
+                                (WaitForSingleObject handle/array timeout)
+                              (WaitForMultipleObjects (array-length handle/array) handle/array true timeout))))
+                (if (= result WAIT_OBJECT_0)
+                    true
+                  (when (and (= result WAIT_TIMEOUT) error?)
+                    (error "Wait for {t} timed out" object/objects)))))
+          (set-state~ thread state))))))
+
+
+;;;
+;;;; Message Execute
+;;;
+
+
+;; Note that because execute-primary waits for completion before returning, the caller
+;; who allocated proc is also waiting, thus protecting proc against the garbage collector
+(definition public (execute-primary proc)
+  (proc)
+  @Threads
+  (if (primary-thread?)
+      (proc)
+    (send-message~ Messenger JZ_SEND (object-address proc) NULL)))
+
+
+;;;
+;;;; Message Receive
+;;;
+
+;; This seems almost platform independent. Needs to adapt to gambit.
+
+;; This definition relies on the fact that the conservative garbage collector will find
+;; the address of the result somewhere on the stack or in a register thus protecting it
+(definition public (receive-primary proc)
+  (proc)
+  @JZ-RECEIVE-NULL
+  (if (primary-thread?)
+      (proc)
+    (address-object-unsafe (send-message~ Messenger JZ_RECEIVE (object-address proc) NULL))))
+
+
+(definition public (receive-primary-with-error proc)
+  (values (proc) null null)
+  @print-stack
+  ;; a quick solution to get accurate debug info back to the calling thread
+  (bind-values (result err stack)
+      (receive-primary
+        (function dynamic ()
+          (let ((result)
+                (error null)
+                (stack null))
+            (call-with-catch Error
+                  (function dynamic (err)
+                    (set! error err)
+                    (set! stack (print-stack :string)))
+                (function dynamic (err)
+                  (values null error stack))
+              (function dynamic ()
+                (values (proc) null null))))))
+    (if (null? err)
+        result
+      ;; a quick patch of putting everything in the error message
+      (let ((printer (new String-Printer)))
+        (format printer "{a}{%}{%}{a}"
+          (get-message~ err)
+          stack)
+        (error "{a}" (get-output~ printer))))))
+
+
+;;;
+;;;; Focus
+;;;
+
+
+;; All this and also the interaction with View-Player.call-focus-lose needs big time
+;; cleanup... Currently, a view's focus-gain definition can get called many times in a row.
+
+
+;; This seems to be platform independent...???
+
+(definition public Focus
+  null)
+
+
+(definition public (get-focus)
+  Focus)
+
+
+(definition public (set-focus view)
+  (let ((player (essay view (get-player~ view))))
+    (when (neq? view Focus)
+      (let ((old Focus))
+        (when Focus
+          (let ((focus Focus))
+            ;; more robust to errors in focus-lose
+            (set! Focus null)
+            (call-focus-lose~ focus player view)))
+        (set-window-focus player)
+        (set! Focus null)
+        (when view
+          (call-focus-gain~ view))
+        (set! Focus view)
+        (process-focus-change~ (get-application) old view)))))
+
+
+(definition public (validate-focus)
+  (let ((focus (get-focus)))
+    (when focus
+      (unless (focus-validate~ focus null)
+        (set-focus focus)
+        (throw-cancel)))))
+
+
+(definition public (clear-focus window)
+  (when Focus
+    (let ((old Focus))
+      (call-focus-lose~ Focus window null)
+      (set! Focus null)
+      (process-focus-change~ (get-application) old null))))
+
+;;;
+;;;; Processes
+;;;
+
+
+(definition public (guess-process-instance)
+  (unimplemented 'guess-process-instance)
+  @gambit-threads
+  (let ((process-id (GetCurrentProcessId))
+        (process-base (module-base))
+        (count 0))
+    (call/ec
+      (lambda (return)
+        (for-each (function dynamic (id)
+                    (if (= id process-id)
+                        (return count)
+                      (let ((handle (OpenProcess (bit-or PROCESS_QUERY_INFORMATION PROCESS_VM_READ) false id)))
+                        (let ((name (make-string MAX_PATH)))
+                          (when (GetModuleBaseName handle NULL name MAX_PATH)
+                            (adjust-string name)
+                            (let ((base (extract-base name)))
+                              (when (= base process-base)
+                                (increase! count)))))
+                        (CloseHandle handle))))
+                  (collect-processes-id))))))
+
+
+(definition public (collect-processes-id)
+  (unimplemented 'collect-processes-id)
+  @gambit-threads
+  (let* ((count 512)
+         (processes (new-array int count)))
+    (bind-values (success? received) (EnumProcesses processes count)
+      (let ((fact (new List-Factory)))
+        (for-each (function dynamic (n)
+                    (let ((id (array-ref processes n)))
+                      (when (/= id 0)
+                        (put~ fact id))))
+                  (naturals 0 (array-length processes)))
+        (get-output~ fact)))))
+
+
+;;;
+;;;; Crash
+;;;
+
+
+(definition public (snapshot-process)
+  (unimplemented 'snapshot-process)
+  @threads
+  (new Thread
+    name: "Process Snapshot"
+    :context self
+    :execute (function (thread)
+               (snapshot-process-content))))
+
+
+(definition public (dump-memory)
+  (unimplemented 'dump-memory)
+  @threads
+  (new Thread
+    name: "Memory Dump"
+    :context self
+    :execute (function (thread)
+               (dump-memory-content))))
+
+
+(definition public Crash-Info
+  null)
+
+
+(definition public (register-crash-info name context info)
+  (unimplemented 'register-crash-info)
+  @threads
+  (let ((pair (assq name Crash-Info))
+        (value (cons context info)))
+    (if (null? pair)
+        (set! Crash-Info (append! Crash-Info (list (cons name value))))
+      (set-cdr! pair value)))
+  (update-crash-info))
+
+
+(definition (update-crash-info)
+  (unimplemented 'update-crash-info)
+  @threads
+  (let ((printer (new String-Printer)))
+    (for-each (function dynamic (pair)
+                (bind (name . (context . info)) pair
+                  (format printer "{%}   {a}{a} {a}"
+                    name
+                    (if context (format " {a}" context) "")
+                    info)))
+              Crash-Info)
+    (let ((info (get-output~ printer)))
+      (set-crash-info info))))
+
+
+@not-sure-about-this-approach
+(class Platform extends Object
+  
+  
+  ;;;
+  ;;;; Directory
+  ;;;
+
+
+  (method public virtual abstract (get-current-directory platform))
+  (method public virtual abstract (set-current-directory platform dirname))
+  
+  
+  ;;;
+  ;;;; Time
+  ;;;
+  
+  
+  (method public virtual abstract (sleep platform))
+  (method public virtual abstract (clock platform))
+  (method public virtual abstract (clocks/second platform)))
+
+
+(definition platform
+  #f)
+
+
+(definition public (get-platform)
+  platform)
+
+
+(definition public (set-platform value)
+  (set! platform value))
+
+
+;;;
+;;;; Directory
+;;;
+
+
+@old
+(definition public (get-current-directory)
+  (Platform.get-current-directory platform))
+
+
+@old
+(definition public (set-current-directory dirname)
+  (Platform.set-current-directory platform dirname))
+
+
+;;;
+;;;; Time
+;;;
+
+
+@old
+(definition public (sleep)
+  (Platform.sleep platform))
+
+
+@old
+(definition public (clock)
+  (Platform.clock platform))
+
+
+@old
+(definition public (clocks/second)
+  (Platform.clocks/second platform))
+
+
+@old
+(definition public (time thunk)
+  (let ((before (clock)))
+    (thunk)
+    (let ((after (clock)))
+      (- after before))))
+
+
+;;;
+;;;; Compression
+;;;
+
+
+;;(external Jazz int             (zip-open                                ansistring)                                                                                       "JzZipOpen")
+;;(external Jazz void            (zip-open-new-file-in-zip                int ansistring)                                                                                   "JzZipOpenNewFileInZip")
+;;(external Jazz void            (zip-write-in-file-in-zip                int Object)                                                                                       "JzZipWriteInFileInZip")
+;;(external Jazz void            (zip-close-file-in-zip                   int)                                                                                              "JzZipCloseFileInZip")
+;;(external Jazz void            (zip-close                               int)                                                                                              "JzZipClose")
+;;(external Jazz int             (unzip-open                              ansistring)                                                                                       "JzUnzipOpen")
+;;(external Jazz void            (unzip-go-to-first-file                  int)                                                                                              "JzUnzipGoToFirstFile")
+;;(external Jazz bool            (unzip-go-to-next-file                   int)                                                                                              "JzUnzipGoToNextFile")
+;;(external Jazz bool            (unzip-locate-file                       int ansistring)                                                                                   "JzUnzipLocateFile")
+;;(external Jazz Object          (unzip-get-current-file-info             int)                                                                                              "JzUnzipGetCurrentFileInfo")
+;;(external Jazz void            (unzip-open-current-file                 int)                                                                                              "JzUnzipOpenCurrentFile")
+;;(external Jazz void            (unzip-read-current-file                 int Object int)                                                                                   "JzUnzipReadCurrentFile")
+;;(external Jazz void            (unzip-close-current-file                int)                                                                                              "JzUnzipCloseCurrentFile")
+;;(external Jazz void            (unzip-close                             int)                                                                                              "JzUnzipClose")
+
+
+;;;
+;;;; Crash
+;;;
+
+
+;;(external Jazz bool            (get-use-default-crash-handler?)                                                                                                            "JzGetUseDefaultCrashHandler")
+;;(external Jazz void            (set-use-default-crash-handler?          bool)                                                                                              "JzSetUseDefaultCrashHandler")
+;;(external Jazz void            (snapshot-process-content)                                                                                                                  "JzSnapshotProcessContent")
+;;(external Jazz void            (dump-memory-content)                                                                                                                       "JzDumpMemoryContent")
+;;(external Jazz void            (crash-process                           . rest)                                                                                            "JzCrashProcess")
+;;(external Jazz Object          (get-crash-email)                                                                                                                           "JzGetCrashEmail")
+;;(external Jazz void            (set-crash-email                         string)                                                                                            "JzSetCrashEmail")
+;;(external Jazz Object          (get-crash-info)                                                                                                                            "JzGetCrashInfo")
+;;(external Jazz void            (set-crash-info                          string)                                                                                            "JzSetCrashInfo")
+
+
+;;;
+;;;; Database
+;;;
+
+
+;;(external Jazz Object          (read-table                              File Object)                                                                                       "JzReadTable")
+
+
+;;;
+;;;; GUID
+;;;
+
+
+;;(external Jazz Object          (create-guid)                                                                                                                               "JzCreateGUID")
+
+
+;;;
+;;;; HeapBlock
+;;;
+
+
+;;(external Jazz void            (heap-validate)                                                                                                                             "JzHeapValidate")
+
+
+;;;
+;;;; Java
+;;;
+
+
+;;(external Jazz Object          (parse-java                              Object class . rest)                                                                               "JzParseJava")
+;;(external Jazz Object          (java-definitions                        Object . rest)                                                                                     "JzJavaDefinitions")
+
+
+;;;
+;;;; NetworkTime
+;;;
+
+
+;;(external Jazz int             (network-time                            string int)                                                                                        "JzNetworkTime")
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(definition public Mac
+  0)
+
+(definition public Unix
+  1)
+
+(definition public Win32
+  2)
+
+
+;;;
+;;;; Properties
+;;;
+
+
+(definition (reload-system-properties)
+  (unimplemented 'reload-system-properties))
+(definition (get-system-properties)
+  (unimplemented 'get-system-properties))
+(definition (get-compiled-property name)
+  (unimplemented 'get-compiled-property))
+(definition (get-system-property name)
+  (unimplemented 'get-system-property))
+(definition (set-system-property name value)
+  (unimplemented 'set-system-property))
+(definition (require-system-property name)
+  (unimplemented 'require-system-property))
+
+
+;;;
+;;;; Moniker
+;;;
+
+
+(class Moniker-Class extends Class
+  
+  
+  (method public virtual (get-protocol)
+    )
+  
+  
+  (method public virtual (get-modal . rest)
+    )
+  
+  
+  (method public virtual (new-moniker list)
+    ))
+
+
+(class Moniker metaclass Moniker-Class extends Object
+  
+  
+  (method public virtual (compare-pathname object)
+    false)
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method public virtual (present)
+    )
+  
+  
+  (method public virtual (present-base)
+    (->string (get-base)))
+  
+  
+  (method public virtual (present-name)
+    (->string (get-name)))
+  
+  
+  (method public virtual (present-location)
+    (format "{l :detail :human}" (get-list~ (get-parent))))
+  
+  
+  ;;;
+  ;;;; Interface
+  ;;;
+
+
+  (method public virtual (exists?)
+    )
+  
+  
+  (method public (read-only?)
+    (not (get-writable?)))
+  
+  
+  (method public (read/write?)
+    (get-writable?))
+  
+  
+  (method public (set-read-only)
+    (set-writable? false))
+  
+  
+  (method public (set-read/write)
+    (set-writable? true))
+  
+  
+  (method public virtual (get-writable?)
+    )
+  
+  
+  (method public virtual (set-writable? flag)
+    )
+  
+  
+  (method public virtual (writable?)
+    )
+
+
+  (method public virtual (get-modification-time)
+    )
+
+
+  (method public virtual (get-file)
+    )
+
+
+  (method public virtual (get-name)
+    )
+
+
+  (method public virtual (get-base)
+    )
+  
+  
+  (method public virtual (get-extension)
+    )
+
+
+  (method public virtual (get-list)
+    )
+  
+  
+  (method public virtual (get-parent)
+    )
+  
+  
+  (method public virtual (get-content . rest)
+    )
+  
+  
+  ;; I think this is only for repository monikers and should probably be removed
+  (method public virtual (get-children . rest)
+    )
+  
+  
+  (method public virtual (is-different? moniker)
+    )
+  
+  
+  (method public (relocated-list old-root new-root)
+    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+
+
+  (method public virtual (load-lines)
+    )
+
+
+  (method public virtual (save-lines lines limit)
+    )
+  
+  
+  (method public virtual (load-form)
+    )
+  
+  
+  ;;;
+  ;;;; External
+  ;;;
+  
+  
+  ;;(definition (JzLoadLines Object))
+  )
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(definition protected (validate-component object)
+  (let ((original object))
+    (letrec ((validate
+               (function dynamic (object)
+                 (cond ((null? object))
+                       ((string? object))
+                       ((symbol? object))
+                       ((pair? object)
+                        (if (pair? (car object))
+                            (error "Bad pathname sub-component {t} of {t}" (car object) original)
+                          (validate (car object))
+                          (validate (cdr object))))
+                       (else (error "Bad pathname sub-component {t} of {t}" object original))))))
+      (validate object))))
+
+
+(definition public (extract-base filename)
+  (let ((pos (find #\period filename :reversed? true :return 'position)))
+    (if (null? pos)
+        filename
+      (subseq filename 0 pos))))
+
+
+(definition public (extract-extension filename)
+  (let ((pos (find #\period filename :reversed? true :return 'position)))
+    (when pos
+      (subseq filename (+ pos 1)))))
+
+
+(definition public (tokenise filename)
+  (if (starts-with? filename "\\\\")
+      (cons 'Network (split (subseq filename 2) "\\"))
+    (cons 'Native (split filename "\\"))))
+
+
+(definition public (tokenise-unix filename)
+  (if (starts-with? filename "//")
+      (cons 'Network (split (subseq filename 2) "/"))
+    (cons 'Native (split filename "/"))))
+
+
+(definition public (get-tmp-directory)
+  (unimplemented 'get-tmp-directory)
+  @windows-specific
+  (let* ((size (GetTempPath 0 NULL))
+         (path (make-string size)))
+    (GetTempPath size path)
+    (new Directory (list 'Native path))))
+
+
+(class Pathname extends Moniker
+  
+  
+  (slot path)
+  
+  
+  (method (initialize lst)
+    (nextmethod)
+    @convert
+    (validate-component lst)
+    (set-list lst))
+  
+  
+  (method public (parse . rest)
+    (bind-keywords ((separator "\\")) rest
+      (let ((printer (new String-Printer))
+            (first? true)
+            (aliases '()))
+        (letrec ((parse
+                  (function dynamic (path)
+                    (cond ((null? path))
+                          ((eq? path true))
+                          ((string? path)
+                           (if first?
+                               (set! first? false)
+                             (display separator printer))
+                           (display path printer))
+                          ((symbol? path)
+                           (if (memq? path aliases)
+                               (error "Recursive alias {a} in {s}" path self)
+                             (set! aliases (cons path aliases))
+                             (if (is-alias? path)
+                                 (parse (get-alias path))
+                               (error "Unknown alias: {s}" path))))
+                          ((pair? path)
+                           (parse (car path))
+                           (parse (cdr path)))
+                          (else
+                           (error "Bad pathname component {t}" path))))))
+          (parse (get-list)))
+        (add-suffix printer)
+        (get-output~ printer))))
+  
+  
+  (method public (parse-unix)
+    (parse :separator "/"))
+  
+  
+  (method protected virtual (add-suffix printer)
+    )
+  
+  
+  (method public (relocated-pathname old-root new-root)
+    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+
+
+  (method public (move-pathname dst . rest)
+    (unimplemented 'move-pathname)
+    @windows-specific
+    (bind-keywords ((error? true)) rest
+      (let ((ok? (MoveFile (parse) (parse~ dst))))
+        (when (and error? (not ok?))
+          (error "Unable to move {t} to {t}" self dst)))))
+  
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((= (get-list) (get-list~ target))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (compare-pathname object)
+    (and (is? object Pathname)
+         (ci= (parse) (parse~ object))))
+  
+  
+  (method public (valid-aliases?)
+    (letrec ((valid?
+              (function dynamic (list)
+                (or (eq? list true)
+                    (every? (function dynamic (item)
+                              (or (not (symbol? item))
+                                  (and (is-alias? item)
+                                       (valid? (get-alias item)))))
+                            list)))))
+      (valid? (get-list))))
+  
+  
+  (method public (expand)
+    (let ((fact (new List-Factory)))
+      (letrec ((expand
+                (function dynamic (object)
+                  (cond ((eq? object true))
+                        ((string? object) (put~ fact object))
+                        ((symbol? object) (expand (get-alias object)))
+                        ((pair? object)
+                         (expand (car object))
+                         (expand (cdr object)))))))
+        (expand (get-list)))
+      (get-output~ fact)))
+
+
+  (method public (get-list)
+    path)
+
+
+  (method public (set-list value)
+    (set! path value))
+
+
+  (method (get-name)
+    (effective-name (get-list)))
+  
+  
+  (method (effective-name lst)
+    (let ((name (last lst)))
+      (if (symbol? name)
+          (effective-name (get-alias name))
+        name)))
+  
+  
+  (method (get-base)
+    (let ((name (get-name)))
+      (if (symbol? name)
+          name
+        (extract-base name))))
+  
+  
+  (method (get-extension)
+    (extract-extension (get-name)))
+  
+  
+  (method (get-parent)
+    (let* ((list (get-list))
+           (parent (butlast (if (= (length list) 1) (expand) list))))
+      (when parent
+        (new Directory parent))))
+  
+  
+  (method public (get-brother name)
+    (new (class-of self) (append (get-list~ (get-parent)) (list name))))
+  
+  
+  (method public virtual (new-brother name)
+    )
+  
+  
+  (method public virtual (get-directory)
+    )
+  
+  
+  (method public (get-attributes . rest)
+    (unimplemented 'get-attributes)
+    @windows-specific
+    (bind-keywords ((error? true)) rest
+      (let ((attributes (GetFileAttributes (parse))))
+        (if (= attributes -1)
+            (when error?
+              (error "Unable to get file attributes for {t}" self))
+          attributes))))
+  
+  
+  (method public (set-attributes flags)
+    (unimplemented 'set-attributes)
+    @windows-specific
+    (let ((ok? (SetFileAttributes (parse) flags)))
+      (when (not ok?)
+        (error "Unable to set file attributes for {t}" self))))
+  
+  
+  (method (get-writable?)
+    (unimplemented 'get-writable?)
+    @windows-specific
+    (not (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_READONLY)))
+  
+  
+  (method (set-writable? flag)
+    (unimplemented 'set-writable?)
+    @windows-specific
+    (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_READONLY (not flag))))
+
+
+  (method (exists?)
+    (file-exists? (parse)))
+  
+  
+  (method public (create-directories)
+    (let* ((base (get-directory))
+           (scan (new Directory (cons 'Native (expand~ base))))
+           (dirs null))
+      ;; collect the directories reversed so that creation starts from the top
+      (while scan
+        (set! dirs (cons scan dirs))
+        (set! scan (get-parent~ scan)))
+      (for-each (function dynamic (dir)
+                  (unless (exists?~ dir)
+                    (create~ dir)))
+                dirs)))
+
+
+  ;;;
+  ;;;; Anchoring
+  ;;;
+  
+  
+  (method public (anchor-to anchor . rest)
+    (bind-keywords ((error? true)) rest
+      (let* ((base-list (get-list~ anchor))
+             (base-expd (expand~ anchor))
+             (base-length (length base-expd))
+             (expd (expand))
+             (rank (mismatch base-expd expd :test ci=))
+             (result-list))
+        (call/ec
+          (lambda (return)
+            (cond ((null? rank)
+                   (set! result-list base-list))
+                  ((< rank base-length)
+                   (if error?
+                       (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
+                     (return null)))
+                  (else
+                   (set! result-list (append base-list (subseq expd base-length)))))
+            (new (class-of self) result-list))))))
+  
+  
+  (method public (anchorize . rest)
+    (bind-keywords ((anchors {})) rest
+      (let* ((anchors (if (nil? anchors) (default-anchors) anchors))
+             (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor :error? false))) anchors))
+             (sorted (sort < anchored :key (function dynamic (path) (length (get-list~ path))))))
+        (if (null? sorted)
+            self
+          (car sorted)))))
+  
+  
+  (method (default-anchors)
+    (application-anchors~ (get-application))))
+
+
+(definition public inline (pathname? object)
+  (is? object Pathname))
+
+
+;;;
+;;;; File
+;;;
+
+
+(class File-Class extends Class
+  
+  
+  (method (get-protocol)
+    'file)
+  
+  
+  (method (get-modal . rest)
+    (unimplemented 'get-modal)
+    @convert
+    (bind-keywords ((mode 'open) (actual null) . others) rest
+      (let ((class (case mode
+                     ((open) OpenFile-Dialog)
+                     ((save) SaveFile-Dialog))))
+        (apply [get-modal class] :directory (essay actual (get-directory~ actual)) others))))
+  
+  
+  (method (new-moniker list)
+    (new self list)))
+
+
+(definition public (create-temporary-file . rest)
+  (unimplemented 'create-temporary-file)
+  @windows-specific
+  (bind-keywords ((directory null) (prefix "JZZ")) rest
+    (let* ((directory (either directory (get-tmp-directory)))
+           (dir (parse~ directory)))
+      (if (empty-string? dir)
+          (error "Unable to use {t} as a temporary directory" directory)
+        (let ((filename (make-string MAX_PATH)))
+          (GetTempFileName (parse~ directory) prefix 0 filename)
+          (adjust-string filename)
+          (new File (list 'Native filename)))))))
+
+
+(class File metaclass File-Class extends Pathname
+  
+  
+  (method (print printer readably)
+    (format printer "~{File {l :detail :v}}"
+            (get-list)
+            readably))
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method (new-brother name)
+    (new-file~ (get-parent) name))
+  
+  
+  (method (present)
+    (format "{l}" (get-list)))
+  
+  
+  ;;;
+  ;;;; Operations
+  ;;;
+
+
+  (method (get-file)
+    self)
+  
+  
+  (method (get-directory)
+    (get-parent))
+
+
+  (method public (copy-file dst . rest)
+    (unimplemented 'copy-file)
+    @windows-specific
+    (bind-keywords ((overwrite-read-only? false)) rest
+      (overwrite-read-only~ dst overwrite-read-only?)
+      (let ((ok? (CopyFile (parse) (parse~ dst) false)))
+        (when (not ok?)
+          (error "Unable to copy file {t} to {t}" self dst)))))
+  
+  
+  (method public (delete-file . rest)
+    (file-delete (parse))
+    @windows-specific
+    (bind-keywords ((overwrite-read-only? false) (error? true)) rest
+      (overwrite-read-only overwrite-read-only?)
+      (let ((deleted? (DeleteFile (parse))))
+        (when (and error? (not deleted?))
+          (error "Unable to delete file {t}" self))
+        deleted?)))
+  
+  
+  (method (overwrite-read-only overwrite-read-only?)
+    (unimplemented 'overwrite-read-only)
+    @windows-specific
+    (when (and overwrite-read-only? (exists?) (read-only?))
+      (set-read/write)))
+  
+  
+  (method public (get-size)
+    (unimplemented 'get-size)
+    @windows-specific
+    (with-closed ((reader (new File-Reader :pathname self :readable? false)))
+      (get-size~ reader)))
+
+
+  (method (get-modification-time)
+    (file-last-modification-time (parse))
+    @windows-specific
+    (if (not (exists?))
+        (error "Unable to get modification time of non-existant file: {t}" self)
+      (let ((time (new FILETIME)))
+        (with-closed ((reader (new File-Reader :pathname self :readable? false)))
+          (GetFileTime (get-handle~ reader) NULL NULL time))
+        (from-filetime time))))
+
+
+  (method public (set-modification-time time)
+    (unimplemented 'set-modification-time)
+    @windows-specific
+    (let ((ft (get-filetime~ time))
+          (at (get-attributes)))
+      ;; this is ugly big time...
+      (set-read/write)
+      (with-closed ((printer (new File-Printer :pathname self :mode 'append)))
+        (SetFileTime (get-handle~ printer) NULL NULL ft))
+      (set-attributes at)))
+  
+  
+  (method public (touch)
+    (unimplemented 'touch)
+    @windows-specific
+    (set-modification-time (get-time~ (universal-date))))
+  
+  
+  (method public (get-hidden?)
+    (unimplemented 'get-hidden?)
+    @windows-specific
+    (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_HIDDEN))
+  
+  
+  (method public (set-hidden? flag)
+    (unimplemented 'set-hidden?)
+    @windows-specific
+    (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_HIDDEN flag)))
+  
+  
+  (method (writable?)
+    (unimplemented 'writable?)
+    @windows-specific
+    (let ((handle (CreateFile (parse) GENERIC_WRITE 0 NULL OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL)))
+      (if (= handle INVALID_HANDLE_VALUE)
+          false
+        (CloseHandle handle)
+        true)))
+  
+  
+  (method public (clone-file extension)
+    (new File (append (get-list~ (get-directory)) (list (format "{a}.{a}" (get-base) extension)))))
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+
+
+  (method (load-lines)
+    (with-closed ((reader (new File-Reader self)))
+      (load-lines~ reader)))
+
+
+  (method (save-lines lines limit . rest)
+    (unimplemented 'save-lines)
+    @convert
+    (bind-keywords ((platform {}) (use-utf8? false)) rest
+      (with-closed ((printer (new File-Printer :pathname self)))
+        (write-lines~ printer lines limit (either platform Win32) use-utf8?)))))
+
+
+(definition public inline (file? object)
+  (is? object File))
+
+
+;;;
+;;;; Directory
+;;;
+
+
+(class Directory-Class extends Class
+  
+  
+  (method (get-protocol)
+    'dir)
+  
+  
+  (method (get-modal . rest)
+    (unimplemented 'get-modal)
+    @convert
+    (bind-keywords ((mode null) (actual null) . others) rest
+      (apply [get-modal BrowseFolder-Dialog] :directory actual others)))
+  
+  
+  (method (new-moniker list)
+    (new self list)))
+
+
+(class Directory metaclass Directory-Class extends Pathname
+  
+  
+  (method (print printer readably)
+    (format printer "~{Directory {l :detail :v}}"
+            (get-list)
+            readably))
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method (new-brother name)
+    (new-directory~ (get-parent) name))
+  
+  
+  (method (present)
+    (format "{l}" (get-list)))
+  
+  
+  ;;;
+  ;;;; Operations
+  ;;;
+  
+  
+  (method (get-directory)
+    self)
+
+
+  (method (get-modification-time)
+    null)
+
+
+  (method public virtual (create)
+    (unimplemented 'create)
+    @windows-specific
+    (CreateDirectory (parse) NULL))
+  
+  
+  (method public (new-file name)
+    (new File (append (get-list) (if (list? name) name (list name)))))
+  
+  
+  (method public (new-directory name)
+    (new Directory (append (get-list) (if (list? name) name (list name)))))
+  
+  
+  (method public (new-unique-file name . rest)
+    (bind-keywords ((separator "_")) rest
+      (let ((file (new-file name)))
+        (if (not (exists?~ file))
+            file
+          (let ((base (extract-base name))
+                (ext (extract-extension name))
+                (suffix 1))
+            (while (exists?~ file)
+              (set! file (new-file (format "{a}{a}{a :width 2 :justify :right :padding #\\0}.{a}" base (either separator "") suffix ext)))
+              (increase! suffix))
+            file)))))
+
+
+  (method public (copy-directory dst . rest)
+    (unimplemented 'copy-directory)
+    @windows-specific
+    (bind-keywords ((copier null) (feedback null) (touch-files? false) (copy? true)) rest
+      (when feedback
+        (feedback self))
+      (create-directories~ dst)
+      (let ((destination
+             (function dynamic (path)
+               (append (get-list~ dst) (list (get-name~ path))))))
+        (iterate-directory
+          (function dynamic (path)
+            (when (or (eq? copy? true) (copy? path))
+              (if (is? path File)
+                  (let ((dest (new File (destination path))))
+                    (if copier
+                        (copier path dest)
+                      (copy-file~ path dest))
+                    (when touch-files?
+                      (touch~ dest)))
+                (copy-directory~ path (new Directory (destination path)) :feedback feedback :touch-files? touch-files? :copy? copy?))))
+          :files? true
+          :directories? true
+          :recursive? false))))
+  
+  
+  (method public virtual (delete-directory . rest)
+    (unimplemented 'delete-directory)
+    @windows-specific
+    (bind-keywords ((overwrite-read-only? false) (feedback null)) rest
+      (when feedback
+        (feedback self))
+      (empty-directory :overwrite-read-only? overwrite-read-only? :feedback feedback)
+      (remove-directory)))
+  
+  
+  (method public (empty-directory . rest)
+    (unimplemented 'empty-directory)
+    @windows-specific
+    (bind-keywords ((overwrite-read-only? false) (feedback null)) rest
+      (iterate-directory
+        (function dynamic (path)
+          (if (is? path File)
+              (delete-file~ path :overwrite-read-only? overwrite-read-only?)
+            (delete-directory~ path :overwrite-read-only? overwrite-read-only? :feedback feedback)))
+        :files? true
+        :directories? true
+        :recursive? false)))
+  
+  
+  (method public (remove-directory)
+    (unimplemented 'remove-directory)
+    @windows-specific
+    (RemoveDirectory (parse)))
+  
+  
+  (method (foldable?)
+    true)
+
+
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler (get-list))
+    (output~ compiler ")"))
+  
+  
+  (method public (get-content . rest)
+    (bind-keywords ((nodes? true) (leaves? true)) rest
+      (let ((fact (new List-Factory)))
+        (when nodes? (collect-nodes fact))
+        (when leaves? (collect-leaves fact))
+        (get-output~ fact))))
+  
+  
+  (method (collect-nodes fact)
+    (iterate-directory
+      (function dynamic (item)
+        (put~ fact item))
+      :files? false
+      :directories? true
+      :recursive? false))
+  
+  
+  (method (collect-leaves fact)
+    (iterate-directory
+      (function dynamic (item)
+        (put~ fact item))
+      :files? true
+      :directories? false
+      :recursive? false))
+     
+   
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (method (add-suffix printer)
+    (print-char #\backslash printer))
+     
+   
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (collect-files predicate)
+    (let ((fact (new List-Factory)))
+      (iterate-directory
+        (function dynamic (file)
+          (when (predicate file)
+            (put~ fact file)))
+        :recursive? false)
+      (get-output~ fact)))
+  
+  
+  ;;;
+  ;;;; Iterator
+  ;;;
+  
+  
+  (method public virtual (iterate-directory proc . rest)
+    (bind-keywords ((full? true) (files? true) (directories? false) (sort? false) (recursive? true) (ignored-directories null)) rest
+      (let ((directory (if full? (get-list) null)))
+        (iterate-directory-content files? directories? sort? recursive? ignored-directories null (parse)
+          (function dynamic (list kind)
+            (case kind
+              ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
+              ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory)))))))))
+  
+  
+  (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
+    (iterate-content base 'directories sort? ignored-directories
+      (function dynamic (name)
+        (when recursive?
+          (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (append base "\\" name) proc))
+        (when directories?
+          (proc (append prefix (list name)) 'directory))))
+    (iterate-content base 'files sort? ignored-directories
+      (function dynamic (name)
+        (when files?
+          (proc (append prefix (list name)) 'file)))))
+  
+  
+  (method (iterate-content base kind sort? ignored-directories proc)
+    (if (not sort?)
+        (iterate-content-unsorted base kind ignored-directories proc)
+      (let ((list null))
+        (with ((unsorted-proc
+                (function dynamic (object)
+                  (set! list (cons object list)))))
+          (iterate-content-unsorted base kind ignored-directories unsorted-proc)
+          (let ((sorted (sort < list)))
+            (for-each proc sorted))))))
+  
+  
+  (method (iterate-content-unsorted base kind ignored-directories proc)
+    (unimplemented 'iterate-content-unsorted)
+    @windows-specific
+    (let* ((find-data (new WIN32_FIND_DATA))
+           (handle (FindFirstFile (append base "\\*.*") find-data)))
+      (when (/= handle INVALID_HANDLE_VALUE)
+        (while (FindNextFile handle find-data)
+          (let ((name (get-string find-data 'cFileName)))
+            (unless (member? name '("." ".."))
+              (let* ((attributes (get find-data 'dwFileAttributes))
+                     (directory? (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY)))
+                (when (or (and (= kind 'files) (not directory?))
+                          (and (= kind 'directories) directory? (not (member? name ignored-directories))))
+                  (proc name))))))
+        (FindClose handle))))
+  
+  
+  (method public (count-files . rest)
+    (bind-keywords ((filter {}) (max-count false)) rest
+      (let ((count 0))
+        (call/ec
+          (lambda (return)
+            (iterate-directory
+              (function dynamic (file)
+                (when (or (nil? filter) (filter file))
+                  (increase! count)
+                  (when (and max-count (> count max-count))
+                    (return false)))))
+            count))))))
+
+
+(definition public inline (directory? object)
+  (is? object Directory))
+
+
+;;;
+;;;; Aliases
+;;;
+
+
+(definition Aliases
+  null)
+
+
+(definition public (get-aliases)
+  (unless Aliases
+    (set! Aliases (new-aliases)))
+  Aliases)
+
+
+(definition (new-aliases)
+  (new-hashtable :eq?))
+
+
+(definition public (is-alias? name)
+  (or (not-null? (hash-ref (get-aliases) name))
+      @convert (not-null? (get-manifest-source name))))
+
+
+(definition public (get-alias name . rest)
+  (bind-keywords ((error? true)) rest
+    (either (find-alias name)
+            (when error?
+              (error "Unknown alias: {t}" name)))))
+
+
+(definition public (find-alias name)
+  (either (hash-ref (get-aliases) name)
+          @convert
+          (get-manifest-alias name)
+          @convert
+          (get-system-property name)
+          (let ((process (get-process)))
+            (when process
+              (resolve-alias~ process name)))))
+
+
+@convert
+(definition (get-manifest-alias name)
+  (let ((source (get-manifest-source name)))
+    (if (null? source)
+        null
+      (butlast (get-list~ source)))))
+
+
+(definition public (new-alias name path)
+  (hash-set! (get-aliases) name path))
+
+
+(definition public (set-alias name path)
+  (hash-set! (get-aliases) name path))
+
+
+;; A bit of a temporary patch to enable early use
+;; of Windows functions to get system dirs information
+(definition Libraries
+  '((AdvAPI    . "advapi32.dll")
+    (Comctl    . "comctl32.dll")
+    (Comdlg    . "comdlg32.dll")
+    (GDI       . "gdi32.dll")
+    (Kernel    . "kernel32.dll")
+    (MSImg     . "msimg32.dll")
+    (OLE       . "ole32.dll")
+    (OLEAut    . "oleaut32.dll")
+    (Shell     . "shell32.dll")
+    (Shlw      . "shlwapi.dll")
+    (Socket    . "ws2_32.dll")
+    (User      . "user32.dll")
+    (UserEnv   . "userenv.dll")
+    (WinInet   . "wininet.dll")
+    (WinMM     . "winmm.dll")
+    (Help      . "hhctrl.ocx")
+    (PDH       . "pdh.dll")
+    (PSAPI     . "psapi.dll")
+    (ImgSource . "imaging.dll")
+    (Cairo     . "libcairo-2.dll")))
+
+
+(definition public (initialize-libraries libraries)
+  (for-each (function dynamic (pair)
+              (bind (name . value) pair
+                (hash-set! libraries name value)))
+            Libraries))
+
+
+@windows-specific
+(definition (get-windows-dir)
+  (let ((dirname (make-string MAX_PATH)))
+    (GetWindowsDirectory dirname MAX_PATH)
+    (adjust-string dirname)
+    (tokenise dirname)))
+
+
+@windows-specific
+(definition (get-system-dir)
+  (let ((dirname (make-string MAX_PATH)))
+    (GetSystemDirectory dirname MAX_PATH)
+    (adjust-string dirname)
+    (tokenise dirname)))
+
+
+@windows-specific
+(definition (get-boot-dir)
+  (module-dir))
+
+
+@windows-specific
+(definition (get-base-dir)
+  (let ((boot-dir (get-boot-dir))
+        (uses-bin-directory? (get-boolean-setting (coerce "UsesBinDirectory" Ansi-String) false)))
+    (if uses-bin-directory?
+        (butlast boot-dir)
+      boot-dir)))
+
+
+@convert
+(definition (get-home-dir)
+  (let ((dir (command-argument "homedir")))
+    (if dir
+        (pathname-argument dir)
+      (if (null? (get-compiled-property 'Application))
+          ;; kind of a heuristic for enabling non-applications to boot
+          ;; by double-clicking the exe without having to create a shortcut
+          (append (butlast (get-base-dir)) (list "Products" "org.jedi" "Projects" "Jedi" "Distribution"))
+        (list 'Base)))))
+
+
+@convert
+(definition (get-users-dir)
+  (let ((dir (command-argument "usersdir")))
+    (if dir
+        (pathname-argument dir)
+      (if (and (null? (command-argument "homedir"))
+               (null? (get-compiled-property 'Application)))
+          ;; kind of a heuristic for enabling non-applications to boot
+          ;; by double-clicking the exe without having to create a shortcut
+          (append (butlast (get-base-dir)) (list "Users"))
+        (list 'Home "Users")))))
+
+
+(definition (pathname-argument arg)
+  (tokenise
+    (if (= (element arg 0) #\double-quote)
+        (subseq arg 1 (- (length arg) 1))
+      arg)))
+
+
+(definition (validate-alias name)
+  (let* ((path (get-alias name))
+         (dir (new Directory path)))
+    (unless (exists?~ dir)
+      (error "Unable to set alias {t} to inexistant directory: {t}" name path))))
+
+
+(definition public (initialize-aliases)
+  (initialize-system-aliases)
+  (initialize-home-aliases))
+
+
+(definition (initialize-system-aliases)
+  @convert(
+  (new-alias 'Windows (get-windows-dir))
+  (new-alias 'System (get-system-dir))))
+
+
+(definition (initialize-home-aliases)
+  (new-alias 'Native true)
+  (new-alias 'Network "\\")
+  ;; hardcoded
+  (new-alias 'Root '(Native "C:" "Jazz" "dev" "jazz"))
+  (new-alias 'Home '(Native "C:" "Jazz" "dev" "jazz" "products" "org.jedi" "projects" "jedi" "distribution"))
+  (new-alias 'Users '(Native "C:" "Jazz" "dev" "jazz.dev" "Users"))
+  (new-alias 'User '(Users "Guillaume"))
+  @convert(
+  (new-alias 'Boot (get-boot-dir))
+  (new-alias 'Base (get-base-dir))
+  (new-alias 'Home (get-home-dir))
+  (validate-alias 'Base)
+  (validate-alias 'Home)
+  (new-alias 'Bin           '(Home "Bin"))
+  (new-alias 'Defaults      '(Home "Defaults"))
+  (new-alias 'Documentation '(Home "Documentation"))
+  (new-alias 'Users         (get-users-dir))
+  (let ((dir (command-argument "rootdir")))
+    (when dir
+      (new-alias 'Root (pathname-argument dir))))
+  ;; Root will get defined later...
+  (new-alias 'Products '(Root "Products"))))
+
+
+(initialize-aliases)
+
+
+@convert
+(definition public (timestamped-file directory base ext)
+  (let* ((dir (parse~ directory))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+(definition public (timestamped-filename dir base ext)
+  (unimplemented 'timestamped-filename))
+
+
+;;;
+;;;; Protection
+;;;
+
+
+;;(external Jazz bool            (guest-login?)                                                                                                                              "JzIsGuestLogin")
+
+
+;;;
+;;;; Runtime
+;;;
+
+
+;;(external Jazz int             (winerror)                                                                                                                                  "JzWinError")
+
+
+;;;
+;;;; Service
+;;;
+
+
+;;(external Jazz int             (start-service-dispatcher)                                                                                                                  "JzStartServiceDispatcher")
+;;(external Jazz int             (get-service-handle)                                                                                                                        "JzGetServiceHandle")
+;;(external Jazz int             (get-service-error)                                                                                                                         "JzGetServiceError")
+;;(external Jazz int             (get-service-state)                                                                                                                         "JzGetServiceState")
+;;(external Jazz void            (set-service-state int)                                                                                                                     "JzSetServiceState")
+
+
+;;;
+;;;; System
+;;;
+
+
+;;(external Jazz Object          (system-message                          Object . rest)                                                                                     "JzSystemMessage")
+;;(external Jazz Object          (debugger                                Object)                                                                                            "JzDebugger")
+;;(external Jazz Object          (debug-print                             Object)                                                                                            "JzDebugPrint")
+;;(external Jazz Object          (enter-debugger                          Object)                                                                                            "JzEnterDebugger")
+;;(external Jazz Object          (c-test                                  . rest)                                                                                            "JzCTest")
+;;(external Jazz int             (get-browse-callback)                                                                                                                       "JzGetBrowseCallback")
+;;(external Jazz Object          (get-current-directory)                                                                                                                     "JzGetCurrentDirectory")
+;;(external Jazz void            (set-current-directory                   Object)                                                                                            "JzSetCurrentDirectory")
+;;(external Jazz Object          (tokenise-choose-file-string             string)                                                                                            "JzTokeniseChooseFileString")
+;;(external Jazz void            (system-call)                                                                                                                               "JzSystemCall")
+;;(external Jazz int             (heap-alloc                              int)                                                                                               "JzHeapAlloc")
+;;(external Jazz void            (heap-free                               int)                                                                                               "JzHeapFree")
+
+
+;;;
+;;;; TypeLib
+;;;
+
+
+;;(external Jazz int             (load-type-lib                           File)                                                                                              "JzLoadTypeLib")
+;;(external Jazz int             (load-reg-type-lib                       guid& int int int)                                                                                 "JzLoadRegTypeLib")
+;;(external Jazz void            (register-type-lib                       int File)                                                                                          "JzRegisterTypeLib")
+;;(external Jazz void            (release-type-lib                        int)                                                                                               "JzReleaseTypeLib")
+;;(external Jazz int             (get-lib-attr                            int)                                                                                               "JzGetLibAttr")
+;;(external Jazz void            (release-lib-attr                        int int)                                                                                           "JzReleaseLibAttr")
+;;(external Jazz Object          (get-type-lib-name                       int)                                                                                               "JzGetTypeLibName")
+;;(external Jazz Object          (get-type-lib-doc                        int)                                                                                               "JzGetTypeLibDoc")
+;;(external Jazz int             (get-type-info-count                     int)                                                                                               "JzGetTypeInfoCount")
+;;(external Jazz int             (get-type-info                           int int)                                                                                           "JzGetTypeInfo")
+;;(external Jazz void            (release-type-info                       int)                                                                                               "JzReleaseTypeInfo")
+;;(external Jazz int             (get-type-attr                           int)                                                                                               "JzGetTypeAttr")
+;;(external Jazz void            (release-type-attr                       int int)                                                                                           "JzReleaseTypeAttr")
+;;(external Jazz Object          (get-type-info-name                      int int)                                                                                           "JzGetTypeInfoName")
+;;(external Jazz Object          (get-type-info-doc                       int int)                                                                                           "JzGetTypeInfoDoc")
+;;(external Jazz int             (get-type-info-func-desc                 int int)                                                                                           "JzGetTypeInfoFuncDesc")
+;;(external Jazz int             (get-type-info-var-desc                  int int)                                                                                           "JzGetTypeInfoVarDesc")
+;;(external Jazz int             (get-type-info-referenced-type           int int)                                                                                           "JzGetTypeInfoReferencedType")
+;;(external Jazz int             (get-type-info-implemented-type          int int)                                                                                           "JzGetTypeInfoImplementedType")
+;;(external Jazz void            (release-func-desc                       int int)                                                                                           "JzReleaseFuncDesc")
+;;(external Jazz void            (release-var-desc                        int int)                                                                                           "JzReleaseVarDesc")
+
+
+;;;
+;;;; Window
+;;;
+
+
+;;(external Jazz int             (get-window-proc)                                                                                                                           "JzGetWindowProc")
+;;(external Jazz void            (set-window-callback                     Object)                                                                                            "JzSetWindowCallback")
+;;(external Jazz int             (get-dialog-proc)                                                                                                                           "JzGetDialogProc")
+;;(external Jazz int             (get-dde-callback)                                                                                                                          "JzGetDdeCallback")
+;;(external Jazz Object          (toplevel-hwnds)                                                                                                                            "JzToplevelHwnds")
+;;(external Jazz Object          (process-hwnds)                                                                                                                             "JzProcessHwnds")
+;;(external Jazz Object          (all-child-hwnds                         int)                                                                                               "JzAllChildHwnds")
+
+
+;;;
+;;;; WinMain
+;;;
+
+
+;;(external Jazz int             (current-instance)                                                                                                                          "JzCurrentInstance")
+;;(external Jazz int             (current-show)                                                                                                                              "JzCurrentShow")
+;;(external Jazz Object          (command-line)                                                                                                                              "JzCommandLine")
+;;(external Jazz Object          (command-action)                                                                                                                            "JzCommandAction")
+;;(external Jazz Object          (command-arguments)                                                                                                                         "JzCommandArguments")
+(definition public (command-argument string)
+  ;; todo
+  '())
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition (bootsafe-message-box text)
+  (unimplemented 'bootsafe-message-box)
+  @windows-specific
+  (if (process-active?)
+      (message-box text)
+    (system-message text)))
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(definition public (pathnames= x y)
+  (unimplemented 'pathnames=)
+  @windows-specific
+  (equal? (get-list~ x) (get-list~ y)))
+
+
+(definition public (module-path)
+  (unimplemented 'module-path)
+  @windows-specific
+  (let ((filename (make-string MAX_PATH)))
+    (GetModuleFileName NULL filename MAX_PATH)
+    (adjust-string filename)
+    (tokenise filename)))
+
+
+(definition public (module-pathname)
+  (unimplemented 'module-pathname)
+  @windows-specific
+  (new File (module-path)))
+
+
+(definition public (module-base)
+  (unimplemented 'module-base)
+  @windows-specific
+  (get-base~ (module-pathname)))
+
+
+(definition public (module-dir)
+  (unimplemented 'module-dir)
+  @windows-specific
+  (butlast (module-path)))
+
+
+(definition public (module-directory)
+  (unimplemented 'module-directory)
+  @windows-specific
+  (let ((module (module-pathname)))
+    (get-parent~ module)))
+
+
+(definition public (module-file filename)
+  (unimplemented 'module-file)
+  @windows-specific
+  (let ((module (module-pathname)))
+    (new-file~ (get-parent~ module) filename)))
+
+
+(definition public (module-timestamped-file base ext)
+  (unimplemented 'module-timestamped-file)
+  @windows-specific
+  (let* ((dir (join (cdr (module-dir)) "\\"))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+;;;
+;;;; Marshalling
+;;;
+
+
+(definition public (marshal-object object)
+  (marshal~ object))
+
+
+(definition public (unmarshal-object object)
+  (unmarshal~ object))
+
+
+;;;
+;;;; Execution
+;;;
+
+
+(definition (bootsafe-get-execution-stack)
+  (unimplemented 'bootsafe-get-execution-stack)
+  @windows-specific
+  (if (process-active?)
+      (get-execution-stack)
+    nil))
+
+
+;;;
+;;;; Stack
+;;;
+
+
+;;(constant VK_CONTROL #x11)
+;;(constant VK_MENU    #x12)
+
+
+(definition public (dump-stack . rest)
+  (unimplemented 'dump-stack)
+  @windows-specific
+  (bind-keywords ((file nil) (user-feedback? false) . others) rest
+    ;; this is really not nice but will do for now as sometimes a stack
+    ;; just won't do if the problem is entirelly in the C code...
+    (if (and (/= (hibyte (GetAsyncKeyState VK_CONTROL)) 0)
+             (/= (hibyte (GetAsyncKeyState VK_MENU)) 0))
+        (crash-process)
+      (let ((file (either file (module-timestamped-file "Stack" "stack"))))
+        (with-closed ((printer (new File-Printer :pathname file)))
+          (apply print-stack printer others))
+        (when user-feedback?
+          (bootsafe-message-box (format "Stack dumped to {t}" file)))
+        file))))
+
+
+(definition public (report-stack)
+  (unimplemented 'report-stack)
+  @windows-specific
+  (if (and (kernel-initialized?) (in-manifest? 'Stack-Presenter))
+      (report-stack~ (autoload 'Stack-Presenter))
+    (let ((process (snapshot-stack))
+          (printer (new String-Printer)))
+      (for-each (function dynamic (thread)
+                  (format printer "{a}{%}" (get-label~ thread))
+                  (for-each (function dynamic (frame)
+                              (format printer "  {a}{%}" (car frame)))
+                            (get-call-stack~ thread)))
+                (get-threads~ process))
+      (system-message (get-output~ printer)))))
+
+
+(definition public (snapshot-stack)
+  (unimplemented 'snapshot-stack)
+  @windows-specific
+  (read-string-element (print-stack :string)))
+
+
+(definition public (print-stack destination . rest)
+  (unimplemented 'print-stack)
+  @windows-specific
+  (if (= destination :string)
+      (let ((printer (new String-Printer)))
+        (apply print-stack-to printer rest)
+        (get-output~ printer))
+    (apply print-stack-to destination rest)))
+
+
+(definition (print-stack-to printer . rest)
+  (unimplemented 'print-stack-to)
+  @windows-specific
+  (bind-keywords ((thread (active-thread)) (execution-stack (bootsafe-get-execution-stack)) (exception nil)) rest
+    (format printer "~{Process-Snapshot{%}{%}")
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; PROCESS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  :process {s}{%}" (parse~ (module-pathname)))
+    (format printer "  :application {s}{%}" (command-argument "app"))
+    (format printer "  :date \"")
+    (print-date printer)
+    (format printer "\"{%}")
+    (when exception
+      (format printer "{%}")
+      (format printer "  ;;;{%}")
+      (format printer "  ;;;; EXCEPTION{%}")
+      (format printer "  ;;;{%}{%}")
+      (format printer "  :exception{%}")
+      (format printer "  ~{Exception-Snapshot{%}")
+      (format printer "   :description {s}}{%}" (get-message~ exception)))
+    (format printer "{%}")
+    ;; todo
+    (when execution-stack
+      )
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; THREADS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  :threads{%}")
+    (format printer "  (~{Thread-Snapshot{%}")
+    (format printer "    :model {a}{%}" (type-name (class-of thread)))
+    (format printer "    :label {s}{%}" (get-name~ thread))
+    (format printer "    :state {a}{%}" (get-state~ thread))
+    (format printer "    :call-stack{%}")
+    (format printer "    (")
+    (print-stack-content thread printer)
+    (format printer ")})}{%}")))
+
+
+;; Temp copied from Date class because I don't want to make Date a core class
+(definition (print-date printer)
+  (unimplemented 'print-date)
+  @windows-specific
+  (let ((st (new SYSTEMTIME)))
+    (GetLocalTime st)
+    (let ((date-separator "/")
+          (time-separator ":")
+          (year   (get st 'wYear))
+          (month  (get st 'wMonth))
+          (day    (get st 'wDay))
+          (hour   (get st 'wHour))
+          (minute (get st 'wMinute))
+          (second (get st 'wSecond)))
+      (format printer "{a :width 4 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0} {a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}"
+        (subseq (->string year) 0 4)
+        date-separator
+        month
+        date-separator
+        day
+        hour
+        time-separator
+        minute
+        time-separator
+        second))))
+
+
+;;;
+;;;; Window
+;;;
+
+
+(definition public Windows-Table
+  (new-hashtable :eqv?))
+
+
+(definition public inline (get-window hwnd)
+  (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
+    (hash-ref Windows-Table hwnd)))
+
+
+(definition public inline (set-window hwnd window)
+  (hash-set! Windows-Table (foreign-address hwnd) window))
+
+
+(definition public (get-toplevel)
+  (get-toplevel~ (get-application)))
+
+
+(definition public (get-stage)
+  (get-stage~ (get-application)))
+
+
+;;tofix
+(definition public (toplevel-windows)
+  (unimplemented 'toplevel-windows)
+  @integrate
+  (toplevel-hwnds))
+
+;;tofix
+(definition public (process-windows . rest)
+  (unimplemented 'process-windows)
+  @integrate
+  (bind-keywords ((include-invisibles? false)) rest
+    (collect (function dynamic (hwnd)
+               (let ((window (get-window hwnd)))
+                 (when (and window (or include-invisibles? (get-visible?~ window)))
+                   window)))
+             (process-hwnds))))
+
+
+(definition public (all-child-windows hwnd)
+  (unimplemented 'all-child-windows)
+  @integrate
+  (all-child-hwnds hwnd))
+
+
+(definition public (child-windows hwnd)
+  (unimplemented 'child-windows)
+  @integrate
+  (collect-if (function dynamic (child)
+                (= (GetParent child) hwnd))
+              (all-child-windows hwnd))))

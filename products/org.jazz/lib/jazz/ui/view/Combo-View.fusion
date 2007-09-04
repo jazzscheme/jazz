@@ -1,0 +1,219 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Combo View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Combo-View jazz
+
+
+(import (jazz.ui)
+        (jazz.ui.view)
+        (jazz.library)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Combo-View extends View
+  
+
+  (property kind initialize 'pick getter get-kind setter set-kind)
+
+
+  (slot state initialize 'inactive)
+  
+  
+  (form
+    (<install>
+      (<Combo-Button> name: pick background: {Color name: Medium} action-handler: {Event-Handler form: on-pick})))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-body)
+    (locate 'body))
+  
+  
+  (method public (get-pick)
+    (locate 'pick))
+
+
+  (method public (get-kind)
+    kind)
+
+
+  (method public (set-kind value)
+    (if (not (memq? kind '(pick choose)))
+        (error "Unknown combo kind: {t}" kind)
+      (set! kind value)
+      (when (eq? kind 'choose)
+        (set-enabled?~ (get-pick) true))
+      (invalidate-view)))
+  
+  
+  (method public (get-state)
+    state)
+  
+  
+  (method public (set-state value)
+    (set! state value)
+    (invalidate-view))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method public (on-pick evt)
+    (button-action))
+  
+  
+  (method protected virtual (button-action)
+    )
+  
+  
+  (method public (push-button)
+    (unwind-protect
+        (begin
+          (set-state 'pushed)
+          (button-action))
+      (set-state 'inactive)))
+  
+  
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method public (child-state child)
+    (let ((name (get-name~ child)))
+      (case state
+        ((choose choose-failed out-choose) (case name ((body) 'highlighted) ((pick) 'pushed)))
+        (else state))))
+  
+  
+  (method public virtual (highlight-pick?)
+    false)
+  
+  
+  ;;;
+  ;;;; Popup
+  ;;;
+  
+  
+  (method (popup-destroy popup)
+    (case state
+      ((choose) (set-state 'highlighted))
+      ((out-choose) (set-state 'inactive)))
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((body (get-body))
+          (pick (get-pick)))
+      (set-position~ body {Point 0 0})
+      (set-size~ body {Dimension 22 22})
+      (set-position~ pick {Point 22 0})
+      (set-size~ pick {Dimension 9 22})))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+  
+  (method public (enter-child child)
+    (when (and (get-enabled?~ child) (or (not mouse-down?) (eq? (get-parent~ mouse-down-view) self)))
+      (case state
+        ((inactive) (set-state 'highlighted))
+        ((out-pushed) (set-state 'pushed))
+        ((out-choose) (set-state 'choose)))
+      (invalidate-view)))
+
+  
+  (method public (leave-child child)
+    (case state
+      ((highlighted) (set-state 'inactive))
+      ((pushed) (set-state 'out-pushed))
+      ((choose) (set-state 'out-choose)))
+    (invalidate-view))
+
+  
+  (method public (child-down child pos)
+    (when enabled?
+      (case (get-name~ child)
+        ((body)
+         (set-state 'pushed)
+         (down~ child))
+        ((pick)
+         (case state
+           ((highlighted)
+            (set-state 'choose)
+            (case kind
+              ((pick)
+               (let ((popup (down~ child)))
+                 ;; not-to-sure...
+                 (when (null? popup)
+                   (set-state 'inactive))
+                 @this-creates-problems-with-the-schema-chooser
+                 (when (is-not? popup Popup)
+                   (set-state 'choose-failed))))
+              ((choose)
+               (down~ child))))
+           ((choose)
+            (close-popups)
+            (set-state 'highlighted)))))
+      (invalidate-view)))
+
+  
+  (method public (child-up child pos)
+    (when enabled?
+      (unwind-protect
+          (up~ child)
+        (if (= kind 'choose)
+            (set-state 'inactive)
+          (case state
+            ((pushed choose-failed) (set-state 'highlighted))
+            ((out-pushed) (set-state 'inactive))))
+        (invalidate-view))))))

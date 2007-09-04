@@ -1,0 +1,88 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; BaseCodec
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.license.basecodec jazz
+
+
+(import (jazz.license)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(definition Hash32
+  "23456789ABCDEFGHJKLMNPQRSTUVWXYZ")
+
+
+(definition (unhash32 string)
+  (map (function dynamic (c)
+         (get-rank c Hash32))
+       (coerce string List)))
+
+
+(definition public (recode list bit-in bit-out)
+  (let ((in (cdr list))
+        (value 0)
+        (bit-in-value 0)
+        (out (new List-Factory)))
+    (for-each (function dynamic (in)
+                (set! value (bit-or (shift-left value bit-in) in))
+                (increase! bit-in-value bit-in)
+                (while (>= bit-in-value bit-out)
+                  (let ((extra-bits (- bit-in-value bit-out)))
+                    (put~ out (shift-right value extra-bits))
+                    (set! value (bit-and value (bit-mask extra-bits 0)))
+                    (decrease! bit-in-value bit-out))))
+              list)
+    (when (> bit-in-value 0)
+      (put~ out (shift-left value (- bit-out bit-in-value))))
+    (get-output~ out)))
+
+
+(definition public (encode32 list)
+  (coerce (map (function dynamic (n)
+                 (element Hash32 n))
+               (recode list 8 5))
+          String))
+
+
+(definition public (decode32 string)
+  (let ((list (remove-nils (unhash32 string))))
+    (recode list 5 8)))
+
+
+(definition public (valid32? string)
+  (every? not-null? (unhash32 string))))

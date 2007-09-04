@@ -1,0 +1,73 @@
+COM Memory Rules
+
+In - allocated and freed by caller
+Out - allocated by called, freed by caller
+In-Out - allocated by caller, freed and reallocated by called if necessary, freed by caller (so should not use our initial value but the one returned in case it was reallocated)
+
+Similar rules for IUnknown AddRef and Release
+In - AddRef by caller, caller releases after when no longer needed
+Out - The called has AddRef on behalf on the caller, caller releases after when no longer needed
+In-Out - AddRef by caller, caller releases after when no longer needed (this is deduced by me, it was not explicitly described in the article)
+
+Simple scalar types - passed by value
+BSTR - SysAllocString and SysFreeString
+VARIANT - VariantInit/VariantClear - VariantClear only destroyed owned memory like BSTR not IUnknown
+SAFEARRAY - SafeArrayCreate
+
+ERROR
+Same ownership rules hold but called is allowed to return NULL values
+
+NOTE
+I read somewhere that BSTR are global to Windows. If so, using them for Lisp strings is probably not a good idea and we should just allocate them as needed when interfacing with Windows...
+
+Still the case of <in> variant& that is not correctly handled.
+
+
+In cleaning up and caching the private bytes performance counter I inserted the bug that if we launch from Jedi A and B and quit A, then the cached counter in B still refers to itself wrongly as instance #2.
+
+
+memory
+  zones
+    reserved
+    allocated
+    nb-bags
+    gc-triggers
+  symbols
+  strings
+  stack
+    system
+    data
+  collector
+    stack
+    roots
+windows
+  handle
+    gdi
+    user
+    handles
+
+
+Notes:
+  - The GDI resources are not included in the handles count.
+
+
+Todo:
+  - Why does gc-triggers return less elements than the sum indicated for each zone in the memory inspector?
+  - What is the Overflows column?
+  - Replace adjust-string with a clean version.
+  - Understand the crazy results of CreateBrush
+  - Major pass of checking the C and Lisp code for thread safety
+  - SLC: primitive for a full GC
+
+
+From Process Explorer:
+  private bytes
+  virtual size
+  page faults
+  context switches
+  nb-threads
+  thread
+    time
+      kernel
+      user
+    context switches

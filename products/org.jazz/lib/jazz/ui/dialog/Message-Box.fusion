@@ -1,0 +1,315 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Message Box
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.dialog.Message-Box jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Message-Box extends View uses (Utilities System WinIDL WinUser)
+  
+  
+  (slot type)
+  (slot process-keys?)
+  (slot user-content)
+  (slot action-buttons)
+  (slot default-button)
+
+
+  (form
+    (<install>                                  size: {Dimension 302 120}
+      (<Image-View>              name: icon     position: {Point 12 12} size: {Dimension 32 32})
+      (<Border-View>             name: border   position: {Point 56 12} size: {Dimension 100 100} border-type: () border-color: {Color name: Dark}
+        (<Scroller-View>         name: scroller hscroll?: #f vscroll?: #t flat?: #t
+          (<!>                   name: content  layout-type: fill
+            (<Message-Text-View> name: text     background: () left-padding: 2 top-padding: 0 editable?: #f))))))
+
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Message-Box-Dialog)
+  
+
+  @convert-dialog
+  (class meta Message-Box-Dialog extends Host-Dialog
+    
+  
+    (method (show)
+      (nextmethod)
+      (acquire-focus~ (locate~ guest 'text)))
+
+  
+    (method (on-select evt)
+      (let ((button (get-property~ evt :button)))
+        (end-box button)))
+    
+    
+    (method (end-box button)
+      (end-modal button)))
+  
+  
+  ;;;
+  ;;;; Types
+  ;;;
+
+  
+  (definition Type-Infos
+    (list
+      (list 'message      "Message"           IDI_INFORMATION "SystemAsterisk"    "OK"   null                                   null                                           true 'yes)
+      (list 'question     "Question"         IDI_EXCLAMATION "SystemExclamation" "Yes" "No" null                                           true 'no)
+      (list 'confirmation "Confirmation" IDI_EXCLAMATION "SystemExclamation" "Yes" "No" "Cancel" true 'cancel)
+      (list 'error        "Error"              IDI_ERROR       "SystemHand"        "OK"   null                                   "Cancel" true 'cancel)
+      (list 'custom       "Message"           IDI_INFORMATION "SystemAsterisk"    null                                    null                                   null                                           true null)))
+  
+  
+  (method (type-info type)
+    (either (cdr (assq type Type-Infos))
+            (error "Unknown message-box type: {t}" type)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    ;; a quicky so that resizing only starts after process-box has had a chance to layout every object...
+    (when (eq? (get-host) (current-modal-dialog))
+      (bind (first-dh second-dh) (resize-parts (get-width) dh 2)
+        (size-figure~ (locate 'border) dh dv)
+        (when user-content
+          (size-figure~ user-content dh dv))
+        (for-each (function dynamic (button)
+                    (move-figure~ button first-dh dv))
+                  action-buttons))))
+  
+  
+  (method (process-return)
+    (let ((dialog (get-host)))
+      (end-box~ dialog default-button)))
+  
+  
+  (method (process-escape)
+    (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
+      (when cancelable?
+        (let ((dialog (get-host)))
+          (end-box~ dialog close-result)))))
+  
+  
+  (method (process-key key)
+    (when process-keys?
+      (let* ((dialog (get-host))
+             (try-button
+              (function dynamic (button)
+                (when (get-visible?~ button)
+                  (bind (title name . optional) (get-user-data~ button)
+                    (bind-optionals ((accelerator-key null)) optional
+                      (let* ((result (get-name~ button))
+                             (title (localize (get-title~ button)))
+                             (first (either accelerator-key (element title 0))))
+                        (when (ci= first key)
+                          (end-box~ dialog result)
+                          (return)))))))))
+        (for-each try-button action-buttons))))
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public (process-box text . rest)
+    (bind-keywords ((type 'message) (title null) (icon null) (content null) (sound 'default) (selection null) (yes null) (no null) (cancel null) (actions null) (default-button null) (process-keys? true)) rest
+      (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
+        (set! [type self] type)
+        (set! [process-keys? self] process-keys?)
+        (set! [user-content self] content)
+        (let ((dialog (get-host))
+              (title (either title default-title))
+              (icon (either icon default-icon))
+              (sound (if (eq? sound 'default) default-sound sound))
+              (yes (either yes default-yes))
+              (no (either no default-no))
+              (cancel (either cancel default-cancel)))
+          (when (and cancel (not (member? 'cancel actions :key second)))
+            (set! actions (cons (list cancel 'cancel) actions)))
+          (when (and no (not (member? 'no actions :key second)))
+            (set! actions (cons (list no 'no) actions)))
+          (when (and yes (not (member? 'yes actions :key second)))
+            (set! actions (cons (list yes 'yes) actions)))
+          (let* ((default-button (either default-button (second (first actions))))
+                 (size (layout-box text selection title icon content actions default-button)))
+            (layout-dialog dialog title size)
+            (play-sound sound)
+            (process-modal~ dialog))))))
+  
+  
+  (method (layout-dialog dialog title size)
+    (let* ((desktop (get-desktop))
+           (position (center size (get-size~ desktop))))
+      (set-title~ dialog title)
+      (set-position~ dialog position)
+      (set-size~ dialog size)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (definition Left-Padding
+    2)
+  
+  (definition Top-Padding
+    0)
+  
+  (definition Content-Spacing
+    10)
+  
+  (definition Buttons-Spacing
+    6)
+  
+  
+  (method protected virtual (layout-box text selection title icon content actions default)
+    (let* ((icon-view (locate 'icon))
+           (text-view (locate 'text))
+           (scroller-view (locate 'scroller))
+           (border-view (locate 'border))
+           (size-border
+            (function dynamic (width height)
+              (set-size~ border-view (new Dimension (+ width 1 Left-Padding 1) (+ height 1 Top-Padding 1)))))
+           (buttons-width (setup-buttons actions default)))
+      (set-text~ text-view text)
+      (when selection
+        (set-selection~ text-view selection))
+      (let ((width (min (max (compute-width~ text-view) (max buttons-width 208)) 500)))
+        (size-border width 100)
+        (let ((text-height (get-visible-height~ text-view))
+              (height (min (max (get-visible-height~ text-view) (if content 0 36)) 200)))
+          (size-border width height)
+          (let ((bottom (get-bottom~ border-view)))
+            (when content
+              (set-parent~ content self)
+              (set-position~ content (new Point (get-left~ border-view) (+ bottom Content-Spacing)))
+              (set! width (max width (get-width~ content)))
+              (increase! height (+ Content-Spacing (get-height~ content)))
+              (set! bottom (+ (get-bottom~ content) 2)))
+            (let ((dialog-width (+ width 68))
+                  (dialog-height (+ height 58)))
+              (set-icon~ icon-view icon)
+              (let ((overflow? (> text-height 200)))
+                (when overflow?
+                  (set-border-type~ border-view 'solid)))
+              (let ((h (+ (center buttons-width dialog-width) 1))
+                    (v (+ bottom 10)))
+                (position-buttons action-buttons h v))
+              (new Dimension dialog-width dialog-height)))))))
+  
+  
+  (method (setup-buttons actions default)
+    (let* ((buttons-width 0)
+           (size (new Dimension 80 24))
+           (count 0)
+           (fact (new List-Factory))
+           (setup-button
+            (function dynamic (action)
+              (bind (title button-name @w (accelerator-key null)) action
+                (increase! count)
+                (let* ((handler (new Event-Handler :target-name :host :method-name 'on-select :properties (list :button button-name)))
+                       (button (new Push-Button name: button-name parent: self :position (new Point (* count 75) 72) :size size :user-data action :action-handler handler :default? (= button-name default))))
+                  (set-title~ button (localize title))
+                  (let* ((size (preferred-size~ button))
+                         (width (max [width size] 80)))
+                    (set-size~ button (new Dimension width [height size]))
+                    (when (/= buttons-width 0)
+                      (increase! buttons-width Buttons-Spacing))
+                    (increase! buttons-width width))
+                  (put~ fact button))))))
+      (for-each setup-button actions)
+      (set! action-buttons (get-output~ fact))
+      (set! default-button default)
+      buttons-width))
+  
+  
+  (method (position-buttons action-buttons h v)
+    (let ((position-button
+           (function dynamic (button)
+             (when (get-visible?~ button)
+               (set-position~ button (new Point h v))
+               (set! h (+ h (get-width~ button) Buttons-Spacing))))))
+      (for-each position-button action-buttons))))
+
+
+;;;
+;;;; Message-Text-View
+;;;
+
+
+(class Message-Text-View extends Formatted-Text-View
+  
+  
+  (method (get-context-menu)
+    (new-text-context-menu))
+  
+  
+  (method (return-press key)
+    @convert
+    (process-return))
+  
+  
+  (method (escape-press key)
+    @convert
+    (process-escape))
+  
+  
+  (method (key-press key)
+    @convert
+    (process-key key)))
+
+
+(register-autoclass 'Message-Text-View Message-Text-View))

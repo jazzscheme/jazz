@@ -1,0 +1,125 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Bindings Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.preferences.Bindings-Tree jazz
+
+
+(import (jazz.ui)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Bindings-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                         portfolio: :icons filled-column: name
+      (<Tree-Node-Column>  name: name  title: "Name" width: 235 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: key   title: "Key" width: 150)
+      (<Tree-Image-Column> name: owner title: "Owner" width: 50 justification: center)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method protected (view-bindings designer bindings kind)
+    (with-update-locked
+      (function dynamic ()
+        (remove-every-row)
+        (case kind
+          (categorized (view-categorized designer bindings))
+          (flat (view-flat designer bindings))
+          (list (view-list designer bindings))))))
+  
+  
+  (method (view-categorized designer bindings)
+    (for-each (function dynamic (actions)
+                (when (is? actions Actions)
+                  (let ((row (add-row :children (list (new Tree-Node :title (->string (get-name~ actions)) :image {Bitmap-Resource "TypeLib"}) (new Tree-Label :title "") (new Tree-Image)) :user-data actions)))
+                    (for-each (function dynamic (action)
+                                (let ((shortcut (get-shortcut~ action))
+                                      (owner (new Tree-Image :image (owner-image designer action 'shortcut))))
+                                  (add-row :father row :children (list (new Tree-Node :title (->string (get-name~ action)) :image {Bitmap-Resource "Link"}) (new Tree-Label :title (present-shortcut shortcut)) owner) :user-data action)))
+                              (get-children~ actions)))))
+              (get-children~ bindings)))
+  
+  
+  (method (view-flat designer bindings)
+    (for-each (function dynamic (actions)
+                (when (is? actions Actions)
+                  (for-each (function dynamic (action)
+                              (let ((shortcut (get-shortcut~ action))
+                                    (owner (new Tree-Image :image (owner-image designer action 'shortcut))))
+                                (add-row :children (list (new Tree-Node :title (format "{a}.{a}" (get-name~ actions) (get-name~ action)) :image {Bitmap-Resource "Link"}) (new Tree-Label :title (present-shortcut shortcut)) owner) :user-data action)))
+                            (get-children~ actions))))
+              (get-children~ bindings)))
+  
+  
+  (method (view-list designer actions)
+    (for-each (function dynamic (action)
+                (let ((shortcut (get-shortcut~ action))
+                      (owner (new Tree-Image :image (owner-image designer action 'shortcut))))
+                  (add-row :children (list (new Tree-Node :title (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) :image {Bitmap-Resource "Link"}) (new Tree-Label :title (present-shortcut shortcut)) owner) :user-data action)))
+              actions))
+  
+  
+  (method protected (present-shortcut shortcut)
+    (if (nil? shortcut)
+        ""
+      (present~ shortcut)))
+  
+  
+  (method protected (owner-image designer component property)
+    (let ((owner (find-owner~ designer component property)))
+      (cond ((is? owner Branch) (branch-owner-image))
+            ((eq? owner (get-reference~ designer)) (root-owner-image))
+            (else (default-owner-image)))))
+  
+  
+  (method (default-owner-image)
+    null)
+  
+  
+  (method (root-owner-image)
+    {Bitmap-Resource "OwnerRoot"})
+  
+  
+  (method (branch-owner-image)
+    {Bitmap-Resource "OwnerBranch"})))

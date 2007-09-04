@@ -1,0 +1,146 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Popup Windows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.Popup jazz
+
+
+(import (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.utilities)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.library))
+
+
+(class Popup-Class extends View-Player-Class
+
+
+  (method (initialize)
+    (nextmethod)
+    (register-class))
+
+  
+  (method (window-class)
+    "JPopup"))
+
+
+(class Popup metaclass Popup-Class extends Overlapped
+  
+  
+  (slot initiator initialize {})
+  
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (default-parent)
+    (get-toplevel))
+
+  
+  (method (window-parent)
+    nil)
+
+
+  (method (window-style rest)
+    (bit-or WS_POPUP WS_CLIPCHILDREN))
+
+
+  (method (window-ex-style rest)
+    (bit-or WS_EX_TOOLWINDOW))
+  
+  
+  (method (conclude rest)
+    (nextmethod rest)
+    (destroy-mandatory))
+
+
+  (method (show)
+    (set-visible-flag true)
+    (show-noactivate))
+  
+  
+  ;;;
+  ;;;; Destruction
+  ;;;
+
+
+  (method (destroy)
+    (when initiator
+      (popup-destroy~ initiator self))
+    (nextmethod))
+    
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-initiator)
+    initiator)
+  
+  
+  (method public (set-initiator value)
+    (set! initiator value))
+    
+
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  @convert
+  (method (dispatch-message msg wparam lparam)
+    (if (eq? msg WM_MOUSEACTIVATE)
+        MA_NOACTIVATE
+      (nextmethod msg wparam lparam)))
+    
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method public virtual (popup-key-press char)
+    (when (= char #\escape)
+      (popup-escape-press char)
+      true))
+  
+  
+  (method public virtual (popup-escape-press char)
+    (close-popup self))))

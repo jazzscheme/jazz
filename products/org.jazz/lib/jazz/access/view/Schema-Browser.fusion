@@ -1,0 +1,190 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Schema Browser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.view.Schema-Browser jazz
+
+
+(import (jazz.access)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Schema-Browser extends Border-View
+
+
+  (property empty-text initialize {} accessors generate)
+  
+  
+  (slot source initialize {})
+    
+
+  (form
+    (<install>                                 size: {Dimension 142 24} border-type: edge style: entry layout-type: fill
+      (<Layout-View>            name: content  layout-type: border
+        (<Layout-View>          name: top      size: {Dimension 120 21} location: north layout-type: flow background: {Color name: Medium}
+          (<Separator-View>                    size: {Dimension 4 0})
+          (<Label-View>         name: label    size: {Dimension 120 21})
+          (<Push-Tool>          name: browse   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Browse Schema..." image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-browse}))
+        (<Scroller-View>        name: scroller location: center hscroll?: #f vscroll?: #f
+          (<!>                  name: content  layout-type: fill
+            (<Schema-Text-View> name: text     editable?: #f selectable?: #f accepts-returns?: #f show-unfocused-selection?: #f left-padding: 4 top-padding: 2 paragraph-spacing: 1 return-press-handler: {Event-Handler form: on-return-press}))))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+ 
+  
+  (method (on-browse evt)
+    (set-source (get-modal Schema-Chooser :source (get-source))))
+  
+  
+  (method (on-return-press evt)
+    (when return-press-handler
+      (invoke~ return-press-handler self evt)))
+    
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-text)
+    (locate 'text))
+
+  
+  ;;;
+  ;;;; Outer
+  ;;;
+  
+  
+  (method (inner? view)
+    (memq? view children))
+    
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+
+  
+  (method (draw-children dc context update lh lv sh sv sc sc?)
+    (nextmethod dc context update lh lv sh sv sc sc?)
+    @convert/waiting
+    (let ((width (get-width)))
+      (set-pen~ dc {Pen name: Outline-Border})
+      (move-to~ dc 2 22)
+      (line-to~ dc (- width 2) 22)))
+    
+  
+  ;;;
+  ;;;; Schema
+  ;;;
+  
+  
+  (method public (get-schema . rest)
+    (bind-keywords ((reporter null)) rest
+      (let ((source (get-source)))
+        (when source
+          (get-data-schema~ source :reporter reporter)))))
+  
+  
+  ;;;
+  ;;;; Content
+  ;;;
+
+  
+  (method public (get-source)
+    source)
+  
+  
+  (method public (set-source value)
+    (source-changing value)
+    (set! source value)
+    (set-text~ (get-text) (present-source source))
+    (source-changed value))
+  
+  
+  (method (present-source source)
+    (when source
+      (present-detailed~ source)))
+  
+  
+  (method protected virtual (source-changing source)
+    )
+  
+  
+  (method protected virtual (source-changed source)
+    (set-enabled?~ (locate 'reload) true)))
+
+
+;;;
+;;;; Schema-Text-View
+;;;
+
+
+(class Schema-Text-View extends Plain-Formatted-Text-View
+  
+  
+  (form
+    (<install> default-style: {Text-Style name: Default :font {Font name: Ansi-Var}}))
+  
+  
+  (method (get-scroll-context)
+    (cons 0 0))
+  
+  
+  (method (draw-children dc context update lh lv sh sv sc sc?)
+    (if (text-empty?)
+        (draw-empty-schema dc)
+      (nextmethod dc context update lh lv sh sv sc sc?)))
+  
+  
+  (definition Background-Font
+    {Font :font-name "Arial" :point-size 10})
+  
+  
+  (method (draw-empty-schema dc)
+    (set-font~ dc Background-Font)
+    (let* ((title (localize (either empty-text "No schema specified")))
+           (extent (get-text-extent~ dc title))
+           (pos (center extent (get-display-size))))
+      (set-text-color~ dc {Color name: Dark})
+      (draw-text~ dc [h pos] [v pos] title true)))))

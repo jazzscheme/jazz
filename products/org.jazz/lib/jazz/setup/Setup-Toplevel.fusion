@@ -1,0 +1,173 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Setup Toplevel
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.setup.Setup-Toplevel jazz
+
+
+(import (jazz.jml)
+        (jazz.setup)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Setup-Toplevel extends Toplevel
+
+  
+  (form
+    (<install>                                      size: {Dimension 608 298} caption-base: "Setup"
+      (<!>                  name: root              layout-type: ()
+        (<Group-Box>        name: install-group     title: "Install" position: {Point 11 31} size: {Dimension 586 109}
+          (<Image-View>                             position: {Point 10 20} size: {Dimension 32 32} portfolio: :large-icons image-name: {Bitmap-Resource "GeneralLarge"})
+          (<Label-View>     name: install-invite    position: {Point 50 23} size: {Dimension 550 16})
+          (<Label-View>     name: install-dir-label title: "Please select the installation directory:" position: {Point 65 50} size: {Dimension 400 16})
+          (<Moniker-Widget> name: install-dir       position: {Point 80 72} size: {Dimension 496 23} protocol: dir display-logical?: #f))
+        (<Group-Box>        name: migrate-group     title: "Migrate" position: {Point 11 143} size: {Dimension 586 109}
+          (<Image-View>                             position: {Point 10 20} size: {Dimension 32 32} portfolio: :large-icons image-name: {Bitmap-Resource "SettingsLarge"})
+          (<Label-View>     name: migrate-invite    title: "This setup program can also optionally migrate user settings from an older version." position: {Point 50 23} size: {Dimension 450 16})
+          (<Label-View>     name: migrate-dir-label title: "Please select the older version directory (leave it empty for no migration):" position: {Point 65 50} size: {Dimension 500 16})
+          (<Moniker-Widget> name: migrate-dir       position: {Point 80 72} size: {Dimension 496 23} protocol: dir display-logical?: #f))
+        (<Push-Button>      name: install           title: "Install" position: {Point 387 262} size: {Dimension 100 24} default?: #t action-handler: {Event-Handler form: on-install})
+        (<Push-Button>      name: exit              title: "Exit" position: {Point 497 262} size: {Dimension 100 24} action-handler: {Event-Handler form: on-exit}))))
+
+  
+  @convert
+  (method meta (window-class)
+    "JSetupToplevel")
+
+
+  @convert
+  (method meta (initialize)
+    (nextmethod)
+    (register-toplevel :icon {Icon-Resource "Setup"}))
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (center-on-screen)
+    (let* ((setup (get-application))
+           (installer (get-installer~ setup)))
+      (setup-install-dir installer)
+      (setup-toplevel~ installer self)
+      (install-locales~ installer self)))
+  
+  
+  (method (new-workspace-splitter)
+    null)
+  
+  
+  (method (center-on-screen)
+    (let* ((outer (get-size~ (get-desktop)))
+           (inner (get-size))
+           (pos (center inner outer)))
+      (set-position (new Point [h pos] (- [v pos] 50)))))
+  
+  
+  (method (setup-install-dir installer)
+    (let ((dir (default-install-dir~ installer)))
+      (set-moniker~ (locate 'install-dir) dir)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-browse-install evt)
+    (set-string-content~ (locate 'install-dir) (parse~ (get-modal BrowseFolder-Dialog))))
+  
+  
+  (method (on-browse-migrate evt)
+    (set-string-content~ (locate 'migrate-dir) (parse~ (get-modal BrowseFolder-Dialog))))
+    
+    
+  (method public (on-return-press evt)
+    (on-install evt))
+  
+  
+  (method (get-tab-stops)
+    (list
+      (get-text~ (locate 'migrate-dir))
+      (get-text~ (locate 'install-dir))))
+  
+  
+  (method (on-install evt)
+    (catch Cancel-Signal
+      (let* ((setup (get-application))
+             (installer (get-installer~ setup))
+             (install (get-install-dir~ installer (get-string-content~ (get-text~ (locate 'install-dir)))))
+             (migrate (get-migrate-dir~ installer (get-string-content~ (get-text~ (locate 'migrate-dir))))))
+        (if (null? install)
+            (acquire-focus~ (locate 'install-dir))
+          (bind-values (process? dialog) (new-dialog Setup-Reporter)
+            (let ((reporter (get-guest~ dialog)))
+              (new Thread
+                :context self
+                :execute (function (thread)
+                           (setup-files~ installer install migrate reporter)))
+              (process-modal~ dialog)))))))
+  
+  
+  (method (on-exit evt)
+    (exit))
+
+  
+  ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method (new-root)
+    (new MetaModelerVisualUpdater-Toplevel-Root)))
+
+
+(class MetaModelerVisualUpdater-Toplevel-Root extends Toplevel-Root
+  
+  
+  (method (update-buttons)
+    (nextmethod)
+    (set-visible?~ (locate 'maximize) false))
+  
+  
+  (method (minimize-rect top right)
+    (offset-rect (maximize-rect top right) -2 0))
+  
+  
+  (method (resizeable?)
+    false)))

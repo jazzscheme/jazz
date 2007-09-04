@@ -1,0 +1,172 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Activity Reporter
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.activity.Activity-Reporter jazz
+
+
+(import (jazz.ui)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.utilities)
+        (jazz.literals))
+
+
+(class Activity-Reporter extends View
+  
+  
+  (property rank initialize {} getter get-rank setter set-rank)
+  
+  
+  (slot cancelled? initialize false)
+  (slot done?      initialize false)
+    
+  
+  (form
+    (<install>                       size: {Dimension 180 37}
+      (<Label-View>   name: message  position: {Point 0 0} size: {Dimension 150 16})
+      (<Progress-Bar> name: progress position: {Point 0 16} size: {Dimension 150 20})
+      (<Push-Tool>    name: cancel   position: {Point 157 15} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Cancel" image-name: {Bitmap-Resource "Cancel"} portfolio: :icons action-handler: {Event-Handler form: on-cancel})))
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((progress (locate 'progress)))
+      (set-pos~ progress 0)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-rank)
+    rank)
+  
+  
+  (method public (set-rank r)
+    (when (/= r rank)
+      (set! rank r)
+      (let ((size (get-size)))
+        (set-position (new Point 10 (+ 10 (* rank (+ [height size] 8))))))))
+  
+  
+  (method public (cancel-requested?)
+    cancelled?)
+  
+  
+  (method public (get-done)
+    done?)
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'message) dh 0)
+    (size-figure~ (locate 'progress) dh 0)
+    (move-figure~ (locate 'cancel) dh 0))
+  
+  
+  (method (on-cancel evt)
+    (if done?
+        (let ((frame (get-frame)))
+          (close)
+          (update-rectangle~ frame))
+      (set! cancelled? true)
+      (set-message "Cancelled")))
+  
+  
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (method public (set-message msg)
+    (execute-primary
+      (function dynamic ()
+        (set-title~ (locate 'message) msg))))
+
+
+  (method public (user-message fmt . rest)
+    (set-message (apply format fmt rest)))
+  
+  
+  (method public (set-done)
+    (execute-primary
+      (function dynamic ()
+        (set! done? true)
+        (set-image-name~ (locate 'cancel) {Bitmap-Resource "Done"})
+        (update-title~ (get-frame)))))
+  
+  
+  (method public (set-infinite? flag)
+    (execute-primary
+      (function dynamic ()
+        (set-infinite?~ (locate 'progress) flag))))
+  
+  
+  (method public (set-range range)
+    (execute-primary
+      (function dynamic ()
+        (set-range~ (locate 'progress) range))))
+  
+  
+  (method public (set-pos pos)
+    (execute-primary
+      (function dynamic ()
+        (set-pos~ (locate 'progress) pos))))
+  
+  
+  (method public (delta-pos increment)
+    (execute-primary
+      (function dynamic ()
+        (delta-pos~ (locate 'progress) increment))))
+  
+  
+  (method public (set-step increment)
+    (execute-primary
+      (function dynamic ()
+        (set-step~ (locate 'progress) increment))))
+  
+  
+  (method public (step-it)
+    (execute-primary
+      (function dynamic ()
+        (step-it~ (locate 'progress)))))))

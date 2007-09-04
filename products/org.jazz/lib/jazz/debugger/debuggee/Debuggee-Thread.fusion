@@ -1,0 +1,238 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Debuggee Thread
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debuggee.Debuggee-Thread jazz
+
+
+(import (jazz.debugger)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Debuggee-Thread extends Object
+  
+  
+  (slot debuggee)
+  (slot thread)
+  
+  
+  (method (initialize debuggee thread)
+    (nextmethod)
+    (set! [debuggee self] debuggee)
+    (set! [thread self] thread))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public remote (get-debuggee)
+    debuggee)
+  
+  
+  (method public (get-thread)
+    thread)
+  
+  
+  ;;;
+  ;;;; Remote
+  ;;;
+  
+  
+  (method public remote (present)
+    (present~ thread))
+  
+  
+  (method public remote (get-primary?)
+    (eq? thread (primary-thread)))
+  
+  
+  ;; For now, only the primary thread can be in break state
+  (method public remote (get-state)
+    (if (get-primary?)
+        (if (get-type~ (get-loop~ (get-process)))
+            'break
+          'run)
+      'run))
+  
+  
+  ;; For now, only the primary thread can return its stack
+  (method public remote (get-breaked-stack)
+    (when (= (get-state) 'break)
+      (let ((stack (get-stack~ (get-loop~ (get-process)))))
+        (map new-frame stack))))
+  
+  
+  ;; For now, only the primary thread can return its stack
+  (method public remote (get-runtime-stack)
+    (let ((stack (runtime-stack null)))
+      (map new-frame stack)))
+  
+  
+  (method public remote (get-frame-location frame)
+    (let* ((object (either (binder-last-call frame) (binder-last-break frame)))
+           (closure (frame-procedure frame))
+           (toplevel (toplevel-function (closure-function closure))))
+      (object-location object toplevel)))
+  
+
+  (method (toplevel-function function)
+    (let ((container (function-container function)))
+      (if (null? container)
+          function
+        (toplevel-function container))))
+  
+  
+  (method public remote (inspect-frame frame)
+    (cons (package-info~ Inspector 'self (frame-context frame) :context)
+          (let ((parameters (frame-parameters frame)))
+            (if (neq? parameters false)
+                (map (function dynamic (value rank)
+                       (package-info~ Inspector rank value))
+                     parameters
+                     (naturals 0 (length parameters)))
+              (map (function dynamic (variable)
+                     (let ((value (if (variable-bound? variable frame)
+                                      (variable-value variable frame)
+                                    (package-unbound~ Inspector))))
+                       (package-info~ Inspector (variable-symbol variable) value)))
+                   (frame-variables frame))))))
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+
+
+  (method public remote (break-next)
+    (unimplemented 'break-next))
+  
+  
+  (method public remote (stop)
+    (if (get-primary?)
+        (begin
+          (stop~ (get-loop~ (get-application)))
+          nil)
+      (error "For now, only the primary thread can be stopped")))
+  
+  
+  (method public remote (toplevel)
+    (unimplemented 'toplevel))
+  
+  
+  (method public remote (continue)
+    (unimplemented 'continue))
+  
+  
+  (method public remote (step-over)
+    (unimplemented 'step-over))
+  
+  
+  (method public remote (step-in)
+    (unimplemented 'step-in))
+  
+  
+  (method public remote (step-out)
+    (unimplemented 'step-out))
+  
+  
+  (method public remote (run-to)
+    (unimplemented 'run-to))
+
+  
+  ;;;
+  ;;;; Frames
+  ;;;
+  
+  
+  (method remote public (new-frame frame)
+    (case (frame-type frame)
+      ((data)               (new-data-frame               frame))
+      ((binding)            (new-binding-frame            frame))
+      ((lexical)            (new-lexical-frame            frame))
+      ((closure)            (new-closure-frame            frame))
+      ((proxy)              (new-proxy-frame              frame))
+      ((coclosure)          (new-coclosure-frame          frame))
+      ((compiled-procedure) (new-compiled-procedure-frame frame))
+      ((catch)              (new-catch-frame              frame))
+      ((unknown)            (new-unknown-frame            frame))))
+  
+  
+  (method (new-data-frame frame)
+    (new Data-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-binding-frame frame)
+    (new Binding-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-lexical-frame frame)
+    (new Lexical-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-closure-frame frame)
+    (new Closure-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-proxy-frame frame)
+    (new Proxy-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-coclosure-frame frame)
+    (new CoClosure-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-compiled-procedure-frame frame)
+    (new Compiled-Procedure-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-catch-frame frame)
+    (new Catch-Frame (frame-thread) frame (frame-name frame)))
+  
+  
+  (method (new-unknown-frame frame)
+    (new Unknown-Frame (frame-thread) frame (frame-name frame)))
+
+  
+  ;;;
+  ;;;; Marshal
+  ;;;
+  
+  
+  (method (frame-thread)
+    (new Debuggee-Thread-Local-Proxy self))))

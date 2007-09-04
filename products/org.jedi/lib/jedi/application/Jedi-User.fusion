@@ -1,0 +1,2040 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jedi User
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.application.Jedi-User jazz
+
+
+(import (jazz.jazz)
+        (jazz.jazz.debuggee)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.activity)
+        (jazz.ui.view)
+        (jedi))
+
+
+(class Jedi-User extends IDE-User
+
+  
+  (method (init)
+    (nextmethod))
+  
+
+  (method (finalize)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Jedi
+  ;;;
+  
+  
+  (method (export-jedi)
+    (let* ((workbench (get-workbench))
+           (project (find-project~ workbench 'Jedi-Project)))
+      (export-manifest~ project)
+      (user-message "Manifest exported")))
+
+  
+  ;;;
+  ;;;; Catalogs
+  ;;;
+  
+  
+  (method (load-catalog name)
+    (load-catalog-synchronized name)
+    @temp-commented-because-of-an-intermitent-bug-where-the-thread-will-allocate-memory-while-garbage-collecting
+    (new Thread
+      name: "Catalog Loader"
+      :context self
+      :execute
+      (function (thread)
+        (load-catalog-synchronized name))))
+  
+  
+  (method synchronized (load-catalog-synchronized name)
+    (let* ((appl (get-application))
+           (cataloguer (get-cataloguer~ appl))
+           (catalog (get-catalog~ cataloguer name :error? false)))
+      (when catalog
+        (set-active?~ catalog true))))
+
+  
+  ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (method (console-command command arguments)
+    (case command
+      ;; Documentation
+      ((:doc) (edit-documentation (car arguments)))
+      ;; SourceSafe
+      ((:checkout) (checkout arguments) true)
+      ((:checkin) (checkin arguments) true)
+      ;; Macro
+      ((:expand) (expand (car arguments)))
+      ((:expand-scheme) (expand-scheme (car arguments)))
+      ;; Various
+      ((:load-all) (load-all~ Analyser))
+      ((:touch) (touch arguments))
+      ((:touch-descendants) (touch-descendants arguments))
+      ((:compile) (compile arguments))
+      ((:edit) (edit arguments))
+      ((:exit) (exit) true)
+      (else (nextmethod command arguments))))
+  
+  
+  (method (edit-documentation name)
+    (let ((appl (get-application)))
+      (edit-documentation~ appl name)))
+  
+  
+  (method (checkout names)
+    (let ((repository (get-repository~ Repository)))
+      (for-each (function dynamic (name)
+                  (let ((file (get-manifest-source name)))
+                    (checkout-file~ repository file)))
+                names)))
+  
+  
+  (method (checkin names)
+    (let ((repository (get-repository~ Repository)))
+      (for-each (function dynamic (name)
+                  (let ((file (get-manifest-source name)))
+                    (checkin-file~ repository file)))
+                names)))
+
+  
+  (method (expand form)
+    (bind (name . arguments) form
+      (let* ((try (function dynamic (object) (unit-field (class-of object) name)))
+             (definition (either (try Language) (try Java) (essay Interactive-Object (try Interactive-Object)))))
+        (if (null? definition)
+            (begin
+              (debug form)
+              true)
+          (let ((macro (definition-value definition)))
+            (cond ((syntax-macro? macro) (debug (apply macro arguments)))
+                  ((macro? macro) (debug (macro arguments)))
+                  (else (debug (apply macro arguments))))
+            true)))))
+  
+  
+  (method (expand-scheme form)
+    (bind (name . arguments) form
+      (let* ((try (function dynamic (package) (unit-field (class-of package) name)))
+             (macro (definition-value (either (try Kernel)))))
+        (cond ((syntax-macro? macro) (debug (apply macro arguments)))
+              ((macro? macro) (debug (macro arguments))))
+        true)))
+  
+  
+  (method (touch classes)
+    (touch-classes false classes))
+  
+  
+  (method (touch-descendants classes)
+    (touch-classes true classes))
+
+
+  (method (touch-classes descendants? classes)
+    (let ((touched (new List-Factory)))
+      (letrec ((process
+                (function dynamic (model)
+                  (let* ((name (type-name model))
+                         (source (get-manifest-source name)))
+                    ;; because source can be null for inner classes
+                    (when (and source (unit-compiled? model))
+                      (touch~ source)
+                      (put~ touched name)
+                      (user-message "{s} touched" name))
+                    (when descendants?
+                      (for-each process (type-descendants model)))))))
+        (for-each (function dynamic (name)
+                    (process (autoload name)))
+                  classes)
+        (let* ((all (get-output~ touched))
+               (count (length all)))
+          (user-message "Touched {a} class{a}{a}"
+                        count
+                        (format-plural count "es")
+                        (if (null? all)
+                            ""
+                          (format ": {a}" (join (map ->string all) ", "))))))))
+  
+  
+  (method (compile classes)
+    (compile-classes classes))
+  
+  
+  (method (edit location)
+    (edit~ (new Jazz-Code-Location location)))
+
+  
+  ;;;
+  ;;;; Website
+  ;;;
+  
+  
+  (definition JazzWebsite-Directory
+    {Directory JazzWebsite-Project "Distribution" "Web"})
+  
+  
+  (method (test0)
+    (let ((frame (current-frame)))
+      (when (and frame (is? frame View-Host))
+        (let ((guest (get-guest~ frame)))
+          (when (is? guest Jazz-Text-View)
+            (save~ guest)))))
+    (regenerate-jazzwebsite))
+  
+  
+  (method (regenerate-jazzwebsite)
+    (reload-documentation~ (get-application))
+    (generate-jazzwebsite))
+  
+  
+  (method (generate-jazzwebsite)
+    (let* ((file {File JazzWebsite-Project "Development" "Website" "JazzWebsite.jml"})
+           (node (load-jml file))
+           (site (transform-jml node (new JazzWebsite-Transformation)))
+           (pages (get-children~ site)))
+      (for-each (function dynamic (page)
+                  (user-message "Rendering {a}..." (get-property~ page 'path))
+                  (render-jazzwebsite-page page))
+                pages)
+      (user-message "Website generated")))
+  
+  
+  (method (render-jazzwebsite-page page)
+    (let* ((content JazzWebsite-Directory)
+           (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
+           (preferences (new JML-Preferences))
+           (renderer (new XHTML-Renderer preferences))
+           (html (first-child~ page)))
+      (with-closed ((printer (new File-Printer :pathname file)))
+        (render~ renderer html printer))))
+    
+  
+  ;;;
+  ;;;; Mandelbrot
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (new-mandelbrot))
+  
+  
+  @wait
+  (method (new-mandelbrot)
+    (new-frame Mandelbrot :host-title "Mandelbrot" :host-position {Point 50 50} :host-size {Dimension 800 800} :host-workspace 'home))
+
+  
+  ;;;
+  ;;;; Fusion
+  ;;;
+  
+  
+  (method (gambit . rest)
+    (bind-keywords ((expr null) (maximum-heapsize 102400) (exception-handler :repl)) rest
+      (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
+             (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
+        (create-process command :directory {Directory jazz} :capture-input? false :capture-output? false :capture-error? false :wait? false :size {Dimension 900 500} :visible? true))))
+  
+  
+  ;;;
+  ;;;; Templates
+  ;;;
+  
+  
+  @wait
+  (definition Template-AList
+    '((title   . "Planner")
+      (package . "planner")
+      (source  . "{File Planner-Project \"Foo.jazz\"}")))
+  
+  
+  @wait
+  (method (test8)
+    (let ((expander (new Template-Expander))
+          (template {File Builder-Module "Templates" "Project.jazz"}))
+      (with-closed ((output (new File-Printer :pathname {File Builder-Module "Templates" "Test.jazz"})))
+        (expand~ expander template Template-AList output)))
+    (user-message "Done"))
+  
+  
+  ;;;
+  ;;;; Taskbar
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (test-taskbar))
+  
+  
+  @wait
+  (method (test-shift)
+    (test-remove-taskbar))
+  
+  
+  @wait
+  (method (test-taskbar)
+    (let ((record (new NOTIFYICONDATA))
+          (icon (load-image~ Image 'icon {Icon-Resource "Jazz"} :width 16 :height 16)))
+      (set record 'cbSize (size-of NOTIFYICONDATA))
+      (set record 'hWnd (get-toplevel-hwnd))
+      (set record 'uID 10)
+      (set record 'uFlags (bit-or NIF_MESSAGE NIF_ICON))
+      (set record 'uCallbackMessage JZ_TASKICON)
+      (set record 'hIcon icon)
+      (Shell_NotifyIcon NIM_ADD record)))
+  
+  
+  @wait
+  (method (test-remove-taskbar)
+    (let ((record (new NOTIFYICONDATA)))
+      (set record 'cbSize (size-of NOTIFYICONDATA))
+      (set record 'hWnd (get-toplevel-hwnd))
+      (set record 'uID 10)
+      (Shell_NotifyIcon NIM_DELETE record)))
+  
+  
+  ;;;
+  ;;;; Tie
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (let ((x 1))
+      (debug (tie "{x}~~Hello~{{self}"))))
+  
+  
+  ;;;
+  ;;;; Language
+  ;;;
+  
+  
+  @wait
+  (method (test1)
+    (format :console "{%}xxx{?abc~}yyy" null))
+  
+  
+  @wait
+  (method (test2)
+    (format :console "{%}xxx{?ab{a}c~}yyy" 10))
+  
+  
+  ;;;
+  ;;;; Generic
+  ;;;
+    
+  
+  @wait
+  (method (test)
+    (debug (definition-value (unit-field org.apache.bcel.classfile.JavaClass '<init>))))
+
+  
+  @wait
+  (method (test)
+    (debug (foo~ (new X) null)))
+  
+  
+  @wait
+  (method (test-shift)
+    (debug [foo (new X)]))
+  
+  
+  @wait
+  (method (test1)
+    (let* ((dispatcher (new Dispatcher))
+           (dag-root (get-dag-root~ dispatcher)))
+      (insert-node~ dispatcher null (list X Y))
+      (insert-node~ dispatcher null (list Y X))
+      (insert-node~ dispatcher null (list A A A))
+      (insert-node~ dispatcher null (list A A B))
+      (let ((test
+             (function dynamic (. signature)
+               (let ((generics (find-generics~ dispatcher signature)))
+                 (debug (map type-name signature) generics)))))
+        (test X X)
+        (test X Y)
+        (test Y Y)
+        (test Window Window)
+        (test A A A)
+        (test A A B)
+        (test X Y B))))
+  
+  
+  @wait
+  (method (test2)
+    (let* ((dispatcher (new Dispatcher))
+           (dag-root (get-dag-root~ dispatcher)))
+      (insert-node~ dispatcher null (list Rect))
+      (insert-node~ dispatcher null (list Point))
+      (let ((test
+             (function dynamic (. signature)
+               (let ((generics (find-generics~ dispatcher signature)))
+                 (debug (map type-name signature) generics)))))
+        (test Object)
+        (test Point)
+        (test Rect)
+        (test Integer))))
+  
+  
+  @wait
+  (method (test2)
+    (let* ((dispatcher (new Dispatcher))
+           (dag-root (get-dag-root~ dispatcher)))
+      (insert-node~ dispatcher null (list))
+      (insert-node~ dispatcher null (list <javaint>))
+      (let ((test
+             (function dynamic (. signature)
+               (let ((generics (find-generics~ dispatcher signature)))
+                 (debug (map type-name signature) generics)))))
+        (test )
+        (test Integer)
+        (test Integer Integer)
+        (test Integer Integer Integer))))
+  
+  
+  ;;;
+  ;;;; Exemplar
+  ;;;
+  
+  
+  @wait
+  (definition ed
+    null)
+  
+  @wait
+  (definition xa
+    null)
+  
+  @wait
+  (definition xb
+    null)
+  
+  @wait
+  (definition x1
+    null)
+  
+  @wait
+  (definition x2
+    null)
+  
+  
+  @wait
+  (method (setup-exemplar)
+    (set! ed (new Exemplar-Domain))
+    (set! xa (new X :domain ed name: 'a :a 1 :b 2 :c 3))
+    (set! xb (new X :domain ed name: 'b :base 'a :b 5))
+    (set! x1 (new X :domain ed :base 'a :a 10))
+    (set! x2 (new X :domain ed :base 'b :a 20))
+    (user-message "Setup done"))
+  
+  
+  @wait
+  (method (test-exemplar)
+    (init~ xa)
+    (init~ xb)
+    (init~ x1)
+    (init~ x2)
+    (user-message "Test done"))
+
+
+  ;;;
+  ;;;; Tabulate
+  ;;;
+  
+  
+  (method (test9)
+    (let ((text (get-focus)))
+      (if (is-not? text Jazz-Text-View)
+          (bell)
+        (internal-tabulate text))))
+  
+  
+  (method (internal-tabulate text)
+    (let* ((pos (get-start~ text))
+           (range (new Range pos pos))
+           (explorer (new Jazz-Explorer text :range range))
+           (maxes (collect-maxes explorer)))
+      (set-range~ explorer range)
+      (tabulate-columns text explorer maxes)))
+  
+  
+  (method (collect-maxes explorer)
+    (let* ((maxes null)
+           (update-maxes
+            (function dynamic (sizes)
+              (set! maxes (if (null? maxes)
+                              sizes
+                            (map max maxes sizes))))))
+      (while (enter-composite~ explorer)
+        (let ((sizes (new List-Factory)))
+          (while (forward-expr~ explorer)
+            (let ((size (- [col (get-end~ explorer)] [col (get-start~ explorer)])))
+              (put~ sizes size)))
+          (update-maxes (get-output~ sizes)))
+        (exit-composite~ explorer))
+      maxes))
+  
+  
+  (method (tabulate-columns text explorer maxes)
+    (let ((undoer (get-undoer~ text)))
+      (with-atomic-undo~ undoer
+        (function dynamic ()
+          (while (enter-composite~ explorer)
+            (let ((maxes maxes))
+              (while (forward-expr~ explorer)
+                (let* ((max (car maxes))
+                       (size (- [col (get-end~ explorer)] [col (get-start~ explorer)]))
+                       (diff (- max size)))
+                  (when (> diff 0)
+                    (let ((end (get-end~ explorer)))
+                      (replace-text~ text (new Range end end)
+                        (list (make-string diff)))))
+                  (set! maxes (cdr maxes)))))
+            (exit-composite~ explorer))))))
+
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  @wait
+  (method (text-macro text)
+    (let* ((start [row (get-start~ text)])
+           (end [row (get-end~ text)])
+           (col (get-column~ text start))
+           (char (get-char~ text (new Cell start col))))
+      (if (/= char #\-)
+          (bell)
+        (with-locked-update
+          (function dynamic ()
+            (replace~ text (new Range (new Cell start 0) (new Cell start (+ col 2))) (list ""))
+            (for-each (function dynamic (row)
+                        (remove-spaces~ text (new Range
+                                               (new Cell row (paragraph-length~ text row))
+                                               (new Cell row (paragraph-length~ text row)))
+                          :keep 'one))
+                      (naturals start end))
+            (let ((paragraph (get-paragraph~ (get-paragraph~ text start))))
+              (unless (get-bulleted?~ (get-format~ paragraph))
+                (toggle-bulleted~ text start))))))))
+  
+  
+  @wait
+  (method (test)
+    (test-for-each-page))
+  
+  
+  @wait
+  (method (test-for-each-page)
+    (for-each-page~ % 0 (+ (get-limit~ %) 1) 360
+     (function dynamic (page top bottom)
+       (let ((t (get-bottom~ (get-row~ % top)))
+              (b (get-top~ (get-row~ % bottom))))
+         (debug (- b t))))))
+  
+  
+  @wait
+  (method (test-message-box)
+    (message-box
+      (list "Hello World"
+            (list :bulleted "This message-box")
+            (list :bulleted :indent 2 "really" " " (list :hyperlink (function () (end-modal-dialog (function () (debug 'yo)))) "really") " " (list :image {Bitmap-Resource "BlueRed"}) " " (list :highlight 'Light-Red "really"))
+            (list :bulleted :indent 1 "rocks!"))
+      :sound null))
+  
+  
+  @wait
+  (method (hide-paragraphs)
+    (let ((text (get-focus)))
+      (for-each-selected-paragraph~ text
+       (function dynamic (row paragraph)
+         (hide~ paragraph)))))
+  
+  
+  ;;;
+  ;;;; Excel
+  ;;;
+  
+  
+  @wait
+  (definition Excel-Dll
+    {File Native "C:\\Program Files\\Microsoft Office\\Office\\EXCEL9.OLB"})
+  
+  @wait
+  (definition Excel-Lib
+    (new Type-Lib :file Excel-Dll))
+  
+  @wait
+  (definition Excel-Extractor
+    (new Type-Extractor :library Excel-Lib))
+  
+  @wait
+  (definition Excel-Type
+    (new Type-Info (get-type-info (get-handle~ Excel-Lib) 555)))
+  
+  
+  @wait
+  (method (generate-typelib pathname)
+    (let* ((library (new Type-Lib :file pathname))
+           (extractor (new Type-Extractor :library library)))
+      (extract~ extractor)))
+  
+  
+  @wait
+  (method (test-excel)
+    (with-closed ((printer (new File-Printer :pathname {File Jazz "Dummy.jazz"})))
+      (set! [to-emit Excel-Extractor] (list Excel-Type))
+      (set! [emited Excel-Extractor] null)
+      (emit-type-info~ Excel-Extractor Excel-Type printer)))
+  
+  
+  @wait
+  (method (test-excel)
+    (extract~ Excel-Extractor))
+  
+  
+  @wait
+  (method (test-excel)
+    (new Activity
+      :context self
+      :execute (function (activity)
+                 (extract~ Excel-Extractor :activity activity))))
+
+  
+  ;;;
+  ;;;; Storage
+  ;;;
+  
+  
+  @wait
+  (method (test-storage)
+    (let ((file {File Jazz "CF.txt"}))
+      (with-closed ((storage (create-storage-file~ Storage file)))
+        )))
+  
+  
+  @wait
+  (method (test-doc-storage)
+    (let ((file {File Jazz "X.doc"}))
+      (with-closed ((storage (open-storage-file~ Storage file)))
+        (let* ((content (get-content~ storage))
+               (names (map (function dynamic (stat) (get stat 'pwcsName)) content))
+               (types (map (function dynamic (stat) (get stat 'type)) content)))
+          (debug content names types)))))
+
+  
+  ;;;
+  ;;;; Mail
+  ;;;
+  
+  
+  @wait
+  (method (test-mail)
+    (with-closed ((session (new Mapi-Session))
+                  (messages (new Mapi-Messages session)))
+      (let ((attachment {File Jazz "Documentation" "Images" "SmallJazz.png"}))
+        (send-email~ messages
+         :prompt? true
+         :recipient "gcartier@jazzscheme.org"
+         :subject "Un test"
+         :body (format "Tel que convenu...{%}{%}{%}{%}lors de notre...")
+         :attachment attachment))))
+
+  
+  ;;;
+  ;;;; ADO
+  ;;;
+  
+  
+  @wait
+  (method (test-ado)
+    (let ((data-source (new Access-Data-Source :dsn "Cassettes")))
+      (with-closed ((connection (new-connection~ data-source)))
+        (execute~ connection "Select * from Rubriques"))))
+  
+  
+  @wait
+  (definition Test-Connection
+    null)
+
+
+  @wait
+  (method (get-connection)
+    (unless Test-Connection
+      (set! Test-Connection (new-connection)))
+    Test-Connection)
+  
+  
+  @wait
+  (method (new-connection)
+    (let ((connection (new Connection)))
+      (open~ connection "DSN=Sample;")
+      connection))
+  
+  
+  @wait
+  (method (close-connection)
+    (when Test-Connection
+      (close~ Test-Connection)
+      (set! Test-Connection null)))
+  
+  
+  @wait
+  (method (rq request)
+    (load-request~ (new-request~ (get-connection)) request))
+  
+  
+  @wait
+  (method (process-sql connection request)
+    (let ((pos (find #\space request :return 'position)))
+      (when pos
+        (let ((command (subseq request 0 pos)))
+          (when (= command "DESC")
+            (let ((name (subseq request (+ pos 1)))
+                  (browser (select-palette Inventory-Browser :workspace null :focus? false)))
+              (describe-connection-table~ browser connection name)))))))
+  
+  
+  @wait
+  (method (expand-sql request)
+    (let* ((request (trim-whitespace request))
+           (pos (find #\space request :return 'position))
+           (name (if (null? pos) request (subseq request 0 pos)))
+           (where (if (null? pos) null (subseq request (+ pos 1)))))
+      (if (member? (upcase name) '("SELECT" "DELETE" "UPDATE" "INSERT" "EXEC" "EXECUTE" "CREATE" "SET" "BEGIN" "COMMIT" "USE" "DROP" "ALTER" "GRANT" "DENY" "IF" "DECLARE"))
+          request
+        (let ((columns "*"))
+          (format "select {a} from {a}{a}"
+                  columns
+                  name
+                  (if where (format " where {a}" where) ""))))))
+
+  
+  ;;;
+  ;;;; Java
+  ;;;
+
+  
+  @wait
+  (method (test2)
+    (let* ((java (new Java-Runtime))
+           (output (execute~ java "com/metascoop/Test" :classpath Java-Classpath :arguments "JazzStandaloneRelease.exe")))
+      (message-box (join output (crlf)))))
+  
+  
+  @wait
+  (method (test3)
+    (let ((obj1 (new org.jazzscheme.test.Test))
+           (obj2 (new org.jazzscheme.test.Test 8)))
+      (debug (cj~ obj1 2))
+      (debug (test~ obj1 4 5) (test~ obj2 2 3 4))))
+
+  
+  ;;;
+  ;;;; Error
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (new Thread
+      :context self
+      :execute (function (thread)
+                 (foo))))
+  
+  
+  @wait
+  (method (foo)
+    (let ((x 1))
+      (unwind-protect
+          (begin
+            (car x)
+            (message-box "This should not happen!"))
+        (debug 'hello))))
+  
+  
+  @wait
+  (class Error-Tester extends View
+    
+    
+    (slot processing? initialize false)
+    
+    
+    (method (mouse-down pos)
+      (set! processing? true))
+    
+    
+    (method (drag-move pos)
+      (when processing?
+        (car 1)))
+    
+    
+    (method (drag-up pos . rest)
+      (debug 'up)
+      (set! processing? false)))
+  
+  
+  @wait
+  (method (test-shift)
+    (new-frame Error-Tester :guest-context self))
+
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (new Thread
+      :context self
+      :execute (function (thread)
+                 (debug
+                   (receive-primary-with-error
+                     (function dynamic ()
+                       (foo)))))))
+  
+  
+  @wait
+  (method (test)
+    (new Thread
+      :context self
+      :execute (function (thread)
+                 (car 1))))
+  
+  
+  @wait
+  (method (test-shift)
+    (let ((impulse (new Impulse)))
+      (new Thread
+        :context self
+        :execute (function (thread)
+                   (sleep 5000)
+                   (car 1)
+                   (set-event~ impulse)
+                   (debug 'thread-done)))
+      (wait-for impulse :timeout 10 :error? false)
+      (debug 'done)))
+  
+  
+  @wait
+  (method (test1)
+    (let ((t1 (new Thread
+                 :context self
+                 :execute (function (thread)
+                            (sleep 1000))))
+           (t2 (new Thread
+                 :context self
+                 :execute (function (thread)
+                            (sleep 2000)))))
+      (debug (wait-for (list t1 t2) :timeout 3000 :error? false))))
+
+  
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  @wait
+  (method (test-context)
+    (with-execution-context
+      (function dynamic ()
+        (with-progress
+          (function dynamic (reporter)
+            @wait
+            (with-restart
+              (function dynamic ()
+                (to-fix)))
+            (for-each (function dynamic (n)
+                        (with-continue
+                          (function dynamic ()
+                            (foo n))))
+                      (naturals 0 10))
+            (car 'a))
+          :threaded? false
+          :context self))
+      :title "test"))
+  
+  
+  @wait
+  (method (to-fix)
+    (debug (symbol->string null)))
+  
+  
+  @wait
+  (method (foo n)
+    (with-execution-node
+      (function dynamic ()
+        (goo n))
+      :title "hello we are doing..."
+      :details '("a" "b" "c")))
+  
+  
+  @wait
+  (method (goo n)
+    (with-execution-node
+      (function dynamic ()
+        (hoo n))
+      :title "goo"
+      :details '("x" "y")))
+  
+  
+  @wait
+  (method (hoo n)
+    (with-execution-node
+      (function dynamic ()
+        (car n))
+      :title "hoo"))
+
+  
+  ;;;
+  ;;;; Parameters
+  ;;;
+  
+  
+  @wait
+  (method (test-parameters)
+    (set-parameter 'test 2)
+    (new Thread
+      :context self
+      :execute (function (thread)
+                 (debug 'thread (get-parameter 'test))
+                 (set-parameter 'test 3)
+                 (debug 'thread (get-parameter 'test))))
+    (sleep 500)
+    (debug 'main (get-parameter 'test)))
+  
+  
+  ;;;
+  ;;;; Logging
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (with-log (new Log name: 'test :file {File Base "Logs" "Test.jml"})
+      (function dynamic ()
+        (log-entry name: "hello")
+        (log-entry name: "world"))))
+  
+  
+  @wait
+  (method (test-shift)
+    (foo 2))
+  
+  
+  @wait
+  (method (foo x)
+    (log-entry name: "foo" :message (format "received {a}" x))
+    (bar x))
+  
+  
+  @wait
+  (method (bar x)
+    (let ((y (+ x x x)))
+      (log-entry name: "bar" :message "some stack" :data (new Stack-Snapshot))))
+  
+  
+  @wait
+  (method (test)
+    (with-log (new Log name: 'test :file {File Base "Logs" "Test.jml"})
+      (function dynamic ()
+        (log-entry name: "hello")
+        (log-entry name: "world")
+        (log-properties (list :a 2 :b 3 :c 5) name: "test")
+        (with-profile
+          (function dynamic (node)
+            (+ 2 3))
+          name: "resources"))))
+
+  
+  ;;;
+  ;;;; Resources
+  ;;;
+  
+  
+  @wait
+  (method (test3)
+    (gc)
+    (test-resources))
+  
+  
+  @wait
+  (method (test-resources)
+    (with-log (new Log name: "Resources" :file {File Base "Logs" "Resources.jml"})
+      (function dynamic ()
+        (test-accelerator-table)
+        (test-bitmap)
+        (test-dc)
+        (test-file-printer)
+        (test-file-reader)
+        (test-font)
+        (test-image)
+        (test-pen)
+        (test-picture)
+        (test-portfolio)
+        (test-pseudo-handle)
+        (test-reader)
+        (test-region)
+        (test-registry-key)
+        (test-socket)
+        (test-stack)
+        (test-synchronizer)
+        (test-thread)
+        (test-user-name))))
+  
+  
+  @wait
+  (method (test-accelerator-table)
+    (with-profile
+      (function dynamic (node)
+        (new Accelerator-Table (list (list '(F4) self))))
+      name: "Accelerator-Table"))
+  
+  
+  @wait
+  (method (test-bitmap)
+    (with-profile
+      (function dynamic (node)
+        (new Bitmap :dc (desktop-dc) :width 16 :height 16))
+      name: "Bitmap"))
+
+
+  @wait
+  (method (test-dc)
+    (with-profile
+      (function dynamic (node)
+        (new Window-DC (get-toplevel)))
+      name: "DC"))
+  
+  
+  @wait
+  (method (test-file-printer)
+    (with-profile
+      (function dynamic (node)
+        (new File-Printer :temporary? true))
+      name: "File-Printer"))
+  
+  
+  @wait
+  (method (test-file-reader)
+    (with-profile
+      (function dynamic (node)
+        (new File-Reader :pathname {File Root "Readme.txt"}))
+      name: "File-Reader"))
+  
+  
+  @wait
+  (method (test-font)
+    (with-profile
+      (function dynamic (node)
+        (new Font :font-name "Tahoma" :point-size 8))
+      name: "Font"))
+  
+  
+  @wait
+  (method (test-image)
+    (with-profile
+      (function dynamic (node)
+        (load-image~ Image 'bitmap {Bitmap-Resource "Break"})
+        (load-image~ Image 'icon {Icon-Resource "Jazz"} :width 16 :height 16)
+        (load-image~ Image 'cursor {Cursor-Resource "Move"}))
+      name: "Image"))
+  
+  
+  @wait
+  (method (test-pen)
+    (with-profile
+      (function dynamic (node)
+        (new Pen :color {Color :red 142 :green 142 :blue 142}))
+      name: "Pen"))
+  
+  
+  @wait
+  (method (test-picture)
+    (with-profile
+      (function dynamic (node)
+        (new Picture))
+      name: "Picture"))
+  
+  
+  @wait
+  (method (test-portfolio)
+    (with-profile
+      (function dynamic (node)
+        (new Portfolio))
+      name: "Portfolio"))
+  
+  
+  @wait
+  (method (test-pseudo-handle)
+    (with-profile
+      (function dynamic (node)
+        (GetCurrentProcess))
+      name: "Pseudo Handle"))
+  
+  
+  @wait
+  (method (test-reader)
+    (with-profile
+      (function dynamic (node)
+        (new File-Reader {File Root "Readme.txt"}))
+      name: "Reader"))
+  
+  
+  @wait
+  (method (test-region)
+    (with-profile
+      (function dynamic (node)
+        (new Region :rect {Rect 0 0 100 100}))
+      name: "Region"))
+  
+  
+  @wait
+  (method (test-registry-key)
+    (with-profile
+      (function dynamic (node)
+        (let ((key1 (new Registry-Key :key HKEY_CLASSES_ROOT))
+              (key2 (new Registry-Key :key HKEY_CURRENT_USER)))
+          (open-key~ key1 "TypeLib")
+          (open-key~ key1 "TypeLib")
+          (open-key~ key1 "TypeLib"))
+        (with-closed ((key (new Registry-Key :key HKEY_CLASSES_ROOT)))
+          (with-profile
+            (function dynamic (node)
+              (with-closed ((subkey (open-key~ key "TypeLib")))
+                ))
+            name: "open-key")))
+      name: "Registry-Key"))
+  
+  
+  @wait
+  (method (test-socket)
+    (with-profile
+      (function dynamic (node)
+        (new Socket))
+      name: "Socket"))
+  
+  
+  @wait
+  (method (test-stack)
+    (with-node
+      (function dynamic (node)
+        (log-profile name: 'before)
+        (letrec ((proc
+                  (function dynamic (n)
+                    (if (= n 0)
+                        (log-profile name: 'after)
+                      (proc (- n 1))))))
+          (proc 5000)))
+      :node (new-log-node name: "Stack")))
+  
+  
+  @wait
+  (method (test-synchronizer)
+    (with-profile
+      (function dynamic (node)
+        (new Impulse)
+        (new Mutex)
+        (new Semaphore))
+      name: "Synchronizer"))
+  
+  
+  @wait
+  (method (test-thread)
+    (with-profile
+      (function dynamic (node)
+        (new Thread
+          :context self
+          :execute (function (thread)
+                     (sleep 500))))
+      name: "Thread"))
+
+  
+  @wait
+  (method (test-user-name)
+    (with-profile
+      (function dynamic (node)
+        (get-windows-user-name))
+      name: "User Name"))
+  
+  
+  @wait
+  (method (test1)
+    (gc)
+    (let* ((undestroyed (gc-undestroyed-objects))
+           (not-component (collect-if (function (obj) (is-not? obj Component)) undestroyed))
+           (bitmaps (collect-type Bitmap undestroyed))
+           (memory-dcs (collect-type Memory-DC undestroyed)))
+      (debug (map type-name (map class-of undestroyed)))))
+  
+  
+  @wait
+  (method (test9)
+    (gc-clear-undestroyed))
+  
+  
+  ;;;
+  ;;;; Process Monitor
+  ;;;
+  
+  
+  @wait
+  (method (present-process-monitor-stack file)
+    (let* ((executable {File Base "Launcher.exe"})
+           (handler (new Symbol-Handler executable))
+           (stack (read-process-monitor-stack file)))
+      (for-each (function dynamic (line)
+                  (bind (no name relative absolute executable) line
+                    (let ((addr (read-string-element absolute)))
+                      (format :console "{%}{a} {a}" name (either (get-sym-from-addr~ handler addr) absolute)))))
+                stack)
+      (fresh-prompt~ (get-application))))
+  
+  
+  @wait
+  (method (read-process-monitor-stack file)
+    (let ((reader (new File-Reader file))
+          (readtable (new Readtable)))
+      (set-syntax~ readtable #\comma [TWhitespace Reader])
+      (set-readtable~ reader readtable)
+      (let ((lines (new List-Factory))
+            (done? false))
+        (while (not done?)
+          (let ((line (read-process-monitor-stack-line reader)))
+            (if (eof-object? line)
+                (set! done? true)
+              (put~ lines line))))
+        (get-output~ lines))))
+  
+  
+  @wait
+  (method (read-process-monitor-stack-line reader)
+    (let ((no (read reader)))
+      (if (eof-object? no)
+          no
+        (let ((name (read reader))
+              (relative (read reader))
+              (absolute (read reader))
+              (executable (read reader)))
+          (list no name relative absolute executable)))))
+  
+  
+  @wait
+  (method (test9)
+    (present-process-monitor-stack {File Native "C:" "stack.CSV"}))
+  
+  
+  ;;;
+  ;;;; Symbol Handler
+  ;;;
+  
+  
+  @wait
+  (method (ts addr)
+    (let* ((executable {File Base "Launcher.exe"})
+           (handler (new Symbol-Handler executable)))
+      (debug handler)
+      (debug (get-sym-from-addr~ handler addr))))
+
+  
+  ;;;
+  ;;;; Profiler
+  ;;;
+  
+  
+  @wait
+  (method (test-shift)
+    (debug (foo 2)))
+  
+  
+  @wait
+  (method (foo x)
+    (profile (:on? true name: foo)
+    (list (bar x)
+          (baz (+ x x)))))
+  
+  
+  @wait
+  (method (bar x)
+    (profile (name: bar :condition foo)
+    (+ (bar1 x)
+       (bar2 (+ x x)))))
+  
+  
+  @wait
+  (method (bar1 x)
+    (profile (name: bar1 :condition bar)
+    (sleep 10)
+    x))
+  
+  
+  @wait
+  (method (bar2 y)
+    (profile (name: bar2 :condition bar)
+    (sleep 50)
+    y))
+  
+  
+  @wait
+  (method (baz y)
+    (profile (name: baz :condition foo)
+    (sleep 100)
+    y))
+  
+  
+  ;;;
+  ;;;; Socket
+  ;;;
+  
+  
+  @wait
+  (definition Ping-Host
+    {Host name: "localhost"})
+  
+  @wait
+  (definition Ping-Port
+    33001)
+  
+  
+  @wait
+  (definition Ping-Running?
+    false)
+  
+  
+  @wait
+  (method (start-ping-server)
+    (unless Ping-Running?
+      (let* ((appl (get-application))
+             (workbench (get-workbench))
+             (project (find-project~ workbench 'Ping-Project)))
+        (launch~ appl project)
+        (set! Ping-Running? true)
+        (user-message "Ping server started"))))
+  
+  
+  @wait
+  (method (stop-ping-server)
+    (when Ping-Running?
+      (with-closed ((socket (new Socket)))
+        (connect~ socket Ping-Host Ping-Port)
+        (send-object~ socket 'quit))
+      (set! Ping-Running? false)
+      (user-message "Ping server stopped")))
+  
+  
+  @wait
+  (method (test)
+    (start-ping-server))
+  
+  
+  @wait
+  (method (test-shift)
+    (stop-ping-server))
+  
+  
+  @wait
+  (method (test1)
+    (start-ping-server)
+    (with-closed ((socket (new Socket)))
+      (connect~ socket Ping-Host Ping-Port)
+      (send-object~ socket (naturals 0 100))
+      (debug (receive-object~ socket))))
+  
+  
+  ;;;
+  ;;;; Scaling
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (new-frame Scaling-Scroller :host-title "Scaling Scroller" :host-position {Point 50 50} :host-size {Dimension 300 500} :guest-context self))
+
+  
+  @wait
+  (class Scaling-Scroller extends Scroller-View
+    
+    
+    (form
+      (<install>                        vscroll?: #t hscroll?: #t
+        (<!>              name: content
+          (<Scaling-View> name: view    position: {Point 0 0} size: {Dimension 600 800}))))
+    
+    
+    (class Scaling-View extends View
+      
+      
+      (definition flag
+        true)
+      
+      
+      (method (draw dc context update lh lv)
+        (let ((update-rect (get-update-rect dc update lh lv))
+              (color (if flag {Color name: Dark-Red} {Color name: Dark-Blue})))
+          (set! flag (not flag))
+          (fill-rect~ dc @w (get-bounds) (inflate-rect update-rect 1 1) color)))
+      
+      
+      (method (mouse-down h v)
+        (debug 'mouse-down))))
+
+
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @wait
+  (method (test)
+    (bind-values (a b) (my-dialog)
+      (message-box (format "a: {a}, b: {a}" a b))))
+  
+  
+  @wait
+  (method (my-dialog)
+    (get-modal My-Dialog :guest-context self))
+  
+  
+  @wait
+  (class My-Dialog extends View
+    
+    
+    (form
+      (<install>       size: {Dimension 400 206}
+        (<Push-Button> title: "Source" position: {Point 70 122} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :guest on-update :source? #t})
+        (<Push-Button> title: "Databases" position: {Point 160 122} size: {Dimension 80 24} action-handler: {Event-Handler :guest on-update :source? #f})
+        (<Push-Button> title: "Cancel" position: {Point 250 122} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+    
+    
+    (method (on-update evt)
+      (my-dialog)
+      (let ((dialog (get-host))
+             (source? (get-property~ evt :source?))
+             (update
+              (function dynamic ()
+                (update-database))))
+        (if source?
+            (end-modal~ dialog (update))
+          (catch Stop-Signal
+            (update-database)))))
+    
+    
+    (method (update-database)
+      (with-progress
+        (function dynamic (reporter)
+          (something reporter))))
+    
+    
+    (method (something reporter)
+      (with-execution-context
+        (function dynamic ()
+          (for-each (function dynamic (n)
+                      (test-cancelled~ reporter)
+                      (with-continue
+                        (function dynamic ()
+                          (if (= n 7)
+                              (car 1)
+                            (user-message~ reporter "{a}" n))
+                          (sleep 200))))
+                    (naturals 0 10))
+          (values 2 3)))))
+  
+  
+  ;;;
+  ;;;; Picker
+  ;;;
+  
+  
+  @wait
+  (method (test1)
+    (blend 255))
+  
+  
+  @wait
+  (method (test2)
+    (blend 100))
+  
+  
+  @wait
+  (method (test3)
+    (blend 30))
+  
+  
+  @wait
+  (method (blend x)
+    (pick-figure
+      (function (window position view pos)
+        (set-alpha-blending~ (get-player~ view) x))))
+  
+  
+  ;;;
+  ;;;; Reprint Form
+  ;;;
+  
+  
+  (method (reprint-toplevel-form . rest)
+    (bind-keywords ((space-properties? true) (align-name? true)) rest
+      (let* ((text (get-focus))
+             (range (toplevel-expr~ text (get-end~ text)))
+             (string (get-string~ text range))
+             (form (jml->form (read-string-element string))))
+        (if (is-not? form Form)
+            (bell)
+          (let* ((designer (new Designer form: form))
+                 (output (saved-form~ designer false 0 :space-properties? space-properties? :align-name? align-name?)))
+            (with-update-locked~ text
+              (function dynamic ()
+                (set-selection~ text range)
+                (insert-string~ text output))))))))
+  
+  
+  (method (reprint-current-form . rest)
+    (bind-keywords ((space-properties? true) (align-name? true)) rest
+      (let* ((text (get-focus))
+             (classes (current-classes~ text (get-selection~ text)))
+             (range (definition-range~ text (get-end~ text)))
+             (string (get-string~ text range))
+             (form (jml->form (second (read-string-element string)))))
+        (if (is-not? form Form)
+            (bell)
+          (let* ((designer (new Designer form: form))
+                 (output (saved-form~ designer true (+ 1 (length classes)) :space-properties? space-properties? :align-name? align-name?)))
+            (with-update-locked~ text
+              (function dynamic ()
+                (set-selection~ text range)
+                (insert-string~ text output))))))))
+  
+  
+  (method (reprint-selected-form . rest)
+    (bind-keywords ((space-properties? true) (align-name? true)) rest
+      (let* ((text (get-focus))
+             (range (get-selection~ text))
+             (string (get-string~ text range))
+             (form (jml->form (read-string-element string))))
+        (if (is-not? form Form)
+            (bell)
+          (let* ((designer (new Designer form: form))
+                 (output (saved-form~ designer false 0 :space-properties? space-properties? :align-name? align-name?)))
+            (with-update-locked~ text
+              (function dynamic ()
+                (set-selection~ text range)
+                (insert-string~ text output))))))))
+
+  
+  ;;;
+  ;;;; Activities
+  ;;;
+  
+  
+  (method (clear-activities)
+    (let* ((manager (get-activity-manager))
+           (reporters (get-reporters~ manager)))
+      (for-each (function dynamic (reporter)
+                  (unregister-activity~ manager reporter))
+                reporters)))
+
+  
+  ;;;
+  ;;;; Location
+  ;;;
+  
+  
+  @wait
+  (class Foo extends Object
+
+  
+    (definition holder
+      null)
+    
+    
+    (method (bar)
+      (set! holder null)
+      (let* ((x 2)
+             (z self)
+             (proc
+              (function dynamic (n flag)
+                (let* ((y (+ x x))
+                       (p
+                        (function dynamic ()
+                          (let ((v y))
+                            (break)
+                            (message-box n)))))
+                  (if flag p (holder))))))
+        (set! holder (proc 5 true))
+        (proc 7 false)))
+    
+    
+    (method (baz)
+      (let ((x 2))
+        (car x))))
+  
+  
+  @wait
+  (method (test)
+    (bar~ (new Foo)))
+  
+  
+  @wait
+  (method (test-shift)
+    (baz~ (new Foo)))
+
+  
+  @wait
+  (method (test-location)
+    (let ((x 2)
+          (y (break))
+          (z 3))
+      (list x y z)))
+
+  
+  @wait
+  (method (test-location-aux)
+    (let ((z (new [Z Y X])))
+      (foo~ z '(10 20 30))))
+    
+  
+  @wait
+  (class X extends Object
+    
+    
+    (class Y extends Object
+      
+      
+      (class Z extends Object
+        
+        
+        (method (foo list)
+          (for-each (function dynamic (x)
+                      (map (function dynamic (y)
+                             (car y))
+                           (naturals 0 x)))
+                    list))
+        
+        
+        (method (bar)
+          (car 1)))))
+  
+  
+  ;;;
+  ;;;; XML
+  ;;;
+  
+
+  @wait
+  (method (xml-viewer)
+    (let ((document (new XML-Document))
+          (file {File Native "C:" "Books.xml"}))
+      (load~ document file)
+      (let* ((frame (new-frame XML-Viewer :host-visible? false))
+             (viewer (get-guest~ frame)))
+        (set-document~ viewer document)
+        (bring-to-front~ frame)
+        (set-visible?~ frame true))))
+
+  
+  @wait
+  (method (test)
+    (let* ((text "<TABLE colspan=2> aaaa </TABLE>")
+           (parser (new XML-Parser :text text)))
+      (debug (parse-text~ parser))))
+  
+  
+  @wait
+  (method (test1)
+    (log-entry name: "Test1")
+    (let* ((text "start <A> blabla <B> </B> yoyo <C> </C> gousigousi </A> end")
+           (parser (new XML-Parser :text text)))
+      (debug (parse-text~ parser))))
+  
+  
+  @wait
+  (method (test2)
+    (let* ((file {File Jazz "Doc.jazz"})
+           (text (with-closed ((reader (new File-Reader :pathname file))) (read-string-content~ reader)))
+           (parser (new XML-Parser :text text)))
+      (debug (parse-text~ parser))
+      (debug (length text))))
+  
+  
+  ;;;
+  ;;;; XSL
+  ;;;
+
+  
+  (class My-Transfo extends XML-Transformer
+    
+    
+    (method public (machin node x y)
+      (xsl-rules node
+        ((a)
+         (f ((mode "1") (title (<-xml x)))
+            (xml>>
+             (for-each (function dynamic (n)
+                         (>>xml
+                          (p (<-xml n))))
+                       (cdr node)))))))
+    
+    
+    (method public (chouette node a b)
+      (xsl-rules node
+        ((b)
+         (xml>>
+          (apply-transformation machin (children~ node)))))))
+
+  
+  @wait
+  (method (test)
+    (let ((transfo (new My-Transfo :handler (new XML-Formatter))))
+      (machin~ transfo '(a "B" "C") 1 2)))
+  
+  
+  @test
+  (method (test1)
+    (format :console "{t}"
+     (expand-xsl-ruleset
+       '(x y)
+       (list
+        '((a) 
+          (f
+           (xml>>
+            (for-each
+             (function (n)
+               (>>xml
+                (p (<-xml n))))
+             (children~ node)))))))))
+  
+  
+  @wait
+  (method (test0)
+    (let ((f (new XML-Formatter :pretty true :indentation 2)))
+      (begin-element~ f "body")
+      (begin-element~ f "h1")
+        (add-attribute~ f "align" "center")
+      (end-element~ f "h1")
+      (begin-element~ f "p")
+        (text~ f "Bonjour les petits amis")
+      (end-element~ f "p")
+      (end-element~ f "body")))
+  
+
+  @test  
+  (method (test1)
+    (let ((processor (new XML-Formatter :pretty false))
+          (converter [process-sxml SXML]))
+       (converter
+        '(body 
+          (h1 ((align "center"))
+              "allo"
+              (b "le monde")
+              "de toto"))
+        processor)))
+  
+  
+  @wait
+  (method (test0)
+    (car 1))
+  
+  
+  @wait
+  (method (setup-compiler)
+    (initialize-user-passes~ Compiler)
+    (add-user-pass~ Compiler (new Type-Annotator))
+    (add-user-pass~ Compiler (new Mutation-Annotator)))
+  
+  
+  ;;;
+  ;;;; Scheme
+  ;;;
+  
+  
+  @wait
+  (method (test1)
+    (cond (2 => debug)))
+  
+  
+  @wait
+  (method (test)
+    (debug (lalr-parser (ID +))))
+  
+  
+  @wait
+  (method (test)
+    (test~ CPS identity))
+  
+  
+  ;;;
+  ;;;; DirectX
+  ;;;
+
+  
+  @souvenir
+  (method (test-directx)
+    (let ((frame (new Frame :title "DirectX" :size {Dimension 600 400} :position {Point 100 100}))
+          (dx (cocreate [DirectX7 DxVBLib])))
+      (bind-values (hr ptr) (DirectDrawCreate~ dx "")
+        (assert-hr hr 1)
+        (let ((dd (cobind ptr [DirectDraw7 DxVBLib])))
+          (SetCooperativeLevel~ dd (get-hwnd~ frame) [DDSCL_NORMAL DxVBLib])
+          (let ((ddsd (new [DDSURFACEDESC2 DxVBLib])))
+            (set ddsd 'lSize (size-of [DDSURFACEDESC2 DxVBLib]))
+            (set ddsd 'lFlags [DDSD_CAPS DxVBLib])
+            (set ddsd '(ddsCaps lCaps) [DDSCAPS_PRIMARYSURFACE DxVBLib])
+            (bind-values (hr ptr) (CreateSurface~ dd (record-address ddsd))
+              (assert-hr hr 2)
+              (let ((primary (cobind ptr [DirectDrawSurface7 DxVBLib])))
+                (set ddsd 'lFlags (bit-or [DDSD_WIDTH DxVBLib] [DDSD_HEIGHT DxVBLib] [DDSD_CAPS DxVBLib]))
+                (set ddsd '(ddsCaps lCaps) [DDSCAPS_OFFSCREENPLAIN DxVBLib])
+                (set ddsd 'lWidth 600)
+                (set ddsd 'lHeight 400)
+                (bind-values (hr ptr) (CreateSurface~ dd (record-address ddsd))
+                  (assert-hr hr 3)
+                  (let ((offscreen (cobind ptr [DirectDrawSurface7 DxVBLib]))
+                        (rect (rect->RECT {Rect 0 0 600 400}))
+                        (fr (new RECT)))
+                    (GetClientRect (get-hwnd~ frame) fr)
+                    (MapWindowPoints (get-hwnd~ frame) NULL fr 2)
+                    (BltFast~ primary (get fr 'Left) (get fr 'Top) ptr (record-address rect) [DDBLTFAST_WAIT DxVBLib]))))))))))
+  
+  
+  @souvenir
+  (method (assert-hr hr n)
+    (unless (succeeded? hr)
+      (set-clipboard (->string hr))
+      (error "COM error {t} {t}" (value->name~ [CONST_DDRAWERR DxVBLib] hr) n)))
+    
+  
+  ;;;
+  ;;;; Analyser
+  ;;;
+  
+  
+  @wait
+  (method (test-analyser)
+    (let ((analyser (new Reference-Analyser :include-path? true)))
+      (bind-values (references resources) (find-references~ analyser '(Jedi) null)
+        (set-% references)
+        (message-box "Done"))))
+  
+  
+  ;;;
+  ;;;; Collector
+  ;;;
+  
+  
+  (method (report-times)
+    (let ((times (gc-times)))
+      (for-each (function dynamic (info name)
+                  (bind (maximum average) info
+                    (format :console "{%}{a :width 16}: {s :width 2 :justify :right} {s :width 2 :justify :right}"
+                            name
+                            maximum
+                            average)))
+                times
+                '(GcSome MarkPhase EndMarkPhase MarkRootsInitial MarkRootsFinal MarkSystemStack EmptyUnvisited SweepPhase))
+      (fresh-prompt~ (get-application))))
+
+  
+  ;;;
+  ;;;; Various
+  ;;;
+  
+  
+  (method (speedup old new)
+    (percentage (- old new) new))
+  
+  
+  @wait
+  (definition activity-no
+    0)
+
+
+  @wait
+  (method (test-activities)
+    (new Activity
+      :context self
+      :execute (function (activity)
+                 (let ((max (execute-primary (function dynamic () (+ 5 (random 50)))))
+                        (wait (execute-primary (function dynamic () (+ 300 (random 500)))))
+                        (keep? (zero? (execute-primary (function dynamic () (random 2)))))
+                        (no activity-no)
+                        (n 0))
+                   (increase! activity-no)
+                   (set-range~ activity (new Range 0 max))
+                   (while (and (< n max) (not (cancel-requested?~ activity)))
+                     (sleep wait)
+                     (increase! n)
+                     (user-message~ activity "Test {s} : Step {s}" no n)
+                     (delta-pos~ activity 1))
+                   (unless (cancel-requested?~ activity)
+                     (user-message~ activity "Test {s} : Done" no)
+                     (set-done~ activity)
+                     (sleep 500))))
+      :unregister? true))
+
+
+  @wait
+  (method (test-styles)
+    (let ((stage (locate~ (find-guest~ (get-stage) Showcase) 'stage)))
+      (send-message~ (locate~ stage 'pb) BM_SETIMAGE IMAGE_BITMAP (load-image~ Image 'bitmap {Bitmap-Resource "Break"}))))
+  
+  
+  @windows-bug
+  (method (test-resources)
+    (let* ((inst (current-instance))
+           (info (FindResource inst "JAZZ" RT_ICON)))
+      (message-box (->string info))
+      (let* ((res  (LoadResource inst info))
+             (data (LockResource res))
+             (size (SizeofResource inst info)))
+        (message-box (->string (list res data size)))
+        (let ((handle (BeginUpdateResource "C:\\Jedi\\Products\\org.jazz\\Projects\\Jazz\\Bin\\Bbb.exe" false))
+              (type RT_ICON)
+              (name "YUYIYOYOYO"))
+          (message-box (->string handle))
+          @w
+          (UpdateResource handle (int-resource type) (int-resource name) English-US data size)
+          (EndUpdateResource handle false)
+          (message-box "Done")))))
+  
+  
+  @windows-bug
+  (method (test-resources2)
+    (let* ((filename "C:\\Jedi\\Products\\org.jazz\\Projects\\Jazz\\Bin\\JazzStandaloneDebug.exe")
+           (handle (BeginUpdateResource filename false))
+           (type "YO" @w RT_RCDATA)
+           (name "YUYIYOYOYO")
+           (data (new Heap-Block :size 1000000))
+           (size (length data)))
+      (message-box (->string handle))
+      (message-box (->string (UpdateResource handle (int-resource type) (int-resource name) English-US (get-handle~ data) size)))
+      (EndUpdateResource handle false)
+      (message-box "Done")))
+  
+  
+  @windows-bug
+  (method (test-resources3)
+    (let ((module {File Boot "Bbb.exe"}))
+      (with-closed ((manager (new Resources-Manager :module module)))
+        (let* ((type "YO")
+               (name "YUYIYOYOYO")
+               (data (new Heap-Block :size 1000000))
+               (size (length data)))
+          (update~ manager type name (get-handle~ data) size)))
+      (message-box "Done")))
+
+
+  ;;;
+  ;;;; Directory
+  ;;;
+  
+  
+  (method (collect-extensions dir)
+    (let ((extensions null))
+      (iterate-directory~ dir
+        (function dynamic (file)
+          (let ((ext (get-extension~ file)))
+            (when (not (member? ext extensions :test ci=))
+              (set! extensions (cons (downcase ext) extensions))))))
+      (sort < extensions)))
+
+
+  ;;;
+  ;;;; Java Parser
+  ;;;
+
+
+  @wait
+  (method (test-ast . rest)
+    (bind-optionals ((describe? true)) rest
+      (let ((file {File org.jazz "Jazz" "Samples" "Java" "org" "jazz" "project" "Z.java"}))
+        (let ((ast (parse-java file Java-AST)))
+          (when describe?
+            (describe~ ast)
+            (fresh-prompt~ (get-application)))
+          ast))))
+
+
+  @wait
+  (method (test-java)
+    (let ((file {File org.jazz "Jazz" "Samples" "Java" "org" "jazz" "project" "Z.java"}))
+      (let ((ast (parse-java file Java-AST)))
+        (java-definitions ast))))
+
+
+  ;;;
+  ;;;; Purify
+  ;;;
+  
+
+  (method (purify-packages)
+    (for-each (function dynamic (unit)
+                (when (package? unit)
+                  (user-message "Processing {s}" unit)
+                  (for-each (function dynamic (field)
+                              (let ((value (definition-value field)))
+                                (when (external? value)
+                                  (external-address value))))
+                            (unit-fields (class-of unit)))))
+              (all-units))
+    (user-message "Done"))
+
+  
+  ;;;
+  ;;;; Reports
+  ;;;
+  
+  
+  (method (report-aliases)
+    (let* ((hashtable (get-aliases))
+           (aliases (gather-keys/values~ hashtable)))
+      (newline)
+      (for-each (function dynamic (info)
+                  (bind (key . value) info
+                    (format :console "{s} : {l}{%}" key value)))
+                (sort < aliases :key car)))
+    (fresh-prompt~ (get-application)))))

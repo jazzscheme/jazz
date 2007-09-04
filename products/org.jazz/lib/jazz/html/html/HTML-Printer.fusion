@@ -1,0 +1,153 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTML Printing
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.html.html.HTML-Printer jazz
+
+
+(import (jazz.html)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class HTML-Printer extends Object
+
+
+  (slot client      initialize {})
+  (slot formatter   initialize {})
+  (slot printer     initialize {})
+  (slot action-no   initialize 0)
+  (slot action-list initialize '())
+
+  
+  (method (initialize client formatter printer)
+    (nextmethod)
+    (set! [client self] client)
+    (set! [formatter self] formatter)
+    (set! [printer self] printer))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (get-formatter)
+    formatter)
+
+
+  (method public (get-printer)
+    printer)
+
+
+  (method public (get-action-list)
+    action-list)
+
+
+  ;;;
+  ;;;; Printing
+  ;;;
+    
+    
+  (method public virtual (print-html)
+    )
+  
+  
+  (method public (with-document name proc . rest)
+    (apply print-header name rest)
+    (proc)
+    (print-footer))
+  
+  
+  (method public (print-header name . rest)
+    (bind-keywords ((header? true) (header-level 2) (style-sheet null)) rest
+      (let ((name (localize name)))
+        (format printer "<HTML>{%}")
+        (format printer "<HEAD>{%}")
+        (format printer "<TITLE>{a}</TITLE>{%}" name)
+        (when style-sheet
+          (format printer "<LINK REL=STYLESHEET HREF=\"{a}\" TYPE=\"text/css\">{%}"
+                  style-sheet))
+        (format printer "</HEAD>{%}")
+        (format printer "{%}")
+        (when header?
+          (print-title name header-level :centered? true)))))
+  
+  
+  (method public (print-footer)
+    (format printer "</BODY>{%}")
+    (format printer "</HTML>"))
+  
+  
+  (method public (print-title title level . rest)
+    (bind-keywords ((centered? false)) rest
+      (when centered?
+        (format printer "<CENTER>{%}"))
+      (format printer "<H{a}>{a}</H{a}>{%}" level title level)
+      (when centered?
+        (format printer "</CENTER>{%}"))
+      (format printer "{%}")))
+  
+  
+  (method public (print-list type proc)
+    (let ((tag (list-tag type)))
+      (format printer "<{a}>" tag)
+      (proc)
+      (format printer "</{a}>" tag)))
+  
+  
+  (method (list-tag type)
+    (case type
+      ((:ordered) "OL")
+      ((:unordered) "UL")
+      (else (error "Unknown list type: {t}" type))))
+  
+  
+  (method public (print-text text)
+    (for-each (function dynamic (line)
+                (format printer "{a}<BR>{%}" line))
+              text))
+  
+  
+  (method public (print-action title action)
+    (let ((no action-no))
+      (format printer "<A href=\"jazz:{a}\">{a}</A>" no title)
+      (set! action-list (cons (cons no action) action-list))
+      (increase! action-no)))))

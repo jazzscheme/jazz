@@ -1,0 +1,286 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Python Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.python.python.Python-Text-View jazz
+
+
+(import (jazz.python)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Python-Text-View extends Code-Text-View
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style name: 'Title            :base 'Default :color (get-title-color~ pref)))
+      (add-style (new Text-Style name: 'Line-Comment     :base 'Default :color (get-line-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Balanced-Comment :base 'Default :color (get-balanced-comment-color~ pref)))
+      (add-style (new Text-Style name: 'Definition       :base 'Default :color (get-definition-color~ pref)))
+      (add-style (new Text-Style name: 'Keyword          :base 'Default :color (get-keyword-color~ pref)))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'python-text)
+
+  
+  (method (preferences)
+    (get-preferences '(documents python-text)))
+  
+  
+  (method meta (get-constituent-test)
+    cpp/java-constituent?)
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (frame-workspaces)
+    '(text))
+
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+
+
+  (method (favorite-completions)
+    (get-completions~ (preferences)))
+  
+  
+  (method (commented? pos)
+    (let ((style (get-style-at pos)))
+      (and style
+           (or (inherits?~ style 'Title)
+               (inherits?~ style 'Line-Comment)))))
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+
+
+  (method (return-press key)
+    (nextmethod key)
+    (tabulate))
+
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method (explorer-class)
+    Python-Explorer)
+ 
+  
+  ;;;
+  ;;;; Expr
+  ;;;
+  
+  
+  (method (get-context)
+    '(cpp/java))
+
+
+  (method (current-name)
+    (name-at (current-expr-range)))
+  
+  
+  (method (name-at range)
+    (when range
+      (let ((name (get-string range)))
+        (when (> (length name) 0)
+          (if (= (element name 0) #\open-brace)
+              (read-string-element name)
+            name)))))
+
+
+  (method (current-expr)
+    (current-name))
+  
+  
+  (method (current-expr-range)
+    (if (and (not completion-active?) (has-selection?))
+        (get-selection)
+      (expr-range (get-end))))
+  
+  
+  (method (expr-range pos)
+    (let ((expl (new Python-Explorer self :start pos :end pos)))
+      (outer-expr~ expl)
+      (get-range~ expl)))
+  
+  
+  (method (expr-at pos)
+    (name-at (expr-range pos)))
+
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (constant headers
+    null)
+  
+  
+  (method (get-headers)
+    headers)
+  
+  
+  (method (get-first-special?)
+    false)
+
+  
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (constant Definitions
+    '())
+  
+  
+  (method (get-definitions)
+    Definitions)
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("break"
+      "class"
+      "continue"
+      "def"
+      "else:"
+      "elif"
+      "except"
+      "finally:"
+      "for"
+      "from"
+      "if"
+      "import"
+      "in"
+      "is"
+      "not"
+      "raise"
+      "return"
+      "try:"
+      "while"
+      "__del__"
+      "__init__"))
+  
+  
+  (method protected virtual (get-keywords)
+    Keywords)
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  ;; This is only 2 " as a patch to the automata not supporting whole-word=false yet
+  (definition Balanced-Comment
+    "\"\"")
+  
+  
+  (definition Syntax-Targets
+    null)
+  
+  (definition Syntax-Automata
+    null)
+  
+  
+  (method (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+
+  
+  (method (compute-syntax-targets)
+    (append (list (list "#" 'line-comment false))
+            (list (list Balanced-Comment 'balanced-comment false))
+            (map (function dynamic (str) (list str 'definition)) (get-definitions))
+            (map (function dynamic (str) (list str 'keyword)) (get-keywords))))
+        
+  
+  (method (compute-syntax-automata)
+    (build-search-automata (syntax-targets) true true self cpp/java-constituent?))
+  
+  
+  (method (colorize-type found type start end colorizer recolorize?)
+    (case type
+      ((line-comment)     (colorize-line-comment     found start end colorizer 'Line-Comment 'Title {}))
+      ((balanced-comment) (colorize-balanced-comment found start end colorizer 'Balanced-Comment))
+      ((definition)       (colorize-keyword          found start end colorizer 'Definition))
+      ((keyword)          (colorize-keyword          found start end colorizer 'Keyword))))
+  
+  
+  (method (colorize-balanced-comment found start end colorizer style)
+    (let ((scan (cdr found)))
+      ;; Patch. See Balanced-Comment comment
+      (if (/= (get-char end) #\")
+          scan
+        (call/ec
+          (lambda (return)
+            (while scan
+              (let ((info (car scan)))
+                (bind ((target type) row col) info
+                  (if (= type 'balanced-comment)
+                      ;; Another ugly patch. See Balanced-Comment comment
+                      (let ((end (if (= (get-char (new Cell row (+ col 2))) #\") (new Cell row (+ col 3)) (new Cell row (+ col 2)))))
+                        (apply-coloring colorizer start end style)
+                        (return (cdr scan)))
+                    (set! scan (cdr scan))))))
+            scan)))))))

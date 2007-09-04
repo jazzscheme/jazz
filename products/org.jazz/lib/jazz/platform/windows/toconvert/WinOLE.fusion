@@ -1,0 +1,194 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows OLE
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library WinOLE jazz
+
+
+@WAIT (
+
+
+  ;;;
+  ;;;; Constants
+  ;;;
+  
+  
+  (constant STGM_DIRECT                  #x00000000)
+  (constant STGM_TRANSACTED              #x00010000)
+  (constant STGM_SIMPLE                  #x08000000)
+  (constant STGM_READ                    #x00000000)
+  (constant STGM_WRITE                   #x00000001)
+  (constant STGM_READWRITE               #x00000002)
+  (constant STGM_SHARE_DENY_NONE         #x00000040)
+  (constant STGM_SHARE_DENY_READ         #x00000030)
+  (constant STGM_SHARE_DENY_WRITE        #x00000020)
+  (constant STGM_SHARE_EXCLUSIVE         #x00000010)
+  (constant STGM_PRIORITY                #x00040000)
+  (constant STGM_DELETEONRELEASE         #x04000000)
+  (constant STGM_NOSCRATCH               #x00100000)
+  (constant STGM_CREATE                  #x00001000)
+  (constant STGM_CONVERT                 #x00020000)
+  (constant STGM_FAILIFTHERE             #x00000000)
+  (constant STGM_NOSNAPSHOT              #x00200000)
+  
+  
+  (constant OLEIVERB_PRIMARY             0)
+  (constant OLEIVERB_SHOW               -1)
+  (constant OLEIVERB_OPEN               -2)
+  (constant OLEIVERB_HIDE               -3)
+  (constant OLEIVERB_UIACTIVATE         -4)
+  (constant OLEIVERB_INPLACEACTIVATE    -5)
+  (constant OLEIVERB_DISCARDUNDOSTATE   -6)
+
+
+  ;;;
+  ;;;; Enumerations
+  ;;;
+  
+  
+  (enumeration COINIT
+    (COINIT_APARTMENTTHREADED #x2)
+    (COINIT_MULTITHREADED     #x0)
+    (COINIT_DISABLE_OLE1DDE   #x4)
+    (COINIT_SPEED_OVER_MEMORY #x8))
+  
+  
+  (enumeration OLERENDER
+    (OLERENDER_NONE   0)
+    (OLERENDER_DRAW   1)
+    (OLERENDER_FORMAT 2)
+    (OLERENDER_ASIS   3))
+  
+  
+  (enumeration ADVF
+    (ADVF_NODATA             1)
+    (ADVF_PRIMEFIRST         2)
+    (ADVF_ONLYONCE           4)
+    (ADVFCACHE_FORCEBUILTIN  6)
+    (ADVFCACHE_NOHANDLER     8)
+    (ADVFCACHE_ONSAVE       32)
+    (ADVF_DATAONSTOP        64))
+  
+  
+  (enumeration OLECLOSE
+    (OLECLOSE_SAVEIFDIRTY 0)
+    (OLECLOSE_NOSAVE      1)
+    (OLECLOSE_PROMPTSAVE  2))
+
+
+  ;;;
+  ;;;; Structures
+  ;;;
+  
+  
+  @wait
+  (structure OLEUIINSERTOBJECT
+    (int cbStruct)
+    (int dwFlags)
+    (int hWndOwner)
+    (string lpszCaption)
+    (int lpfnHook)
+    (int lCustData)
+    (int hInstance)
+    (string lpszTemplate)
+    (HRSRC hResource)
+    (CLSID clsid)
+    (string lpszFile)
+    (int cchFile)
+    (int cClsidExclude)
+    (LPCLSID lpClsidExclude)
+    (IID iid)
+    (int oleRender)
+    (LPFORMATETC lpFormatEtc)
+    (LPOLECLIENTSITE lpIOleClientSite)
+    (LPSTORAGE lpIStorage)
+    (LPVOID *ppvObj)
+    (SCODE sc)
+    (HGLOBAL hMetaPict))
+
+
+  (structure OLEINPLACEFRAMEINFO
+    (int cb)
+    (bool fMDIApp)
+    (int hwndFrame)
+    (int haccel)
+    (int cAccelEntries))
+  
+  
+  (structure OLEMENUGROUPWIDTHS
+    (int width 6))
+  
+  
+  (structure BORDERWIDTHS
+    (int left)
+    (int top)
+    (int right)
+    (int bottom))
+  
+  
+  (structure STATSTG
+    (string pwcsName)
+    (int type)
+    (LARGE_INTEGER cbSize)
+    (FILETIME mtime)
+    (FILETIME ctime)
+    (FILETIME atime)
+    (int grfMode)
+    (int grfLocksSupported)
+    (guid clsid)
+    (int grfStateBits)
+    (int reserved))
+
+
+  ;;;
+  ;;;; Externals
+  ;;;
+
+
+  (winexternal OLE int            (CoInitialize                            int))
+  (winexternal OLE int            (CoInitializeEx                          int int))
+  (winexternal OLE int            (CoUninitialize))
+  (winexternal OLE int            (CoMarshalInterThreadInterfaceInStream   guid& IUnknown <out> int&))
+  (winexternal OLE int            (CoGetInterfaceAndReleaseStream          int guid& <out> int&))
+  (winexternal OLE int            (CLSIDFromProgID                         string guid&))
+  (winexternal OLE int            (OleCreate                               guid& guid& int record IOleClientSite IStorage <out> int&))
+  (winexternal OLE int            (OleRun                                  IUnknown))
+  (winexternal OLE int            (OleSetContainedObject                   IUnknown bool))
+  (winexternal OLE int            (StgIsStorageFile                        string))
+  (winexternal OLE int            (StgCreateDocfile                        string int int <out> IStorage&))
+  (winexternal OLE int            (StgOpenStorage                          string record int record int <out> IStorage&))
+  (winexternal OLE int            (GetErrorInfo                            <out> int&)))
+)

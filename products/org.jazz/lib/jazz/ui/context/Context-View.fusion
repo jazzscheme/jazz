@@ -1,0 +1,181 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Context View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.context.Context-View jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Context-View extends Container
+
+
+  (property icon  initialize {} getter get-icon  setter set-icon)
+  (property title initialize {} getter get-title setter set-title)
+  
+  
+  (form
+    (<install>               background: {Color name: White}
+      (<!>     name: content layout-type: fill)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-icon)
+    icon)
+
+
+  (method public (set-icon value)
+    (set! icon value))
+
+
+  (method public (get-title)
+    title)
+
+
+  (method public (set-title value)
+    (set! title value))
+    
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method public (get-text)
+    (find-component~ (get-content) 'text))
+  
+  
+  (method public (set-text text)
+    (close-text)
+    (set-parent~ text (get-content)))
+  
+  
+  (method (close-text)
+    (let ((text (get-text)))
+      (when text
+        (close~ text))))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (invalidate-caption)
+    (invalidate-border :insets {Rect 2 2 2 2}))
+  
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((width (get-width))
+          (height (get-height))
+          (content (get-content)))
+      (set-position~ content {Point 0 24})
+      (set-size~ content (new Dimension (- width 0) (- height 24)))))
+
+
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method (caption-rect)
+    (new Rect 0 0 (get-width) 24))
+
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (invalidate-caption)
+    (invalidate-rect (caption-rect)))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Active-Colors
+    (list {Color :red 6 :green 94 :blue 223} {Color :red 6 :green 94 :blue 223}))
+  
+  
+  (definition Frame-Dark-Color
+    {Color :red 128 :green 128 :blue 128})
+  
+  (definition Frame-Medium-Pen
+    (new Pen :color {Color :red 142 :green 142 :blue 142}))
+  
+  (definition Frame-Light-Pen
+    (new Pen :color {Color :red 160 :green 160 :blue 160}))
+
+  
+  (method (draw dc context update lh lv)
+    (with ((bounds (get-bounds))
+           (caption (caption-rect)))
+      (gradient-fill~ dc caption (first Active-Colors) (second Active-Colors))
+      (when icon
+        (draw-image~ (get-icons-cache~ (get-application)) dc context icon 4 5))
+      (when title
+        (set-font~ dc {Font name: Default-GUI})
+        (set-text-color~ dc {Color name: White})
+        (draw-text~ dc (if icon 22 6) 7 title))))
+  
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+  
+  (method (mouse-down pos)
+    (cond ((in-rect? pos (caption-rect))
+           )))))

@@ -1,0 +1,374 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tree Columns
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.tree.Tree-Column jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Tree-Column extends Component
+  
+  
+  (property protected title         initialize ""    getter get-title         setter set-title)
+  (property protected width         initialize 0     getter get-width         setter set-width)
+  (property protected background    initialize {}    getter get-background    setter set-background)
+  (property protected justification initialize 'head getter get-justification setter set-justification)
+  
+  
+  (slot protected down?                 initialize false)
+  (slot protected title-vertical-offset initialize 2)
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{s} {a}"
+                title
+                width))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-title)
+    title)
+  
+  
+  (method public (set-title value)
+    (set! title value)
+    (when (get-player~ parent)
+      (let ((header (get-header~ parent)))
+        (when header
+          (invalidate-column-header~ header self)))))
+  
+  
+  (method public (get-width)
+    (if (get-visible?) width 0))
+  
+  
+  (method public (set-width value)
+    (set! width value)
+    (invalidate-columns~ parent)
+    (invalidate-view~ parent))
+  
+  
+  (method public (get-background)
+    background)
+  
+  
+  (method public (set-background value)
+    (set! background value)
+    (invalidate-view~ parent))
+  
+  
+  (method public (get-justification)
+    justification)
+  
+  
+  (method public (set-justification just)
+    (set! justification just)
+    (invalidate-view~ parent))
+  
+  
+  (method public (set-visible? flag)
+    (nextmethod flag)
+    (invalidate-columns~ parent)
+    (invalidate-view~ parent))
+  
+  
+  (method public (set-title-vertical-offset offset)
+    (set! title-vertical-offset offset))
+  
+  
+  ;;;
+  ;;;; Cells
+  ;;;
+  
+  
+  (method public virtual (new-empty-cell)
+    )
+  
+  
+  ;;;
+  ;;;; Parts
+  ;;;
+  
+  
+  (method public virtual (find-part cell pos)
+    'content)
+  
+  
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method protected virtual (content-rect row cell width height)
+    (let ((h (content-h [level row])))
+      (new Rect h 0 width height)))
+    
+  
+  (method protected virtual (content-h level)
+    0)
+    
+  
+  (method protected virtual (text-h level)
+    0)
+  
+  
+  ;;;
+  ;;;; Sorting
+  ;;;
+  
+  
+  (method protected virtual (sort-value row cell)
+    (get-sort-value~ cell))
+
+
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method public virtual (get-header-tooltip)
+    (get-column-tooltip~ parent self))
+  
+  
+  (method public virtual (get-cell-tooltip cell)
+    null)
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method public virtual (header-down pos)
+    (set! down? true)
+    (invalidate-column-header~ (get-header~ parent) self))
+  
+  
+  (method public virtual (header-move pos)
+    )
+  
+  
+  (method public virtual (header-up pos)
+    (set! down? false)
+    (invalidate-column-header~ (get-header~ parent) self)
+    (header-click~ parent self))
+  
+  
+  (method public virtual (header-double-click pos)
+    (header-down pos))
+  
+  
+  (method public virtual (mouse-down cell pos shift? control?)
+    (acquire-focus~ parent)
+    (complete-mouse-down cell pos shift? control?))
+  
+  
+  (method public virtual (complete-mouse-down cell pos shift? control?)
+    (process-selection~ parent cell shift? control?))
+  
+  
+  (method public virtual (drag-move cell pos)
+    )
+  
+  
+  (method public virtual (drag-up cell pos)
+    )
+  
+  
+  (method public virtual (double-click cell pos)
+    )
+  
+  
+  (method public virtual (context-menu cell pos)
+    (call-context-menu~ parent pos))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method public virtual (layout-cell row cell h v width height)
+    (when (is? cell View)
+      (set-position~ cell (new Point h v))
+      (set-size~ cell (new Dimension width height))))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Text-Color
+    {Color name: Black})
+
+  
+  (method public (paint-cell dc context update lh <int> lv <int> h v width height row cell sh <int> sv <int> sc <Real> sc? <bool>)
+    (let ((selected? (getf context :selected?)))
+      (with-transform~ dc parent lh lv width height sh sv sc sc?
+        (function dynamic ()
+          (draw-cell dc context row cell width height)))))
+
+  
+  (method public virtual (draw-cell dc context row cell width height)
+    (draw-at dc context row cell 0 0 width height))
+  
+  
+  (method public virtual (draw-at dc context row cell h v width height)
+    (draw-background dc context row cell width height))
+  
+  
+  (method public virtual (draw-background dc context row cell width height)
+    (with ((rect (new Rect 0 0 width height)))
+      (let ((color (background-color cell context)))
+        (fill-rect~ dc rect color))
+      (when (is? cell Tree-Cell)
+        (let ((frame-color [frame-color cell]))
+          (when frame-color
+            (frame-rect~ dc rect frame-color))))))
+  
+  
+  (method (background-color cell context)
+    (let ((selected? (getf context :selected?)))
+      (if (and selected? (cell-selected? context))
+          (selection-color~ parent)
+        (either (essay (is? cell Tree-Cell) [background cell])
+                (get-cell-background~ parent)
+                {Color name: White}))))
+  
+  
+  (method protected (cell-selected? context)
+    (case [selection-mode parent]
+      ((cell) (let ((row-rank (getf context :row-rank))
+                  (col-rank (column-rank~ parent self)))
+              (some? (function dynamic (cell)
+                       (and (= row-rank [row cell])
+                            (= col-rank [col cell])))
+                     [selection parent])))
+      ((node) (let ((col-rank (column-rank~ parent self)))
+              (= col-rank 0)))
+      ((row) true)))
+  
+  
+  (method public virtual (draw-header dc context h v width height sorted spaced? flat?)
+    (draw-header-at dc h v width height (localize title) down? sorted spaced? flat?))
+  
+  
+  (method (draw-header-at dc h v width height title down? sorted spaced? flat?)
+    (if down?
+        (draw-sunken-button dc h v width height title sorted spaced? flat?)
+      (draw-raised-button dc h v width height title sorted spaced? flat?)))
+    
+  
+  (method (draw-raised-button dc h v width height title sorted spaced? flat?)
+    (let ((thick (if flat? -1 -2)))
+      ;; when spaced, it's the background that draws the right side shadow
+      (with ((outer (new Rect h v (+ h width) (+ v height)))
+             (inner (expand-rect outer 1 1 (if spaced? 0 thick) thick)))
+        (if flat?
+            (if spaced?
+                (with ((smaller (expand-rect outer 0 0 0 -1)))
+                  (draw-edge~ dc smaller :inner 'raised :edges '(top left)))
+              (draw-edge~ dc outer :inner 'raised :edges 'rectangle))
+          (draw-edge~ dc outer :inner 'raised :outer 'raised :edges '(right bottom))
+          (with ((rect (expand-rect outer 0 0 -1 -1)))
+            (draw-edge~ dc rect :inner 'raised :edges '(top left))))
+        (fill-rect~ dc inner (either background (header-color~ parent)))
+        (set-text-color~ dc {Color name: Black})
+        (draw-text~ dc (+ h (header-title-h dc width title)) (+ v 1) title)
+        (draw-sorted dc h v title sorted))))
+    
+  
+  (method protected virtual (header-title-h dc width title)
+    (+ 2 (justify-title dc (- width 4) title justification)))
+  
+  
+  (method protected (justify-title dc width title justification)
+    (let ((extent (get-text-extent~ dc title)))
+      (justify [width extent] width justification)))
+
+  
+  (method (draw-sorted dc h v title sorted)
+    (when sorted
+      (set-pen~ dc {Pen name: Dark})
+      (let* ((width (get-text-width~ dc title))
+             (h (+ h (+ width 6)))
+             (v (+ v 6))
+             (size 4))
+        (case sorted
+          ((ascending) (draw-arrow-tip~ dc h v size 'up))
+          ((descending) (draw-arrow-tip~ dc h v size 'down))))))
+  
+  
+  (method (draw-sunken-button dc h v width height title sorted spaced? flat?)
+    (with ((outer (new Rect h v (+ h width) (+ v height)))
+           (inner (inflate-rect outer -1 -1)))
+      (set-pen~ dc {Pen name: Dark})
+      (frame-rect~ dc outer {Color name: Dark})
+      (fill-rect~ dc inner (either background (header-color~ parent)))
+      (set-text-color~ dc {Color name: Black})
+      (draw-text~ dc (+ h (header-title-h dc width title) 1) (+ v 2) title)
+      (draw-sorted dc (+ h 1) (+ v 1) title sorted)))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "Green"})
+
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public virtual (get-debugged cell pos)
+    (values cell null))))

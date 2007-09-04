@@ -1,0 +1,187 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows Inspector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.debuggee.Windows-Inspector jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Windows-Inspector extends Layout-View uses (Utilities System WinGDI WinUser)
+  
+  
+  (slot filter-applications? initialize true)
+
+
+  (form
+    (<install>                                                   title: "Windows Inspector" layout-type: border
+      (<Layout-View>                   name: toolbar             size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                 name: filter-applications size: {Dimension 22 22} selected?: #t tooltip?: #t tooltip-text: "Filter Caption" portfolio: :icons image-name: {Bitmap-Resource "Window"} action-handler: {Event-Handler form: on-filter-applications}))
+      (<Border-View>                   name: border              size: {Dimension 223 486} location: center border-type: edge style: entry
+        (<Scroller-View>                                         style: document vscroll?: #t
+          (<!>                         name: content             layout-type: fill
+            (<Tree-Header>                                       style: document
+              (<!>                     name: content
+                (<Windows-Tree>        name: tree                portfolio: :icons
+                  (<Tree-Node-Column>  name: title               title: "Title" width: 300)
+                  (<Tree-Label-Column> name: window              title: "Window" width: 200)
+                  (<Tree-Label-Column> name: class               title: "Class" width: 100)
+                  (<Tree-Label-Column> name: style               title: "Style" width: 100)
+                  (<Tree-Label-Column> name: extended-style      title: "Extended Style" width: 100)
+                  (<Tree-Label-Column> name: process             title: "Process" width: 100)
+                  (<Tree-Label-Column> name: hwnd                title: "Hwnd" width: 100)))))))))
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (refresh))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Window"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Windows Inspector")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 210 200})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Point 1015 500})
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'border) dh dv))
+
+
+  (method (on-filter-applications evt)
+    (set! filter-applications? (not filter-applications?))
+    (refresh))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (refresh)
+    (let ((tree (locate 'tree)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (insert-windows tree null (filtered-toplevel-windows))))))
+
+
+  (method (filtered-toplevel-windows)
+    (let ((windows (toplevel-windows)))
+      (if (not filter-applications?)
+          windows
+        (collect-if (function dynamic (hwnd)
+                      (let ((style (GetWindowLong hwnd GWL_STYLE)))
+                        (and (mask-bit-set? style WS_VISIBLE)
+                             (mask-bit-set? style WS_SYSMENU))))
+                    windows))))
+  
+  
+  (method (insert-windows tree father lst)
+    (let ((infos (map (function dynamic (hwnd)
+                        (list hwnd (get-hwnd-title hwnd) (child-windows hwnd)))
+                      lst)))
+      (for-each (function dynamic (info)
+                  (insert-window tree father info))
+                (sort < infos :key second))))
+
+
+  (method (insert-window tree father info)
+    (bind (hwnd title children) info
+      (bind-values (thread-id process-id) (get-thread/process-id hwnd)
+        (let* ((title (if (empty-string? title) "<untitled>" title))
+               (window (get-window hwnd))
+               (class (either (get-class-name~ Window hwnd) ""))
+               (style (bits->symbolic (GetWindowLong hwnd GWL_STYLE) WINSTYLE))
+               (exstyle (bits->symbolic (GetWindowLong hwnd GWL_EXSTYLE) WINEXSTYLE))
+               (process (->string process-id))
+               (color (if window {Color name: Dark-Red} null))
+               (background (if (and window (is? window View-Player)) {Color name: Light-Yellow} null)))
+          (add-row~ tree :father father
+                    :state (if children 'dynamic 'expanded)
+                    :children (list (new Tree-Node :title title :color color :background background :image {Bitmap-Resource "Window"})
+                                    (new Tree-Label :title (if window (->string window) ""))
+                                    (new Tree-Label :title class)
+                                    (new Tree-Label :title (format "{l}" style))
+                                    (new Tree-Label :title (format "{l}" exstyle))
+                                    (new Tree-Label :title process)
+                                    (new Tree-Label :title (->string hwnd)))
+                    :user-data info))))))
+
+
+;;;
+;;;; Tree
+;;;
+
+
+(class Windows-Tree extends Tree-View
+  
+  
+  (method (update-row row)
+    @convert
+    (let ((info (get-user-data~ row)))
+      (bind (hwnd title children) info
+        (insert-windows self row children))))))

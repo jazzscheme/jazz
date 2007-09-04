@@ -1,0 +1,284 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tab View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Tab-View jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Tab-View extends View
+
+  
+  (property orientation initialize 'top getter get-orientation setter set-orientation)
+  
+  
+  (slot padding        initialize 10)
+  (slot headers-height initialize 20)
+  (slot selection      initialize 0)
+  
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (add-child child)
+    (let ((first? (null? children)))
+      (nextmethod child)
+      (when (not first?)
+        (set-visible?~ child false))
+      (update-borders)
+      (layout-view)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-orientation)
+    orientation)
+  
+  
+  (method public (set-orientation o)
+    (set! orientation o)
+    (invalidate-view))
+
+
+  (method public (get-content)
+    (locate 'content))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-down pos)
+    (let ((header (find-header pos)))
+      (when header
+        (set-selection header))))
+
+
+  ;;;
+  ;;;; Headers
+  ;;;
+
+  
+  (method (update-borders)
+    (let ((n 0)
+          (h 2))
+      (for-each (function dynamic (header)
+	              (let* ((title (localize (get-title~ header)))
+                      (next (+ h padding [width (text-extent~ font title)] padding)))
+                    (set! [borders header] (cons h next))
+                    (increase! n)
+                    (set! h next)))
+                children)))
+
+  
+  (method (find-header pt)
+    (let ((h [h pt])
+          (v [v pt]))
+      (when (< v headers-height)
+        (call/ec
+          (lambda (return)
+            (for-each (function dynamic (header n)
+                        (bind (left . right) [borders header]
+                          (when (and (>= h left) (< h right))
+                            (return n))))
+                      children
+                      (naturals 0 (length children)))
+            null)))))
+  
+  
+  (method (redraw-header n)
+    (bind (lf . rg) [borders (child-ranked n)]
+      (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
+
+
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method public (get-selection)
+    selection)
+  
+  
+  (method public (set-selection sel . rest)
+    (bind-keywords ((force? false) (user-origin? false)) rest
+      (when (/= sel selection)
+        (let ((old selection))
+          (when old
+            (set-visible?~ (child-ranked old) false))
+          (set! selection sel)
+          (when sel
+            (set-visible?~ (child-ranked sel) true))
+          (redraw-header old)
+          (redraw-header selection)
+          (update-view)
+          (call-selection-handler old selection force? user-origin?)))))
+  
+  
+  (method public (get-selection-name)
+    (get-name~ (selected-sheet)))
+  
+  
+  (method public (set-selection-name name)
+    (let* ((sheet (child name))
+           (rank (child-rank sheet)))
+      (set-selection rank)))
+  
+  
+  (method public (selected-sheet)
+    (child-ranked selection))
+  
+  
+  ;;;
+  ;;;; Sheet
+  ;;;
+  
+  
+  (method public (all-sheets)
+    (get-children))
+  
+  
+  (method public (remove-every-sheet)
+    (close-children))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((size (get-size)))
+      (for-each (function dynamic (child)
+                  (when (is? child Tab-Sheet)
+                    (set-position~ child {Point 0 0})
+                    (set-size~ child size)))
+                children)))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+  
+  (method (draw dc context update lh lv)
+    (let ((size (get-size)))
+      (case orientation
+        ((top) (draw-top dc size))
+        ((bottom) (draw-bottom dc size)))))
+  
+  
+  (method (draw-top dc size)
+    (let* ((left    0)
+           (top     0)
+           (right   [width size])
+           (bottom  [height size])
+           (content (if (null? children) top (+ top headers-height -1))))
+      (set-font~ dc {Font name: Ansi-Var})
+      (draw-edge~ dc (new Rect left content right bottom) :inner 'raised :outer 'raised :edges '(right bottom))
+      (set-pen~ dc {Pen name: Light})
+      (move-to~ dc 0 content)
+      (line-to~ dc 0 bottom)
+      (for-each (function dynamic (header n)
+                  (let* ((title (localize (get-title~ header)))
+                         (title-color (get-title-color~ header))
+                         (selected? (= n selection))
+                         (top (if selected? 0 2)))
+                    (bind (lf . rg) [borders header]
+                      (when selected?
+                        (decrease! lf 2)
+                        (increase! rg 2))
+                      ;; right
+                      (unless (= (+ n 1) selection)
+                        (draw-edge~ dc (new Rect lf (+ top 2) rg content) :inner 'raised :outer 'raised :edges '(right))
+                        (set-pen~ dc {Pen name: Black})
+                        (move-to~ dc (- rg 2) (+ top 1))
+                        (line-to~ dc (- rg 1) (+ top 2)))
+                      ;; top
+                      (set-pen~ dc {Pen name: Light})
+                      (move-to~ dc (- rg 3) top)
+                      (line-to-preserve~ dc (+ lf 2) top)
+                      ;; left
+                      (unless (= (- n 1) selection)
+                        (line-to-preserve~ dc lf (+ top 2))
+                        (line-to~ dc lf content))
+                      ;; bottom
+                      (unless selected?
+                        (move-to~ dc lf content)
+                        (line-to~ dc rg content))
+                      (set-text-color~ dc (either title-color {Color name: Black}))
+                      (draw-text~ dc (+ lf 5) (+ top 3) title))))
+                children
+                (naturals 0 (length children)))
+      (set-pen~ dc {Pen name: Light})
+      (if (null? children)
+          (line~ dc 0 0 right 0)
+        (let ((h (cdr [borders (last children)])))
+          (line~ dc h content (- right 1) content)))))
+  
+  
+  (method (draw-bottom dc size)
+    (let* ((left    0)
+           (top     0)
+           (right   (- [width size] 1))
+           (bottom  (- [height size] 1))
+           (content (- bottom headers-height)))
+      (set-pen~ dc {Pen name: Light})
+      (set-font~ dc {Font name: Ansi-Var})
+      (move-to~ dc left content)
+      (line-to~ dc left top)
+      (line-to~ dc right top)))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "TypeFolder"})))

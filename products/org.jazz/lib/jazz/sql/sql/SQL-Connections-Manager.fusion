@@ -1,0 +1,348 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQL Connections Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sql.sql.SQL-Connections-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.schema)
+        (jazz.sql)
+        (jazz.designer)
+        (jazz.platform)
+        (jazz.process)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.utilities))
+
+
+;;;
+;;;; Data Source
+;;;
+
+
+(definition Active-Data-Source
+  null)
+
+
+(definition public (get-active-data-source)
+  Active-Data-Source)
+
+
+(definition public (set-active-data-source data-source)
+  (set! Active-Data-Source data-source)
+  (let ((guest (get-sql-connections)))
+    (when guest
+      (set-property~ (get-designer~ guest) (get-client~ guest) 'default-source (essay data-source (get-name~ data-source)))
+      (invalidate-view~ (get-tree~ guest))
+      (get-active-connection))))
+
+
+(definition public (get-active-connection)
+  (when Active-Data-Source
+    (let* ((name (get-name~ Active-Data-Source))
+           (connection (get-connection name :data-source Active-Data-Source)))
+      ;; In case an external source closed the connection
+      (when (= (get-state~ connection) 'closed)
+        (open~ connection Active-Data-Source))
+      connection)))
+
+
+;;;
+;;;; Connections
+;;;
+
+
+(definition Active-Connections
+  null)
+
+
+(definition (find-connection name)
+  (cdr (assoc name Active-Connections)))
+
+
+(definition (get-connection name . rest)
+  (bind-keywords ((data-source null)) rest
+    (either (find-connection name)
+            (when data-source
+              (let ((connection (new-connection data-source)))
+                (set! Active-Connections (cons (cons name connection) Active-Connections))
+                connection)))))
+
+
+(definition (new-connection data-source)
+  (new-connection~ data-source))
+
+
+(definition (close-connections)
+  (for-each (function dynamic (info)
+              (bind (name . connection) info
+                (close~ connection)))
+            Active-Connections)
+  (set! Active-Connections null)
+  (set-active-data-source null))
+
+
+(definition (read-connections)
+  (with-safe-execution "loading the connections"
+    (function dynamic ()
+      (let ((file {File User "Settings" "Connections.jml"}))
+        (when (exists?~ file)
+          (let ((process (get-process))
+                (connections (instantiate~ (read-from-file file))))
+            (install-context~ process connections)
+            connections))))
+    :continue-handler
+    (function dynamic (err)
+      )))
+
+
+;;;
+;;;; SQL-Connections-Manager
+;;;
+
+
+(class SQL-Connections-Manager extends Editor-View implements Exit-Listener
+
+
+  (form
+    (<install>                                    size: {Dimension 650 400} layout-type: border
+      (<Layout-View>            name: tools
+        (<Push-Tool>            name: open        size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Open" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-open})
+        (<Push-Tool>            name: close-all   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Close All" image-name: {Bitmap-Resource "Empty"} portfolio: :icons action-handler: {Event-Handler form: on-close-all-connections}))
+      (<SQL-Connections-Editor> name: descendants location: center
+        (<!>                    name: scroller    flat?: #t)
+        (<!>                    name: tree        show-header?: #f highlight-edited?: #f
+          (<!>                  name: descendant  title: "Connection" width: 291)))))
+               
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'sql-connections)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Databases"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Connections")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (get-tree)))
+      (acquire-focus~ tree)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-tree)
+    (locate '(descendants tree)))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  @convert
+  (class SQL-Connections-Controller extends Editor-View-Controller
+    
+    
+    (method (document-status)
+      "Connections"))
+
+
+  @convert
+  (method (new-controller)
+    (new SQL-Connections-Controller self))
+  
+  
+  ;;;
+  ;;;; Inventory
+  ;;;
+  
+  
+  (method (browse-inventory . rest)
+    (bind-keywords ((focus? true)) rest
+      (let* ((data-source (selected-data-source))
+             (connection (get-connection (get-name~ data-source) :data-source data-source))
+             (browser (select-palette Inventory-Browser :workspace null :focus? focus?)))
+        (set-connection~ browser connection))))
+  
+  
+  (method (selected-data-source)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (row (get-row~ tree selection))
+           (data-source (get-user-data~ row)))
+      data-source))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set-shown?~ (locate-component '(descendants header)) false)
+    (set-editor~ (locate 'descendants) self)
+    (add-exit-listener~ (get-application) self)
+    (set-client (read-connections))
+    (let ((default (get-default-source~ client)))
+      (when default
+        (call/ec
+          (lambda (break)
+            (for-each-source
+              (function dynamic (source)
+                (when (= (get-name~ source) default)
+                  (set! Active-Data-Source source)
+                  (break)))))))))
+  
+  
+  (method (for-each-source proc)
+    (for-each-descendant~ client
+      (function dynamic (component level)
+        (when (is? component Data-Source)
+          (proc component)))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (resize-center dh dv)
+    (size-figure~ (locate 'descendants) dh dv))
+
+  
+  (method public (on-open evt)
+    (open-selection))
+  
+  
+  (method public (on-close-all-connections evt)
+    (close-connections)
+    (let ((browser (select-palette Inventory-Browser :workspace null)))
+        (set-connection~ browser null)))
+  
+  
+  (method (prepare-exit)
+    (when (get-modified?)
+      (save))
+    (close-connections))
+  
+  
+  ;;;
+  ;;;; Open
+  ;;;
+  
+  
+  (method public (open-selection)
+    (let* ((tree (get-tree))
+           (component (selected-component~ tree)))
+      (if (null? component)
+          (bell)
+        (when (is? component Data-Source)
+          (set-active-data-source component)
+          (browse-inventory :focus? false)))))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method public (new-connections-menu)
+    (let* ((tree (get-tree))
+           (menu (new Connections-Menu :client tree))
+           (selection (get-single-selection~ tree)))
+      (with-update-locked~ menu
+        (function dynamic ()
+          (if selection
+              (let* ((row (get-row~ tree selection))
+                     (data (get-user-data~ row)))
+                (when (is? data Group)
+                  (set-visible?~ (locate~ menu 'browse-inventory) false)
+                  (set-visible?~ (locate~ menu 'browse-separator) false)))
+            (set-visible?~ (locate~ menu 'browse-inventory) false)
+            (set-visible?~ (locate~ menu 'browse-separator) false))))
+      menu)))
+
+
+;;;
+;;;; Connections-Menu
+;;;
+
+
+(class Connections-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: browse-inventory before: add-item title: "&Browse Inventory" default?: #t icon: {Bitmap-Resource "Database"} action-handler: {Event-Handler form: on-browse-inventory})
+      (<Separator-Item> name: browse-separator before: add-item)))
+  
+  
+  (method (on-browse-inventory evt)
+    @convert
+    (open-selection))))

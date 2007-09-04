@@ -1,0 +1,232 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Canvas to SQL Exporting
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.canvas.CanvasToSql-Exporter jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class CanvasToSQL-Exporter extends Object uses (Utilities System SQL)
+  
+  
+  (slot provider)
+  (slot separator)
+  (slot keys       initialize '())
+  (slot key-suffix initialize 0)
+  (slot key-id?    initialize false)
+  (slot key-serial initialize (new-hashtable :equal?))
+  (slot printer    initialize (new String-Printer))
+  
+  
+  (definition Default-Separator
+    ";")
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((provider null) (separator null) (key-id? false)) rest
+      (nextmethod)
+      (set! [provider self] (if (is? provider Provider)
+                                provider
+                              (get-provider~ Provider provider)))
+      (set! [separator self] (either separator Default-Separator))
+      (set! [key-id? self] key-id?)))
+  
+  
+  ;;;
+  ;;;; Export
+  ;;;
+  
+  
+  (method public (export canvas)
+    (export-header canvas)
+    (export-deletes canvas)
+    (export-component canvas)
+    (export-code))
+  
+  
+  (method public (export-to canvas file)
+    (let ((code (export canvas)))
+      (with-closed ((printer (new File-Printer :pathname file)))
+        (format printer "{a}" code))))
+  
+  
+  (method (export-code)
+    (let ((code (get-output~ printer))
+          (printer (new String-Printer)))
+      (format printer "{a}" code)
+      (get-output~ printer)))
+  
+  
+  (method protected virtual (export-header canvas)
+    )
+  
+  
+  (method protected virtual (export-deletes canvas)
+    )
+  
+  
+  (method protected virtual (export-component component)
+    (export-properties component)
+    (export-children component))
+  
+  
+  (method protected virtual (export-properties component)
+    )
+  
+  
+  (method protected virtual (export-children component)
+    (for-each (function dynamic (child)
+                (export-component child))
+              (get-children~ component)))
+  
+  
+  ;;;
+  ;;;; Output
+  ;;;
+  
+  
+  
+  (method (output-section section)
+    (format printer "{%}{%}")
+    (format printer "--{%}")
+    (format printer "--- {a}{%}" section)
+    (format printer "--{%}")
+    (format printer "{%}{%}"))
+  
+  
+  (method (ouput-comment comment)
+    (format printer "-- {a}{%}" comment))
+  
+  
+  ;;;
+  ;;;; Format
+  ;;;
+  
+  
+  (method (format-sql-value value)
+    (format-value~ provider value))
+  
+  
+  ;;;
+  ;;;; Keys
+  ;;;
+  
+  
+  (method (select-primary-key component table . rest)
+    (bind-optionals ((column null)) rest
+      (if key-id?
+          (register-primary-key component (get-serial-key table))
+        (let ((var (register-primary-key component (string->symbol (format "pk{a}" key-suffix)))))
+          (increase! key-suffix)
+          (case (external-name~ provider)
+            ((sqlserver)
+             (format printer "SELECT {a} = MAX({a}) FROM {a}{a}{%}"
+                     (format-sql-value var)
+                     column
+                     table
+                     separator))
+            ((informix)
+             (format printer "SELECT MAX({a}) INTO {a} FROM {a}{a}{%}"
+                     column
+                     (format-sql-value var)
+                     table
+                     separator)))
+          var))))
+  
+  
+  (method (get-serial-key table)
+    (let ((id (hash-ref key-serial table)))
+      (if (null? id)
+          (hash-set! key-serial table 1)
+        (hash-set! key-serial table (+ id 1)))))
+  
+  
+  (method (with-serial-insert table proc)
+    (case (external-name~ provider)
+      ((sqlserver)
+       (format printer "SET IDENTITY_INSERT {a} on{a}{%}" table separator)
+       (proc)
+       (format printer "SET IDENTITY_INSERT {a} off{a}{%}" table separator))
+      (else
+       (proc))))
+  
+  
+  (method (register-primary-key component value)
+    (set! keys (cons (cons component value) keys))
+    value)
+  
+  
+  (method (get-primary-key component)
+    (either (cdr (assq component keys))
+            (error "No registered primary key for {t}" component)))
+  
+  
+  ;;;
+  ;;;; Insert
+  ;;;
+  
+  
+  (method (insert-row table properties)
+    (let* ((columns (map-property property-column properties))
+           (values  (map format-sql-value (map-property property-value properties)))
+           (command (format "INSERT INTO {a}({a}) VALUES ({a})"
+                            table
+                            (join columns ", ")
+                            (join values ", "))))
+      (format printer "{a}{a}{%}" command separator)
+      (for-each-property (function dynamic (property value)
+                           (when (symbol? property)
+                             (format "UPDATE {a}{a}{%}"
+                                     table
+                                     separator)))
+                         properties)))
+  
+  
+  (method (property-column column value)
+    column)
+  
+  
+  (method (property-value column value)
+    (if (not (null? value))
+        value
+      (default-value column)))
+  
+  
+  (method protected virtual (default-value column)
+    (error "No default value defined for column {a}" column))))

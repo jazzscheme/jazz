@@ -1,0 +1,184 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Manifest
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library Manifest jazz
+
+
+@WAIT (
+  
+  
+  (definition Units
+    null)
+  
+  (definition Patches
+    null)
+  
+  (definition Resources
+    null)
+  
+  
+  (method public (get-units)
+    Units)
+  
+  
+  (method public (get-patches)
+    Patches)
+  
+  
+  (method public (require-units)
+    (unless (not-null? Units)
+      (set! Units (new-map))
+      (set! Resources (new-hashtable :equal?))
+      (when (interpreter-present?)
+        (load-manifest Units {File Home "Debug" "Manifest.jazz"} :error? false)
+        (load-manifest Units {File Home "Support" "Manifest.jazz"} :error? false))
+      (let ((file (command-argument "manifest")))
+        (when file
+          (load-manifest Units (new File (cons 'Native (pathname-argument file))))))))
+  
+  
+  (method public (require-patches)
+    (unless (not-null? Patches)
+      (set! Patches (new-map))
+      (let ((file (command-argument "patches")))
+        (when file
+          (load-manifest Patches (new File (cons 'Native (pathname-argument file))))))))
+  
+  
+  (method public (add-unit name properties)
+    (require-units)
+    (map-set! Units name properties))
+  
+  
+  (method public (remove-unit name)
+    (require-units)
+    (map-clear Units name))
+  
+  
+  (method public (get-properties name)
+    (require-units)
+    (map-ref Units name))
+  
+  
+  (method public (get-patches-properties name)
+    (require-patches)
+    (map-ref Patches name))
+  
+  
+  (method public (get-resource type name)
+    (require-units)
+    (hash-ref Resources (cons type name)))
+  
+  
+  (method (get-patches-source name)
+    (getf (get-patches-properties name) :source))
+  
+  
+  (method (get-workbench-source name)
+    (let ((workbench (get-workbench)))
+      (when workbench
+        (get-entry-source~ workbench name))))
+  
+  
+  (method (get-units-source name)
+    (getf (get-properties name) :source))
+  
+  
+  (method public (get-source name)
+    (either (get-patches-source name)
+            (get-workbench-source name)
+            (get-units-source name)))
+  
+  
+  (method public (load-units-manifest file)
+    (load-manifest Units file))
+  
+  
+  (definition Not-Found
+    (cons null null))
+  
+  
+  (method public (in-manifest? name strict?)
+    (or (is-compiled-unit? name)
+        (in-interpreted-manifest? name strict?)))
+  
+  
+  (method public (in-interpreted-manifest? name strict?)
+    (require-units)
+    (let ((properties (map-ref Units name Not-Found)))
+      (if (and (neq? properties Not-Found)
+               (or (not strict?) (not-null? properties)))
+          true
+        (let ((workbench (get-workbench)))
+          (if (not-null? workbench)
+              (not-null? (get-entry~ workbench name))
+            false)))))
+  
+  
+  (method public (load-manifest manifest file . rest)
+    (bind-keywords ((error? true)) rest
+      (if (exists?~ file)
+          (with-closed ((reader (new File-Reader file)))
+            (let* ((content (read-until eof-object? reader))
+                   (root (getf content :root))
+                   (units (getf content :units))
+                   (imports (getf content :imports))
+                   (resources (getf content :resources)))
+              (when root
+                (if (integer? root)
+                    (let* ((path (expand~ file))
+                           (root (subseq path 0 (- (length path) root 1))))
+                      (new-alias 'Root root))
+                  (new-alias 'Root root)))
+              (let ((scan units))
+                (while scan
+                  (bind (name properties . next) scan
+                    (map-set! manifest name properties)
+                    (set! scan next))))
+              (let ((scan imports))
+                (while scan
+                  (bind (module name symbols . next) scan
+                    (register-import module name symbols)
+                    (set! scan next))))
+              (let ((scan resources))
+                (while scan
+                  (bind (name type file . next) scan
+                    (hash-set! Resources (cons type name) file)
+                    (set! scan next))))))
+        (when error?
+          (error "Unable to find manifest file: {t}" file))))))
+)

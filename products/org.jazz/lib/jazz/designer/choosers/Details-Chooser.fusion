@@ -1,0 +1,391 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Details Chooser 
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.choosers.Details-Chooser jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Details-Chooser extends View
+  
+
+  (property reference initialize {}  getter get-reference setter set-reference)
+  (property details   initialize '() getter get-details   setter set-details)
+  @wait
+  (property defaults  initialize '() getter get-defaults  setter set-defaults)
+
+  
+  (form
+    (<install>                                         size: {Dimension 282 400}
+      (<Label-View>                                    title: "Select the details that will be displayed" position: {Point 10 9} size: {Dimension 191 16} font: {Font name: Default-GUI})
+      (<Border-View>              name: details-border position: {Point 9 33} size: {Dimension 171 254} border-type: edge
+        (<Scroller-View>                               hscroll?: #t vscroll?: #t
+          (<!>                    name: content        layout-type: fill
+            (<Tree-View>          name: details-tree   filled-column: detail top-padding: 2 portfolio: :icons action-handler: {Event-Handler form: on-action} selection-handler: {Event-Handler form: on-selection-change} return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press}
+              (<Tree-Node-Column> name: detail         toplevel-controls?: #f display-images?: #f width: 200)))))
+      (<Push-Button>              name: move-up        title: "Move Up" position: {Point 191 33} size: {Dimension 80 24} action-handler: {Event-Handler form: on-move-up})
+      (<Push-Button>              name: move-down      title: "Move Down" position: {Point 191 61} size: {Dimension 80 24} action-handler: {Event-Handler form: on-move-down})
+      (<Push-Button>              name: show           title: "Show" position: {Point 191 95} size: {Dimension 80 24} action-handler: {Event-Handler form: on-show})
+      (<Push-Button>              name: hide           title: "Hide" position: {Point 191 123} size: {Dimension 80 24} action-handler: {Event-Handler form: on-hide})
+      (<Label-View>               name: size-label     title: "Selected column size :" position: {Point 8 300} size: {Dimension 110 16})
+      (<Radio-Button>             name: filled         title: "Filled" position: {Point 8 321} size: {Dimension 47 16} action-handler: {Event-Handler form: on-filled})
+      (<Radio-Button>             name: width          title: "Width In Pixels" position: {Point 61 321} size: {Dimension 90 16} action-handler: {Event-Handler form: on-width})
+      (<Entry-Widget>             name: column-size    position: {Point 155 318} size: {Dimension 40 21}
+        (<!>                      name: scroller
+          (<!>                    name: content
+            (<!>                  name: text           focus-selects-all?: #t show-unfocused-selection?: #f return-press-handler: {Event-Handler form: on-return-press}))))
+      (<Horizontal-Line>                               position: {Point 6 348} size: {Dimension 270 8})
+      (<Push-Button>              name: ok             title: "OK" position: {Point 109 363} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>              name: cancel         title: "Cancel" position: {Point 193 363} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((tree (get-tree)))
+      (setup-details tree)
+      (setup-selection tree)
+      (update-buttons)
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-reference)
+    reference)
+
+
+  (method public (set-reference value)
+    (set! reference value))
+
+
+  (method public (get-details)
+    details)
+
+
+  (method public (set-details value)
+    (set! details value))
+
+
+  @wait
+  (method public (get-defaults)
+    defaults)
+
+
+  @wait
+  (method public (set-defaults value)
+    (set! defaults value))
+  
+  
+  (method (get-tree)
+    (locate 'details-tree))
+  
+  
+  (method (get-text)
+    (locate '(column-size text)))
+
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Details-Chooser-Dialog)
+  
+
+  @convert-dialog
+  (class meta Details-Chooser-Dialog extends Host-Dialog
+    
+    
+    (form
+      (<install> title: "Choose Details" position: {Point 450 300} size: {Dimension 302 120})))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-action evt)
+    (let ((sender (get-sender~ evt)))
+      (when (is? sender Check-Box)
+        (toggle-displayed? sender)))
+    (update-buttons))
+  
+  
+  (method (on-selection-change evt)
+    (let* ((old (get-old~ evt))
+           (old-detail (essay old (element details (first old)))))
+      (update-buttons)
+      (enter-width old-detail)
+      (update-details)))
+  
+  
+  (method (on-move-up evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (detail (element details selection)))
+      (set! details (remove! detail details))
+      (set! details (insert! detail details (- selection 1)))
+      (setup-details tree)
+      (acquire-focus~ tree)
+      (set-single-selection~ tree (- selection 1))))
+  
+  
+  (method (on-move-down evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (detail (element details selection)))
+      (set! details (remove! detail details))
+      (set! details (insert! detail details (+ selection 1)))
+      (setup-details tree)
+      (acquire-focus~ tree)
+      (set-single-selection~ tree (+ selection 1))))
+  
+  
+  (method (on-show evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (checkbox (get-user-data~ (get-row~ tree selection))))
+      (acquire-focus~ tree)
+      (set-checked?~ checkbox true)
+      (toggle-displayed? checkbox)
+      (update-buttons)))
+  
+  
+  (method (on-hide evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (checkbox (get-user-data~ (get-row~ tree selection))))
+      (acquire-focus~ tree)
+      (set-checked?~ checkbox false)
+      (toggle-displayed? checkbox)
+      (update-buttons)))
+  
+  
+  (method (on-filled evt)
+    (change-filled))
+  
+  
+  (method (on-width evt)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (detail (essay selection (element details selection))))
+      (enter-width detail)
+      (set-filled?~ detail false)
+      (set-detail-font tree detail {Font name: Ansi-Var})))
+  
+  
+  @wait
+  (method (on-reset evt)
+    (unimplemented 'on-reset))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+
+  
+  (method (setup-details tree)
+    (with-update-locked~ tree
+      (function dynamic ()
+        (remove-every-row~ tree)
+        (for-each (function dynamic (detail)
+                    (bind (name title width mandatory) (assoc (get-name~ detail) reference)
+                      (let* ((border 0)
+                             (layout (new Layout-View :layout-type 'fill :layout-insets (new Rect 4 border border border)))
+                             (color {Color name: Black})
+                             (enabled? (neq? mandatory 'mandatory))
+                             (font (if (get-filled?~ detail) {Font name: Ansi-Bold} {Font name: Ansi-Var}))
+                             (checkbox (new Check-Box :font font parent: layout :outline tree :title title
+                                            :enabled? enabled? :checked? (get-displayed?~ detail) :color color :user-data detail)))
+                        (add-row~ tree :children (list layout) :user-data checkbox))))
+                  details))))
+  
+  
+  (method (setup-selection tree)
+    (when details
+      (set-selection~ tree (list 0))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-buttons)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (count (get-visible-count~ tree)))
+      (if (null? selection)
+          (begin
+            (set-enabled?~ (locate 'move-up) false)
+            (set-enabled?~ (locate 'move-down) false)
+            (set-enabled?~ (locate 'show) false)
+            (set-enabled?~ (locate 'hide) false))
+        (let ((detail (element details selection)))
+          (bind (name title width mandatory) (assoc (get-name~ detail) reference)
+            (set-enabled?~ (locate 'move-up) (> selection 0))
+            (set-enabled?~ (locate 'move-down) (< selection (- count 1)))
+            (set-enabled?~ (locate 'show) (not (get-displayed?~ detail)))
+            (set-enabled?~ (locate 'hide) (and (get-displayed?~ detail) (neq? mandatory 'mandatory)))))))
+    @wait
+    (set-enabled?~ (locate 'reset) defaults))
+  
+  
+  (method (update-details)
+    (let ((selection (get-single-selection~ (get-tree)))
+          (label (locate 'size-label))
+          (filled (locate 'filled))
+          (width (locate 'width))
+          (text (get-text)))
+      (if (null? selection)
+          (begin
+            (set-enabled?~ label false)
+            (set-enabled?~ filled false)
+            (set-enabled?~ width false)
+            (set-enabled?~ text false)
+            (set-string-content~ text ""))
+        (let ((detail (element details selection)))
+            (set-enabled?~ label true)
+            (set-enabled?~ filled true)
+            (set-enabled?~ width true)
+            (set-enabled?~ text true)
+            (set-string-content~ text (->string (get-width~ detail)))
+            (set-selected?~ (if (get-filled?~ detail) filled width) true)))))
+  
+  
+  ;;;
+  ;;;; Displayed
+  ;;;
+  
+  
+  (method (toggle-displayed? checkbox)
+    (let* ((detail (get-user-data~ checkbox))
+           (visible? (get-displayed?~ detail)))
+      (set-displayed?~ detail (not visible?))))
+  
+  
+  ;;;
+  ;;;; Edited
+  ;;;
+  
+  
+  (method (enter-width edited-detail)
+    (when edited-detail
+      (let* ((tree (get-tree))
+             (text (get-text))
+             (content (get-string-content~ text)))
+        (catch (Parse-Error err
+                 (message-box (get-message~ err))
+                 (acquire-focus~ text)
+                 (select-all~ text)
+                 (throw-cancel))
+          (set-width~ edited-detail (parse-integer content))))))
+    
+  
+  (method (set-detail-font tree detail font)
+    (let* ((row (get-row~ tree (find detail details :return 'position)))
+           (checkbox (get-user-data~ row)))
+      (set-font~ checkbox font)))
+  
+  
+  ;;;
+  ;;;; Filled/Width
+  ;;;
+  
+  
+  (method (find-filled)
+    (find-if (function dynamic (detail)
+               (get-filled?~ detail))
+             details))
+  
+  
+  (method (change-filled)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (detail (essay selection (element details selection)))
+           (filled (find-filled)))
+      (when (neq? detail filled)
+        (when filled
+          (set-filled?~ filled false)
+          (set-detail-font tree filled {Font name: Ansi-Var}))
+        (when detail
+          (set-filled?~ detail true)
+          (set-detail-font tree detail {Font name: Ansi-Bold})))))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree))
+           (detail (essay selection (element details selection)))
+           (details (new List-Factory)))
+      (enter-width detail)
+      (for-each-row~ tree
+        (function dynamic (row rank)
+          (let ((checkbox (get-user-data~ row)))
+            (when (is? checkbox Check-Box)
+              (let ((detail (get-user-data~ checkbox)))
+                (put~ details detail))))))
+      (get-output~ details)))))

@@ -1,0 +1,193 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tool Buttons
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Tool-Button jazz
+
+
+(import (jazz.ui)
+        (jazz.ui.view)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Tool-Button extends Layout-View
+
+  
+  ;; inactive
+  ;; highlighted
+  ;; pushed
+  ;; out-pushed
+  (slot state initialize 'inactive)
+
+  
+  (method (default-size)
+    {Dimension 100 22})
+  
+  
+  (method (mouse-activate?)
+    false)
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public virtual (get-state)
+    state)
+  
+  
+  (method public virtual (set-state value)
+    (set! state value)
+    (invalidate-view))
+
+  
+  ;;;
+  ;;;; Enabled
+  ;;;
+  
+  
+  (method (set-enabled? flag)
+    (when (not flag)
+      (set! state 'inactive))
+    (nextmethod flag))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method (draw dc context update lh lv)
+    (draw-frame dc)
+    (draw-tool dc context))
+
+
+  (method protected virtual (draw-frame dc)
+    (case (get-state)
+      ((inactive) (draw-inactive dc))
+      ((highlighted) (draw-highlighted dc))
+      ((pushed) (draw-pushed dc))
+      ((out-pushed) (draw-out-pushed dc))))
+  
+  
+  (method protected virtual (draw-inactive dc)
+    )
+
+
+  (method protected virtual (draw-highlighted dc)
+    (draw-border dc (light-pen) (dark-pen)))
+
+
+  (method protected virtual (draw-pushed dc)
+    (draw-border dc (dark-pen) (light-pen)))
+  
+  
+  (method protected virtual (light-pen)
+    {Pen name: Light})
+  
+  
+  (method protected virtual (dark-pen)
+    {Pen name: Dark})
+
+
+  (method protected virtual (draw-out-pushed dc)
+    )
+
+
+  (method (draw-border dc upper lower)
+    (with ((rect (get-bounds)))
+      (let ((left   0)
+            (top    0)
+            (right  (- [right rect] 1))
+            (bottom (- [bottom rect] 1)))
+        (set-pen~ dc upper)
+        (move-to~ dc left bottom)
+        (line-to~ dc left top)
+        (line-to~ dc right top)
+        (set-pen~ dc lower)
+        (move-to~ dc left bottom)
+        (line-to-no-stroke~ dc right bottom)
+        (line-to~ dc right top))))
+
+
+  (method protected virtual (draw-tool dc context)
+    )
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+
+  (method (mouse-enter)
+    (when (and (get-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
+      (case (get-state)
+        ((inactive) (set-state 'highlighted))
+        ((out-pushed) (set-state 'pushed)))))
+
+
+  (method (mouse-leave)
+    (when (and (or (not mouse-down?) (eq? mouse-down-view self)))
+      (case (get-state)
+        ((highlighted) (set-state 'inactive))
+        ((pushed) (set-state 'out-pushed)))))
+
+
+  (method (mouse-down pos)
+    (when (get-enabled?)
+      (set! state 'pushed)
+      (down)
+      (invalidate-view)))
+
+
+  (method public virtual (down)
+    )
+
+
+  (method (drag-up pos . rest)
+    (when (get-enabled?)
+      (unwind-protect
+          (up)
+        (case (get-state)
+          ((pushed) (set-state 'highlighted))
+          ((out-pushed) (set-state 'inactive))))))
+
+
+  (method public virtual (up)
+    )))

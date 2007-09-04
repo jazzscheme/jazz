@@ -1,0 +1,530 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Development Utilities
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.dev jazz
+
+
+(import (jazz.platform)
+        (jazz.process)
+        (jazz.thread)
+        (jazz.test))
+
+
+;;;
+;;;; Test
+;;;
+
+
+(definition (t)
+  (jlu 'Component))
+
+
+(definition (jt)
+  (debug (FX.g (new FX)) (FX.g (new FY)) (FX.g (new FZ))))
+
+
+(definition (jt1)
+  (debug (g~ (new FX)) (g~ (new FY)) (g~ (new FZ))))
+
+
+(definition (jt2)
+  (debug (JX.g (new JX)) (JX.g (new JY))))
+
+
+(definition (jt3)
+  (void))
+
+
+;;;
+;;;; Test
+;;;
+
+
+(definition %
+  (void))
+
+
+(definition %x
+  (void))
+
+(definition %y
+  (void))
+
+(definition %i
+  (void))
+
+(definition %j
+  (void))
+
+
+(definition JML-Expr
+  '(<a> a: 1 b: "t"
+     (<b>)
+     (<c>)))
+
+
+(definition (jcm module-name)
+  (build.compile-module (resolve-unique-name module-name)))
+
+
+(definition (tcx11)
+  (build.compile-module 'jazz.platform.x11.x11))
+
+
+(definition (tcw)
+  (build.compile-module 'jazz.platform.windows.Windows))
+
+
+(definition (tct)
+  (build.compile-module 'jazz.platform.windows.WinTypes))
+
+
+(definition (tcb)
+  (build.compile-module 'jazz.platform.windows.WinBase))
+
+
+(definition (tck)
+  (build.compile-module 'jazz.platform.windows.WinKernel))
+
+
+(definition (tcu)
+  (build.compile-module 'jazz.platform.windows.WinUser))
+
+
+(definition (tca)
+  (tcw)
+  (tct)
+  (tcb)
+  (tck)
+  (tcu))
+
+
+(definition (tla)
+  (load-module 'jazz.platform.windows.Windows)
+  (load-module 'jazz.platform.windows.WinUser)
+  (load-module 'jazz.platform.windows.WinKernel)
+  (load-module 'jazz.platform.windows.WinBase)
+  (load-module 'jazz.platform.windows.WinTypes))
+
+
+(definition (tex)
+  (expand-module-to-file 'jazz.dev.test.X))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(definition (expand-module module-name)
+  (debug.expand-module* module-name))
+
+
+(definition (expand-module-to-file module-name)
+  (debug.expand-module-to-file* module-name))
+
+
+(definition (expand-module-to-port module-name port)
+  (debug.expand-module-to-port* module-name port))
+
+
+;;;
+;;;; Reader
+;;;
+
+
+(definition (tr)
+  (load-module 'scheme.validation)
+  (scheme.validation.test-reader))
+
+
+;;;
+;;;; Util
+;;;
+
+
+@w
+(definition (joc object)
+  (object-content object))
+
+
+(definition (jco object)
+  (cond ((not object) #f)
+        ((list? object) (map jco object))
+        (else
+         (Unit.get-name (class-of object)))))
+
+
+(definition (jlm module-name)
+  (load-module (resolve-unique-name module-name)))
+
+
+(definition (jrlm module-name)
+  (reload-module (resolve-unique-name module-name)))
+
+
+(definition (jn class . rest)
+  (apply new (if (symbol? class) (load-unit (resolve-unique-name class)) class) rest))
+
+
+(definition (jpa)
+  (debug.present-aliases*))
+
+
+(definition (jpe)
+  (debug.present-environment*))
+
+
+(definition (jpm)
+  (debug.present-manifest*))
+
+
+@w
+(definition (jpo object)
+  (debug.present-object* object))
+
+
+(definition (jpu class)
+  (debug.present-unit* class))
+
+
+@w
+(definition (jpv)
+  (validation.present-validations*))
+
+
+(definition (jts value)
+  (->string value))
+
+
+(definition (jet module-name)
+  (expand-module-to-file (resolve-unique-name module-name)))
+
+
+(definition (jr module-name)
+  (resolve-unique-name module-name))
+
+
+(definition (resolve-unique-name name)
+  (if (or (unit? name) (composite-name? name) (eq? name 'jazz))
+      name
+    (let ((module-names '()))
+      (iterate-hashtable (Toplevel-Manifest.get-entries (get-manifest))
+                         (lambda (key value)
+                           (if (eqv? (identifier-name key) name)
+                               (set! module-names (cons key module-names)))))
+      (case (length module-names)
+        ((0) (error "Name {s} not found in manifest" name))
+        ((1) (car module-names))
+        (else (error "Name {s} is ambiguous: {l}" name module-names))))))
+
+
+;;;
+;;;; Generic
+;;;
+
+
+@w
+(definition (wsig signature)
+  (map Unit.get-name signature))
+
+
+@w
+(definition (dgrs generic)
+  (let loop ((specific (get-generic-root-specific generic)))
+       (list (wsig (get-specific-signature specific))
+             (map loop
+                  (get-specific-previous-specifics specific)))))
+
+
+@w
+(definition (mca class)
+  (map Unit.get-name
+       (Unit.get-ancestors (resolve-unique-name class))))
+
+
+@w
+(definition (mda class)
+  (map (lambda (unit)
+         (let ((dispatch-table (get-class-dispatch-table unit)))
+           (list (Unit.get-name unit)
+                 dispatch-table
+                 (if dispatch-table
+                     (map car (table->list dispatch-table))
+                   #f))))
+       (Unit.get-ancestors (resolve-unique-name class))))
+
+
+@w
+(definition (tdis name object)
+  ((get-specific-implementation (need-specific name object)) object))
+
+
+(definition xx #f)
+(definition zz #f)
+
+
+;;;
+;;;; User
+;;;
+
+
+(definition (test-user)
+  (new (load-unit 'jazz.dev.user.Guillaume)))
+
+
+(definition (user-test test-name)
+  (let ((user (test-user)))
+    ((eval test-name) user)))
+
+
+;;;
+;;;; User Test
+;;;
+
+
+(definition (test)
+  (user-test 'jazz.application.user.User.test))
+
+
+(definition (test1)
+  (user-test 'jazz.application.user.User.test1))
+
+
+(definition (test2)
+  (user-test 'jazz.application.user.User.test2))
+
+
+(definition (test3)
+  (user-test 'jazz.application.user.User.test3))
+
+
+(definition (test4)
+  (user-test 'jazz.application.user.User.test4))
+
+
+(definition (test5)
+  (user-test 'jazz.application.user.User.test5))
+
+
+(definition (test6)
+  (user-test 'jazz.application.user.User.test6))
+
+
+(definition (test7)
+  (user-test 'jazz.application.user.User.test7))
+
+
+(definition (test8)
+  (user-test 'jazz.application.user.User.test8))
+
+
+(definition (test9)
+  (user-test 'jazz.application.user.User.test9))
+
+
+@w
+(definition (testbug)
+  (with-bootstrap-debug
+    (lambda ()
+      (car 1))))
+
+
+;;;
+;;;; SLC startup
+;;;
+
+
+;(definition copass 's)
+
+;(let ((boot "C:/jazz/org.jazz/Kernel/com/boot.scm"))
+;  (if (file-exists? boot)
+;      (load boot)
+;    (begin
+;      (write (string-append "WARNING: cannot find " boot))
+;      (newline))))
+
+
+;;;
+;;;; Windows
+;;;
+
+
+(definition (rc)
+  (let ((classname "JWindow")
+        (wc (windows.WNDCLASS-make)))
+    (windows.WNDCLASS-style-set!         wc (bit-or windows.CS_OWNDC windows.CS_DBLCLKS))
+    (windows.WNDCLASS-lpfnWndProc-set!   wc windows.call-process-hwnd-message)
+    (windows.WNDCLASS-cbClsExtra-set!    wc 0)
+    (windows.WNDCLASS-cbWndExtra-set!    wc 0)
+    (windows.WNDCLASS-hInstance-set!     wc windows.NULL)
+    (windows.WNDCLASS-hIcon-set!         wc windows.NULL)
+    (windows.WNDCLASS-hCursor-set!       wc windows.NULL)
+    (windows.WNDCLASS-hbrBackground-set! wc windows.NULL)
+    (windows.WNDCLASS-lpszMenuName-set!  wc windows.NULL)
+    (windows.WNDCLASS-lpszClassName-set! wc classname)
+    (windows.RegisterClass wc)))
+
+
+(definition (cw)
+  (windows.CreateWindowEx
+    0
+    "JWindow"
+    ""
+    (bit-or windows.WS_CLIPCHILDREN windows.WS_CLIPSIBLINGS windows.WS_VISIBLE)
+    0 0 600 400
+    windows.NULL
+    windows.NULL
+    windows.NULL
+    windows.NULL)
+  (new-thread Thread
+              name: "Messages"
+              execute: (function (thread)
+                         (sl)))
+  ;(sl)
+  )
+
+
+(definition (sl)
+  (let loop ()
+       (process-messages)
+       (loop)))
+
+
+(definition (process-messages)
+  (let ((msg (windows.MSG-make)))
+    (let loop ()
+         (let ((flag (windows.GetMessage msg windows.NULL 0 0)))
+           (write flag) (newline)
+           (windows.TranslateMessage msg)
+           (windows.DispatchMessage msg)
+           (loop)))))
+
+
+;;;
+;;;; Log
+;;;
+
+
+(definition Log?
+  #t)
+
+(definition Log
+  #f)
+
+
+(definition (log line)
+  (if Log?
+      (let ((log (open-log)))
+        (display line log)
+        (newline log)
+        (force-output log))))
+
+
+(definition (open-log)
+  (if (not Log)
+      (let ((time (number->string (inexact->exact (floor (time->seconds (current-time)))))))
+        (set! Log (open-output-file (list path: (string-append "c:/log" time ".txt") append: #f)))))
+  Log)
+
+
+(definition (close-log)
+  (if Log
+      (close-output-port Log)))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition Process-Name
+  #f)
+
+(definition Process-Console?
+  #t)
+
+
+;;;
+;;;; Profiles
+;;;
+
+
+@w
+(definition (launch-debugger)
+  (set! Process-Name "Debugger")
+  (set! Process-Console? #f)
+  (start-console-debugger-process))
+
+
+@w
+(definition (launch-test)
+  (set! Process-Name "Test")
+  (set! Process-Console? #f)
+  (start-test-process))
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+(definition (dbg)
+  (let ((process (get-process)))
+    (Process.get-debugger process)))
+
+
+(definition (dbe)
+  (let ((process (get-process)))
+    (Process.get-local-debuggee process)))
+
+
+@w
+(definition (sd)
+  (start-console-debugger-process))
+
+
+@w
+(definition (r)
+  (debug.Debugger.read-eval-print-loop (dbg)))
+
+
+@w
+(definition (tdbe)
+  (let* ((debuggee (dbe))
+         (stops (debug.Debuggee.get-stops debuggee)))
+    (set! % (car stops)))))

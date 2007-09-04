@@ -1,0 +1,121 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQL-Connections Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sql.sql.SQL-Connections-Tree jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.sql)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class SQL-Connections-Tree extends Descendants-Tree
+  
+  
+  (form
+    (<install> portfolio: :icons draggable?: #t reorderable?: #t highlight-edited?: #f editable?: #f show-branches?: #f))
+      
+  
+  (method (form-model form)
+    (case (get-name~ form)
+      ((descendant) Connection-Column)
+      (else (nextmethod form))))
+  
+  
+  (method (mouse-down pos)
+    (nextmethod pos)
+    (when (control-down?)
+      (let ((component (selected-component)))
+        (if (null? component)
+            (bell)
+          (set-active-data-source~ SQL-Connections-Manager component)))))
+
+  
+  (method (context-menu pos)
+    (let* ((host (get-host))
+           (guest (get-guest~ host)))
+      (when (is? guest SQL-Connections-Manager)
+        (with-context-click pos
+          (function dynamic ()
+            (track-popup-menu (new-connections-menu~ guest) pos))))))
+  
+  
+  (method (update-selection expand-state selected-components)
+    )
+  
+  
+  (method (row-state component update? level)
+    'expanded)
+  
+  
+  (method (double-click pos)
+    (nextmethod pos)
+    (open-selection~ (get-guest~ player)))
+
+
+  (method (key-press key)
+    (case key
+      ((#\return) (open-selection~ (get-guest~ player)))
+      (else (nextmethod key))))
+  
+  
+  (method (addable-root-classes)
+    (list
+      Group
+      null
+      SQLServer-Data-Source 
+      Access-Data-Source 
+      dBase-Data-Source)))
+
+
+;;;
+;;;; Connection-Column
+;;;
+
+
+(class Connection-Column extends Tree-Node-Column
+  
+  
+  (method (draw-cell dc context row cell width height)
+    (nextmethod dc context row cell width height)
+    (let ((active (get-active-data-source~ SQL-Connections-Manager)))
+      (when (eq? active (get-user-data~ row))
+        (frame-rect~ dc (text-rect row cell width height false) {Color name: Dark-Red}))))))

@@ -1,0 +1,238 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Texts
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Alain Marcotte.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Text-Comparer jazz
+
+
+(import (jazz.groupware)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Text-Comparer extends Object
+  
+  
+  (slot moniker1 <Moniker+>      initialize {})
+  (slot moniker2 <Moniker+>      initialize {})
+  (slot lines1   <List>          initialize '())
+  (slot lines2   <List>          initialize '())
+  (slot root     <Compare-Node+> initialize {})
+  (slot matches  <List>          initialize '())
+  
+  
+  (method public (compare-monikers m1 m2)
+    (set! moniker1 m1)
+    (set! moniker2 m2)
+    (set! lines1 (read-moniker moniker1))
+    (set! lines2 (read-moniker moniker2))
+    (compare-line-sets lines1 lines2))
+  
+  
+  (method (compare-line-sets initial-set1 initial-set2)
+    (bind-values (commons set1 set2) (collect-commons initial-set1 initial-set2)
+      (if (and (not-null? set1) (not-null? set2))
+          (let* ((line <Compare-Line> (car set1))
+                 (string <String> [string line])
+                 (proc <Procedure>
+                  (function dynamic (line <Compare-Line>)
+                    (insert-line root line))))
+            (set! root (new Compare-Node (list line) (string-ref string 0)))
+            (for-each proc (cdr set1))
+            (for-each proc set2)
+            (set! matches (append! commons (collect-matches root))))
+        (set! matches commons))
+      (let* ((sames (map (function dynamic (node <Compare-Node>) (extract-diff~ node moniker1 moniker2)) matches))
+             (sames1 (sort < sames :key (function dynamic (diff <List>) [rank (element diff 0)])))
+             (sames2 (sort < sames :key (function dynamic (diff <List>) [rank (element diff 1)]))))
+        (collect-lines sames1 sames2 initial-set1 initial-set2))))
+      
+  
+  ;; On parcourt les deux listes -> si le match suivant dans la liste 2
+  ;; n'est pas < que ou on est rendu dans la liste 1, on continue la liste 1.
+  ;; Pour les restants, on les affichent avant le match suivant.
+  (method (collect-lines sames1 sames2 set1 set2)
+    (let* ((rank1 <int> [rank (first set1)])
+           (rank2 <int> [rank (first set2)])
+           (end1 <int> [rank (last set1)])
+           (end2 <int> [rank (last set2)])
+           (next1 (car sames1))
+           (next2 (car sames2))
+           (next null)
+           (fact (new List-Factory))
+           (green (function dynamic (rank <int> lines <List>) (list rank null (element lines rank) 'green)))
+           (blue (function dynamic (rank <int> lines <List>) (list null rank (element lines rank) 'blue)))
+           (proc
+            (function dynamic (rank <int> end <int> lines <List> create <Procedure>)
+              (while (< rank end)
+                (put~ fact (create rank lines))
+                (increase! rank))
+              rank)))
+      (while (set! next (if (and (not-null? next2) (< [rank (first next2)] rank1)) next2 next1))
+        (let ((stop1 [rank (first next)])
+              (stop2 [rank (second next)]))
+          (cond ((and (eq? next1 next) (eq? next2 next) (< rank1 stop1) (< rank2 stop2))
+                 (put-sequence~ fact (compare-line-sets (subseq lines1 rank1 stop1) (subseq lines2 rank2 stop2)))
+                 (set! rank1 stop1)
+                 (set! rank2 stop2))
+                ((and (eq? next1 next) (< rank1 stop1))
+                 (set! rank1 (proc rank1 stop1 lines1 green)))
+                ((and (eq? next2 next) (< rank2 stop2))
+                 (set! rank2 (proc rank2 stop2 lines2 blue)))))
+        (let ((line (if (eq? next1 next) (element lines1 rank1) (element lines2 rank2)))
+              (color (essay (neq? next1 next2) (if (eq? next1 next) 'green 'blue))))
+          (put~ fact (list rank1 rank2 line color)))
+        (when (eq? next1 next)
+          (increase! rank1)
+          (set! sames1 (cdr sames1))
+          (set! next1 (essay sames1 (first sames1))))
+        (when (eq? next2 next)
+          (increase! rank2)
+          (set! sames2 (cdr sames2))
+          (set! next2 (essay sames2 (first sames2)))))
+      (proc rank1 (+ end1 1) lines1 green)
+      (proc rank2 (+ end2 1) lines2 blue)
+      (get-output~ fact)))
+
+  
+  (method (collect-commons set1 set2)
+    (let ((proc
+           (function dynamic (set1 set2)
+             (let ((line1 (car set1))
+                    (line2 (car set2))
+                    (commons null))
+               (while (and (not-null? set1) (not-null? set2) (= [string line1] [string line2]))
+                 (set! commons (cons (new Compare-Node (list line1 line2) #\nul) commons))
+                 (set! set1 (cdr set1))
+                 (set! set2 (cdr set2))
+                 (set! line1 (car set1))
+                 (set! line2 (car set2)))
+               (values commons set1 set2)))))
+      (bind-values (commons-top bottom1 bottom2) (proc set1 set2)
+        (bind-values (commons-bottom middle1 middle2) (proc (reverse bottom1) (reverse bottom2))
+          (values (append! commons-top commons-bottom) (reverse! middle1) (reverse! middle2))))))
+
+  
+  ;;;
+  ;;;; Compare
+  ;;;
+  
+  
+  (method (string-ref string <String> n <int>)
+    (if (< n (length string))
+        (element string n)
+      #\nul))
+  
+  
+  (method (insert-line node <Compare-Node> line <Compare-Line>)
+    (letrec ((string [string line])
+             (proc
+              (function dynamic (subnode <Compare-Node> n <int>)
+                (let ((baseline (car [lines subnode])))
+                  (if (not-null? baseline)
+                      (let ((basestring [string baseline]))
+                        (if (= basestring string)
+                            (add-line~ subnode line)
+                          (let* ((key (string-ref basestring n))
+                                 (newnode (new Compare-Node [lines subnode] key)))
+                            (set-lines~ subnode null)
+                            (add-child~ subnode newnode)
+                            (proc subnode n))))
+                    (let* ((c (string-ref string n))
+                           (matchnode (find c [children subnode] :key (function dynamic (node <Compare-Node>) [key node]))))
+                      (if (null? matchnode)
+                          (add-child~ subnode (new Compare-Node (list line) c))
+                        (proc matchnode (+ n 1)))))))))
+      (proc node 0)))
+  
+  
+  (method (collect-matches node <Compare-Node>)
+    (let ((children [children node]))
+      (append! (collect-if (function dynamic (subnode <Compare-Node>)
+                             (let ((lines [lines subnode]))
+                               (and (not-null? lines)
+                                    (= (length lines) 2)
+                                    (neq? [moniker (first lines)]
+                                          [moniker (second lines)]))))
+                           children)
+               (apply append! (map collect-matches (collect-if (function dynamic (subnode <Compare-Node>)
+                                                                 (null? [lines subnode]))
+                                                               children))))))
+
+
+  ;;;
+  ;;;; Input/Output
+  ;;;
+  
+  
+  (method protected virtual (load-moniker moniker)
+    (load-lines~ moniker))
+  
+  
+  (method (read-moniker moniker)
+    (let ((lines (load-moniker moniker)))
+      (loop (for string in lines)
+            (for n from 0)
+            (collect (new Compare-Line moniker string n)))))
+
+
+  ;;;
+  ;;;; Utility
+  ;;;
+  
+  
+  (method public (print-tree node <Compare-Node> printer)
+    (letrec ((proc
+              (function dynamic (node <Compare-Node> level <int>)
+                (format printer "{_ :v}{s}{%}" (* level 2) node)
+                (for-each (function dynamic (subnode <Compare-Node>)
+                            (proc subnode (+ level 1)))
+                          [children node]))))
+      (proc node 0)))
+
+
+  ;;;
+  ;;;; Node (temp global until full compiler support for inner classes)
+  ;;;
+
+
+  ;;;
+  ;;;; Line (temp global until full compiler support for inner classes)
+  ;;;
+  
+  
+  ))

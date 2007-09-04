@@ -1,0 +1,143 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Presentation Generator
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.presentation.Presentation-Generator jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Presentation-Generator extends Object
+  
+  
+  (method public (generate-presentation file)
+    (let ((ext (get-extension~ file)))
+      (cond ((member? ext '("ftx") :test ci=) (generate-formatted file))
+            (else (error "Unable to generate presentation from {a}" file)))))
+  
+  
+  ;;;
+  ;;;; Formatted
+  ;;;
+  
+  
+  (method (generate-formatted file)
+    (let* ((frame (new-frame Plain-Formatted-Text-View :host-visible? false))
+           (text-view (get-guest~ frame))
+           (controller (get-controller~ text-view)))
+      (set-moniker~ controller file)
+      (let* ((headings (collect-headings~ text-view))
+             (presentation (new Formatted-Presentation name: "Presentation" :gradient-start {Color name: Blue} :gradient-end {Color name: Black} :moniker file))
+             (basic-slide (new Basic-Slide name: "Root" parent: presentation :level -1))
+             (previous-slide basic-slide))
+        (while headings
+          (let* ((head (car headings))
+                 (tail (cadr headings))
+                 (slide (generate-heading text-view presentation previous-slide head tail)))
+            (set! headings (cdr headings))
+            (set! previous-slide slide)))
+        (close~ frame)
+        presentation)))
+  
+  
+  (method (generate-heading text-view presentation previous-slide head tail)
+    (bind-values (name conductor) (extract-name (third head))
+      (let* ((text (extract-text text-view head tail))
+             (level (heading-level~ text-view (first head)))
+             (parent (find-parent-slide presentation previous-slide level))
+             (row (second head))
+             (range (new Range (new Cell row 0) (new Cell row (length (third head)))))
+             (slide (new Heading-Slide name: name parent: parent :heading-range range :client-form (generate-slide name text conductor) :level level)))
+        slide)))
+  
+  
+  (method (extract-name name)
+    (if (ends-with? name "&")
+        (values (subseq name 0 (- (length name) 1)) 'text)
+      (values name null)))
+  
+  
+  (method (find-parent-slide presentation previous-slide level)
+    (if (null? previous-slide)
+        presentation
+      (call/ec
+        (lambda (return)
+          (for-each-ascendant~ previous-slide
+            (function dynamic (component)
+              (if (is-not? component Slide)
+                  (return component)
+                (when (< (get-level~ component) level)
+                  (return component)))))))))
+  
+  
+  (method (extract-text text-view head tail)
+    (let ((printer (new String-Printer))
+          (first (+ (second head) 1))
+          (last (if tail (- (second tail) 1) (get-limit~ text-view))))
+      (while (whitespace? (paragraph-string~ text-view first))
+        (increase! first))
+      (while (whitespace? (paragraph-string~ text-view last))
+        (decrease! last))
+      (print-formatted~ text-view printer (new Range (new Cell first 0) (new Cell last (paragraph-length~ text-view last))))
+      (let* ((output (get-output~ printer))
+             (text (read-string-element output)))
+        (set-styles~ text (convert-styles (get-styles~ text)))
+        text)))
+
+
+  (method (convert-styles styles)
+    (map (function dynamic (style)
+           (if (eq? (get-name~ style) 'Default)
+               (new Text-Style name: 'Default :font {Font name: Slide-Text} :color {Color name: White})
+             style))
+         styles))
+  
+  
+  (method (generate-slide title text conductor)
+    (new Form :action 'install :children (append
+      (when conductor
+        (let ((conductor-class (case conductor ((text) 'Text-Slide-Conductor))))
+          (list (new Form :action 'new :model-name conductor-class))))
+      (list
+        (new Form :action 'modify name: 'content :children (list
+          (new Form :action 'modify name: 'title :properties (list :title title))
+          (new Form :action 'modify name: 'body :children (list
+            (new Form :action 'modify name: 'content :children (list
+              (new Form :action 'modify name: 'text :properties (list :text-content text))))))))))))))

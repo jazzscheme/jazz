@@ -400,6 +400,7 @@
     
     (jazz.new-special-form 'atomic-region jazz.walk-atomic-region)
     (jazz.new-special-form 'c-include     jazz.walk-c-include)
+    (jazz.new-special-form 'c-declare     jazz.walk-c-declare)
     (jazz.new-special-form 'c-function    jazz.walk-c-function)
     (jazz.new-special-form 'function      jazz.walk-function)
     (jazz.new-special-form 'not-void?     jazz.walk-not-void?)
@@ -1448,6 +1449,16 @@
 (define (jazz.walk-c-include walker resume declaration environment form)
   (jazz.bind (name) (%%cdr form)
     `(c-declare ,(%%string-append "#include " name))))
+
+
+;;;
+;;;; C Declare
+;;;
+
+
+(define (jazz.walk-c-declare walker resume declaration environment form)
+  (jazz.bind (declare) (%%cdr form)
+    `(c-declare ,declare)))
 
 
 ;;;

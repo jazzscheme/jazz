@@ -347,7 +347,7 @@
   (cflag jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows")
+  (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
   (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows"))
 
 

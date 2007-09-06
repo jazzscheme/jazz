@@ -36,12 +36,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; TODO
-;; - I had to comment out the call to %%class-dispatch in %%need-specific-implementation
-;;   because of a bug. I think the bug happens if we have Y -> X with gen f and
-;;   spe f in X and we call (f (new Y)) before having made any calls to spe f of X
-
-
 (module core.generic.runtime.generic
 
 

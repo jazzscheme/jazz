@@ -38,9 +38,9 @@
 (module core.class.syntax.define-class
 
 
-(jazz.define-macro (jazz.define-class name ascendant-name inherited-slot-names class-name constructor slots)
-  (jazz.expand-define-class name ascendant-name inherited-slot-names class-name constructor slots))
+(jazz.define-macro (jazz.define-class-syntax name ascendant-name inherited-slot-names class-name constructor slots)
+  (jazz.expand-define-class-syntax name ascendant-name inherited-slot-names class-name constructor slots))
 
 
-(jazz.define-macro (jazz.define-class-runtime name ascendant-name inherited-slot-names class-name slot-names)
+(jazz.define-macro (jazz.define-class name ascendant-name inherited-slot-names class-name slot-names)
   (jazz.expand-define-class-runtime name ascendant-name inherited-slot-names class-name slot-names)))

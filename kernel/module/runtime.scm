@@ -37,8 +37,9 @@
 
 (cond-expand
   (gambit
-    (declare (standard-bindings)
-             (block)
+    (declare (block)
+             (standard-bindings)
+             (extended-bindings)
              (not safe)))
   (else))
 
@@ -371,8 +372,17 @@
         (let ((dialect-name (%%car reader-info))
               (readtable-getter (%%cdr reader-info)))
           (jazz.load-module dialect-name)
-          (parameterize ((current-readtable (readtable-getter)))
-            (thunk)))
+          (let ((old-readtable ##main-readtable))
+            (dynamic-wind
+              (lambda ()
+                (set! ##main-readtable (readtable-getter)))
+              (lambda ()
+                ;; unfortunately due to a Gambit bug this code only works when calling load
+                ;; and not when calling compile-file hence the manual setting of ##main-readtable
+                (parameterize ((current-readtable (readtable-getter)))
+                  (thunk)))
+              (lambda ()
+                (set! ##main-readtable old-readtable)))))
       (thunk))))
 
 

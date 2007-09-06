@@ -39,7 +39,7 @@
 (module core.generic.syntax.specific
 
 
-(jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class jazz.allocate-specific
+(jazz.define-class-syntax jazz.Specific jazz.Object () jazz.Object-Class jazz.allocate-specific
   ((signature           %%get-specific-signature           %%set-specific-signature)
    (implementation      %%get-specific-implementation      %%set-specific-implementation)
    (next-implementation %%get-specific-next-implementation %%set-specific-next-implementation)
@@ -47,7 +47,7 @@
    (previous-specifics  %%get-specific-previous-specifics  %%set-specific-previous-specifics)))
 
 
-(jazz.define-class-runtime jazz.Specific jazz.Object () jazz.Object-Class
+(jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class
   (signature
    implementation
    next-implementation
@@ -56,4 +56,7 @@
 
 
 (jazz.define-macro (jazz.define-specific . rest)
-  (apply jazz.expand-define-specific rest)))
+  (apply jazz.expand-define-specific rest))
+
+
+(jazz.encapsulate-class jazz.Specific))

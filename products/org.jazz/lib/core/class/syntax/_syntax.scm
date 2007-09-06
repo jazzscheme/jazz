@@ -42,4 +42,6 @@
          (core.class.syntax.class (load interpreted))
          (core.class.syntax.define-class-expander)
          (core.class.syntax.define-class (load interpreted))
+         (core.class.syntax.define-method-expander)
+         (core.class.syntax.define-method (load interpreted))
          (core.class.syntax.classes (load interpreted))))

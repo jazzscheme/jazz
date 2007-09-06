@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; String Primitives
+;;;; Dialect Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,36 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (define-macro (%%string? obj)
-      (if (jazz.safe?)
-          `(string? ,obj)
-        `(##string? ,obj)))
-   
-    (define-macro (%%string-length str)
-      (if (jazz.safe?)
-          `(string-length ,str)
-        `(##string-length ,str)))
-   
-   (define-macro (%%string-ref str pos)
-     (if (jazz.safe?)
-         `(string-ref ,str ,pos)
-       `(##string-ref ,str ,pos)))
-   
-   (define-macro (%%string-set! str pos val)
-     (if (jazz.safe?)
-         `(string-set! ,str ,pos ,val)
-       `(##string-set! ,str ,pos ,val)))
-   
-   (define-macro (%%substring str start end)
-     (if (jazz.safe?)
-         `(substring ,str ,start ,end)
-       `(##substring ,str ,start ,end)))
-   
-   (define-macro (%%string-append . rest)
-     (if (jazz.safe?)
-         `(string-append ,@rest)
-       `(##string-append ,@rest))))
+(module core.library.syntax.dialect-syntax
 
-  (else))
+
+(jazz.define-class-syntax jazz.Dialect jazz.Object () jazz.Object-Class ()
+  ())
+
+
+(jazz.define-virtual-syntax (jazz.dialect-walker (jazz.Dialect dialect))))

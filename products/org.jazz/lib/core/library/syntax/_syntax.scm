@@ -40,5 +40,6 @@
 
 (require (core.library.syntax.library (load interpreted))
          (core.library.syntax.classes (load interpreted))
+         (core.library.syntax.dialect-syntax (load interpreted))
          (core.library.syntax.dialect)
          (core.library.syntax.walker)))

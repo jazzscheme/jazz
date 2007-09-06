@@ -39,14 +39,14 @@
 (module core.generic.syntax.generic
 
 
-(jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
+(jazz.define-class-syntax jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
   ((locator           %%get-generic-locator           ())
    (name              %%get-generic-name              ())
    (root-specific     %%get-generic-root-specific     %%set-generic-root-specific)
    (pending-specifics %%get-generic-pending-specifics %%set-generic-pending-specifics)))
 
 
-(jazz.define-class-runtime jazz.Generic jazz.Object () jazz.Object-Class
+(jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class
   (locator
    name
    root-specific
@@ -61,12 +61,13 @@
 ; 7.6 = 7.8 = z + by-root  (5.2 + 2.6)
 ; 8.3 = 8.5 = z + by-root + by-class (Presario X1000 for 154000 calls)
 (jazz.define-macro (%%need-specific-implementation generic object)
-  (if (jazz.debug?)
-      `(or (%%class-dispatch (%%class-of ,object) (%%get-generic-name ,generic))
-           ;;(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic))
-           (jazz.error "Unable to find specific for {s} on {s}" (%%get-generic-name ,generic) ,object))
-    `(%%class-dispatch (%%class-of ,object) (%%get-generic-name ,generic))))
+  `(%%class-dispatch (%%class-of ,object) (%%get-generic-name ,generic))
+  ;; `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic))
+  )
 
 
 (jazz.define-macro (%%class-dispatch class name)
-  `(%%hashtable-ref (%%get-class-dispatch-table ,class) ,name #f)))
+  `(%%hashtable-ref (%%get-class-dispatch-table ,class) ,name #f))
+
+
+(jazz.encapsulate-class jazz.Generic))

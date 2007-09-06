@@ -38,11 +38,11 @@
 (module test.test-dialect
 
 
-(jazz.define-class jazz.Test-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-test-dialect
+(jazz.define-class-syntax jazz.Test-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-test-dialect
   ())
 
 
-(jazz.define-class-runtime jazz.Test-Dialect jazz.Dialect () jazz.Object-Class
+(jazz.define-class jazz.Test-Dialect jazz.Dialect () jazz.Object-Class
   ())
 
 
@@ -50,5 +50,8 @@
   (jazz.allocate-test-dialect jazz.Test-Dialect))
 
 
-(jazz.define-specific (jazz.dialect-walker (jazz.Test-Dialect dialect))
-  (jazz.new-test-walker)))
+(jazz.define-method (jazz.dialect-walker (jazz.Test-Dialect dialect))
+  (jazz.new-test-walker))
+
+
+(jazz.encapsulate-class jazz.Test-Dialect))

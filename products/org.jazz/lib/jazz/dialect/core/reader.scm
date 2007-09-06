@@ -136,7 +136,7 @@
         (parameterize ((jazz.in-expression-comment? #t))
           (read-char port)
           (read port)   ; comment name
-          (read port))   ; commented expr
+          (read port))  ; commented expr
         (##read-datum-or-label-or-none-or-dot re)))
     
     

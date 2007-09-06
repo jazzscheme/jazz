@@ -1,13 +1,12 @@
 (module test.performance.b
 
-(define (g x n)
+
+(declare (block)
+         (standard-bindings)
+         (not safe))
+
+
+(define (g-separate s n)
   (if (%%fixnum= n 0)
       0
-    (f x (%%fixnum- n 1))))
-
-(jazz.define-generic (gg (X x) n))
-
-(jazz.define-specific (gg (X x) n)
-  (if (%%fixnum= n 0)
-      0
-    (ff x (%%fixnum- n 1)))))
+    (f-separate s (%%fixnum- n 1)))))

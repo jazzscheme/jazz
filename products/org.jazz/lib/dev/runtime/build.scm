@@ -48,26 +48,33 @@
 ;;;
 
 
+(define (jazz.compile-library-expansion library-name)
+  (let ((filename (jazz.module-filename library-name)))
+    (let ((src (jazz.require-module-source filename)))
+      (jazz.with-extension-reader (jazz.filename-extension src)
+        (lambda ()
+          (compile-file src (list 'expansion)))))))
+
+
 (define (jazz.compile-library-with-flags library-name cc-flags ld-flags)
   (let ((filename (jazz.module-filename library-name)))
     (jazz.compile-filename-with-flags filename cc-flags ld-flags)))
 
 
 (define (jazz.compile-filename-with-flags filename cc-flags ld-flags)
-  (let* ((src (jazz.require-module-source filename))
-         (bin (jazz.determine-module-binary filename))
-         (bindir (jazz.determine-module-bindir filename))
-         (srctime (time->seconds (file-last-modification-time src)))
-         (bintime (and bin (time->seconds (file-last-modification-time bin)))))
-    (if (or (not bintime) (> srctime bintime))
-        (begin
-          (jazz.compile-verbose filename)
-          (jazz.with-extension-reader (jazz.filename-extension src)
-            (lambda ()
-              (compile-file-to src bindir "" cc-flags ld-flags)
-              #; ;; explicit test
-              (parameterize ((current-readtable jazz.jazz-readtable))
-                (compile-file-to src bindir "" cc-flags ld-flags))))))))
+  (let ((directory (jazz.split-filename filename (lambda (dir file) dir))))
+    (jazz.build-bin-dir directory)
+    (let* ((src (jazz.require-module-source filename))
+           (bin (jazz.determine-module-binary filename))
+           (bindir (jazz.determine-module-bindir filename))
+           (srctime (time->seconds (file-last-modification-time src)))
+           (bintime (and bin (time->seconds (file-last-modification-time bin)))))
+      (if (or (not bintime) (> srctime bintime))
+          (begin
+            (jazz.compile-verbose filename)
+            (jazz.with-extension-reader (jazz.filename-extension src)
+              (lambda ()
+                (compile-file-to src bindir '(debug) cc-flags ld-flags))))))))
 
 
 (define (jazz.compile-library-to-c library-name)
@@ -133,19 +140,22 @@
   (let loop ((module-name module-name)
              (load #f)
              (phase #f))
-    (let ((declaration (jazz.locate-toplevel-declaration module-name)))
-      (proc module-name declaration load phase)
-      (cond ((eq? (jazz.get-declaration-name declaration) module-name)
-             (if (jazz.is? declaration jazz.Module-Declaration)
+    ;; quicky for tests
+    (if (%%eq? module-name 'core.library.syntax.walker)
+        (proc module-name #f #f #f)
+      (let ((declaration (jazz.locate-toplevel-declaration module-name)))
+        (proc module-name declaration load phase)
+        (cond ((eq? (%%get-lexical-binding-name declaration) module-name)
+               (if (jazz.is? declaration jazz.Module-Declaration)
+                   (for-each (lambda (require)
+                               (jazz.parse-require require loop))
+                             (%%get-module-declaration-requires declaration))
                  (for-each (lambda (require)
                              (jazz.parse-require require loop))
-                           (%%get-module-declaration-requires declaration))
-               (for-each (lambda (require)
-                           (jazz.parse-require require loop))
-                         (%%get-library-declaration-requires declaration))))
-            (else
-             (jazz.set-catalog-entry module-name #f)
-             (error "Inconsistant module name in" module-name))))))
+                           (%%get-library-declaration-requires declaration))))
+              (else
+               (jazz.set-catalog-entry module-name #f)
+               (error "Inconsistant module name in" module-name)))))))
 
 
 ;;;

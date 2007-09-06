@@ -39,7 +39,6 @@
 
 
 (require (scheme.dialect.classes (load interpreted))
-         (scheme.dialect.declarations (load interpreted))
          (scheme.dialect.dialect))
 
 

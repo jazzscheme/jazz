@@ -1,15 +1,9 @@
 (module test.performance
 
-(require (core.generic)
+
+(require (core.class)
+         (core.generic)
+         (test.performance.syntax (phase syntax))
+         (test.performance.common)
          (test.performance.a)
-         (test.performance.b))
-
-(jazz.define-class X jazz.Object () jazz.Object-Class allocate-x
-  ())
-
-(jazz.define-class-runtime X jazz.Object () jazz.Object-Class
-  ())
-
-(define (new-x)
-  (allocate-x X)))
-
+         (test.performance.b)))

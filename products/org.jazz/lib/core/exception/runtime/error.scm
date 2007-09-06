@@ -38,7 +38,7 @@
 (module core.exception.runtime.error
 
 
-(jazz.define-class-runtime jazz.Error jazz.Exception () jazz.Object-Class
+(jazz.define-class jazz.Error jazz.Exception () jazz.Object-Class
   (message))
 
 
@@ -46,5 +46,8 @@
   (jazz.allocate-error jazz.Error message))
 
 
-(jazz.define-specific (jazz.present-exception (jazz.Error error))
-  (%%get-error-message error)))
+(jazz.define-method (jazz.present-exception (jazz.Error error))
+  (%%get-error-message error))
+
+
+(jazz.encapsulate-class jazz.Error))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Fixnum Primitives
+;;;; Define Method
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,46 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-   (define-macro (%%fixnum= x y)
-     (if (jazz.safe?)
-         `(= ,x ,y)
-       `(##fixnum.= ,x ,y)))
-   
-   (define-macro (%%fixnum< x y)
-     (if (jazz.safe?)
-         `(< ,x ,y)
-       `(##fixnum.< ,x ,y)))
-   
-   (define-macro (%%fixnum<= x y)
-     (if (jazz.safe?)
-         `(<= ,x ,y)
-       `(##fixnum.<= ,x ,y)))
-   
-   (define-macro (%%fixnum> x y)
-     (if (jazz.safe?)
-         `(> ,x ,y)
-       `(##fixnum.> ,x ,y)))
-   
-   (define-macro (%%fixnum>= x y)
-     (if (jazz.safe?)
-         `(>= ,x ,y)
-       `(##fixnum.>= ,x ,y)))
-   
-   (define-macro (%%fixnum+ x y)
-     (if (jazz.safe?)
-         `(+ ,x ,y)
-       `(##fixnum.+ ,x ,y)))
-   
-   (define-macro (%%fixnum- x y)
-     (if (jazz.safe?)
-         `(- ,x ,y)
-       `(##fixnum.- ,x ,y))))
+(module core.class.syntax.define-method
 
-  (else
-   (define-macro (%%fixnum> x y)
-     `(> ,x ,y))
-   
-   (define-macro (%%fixnum+ x y)
-     `(+ ,x ,y))))
+
+(jazz.define-macro (jazz.define-virtual-syntax signature)
+  (jazz.expand-define-virtual-syntax signature))
+
+
+(jazz.define-macro (jazz.define-virtual signature)
+  (jazz.expand-define-virtual signature))
+
+
+(jazz.define-macro (jazz.define-method signature . body)
+  (jazz.expand-define-method signature body)))

@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children) jazz.Object-Class jazz.allocate-define-declaration
+(jazz.define-class-syntax jazz.Define-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-define-declaration
   ((signature %%get-define-declaration-signature ())))
 
 
@@ -52,7 +52,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children) jazz.Object-Class jazz.allocate-define-macro-declaration
+(jazz.define-class-syntax jazz.Define-Macro-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-define-macro-declaration
   ())
 
 
@@ -61,8 +61,14 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-scheme-dialect
+(jazz.define-class-syntax jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-scheme-dialect
   ())
+
+
+(jazz.define-virtual-syntax (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
+(jazz.define-virtual-syntax (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form))
+(jazz.define-virtual-syntax (jazz.walk-false (jazz.Scheme-Walker walker) form))
+(jazz.define-virtual-syntax (jazz.walk-true (jazz.Scheme-Walker walker) form))
 
 
 ;;;
@@ -70,5 +76,5 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class jazz.allocate-scheme-walker
+(jazz.define-class-syntax jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class jazz.allocate-scheme-walker
   ()))

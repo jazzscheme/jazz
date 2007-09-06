@@ -35,6 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(cond-expand
+  (gambit
+    (declare (block)
+             (standard-bindings)
+             (extended-bindings)
+             (not safe)))
+  (else))
+
+
 (define-macro (module name . rest)
   (jazz.expand-module name rest))
 
@@ -73,14 +82,7 @@
   (jazz.parse-module rest
     (lambda (requires body)
       `(begin
-         ,@(cond-expand
-             (gambit
-               `((declare (standard-bindings)
-                          (block)
-                          ,@(if (jazz.safe?)
-                                '()
-                              `((not safe))))))
-             (else '()))
+         ,@(jazz.declarations)
          ,@(map (lambda (require)
                   (jazz.parse-require require
                     (lambda (module-name load phase)

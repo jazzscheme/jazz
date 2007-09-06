@@ -68,8 +68,20 @@
 (define jazz.class-dispatch-table
   (+ jazz.class-level 1))
 
-(define jazz.class-class-table
+(define jazz.class-core-method-alist
   (+ jazz.class-dispatch-table 1))
+
+(define jazz.class-core-virtual-alist
+  (+ jazz.class-core-method-alist 1))
+
+(define jazz.class-core-virtual-names
+  (+ jazz.class-core-virtual-alist 1))
+
+(define jazz.class-core-vtable
+  (+ jazz.class-core-virtual-names 1))
+
+(define jazz.class-class-table
+  (+ jazz.class-core-vtable 1))
 
 (define jazz.class-interface-table
   (+ jazz.class-class-table 1))
@@ -145,6 +157,38 @@
 
 (define-macro (%%set-class-dispatch-table class vtable)
   `(%%object-set! ,class ,jazz.class-dispatch-table ,vtable))
+
+
+(define-macro (%%get-class-core-method-alist class)
+  `(%%object-ref ,class ,jazz.class-core-method-alist))
+
+
+(define-macro (%%set-class-core-method-alist class vtable)
+  `(%%object-set! ,class ,jazz.class-core-method-alist ,vtable))
+
+
+(define-macro (%%get-class-core-virtual-alist class)
+  `(%%object-ref ,class ,jazz.class-core-virtual-alist))
+
+
+(define-macro (%%set-class-core-virtual-alist class vtable)
+  `(%%object-set! ,class ,jazz.class-core-virtual-alist ,vtable))
+
+
+(define-macro (%%get-class-core-virtual-names class)
+  `(%%object-ref ,class ,jazz.class-core-virtual-names))
+
+
+(define-macro (%%set-class-core-virtual-names class vtable)
+  `(%%object-set! ,class ,jazz.class-core-virtual-names ,vtable))
+
+
+(define-macro (%%get-class-core-vtable class)
+  `(%%object-ref ,class ,jazz.class-core-vtable))
+
+
+(define-macro (%%set-class-core-vtable class vtable)
+  `(%%object-set! ,class ,jazz.class-core-vtable ,vtable))
 
 
 (define-macro (%%get-class-class-table class)

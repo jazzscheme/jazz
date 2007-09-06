@@ -38,19 +38,18 @@
 (module core.library.syntax.dialect
 
 
-(jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class ()
+(jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class
   ())
 
 
-(jazz.define-class-runtime jazz.Dialect jazz.Object () jazz.Object-Class
-  ())
+(jazz.define-virtual (jazz.dialect-walker (jazz.Dialect dialect)))
 
 
-(jazz.define-generic (jazz.dialect-walker (jazz.Dialect dialect)))
-
-
-(jazz.define-specific (jazz.dialect-walker (jazz.Dialect dialect))
+(jazz.define-method (jazz.dialect-walker (jazz.Dialect dialect))
   #f)
+
+
+(jazz.encapsulate-class jazz.Dialect)
 
 
 ;;;

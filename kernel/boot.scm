@@ -107,6 +107,27 @@
   #t)
 
 
+(define jazz.profile?
+  (make-parameter #f))
+
+(define (profile thunk)
+  (parameterize ((jazz.profile? #t))
+    (thunk)))
+
+
+(cond-expand
+  (gambit
+    (define (jazz.declarations)
+      `((declare (block)
+                 (standard-bindings)
+                 (extended-bindings)
+                 ,@(if (jazz.safe?)
+                       '()
+                     `((not safe)))))))
+  (else
+    '()))
+
+
 ;;;
 ;;;; Load
 ;;;
@@ -125,24 +146,8 @@
 ;;;
 
 
-(define jazz.primitive-files
-  '("kernel/module/primitive/boolean"
-    "kernel/module/primitive/char"
-    "kernel/module/primitive/control"
-    "kernel/module/primitive/equality"
-    "kernel/module/primitive/number"
-    "kernel/module/primitive/fixnum"
-    "kernel/module/primitive/list"
-    "kernel/module/primitive/vector"
-    "kernel/module/primitive/string"
-    "kernel/module/primitive/symbol"
-    "kernel/module/primitive/keyword"
-    "kernel/module/primitive/hashtable"
-    "kernel/module/primitive/port"))
-
-
 (define (jazz.load-module-system)
-  (for-each jazz.load-filename jazz.primitive-files)
+  (jazz.load-filename "kernel/module/primitives")
   (jazz.load-filename "kernel/module/syntax")
   (jazz.load-filename "kernel/module/runtime"))
 

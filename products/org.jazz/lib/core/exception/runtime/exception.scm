@@ -38,8 +38,11 @@
 (module core.exception.runtime.exception
 
 
-(jazz.define-class-runtime jazz.Exception jazz.Object () jazz.Object-Class
+(jazz.define-class jazz.Exception jazz.Object () jazz.Object-Class
   ())
 
 
-(jazz.define-generic (jazz.present-exception (jazz.Exception exception))))
+(jazz.define-virtual (jazz.present-exception (jazz.Exception exception)))
+
+
+(jazz.encapsulate-class jazz.Exception))

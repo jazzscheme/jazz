@@ -14,24 +14,16 @@
 (display-environment-set! #t)
 
 
-(define (mw lo hi)
-  (bitwise-ior (arithmetic-shift hi 8) lo))
-
-(define (lc word)
-  (bitwise-and #xFF word))
-
-(define (hc word)
-  (arithmetic-shift (bitwise-and (bitwise-not #xFF) word) -8))
+(define (tem)
+  (apply jazz.expand-define-method '((foo (Y y)) (cons Y.foo (nextmethod y)))))
 
 
-(define (lw int)
-  (bitwise-and #xFFFF int))
+(define (tev)
+  (apply jazz.expand-define-virtual '((foo (X x)) '(X.foo))))
 
-(define (hw int)
-  (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16))
 
-(define (mi lo hi)
-  (bitwise-ior (arithmetic-shift hi 16) lo))
+(define (lte)
+  (load "testexc"))
 
 
 ;;;
@@ -156,6 +148,12 @@
      (expand-to-file ',library-name)))
 
 
+(define-macro (ee library-name)
+  `(begin
+     (bd)
+     (jazz.compile-library-expansion ',library-name)))
+
+
 (define (expand library-name)
   (expand-to-port library-name (current-output-port)))
 
@@ -169,7 +167,13 @@
 
 (define (expand-to-port library-name port)
   (let ((source (jazz.determine-module-source (jazz.module-filename library-name))))
-    (pretty-print (jazz.walk-library (cdr (jazz.read-toplevel-form source #f))) port)))
+    (let ((form (jazz.read-toplevel-form source #f)))
+      (let ((kind (car form))
+            (rest (cdr form)))
+        (pretty-print (case kind
+                        ((module) (jazz.expand-module (car rest) (cdr rest)))
+                        ((library) (jazz.walk-library rest)))
+                      port)))))
 
 
 (define (et)
@@ -190,11 +194,11 @@
 
 
 (define-macro (ld library-name)
-  `(locate-fresh ',library-name))
+  `(jazz.locate-toplevel-declaration ',library-name))
 
 
 (define-macro (lk library-name name #!optional (external? #t))
-  `(jazz.lookup-declaration (locate-fresh ',library-name) ',name ,external?))
+  `(jazz.lookup-declaration (jazz.locate-toplevel-declaration ',library-name) ',name ,external?))
 
 
 (define (locate-fresh library-name)
@@ -263,10 +267,7 @@
 
 
 (define-macro (cflag module-name c-flags ld-flags)
-  `(let* ((filename (jazz.module-filename ',module-name))
-          (directory (jazz.split-filename filename (lambda (dir file) dir))))
-     (jazz.build-bin-dir directory)
-     (jazz.compile-library-with-flags ',module-name ,c-flags ,ld-flags)))
+  `(jazz.compile-library-with-flags ',module-name ,c-flags ,ld-flags))
 
 
 (define (bwindows)
@@ -327,6 +328,7 @@
 
 
 (define (bj)
+  (ll)
   (bkernel)
   (bmodule core.base)
   (bmodule core.class)
@@ -347,6 +349,12 @@
   (cflag jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows"))
+
+
+(define (ball)
+  (bj)
+  (bwin)
+  (ccw))
 
 
 ;;;
@@ -380,8 +388,43 @@
 ;;;
 
 
-(define (tc)
-  (time (lcomp)))
+(define (ltext)
+  (lj)
+  (l jazz.ui.text.Text-View))
+
+
+(define (ttl)
+  (lj)
+  (time (ltext)))
+
+
+(define (ttp)
+  (lj)
+  (profile (lambda () (ltext))))
+
+
+(define (ttr)
+  (time (let ((filename "products/org.jazz/lib/jazz/ui/text/Text-View.fusion"))
+          (jazz.with-extension-reader (jazz.filename-extension filename)
+            (lambda ()
+              (call-with-input-file filename
+                (lambda (port)
+                  (read port)
+                  #t)))))))
+
+
+(define (tte)
+  (ef jazz.ui.text.Text-View))
+
+(define (ttre)
+  (time (let ((filename "x.scm"))
+          (call-with-input-file filename
+            (lambda (port)
+              (read port)
+              #t)))))
+
+(define (ttc)
+  (time (load "x")))
 
 
 (define (trc)
@@ -394,19 +437,38 @@
   (time (load "x.scm")))
 
 
-(define (tj)
-  (let ((data (list "abc" "abc" "abc" "abc" "abc"))
-        (iter 100000))
-    (time (let loop ((n iter)) (if (> n 0) (begin (jazz.join-strings data ".") (loop (- n 1))))))
-    (time (let loop ((n iter)) (if (> n 0) (begin (apply ##string-append (list "abc" "." "abc" "." "abc" "." "abc" "." "abc")) (loop (- n 1))))))))
+(define (bpf)
+  (bd)
+  (c test.performance.common)
+  (c test.performance.a)
+  (c test.performance.b))
 
-
-(define (lperf)
+(define (lpf)
   (bl)
-  (l test.performance))
+  (jazz.load-module 'test.performance))
 
-(define (nx)
-  (new-x))
+(define (pf)
+  (lpf)
+  (l test.performance.time))
+
+
+;;;
+;;;; Profile
+;;;
+
+
+(define (lsp)
+  (load "statprof"))
+
+
+(define (spb)
+  (profile-start!))
+
+(define (spe)
+  (profile-stop!))
+
+(define (spw name)
+  (write-profile-report name))
 
 
 ;;;

@@ -153,14 +153,14 @@
 
 
 (define (jazz.memstring char string)
-  (let ((len (%%string-length string))
-        (n 0)
-        (found? #f))
-    (%%while (and (%%not found?) (%%fixnum< n len))
-      (if (%%eqv? (%%string-ref string n) char)
-          (set! found? #t)
-        (set! n (%%fixnum+ n 1))))
-    found?))
+  (let ((len (%%string-length string)))
+    (let loop ((n 0))
+      (cond ((%%fixnum= n len)
+             #f)
+            ((%%eqv? (%%string-ref string n) char)
+             #t)
+            (else
+             (loop (%%fixnum+ n 1)))))))
 
 
 (define (jazz.split-string str separator)

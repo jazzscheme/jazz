@@ -63,7 +63,7 @@
     (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)))
 
 
-(define (jazz.expand-define-class name ascendant-name inherited-slot-names class-name constructor slots)
+(define (jazz.expand-define-class-syntax name ascendant-name inherited-slot-names class-name constructor slots)
   (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots
     (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)
       `(begin

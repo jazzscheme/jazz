@@ -38,9 +38,12 @@
 (module core.exception.syntax.classes
 
 
-(jazz.define-class jazz.Exception jazz.Object () jazz.Object-Class ()
+(jazz.define-class-syntax jazz.Exception jazz.Object () jazz.Object-Class ()
   ())
 
 
-(jazz.define-class jazz.Error jazz.Exception () jazz.Object-Class jazz.allocate-error
+(jazz.define-virtual-syntax (jazz.present-exception (jazz.Exception exception)))
+
+
+(jazz.define-class-syntax jazz.Error jazz.Exception () jazz.Object-Class jazz.allocate-error
   ((message %%get-error-message ()))))

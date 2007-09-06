@@ -43,31 +43,34 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Define-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children) jazz.Object-Class
+(jazz.define-class jazz.Define-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (signature))
 
 
 (define (jazz.new-define-declaration name parent parameters)
-  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name 'public 'uptodate '() #f parent '() (and parameters (jazz.new-walk-signature parameters)))))
-    (jazz.setup-declaration-toplevel new-declaration)
+  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name 'public 'uptodate '() #f parent '() #f (and parameters (jazz.new-walk-signature parameters)))))
+    (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-specific (jazz.walk-binding-walk-reference (jazz.Define-Declaration declaration) walker resume source-declaration environment)
-  (jazz.get-locator declaration))
+(jazz.define-method (jazz.walk-binding-walk-reference (jazz.Define-Declaration declaration) walker resume source-declaration environment)
+  (%%get-declaration-locator declaration))
 
 
-(jazz.define-specific (jazz.walk-binding-walk-assignment (jazz.Define-Declaration declaration) walker resume source-declaration environment value)
-  (let ((locator (jazz.get-locator declaration))
+(jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Define-Declaration declaration) walker resume source-declaration environment value)
+  (let ((locator (%%get-declaration-locator declaration))
         (walk (jazz.walk walker resume source-declaration environment value)))
     `(set! ,locator ,walk)))
 
 
 ;; Not 100% Scheme clean as it is possible to set! a define at runtime...
-(jazz.define-specific (jazz.walk-binding-validate-call (jazz.Define-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Define-Declaration declaration) walker resume source-declaration call arguments)
   (let ((signature (%%get-define-declaration-signature declaration)))
     (if signature
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
+
+
+(jazz.encapsulate-class jazz.Define-Declaration)
 
 
 ;;;
@@ -75,32 +78,35 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Define-Macro-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children) jazz.Object-Class
+(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
   ())
 
 
 (define (jazz.new-define-macro-declaration name parent)
-  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name 'public 'uptodate '() #f parent '())))
-    (jazz.setup-declaration-toplevel new-declaration)
+  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name 'public 'uptodate '() #f parent '() #f)))
+    (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-specific (jazz.walk-binding-expandable? (jazz.Define-Macro-Declaration declaration))
+(jazz.define-method (jazz.walk-binding-expandable? (jazz.Define-Macro-Declaration declaration))
   #t)
 
 
-(jazz.define-specific (jazz.walk-binding-expand-form (jazz.Define-Macro-Declaration binding) walker resume declaration environment form)
-  (let ((locator (jazz.get-locator binding)))
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Define-Macro-Declaration binding) walker resume declaration environment form)
+  (let ((locator (%%get-declaration-locator binding)))
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
       (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-module (jazz.get-locator parent-declaration))
+        (jazz.load-module (%%get-declaration-locator parent-declaration))
         (let ((expander (jazz.need-macro locator)))
           (%%apply expander (%%cdr form)))))))
 
 
-(jazz.define-specific (jazz.walk-binding-walk-assignment (jazz.Define-Macro-Declaration declaration) walker resume source-declaration environment value)
-  (jazz.walk-error walker resume source-declaration "Illegal assignment to a macro: {s}" (jazz.get-locator declaration)))
+(jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Define-Macro-Declaration declaration) walker resume source-declaration environment value)
+  (jazz.walk-error walker resume source-declaration "Illegal assignment to a macro: {s}" (%%get-declaration-locator declaration)))
+
+
+(jazz.encapsulate-class jazz.Define-Macro-Declaration)
 
 
 ;;;
@@ -108,7 +114,7 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class
+(jazz.define-class jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class
   ())
 
 
@@ -116,8 +122,11 @@
   (jazz.allocate-scheme-dialect jazz.Scheme-Dialect))
 
 
-(jazz.define-specific (jazz.dialect-walker (jazz.Scheme-Dialect dialect))
+(jazz.define-method (jazz.dialect-walker (jazz.Scheme-Dialect dialect))
   (jazz.new-scheme-walker))
+
+
+(jazz.encapsulate-class jazz.Scheme-Dialect)
 
 
 ;;;
@@ -125,7 +134,7 @@
 ;;;
 
 
-(jazz.define-class-runtime jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class
   ())
 
 
@@ -138,7 +147,7 @@
 ;;;
 
 
-(jazz.define-specific (jazz.walk-declaration (jazz.Scheme-Walker walker) resume declaration environment form)
+(jazz.define-method (jazz.walk-declaration (jazz.Scheme-Walker walker) resume declaration environment form)
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
@@ -182,7 +191,7 @@
   #f)
 
 
-(jazz.define-specific (jazz.walker-environment (jazz.Scheme-Walker walker))
+(jazz.define-method (jazz.walker-environment (jazz.Scheme-Walker walker))
   (or jazz.scheme-environment
       (begin
         (set! jazz.scheme-environment (%%list (jazz.new-walk-frame (append (jazz.core-bindings) (jazz.scheme-bindings)))))
@@ -214,7 +223,7 @@
 (define (jazz.walk-%define walker resume declaration environment form)
   (jazz.bind (name value parameters) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration form))
-           (locator (jazz.get-locator new-declaration))
+           (locator (%%get-declaration-locator new-declaration))
            (new-environment (%%cons new-declaration environment)))
       `(define ,locator
          ,(jazz.walk walker resume new-declaration new-environment value)))))
@@ -252,7 +261,7 @@
 (define (jazz.walk-%define-macro walker resume declaration environment form)
   (jazz.bind (name parameters body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration form))
-           (locator (jazz.get-locator new-declaration))
+           (locator (%%get-declaration-locator new-declaration))
            (new-variables (jazz.parameters->variables parameters))
            (new-environment (%%append new-variables environment)))
       `(jazz.define-macro ,(%%cons locator parameters)
@@ -310,10 +319,10 @@
          ,@(jazz.walk-body walker resume declaration new-environment body)))))
 
 
-(jazz.define-generic (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
+(jazz.define-virtual (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
 
 
-(jazz.define-specific (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters)
+(jazz.define-method (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters)
   parameters)
 
 
@@ -322,10 +331,10 @@
 ;;;
 
 
-(jazz.define-generic (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form))
+(jazz.define-virtual (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form))
 
 
-(jazz.define-specific (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form)
+(jazz.define-method (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form)
   (jazz.walk-error walker resume declaration "Invalid scheme let binding: {s}" form))
 
 
@@ -402,17 +411,17 @@
 ;;;
 
 
-(jazz.define-generic (jazz.walk-true (jazz.Scheme-Walker walker) form))
+(jazz.define-virtual (jazz.walk-true (jazz.Scheme-Walker walker) form))
 
 
-(jazz.define-specific (jazz.walk-true (jazz.Scheme-Walker walker) form)
+(jazz.define-method (jazz.walk-true (jazz.Scheme-Walker walker) form)
   form)
 
 
-(jazz.define-generic (jazz.walk-false (jazz.Scheme-Walker walker) form))
+(jazz.define-virtual (jazz.walk-false (jazz.Scheme-Walker walker) form))
 
 
-(jazz.define-specific (jazz.walk-false (jazz.Scheme-Walker walker) form)
+(jazz.define-method (jazz.walk-false (jazz.Scheme-Walker walker) form)
   `(%%not ,form))
 
 
@@ -533,6 +542,9 @@
                     (%%cons (walk (%%car form)) (walk (%%cdr form))))
                 form))))
     (%%list (%%car form) (walk (%%cadr form)))))
+
+
+(jazz.encapsulate-class jazz.Scheme-Walker)
 
 
 ;;;

@@ -210,4 +210,20 @@
 
 
 (define (jazz.bit-or . rest)
-  (%%apply bitwise-ior rest)))
+  (%%apply bitwise-ior rest))
+
+
+;;;
+;;;; Hashtable
+;;;
+
+
+(define jazz.hashtable-merge
+  (let ((unbound (list 'unbound)))
+    (lambda (into from duplicate-proc)
+      (%%iterate-hashtable from
+        (lambda (key value)
+          (let ((current (%%hashtable-ref into key unbound)))
+            (if (%%eq? current unbound)
+                (%%hashtable-set! into key value)
+              (duplicate-proc key current value)))))))))

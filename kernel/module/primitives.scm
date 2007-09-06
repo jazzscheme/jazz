@@ -247,7 +247,10 @@
       `(table->list ,hashtable))
     
     (define-macro (%%hashtable-entries hashtable)
-      `(table-length ,hashtable)))
+      `(table-length ,hashtable))
+    
+    (define-macro (%%copy-hashtable hashtable)
+      `(table-copy ,hashtable)))
   
   (else))
 

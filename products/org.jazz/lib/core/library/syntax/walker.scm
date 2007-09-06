@@ -38,7 +38,21 @@
 ;; Concepts
 ;; - lookup: direct lookup of a symbol returning a declaration
 ;; - resolve: references are resolved only on first usage
-;; It is key to have compile time reference loading identical to runtime library loading
+;;
+;; Notes
+;; - It is key to have compile time reference loading identical to runtime library loading
+;;   to ensure that runtime problems are detected at compile time exactly as they would occur
+;; - Autoload declarations are treated specially as they are the only case where different
+;;   references to the same declaration generate different code: direct access will just expand
+;;   to the locator while an autoload access must add code to load the module
+;;
+;; Todo
+;; - Is the extra indirection level of having declaration references really necessary?
+;; - When access is all moves to the new lookups, remove unneeded hashtables
+;; - Convert and remove the temporary patch jazz.register-autoload that was used to implement
+;;   the old load
+;; - Think about the check order of imported modules. I do not like that they are checked in
+;;   reversed order although with the new lookups the order should be irrelevant as it should be
 
 
 (module core.library.syntax.walker
@@ -60,6 +74,34 @@
 ;; Set to #f to debug the implementation itself
 (define jazz.Delay-Reporting?
   #t)
+
+
+;;;
+;;;; Walk Access
+;;;
+
+
+;; access internal to the module
+(define jazz.private-access
+  0)
+
+;; access from external modules
+(define jazz.public-access
+  1)
+
+;; access through inheritance
+(define jazz.protected-access
+  2)
+
+
+(define (jazz.make-access-lookups access-level)
+  (let ((lookups (%%make-vector (%%fixnum+ access-level 1))))
+    (let loop ((n 0))
+      (if (<= n access-level)
+          (begin
+            (%%vector-set! lookups n (%%new-hashtable ':eq?))
+            (loop (%%fixnum+ n 1)))))
+    lookups))
 
 
 ;;;
@@ -151,6 +193,12 @@
   (%%set-declaration-locator new-declaration (%%apply jazz.compose-name (jazz.get-declaration-path new-declaration)))
   (let ((parent (%%get-declaration-parent new-declaration)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
+
+
+(define (jazz.lookup-declaration2 declaration symbol access)
+  (%%hashtable-ref (%%vector-ref (%%get-namespace-declaration-lookups declaration) access)
+                   symbol
+                   #f))
 
 
 (jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
@@ -300,7 +348,8 @@
 
 
 (jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
-  (lookup))
+  (lookup
+   lookups))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Namespace-Declaration declaration) walker resume source-declaration environment)
@@ -323,16 +372,15 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup) jazz.Object-Class
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class
   (dialect
    requires
    exports
-   imports
-   exported))
+   imports))
 
 
 (define (jazz.new-library-declaration name parent dialect requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name 'public 'uptodate '() #f parent '() #f (%%new-hashtable ':eq?) dialect requires exports imports #f)))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name 'public 'uptodate '() #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.public-access) dialect requires exports imports)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -392,6 +440,22 @@
       (if external?
           (lookup-exported)
         (lookup-imported))))
+
+
+(define (jazz.setup-library-lookups library-declaration)
+  #f
+  #;
+  (let ((private (%%get-access-lookup library-declaration jazz.private-access)))
+    ;; quicky
+    #;
+    (jazz.hashtable-merge private (%%get-namespace-declaration-lookup library-declaration))
+    )
+  #;
+  (let ((public (%%get-access-lookup library-declaration jazz.public-access)))
+    ;; quicky
+    #;
+    (jazz.hashtable-merge private (%%get-namespace-declaration-lookup library-declaration))
+    ))
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration library-declaration) symbol external?)
@@ -551,6 +615,7 @@
       (jazz.lookup-declaration referenced-declaration symbol external?))))
 
 
+;; SHOULD delay getting the refered declaration and when getting it would be the right place to do the register-autoload
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Autoload-Declaration declaration) walker resume source-declaration environment)
   (jazz.register-autoload-declaration walker declaration)
   (let ((referenced-declaration (%%get-autoload-declaration-declaration declaration)))
@@ -1105,7 +1170,6 @@
    errors
    literals
    c-references
-   direct-dependencies
    autoload-declarations))
 
 
@@ -1309,6 +1373,7 @@
         (imports (%%reverse (jazz.walk-library-imports walker (jazz.add-dialect-import imports dialect-name)))))
     (let ((declaration (jazz.new-library-declaration name #f dialect-name requires exports imports)))
       (jazz.load-library-syntax declaration)
+      (jazz.setup-library-lookups declaration)
       (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
       (jazz.validate-walk-problems walker)
       declaration)))
@@ -1374,12 +1439,10 @@
     (let* ((dialect (jazz.load-dialect dialect-name))
            (walker (jazz.dialect-walker dialect))
            (resume #f)
-           (declaration (%%timing (jazz.walk-library-declaration walker name dialect-name requires exports imports body)))
-           (environment (%%timing (%%cons declaration (jazz.walker-environment walker))))
+           (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
+           (environment (%%cons declaration (jazz.walker-environment walker)))
            (fullname (%%get-declaration-locator declaration)))
-      ;;(jazz.register-library-dependency walker declaration)
-      ;;(jazz.register-library-dependencies walker import-declarations)
-      (let ((body-expansion (%%timing (jazz.walk-list walker resume declaration environment body)))
+      (let ((body-expansion (jazz.walk-list walker resume declaration environment body))
             (c-types-expansion (jazz.collect-walker-c-types walker))
             (literals-expansion (jazz.collect-literals walker)))
         (jazz.validate-walk-problems walker)
@@ -1413,9 +1476,6 @@
                              (%%when (and library-declaration (%%neq? phase 'syntax))
                                (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
                          (%%get-library-declaration-imports declaration))
-               (for-each (lambda (library-declaration)
-                           (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))
-                         (%%get-walker-direct-dependencies walker))
                (jazz.queue-list queue))
            ,@c-types-expansion
            ,@literals-expansion
@@ -1610,61 +1670,10 @@
 ;;;
 
 
-(define (jazz.register-direct-dependency walker library-declaration)
-  (let ((dependencies (%%get-walker-direct-dependencies walker)))
-    (%%when (%%not (%%memq library-declaration dependencies))
-      (%%set-walker-direct-dependencies walker (%%cons library-declaration dependencies)))))
-
-
 (define (jazz.register-autoload-declaration walker autoload-declaration)
   (let ((declarations (%%get-walker-autoload-declarations walker)))
     (%%when (%%not (%%memq autoload-declaration declarations))
       (%%set-walker-autoload-declarations walker (%%cons autoload-declaration declarations)))))
-
-
-;(define (jazz.register-direct-dependencies walker obj)
-;  (%%when obj
-;    (if (list? obj)
-;        (for-each (lambda (decl)
-;                    (jazz.register-direct-dependency walker decl))
-;                  obj)
-;      (jazz.register-direct-dependency walker obj))))
-
-
-;(define (jazz.register-direct-dependency walker declaration)
-;  (let ((dependency (%%get-declaration-toplevel declaration))
-;        (dependencies (%%get-walker-direct-dependencies walker)))
-;    (%%when (%%not (%%memq dependency dependencies))
-;      (%%set-walker-direct-dependencies walker (%%cons dependency dependencies)))))
-
-
-;(define (jazz.register-library-dependencies walker module-declarations)
-;  (for-each (lambda (module-declaration)
-;              (jazz.register-library-dependency walker module-declaration))
-;            module-declarations))
-
-
-;(define (jazz.register-module-dependency walker module-declaration)
-;  (jazz.register-direct-dependency walker module-declaration))
-
-
-;(define (jazz.register-package-dependencies walker package-declarations)
-;  (for-each (lambda (package-declaration)
-;              (jazz.register-package-dependency walker package-declaration))
-;            package-declarations))
-
-
-;(define (jazz.register-package-dependency walker package-declaration)
-;  (jazz.register-direct-dependency walker package-declaration)
-;  (let ((include-declarations (map %%get-declaration-reference-declaration (jazz.get-package-declaration-includes package-declaration))))
-;    (for-each (lambda (include-declaration)
-;                (jazz.register-package-dependency walker include-declaration))
-;              include-declarations)))
-
-
-;(define (jazz.direct-dependency? walker declaration)
-;  (%%memq (%%get-declaration-toplevel declaration)
-;          (%%get-walker-direct-dependencies walker)))
 
 
 ;;;
@@ -2125,7 +2134,7 @@
 
 
 (define jazz.native-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.native-keywords
@@ -2157,7 +2166,7 @@
 
 
 (define jazz.macro-modifiers
-  '(((private package protected public) . package)
+  '(((private protected public) . private)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -2202,7 +2211,7 @@
 
 
 (define jazz.syntax-modifiers
-  '(((private package protected public) . package)
+  '(((private protected public) . private)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -2408,12 +2417,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class
   ())
 
 
 (define (jazz.new-core-walker)
-  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() '() '() '()))
+  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() '() '()))
 
 
 (jazz.encapsulate-class jazz.Core-Walker)

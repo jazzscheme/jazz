@@ -263,20 +263,20 @@
 
 
 (define-macro (c library-name)
-  `(jazz.compile-library-with-flags ',library-name "" ""))
+  `(jazz.compile-library-with-flags ',library-name '() "" ""))
 
 
 (define-macro (cflag module-name c-flags ld-flags)
-  `(jazz.compile-library-with-flags ',module-name ,c-flags ,ld-flags))
+  `(jazz.compile-library-with-flags ',module-name '() ,c-flags ,ld-flags))
 
 
 (define (bwindows)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) '() (cadr x) (caddr x)))
             compiled-libs-windows))
 
 
 (define (blinux)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) '() (cadr x) (caddr x)))
             compiled-libs-linux))
 
 
@@ -307,7 +307,7 @@
 (define (cll)
   (bd)
   (parameterize ((current-readtable jazz.jazz-readtable))
-    (jazz.compile-filename-with-flags "_language" "" "")))
+    (jazz.compile-filename-with-flags "_language" '() "" "")))
 
 
 ;;;

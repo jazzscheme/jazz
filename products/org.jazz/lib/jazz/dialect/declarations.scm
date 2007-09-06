@@ -61,7 +61,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup) jazz.Object-Class ()
+(jazz.define-class-syntax jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class ()
   ((metaclass %%get-unit-declaration-metaclass ())))
 
 
@@ -70,7 +70,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup metaclass) jazz.Object-Class jazz.allocate-class-declaration
+(jazz.define-class-syntax jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class jazz.allocate-class-declaration
   ((ascendant  %%get-class-declaration-ascendant  ())
    (interfaces %%get-class-declaration-interfaces ())))
 
@@ -80,7 +80,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup metaclass) jazz.Object-Class jazz.allocate-interface-declaration
+(jazz.define-class-syntax jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class jazz.allocate-interface-declaration
   ((ascendants %%get-interface-declaration-ascendants ())))
 
 

@@ -39,4 +39,4 @@
 
 
 (define-macro (library . rest)
-  (%%timing (jazz.walk-library rest))))
+  (jazz.walk-library rest)))

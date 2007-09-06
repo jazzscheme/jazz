@@ -140,7 +140,12 @@
 
 
 (jazz.define-class-syntax jazz.Namespace-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class ()
-  ((lookup %%get-namespace-declaration-lookup ())))
+  ((lookup  %%get-namespace-declaration-lookup  ())
+   (lookups %%get-namespace-declaration-lookups ())))
+
+
+(jazz.define-macro (%%get-access-lookup namespace-declaration access)
+  `(%%vector-ref (%%get-namespace-declaration-lookups ,namespace-declaration) ,access))
 
 
 ;;;
@@ -148,12 +153,11 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup) jazz.Object-Class jazz.allocate-library-declaration
+(jazz.define-class-syntax jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class jazz.allocate-library-declaration
   ((dialect  %%get-library-declaration-dialect  ())
    (requires %%get-library-declaration-requires ())
    (exports  %%get-library-declaration-exports  ())
-   (imports  %%get-library-declaration-imports  ())
-   (exported %%get-library-declaration-exported %%set-library-declaration-exported)))
+   (imports  %%get-library-declaration-imports  ())))
 
 
 ;;;
@@ -252,11 +256,10 @@
 (jazz.define-class-syntax jazz.Walker jazz.Object () jazz.Object-Class ()
   ((warnings              %%get-walker-warnings              %%set-walker-warnings)
    (errors                %%get-walker-errors                %%set-walker-errors)
+   (literals              %%get-walker-literals              %%set-walker-literals)
    ;; this will probably become a generic references field later on...
    ;; (also probably move references field from c-type-declaration to declaration...)
-   (literals              %%get-walker-literals              %%set-walker-literals)
    (c-references          %%get-walker-c-references          %%set-walker-c-references)
-   (direct-dependencies   %%get-walker-direct-dependencies   %%set-walker-direct-dependencies)
    (autoload-declarations %%get-walker-autoload-declarations %%set-walker-autoload-declarations)))
 
 
@@ -435,5 +438,5 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class jazz.allocate-core-walker
+(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class jazz.allocate-core-walker
   ()))

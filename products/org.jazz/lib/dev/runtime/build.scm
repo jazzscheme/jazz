@@ -56,12 +56,12 @@
           (compile-file src (list 'expansion)))))))
 
 
-(define (jazz.compile-library-with-flags library-name cc-flags ld-flags)
+(define (jazz.compile-library-with-flags library-name options cc-flags ld-flags)
   (let ((filename (jazz.module-filename library-name)))
-    (jazz.compile-filename-with-flags filename cc-flags ld-flags)))
+    (jazz.compile-filename-with-flags filename options cc-flags ld-flags)))
 
 
-(define (jazz.compile-filename-with-flags filename cc-flags ld-flags)
+(define (jazz.compile-filename-with-flags filename options cc-flags ld-flags)
   (let ((directory (jazz.split-filename filename (lambda (dir file) dir))))
     (jazz.build-bin-dir directory)
     (let* ((src (jazz.require-module-source filename))
@@ -74,7 +74,7 @@
             (jazz.compile-verbose filename)
             (jazz.with-extension-reader (jazz.filename-extension src)
               (lambda ()
-                (compile-file-to src bindir '(debug) cc-flags ld-flags))))))))
+                (compile-file-to src bindir options cc-flags ld-flags))))))))
 
 
 (define (jazz.compile-library-to-c library-name)
@@ -88,7 +88,7 @@
 
 (define (jazz.compile-library library-name)
   (let ((filename (jazz.require-module-source (jazz.module-filename library-name))))
-    (jazz.compile-filename-with-flags filename "" "")))
+    (jazz.compile-filename-with-flags filename '() "" "")))
 
 
 (define (jazz.compile-verbose filename)
@@ -123,7 +123,7 @@
 
 (define (jazz.build-kernel)
   (jazz.build-bin-dir "kernel/module")
-  (jazz.compile-filename-with-flags "kernel/module/runtime" "" ""))
+  (jazz.compile-filename-with-flags "kernel/module/runtime" '() "" ""))
 
 
 (define (jazz.build-module module-name)
@@ -133,7 +133,7 @@
         (let* ((filename (jazz.module-filename module-name))
                (directory (jazz.split-filename filename (lambda (dir file) dir))))
           (jazz.build-bin-dir directory)
-          (jazz.compile-filename-with-flags filename "" ""))))))
+          (jazz.compile-filename-with-flags filename '() "" ""))))))
 
 
 (define (jazz.for-each-submodule module-name proc)

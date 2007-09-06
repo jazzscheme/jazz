@@ -161,11 +161,7 @@
 (define (jazz.copy-dispatch-table class)
   (let ((class-dispatch-table (%%get-class-dispatch-table class)))
     (if class-dispatch-table
-        (let ((dispatch-table (%%new-hashtable ':eq?)))
-          (%%iterate-hashtable class-dispatch-table
-            (lambda (key value)
-              (%%hashtable-set! dispatch-table key value)))
-          dispatch-table)
+        (%%copy-hashtable class-dispatch-table)
       #f)))
 
 

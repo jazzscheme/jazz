@@ -134,12 +134,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class
   ())
 
 
 (define (jazz.new-scheme-walker)
-  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '() '() '() '() '()))
+  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '() '() '() '()))
 
 
 ;;;

@@ -142,7 +142,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup) jazz.Object-Class
+(jazz.define-class jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class
   (metaclass))
 
 
@@ -162,13 +162,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup metaclass) jazz.Object-Class
+(jazz.define-class jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class
   (ascendant
    interfaces))
 
 
 (define (jazz.new-class-declaration name access compatibility attributes parent metaclass ascendant interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) metaclass ascendant interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.protected-access) metaclass ascendant interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -237,12 +237,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup metaclass) jazz.Object-Class
+(jazz.define-class jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class
   (ascendants))
 
 
 (define (jazz.new-interface-declaration name access compatibility attributes parent metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.protected-access) metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -361,16 +361,16 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class jazz.allocate-jazz-walker
+(jazz.define-class-syntax jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class jazz.allocate-jazz-walker
   ())
 
 
-(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals c-references direct-dependencies autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class
   ())
 
 
 (define (jazz.new-jazz-walker)
-  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '() '() '() '() '()))
+  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '() '() '() '()))
 
 
 ;;;
@@ -553,7 +553,7 @@
 
 
 (define jazz.definition-modifiers
-  '(((private package protected public) . package)
+  '(((private protected public) . private)
     ((deprecated uptodate) . uptodate)
     ((inline onsite) . onsite)))
 
@@ -605,7 +605,7 @@
 
 
 (define jazz.generic-modifiers
-  '(((private package protected public) . private)
+  '(((private protected public) . private)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -706,7 +706,7 @@
 
 
 (define jazz.c-type-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -794,7 +794,7 @@
 
 
 (define jazz.c-definition-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 
@@ -839,7 +839,7 @@
 
 
 (define jazz.class-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((abstract concrete) . concrete)
     ((deprecated uptodate) . uptodate)))
 
@@ -890,17 +890,12 @@
          ,@(if core-class?
                (let ((core-class (jazz.get-core-class name)))
                  (jazz.validate-core-class/class core-class new-declaration)
-                 ;(jazz.register-direct-dependencies walker new-declaration)
-                 ;(jazz.register-direct-dependencies walker ascendant-declaration)
                  (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.walk-binding-walk-reference ascendant-declaration walker resume new-declaration environment))))
                    `((define ,locator ,(%%get-unit-name core-class))
                      (begin
                        ,@(if ascendant-access (%%list ascendant-access) '())
                        (jazz.remove-slots ,locator)))))
              (let ((metaclass-declaration (%%get-unit-declaration-metaclass new-declaration)))
-               ;(jazz.register-direct-dependencies walker new-declaration)
-               ;(jazz.register-direct-dependencies walker ascendant-declaration)
-               ;(jazz.register-direct-dependencies walker interface-declarations)
                (let ((metaclass-access (if (%%not metaclass-declaration) 'jazz.Object-Class (jazz.walk-binding-walk-reference metaclass-declaration walker resume new-declaration environment)))
                      (ascendant-access (if (%%not ascendant-declaration) #f (jazz.walk-binding-walk-reference ascendant-declaration walker resume new-declaration environment)))
                      (interface-accesses (map (lambda (declaration) (jazz.walk-binding-walk-reference declaration walker resume new-declaration environment)) interface-declarations)))
@@ -918,7 +913,7 @@
 
 
 (define jazz.interface-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.interface-keywords
@@ -965,8 +960,6 @@
            (metaclass-declaration (%%get-unit-declaration-metaclass new-declaration))
            (metaclass-access (if (%%not metaclass-declaration) 'jazz.Interface (jazz.walk-binding-walk-reference metaclass-declaration walker resume new-declaration environment)))
            (ascendant-accesses (map (lambda (declaration) (jazz.walk-binding-walk-reference declaration walker resume new-declaration environment)) ascendant-declarations)))
-      ;(jazz.register-direct-dependencies walker new-declaration)
-      ;(jazz.register-direct-dependencies walker ascendant-declarations)
       `(begin
          (define ,locator
            (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
@@ -979,7 +972,7 @@
 
 
 (define jazz.slot-modifiers
-  '(((private package protected public) . protected)
+  '(((private protected public) . protected)
     ((deprecated uptodate) . uptodate)))
 
 (define jazz.slot-keywords
@@ -987,7 +980,7 @@
 
 
 (define jazz.slot-accessors-modifiers
-  '(((private package protected public) . public)
+  '(((private protected public) . public)
     ((virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
     ((inline onsite) . inline)
@@ -995,7 +988,7 @@
 
 
 (define jazz.slot-accessor-modifiers
-  '(((private package protected public) . #f)
+  '(((private protected public) . #f)
     ((virtual chained inherited) . #f)
     ((abstract concrete) . #f)
     ((inline onsite) . #f)
@@ -1146,7 +1139,7 @@
 
 
 (define jazz.method-modifiers
-  '(((private package protected public) . protected)
+  '(((private protected public) . protected)
     ((deprecated uptodate) . uptodate)
     ((virtual chained inherited) . inherited)
     ((abstract concrete) . concrete)
@@ -1225,7 +1218,7 @@
 
 
 (define jazz.remote-proxy-modifiers
-  '(((private package protected public) . public)))
+  '(((private protected public) . public)))
 
 (define jazz.remote-proxy-keywords
   '(extends on))
@@ -1240,7 +1233,7 @@
 
 
 (define jazz.method-proxy-modifiers
-  '(((private package protected public) . private)
+  '(((private protected public) . private)
     ((send post) . send)))
 
 
@@ -1312,7 +1305,7 @@
 
 
 (define jazz.cointerface-modifiers
-  '(((private package protected public) . public)))
+  '(((private protected public) . public)))
 
 (define jazz.cointerface-keywords
   '(extends on))
@@ -1377,11 +1370,12 @@
 
 
 (jazz.define-method (jazz.validate-access (jazz.Jazz-Walker walker) resume declaration referenced-declaration)
+  #f
+  #;
   (let ((referenced-access (%%get-declaration-access referenced-declaration)))
     (case referenced-access
       ((public)    (jazz.void))
       ((private)   (jazz.validate-private-access walker resume declaration referenced-declaration))
-      ((package)   (jazz.validate-package-access walker resume declaration referenced-declaration))
       ((protected) (jazz.validate-protected-access walker resume declaration referenced-declaration)))))
 
 
@@ -1389,11 +1383,6 @@
   (if (%%neq? (%%get-declaration-toplevel declaration)
               (%%get-declaration-toplevel referenced-declaration))
       (jazz.illegal-access walker resume declaration referenced-declaration)))
-
-
-(define (jazz.validate-package-access walker resume declaration referenced-declaration)
-  ;; todo
-  (jazz.void))
 
 
 (define (jazz.validate-protected-access walker resume declaration referenced-declaration)

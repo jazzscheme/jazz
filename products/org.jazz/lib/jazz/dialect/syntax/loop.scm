@@ -202,6 +202,7 @@
                 ((some)    (process-some    actions rest))
                 ((every)   (process-every   actions rest))
                 ((when)    (process-when    actions rest))
+                ((unless)  (process-unless  actions rest))
                 ((do)      (process-do      actions rest))
                 ((sum)     (process-sum     actions rest))
                 ((collect) (process-collect actions rest))
@@ -457,6 +458,19 @@
       (let ((when-actions (process-clauses body)))
         (add-action `(when ,test
                        ,@when-actions)
+                    actions))))
+  
+  
+  ;;;
+  ;;;; unless
+  ;;;
+
+
+  (define (process-unless actions rest)
+    (bind (test . body) rest
+      (let ((unless-actions (process-clauses body)))
+        (add-action `(unless ,test
+                       ,@unless-actions)
                     actions))))
   
   

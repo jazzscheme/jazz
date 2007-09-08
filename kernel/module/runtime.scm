@@ -375,14 +375,14 @@
           (let ((old-readtable ##main-readtable))
             (dynamic-wind
               (lambda ()
-                (set! ##main-readtable (readtable-getter)))
+                (set! c#**main-readtable (readtable-getter)))
               (lambda ()
                 ;; unfortunately due to a Gambit bug this code only works when calling load
                 ;; and not when calling compile-file hence the manual setting of ##main-readtable
                 (parameterize ((current-readtable (readtable-getter)))
                   (thunk)))
               (lambda ()
-                (set! ##main-readtable old-readtable)))))
+                (set! c#**main-readtable old-readtable)))))
       (thunk))))
 
 

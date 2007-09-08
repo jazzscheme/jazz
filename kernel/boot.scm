@@ -115,6 +115,10 @@
     (thunk)))
 
 
+(define jazz.compile-options
+  '(debug))
+
+
 (cond-expand
   (gambit
     (define (jazz.declarations)

@@ -201,6 +201,10 @@
   `(jazz.lookup-declaration (jazz.locate-toplevel-declaration ',library-name) ',name ,external?))
 
 
+(define-macro (lk2 library-name name access)
+  `(jazz.lookup-declaration2 (jazz.locate-toplevel-declaration ',library-name) ',name ,access))
+
+
 (define (locate-fresh library-name)
   (jazz.set-catalog-entry library-name #f)
   (jazz.locate-toplevel-declaration library-name))
@@ -263,20 +267,20 @@
 
 
 (define-macro (c library-name)
-  `(jazz.compile-library-with-flags ',library-name '() "" ""))
+  `(jazz.compile-library-with-flags ',library-name))
 
 
 (define-macro (cflag module-name c-flags ld-flags)
-  `(jazz.compile-library-with-flags ',module-name '() ,c-flags ,ld-flags))
+  `(jazz.compile-library-with-flags ',module-name #f ,c-flags ,ld-flags))
 
 
 (define (bwindows)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) '() (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) #f (cadr x) (caddr x)))
             compiled-libs-windows))
 
 
 (define (blinux)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) '() (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) #f (cadr x) (caddr x)))
             compiled-libs-linux))
 
 
@@ -307,7 +311,7 @@
 (define (cll)
   (bd)
   (parameterize ((current-readtable jazz.jazz-readtable))
-    (jazz.compile-filename-with-flags "_language" '() "" "")))
+    (jazz.compile-filename-with-flags "_language")))
 
 
 ;;;
@@ -351,7 +355,7 @@
   (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows"))
 
 
-(define (ball)
+(define (balls)
   (bj)
   (bwin)
   (ccw))

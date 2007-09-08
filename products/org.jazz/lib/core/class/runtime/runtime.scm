@@ -194,7 +194,7 @@
           '()
           slot-names
           instance-size
-          #f
+          (if ascendant (%%fixnum+ (%%get-class-level ascendant) 1) 0)
           #f
           '()
           '()

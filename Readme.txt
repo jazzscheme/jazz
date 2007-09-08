@@ -52,24 +52,6 @@ Distribution
 ------------
 Readme.txt               :  Readme file
 
-Bin
-  Interpreter.exe        :  Interpret Jedi
-  Launcher.exe           :  Launch Jedi with key files compiled for execution
-                              speed. This is the recommended executable to use
-  Stack.txt              :  File generated when a Jazz application can't use the
-                              debugger. This usually happens because the error
-                              occured too early in the boot process
-  Crash.txt              :  File generated when a Jazz application crashes
-                              unexpectedly
-  Imaging.dll            :  DLL containing imaging functions that Jazz uses
-
-Bin\Logs                 :  Log files
-
-Bin\Parameters           :  Application parameters
-  Libraries.prop         :  DLL mapping
-  Properties.prop        :  General application properties
-  Settings.prop          :  Low-level settings about memory configuration
-
 Doc
 
 Products                 :  Installed products

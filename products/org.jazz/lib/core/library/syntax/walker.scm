@@ -53,6 +53,8 @@
 ;;   the old load
 ;; - Think about the check order of imported modules. I do not like that they are checked in
 ;;   reversed order although with the new lookups the order should be irrelevant as it should be
+;; - Cleanup the probably not usefull new method jazz.resolve-declaration that I added to get things
+;;   working
 
 
 (module core.library.syntax.walker
@@ -193,6 +195,13 @@
   (%%set-declaration-locator new-declaration (%%apply jazz.compose-name (jazz.get-declaration-path new-declaration)))
   (let ((parent (%%get-declaration-parent new-declaration)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
+
+
+(jazz.define-virtual (jazz.resolve-declaration (jazz.Declaration declaration)))
+
+
+(jazz.define-method (jazz.resolve-declaration (jazz.Declaration declaration))
+  declaration)
 
 
 (jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
@@ -342,8 +351,7 @@
 
 
 (jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
-  (lookup
-   lookups))
+  (lookups))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Namespace-Declaration declaration) walker resume source-declaration environment)
@@ -355,7 +363,7 @@
 
 
 (define (jazz.find-declaration namespace-declaration name)
-  (%%hashtable-ref (%%get-namespace-declaration-lookup namespace-declaration) name #f))
+  (%%hashtable-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
 
 
 (jazz.encapsulate-class jazz.Namespace-Declaration)
@@ -366,7 +374,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookups) jazz.Object-Class
   (dialect
    requires
    exports
@@ -374,7 +382,7 @@
 
 
 (define (jazz.new-library-declaration name parent dialect requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name 'public 'uptodate '() #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.public-access) dialect requires exports imports)))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name 'public 'uptodate '() #f parent '() #f (jazz.make-access-lookups jazz.public-access) dialect requires exports imports)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -407,14 +415,16 @@
                 (let ((only (%%get-library-invoice-only exported-library-invoice))
                       (autoload (%%get-export-invoice-autoload exported-library-invoice)))
                   (cond (only
-                          (%%iterate-hashtable only
-                            (lambda (symbol declaration-reference)
-                              (%%hashtable-set! public symbol (jazz.resolve-reference declaration-reference library-declaration)))))
+                          (for-each (lambda (declaration-reference)
+                                      (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
+                                        (%%hashtable-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
+                                    only))
                         (autoload
-                          (%%iterate-hashtable autoload
-                            (lambda (symbol declaration-reference)
-                              (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))
-                                (%%hashtable-set! public symbol (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))))
+                          (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))
+                            (for-each (lambda (declaration-reference)
+                                        (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
+                                          (%%hashtable-set! public name (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))
+                                      autoload)))
                         (else
                          (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
                            (jazz.hashtable-merge public (%%get-access-lookup exported-library-declaration jazz.public-access) ignore-duplicates))))))
@@ -446,18 +456,6 @@
    rename))
 
 
-(define (jazz.make-invoice-lookup references)
-  (if references
-      (let ((lookup (%%new-hashtable ':eq?)))
-        (for-each (lambda (reference)
-                    (let* ((symbol (%%get-declaration-reference-name reference))
-                           (name (jazz.identifier-name symbol)))
-                      (%%hashtable-set! lookup name reference)))
-                  references)
-        lookup)
-    #f))
-
-
 (jazz.encapsulate-class jazz.Library-Invoice)
 
 
@@ -471,9 +469,7 @@
 
 
 (define (jazz.new-export-invoice library phase version only autoload)
-  (let ((only-lookup (jazz.make-invoice-lookup only))
-        (autoload-lookup (jazz.make-invoice-lookup autoload)))
-    (jazz.allocate-export-invoice jazz.Export-Invoice library phase version only-lookup #f #f #f autoload-lookup)))
+  (jazz.allocate-export-invoice jazz.Export-Invoice library phase version only #f #f #f autoload))
 
 
 (jazz.encapsulate-class jazz.Export-Invoice)
@@ -489,8 +485,7 @@
 
 
 (define (jazz.new-import-invoice library phase version only)
-  (let ((only-lookup (jazz.make-invoice-lookup only)))
-    (jazz.allocate-import-invoice jazz.Import-Invoice library phase version only-lookup #f #f #f)))
+  (jazz.allocate-import-invoice jazz.Import-Invoice library phase version only #f #f #f))
 
 
 (jazz.encapsulate-class jazz.Import-Invoice)
@@ -543,7 +538,7 @@
     new-declaration))
 
 
-(define (jazz.resolve-autoload-declaration declaration)
+(jazz.define-method (jazz.resolve-declaration (jazz.Autoload-Declaration declaration))
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
              (decl (jazz.lookup-declaration exported-library (%%get-lexical-binding-name declaration) #t)))
@@ -552,7 +547,7 @@
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Autoload-Declaration declaration) symbol external?)
-  (let ((referenced-declaration (jazz.resolve-autoload-declaration declaration)))
+  (let ((referenced-declaration (jazz.resolve-declaration declaration)))
     ;; not sure this assert is at the right place...
     (%%assertion referenced-declaration (jazz.format "Unable to find autoload: {s}" (%%get-lexical-binding-name declaration))
       (jazz.lookup-declaration referenced-declaration symbol external?))))
@@ -561,7 +556,7 @@
 ;; SHOULD delay getting the refered declaration and when getting it would be the right place to do the register-autoload
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Autoload-Declaration declaration) walker resume source-declaration environment)
   (jazz.register-autoload-declaration walker declaration)
-  (let ((referenced-declaration (jazz.resolve-autoload-declaration declaration)))
+  (let ((referenced-declaration (jazz.resolve-declaration declaration)))
     ;; not sure this assert is at the right place...
     (%%assertion referenced-declaration (jazz.format "Unable to find autoload: {s}" (%%get-lexical-binding-name declaration))
       `(begin
@@ -1404,9 +1399,10 @@
                                     )
                                    (autoload
                                     (let ((module-name (%%get-declaration-reference-name (%%get-library-invoice-library library-invoice))))
-                                      (%%iterate-hashtable autoload
-                                        (lambda (name decl)
-                                          (jazz.enqueue queue `(jazz.register-autoload ',name ',module-name))))))
+                                      (for-each (lambda (decl)
+                                                  (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
+                                                    (jazz.enqueue queue `(jazz.register-autoload ',name ',module-name))))
+                                                autoload)))
                                    (else
                                     (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) declaration))
                                           (phase (%%get-library-invoice-phase library-invoice)))
@@ -1544,9 +1540,7 @@
                       (jazz.merge-declaration-into new-child old-child)
                     (begin
                       (%%set-declaration-parent new-child old-declaration)
-                      (%%set-declaration-children old-declaration (%%append (%%get-declaration-children old-declaration) (%%list new-child)))
-                      (let ((lookup (%%get-namespace-declaration-lookup old-declaration)))
-                        (%%hashtable-set! lookup name new-child)))))))
+                      (%%set-declaration-children old-declaration (%%append (%%get-declaration-children old-declaration) (%%list new-child))))))))
             (%%get-declaration-children new-declaration)))
 
 
@@ -1587,10 +1581,6 @@
   (%%when declaration
     (%%set-declaration-children declaration (%%append (%%get-declaration-children declaration) (%%list child)))
     (let ((name (%%get-lexical-binding-name child)))
-      (let ((lookup (%%get-namespace-declaration-lookup declaration)))
-        (if (%%hashtable-ref lookup name #f)
-            (jazz.walk-error walker resume declaration "Redefining {s}" name)
-          (%%hashtable-set! lookup name child)))
       (%%hashtable-set! (%%get-access-lookup declaration jazz.private-access) name child)
       (%%hashtable-set! (%%get-access-lookup declaration jazz.public-access) name child))))
 

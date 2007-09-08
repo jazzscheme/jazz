@@ -97,7 +97,7 @@
 
 
 (define jazz.parse-verbose?
-  #t)
+  #f)
 
 (define jazz.done-verbose?
   #f)

@@ -47,4 +47,19 @@
 
 
 (jazz.define-macro (jazz.define-method signature . body)
-  (jazz.expand-define-method signature body)))
+  (jazz.expand-define-method signature body))
+
+
+#;
+(jazz.define-macro (jazz.define-virtual-syntax signature)
+  `(begin))
+
+
+#;
+(jazz.define-macro (jazz.define-virtual signature)
+  (jazz.expand-define-generic signature))
+
+
+#;
+(jazz.define-macro (jazz.define-method signature . body)
+  (apply jazz.expand-define-specific signature body)))

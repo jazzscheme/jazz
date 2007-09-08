@@ -142,7 +142,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class
+(jazz.define-class jazz.Unit-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookups) jazz.Object-Class
   (metaclass))
 
 
@@ -162,34 +162,56 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class
+(jazz.define-class jazz.Class-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookups metaclass) jazz.Object-Class
   (ascendant
    interfaces))
 
 
 (define (jazz.new-class-declaration name access compatibility attributes parent metaclass ascendant interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.protected-access) metaclass ascendant interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) metaclass ascendant interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Class-Declaration declaration) symbol external?)
-  (or (jazz.find-declaration declaration symbol)
-      (jazz.lookup-class-ascendant declaration symbol)
-      (jazz.lookup-class-interfaces declaration symbol)))
+(define (jazz.setup-class-lookups class-declaration)
+  (define (ignore-duplicates key old new)
+    #f)
+  
+  (define (resolve-declaration decl)
+    (if decl
+        (jazz.resolve-declaration decl)
+      #f))
+  
+  (let ((ascendant (resolve-declaration (%%get-class-declaration-ascendant class-declaration)))
+        (interfaces (map resolve-declaration (%%get-class-declaration-interfaces class-declaration))))
+    
+    (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
+      (if ascendant
+          (jazz.hashtable-merge private (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                interfaces))
+    
+    (let ((public (%%get-access-lookup class-declaration jazz.public-access)))
+      (if ascendant
+          (jazz.hashtable-merge public (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                interfaces))
+    
+    (let ((protected (%%get-access-lookup class-declaration jazz.protected-access)))
+      (if ascendant
+          (jazz.hashtable-merge protected (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                interfaces))))
 
 
-(define (jazz.lookup-class-ascendant declaration symbol)
-  (let ((ascendant-declaration (%%get-class-declaration-ascendant declaration)))
-    (if (%%not ascendant-declaration)
-        #f
-      (jazz.lookup-declaration ascendant-declaration symbol #t))))
-
-
-(define (jazz.lookup-class-interfaces declaration symbol)
-  (jazz.find-in (lambda (interface-declaration)
-                  (jazz.lookup-declaration interface-declaration symbol #t))
-                (%%get-class-declaration-interfaces declaration)))
+(jazz.define-method (jazz.lookup-declaration (jazz.Class-Declaration class-declaration) symbol external?)
+  (let ((access (if external? jazz.public-access jazz.private-access)))
+    (%%hashtable-ref (%%vector-ref (%%get-namespace-declaration-lookups class-declaration) access)
+                     symbol
+                     #f)))
 
 
 (jazz.encapsulate-class jazz.Class-Declaration)
@@ -237,25 +259,48 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups metaclass) jazz.Object-Class
+(jazz.define-class jazz.Interface-Declaration jazz.Unit-Declaration (name access compatibility attributes toplevel parent children locator lookups metaclass) jazz.Object-Class
   (ascendants))
 
 
 (define (jazz.new-interface-declaration name access compatibility attributes parent metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name access compatibility attributes #f parent '() #f (%%new-hashtable ':eq?) (jazz.make-access-lookups jazz.protected-access) metaclass ascendants)))
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
-(jazz.define-method (jazz.lookup-declaration (jazz.Interface-Declaration declaration) symbol external?)
-  (or (jazz.find-declaration declaration symbol)
-      (jazz.lookup-interface-ascendants declaration symbol)))
+(define (jazz.setup-interface-lookups interface-declaration)
+  (define (ignore-duplicates key old new)
+    #f)
+  
+  (define (resolve-declaration decl)
+    (if decl
+        (jazz.resolve-declaration decl)
+      #f))
+  
+  (let ((ascendants (map resolve-declaration (%%get-interface-declaration-ascendants interface-declaration))))
+    
+    (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                ascendants))
+    
+    (let ((public (%%get-access-lookup interface-declaration jazz.public-access)))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                ascendants))
+    
+    (let ((protected (%%get-access-lookup interface-declaration jazz.protected-access)))
+      (for-each (lambda (interface)
+                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                ascendants))))
 
 
-(define (jazz.lookup-interface-ascendants declaration symbol)
-  (jazz.find-in (lambda (ascendant-declaration)
-                  (jazz.lookup-declaration ascendant-declaration symbol #t))
-                (%%get-interface-declaration-ascendants declaration)))
+(jazz.define-method (jazz.lookup-declaration (jazz.Interface-Declaration interface-declaration) symbol external?)
+  (let ((access (if external? jazz.public-access jazz.private-access)))
+    (%%hashtable-ref (%%vector-ref (%%get-namespace-declaration-lookups interface-declaration) access)
+                     symbol
+                     #f)))
 
 
 (jazz.encapsulate-class jazz.Interface-Declaration)
@@ -871,6 +916,7 @@
           (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
       (let ((new-declaration (jazz.new-class-declaration name access compatibility attributes declaration metaclass ascendant interfaces)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
+        (jazz.setup-class-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
           (jazz.walk-declarations walker resume new-declaration new-environment body)
           new-declaration)))))
@@ -946,6 +992,7 @@
           (ascendants (if (jazz.unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz.lookup-reference walker resume declaration environment ascendant-name)) (jazz.listify ascendant-names)))))
       (let ((new-declaration (jazz.new-interface-declaration name access compatibility attributes declaration metaclass ascendants)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
+        (jazz.setup-interface-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
           (jazz.walk-declarations walker resume new-declaration new-environment body)
           new-declaration)))))

@@ -82,6 +82,9 @@
    (locator       %%get-declaration-locator       %%set-declaration-locator)))
 
 
+(jazz.define-virtual-syntax (jazz.resolve-declaration (jazz.Declaration declaration)))
+
+
 (jazz.define-virtual-syntax (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
 
 
@@ -140,8 +143,7 @@
 
 
 (jazz.define-class-syntax jazz.Namespace-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class ()
-  ((lookup  %%get-namespace-declaration-lookup  ())
-   (lookups %%get-namespace-declaration-lookups ())))
+  ((lookups %%get-namespace-declaration-lookups ())))
 
 
 (jazz.define-macro (%%get-access-lookup namespace-declaration access)
@@ -153,7 +155,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookup lookups) jazz.Object-Class jazz.allocate-library-declaration
+(jazz.define-class-syntax jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookups) jazz.Object-Class jazz.allocate-library-declaration
   ((dialect  %%get-library-declaration-dialect  ())
    (requires %%get-library-declaration-requires ())
    (exports  %%get-library-declaration-exports  ())

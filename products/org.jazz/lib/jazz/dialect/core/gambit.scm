@@ -38,7 +38,7 @@
 (module jazz.dialect.core.gambit
 
 (define jazz.foreign? ##foreign?)
-(define jazz.foreign-address foreign-address)
+(define (jazz.foreign-address object) (and object (foreign-address object)))
 
 (define system-exit exit)
 

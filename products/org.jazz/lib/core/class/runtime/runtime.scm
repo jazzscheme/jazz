@@ -331,7 +331,8 @@
 
 
 (define (jazz.class-of expr)
-  (%%class-of expr))
+  (or (%%class-of expr)
+      (jazz.error "Unable to get class of {s}" expr)))
 
 
 (define (jazz.class-of-native expr)
@@ -490,6 +491,18 @@
 (jazz.encapsulate-class jazz.Keyword)
 (jazz.encapsulate-class jazz.Vector)
 (jazz.encapsulate-class jazz.Hashtable)
+
+
+#; ;; experimental
+(
+(vector-set! jazz.subtypes (macro-subtype-vector)  jazz.Vector)
+(vector-set! jazz.subtypes (macro-subtype-ratnum)  jazz.Number)
+(vector-set! jazz.subtypes (macro-subtype-cpxnum)  jazz.Number)
+(vector-set! jazz.subtypes (macro-subtype-symbol)  jazz.Symbol)
+(vector-set! jazz.subtypes (macro-subtype-keyword) jazz.Keyword)
+(vector-set! jazz.subtypes (macro-subtype-string)  jazz.String)
+(vector-set! jazz.subtypes (macro-subtype-flonum)  jazz.Number)
+(vector-set! jazz.subtypes (macro-subtype-bignum)  jazz.Number))
 
 
 ;;;

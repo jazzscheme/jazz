@@ -139,11 +139,11 @@
   ((name %%get-field-name ())))
 
 
-(define-macro (%%get-unit-field unit field-name)
+(jazz.define-macro (%%get-unit-field unit field-name)
   `(%%hashtable-ref (%%get-unit-fields ,unit) ,field-name #f))
 
 
-(define-macro (%%set-unit-field unit field-name field)
+(jazz.define-macro (%%set-unit-field unit field-name field)
   `(%%hashtable-set! (%%get-unit-fields ,unit) ,field-name ,field))
 
 

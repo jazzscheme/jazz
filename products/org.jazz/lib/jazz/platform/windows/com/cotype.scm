@@ -1,7 +1,7 @@
 (include "debug-macro.scm")
 
 
-(define-macro (s-define-if name extra . body)
+(jazz.define-macro (s-define-if name extra . body)
   `(define (,name options)
      (if (and (eq? copass 's) ,extra)
          (let ((type (car options)))
@@ -9,7 +9,7 @@
        '(begin))))
 
 
-(define-macro (c-define-if name extra . body)
+(jazz.define-macro (c-define-if name extra . body)
   `(define (,name options)
      (if (and (eq? copass 'c) ,extra)
          (let ((type (car options)))

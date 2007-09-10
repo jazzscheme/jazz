@@ -14,18 +14,6 @@
 (display-environment-set! #t)
 
 
-(define (tem)
-  (apply jazz.expand-define-method '((foo (Y y)) (cons Y.foo (nextmethod y)))))
-
-
-(define (tev)
-  (apply jazz.expand-define-virtual '((foo (X x)) '(X.foo))))
-
-
-(define (lte)
-  (load "testexc"))
-
-
 ;;;
 ;;;; Boot
 ;;;
@@ -178,6 +166,9 @@
 
 (define (et)
   (e test))
+
+(define (ea)
+  (e test.a))
 
 
 (define (est)
@@ -355,7 +346,7 @@
   (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows"))
 
 
-(define (balls)
+(define (ball)
   (bj)
   (bwin)
   (ccw))

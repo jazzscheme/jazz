@@ -61,19 +61,19 @@
 
 (cond-expand
   (gambit
-    (define-macro (%%subtype-meroon)
+    (jazz.define-macro (%%subtype-meroon)
       6)
     
-    (define-macro (%%object? expr)
+    (jazz.define-macro (%%object? expr)
       `(##meroon? ,expr))
     
-    (define-macro (%%object . rest)
+    (jazz.define-macro (%%object . rest)
       `(##subtype-set! (##vector ,@rest) (%%subtype-meroon)))
     
-    (define-macro (%%make-object size)
+    (jazz.define-macro (%%make-object size)
       `(##subtype-set! (%%make-vector ,size) (%%subtype-meroon)))
     
-    (define-macro (%%object-length object)
+    (jazz.define-macro (%%object-length object)
       (if (jazz.safe?)
           (let ((obj (jazz.generate-symbol "obj")))
             `(let ((,obj ,object))
@@ -81,7 +81,7 @@
                  (##vector-length ,obj))))
         `(##vector-length ,object)))
     
-    (define-macro (%%object-ref object n)
+    (jazz.define-macro (%%object-ref object n)
       (if (jazz.safe?)
           (let ((obj (jazz.generate-symbol "obj"))
                 (rnk (jazz.generate-symbol "rnk")))
@@ -92,7 +92,7 @@
                    (##vector-ref ,obj ,n)))))
         `(##vector-ref ,object ,n)))
     
-    (define-macro (%%object-set! object n value)
+    (jazz.define-macro (%%object-set! object n value)
       (if (jazz.safe?)
           (let ((obj (jazz.generate-symbol "obj"))
                 (rnk (jazz.generate-symbol "rnk")))
@@ -104,33 +104,33 @@
         `(##vector-set! ,object ,n ,value))))
   
   (else
-   (define-macro (%%object? expr)
+   (jazz.define-macro (%%object? expr)
      `(and (%%vector? ,expr)
            (%%fixnum> (%%object-length ,expr) 0)
            (%%eq? (%%object-ref expr 0) %%object-marker)))
    
-   (define-macro (%%object . rest)
+   (jazz.define-macro (%%object . rest)
      `(%%vector %%object-marker ,@rest))
    
-   (define-macro (%%make-object size)
+   (jazz.define-macro (%%make-object size)
      (let ((object (jazz.generate-symbol "object")))
        `(let ((,object (%%make-vector ,size)))
           (%%object-set! ,object 0 %%object-marker)
           ,object)))
    
-   (define-macro (%%object-length vector)
+   (jazz.define-macro (%%object-length vector)
      `(%%vector-length ,vector))
    
-   (define-macro (%%object-ref vector n)
+   (jazz.define-macro (%%object-ref vector n)
      `(%%vector-ref ,vector ,n))
    
-   (define-macro (%%object-set! vector n value)
+   (jazz.define-macro (%%object-set! vector n value)
      `(%%vector-set! ,vector ,n ,value))))
 
 
-(define-macro (%%get-object-slot object slot-rank)
+(jazz.define-macro (%%get-object-slot object slot-rank)
   `(%%object-ref ,object (%%fixnum+ jazz.object-size ,slot-rank)))
 
 
-(define-macro (%%set-object-slot object slot-rank value)
+(jazz.define-macro (%%set-object-slot object slot-rank value)
   `(%%object-set! ,object (%%fixnum+ jazz.object-size ,slot-rank) ,value)))

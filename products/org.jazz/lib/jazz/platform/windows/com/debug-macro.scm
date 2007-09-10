@@ -1,9 +1,9 @@
 
-(define-macro (echo-macro text)
+(jazz.define-macro (echo-macro text)
   (let ((zz text))
     (write zz)
     (newline)
     zz))
 
-(define-macro (comment-out . rest)
+(jazz.define-macro (comment-out . rest)
   '(begin))

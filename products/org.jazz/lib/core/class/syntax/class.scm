@@ -91,150 +91,187 @@
   (+ jazz.class-interface-table 1))
 
 
-(define-macro (%%get-unit-name unit)
+(jazz.define-macro (%%get-unit-name unit)
   `(%%object-ref ,unit ,jazz.unit-name))
 
 
-(define-macro (%%get-unit-fields unit)
+(jazz.define-macro (%%get-unit-fields unit)
   `(%%object-ref ,unit ,jazz.unit-fields))
 
 
-(define-macro (%%set-unit-fields unit fields)
+(jazz.define-macro (%%set-unit-fields unit fields)
   `(%%object-set! ,unit ,jazz.unit-fields ,fields))
 
 
-(define-macro (%%get-unit-ancestors unit)
+(jazz.define-macro (%%get-unit-ancestors unit)
   `(%%object-ref ,unit ,jazz.unit-ancestors))
 
 
-(define-macro (%%set-unit-ancestors unit ancestors)
+(jazz.define-macro (%%set-unit-ancestors unit ancestors)
   `(%%object-set! ,unit ,jazz.unit-ancestors ,ancestors))
 
 
-(define-macro (%%get-unit-descendants unit)
+(jazz.define-macro (%%get-unit-descendants unit)
   `(%%object-ref ,unit ,jazz.unit-descendants))
 
 
-(define-macro (%%set-unit-descendants unit ancestors)
+(jazz.define-macro (%%set-unit-descendants unit ancestors)
   `(%%object-set! ,unit ,jazz.unit-descendants ,ancestors))
 
 
-(define-macro (%%get-class-ascendant class)
+(jazz.define-macro (%%get-class-ascendant class)
   `(%%object-ref ,class ,jazz.class-ascendant))
 
 
-(define-macro (%%get-class-interfaces class)
+(jazz.define-macro (%%get-class-interfaces class)
   `(%%object-ref ,class ,jazz.class-interfaces))
 
 
-(define-macro (%%get-class-slots class)
+(jazz.define-macro (%%get-class-slots class)
   `(%%object-ref ,class ,jazz.class-slots))
 
 
-(define-macro (%%set-class-slots class slots)
+(jazz.define-macro (%%set-class-slots class slots)
   `(%%object-set! ,class ,jazz.class-slots ,slots))
 
 
-(define-macro (%%get-class-instance-size class)
+(jazz.define-macro (%%get-class-instance-size class)
   `(%%object-ref ,class ,jazz.class-instance-size))
 
 
-(define-macro (%%set-class-instance-size class size)
+(jazz.define-macro (%%set-class-instance-size class size)
   `(%%object-set! ,class ,jazz.class-instance-size ,size))
 
 
-(define-macro (%%get-class-level class)
+(jazz.define-macro (%%get-class-level class)
   `(%%object-ref ,class ,jazz.class-level))
 
 
-(define-macro (%%set-class-level class size)
+(jazz.define-macro (%%set-class-level class size)
   `(%%object-set! ,class ,jazz.class-level ,size))
 
 
-(define-macro (%%get-class-dispatch-table class)
+(jazz.define-macro (%%get-class-dispatch-table class)
   `(%%object-ref ,class ,jazz.class-dispatch-table))
 
 
-(define-macro (%%set-class-dispatch-table class vtable)
+(jazz.define-macro (%%set-class-dispatch-table class vtable)
   `(%%object-set! ,class ,jazz.class-dispatch-table ,vtable))
 
 
-(define-macro (%%get-class-core-method-alist class)
+(jazz.define-macro (%%get-class-core-method-alist class)
   `(%%object-ref ,class ,jazz.class-core-method-alist))
 
 
-(define-macro (%%set-class-core-method-alist class vtable)
+(jazz.define-macro (%%set-class-core-method-alist class vtable)
   `(%%object-set! ,class ,jazz.class-core-method-alist ,vtable))
 
 
-(define-macro (%%get-class-core-virtual-alist class)
+(jazz.define-macro (%%get-class-core-virtual-alist class)
   `(%%object-ref ,class ,jazz.class-core-virtual-alist))
 
 
-(define-macro (%%set-class-core-virtual-alist class vtable)
+(jazz.define-macro (%%set-class-core-virtual-alist class vtable)
   `(%%object-set! ,class ,jazz.class-core-virtual-alist ,vtable))
 
 
-(define-macro (%%get-class-core-virtual-names class)
+(jazz.define-macro (%%get-class-core-virtual-names class)
   `(%%object-ref ,class ,jazz.class-core-virtual-names))
 
 
-(define-macro (%%set-class-core-virtual-names class vtable)
+(jazz.define-macro (%%set-class-core-virtual-names class vtable)
   `(%%object-set! ,class ,jazz.class-core-virtual-names ,vtable))
 
 
-(define-macro (%%get-class-core-vtable class)
+(jazz.define-macro (%%get-class-core-vtable class)
   `(%%object-ref ,class ,jazz.class-core-vtable))
 
 
-(define-macro (%%set-class-core-vtable class vtable)
+(jazz.define-macro (%%set-class-core-vtable class vtable)
   `(%%object-set! ,class ,jazz.class-core-vtable ,vtable))
 
 
-(define-macro (%%get-class-class-table class)
+(jazz.define-macro (%%get-class-class-table class)
   `(%%object-ref ,class ,jazz.class-class-table))
 
 
-(define-macro (%%set-class-class-table class vtable)
+(jazz.define-macro (%%set-class-class-table class vtable)
   `(%%object-set! ,class ,jazz.class-class-table ,vtable))
 
 
-(define-macro (%%get-class-interface-table class)
+(jazz.define-macro (%%get-class-interface-table class)
   `(%%object-ref ,class ,jazz.class-interface-table))
 
 
-(define-macro (%%set-class-interface-table class vtable)
+(jazz.define-macro (%%set-class-interface-table class vtable)
   `(%%object-set! ,class ,jazz.class-interface-table ,vtable))
 
 
-(define-macro (%%get-object-class object)
+(jazz.define-macro (%%get-object-class object)
   `(%%object-ref ,object ,jazz.object-class))
 
 
-(define-macro (%%set-object-class object class)
+(jazz.define-macro (%%set-object-class object class)
   `(%%object-set! ,object ,jazz.object-class ,class))
 
 
-(define-macro (%%subtype? target unit)
+(jazz.define-macro (%%subtype? target unit)
   `(%%memq ,unit (%%get-unit-ancestors ,target)))
 
 
-(define-macro (%%subclass? target class)
+(jazz.define-macro (%%subclass? target class)
   `(%%memq ,class (%%get-unit-ancestors ,target)))
 
 
-(define-macro (%%class-of expr)
-  (let ((expand
-          (lambda (symbol)
-            `(if (%%object? ,symbol)
-                 (%%get-object-class ,symbol)
-               (jazz.class-of-native ,symbol)))))
-    (if (%%symbol? expr)
-        (expand expr)
-      (let ((symbol (jazz.generate-symbol "value")))
-        (%%list 'let (%%list (%%list symbol expr))
-          (expand symbol))))))
+(cond-expand
+  #; ;; experimental and should really be coded in C with Marc's help
+  (gambit
+    (include "~~/src/lib/header.scm")
+    
+    
+    (define jazz.subtypes
+      (make-vector 32))
+    
+    
+    (jazz.define-macro (%%class-of expr)
+      (let ((expand
+              (lambda (symbol)
+                `(cond ((##subtyped? ,symbol)
+                        (let ((subtype (##subtype ,symbol)))
+                          (if (##eq? subtype (macro-subtype-meroon))
+                              (%%get-object-class ,symbol)
+                            (vector-ref jazz.subtypes subtype))))
+                       ((##pair? ,symbol)
+                        jazz.List)
+                       ((##null? ,symbol)
+                        jazz.List)
+                       ((##fixnum? ,symbol)
+                        jazz.Number)
+                       ((boolean? ,symbol)
+                        jazz.Boolean)
+                       ((##char? ,symbol)
+                        jazz.Char)
+                       (else
+                        #f)))))
+        (if (%%symbol? expr)
+            (expand expr)
+          (let ((symbol (jazz.generate-symbol "value")))
+            (%%list 'let (%%list (%%list symbol expr))
+              (expand symbol)))))))
+  
+  (else
+   (jazz.define-macro (%%class-of expr)
+     (let ((expand
+             (lambda (symbol)
+               `(if (%%object? ,symbol)
+                    (%%get-object-class ,symbol)
+                  (jazz.class-of-native ,symbol)))))
+       (if (%%symbol? expr)
+           (expand expr)
+         (let ((symbol (jazz.generate-symbol "value")))
+           (%%list 'let (%%list (%%list symbol expr))
+             (expand symbol))))))))
 
 
-(define-macro (%%is? object unit)
+(jazz.define-macro (%%is? object unit)
   `(%%subtype? (%%class-of ,object) ,unit)))

@@ -68,6 +68,17 @@
          ,@body))))
 
 
+(define-macro (jazz.define-syntax signature . body)
+  `(begin
+     (##define-syntax ,(%%car signature)
+       (lambda ,(%%cadr signature)
+         ,@body))
+     #;
+     (jazz.register-macro ',(%%car signature)
+       (lambda ,(%%cdr signature)
+         ,@body))))
+
+
 (define jazz.generate-symbol
   (let ((unique 0))
     (lambda rest

@@ -4,26 +4,26 @@
 (include "coexternal-macro.scm")
 
 
-(define-macro (c-pass body)
+(jazz.define-macro (c-pass body)
   (if (eq? copass 'c)
       body
     '(begin)))
 
 
-(define-macro (s-pass body)
+(jazz.define-macro (s-pass body)
   (if (eq? copass 's)
       body
     '(begin)))
 
 
-(define-macro (c-pass-define name . body)
+(jazz.define-macro (c-pass-define name . body)
   (if (eq? copass 'c)
       `(define ,name
          ,@body)
     '(begin)))
 
 
-(define-macro (s-pass-define name . body)
+(jazz.define-macro (s-pass-define name . body)
   (if (eq? copass 's)
       `(define ,name
          ,@body)

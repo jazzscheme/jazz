@@ -1,14 +1,14 @@
 (include "debug-macro.scm")
 
 
-(define-macro (s-define-if name test body)
+(jazz.define-macro (s-define-if name test body)
   `(define (,name type subtype subname subsize)
      (if (and (eq? copass 's) ,test)
          ,body
        '(begin))))
 
 
-(define-macro (c-define-if name test body)
+(jazz.define-macro (c-define-if name test body)
   `(define (,name type subtype subname subsize)
      (if (and (eq? copass 'c) ,test)
          ,body

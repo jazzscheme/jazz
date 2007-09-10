@@ -68,7 +68,7 @@
 ;;;
 
 
-(define-macro (%%atomic-region . rest)
+(jazz.define-macro (%%atomic-region . rest)
   (apply jazz.expand-atomic-region rest))
 
 

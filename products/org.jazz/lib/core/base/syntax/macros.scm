@@ -123,7 +123,7 @@
 ;;;
 
 
-(define-macro (%%validate . rest)
+(jazz.define-macro (%%validate . rest)
   (apply jazz.expand-validate rest))
 
 
@@ -147,7 +147,7 @@
 ;;;
 
 
-(define-macro (%%timing . body)
+(jazz.define-macro (%%timing . body)
   `(if (jazz.profile?)
        (time ,@body)
      (begin ,@body)))

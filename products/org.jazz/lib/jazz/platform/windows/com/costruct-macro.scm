@@ -1,4 +1,4 @@
-(define-macro (costruct type options . members)
+(jazz.define-macro (costruct type options . members)
   (costruct-macro type options members))
 
 

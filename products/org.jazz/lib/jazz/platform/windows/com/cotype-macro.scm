@@ -1,8 +1,8 @@
-(define-macro (cotype type options)
+(jazz.define-macro (cotype type options)
   (cotype-macro type options))
 
 
-(define-macro (codeclare)
+(jazz.define-macro (codeclare)
   (codeclare-macro))
 
 

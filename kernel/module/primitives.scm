@@ -187,8 +187,10 @@
     (define-macro (%%hashtable? obj)
       `(table? ,obj))
     
-    (define-macro (%%new-hashtable test)
-      `(make-table test: ,test))
+    (define-macro (%%make-hashtable test #!optional (hash #f))
+      `(if (eq? ,hash #f)
+           (make-table test: ,test)
+         (make-table test: ,test hash: ,hash)))
     
     (define-macro (%%hashtable-ref hashtable key default)
       (if (jazz.safe?)

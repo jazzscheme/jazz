@@ -522,7 +522,7 @@
 
 
 (define (jazz.parse-keywords keywords rest)
-  (let ((table (%%new-hashtable eq?))
+  (let ((table (%%make-hashtable eq?))
         (done? #f))
     (%%while (%%not done?)
       (if (or (%%null? rest) (%%not (%%memq (%%car rest) keywords)))

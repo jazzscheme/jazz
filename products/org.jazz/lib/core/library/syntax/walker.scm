@@ -100,7 +100,7 @@
     (let loop ((n 0))
       (if (<= n access-level)
           (begin
-            (%%vector-set! lookups n (%%new-hashtable eq?))
+            (%%vector-set! lookups n (%%make-hashtable eq?))
             (loop (%%fixnum+ n 1)))))
     lookups))
 
@@ -823,7 +823,7 @@
 
 
 (define (jazz.new-walk-frame bindings)
-  (let ((hashtable (%%new-hashtable eq?)))
+  (let ((hashtable (%%make-hashtable eq?)))
     (for-each (lambda (binding)
                 (let ((name (%%get-lexical-binding-name binding)))
                   (%%hashtable-set! hashtable name binding)))
@@ -1763,7 +1763,7 @@
 
 
 (define jazz.Literal-Constructors
-  (%%new-hashtable eq?))
+  (%%make-hashtable eq?))
 
 
 (define (jazz.register-literal-constructor name constructor)
@@ -2224,7 +2224,7 @@
 
 
 (define jazz.Catalog
-  (%%new-hashtable eq?))
+  (%%make-hashtable eq?))
 
 
 (define (jazz.get-catalog)

@@ -38,8 +38,8 @@
 (module jazz.dialect.core.hashtable
 
 
-(define (jazz.new-hashtable #!optional (test equal?))
-  (%%new-hashtable test))
+(define (jazz.make-hashtable test #!optional (hash #f))
+  (%%make-hashtable test hash))
 
 
 (define (jazz.hashtable? obj)
@@ -82,4 +82,12 @@
 
 (define (jazz.hashtable-entries hashtable)
   (%%assert (%%hashtable? hashtable)
-    (%%hashtable-entries hashtable))))
+    (%%hashtable-entries hashtable)))
+
+
+(cond-expand
+  (gambit
+    (define jazz.eq-hash eq?-hash)
+    (define jazz.eqv-hash eqv?-hash)
+    (define jazz.equal-hash equal?-hash))
+  (else)))

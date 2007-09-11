@@ -135,7 +135,7 @@
 ;;;
 
 
-(native jazz.new-hashtable)
+(native jazz.make-hashtable)
 (native jazz.hashtable-ref)
 (native jazz.hashtable-set!)
 (native jazz.hashtable-clear)
@@ -143,6 +143,9 @@
 (native jazz.iterate-hashtable)
 (native jazz.alist->hashtable)
 (native jazz.hashtable-entries)
+(native jazz.eq-hash)
+(native jazz.eqv-hash)
+(native jazz.equal-hash)
 
 
 ;;;

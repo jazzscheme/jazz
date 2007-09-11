@@ -39,10 +39,10 @@
 (module core.generic.runtime.generic
 
 
-(define (jazz.new-generic locator signature-proc)
+(define (jazz.new-generic locator mandatory-parameters signature-proc)
   (let ((name (jazz.identifier-name locator)))
-    (let ((root-specific (jazz.new-specific signature-proc (lambda rest (jazz.error "No specific method to call {a} on {s}" name rest)))))
-      (jazz.allocate-generic jazz.Generic locator name root-specific '()))))
+    (let ((root-specific (jazz.new-specific #f signature-proc (lambda rest (jazz.error "No specific method to call {a} on {s}" name rest)))))
+      (jazz.allocate-generic jazz.Generic locator name mandatory-parameters root-specific '()))))
 
 
 ;;;
@@ -51,7 +51,15 @@
 
 
 (define (jazz.register-specific generic specific)
-  (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic))))
+  (let ((g (%%get-generic-mandatory-parameters generic))
+        (s (%%get-specific-mandatory-parameters specific))
+        (name (%%get-generic-name generic)))
+    (%%assertion (or ;; until special treatment for initialize
+                     (eq? name 'initialize)
+                     (and (%%not g) (%%not s))
+                     (and g s (%%fixnum= (%%length g) (%%length s))))
+                 (jazz.format "Inconsistant mandatory parameters for {a}: {a} and {a}" name g s)
+      (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic))))))
 
 
 ;;;

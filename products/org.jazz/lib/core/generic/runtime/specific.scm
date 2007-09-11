@@ -39,5 +39,5 @@
 (module core.generic.runtime.specific
 
 
-(define (jazz.new-specific signature-proc implementation)
-  (jazz.allocate-specific jazz.Specific signature-proc implementation #f #f '())))
+(define (jazz.new-specific mandatory-parameters signature-proc implementation)
+  (jazz.allocate-specific jazz.Specific mandatory-parameters signature-proc implementation #f #f '())))

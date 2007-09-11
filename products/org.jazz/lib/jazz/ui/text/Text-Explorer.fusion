@@ -186,23 +186,27 @@
 
 
   (method (next! pos <Cell>)
-    (unimplemented 'next!)
-    @implement
-    (bind-values (valid? row col) (JzTextSetNext paragraphs limit [row pos] [col pos])
-      (when valid?
-        (set! [row pos] row)
-        (set! [col pos] col))
-      valid?))
+    (cond ((< [col pos] (paragraph-length [row pos]))
+           (increase! [col pos])
+           true)
+          ((< [row pos] limit)
+           (increase! [row pos])
+           (set! [col pos] 0)
+           true)
+          (else
+           false)))
 
 
   (method (previous! pos <Cell>)
-    (unimplemented 'previous!)
-    @implement
-    (bind-values (valid? row col) (JzTextSetPrevious paragraphs limit [row pos] [col pos])
-      (when valid?
-        (set! [row pos] row)
-        (set! [col pos] col))
-      valid?))
+    (cond ((> [col pos] 0)
+           (decrease! [col pos])
+           true)
+          ((> [row pos] 0)
+           (decrease! [row pos])
+           (set! [col pos] (paragraph-length [row pos]))
+           true)
+          (else
+           false)))
 
 
   (method (next-cell! pos <Cell>)
@@ -215,11 +219,11 @@
       pos))
   
 
-  (method (next pos <Cell> offset <int>)
+  (method (next-pos pos <Cell> offset <int>)
     (next~ text pos offset))
 
 
-  (method (previous pos <Cell> offset <int>)
+  (method (previous-pos pos <Cell> offset <int>)
     (previous~ text pos offset))
 
   
@@ -231,26 +235,22 @@
     (previous! start))
   
   
-  (method public (next-char pos <Cell> offset <int>)
-    (unimplemented 'next-char)
-    @implement
-    (JzTextCharForward paragraphs limit [row pos] [col pos] offset))
-  
-  
   (method public (char-forward offset <int>)
-    (let ((pos (next end offset)))
+    (next-char end offset))
+  
+  
+  (method public (next-char pos <Cell> offset <int>)
+    (let ((pos (next-pos pos offset)))
       (when (and pos (next-in-text? pos))
         (get-char pos))))
   
-
-  (method public (previous-char pos <Cell> offset <int>)
-    (unimplemented 'previous-char)
-    @implement
-    (JzTextCharBackward paragraphs limit [row pos] [col pos] offset))
-  
   
   (method public (char-backward offset <int>)
-    (let ((pos (previous start (+ offset 1))))
+    (previous-char start offset))
+  
+
+  (method public (previous-char pos <Cell> offset <int>)
+    (let ((pos (previous-pos pos (+ offset 1))))
       (when pos
         (get-char pos))))
   
@@ -289,27 +289,29 @@
   
   
   (method public (forward-while predicate <Procedure>)
-    (let ((c))
-      (call/ec
-        (lambda (return)
-          (while (set! c (char-forward 0))
-            (if (predicate c)
-                (unless (forward)
-                  (return false))
-              (return true)))
-          false))))
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-forward 0)))
+            (if (not c)
+                (return false)
+              (if (predicate c)
+                  (unless (forward)
+                    (return false))
+                (return true))))))))
   
   
   (method public (backward-while predicate <Procedure>)
-    (let ((c))
-      (call/ec
-        (lambda (return)
-          (while (set! c (char-backward 0))
-            (if (predicate c)
-                (unless (backward)
-                  (return false))
-              (return true)))
-          false))))
+    (call/ec
+      (lambda (return)
+        (while true
+          (let ((c (char-backward 0)))
+            (if (not c)
+                (return false)
+              (if (predicate c)
+                  (unless (backward)
+                    (return false))
+                (return true))))))))
   
   
   (method public (forward-until predicate <Procedure>)

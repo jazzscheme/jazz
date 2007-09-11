@@ -233,7 +233,7 @@
                        (location (range-location range))
                        (text (essay location (present-location location))))
                   (when text
-                    (let ((bounds (row-rect [row start range] [col start range] [col end range])))
+                    (let ((bounds (row-range-rect [row start range] [col start range] [col end range])))
                       (when (in-rect? view bounds)
                         (new Tooltip-Context
                           :view self
@@ -643,20 +643,23 @@
     (let ((expl (new Jazz-Explorer self :start [start range] :end [end range]))
           (location null)
           (previous-def? false)
-          (rank))
-      (while (set! rank (outer-expr~ expl))
-        (let ((def? (definition-expr?~ expl)))
-          (if def?
-              (bind-values (package? meta? name) (definition-name~ expl)
-                (let ((loc (if previous-def? location (cons rank location))))
-                  (cond (package?
-                         (set! location (cons name (cons 'meta loc))))
-                        (meta?
-                         (set! location (cons 'meta (cons name loc))))
-                        (else
-                         (set! location (cons name loc))))))
-            (set! location (cons rank location)))
-          (set! previous-def? def?)))
+          (done? false))
+      (while (not done?)
+        (let ((rank (outer-expr~ expl)))
+          (if (not rank)
+              (set! done? true)
+            (let ((def? (definition-expr?~ expl)))
+              (if def?
+                  (bind-values (package? meta? name) (definition-name~ expl)
+                    (let ((loc (if previous-def? location (cons rank location))))
+                      (cond (package?
+                              (set! location (cons name (cons 'meta loc))))
+                            (meta?
+                              (set! location (cons 'meta (cons name loc))))
+                            (else
+                             (set! location (cons name loc))))))
+                (set! location (cons rank location)))
+              (set! previous-def? def?)))))
       location))
 
 

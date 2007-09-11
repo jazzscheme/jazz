@@ -269,7 +269,7 @@
   8000)
 
 (definition public Id-Cookies
-  (new-hashtable :eqv?))
+  (new-hashtable eqv?))
 
 
 (definition public (register-cookie-id cookie)
@@ -326,7 +326,7 @@
 
 
 (definition public Class-Descriptors
-  (new-hashtable :eq?))
+  (new-hashtable eq?))
 
 
 (definition public (get-descriptor model)
@@ -398,20 +398,6 @@
   (if (= n 1)
       (format "{a} was" name)
     (format "{a} {a}s where" n name)))
-
-
-;;;
-;;;; Process
-;;;
-
-
-(definition public (get-running-time)
-  (unimplemented 'get-running-time)
-  @time-from-gambit
-  (- (clock) (get-launch-time)))
-
-
-
 
 
 ;;;
@@ -1417,16 +1403,11 @@
 
 
 (definition public (message-box?)
-  #t
-  @Process-and-application 
-  (and (typed? (get-process) 'Application)
+  (and (is? (get-process) Application)
        (get-bindings~ (get-application))))
 
 
 (definition public (message-box text . rest)
-  (display text)
-  (newline)
-  @system-message
   (bind-keywords ((class null) (type 'message) (title null) (icon null) (content null) (sound 'default) (selection null) (yes null) (no null) (cancel null) (actions null) (default-button null) (process-keys? true) (sizable? false)) rest
     (if (not (message-box?))
         (system-message text :type type)
@@ -1447,6 +1428,11 @@
                 :actions actions
                 :default-button default-button
                 :process-keys? process-keys?))))))))
+
+
+(definition (system-message text . rest)
+  (display text)
+  (newline))
 
 
 ;;;
@@ -2205,11 +2191,14 @@
   (with-closed ((reader (new File-Reader file)))
     (let ((tab (coerce (list #\tab) String))
           (fact (new List-Factory))
-          (info))
-      (while (set! info (read-line reader))
-        (bind-values (line proper?) info
-          (let ((values (split line tab)))
-            (put~ fact (map patch-for-excel values)))))
+          (done? false))
+      (while (not done?)
+        (let ((info (read-line reader)))
+          (if (not info)
+              (set! done? true)
+            (bind-values (line proper?) info
+              (let ((values (split line tab)))
+                (put~ fact (map patch-for-excel values)))))))
       (get-output~ fact))))
 
 

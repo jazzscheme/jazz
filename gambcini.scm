@@ -7,11 +7,37 @@
 ;;;
 
 
-;;(include "~~/src/lib/header.scm")
+(include "~~/src/lib/header.scm")
 
 
 (generate-proper-tail-calls #f)
 (display-environment-set! #t)
+
+
+(define-macro (obj . rest)
+  `(##subtype-set! (##vector ,@rest) 6))
+
+
+(define-macro (objref object n)
+  `(##vector-ref ,object ,n))
+
+
+(define (tb)
+  (let ((t1 (make-table test: equal?)))
+    (table-set! t1 '(a) 1)
+    (table-set! t1 (obj 'b) 2)
+    (write (table-ref t1 '(a) #f)) (newline)
+    (write (table-ref t1 (obj 'b) #f)) (newline)
+    )
+  (let ((t2 (make-table test: (lambda (x y) (equal? (objref x 0) (objref y 0))))))
+    (table-set! t2 (obj 'b) 2)
+    (write (table-ref t2 (obj 'b) #f)) (newline)
+    )
+  (let ((t3 (make-table test: (lambda (x y) (equal? (objref x 0) (objref y 0)))
+              hash: (lambda (x) (eqv?-hash (objref x 0))))))
+    (table-set! t3 (obj 'b) 2)
+    (write (table-ref t3 (obj 'b) #f)) (newline)
+    ))
 
 
 ;;;
@@ -480,8 +506,9 @@
              (jazz.ui)
              (jazz.ui.view)
              (jazz.ui.window)
+             (jazz.utilities)
              (jedi))
-   ,@rest))
+     (debug ,@rest)))
 
 
 ;;;
@@ -509,7 +536,7 @@
   (apply test.test rest))
 
 
-(define (bt)
+(define (b)
   (lj)
   (jazz.load-module 'jazz.platform.literals)
   (l test.boot))

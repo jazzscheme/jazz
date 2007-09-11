@@ -43,7 +43,7 @@
 
 
 (define jazz.Autoloads
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.get-autoloads)

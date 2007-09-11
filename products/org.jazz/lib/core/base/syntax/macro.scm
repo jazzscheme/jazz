@@ -39,7 +39,7 @@
 
 
 (define jazz.Macros
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.register-macro name macro)

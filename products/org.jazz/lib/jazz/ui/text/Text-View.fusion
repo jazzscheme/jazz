@@ -366,7 +366,7 @@
     (update-moniker-time~ (get-controller) moniker))
   
   
-  (method (confirm-close)
+  (method (confirm-close . rest)
     (confirm-close~ (get-controller)))
   
   
@@ -1402,7 +1402,7 @@
         region)))
   
   
-  (method (row-rect row start end)
+  (method (row-range-rect row start end)
     (let ((paragraph (get-paragraph row)))
       (new Rect
         [h (col->view~ paragraph start)]
@@ -1420,7 +1420,7 @@
   
   
   (method public (invalidate-row row)
-    (invalidate-rect (row-rect row 0 null)))
+    (invalidate-rect (row-range-rect row 0 null)))
   
   
   (method (invalidate-range range)
@@ -1432,12 +1432,13 @@
               (invalidate-region~ player region true)))))))
   
   
-  (method (selection-region dh dv sc top bottom)
+  ;; this should be unified with selection-region
+  (method (text-selection-region dh dv sc top bottom)
     (range-region selection dh dv sc :top top :bottom bottom))
   
   
   (method (selection-region-all dh dv sc)
-    (selection-region dh dv sc 0 (get-display-height)))
+    (text-selection-region dh dv sc 0 (get-display-height)))
   
   
   (method protected virtual (get-selection-color)
@@ -1454,13 +1455,13 @@
       (when (/= start end)
         (if (= [row start] [row end])
             (proc (get-paragraph [row start]) [col start] [col end])
-          (let ((begin [row start])
+          (let ((beginning [row start])
                 (limit [row end]))
-            (loop (for n from begin to limit)
+            (loop (for n from beginning to limit)
                   (let ((paragraph (get-paragraph n)))
-                    (cond ((= n begin) (proc paragraph [col start] null))
+                    (cond ((= n beginning) (proc paragraph [col start] null))
                           ((= n limit) (proc paragraph null [col end]))
-                          (else        (proc paragraph null null))))))))))
+                          (else (proc paragraph null null))))))))))
   
   
   ;;;
@@ -1553,7 +1554,7 @@
     (replace-selection (list "")))
   
   
-  (method (select-all)
+  (method (select-all . rest)
     (set-selection (new Range (text-beginning) (text-ending))))
   
   
@@ -1816,19 +1817,23 @@
   
   
   (method public (next pos <Cell> offset <int>)
-    (unimplemented 'next)
-    @convert
-    (bind-values (valid? row col) (JzTextNext (get-paragraphs) (get-limit) [row pos] [col pos] offset)
-      (when valid?
-        (new Cell row col))))
+    (let ((ok? true)
+          (pos (copy pos)))
+      (while (and ok? (> offset 0))
+        (set! ok? (next! pos))
+        (decrease! offset))
+      (when ok?
+        pos)))
   
   
   (method public (previous pos <Cell> offset <int>)
-    (unimplemented 'previous)
-    @convert
-    (bind-values (valid? row col) (JzTextPrevious (get-paragraphs) (get-limit) [row pos] [col pos] offset)
-      (when valid?
-        (new Cell row col))))
+    (let ((ok? true)
+          (pos (copy pos)))
+      (while (and ok? (> offset 0))
+        (set! ok? (previous! pos))
+        (decrease! offset))
+      (when ok?
+        pos)))
   
   
   (method public (get-column row <int>)
@@ -2024,7 +2029,7 @@
   
   (method (draw-selection dc top bottom)
     (when (or has-focus? show-unfocused-selection?)
-      (with-closed ((region (selection-region 0.0 0.0 1.0 top bottom)))
+      (with-closed ((region (text-selection-region 0.0 0.0 1.0 top bottom)))
         (when region
           (fill-region~ dc region (if has-focus? (get-selection-color) (get-inactive-selection-color)))))))
   
@@ -2462,15 +2467,15 @@
   ;;;
   
   
-  (method protected virtual (colorize-syntax)
+  (method protected virtual (colorize-syntax . rest)
     )
   
   
-  (method protected virtual (colorize-comments)
+  (method protected virtual (colorize-comments . rest)
     )
   
   
-  (method protected virtual (colorize-declarations)
+  (method protected virtual (colorize-declarations . rest)
     )
   
   

@@ -222,9 +222,6 @@
   (error "{t} cannot be coerced into a string" obj))
 
 
-(definition (object-container obj) (unimplemented 'object-container))
-
-
 (definition (native-class name)
   (error "Scheme primitives must be used to create {a}" name))
 
@@ -242,7 +239,9 @@
 
 
 (definition (hash obj test)
-  (unimplemented 'hash))
+  #f
+  ;; wait
+  (hash-object~ obj))
 
 
 (definition (object-initialized? obj)
@@ -301,30 +300,6 @@
 
 (definition (load-source a b) (unimplemented 'load-source))
 (definition find-field-value slot-value)
-
-
-;; (definition (unit?                                   Object+))
-;; (definition (unit-compiled?                          Object))
-;; (definition (all-units))
-;; (definition (unit-state                              Object))
-;; (definition (unit-package                            Object))
-;; (definition (unit-imports                            Object))
-;; (definition (unit-container                          Object))
-;; (definition (unit-inner?                             Object))
-;; (definition (unit-toplevel                           Object))
-;; (definition (unit-nb-definitions                     Object))
-;; (definition (unit-nb-virtuals                        Object))
-;; (definition (unit-field                              Object Object))
-;; (definition (unit-fields                             Object))
-;; (definition (unit-properties                         Object))
-;; (definition (unit-forms                              Object))
-;; (definition (find-field-value                        Object Object))
-;; (definition (load                                    Object))
-;; (definition (unload                                  Object))
-;; (definition (unit-loaded?                            Object))
-;; (definition (is-compiled-unit?                       Object))
-;; (definition (get-compiled-units))
-;; (definition (get-loaded-unit                         Object))
 
 
 ;;;
@@ -466,20 +441,22 @@
 (class Generic extends Object
   
   
-  (slot locator           accessors generate)
-  (slot name              accessors generate)
-  (slot root-specific     accessors generate)
-  (slot pending-specifics accessors generate))
+  (slot locator              accessors generate)
+  (slot name                 accessors generate)
+  (slot mandatory-parameters accessors generate)
+  (slot root-specific        accessors generate)
+  (slot pending-specifics    accessors generate))
 
 
 (class Specific extends Object
   
   
-  (slot signature           accessors generate)
-  (slot implementation      accessors generate)
-  (slot next-implementation accessors generate)
-  (slot next-specific       accessors generate)
-  (slot previous-specifics  accessors generate))
+  (slot mandatory-parameters accessors generate)
+  (slot signature            accessors generate)
+  (slot implementation       accessors generate)
+  (slot next-implementation  accessors generate)
+  (slot next-specific        accessors generate)
+  (slot previous-specifics   accessors generate))
 
 
 ;;;
@@ -772,15 +749,18 @@
 
 
 (definition (jazz-constituent? c)
-  (unimplemented 'jazz-constituent?))
+  ;; tofix
+  (word-constituent? c))
 
 
 (definition (cpp/java-constituent? c)
-  (unimplemented 'cpp/java-constituent?))
+  ;; tofix
+  (word-constituent? c))
 
 
 (definition (sql-constituent? c)
-  (unimplemented 'sql-constituent?))
+  ;; tofix
+  (word-constituent? c))
 
 
 ;;;
@@ -2355,11 +2335,14 @@
          seq)
         ((closure? separator)
          (let ((previous 0)
-               (pos)
-               (result (new List-Factory)))
-           (while (set! pos (find-if separator seq :start previous :return 'position))
-             (put~ result (subseq seq previous pos))
-             (set! previous (+ pos 1)))
+               (result (new List-Factory))
+               (done? false))
+           (while (not done?)
+             (let ((pos (find-if separator seq :start previous :return 'position)))
+               (if (not pos)
+                   (set! done? true)
+                 (put~ result (subseq seq previous pos))
+                 (set! previous (+ pos 1)))))
            (put~ result (subseq seq previous))
            (get-output~ result)))
         (else
@@ -3432,9 +3415,6 @@
   (hash-set! hashtable key (cons value (hash-ref hashtable key))))
 
 
-;(definition (new-hashtable                           Object int))
-;(definition (hash-ref                                Hashtable Object . rest))
-;(definition (hash-set!                               Hashtable Object Object+))
 ;(definition (hash-add                                Hashtable Object Object))
 ;(definition (hash-add-multiple                       Hashtable Object Object))
 ;(definition (hash-clear                              Hashtable Object))
@@ -3572,18 +3552,6 @@
   (inexact->exact (scheme.round r)))
 
 
-;; (definition (sin                                     double))
-;; (definition (cos                                     double))
-;; (definition (tan                                     double))
-;; (definition (asin                                    double))
-;; (definition (acos                                    double))
-;; (definition (atan                                    double Object))
-;; (definition (sqrt                                    double))
-;; (definition (exp                                     double))
-;; (definition (log                                     double))
-;; (definition (expt                                    double double))
-
-
 ;;;
 ;;;; Map
 ;;;
@@ -3692,14 +3660,6 @@
   (set! Active-Process process))
 
 
-@convert
-(method (process-class)
-  (let ((process (get-process)))
-    (if (null? process)
-        Process
-      (class-of process))))
-
-
 (definition (set-application application)
   (set! Active-Process application))
 
@@ -3710,10 +3670,6 @@
 
 (definition (process-active?)
   Process-Active?)
-
-
-(definition (get-launch-time)
-  (unimplemented 'get-launch-time))
 
 
 (definition Active-Workbench
@@ -4216,12 +4172,25 @@
       (subseq string 0 (+ pos 1)))))
 
 
-(definition (compare-n x y n)
-  (unimplemented 'compare-n))
+(definition (compare-n x y max)
+  (let ((xlen (string-length x))
+        (ylen (string-length y)))
+    (let loop ((n 0))
+      (if (>= n max)
+          #t
+        (if (or (>= n xlen) (>= n ylen) (not (eqv? (string-ref x n) (string-ref y n))))
+            #f
+          (loop (+ n 1)))))))
 
 
 (definition (string-checksum str)
-  (unimplemented 'string-checksum))
+  (let ((sum 0)
+        (len (string-length str)))
+    (let loop ((n 0))
+      (when (< n len)
+        (increase! sum (char->integer (string-ref str n)))
+        (loop (+ n 1))))
+    sum))
 
 
 ;;;
@@ -4254,34 +4223,6 @@
   (eq? (active-thread) (primary-thread)))
 
 
-;; (definition (primary-thread))
-;; (definition (active-thread))
-;; (definition (get-threads))
-;; (definition (start-thread                            Object))
-;; (definition (run-thread                              Object))
-;; (definition (thread-handle                           Object))
-;; (definition (thread-state                            Object))
-;; (definition (set-thread-state                        Object int))
-;; (definition (thread-name                             Object))
-;; (definition (set-thread-name                         Object Object))
-;; (definition (thread-active-node                      Object))
-;; (definition (set-thread-active-node                  Object Object))
-;; (definition (thread-active-context                   Object))
-;; (definition (set-thread-active-context               Object Object))
-;; (definition (thread-proc                             Object))
-;; (definition (thread-information                      Object))
-;; (definition (set-thread-information                  Object Object))
-;; (definition (set-thread-context                      Object Object))
-;; (definition (set-thread-proc                         Object Object))
-;; (definition (terminate-thread                        Object))
-;; (definition (suspend-thread                          Object))
-;; (definition (resume-thread                           Object))
-;; (definition (suspend-threads                         . rest))
-;; (definition (resume-threads                          . rest))
-;; (definition (get-parameter                           Object))
-;; (definition (set-parameter                           Object Object))
-
-
 ;;;
 ;;;; Time
 ;;;
@@ -4289,8 +4230,8 @@
 
 (definition public (time> t1 t2)
   (> (time->seconds t1) (time->seconds t2)))
-;; (definition (query-performance-frequency))
-;; (definition (query-performance-counter))
+
+
 (definition (wait delay)
   (unimplemented 'wait))
 
@@ -4562,37 +4503,6 @@
 
 (definition public (closure? object <Object>)
   (procedure? object))
-
-
-;;;
-;;;; Collector
-;;;
-
-
-(definition public (gather-generation generation)
-  (unimplemented 'gather-generation)
-  @unimplemented
-  (map (function dynamic (zone)
-         (cons zone (gather-generation-internal generation zone)))
-       '(8 12 16 20 24 32 48 64 128 256 512 1024)))
-
-
-;; (constant TRACK_UNVISITED #x00000001)
-;; (constant TRACK_MARK      #x00000002)
-;; (constant TRACK_SWEEP     #x00000004)
-;; (constant TRACK_USER      #x00000008)
-
-
-;; (definition (gc))
-;; (definition (gc-triggers))
-;; (definition (gc-info))
-;; (definition (gc-times))
-;; (definition (gc-statistics))
-;; (definition (gc-track                                Object . rest))
-;; (definition (gc-end-tracking))
-;; (definition (gc-undestroyed-count))
-;; (definition (gc-undestroyed-objects))
-;; (definition (gc-clear-undestroyed))
 
 
 ;;;
@@ -5283,19 +5193,6 @@
 
 
 ;;;
-;;;; External
-;;;
-
-
-;; (definition (external-library                        Object))
-;; (definition (external-entry-name                     Object))
-;; (definition (external-effective-name                 Object))
-;; (definition (external-address                        Object))
-;; (definition (external-entry-point                    int string))
-;; (definition (external-inlined-name                   Object))
-
-
-;;;
 ;;;; Eval
 ;;;
 
@@ -5327,17 +5224,6 @@
 
 
 ;;;
-;;;; Library
-;;;
-
-
-;; (definition (reload-libraries))
-;; (definition (libraries-map))
-;; (definition (library-name                            Object))
-;; (definition (library-filename                        Object))
-
-
-;;;
 ;;;; Localize
 ;;;
 
@@ -5352,80 +5238,12 @@
 ;;;
 
 
-(definition public (macro? object)
-  (unimplemented 'macro?))
-
-
-(definition public (syntax-macro? object)
-  (unimplemented 'syntax-macro?))
-
-
 (definition public (with-macro-expression expr proc)
   (if (symbol? expr)
       (proc expr)
     (let ((symbol (generate-symbol "val")))
       (list 'let* (list (list symbol expr))
         (proc symbol)))))
-
-
-;;;
-;;;; Manifest
-;;;
-
-
-(definition public (get-manifest-property unit-name symbol)
-  (unimplemented 'get-manifest-property))
-
-
-;; (definition public (in-manifest? name)
-;;   (in-manifest?~ Manifest name true))
-
-
-;; (definition public (in-interpreted-manifest? name)
-;;   (in-interpreted-manifest?~ Manifest name true))
-
-
-;; (definition public (load-manifest file)
-;;   (load-units-manifest~ Manifest file))
-
-
-;; (definition public (get-manifest)
-;;   (get-units~ Manifest))
-
-
-;; (definition public (get-patches)
-;;   (get-patches~ Manifest))
-
-
-;; (definition public (get-manifest-source name)
-;;   (get-source~ Manifest name))
-
-
-;; (definition public (get-manifest-properties name)
-;;   (get-properties~ Manifest name))
-
-
-;; (definition public (get-manifest-resource type name)
-;;   (get-resource~ Manifest type name))
-
-
-;;;
-;;;; Memory
-;;;
-
-
-;; (definition (object-memory-info                      Object))
-;; (definition (system-stack-info))
-;; (definition (data-stack-info))
-;; (definition (break-on-allocation                     Object))
-;; (definition (validate-memory                         . rest))
-;; (definition (get-gc-debug?))
-;; (definition (set-gc-debug?                           bool))
-;; (definition (reset-gc-debug))
-;; (definition (get-object-debug                        Object))
-;; (definition (get-generation))
-;; (definition (set-generation                          int))
-;; (definition (gather-generation-internal              int int))
 
 
 ;;;
@@ -5610,28 +5428,6 @@
 
 
 ;;;
-;;;; Settings
-;;;
-
-
-;; (definition (get-settings))
-;; (definition (get-boolean-setting                     ansistring bool))
-
-
-;;;
-;;;; Statistics
-;;;
-
-
-;; (definition (free-objects))
-;; (definition (statistics))
-;; (definition (symbols-statistics))
-;; (definition (data-stack-statistics))
-;; (definition (time                                    #t Object))
-;; (definition (lifetime-allocation))
-
-
-;;;
 ;;;; Subseq
 ;;;
 
@@ -5721,20 +5517,4 @@
 (definition public (word-constituent? c <Object>)
   (or (alphabetic? c)
       (numeric? c)
-      (memq? c '(#\- #\@))))
-
-
-;;;
-;;;; Values
-;;;
-
-
-;; (definition (values                                  . rest))
-;; (definition (values->list                            Object))
-;; (definition (bind-values-bindings                    Object))
-;; (definition (bind-values-values                      Object))
-;; (definition (bind-values-body                        Object))
-;; (definition (bind-values-area-offset                 Object))
-;; (definition (bind-values-area-size                   Object))
-;; (definition (bind-values-stack-allocate?             Object))
-)
+      (memq? c '(#\- #\@)))))

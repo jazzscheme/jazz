@@ -40,15 +40,17 @@
 
 
 (jazz.define-class-syntax jazz.Specific jazz.Object () jazz.Object-Class jazz.allocate-specific
-  ((signature           %%get-specific-signature           %%set-specific-signature)
-   (implementation      %%get-specific-implementation      %%set-specific-implementation)
-   (next-implementation %%get-specific-next-implementation %%set-specific-next-implementation)
-   (next-specific       %%get-specific-next-specific       %%set-specific-next-specific)
-   (previous-specifics  %%get-specific-previous-specifics  %%set-specific-previous-specifics)))
+  ((mandatory-parameters %%get-specific-mandatory-parameters ())
+   (signature            %%get-specific-signature            %%set-specific-signature)
+   (implementation       %%get-specific-implementation       %%set-specific-implementation)
+   (next-implementation  %%get-specific-next-implementation  %%set-specific-next-implementation)
+   (next-specific        %%get-specific-next-specific        %%set-specific-next-specific)
+   (previous-specifics   %%get-specific-previous-specifics   %%set-specific-previous-specifics)))
 
 
 (jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class
-  (signature
+  (mandatory-parameters
+    signature
    implementation
    next-implementation
    next-specific

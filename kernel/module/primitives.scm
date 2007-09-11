@@ -183,43 +183,12 @@
 
 
 (cond-expand
-  (chicken
-    (define-macro (%%hashtable-name->associator test-name)
-      `(case ,test-name
-         ((:eq?) assq)
-         ((:eqv?) assv)
-         ((:equal?) assoc)))
-      
-    (define-macro (%%new-hashtable test-name)
-      `(make-hash-table (%%hashtable-name->associator ,test-name)))
-    
-    (define-macro (%%hashtable-ref hashtable key default)
-      `(hash-table-ref/default ,hashtable ,key ,default))
-    
-    (define-macro (%%hashtable-set! hashtable key value)
-      `(hash-table-set! ,hashtable ,key ,value))
-    
-    (define-macro (%%hashtable-keys hashtable)
-      `(hash-table-keys ,hashtable))
-    
-    (define-macro (%%iterate-hashtable hashtable proc)
-      `(hash-table-walk ,hashtable ,proc))
-    
-    (define-macro (%%alist->hashtable alist test-name)
-      `(alist->hash-table ,alist)))
-  
   (gambit
     (define-macro (%%hashtable? obj)
       `(table? ,obj))
     
-    (define-macro (%%hashtable-name->test test-name)
-      `(case ,test-name
-         ((:eq?) eq?)
-         ((:eqv?) eqv?)
-         ((:equal?) equal?)))
-    
-    (define-macro (%%new-hashtable test-name)
-      `(make-table test: (%%hashtable-name->test ,test-name)))
+    (define-macro (%%new-hashtable test)
+      `(make-table test: ,test))
     
     (define-macro (%%hashtable-ref hashtable key default)
       (if (jazz.safe?)
@@ -240,8 +209,8 @@
     (define-macro (%%iterate-hashtable hashtable proc)
       `(table-for-each ,proc ,hashtable))
     
-    (define-macro (%%alist->hashtable alist test-name)
-      `(list->table ,alist test: (%%hashtable-name->test ,test-name)))
+    (define-macro (%%alist->hashtable alist test)
+      `(list->table ,alist test: ,test))
     
     (define-macro (%%hashtable->alist hashtable)
       `(table->list ,hashtable))

@@ -38,8 +38,8 @@
 (module jazz.dialect.core.hashtable
 
 
-(define (jazz.new-hashtable #!optional (test-name ':equal?))
-  (%%new-hashtable test-name))
+(define (jazz.new-hashtable #!optional (test equal?))
+  (%%new-hashtable test))
 
 
 (define (jazz.hashtable? obj)
@@ -71,8 +71,8 @@
     (%%iterate-hashtable hashtable proc)))
 
 
-(define (jazz.alist->hashtable alist #!optional (test-name ':equal?))
-  (%%alist->hashtable alist test-name))
+(define (jazz.alist->hashtable alist #!optional (test equal?))
+  (%%alist->hashtable alist test))
 
 
 (define (jazz.hashtable->alist hashtable)

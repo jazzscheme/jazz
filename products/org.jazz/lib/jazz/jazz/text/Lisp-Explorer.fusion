@@ -45,14 +45,6 @@
         (jazz.utilities))
 
 
-(definition public Comment
-  (make-string 1 #\semi-colon))
-
-
-(definition public Title-Comment
-  (make-string 4 #\semi-colon))
-
-
 ;; KINDS
 ;; - number
 ;; - boolean
@@ -212,7 +204,7 @@
   
   (method private (forward-constituent)
     (let ((keyword? (= (char-forward 0) #\colon))
-          (last))
+          (last nil))
       (call/ec
         (lambda (return)
           (while true
@@ -221,7 +213,7 @@
                      (forward)
                      (forward))
                     ((or (null? c) (not (jazz-constituent? c)))
-                     (set! kind (if (or keyword? (= last #\colon)) 'keyword 'symbol))
+                     (set! kind (if (or keyword? (and last (= last #\colon))) 'keyword 'symbol))
                      (return kind))
                     (else
                      (forward)))
@@ -449,7 +441,7 @@
     (forward-whites)
     (let ((c (char-forward 0)))
       (if (/= c delimiter)
-          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char c)) end (next end 1))
+          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char c)) end (next-pos end 1))
         (forward)
         (set! kind knd)
         kind)))
@@ -462,7 +454,7 @@
       (backward-whites)
       (let ((c (char-backward 0)))
         (if (/= c delimiter)
-            (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char c)) (previous start 1) start)
+            (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char c)) (previous-pos start 1) start)
           (backward)
           (set! end initial-start)
           (set! kind knd)
@@ -572,12 +564,12 @@
 
   
   (method public (backward-whites)
-    (unimplemented 'backward-whites)
-    @convert
-    (bind-values (valid? row col) (JzTextBackwardWhites (get-syntax) paragraphs limit [row start] [col start])
-      (set! [row start] row)
-      (set! [col start] col)
-      valid?))
+    (let ((c))
+      (call/ec
+        (lambda (return)
+          (while (and (set! c (char-backward 0)) (whitespace? c))
+            (when (not (backward))
+              (return)))))))
 
 
   ;;;
@@ -632,11 +624,11 @@
                           (and (= prv #\comma) (= s #\at))
                           (and (= prv #\quote) (= s #\comma))
                           (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
-               (set-start (previous start 1))
+               (set-start (previous-pos start 1))
                true)
               ((and composite? (= prv #\double-quote) (= nxt #\double-quote))
-               (set-start (previous start 1))
-               (set-end (next end 1))
+               (set-start (previous-pos start 1))
+               (set-end (next-pos end 1))
                true)
               (else
                (when outer-composite?
@@ -649,10 +641,10 @@
                        (cond ((or (and ender (not (close-composite? ender)))
                                   (and (null? starter) ender)
                                   (and starter ender (not (composites-match? starter ender))))
-                              (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next e 1)))
+                              (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
                              ((or (and starter (not (open-composite? starter)))
                                   (and starter (null? ender)))
-                              (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous start 1) start))
+                              (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
                              (else
                               (set-end e)
                               (let ((pc (previous-char start 0))
@@ -763,8 +755,8 @@
                           (set! previous-row [row pos])
                           (set-end pos)
                           (paragraph-end)
-                          (proc start end (and (< (+ col 4) (length string)) (= (subseq string col (+ col 4)) Title-Comment))))))))
-                (search-occurrences~ text Comment))))
+                          (proc start end (and (< (+ col 4) (length string)) (= (subseq string col (+ col 4)) (title-comment-string~ (get-syntax~ text))))))))))
+                (search-occurrences~ text (comment-string~ (get-syntax~ text))))))
 
 
   ;;;

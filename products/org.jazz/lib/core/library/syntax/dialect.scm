@@ -58,7 +58,7 @@
 
 
 (define jazz.Dialects
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.get-dialect name)

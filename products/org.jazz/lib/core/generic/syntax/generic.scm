@@ -40,15 +40,17 @@
 
 
 (jazz.define-class-syntax jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
-  ((locator           %%get-generic-locator           ())
-   (name              %%get-generic-name              ())
-   (root-specific     %%get-generic-root-specific     %%set-generic-root-specific)
-   (pending-specifics %%get-generic-pending-specifics %%set-generic-pending-specifics)))
+  ((locator              %%get-generic-locator              ())
+   (name                 %%get-generic-name                 ())
+   (mandatory-parameters %%get-generic-mandatory-parameters ())
+   (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
+   (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
 
 
 (jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class
   (locator
    name
+   mandatory-parameters
    root-specific
    pending-specifics))
 

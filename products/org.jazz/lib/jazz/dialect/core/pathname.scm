@@ -44,7 +44,7 @@
 
 
 (define jazz.Aliases
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.get-aliases)

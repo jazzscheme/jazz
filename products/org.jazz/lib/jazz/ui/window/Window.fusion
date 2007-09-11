@@ -121,52 +121,7 @@
         (WNDCLASS-hbrBackground-set! wc  (class-background))
         (WNDCLASS-lpszMenuName-set! wc   NULL)
         (WNDCLASS-lpszClassName-set! wc  class)
-        (RegisterClass wc))))
-
-
-  ;;;
-  ;;;; Process
-  ;;;
-  
-  
-  (method public (get-thread/process-id hwnd)
-    (unimplemented 'get-thread)
-    @convert
-    (GetWindowThreadProcessId hwnd NULL))
-
-
-  ;;;
-  ;;;; Class
-  ;;;
-  
-  
-  (method public (get-class-name hwnd)
-    (unimplemented 'get-class-name)
-    @unimp
-    (let* ((size 256)
-           (name (make-string size)))
-      (if (= (GetClassName hwnd name size) 0)
-          null
-        (adjust-string name)
-        name)))
-
-
-  ;;;
-  ;;;; Management
-  ;;;
-  
-  
-  (method public (select-foreground-hwnd hwnd)
-    (SetForegroundWindow hwnd))
-  
-  
-  (method public (get-hwnd-title hwnd)
-    (unimplemented 'get-hwnd-title)
-    @unimp
-    (let* ((size (GetWindowTextLength hwnd))
-           (string (make-string size)))
-      (GetWindowText hwnd string (+ size 1))
-      string)))
+        (RegisterClass wc)))))
 
 
 (class Window metaclass Window-Class extends Figure implements Message-Consumer
@@ -572,22 +527,21 @@
     unprocessed)
 
 
-  ;; tofix
   (method protected virtual (on-command lparam wparam)
-    (let ((lparam (if (= 0 lparam) #f lparam)))
-      (if (eq? lparam NULL)
-          (let ((action-item/shortcut (get-id-cookie (loword wparam))))
-            (if (null? action-item/shortcut)
-                unprocessed
-              (if (is? action-item/shortcut Shortcut)
-                  (dispatch-shortcut~ (get-application) action-item/shortcut)
-                (invoke~ action-item/shortcut self null)
-                processed)))
-        (let ((object (get-window lparam)))
-          (if (null? object)
+    (debug lparam wparam)
+    (if (= lparam 0)
+        (let ((action-item/shortcut (get-id-cookie (loword wparam))))
+          (if (null? action-item/shortcut)
               unprocessed
-            (process-action~ object self)
-            processed)))))
+            (if (is? action-item/shortcut Shortcut)
+                (dispatch-shortcut~ (get-application) action-item/shortcut)
+              (invoke~ action-item/shortcut self null)
+              processed)))
+      (let ((object (get-window lparam)))
+        (if (null? object)
+            unprocessed
+          (process-action~ object self)
+          processed))))
 
 
   (method protected virtual (on-system-command type)
@@ -704,10 +658,8 @@
   ;;;
   
   
-  (method (on-timer address)
-    (unimplemented 'on-timer)
-    @address-object-unsafe
-    (let ((object (address-object-unsafe address)))
+  (method (on-timer serial-number)
+    (let ((object (serial-number->object serial-number)))
       (call-pulse~ object)))
 
 
@@ -871,9 +823,12 @@
   (method public (get-root-owner)
     (let ((root (get-window-owner)))
       (when root
-        (let ((owner))
-          (while (set! owner (get-window-owner~ root))
-            (set! root owner))
+        (let ((done? false))
+          (while (not done?)
+            (let ((owner (get-window-owner~ root)))
+              (if (not owner)
+                  (set! done? true)
+                (set! root owner))))
           root))))
   
   
@@ -891,8 +846,6 @@
   
 
   (method public (get-window-title)
-    "HELLO"
-    @JEREMIE
     (get-hwnd-title hwnd))
   
 
@@ -1139,17 +1092,6 @@
   (method public (border-region . rest)
     (bind-keywords ((insets {Rect 1 1 1 1})) rest
       (frame-region (get-client-rect) :insets insets)))
-  
-  
-  ;; Should only be called inside size-change and before the call to super...
-  @to-convert
-  (method public (invalidate-edges width height right-edge bottom-edge)
-    (when (/= width previous-width)
-      (invalidate-rect (new Rect (- previous-width right-edge) 0 previous-width previous-height) true)
-      (invalidate-rect (new Rect (- width right-edge) 0 width height) true))
-    (when (/= height previous-height)
-      (invalidate-rect (new Rect 0 (- previous-height bottom-edge) previous-width previous-height) true)
-      (invalidate-rect (new Rect 0 (- height bottom-edge) width height) true)))
 
 
   (method public (get-update-rect)

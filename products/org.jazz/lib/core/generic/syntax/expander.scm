@@ -47,10 +47,10 @@
 (define (jazz.expand-define-generic signature)
   (let* ((method-locator (%%car signature))
          (parameters (%%cdr signature))
-         (parameter-names (%%cons (jazz.specific-parameter-name (%%car parameters)) (%%cdr parameters)))
          (parameter-access (%%list (jazz.specific-parameter-access (%%car parameters))))
-         (rest-parameter (jazz.last-pair parameter-names))
-         (other-parameters (jazz.proper-list parameter-names))
+         (parameter-names (%%cons (jazz.specific-parameter-name (%%car parameters)) (%%cdr parameters)))
+         (rest-parameter (jazz.rest-parameter parameter-names))
+         (mandatory-parameters (jazz.mandatory-parameters parameter-names))
          (generic-locator (jazz.generic-object-locator method-locator))
          (gensym-specific (jazz.generate-symbol "specific")))
     `(begin
@@ -58,15 +58,26 @@
          ;; this is a quicky that needs to be well tought out
          (if (jazz.global-variable? ',generic-locator)
              (jazz.global-value ',generic-locator)
-           (jazz.new-generic ',method-locator (lambda () (%%list ,@parameter-access)))))
+           (jazz.new-generic ',method-locator ',(if rest-parameter #f mandatory-parameters) (lambda () (%%list ,@parameter-access)))))
        (define ,method-locator
          (lambda ,parameter-names
            (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
              (jazz.update-generic ,generic-locator))
            (let ((,gensym-specific (%%need-specific-implementation ,generic-locator ,(%%car parameter-names))))
-             ,(if (%%symbol? rest-parameter)
-                  `(apply ,gensym-specific ,@other-parameters ,rest-parameter)
+             ,(if rest-parameter
+                  `(apply ,gensym-specific ,@mandatory-parameters ,rest-parameter)
                 `(,gensym-specific ,@parameter-names))))))))
+
+
+(define (jazz.rest-parameter parameter-names)
+  (let ((last-pair (jazz.last-pair parameter-names)))
+    (if (%%symbol? last-pair)
+        last-pair
+      #f)))
+
+
+(define (jazz.mandatory-parameters parameter-names)
+  (jazz.proper-list parameter-names))
 
 
 (define (jazz.generic-object-locator locator)
@@ -83,12 +94,14 @@
          (parameters (%%cdr signature))
          (parameter-access (%%list (jazz.specific-parameter-access (%%car parameters))))
          (parameter-names (%%cons (jazz.specific-parameter-name (%%car parameters)) (%%cdr parameters)))
+         (rest-parameter (jazz.rest-parameter parameter-names))
+         (mandatory-parameters (jazz.mandatory-parameters parameter-names))
          (generic-locator (jazz.generic-object-locator method-locator))
          (specific-locator (jazz.implementation-name method-locator parameter-access))
          (gensym-specific (jazz.generate-symbol "specific"))
          (gensym-lambda (jazz.generate-symbol "lambda")))
     `(define ,specific-locator
-       (let* ((,gensym-specific (jazz.new-specific (lambda () (%%list ,@parameter-access)) #f))
+       (let* ((,gensym-specific (jazz.new-specific ',(if rest-parameter #f mandatory-parameters) (lambda () (%%list ,@parameter-access)) #f))
               (,gensym-lambda (lambda ,parameter-names
                                 (let ((nextmethod (%%get-specific-next-implementation ,gensym-specific)))
                                   ,@body))))

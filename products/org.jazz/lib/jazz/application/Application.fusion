@@ -77,7 +77,7 @@
   (slot user-pathname                   initialize {})
   (slot user                            initialize {})
   (slot focus-listeners                 initialize '())
-  (slot application-listeners           initialize (new-hashtable :eq?))
+  (slot application-listeners           initialize (new-hashtable eq?))
   (slot selected-owner                  initialize {})
   (slot selected                        initialize {})
   (slot selected-listeners              initialize '())
@@ -161,7 +161,6 @@
       (system-message (format "{a}" class))))
 
 
-  ;; Tofix
   (method (prepare-environment rest)
     (nextmethod rest)
     (set-application self)
@@ -175,7 +174,7 @@
     (when (use-user?)
       (log-user)))
 
-  ;; tofix
+  
   (method (start-environment rest)
     (nextmethod rest)
     (setup-bindings)
@@ -222,7 +221,7 @@
   (method (conclude-environment rest)
     (nextmethod rest)
     (update-windowing-actions)
-    ;(set-visible?~ toplevel true)
+    (set-visible?~ toplevel true)
     (when user
       (with-safe-execution "finalizing the user"
         (function dynamic ()
@@ -974,10 +973,8 @@
     (initialize-actions))
   
   
-  ;; tofix EMPTY
   (method public virtual (new-toplevel)
-    (new Toplevel)
-    )
+    (new Toplevel))
   
   
   (method (initialize-actions)
@@ -992,7 +989,7 @@
   (method (setup-accelerators)
     (set! accelerators-table (all-accelerators-table))
     (set! accelerators-handle (get-handle~ accelerators-table))
-    (set! accelerators-dispatch (new-hashtable :equal?)))
+    (set! accelerators-dispatch (new-hashtable equal?)))
   
   
   (method (register-actions-shortcuts old-actions new-actions)
@@ -1166,7 +1163,7 @@
   (method (process-messages)
     (let ((msg (MSG-make))
           (hwnd (get-hwnd~ (get-toplevel))))
-      (while (GetMessage msg NULL 0 0)
+      (while (GetMessage msg hwnd 0 0)
         (TranslateMessage msg)
         (DispatchMessage msg)
         (unless (TranslateAccelerator hwnd accelerators-handle msg)
@@ -1175,22 +1172,13 @@
   
   
   (method (process-one-message . rest)
-    (unimplemented 'process-one-message)
-    @windows-specific
     (bind-optionals ((window (get-toplevel))) rest
-      (with ((msg (new MSG)))
+      (with ((msg (MSG-make)))
         (let ((hwnd (get-hwnd~ window)))
-          (when (GetMessage msg NULL 0 0)
+          (when (GetMessage msg hwnd 0 0)
             (unless (TranslateAccelerator hwnd accelerators-handle msg)
               (TranslateMessage msg)
-              (DispatchMessage msg)))
-          @this-version-enables-the-kernel-to-test-for-liveliness-of-the-thread
-          (if (PeekMessage msg NULL 0 0 PM_REMOVE)
-              (unless (TranslateAccelerator hwnd accelerators-handle msg)
-                (TranslateMessage msg)
-                (DispatchMessage msg))
-            @w(reset-thread-time (active-thread))
-            (sleep 100))))))
+              (DispatchMessage msg)))))))
 
   
   ;;;
@@ -1552,7 +1540,7 @@
 
 
   (method (deliver-event handler target proc event)
-    (proc event))
+    (proc target event))
 
 
   (method public virtual (record-event? event)
@@ -2124,7 +2112,7 @@
 
 
   (method public virtual (on-new evt)
-    (new-event~ (get-default-frame-class)))
+    (new-event (get-default-frame-class)))
     
 
   (method public virtual (on-open evt)

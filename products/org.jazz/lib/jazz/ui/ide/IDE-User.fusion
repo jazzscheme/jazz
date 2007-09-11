@@ -147,60 +147,6 @@
   (method (on-send-message evt)
     (let ((person (get-property~ evt :person)))
       (send-to person)))
-
-  
-  ;;;
-  ;;;; Memory
-  ;;;
-    
-  
-  (method (zs size . rest)
-    (bind-keywords ((gc? true) (threshold 0) (compact? false)) rest
-      (when gc?
-        (gc))
-      (let ((hash (new-hashtable :eq?))
-            (fact (new List-Factory)))
-        (zone-statistics hash size)
-        (for-each-hash
-          (function dynamic (model count)
-            (when (>= count threshold)
-              (put~ fact (if compact?
-                             (type-name model)
-                           (list (type-name model) count (class-sizes model))))))
-         hash)
-        (if compact?
-            (sort < (get-output~ fact))
-          (sort (function dynamic (small big)
-                  (< (first small) (first big)))
-                (get-output~ fact))))))
-  
-  
-  (method (mzs)
-    (gc)
-    (map (function dynamic (s) (zs s :gc? false)) '(8 12 16 20 24 32 48 64 128 256 512 1024)))
-  
-  
-  (method (dmzs hi-mzs lo-mzs)
-    (map (function dynamic (hi-zs lo-zs)
-           (remove-nils (dzs hi-zs lo-zs)))
-         hi-mzs lo-mzs))
-  
-  
-  (method (dzs hi-zs lo-zs)
-    (let ((fact (new List-Factory)))
-      (merge-ordered
-        (function dynamic (res key hi lo)
-          (bind (name count size) (either hi lo)
-            (case res
-              ((:same)
-               (let ((diff (- count (second lo))))
-                 (unless (zero? diff)
-                   (put~ fact (list name diff size)))))
-              ((:left)  (put~ fact (list name count size)))
-              ((:right) (put~ fact (list name (- count) size)))
-              (else (debug res key hi lo)))))
-       hi-zs lo-zs :key first)
-      (get-output~ fact)))
   
   
   ;;;

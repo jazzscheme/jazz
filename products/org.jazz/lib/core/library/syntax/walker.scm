@@ -48,7 +48,6 @@
 ;;
 ;; Todo
 ;; - Is the extra indirection level of having declaration references really necessary?
-;; - When access is all moves to the new lookups, remove unneeded hashtables
 ;; - Convert and remove the temporary patch jazz.register-autoload that was used to implement
 ;;   the old load
 ;; - Think about the check order of imported modules. I do not like that they are checked in
@@ -101,7 +100,7 @@
     (let loop ((n 0))
       (if (<= n access-level)
           (begin
-            (%%vector-set! lookups n (%%new-hashtable ':eq?))
+            (%%vector-set! lookups n (%%new-hashtable eq?))
             (loop (%%fixnum+ n 1)))))
     lookups))
 
@@ -824,7 +823,7 @@
 
 
 (define (jazz.new-walk-frame bindings)
-  (let ((hashtable (%%new-hashtable ':eq?)))
+  (let ((hashtable (%%new-hashtable eq?)))
     (for-each (lambda (binding)
                 (let ((name (%%get-lexical-binding-name binding)))
                   (%%hashtable-set! hashtable name binding)))
@@ -1764,7 +1763,7 @@
 
 
 (define jazz.Literal-Constructors
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.register-literal-constructor name constructor)
@@ -1825,7 +1824,7 @@
     (map (lambda (pair)
            (%%cons (%%car pair) (integer->char (%%cdr pair))))
          alist)
-    ':eq?))
+    eq?))
 
 
 (define jazz.Symbolic-Chars
@@ -2225,7 +2224,7 @@
 
 
 (define jazz.Catalog
-  (%%new-hashtable ':eq?))
+  (%%new-hashtable eq?))
 
 
 (define (jazz.get-catalog)

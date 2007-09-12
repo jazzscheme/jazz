@@ -72,12 +72,14 @@
       (current-exception-handler))
     
     (define (jazz.with-exception-handler proc thunk)
-      (call/cc
-        (lambda (return)
-          (with-exception-handler
-            (lambda (exc)
-              (return (proc exc)))
-            thunk))))
+      (with-exception-handler
+        proc
+        thunk))
+    
+    (define (jazz.with-exception-catcher proc thunk)
+      (with-exception-catcher
+        proc
+        thunk))
     
     (define (jazz.exception-reason exc)
       (let ((output (open-output-string)))

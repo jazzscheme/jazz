@@ -42,4 +42,6 @@
 
 (define system-exit exit)
 
+(define jazz.current-instance ##current-instance)
+
 )

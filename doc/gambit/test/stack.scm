@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/src/lib/header.scm")
+(include "~/gambit/lib/header.scm")
 
 
 (define (new-queue)

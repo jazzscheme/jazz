@@ -844,46 +844,20 @@
 (class Stop-Signal extends Signal)
 
 
-(class System-Exception extends Exception
-  
-  
-  (slot exc)
-  
-  
-  (method (initialize exc)
-    (nextmethod)
-    (set! [exc self] exc)))
+(definition (call-with-catch type handler thunk)
+  (call/ec
+    (lambda (cont)
+      (parameterize ((exceptions-catched (cons (cons type (cons handler cont)) (exceptions-catched))))
+        (thunk)))))
 
 
-(definition (with-catched type filter thunk)
-  (call/ec 
-    (lambda (return)
-      (parameterize ((exceptions-catched (cons type (exceptions-catched))))
-        (with-exception-catcher
-          (lambda (e)
-            (let ((e (wrap-exception e)))
-              (if (is? e type)
-                  (return (filter e))
-                (raise (unwrap-exception e)))))
-          thunk)))))
+(definition (find-catch exception)
+  (assoc exception (exceptions-catched)
+    :test is?))
 
 
-;; system exceptions are not jazz objects
-(definition (wrap-exception e)
-  (if (and (object? e)
-           (is? e Exception))
-      e
-    (new System-Exception e)))
-
-
-(definition (unwrap-exception e)
-  (if (is? e System-Exception)
-      [exc e]
-    e))
-
-
-(definition (catched? type)
-  (boolean (memq type (exceptions-catched))))
+(definition (catched? exception)
+  (boolean (find-catch exception)))
 
 
 ;;;
@@ -892,7 +866,12 @@
 
 
 (definition public (throw exception)
-  (raise exception))
+  (let ((catch (find-catch exception)))
+    (if catch
+        (let ((handler (cadr catch))
+              (cont (cddr catch)))
+          (cont (handler exception)))
+      (error "No catch found for {s}" exception))))
 
 
 (definition public (throw-toplevel)
@@ -917,8 +896,6 @@
 (definition (exit . rest)
   (bind-optionals ((code 0)) rest
     (system-exit code)))
-;; (definition (%deallocate-object                      Object+))
-;; (definition (%destroy-object                         Object+))
 
 
 ;;;
@@ -5371,17 +5348,6 @@
   (bind-optionals ((printer :output)) rest
     ;; todo
     #f))
-
-
-;;;
-;;;; Process
-;;;
-
-
-(definition (current-instance)
-  #f
-  @w
-  (##current-instance))
 
 
 ;;;

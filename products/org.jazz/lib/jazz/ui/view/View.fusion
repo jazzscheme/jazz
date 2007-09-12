@@ -133,21 +133,6 @@
     (let* ((outer (get-size~ (get-desktop)))
            (pos (center inner outer)))
       (new Point [h pos] (- [v pos] 50))))
-  
-  
-  ;;;
-  ;;;; Actions
-  ;;;
-  
-  
-  (method (focus-actions)
-    (cons (find-actions 'view)
-          (nextmethod)))
-  
-  
-  (method (guest-actions)
-    (cons (find-actions 'guest)
-          (nextmethod)))
 
 
   ;;;
@@ -410,8 +395,8 @@
   
   
   (method public (effective-frame-workspaces)
-    (unimplemented 'effective-frame-workspaces)
-    @external-name
+    (frame-workspaces)
+    @convert-external-name
     (let* ((pref (get-preferences 'workspaces))
            (associations (get-associations~ pref))
            (external (external-name :error? false)))
@@ -1485,7 +1470,7 @@
   
   
   (method public (scroll-needed start end context . rest)
-    (bind-keywords ((force-vertical null) (force-horizontal null) (reposition? false) (debug? false)) rest
+    (bind-keywords ((force-vertical null) (force-horizontal null) (reposition? false)) rest
       (let ((display-pos (get-display-position))
              (display-size (get-display-size))
              (needed
@@ -1496,9 +1481,6 @@
                        (proc (function dynamic (use-head?)
                                (let ((context (if context (round (* size context)) 0)))
                                  (if use-head? (+ start-offset context) (- end-offset context))))))
-                  (when debug?
-                    (debug start end context pos size force-direction)
-                    (debug start-offset end-offset big-range?))
                   (cond
                    (reposition? (proc (neq? force-direction 'tail)))
                    ((and (> start-offset 0) (> end-offset 0)) (proc (if (null? force-direction) (not big-range?) (eq? force-direction 'head))))
@@ -1642,6 +1624,21 @@
 
   (method public (front-view?)
     (eq? self (first-view~ parent)))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (focus-actions)
+    (cons (find-actions 'view)
+          (nextmethod)))
+  
+  
+  (method (guest-actions)
+    (cons (find-actions 'guest)
+          (nextmethod)))
 
 
   ;;;
@@ -2938,6 +2935,7 @@
   
   
   (method public virtual (on-return-press evt)
+    (debug evt)
     (call-return-press #\return))
   
 

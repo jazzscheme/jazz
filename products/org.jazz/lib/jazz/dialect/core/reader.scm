@@ -40,7 +40,7 @@
 
 (cond-expand
   (gambit
-    (include "~~/src/lib/header.scm")
+    (include "~/gambit/lib/header.scm")
     
     
     (define (jazz.make-jazz-readtable)

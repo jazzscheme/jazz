@@ -72,18 +72,16 @@
 
 
 (syntax (catch type . body)
-  `(begin ,@body)
-  #; ;; @until-problem-with-exception-handlers-solved
   (cond ((symbol? type)
-         `(with-catched ,type (lambda (x) x)
+         `(call-with-catch ,type (lambda (x) x)
             (lambda ()
               ,@body)))
         ((list? type)
-         `(with-catched ,(car type) (lambda (,(cadr type)) ,@(cddr type))
+         `(call-with-catch ,(car type) (lambda (,(cadr type)) ,@(cddr type))
             (lambda ()
               ,@body)))
         (else
-         (error "Wrong type definition in catch, {t}" type))))
+         (error "Ill-formed type in catch, {t}" type))))
 
 
 (syntax (assign! variable value)
@@ -91,19 +89,6 @@
     `(let ((,val ,value))
        (set! ,variable ,val)
        ,val)))
-
-
-#; ;; unimplemented
-(macro (constant name value)
-  `(define ,name ,value))
-
-#; ;; unimplemented
-(macro (slot form)
-  (expand~ Slot-Expander form))
-
-#; ;; unimplemented
-(macro (property form)
-  (expand~ Property-Expander form))
 
 
 (macro (form>> form)

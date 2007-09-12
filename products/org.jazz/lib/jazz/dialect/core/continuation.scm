@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Output Hook
+;;;; Continuation
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.runtime.output-hook
-
-
+(module jazz.dialect.core.continuation
+  
+  
 (cond-expand
   (gambit
-    (include "~/gambit/lib/header.scm")
+    (define (jazz.continuation-capture proc)
+      (##continuation-capture proc))
     
     
-    (define jazz.write-jazz
-      #f)
-    
-    (set! jazz.write-jazz #f)
+    (define (jazz.continuation-graft cont thunk)
+      (##continuation-graft cont thunk))
     
     
-    (set! ##wr
-          (lambda (we obj)
-            (cond ((and (##meroon? obj) jazz.write-jazz)
-                   (jazz.write-jazz (macro-writeenv-port we) obj))
-                  (else (##default-wr we obj))))))
+    (define (jazz.continuation-return cont result)
+      (##continuation-return cont result)))
   
   (else)))

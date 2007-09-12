@@ -43,7 +43,7 @@
         (jazz.dialect.syntax.bind-optionals)
         (jazz.dialect.syntax.bind-keywords)
         (jazz.dialect.syntax.bind-values)
-        (jazz.dialect.syntax.case)
+        (jazz.dialect.syntax.ecase)
         (jazz.dialect.syntax.either)
         (jazz.dialect.syntax.essay)
         (jazz.dialect.syntax.increase)

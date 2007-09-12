@@ -1,21 +1,10 @@
-(define (call-in-dyn-env cont thunk)
-  (##continuation-capture
-    (lambda (return)
-      (##continuation-graft
-        cont
-        (lambda ()
-          (##continuation-return return (thunk)))))))
-
-(define (exception-handler-of cont)
-  (call-in-dyn-env cont current-exception-handler))
-
 (define (cartier-catcher handler thunk)
   ;; Calls "thunk" and returns whatever "thunk" returns, unless
-  ;; it raises an exception.  In that case the handler is called
+  ;; it raises an exception. In that case the handler is called
   ;; with 3 arguments:
   ;; 1 - the exception that was raised
   ;; 2 - the propagate procedure
-  ;; 3 - the debug-exception procedure
+  ;; 3 - the debug procedure
   (##continuation-capture
     (lambda (cartier-catcher-cont)
       (with-exception-handler
@@ -43,14 +32,14 @@
 
 (define (f x)
   (cartier-catcher
-    (lambda (exc propagate debug-exception)
-      (debug-exception)) ;; debug any uncaught exception
+    (lambda (exc propagate debug)
+      (debug)) ;; debug any uncaught exception
     (lambda ()
       (+ 111 (g x)))))
 
 (define (g x)
   (cartier-catcher
-    (lambda (exc propagate debug-exception)
+    (lambda (exc propagate debug)
       (if (divide-by-zero-exception? exc)
           (begin
             (pp "divide by zero!")
@@ -61,7 +50,7 @@
 
 (define (h x)
   (cartier-catcher
-    (lambda (exc propagate debug-exception)
+    (lambda (exc propagate debug)
       (if (unbound-global-exception? exc)
           (begin
             (pp "unbound global!")

@@ -49,6 +49,10 @@
         (jazz.literals))
 
 
+(definition CLASS_ATOM
+  #f)
+
+
 (definition (window-class)
   "JWindow")
 
@@ -74,6 +78,27 @@
   (unless Orphanage
     (set! Orphanage (new Orphanage-Window)))
   Orphanage)
+
+
+(definition (register-window-class)
+  (let ((instance (current-instance))
+        (background (class-background))
+        (wc (make-WNDCLASS)))
+    (WNDCLASS-style-set! wc          (class-style))
+    (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
+    (WNDCLASS-cbClsExtra-set! wc     0)
+    (WNDCLASS-cbWndExtra-set! wc     0)
+    (WNDCLASS-hInstance-set! wc      instance)
+    (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon :width 16 :height 16) NULL)
+    (WNDCLASS-hCursor-set! wc        NULL)
+    ;; To-Fix Remettre le handle brush
+    (WNDCLASS-hbrBackground-set! wc  background)
+    (WNDCLASS-lpszMenuName-set! wc   NULL)
+    (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
+    (set! CLASS_ATOM (RegisterClass wc))))
+
+
+(register-window-class)
 
 
 (class Window-Class extends Figure-Class
@@ -106,6 +131,7 @@
   
 
   (method public (register-class . rest)
+    @wait
     (bind-keywords ((class (window-class)) (icon null)) rest
       (let ((instance (current-instance))
             (background (class-background))
@@ -114,14 +140,14 @@
         (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
         (WNDCLASS-cbClsExtra-set! wc     0)
         (WNDCLASS-cbWndExtra-set! wc     0)
-        (WNDCLASS-hInstance-set! wc      #f)
+        (WNDCLASS-hInstance-set! wc      instance)
         (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon :width 16 :height 16) NULL)
         (WNDCLASS-hCursor-set! wc        NULL)
         ;; To-Fix Remettre le handle brush
-        (WNDCLASS-hbrBackground-set! wc  (class-background))
+        (WNDCLASS-hbrBackground-set! wc  background)
         (WNDCLASS-lpszMenuName-set! wc   NULL)
-        (WNDCLASS-lpszClassName-set! wc  class)
-        (RegisterClass wc)))))
+        (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
+        (set! CLASS_ATOM (RegisterClass wc))))))
 
 
 (class Window metaclass Window-Class extends Figure implements Message-Consumer
@@ -181,13 +207,13 @@
   (method protected virtual (create-hwnd rest)
     (CreateWindowEx
       (window-ex-style rest)
-      (either hwnd-class (window-class))
+      CLASS_ATOM @w (either hwnd-class (window-class))
       NULL
       (window-style rest)
       0 0 500 500
       (window-parent)
       NULL
-      NULL
+      (current-instance)
       NULL))
   
   

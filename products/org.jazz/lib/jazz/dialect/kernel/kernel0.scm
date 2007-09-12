@@ -66,6 +66,16 @@
 
 
 ;;;
+;;;; Continuation
+;;;
+
+
+(native jazz.continuation-capture)
+(native jazz.continuation-graft)
+(native jazz.continuation-return)
+
+
+;;;
 ;;;; Debug
 ;;;
 
@@ -101,15 +111,14 @@
 ;;;
 
 (native jazz.exception-reason)
+(native jazz.current-exception-handler)
 (native jazz.with-exception-handler)
+(native jazz.with-exception-catcher)
 (native jazz.with-default-exception-handler)
 (native jazz.with-jazz-exception-handler)
 (native jazz.dump-exception)
 (native jazz.call-with-catch)
-
-
-(native with-exception-catcher)
-(native raise)
+(native jazz.raise)
 
 
 ;;;
@@ -521,4 +530,4 @@
 (native jazz.autoreload)
 (native jazz.foreign-address)
 (native jazz.foreign?)
-(native current-instance))
+(native jazz.current-instance))

@@ -48,7 +48,7 @@
         (jazz.utilities))
 
 
-(class Debuggers-View extends Layout-View uses (Interpreter Utilities System WinUser)
+(class Debuggers-View extends Layout-View
 
 
   (definition advanced-view?  false)
@@ -239,6 +239,7 @@
 
 
   (method (edit-frame)
+    @convert
     (let ((frame (selected-frame)))
       (if (null? frame)
           (uninstall-active-frame-indicator)
@@ -295,6 +296,7 @@
   
   
   (method (frame-change)
+    @convert
     (let ((frame (selected-frame)))
       (when (or (null? frame)
                 (is? frame Execution-Frame)
@@ -313,17 +315,19 @@
   (method public (select-first-frame from)
     (let ((tree (locate 'stack))
           (passed? false))
-      (for-each-visible-row~ tree
-       (function dynamic (row rank)
-         (let ((frame (get-user-data~ row)))
-           (when (and (is? frame Execution-Frame)
-                      (= (get-address~ frame) from))
-             (set! passed? true))
-           (when (is? frame Closure-Frame)
-             (set-single-selection~ tree rank)
-             (frame-change)
-             (edit-frame)
-             (return)))))))
+      (call/ec
+        (lambda (return)
+          (for-each-visible-row~ tree
+            (function dynamic (row rank)
+              (let ((frame (get-user-data~ row)))
+                (when (and (is? frame Execution-Frame)
+                           (= (get-address~ frame) from))
+                  (set! passed? true))
+                (when (is? frame Closure-Frame)
+                  (set-single-selection~ tree rank)
+                  (frame-change)
+                  (edit-frame)
+                  (return)))))))))
   
   
   ;;;
@@ -427,6 +431,7 @@
   
   
   (method (select-debuggee-toplevel)
+    @convert
     (let* ((debuggee (selected-debuggee))
            (toplevel-hwnd (get-toplevel-hwnd~ debuggee)))
       (select-foreground-hwnd toplevel-hwnd)))
@@ -470,6 +475,7 @@
   
   
   (method (update-debuggees)
+    @convert
     (let* ((appl (get-application))
            (debuggees (get-debuggees~ (get-local-debugger-server~ appl))))
       (for-each (function dynamic (debuggee)
@@ -495,6 +501,7 @@
   
   ;; the new generic framework that should integrate the other two
   (method (update-debuggers)
+    @convert
     (let ((debuggers (get-debuggers)))
       (for-each (function dynamic (debugger)
                   (let* ((process (get-process~ debugger))
@@ -519,6 +526,7 @@
   
   
   (method (update-snapshots snapshots)
+    @convert
     (for-each (function dynamic (snapshot)
                 (bind (process file executable) snapshot
                   (with ((handler (essay executable (new Symbol-Handler executable))))
@@ -547,6 +555,7 @@
   
   
   (method (get-frame-snapshot thread handler address parameters)
+    @convert
     (let* ((address (->string address))
            (kind (if (starts-with? address "#x") 'c++ 'lisp)))
       (case kind
@@ -624,10 +633,12 @@
   
   
   (method (on-select evt)
+    @convert
     (select-debuggee-toplevel))
   
   
   (method (on-exit evt)
+    @convert
     (exit-selected-debuggee)))
 
 
@@ -645,6 +656,7 @@
   
   
   (method (on-close evt)
+    @convert
     (close-selected-snapshot)))
 
 

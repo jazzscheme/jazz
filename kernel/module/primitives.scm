@@ -442,6 +442,27 @@
 
 
 ;;;
+;;;; Syntax
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (jazz.define-syntax name transformer)
+      `(##define-syntax ,name
+         ,transformer))
+    
+    (define-macro (%%source-code src)
+      `(##source-code ,src))
+    
+    (define-macro (%%desourcify src)
+      `(##desourcify ,src))
+    
+    (define-macro (%%sourcify expr src)
+      `(##sourcify ,expr ,src))))
+
+
+;;;
 ;;;; Vector
 ;;;
 

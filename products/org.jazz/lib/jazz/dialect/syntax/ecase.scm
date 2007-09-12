@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Output Hook
+;;;; ECase Expansion
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,24 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.runtime.output-hook
+(library jazz.dialect.syntax.ecase scheme
 
 
-(cond-expand
-  (gambit
-    (include "~/gambit/lib/header.scm")
-    
-    
-    (define jazz.write-jazz
-      #f)
-    
-    (set! jazz.write-jazz #f)
-    
-    
-    (set! ##wr
-          (lambda (we obj)
-            (cond ((and (##meroon? obj) jazz.write-jazz)
-                   (jazz.write-jazz (macro-writeenv-port we) obj))
-                  (else (##default-wr we obj))))))
-  
-  (else)))
+(import (jazz.dialect.kernel))
+
+
+;; @macro (ecase target ((a) 1) ((b c) 2) (else 3))
+;; @expansion (let ((sym8 target))
+;;             (cond ((eqv? sym8 a) 1)
+;;               ((or (eqv? sym8 b) (eqv? sym8 c)) 2)
+;;               (else 3)))
+
+
+(syntax public (ecase target . clauses)
+  (expand-ecase target clauses))
+
+
+(define (expand-ecase target clauses)
+  (let ((symbol (generate-symbol)))
+    `(let ((,symbol ,target))
+       (cond ,@(map (lambda (clause)
+                      (let ((value (car clause))
+                            (body (cdr clause)))
+                        (cond ((eq? value 'else)
+                               (cons 'else body))
+                          ((list? value)
+                           (cons (cons 'or (map (lambda (value)
+                                                  (list 'eqv? symbol value))
+                                                value))
+                                 body))
+                          ((integer? value)
+                           (cons (list '= symbol value) body))
+                          (else
+                           (cons (list 'eqv? symbol value) body)))))
+                    clauses))))))

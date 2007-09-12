@@ -183,4 +183,22 @@
     (let* ((s-name (car signature))
            (params (cdr signature))
            (c-name (if (null? rest) (symbol->string s-name) (car rest))))
-      `(definition ,s-name (c-function ,params ,type ,c-name)))))
+      `(definition ,s-name (c-function ,params ,type ,c-name))))
+
+
+  ;; tofix : Danger de segmentation fault si on passe une mauvaise taille de string.
+  (macro public (c-external-string-out type arg signature . rest)
+    (let* ((s-name (car signature))
+           (ext-s-name (string->symbol (string-append (symbol->string s-name) "_EXT")))
+           (params (cdr signature))
+           (new-params (map generate-symbol params))
+           (string-param (list-ref new-params arg))
+           (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+      `(begin 
+         (c-external ,type ,(cons ext-s-name params) ,c-name)
+         (definition (,s-name ,@new-params)
+           (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
+             (WCHAR-copy pt ,string-param (string-length ,string-param))
+             (let* ((,string-param pt)
+                    (result (,ext-s-name ,@new-params)))
+              (values result (WCHAR-string ,string-param)))))))))

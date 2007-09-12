@@ -42,10 +42,15 @@
         (jazz.ui)
         (jazz.literals)
         (jazz.library)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.window)
         (jazz.utilities))
 
 
-(class Message-Box extends View uses (Utilities System WinIDL WinUser)
+(class Message-Box extends View
   
   
   (slot type)
@@ -99,11 +104,11 @@
   
   (definition Type-Infos
     (list
-      (list 'message      "Message"           IDI_INFORMATION "SystemAsterisk"    "OK"   null                                   null                                           true 'yes)
-      (list 'question     "Question"         IDI_EXCLAMATION "SystemExclamation" "Yes" "No" null                                           true 'no)
+      (list 'message      "Message"      IDI_INFORMATION "SystemAsterisk"    "OK"   null                                   null                                           true 'yes)
+      (list 'question     "Question"     IDI_EXCLAMATION "SystemExclamation" "Yes" "No" null                                           true 'no)
       (list 'confirmation "Confirmation" IDI_EXCLAMATION "SystemExclamation" "Yes" "No" "Cancel" true 'cancel)
-      (list 'error        "Error"              IDI_ERROR       "SystemHand"        "OK"   null                                   "Cancel" true 'cancel)
-      (list 'custom       "Message"           IDI_INFORMATION "SystemAsterisk"    null                                    null                                   null                                           true null)))
+      (list 'error        "Error"        IDI_ERROR       "SystemHand"        "OK"   null                                   "Cancel" true 'cancel)
+      (list 'custom       "Message"      IDI_INFORMATION "SystemAsterisk"    null                                    null                                   null                                           true null)))
   
   
   (method (type-info type)
@@ -143,19 +148,21 @@
   
   (method (process-key key)
     (when process-keys?
-      (let* ((dialog (get-host))
-             (try-button
-              (function dynamic (button)
-                (when (get-visible?~ button)
-                  (bind (title name . optional) (get-user-data~ button)
-                    (bind-optionals ((accelerator-key null)) optional
-                      (let* ((result (get-name~ button))
-                             (title (localize (get-title~ button)))
-                             (first (either accelerator-key (element title 0))))
-                        (when (ci= first key)
-                          (end-box~ dialog result)
-                          (return)))))))))
-        (for-each try-button action-buttons))))
+      (call/ec
+        (lambda (return)
+          (let* ((dialog (get-host))
+                 (try-button
+                   (function dynamic (button)
+                     (when (get-visible?~ button)
+                       (bind (title name . optional) (get-user-data~ button)
+                         (let ((accelerator-key (if (null? optional) null (car optional))))
+                           (let* ((result (get-name~ button))
+                                  (title (localize (get-title~ button)))
+                                  (first (either accelerator-key (element title 0))))
+                             (when (ci= first key)
+                               (end-box~ dialog result)
+                               (return)))))))))
+            (for-each try-button action-buttons))))))
   
   
   ;;;

@@ -35,36 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.jazz.runtime.debug.stack
-
-
-#;
-(define (jazz.bootstrap-output-stack cont output)
-  (newline output)
-  (display "STACK" output)
-  (newline output)
-  (let ((stack (jazz.get-continuation-stack cont)))
-    (for-each (lambda (frame)
-                (jazz.bootstrap-output-frame frame output))
-              stack)))
-
-
-#;
-(define (jazz.bootstrap-output-frame frame output)
-  (let ((type (car frame))
-        (name (cadr frame))
-        (variables (caddr frame)))
-    (display name output)
-    (newline output)
-    (for-each (lambda (variable)
-                (let ((name (car variable))
-                      (value (cdr variable)))
-                  (display "  " output)
-                  (display name output)
-                  (display " = " output)
-                  (jazz.bootstrap-output-value value output)
-                  (newline output)))
-              variables)))
+(module jazz.dialect.core.stack
 
 
 ;;;
@@ -76,6 +47,7 @@
   (blues
     (define (jazz.continuation-capture proc)
       (proc #f))
+    
     
     (define (jazz.get-continuation-stack cont)
       (cdddr (reverse (blues.get-stack)))))
@@ -90,7 +62,7 @@
   
 (cond-expand
   (gambit
-    (include "~~/src/lib/header.scm")
+    (include "~/gambit/lib/header.scm")
     
     
     (define (jazz.continuation-capture proc)
@@ -203,4 +175,5 @@
                  ##interaction-cte)
                queue))
         (jazz.queue-list queue))))
+  
   (else)))

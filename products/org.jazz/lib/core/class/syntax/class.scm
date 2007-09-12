@@ -226,7 +226,7 @@
 (cond-expand
   #; ;; experimental and should really be coded in C with Marc's help
   (gambit
-    (include "~~/src/lib/header.scm")
+    (include "~/gambit/lib/header.scm")
     
     
     (define jazz.subtypes

@@ -359,11 +359,4 @@
 (native write-char)
 (native load)
 (native transcript-on)
-(native transcript-off)
-
-
-;;;
-;;;; 6.6.4 Instance
-;;;
-
-(native ##current-instance))
+(native transcript-off))

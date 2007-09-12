@@ -44,6 +44,24 @@
   (else))
 
 
+#; ;; waiting
+(jazz.define-syntax module
+  (lambda (src)
+    (let ((form (%%source-code src)))
+      (let ((name (%%cadr form))
+            (rest (%%cddr form)))
+        (jazz.expand-module name rest)))))
+
+
+#; ;; waiting
+(define (jazz.parse-module rest proc)
+  (if (and (%%pair? rest)
+           (%%pair? (%%source-code (%%car rest)))
+           (%%eq? (%%source-code (%%car (%%source-code (%%car rest)))) 'require))
+      (proc (%%cdr (%%desourcify (%%car rest))) (%%cdr rest))
+    (proc '() rest)))
+
+
 (define-macro (module name . rest)
   (jazz.expand-module name rest))
 

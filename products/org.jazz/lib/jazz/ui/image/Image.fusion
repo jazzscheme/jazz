@@ -44,29 +44,8 @@
         (jazz.platform)
         (jazz.platform.windows)
         (jazz.platform.cairo.cairo-win32)
-        (jazz.literals))
-
-
-(definition public (load-image type image . rest)
-  (unimplemented 'load-image)
-  @convert-ansi-string
-  (case type
-    ((bitmap)  
-     (let* ((image (if (resource? image) (find-bitmap-file~ Portfolio image) image))
-            (ident (parse~ image)))
-       (cairo_image_surface_create_from_png (coerce ident Ansi-String))))
-    ((icon)
-     (let* ((image (cond ((integer? image) (find-icon-file~ Portfolio {Icon-Resource "Jedi"}))
-                         ((resource? image) (find-icon-file~ Portfolio image))
-                         (else image)))
-            (ident (parse~ image)))
-       (cairo_image_surface_create_from_png (coerce ident Ansi-String))))
-    ((cursor)
-     (bind-keywords ((width 0) (height 0) (error? true)) rest
-       (let* ((module (if (resource? image) (current-instance) NULL))
-              (ident  (if (file? image) (parse~ image) (int-resource image)))
-              (flags  (bit-or (if (file? image) LR_LOADFROMFILE LR_SHARED))))
-         (LoadImage module ident IMAGE_CURSOR width height flags))))))
+        (jazz.literals)
+        (jazz.ui.image))
 
 
 (class Image extends Object
@@ -118,17 +97,15 @@
   
   
   (method public (get-size . rest)
-    (unimplemented 'get-size)
-    @windows-specific
     (bind-keywords ((error? true)) rest
       (cond (source
              size)
             (bitmap
-             (let ((info (new BITMAP)))
-               (GetObject (either handle (load-image 'bitmap bitmap)) (size-of BITMAP) info)
+             (let ((info (BITMAP-make)))
+               (GetObject (either handle (load-image 'bitmap bitmap)) (size-of-BITMAP) info)
                (new Dimension
-                 (get info 'bmWidth)
-                 (get info 'bmHeight))))
+                 (BITMAP-bmWidth-ref info)
+                 (BITMAP-bmHeight-ref info))))
             (metafile
              (with ((bounds (get-bounds)))
                (new Dimension
@@ -155,7 +132,6 @@
 
 
   (method public (draw dc context h v . rest)
-    @JEREMIE
     (bind-keywords ((size (get-size :error? false)) (style ILD_TRANSPARENT) (enabled? true)) rest
       (let ((h (+ [h view-position] h))
             (v (+ [v view-position] v)))

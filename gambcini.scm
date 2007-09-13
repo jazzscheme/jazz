@@ -34,11 +34,11 @@
 
 
 (define (git-move)
-  )
+  #f)
 
 
 (define (git-delete)
-  )
+  #f)
 
 
 (define (git-export)
@@ -50,19 +50,19 @@
 
 
 (define (git-branch)
-  )
+  #f)
 
 
 (define (git-checkout)
-  )
+  #f)
 
 
 (define (git-commit)
-  )
+  #f)
 
 
 (define (git-diff)
-  )
+  #f)
 
 
 (define (git-log)
@@ -82,15 +82,15 @@
 
 
 (define (git-merge)
-  )
+  #f)
 
 
 (define (git-pull)
-  )
+  #f)
 
 
 (define (git-push)
-  )
+  #f)
 
 
 (define (pipe input output)
@@ -430,7 +430,8 @@
   (cflag jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
-  (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows"))
+  (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
+  (cflag jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows"))
 
 
 (define (ball)

@@ -19,6 +19,90 @@
 
 
 ;;;
+;;;; Git
+;;;
+
+
+(define (git arguments)
+  (let ((port (open-process (list path: "git" arguments: arguments))))
+    (pipe port (current-output-port))
+    (close-port port)))
+
+
+(define (git-add)
+  (git (list "add")))
+
+
+(define (git-move)
+  )
+
+
+(define (git-delete)
+  )
+
+
+(define (git-export)
+  (git (list "format-patch")))
+
+
+(define (git-import)
+  (git (list "am")))
+
+
+(define (git-branch)
+  )
+
+
+(define (git-checkout)
+  )
+
+
+(define (git-commit)
+  )
+
+
+(define (git-diff)
+  )
+
+
+(define (git-log)
+  (git (list "log" "--decorate")))
+
+
+(define (git-status)
+  (git (list "status")))
+
+
+(define (git-rollback)
+  (git (list "reset" "--hard" "HEAD~1")))
+
+
+(define (git-tag)
+  (git (list "tag")))
+
+
+(define (git-merge)
+  )
+
+
+(define (git-pull)
+  )
+
+
+(define (git-push)
+  )
+
+
+(define (pipe input output)
+  (let loop ()
+    (let ((c (read-char input)))
+      (if (not (eof-object? c))
+          (begin
+            (write-char c output)
+            (loop))))))
+
+
+;;;
 ;;;; Boot
 ;;;
 

@@ -44,33 +44,33 @@
   (else))
 
 
-#; ;; waiting
 (jazz.define-syntax module
   (lambda (src)
     (let ((form (%%source-code src)))
-      (let ((name (%%cadr form))
+      (let ((name (%%source-code (%%cadr form)))
             (rest (%%cddr form)))
         (jazz.expand-module name rest)))))
 
 
-#; ;; waiting
+(define (jazz.expand-module name rest)
+  (jazz.parse-module rest
+    (lambda (requires body)
+      `(begin
+         ,@(jazz.declarations)
+         ,@(map (lambda (require)
+                  (jazz.parse-require require
+                    (lambda (module-name load phase)
+                      `(jazz.load-module ',module-name))))
+                requires)
+         ,@body
+         (jazz.module-loaded ',name)))))
+
+
 (define (jazz.parse-module rest proc)
   (if (and (%%pair? rest)
            (%%pair? (%%source-code (%%car rest)))
            (%%eq? (%%source-code (%%car (%%source-code (%%car rest)))) 'require))
       (proc (%%cdr (%%desourcify (%%car rest))) (%%cdr rest))
-    (proc '() rest)))
-
-
-(define-macro (module name . rest)
-  (jazz.expand-module name rest))
-
-
-(define (jazz.parse-module rest proc)
-  (if (and (%%pair? rest)
-           (%%pair? (%%car rest))
-           (%%eq? (%%caar rest) 'require))
-      (proc (%%cdar rest) (%%cdr rest))
     (proc '() rest)))
 
 
@@ -94,17 +94,3 @@
     (proc name
           load
           phase)))
-
-
-(define (jazz.expand-module name rest)
-  (jazz.parse-module rest
-    (lambda (requires body)
-      `(begin
-         ,@(jazz.declarations)
-         ,@(map (lambda (require)
-                  (jazz.parse-require require
-                    (lambda (module-name load phase)
-                      `(jazz.load-module ',module-name))))
-                requires)
-         ,@body
-         (jazz.module-loaded ',name)))))

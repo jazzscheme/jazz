@@ -452,14 +452,16 @@
       `(##define-syntax ,name
          ,transformer))
     
-    (define-macro (%%source-code src)
-      `(##source-code ,src))
+    (define (%%source-code expr)
+      (if (##source-code? expr)
+          (##source-code expr)
+        expr))
     
-    (define-macro (%%desourcify src)
-      `(##desourcify ,src))
+    (define (%%desourcify expr)
+      (##desourcify expr))
     
-    (define-macro (%%sourcify expr src)
-      `(##sourcify ,expr ,src))))
+    (define (%%sourcify expr src)
+      (##sourcify expr src))))
 
 
 ;;;

@@ -38,6 +38,9 @@
 (module core.class.runtime.runtime
 
 
+;;(include "~/gambit/lib/header.scm")
+
+
 ;;;
 ;;;; Identifier
 ;;;
@@ -330,9 +333,19 @@
   (%%is? object jazz.Class))
 
 
+(define jazz.subtypes
+  (make-vector 32 #f))
+
+(define jazz.specialtypes
+  (make-vector 16 #f))
+
+
+(define (jazz.i-class-of expr)
+  (%%i-class-of-impl expr))
+
+
 (define (jazz.class-of expr)
-  (or (%%class-of expr)
-      (jazz.error "Unable to get class of {s}" expr)))
+  (%%class-of-impl expr))
 
 
 (define (jazz.class-of-native expr)
@@ -493,16 +506,48 @@
 (jazz.encapsulate-class jazz.Hashtable)
 
 
-#; ;; experimental
-(
-(vector-set! jazz.subtypes (macro-subtype-vector)  jazz.Vector)
-(vector-set! jazz.subtypes (macro-subtype-ratnum)  jazz.Number)
-(vector-set! jazz.subtypes (macro-subtype-cpxnum)  jazz.Number)
-(vector-set! jazz.subtypes (macro-subtype-symbol)  jazz.Symbol)
-(vector-set! jazz.subtypes (macro-subtype-keyword) jazz.Keyword)
-(vector-set! jazz.subtypes (macro-subtype-string)  jazz.String)
-(vector-set! jazz.subtypes (macro-subtype-flonum)  jazz.Number)
-(vector-set! jazz.subtypes (macro-subtype-bignum)  jazz.Number))
+(vector-set! jazz.subtypes  0  jazz.Vector)
+(vector-set! jazz.subtypes  1  jazz.Pair)
+(vector-set! jazz.subtypes  2  jazz.Number)
+(vector-set! jazz.subtypes  3  jazz.Number)
+(vector-set! jazz.subtypes  8  jazz.Symbol)
+(vector-set! jazz.subtypes  9  jazz.Keyword)
+(vector-set! jazz.subtypes 19  jazz.String)
+(vector-set! jazz.subtypes 30  jazz.Real)
+(vector-set! jazz.subtypes 31  jazz.Integer)
+
+(vector-set! jazz.specialtypes 0 jazz.Boolean)
+(vector-set! jazz.specialtypes 1 jazz.Boolean)
+(vector-set! jazz.specialtypes 2 jazz.Null)
+;;(vector-set! jazz.specialtypes 3 jazz.EOF)
+;;(vector-set! jazz.specialtypes 4 jazz.Void)
+;;(vector-set! jazz.specialtypes 4 jazz.Absent)
+
+
+#;
+(cond-expand
+  (gambit
+    ;;(include "~/gambit/lib/header.scm")
+    
+    (vector-set! jazz.subtypes (macro-subtype-vector)  jazz.Vector)
+    (vector-set! jazz.subtypes (macro-subtype-pair)    jazz.Pair)
+    (vector-set! jazz.subtypes (macro-subtype-ratnum)  jazz.Number)
+    (vector-set! jazz.subtypes (macro-subtype-cpxnum)  jazz.Number)
+    (vector-set! jazz.subtypes (macro-subtype-symbol)  jazz.Symbol)
+    (vector-set! jazz.subtypes (macro-subtype-keyword) jazz.Keyword)
+    (vector-set! jazz.subtypes (macro-subtype-string)  jazz.String)
+    (vector-set! jazz.subtypes (macro-subtype-flonum)  jazz.Real)
+    (vector-set! jazz.subtypes (macro-subtype-bignum)  jazz.Integer)
+    
+    (vector-set! jazz.specialtypes 0 jazz.Boolean)
+    (vector-set! jazz.specialtypes 1 jazz.Boolean)
+    (vector-set! jazz.specialtypes 2 jazz.Null)
+    ;;(vector-set! jazz.specialtypes 3 jazz.EOF)
+    ;;(vector-set! jazz.specialtypes 4 jazz.Void)
+    ;;(vector-set! jazz.specialtypes 4 jazz.Absent)
+    )
+  
+  (else))
 
 
 ;;;

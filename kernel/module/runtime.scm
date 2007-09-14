@@ -98,17 +98,7 @@
 
 
 (cond-expand
-  (blues
-    (define (jazz.load filename)
-      (load filename)))
-  (chicken
-    (define (jazz.load filename)
-      (load filename)))
   (gambit
-    (define (jazz.load filename)
-      (jazz.load-file filename))
-    
-    
     (define (jazz.load-file filename)
       (jazz.with-load-src/bin filename
         jazz.load-src
@@ -134,6 +124,9 @@
                  (bin-proc bin))))))
     
     
+    (define jazz.walk-for
+      (make-parameter #f))
+    
     (define jazz.load-indent-level
       (make-parameter 0))
     
@@ -148,7 +141,8 @@
     
     (define (jazz.load-bin bin)
       (jazz.load-verbose bin)
-      (parameterize ((jazz.load-indent-level (+ (jazz.load-indent-level) 2)))
+      (parameterize ((jazz.walk-for 'interpret)
+                     (jazz.load-indent-level (+ (jazz.load-indent-level) 2)))
         (jazz.load-filename bin))
       (if jazz.done-verbose?
           (jazz.load-done-verbose bin)))
@@ -217,9 +211,7 @@
                        (if (file-exists? next-path)
                            (loop (%%fixnum+ next 1) next-path)
                          last-path))))))))))
-  (else
-    (define (jazz.load filename)
-      (load filename))))
+  (else))
 
 
 ;;;

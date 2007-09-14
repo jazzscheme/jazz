@@ -224,24 +224,77 @@
 
 
 (cond-expand
-  #; ;; experimental and should really be coded in C with Marc's help
   (gambit
-    (define jazz.subtypes
-      (make-vector 32)))
+    (define-macro (%%c-class-of obj)
+      `(##c-code #<<end-of-c-code
+{
+    ___SCMOBJ obj = ___ARG1;
+    if (___MEM_ALLOCATED(obj))
+    {
+        int subtyp = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
+        if (subtyp == ___sJAZZ)
+            ___RESULT = ___VECTORREF(obj,0);
+        else
+            ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
+    }
+    else if (___FIXNUMP(obj))
+        ___RESULT = ___ARG3;
+    else if (obj >= 0)
+        ___RESULT = ___ARG4;
+    else
+        ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL-obj)];
+}
+end-of-c-code
+    ,obj
+    jazz.subtypes
+    jazz.Integer
+    jazz.Char
+    jazz.specialtypes))
+    
+    (define-macro (%%class-of obj)
+      (let ((expand
+              (lambda (symbol)
+                (case (jazz.walk-for)
+                  ((compile)
+                   `(%%c-class-of ,symbol))
+                  (else
+                   `(jazz.i-class-of ,symbol))))))
+        (if (%%symbol? obj)
+            (expand obj)
+          (let ((symbol (jazz.generate-symbol "value")))
+            (%%list 'let (%%list (%%list symbol obj))
+              (expand symbol))))))
+    
+    ;; so the system can bootstrap in interpreted mode
+    (define-macro (%%i-class-of-impl var)
+      (case (jazz.walk-for)
+        ((compile)
+         `(%%c-class-of ,var))
+        (else
+         `(if (%%object? ,var)
+              (%%get-object-class ,var)
+            (jazz.class-of-native ,var)))))
+    
+    (define-macro (%%class-of-impl var)
+      (if (jazz.debug?)
+          `(or (%%class-of ,var)
+               (jazz.error "Unable to get class of {s}" ,var))
+        `(%%class-of ,var))))
   
   (else
-   (jazz.define-macro (%%class-of expr)
-     (let ((expand
-             (lambda (symbol)
-               `(if (%%object? ,symbol)
-                    (%%get-object-class ,symbol)
-                  (jazz.class-of-native ,symbol)))))
-       (if (%%symbol? expr)
-           (expand expr)
-         (let ((symbol (jazz.generate-symbol "value")))
-           (%%list 'let (%%list (%%list symbol expr))
-             (expand symbol))))))))
+    (define-macro (%%class-of expr)
+      (let ((expand
+              (lambda (symbol)
+                `(if (%%object? ,symbol)
+                     (%%get-object-class ,symbol)
+                   (jazz.class-of-native ,symbol)))))
+        (if (%%symbol? expr)
+            (expand expr)
+          (let ((symbol (jazz.generate-symbol "value")))
+            (%%list 'let (%%list (%%list symbol expr))
+              (expand symbol))))))))
 
 
 (jazz.define-macro (%%is? object unit)
   `(%%subtype? (%%class-of ,object) ,unit)))
+ 

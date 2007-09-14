@@ -77,7 +77,8 @@
               (jazz.compile-verbose filename)
               (jazz.with-extension-reader (jazz.filename-extension src)
                 (lambda ()
-                  (compile-file-to src bindir options cc-flags ld-flags)))))))))
+                  (parameterize ((jazz.walk-for 'compile))
+                    (compile-file-to src bindir options cc-flags ld-flags))))))))))
 
 
 (define (jazz.compile-library-to-c library-name)

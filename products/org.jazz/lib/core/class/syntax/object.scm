@@ -61,17 +61,17 @@
 
 (cond-expand
   (gambit
-    (jazz.define-macro (%%subtype-meroon)
-      6)
+    (jazz.define-macro (%%subtype-jazz)
+      7)
     
     (jazz.define-macro (%%object? expr)
-      `(##meroon? ,expr))
+      `(##jazz? ,expr))
     
     (jazz.define-macro (%%object . rest)
-      `(##subtype-set! (##vector ,@rest) (%%subtype-meroon)))
+      `(##subtype-set! (##vector ,@rest) (%%subtype-jazz)))
     
     (jazz.define-macro (%%make-object size)
-      `(##subtype-set! (%%make-vector ,size) (%%subtype-meroon)))
+      `(##subtype-set! (%%make-vector ,size) (%%subtype-jazz)))
     
     (jazz.define-macro (%%object-length object)
       (if (jazz.safe?)

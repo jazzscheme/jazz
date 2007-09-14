@@ -51,7 +51,7 @@
     
     (set! ##wr
           (lambda (we obj)
-            (cond ((and (##meroon? obj) jazz.write-jazz)
+            (cond ((and (##jazz? obj) jazz.write-jazz)
                    (jazz.write-jazz (macro-writeenv-port we) obj))
                   (else (##default-wr we obj))))))
   

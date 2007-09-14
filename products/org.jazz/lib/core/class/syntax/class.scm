@@ -226,38 +226,8 @@
 (cond-expand
   #; ;; experimental and should really be coded in C with Marc's help
   (gambit
-    (include "~/gambit/lib/header.scm")
-    
-    
     (define jazz.subtypes
-      (make-vector 32))
-    
-    
-    (jazz.define-macro (%%class-of expr)
-      (let ((expand
-              (lambda (symbol)
-                `(cond ((##subtyped? ,symbol)
-                        (let ((subtype (##subtype ,symbol)))
-                          (if (##eq? subtype (macro-subtype-meroon))
-                              (%%get-object-class ,symbol)
-                            (vector-ref jazz.subtypes subtype))))
-                       ((##pair? ,symbol)
-                        jazz.List)
-                       ((##null? ,symbol)
-                        jazz.List)
-                       ((##fixnum? ,symbol)
-                        jazz.Number)
-                       ((boolean? ,symbol)
-                        jazz.Boolean)
-                       ((##char? ,symbol)
-                        jazz.Char)
-                       (else
-                        #f)))))
-        (if (%%symbol? expr)
-            (expand expr)
-          (let ((symbol (jazz.generate-symbol "value")))
-            (%%list 'let (%%list (%%list symbol expr))
-              (expand symbol)))))))
+      (make-vector 32)))
   
   (else
    (jazz.define-macro (%%class-of expr)

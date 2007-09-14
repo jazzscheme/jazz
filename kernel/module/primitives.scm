@@ -453,7 +453,7 @@
          ,transformer))
     
     (define (%%source-code expr)
-      (if (##source-code? expr)
+      (if (##source? expr)
           (##source-code expr)
         expr))
     

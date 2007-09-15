@@ -428,12 +428,12 @@
     (jazz.new-macro-form 'definition      jazz.expand-definition)   (jazz.new-special-form '%definition   jazz.walk-%definition)
     (jazz.new-macro-form 'generic         jazz.expand-generic)      (jazz.new-special-form '%generic      jazz.walk-%generic)
     (jazz.new-macro-form 'specific        jazz.expand-specific)     (jazz.new-special-form '%specific     jazz.walk-%specific)
-    (jazz.new-macro-form 'c-type          jazz.expand-c-type)       (jazz.new-special-form '%c-type       jazz.walk-%c-type)
-    (jazz.new-macro-form 'c-definition    jazz.expand-c-definition) (jazz.new-special-form '%c-definition jazz.walk-%c-definition)
     (jazz.new-macro-form 'class           jazz.expand-class)        (jazz.new-special-form '%class        jazz.walk-%class)
     (jazz.new-macro-form 'interface       jazz.expand-interface)    (jazz.new-special-form '%interface    jazz.walk-%interface)
     (jazz.new-macro-form 'slot            jazz.expand-slot)         (jazz.new-special-form '%slot         jazz.walk-%slot)
     (jazz.new-macro-form 'property        jazz.expand-property)     (jazz.new-special-form '%property     jazz.walk-%slot)
+    (jazz.new-macro-form 'c-type          jazz.expand-c-type)       (jazz.new-special-form '%c-type       jazz.walk-%c-type)
+    (jazz.new-macro-form 'c-definition    jazz.expand-c-definition) (jazz.new-special-form '%c-definition jazz.walk-%c-definition)
     
     (jazz.new-macro-form 'optimize        jazz.expand-optimize)
     (jazz.new-macro-form 'method          jazz.expand-method)
@@ -442,7 +442,11 @@
     (jazz.new-macro-form 'cointerface     jazz.expand-cointerface)
     (jazz.new-macro-form 'assert          jazz.expand-assert)
     (jazz.new-macro-form 'validate        jazz.expand-validate)
-    
+    (jazz.new-macro-form 'c-structure     jazz.expand-c-structure)
+    (jazz.new-macro-form 'c-union         jazz.expand-c-union)
+    (jazz.new-macro-form 'c-external      jazz.expand-c-external)
+    (jazz.new-macro-form 'c-external-so   jazz.expand-c-external-so)
+
     (jazz.new-special-form 'atomic-region jazz.walk-atomic-region)
     (jazz.new-special-form 'c-include     jazz.walk-c-include)
     (jazz.new-special-form 'c-declare     jazz.walk-c-declare)
@@ -744,139 +748,6 @@
         `(begin
            ,specific-expansion
            (jazz.update-generic ,generic-object-locator))))))
-
-
-;;;
-;;;; C Type
-;;;
-
-
-(define jazz.c-type-modifiers
-  '(((private protected public) . public)
-    ((deprecated uptodate) . uptodate)))
-
-
-(define (jazz.parse-c-type walker resume declaration rest)
-  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-type-modifiers rest)
-    (let ((name (%%car rest))
-          (type (%%cadr rest)))
-      (values name access compatibility type))))
-
-
-(define (jazz.expand-c-type walker resume declaration environment . rest)
-  (jazz.expand-c-type-form walker resume declaration (%%cons 'c-type rest)))
-
-
-(define (jazz.expand-c-type-form walker resume declaration form)
-  (receive (name access compatibility type) (jazz.parse-c-type walker resume declaration (%%cdr form))
-    (if (%%is? declaration jazz.Unit-Declaration)
-        (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name)
-      `(%c-type ,name ,access ,compatibility ,type))))
-
-
-(define (jazz.walk-%c-type-declaration walker resume declaration environment form)
-  (jazz.bind (name access compatibility type) (%%cdr form)
-    (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
-      (let ((new-declaration (jazz.new-c-type-declaration name access compatibility '() declaration expansion references)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
-
-
-(define (jazz.walk-%c-type walker resume declaration environment form)
-  `(begin))
-
-
-(define (jazz.resolve-c-type walker resume declaration environment type)
-  (let ((queue (jazz.new-queue)))
-    (letrec ((resolve
-              (lambda (type)
-                (cond ((%%symbol? type)
-                       (let ((c-type-declaration (jazz.resolve-c-type-reference walker resume declaration environment type)))
-                         (jazz.enqueue queue c-type-declaration)
-                         (%%get-declaration-locator c-type-declaration)))
-                      ((%%string? type)
-                       type)
-                      ((%%pair? type)
-                       (case (%%car type)
-                         ((native)
-                          (%%cadr type))
-                         ((type)
-                          (jazz.bind (c-string tag) (%%cdr type)
-                           `(type ,c-string ,tag)))
-                         ((pointer)
-                          (let ((base-type (%%cadr type))
-                                (tag (if (%%null? (%%cddr type)) #f (%%car (%%cddr type)))))
-                            (if (%%not tag)
-                                `(pointer ,(resolve base-type))
-                              `(pointer ,(resolve base-type) ,tag))))
-                         ((function)
-                          (jazz.bind (parameter-types result-type) (%%cdr type)
-                           `(function ,(map resolve parameter-types) ,(resolve result-type))))
-                         ((struct)
-                          (jazz.bind (c-string) (%%cdr type)
-                           `(struct ,c-string)))))
-                      (else
-                       (jazz.error "Ill-formed c-type: {s}" type))))))
-      (let ((expansion (resolve type)))
-        (values expansion (jazz.queue-list queue))))))
-
-
-(define (jazz.resolve-c-type-reference walker resume declaration environment symbol)
-  (let ((c-type-declaration (jazz.lookup-reference walker resume declaration environment symbol)))
-    (if (%%is? c-type-declaration jazz.C-Type-Declaration)
-        c-type-declaration
-      (jazz.walk-error walker resume declaration "{s} did not resolve to a c-type: {s}" symbol (%%get-declaration-locator c-type-declaration)))))
-
-
-(define (jazz.expand-c-type-access walker resume declaration environment type)
-  (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
-    (%%set-walker-c-references walker (%%append (%%get-walker-c-references walker) references))
-    expansion))
-
-
-;;;
-;;;; C Definition
-;;;
-
-
-(define jazz.c-definition-modifiers
-  '(((private protected public) . public)
-    ((deprecated uptodate) . uptodate)))
-
-
-(define (jazz.parse-c-definition walker resume declaration rest)
-  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-definition-modifiers rest)
-    (jazz.bind (signature parameter-types result-type c-name scope . body) rest
-      (let ((name (%%car signature))
-            (parameters (%%cdr signature)))
-        (values name access compatibility parameters parameter-types result-type c-name scope body)))))
-
-
-(define (jazz.expand-c-definition walker resume declaration environment . rest)
-  (jazz.expand-c-definition-form walker resume declaration (%%cons 'c-definition rest)))
-
-
-(define (jazz.expand-c-definition-form walker resume declaration form)
-  (receive (name access compatibility parameters parameter-types result-type c-name scope body) (jazz.parse-c-definition walker resume declaration (%%cdr form))
-    `(%c-definition ,name ,access ,compatibility ,parameters ,parameter-types ,result-type ,c-name ,scope ,body)))
-
-
-(define (jazz.walk-%c-definition-declaration walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters parameter-types result-type c-name scope body) (%%cdr form)
-    (let ((new-declaration (jazz.new-c-definition-declaration name access compatibility '() declaration parameters)))
-      (jazz.add-declaration-child walker resume declaration new-declaration)
-      new-declaration)))
-
-
-(define (jazz.walk-%c-definition walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters parameter-types result-type c-name scope body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration form))
-           (locator (%%get-declaration-locator new-declaration))
-           (new-variables (jazz.parameters->variables parameters))
-           (new-environment (%%append new-variables environment))
-           (resolve-access (lambda (type) (jazz.expand-c-type-access walker resume declaration environment type))))
-      `(c-define ,(%%cons locator parameters) ,(map resolve-access parameter-types) ,(resolve-access result-type) ,c-name ,scope
-         ,@(jazz.walk-body walker resume new-declaration new-environment body)))))
 
 
 ;;;
@@ -1489,7 +1360,7 @@
 
 
 ;;;
-;;;; C Include
+;;;; C-Include
 ;;;
 
 
@@ -1499,7 +1370,7 @@
 
 
 ;;;
-;;;; C Declare
+;;;; C-Declare
 ;;;
 
 
@@ -1509,7 +1380,95 @@
 
 
 ;;;
-;;;; C Function
+;;;; C-Type
+;;;
+
+
+(define jazz.c-type-modifiers
+  '(((private protected public) . public)
+    ((deprecated uptodate) . uptodate)))
+
+
+(define (jazz.parse-c-type walker resume declaration rest)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-type-modifiers rest)
+    (let ((name (%%car rest))
+          (type (%%cadr rest)))
+      (values name access compatibility type))))
+
+
+(define (jazz.expand-c-type walker resume declaration environment . rest)
+  (jazz.expand-c-type-form walker resume declaration (%%cons 'c-type rest)))
+
+
+(define (jazz.expand-c-type-form walker resume declaration form)
+  (receive (name access compatibility type) (jazz.parse-c-type walker resume declaration (%%cdr form))
+    (if (%%is? declaration jazz.Unit-Declaration)
+        (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name)
+      `(%c-type ,name ,access ,compatibility ,type))))
+
+
+(define (jazz.walk-%c-type-declaration walker resume declaration environment form)
+  (jazz.bind (name access compatibility type) (%%cdr form)
+    (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
+      (let ((new-declaration (jazz.new-c-type-declaration name access compatibility '() declaration expansion references)))
+        (jazz.add-declaration-child walker resume declaration new-declaration)
+        new-declaration))))
+
+
+(define (jazz.walk-%c-type walker resume declaration environment form)
+  `(begin))
+
+
+(define (jazz.resolve-c-type walker resume declaration environment type)
+  (let ((queue (jazz.new-queue)))
+    (letrec ((resolve
+              (lambda (type)
+                (cond ((%%symbol? type)
+                       (let ((c-type-declaration (jazz.resolve-c-type-reference walker resume declaration environment type)))
+                         (jazz.enqueue queue c-type-declaration)
+                         (%%get-declaration-locator c-type-declaration)))
+                      ((%%string? type)
+                       type)
+                      ((%%pair? type)
+                       (case (%%car type)
+                         ((native)
+                          (%%cadr type))
+                         ((type)
+                          (jazz.bind (c-string tag) (%%cdr type)
+                           `(type ,c-string ,tag)))
+                         ((pointer)
+                          (let ((base-type (%%cadr type))
+                                (tag (if (%%null? (%%cddr type)) #f (%%car (%%cddr type)))))
+                            (if (%%not tag)
+                                `(pointer ,(resolve base-type))
+                              `(pointer ,(resolve base-type) ,tag))))
+                         ((function)
+                          (jazz.bind (parameter-types result-type) (%%cdr type)
+                           `(function ,(map resolve parameter-types) ,(resolve result-type))))
+                         ((struct)
+                          (jazz.bind (c-string) (%%cdr type)
+                           `(struct ,c-string)))))
+                      (else
+                       (jazz.error "Ill-formed c-type: {s}" type))))))
+      (let ((expansion (resolve type)))
+        (values expansion (jazz.queue-list queue))))))
+
+
+(define (jazz.resolve-c-type-reference walker resume declaration environment symbol)
+  (let ((c-type-declaration (jazz.lookup-reference walker resume declaration environment symbol)))
+    (if (%%is? c-type-declaration jazz.C-Type-Declaration)
+        c-type-declaration
+      (jazz.walk-error walker resume declaration "{s} did not resolve to a c-type: {s}" symbol (%%get-declaration-locator c-type-declaration)))))
+
+
+(define (jazz.expand-c-type-access walker resume declaration environment type)
+  (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
+    (%%set-walker-c-references walker (%%append (%%get-walker-c-references walker) references))
+    expansion))
+
+
+;;;
+;;;; C-Function
 ;;;
 
 
@@ -1517,6 +1476,206 @@
   (jazz.bind (types result-type c-name-or-code) (%%cdr form)
     (let ((resolve-access (lambda (type) (jazz.expand-c-type-access walker resume declaration environment type))))
       `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code))))
+
+
+;;;
+;;;; C-Definition
+;;;
+
+
+(define jazz.c-definition-modifiers
+  '(((private protected public) . public)
+    ((deprecated uptodate) . uptodate)))
+
+
+(define (jazz.parse-c-definition walker resume declaration rest)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-definition-modifiers rest)
+    (jazz.bind (signature parameter-types result-type c-name scope . body) rest
+      (let ((name (%%car signature))
+            (parameters (%%cdr signature)))
+        (values name access compatibility parameters parameter-types result-type c-name scope body)))))
+
+
+(define (jazz.expand-c-definition walker resume declaration environment . rest)
+  (jazz.expand-c-definition-form walker resume declaration (%%cons 'c-definition rest)))
+
+
+(define (jazz.expand-c-definition-form walker resume declaration form)
+  (receive (name access compatibility parameters parameter-types result-type c-name scope body) (jazz.parse-c-definition walker resume declaration (%%cdr form))
+    `(%c-definition ,name ,access ,compatibility ,parameters ,parameter-types ,result-type ,c-name ,scope ,body)))
+
+
+(define (jazz.walk-%c-definition-declaration walker resume declaration environment form)
+  (jazz.bind (name access compatibility parameters parameter-types result-type c-name scope body) (%%cdr form)
+    (let ((new-declaration (jazz.new-c-definition-declaration name access compatibility '() declaration parameters)))
+      (jazz.add-declaration-child walker resume declaration new-declaration)
+      new-declaration)))
+
+
+(define (jazz.walk-%c-definition walker resume declaration environment form)
+  (jazz.bind (name access compatibility parameters parameter-types result-type c-name scope body) (%%cdr form)
+    (let* ((new-declaration (jazz.find-form-declaration declaration form))
+           (locator (%%get-declaration-locator new-declaration))
+           (new-variables (jazz.parameters->variables parameters))
+           (new-environment (%%append new-variables environment))
+           (resolve-access (lambda (type) (jazz.expand-c-type-access walker resume declaration environment type))))
+      `(c-define ,(%%cons locator parameters) ,(map resolve-access parameter-types) ,(resolve-access result-type) ,c-name ,scope
+         ,@(jazz.walk-body walker resume new-declaration new-environment body)))))
+
+
+;;;
+;;;; C-Structure
+;;;
+
+
+(define (jazz.build-pointer-symbol type)
+  (string->symbol (string-append (symbol->string type) "*")))
+
+
+(define (jazz.pointer? type)
+  (let* ((str (symbol->string type))
+         (lgt (string-length str)))
+    (eq? (string-ref str (- lgt 1)) #\*)))
+
+
+(define (jazz.build-method-symbol struct-string . rest)
+  (string->symbol (apply string-append struct-string "-" (map symbol->string rest))))
+
+
+(define (jazz.parse-structure-name name)
+  (if (symbol? name)
+      (values name (symbol->string name) #f)
+    (values (car name) (cadr name) (let ((rest (cddr name)))
+                                     (if (null? rest)
+                                         #f
+                                       (car rest))))))
+
+
+;; Jeremie : All this code needs big-time cleanup. Should move
+;; into the code walker and manage types without all those
+;; ugly hacks.
+(define (jazz.parse-structure-accessor declaration)
+  (let* ((type (car declaration))
+         (type* (jazz.build-pointer-symbol type))
+         (identifier (cadr declaration))
+         (size (if (null? (cddr declaration)) #f (caddr declaration)))
+         (size-string (cond ((not size) #f)
+                            ((integer? size) (number->string size))
+                            ((symbol? size) (symbol->string size)))))
+    (cond ((eq? size 'embed)
+           ;; Here we send back type* to prevent Gambit-C from deallocating the internal
+           ;; embedded structure.
+           (values type* identifier #f #f #t #f))
+          ;; Jeremie : Ugly patch for pointer that do not end with star
+          ;; Or types with star that are not pointers in the gambit universe
+          ((or (and (jazz.pointer? type) (not (eq? size 'not-pointer))) (eq? size 'pointer))
+           (values type identifier #f #f #f #t))
+          ((or (not size) (eq? size 'not-pointer))
+           (values type identifier #f #f #f #f))
+          ((eq? type 'WCHAR)
+           (values '(native wchar_t-string) identifier size-string #t #f #f))
+          ((eq? type 'CHAR)
+           (values '(native char-string) identifier size-string #t #f #f))
+          (else
+           (values type* identifier size-string #f #f #t)))))
+
+
+(define (jazz.expand-structure/union name declarations)
+  (receive (struct c-struct-string tag) (jazz.parse-structure-name name)
+    (let ((struct-string (symbol->string struct))
+          (struct* (jazz.build-pointer-symbol struct))
+          (sizeof (string-append "sizeof(" c-struct-string ")"))
+          (tag* (if tag (jazz.build-pointer-symbol tag) #f)))
+      (let ((expand-accessor
+              (lambda (declaration)
+                (receive (type member size str? embed? pointer?) (jazz.parse-structure-accessor declaration)
+                  (let* ((member-string (symbol->string member))
+                         (getter-string (cond (embed?
+                                                (string-append "___result_voidstar = &___arg1->" member-string ";"))
+                                              (pointer?
+                                                (string-append "___result_voidstar = ___arg1->" member-string ";"))
+                                              (else
+                                               (string-append "___result = ___arg1->" member-string ";"))))
+                         (setter-string (cond (embed?
+                                                #f)
+                                              ((eq? size #f)
+                                               (string-append "___arg1->" member-string " = ___arg2;"))
+                                              ((eq? str? #t)
+                                               (if (equal? type '(native wchar_t-string))
+                                                   (string-append "wcsncpy(___arg1->" member-string ", ___arg2, " size ");")
+                                                 (string-append "strncpy(___arg1->" member-string ", ___arg2, " size ");")))
+                                              (else
+                                               (let* ((type-string (symbol->string type))
+                                                      (base-type-string (substring type-string 0 (- (string-length type-string) 1))))
+                                                 (string-append "memcpy(___arg1->" member-string ", ___arg2, " size "*" "sizeof(" base-type-string "));"))))))
+                    (let ((ref `(definition ,(jazz.build-method-symbol struct-string member '-ref)
+                                  (c-function (,struct*) ,type ,getter-string))))
+                      (if embed?
+                          (list ref)
+                        (list ref 
+                              `(definition ,(jazz.build-method-symbol struct-string member '-set!)
+                                 (c-function (,struct* ,type) (native void) ,setter-string))))))))))
+        `(begin
+           (c-type ,struct ,(if tag (list 'type c-struct-string tag) c-struct-string))
+           (c-type ,struct* ,(if tag (list 'pointer struct tag*) (list 'pointer struct)))
+           (definition ,(jazz.build-method-symbol struct-string 'make)
+             (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+           (definition ,(jazz.build-method-symbol struct-string 'sizeof)
+             (c-function () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
+           ,@(apply append (map expand-accessor declarations)))))))
+
+
+;; Should be converted to special form.
+
+(define (jazz.expand-c-structure walker resume declaration environment name . declarations)
+  (jazz.expand-structure/union name declarations))
+
+
+(define (jazz.expand-c-structure-array walker resume declaration environment name . rest)
+  (let* ((struct name)
+         (struct-string (symbol->string struct))
+         (struct* (build-pointer-symbol struct))
+         (c-struct-string (if (not (null? rest)) (car rest) struct-string)))
+    `(begin
+       (definition ,(jazz.build-method-symbol struct-string 'array-make)
+         (c-function (int) ,struct* ,(string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
+       (definition ,(jazz.build-method-symbol struct-string 'array-element)
+         (c-function (,struct* int) ,struct* ,(string-append "___result = ___arg1+___arg2;"))))))
+
+
+(define (jazz.expand-c-union walker resume declaration environment name . declarations)
+  (jazz.expand-structure/union name declarations))
+
+
+;;;
+;;;; C-External
+;;;
+
+
+(define (jazz.expand-c-external walker resume declaration environment type signature . rest)
+  (let* ((s-name (car signature))
+         (params (cdr signature))
+         (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+    `(definition ,s-name
+       (c-function ,params ,type ,c-name))))
+
+
+;; tofix : Danger de segmentation fault si on passe une mauvaise taille de string.
+(define (jazz.expand-c-external-so walker resume declaration environment type arg signature . rest)
+  (let* ((s-name (car signature))
+         (ext-s-name (string->symbol (string-append (symbol->string s-name) "_EXT")))
+         (params (cdr signature))
+         (new-params (map jazz.generate-symbol params))
+         (string-param (list-ref new-params arg))
+         (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+    `(begin 
+       (c-external ,type ,(cons ext-s-name params) ,c-name)
+       (definition (,s-name ,@new-params)
+         (let ((pt (WCHAR-array-make (+ (string-length ,string-param) 1))))
+           (WCHAR-copy pt ,string-param (string-length ,string-param))
+           (let* ((,string-param pt)
+                  (result (,ext-s-name ,@new-params)))
+             (values result (WCHAR-string ,string-param))))))))
 
 
 ;;;

@@ -349,17 +349,17 @@
   `(jazz.compile-library-with-flags ',library-name))
 
 
-(define-macro (cflag module-name c-flags ld-flags)
-  `(jazz.compile-library-with-flags ',module-name #f ,c-flags ,ld-flags))
+(define-macro (cflag module-name cc-flags ld-flags)
+  `(jazz.compile-library-with-flags ',module-name cc-flags: ,cc-flags ld-flags: ,ld-flags))
 
 
 (define (bwindows)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) #f (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) cc-flags: (cadr x) ld-flags: (caddr x)))
             compiled-libs-windows))
 
 
 (define (blinux)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) #f (cadr x) (caddr x)))
+  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) cc-flags: (cadr x) ld-flags: (caddr x)))
             compiled-libs-linux))
 
 
@@ -425,6 +425,13 @@
   (cflag jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows"))
 
 
+(define (ffi)
+  (bl)
+  (bd)
+  (jazz.compile-library-with-flags 'jazz.platform.windows.WinUser cc-flags: "-D UNICODE" ld-flags: "-mwindows -lUser32" force?: #t)
+  (jazz.compile-library-with-flags 'jazz.platform.cairo.cairo-win32 cc-flags: "-IC://jazz//dev//jazz//bin//cairo//include" ld-flags: "-LC://jazz//dev//jazz//bin//cairo//lib -lcairo" force?: #t))
+
+
 (define (ball)
   (bj)
   (bwin)
@@ -435,7 +442,7 @@
   (bd)
   (expand-to-file 'jazz.dialect.language "products/org.jazz/lib/jazz/dialect/language/_language.jscm")
   (parameterize ((current-readtable jazz.jazz-readtable))
-    (jazz.compile-filename-with-flags "products/org.jazz/lib/jazz/dialect/language/_language.jscm" #f #f #f #t)))
+    (jazz.compile-filename-with-flags "products/org.jazz/lib/jazz/dialect/language/_language.jscm" source?: #t)))
 
 
 ;;;

@@ -45,6 +45,11 @@
   `(definition ,name ,value))
 
 
+(syntax (enumeration name . declarations)
+  (let ((definitions (map (lambda (declaration) `(definition ,@declaration)) declarations)))
+    `(begin ,@definitions)))
+
+
 (syntax (when test . body)
   `(if ,test
        (begin

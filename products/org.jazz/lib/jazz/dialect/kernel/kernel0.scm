@@ -92,7 +92,6 @@
 (native jazz.error)
 (native jazz.unimplemented)
 (native jazz.dump-stack)
-(native jazz.debug-c-external?)
 (native jazz.log-object)
 (native jazz.log-string)
 (native jazz.log-newline)

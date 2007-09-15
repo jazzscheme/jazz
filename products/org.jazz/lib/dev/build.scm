@@ -56,23 +56,23 @@
           (compile-file src (list 'expansion)))))))
 
 
-(define (jazz.compile-library-with-flags library-name #!optional (options #f) (cc-flags #f) (ld-flags #f))
+(define (jazz.compile-library-with-flags library-name #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f))
   (let ((filename (jazz.module-filename library-name)))
-    (jazz.compile-filename-with-flags filename options cc-flags ld-flags)))
+    (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?)))
 
 
-(define (jazz.compile-filename-with-flags filename #!optional (options #f) (cc-flags #f) (ld-flags #f) (src? #f))
+(define (jazz.compile-filename-with-flags filename #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f) (source? #f))
   (let ((options (or options jazz.compile-options))
         (cc-flags (or cc-flags ""))
         (ld-flags (or ld-flags "")))
     (let ((directory (jazz.split-filename filename (lambda (dir file) dir))))
       (jazz.build-bin-dir directory)
-      (let* ((src (if src? filename (jazz.require-module-source filename)))
+      (let* ((src (if source? filename (jazz.require-module-source filename)))
              (bin (jazz.determine-module-binary filename))
              (bindir (jazz.determine-module-bindir filename))
              (srctime (time->seconds (file-last-modification-time src)))
              (bintime (and bin (time->seconds (file-last-modification-time bin)))))
-        (if (or (not bintime) (> srctime bintime))
+        (if (or force? (not bintime) (> srctime bintime))
             (begin
               (jazz.compile-verbose filename)
               (jazz.with-extension-reader (jazz.filename-extension src)

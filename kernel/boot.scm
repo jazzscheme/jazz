@@ -107,10 +107,6 @@
   #t)
 
 
-(define jazz.debug-c-external?
-  #t)
-
-
 (define jazz.profile?
   (make-parameter #f))
 

@@ -93,9 +93,6 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Number-Class   jazz.Object-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
-(jazz.define-class-syntax jazz.Integer-Class  jazz.Number-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
-(jazz.define-class-syntax jazz.Real-Class     jazz.Number-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Sequence-Class jazz.Object-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.List-Class     jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.String-Class   jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
@@ -104,9 +101,8 @@
 
 (jazz.define-class-syntax jazz.Boolean   jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Char      jazz.Object   () jazz.Object-Class   () ())
-(jazz.define-class-syntax jazz.Number    jazz.Object   () jazz.Number-Class   () ())
-(jazz.define-class-syntax jazz.Integer   jazz.Number   () jazz.Integer-Class  () ())
-(jazz.define-class-syntax jazz.Real      jazz.Number   () jazz.Real-Class     () ())
+(jazz.define-class-syntax jazz.Numeric   jazz.Object   () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Number    jazz.Numeric  () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Sequence  jazz.Object   () jazz.Sequence-Class () ())
 (jazz.define-class-syntax jazz.List      jazz.Sequence () jazz.List-Class     () ())
 (jazz.define-class-syntax jazz.Null      jazz.List     () jazz.List-Class     () ())

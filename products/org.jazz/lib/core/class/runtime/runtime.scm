@@ -446,9 +446,6 @@
 ;;;
 
 
-(jazz.define-class jazz.Number-Class   jazz.Object-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
-(jazz.define-class jazz.Integer-Class  jazz.Number-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
-(jazz.define-class jazz.Real-Class     jazz.Number-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
 (jazz.define-class jazz.Sequence-Class jazz.Object-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
 (jazz.define-class jazz.List-Class     jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
 (jazz.define-class jazz.String-Class   jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
@@ -457,9 +454,8 @@
 
 (jazz.define-class jazz.Boolean   jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.Char      jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Number    jazz.Object   () jazz.Number-Class   ())
-(jazz.define-class jazz.Integer   jazz.Number   () jazz.Integer-Class  ())
-(jazz.define-class jazz.Real      jazz.Number   () jazz.Real-Class     ())
+(jazz.define-class jazz.Numeric   jazz.Object   () jazz.Object-Class   ())
+(jazz.define-class jazz.Number    jazz.Numeric  () jazz.Object-Class   ())
 (jazz.define-class jazz.Sequence  jazz.Object   () jazz.Sequence-Class ())
 (jazz.define-class jazz.List      jazz.Sequence () jazz.List-Class     ())
 (jazz.define-class jazz.Null      jazz.List     () jazz.List-Class     ())
@@ -473,9 +469,6 @@
 (jazz.define-class jazz.Hashtable jazz.Object   () jazz.Object-Class   ())
 
 
-(jazz.encapsulate-class jazz.Number-Class)
-(jazz.encapsulate-class jazz.Integer-Class)
-(jazz.encapsulate-class jazz.Real-Class)
 (jazz.encapsulate-class jazz.Sequence-Class)
 (jazz.encapsulate-class jazz.List-Class)
 (jazz.encapsulate-class jazz.String-Class)
@@ -483,8 +476,6 @@
 (jazz.encapsulate-class jazz.Boolean)
 (jazz.encapsulate-class jazz.Char)
 (jazz.encapsulate-class jazz.Number)
-(jazz.encapsulate-class jazz.Integer)
-(jazz.encapsulate-class jazz.Real)
 (jazz.encapsulate-class jazz.Sequence)
 (jazz.encapsulate-class jazz.List)
 (jazz.encapsulate-class jazz.Null)

@@ -226,18 +226,6 @@
   (error "Scheme primitives must be used to create {a}" name))
 
 
-;; (definition (class-nb-slots                          class))
-;; (definition (class-slots-size                        class))
-;; (definition (class-sizes                             class))
-
-;; (definition (object-name                             Object))
-;; (definition (object-definer                          Object))
-;; (definition (object-address                          Object+))
-;; (definition (address-object                          int))
-;; (definition (address-object-unsafe                   int))
-;; (definition (monitor-locked?                         Object))
-
-
 (definition (=-hash obj)
   (hash-object~ obj))
 
@@ -696,9 +684,8 @@
     (get-output-string port)))
 
 
-(definition whitechar? char-whitespace?)
-(definition char-int char->integer)
-(definition int-char integer->char)
+(definition whitechar?
+  char-whitespace?)
 
 
 (definition public (char-presentation char)
@@ -1041,19 +1028,35 @@
 
 
 ;;;
-;;;; Number
+;;;; Numeric
 ;;;
 
 
-(class Number-Class extends Object-Class)
-
-
-(class Number metaclass Number-Class extends Object
+(class Numeric extends Object
 
 
   (method public virtual abstract (norm))
   (method public virtual abstract (inverse))
   (method public virtual abstract (multiply n))
+  (method public virtual abstract (add obj))
+  (method public virtual abstract (negate)))
+
+
+@wait-because-conflicting-naming
+(definition public inline (numeric? obj)
+  (is? obj Numeric))
+
+
+;;;
+;;;; Number
+;;;
+
+
+(class Number extends Numeric
+  
+  
+  (method (initialize . rest)
+    (native-class "numbers"))
   
   
   (method (print output detail)
@@ -1066,74 +1069,18 @@
           (else :greater)))
   
   
-  (method public virtual (add obj)
-    (if (and (scheme.number? self)
-             (scheme.number? obj))
+  (method (add obj)
+    (if (scheme.number? obj)
         (scheme.+ self obj)
       (error "Unsupported number addition : {t} {t}" self obj)))
   
   
-  (method public virtual (negate)
-    (if (scheme.number? self)
-        (scheme.- self)
-      (error "Unsupported number negation : {t}" self))))
-
-
-(class Integer-Class extends Number-Class)
-
-
-(class Integer metaclass Integer-Class extends Number
-  
-  
-  (method (initialize . rest)
-    (native-class "integers"))
-
-
-  @convert
-  (method (object-similar? object)
-    (and (integer? object)
-         (integer-similar? self object)))
-
-
-  @convert
   (method (negate)
-    (integer-negate self))
+    (scheme.- self)))
 
 
-  @convert
-  (method (norm)
-    (abs self))
-
-
-  @convert
-  (method (add n)
-    (cond ((eqv? self 0) n)
-          ((integer? n) (integer-add self n))
-          ((real? n) (real-add (real-integer self) n))
-          (else (error "Cannot add {t} to {t}" n self))))
-
-
-  @convert
-  (method (inverse)
-    (integer-inverse self))
-
-
-  @convert
-  (method (multiply n)
-    (cond ((eqv? self 1) n)
-          ((integer? n) (integer-multiply self n))
-          ((real? n) (real-multiply (real-integer self) n))
-          (else (error "Cannot multiply {t} to {t}" n self)))))
-
-
-(specific (coerce-object (Integer-Class class) obj)
-  (if (char? obj)
-      (char->integer obj)
-    (nextmethod class obj)))
-
-
-(definition public inline (number? n)
-  (is? n Number))
+(definition public inline (number? obj)
+  (is? obj Number))
 
 
 (definition public inline (zero? n)
@@ -1296,6 +1243,81 @@
 
 (definition public (hiword int)
   (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16))
+
+
+(definition (separate int1 int2)
+  (let* ((q (quotient int1 int2))
+         (r (- int1 (* q int2))))
+    (values q r)))
+
+
+(definition (randomize int1 int2)
+  (random-source-pseudo-randomize! default-random-source int1 int2))
+
+(definition random random-integer)
+
+
+(definition bit-not bitwise-not)
+(definition bit-and bitwise-and)
+(definition bit-or  bitwise-ior)
+(definition bit-xor bitwise-xor)
+
+
+(definition (bit-set num pos bit)
+  (let ((msk (shift-left 1 pos)))
+    (if bit
+        (bit-or num msk)
+      (bit-and num (bit-not msk)))))
+
+
+(definition (mask-bit-set num msk bit)
+  (if bit
+      (bit-or num msk)
+    (bit-and num (bit-not msk))))
+
+
+(definition (mask-bit-set? num msk)
+  (not (= (bit-and num msk) 0)))
+
+
+(definition shift-left arithmetic-shift)
+
+
+(definition (shift-right num pos)
+  (arithmetic-shift num (- pos)))
+
+
+(definition public (bit-mask hi <int> lo <int>)
+  (- (shift-left 1 hi) (shift-left 1 lo)))
+
+
+(definition public (random-seed)
+  (randomize)
+  (random 10000)
+  (random 10000))
+
+
+(definition (sqr num)
+  (expt num 2))
+
+
+(definition public inline (percentage part <double> total <double>) <double>
+  (* (/ part total) 100))
+
+
+(definition public inline (percent percent <double> n <double>) <double>
+  (/ (* n percent) 100))
+
+
+;; All these return exact to implement the same behavior as the old Jazz. To be rethought out
+(definition (floor r)
+  (inexact->exact (scheme.floor r)))
+(definition (ceil r)
+  (inexact->exact (scheme.ceiling r)))
+(definition (truncate r)
+  (inexact->exact (scheme.truncate r)))
+(definition (round r)
+  (inexact->exact (scheme.round r)))
 
 
 ;;;
@@ -3385,97 +3407,6 @@
 (definition (empty-hashtable hashtable)
   (unimplemented 'empty-hashtable))
 ;(definition (load-hashtable                          Hashtable File bool))
-
-
-;;;
-;;;; Integer
-;;;
-
-
-(definition (separate int1 int2)
-  (let* ((q (quotient int1 int2))
-         (r (- int1 (* q int2))))
-    (values q r)))
-
-
-(definition (randomize int1 int2)
-  (random-source-pseudo-randomize! default-random-source int1 int2))
-
-(definition random random-integer)
-
-
-(definition bit-not bitwise-not)
-(definition bit-and bitwise-and)
-(definition bit-or  bitwise-ior)
-(definition bit-xor bitwise-xor)
-
-
-(definition (bit-set num pos bit)
-  (let ((msk (shift-left 1 pos)))
-    (if bit
-        (bit-or num msk)
-      (bit-and num (bit-not msk)))))
-
-
-(definition (mask-bit-set num msk bit)
-  (if bit
-      (bit-or num msk)
-    (bit-and num (bit-not msk))))
-
-
-(definition (mask-bit-set? num msk)
-  (not (= (bit-and num msk) 0)))
-
-
-(definition shift-left arithmetic-shift)
-
-
-(definition (shift-right num pos)
-  (arithmetic-shift num (- pos)))
-
-
-(definition public (bit-mask hi <int> lo <int>)
-  (- (shift-left 1 hi) (shift-left 1 lo)))
-
-
-(definition public (random-seed)
-  (randomize)
-  (random 10000)
-  (random 10000))
-
-
-;;;
-;;;; Real
-;;;
-
-
-(class Real-Class extends Number-Class)
-
-
-(class Real metaclass Real-Class extends Number)
-
-
-(definition (sqr num)
-  (expt num 2))
-
-
-(definition public inline (percentage part <double> total <double>) <double>
-  (* (/ part total) 100))
-
-
-(definition public inline (percent percent <double> n <double>) <double>
-  (/ (* n percent) 100))
-
-
-;; All these return exact to implement the same behavior as the old Jazz. To be rethought out
-(definition (floor r)
-  (inexact->exact (scheme.floor r)))
-(definition (ceil r)
-  (inexact->exact (scheme.ceiling r)))
-(definition (truncate r)
-  (inexact->exact (scheme.truncate r)))
-(definition (round r)
-  (inexact->exact (scheme.round r)))
 
 
 ;;;

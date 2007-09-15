@@ -107,6 +107,10 @@
   #t)
 
 
+(define jazz.debug-c-external?
+  #t)
+
+
 (define jazz.profile?
   (make-parameter #f))
 
@@ -130,6 +134,45 @@
                      `((not safe)))))))
   (else
     '()))
+
+
+(define jazz.*log-port*
+  #f)
+
+
+(define (jazz.log-port)
+  (if (not jazz.*log-port*)
+      (set! jazz.*log-port* (open-output-file "log.txt")))
+  jazz.*log-port*)
+
+
+(define (jazz.log-object obj)
+  (let ((port (jazz.log-port)))
+    (write obj port)
+    (force-output port)))
+
+
+(define (jazz.log-string str)
+  (let ((port (jazz.log-port)))
+    (display str port)
+    (force-output port)))
+
+
+(define (jazz.log-newline)
+  (let ((port (jazz.log-port)))
+    (newline port)
+    (force-output port)))
+
+
+(define (jazz.close-log)
+  (if jazz.*log-port*
+      (begin
+        (close-port jazz.*log-port*)
+        (set! jazz.*log-port* #f))))
+
+
+(define (jazz.gc)
+  (##gc))
 
 
 ;;;

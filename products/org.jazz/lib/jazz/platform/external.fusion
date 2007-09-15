@@ -179,11 +179,29 @@
   ;;;
   
   
+  @debug
   (macro public (c-external type signature . rest)
     (let* ((s-name (car signature))
            (params (cdr signature))
            (c-name (if (null? rest) (symbol->string s-name) (car rest))))
-      `(definition ,s-name (c-function ,params ,type ,c-name))))
+      `(definition ,s-name
+         (let ((cfun (c-function ,params ,type ,c-name)))
+           (lambda rest
+             (when debug-c-external?
+               (log-object (cons ',s-name rest)))
+             (prog1
+                 (apply cfun rest)
+               (when debug-c-external?
+                 (log-string " done")
+                 (log-newline))))))))
+  
+  
+  (macro public (c-external type signature . rest)
+    (let* ((s-name (car signature))
+           (params (cdr signature))
+           (c-name (if (null? rest) (symbol->string s-name) (car rest))))
+      `(definition ,s-name
+         (c-function ,params ,type ,c-name))))
 
 
   ;; tofix : Danger de segmentation fault si on passe une mauvaise taille de string.

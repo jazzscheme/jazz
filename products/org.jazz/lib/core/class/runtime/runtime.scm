@@ -340,12 +340,19 @@
   (make-vector 16 #f))
 
 
+#;
 (define (jazz.i-class-of expr)
   (%%i-class-of-impl expr))
 
 
+#;
 (define (jazz.class-of expr)
   (%%class-of-impl expr))
+
+
+(define (jazz.class-of expr)
+  (or (%%class-of expr)
+      (jazz.error "Unable to get class of {s}" expr)))
 
 
 (define (jazz.class-of-native expr)

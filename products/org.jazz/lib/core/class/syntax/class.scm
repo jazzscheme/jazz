@@ -224,6 +224,7 @@
 
 
 (cond-expand
+  #;
   (gambit
     (define-macro (%%c-class-of obj)
       `(##c-code #<<end-of-c-code

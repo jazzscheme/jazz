@@ -383,15 +383,6 @@
   (c jazz.dialect.language))
 
 
-(define (ell)
-  (expand-to-file 'jazz.dialect.language "_language.scm"))
-
-(define (cll)
-  (bd)
-  (parameterize ((current-readtable jazz.jazz-readtable))
-    (jazz.compile-filename-with-flags "_language")))
-
-
 ;;;
 ;;;; Build
 ;;;
@@ -438,6 +429,13 @@
   (bj)
   (bwin)
   (ccw))
+
+
+(define (blang)
+  (bd)
+  (expand-to-file 'jazz.dialect.language "products/org.jazz/lib/jazz/dialect/language/_language.jscm")
+  (parameterize ((current-readtable jazz.jazz-readtable))
+    (jazz.compile-filename-with-flags "products/org.jazz/lib/jazz/dialect/language/_language.jscm" #f #f #f #t)))
 
 
 ;;;

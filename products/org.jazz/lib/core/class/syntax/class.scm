@@ -224,7 +224,6 @@
 
 
 (cond-expand
-  #;
   (gambit
     (define-macro (%%c-class-of obj)
       `(##c-code #<<end-of-c-code
@@ -248,7 +247,7 @@
 end-of-c-code
     ,obj
     jazz.subtypes
-    jazz.Integer
+    jazz.Number
     jazz.Char
     jazz.specialtypes))
     
@@ -259,14 +258,15 @@ end-of-c-code
                   ((compile)
                    `(%%c-class-of ,symbol))
                   (else
-                   `(jazz.i-class-of ,symbol))))))
+                   `(if (%%object? ,symbol)
+                        (%%get-object-class ,symbol)
+                      (jazz.i-class-of ,symbol)))))))
         (if (%%symbol? obj)
             (expand obj)
           (let ((symbol (jazz.generate-symbol "value")))
             (%%list 'let (%%list (%%list symbol obj))
               (expand symbol))))))
     
-    ;; so the system can bootstrap in interpreted mode
     (define-macro (%%i-class-of-impl var)
       (case (jazz.walk-for)
         ((compile)

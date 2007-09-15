@@ -134,7 +134,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class
   ())
 
 

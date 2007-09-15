@@ -88,6 +88,12 @@
 (jazz.define-virtual-syntax (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
 
 
+(jazz.define-virtual-syntax (jazz.get-declaration-references (jazz.Declaration declaration)))
+
+
+(jazz.define-virtual-syntax (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
+
+
 ;;;
 ;;;; Declaration Reference
 ;;;
@@ -258,13 +264,11 @@
 
 
 (jazz.define-class-syntax jazz.Walker jazz.Object () jazz.Object-Class ()
-  ((warnings              %%get-walker-warnings              %%set-walker-warnings)
-   (errors                %%get-walker-errors                %%set-walker-errors)
-   (literals              %%get-walker-literals              %%set-walker-literals)
-   ;; this will probably become a generic references field later on...
-   ;; (also probably move references field from c-type-declaration to declaration...)
-   (c-references          %%get-walker-c-references          %%set-walker-c-references)
-   (autoload-declarations %%get-walker-autoload-declarations %%set-walker-autoload-declarations)))
+  ((warnings   %%get-walker-warnings   %%set-walker-warnings)
+   (errors     %%get-walker-errors     %%set-walker-errors)
+   (literals   %%get-walker-literals   %%set-walker-literals)
+   (references %%get-walker-references %%set-walker-references)
+   (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
 
 
 (jazz.define-virtual-syntax (jazz.walker-environment (jazz.Walker walker)))
@@ -442,5 +446,5 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class jazz.allocate-core-walker
+(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class jazz.allocate-core-walker
   ()))

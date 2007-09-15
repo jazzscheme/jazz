@@ -229,6 +229,20 @@
   #f)
 
 
+(jazz.define-virtual (jazz.get-declaration-references (jazz.Declaration declaration)))
+
+
+(jazz.define-method (jazz.get-declaration-references (jazz.Declaration declaration))
+  '())
+
+
+(jazz.define-virtual (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
+
+
+(jazz.define-method (jazz.expand-referenced-declaration (jazz.Declaration declaration))
+  '())
+
+
 (jazz.encapsulate-class jazz.Declaration)
 
 
@@ -652,6 +666,16 @@
   (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name access compatibility attributes #f parent '() #f expansion references)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
+
+
+(jazz.define-method (jazz.get-declaration-references (jazz.C-Type-Declaration declaration))
+  (%%get-c-type-declaration-references declaration))
+
+
+(jazz.define-method (jazz.expand-referenced-declaration (jazz.C-Type-Declaration declaration))
+  (let ((locator (%%get-declaration-locator declaration))
+        (expansion (%%get-c-type-declaration-expansion declaration)))
+    `(c-define-type ,locator ,expansion)))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.C-Type-Declaration binding) walker resume source-declaration environment)
@@ -1106,8 +1130,8 @@
   (warnings
    errors
    literals
-   c-references
-   autoload-declarations))
+   references
+   autoloads))
 
 
 ;;;
@@ -1380,7 +1404,7 @@
            (environment (%%cons declaration (jazz.walker-environment walker)))
            (fullname (%%get-declaration-locator declaration)))
       (let ((body-expansion (jazz.walk-list walker resume declaration environment body))
-            (c-types-expansion (jazz.collect-walker-c-types walker))
+            (references-expansion (jazz.expand-walker-references walker))
             (literals-expansion (jazz.collect-literals walker)))
         (jazz.validate-walk-problems walker)
         `(begin
@@ -1415,7 +1439,7 @@
                                (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
                          (%%get-library-declaration-imports declaration))
                (jazz.queue-list queue))
-           ,@c-types-expansion
+           ,@references-expansion
            ,@literals-expansion
            ,@body-expansion
            (jazz.module-loaded ',fullname))))))
@@ -1436,18 +1460,16 @@
     (%%append imports (%%list (%%list dialect-name)))))
 
 
-(define (jazz.collect-walker-c-types walker)
+(define (jazz.expand-walker-references walker)
   (let ((queue (jazz.new-queue)))
     (letrec ((collect-declarations
-              (lambda (c-type-declaration)
-                (for-each collect-declarations (%%get-c-type-declaration-references c-type-declaration))
-                (if (%%not (%%memq c-type-declaration (jazz.queue-list queue)))
-                    (jazz.enqueue queue c-type-declaration)))))
-      (for-each collect-declarations (%%get-walker-c-references walker))
-      (map (lambda (c-type-declaration)
-             (let ((locator (%%get-declaration-locator c-type-declaration))
-                   (expansion (%%get-c-type-declaration-expansion c-type-declaration)))
-               `(c-define-type ,locator ,expansion)))
+              (lambda (declaration)
+                (for-each collect-declarations (jazz.get-declaration-references declaration))
+                (if (%%not (%%memq declaration (jazz.queue-list queue)))
+                    (jazz.enqueue queue declaration)))))
+      (for-each collect-declarations (%%get-walker-references walker))
+      (map (lambda (declaration)
+             (jazz.expand-referenced-declaration declaration))
            (jazz.queue-list queue)))))
 
 
@@ -1607,9 +1629,9 @@
 
 
 (define (jazz.register-autoload-declaration walker autoload-declaration)
-  (let ((declarations (%%get-walker-autoload-declarations walker)))
+  (let ((declarations (%%get-walker-autoloads walker)))
     (%%when (%%not (%%memq autoload-declaration declarations))
-      (%%set-walker-autoload-declarations walker (%%cons autoload-declaration declarations)))))
+      (%%set-walker-autoloads walker (%%cons autoload-declaration declarations)))))
 
 
 ;;;
@@ -2353,7 +2375,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals c-references autoload-declarations) jazz.Object-Class
+(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class
   ())
 
 

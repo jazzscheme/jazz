@@ -38,9 +38,6 @@
 (module core.class.runtime.runtime
 
 
-;;(include "~/gambit/lib/header.scm")
-
-
 ;;;
 ;;;; Identifier
 ;;;
@@ -340,38 +337,28 @@
   (make-vector 16 #f))
 
 
-#;
 (define (jazz.i-class-of expr)
   (%%i-class-of-impl expr))
 
 
-#;
 (define (jazz.class-of expr)
   (%%class-of-impl expr))
 
 
-(define (jazz.class-of expr)
-  (or (%%class-of expr)
-      (jazz.error "Unable to get class of {s}" expr)))
-
-
+;; this function enables jazz to bootstrap fully interpreted
 (define (jazz.class-of-native expr)
   (cond ((%%boolean? expr)
          jazz.Boolean)
         ((%%char? expr)
          jazz.Char)
         ((%%integer? expr)
-         jazz.Integer)
+         jazz.Number)
         ((%%real? expr)
-         jazz.Real)
+         jazz.Number)
         ((%%null? expr)
          jazz.Null)
         ((%%pair? expr)
          jazz.Pair)
-        ((%%port? expr)
-         jazz.Port)
-        ((%%procedure? expr)
-         jazz.Procedure)
         ((%%string? expr)
          jazz.String)
         ((%%vector? expr)
@@ -380,8 +367,6 @@
          jazz.Symbol)
         ((%%keyword? expr)
          jazz.Keyword)
-        ((%%hashtable? expr)
-         jazz.Hashtable)
         (else
          (jazz.error "Unable to get class of {s}" expr))))
 
@@ -520,8 +505,8 @@
 (vector-set! jazz.subtypes  8  jazz.Symbol)
 (vector-set! jazz.subtypes  9  jazz.Keyword)
 (vector-set! jazz.subtypes 19  jazz.String)
-(vector-set! jazz.subtypes 30  jazz.Real)
-(vector-set! jazz.subtypes 31  jazz.Integer)
+(vector-set! jazz.subtypes 30  jazz.Number)
+(vector-set! jazz.subtypes 31  jazz.Number)
 
 (vector-set! jazz.specialtypes 0 jazz.Boolean)
 (vector-set! jazz.specialtypes 1 jazz.Boolean)

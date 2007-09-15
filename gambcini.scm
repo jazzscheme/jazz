@@ -121,14 +121,14 @@
   (jazz.boot-kernel))
 
 
-(define (bd)
-  (jazz.boot-kernel)
-  (jazz.load-module 'dev))
-
-
 (define (bl)
   (jazz.boot-kernel)
   (jazz.load-module 'core.library))
+
+
+(define (bd)
+  (bl)
+  (jazz.load-module 'dev))
 
 
 ;;;
@@ -258,6 +258,9 @@
 (define (ea)
   (e test.a))
 
+(define (effi)
+  (e test.cffi))
+
 
 (define (est)
   (e scheme.test))
@@ -383,6 +386,15 @@
   (c jazz.dialect.language))
 
 
+(define (ct)
+  (bd)
+  (jazz.compile-library-with-flags 'test force?: #t))
+
+(define (cffi)
+  (bd)
+  (jazz.compile-library-with-flags 'test.cffi force?: #t))
+
+
 ;;;
 ;;;; Build
 ;;;
@@ -396,7 +408,6 @@
 (define-macro (bmodule module-name)
   `(begin
      (bd)
-     (bl)
      (jazz.build-module ',module-name)))
 
 
@@ -426,7 +437,6 @@
 
 
 (define (ffi)
-  (bl)
   (bd)
   (jazz.compile-library-with-flags 'jazz.platform.windows.WinUser cc-flags: "-D UNICODE" ld-flags: "-mwindows -lUser32" force?: #t)
   (jazz.compile-library-with-flags 'jazz.platform.cairo.cairo-win32 cc-flags: "-IC://jazz//dev//jazz//bin//cairo//include" ld-flags: "-LC://jazz//dev//jazz//bin//cairo//lib -lcairo" force?: #t))
@@ -434,15 +444,41 @@
 
 (define (ball)
   (bj)
+  (blang)
   (bwin)
   (ccw))
 
 
 (define (blang)
   (bd)
-  (expand-to-file 'jazz.dialect.language "products/org.jazz/lib/jazz/dialect/language/_language.jscm")
-  (parameterize ((current-readtable jazz.jazz-readtable))
-    (jazz.compile-filename-with-flags "products/org.jazz/lib/jazz/dialect/language/_language.jscm" source?: #t)))
+  (let* ((file "products/org.jazz/lib/jazz/dialect/language/_language")
+         (jazz (string-append file ".fusion"))
+         (jscm (string-append file ".jscm"))
+         (jazztime (time->seconds (file-last-modification-time jazz)))
+         (jscmtime (and (file-exists? jscm) (time->seconds (file-last-modification-time jscm)))))
+    (if (or (not jscmtime) (> jazztime jscmtime))
+        (begin
+          (expand-to-file 'jazz.dialect.language jscm)
+          (parameterize ((current-readtable jazz.jazz-readtable))
+            (jazz.compile-filename-with-flags jscm source?: #t))))))
+
+
+;;;
+;;;; Clean
+;;;
+
+
+(define (cln)
+  (define (clean-file filename)
+    (if (file-exists? filename)
+        (begin
+          (display "; deleting ")
+          (display filename)
+          (display " ...")
+          (newline)
+          (delete-file filename))))
+  
+  (clean-file "products/org.jazz/lib/jazz/dialect/language/_language.jscm"))
 
 
 ;;;

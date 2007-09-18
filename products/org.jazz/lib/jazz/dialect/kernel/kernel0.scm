@@ -534,12 +534,32 @@
 
 
 ;;;
-;;;; autoload
+;;;; Autoload
 ;;;
 
 
 (native jazz.autoload)
 (native jazz.autoreload)
-(native jazz.foreign-address)
+
+
+;;;
+;;;; Foreign
+;;;
+
+
 (native jazz.foreign?)
+(native jazz.foreign-address)
+(native jazz.foreign-release!)
+(native jazz.foreign-released?)
+(native jazz.foreign-tag)
+(native jazz.still-obj-refcount-dec!)
+(native jazz.still-obj-refcount-inc!)
+(native jazz.still-obj-refcount)
+
+
+;;;
+;;;; Instance
+;;;
+
+
 (native jazz.current-instance))

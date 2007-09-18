@@ -38,6 +38,11 @@
 (library dev.git jazz
 
 
+;;;
+;;;; Patch
+;;;
+
+
 (define (read-patch file)
   (with-closed ((reader (new File-Reader :pathname file)))
     (define (skip-header)
@@ -60,4 +65,88 @@
         ))
     
     (let ((line (skip-header)))
-      (parse-diff line)))))
+      (parse-diff line))))
+
+
+;;;
+;;;; Commands
+;;;
+
+
+(define (git arguments)
+  (let ((port (open-process (list path: "git" arguments: arguments))))
+    (pipe port (current-output-port))
+    (close-port port)))
+
+
+(define (git-add)
+  (git (list "add")))
+
+
+(define (git-move)
+  #f)
+
+
+(define (git-delete)
+  #f)
+
+
+(define (git-export)
+  (git (list "format-patch")))
+
+
+(define (git-import)
+  (git (list "am")))
+
+
+(define (git-branch)
+  #f)
+
+
+(define (git-checkout)
+  #f)
+
+
+(define (git-commit)
+  #f)
+
+
+(define (git-diff)
+  #f)
+
+
+(define (git-log)
+  (git (list "log" "--decorate")))
+
+
+(define (git-status)
+  (git (list "status")))
+
+
+(define (git-rollback)
+  (git (list "reset" "--hard" "HEAD~1")))
+
+
+(define (git-tag)
+  (git (list "tag")))
+
+
+(define (git-merge)
+  #f)
+
+
+(define (git-pull)
+  #f)
+
+
+(define (git-push)
+  #f)
+
+
+(define (pipe input output)
+  (let loop ()
+    (let ((c (read-char input)))
+      (if (not (eof-object? c))
+          (begin
+            (write-char c output)
+            (loop)))))))

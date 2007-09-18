@@ -658,12 +658,13 @@
 
 
 (jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
-  (expansion
+  (kind
+   expansion
    references))
 
 
-(define (jazz.new-c-type-declaration name access compatibility attributes parent expansion references)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name access compatibility attributes #f parent '() #f expansion references)))
+(define (jazz.new-c-type-declaration name access compatibility attributes parent kind expansion references)
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name access compatibility attributes #f parent '() #f kind expansion references)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

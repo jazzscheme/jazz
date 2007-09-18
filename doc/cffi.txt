@@ -11,6 +11,11 @@ OBJECTIVES
 - We should never have to revert to using a #f tag to bypass validation
 
 
+- WE NEED 2 version of structures... one kind can be gc collected and the other one
+  needs to be under our dynamic extent control. It's ok... we can use foreign-release! to
+  release it prematurely under dynamic control from with-closed
+
+
 C CONCEPTS
 - typedef
 - scalar
@@ -34,25 +39,70 @@ SYNTAX
 
 TODO
 - Finish test cases for every interesting point in Gambit's FFI
-- Abstract the c-type-declaration so it has abstract information that can be consulted and only
-  does it's expansion at expansion time
 - With those:
 (c-type HFONT (pointer (struct "HFONT__")))
 (c-external HFONT (CreateFont INT INT INT INT INT DWORD DWORD DWORD DWORD DWORD DWORD DWORD DWORD LPCWSTR) "CreateFontW")
   do some tests to verify how the gc handles it
-- Validate my understanding that foreign objects are still objects and thus and under the control
-  of a refcount mecanism. Understand the implications of this
+- What is the exact semantics of passing (struct) (pointer (struct)) (pointer)...
+
+
+GAMBIT
+- "type" should not be used directly in Gambit. According to Marc (to confirm) it is meant for stuff like (pointer "type")
 
 
 NOTES
-- Add support for c-initialize!?
 - Need to think about validation of types when there are types defined in terms of other types.
   Because we do not want all the declaration objects at runtime we will face the same problems
   Gambit is facing and solved with tags. Ask Marc exactly how tags work (was there a possibility
   of having a list of tags?). Explain to J and S the logic behind tags
 - Should we use Gambit's release functions to release our structure via ##foreign-release? Any
   advantages to doing this?
+- I think we should arrange for the garbage collector to release our structures
 - Verify that there is no place where our code allocates a Gambit struct or union that could then
   be released by the gc and cause a crash
 - Could it be the code like this that causes gambit to release an invalid pointer?
   (c-type HACCEL (pointer (struct "HACCEL__")))
+
+
+HANDCODED REASONS
+
+- sizeof : (definition sizeof-OSVERSIONINFOEX ((c-function () INT "___result = sizeof(OSVERSIONINFOEX);")))
+- casting : ex d'un casting etrange : (c-function (LPRECT) LPPOINT "___result_voidstar = (LPPOINT)___arg1;")
+- Array making, refin, setting.
+
+- HWND_TOP and HWND_BOTTOM : 
+(definition HWND_BOTTOM ((c-function () HWND "___result_voidstar = ((HWND)1);")))
+(definition HWND_TOP ((c-function () HWND "___result_voidstar = ((HWND)0);")))
+
+- make-painstruct. Because I need a direct structure to pass and not a pointer. Maybe we should have
+a alloc and make. One gives a structure, the other a pointer to a structure.
+(definition make-PAINTSTRUCT (c-function () PAINTSTRUCT "___result_voidstar = calloc(1, sizeof(PAINTSTRUCT));"))
+
+- (definition public LoadCursorInt 
+  (c-function (WORD) HCURSOR
+    "___result_voidstar = LoadImage(NULL,MAKEINTRESOURCE(___arg1),IMAGE_CURSOR,0,0,LR_SHARED);"))
+To use the macro MAKEINTRESOURCE.
+
+- Functions that take pointers which are used as output.
+(definition cairo_current_point
+  (c-function (cairo_t*) double* 
+     "double* point = calloc(2,sizeof(double));\n
+      cairo_get_current_point(___arg1, point, point+1);\n
+      ___result_voidstar = point;"))
+
+(definition cairo_device_to_user
+  (c-function (cairo_t* double double) double*
+    "double* point = calloc(2,sizeof(double));
+     *point      = ___arg2;
+     *(point+1)  = ___arg3;
+     cairo_device_to_user(___arg1,point,point+1);
+     ___result_voidstar = point;"))
+     
+     
+(definition cairo_user_to_device
+  (c-function (cairo_t* double double) double*
+    "double* point = calloc(2,sizeof(double));
+     *point      = ___arg2;
+     *(point+1)  = ___arg3;
+     cairo_user_to_device(___arg1,point,point+1);
+     ___result_voidstar = point;"))

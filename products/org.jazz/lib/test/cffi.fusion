@@ -1,67 +1,339 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; CFFI Tests
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
 (library test.cffi jazz
+
+
+;;;
+;;;; Include
+;;;
 
 
 (c-include "<math.h>")
 (c-include "<time.h>")
 
 
-(c-type void (native void))
-(c-type int  (native int))
-(c-type func (function (int) void))
-;;(c-type test (int test))
+;;;
+;;;; Declare
+;;;
 
 
 (c-declare #<<end-of-c-declare
-static void foo(int n)
+static int N;
+end-of-c-declare
+)
+
+
+;;;
+;;;; Initialize
+;;;
+
+
+(c-initialize #<<end-of-c-declare
+N = 2;
+end-of-c-declare
+)
+
+
+(definition init1
+  (c-function () int "___result = N;"))
+
+
+;;;
+;;;; Scalar
+;;;
+
+
+(c-type void          (native void))
+(c-type bool          (native bool))
+(c-type char          (native char))
+(c-type wchar_t       (native wchar_t))
+(c-type int           (native int))
+(c-type double        (native double))
+(c-type scheme-object (native scheme-object))
+(c-type object        scheme-object)
+
+
+(c-declare #<<end-of-c-declare
+static void scalar1(int n)
 {
 }
 end-of-c-declare
 )
 
-(definition foo
-  (c-function (int) void "foo"))
+
+(definition scalar1
+  (c-function (int) void "scalar1"))
+
 
 (c-declare #<<end-of-c-declare
-static int bar(int n)
+static int scalar2(int n)
 {
     return n + n;
 }
 end-of-c-declare
 )
 
-(definition bar
-  (c-function (int) int "bar"))
+
+(definition scalar2
+  (c-function (int) int "scalar2"))
+
 
 (c-declare #<<end-of-c-declare
-typedef void (func)(int);
-
-static void f(int ignore)
+static int scalar3(___SCMOBJ obj)
 {
+    return (int) obj;
 }
-
-// static func baz (int)
-// {
-//     return &f;
-// }
 end-of-c-declare
 )
 
-;;(definition baz
-;;  (c-function (int) func "baz"))
+
+(definition scalar3
+  (c-function (object) int "scalar3"))
+
+
+;;;
+;;;; Type
+;;;
+
+
+;; are those 2 notations equivalent?
+(c-type int1 "int")
+(c-type int2 (type "int"))
+
 
 (c-declare #<<end-of-c-declare
-static int yoo(int n)
+static int typ1(int i, int j)
+{
+    return i + j;
+}
+
+static int typ2(int i, int j)
+{
+    return i * j;
+}
+
+static int typ3(int i, int j)
+{
+    return 100 + i + j;
+}
+end-of-c-declare
+)
+
+
+(definition typ1
+  (c-function (int int) int1 "typ1"))
+
+(definition typ2
+  (c-function (int int) int2 "typ2"))
+
+(definition typ3
+  (c-function (int1 int2) int "typ3"))
+
+
+(definition typ4
+  (c-function (int int) int1
+    "int* n = calloc(1, sizeof(int)); *n = ___arg1 + ___arg2; ___result_voidstar = n;"))
+
+(definition typ5
+  (c-function (int int) int2
+    "int* n = calloc(1, sizeof(int)); *n = ___arg1 * ___arg2; ___result_voidstar = n;"))
+
+(definition typ6
+  (c-function (int1 int2) int
+    "___result = 100 + ___arg1 + ___arg2;"))
+
+
+;;;
+;;;; Constant
+;;;
+
+
+(definition ca 2)
+(definition cb 3)
+
+
+;;;
+;;;; Enumeration
+;;;
+
+
+(enumeration e
+  (ea 1)
+  (eb 2)
+  (ec 4))
+
+
+;;;
+;;;; Structure
+;;;
+
+
+(c-declare #<<end-of-c-declare
+struct S1_
+{
+    int x;
+    int y;
+};
+
+typedef struct S1_ S1;
+
+static int struct1a(S1 s1)
+{
+    return s1.x + s1.y;
+}
+
+//static int struct1b(S1& s1)
+//{
+//    return s1.x + s1.y;
+//}
+
+static int struct1c(S1* s1)
+{
+    return s1->x + s1->y;
+}
+
+static void tst()
+{
+    S1 s;
+    
+    struct1a(s);
+    struct1c(&s);
+}
+end-of-c-declare
+)
+
+
+;(c-type S1 "S1")
+;(c-type S1 (type "S1"))
+(c-type S1 (struct "S1_"))
+
+
+(definition make-S1
+  (c-function () S1
+    "S1* s1 = calloc(1, sizeof(S1)); s1->x = 2; s1->y = 3; ___result_voidstar = s1;"))
+
+
+(definition struct1a
+  (c-function (S1) int "struct1a"))
+
+;(definition struct1b
+;  (c-function (S1) int "struct1b"))
+
+(definition struct1c
+  (c-function ((pointer S1)) int "struct1c"))
+
+
+;(c-structure (OSVERSIONINFO "OSVERSIONINFOW"))
+;(c-structure (OSVERSIONINFOEX "OSVERSIONINFOEXW" OSVERSIONINFOW)
+;  (int dwOSVersionInfoSize)
+;  (int dwMajorVersion))
+
+
+(definition cast-S2->S2*
+  (lambda (s2)
+    (if (eq? (foreign-tag s2) 'S2)
+        ((c-function (object) S2*
+           "___result_voidstar = ___CAST(void*,___FIELD(___arg1,___FOREIGN_PTR));")
+         s2)
+      (error "Unable to cast"))))
+
+
+;;;
+;;;; Union
+;;;
+
+
+;;;
+;;;; Pointer
+;;;
+
+
+;(c-type int3 (pointer "int"))
+
+
+;(definition typ3
+;  (c-function (int int) int3
+;    "___result = 20 + ___arg1 * ___arg2;"))
+
+
+;;;
+;;;; Array
+;;;
+
+
+;;;
+;;;; Function
+;;;
+
+
+(c-type mult* (pointer (function (int) int)))
+
+
+(c-declare #<<end-of-c-declare
+typedef int (mult)(int);
+
+static int multiply(int n)
 {
     return n * n;
 }
+
+static mult* func1()
+{
+    return &multiply;
+}
 end-of-c-declare
 )
 
-;;(definition yoo
-;;  (c-function (int) test "yoo"))
 
-(c-structure (OSVERSIONINFO "OSVERSIONINFOW"))
-(c-structure (OSVERSIONINFOEX "OSVERSIONINFOEXW" OSVERSIONINFOW)
-  (int dwOSVersionInfoSize)
-  (int dwMajorVersion))
+(definition func1
+  (c-function () mult* "func1"))
+
+
+(c-declare #<<end-of-c-declare
+static int func2(mult* m, int n)
+{
+    return (*m)(n);
+}
+end-of-c-declare
+)
+
+
+;;(definition func2
+;;  (c-function (mult* int) int "func2"))
+)
 )

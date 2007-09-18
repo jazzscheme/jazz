@@ -245,7 +245,8 @@
 
 
 (jazz.define-class-syntax jazz.C-Type-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-c-type-declaration
-  ((expansion  %%get-c-type-declaration-expansion  ())
+  ((kind       %%get-c-type-declaration-kind       ())
+   (expansion  %%get-c-type-declaration-expansion  ())
    (references %%get-c-type-declaration-references ())))
 
 

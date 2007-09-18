@@ -450,6 +450,7 @@
     (jazz.new-special-form 'atomic-region jazz.walk-atomic-region)
     (jazz.new-special-form 'c-include     jazz.walk-c-include)
     (jazz.new-special-form 'c-declare     jazz.walk-c-declare)
+    (jazz.new-special-form 'c-initialize  jazz.walk-c-initialize)
     (jazz.new-special-form 'c-function    jazz.walk-c-function)
     (jazz.new-special-form 'function      jazz.walk-function)
     (jazz.new-special-form 'not-void?     jazz.walk-not-void?)
@@ -1375,8 +1376,18 @@
 
 
 (define (jazz.walk-c-declare walker resume declaration environment form)
-  (jazz.bind (declare) (%%cdr form)
-    `(c-declare ,declare)))
+  (jazz.bind (code) (%%cdr form)
+    `(c-declare ,code)))
+
+
+;;;
+;;;; C-Initialize
+;;;
+
+
+(define (jazz.walk-c-initialize walker resume declaration environment form)
+  (jazz.bind (code) (%%cdr form)
+    `(c-initialize ,code)))
 
 
 ;;;
@@ -1409,8 +1420,8 @@
 
 (define (jazz.walk-%c-type-declaration walker resume declaration environment form)
   (jazz.bind (name access compatibility type) (%%cdr form)
-    (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
-      (let ((new-declaration (jazz.new-c-type-declaration name access compatibility '() declaration expansion references)))
+    (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment type)
+      (let ((new-declaration (jazz.new-c-type-declaration name access compatibility '() declaration kind expansion references)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
 
@@ -1425,33 +1436,35 @@
       (cond ((%%symbol? type)
              (let ((c-type-declaration (jazz.resolve-c-type-reference walker resume declaration environment type)))
                (jazz.enqueue queue c-type-declaration)
-               (%%get-declaration-locator c-type-declaration)))
-            ((%%string? type)
-             type)
+               (values 'alias (%%get-declaration-locator c-type-declaration))))
             ((%%pair? type)
              (case (%%car type)
                ((native)
-                (%%cadr type))
+                (values 'native (%%cadr type)))
                ((type)
-                (jazz.bind (c-string tag) (%%cdr type)
-                  `(type ,c-string ,tag)))
+                (jazz.bind (c-string . tag-rest) (%%cdr type)
+                  (values 'type `(type ,c-string ,@tag-rest))))
                ((pointer)
-                (let ((base-type (%%cadr type))
-                      (tag (if (%%null? (%%cddr type)) #f (%%car (%%cddr type)))))
-                  (if (%%not tag)
-                      `(pointer ,(resolve base-type))
-                    `(pointer ,(resolve base-type) ,tag))))
+                (jazz.bind (base-type . tag-rest) (%%cdr type)
+                  (values 'pointer `(pointer ,(resolve-expansion base-type) ,@tag-rest))))
                ((function)
                 (jazz.bind (parameter-types result-type) (%%cdr type)
-                  `(function ,(map resolve parameter-types) ,(resolve result-type))))
+                  (values 'function `(function ,(map resolve-expansion parameter-types) ,(resolve-expansion result-type)))))
                ((struct)
-                (jazz.bind (c-string) (%%cdr type)
-                  `(struct ,c-string)))))
+                (jazz.bind (c-string . tag-rest) (%%cdr type)
+                  (values 'struct `(struct ,c-string ,@tag-rest))))
+               ((union)
+                (jazz.bind (c-string . tag-rest) (%%cdr type)
+                  (values 'union `(union ,c-string ,@tag-rest))))))
             (else
              (jazz.error "Ill-formed c-type: {s}" type))))
     
-      (let ((expansion (resolve type)))
-        (values expansion (jazz.queue-list queue)))))
+    (define (resolve-expansion type)
+      (receive (kind expansion) (resolve type)
+        expansion))
+    
+    (receive (kind expansion) (resolve type)
+      (values kind expansion (jazz.queue-list queue)))))
 
 
 (define (jazz.resolve-c-type-reference walker resume declaration environment symbol)
@@ -1462,7 +1475,7 @@
 
 
 (define (jazz.expand-c-type-access walker resume declaration environment type)
-  (receive (expansion references) (jazz.resolve-c-type walker resume declaration environment type)
+  (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment type)
     (%%set-walker-references walker (%%append (%%get-walker-references walker) references))
     expansion))
 
@@ -1616,7 +1629,7 @@
                                    (c-function (,struct* ,type) (native void) ,setter-string))))))))
       
       `(begin
-         (c-type ,struct ,(if tag (list 'type c-struct-string tag) c-struct-string))
+         (c-type ,struct ,(if tag (list 'type c-struct-string tag) (list 'type c-struct-string)))
          (c-type ,struct* ,(if tag (list 'pointer struct tag*) (list 'pointer struct)))
          (definition ,(jazz.build-method-symbol struct-string 'make)
                      (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))

@@ -83,7 +83,7 @@
 (definition (register-window-class)
   (let ((instance (current-instance))
         (background (class-background))
-        (wc (make-WNDCLASS)))
+        (wc (WNDCLASS-make)))
     (WNDCLASS-style-set! wc          (class-style))
     (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
     (WNDCLASS-cbClsExtra-set! wc     0)
@@ -376,11 +376,11 @@
   
   
   (method protected (paint-window hdc)
-    (with ((ps (make-PAINTSTRUCT)))
+    (with ((ps (PAINTSTRUCT-make)))
       (let ((hdc (BeginPaint hwnd ps)))
         (with ((dc (new Cairo-Win32-Surface (cairo_win32_surface_create hdc))))
-          (draw-placeholder dc)
-          ;; (draw dc ps)
+          ;;(draw-placeholder dc)
+          (draw dc ps)
           (close~ dc)
           (EndPaint hwnd ps))))
     processed)
@@ -1092,32 +1092,28 @@
           (ScrollWindowEx hwnd dh dv rect clip-rect NULL NULL flags)))))
 
   
-  ;; tofix foreign-address
   (method public (invalidate-rect rect . rest)
     (bind-optionals ((erase? false)) rest
-      (when (foreign-address hwnd)
+      (when hwnd
         (with ((rect (rect->RECT rect)))
           (InvalidateRect hwnd rect erase?)))))
 
   
-  ;; tofix foreign-address
   (method public (invalidate-region region . rest)
     (bind-optionals ((erase? false)) rest
-      (when (foreign-address hwnd)
+      (when hwnd
         (InvalidateRgn hwnd (get-handle~ region) erase?))))
 
   
-  ;; tofix foreign-address
   (method public (invalidate-window . rest)
     (bind-optionals ((erase? false)) rest
-      (when (foreign-address hwnd)
+      (when hwnd
         (InvalidateRect hwnd NULL erase?))))
 
   
-  ;; tofix foreign-address
   (method public (redraw-window . rest)
     (bind-keywords ((rect null) (region null)) rest
-      (when (foreign-address hwnd)
+      (when hwnd
         ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
         ;; toplevel would redraw it's children. Hope it doesn't break any code...
         (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))

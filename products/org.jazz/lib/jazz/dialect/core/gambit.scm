@@ -37,11 +37,18 @@
 
 (module jazz.dialect.core.gambit
 
-(define jazz.foreign? ##foreign?)
-(define (jazz.foreign-address object) (and object (foreign-address object)))
-
-(define system-exit exit)
 
 (define jazz.current-instance ##current-instance)
 
-)
+
+(define jazz.foreign? ##foreign?)
+(define jazz.foreign-address foreign-address)
+(define jazz.foreign-release! foreign-release!)
+(define jazz.foreign-released? foreign-released?)
+(define jazz.foreign-tag ##foreign-tag)
+(define jazz.still-obj-refcount-dec! ##still-obj-refcount-dec!)
+(define jazz.still-obj-refcount-inc! ##still-obj-refcount-inc!)
+(define jazz.still-obj-refcount ##still-obj-refcount)
+
+
+(define system-exit exit))

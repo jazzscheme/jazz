@@ -188,7 +188,7 @@
            previous-found))))
 
 
-(define (jazz.need-dispatch-implementation-by-name name object)
+(define (jazz.dispatch name object)
   (or (%%class-dispatch (%%class-of object) name)
       (jazz.error "Unable to find specific for {s} on {s}" name object)))
 

@@ -45,33 +45,34 @@
         (jazz.literals))
 
 
-(class Drawing-Class extends Figure-Class
-  
+;;;
+;;;; Offscreen
+;;;
 
-  ;;;
-  ;;;; Offscreen
-  ;;;
-  
-  
-  (definition offscreen
-    null)
-  
-  
-  (method public (get-offscreen dc <Surface> width <int> height <int>)
-    (if (and offscreen
-             (let ((size (get-size~ offscreen)))
-               (and (<= width [width size])
-                    (<= height [height size]))))
-        (begin
-          (new-context~ offscreen)
-          offscreen)
-      (when offscreen
-        (close~ offscreen))
-      (set! offscreen (new-offscreen dc width height))))
-  
-  
-  (method (new-offscreen dc <Surface> width <int> height <int>)
-    (new Cairo-Memory-Surface dc :size (new Dimension width height)))
+
+(definition offscreen
+  null)
+
+
+(definition (get-offscreen dc <Surface> width <int> height <int>)
+  (if (and offscreen
+           (let ((size (get-size~ offscreen)))
+             (and (<= width [width size])
+                  (<= height [height size]))))
+      (begin
+        (new-context~ offscreen)
+        offscreen)
+    (when offscreen
+      (close~ offscreen))
+    (set! offscreen (new-offscreen dc width height))
+    offscreen))
+
+
+(definition (new-offscreen dc <Surface> width <int> height <int>)
+  (new Cairo-Memory-Surface dc :size (new Dimension width height)))
+
+
+(class Drawing-Class extends Figure-Class
 
 
   ;;;
@@ -492,7 +493,7 @@
   (method public (paint-displayed dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
     (if (not (get-offscreen?))
         (paint-drawing dc context update lh lv sh sv sc sc?)
-      (let ((offscreen (get-offscreen~ (class-of self) dc [width size] [height size])))
+      (let ((offscreen (get-offscreen dc [width size] [height size])))
         (with ((origin (new Point 0 0))
                (clipper (get-bounds)))
           (setup-clipper~ offscreen clipper)

@@ -394,7 +394,7 @@
 
 (define (blang)
   (bd)
-  (let* ((file "products/org.jazz/lib/jazz/dialect/language/_language")
+  (let* ((file "packages/org.jazz/lib/jazz/dialect/language/_language")
          (jazz (string-append file ".fusion"))
          (jscm (string-append file ".jscm"))
          (jazztime (time->seconds (file-last-modification-time jazz)))
@@ -421,7 +421,7 @@
           (newline)
           (delete-file filename))))
   
-  (clean-file "products/org.jazz/lib/jazz/dialect/language/_language.jscm"))
+  (clean-file "packages/org.jazz/lib/jazz/dialect/language/_language.jscm"))
 
 
 ;;;
@@ -471,7 +471,7 @@
 
 
 (define (ttr)
-  (time (let ((filename "products/org.jazz/lib/jazz/ui/text/Text-View.fusion"))
+  (time (let ((filename "packages/org.jazz/lib/jazz/ui/text/Text-View.fusion"))
           (jazz.with-extension-reader (jazz.filename-extension filename)
             (lambda ()
               (call-with-input-file filename

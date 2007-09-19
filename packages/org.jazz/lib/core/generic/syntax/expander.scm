@@ -63,7 +63,7 @@
          (lambda ,parameter-names
            (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
              (jazz.update-generic ,generic-locator))
-           (let ((,gensym-specific (%%need-specific-implementation ,generic-locator ,(%%car parameter-names))))
+           (let ((,gensym-specific (%%specific-dispatch ,generic-locator ,(%%car parameter-names))))
              ,(if rest-parameter
                   `(apply ,gensym-specific ,@mandatory-parameters ,rest-parameter)
                 `(,gensym-specific ,@parameter-names))))))))

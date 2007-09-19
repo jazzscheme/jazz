@@ -59,17 +59,17 @@
   (apply jazz.expand-define-generic rest))
 
 
+(jazz.define-macro (%%class-dispatch class name)
+  `(%%hashtable-ref (%%get-class-dispatch-table ,class) ,name #f))
+
+
 ; 5.7 = 5.9 = z + by-class (5.2 + 0.7)
 ; 7.6 = 7.8 = z + by-root  (5.2 + 2.6)
 ; 8.3 = 8.5 = z + by-root + by-class (Presario X1000 for 154000 calls)
-(jazz.define-macro (%%need-specific-implementation generic object)
+(jazz.define-macro (%%specific-dispatch generic object)
   `(%%class-dispatch (%%class-of ,object) (%%get-generic-name ,generic))
   ;; `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic))
   )
-
-
-(jazz.define-macro (%%class-dispatch class name)
-  `(%%hashtable-ref (%%get-class-dispatch-table ,class) ,name #f))
 
 
 (jazz.encapsulate-class jazz.Generic))

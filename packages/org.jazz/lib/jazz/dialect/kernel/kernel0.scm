@@ -394,7 +394,7 @@
 (native jazz.expand-toplevel-form)
 (native jazz.get-object-slot)
 (native jazz.update-dispatch-table)
-(native jazz.need-dispatch-implementation-by-name)
+(native jazz.dispatch)
 
 
 ;;;

@@ -593,7 +593,7 @@
   (let ((name (jazz.dispatch->symbol (%%car form)))
         (object (jazz.generate-symbol "object")))
     `(let ((,object ,(jazz.walk walker resume declaration environment (%%cadr form))))
-       ((jazz.need-dispatch-implementation-by-name ',name ,object)
+       ((jazz.dispatch ',name ,object)
         ,object
         ,@(jazz.walk-list walker resume declaration environment (%%cddr form))))))
 

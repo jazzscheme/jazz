@@ -221,16 +221,17 @@
 
 ;; Quick draft. Code is not really correct as it uses the parent folder
 ;; to determine in which prefix a file is located which can be not correct
-(define jazz.Library-Prefixes
-  '("products/org.jazz/lib/"
-    "products/org.jedi/lib/"))
+;; Also, library roots of packages should be determined automatically
+(define jazz.PackageDirs
+  '("packages/org.jazz/lib/"
+    "packages/org.jedi/lib/"))
 
 
 (define (jazz.module-filename module-name)
   (let ((path (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
     (jazz.split-filename path
       (lambda (dir name)
-        (let iter ((scan jazz.Library-Prefixes))
+        (let iter ((scan jazz.PackageDirs))
           (if (null? scan)
               (jazz.kernel-error "Unable to find module:" module-name)
             (let ((prefix (car scan)))

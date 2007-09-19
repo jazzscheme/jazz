@@ -340,7 +340,7 @@
                         (when (exists?~ working-file)
                           (let ((left-file (new-file~ merge-dir (cons "left" name-path))))
                             (unless (exists?~ left-file)
-                              (user-message "Replicating left/{a}..." name)
+                              (user-message "Copying left/{a}..." name)
                               (create-directories~ left-file)
                               (copy-file~ working-file left-file))))))
                     
@@ -365,31 +365,33 @@
                               (else
                                (user-message "Modifying right/{a}..." name)
                                (create-directories~ right-file)
-                               (let ((base-file (new-file~ merge-dir (cons "base" name-path)))
-                                     (merged-file (new-brother~ right-file (let ((base (get-base~ right-file))
-                                                                                 (ext (get-extension~ right-file)))
-                                                                             (format "{a}_merge.{a}" base ext)))))
+                               (let ((base-file (new-file~ merge-dir (cons "base" name-path))))
                                  ;; first time
                                  (when (not (exists?~ right-file))
                                    (copy-file~ base-file right-file))
-                                 ;; merge
-                                 (with-closed ((right-input (new File-Reader right-file))
-                                               (merged-output (new File-Printer merged-file)))
-                                   (let ((base-rank 0)
-                                         (right-rank 0))
-                                   (for-each (lambda (delta)
-                                               (bind (base-line base-count right-line right-count lines) delta
-                                                 (loop (repeat (- base-line base-rank))
-                                                       (do (write-line (read-line right-input) merged-output)
-                                                           (increase! base-rank)))
-                                                 (for-each (lambda (info)
-                                                             (bind (what . line) info
-                                                               (when (or (eq? what 'b) (eq? what 'both))
-                                                                 (write-line line merged-output))))
-                                                           lines)))
-                                             deltas)))
-                                 (delete-file~ right-file)
-                                 (move-pathname~ merged-file right-file))))))
+                                 ;; apply diff
+                                 (apply-diff right-file deltas))))))
+                    
+                    (define (apply-diff target-file deltas)
+                      (let ((merged-file (new-brother~ target-file (let ((base (get-base~ target-file))
+                                                                         (ext (get-extension~ target-file)))
+                                                                     (format "{a}_merge.{a}" base ext)))))
+                        (with-closed ((target-input (new File-Reader target-file))
+                                      (merged-output (new File-Printer merged-file)))
+                          (let ((target-rank 0))
+                            (for-each (lambda (delta)
+                                        (bind (target-line target-count result-line result-count lines) delta
+                                          (loop (repeat (- target-line target-rank))
+                                                (do (write-line (read-line target-input) merged-output)
+                                                    (increase! target-rank)))
+                                          (for-each (lambda (info)
+                                                      (bind (what . line) info
+                                                        (when (or (eq? what 'b) (eq? what 'both))
+                                                          (write-line line merged-output))))
+                                                    lines)))
+                                      deltas)))
+                        (delete-file~ target-file)
+                        (move-pathname~ merged-file target-file)))
                     
                     (setup-base)
                     (setup-left)

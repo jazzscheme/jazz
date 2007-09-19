@@ -189,6 +189,7 @@
   (method (get-cataloguer)
     (unless cataloguer
       (set! cataloguer (new Cataloguer))
+      ;;(create-package-catalogs)
       (load-catalogs~ (get-workbench)))
     cataloguer)
 
@@ -212,6 +213,20 @@
               (set-icon~ mode icon)
               (set-title~ mode title))))
         (set! catalog-context context))))
+  
+  
+  @w
+  (method (create-package-catalogs)
+    (let ((extensions '("scm" "fusion"))
+          (cataloguer (get-cataloguer~ (get-application))))
+      (define (create-catalog name directory)
+        (let ((output (new-file~ directory (format "{a}.jcat" name)))
+              (directories (list directory)))
+          (let ((catalog (new Package-Catalog name output directories extensions true true true)))
+            (add-catalog~ cataloguer catalog))))
+      
+      (create-catalog 'org.jazz {Directory Root "packages" "org.jazz"})
+      (create-catalog 'org.jedi {Directory Root "packages" "org.jedi"})))
 
   
   (method (user-feedback message)
@@ -883,7 +898,6 @@
     
   
   (method (on-update-catalog evt)
-    @convert/wait
     (if (null? (get-main~ (get-preferences 'catalogs)))
         (message-box "No main catalog defined in your Catalogs preferences")
       (with-cursor :wait
@@ -892,7 +906,6 @@
 
   
   (method (on-catalogs-manager evt)
-    @convert/wait
     (let ((manager (find-host~ stage Catalogs-Manager)))
       (if manager
           (bring-to-front~ manager)

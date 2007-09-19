@@ -51,4 +51,14 @@
 (define jazz.still-obj-refcount ##still-obj-refcount)
 
 
+(define jazz.close-port close-port)
+
+
+(define jazz.file-type file-type)
+(define jazz._copy-file copy-file)
+(define jazz.rename-file rename-file)
+(define jazz.create-directory create-directory)
+(define jazz.directory-files directory-files)
+
+
 (define system-exit exit))

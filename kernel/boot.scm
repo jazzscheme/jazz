@@ -104,6 +104,9 @@
 
 
 (define jazz.Use-Print?
+  #t)
+
+(define jazz.Debug-Print?
   #f)
 
 

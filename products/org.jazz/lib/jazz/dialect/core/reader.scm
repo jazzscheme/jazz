@@ -124,10 +124,10 @@
       (let ((start-pos (##readenv-current-filepos re)))
         (read-char (macro-readenv-port re))
         (let ((lst (%%reverse (##build-list re #t start-pos #\]))))
-          (let loop ((ref (##desourcify (%%car lst)))
+          (let iter ((ref (##desourcify (%%car lst)))
                      (scan (%%cdr lst)))
             (if (%%not (%%null? scan))
-                (loop (jazz.new-reference (##desourcify (%%car scan)) ref) (%%cdr scan))
+                (iter (jazz.new-reference (##desourcify (%%car scan)) ref) (%%cdr scan))
               (macro-readenv-wrap re ref))))))
     
     

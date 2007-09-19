@@ -97,11 +97,11 @@
 
 (define (jazz.make-access-lookups access-level)
   (let ((lookups (%%make-vector (%%fixnum+ access-level 1))))
-    (let loop ((n 0))
+    (let iter ((n 0))
       (if (<= n access-level)
           (begin
             (%%vector-set! lookups n (%%make-hashtable eq?))
-            (loop (%%fixnum+ n 1)))))
+            (iter (%%fixnum+ n 1)))))
     lookups))
 
 
@@ -1695,7 +1695,7 @@
                         'defines)
                        (else
                         'expressions)))))
-      (let loop ((scan form-list))
+      (let iter ((scan form-list))
         (if (or (%%null? scan)
                 (%%eq? (process (%%car scan)) 'expressions))
             (if (%%null? internal-defines)
@@ -1712,7 +1712,7 @@
                                  (jazz.walk-internal-define walker resume declaration augmented-environment internal-define))
                                internal-defines)
                           (jazz.walk-list walker resume declaration augmented-environment scan))))
-          (loop (%%cdr scan)))))))
+          (iter (%%cdr scan)))))))
 
 
 (define (jazz.walk-internal-define walker resume declaration augmented-environment form)

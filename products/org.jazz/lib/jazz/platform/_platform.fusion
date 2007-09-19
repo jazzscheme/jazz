@@ -44,8 +44,8 @@
 
 
 (definition public (bell)
-  @Platform-specific
-    (MessageBeep MB_ICONEXCLAMATION))
+  ;; windows specific
+  (MessageBeep MB_ICONEXCLAMATION))
 
 
 ;;;
@@ -293,9 +293,6 @@
   @unimp
   (bind-keywords ((event-id (make-event-id 1))) rest
     (log-event EVENTLOG_SUCCESS event-id message)))
-
-
-
 
 
 ;;;
@@ -1316,7 +1313,7 @@
 
 
   (method public (move-pathname dst . rest)
-    (unimplemented 'move-pathname)
+    (rename-file (parse) (parse~ dst))
     @windows-specific
     (bind-keywords ((error? true)) rest
       (let ((ok? (MoveFile (parse) (parse~ dst))))
@@ -1582,7 +1579,7 @@
 
 
   (method public (copy-file dst . rest)
-    (unimplemented 'copy-file)
+    (_copy-file (parse) (parse~ dst))
     @windows-specific
     (bind-keywords ((overwrite-read-only? false)) rest
       (overwrite-read-only~ dst overwrite-read-only?)
@@ -1752,9 +1749,7 @@
 
 
   (method public virtual (create)
-    (unimplemented 'create)
-    @windows-specific
-    (CreateDirectory (parse) NULL))
+    (create-directory (parse)))
   
   
   (method public (new-file name)
@@ -1937,7 +1932,13 @@
   
   
   (method (iterate-content-unsorted base kind ignored-directories proc)
-    (unimplemented 'iterate-content-unsorted)
+    ;; SIMPLIFIED VERSION FOR NOW
+    (for-each (lambda (name)
+                (let ((type (file-type (string-append base "/" name))))
+                  (when (or (and (eq? kind 'files) (eq? type 'regular))
+                            (and (eq? kind 'directories) (eq? type 'directory)))
+                    (proc name))))
+              (directory-files base))
     @windows-specific
     (let* ((find-data (new WIN32_FIND_DATA))
            (handle (FindFirstFile (append base "\\*.*") find-data)))

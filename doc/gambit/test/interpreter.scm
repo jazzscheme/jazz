@@ -38,7 +38,7 @@
 
 
 (define (dc)
-  (let loop ((cont %))
+  (let iter ((cont %))
     (if cont
         (let* ((creator (##continuation-creator cont))
                (name (and creator (##procedure-name creator)))
@@ -46,4 +46,4 @@
                (locals (##continuation-locals cont)))
           (write (list name cont ret (and name (not (memq name '(cc))) locals (map car locals))))
           (newline)
-          (loop (##continuation-next cont))))))
+          (iter (##continuation-next cont))))))

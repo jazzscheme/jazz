@@ -465,6 +465,18 @@
 
 
 ;;;
+;;;; Values
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (%%values? obj)
+      `(##values? ,obj)))
+  (else))
+
+
+;;;
 ;;;; Vector
 ;;;
 

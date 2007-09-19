@@ -136,10 +136,10 @@
 
 (define (jazz.update-dispatch-tables generic)
   (let ((name (%%get-generic-name generic)))
-    (let loop ((specific (%%get-generic-root-specific generic)))
+    (let iter ((specific (%%get-generic-root-specific generic)))
       (let ((class (%%car (%%get-specific-signature specific))))
         (jazz.update-dispatch-table class name (%%get-specific-implementation specific)))
-      (for-each loop
+      (for-each iter
                 (%%get-specific-previous-specifics specific)))))
 
 
@@ -149,13 +149,13 @@
 
 
 (define (jazz.find-specific-from-root generic specific)
-  (let loop ((loop-specific (%%get-generic-root-specific generic)))
+  (let iter ((loop-specific (%%get-generic-root-specific generic)))
        (let ((found (jazz.find-if
                       (lambda (next-specific)
                         (jazz.specific-next? next-specific specific))
                       (%%get-specific-previous-specifics loop-specific))))
          (if found
-             (loop found)
+             (iter found)
            loop-specific))))
 
 
@@ -177,14 +177,14 @@
 
 
 (define (jazz.dispatch-from-root class generic)
-  (let loop ((previous-found (%%get-generic-root-specific generic)))
+  (let iter ((previous-found (%%get-generic-root-specific generic)))
        (let ((found (jazz.find-if
                       (lambda (next-specific)
                         (let ((next-signature (%%get-specific-signature next-specific)))
                           (jazz.subtype? class (%%car next-signature))))
                       (%%get-specific-previous-specifics previous-found))))
          (if found
-             (loop found)
+             (iter found)
            previous-found))))
 
 

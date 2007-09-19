@@ -38,10 +38,6 @@
 (module core.class.runtime.output
 
 
-(define jazz.Debug-Print?
-  #f)
-
-
 ;; BIG TIME SECURITY
 (define primordial-exception-handler
   (current-exception-handler))
@@ -80,11 +76,14 @@
 
 
 (define (jazz.->string value)
-  (if (%%void? value)
-      "<void>"
-    (let ((output (open-output-string)))
-      (jazz.output-value value output jazz.output-mode)
-      (get-output-string output))))
+  (cond ((%%void? value)
+         "<void>")
+        ((%%values? value)
+         "<values>")
+        (else
+         (let ((output (open-output-string)))
+           (jazz.output-value value output jazz.output-mode)
+           (get-output-string output)))))
 
 
 (define (jazz.output-value value output detail)

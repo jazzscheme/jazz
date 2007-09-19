@@ -18,22 +18,22 @@
   (load "t"))
 
 (define (FFI . rest)
-  (let loop ((n (if (null? rest) 1 (car rest))))
+  (let iter ((n (if (null? rest) 1 (car rest))))
     (if (> n 0)
         (begin
           (cffi)
           (tffi)
-          (loop (- n 1))))))
+          (iter (- n 1))))))
 
 (define (C . rest)
-  (let loop ((n (if (null? rest) 1 (car rest))))
+  (let iter ((n (if (null? rest) 1 (car rest))))
     (if (> n 0)
         (begin
           (write n) (newline)
           (compile-file "c" '(keep-c) "-E")
           (load "c")
           (make-S2)
-          (loop (- n 1))))))
+          (iter (- n 1))))))
 
 
 ;;;
@@ -128,11 +128,11 @@
 (define (for-each-module proc)
   (call-with-input-file "Modules.fusion"
     (lambda (reader)
-      (let loop ((expr (read reader)))
+      (let iter ((expr (read reader)))
         (if (not (eof-object? expr))
             (begin
               (proc expr)
-              (loop (read reader))))))))
+              (iter (read reader))))))))
 
 
 ;;;
@@ -251,7 +251,7 @@
 
 
 (define (pretty-print-library library)
-  (let loop ((declaration library)
+  (let iter ((declaration library)
              (level 0))
     (display (make-string (* level 2) #\space))
     (display declaration)
@@ -259,7 +259,7 @@
     (display (jazz.get-declaration-name declaration))
     (newline)
     (for-each (lambda (subdecl)
-                (loop subdecl (+ level 1)))
+                (iter subdecl (+ level 1)))
               (%%get-declaration-children declaration))))
 
 
@@ -388,7 +388,6 @@
 
 (define (ball)
   (bj)
-  (blang)
   (bwin)
   (ccw))
 
@@ -599,8 +598,12 @@
   (l test.boot))
 
 
-(define (lp)
-  (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))
+(define-macro (lp . rest)
+  `(begin
+     ,@(if (null? rest)
+           '()
+         `((l ,(car rest))))
+     (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process))))
 
 
 (define (tl)

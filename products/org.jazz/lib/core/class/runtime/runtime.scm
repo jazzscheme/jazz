@@ -82,11 +82,11 @@
   (%%assert (%%object? object)
     (let* ((size (%%object-length object))
            (content (%%make-vector size)))
-      (let loop ((n 0))
+      (let iter ((n 0))
         (if (%%fixnum< n size)
             (begin
               (%%vector-set! content n (%%object-ref object n))
-              (loop (%%fixnum+ n 1)))))
+              (iter (%%fixnum+ n 1)))))
       content)))
 
 
@@ -330,13 +330,6 @@
   (%%is? object jazz.Class))
 
 
-(define jazz.subtypes
-  (make-vector 32 #f))
-
-(define jazz.specialtypes
-  (make-vector 16 #f))
-
-
 (define (jazz.i-class-of expr)
   (%%i-class-of-impl expr))
 
@@ -346,6 +339,8 @@
 
 
 ;; this function enables jazz to bootstrap fully interpreted
+;; note that we need to implement every type that can potentially be used by Jazz code
+;; so that really means every type if we want to be a super set of the underlying scheme!
 (define (jazz.class-of-native expr)
   (cond ((%%boolean? expr)
          jazz.Boolean)
@@ -367,6 +362,10 @@
          jazz.Symbol)
         ((%%keyword? expr)
          jazz.Keyword)
+        ((%%port? expr)
+         jazz.Port)
+        ((%%procedure? expr)
+         jazz.Procedure)
         (else
          (jazz.error "Unable to get class of {s}" expr))))
 
@@ -410,9 +409,9 @@
 
 
 (define (jazz.iterate-descendants-tree class proc)
-  (let loop ((class class))
+  (let iter ((class class))
     (proc class)
-    (for-each loop (%%get-unit-descendants class))))
+    (for-each iter (%%get-unit-descendants class))))
 
 
 (jazz.encapsulate-class jazz.Class)
@@ -489,38 +488,28 @@
 (jazz.encapsulate-class jazz.Hashtable)
 
 
-(vector-set! jazz.subtypes  0  jazz.Vector)
-(vector-set! jazz.subtypes  1  jazz.Pair)
-(vector-set! jazz.subtypes  2  jazz.Number)
-(vector-set! jazz.subtypes  3  jazz.Number)
-(vector-set! jazz.subtypes  8  jazz.Symbol)
-(vector-set! jazz.subtypes  9  jazz.Keyword)
-(vector-set! jazz.subtypes 19  jazz.String)
-(vector-set! jazz.subtypes 30  jazz.Number)
-(vector-set! jazz.subtypes 31  jazz.Number)
-
-(vector-set! jazz.specialtypes 0 jazz.Boolean)
-(vector-set! jazz.specialtypes 1 jazz.Boolean)
-(vector-set! jazz.specialtypes 2 jazz.Null)
-;;(vector-set! jazz.specialtypes 3 jazz.EOF)
-;;(vector-set! jazz.specialtypes 4 jazz.Void)
-;;(vector-set! jazz.specialtypes 4 jazz.Absent)
-
-
-#;
 (cond-expand
   (gambit
-    ;;(include "~/gambit/lib/header.scm")
+    (include "~/gambit/lib/type#.scm")
     
-    (vector-set! jazz.subtypes (macro-subtype-vector)  jazz.Vector)
-    (vector-set! jazz.subtypes (macro-subtype-pair)    jazz.Pair)
-    (vector-set! jazz.subtypes (macro-subtype-ratnum)  jazz.Number)
-    (vector-set! jazz.subtypes (macro-subtype-cpxnum)  jazz.Number)
-    (vector-set! jazz.subtypes (macro-subtype-symbol)  jazz.Symbol)
-    (vector-set! jazz.subtypes (macro-subtype-keyword) jazz.Keyword)
-    (vector-set! jazz.subtypes (macro-subtype-string)  jazz.String)
-    (vector-set! jazz.subtypes (macro-subtype-flonum)  jazz.Real)
-    (vector-set! jazz.subtypes (macro-subtype-bignum)  jazz.Integer)
+    (define jazz.subtypes
+      (make-vector 32 #f))
+    
+    (define jazz.specialtypes
+      (make-vector 16 #f))
+    
+    (vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
+    (vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
+    (vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Number)
+    (vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Number)
+    ;; super quicky untill we add structure dispatch to %%c-class-of
+    (vector-set! jazz.subtypes (macro-subtype-structure) jazz.Port)
+    (vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
+    (vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
+    (vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
+    (vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
+    (vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Number)
+    (vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Number)
     
     (vector-set! jazz.specialtypes 0 jazz.Boolean)
     (vector-set! jazz.specialtypes 1 jazz.Boolean)
@@ -688,10 +677,10 @@
 
 
 (define (jazz.all-properties unit)
-  (let loop ((slots (%%get-class-slots unit)))
+  (let iter ((slots (%%get-class-slots unit)))
      (cond ((null? slots) '())
-           ((jazz.property? (car slots)) (cons (car slots) (loop (cdr slots))))
-           (else (loop (cdr slots)))))) 
+           ((jazz.property? (car slots)) (cons (car slots) (iter (cdr slots))))
+           (else (iter (cdr slots)))))) 
 
 
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)

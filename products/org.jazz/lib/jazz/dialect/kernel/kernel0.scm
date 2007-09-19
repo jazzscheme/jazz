@@ -53,6 +53,7 @@
 
 
 (native jazz.compile-file)
+(native jazz.for-each-submodule)
 
 
 ;;;
@@ -336,16 +337,19 @@
 ;;;
 
 
-(native jazz.tokenise-filename)
-(native jazz.pathname-directory)
-(native jazz.pathname-name)
-(native jazz.pathname-base)
-(native jazz.pathname-extension)
-(native jazz.filename-extension)
-(native jazz.filename-base)
-(native jazz.pathname-extend)
-(native jazz.pathname-brother)
-(native jazz.parse-pathname)
+(native jazz.file-type)
+(native jazz._copy-file)
+(native jazz.rename-file)
+(native jazz.create-directory)
+(native jazz.directory-files)
+
+
+;;;
+;;;; Port
+;;;
+
+
+(native jazz.close-port)
 
 
 ;;;

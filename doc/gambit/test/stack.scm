@@ -52,12 +52,12 @@
 
 (define (get-continuation-stack cont)
   (let ((queue (new-queue)))
-    (let loop ((depth 0)
+    (let iter ((depth 0)
                (cont cont))
       (and cont
            (begin
              (enqueue queue (get-frame cont))
-             (loop (+ depth 1)
+             (iter (+ depth 1)
                    (##continuation-next cont)))))
     (queue-list queue)))
 
@@ -108,20 +108,20 @@
                     r)))))
 
   (define (collect-vars lst cte queue)
-    (let loop ((lst lst))
+    (let iter ((lst lst))
       (if (##pair? lst)
           (let* ((var-val (##car lst))
                  (var (##car var-val))
                  (val (##cdr var-val)))
             (collect-var-val var val cte queue)
-            (loop (##cdr lst))))))
+            (iter (##cdr lst))))))
 
   (define (collect-locals lst cte queue)
     (and lst
          (collect-vars lst cte queue)))
 
   (define (collect-parameters lst cte queue)
-    (let loop ((lst lst))
+    (let iter ((lst lst))
       (if (##pair? lst)
           (let* ((param-val (##car lst))
                  (param (##car param-val))
@@ -130,7 +130,7 @@
                 (let ((x
                        (##inverse-eval-in-env param cte)))
                   (collect-var-val (##list x) val cte queue)))
-            (loop (##cdr lst))))))
+            (iter (##cdr lst))))))
 
   (let ((queue (new-queue)))
     (and cont

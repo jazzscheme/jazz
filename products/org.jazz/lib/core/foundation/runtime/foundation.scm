@@ -45,24 +45,24 @@
 
         
 (define (jazz.rassq obj alist)
-  (let loop ((rest alist))
+  (let iter ((rest alist))
     (cond 
       ((%%null? rest)
        #f)
       ((%%eq? obj (%%cdar rest))
        (%%car rest))
       (else
-       (loop (%%cdr rest))))))
+       (iter (%%cdr rest))))))
 
 
 (define (jazz.every? predicate lst)
-  (let loop ((scan lst))
+  (let iter ((scan lst))
     (cond ((%%null? scan)
            #t)
           ((%%not (predicate (%%car scan)))
            #f)
           (else
-           (loop (%%cdr scan))))))
+           (iter (%%cdr scan))))))
 
 
 (define (jazz.butlast lst)
@@ -100,12 +100,12 @@
 
 (define (jazz.remove-specifiers-quicky form)
   (let ((queue (jazz.new-queue)))
-    (let loop ((scan form))
+    (let iter ((scan form))
       (if (%%pair? scan)
           (begin
             (if (%%not (jazz.specifier? (%%car scan)))
                 (jazz.enqueue queue (%%car scan)))
-            (loop (%%cdr scan)))
+            (iter (%%cdr scan)))
         (if (%%not (%%null? scan))
             (jazz.enqueue-list queue scan))))
     (jazz.queue-list queue)))

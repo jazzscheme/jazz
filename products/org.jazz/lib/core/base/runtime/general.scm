@@ -52,29 +52,29 @@
 
 
 (define (jazz.find-in proc lst)
-  (let loop ((scan lst))
+  (let iter ((scan lst))
     (if (%%null? scan)
         #f
       (or (proc (%%car scan))
-          (loop (%%cdr scan))))))
+          (iter (%%cdr scan))))))
 
 
 (define (jazz.find-if predicate lst)
-  (let loop ((scan lst))
+  (let iter ((scan lst))
     (if (%%null? scan)
         #f
       (let ((value (%%car scan)))
         (if (predicate value)
             value
-          (loop (%%cdr scan)))))))
+          (iter (%%cdr scan)))))))
 
 
 (define (jazz.collect-if predicate lst)
   (let ((result '()))
-    (let loop ((scan lst))
+    (let iter ((scan lst))
       (if (%%not-null? scan)
           (begin
-            (loop (%%cdr scan))
+            (iter (%%cdr scan))
             (let ((value (%%car scan)))
               (if (predicate value)
                   (set! result (%%cons value result)))))))
@@ -82,23 +82,23 @@
 
 
 (define (jazz.find-char-reversed c str)
-  (let loop ((pos (%%fixnum- (%%string-length str) 1)))
+  (let iter ((pos (%%fixnum- (%%string-length str) 1)))
     (cond ((%%fixnum< pos 0)
            #f)
           ((char=? (%%string-ref str pos) c)
            pos)
           (else
-           (loop (%%fixnum- pos 1))))))
+           (iter (%%fixnum- pos 1))))))
 
 
 (define (jazz.getprop plist target)
-  (let loop ((scan plist))
+  (let iter ((scan plist))
     (cond ((%%null? scan)
            #f)
           ((%%eqv? (%%car scan) target)
            scan)
           (else
-           (loop (%%cddr scan))))))
+           (iter (%%cddr scan))))))
 
 
 (define (jazz.getf plist target #!optional (not-found #f))
@@ -137,10 +137,10 @@
 
 (define (jazz.remove-duplicates lst)
   (let ((result '()))
-    (let loop ((scan lst))
+    (let iter ((scan lst))
       (if (%%not (%%null? scan))
           (begin
-            (loop (%%cdr scan))
+            (iter (%%cdr scan))
             (let ((value (%%car scan)))
               (if (%%not (%%memv value result))
                   (set! result (%%cons value result)))))))
@@ -154,26 +154,26 @@
 
 (define (jazz.memstring char string)
   (let ((len (%%string-length string)))
-    (let loop ((n 0))
+    (let iter ((n 0))
       (cond ((%%fixnum= n len)
              #f)
             ((%%eqv? (%%string-ref string n) char)
              #t)
             (else
-             (loop (%%fixnum+ n 1)))))))
+             (iter (%%fixnum+ n 1)))))))
 
 
 (define (jazz.split-string str separator)
   (let ((lst '())
         (end (%%string-length str)))
-    (let loop ((pos (%%fixnum- end 1)))
+    (let iter ((pos (%%fixnum- end 1)))
       (if (%%fixnum> pos 0)
           (begin
             (if (%%eqv? (%%string-ref str pos) separator)
                 (begin
                   (set! lst (%%cons (%%substring str (%%fixnum+ pos 1) end) lst))
                   (set! end pos)))
-            (loop (%%fixnum- pos 1))))
+            (iter (%%fixnum- pos 1))))
         (%%cons (%%substring str 0 end) lst))))
 
 

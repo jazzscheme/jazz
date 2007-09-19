@@ -45,9 +45,6 @@
          (jazz.dialect.core.reader)
          
          ;; System
-         ; (jazz.dialect.core.pathname)
-         ; (jazz.dialect.core.file)
-         ; (jazz.dialect.core.directory)
          ; (jazz.dialect.core.socket)
          ; (jazz.dialect.core.thread)
          

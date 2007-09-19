@@ -98,7 +98,7 @@
   
   
   (method protected virtual (copy-object deep?)
-    '())
+    (error "Unable to copy {t}" self))
 
 
   (method public virtual (compare-object object)
@@ -990,9 +990,9 @@
         (found (void)))
     (while (and (void? found) (not-null? scan))
       (let ((elem (cond ((keyword? (car scan))
-                         (string->symbol (keyword->string (car scan))))
+                         (keyword->symbol (car scan)))
                         ((enumerator? (car scan))
-                         (string->symbol (enumerator->string (car scan))))
+                         (enumerator->symbol (car scan)))
                         (else
                          (car scan)))))
         (if (eq? keyword elem)
@@ -1112,11 +1112,11 @@
 
 
 (definition public (generic-add n rest)
-  (let loop ((result n)
+  (let iter ((result n)
              (rest rest))
     (if (null? rest)
         result
-      (loop (add~ result (car rest)) (cdr rest)))))
+      (iter (add~ result (car rest)) (cdr rest)))))
 
 
 (definition public (generic-substract n rest)
@@ -1219,7 +1219,7 @@
 
 
 (definition public (lobyte short)
-  (bit-and #xFF short))
+  (- (bitwise-and (+ short #x80) #xFF) #x80))
 
 (definition public (hibyte short)
   (shift-right (bit-and short #xFF00) -8))
@@ -1229,7 +1229,7 @@
   (bitwise-ior (arithmetic-shift hi 8) lo))
 
 (definition public (lochar word)
-  (bitwise-and #xFF word))
+  (bit-and #xFF word))
 
 (definition public (hichar word)
   (arithmetic-shift (bitwise-and (bitwise-not #xFF) word) -8))
@@ -1239,7 +1239,7 @@
   (bitwise-ior (arithmetic-shift hi 16) lo))
 
 (definition public (loword int)
-  (bitwise-and #xFFFF int))
+  (- (bitwise-and (+ int #x8000) #xFFFF) #x8000))
 
 (definition public (hiword int)
   (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16))
@@ -1580,7 +1580,7 @@
     (if (is? seq Sequence)
         (let ((l1 (length self))
               (l2 (length seq)))
-          (let loop ((i 0))
+          (let iter ((i 0))
                (if (or (>= i l1) (>= i l2))
                    (cond ((= l1 l2) :equal)
                          ((> l1 l2) :greater)
@@ -1588,7 +1588,7 @@
                  (let ((cmp (compare (element self i) (element seq i))))
                    (if (neq? cmp :equal)
                        cmp
-                     (loop (+ i 1)))))))
+                     (iter (+ i 1)))))))
       :incompatible))
   
   
@@ -1596,12 +1596,12 @@
     (let* ((subcopy (if deep? (lambda (x) (copy x deep?)) (lambda (x) x)))
            (len (length self))
            (new-seq (allocate-sequence~ (class-of self) len)))
-      (let loop ((i 0))
+      (let iter ((i 0))
            (if (= i length)
                new-seq
              (begin
                (set-element! new-seq i (subcopy (element self i)))
-               (loop (+ i 1)))))))
+               (iter (+ i 1)))))))
   
 
   @convert
@@ -1688,9 +1688,9 @@
 
 
 (specific (skip-whitespace (Sequence seq))
-  (let loop ((i 0))
+  (let iter ((i 0))
     (cond ((= i (length seq)) i)
-          ((eq? (element seq i) #\space) (loop (+ i 1)))
+          ((eq? (element seq i) #\space) (iter (+ i 1)))
           (else i))))
 
 
@@ -2266,7 +2266,7 @@
           (test (if ignore-case? ci= =)))
       (define (match-case? pos)
         (let ((to (- size 1)))
-          (let loop ((i pos)
+          (let iter ((i pos)
                      (j 0))
             (cond ((>= i len)
                    #f)
@@ -2275,7 +2275,7 @@
                   ((>= j to)
                    #t)
                   (else
-                   (loop (+ i 1) (+ j 1)))))))
+                   (iter (+ i 1) (+ j 1)))))))
       
       (define (match? pos)
         (and (>= pos 0)
@@ -2294,23 +2294,23 @@
                        #t))))))
       
       (define (find-backward pos)
-        (let loop ((pos pos))
+        (let iter ((pos pos))
           (cond ((match? (- pos size))
                  (- pos size))
                 ((<= pos 0)
                  nil)
                 (else
-                 (loop (- pos 1))))))
+                 (iter (- pos 1))))))
       
       (define (find-forward pos)
         (let ((last (- len size)))
-          (let loop ((pos pos))
+          (let iter ((pos pos))
             (cond ((match? pos)
                    pos)
                   ((>= pos last)
                    nil)
                   (else
-                   (loop (+ pos 1)))))))
+                   (iter (+ pos 1)))))))
       
       (let ((pos (either start (if reverse? len 0)))
             (find (if reverse? find-backward find-forward))
@@ -2318,12 +2318,12 @@
         (if (not all?)
             (find pos)
           (let ((queue (new-queue)))
-            (let loop ((pos pos))
+            (let iter ((pos pos))
               (let ((found (find pos)))
                 (if found
                     (begin
                       (enqueue queue found)
-                      (loop (move found size)))
+                      (iter (move found size)))
                   (queue-list queue))))))))))
 
 
@@ -2346,12 +2346,12 @@
          (let ((previous 0)
                (incr (length separator))
                (result (new List-Factory)))
-           (let loop ()
+           (let iter ()
              (let ((pos (search separator seq :start previous)))
                (when pos
                  (put~ result (subseq seq previous pos))
                  (set! previous (+ pos incr))
-                 (loop))))
+                 (iter))))
            (put~ result (subseq seq previous))
            (get-output~ result)))))
 
@@ -2571,7 +2571,7 @@
 (definition (find-list target list key test start returned)
   (let ((key (if (nil? key) (lambda (x) x) key))
         (test (if (nil? test) eqv? test)))
-    (let loop ((rest (tail list start))
+    (let iter ((rest (tail list start))
                (rank start))
        (cond ((null? rest) null)
              ((test target (key (car rest)))
@@ -2579,12 +2579,12 @@
                     ((eq? returned 'item) (car rest))
                     (else (error "Unknown return type {t}" returned))))
              (else
-              (loop (cdr rest) (+ rank 1)))))))
+              (iter (cdr rest) (+ rank 1)))))))
          
        
 (definition (find-if-list predicate list key start returned)
   (let ((key (if (nil? key) (lambda (x) x) key)))
-    (let loop ((rest (tail list start))
+    (let iter ((rest (tail list start))
                (rank start))
        (cond ((null? rest) null)
              ((predicate (key (car rest)))
@@ -2592,7 +2592,7 @@
                     ((eq? returned 'item) (car rest))
                     (else (error "Unknown return type {t}" returned))))
              (else
-              (loop (cdr rest) (+ rank 1)))))))
+              (iter (cdr rest) (+ rank 1)))))))
 
 
 (definition (insert-sequence! sequence seq pos)
@@ -2736,11 +2736,11 @@
   
   
   (method (copy-object deep?)
-    (let ((subcopy (if deep? (lambda (x) (copy x deep?)) (lambda (x) x))))
-      (if (null? self)
-          self
-        (cons (subcopy (car self))
-              (subcopy (cdr self)))))))
+    (map (lambda (x)
+           (if deep?
+               (copy x deep?)
+             x))
+         self)))
 
 
 (class Null extends List)
@@ -2814,7 +2814,7 @@
 (definition (insert! obj lst pos)
   (if (= 0 pos)
       (cons obj lst)
-    (let loop ((i 1)
+    (let iter ((i 1)
                (prev lst)
                (rst (cdr lst)))
          (cond ((null? rst) lst)
@@ -2822,15 +2822,15 @@
                 (set-cdr! prev (cons obj rst))
                 lst)
                (else
-                (loop (+ i 1) rst (cdr rst)))))))
+                (iter (+ i 1) rst (cdr rst)))))))
 
 
 (definition (last-tail lst)
   (if (null? lst)
       lst
-    (let loop ((cur lst))
+    (let iter ((cur lst))
          (if (pair? (cdr cur))
-             (loop (cdr cur))
+             (iter (cdr cur))
            cur))))
 
 
@@ -2881,13 +2881,13 @@
 
 
 (definition (position-of obj lst)
-  (let loop ((rst lst)
+  (let iter ((rst lst)
              (i 0))
      (if (null? rst)
          null
        (if (eq? obj (car rst))
            i
-         (loop (cdr rst) (+ i 1))))))
+         (iter (cdr rst) (+ i 1))))))
 
            
 (definition (proper-list? lst)
@@ -2911,13 +2911,13 @@
 (definition (move-to-head! target lst)
   (if (or (null? lst) (eq? target (car lst)))
       lst
-    (let loop ((previous lst)
+    (let iter ((previous lst)
                (scan (cdr lst)))
          (cond ((null? scan) lst)
                ((eq? (car scan) target)
                 (set-cdr! previous (cdr scan))
                 (cons target lst))
-               (else (loop scan (cdr scan)))))))
+               (else (iter scan (cdr scan)))))))
 
       
 (definition (move-to-tail! target lst)
@@ -2926,7 +2926,7 @@
          (set-cdr! (last-tail lst) (cons target null))
          (cdr lst))
         (else
-         (let loop ((previous lst)
+         (let iter ((previous lst)
                     (scan (cdr lst)))
               (cond ((null? scan) lst)
                     ((eq? (car scan) target)
@@ -2937,7 +2937,7 @@
                          (set-cdr! (last-tail scan) (cons target null))
                          lst)))
                     (else
-                     (loop scan (cdr scan))))))))
+                     (iter scan (cdr scan))))))))
 
 
 ;; Scheme's definition scan's the list so we need to first convert all calls to list?
@@ -3503,15 +3503,15 @@
 
 
 (definition public (pathname-exists? pathname)
-  (file-exists? (parse-pathname pathname)))
+  (file-exists? (parse~ pathname)))
 
 
 (definition public (pathname-delete pathname)
-  (file-delete (parse-pathname pathname)))
+  (file-delete (parse~ pathname)))
 
 
 (definition public (pathname-last-modification-time pathname)
-  (file-last-modification-time (parse-pathname pathname)))
+  (file-last-modification-time (parse~ pathname)))
 
 
 ;;;
@@ -3638,7 +3638,7 @@
 (definition public (property-field object <Object> expr <Object>)
   (if (property? expr)
       expr
-    (let ((field (unit-field (class-of object) (if (keyword? expr) (keyword->symbol expr) expr))))
+    (let ((field (unit-field (class-of object) (if (keyword? expr) (keyword->symbol expr) (if (enumerator? expr) (enumerator->symbol expr) expr)))))
       (if (property? field)
           field
         (error "Unknown property: {t}" expr)))))
@@ -3676,12 +3676,12 @@
 
 (definition public (read-until test reader)
   (let ((queue (new-queue)))
-    (let loop ()
+    (let iter ()
       (let ((expr (read reader)))
         (if (test expr)
             (queue-list queue)
           (enqueue queue expr)
-          (loop))))))
+          (iter))))))
 
 
 (definition public (read-string-element string)
@@ -3743,31 +3743,31 @@
 
 
 (definition public (skip-line reader)
-  (let loop ()
+  (let iter ()
     (let ((c (read-char reader)))
       (if (and (not (eof-object? c))
                (not (eqv? c #\newline))
                (not (eqv? c #\return)))
-          (loop)
+          (iter)
         (if (eqv? c #\return)
             (read-char reader))))))
 
 
 (definition public (skip-whites reader)
-  (let loop ()
+  (let iter ()
     (let ((c (peek-char reader)))
       (unless (eof-object? c)
         (if (eqv? c #\;)
             (skip-line reader)
           (when (whitespace? c)
             (read-char reader)
-            (loop)))))))
+            (iter)))))))
 
 
 (definition public (read-delimited reader kind delimiter . rest)
   (bind-optionals ((allow-eof? false)) rest
     (let ((queue (new-queue)))
-      (let loop ()
+      (let iter ()
         (skip-whites reader)
         (let ((c (peek-char reader)))
           (cond ((eof-object? c)
@@ -3779,10 +3779,10 @@
                  (queue-list queue))
                 ((eqv? c #\.)
                  (enqueue-list queue (read reader))
-                 (loop))
+                 (iter))
                 (else
                  (enqueue queue (read reader))
-                 (loop))))))))
+                 (iter))))))))
 
 
 (definition public (string-delimiter? c)
@@ -3800,9 +3800,28 @@
       (eq? obj EOF-Object)))
 
 
-(definition (read-line reader)
+(definition public (read-line reader)
   (let ((port (open-output-string)))
-    (let loop ((empty? true))
+    (let iter ()
+      (let ((c (read-char reader)))
+        (if (eof-object? c)
+            (if empty?
+                nil
+              (get-output-string port))
+          (case c
+            ((#\newline)
+             (get-output-string port))
+            ((#\return)
+             (let ((c (read-char reader)))
+               (get-output-string port)))
+            (else
+             (write-char c port)
+             (iter))))))))
+
+
+(definition (read-line-proper reader)
+  (let ((port (open-output-string)))
+    (let iter ((empty? true))
       (let ((c (read-char reader)))
         (if (eof-object? c)
             (if empty?
@@ -3816,17 +3835,17 @@
                (values (get-output-string port) true)))
             (else
              (write-char c port)
-             (loop false))))))))
+             (iter false))))))))
 
 
 (definition (load-lines reader)
   (let ((queue (new-queue)))
-    (let loop ((last-proper? false))
-      (bind-values (line proper?) (read-line reader)
+    (let iter ()
+      (let ((line (read-line reader)))
         (if (not-nil? line)
             (begin
               (enqueue queue line)
-              (loop proper?))
+              (iter))
           (queue-list queue))))))
 
 
@@ -4053,21 +4072,21 @@
 (definition (compare-n x y max)
   (let ((xlen (string-length x))
         (ylen (string-length y)))
-    (let loop ((n 0))
+    (let iter ((n 0))
       (if (>= n max)
           #t
         (if (or (>= n xlen) (>= n ylen) (not (eqv? (string-ref x n) (string-ref y n))))
             #f
-          (loop (+ n 1)))))))
+          (iter (+ n 1)))))))
 
 
 (definition (string-checksum str)
   (let ((sum 0)
         (len (string-length str)))
-    (let loop ((n 0))
+    (let iter ((n 0))
       (when (< n len)
         (increase! sum (char->integer (string-ref str n)))
-        (loop (+ n 1))))
+        (iter (+ n 1))))
     sum))
 
 
@@ -4266,11 +4285,11 @@
                  (old-content content))
              (set-size n)
              (set! content (make-vector (inexact->exact (round (* n GOLDEN_RATIO))) nil))
-             (let loop ((i 0))
+             (let iter ((i 0))
                 (when (< i old-real-size)
                   (begin
                     (set-element! content i (element old-content i))
-                    (loop (+ i 1))))))))))
+                    (iter (+ i 1))))))))))
 
 
 (specific (element (Axis axis) n)
@@ -4288,11 +4307,11 @@
 (specific (tail (Axis axis) n)
   (let ((new-axis (new Axis n))
         (offset (- (length axis) n)))
-    (let loop ((i 0))
+    (let iter ((i 0))
        (if (>= i n)
            new-axis
          (set-element! new-axis i (element axis (+ i offset)))
-         (loop (+ i 1))))))
+         (iter (+ i 1))))))
 
 
 (specific (last (Axis axis))
@@ -4306,27 +4325,27 @@
          (old-size (get-size~ axis))
          (new-size (+ old-size delta)))
     (cond ((< after before)
-           (let loop ((n (- old-size end))
+           (let iter ((n (- old-size end))
                       (src end)
                       (dst (+ end delta)))
                 (when (> n 0)
                   (set-element! axis dst (element axis src))
                   (set-element! axis src nil)
-                  (loop (- n 1) (+ src 1) (+ dst 1))))
+                  (iter (- n 1) (+ src 1) (+ dst 1))))
            (grow~ axis new-size))     
           ((> after before)
            (grow~ axis new-size)
-           (let loop ((n (- old-size end))
+           (let iter ((n (- old-size end))
                       (src (- old-size 1))
                       (dst (+ (- old-size 1) delta)))
                 (when (> n 0)
                   (set-element! axis dst (element axis src))
-                  (loop (- n 1) (- src 1) (- dst 1))))))
-    (let loop ((n 0)
+                  (iter (- n 1) (- src 1) (- dst 1))))))
+    (let iter ((n 0)
                (dst start))
          (when (< n after)
            (set-element! axis dst (element replacement n))
-           (loop (+ n 1) (+ dst 1))))
+           (iter (+ n 1) (+ dst 1))))
     axis))
 
 
@@ -4381,6 +4400,15 @@
 
 (definition public (closure? object <Object>)
   (procedure? object))
+
+
+;;;
+;;;; Enumerator
+;;;
+
+
+(definition public inline (enumerator->symbol enumerator)
+  (string->symbol (enumerator->string enumerator)))
 
 
 ;;;
@@ -4551,6 +4579,17 @@
     (scheme.write obj (output-port port))))
 
 
+(definition public (write-char c . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.write-char c (output-port port))))
+
+
+(definition public (write-line line . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (display line port)
+    (newline port)))
+
+
 (definition public (newline . rest)
   (let ((port (if (null? rest) #f (car rest))))
     (scheme.newline (output-port port))))
@@ -4590,7 +4629,7 @@
   
   
   (method (initialize file)
-    (nextmethod (open-output-file file)))
+    (nextmethod (open-output-file (parse~ file))))
   
   
   (method (destroy)
@@ -5222,7 +5261,7 @@
     (when (not-null? list)
       (when before
         (display before printer))
-      (let loop ((scan list))
+      (let iter ((scan list))
         (let ((expr (car scan)))
           (print~ expr printer detail)
           (let ((next (cdr scan)))
@@ -5231,7 +5270,7 @@
                   (display (if (null? (cdr next)) last-separator separator) printer)
                 (display " . " printer)
                 (print~ next printer detail))
-              (loop (cdr scan))))))
+              (iter (cdr scan))))))
       (when after
         (display after printer)))))
 

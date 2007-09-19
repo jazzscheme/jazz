@@ -39,42 +39,53 @@
 
 
 (import (dev)
+        (jazz.git)
         (jazz.jml)
         (jazz.library)
         (jazz.literals)
         (jazz.platform)
         (jazz.platform.windows)
         (jazz.ui)
-        (jedi)
-        (test.cffi))
+        (jedi))
 
 
-(make-S2)
-(debug 'hello)
+;;;
+;;;; Git
+;;;
+
+
+(definition *jazz-repository*
+  (new Git-Repository {Directory Root}))
+
+
+(git-repository-set! *jazz-repository*)
+
+
+(prepare-merge~ *jazz-repository* {Directory Native "C:" "Merge"})
+
 
 @w(
-@w(let ((s1 (make-S1)))
-  (debug 'struct1a (struct1a s1))
-  (debug 'struct1c (struct1c s1)))
+(definition (test patch-file)
+  (debug patch-file)
+  (parse-patch-file patch-file
+    (lambda (a-name a-index b-name b-index deltas)
+      (let ((name (either a-name b-name))
+            (action (cond ((nil? b-name) 'deleted)
+                          ((nil? a-name) 'new)
+                          (else 'modified))))
+        (debug name action a-index (length deltas))))))
 
-(let ((s2 (make-S2)))
-  #f
-  @w(debug 'struct2a (struct2a s2)))
-@w(let ((s2* (make-S2*)))
-  (debug 'struct2c (struct2c s2*)))
-
-@w
-(let ((s2* (cast-S2->S2* s2)))
-  (debug 'struct2c (struct2c s2*)))
-@w
-(let ((s3 (make-S3)))
-  (debug 'struct3a (struct3a s3))
-  (debug 'struct3c (struct3c s3))))
+(test {File Root "products" "org.jazz" "lib" "jazz" "git" "git_sample.patch"})
+;;(test {File Root "merge" "products" "org.jazz" "lib" "jazz" "git" "mercurial_sample.patch"})
+(test {File Native "C:" "Merge" "0001.patch"})
+(test {File Native "C:" "Merge" "0002.patch"})
+(test {File Native "C:" "Merge" "0003.patch"}))
 
 
 ;;;
 ;;;; CFFI
 ;;;
+
 
 @w(
 (debug 'init1 (init1))

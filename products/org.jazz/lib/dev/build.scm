@@ -109,10 +109,10 @@
 
 (define (jazz.create-directories dirname)
   (let ((path (%%reverse (jazz.split-string dirname #\/))))
-    (let loop ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
+    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
       (if (%%not (%%null? scan))
           (begin
-            (loop (%%cdr scan))
+            (iter (%%cdr scan))
             (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
               (if (%%not (file-exists? subdir))
                   (create-directory subdir))))))))
@@ -141,25 +141,22 @@
 
 
 (define (jazz.for-each-submodule module-name proc)
-  (let loop ((module-name module-name)
+  (let iter ((module-name module-name)
              (load #f)
              (phase #f))
-    ;; quicky for tests
-    (if (%%eq? module-name 'core.library.syntax.walker)
-        (proc module-name #f #f #f)
-      (let ((declaration (jazz.locate-toplevel-declaration module-name)))
-        (proc module-name declaration load phase)
-        (cond ((eq? (%%get-lexical-binding-name declaration) module-name)
-               (if (jazz.is? declaration jazz.Module-Declaration)
-                   (for-each (lambda (require)
-                               (jazz.parse-require require loop))
-                             (%%get-module-declaration-requires declaration))
+    (let ((declaration (jazz.locate-toplevel-declaration module-name)))
+      (proc module-name declaration load phase)
+      (cond ((eq? (%%get-lexical-binding-name declaration) module-name)
+             (if (jazz.is? declaration jazz.Module-Declaration)
                  (for-each (lambda (require)
-                             (jazz.parse-require require loop))
-                           (%%get-library-declaration-requires declaration))))
-              (else
-               (jazz.set-catalog-entry module-name #f)
-               (error "Inconsistant module name in" module-name)))))))
+                             (jazz.parse-require require iter))
+                           (%%get-module-declaration-requires declaration))
+               (for-each (lambda (require)
+                           (jazz.parse-require require iter))
+                         (%%get-library-declaration-requires declaration))))
+            (else
+             (jazz.set-catalog-entry module-name #f)
+             (error "Inconsistant module name in" module-name))))))
 
 
 ;;;
@@ -174,10 +171,10 @@
       (if (not (eq? load 'interpreted))
           (let* ((filename (jazz.module-filename module-name))
                  (bindir (jazz.determine-module-bindir filename)))
-            (let loop ((n 0))
+            (let iter ((n 0))
                  (let ((bin (%%string-append bindir filename ".o" (number->string n))))
                    (if (file-exists? bin)
                        (begin
                          (write (list 'deleting bin)) (newline)
                          (delete-file bin)
-                         (loop (%%fixnum+ n 1))))))))))))
+                         (iter (%%fixnum+ n 1))))))))))))

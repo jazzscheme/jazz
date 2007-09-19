@@ -75,11 +75,11 @@
 
 
 (define (jazz.find-char-reversed c str)
-  (let loop ((n (%%fixnum- (%%string-length str) 1)))
+  (let iter ((n (%%fixnum- (%%string-length str) 1)))
     (cond ((char=? (%%string-ref str n) c)
            n)
           ((%%fixnum> n 0)
-           (loop (%%fixnum- n 1)))
+           (iter (%%fixnum- n 1)))
           (else
            #f))))
 
@@ -205,11 +205,11 @@
             (let ((o1 (try 1)))
               (if (%%not (file-exists? o1))
                   #f
-                (let loop ((next 2)
+                (let iter ((next 2)
                            (last-path o1))
                      (let ((next-path (try next)))
                        (if (file-exists? next-path)
-                           (loop (%%fixnum+ next 1) next-path)
+                           (iter (%%fixnum+ next 1) next-path)
                          last-path))))))))))
   (else))
 
@@ -230,7 +230,7 @@
   (let ((path (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
     (jazz.split-filename path
       (lambda (dir name)
-        (let loop ((scan jazz.Library-Prefixes))
+        (let iter ((scan jazz.Library-Prefixes))
           (if (null? scan)
               (jazz.kernel-error "Unable to find module:" module-name)
             (let ((prefix (car scan)))
@@ -241,17 +241,17 @@
                       ((and (not (equal? dir "")) (jazz.directory-exists? prefixed-dir))
                        prefixed-path)
                       (else
-                       (loop (cdr scan))))))))))))
+                       (iter (cdr scan))))))))))))
 
 
 (define (jazz.string-replace str old new)
   (let ((cpy (string-copy str)))
-    (let loop ((n (%%fixnum- (%%string-length cpy) 1)))
+    (let iter ((n (%%fixnum- (%%string-length cpy) 1)))
       (if (%%fixnum>= n 0)
           (begin
             (if (%%eqv? (%%string-ref cpy n) old)
                 (%%string-set! cpy n new))
-            (loop (%%fixnum- n 1)))))
+            (iter (%%fixnum- n 1)))))
     cpy))
 
 

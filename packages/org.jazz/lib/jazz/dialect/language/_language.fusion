@@ -3331,16 +3331,13 @@
     (native-class "hashtables"))
 
 
-  @convert
   (method (print printer readably)
     (print-unreadable self printer
       (function dynamic (printer)
-        (format printer "{a} of {a}"
-                (hashtable-entries self)
-                (hashtable-user-size self)))))
+        (format printer "{a} entries"
+                (hashtable-length self)))))
   
   
-  @convert
   (method public (gather-keys)
     (let ((list null))
       (for-each-hash (function dynamic (key value)
@@ -3349,7 +3346,6 @@
       list))
   
   
-  @convert
   (method public (gather-values)
     (let ((list null))
       (for-each-hash (function dynamic (key value)
@@ -3358,7 +3354,6 @@
       list))
   
   
-  @convert
   (method public (gather-keys/values)
     (let ((list null))
       (for-each-hash (function dynamic (key value)
@@ -3386,7 +3381,7 @@
 
 
 (definition public (for-each-hash proc <Procedure> hashtable <Hashtable>)
-  (for-each-table proc hashtable))
+  (iterate-hashtable hashtable proc))
 
 
 (specific (iterate (Hashtable hashtable))
@@ -3404,13 +3399,21 @@
 ;(definition (hash-add-multiple                       Hashtable Object Object))
 ;(definition (hash-clear                              Hashtable Object))
 ;(definition (hashtable-test                          Hashtable))
-;(definition (hashtable-user-size                     Hashtable))
-;(definition (hashtable-real-size                     Hashtable))
-;(definition (hashtable-entries                       Hashtable))
 ;(definition (hashtable-names                         Hashtable))
 (definition (empty-hashtable hashtable)
   (unimplemented 'empty-hashtable))
-;(definition (load-hashtable                          Hashtable File bool))
+
+
+(definition public (load-hashtable hashtable file error-on-duplicates?)
+  (with-closed ((reader (new File-Reader file)))
+    (let iter ((name (read reader))
+               (object (read reader)))
+      (when (and (not (eof-object? name))
+                 (not (eof-object? object)))
+        (if (and error-on-duplicates? (hashtable-ref hashtable name #f))
+            (error "Duplicated hashtable entries for {t}" name)
+          (hashtable-set! hashtable name object))
+        (iter)))))
 
 
 ;;;
@@ -3445,7 +3448,7 @@
 (definition (map-clear map sym)
   (map-set! map sym))
 
-(definition map-entries hashtable-entries)
+(definition map-length hashtable-length)
        
 (definition (empty-map map)
   (let ((keys (hashtable-keys map)))
@@ -3982,8 +3985,9 @@
            (subseq seq end (length seq))))
 
 
-(definition public (empty-string? string)
-  (string=? string ""))
+(definition public (empty-string? object)
+  (and (string? object)
+       (zero? (string-length object))))
 
 
 (definition public (->string expr . rest)

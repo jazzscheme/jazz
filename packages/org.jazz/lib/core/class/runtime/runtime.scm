@@ -366,6 +366,8 @@
          jazz.Port)
         ((%%procedure? expr)
          jazz.Procedure)
+        ((%%foreign? expr)
+         jazz.Foreign)
         (else
          (jazz.error "Unable to get class of {s}" expr))))
 
@@ -461,6 +463,7 @@
 (jazz.define-class jazz.Pair      jazz.List     () jazz.List-Class     ())
 (jazz.define-class jazz.Port      jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.Procedure jazz.Object   () jazz.Object-Class   ())
+(jazz.define-class jazz.Foreign   jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.String    jazz.Sequence () jazz.String-Class   ())
 (jazz.define-class jazz.Symbol    jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.Keyword   jazz.Object   () jazz.Object-Class   ())
@@ -481,6 +484,7 @@
 (jazz.encapsulate-class jazz.Pair)
 (jazz.encapsulate-class jazz.Port)
 (jazz.encapsulate-class jazz.Procedure)
+(jazz.encapsulate-class jazz.Foreign)
 (jazz.encapsulate-class jazz.String)
 (jazz.encapsulate-class jazz.Symbol)
 (jazz.encapsulate-class jazz.Keyword)
@@ -507,6 +511,7 @@
     (vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
     (vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
     (vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
+    (vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
     (vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
     (vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Number)
     (vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Number)

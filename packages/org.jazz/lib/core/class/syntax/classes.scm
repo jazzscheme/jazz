@@ -109,6 +109,7 @@
 (jazz.define-class-syntax jazz.Pair      jazz.List     () jazz.List-Class     () ())
 (jazz.define-class-syntax jazz.Port      jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Procedure jazz.Object   () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Foreign   jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.String    jazz.Sequence () jazz.String-Class   () ())
 (jazz.define-class-syntax jazz.Symbol    jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Keyword   jazz.Object   () jazz.Object-Class   () ())

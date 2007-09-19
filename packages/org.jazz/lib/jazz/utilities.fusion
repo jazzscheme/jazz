@@ -39,7 +39,8 @@
 
 
 (import (jazz.library)
-        (jazz.platform))
+        (jazz.platform)
+        (jazz.platform.windows))
 
 
 ;;;
@@ -1213,8 +1214,7 @@
 
 (definition public (with-safe-execution title proc . rest)
   (proc)
-  ;; to convert
-  @system-message
+  @convert-message-box?
   (bind-keywords ((continue-text null) (continue-handler null)) rest
     (call-with-catch Error
           (function dynamic (err)
@@ -1350,83 +1350,19 @@
 
 
 ;;;
-;;;; Progress
-;;;
-
-
-(definition (with-progress proc . rest)
-  (unimplemented 'with-progress)
-  @Thread
-  (bind-keywords ((threaded? true) (name null) (context self) (progress-reporter Progress-Reporter) (cancelable? true) (abnormal-cleanup null)) rest
-    (if (not threaded?)
-        (proc (new User-Reporter))
-      (bind-values (process? dialog) (new-dialog~ progress-reporter :host-closable? cancelable? :guest-context context)
-        (let ((reporter (get-guest~ dialog)))
-          (when (not cancelable?)
-            (disable-cancel~ reporter))
-          (new Thread
-            name: (either name "Worker Thread")
-            :context self
-            :execute (function (thread)
-                       (let* ((result)
-                              (resignal null)
-                              (abnormal
-                                (function dynamic (sig)
-                                  (when abnormal-cleanup
-                                    (abnormal-cleanup))
-                                  (set! resignal sig))))
-                         (unwind-protect
-                             ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
-                             ;; The fact that we are using a thread for user interface responsiveness should not affect
-                             ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
-                             ;; definition which will resignal them to the calling thread
-                             (catch (Signal sig
-                                            (if (forwardable?~ sig)
-                                                (abnormal sig)
-                                              (signal sig)))
-                               (set! result (proc reporter)))
-                           (if resignal
-                               (signal-modal~ dialog resignal)
-                             (end-modal~ dialog result))))))
-          (process-modal~ dialog))))))
-
-
-;;;
 ;;;; Message Box
 ;;;
 
 
-(definition public (message-box?)
-  (and (is? (get-process) Application)
-       (get-bindings~ (get-application))))
-
-
 (definition public (message-box text . rest)
-  (bind-keywords ((class null) (type 'message) (title null) (icon null) (content null) (sound 'default) (selection null) (yes null) (no null) (cancel null) (actions null) (default-button null) (process-keys? true) (sizable? false)) rest
-    (if (not (message-box?))
-        (system-message text :type type)
-      (receive-primary
-        (function dynamic ()
-          (bind-values (process? dialog) (new-dialog~ (either class Message-Box) :host-visible? false :host-sizable? sizable?)
-            (let ((guest (get-guest~ dialog)))
-              (process-box~ guest text
-                :type type
-                :title title
-                :icon icon
-                :content content
-                :sound sound
-                :selection selection
-                :yes yes
-                :no no
-                :cancel cancel
-                :actions actions
-                :default-button default-button
-                :process-keys? process-keys?))))))))
+  (let ((process (get-process)))
+    (if (not process)
+        (system-message text rest)
+      (show-box~ process text rest))))
 
 
-(definition (system-message text . rest)
-  (display text)
-  (newline))
+(definition public (system-message text rest)
+  (MessageBox NULL text NULL MB_TASKMODAL))
 
 
 ;;;
@@ -1933,84 +1869,6 @@
 
 
 ;;;
-;;;; Request
-;;;
-
-
-;; These should really be hooks to modify the dialog at creation time...
-
-
-(definition public (request-string . rest)
-  (unimplemented 'request-string)
-  @Locale
-  (bind-keywords ((class String-Request) (title null) (prefix null) (initial-value null) (accepts-empty? true) (unicity-domain null) (validator null)) rest
-    (bind-values (process? dialog) (new-dialog~ class)
-      (let* ((view (get-guest~ dialog))
-             (prfx (locate~ view 'prefix))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter String"))
-        (set-accepts-empty?~ view accepts-empty?)
-        (set-unicity-domain~ view unicity-domain)
-        (set-validator~ view validator)
-        (set-title~ prfx (either prefix "String:"))
-        (set-string-content~ text (if initial-value (->string initial-value) ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              null
-            string))))))
-
-
-(definition public (request-name . rest)
-  (unimplemented 'request-name)
-  @Locale
-  (bind-keywords ((title null) (prefix null) . others) rest
-    (let* ((title (either title "Enter Name"))
-           (prefix (either prefix "Name:"))
-           (string (apply request-string :title title :prefix prefix others)))
-      (if (null? string)
-          null
-        (string->symbol string)))))
-
-
-(definition public (request-text . rest)
-  (unimplemented 'request-text)
-  @Text-Request
-  (bind-keywords ((class Text-Request) (title null) (initial-text null)) rest
-    (bind-values (process? dialog) (new-dialog~ class)
-      (let* ((view (get-guest~ dialog))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter Text"))
-        (set-string-content~ text (either initial-text ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              null
-            string))))))
-
-
-(definition public (request-date . rest)
-  (unimplemented 'request-date)
-  @Date-Request
-  (bind-keywords ((class Date-Request) (title null) (prefix null) (initial-date null)) rest
-    (bind-values (process? dialog) (new-dialog~ class)
-      (let* ((view (get-guest~ dialog))
-             (prfx (locate~ view 'prefix))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter Date"))
-        (set-title~ prfx (either prefix "Date:"))
-        (set-string-content~ text (if initial-date (present~ initial-date) ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              null
-            (parse-string~ Date string)))))))
-
-
-;;;
 ;;;; Arguments
 ;;;
 
@@ -2450,9 +2308,10 @@
 ;;;
 
 
+@convert-and-relocate
 (definition public (request-data-source . rest)
   (bind-keywords ((provider null)) rest
-    (bind-values (process? dialog) (new-dialog~ (autoload 'Data-Source-Chooser) :host-visible? false)
+    (bind-values (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) :host-visible? false)
       (let ((manager (get-guest~ dialog)))
         (when provider
           (set-provider~ manager (external-name~ provider)))

@@ -162,6 +162,7 @@
 (native jazz.hashtable-set!)
 (native jazz.hashtable-clear)
 (native jazz.hashtable-keys)
+(native jazz.hashtable-length)
 (native jazz.iterate-hashtable)
 (native jazz.alist->hashtable)
 (native jazz.hashtable-entries)
@@ -519,14 +520,6 @@
 
 (native make-parameter)
 (native parameterize)
-
-
-;;;
-;;;; Table
-;;;
-
-
-(native for-each-table)
 
 
 ;;;

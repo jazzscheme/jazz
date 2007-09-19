@@ -178,6 +178,19 @@
 
 
 ;;;
+;;;; Foreign
+;;;
+
+
+(cond-expand
+  (gambit
+   (define-macro (%%foreign? obj)
+     `(##foreign? ,obj)))
+  
+  (else))
+
+
+;;;
 ;;;; Hashtable
 ;;;
 
@@ -207,6 +220,9 @@
     
     (define-macro (%%hashtable-keys hashtable)
       `(map car (table->list ,hashtable)))
+    
+    (define-macro (%%hashtable-length hashtable)
+      `(table-length ,hashtable))
     
     (define-macro (%%iterate-hashtable hashtable proc)
       `(table-for-each ,proc ,hashtable))

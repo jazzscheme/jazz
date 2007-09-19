@@ -66,6 +66,11 @@
     (%%hashtable-keys hashtable)))
 
 
+(define (jazz.hashtable-length hashtable)
+  (%%assert (%%hashtable? hashtable)
+    (%%hashtable-length hashtable)))
+
+
 (define (jazz.iterate-hashtable hashtable proc)
   (%%assert (%%hashtable? hashtable)
     (%%iterate-hashtable hashtable proc)))

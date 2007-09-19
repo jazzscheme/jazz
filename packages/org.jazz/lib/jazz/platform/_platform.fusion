@@ -70,7 +70,7 @@
 
 
 (definition public (POINT->point pt) <Point>
-  (if (eq? pt NULL)
+  (if (not pt)
       null
     (new Point
       (POINT-x-ref pt)
@@ -82,7 +82,7 @@
 
 
 (definition public (POINT->dimension pt) <Dimension>
-  (if (eq? pt NULL)
+  (if (not pt)
       null
     (new Dimension
       (POINT-x-ref pt)
@@ -92,7 +92,7 @@
 (definition public (SIZE->dimension size) <Dimension>
   (unimplemented '<Dimension>)
   @convert
-  (if (= size NULL)
+  (if (not size)
       null
     (new Dimension
       (get size 'cx)
@@ -116,7 +116,7 @@
 
 
 (definition public (RECT->rect rect) <Rect>
-  (if (equal? rect NULL)
+  (if (not rect)
       null
     (new Rect
       (RECT-left-ref rect)
@@ -838,84 +838,6 @@
               Crash-Info)
     (let ((info (get-output~ printer)))
       (set-crash-info info))))
-
-
-@not-sure-about-this-approach
-(class Platform extends Object
-  
-  
-  ;;;
-  ;;;; Directory
-  ;;;
-
-
-  (method public virtual abstract (get-current-directory platform))
-  (method public virtual abstract (set-current-directory platform dirname))
-  
-  
-  ;;;
-  ;;;; Time
-  ;;;
-  
-  
-  (method public virtual abstract (sleep platform))
-  (method public virtual abstract (clock platform))
-  (method public virtual abstract (clocks/second platform)))
-
-
-(definition platform
-  #f)
-
-
-(definition public (get-platform)
-  platform)
-
-
-(definition public (set-platform value)
-  (set! platform value))
-
-
-;;;
-;;;; Directory
-;;;
-
-
-@old
-(definition public (get-current-directory)
-  (Platform.get-current-directory platform))
-
-
-@old
-(definition public (set-current-directory dirname)
-  (Platform.set-current-directory platform dirname))
-
-
-;;;
-;;;; Time
-;;;
-
-
-@old
-(definition public (sleep)
-  (Platform.sleep platform))
-
-
-@old
-(definition public (clock)
-  (Platform.clock platform))
-
-
-@old
-(definition public (clocks/second)
-  (Platform.clocks/second platform))
-
-
-@old
-(definition public (time thunk)
-  (let ((before (clock)))
-    (thunk)
-    (let ((after (clock)))
-      (- after before))))
 
 
 ;;;
@@ -2214,7 +2136,6 @@
 ;;;
 
 
-;;(external Jazz Object          (system-message                          Object . rest)                                                                                     "JzSystemMessage")
 ;;(external Jazz Object          (debugger                                Object)                                                                                            "JzDebugger")
 ;;(external Jazz Object          (debug-print                             Object)                                                                                            "JzDebugPrint")
 ;;(external Jazz Object          (enter-debugger                          Object)                                                                                            "JzEnterDebugger")
@@ -2282,19 +2203,6 @@
 (definition public (command-argument string)
   ;; todo
   '())
-
-
-;;;
-;;;; Message
-;;;
-
-
-(definition (bootsafe-message-box text)
-  (unimplemented 'bootsafe-message-box)
-  @windows-specific
-  (if (process-active?)
-      (message-box text)
-    (system-message text)))
 
 
 ;;;
@@ -2405,7 +2313,7 @@
         (with-closed ((printer (new File-Printer :pathname file)))
           (apply print-stack printer others))
         (when user-feedback?
-          (bootsafe-message-box (format "Stack dumped to {t}" file)))
+          (message-box (format "Stack dumped to {t}" file)))
         file))))
 
 
@@ -2422,7 +2330,7 @@
                               (format printer "  {a}{%}" (car frame)))
                             (get-call-stack~ thread)))
                 (get-threads~ process))
-      (system-message (get-output~ printer)))))
+      (message-box (get-output~ printer)))))
 
 
 (definition public (snapshot-stack)

@@ -112,8 +112,8 @@
   
   (method public (get-statistics)
     (let ((f (count-file-entries content))
-          (d (hashtable-entries definitions-index))
-          (r (hashtable-entries references-index)))
+          (d (hashtable-length definitions-index))
+          (r (hashtable-length references-index)))
       (format "{a} file{a}, {a} definition{a}, {a} reference{a}"
               f (format-plural f)
               d (format-plural d)
@@ -129,9 +129,8 @@
   
   
   (method (hashtable-info hashtable)
-    (format "{s} of {s}"
-            (hashtable-entries hashtable)
-            (hashtable-user-size hashtable)))
+    (format "{s} entries"
+            (hashtable-length hashtable)))
 
   
   (method (get-entry-time definition)
@@ -327,6 +326,7 @@
   
   
   (method (scan-zip-file file time)
+    @convert
     (let ((entries (new List-Factory)))
       (with-closed ((unzip (new Unzip-File file)))
         (iterate-files~ unzip
@@ -423,21 +423,10 @@
   
   
   (method (hashtable-complete hashtable string)
-    (hashtable-complete-c++ hashtable string))
-  
-
-  (method (hashtable-complete-c++ hashtable string)
-    (JzHashtableComplete hashtable string))
-
-  
-  (method (hashtable-complete-compiled hashtable string)
     (let ((length (length string))
           (result null))
       (for-each-hash (function dynamic (name value)
                        (when (compare-n name string length)
                          (set! result (cons name result))))
                      hashtable)
-      result))
-
-
-  (external Jazz Object (JzHashtableComplete Hashtable string))))
+      result))))

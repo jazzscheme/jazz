@@ -1759,7 +1759,9 @@
          (%%number? form)
          (%%null? form))
      form)
-    ((or (%%symbol? form) (jazz.scheme-pair-literal? form))
+    ((or (%%symbol? form)
+         (%%vector? form)
+         (jazz.scheme-pair-literal? form))
      `(quote ,form))
     (else
      (jazz.register-literal walker resume declaration form))))
@@ -1808,7 +1810,7 @@
 (define (jazz.register-literal walker resume declaration literal)
   ;; calling jazz.get-registered-literal to only register when not already there
   ;; doesnt work directly because some literals are interned and thus can be shared
-  (let ((name (jazz.generate-symbol "lit")))
+  (let ((name (jazz.generate-symbol (string-append (symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) ".lit"))))
     ;; it is important to register before any subliterals to ensure they come before us
     (let ((info (%%cons literal (%%cons name #f))))
       (%%set-walker-literals walker (%%cons info (%%get-walker-literals walker)))

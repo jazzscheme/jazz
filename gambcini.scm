@@ -373,6 +373,7 @@
 
 (define (cj module-name)
   (bd)
+  (lj)
   (let* ((file (jazz.module-filename module-name))
          (jazz (jazz.determine-module-source file))
          (jscm (string-append file ".jscm"))
@@ -392,13 +393,35 @@
   '(jazz.library.component.Component
     jazz.ui.layout.Figure
     jazz.ui.view.Drawing
-    jazz.ui.view.View))
+    jazz.ui.view.View
+    jazz.ui.graphic.Font
+    jazz.process.Process
+    jazz.application.Application
+    jazz.ui.graphic.Cairo-Win32-Surface
+    jazz.library.element.Node
+    jazz.library.exemplar.Exemplar
+    jazz.ui.text.Format
+    jazz.ui.text.Paragraph
+    jazz.ui.text.Line
+    jazz.ui.text.Run
+    jazz.ui.text.Style
+    jazz.ui.text.Text-Style
+    jazz.ui.outline.Outline-View
+    jazz.ui.text.Text-View
+    jazz.ui.text.Code-Text-View
+    jazz.jazz.text.Lisp-Text-View
+    jazz.jazz.text.Jazz-Text-View
+    jazz.jazz.text.Lisp-Explorer
+    jazz.jazz.text.Jazz-Explorer
+    jazz.ui.window.Window
+    jazz.ui.window.View-Player
+    jazz.jml
+    jazz.jml.parser.JML-Parser))
 
 
 (define (bjz)
   (blang)
   (bui))
-
 
 (define (blang)
   (for-each cj Lang))
@@ -430,6 +453,10 @@
     (if bin
         (delete-if-exists bin))))
 
+
+(define (cjz)
+  (clang)
+  (cui))
 
 (define (clang)
   (for-each cln Lang))

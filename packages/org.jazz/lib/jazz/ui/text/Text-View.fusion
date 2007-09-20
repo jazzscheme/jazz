@@ -162,6 +162,14 @@
     (new Text-Syntax))
   
   
+  (method public (get-syntax)
+    syntax)
+  
+  
+  (method public (set-syntax syntax)
+    (set! [syntax self] syntax))
+  
+  
   (method (get-text-view)
     self)
   
@@ -755,7 +763,7 @@
     (let* ((content (get-content))
            (limit (get-limit))
            (use-utf8? (determine-use-utf8? content)))
-      (save-lines~ moniker content limit :platform platform :use-utf8? use-utf8?)))
+      (save-lines~ moniker content :platform platform :use-utf8? use-utf8?)))
   
   
   (method (determine-use-utf8? content)
@@ -3962,15 +3970,18 @@
                (when found
                  (bind (cell . string) found
                    (new Range cell (new Cell [row cell] (+ [col cell] (length string)))))))))))
-  
+
   
   (method public (search-occurrences string . rest)
-    '()
-    @convert-optimized
     (bind-keywords ((whole-words? false) (ignore-case? false) (constituent-test (get-constituent-test~ syntax))) rest
-      (map (function dynamic (pair)
-             (new Cell (car pair) (cdr pair)))
-           (JzTextSearchOccurrences (get-paragraphs) (get-limit) string whole-words? ignore-case? self constituent-test))))
+      (let ((queue (new-queue)))
+        (for-each-paragraph
+          (function dynamic (row paragraph)
+            (let ((line [string paragraph]))
+              (for-each (lambda (col)
+                          (enqueue queue (new Cell row col)))
+                        (search string line all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
+        (queue-list queue))))
   
   
   (method public (multisearch-occurrences targets . rest)

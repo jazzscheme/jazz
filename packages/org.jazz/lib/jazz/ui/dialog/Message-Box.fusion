@@ -85,16 +85,7 @@
   
     (method (show)
       (nextmethod)
-      (acquire-focus~ (locate~ guest 'text)))
-
-  
-    (method (on-select evt)
-      (let ((button (get-property~ evt :button)))
-        (end-box button)))
-    
-    
-    (method (end-box button)
-      (end-modal button)))
+      (acquire-focus~ (locate~ guest 'text))))
   
   
   ;;;
@@ -136,14 +127,14 @@
   
   (method (process-return)
     (let ((dialog (get-host)))
-      (end-box~ dialog default-button)))
+      (end-modal-dialog default-button)))
   
   
   (method (process-escape)
     (bind (default-title default-icon default-sound default-yes default-no default-cancel cancelable? close-result) (type-info type)
       (when cancelable?
         (let ((dialog (get-host)))
-          (end-box~ dialog close-result)))))
+          (end-modal-dialog close-result)))))
   
   
   (method (process-key key)
@@ -160,9 +151,14 @@
                                   (title (localize (get-title~ button)))
                                   (first (either accelerator-key (element title 0))))
                              (when (ci= first key)
-                               (end-box~ dialog result)
+                               (end-modal-dialog result)
                                (return)))))))))
             (for-each try-button action-buttons))))))
+  
+  
+  (method (on-select evt)
+    (let ((button (get-property~ evt :button)))
+      (end-modal-dialog button)))
   
   
   ;;;
@@ -267,7 +263,7 @@
             (function dynamic (action)
               (bind (title button-name @w (accelerator-key null)) action
                 (increase! count)
-                (let* ((handler (new Event-Handler :target-name :host :method-name 'on-select :properties (list :button button-name)))
+                (let* ((handler (new Event-Handler :target-name :guest :method-name 'on-select :properties (list :button button-name)))
                        (button (new Push-Button name: button-name parent: self :position (new Point (* count 75) 72) :size size :user-data action :action-handler handler :default? (= button-name default))))
                   (set-title~ button (localize title))
                   (let* ((size (preferred-size~ button))

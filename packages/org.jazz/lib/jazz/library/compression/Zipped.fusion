@@ -99,7 +99,7 @@
   
   (method (print printer readably)
     (format printer "~{{a} {s} {s}}"
-            (type-name (class-of self))
+            (identifier-name (type-name (class-of self)))
             (get-file)
             (get-entry)))
   
@@ -196,7 +196,7 @@
   ;; file and write it back into a new zip file... Note that the newest version of
   ;; the library supports reading and writing raw data (so that you dont uselessly
   ;; uncompress and then recompress) that would at least make this process much faster.
-  (method (save-lines lines limit)
+  (method (save-lines lines . rest)
     (let ((file (get-file))
           (entry (get-entry))
           (saved? false))
@@ -208,21 +208,22 @@
                 (function dynamic (filename size)
                   (if (= filename entry)
                       (begin
-                        (save-lines-to lines limit zip entry)
+                        (save-lines-to lines zip entry)
                         (set! saved? true))
                     (let ((content (read-current-file-content~ unzip)))
                       (write-file~ zip filename content))))))
             (when (not saved?)
-              (save-lines-to lines limit zip entry)))))))
+              (save-lines-to lines zip entry)))))))
   
   
-  (method (save-lines-to lines limit zip entry)
+  (method (save-lines-to lines zip entry)
     (unimplemented 'save-lines-to)
     @convert-ansi-string
     (with-new-file-in-zip~ zip entry
       (function dynamic ()
         (for-each (function dynamic (line n)
                     (write-in-file-in-zip~ zip (coerce line Ansi-String))
+                    @convert-this-test-for-last
                     (when (/= n limit)
                       (write-in-file-in-zip~ zip CrLf 2)))
           lines

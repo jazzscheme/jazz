@@ -72,7 +72,6 @@
 (define jazz.Use-Bin-Directory?
   #t)
 
-
 (define jazz.Use-Build-Suffix?
   #f)
 

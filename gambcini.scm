@@ -14,28 +14,6 @@
 (display-environment-set! #t)
 
 
-(define (L)
-  (load "t"))
-
-(define (FFI . rest)
-  (let iter ((n (if (null? rest) 1 (car rest))))
-    (if (> n 0)
-        (begin
-          (cffi)
-          (tffi)
-          (iter (- n 1))))))
-
-(define (C . rest)
-  (let iter ((n (if (null? rest) 1 (car rest))))
-    (if (> n 0)
-        (begin
-          (write n) (newline)
-          (compile-file "c" '(keep-c) "-E")
-          (load "c")
-          (make-S2)
-          (iter (- n 1))))))
-
-
 ;;;
 ;;;; Boot
 ;;;
@@ -377,7 +355,8 @@
   (cflag jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
   (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
   (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows"))
+  (cflag jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
+  (cflag jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows"))
 
 
 (define (ffi)
@@ -392,18 +371,40 @@
   (ccw))
 
 
-(define (blang)
+(define (cj module-name)
   (bd)
-  (let* ((file "packages/org.jazz/lib/jazz/dialect/language/_language")
-         (jazz (string-append file ".fusion"))
+  (let* ((file (jazz.module-filename module-name))
+         (jazz (jazz.determine-module-source file))
          (jscm (string-append file ".jscm"))
          (jazztime (time->seconds (file-last-modification-time jazz)))
          (jscmtime (and (file-exists? jscm) (time->seconds (file-last-modification-time jscm)))))
     (if (or (not jscmtime) (> jazztime jscmtime))
         (begin
-          (expand-to-file 'jazz.dialect.language jscm)
+          (expand-to-file module-name jscm)
           (parameterize ((current-readtable jazz.jazz-readtable))
             (jazz.compile-filename-with-flags jscm source?: #t))))))
+
+
+(define Lang
+  '(jazz.dialect.language))
+
+(define UI
+  '(jazz.library.component.Component
+    jazz.ui.layout.Figure
+    jazz.ui.view.Drawing
+    jazz.ui.view.View))
+
+
+(define (bjz)
+  (blang)
+  (bui))
+
+
+(define (blang)
+  (for-each cj Lang))
+
+(define (bui)
+  (for-each cj UI))
 
 
 ;;;
@@ -411,17 +412,30 @@
 ;;;
 
 
-(define (cln)
-  (define (clean-file filename)
-    (if (file-exists? filename)
-        (begin
-          (display "; deleting ")
-          (display filename)
-          (display " ...")
-          (newline)
-          (delete-file filename))))
-  
-  (clean-file "packages/org.jazz/lib/jazz/dialect/language/_language.jscm"))
+(define (cln module-name)
+  (bd)
+  (let* ((file (jazz.module-filename module-name))
+         (jscm (string-append file ".jscm"))
+         (bin (jazz.determine-module-binary file)))
+    (define (delete-if-exists file)
+      (if (file-exists? file)
+          (begin
+            (display "; deleting ")
+            (display file)
+            (display " ...")
+            (newline)
+            (delete-file file))))
+    
+    (delete-if-exists jscm)
+    (if bin
+        (delete-if-exists bin))))
+
+
+(define (clang)
+  (for-each cln Lang))
+
+(define (cui)
+  (for-each cln UI))
 
 
 ;;;

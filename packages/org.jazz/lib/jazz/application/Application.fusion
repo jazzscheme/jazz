@@ -39,7 +39,6 @@
 
 
 (import (jazz.literals)
-        (jazz.utilities)
         (jazz.platform)
         (jazz.platform.windows)
         (jazz.application)
@@ -60,11 +59,9 @@
         (jazz.ui.dialog)
         (jazz.ui.view)
         (jazz.ui.window)
-        (jazz.ui.workspace))
-
-
-(definition Cpp-Extensions
-  '("c" "cpp" "h" "hpp"))
+        (jazz.ui.workspace)
+        (jazz.utilities)
+        (user))
 
 
 (class Application extends Process implements (Context-Provider History-Provider Event-Consumer Save-Environment-Listener Exit-Listener)
@@ -470,7 +467,7 @@
         (function dynamic ()
           (set! user (new (case user-name
                             ;;(Guillaume (new Guillaume))
-                            (else User))))
+                            (else Guillaume))))
           @convert
           (set! user (new (load-source user-name user-pathname))))
         :continue-text (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
@@ -1175,7 +1172,7 @@
       (with ((msg (MSG-make)))
         (let ((hwnd (get-hwnd~ window)))
           (when (GetMessage msg hwnd 0 0)
-            (unless (TranslateAccelerator hwnd accelerators-handle msg)
+            (when (= (TranslateAccelerator hwnd accelerators-handle msg) 0)
               (TranslateMessage msg)
               (DispatchMessage msg)))))))
 
@@ -1698,7 +1695,7 @@
       (list header
             (let ((action
                    (function ()
-                     (end-modal-dialog
+                     (close-modal-dialog
                        (function ()
                          (edit~ error))))))
               (list :bulleted (if active-content? (list :hyperlink action message) message))))))
@@ -1757,7 +1754,7 @@
                    (let ((message (walk-problem-message problem)))
                      (let ((action
                             (function ()
-                              (end-modal-dialog
+                              (close-modal-dialog
                                 (function ()
                                   (edit-child~ error problem))))))
                        (list :bulleted (if active-content? (list :hyperlink action message) message)))))
@@ -2168,7 +2165,7 @@
                     (let ((guest (get-guest~ frame)))
                       (and (is? guest Document)
                            (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
-                             (and (not-null? guest-moniker)
+                             (and guest-moniker
                                   (pathname= guest-moniker moniker)))))))
              (get-children~ stage)))
   

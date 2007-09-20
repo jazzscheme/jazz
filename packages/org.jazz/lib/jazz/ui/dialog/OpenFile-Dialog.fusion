@@ -41,53 +41,72 @@
 (import (jazz.library)
         (jazz.ui)
         (jazz.ui.view)
-        (jazz.utilities))
+        (jazz.ui.window)
+        (jazz.utilities)
+        (jazz.platform.windows)
+        (jazz.platform))
 
 
 (class OpenFile-Dialog extends Dialog
-    
   
-  @convert-dialog
-  (method meta (get-modal . rest)
+  
+  (method (tokenise-choose-file-string buffer)
+    (let loop ((offset 0)
+               (start-of-string? true))
+         (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))
+           (if start-of-string?
+               (if end-of-string?
+                   '()
+                 (cons (WCHAR-string (WCHAR-subarray buffer offset))
+                       (loop (+ offset 1) end-of-string?)))
+             (loop (+ offset 1) end-of-string?)))))
+  
+  
+  (method (get-modal . rest)
     (bind-keywords ((title null) (directory null) (initial-filename null) (extensions null) (multiple-selection? false) (anchors {})) rest
       (close-all-popups)
-      (let* ((r (new OPENFILENAME))
-             (size (if multiple-selection? (+ MAX_PATH (* 64 50)) MAX_PATH))
-             (filename (make-string size)))
-        (if (null? initial-filename)
-            (set-element! filename 0 #\nul)
-          (copy-into! initial-filename filename))
-        (set r 'lStructSize     (size-of OPENFILENAME))
-        (set r 'hwndOwner       (let ((toplevel (get-toplevel))) (if toplevel (get-hwnd~ toplevel) NULL)))
-        (set r 'lpstrFilter     (extensions-filter extensions))
-        (set r 'lpstrFile       filename)
-        (set r 'nMaxFile        size)
-        (set r 'lpstrInitialDir (if directory (parse~ directory) (get-current-directory)))
-        (set r 'lpstrTitle      (either title NULL))
-        (set r 'Flags           (bit-or OFN_EXPLORER (if multiple-selection? OFN_ALLOWMULTISELECT 0) OFN_HIDEREADONLY OFN_ENABLEHOOK OFN_FILEMUSTEXIST OFN_ENABLESIZING))
-        (set r 'lpstrDefExt     NULL)
-        (set r 'lCustData       NULL)
-        (set r 'lpfnHook        (get-dialog-proc))
-        (let ((anchorize
-               (function dynamic (pathname)
-                 (anchorize~ pathname :anchors anchors))))
-          (if (GetOpenFileName r)
-              (begin
-                (if (not multiple-selection?)
-                    (begin
-                      (adjust-string filename)
-                      (anchorize (new File (tokenise filename))))
-                  (let ((tokens (tokenise-choose-file-string filename)))
-                    (if (= (length tokens) 1)
-                        (begin
-                          (adjust-string filename)
-                          (list (anchorize (new File (tokenise filename)))))
-                      (bind (dir . filenames) tokens
-                        (let ((dirlist (tokenise dir)))
-                          (map (function dynamic (filename)
-                                 (anchorize (new File (append dirlist (list filename)))))
-                               filenames)))))))
-            (let ((code (CommDlgExtendedError)))
-              (if (= code 0)
-                  (throw-cancel)
-                (error "Dialog error: {t}" code))))))))))
+      (let ((size (if multiple-selection? (+ MAX_PATH (* 64 50)) MAX_PATH)))
+        (with ((r (OPENFILENAME-make))
+               (buffer (WCHAR-array-make size)))
+          (if (null? initial-filename)
+              (WCHAR-array-set! buffer 0 #\nul)
+            (WCHAR-copy buffer initial-filename size))
+          (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
+                (fake-current-directory @fake (get-current-directory) NULL)
+                (fake-dialog-proc @fake (get-dialog-proc) NULL))
+            (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
+            (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-hwnd~ toplevel) NULL)))
+            (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter)
+            (OPENFILENAME-lpstrFile-set! r       buffer)
+            (OPENFILENAME-nMaxFile-set! r        size)
+            (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory))
+            (OPENFILENAME-lpstrTitle-set! r      (either title NULL))
+            (OPENFILENAME-Flags-set! r           (bit-or OFN_EXPLORER (if multiple-selection? OFN_ALLOWMULTISELECT 0) OFN_HIDEREADONLY OFN_ENABLEHOOK OFN_FILEMUSTEXIST OFN_ENABLESIZING))
+            (OPENFILENAME-lpstrDefExt-set! r     NULL)
+            (OPENFILENAME-lCustData-set! r       0)
+            (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc))
+          (let ((anchorize
+                  (function dynamic (pathname)
+                    (debug pathname)
+                    pathname
+                    @w
+                    (anchorize~ pathname :anchors anchors))))
+            (if (GetOpenFileName r)
+                (begin
+                  (if (not multiple-selection?)
+                      (let ((filename (WCHAR-string buffer)))
+                        (anchorize (new File (tokenise filename))))
+                    (let ((tokens (tokenise-choose-file-string buffer)))
+                      (if (= (length tokens) 1)
+                          (let ((filename (WCHAR-string buffer)))
+                            (list (anchorize (new File (tokenise filename)))))
+                        (bind (dir . filenames) tokens
+                          (let ((dirlist (tokenise dir)))
+                            (map (function dynamic (filename)
+                                   (anchorize (new File (append dirlist (list filename)))))
+                                 filenames)))))))
+              (let ((code (CommDlgExtendedError)))
+                (if (= code 0)
+                    (throw-cancel)
+                  (error "Dialog error: {t}" code)))))))))))
+

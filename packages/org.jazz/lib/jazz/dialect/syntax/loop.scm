@@ -382,7 +382,7 @@
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))
              (add-binding variable '<int> from)
-             (when (not-nil? to)
+             (when to
                (let ((end (if (symbol? to) to (unique "end"))))
                  (when (not (eq? end to))
                    (add-binding end '<int> to))

@@ -95,7 +95,7 @@
   
   
   (method (present-char c)
-    (cond ((nil? c)
+    (cond ((not c)
            "EOF")
           ((memv? c '(#\space #\tab #\return #\line-feed))
            (char-symbol c))
@@ -212,7 +212,7 @@
               (cond ((= c #\backslash)
                      (forward)
                      (forward))
-                    ((or (nil? c) (not (jazz-constituent? c)))
+                    ((or (not c) (not (jazz-constituent? c)))
                      (set! kind (if (or keyword? (and last (= last #\colon))) 'keyword 'symbol))
                      (return kind))
                     (else
@@ -231,7 +231,7 @@
               (cond ((= (char-backward 1) #\backslash)
                      (backward)
                      (backward))
-                    ((or (nil? c) (not (jazz-constituent? c)))
+                    ((or (not c) (not (jazz-constituent? c)))
                      (set! kind (if (or keyword? (= last #\colon)) 'keyword 'symbol))
                      (return kind))
                     (else
@@ -246,7 +246,7 @@
         (backward)
         (while true
           (let ((c (char-backward 0)))
-            (if (nil? c)
+            (if (not c)
                 (return false)
               (cond ((= (char-backward 1) #\backslash)
                      (backward)
@@ -308,7 +308,7 @@
         (forward)
         (while true
           (let ((c (char-forward 0)))
-            (if (nil? c)
+            (if (not c)
                 (return false)
               (cond ((= c #\\)
                      (forward)
@@ -328,7 +328,7 @@
         (while true
           (let ((c0 (char-forward 0))
                 (c1 (char-forward 1)))
-            (cond ((or (nil? c0) (nil? c1))
+            (cond ((or (not c0) (not c1))
                    (return false))
                   ((and (= c0 #\|) (= c1 #\sharp))
                    (forward)
@@ -385,7 +385,7 @@
         (forward)
         (while true
           (let ((c (char-forward 0)))
-            (cond ((nil? c)
+            (cond ((not c)
                    (return false))
                   ((= c #\backslash)
                    (forward)
@@ -407,7 +407,7 @@
         (while true
           (let ((c0 (char-backward 0))
                 (c1 (char-backward 1)))
-            (cond ((or (nil? c0) (nil? c1))
+            (cond ((or (not c0) (not c1))
                    (return false))
                   ((and (= c0 #\|) (= c1 #\sharp))
                    (backward)
@@ -425,7 +425,7 @@
         (backward)
         (while true
           (let ((c (char-backward 0)))
-            (cond ((nil? c)
+            (cond ((not c)
                    (return false))
                   ((= (char-backward 1) #\backslash)
                    (backward)
@@ -617,7 +617,7 @@
             (e (copy end))
             (prv (previous-char start 0))
             (nxt (next-char end 0)))
-        (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (nil? nxt) (not (jazz-constituent? nxt))))))
+        (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (jazz-constituent? nxt))))))
                (backward-expr))
               ((and prv (= s e) (jazz-constituent? prv))
                (forward-constituent)
@@ -650,11 +650,11 @@
                      (let ((skipped (backward-all-expr))
                             (starter (char-backward 0)))
                        (cond ((or (and ender (not (close-composite? ender)))
-                                  (and (nil? starter) ender)
+                                  (and (not starter) ender)
                                   (and starter ender (not (composites-match? starter ender))))
                               (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
                              ((or (and starter (not (open-composite? starter)))
-                                  (and starter (nil? ender)))
+                                  (and starter (not ender)))
                               (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
                              (else
                               (set-end e)
@@ -758,7 +758,7 @@
       (for-each (function dynamic (pos)
                   (let ((row [row pos])
                         (col [col pos]))
-                    (when (or (nil? previous-row) (/= row previous-row))
+                    (when (or (not previous-row) (/= row previous-row))
                       (let ((string (paragraph-string row))
                             (style (get-style-at~ text pos))
                             (start pos))
@@ -835,7 +835,7 @@
   
   (method (for-each-forms proc mode)
     (forward-expr)
-    (when (not-nil? kind)
+    (when kind
       (let ((mode (if (and (= kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
                            ;; a patch until the explorer has better code understanding
                            (or (/= (intern-marked-symbol) 'form)
@@ -932,10 +932,10 @@
       (let ((expl-kind (get-kind)))
         (if (pattern-variable? expression)
             (bind-values (name kind) (parse-pattern-variable expression)
-              (and (or (nil? mode) (eq? mode expl-mode))
-                   (or (nil? kind) (eq? kind expl-kind))))
+              (and (or (not mode) (eq? mode expl-mode))
+                   (or (not kind) (eq? kind expl-kind))))
           (let ((kind (expression-kind expression)))
-            (and (or (nil? mode) (eq? mode expl-mode))
+            (and (or (not mode) (eq? mode expl-mode))
                  (eq? kind expl-kind)
                  (equal? expression (read-string-element (get-marked)))))))))
   

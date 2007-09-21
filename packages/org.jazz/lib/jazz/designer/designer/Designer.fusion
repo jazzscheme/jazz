@@ -69,7 +69,7 @@
   
   
   (method (setup-form frm)
-    (if (nil? frm)
+    (if (not frm)
         (set! form (new Form :textual? false :origin (class-of reference) :action 'new :model-name 'install))
       (let ((origin (get-origin~ frm)))
         (if (file? origin)
@@ -132,13 +132,13 @@
       (with-cursor :wait
         (function dynamic ()
           (let ((origin (get-origin~ form)))
-            (if (nil? origin)
+            (if (not origin)
                 (save-as :default-extension default-extension :extensions extensions)
               (save-content)))))))
   
   
   (method public (save-to file)
-    (if (nil? file)
+    (if (not file)
         (save-as)
       (set-origin~ form file)
       (save-to-file file)
@@ -275,7 +275,7 @@
         ;; Quick fix for the special case of setting a property of the active branch
         (if (eq? component/path branch)
             (set-property component/path property value :branch nil :design-events? design-events? :undoable? undoable?)
-          (let ((installed? (or (nil? branch) (installed?~ branch)))
+          (let ((installed? (or (not branch) (installed?~ branch)))
                 (path? (is? component/path Path)))
             (if (and path? (not installed?))
                 (let ((form (follow-form~ component/path (if branch (get-client-form~ branch) form))))
@@ -293,7 +293,7 @@
                   (bind-values (next-form next-restore) (find-next-branch branch component property)
                     (set-property~ form property value)
                     (when installed?
-                      (if (nil? next-form)
+                      (if (not next-form)
                           (let ((old-value (read-property component property)))
                             (when (and restore (not (has-property?~ restore property)))
                               (set-property~ restore property old-value))
@@ -315,7 +315,7 @@
   (method public virtual (remove-property component/path property default-value . rest)
     (bind-keywords ((branch true) (design-events? true) (undoable? false)) rest
       (let* ((branch (target-branch branch))
-             (installed? (or (nil? branch) (installed?~ branch)))
+             (installed? (or (not branch) (installed?~ branch)))
              (path? (is? component/path Path))
              (component (if path? (follow-component~ component/path reference) component/path))
              (property (property-field component property)))
@@ -323,9 +323,9 @@
         (bind-values (form restore) (find-form component branch :restore? true)
           (bind-values (next-form next-restore) (find-next-branch branch component property)
             (when (has-property?~ form property)
-              (let ((value (if (nil? restore) default-value (get-property~ restore property))))
+              (let ((value (if (not restore) default-value (get-property~ restore property))))
                 (when installed?
-                  (if (nil? next-form)
+                  (if (not next-form)
                       (begin
                         (write-property component property value)
                         (when design-events?
@@ -751,7 +751,7 @@
              (restore-form (essay restore? branch (get-restore-form~ branch)))
              (form (embed-form branch-form ancestry))
              (restore (essay restore-form (embed-form restore-form ancestry))))
-        (if (and error? (nil? form))
+        (if (and error? (not form))
             (error "Unable to locate target form")
           (if restore?
               (values form restore)
@@ -762,7 +762,7 @@
     (for-each (function dynamic (cpn)
                 (let ((children (get-children~ form))
                       (cpn-form (get-form~ cpn)))
-                  (if (nil? cpn-form)
+                  (if (not cpn-form)
                       (embed-new-form form nil false)
                     (if (memq? cpn-form children)
                         (set! form cpn-form)
@@ -770,10 +770,10 @@
                         (if restore-form
                             (set! form restore-form)
                           (let ((name (get-name~ cpn)))
-                            (if (nil? name)
+                            (if (not name)
                                 (error "Component {t} must be named to allow modification" cpn)
                               (let ((subform (find name children :key form-name :test equal?)))
-                                (if (nil? subform)
+                                (if (not subform)
                                     (set! form (embed-new-form form name))
                                   (set! form subform)))))))))))
               ancestry)
@@ -818,7 +818,7 @@
                 (when form
                   (let ((form (owned-form form ancestry)))
                     (when (and form
-                               (or (and (nil? property) (eq? (get-action~ form) 'new))
+                               (or (and (not property) (eq? (get-action~ form) 'new))
                                    (and property (has-property?~ form property))))
                       (return owner))))))
             nil)))))
@@ -847,15 +847,15 @@
         (for-each (function dynamic (cpn)
                     (let ((children (get-children~ form))
                           (cpn-form (get-form~ cpn)))
-                      (if (nil? cpn-form)
+                      (if (not cpn-form)
                           (return nil)
                         (if (memq? cpn-form children)
                             (set! form cpn-form)
                           (let ((name (get-name~ cpn)))
-                            (if (nil? name)
+                            (if (not name)
                                 (return nil)
                               (let ((subform (find name children :key form-name :test equal?)))
-                                (if (nil? subform)
+                                (if (not subform)
                                     (return nil)
                                   (set! form subform)))))))))
                   ancestry)

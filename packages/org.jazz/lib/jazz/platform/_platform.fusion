@@ -618,7 +618,7 @@
            (thread (active-thread))
            (state (get-state~ thread)))
       ;; Can happen for instance if the thread has already terminated...
-      (if (nil? handle/array)
+      (if (not handle/array)
           true
         (unwind-protect
             (begin
@@ -682,7 +682,7 @@
                   (values nil error stack))
               (function dynamic ()
                 (values (proc) nil nil))))))
-    (if (nil? err)
+    (if (not err)
         result
       ;; a quick patch of putting everything in the error message
       (let ((printer (new String-Printer)))
@@ -1132,7 +1132,7 @@
   (let ((original object))
     (letrec ((validate
                (function dynamic (object)
-                 (cond ((nil? object))
+                 (cond ((not object))
                        ((string? object))
                        ((symbol? object))
                        ((pair? object)
@@ -1146,7 +1146,7 @@
 
 (definition public (extract-base filename)
   (let ((pos (find #\period filename :reversed? true :return 'position)))
-    (if (nil? pos)
+    (if (not pos)
         filename
       (subseq filename 0 pos))))
 
@@ -1396,7 +1396,7 @@
              (result-list))
         (call/ec
           (lambda (return)
-            (cond ((nil? rank)
+            (cond ((not rank)
                    (set! result-list base-list))
                   ((< rank base-length)
                    (if error?
@@ -1409,7 +1409,7 @@
   
   (method public (anchorize . rest)
     (bind-keywords ((anchors {})) rest
-      (let* ((anchors (if (nil? anchors) (default-anchors) anchors))
+      (let* ((anchors (if (not anchors) (default-anchors) anchors))
              (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor :error? false))) anchors))
              (sorted (sort < anchored :key (function dynamic (path) (length (get-list~ path))))))
         (if (null? sorted)
@@ -1881,7 +1881,7 @@
           (lambda (return)
             (iterate-directory
               (function dynamic (file)
-                (when (or (nil? filter) (filter file))
+                (when (or (not filter) (filter file))
                   (increase! count)
                   (when (and max-count (> count max-count))
                     (return false)))))
@@ -1912,8 +1912,8 @@
 
 
 (definition public (is-alias? name)
-  (or (not-nil? (hash-ref (get-aliases) name))
-      @convert (not-nil? (get-manifest-source name))))
+  (or (hash-ref (get-aliases) name)
+      @convert (get-manifest-source name)))
 
 
 (definition public (get-alias name . rest)
@@ -1937,7 +1937,7 @@
 @convert
 (definition (get-manifest-alias name)
   (let ((source (get-manifest-source name)))
-    (if (nil? source)
+    (if (not source)
         nil
       (butlast (get-list~ source)))))
 
@@ -2017,7 +2017,7 @@
   (let ((dir (command-argument "homedir")))
     (if dir
         (pathname-argument dir)
-      (if (nil? (get-compiled-property 'Application))
+      (if (not (get-compiled-property 'Application))
           ;; kind of a heuristic for enabling non-applications to boot
           ;; by double-clicking the exe without having to create a shortcut
           (append (butlast (get-base-dir)) (list "Products" "org.jedi" "Projects" "Jedi" "Distribution"))
@@ -2029,8 +2029,8 @@
   (let ((dir (command-argument "usersdir")))
     (if dir
         (pathname-argument dir)
-      (if (and (nil? (command-argument "homedir"))
-               (nil? (get-compiled-property 'Application)))
+      (if (and (not (command-argument "homedir"))
+               (not (get-compiled-property 'Application)))
           ;; kind of a heuristic for enabling non-applications to boot
           ;; by double-clicking the exe without having to create a shortcut
           (append (butlast (get-base-dir)) (list "Users"))

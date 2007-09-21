@@ -71,7 +71,7 @@
     (bind (command . arguments) (read-delimited control "tie parameter" #\})
       (if (not (symbol? command))
           (error "Sorry, tie currently only accepts variables as parameters: {t}" command)
-        (if (nil? arguments)
+        (if (not arguments)
             (display "{a}" out)
           (format out "~{{l}}" arguments))
         (put~ out-parameters command))))

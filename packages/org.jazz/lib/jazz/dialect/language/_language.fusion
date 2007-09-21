@@ -387,7 +387,7 @@
 (definition public (all-fields model)
   (unimplemented 'all-fields)
   @unimplemented
-  (if (nil? model)
+  (if (not model)
       nil
     (append! (gather (unit-fields model)) (all-fields (type-ascendant model)))))
 
@@ -1235,8 +1235,8 @@
 
 
 (definition public (between? n lower upper)
-  (and (or (nil? lower) (>= n lower))
-       (or (nil? upper) (<= n upper))))
+  (and (or (not lower) (>= n lower))
+       (or (not upper) (<= n upper))))
 
 
 (definition public (between lower n upper)
@@ -1852,7 +1852,7 @@
     (if (and (list? seq)
              (every? list? rest)) 
         (apply scheme.for-each (cons proc (cons seq rest)))
-      (cond ((nil? other)
+      (cond ((not other)
              (loop (for obj iterate seq)
                    (proc obj)))
             (else
@@ -1866,7 +1866,7 @@
     (if (and (list? seq) (every? list? rest))
         (apply scheme.map (cons proc (cons seq rest)))
       (let ((dst (new List-Factory)))
-        (cond ((nil? other)
+        (cond ((not other)
                (let ((src (iterate seq)))
                  (while (not (done?~ src))
                    (put~ dst (proc (get-next~ src))))))
@@ -1884,7 +1884,7 @@
 
 (definition private (apply-key key <Object> object <Object>)
   (optimize (:frame? false)
-    (if (nil? key)
+    (if (not key)
         object
       (key object))))
 
@@ -1892,7 +1892,7 @@
 (definition private (apply-test test <Object> x <Object> y <Object> . rest)
   (optimize (:frame? false)
     (bind-optionals ((default-test eqv?)) rest
-      (if (nil? test)
+      (if (not test)
           (default-test x y)
         (test x y)))))
 
@@ -2002,7 +2002,7 @@
   (bind-keywords ((key nil) (test nil) (start nil) (reversed? false) (return 'item)) rest
     (if (and (list? seq) (not reversed?))
         (find-list target seq key test (either start 0) return)
-      (if (and (string? seq) (nil? start) (not reversed?) (eq? return 'position))
+      (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
           (find-string target seq)
         (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
           (when start
@@ -2076,7 +2076,7 @@
   (bind-keywords ((key nil) (test nil) (start nil) (reversed? false)) rest
     (if (and (list? seq) (not reversed?))
         (find-list target seq key test (either start 0) 'position)
-      (if (and (string? seq) (nil? start) (not reversed?))
+      (if (and (string? seq) (not start) (not reversed?))
           (find-string target seq)
         (call/ec
           (lambda (exit)
@@ -2196,7 +2196,7 @@
 
 (definition public (difference x <Object> y <Object> . rest)
   (bind-keywords ((test eqv?)) rest
-    (if (nil? y)
+    (if (not y)
         x
       (let ((dst (new List-Factory)))
         (with ((proc <Procedure>
@@ -2262,7 +2262,7 @@
 
 
 (definition public (remove-nils seq <Object>)
-  (collect-if not-nil? seq))
+  (collect-if identity seq))
 
 
 (definition public (trim-spaces seq)
@@ -2299,10 +2299,10 @@
       (with ((proc <Procedure>
                (function dynamic (object)
                  (let ((n (mismatch object ref)))
-                   (when (and n (or (nil? min) (< n min)))
+                   (when (and n (or (not min) (< n min)))
                      (set! min n))))))
         (for-each proc (cdr sequences)))
-      (if (nil? min)
+      (if (not min)
           ref
         (subseq ref 0 min)))))
 
@@ -2565,7 +2565,7 @@
           (for-each-pair (function dynamic (pair)
                            (let* ((list (car pair))
                                   (object (car list)))
-                             (if (or (nil? object)
+                             (if (or (not object)
                                      (neq? (compare (apply-key key object) min-key) :equal))
                                  (put~ res nil)
                                (put~ res object)
@@ -2628,8 +2628,8 @@
 
 
 (definition (find-list target list key test start returned)
-  (let ((key (if (nil? key) (lambda (x) x) key))
-        (test (if (nil? test) eqv? test)))
+  (let ((key (if (not key) (lambda (x) x) key))
+        (test (if (not test) eqv? test)))
     (let iter ((rest (tail list start))
                (rank start))
        (cond ((null? rest) nil)
@@ -2642,7 +2642,7 @@
          
        
 (definition (find-if-list predicate list key start returned)
-  (let ((key (if (nil? key) (lambda (x) x) key)))
+  (let ((key (if (not key) (lambda (x) x) key)))
     (let iter ((rest (tail list start))
                (rank start))
        (cond ((null? rest) nil)
@@ -2677,7 +2677,7 @@
       (set! sequence seq)
       (set! sequence-length (length sequence))
       (set-direction direction)
-      (if (nil? start)
+      (if (not start)
           (case direction
             ((forward)  (goto-beginning))
             ((backward) (goto-end)))
@@ -3364,7 +3364,7 @@
 
 
   (method private (copy-last-list)
-    (cond ((nil? last-anchor)
+    (cond ((not last-anchor)
            (set! list (copy last-list))
            (set! current (last-tail list)))
           (else
@@ -3904,7 +3904,7 @@
   (let ((queue (new-queue)))
     (let iter ()
       (let ((line (read-line reader)))
-        (if (not-nil? line)
+        (if line
             (begin
               (enqueue queue line)
               (iter))
@@ -4112,7 +4112,7 @@
   (bind-keywords ((separator nil)) rest
     (if (not (member? name domain))
         name
-      (let* ((common-prefix (if (nil? separator) name (append name separator)))
+      (let* ((common-prefix (if (not separator) name (append name separator)))
              (common-length (length common-prefix))
              (suffixes (collect (function dynamic (string)
                                   (when (starts-with? string common-prefix)
@@ -4127,7 +4127,7 @@
 
 (definition public (remove-numeric-suffix string)
   (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string :reversed? true :return 'position)))
-    (if (nil? pos)
+    (if (not pos)
         ""
       (subseq string 0 (+ pos 1)))))
 
@@ -4959,7 +4959,7 @@
                 (let ((key (car scan))
                       (value (cadr scan)))
                   (when (and (or (null? properties) (memq? key properties))
-                             (or (nil? empty-value) (neq? value empty-value)))
+                             (or (not empty-value) (neq? value empty-value)))
                     (print-char #\space printer)
                     (print-expr key detail printer)
                     (print-char #\space printer)
@@ -5013,7 +5013,7 @@
   
   (method (with-justification parameters proc)
     (let ((width (get-width parameters)))
-      (if (nil? width)
+      (if (not width)
           (proc out)
         (let ((justification (get-justify parameters))
               (padding (get-padding parameters))

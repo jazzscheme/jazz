@@ -58,14 +58,6 @@
   '())
 
 
-(define (nil? expr)
-  (not expr))
-
-
-(define (not-nil? expr)
-  (not (nil? expr)))
-
-
 ;;;
 ;;;; List
 ;;;

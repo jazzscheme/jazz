@@ -83,7 +83,7 @@
                    (= (get-kind) 'symbol))
           (let ((name (intern-marked-symbol)))
             @convert
-            (when (or (nil? name) (not (in-manifest? name)))
+            (when (or (not name) (not (in-manifest? name)))
               (signal (new Explore-Error :message (format "Unable to find unit {a} in manifest" (get-marked)) :start (get-start) :end (get-end))))
             (let ((unit (essay name (symbol-bound? name false) (global-value~ name false))))
               (list unit kind meta? name (collect-units-keywords))))))))
@@ -173,7 +173,7 @@
   (method (forward-form . rest)
     (bind-keywords ((toplevel-location null)) rest
       (while (not (form-expr? '(form)))
-        (when (nil? (forward-valid-expr))
+        (when (not (forward-valid-expr))
           (signal (new Location-Error :kind 'unknown :location (either toplevel-location 'form)))))))
   
   
@@ -181,14 +181,14 @@
     (bind-keywords ((toplevel-location null)) rest
       (while (or (not (definition-expr?))
                  (/= (definition-only-name) name))
-        (when (nil? (forward-valid-expr))
+        (when (not (forward-valid-expr))
           (signal (new Location-Error :kind 'unknown :location (either toplevel-location name)))))))
   
   
   (method (forward-numeric n <int> . rest)
     (bind-keywords ((toplevel-location null)) rest
       (while (>= n 0)
-        (when (nil? (forward-valid-expr))
+        (when (not (forward-valid-expr))
           (signal (new Location-Error :kind 'unknown :location (either toplevel-location n))))
         (decrease! n))))
   
@@ -300,14 +300,14 @@
   
   (method (walk-declaration context declaration keyword expression doc line walk-expressions?)
     (let ((list? (enter-list)))
-      (when (or (nil? line) (= [row end] line))
+      (when (or (not line) (= [row end] line))
         (if (not list?)
             (when (forward-expr)
               (if (and (= kind 'symbol)
                        (memq? (find-marked-symbol) '(metaclass extends implements has on library module dialect imports exports includes uses attributes))
-                       (or (nil? line) (= [row end] line)))
+                       (or (not line) (= [row end] line)))
                   (keyword context start end)
-                (when (or (nil? line) (= [row end] line))
+                (when (or (not line) (= [row end] line))
                   (expression context start end 'code kind)))
               true)
           (when (and (forward-expr) (= kind 'symbol))
@@ -374,7 +374,7 @@
     (let ((old (copy end)))
       (while (and (eq? (forward-expr) 'symbol)
                   (memq? (find-marked-symbol) (get-modifiers))
-                  (or (nil? line) (= [row end] line)))
+                  (or (not line) (= [row end] line)))
         (keyword context start end)
         (set! old (copy end)))
       (set! end old)))
@@ -397,7 +397,7 @@
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
         (walk-declarations entry declaration keyword expression doc walk-expressions?))
       entry))
@@ -418,7 +418,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (forward-whites)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
@@ -430,7 +430,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (forward-whites)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (when walk-expressions?
         (walk-expressions entry expression))
@@ -456,7 +456,7 @@
                      (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
                   (else
                    (enter-list)
-                   (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+                   (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
                      (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
                    (walk-parameters entry declaration keyword expression doc line)
                    (exit-list))))
@@ -470,7 +470,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (enter-list)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (walk-parameters entry declaration keyword expression doc line)
       (exit-list)
@@ -484,7 +484,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (enter-list)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
       (walk-parameters entry declaration keyword expression doc line)
       (exit-list)
@@ -626,7 +626,7 @@
           (when (and (forward-expr) (= kind 'symbol))
             (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (enter-list)
-        (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+        (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
           (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
         (walk-parameters entry declaration keyword expression doc line)
         (exit-list))
@@ -640,7 +640,7 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (enter-list)
-      (when (and (forward-expr) (= kind 'symbol) (or (nil? line) (= [row end] line)))
+      (when (and (forward-expr) (= kind 'symbol) (or (not line) (= [row end] line)))
         (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
       (walk-parameters entry declaration keyword expression doc line)
       (exit-list)
@@ -773,7 +773,7 @@
   
   
   (method (symbol-documented? symbol doc)
-    (not (nil? (symbol-documentation symbol doc))))
+    (not (not (symbol-documentation symbol doc))))
   
   
   ;;;

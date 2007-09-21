@@ -340,10 +340,10 @@
         (format printer "{a}" name)
         @dangerous
         (format printer "{a}{a}"
-                (if (nil? name)
+                (if (not name)
                     ""
                   (get-presentation))
-                (if (nil? branch)
+                (if (not branch)
                     ""
                   (format " {a}" (map (function dynamic (component)
                                                 (get-presentation~ component))
@@ -358,7 +358,7 @@
   (method (initialize . rest)
     (nextmethod)
     (let ((form (get-class-form)))
-      (when (and form (nil? (get-origin~ form)))
+      (when (and form (not (get-origin~ form)))
         (setup-toplevel-context~ form (class-of self))))
     (initialize-component rest))
   
@@ -393,7 +393,7 @@
 
   (method (prepare-parent initargs <Object>)
     (let ((arg (getf initargs parent: not-found: {})))
-      (set! parent (if (nil? arg) (default-parent) arg))))
+      (set! parent (if (not arg) (default-parent) arg))))
 
 
   (method (prepare-component initargs <Object>)
@@ -735,7 +735,7 @@
     ;; to-convert super patch for the time being
     (if #f ;; (and (is? self Root-View) (= name 1))
         (get-player~ self)
-    (cond ((nil? name)
+    (cond ((not name)
            (error "Invalid location: {t}" name))
           ((integer? name)
            (if (= name 0)
@@ -807,7 +807,7 @@
     (bind-optionals ((type nil)) rest
       (let ((ascendants null)
             (parent (get-parent)))
-        (while (and parent (or (nil? type) (is-not? parent type)))
+        (while (and parent (or (not type) (is-not? parent type)))
           (set! ascendants (cons parent ascendants))
           (set! parent (get-parent~ parent)))
         (if (or (not parent) (and type (is? parent type)))
@@ -897,7 +897,7 @@
   
   (method public virtual (locate name <Object>)
     (let ((component (locate-component name)))
-      (cond ((nil? component) (error "Unable to locate {t}" name))
+      (cond ((not component) (error "Unable to locate {t}" name))
             ((eq? true component) (error "Ambigious name: {t}" name))
             (else component))))
   
@@ -983,11 +983,11 @@
   
   
   (method public (branch-installed?)
-    (not-nil? branch))
+    branch)
   
   
   (method public (get-active-branch)
-    (if (nil? branch)
+    (if (not branch)
         (essay (is? self Branch) self)
       (get-active-branch~ branch)))
   
@@ -1000,13 +1000,13 @@
   
   (method public (get-active-branch-presentation)
     (let ((branch (get-active-branch)))
-      (if (nil? branch)
+      (if (not branch)
           (get-presentation)
         (get-presentation~ branch))))
   
   
   (method public (set-active-branch active-branch)
-    (if (or (nil? active-branch) (eq? active-branch self))
+    (if (or (not active-branch) (eq? active-branch self))
         (when branch
           (restore-client~ branch))
       (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
@@ -1038,7 +1038,8 @@
   
   
   (method public (get-installed-branches)
-    (when branch
+    (if (not branch)
+        '()
       (cons branch (get-installed-branches~ branch))))
   
   
@@ -1107,8 +1108,8 @@
   (method public virtual (search-component target <Object>)
     (let ((name (getf target name:))
           (type (getf target :type)))
-      (and (or (nil? name) (search-name name))
-           (or (nil? type) (search-type type)))))
+      (and (or (not name) (search-name name))
+           (or (not type) (search-type type)))))
   
   
   (method protected (search-name name)
@@ -1168,7 +1169,7 @@
             (scan self))
         (while (neq? scan root)
           (let ((name (get-name~ scan)))
-            (if (nil? name)
+            (if (not name)
                 (error "Component {t} must be named to be part of a path" scan)
               (set! path (cons name path))
               (set! scan (get-parent-component~ scan))
@@ -1183,7 +1184,7 @@
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
-          (if (nil? name)
+          (if (not name)
               (error "Component {t} must be named to be part of a path" scan)
             (when (present-in-path?~ scan)
               (set! pres (cons name pres)))
@@ -1258,7 +1259,7 @@
   
   
   (method public virtual (search-descendants criteria)
-    (if (nil? criteria)
+    (if (not criteria)
         (get-children)
       (unimplemented 'search-descendants)))
 
@@ -1345,7 +1346,7 @@
   
   (method public (determine-can-paste . rest)
     (bind-optionals ((try-parent? true)) rest
-      (not-nil? (determine-paster try-parent?))))
+      (boolean (determine-paster try-parent?))))
   
   
   (method public (determine-paster . rest)

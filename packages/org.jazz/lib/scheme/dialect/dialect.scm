@@ -408,25 +408,6 @@
 
 
 ;;;
-;;;; True/False
-;;;
-
-
-(jazz.define-virtual (jazz.walk-true (jazz.Scheme-Walker walker) form))
-
-
-(jazz.define-method (jazz.walk-true (jazz.Scheme-Walker walker) form)
-  form)
-
-
-(jazz.define-virtual (jazz.walk-false (jazz.Scheme-Walker walker) form))
-
-
-(jazz.define-method (jazz.walk-false (jazz.Scheme-Walker walker) form)
-  `(%%not ,form))
-
-
-;;;
 ;;;; Control
 ;;;
 
@@ -435,7 +416,7 @@
   (let ((test (%%cadr form))
         (yes (%%car (%%cddr form)))
         (no (%%cdr (%%cddr form))))
-    `(if ,(jazz.walk walker resume declaration environment (jazz.walk-true walker test))
+    `(if ,(jazz.walk walker resume declaration environment test)
          ,(jazz.walk walker resume declaration environment yes)
        ,@(if (%%null? no)
              `((jazz.void))
@@ -450,7 +431,7 @@
                           (body (%%cdr clause)))
                       `(,(if (%%eq? test 'else)
                              test
-                           (jazz.walk walker resume declaration environment (jazz.walk-true walker test)))
+                           (jazz.walk walker resume declaration environment test))
                         ,@(jazz.walk-list walker resume declaration environment body))))
                   clauses))))
 
@@ -471,12 +452,12 @@
 
 (define (jazz.walk-and walker resume declaration environment form)
   (let ((expressions (%%cdr form)))
-    `(and ,@(jazz.walk-list walker resume declaration environment (map (lambda (expr) (jazz.walk-true walker expr)) expressions)))))
+    `(and ,@(jazz.walk-list walker resume declaration environment expressions))))
 
 
 (define (jazz.walk-or walker resume declaration environment form)
   (let ((expressions (%%cdr form)))
-    `(or ,@(jazz.walk-list walker resume declaration environment (map (lambda (expr) (jazz.walk-true walker expr)) expressions)))))
+    `(or ,@(jazz.walk-list walker resume declaration environment expressions))))
 
 
 ;;;

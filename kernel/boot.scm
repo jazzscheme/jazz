@@ -109,14 +109,6 @@
   #f)
 
 
-(define jazz.profile?
-  (make-parameter #f))
-
-(define (profile thunk)
-  (parameterize ((jazz.profile? #t))
-    (thunk)))
-
-
 (define jazz.compile-options
   '(debug))
 

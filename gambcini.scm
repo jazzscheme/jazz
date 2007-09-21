@@ -638,8 +638,10 @@
 ;;;
 
 
-(define (sv obj name)
-  (jazz.slot-value obj name))
+(define-macro (sv . rest)
+  (let ((obj (if (null? (cdr rest)) 'self (car rest)))
+        (name (if (null? (cdr rest)) (car rest) (cadr rest))))
+    `(jazz.slot-value ,obj ,name)))
 
 
 (define (t . rest)

@@ -67,8 +67,6 @@
 
 (jazz.define-virtual-syntax (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
 (jazz.define-virtual-syntax (jazz.default-let-value (jazz.Scheme-Walker walker) resume declaration form))
-(jazz.define-virtual-syntax (jazz.walk-false (jazz.Scheme-Walker walker) form))
-(jazz.define-virtual-syntax (jazz.walk-true (jazz.Scheme-Walker walker) form))
 
 
 ;;;

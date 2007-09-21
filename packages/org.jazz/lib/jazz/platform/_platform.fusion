@@ -71,7 +71,7 @@
 
 (definition public (POINT->point pt) <Point>
   (if (not pt)
-      null
+      nil
     (new Point
       (POINT-x-ref pt)
       (POINT-y-ref pt))))
@@ -83,7 +83,7 @@
 
 (definition public (POINT->dimension pt) <Dimension>
   (if (not pt)
-      null
+      nil
     (new Dimension
       (POINT-x-ref pt)
       (POINT-y-ref pt))))
@@ -93,7 +93,7 @@
   (unimplemented '<Dimension>)
   @convert
   (if (not size)
-      null
+      nil
     (new Dimension
       (get size 'cx)
       (get size 'cy))))
@@ -117,7 +117,7 @@
 
 (definition public (RECT->rect rect) <Rect>
   (if (not rect)
-      null
+      nil
     (new Rect
       (RECT-left-ref rect)
       (RECT-top-ref rect)
@@ -165,7 +165,7 @@
 ;;; We need a platform ind interface for this.
 
 (definition public Current-Cursor
-  null)
+  nil)
 
 
 ;; tofix Cursor-Resources were literals
@@ -204,7 +204,7 @@
 
 (definition (get-named-cursor name)
   (let ((info (assq name Cursors)))
-    (if (null? info)
+    (if (not info)
         (error "Unknown cursor: {t}" name)
       (cadr info))))
 
@@ -248,7 +248,7 @@
 
 
 (definition public Messenger
-  null)
+  nil)
 
 (definition public (setup-messaging)
   (set! Messenger (new Message-Window)))
@@ -275,7 +275,7 @@
   (unimplemented 'log-event)
   @unimplemented
   (let* ((name (process-event-source~ (get-process)))
-         (handle (RegisterEventSource null name))
+         (handle (RegisterEventSource nil name))
          (strings (new-array string 1)))
     (array-set! strings 0 message)
     (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
@@ -383,7 +383,7 @@
 
 
 (definition public Version-Info
-  null)
+  nil)
 
 
 (definition (version-info)
@@ -397,7 +397,7 @@
 
 
 (definition public Windows-Version
-  null)
+  nil)
 
 
 (definition public (get-windows-version)
@@ -414,7 +414,7 @@
 (definition public (validate-version title what context version . rest)
   (unimplemented 'validate-version)
   @unimp
-  (bind-keywords ((register null) (cleanup null)) rest
+  (bind-keywords ((register nil) (cleanup nil)) rest
     (when register
       (register-crash-info register context (present~ version)))
     (let* ((process (get-process))
@@ -571,7 +571,7 @@
     (synchronize Post-Primary-Lock
       (set! Pending-Posts (cons proc Pending-Posts))
       (post-message~ Messenger JZ_POST (object-address proc) NULL)))
-  null))
+  nil))
 
 
 (definition public (queue-primary proc)
@@ -580,7 +580,7 @@
   (synchronize Post-Primary-Lock
     (set! Pending-Posts (cons proc Pending-Posts))
     (post-message~ Messenger JZ_POST (object-address proc) NULL))
-  null)
+  nil)
 
 
 (definition public (receive-post wparam)
@@ -596,7 +596,7 @@
 (definition public (wait-for object/objects . rest)
   (unimplemented 'wait-for)
   @unimp
-  (bind-keywords ((timeout null) (error? true)) rest
+  (bind-keywords ((timeout nil) (error? true)) rest
     (let* ((get-handle
              (function dynamic (object)
                (if (integer? object)
@@ -618,7 +618,7 @@
            (thread (active-thread))
            (state (get-state~ thread)))
       ;; Can happen for instance if the thread has already terminated...
-      (if (null? handle/array)
+      (if (nil? handle/array)
           true
         (unwind-protect
             (begin
@@ -665,24 +665,24 @@
 
 
 (definition public (receive-primary-with-error proc)
-  (values (proc) null null)
+  (values (proc) nil nil)
   @print-stack
   ;; a quick solution to get accurate debug info back to the calling thread
   (bind-values (result err stack)
       (receive-primary
         (function dynamic ()
           (let ((result)
-                (error null)
-                (stack null))
+                (error nil)
+                (stack nil))
             (call-with-catch Error
                   (function dynamic (err)
                     (set! error err)
                     (set! stack (print-stack :string)))
                 (function dynamic (err)
-                  (values null error stack))
+                  (values nil error stack))
               (function dynamic ()
-                (values (proc) null null))))))
-    (if (null? err)
+                (values (proc) nil nil))))))
+    (if (nil? err)
         result
       ;; a quick patch of putting everything in the error message
       (let ((printer (new String-Printer)))
@@ -704,7 +704,7 @@
 ;; This seems to be platform independent...???
 
 (definition public Focus
-  null)
+  nil)
 
 
 (definition public (get-focus)
@@ -718,10 +718,10 @@
         (when Focus
           (let ((focus Focus))
             ;; more robust to errors in focus-lose
-            (set! Focus null)
+            (set! Focus nil)
             (call-focus-lose~ focus player view)))
         (set-window-focus player)
-        (set! Focus null)
+        (set! Focus nil)
         (when view
           (call-focus-gain~ view))
         (set! Focus view)
@@ -731,7 +731,7 @@
 (definition public (validate-focus)
   (let ((focus (get-focus)))
     (when focus
-      (unless (focus-validate~ focus null)
+      (unless (focus-validate~ focus nil)
         (set-focus focus)
         (throw-cancel)))))
 
@@ -739,9 +739,9 @@
 (definition public (clear-focus window)
   (when Focus
     (let ((old Focus))
-      (call-focus-lose~ Focus window null)
-      (set! Focus null)
-      (process-focus-change~ (get-application) old null))))
+      (call-focus-lose~ Focus window nil)
+      (set! Focus nil)
+      (process-focus-change~ (get-application) old nil))))
 
 ;;;
 ;;;; Processes
@@ -811,7 +811,7 @@
 
 
 (definition public Crash-Info
-  null)
+  nil)
 
 
 (definition public (register-crash-info name context info)
@@ -819,7 +819,7 @@
   @threads
   (let ((pair (assq name Crash-Info))
         (value (cons context info)))
-    (if (null? pair)
+    (if (not pair)
         (set! Crash-Info (append! Crash-Info (list (cons name value))))
       (set-cdr! pair value)))
   (update-crash-info))
@@ -1132,7 +1132,7 @@
   (let ((original object))
     (letrec ((validate
                (function dynamic (object)
-                 (cond ((null? object))
+                 (cond ((nil? object))
                        ((string? object))
                        ((symbol? object))
                        ((pair? object)
@@ -1146,7 +1146,7 @@
 
 (definition public (extract-base filename)
   (let ((pos (find #\period filename :reversed? true :return 'position)))
-    (if (null? pos)
+    (if (nil? pos)
         filename
       (subseq filename 0 pos))))
 
@@ -1396,12 +1396,12 @@
              (result-list))
         (call/ec
           (lambda (return)
-            (cond ((null? rank)
+            (cond ((nil? rank)
                    (set! result-list base-list))
                   ((< rank base-length)
                    (if error?
                        (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
-                     (return null)))
+                     (return nil)))
                   (else
                    (set! result-list (append base-list (subseq expd base-length)))))
             (new (class-of self) result-list))))))
@@ -1440,7 +1440,7 @@
   (method (get-modal . rest)
     (unimplemented 'get-modal)
     @convert
-    (bind-keywords ((mode 'open) (actual null) . others) rest
+    (bind-keywords ((mode 'open) (actual nil) . others) rest
       (let ((class (case mode
                      ((open) OpenFile-Dialog)
                      ((save) SaveFile-Dialog))))
@@ -1454,7 +1454,7 @@
 (definition public (create-temporary-file . rest)
   (unimplemented 'create-temporary-file)
   @windows-specific
-  (bind-keywords ((directory null) (prefix "JZZ")) rest
+  (bind-keywords ((directory nil) (prefix "JZZ")) rest
     (let* ((directory (either directory (get-tmp-directory)))
            (dir (parse~ directory)))
       (if (empty-string? dir)
@@ -1625,7 +1625,7 @@
   (method (get-modal . rest)
     (unimplemented 'get-modal)
     @convert
-    (bind-keywords ((mode null) (actual null) . others) rest
+    (bind-keywords ((mode nil) (actual nil) . others) rest
       (apply [get-modal BrowseFolder-Dialog] :directory actual others)))
   
   
@@ -1665,7 +1665,7 @@
 
 
   (method (get-modification-time)
-    null)
+    nil)
 
 
   (method public virtual (create)
@@ -1697,7 +1697,7 @@
   (method public (copy-directory dst . rest)
     (unimplemented 'copy-directory)
     @windows-specific
-    (bind-keywords ((copier null) (feedback null) (touch-files? false) (copy? true)) rest
+    (bind-keywords ((copier nil) (feedback nil) (touch-files? false) (copy? true)) rest
       (when feedback
         (feedback self))
       (create-directories~ dst)
@@ -1723,7 +1723,7 @@
   (method public virtual (delete-directory . rest)
     (unimplemented 'delete-directory)
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback null)) rest
+    (bind-keywords ((overwrite-read-only? false) (feedback nil)) rest
       (when feedback
         (feedback self))
       (empty-directory :overwrite-read-only? overwrite-read-only? :feedback feedback)
@@ -1733,7 +1733,7 @@
   (method public (empty-directory . rest)
     (unimplemented 'empty-directory)
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback null)) rest
+    (bind-keywords ((overwrite-read-only? false) (feedback nil)) rest
       (iterate-directory
         (function dynamic (path)
           (if (is? path File)
@@ -1818,8 +1818,8 @@
   
   (method public virtual (iterate-directory proc . rest)
     (bind-keywords ((full? true) (files? true) (directories? false) (sort? false) (recursive? true) (ignored-directories null)) rest
-      (let ((directory (if full? (get-list) null)))
-        (iterate-directory-content files? directories? sort? recursive? ignored-directories null (parse)
+      (let ((directory (if full? (get-list) nil)))
+        (iterate-directory-content files? directories? sort? recursive? ignored-directories nil (parse)
           (function dynamic (list kind)
             (case kind
               ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
@@ -1898,7 +1898,7 @@
 
 
 (definition Aliases
-  null)
+  nil)
 
 
 (definition public (get-aliases)
@@ -1912,8 +1912,8 @@
 
 
 (definition public (is-alias? name)
-  (or (not-null? (hash-ref (get-aliases) name))
-      @convert (not-null? (get-manifest-source name))))
+  (or (not-nil? (hash-ref (get-aliases) name))
+      @convert (not-nil? (get-manifest-source name))))
 
 
 (definition public (get-alias name . rest)
@@ -1937,8 +1937,8 @@
 @convert
 (definition (get-manifest-alias name)
   (let ((source (get-manifest-source name)))
-    (if (null? source)
-        null
+    (if (nil? source)
+        nil
       (butlast (get-list~ source)))))
 
 
@@ -2017,7 +2017,7 @@
   (let ((dir (command-argument "homedir")))
     (if dir
         (pathname-argument dir)
-      (if (null? (get-compiled-property 'Application))
+      (if (nil? (get-compiled-property 'Application))
           ;; kind of a heuristic for enabling non-applications to boot
           ;; by double-clicking the exe without having to create a shortcut
           (append (butlast (get-base-dir)) (list "Products" "org.jedi" "Projects" "Jedi" "Distribution"))
@@ -2029,8 +2029,8 @@
   (let ((dir (command-argument "usersdir")))
     (if dir
         (pathname-argument dir)
-      (if (and (null? (command-argument "homedir"))
-               (null? (get-compiled-property 'Application)))
+      (if (and (nil? (command-argument "homedir"))
+               (nil? (get-compiled-property 'Application)))
           ;; kind of a heuristic for enabling non-applications to boot
           ;; by double-clicking the exe without having to create a shortcut
           (append (butlast (get-base-dir)) (list "Users"))
@@ -2200,7 +2200,7 @@
 ;;(external Jazz Object          (command-arguments)                                                                                                                         "JzCommandArguments")
 (definition public (command-argument string)
   ;; todo
-  '())
+  #f)
 
 
 ;;;

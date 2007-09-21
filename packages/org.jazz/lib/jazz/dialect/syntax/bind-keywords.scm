@@ -47,7 +47,7 @@
 ; (let ((r (box-list rest)))
 ;   (let ((a (find-keyword a: r (lambda () 2)))
 ;         (b (find-keyword b: r (lambda () 3))))
-;     (if (not-null? (unbox-list r))
+;     (if (not-nil? (unbox-list r))
 ;         (error "Unexpected keywords: {s}" (unbox-list r)))
 ;     (list b: 5)))
 

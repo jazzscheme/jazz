@@ -167,7 +167,7 @@
   
   
   (method public virtual (save)
-    (if (null? moniker)
+    (if (not moniker)
         (save-as)
       (when (and (write-allowed?) (safe-zipped?))
         (save-content moniker))))
@@ -176,7 +176,7 @@
   (method public virtual (save-as)
     (let* ((extension (default-extension~ document))
            (extensions (extensions~ document))
-           (moniker (get-modal SaveFile-Dialog :initial-filename (if (null? moniker) (effective-newname) (get-name~ moniker)) :default-extension extension :extensions extensions)))
+           (moniker (get-modal SaveFile-Dialog :initial-filename (if (not moniker) (effective-newname) (get-name~ moniker)) :default-extension extension :extensions extensions)))
       (when (and (exists?~ moniker) (read-only?~ moniker))
         (set-read/write~ moniker))
       (save-to moniker)))
@@ -199,7 +199,7 @@
   
   
   (method public (revert-saved)
-    (if (null? moniker)
+    (if (not moniker)
         (bell)
       (let ((code (message-box "Resert to saved and lose changes?"
                                :type 'confirmation)))
@@ -210,7 +210,7 @@
   
   
   (method public (compare-saved)
-    (if (null? moniker)
+    (if (not moniker)
         (bell)
       (compare-moniker~ document moniker)))
 
@@ -282,7 +282,7 @@
   
   
   (method public virtual (name-status)
-    (if (null? moniker)
+    (if (not moniker)
         (effective-newname)
       (if tool?
           (get-base~ moniker)
@@ -296,14 +296,14 @@
   
   
   (method (directory-status)
-    (if (or (null? moniker) tool?)
+    (if (or (not moniker) tool?)
         ""
       (format " ~{{a}}" (present-location~ moniker))))
   
   
   (method protected virtual (repository-status)
     (let ((info (repository-info)))
-      (if (null? info)
+      (if (not info)
           ""
         (bind-values (repository item) info
           (if (supports-detaching?~ repository moniker)
@@ -325,10 +325,10 @@
   
   
   (method (repository-info)
-    null
+    #f
     ;; convert
     @wait
-    (when (and (in-manifest? 'Repository) (not-null? moniker) (not tool?))
+    (when (and (in-manifest? 'Repository) moniker (not tool?))
       (let ((moniker (find-moniker~ Repository moniker)))
         (when moniker
           (values (get-repository~ moniker)
@@ -343,7 +343,7 @@
 
   
   (method (read/write-status)
-    (if (or (null? moniker) tool?)
+    (if (or (not moniker) tool?)
         ""
       (if read-only?
           " [Read-Only]"
@@ -364,7 +364,7 @@
   
   
   (method public (update-state)
-    (if (or (null? moniker) (not (exists?~ moniker)))
+    (if (or (not moniker) (not (exists?~ moniker)))
         (set! read-only? false)
       ;; ultra quick and dirty patch for in zip source edition
       (if (is? moniker Zipped)

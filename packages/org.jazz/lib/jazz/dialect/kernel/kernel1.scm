@@ -51,7 +51,7 @@
 
 
 (define nil
-  NilConstant)
+  #f)
 
 
 (define null
@@ -59,36 +59,11 @@
 
 
 (define (nil? expr)
-  (eq? expr nil))
+  (not expr))
 
 
 (define (not-nil? expr)
   (not (nil? expr)))
-
-
-;;;
-;;;; Boolean
-;;;
-
-
-(define (false? obj)
-  (or (eq? obj false)
-      (eq? obj nil)
-      (eq? obj null)))
-
-
-(define (true? obj)
-  (scheme.not (false? obj)))
-
-
-(define (null? obj)
-  (or (eq? obj nil)
-      (eq? obj null)))
-
-
-;; for compatibility
-(define (not obj)
-  (false? obj))
 
 
 ;;;

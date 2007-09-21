@@ -54,13 +54,13 @@
   `(if ,test
        (begin
          ,@body)
-     null))
+     nil))
 
 
 (syntax (unless test . body)
   `(if (not ,test)
        (begin ,@body)
-     null))
+     nil))
 
 
 (syntax (prog1 returned . body)

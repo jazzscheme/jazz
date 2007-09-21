@@ -133,11 +133,11 @@
           (top <int>  (paragraph-top))
           (width <int> [width size]))
       (cond ;; full paragraph
-            ((and (= rs 0) (null? end))
+            ((and (= rs 0) (nil? end))
              (with ((rect (new Rect left top (+ left width) (+ top [height size]))))
                (new Region :rect (acquire-delta dh dv sc rect))))
             ;; end of the last line
-            ((and (= rs re) (null? end))
+            ((and (= rs re) (nil? end))
              (let* ((line (last lines))
                     (beginning [h (col->view~ line re false)])
                     (right (+ left-padding (- width left))))
@@ -152,7 +152,7 @@
                    (region (new Region)))
                (for-each-range s e 0
                  (function dynamic (line beginning limit)
-                   (with-closed ((sub (range-region~ line left top w beginning (if (null? end) null limit) self dh dv sc)))
+                   (with-closed ((sub (range-region~ line left top w beginning (if (nil? end) nil limit) self dh dv sc)))
                      (combine!~ region sub 'or))))
                region)))))
   
@@ -166,9 +166,9 @@
           (loop (for n from beginning to limit)
                 (let* ((line (get-line n))
                        (len (get-length~ line)))
-                  (cond ((= n beginning) (proc line [col start] null))
-                        ((= n limit) (proc line null [col end]))
-                        (else (proc line null null)))))))))
+                  (cond ((= n beginning) (proc line [col start] nil))
+                        ((= n limit) (proc line nil [col end]))
+                        (else (proc line nil nil)))))))))
 
 
   ;;;
@@ -196,7 +196,7 @@
           (function dynamic (run offset limit)
             (when (and (> col offset) (<= col limit))
               (return run))))
-        null)))
+        nil)))
   
   
   (method public (first-run)
@@ -397,7 +397,7 @@
   (method (coalesce-runs runs)
     (let ((previous runs)
           (scan (cdr runs)))
-      (while scan
+      (while (not-null? scan)
         (let ((previous-style [style (car previous)]))
           (if (or (neq? previous-style [style (car scan)]) (not (propagate?~ previous-style)))
               (set! previous scan)
@@ -505,7 +505,7 @@
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
            (after (range-runs end (get-length)))
-           (style (if before (find-propagatable-style before) (get-style~ text 'Default))))
+           (style (if (not-null? before) (find-propagatable-style before) (get-style~ text 'Default))))
       (set! string (replace-subseq! string start end str))
       (let* ((replacement (new Run (subseq! string start new-end) style))
              (replacement-list (if (> (get-length~ replacement) 0) (list replacement) null)))
@@ -601,7 +601,7 @@
   
   
   (method protected (col->text col)
-    (let ((last null))
+    (let ((last nil))
       (call/ec
         (lambda (return)
           (for-each (function dynamic (line)

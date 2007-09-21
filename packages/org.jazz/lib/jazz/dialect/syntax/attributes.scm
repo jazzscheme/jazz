@@ -81,7 +81,7 @@
 
 (syntax (attributes . form)
   (define unspecified
-    (cons null null))
+    (cons nil nil))
        
   (define (symbol->enumerator symbol)
     (string->enumerator (symbol->string symbol)))

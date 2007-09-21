@@ -71,7 +71,7 @@
 
 
 (definition Orphanage
-  null)
+  nil)
 
 
 (definition public (get-orphanage)
@@ -132,7 +132,7 @@
 
   (method public (register-class . rest)
     @wait
-    (bind-keywords ((class (window-class)) (icon null)) rest
+    (bind-keywords ((class (window-class)) (icon nil)) rest
       (let ((instance (current-instance))
             (background (class-background))
             (wc (make-WNDCLASS)))
@@ -172,7 +172,7 @@
   
   
   (method (initialize . rest)
-    (bind-keywords ((window-class null) . others) rest
+    (bind-keywords ((window-class nil) . others) rest
       (if (not (primary-thread?))
           (error "Unable to create window outside the primary thread")
         (set! hwnd-class window-class)
@@ -199,7 +199,7 @@
 
 
   (method protected virtual (window-parent)
-    (if (null? parent)
+    (if (not parent)
         NULL
       (get-hwnd~ parent)))
   
@@ -223,7 +223,7 @@
 
 
   (method (prepare-hwnd rest)
-    (bind-keywords ((hwnd null) . others) rest
+    (bind-keywords ((hwnd nil) . others) rest
       (set-in-creation self)
       (let ((hwnd (create-hwnd rest)))
         (if (not hwnd)
@@ -270,11 +270,11 @@
   (method (print printer readably)
     (print-unreadable self printer
       (function dynamic (printer)
-        (if (null? hwnd)
+        (if (nil? hwnd)
             (format printer "orphaned")
           (let ((position (get-position))
                 (size (get-size)))
-            (if (or (null? title) (empty-string? title))
+            (if (or (nil? title) (empty-string? title))
                 (format printer "{a} {a}" position size)
               (format printer "{a} {a} {a}" title position size)))))))
   
@@ -348,9 +348,9 @@
       ((WM_MOUSEACTIVATE)   (on-mouse-activate))
       ((WM_ACTIVATE)        (on-activate (loword wparam)))
       ((WM_ACTIVATEAPP)     (on-activate-app wparam))
-      ((WM_CLOSE)           (on-close null))
+      ((WM_CLOSE)           (on-close nil))
       ((WM_DESTROY)         (window-destroy))
-      ((WM_NCDESTROY)       (on-nc-destroy null))
+      ((WM_NCDESTROY)       (on-nc-destroy nil))
       ((WM_CAPTURECHANGED)  (call-lost-capture lparam))
       ((WM_SETFOCUS)        (call-focus-gain))
       ((WM_KILLFOCUS)       (call-focus-lose wparam))
@@ -578,14 +578,14 @@
   (method protected virtual (on-command lparam wparam)
     (if (= lparam 0)
         (let ((action-item/shortcut (get-id-cookie (loword wparam))))
-          (if (null? action-item/shortcut)
+          (if (nil? action-item/shortcut)
               unprocessed
             (if (is? action-item/shortcut Shortcut)
                 (dispatch-shortcut~ (get-application) action-item/shortcut)
-              (invoke~ action-item/shortcut self null)
+              (invoke~ action-item/shortcut self nil)
               processed)))
       (let ((object (get-window lparam)))
-        (if (null? object)
+        (if (nil? object)
             unprocessed
           (process-action~ object self)
           processed))))
@@ -631,7 +631,7 @@
 
 
   (method (on-nc-destroy evt)
-    (set-window hwnd null)
+    (set-window hwnd nil)
     (set-hwnd NULL)
     unprocessed)
 
@@ -755,7 +755,7 @@
   
   
   (method public (fade-in . rest)
-    (bind-keywords ((fade-speed null)) rest
+    (bind-keywords ((fade-speed nil)) rest
       (set-alpha-blending 0)
       (set-visible? true)
       (update-window)
@@ -1003,7 +1003,7 @@
   
   
   (method public (ensure-displayed)
-    (let ((outer (if (null? parent) (get-size~ (get-desktop)) (get-size~ parent)))
+    (let ((outer (if (not parent) (get-size~ (get-desktop)) (get-size~ parent)))
           (rect (get-rect)))
       (bind-values (new-position new-size) (fit-within outer rect :padding 8)
         (set-size new-size)
@@ -1042,7 +1042,7 @@
       (POINT-x-set! pt [h point])
       (POINT-y-set! pt [v point])
       (let ((window (get-window (ChildWindowFromPointEx hwnd pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT)))))
-        (if (or (null? window) (eq? window self))
+        (if (or (nil? window) (eq? window self))
             window
           (find-child-window~ window (acquire~ window self point))))))
 
@@ -1084,7 +1084,7 @@
 
 
   (method public (scroll-window dh dv rect . rest)
-    (bind-keywords ((clip-rect null) (erase? true)) rest
+    (bind-keywords ((clip-rect nil) (erase? true)) rest
       (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
         (with ((rect (rect->RECT rect))
                (clip-rect (rect->RECT clip-rect)))
@@ -1111,12 +1111,12 @@
 
   
   (method public (redraw-window . rest)
-    (bind-keywords ((rect null) (region null)) rest
+    (bind-keywords ((rect nil) (region nil)) rest
       (when hwnd
         ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
         ;; toplevel would redraw it's children. Hope it doesn't break any code...
         (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
-          (with ((rect (if (null? rect) NULL (rect->RECT rect))))
+          (with ((rect (if (nil? rect) NULL (rect->RECT rect))))
             (RedrawWindow hwnd rect (if region (get-handle~ region) NULL) flags))))))
 
 

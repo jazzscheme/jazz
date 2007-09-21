@@ -53,7 +53,7 @@
   
   @Unimp
   (definition meta protected virtual class-descriptor
-    null)
+    nil)
 
   @Unimp
   (method meta public virtual (get-class-descriptor)
@@ -62,7 +62,7 @@
   
   (method public virtual (presentation->name presentation)
     (if (or (empty-string? presentation) (= presentation "null"))
-        null
+        nil
       (string->symbol presentation)))
   
   
@@ -172,7 +172,7 @@
   (slot branch                   initialize {})   ;; the immediatly installed branch
   (slot creation-form            initialize {})   ;; the form that created the component
   (slot creator                  initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
-  (slot creator-branch           initialize {})   ;; the branch that created the component (null if none)
+  (slot creator-branch           initialize {})   ;; the branch that created the component (nil if none)
   ;; Should initialize to self
   (slot event-consumer           initialize {})
   (slot designers                initialize '())
@@ -340,10 +340,10 @@
         (format printer "{a}" name)
         @dangerous
         (format printer "{a}{a}"
-                (if (null? name)
+                (if (nil? name)
                     ""
                   (get-presentation))
-                (if (null? branch)
+                (if (nil? branch)
                     ""
                   (format " {a}" (map (function dynamic (component)
                                                 (get-presentation~ component))
@@ -414,7 +414,7 @@
   (method (install-inherited forms)
     (when (not-null? forms)
       (install-inherited (cdr forms))
-      (install-form (car forms) self null null)))
+      (install-form (car forms) self nil nil)))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
@@ -452,7 +452,7 @@
   
 
   (method (install-properties properties <Object> restore-form <Object>)
-    (while properties
+    (while (not-null? properties)
       (let ((expr (car properties))
             (value (cadr properties)))
         (when (symbol? expr)
@@ -482,12 +482,12 @@
 
 
   (method protected chained (finish initargs <Object>)
-    (bind-keywords ((form null) (creator null) . others) initargs
+    (bind-keywords ((form nil) (creator nil) . others) initargs
       (when form
         ;; setting the creator to true is a service for Form instantiate
         (if (neq? creator true)
-            (install-form form creator null null)
-          (install-form form self null null)
+            (install-form form creator nil nil)
+          (install-form form self nil nil)
           (set! [creator self] self)))
       (write-properties initargs)))
   
@@ -530,7 +530,7 @@
 
 
   (method chained (destroy-component)
-    (set-active-branch null)
+    (set-active-branch nil)
     (loop (for child in children)
           (when (is? child Component)
             (destroy-component~ child)))
@@ -735,7 +735,7 @@
     ;; to-convert super patch for the time being
     (if #f ;; (and (is? self Root-View) (= name 1))
         (get-player~ self)
-    (cond ((null? name)
+    (cond ((nil? name)
            (error "Invalid location: {t}" name))
           ((integer? name)
            (if (= name 0)
@@ -804,13 +804,13 @@
   
   
   (method public (collect-ascendants . rest)
-    (bind-optionals ((type null)) rest
+    (bind-optionals ((type nil)) rest
       (let ((ascendants null)
             (parent (get-parent)))
-        (while (and parent (or (null? type) (is-not? parent type)))
+        (while (and parent (or (nil? type) (is-not? parent type)))
           (set! ascendants (cons parent ascendants))
           (set! parent (get-parent~ parent)))
-        (if (or (null? parent) (and type (is? parent type)))
+        (if (or (not parent) (and type (is? parent type)))
             ascendants
           (cons parent ascendants)))))
   
@@ -820,7 +820,7 @@
 
 
   (method public virtual (get-frame)
-    null)
+    nil)
   
   
   (method public (get-brothers)
@@ -833,7 +833,7 @@
   
   
   (method public (get-root-parent)
-    (if (null? parent)
+    (if (not parent)
         self
       (get-root-parent~ parent)))
   
@@ -879,7 +879,7 @@
   
   (method public virtual (add-to-index name <Object> component <Component>)
     (when name
-      (when (null? index)
+      (when (not index)
         (set! index (new-index)))
       (if (hash-ref index name)
           (hash-set! index name true)
@@ -897,7 +897,7 @@
   
   (method public virtual (locate name <Object>)
     (let ((component (locate-component name)))
-      (cond ((null? component) (error "Unable to locate {t}" name))
+      (cond ((nil? component) (error "Unable to locate {t}" name))
             ((eq? true component) (error "Ambigious name: {t}" name))
             (else component))))
   
@@ -946,7 +946,9 @@
   
   
   (method public (first-child)
-    (car children))
+    (if (null? children)
+        #f
+      (car children)))
   
   
   (method public (last-child)
@@ -981,11 +983,11 @@
   
   
   (method public (branch-installed?)
-    (not-null? branch))
+    (not-nil? branch))
   
   
   (method public (get-active-branch)
-    (if (null? branch)
+    (if (nil? branch)
         (essay (is? self Branch) self)
       (get-active-branch~ branch)))
   
@@ -998,17 +1000,17 @@
   
   (method public (get-active-branch-presentation)
     (let ((branch (get-active-branch)))
-      (if (null? branch)
+      (if (nil? branch)
           (get-presentation)
         (get-presentation~ branch))))
   
   
   (method public (set-active-branch active-branch)
-    (if (or (null? active-branch) (eq? active-branch self))
+    (if (or (nil? active-branch) (eq? active-branch self))
         (when branch
           (restore-client~ branch))
       (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
-        (install-branch~ branch null))))
+        (install-branch~ branch nil))))
   
   
   (method protected virtual (install-branch br)
@@ -1041,7 +1043,7 @@
   
   
   (method public (iterate-branch-spine proc . rest)
-    (bind-keywords ((branch null)) rest
+    (bind-keywords ((branch nil)) rest
       (let ((branch (either branch (get-active-branch))))
         (while (is? branch Branch)
           (proc branch (get-client-form~ branch))
@@ -1081,7 +1083,7 @@
   
   
   (method public virtual (get-integrity-manager)
-    null)
+    nil)
   
   
   (method public virtual (validate-component root client context manager)
@@ -1105,8 +1107,8 @@
   (method public virtual (search-component target <Object>)
     (let ((name (getf target name:))
           (type (getf target :type)))
-      (and (or (null? name) (search-name name))
-           (or (null? type) (search-type type)))))
+      (and (or (nil? name) (search-name name))
+           (or (nil? type) (search-type type)))))
   
   
   (method protected (search-name name)
@@ -1166,7 +1168,7 @@
             (scan self))
         (while (neq? scan root)
           (let ((name (get-name~ scan)))
-            (if (null? name)
+            (if (nil? name)
                 (error "Component {t} must be named to be part of a path" scan)
               (set! path (cons name path))
               (set! scan (get-parent-component~ scan))
@@ -1181,7 +1183,7 @@
           (scan self))
       (while (neq? scan root)
         (let ((name (get-name~ scan)))
-          (if (null? name)
+          (if (nil? name)
               (error "Component {t} must be named to be part of a path" scan)
             (when (present-in-path?~ scan)
               (set! pres (cons name pres)))
@@ -1219,7 +1221,7 @@
                     client)))))
         (if (eq? branches true)
             (if include-root?
-                (cons (instantiate null) (map instantiate all-branch-names))
+                (cons (instantiate nil) (map instantiate all-branch-names))
               (map instantiate all-branch-names))
           (map instantiate branches)))))
 
@@ -1256,7 +1258,7 @@
   
   
   (method public virtual (search-descendants criteria)
-    (if (null? criteria)
+    (if (nil? criteria)
         (get-children)
       (unimplemented 'search-descendants)))
 
@@ -1288,7 +1290,7 @@
   
   (method protected (set-string-presentation designer presentation)
     (if (empty-string? presentation)
-        (set-name~ designer self null)
+        (set-name~ designer self nil)
       (set-name~ designer self presentation)))
   
   
@@ -1343,7 +1345,7 @@
   
   (method public (determine-can-paste . rest)
     (bind-optionals ((try-parent? true)) rest
-      (not-null? (determine-paster try-parent?))))
+      (not-nil? (determine-paster try-parent?))))
   
   
   (method public (determine-paster . rest)
@@ -1353,8 +1355,8 @@
       (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
         (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
                (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
-          (cond ((memq? null models)
-                 null)
+          (cond ((memq? nil models)
+                 nil)
                 ((every? addable-class? models)
                  self)
                 (else
@@ -1413,11 +1415,11 @@
               (get-components))
     (when surrogate
       (remove-handlers~ surrogate)
-      (set! surrogate null)))
+      (set! surrogate nil)))
   
   
   (method public virtual (get-default-property)
-    null)
+    nil)
   
   
   (method public virtual (get-categorized-properties)
@@ -1439,7 +1441,7 @@
   (method public virtual (get-row-instance property)
     (case (field-name property)
       ((visible?) (new Boolean-Row))
-      (else null)))
+      (else nil)))
   
   
   (method public virtual (update-property-row row)
@@ -1447,7 +1449,7 @@
   
   
   (method public virtual (get-addable-default)
-    null)
+    nil)
   
   
   (method public virtual (get-addable-classes)
@@ -1499,7 +1501,7 @@
   
   
   (method public virtual (get-custom-card)
-    null)
+    nil)
   
   
   (method public virtual (save-component-properties designer)

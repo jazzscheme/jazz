@@ -72,7 +72,7 @@
 
 
 (definition public (parse-jml jml . rest)
-  (bind-keywords ((preferences-class null) (parser-class null)) rest
+  (bind-keywords ((preferences-class nil) (parser-class nil)) rest
     (let* ((pref (new (either preferences-class JML-Preferences)))
            (parser (new (either parser-class JML-Parser) :preferences pref)))
       (parse~ parser jml))))
@@ -93,7 +93,7 @@
 
 
 (definition public (render-jml node printer . rest)
-  (bind-keywords ((preferences-class null) (renderer-class null)) rest
+  (bind-keywords ((preferences-class nil) (renderer-class nil)) rest
     (let* ((pref (new (either preferences-class JML-Preferences)))
            (renderer (new (either renderer-class JML-Renderer) pref)))
       (render~ renderer node printer))))
@@ -108,10 +108,10 @@
   (bind-keywords ((keywords? false) (proper? true)) rest
     (let ((scan list)
           (properties (new List-Factory))
-          (content null))
-      (while scan
+          (content nil))
+      (while (not-null? scan)
         (let ((element (car scan)))
-          (if (and (null? content) (keyword? element) (or (not proper?) (jml-keyword? element)))
+          (if (and (nil? content) (keyword? element) (or (not proper?) (jml-keyword? element)))
               (let ((put
                       (function dynamic (property value)
                         (put~ properties property)
@@ -120,9 +120,9 @@
                     (begin
                       (put (extract-jml-property element keywords?) (cadr scan))
                       (set! scan (cddr scan)))
-                  (put element null)
+                  (put element nil)
                   (set! scan (cdr scan))))
-            (when (null? content)
+            (when (nil? content)
               (set! content (new List-Factory)))
             (put~ content element)
             (set! scan (cdr scan)))))
@@ -142,7 +142,7 @@
     (let ((scan list))
       (call/ec
         (lambda (return)
-          (while scan
+          (while (not-null? scan)
             (when (eqv? (car scan) property)
               (return (cadr scan)))
             (set! scan (cddr scan)))
@@ -187,7 +187,7 @@
                         (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
                                       ((or (eq? tag '~) tag-symbolic?) 'locate)
                                       (else 'new)))
-                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) null tag))
+                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) nil tag))
                         (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
                         (form (new Form :textual? false :action action :model-name model-name name: name :tag-symbolic? tag-symbolic? :tag-source (get-property~ node 'tag-source false) :properties (extract-node-properties node)))
                         (children (map (function dynamic (node)
@@ -196,11 +196,11 @@
                    (set-parent-value~ form parent)
                    (if (branch-model? tag)
                        (begin
-                         (set-property~ form 'client-form (car children))
+                         (set-property~ form 'client-form (if (null? children) nil (car children)))
                          (set-children~ form (cdr children)))
                      (set-children~ form children))
                    form)))))
-    (node->form node null)))
+    (node->form node nil)))
 
 
 (definition (extract-node-properties node)
@@ -233,7 +233,7 @@
                    (set-properties~ element properties)
                    (set-children~ element (if (branch-model? model-name) (add-client-form form children) children))
                    element)))))
-    (form->node form null)))
+    (form->node form nil)))
 
 
 (definition (branch-model? model-name)
@@ -242,7 +242,7 @@
 
 (definition (add-client-form form children)
   (let ((client-form (get-property~ form 'client-form)))
-    (if (null? client-form)
+    (if (nil? client-form)
         children
       (cons (form->node client-form) children))))
 

@@ -97,7 +97,7 @@
   (method (setup-outline)
     (set! root-row (new (row-class)))
     (set-parent~ root-row self)
-    (set! [father root-row] null)
+    (set! [father root-row] nil)
     (set! [level root-row] -1)
     (set! [state root-row] 'expanded))
 
@@ -426,7 +426,7 @@
 
   
   (method public (add-row . rest)
-    (bind-keywords ((context self) (class (row-class)) (row null) (father null) (position null) . others) rest
+    (bind-keywords ((context self) (class (row-class)) (row nil) (father nil) (position nil) . others) rest
       (let* ((father (either father root-row))
              (level (+ [level father] 1))
              (row (either row (apply new-in context class parent: self others))))
@@ -491,14 +491,14 @@
   
   
   (method public (move-row row father . rest)
-    (bind-keywords ((position null)) rest
+    (bind-keywords ((position nil)) rest
       (remove-row row)
       (let ((position (if (procedure? position) (position) position)))
         (add-row :row row :father father :position position))))
   
   
   (method public (find-ordered-position title father)
-    (if (null? title)
+    (if (nil? title)
         0
       (ordered-position title (get-sons~ father) :key row-title :test (sort-predicate 'smaller/equal))))
   
@@ -508,7 +508,7 @@
     (set! visible-count 0)
     (set! visible-height 0)
     (set! visible-width 0)
-    (set! first-displayed null)
+    (set! first-displayed nil)
     (set! first-displayed-rank 0)
     (set! first-displayed-offset 0)
     (set! selection null)
@@ -535,7 +535,7 @@
         (let ((bottom <int> (- v (get-height~ row))))
           (while (> bottom 0)
             (let ((next [next row]))
-              (if (null? next)
+              (if (nil? next)
                   (set! bottom 0)
                 (set! row next)
                 (increase! rank)
@@ -572,7 +572,7 @@
           (function dynamic (row rank)
             (when (= rank n)
               (return row))))
-        null)))
+        nil)))
   
   
   ;; for debugging...
@@ -599,7 +599,7 @@
           (function dynamic (row rank)
             (when (eq? row target)
               (return rank))))
-        null)))
+        nil)))
   
   
   (method public (rows-ranks targets)
@@ -638,7 +638,7 @@
   
   
   (method public virtual (add-empty-row . rest)
-    (bind-keywords ((father null)) rest
+    (bind-keywords ((father nil)) rest
       (let ((father (either father root-row)))
         (add-row :father father))))
   
@@ -652,7 +652,7 @@
   
 
   (method public (get-row-count)
-    (if (null? root-row)
+    (if (nil? root-row)
         0
       (length (get-sons~ root-row))))
 
@@ -694,9 +694,9 @@
           (set! selection sel)
           (when ensure-displayed?
             (ensure-displayed))
-          (when old
+          (when (not-null? old)
             (invalidate-selection old))
-          (when selection
+          (when (not-null? selection)
             (invalidate-selection selection))
           (when generate-event?
             (call-selection-handler old selection force? user-origin?))))))
@@ -731,7 +731,7 @@
   
   ;; update slots that are rank based
   (method protected virtual (removed-update-selection rank count)
-    (when selection
+    (when (not-null? selection)
       (let ((selected? false))
         (when (>= selection rank)
           (if (>= selection (+ rank count))
@@ -762,7 +762,7 @@
   
   
   (method public (for-each-visible-row proc . rest)
-    (bind-keywords ((start null) (end null) (wrap? false)) rest
+    (bind-keywords ((start nil) (end nil) (wrap? false)) rest
       (let ((row (either start [next root-row]))
             (rank (if start (row-rank start) 0)))
         (when rank
@@ -770,7 +770,7 @@
             (proc row rank)
             (set! row [next row])
             (increase! rank))
-          (when (and wrap? start (null? row))
+          (when (and wrap? start (nil? row))
             (for-each-visible-row proc :end (either end start)))))))
   
   
@@ -809,7 +809,7 @@
              (count 0)
              (height 0)
              (level (+ [level row] 1))
-             (previous null)
+             (previous nil)
              (rows (map (function dynamic (info)
                           (let ((subrow (proc info)))
                             (set! [father subrow] row)
@@ -882,7 +882,7 @@
     (when (/= [state row] 'collapsed)
       (let ((first (first-descendant~ row))
             (in-collapse? true))
-        (if (null? first)
+        (if (nil? first)
             (set! [state row] 'collapsed)
           (let ((rank (row-rank row))
                 (top [v (get-position~ row)])
@@ -919,8 +919,8 @@
     (let ((previous [previous first])
           (next [next last]))
       (link-rows previous next)
-      (set! [previous first] null)
-      (set! [next last] null)))
+      (set! [previous first] nil)
+      (set! [next last] nil)))
   
   
   (method public (ensure-expanded row)
@@ -1076,7 +1076,7 @@
 
 
   (method public virtual (ensure-displayed . rest)
-    (when selection
+    (when (not-null? selection)
       (ensure-row-displayed selection)))
   
   
@@ -1194,7 +1194,7 @@
                         (error "Insanity detected in visible row {t} ([row next]: {t} [row next previous]: {t}) of {t}" row [next row] [previous next row] self))
                       (when (and [previous row] (neq? row [next previous row]))
                         (error "Insanity detected in visible row {t} ([row previous]: {t} [row previous next]: {t}) of {t}" row [previous row] [next previous row] self))
-                      (when (or (= (row-visible?~ row) (null? rank))
+                      (when (or (= (row-visible?~ row) (nil? rank))
                                 (/= rank (row-rank row)))
                         (error "Insanity detected in row {t} ([row visible?]: {t} [row rank]: {t} (row-rank row): {t}) of {t}" row (row-visible?~ row) rank (row-rank row) self))))
       (let ((valid (displayed-info))
@@ -1206,7 +1206,7 @@
   (method (displayed-info)
     (let ((sons [sons root-row]))
       (if (empty? sons)
-          (list null 0 0)
+          (list nil 0 0)
         (let* ((row (first sons))
                (last)
                (rank 0)
@@ -1215,17 +1215,17 @@
                (scrolled (- (get-scrolled-v))))
           (while (and row (<= bottom scrolled))
             (let ((next [next row]))
-              (if (null? next)
+              (if (nil? next)
                   (begin
                     (set! last row)
-                    (set! row null))
+                    (set! row nil))
                 (set! row next)
                 (increase! rank)
                 (set! v bottom)
                 (set! last row)
                 (increase! v row-spacing)
                 (set! bottom (+ v (get-height~ row))))))
-          (if (null? row)
+          (if (nil? row)
               (list last rank (- scrolled v))
             (list row rank (- scrolled v)))))))
 

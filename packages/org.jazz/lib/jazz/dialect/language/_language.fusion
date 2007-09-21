@@ -450,7 +450,15 @@
 ;;;
 
 
-(class Boolean extends Object)
+(class Boolean extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "booleans"))
+  
+  
+  (method (print output detail)
+    (write self output)))
 
 
 (definition public inline (neq? x y)
@@ -804,7 +812,7 @@
   
   @convert
   (method public virtual (get-message)
-    null)
+    nil)
   
   
   @convert
@@ -823,7 +831,7 @@
   
   @convert
   (method (initialize . rest)
-    (bind-keywords ((message null)) rest
+    (bind-keywords ((message nil)) rest
       (nextmethod)
       (set-message message)))
   
@@ -1227,8 +1235,8 @@
 
 
 (definition public (between? n lower upper)
-  (and (or (null? lower) (>= n lower))
-       (or (null? upper) (<= n upper))))
+  (and (or (nil? lower) (>= n lower))
+       (or (nil? upper) (<= n upper))))
 
 
 (definition public (between lower n upper)
@@ -1452,7 +1460,7 @@
 
 
   (method public virtual (get-state)
-    null)
+    nil)
 
 
   (method public virtual (reset-state old)
@@ -2577,7 +2585,7 @@
                (function dynamic (element)
                  (let* ((category (key element))
                         (pair (assoc category result :test test)))
-                   (if (null? pair)
+                   (if (not pair)
                        (set! result (cons (cons category (list element)) result))
                      (set-cdr! pair (cons element (cdr pair))))))))
         (for-each proc sequence))
@@ -2624,7 +2632,7 @@
         (test (if (nil? test) eqv? test)))
     (let iter ((rest (tail list start))
                (rank start))
-       (cond ((null? rest) null)
+       (cond ((null? rest) nil)
              ((test target (key (car rest)))
               (cond ((eq? returned 'position) rank)
                     ((eq? returned 'item) (car rest))
@@ -2637,7 +2645,7 @@
   (let ((key (if (nil? key) (lambda (x) x) key)))
     (let iter ((rest (tail list start))
                (rank start))
-       (cond ((null? rest) null)
+       (cond ((null? rest) nil)
              ((predicate (key (car rest)))
               (cond ((eq? returned 'position) rank)
                     ((eq? returned 'item) (car rest))
@@ -2664,12 +2672,12 @@
 
 
   (method (initialize seq . rest)
-    (bind-keywords ((direction 'forward) (start null)) rest
+    (bind-keywords ((direction 'forward) (start nil)) rest
       (nextmethod)
       (set! sequence seq)
       (set! sequence-length (length sequence))
       (set-direction direction)
-      (if (null? start)
+      (if (nil? start)
           (case direction
             ((forward)  (goto-beginning))
             ((backward) (goto-end)))
@@ -2935,7 +2943,7 @@
   (let iter ((rst lst)
              (i 0))
      (if (null? rst)
-         null
+         nil
        (if (eq? obj (car rst))
            i
          (iter (cdr rst) (+ i 1))))))
@@ -2999,7 +3007,7 @@
 (definition public (augment . rest)
   (let ((fact (new List-Factory))
         (scan rest))
-    (while (not-nil? scan)
+    (while (not-null? scan)
       (if (null? (cdr scan))
           (put-sequence~ fact (car scan))
         (put~ fact (car scan)))
@@ -3044,7 +3052,7 @@
         (loop (for object in list)
               (when (eq? (car object) target)
                 (return object))
-              (finally nil))))))
+              (finally #f))))))
 
 
 (definition public (assv target <Object> list <Object>)
@@ -3054,7 +3062,7 @@
         (loop (for object in list)
               (when (eqv? (car object) target)
                 (return object))
-              (finally nil))))))
+              (finally #f))))))
 
 
 (definition public (assoc target <Object> list <Object> . rest)
@@ -3064,7 +3072,7 @@
         (loop (for object in list)
               (when (apply-test test target (apply-key key (car object)))
                 (return object))
-              (finally nil))))))
+              (finally #f))))))
 
 
 (definition public (rassoc target <Object> list <Object> . rest)
@@ -3074,13 +3082,13 @@
         (loop (for object in list)
               (when (apply-test test target (apply-key key (cdr object)))
                 (return object))
-              (finally nil))))))
+              (finally #f))))))
 
 
 (definition public (find-pair target <Object> list <Object>)
   (call/ec
     (lambda (return)
-      (while list
+      (while (not-null? list)
         (if (eq? target (car list))
             (return list)
           (set! list (cdr list)))))))
@@ -3089,7 +3097,7 @@
 (definition public (reverse! list <Object>)
   (let ((res <Object> null)
         (ptr <Object> null))
-    (while list
+    (while (not-null? list)
       (set! ptr (cdr list))
       (set-cdr! list res)
       (set! res list)
@@ -3099,13 +3107,13 @@
 
 (definition public (remove! target <Object> list <Object> . rest)
   (bind-keywords ((key nil) (test eqv?)) rest
-    (while (and list (test target (apply-key key (car list))))
+    (while (and (not-null? list) (test target (apply-key key (car list))))
       (set! list (cdr list)))
     (if (null? list)
         null
       (let ((previous list)
             (scan (cdr list)))
-        (while scan
+        (while (not-null? scan)
           (if (test target (apply-key key (car scan)))
               (begin
                 (set! scan (cdr scan))
@@ -3120,20 +3128,20 @@
     (call/ec
       (lambda (return)
         (let ((scan plist))
-          (while scan
+          (while (not-null? scan)
             (when (eqv? (apply-key key (car scan)) target)
               (return scan))
             (set! scan (cdr scan))
             (when (not (pair? scan))
               (error "Badly structured property list: {t}" plist))
             (set! scan (cdr scan))))
-        '()))))
+        #f))))
 
 
 (definition public (getf plist <Object> target <Object> . rest)
-  (bind-keywords ((key nil) (not-found '())) rest
+  (bind-keywords ((key nil) (not-found nil)) rest
     (let ((pair (getprop plist target key: key)))
-      (if (null? pair)
+      (if (not pair)
           not-found
         (cadr pair)))))
 
@@ -3144,7 +3152,7 @@
 
 (definition public (addf plist <Object> target <Object> value <Object>)
   (let ((pair (getprop plist target)))
-    (if (null? pair)
+    (if (not pair)
         (append! plist (list target value))
       (set-second! pair value)
       plist)))
@@ -3271,8 +3279,8 @@
 
 
   (slot list                 initialize null)
-  (slot last-list            initialize null)
-  (slot last-anchor          initialize null)
+  (slot last-list            initialize nil)
+  (slot last-anchor          initialize nil)
   (slot current              initialize null)
   (slot size       <Integer> initialize 0)
   (slot pure-list? <Boolean> initialize false)
@@ -3349,21 +3357,21 @@
 
   (method public (reset)
     (set! list null)
-    (set! last-list null)
-    (set! last-anchor null)
+    (set! last-list nil)
+    (set! last-anchor nil)
     (set! current null)
     (set! size 0))
 
 
   (method private (copy-last-list)
-    (cond ((null? last-anchor)
+    (cond ((nil? last-anchor)
            (set! list (copy last-list))
            (set! current (last-tail list)))
           (else
            (set-cdr! last-anchor (copy last-list))
            (set! current (last-tail last-anchor))))
-    (set! last-list null)
-    (set! last-anchor null)))
+    (set! last-list nil)
+    (set! last-anchor nil)))
 
 
 ;;;
@@ -3415,12 +3423,16 @@
 
 
 (definition public (hash-ref hashtable key . rest)
-  (let ((default (if (null? rest) null (car rest))))
+  (let ((default (if (null? rest) nil (car rest))))
     (hashtable-ref hashtable key default)))
 
 
 (definition public (hash-set! hashtable key value)
   (hashtable-set! hashtable key value))
+
+
+(definition (hash-add hashtable key value)
+  (hash-set! hashtable key (cons value (hash-ref hashtable key '()))))
 
 
 (definition public (hash-remove! hashtable <Hashtable> name <Object> value <Object>)
@@ -3436,10 +3448,6 @@
 
 
 (definition hash-clear hashtable-clear)
-
-
-(definition (hash-add hashtable key value)
-  (hash-set! hashtable key (cons value (hash-ref hashtable key))))
 
 
 ;(definition (hash-add                                Hashtable Object Object))
@@ -4119,7 +4127,7 @@
 
 (definition public (remove-numeric-suffix string)
   (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string :reversed? true :return 'position)))
-    (if (null? pos)
+    (if (nil? pos)
         ""
       (subseq string 0 (+ pos 1)))))
 
@@ -4734,7 +4742,7 @@
     (set! [control-reader self] (new String-Reader control-string))
     (set! [arguments self] arguments)
     (set! [arguments-iterator self] (new List-Iterator arguments))
-    (set! [formatter self] null))
+    (set! [formatter self] nil))
   
   
   ;;;
@@ -4951,7 +4959,7 @@
                 (let ((key (car scan))
                       (value (cadr scan)))
                   (when (and (or (null? properties) (memq? key properties))
-                             (or (null? empty-value) (neq? value empty-value)))
+                             (or (nil? empty-value) (neq? value empty-value)))
                     (print-char #\space printer)
                     (print-expr key detail printer)
                     (print-char #\space printer)
@@ -5005,7 +5013,7 @@
   
   (method (with-justification parameters proc)
     (let ((width (get-width parameters)))
-      (if (null? width)
+      (if (nil? width)
           (proc out)
         (let ((justification (get-justify parameters))
               (padding (get-padding parameters))
@@ -5057,7 +5065,7 @@
   
   
   (method (get-width parameters)
-    (keyword-parameter parameters :width null))
+    (keyword-parameter parameters :width nil))
   
   
   (method (get-justify parameters)
@@ -5080,11 +5088,11 @@
   
   
   (method (get-before parameters)
-    (keyword-parameter parameters :before null))
+    (keyword-parameter parameters :before nil))
   
   
   (method (get-after parameters)
-    (keyword-parameter parameters :after null))
+    (keyword-parameter parameters :after nil))
   
   
   (method (get-precision parameters)
@@ -5096,7 +5104,7 @@
   
   
   (method (get-empty-value parameters)
-    (keyword-parameter parameters :empty-value null))
+    (keyword-parameter parameters :empty-value nil))
   
   
   (method (get-detail parameters)

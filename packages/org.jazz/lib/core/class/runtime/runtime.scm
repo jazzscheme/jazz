@@ -727,26 +727,6 @@
 
 
 ;;;
-;;;; Nil
-;;;
-
-
-(jazz.define-class jazz.Nil jazz.Object () jazz.Object-Class
-  ())
-
-
-(define (jazz.new-nil)
-  (jazz.allocate-nil jazz.Nil))
-
-
-(define jazz.NilConstant
-  (jazz.new-nil))
-
-
-(jazz.encapsulate-class jazz.Nil)
-
-
-;;;
 ;;;; Queue
 ;;;
 

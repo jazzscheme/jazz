@@ -112,7 +112,7 @@
         (if (not completion-active?)
             (insert-char/backspace #\backspace :word? word?)
           (when previous
-            (complete-current #\backspace previous null true false))))))
+            (complete-current #\backspace previous nil true false))))))
 
 
   (method (char-press key translated)
@@ -161,7 +161,7 @@
              (copy (get-string range)))
         (set-selection mouse-copy-selection)
         (mouse-insert copy)))
-    (set! mouse-copy-selection null))
+    (set! mouse-copy-selection nil))
 
 
   (method (select-outer)
@@ -268,7 +268,7 @@
   
   
   (method protected virtual (edition-workspace)
-    null)
+    nil)
 
   
   (method (on-edit-definition evt)
@@ -303,7 +303,7 @@
   (method (on-add-to-favorites evt)
     (let ((form (current-expr)))
       (when form
-        (add-to-favorites~ (get-guest~ (singleton-palette Favorites-Manager null)) Favorite-Symbol null (list :symbol form)))))
+        (add-to-favorites~ (get-guest~ (singleton-palette Favorites-Manager nil)) Favorite-Symbol nil (list :symbol form)))))
 
 
   (method protected virtual (expr-at pos)
@@ -359,7 +359,7 @@
   (method (current-history-item)
     (let ((selection (get-selection))
           (moniker (get-moniker)))
-      (if (null? moniker)
+      (if (nil? moniker)
           (let ((frame (get-frame)))
             (when frame
               (new History-Document-Item frame selection)))
@@ -428,11 +428,11 @@
   
   
   (method protected virtual (syntax-targets)
-    null)
+    nil)
   
   
   (method protected virtual (syntax-automata)
-    null)
+    nil)
   
   
   (method protected virtual (compute-syntax-targets)
@@ -466,7 +466,7 @@
   
   
   (method protected (apply-coloring colorizer start end style-name)
-    (if (null? colorizer)
+    (if (nil? colorizer)
         (apply-style style-name start end)
       (apply-style~ colorizer start end style-name)))
   
@@ -621,7 +621,7 @@
   
   
   (method (read-text-forms range . rest)
-    (bind-keywords ((string null) (console? false)) rest
+    (bind-keywords ((string nil) (console? false)) rest
       (let ((string (either string (get-string range))))
         (with-closed ((reader (new String-Reader string)))
           (read-until eof-object? reader)))))
@@ -650,7 +650,7 @@
         (when (and (> row 0) (= col 0))
           (let* ((line (paragraph-string (- row 1)))
                  (rank (find-if (function dynamic (c) (not (whitespace? c))) line :return 'position)))
-            (if (null? rank)
+            (if (nil? rank)
                 (insert-string line)
               (insert-string (subseq line 0 rank))))))))
   
@@ -691,9 +691,9 @@
 
   (method (back-symbol pos postfix)
     (when (or (not (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos))))
-              @dont-understand-this-test-that-makes-completion-kick-in-in-the-middle-of-words (null? postfix))
+              @dont-understand-this-test-that-makes-completion-kick-in-in-the-middle-of-words (nil? postfix))
       (let ((prev (previous-cell pos)))
-        (if (null? prev)
+        (if (nil? prev)
             postfix
           (let ((c (get-char prev)))
             (unless (string-delimiter? c)
@@ -702,7 +702,7 @@
                 (let ((expl (new (explorer-class) self :start pos :end pos)))
                   (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol keyword string)))
                     (let ((c (char-backward~ expl 0)))
-                      (when (or (null? c) (not (string-delimiter? c)))
+                      (when (or (nil? c) (not (string-delimiter? c)))
                         (append (get-symbol-string~ expl) (either postfix "")))))))))))))
   
   
@@ -716,46 +716,47 @@
 
 
   (method (completion-string pos postfix)
-    (let* ((name (back-symbol pos postfix))
-           (size (length name))
-           (favorites (favorite-completions))
-           (favorite (assoc name favorites :test =))
-           (feedback? (not (macro-playing?))))
-      (if favorite
-          (begin
-            (when feedback?
-              (clear-user-message))
-            (append (either postfix "") (subseq (cdr favorite) size)))
-        (when (complete-name? size)
-          (let* ((completions (symbol-completions name favorites))
-                 (count (length completions)))
-            (cond ((null? completions)
-                   (when feedback?
-                     (user-message ""))
-                   null)
-                  ((null? (cdr completions))
-                   (let ((found (car completions)))
-                     (when feedback?
-                       (user-message "{a}" found))
-                     (if (= name found)
-                         null
-                       (append (either postfix "") (subseq found size)))))
-                  ((> count 100)
-                   (when feedback?
-                     (user-message "..."))
-                   null)
-                  ((> count 5)
-                   (let* ((common (prefix completions))
-                          (offset (length common))
-                          (alphabet (alphabetize-completion completions offset)))
-                     (when feedback?
-                       (user-message "{a} ... [{a}]" common alphabet))
-                     (append (either postfix "") (subseq common size))))
-                  (else
-                   (let ((common (prefix completions)))
-                     (when feedback?
-                       (user-message "{l :detail :human}" completions))
-                     (append (either postfix "") (subseq common size))))))))))
+    (let ((name (back-symbol pos postfix)))
+      (when name
+        (let* ((size (length name))
+               (favorites (favorite-completions))
+               (favorite (assoc name favorites :test =))
+               (feedback? (not (macro-playing?))))
+          (if favorite
+              (begin
+                (when feedback?
+                  (clear-user-message))
+                (append (either postfix "") (subseq (cdr favorite) size)))
+            (when (complete-name? size)
+              (let* ((completions (symbol-completions name favorites))
+                     (count (length completions)))
+                (cond ((null? completions)
+                       (when feedback?
+                         (user-message ""))
+                       nil)
+                      ((null? (cdr completions))
+                       (let ((found (car completions)))
+                         (when feedback?
+                           (user-message "{a}" found))
+                         (if (= name found)
+                             nil
+                           (append (either postfix "") (subseq found size)))))
+                      ((> count 100)
+                       (when feedback?
+                         (user-message "..."))
+                       nil)
+                      ((> count 5)
+                       (let* ((common (prefix completions))
+                              (offset (length common))
+                              (alphabet (alphabetize-completion completions offset)))
+                         (when feedback?
+                           (user-message "{a} ... [{a}]" common alphabet))
+                         (append (either postfix "") (subseq common size))))
+                      (else
+                       (let ((common (prefix completions)))
+                         (when feedback?
+                           (user-message "{l :detail :human}" completions))
+                         (append (either postfix "") (subseq common size))))))))))))
   
   
   (method protected virtual (complete-name? size)
@@ -790,14 +791,14 @@
               (replace-selection (list replacement-string)))
           (end-completion)
           (insert-char/backspace key)
-          (complete-current null (get-start) null false false)))))
+          (complete-current nil (get-start) nil false false)))))
   
 
   (method (complete-current key pos postfix back? inserted?)
     (if (textual-style? (get-style-at pos))
         (insert-char/backspace key)
       (let ((string (completion-string pos postfix)))
-        (if (null? string)
+        (if (nil? string)
             (begin
               (insert-char/backspace key)
               (end-completion))
@@ -993,7 +994,7 @@
           (bell)
         (let* ((classname (->string expr))
                (javaClass (lookupClass~ org.apache.bcel.Repository classname)))
-          (if (null? javaClass)
+          (if (nil? javaClass)
               (error "Unable to find java class: {a}" classname)
             (let* ((host (new-frame Java-Manager))
                    (manager (get-guest~ host)))

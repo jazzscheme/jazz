@@ -143,17 +143,6 @@
 
 
 ;;;
-;;;; Timing
-;;;
-
-
-(jazz.define-macro (%%timing . body)
-  `(if (jazz.profile?)
-       (time ,@body)
-     (begin ,@body)))
-
-
-;;;
 ;;;; Typecase
 ;;;
 

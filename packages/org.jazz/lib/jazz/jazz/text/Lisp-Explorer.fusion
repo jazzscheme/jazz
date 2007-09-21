@@ -95,7 +95,7 @@
   
   
   (method (present-char c)
-    (cond ((null? c)
+    (cond ((nil? c)
            "EOF")
           ((memv? c '(#\space #\tab #\return #\line-feed))
            (char-symbol c))
@@ -212,7 +212,7 @@
               (cond ((= c #\backslash)
                      (forward)
                      (forward))
-                    ((or (null? c) (not (jazz-constituent? c)))
+                    ((or (nil? c) (not (jazz-constituent? c)))
                      (set! kind (if (or keyword? (and last (= last #\colon))) 'keyword 'symbol))
                      (return kind))
                     (else
@@ -231,7 +231,7 @@
               (cond ((= (char-backward 1) #\backslash)
                      (backward)
                      (backward))
-                    ((or (null? c) (not (jazz-constituent? c)))
+                    ((or (nil? c) (not (jazz-constituent? c)))
                      (set! kind (if (or keyword? (= last #\colon)) 'keyword 'symbol))
                      (return kind))
                     (else
@@ -246,7 +246,7 @@
         (backward)
         (while true
           (let ((c (char-backward 0)))
-            (if (null? c)
+            (if (nil? c)
                 (return false)
               (cond ((= (char-backward 1) #\backslash)
                      (backward)
@@ -308,7 +308,7 @@
         (forward)
         (while true
           (let ((c (char-forward 0)))
-            (if (null? c)
+            (if (nil? c)
                 (return false)
               (cond ((= c #\\)
                      (forward)
@@ -328,7 +328,7 @@
         (while true
           (let ((c0 (char-forward 0))
                 (c1 (char-forward 1)))
-            (cond ((or (null? c0) (null? c1))
+            (cond ((or (nil? c0) (nil? c1))
                    (return false))
                   ((and (= c0 #\|) (= c1 #\sharp))
                    (forward)
@@ -385,7 +385,7 @@
         (forward)
         (while true
           (let ((c (char-forward 0)))
-            (cond ((null? c)
+            (cond ((nil? c)
                    (return false))
                   ((= c #\backslash)
                    (forward)
@@ -407,7 +407,7 @@
         (while true
           (let ((c0 (char-backward 0))
                 (c1 (char-backward 1)))
-            (cond ((or (null? c0) (null? c1))
+            (cond ((or (nil? c0) (nil? c1))
                    (return false))
                   ((and (= c0 #\|) (= c1 #\sharp))
                    (backward)
@@ -425,7 +425,7 @@
         (backward)
         (while true
           (let ((c (char-backward 0)))
-            (cond ((null? c)
+            (cond ((nil? c)
                    (return false))
                   ((= (char-backward 1) #\backslash)
                    (backward)
@@ -558,23 +558,29 @@
 
   
   (method public (forward-whites)
-    (let ((c))
-      (call/ec
-        (lambda (return)
-          (while (and (set! c (char-forward 0)) (or (whitespace? c) (= c #\semi-colon)))
-            (if (= c #\semi-colon)
-                (forward-comments)
-              (when (not (forward))
-                (return))))))))
+    (call/ec
+      (lambda (return)
+        (let ((done? false))
+          (while (not done?)
+            (let ((c (char-forward 0)))
+              (if (and c (or (whitespace? c) (= c #\semi-colon)))
+                  (if (= c #\semi-colon)
+                      (forward-comments)
+                    (when (not (forward))
+                      (return)))
+                (set! done? true))))))))
 
   
   (method public (backward-whites)
-    (let ((c))
-      (call/ec
-        (lambda (return)
-          (while (and (set! c (char-backward 0)) (whitespace? c))
-            (when (not (backward))
-              (return)))))))
+    (call/ec
+      (lambda (return)
+        (let ((done? false))
+          (while (not done?)
+            (let ((c (char-backward 0)))
+              (if (and c (whitespace? c))
+                  (when (not (backward))
+                    (return))
+                (set! done? true))))))))
 
 
   ;;;
@@ -644,11 +650,11 @@
                      (let ((skipped (backward-all-expr))
                             (starter (char-backward 0)))
                        (cond ((or (and ender (not (close-composite? ender)))
-                                  (and (null? starter) ender)
+                                  (and (nil? starter) ender)
                                   (and starter ender (not (composites-match? starter ender))))
                               (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
                              ((or (and starter (not (open-composite? starter)))
-                                  (and starter (null? ender)))
+                                  (and starter (nil? ender)))
                               (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
                              (else
                               (set-end e)
@@ -684,7 +690,7 @@
                (definition-name? (car form)))
       (let ((scan (cdr form))
             (modifiers (get-modifiers)))
-        (while (and scan (memq? (car scan) modifiers))
+        (while (and (not-null? scan) (memq? (car scan) modifiers))
           (set! scan (cdr scan)))
         (when scan
           (let ((expr (car scan)))
@@ -770,7 +776,7 @@
   
   
   (method public virtual (walk-declarations context declaration keyword expression doc walk-expressions?)
-    (while (walk-declaration context declaration keyword expression doc null walk-expressions?)
+    (while (walk-declaration context declaration keyword expression doc nil walk-expressions?)
       ))
   
   
@@ -829,7 +835,7 @@
   
   (method (for-each-forms proc mode)
     (forward-expr)
-    (when (not-null? kind)
+    (when (not-nil? kind)
       (let ((mode (if (and (= kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
                            ;; a patch until the explorer has better code understanding
                            (or (/= (intern-marked-symbol) 'form)
@@ -926,10 +932,10 @@
       (let ((expl-kind (get-kind)))
         (if (pattern-variable? expression)
             (bind-values (name kind) (parse-pattern-variable expression)
-              (and (or (null? mode) (eq? mode expl-mode))
-                   (or (null? kind) (eq? kind expl-kind))))
+              (and (or (nil? mode) (eq? mode expl-mode))
+                   (or (nil? kind) (eq? kind expl-kind))))
           (let ((kind (expression-kind expression)))
-            (and (or (null? mode) (eq? mode expl-mode))
+            (and (or (nil? mode) (eq? mode expl-mode))
                  (eq? kind expl-kind)
                  (equal? expression (read-string-element (get-marked)))))))))
   
@@ -946,7 +952,7 @@
   (method (parse-expression expression)
     (if (and (pair? expression) (eq? (car expression) 'quote))
         (values 'quotation (cadr expression))
-      (values null expression)))
+      (values nil expression)))
   
   
   (method (pattern-variable? expression)
@@ -957,9 +963,9 @@
   (method (parse-pattern-variable variable)
     (let ((elements (parse-strings (subseq (symbol->string variable) 1) :separator ":")))
       (bind-optionals ((name "") (kind "") (mode "")) elements
-        (values (if (empty-string? name) null (string->symbol name))
-                (if (empty-string? kind) null (string->symbol kind))
-                (if (empty-string? mode) null (string->symbol mode))))))
+        (values (if (empty-string? name) nil (string->symbol name))
+                (if (empty-string? kind) nil (string->symbol kind))
+                (if (empty-string? mode) nil (string->symbol mode))))))
   
 
   ;;;

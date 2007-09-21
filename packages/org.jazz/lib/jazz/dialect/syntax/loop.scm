@@ -112,13 +112,13 @@
 #; ;; @expansion
 (let ((for0 <Object> lst)
       (n <Object>)
-      (dne1 <bool> #f))
-  (while (and (not dne1) (not (eq? for0 nil)))
+      (ext1 <bool> #f))
+  (while (and (not ext1) (not (eq? for0 nil)))
     (set! n (%%car for0))
     (set! for0 (%%cdr for0))
     (when (even? n)
-      (set! dne1 #t))
-    (when (not dne1)
+      (set! ext1 #t))
+    (when (not ext1)
       (debug n)))
   n)
 
@@ -143,7 +143,7 @@
 (define (expand-loop clauses)
   (let ((bindings    '())
         (return      noobject)
-        (done        noobject)
+        (exit        noobject)
         (tests       '())
         (withs       '())
         (befores     '())
@@ -223,7 +223,7 @@
        ,@epilogue
        ,@(if (eq? return noobject)
              finally
-           `((if ,done
+           `((if ,exit
                  ,return
                (begin
                  ,@finally))))))
@@ -236,7 +236,7 @@
   
   
   (define Unbound
-    (cons null null))
+    (cons nil nil))
   
   
   (define (add-binding variable type . rest)
@@ -250,22 +250,22 @@
     (set! withs (append! withs (list with))))
   
   
-  (define (get-return/done)
+  (define (get-return/exit)
     (when (eq? return noobject)
       (let ((ret (unique "ret"))
-            (dne (unique "dne")))
+            (ext (unique "ext")))
         (add-binding ret '<Object+> 'nil)
-        (add-binding dne '<bool> 'false)
-        (add-initial-test (list 'not dne))
+        (add-binding ext '<bool> 'false)
+        (add-initial-test (list 'not ext))
         (set! return ret)
-        (set! done dne)))
-    (values return done))
+        (set! exit ext)))
+    (values return exit))
   
   
-  (define (done-safe actions)
-    (if (eq? done noobject)
+  (define (exit-safe actions)
+    (if (eq? exit noobject)
         actions
-      `((when (not-nil? ,done)
+      `((when (not ,exit)
           ,@actions))))
   
   
@@ -278,7 +278,7 @@
   
   
   (define (add-before before)
-    (set! befores (append! befores (done-safe (list before)))))
+    (set! befores (append! befores (exit-safe (list before)))))
   
   
   (define (add-action action actions)
@@ -286,11 +286,11 @@
   
   
   (define (add-actions action-list actions)
-    (enqueue-list actions (done-safe action-list)))
+    (enqueue-list actions (exit-safe action-list)))
   
   
   (define (add-after after)
-    (set! afters (append! afters (done-safe (list after)))))
+    (set! afters (append! afters (exit-safe (list after)))))
   
   
   (define (add-epilogue expr)
@@ -368,8 +368,8 @@
              (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((from)
          (bind (from . rest) rest
-           (let ((to null)
-                 (test null)
+           (let ((to nil)
+                 (test nil)
                  (update 'increase!)
                  (by 1)
                  (scan rest))
@@ -382,7 +382,7 @@
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))
              (add-binding variable '<int> from)
-             (when (not-null? to)
+             (when (not-nil? to)
                (let ((end (if (symbol? to) to (unique "end"))))
                  (when (not (eq? end to))
                    (add-binding end '<int> to))
@@ -526,9 +526,9 @@
 
 
   (define (process-return actions rest)
-    (bind-values (ret dne) (get-return/done)
+    (bind-values (ret ext) (get-return/exit)
       (add-action (list 'set! ret (car rest)) actions)
-      (add-action (list 'set! dne true) actions)))
+      (add-action (list 'set! ext true) actions)))
   
   
   ;;;

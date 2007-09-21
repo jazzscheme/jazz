@@ -90,7 +90,7 @@
   (method (on-preview-html evt)
     @wait
     (let ((component (selected-component)))
-      (if (null? component)
+      (if (nil? component)
           (bell)
         (with-cursor :wait
           (function dynamic ()
@@ -105,7 +105,7 @@
   
   (method (on-export-html evt)
     (let ((component (selected-component)))
-      (if (null? component)
+      (if (nil? component)
           (bell)
         (with-cursor :wait
           (function dynamic ()
@@ -117,7 +117,7 @@
   
   (method (on-export-text evt)
     (let ((component (selected-component)))
-      (if (null? component)
+      (if (nil? component)
           (bell)
         (with-cursor :wait
           (function dynamic ()
@@ -216,7 +216,7 @@
   
   
   (method protected virtual (component-state component)
-    null)
+    nil)
 
   
   ;;;
@@ -390,7 +390,7 @@
   
   (method (delete-selection)
     (let ((selection (get-selection)))
-      (when selection
+      (when (not-null? selection)
         (let ((components (get-selected-data)))
           (when (confirm-close components)
             (with-deleted-selection selection
@@ -428,7 +428,7 @@
   
   (method (addable-classes)
     (let ((component (selected-component)))
-      (cond ((null? component)
+      (cond ((nil? component)
              (addable-root-classes))
             ((is-not? component Component)
              null)
@@ -439,12 +439,12 @@
                     (model (class-of component)))
                (when (and (memq? model parent-classes)
                           (not (memq? model classes)))
-                 (set! classes (cons model (cons null classes))))
+                 (set! classes (cons model (cons nil classes))))
                classes)))))
   
   
   (method (add-component-class class . rest)
-    (bind-keywords ((parent null) (presentation null) (properties null) (select? true)) rest
+    (bind-keywords ((parent nil) (presentation nil) (properties null) (select? true)) rest
       (let* ((selected (selected-component))
              (parent (either parent (relocation-parent selected class) selected client))
              (extra-properties properties))
@@ -466,8 +466,8 @@
   
   (method protected virtual (component-presentation-request class brothers . rest)
     (if (get-name-prohibited?~ class)
-        null
-      (bind-keywords ((initial-value null)) rest
+        nil
+      (bind-keywords ((initial-value nil)) rest
         (let* ((name-mandatory? (get-name-mandatory?~ class))
                (name-unicity? (get-name-unicity?~ class))
                (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
@@ -478,11 +478,11 @@
   
   
   (method protected virtual (component-properties-request class)
-    null)
+    nil)
   
   
   (method protected virtual (component-name-validator)
-    null)
+    nil)
   
   
   (method (create-new-component class parent creation-info extra-properties)
@@ -581,14 +581,14 @@
         (function dynamic ()
           (if (eq? part 'row)
               (let ((parent (uniform components :key (function dynamic (component) (relocation-parent destination (class-of component))))))
-                (if (null? parent)
+                (if (not parent)
                     (bell)
                   (move-components~ designer components parent)))
             (let* ((father (get-father~ dst))
                    (sons (get-sons~ father))
                    (rank (son-rank~ father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
-                   (target (if (< position (length sons)) (element sons position) null))
+                   (target (if (< position (length sons)) (element sons position) nil))
                    (target-data (essay target (get-user-data~ target))))
               (for-each (function dynamic (component)
                           (send-before~ designer component (essay target (send-component-before component target-data))))
@@ -597,7 +597,7 @@
   
   
   (method (move-component-row row father . rest)
-    (bind-keywords ((position null)) rest
+    (bind-keywords ((position nil)) rest
       (unless (and (eq? (get-father~ row) father) (= 1 (length (get-sons~ father))))
         (let* ((source (get-user-data~ row))
                (destination (either (get-user-data~ father) client))
@@ -605,7 +605,7 @@
           (move-row row father
             :position (either position (function dynamic ()
                                          (if (not sort?)
-                                             null
+                                             nil
                                            (find-component-position source row father)))))))))
   
   
@@ -644,14 +644,14 @@
            (dst-parent (parent-relocation (get-parent~ dst)))
            (before? (eq? src-parent dst-parent))
            (before-last (row-rank (last (get-sons~ dst-father))))
-           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) null (+ dst-rank 1)))))
-           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) null)))
-           (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (function dynamic (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
-           (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
+           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) nil (+ dst-rank 1)))))
+           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) nil)))
+           (move? (and (not (memq? dst src)) (or (nil? dst) (and (or (nil? src-parent) (neq? src-parent dst)) (every? (function dynamic (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
+           (before? (and before? (not (memq? before-rank src-selection)) (or (nil? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
-                       (else null))))
+                       (else nil))))
       (when part
         (new Tree-Drop-Target :view self :row row :part part))))
   
@@ -659,7 +659,7 @@
   (method (get-row-target drag-drop row)
     (let* ((source (get-source~ drag-drop))
            (view (get-view~ source)))
-      null
+      nil
       @wait
       (typecase view
         @to-convert-to-new-toolbox
@@ -673,7 +673,7 @@
         ((Descendants-Tree)
           (get-row-reorder-target drag-drop row 'row))
         (else
-          null))))
+          nil))))
   
   
   (method (receive-drop sender pos drag-drop)
@@ -747,14 +747,14 @@
   
   (method public (select-component component)
     (let ((row (component-visible-row component)))
-      ;; if row is null, then the row must be collapsed and I should expand it...
+      ;; if row is nil, then the row must be collapsed and I should expand it...
       (when row
         (set-single-selection row))))
   
   
   (method public (select-components components)
     (let ((rows (remove-nils (map component-visible-row components))))
-      ;; if a row is null, then the row must be collapsed and I should expand it...
+      ;; if a row is nil, then the row must be collapsed and I should expand it...
       (set-selection rows)))
   
   

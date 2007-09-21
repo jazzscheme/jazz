@@ -238,14 +238,6 @@
 
 
 ;;;
-;;;; Nil
-;;;
-
-
-(native jazz.NilConstant)
-
-
-;;;
 ;;;; Number
 ;;;
 

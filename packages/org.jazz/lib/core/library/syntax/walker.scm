@@ -1802,7 +1802,7 @@
 
 (define (jazz.construct-literal lst)
   (if (%%null? lst)
-      jazz.NilConstant
+      #f
     (let ((constructor (jazz.require-literal-constructor (%%car lst))))
       (%%apply constructor (%%cdr lst)))))
 
@@ -1832,8 +1832,6 @@
     (jazz.walk walker resume library-declaration environment
       (cond ((pair? literal)
              `(cons ',(car literal) ',(cdr literal)))
-            ((eq? literal jazz.NilConstant)
-             'NilConstant)
             (else
              (jazz.dialect.language.fold-literal literal))))))
 

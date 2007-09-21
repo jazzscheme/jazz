@@ -543,19 +543,6 @@
 
 
 ;;;
-;;;; True/False
-;;;
-
-
-(jazz.define-method (jazz.walk-true (jazz.Jazz-Walker walker) form)
-  `(true? ,form))
-
-
-(jazz.define-method (jazz.walk-false (jazz.Jazz-Walker walker) form)
-  `(false? ,form))
-
-
-;;;
 ;;;; Lambda
 ;;;
 

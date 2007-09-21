@@ -70,16 +70,4 @@
   `(set-car! ,obj ,val))
 
 (macro (%%set-cdr! obj val)
-  `(set-cdr! ,obj ,val))
-
-
-(define (car obj)
-  (if (scheme.null? obj)
-      null
-    (scheme.car obj)))
-
-
-(define (cdr obj)
-  (if (scheme.null? obj)
-      null
-    (scheme.cdr obj))))
+  `(set-cdr! ,obj ,val)))

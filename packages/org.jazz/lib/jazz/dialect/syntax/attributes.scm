@@ -44,8 +44,8 @@
 
 ; @macro
 ; (attributes (nullable?)
-;             (key      initialize {})
-;             (criteria initialize {}))
+;             (key      initialize #f)
+;             (criteria initialize #f))
 
 
 ; @expansion
@@ -55,8 +55,8 @@
 ;       (:nullable?
 ;        :key
 ;        :criteria)))
-;   (slot key initialize {})
-;   (slot criteria initialize {})
+;   (slot key initialize #f)
+;   (slot criteria initialize #f)
 ;   (method (get-value property)
 ;           (case property
 ;             ((:key) key)
@@ -81,7 +81,7 @@
 
 (syntax (attributes . form)
   (define unspecified
-    (cons nil nil))
+    (cons #f #f))
        
   (define (symbol->enumerator symbol)
     (string->enumerator (symbol->string symbol)))

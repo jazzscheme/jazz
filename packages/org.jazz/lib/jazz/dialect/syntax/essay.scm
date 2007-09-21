@@ -44,7 +44,7 @@
 
 ;; @macro (essay obj (accept?~ obj) (f~ obj)) @expansion (when (and obj (accept?~ obj)) (f~ obj))
 
-(syntax public (essay . expressions)
+(syntax (essay . expressions)
   (if (null? expressions)
       (error "Not enough arguments for essay")
     (let ((tests (butlast expressions))

@@ -51,7 +51,7 @@
   (unimplemented 'root-process-info)
   @windows-specific
   (let ((info-table (collect-info-table))
-        (root-info (new Process-Info nil nil nil)))
+        (root-info (new Process-Info {} {} {})))
     (for-each-hash (function dynamic (id info)
                      (let ((parent (either (hash-ref info-table (get-parent-id~ info)) root-info)))
                        (set-parent~ info parent)
@@ -98,7 +98,7 @@
 (definition public (create-process command . rest)
   (unimplemented 'create-process)
   @windows-specific
-  (bind-keywords ((directory nil) (prefix-directory? false) (capture-input? false) (capture-output? false) (capture-error? false) (pipe-size 65536) (size {}) (visible? true) (console? true) (debug-console? false) (wait-ready nil) (wait-ready-timeout 5000) (wait? true) (timeout nil)) rest
+  (bind-keywords ((directory {}) (prefix-directory? false) (capture-input? false) (capture-output? false) (capture-error? false) (pipe-size 65536) (size {}) (visible? true) (console? true) (debug-console? false) (wait-ready {}) (wait-ready-timeout 5000) (wait? true) (timeout {})) rest
     (if (and directory (not (exists?~ directory)))
         (error "Unable to create process into inexistant directory: {s}" directory)
       (let ((si (new STARTUPINFO))
@@ -152,7 +152,7 @@
               (cond (wait-ready
                       (let ((wait-event (CreateEvent NULL false false wait-ready)))
                         (ecase (WaitForSingleObject wait-event wait-ready-timeout)
-                          ((WAIT_TIMEOUT) nil)
+                          ((WAIT_TIMEOUT) {})
                           (else (new Child-Process process-handle process-id input-pipe output-pipe error-pipe)))))
                     ((not wait?)
                      (new Child-Process process-handle process-id input-pipe output-pipe error-pipe))

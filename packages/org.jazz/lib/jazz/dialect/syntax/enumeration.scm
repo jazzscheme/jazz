@@ -72,7 +72,7 @@
                         (increase! rank)
                         (bind (name value) item
                           `(attribute (:location (,enumeration-name ,rank))
-                             (constant ,@(if meta? (list 'meta) nil) ,name ,value))))
+                             (constant ,@(if meta? (list 'meta) #f) ,name ,value))))
                       items)
                (attribute (:location (,enumeration-name ,base))
                  (constant ,@modifiers ,enumeration-name
@@ -106,7 +106,7 @@
       (let ((base (+ (length modifiers) 1)))
         (bind (enumeration-name . items) rest
           (let* ((items (standardize-items items))
-                 (enumeration (new Enumeration enumeration-name (map (function dynamic (item) (list (car item) nil)) items)))
+                 (enumeration (new Enumeration enumeration-name (map (function dynamic (item) (list (car item) #f)) items)))
                  (rank base))
             `(declare ,enumeration-name ()
                (attribute (:location (,enumeration-name ,base))
@@ -115,7 +115,7 @@
                         (increase! rank)
                         (bind (name value) item
                           `(attribute (:location (,enumeration-name ,rank))
-                             (constant ,@(if meta? (list 'meta) nil) ,name
+                             (constant ,@(if meta? (list 'meta) #f) ,name
                                (set-enumeration! ,enumeration ',name ,value)))))
                       items)))))))
   

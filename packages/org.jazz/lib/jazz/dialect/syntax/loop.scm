@@ -75,9 +75,9 @@
 (let ((x <int> 0)
       (end0 <int> (upper-bound))
       (for1 <Object> (get-list))
-      (y <Object> nil)
+      (y <Object> #f)
       (res2 <int> 0))
-  (while (and (< x end0) (not (eq? for1 nil)))
+  (while (and (< x end0) (not (eq? for1 #f)))
     (set! y (%%car for1))
     (increase! res2 (* x y))
     (debug x)
@@ -95,7 +95,7 @@
 (let ((for0 <Object> list)
       (x <Object>)
       (res1 <bool> false))
-  (while (and (not (eq? for0 nil)))
+  (while (and (not (eq? for0 #f)))
     (set! x (%%car for0))
     (when (test? x)
       (set! res1 true))
@@ -113,7 +113,7 @@
 (let ((for0 <Object> lst)
       (n <Object>)
       (ext1 <bool> #f))
-  (while (and (not ext1) (not (eq? for0 nil)))
+  (while (and (not ext1) (not (eq? for0 #f)))
     (set! n (%%car for0))
     (set! for0 (%%cdr for0))
     (when (even? n)
@@ -236,12 +236,12 @@
   
   
   (define Unbound
-    (cons nil nil))
+    (cons #f #f))
   
   
   (define (add-binding variable type . rest)
     (bind-optionals ((value Unbound)) rest
-      (let ((binding (cons variable (cons type (if (eq? value Unbound) (list 'nil) (list value))))))
+      (let ((binding (cons variable (cons type (if (eq? value Unbound) (list #f) (list value))))))
         (set! bindings (append! bindings (list binding))))
       variable))
   
@@ -254,7 +254,7 @@
     (when (eq? return noobject)
       (let ((ret (unique "ret"))
             (ext (unique "ext")))
-        (add-binding ret '<Object+> 'nil)
+        (add-binding ret '<Object+> #f)
         (add-binding ext '<bool> 'false)
         (add-initial-test (list 'not ext))
         (set! return ret)
@@ -350,8 +350,8 @@
            (bind (lst) rest
              (let ((for (unique "for")))
                (add-binding for '<Object> lst)
-               (add-binding keyword '<Object> 'jazz.nil)
-               (add-binding value '<Object> 'jazz.nil)
+               (add-binding keyword '<Object> #f)
+               (add-binding value '<Object> #f)
                (add-test (list 'not (list 'eq? for 'jazz.null)))
                (add-before (list 'set! keyword (list '%%car for)))
                (add-before (list 'set! for (list '%%cdr for)))
@@ -363,13 +363,13 @@
                  (itr (unique "itr")))
              (add-binding val '<Object> iterator)
              (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate val)))
-             (add-binding variable '<Object> 'jazz.nil)
+             (add-binding variable '<Object> #f)
              (add-test (list 'not (list 'done?~ itr)))
              (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((from)
          (bind (from . rest) rest
-           (let ((to nil)
-                 (test nil)
+           (let ((to #f)
+                 (test #f)
                  (update 'increase!)
                  (by 1)
                  (scan rest))
@@ -404,7 +404,7 @@
           (bind (type key . rest) rest
             (values variable type key rest))
         (bind (key . rest) rest
-          (values variable nil key rest)))))
+          (values variable #f key rest)))))
   
   
   ;;;

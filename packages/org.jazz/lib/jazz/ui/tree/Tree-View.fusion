@@ -65,7 +65,7 @@
   
   
   (definition delayed-autorow
-    nil)
+    {})
 
   
   (property protected portfolio                 initialize {}        getter get-portfolio                 setter set-portfolio)
@@ -81,7 +81,7 @@
   (property protected filled-column             initialize true      getter get-filled-column             setter set-filled-column)
   (property protected column-spacing            initialize 0         getter get-column-spacing            setter set-column-spacing)
   (property protected reorderable?              initialize false     getter get-reorderable?              setter set-reorderable?)
-  (property protected content                   initialize nil       getter get-content                   setter set-content)
+  (property protected content                   initialize {}       getter get-content                   setter set-content)
   
   
   (slot protected columns                initialize '())
@@ -609,7 +609,7 @@
   
   (method (remove-every-row)
     (close-auto-expanded-row)
-    (set-sorted nil true)
+    (set-sorted {} true)
     (set! highlighted null)
     (nextmethod))
   
@@ -936,7 +936,7 @@
   
   
   (method protected virtual (get-column-tooltip column)
-    nil)
+    {})
 
 
   ;;;
@@ -994,7 +994,7 @@
                     (maskdc (new Cairo-Memory-Surface cdc :size (new Dimension width height) :keep-bitmap? true)))
         (fill-rect~ memdc (new Rect 0 0 width height) {Color name: White})
         (fill-rect~ maskdc (new Rect 0 0 width height) {Color name: White})
-        (draw-image~ portfolio memdc nil image 0 0)
+        (draw-image~ portfolio memdc {} image 0 0)
         (draw-mask~ portfolio maskdc image 0 0)
         (set-font~ memdc font)
         (set-text-color~ memdc {Color name: Black})
@@ -1090,11 +1090,11 @@
   
   
   (method protected virtual (get-row-target drag-drop row)
-    nil)
+    {})
   
   
   (method protected virtual (get-cell-target drag-drop row col)
-    nil)
+    {})
     
   
   (method (highlight-drop drag-drop pos)
@@ -1106,7 +1106,7 @@
                (part (get-part~ target))
                (insert
                 (case part
-                  ((row) nil)
+                  ((row) {})
                   ((before) 'before)
                   ((after) 'after)))
                (highlight (new Tree-Highlight row col :insert insert :outer-color Highlighted-Outer-Color :inner-color Highlighted-Inner-Color)))
@@ -1271,13 +1271,13 @@
     (let* ((row (get-row n))
            (top (get-top~ row))
            (bottom (get-bottom~ row))
-           (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) nil)))
+           (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) {})))
       (= [v needed] 0)))
   
   
   (method (cell-displayed? cell)
     (let* ((rect (cell-rect cell))
-           (needed (scroll-needed (new Point [left rect] [top rect]) (new Point [right rect] [bottom rect]) nil)))
+           (needed (scroll-needed (new Point [left rect] [top rect]) (new Point [right rect] [bottom rect]) {})))
       (and (= [h needed] 0)
            (= [v needed] 0))))
   
@@ -1363,7 +1363,7 @@
 
   
   (method public (add-column . rest)
-    (bind-keywords ((context self) (class Tree-Column) (title nil) (width nil) . others) rest
+    (bind-keywords ((context self) (class Tree-Column) (title {}) (width {}) . others) rest
       (let ((column (apply new-in context class parent: self others)))
         (when (is? column Tree-Node-Column)
           (set! node-column column))
@@ -1380,14 +1380,14 @@
   (method public (remove-column column)
     (set! columns (remove! column columns))
     (when (eq? column node-column)
-      (set! node-column nil))
+      (set! node-column {}))
     (invalidate-columns)
     (fill-column (get-display-size))
     (invalidate-header))
   
   
   (method public (remove-columns . rest)
-    (bind-keywords ((preserve-node-column? false) (preserve nil)) rest
+    (bind-keywords ((preserve-node-column? false) (preserve {})) rest
       (if (or preserve-node-column? preserve)
           (remove-columns-preserving preserve-node-column? preserve)
         (remove-all-columns))))
@@ -1399,7 +1399,7 @@
     (set! columns null)
     (set! columns-borders null)
     (set! columns-right 0)
-    (set! node-column nil)
+    (set! node-column {})
     (invalidate-header))
   
   
@@ -1481,7 +1481,7 @@
   
   
   (method (add-empty-row . rest)
-    (bind-keywords ((father nil)) rest
+    (bind-keywords ((father {})) rest
       (let ((father (either father root-row)))
         (add-row :father father :children (map (function dynamic (column)
                                                  (new-empty-cell~ column))
@@ -1511,7 +1511,7 @@
           (function dynamic (row rank)
             (when (eq? row target)
               (return rank))))
-        nil)))
+        {})))
 
 
   (method public (user-data-row data . rest)
@@ -1522,7 +1522,7 @@
            (function dynamic (row rank)
              (when (test (get-user-data~ row) data)
                (return row))))
-          nil))))
+          {}))))
 
 
   (method public (user-data-rows data-list . rest)
@@ -1545,7 +1545,7 @@
             (function dynamic (row rank)
               (when (test (get-user-data~ row) data)
                 (return rank))))
-          nil))))
+          {}))))
 
 
   ;; Because it returns the rank, this method only makes sense on visible rows
@@ -1649,7 +1649,7 @@
                (when (and close-auto-expanded? auto-expanded-row (/= auto-expanded-row row))
                  (close-auto-expanded :new-spine (essay row (get-spine~ row)) :force? false)
                  (set! delayed-autorow auto-expanded-row)
-                 (set! auto-expanded-row nil))
+                 (set! auto-expanded-row {}))
                (when (and row (auto-inplace?~ row))
                  (auto-toggle row auto-toggle?)))
               ((mouse-up?~ selection-manager)
@@ -1657,7 +1657,7 @@
                  (if row
                      (close-delayed-row :new-spine (get-spine~ row))
                    (auto-collapse~ delayed-autorow)
-                   (set! delayed-autorow nil)))
+                   (set! delayed-autorow {})))
                (when (and row (not (auto-inplace?~ row)))
                  (auto-toggle row auto-toggle?)))
               (else
@@ -1672,17 +1672,17 @@
     (if (expanded?~ row)
         (when auto-toggle?
           (auto-collapse~ row)
-          (set! auto-expanded-row nil))
+          (set! auto-expanded-row {}))
       (auto-expand~ row)
       (set! auto-expanded-row row)))
   
   
   (method public (close-delayed-row . rest)
-    (bind-keywords ((new-spine nil)) rest
+    (bind-keywords ((new-spine {})) rest
       (when delayed-autorow
         (let ((old-spine (get-spine~ delayed-autorow))
               (done? false))
-          (set! delayed-autorow nil)
+          (set! delayed-autorow {})
           (for-each-reversed (function dynamic (row)
                                (unless done?
                                  (if (memq? row new-spine)
@@ -1692,11 +1692,11 @@
   
   
   (method public (close-auto-expanded . rest)
-    (bind-keywords ((new-spine nil) (force? true)) rest
+    (bind-keywords ((new-spine {}) (force? true)) rest
       (when auto-expanded-row
         (let ((old-spine (get-spine~ auto-expanded-row))
               (done? false))
-          (set! auto-expanded-row nil)
+          (set! auto-expanded-row {})
           (for-each-reversed (function dynamic (row)
                                (unless done?
                                  (if (memq? row new-spine)
@@ -1711,7 +1711,7 @@
   (method (close-auto-expanded-row)
     (when auto-expanded-row
       (auto-collapse~ auto-expanded-row)
-      (set! auto-expanded-row nil)))
+      (set! auto-expanded-row {})))
   
   
   ;; Should not really be public... Only used by the List-Row class.
@@ -1769,7 +1769,7 @@
                      (set-selection (remove element selection :test equal?) :set-pivot? false :user-origin? true)
                    (set-selection (cons element selection) :set-pivot? false :user-origin? true))
                  (when (= element selection-pivot)
-                   (cond ((null? selection) (set! selection-pivot nil))
+                   (cond ((null? selection) (set! selection-pivot {}))
                          ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
                          ((> selection-pivot (last selection)) (set! selection-pivot (last selection)))))))
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
@@ -2141,7 +2141,7 @@
           (bind (left . right) borders
             (when (and (>= h left) (<= h right) (/= left right))
               (return n))))
-    nil)
+    {})
 
 
   (method (col->h n)
@@ -2162,7 +2162,7 @@
   
   
   (method public (edit-cell cell . rest)
-    (bind-keywords ((editor nil) (location {Point 0 0}) (draw-preserved? false) (close-editor? true) (end-proc nil)) rest
+    (bind-keywords ((editor {}) (location {Point 0 0}) (draw-preserved? false) (close-editor? true) (end-proc {})) rest
       (when (< [col cell] (get-columns-count))
         (end-edition)
         (ensure-row-exists [row cell])
@@ -2193,10 +2193,10 @@
         (replace-cell edited-cell (get-preserved-data~ cell-editor))
         (if close-cell-editor?
             (close~ cell-editor)
-          (set-parent~ cell-editor nil))
+          (set-parent~ cell-editor {}))
         (let ((cell edited-cell))
-          (set! edited-cell nil)
-          (set! cell-editor nil)
+          (set! edited-cell {})
+          (set! cell-editor {})
           (when end-proc
             (end-proc))
           (invalidate-rect bounds)))))
@@ -2351,7 +2351,7 @@
 (class Tree-Locator extends Locator
   
   
-  (slot column initialize nil)
+  (slot column initialize {})
   
   
   (method (iterate proc)

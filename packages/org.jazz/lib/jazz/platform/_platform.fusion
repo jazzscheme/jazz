@@ -71,7 +71,7 @@
 
 (definition public (POINT->point pt) <Point>
   (if (not pt)
-      nil
+      {}
     (new Point
       (POINT-x-ref pt)
       (POINT-y-ref pt))))
@@ -83,7 +83,7 @@
 
 (definition public (POINT->dimension pt) <Dimension>
   (if (not pt)
-      nil
+      {}
     (new Dimension
       (POINT-x-ref pt)
       (POINT-y-ref pt))))
@@ -93,7 +93,7 @@
   (unimplemented '<Dimension>)
   @convert
   (if (not size)
-      nil
+      {}
     (new Dimension
       (get size 'cx)
       (get size 'cy))))
@@ -117,7 +117,7 @@
 
 (definition public (RECT->rect rect) <Rect>
   (if (not rect)
-      nil
+      {}
     (new Rect
       (RECT-left-ref rect)
       (RECT-top-ref rect)
@@ -165,7 +165,7 @@
 ;;; We need a platform ind interface for this.
 
 (definition public Current-Cursor
-  nil)
+  {})
 
 
 ;; tofix Cursor-Resources were literals
@@ -248,14 +248,14 @@
 
 
 (definition public Messenger
-  nil)
+  {})
 
 (definition public (setup-messaging)
   (set! Messenger (new Message-Window)))
 
 
 ;; Note that a thread that sends or receives code to the primary thread that generates
-;; an error will maybe generate an error of its own when receiving the unexpected nil
+;; an error will maybe generate an error of its own when receiving the unexpected {}
 ;; sent by ReplyMessage. Currently this will crash the application simply because thread
 ;; debugging is not really functionnal (the break-loop and the stop throw are not done
 ;; in the debugged thread!)
@@ -263,7 +263,7 @@
   (unimplemented 'restore-messaging)
   @unimp
   (when (InSendMessage)
-    (ReplyMessage (object-address nil))))
+    (ReplyMessage (object-address {}))))
 
 
 ;;;
@@ -275,7 +275,7 @@
   (unimplemented 'log-event)
   @unimplemented
   (let* ((name (process-event-source~ (get-process)))
-         (handle (RegisterEventSource nil name))
+         (handle (RegisterEventSource {} name))
          (strings (new-array string 1)))
     (array-set! strings 0 message)
     (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
@@ -383,7 +383,7 @@
 
 
 (definition public Version-Info
-  nil)
+  {})
 
 
 (definition (version-info)
@@ -397,7 +397,7 @@
 
 
 (definition public Windows-Version
-  nil)
+  {})
 
 
 (definition public (get-windows-version)
@@ -414,7 +414,7 @@
 (definition public (validate-version title what context version . rest)
   (unimplemented 'validate-version)
   @unimp
-  (bind-keywords ((register nil) (cleanup nil)) rest
+  (bind-keywords ((register {}) (cleanup {})) rest
     (when register
       (register-crash-info register context (present~ version)))
     (let* ((process (get-process))
@@ -571,7 +571,7 @@
     (synchronize Post-Primary-Lock
       (set! Pending-Posts (cons proc Pending-Posts))
       (post-message~ Messenger JZ_POST (object-address proc) NULL)))
-  nil))
+  {}))
 
 
 (definition public (queue-primary proc)
@@ -580,7 +580,7 @@
   (synchronize Post-Primary-Lock
     (set! Pending-Posts (cons proc Pending-Posts))
     (post-message~ Messenger JZ_POST (object-address proc) NULL))
-  nil)
+  {})
 
 
 (definition public (receive-post wparam)
@@ -596,7 +596,7 @@
 (definition public (wait-for object/objects . rest)
   (unimplemented 'wait-for)
   @unimp
-  (bind-keywords ((timeout nil) (error? true)) rest
+  (bind-keywords ((timeout {}) (error? true)) rest
     (let* ((get-handle
              (function dynamic (object)
                (if (integer? object)
@@ -665,23 +665,23 @@
 
 
 (definition public (receive-primary-with-error proc)
-  (values (proc) nil nil)
+  (values (proc) {} {})
   @print-stack
   ;; a quick solution to get accurate debug info back to the calling thread
   (bind-values (result err stack)
       (receive-primary
         (function dynamic ()
           (let ((result)
-                (error nil)
-                (stack nil))
+                (error {})
+                (stack {}))
             (call-with-catch Error
                   (function dynamic (err)
                     (set! error err)
                     (set! stack (print-stack :string)))
                 (function dynamic (err)
-                  (values nil error stack))
+                  (values {} error stack))
               (function dynamic ()
-                (values (proc) nil nil))))))
+                (values (proc) {} {}))))))
     (if (not err)
         result
       ;; a quick patch of putting everything in the error message
@@ -704,7 +704,7 @@
 ;; This seems to be platform independent...???
 
 (definition public Focus
-  nil)
+  {})
 
 
 (definition public (get-focus)
@@ -718,10 +718,10 @@
         (when Focus
           (let ((focus Focus))
             ;; more robust to errors in focus-lose
-            (set! Focus nil)
+            (set! Focus {})
             (call-focus-lose~ focus player view)))
         (set-window-focus player)
-        (set! Focus nil)
+        (set! Focus {})
         (when view
           (call-focus-gain~ view))
         (set! Focus view)
@@ -731,7 +731,7 @@
 (definition public (validate-focus)
   (let ((focus (get-focus)))
     (when focus
-      (unless (focus-validate~ focus nil)
+      (unless (focus-validate~ focus {})
         (set-focus focus)
         (throw-cancel)))))
 
@@ -739,9 +739,9 @@
 (definition public (clear-focus window)
   (when Focus
     (let ((old Focus))
-      (call-focus-lose~ Focus window nil)
-      (set! Focus nil)
-      (process-focus-change~ (get-application) old nil))))
+      (call-focus-lose~ Focus window {})
+      (set! Focus {})
+      (process-focus-change~ (get-application) old {}))))
 
 ;;;
 ;;;; Processes
@@ -811,7 +811,7 @@
 
 
 (definition public Crash-Info
-  nil)
+  {})
 
 
 (definition public (register-crash-info name context info)
@@ -1401,7 +1401,7 @@
                   ((< rank base-length)
                    (if error?
                        (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
-                     (return nil)))
+                     (return {})))
                   (else
                    (set! result-list (append base-list (subseq expd base-length)))))
             (new (class-of self) result-list))))))
@@ -1440,7 +1440,7 @@
   (method (get-modal . rest)
     (unimplemented 'get-modal)
     @convert
-    (bind-keywords ((mode 'open) (actual nil) . others) rest
+    (bind-keywords ((mode 'open) (actual {}) . others) rest
       (let ((class (case mode
                      ((open) OpenFile-Dialog)
                      ((save) SaveFile-Dialog))))
@@ -1454,7 +1454,7 @@
 (definition public (create-temporary-file . rest)
   (unimplemented 'create-temporary-file)
   @windows-specific
-  (bind-keywords ((directory nil) (prefix "JZZ")) rest
+  (bind-keywords ((directory {}) (prefix "JZZ")) rest
     (let* ((directory (either directory (get-tmp-directory)))
            (dir (parse~ directory)))
       (if (empty-string? dir)
@@ -1625,7 +1625,7 @@
   (method (get-modal . rest)
     (unimplemented 'get-modal)
     @convert
-    (bind-keywords ((mode nil) (actual nil) . others) rest
+    (bind-keywords ((mode {}) (actual {}) . others) rest
       (apply [get-modal BrowseFolder-Dialog] :directory actual others)))
   
   
@@ -1665,7 +1665,7 @@
 
 
   (method (get-modification-time)
-    nil)
+    {})
 
 
   (method public virtual (create)
@@ -1697,7 +1697,7 @@
   (method public (copy-directory dst . rest)
     (unimplemented 'copy-directory)
     @windows-specific
-    (bind-keywords ((copier nil) (feedback nil) (touch-files? false) (copy? true)) rest
+    (bind-keywords ((copier {}) (feedback {}) (touch-files? false) (copy? true)) rest
       (when feedback
         (feedback self))
       (create-directories~ dst)
@@ -1723,7 +1723,7 @@
   (method public virtual (delete-directory . rest)
     (unimplemented 'delete-directory)
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback nil)) rest
+    (bind-keywords ((overwrite-read-only? false) (feedback {})) rest
       (when feedback
         (feedback self))
       (empty-directory :overwrite-read-only? overwrite-read-only? :feedback feedback)
@@ -1733,7 +1733,7 @@
   (method public (empty-directory . rest)
     (unimplemented 'empty-directory)
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback nil)) rest
+    (bind-keywords ((overwrite-read-only? false) (feedback {})) rest
       (iterate-directory
         (function dynamic (path)
           (if (is? path File)
@@ -1818,8 +1818,8 @@
   
   (method public virtual (iterate-directory proc . rest)
     (bind-keywords ((full? true) (files? true) (directories? false) (sort? false) (recursive? true) (ignored-directories null)) rest
-      (let ((directory (if full? (get-list) nil)))
-        (iterate-directory-content files? directories? sort? recursive? ignored-directories nil (parse)
+      (let ((directory (if full? (get-list) {})))
+        (iterate-directory-content files? directories? sort? recursive? ignored-directories {} (parse)
           (function dynamic (list kind)
             (case kind
               ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
@@ -1898,7 +1898,7 @@
 
 
 (definition Aliases
-  nil)
+  {})
 
 
 (definition public (get-aliases)
@@ -1938,7 +1938,7 @@
 (definition (get-manifest-alias name)
   (let ((source (get-manifest-source name)))
     (if (not source)
-        nil
+        {}
       (butlast (get-list~ source)))))
 
 
@@ -2286,7 +2286,7 @@
   @windows-specific
   (if (process-active?)
       (get-execution-stack)
-    nil))
+    {}))
 
 
 ;;;
@@ -2301,7 +2301,7 @@
 (definition public (dump-stack . rest)
   (unimplemented 'dump-stack)
   @windows-specific
-  (bind-keywords ((file nil) (user-feedback? false) . others) rest
+  (bind-keywords ((file {}) (user-feedback? false) . others) rest
     ;; this is really not nice but will do for now as sometimes a stack
     ;; just won't do if the problem is entirelly in the C code...
     (if (and (/= (hibyte (GetAsyncKeyState VK_CONTROL)) 0)
@@ -2350,7 +2350,7 @@
 (definition (print-stack-to printer . rest)
   (unimplemented 'print-stack-to)
   @windows-specific
-  (bind-keywords ((thread (active-thread)) (execution-stack (bootsafe-get-execution-stack)) (exception nil)) rest
+  (bind-keywords ((thread (active-thread)) (execution-stack (bootsafe-get-execution-stack)) (exception {})) rest
     (format printer "~{Process-Snapshot{%}{%}")
     (format printer "  ;;;{%}")
     (format printer "  ;;;; PROCESS{%}")

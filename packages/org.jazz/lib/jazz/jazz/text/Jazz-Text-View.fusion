@@ -179,7 +179,7 @@
       (bind (unit kind meta? name keywords) unit-info
         (let ((imports (getf keywords 'uses))
               (form (new Form :action 'new :model-name model-name)))
-          (evaluate~ Interpreter (list '(form (<install>))) nil unit imports)
+          (evaluate~ Interpreter (list '(form (<install>))) {} unit imports)
           @old
           (evaluate-code (list (list 'definition 'meta 'class-form form)) unit imports)))))
   
@@ -196,7 +196,7 @@
                               (when (and designer (eq? form (get-form~ designer)))
                                 (return frame)))))))
                     (get-children~ stage))
-          nil))))
+          {}))))
   
   
   (method (on-copy-list evt)
@@ -225,7 +225,7 @@
     (when (and (in-manifest? 'Debugger) (debugging?~ Debugger))
       (let* ((pos (view->text view))
              (expl (new Jazz-Explorer self :start pos :end pos)))
-        (catch (Explore-Error err nil)
+        (catch (Explore-Error err {})
           (when (outer-expr~ expl :composite? false :outer-composite? false)
             (let ((kind (get-kind~ expl)))
               (when (= kind 'symbol)
@@ -428,7 +428,7 @@
   (method (evaluate-code range forms unit packages)
     @convert (
     (let* ((model (if (or (package? unit) (interface? unit)) (class-of unit) unit))
-           (field-names (evaluate~ Interpreter forms nil model packages)))
+           (field-names (evaluate~ Interpreter forms {} model packages)))
       (for-each (function dynamic (field-name)
                   (when (eq? field-name 'class-form)
                     (let ((form (definition-value (unit-field (class-of unit) field-name))))
@@ -567,7 +567,7 @@
   
   
   (method (present-unknown frame object)
-    nil)
+    {})
   
   
   (method (present-value value)
@@ -627,9 +627,9 @@
            (let ((value (definition-value object)))
              (cond ((closure? value) (values (+ 1 (field-modifiers-count object)) true))
                    ((external? value) (values (+ 2 (field-modifiers-count object) 1) true))
-                   (else nil))))
+                   (else {}))))
           (else
-           nil)))
+           {})))
   
   
   (method (definition-name-location? object internal-location)
@@ -707,7 +707,7 @@
   (method (edit-field-reference-documentation field)
     (let ((appl (get-application))
           (location (list (type-name (field-creator field)) (field-name field))))
-      (edit-documentation~ appl location field nil nil)))
+      (edit-documentation~ appl location field {} {})))
   
   
   @old-doc-editor
@@ -833,7 +833,7 @@
                      (typecase expr
                        ((bind-optionals) (present-bind-optionals expr))
                        ((bind-keywords) (present-bind-keywords expr))
-                       (else nil))))))
+                       (else {}))))))
       (present-parameters parameters rest printer)
       (user-message "({a} {a})" symbol (get-output~ printer))))
   
@@ -888,7 +888,7 @@
                       (when field
                         (return field))))
                   packages)
-        nil)))
+        {})))
   
   
   (method (show-unit-fields)
@@ -958,7 +958,7 @@
   
   (method (toplevel-expr pos)
     (let ((expl (new Jazz-Explorer self :start pos :end pos))
-          (range nil))
+          (range {}))
       (while (outer-expr~ expl)
         (set! range (get-range~ expl)))
       range))

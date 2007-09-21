@@ -53,7 +53,7 @@
   
   @Unimp
   (definition meta protected virtual class-descriptor
-    nil)
+    {})
 
   @Unimp
   (method meta public virtual (get-class-descriptor)
@@ -62,7 +62,7 @@
   
   (method public virtual (presentation->name presentation)
     (if (or (empty-string? presentation) (= presentation "null"))
-        nil
+        {}
       (string->symbol presentation)))
   
   
@@ -172,7 +172,7 @@
   (slot branch                   initialize {})   ;; the immediatly installed branch
   (slot creation-form            initialize {})   ;; the form that created the component
   (slot creator                  initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
-  (slot creator-branch           initialize {})   ;; the branch that created the component (nil if none)
+  (slot creator-branch           initialize {})   ;; the branch that created the component ({} if none)
   ;; Should initialize to self
   (slot event-consumer           initialize {})
   (slot designers                initialize '())
@@ -414,7 +414,7 @@
   (method (install-inherited forms)
     (when (not-null? forms)
       (install-inherited (cdr forms))
-      (install-form (car forms) self nil nil)))
+      (install-form (car forms) self {} {})))
   
   
   (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
@@ -482,12 +482,12 @@
 
 
   (method protected chained (finish initargs <Object>)
-    (bind-keywords ((form nil) (creator nil) . others) initargs
+    (bind-keywords ((form {}) (creator {}) . others) initargs
       (when form
         ;; setting the creator to true is a service for Form instantiate
         (if (neq? creator true)
-            (install-form form creator nil nil)
-          (install-form form self nil nil)
+            (install-form form creator {} {})
+          (install-form form self {} {})
           (set! [creator self] self)))
       (write-properties initargs)))
   
@@ -530,7 +530,7 @@
 
 
   (method chained (destroy-component)
-    (set-active-branch nil)
+    (set-active-branch {})
     (loop (for child in children)
           (when (is? child Component)
             (destroy-component~ child)))
@@ -804,7 +804,7 @@
   
   
   (method public (collect-ascendants . rest)
-    (bind-optionals ((type nil)) rest
+    (bind-optionals ((type {})) rest
       (let ((ascendants null)
             (parent (get-parent)))
         (while (and parent (or (not type) (is-not? parent type)))
@@ -820,7 +820,7 @@
 
 
   (method public virtual (get-frame)
-    nil)
+    {})
   
   
   (method public (get-brothers)
@@ -1010,7 +1010,7 @@
         (when branch
           (restore-client~ branch))
       (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
-        (install-branch~ branch nil))))
+        (install-branch~ branch {}))))
   
   
   (method protected virtual (install-branch br)
@@ -1044,7 +1044,7 @@
   
   
   (method public (iterate-branch-spine proc . rest)
-    (bind-keywords ((branch nil)) rest
+    (bind-keywords ((branch {})) rest
       (let ((branch (either branch (get-active-branch))))
         (while (is? branch Branch)
           (proc branch (get-client-form~ branch))
@@ -1084,7 +1084,7 @@
   
   
   (method public virtual (get-integrity-manager)
-    nil)
+    {})
   
   
   (method public virtual (validate-component root client context manager)
@@ -1222,7 +1222,7 @@
                     client)))))
         (if (eq? branches true)
             (if include-root?
-                (cons (instantiate nil) (map instantiate all-branch-names))
+                (cons (instantiate {}) (map instantiate all-branch-names))
               (map instantiate all-branch-names))
           (map instantiate branches)))))
 
@@ -1291,7 +1291,7 @@
   
   (method protected (set-string-presentation designer presentation)
     (if (empty-string? presentation)
-        (set-name~ designer self nil)
+        (set-name~ designer self {})
       (set-name~ designer self presentation)))
   
   
@@ -1356,8 +1356,8 @@
       (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
         (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
                (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
-          (cond ((memq? nil models)
-                 nil)
+          (cond ((memq? {} models)
+                 {})
                 ((every? addable-class? models)
                  self)
                 (else
@@ -1416,11 +1416,11 @@
               (get-components))
     (when surrogate
       (remove-handlers~ surrogate)
-      (set! surrogate nil)))
+      (set! surrogate {})))
   
   
   (method public virtual (get-default-property)
-    nil)
+    {})
   
   
   (method public virtual (get-categorized-properties)
@@ -1442,7 +1442,7 @@
   (method public virtual (get-row-instance property)
     (case (field-name property)
       ((visible?) (new Boolean-Row))
-      (else nil)))
+      (else {})))
   
   
   (method public virtual (update-property-row row)
@@ -1450,7 +1450,7 @@
   
   
   (method public virtual (get-addable-default)
-    nil)
+    {})
   
   
   (method public virtual (get-addable-classes)
@@ -1502,7 +1502,7 @@
   
   
   (method public virtual (get-custom-card)
-    nil)
+    {})
   
   
   (method public virtual (save-component-properties designer)

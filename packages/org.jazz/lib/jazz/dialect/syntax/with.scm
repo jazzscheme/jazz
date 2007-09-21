@@ -47,7 +47,7 @@
 
 
 #; ;; todo
-(syntax public (with bindings . body)
+(syntax (with bindings . body)
   `(let* ,bindings
      (prog1
          (begin

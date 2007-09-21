@@ -41,7 +41,7 @@
 ;; @macro (increase! x) @expansion (set! x (+ x 1))
 ;; @macro (increase! x (f)) @expansion (set! x (+ x (f)))
 
-(syntax public (increase! location . rest)
+(syntax (increase! location . rest)
   (let ((increment (if (null? rest) 1 (car rest))))
     (list 'set! location (list '+ location increment))))
 
@@ -49,6 +49,6 @@
 ;; @macro (decrease! x) @expansion (set! x (- x 1))
 ;; @macro (decrease! x (f)) @expansion (set! x (- x (f)))
 
-(syntax public (decrease! location . rest)
+(syntax (decrease! location . rest)
   (let ((increment (if (null? rest) 1 (car rest))))
     (list 'set! location (list '- location increment)))))

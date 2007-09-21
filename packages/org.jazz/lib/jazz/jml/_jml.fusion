@@ -72,7 +72,7 @@
 
 
 (definition public (parse-jml jml . rest)
-  (bind-keywords ((preferences-class nil) (parser-class nil)) rest
+  (bind-keywords ((preferences-class {}) (parser-class {})) rest
     (let* ((pref (new (either preferences-class JML-Preferences)))
            (parser (new (either parser-class JML-Parser) :preferences pref)))
       (parse~ parser jml))))
@@ -93,7 +93,7 @@
 
 
 (definition public (render-jml node printer . rest)
-  (bind-keywords ((preferences-class nil) (renderer-class nil)) rest
+  (bind-keywords ((preferences-class {}) (renderer-class {})) rest
     (let* ((pref (new (either preferences-class JML-Preferences)))
            (renderer (new (either renderer-class JML-Renderer) pref)))
       (render~ renderer node printer))))
@@ -108,7 +108,7 @@
   (bind-keywords ((keywords? false) (proper? true)) rest
     (let ((scan list)
           (properties (new List-Factory))
-          (content nil))
+          (content {}))
       (while (not-null? scan)
         (let ((element (car scan)))
           (if (and (not content) (keyword? element) (or (not proper?) (jml-keyword? element)))
@@ -120,7 +120,7 @@
                     (begin
                       (put (extract-jml-property element keywords?) (cadr scan))
                       (set! scan (cddr scan)))
-                  (put element nil)
+                  (put element {})
                   (set! scan (cdr scan))))
             (when (not content)
               (set! content (new List-Factory)))
@@ -187,7 +187,7 @@
                         (action (cond ((or (eq? tag '!) tag-modify?) 'modify)
                                       ((or (eq? tag '~) tag-symbolic?) 'locate)
                                       (else 'new)))
-                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) nil tag))
+                        (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) {} tag))
                         (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
                         (form (new Form :textual? false :action action :model-name model-name name: name :tag-symbolic? tag-symbolic? :tag-source (get-property~ node 'tag-source false) :properties (extract-node-properties node)))
                         (children (map (function dynamic (node)
@@ -196,11 +196,11 @@
                    (set-parent-value~ form parent)
                    (if (branch-model? tag)
                        (begin
-                         (set-property~ form 'client-form (if (null? children) nil (car children)))
+                         (set-property~ form 'client-form (if (null? children) {} (car children)))
                          (set-children~ form (cdr children)))
                      (set-children~ form children))
                    form)))))
-    (node->form node nil)))
+    (node->form node {})))
 
 
 (definition (extract-node-properties node)
@@ -233,7 +233,7 @@
                    (set-properties~ element properties)
                    (set-children~ element (if (branch-model? model-name) (add-client-form form children) children))
                    element)))))
-    (form->node form nil)))
+    (form->node form {})))
 
 
 (definition (branch-model? model-name)

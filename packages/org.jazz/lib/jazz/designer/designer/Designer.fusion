@@ -62,7 +62,7 @@
   
   
   (method (initialize . rest)
-    (bind-keywords ((form nil) (reference nil)) rest
+    (bind-keywords ((form {}) (reference {})) rest
       (nextmethod)
       (set! [reference self] reference)
       (setup-form form)))
@@ -128,7 +128,7 @@
   
   
   (method public virtual (save . rest)
-    (bind-keywords ((default-extension nil) (extensions null)) rest
+    (bind-keywords ((default-extension {}) (extensions null)) rest
       (with-cursor :wait
         (function dynamic ()
           (let ((origin (get-origin~ form)))
@@ -153,7 +153,7 @@
   
   
   (method (save-as . rest)
-    (bind-keywords ((default-extension nil) (extensions null)) rest
+    (bind-keywords ((default-extension {}) (extensions null)) rest
       (set-origin~ form (get-modal SaveFile-Dialog :default-extension (either default-extension Default-Extension) :extensions (either extensions Default-Extensions)))
       (save-content)))
   
@@ -264,7 +264,7 @@
   
   
   (method public (set-tag-source component tag-source)
-    (let ((form (find-form component nil)))
+    (let ((form (find-form component {})))
       (set-tag-source~ form tag-source)
       (set-modified? true)))
   
@@ -274,7 +274,7 @@
       (let ((branch (target-branch branch)))
         ;; Quick fix for the special case of setting a property of the active branch
         (if (eq? component/path branch)
-            (set-property component/path property value :branch nil :design-events? design-events? :undoable? undoable?)
+            (set-property component/path property value :branch {} :design-events? design-events? :undoable? undoable?)
           (let ((installed? (or (not branch) (installed?~ branch)))
                 (path? (is? component/path Path)))
             (if (and path? (not installed?))
@@ -338,7 +338,7 @@
   
   
   (method public virtual (add-child child parent . rest)
-    (bind-keywords ((branch true) (name nil) (properties null) (design-events? true) (descendant? false)) rest
+    (bind-keywords ((branch true) (name {}) (properties null) (design-events? true) (descendant? false)) rest
       (let ((branch (target-branch branch)))
         (set-parent~ child parent)
         (bind-values (form restore) (find-form parent branch :restore? true)
@@ -413,7 +413,7 @@
              (parent (get-parent~ component))
              (parent-form (find-form parent branch)))
         (bind-values (form restore-form) (find-form component branch :restore? true)
-          (install-form~ component restore-form component nil nil)
+          (install-form~ component restore-form component {} {})
           (remove-child~ parent-form form)))))
   
   
@@ -447,7 +447,7 @@
   
   (method public (bring-to-front child . rest)
     (bind-keywords ((branch true)) rest
-      (send-before child nil :branch branch)))
+      (send-before child {} :branch branch)))
   
   
   ;;;
@@ -468,7 +468,7 @@
   
   
   (method public (copy-components-text components . rest)
-    (bind-keywords ((branch nil)) rest
+    (bind-keywords ((branch {})) rest
       (let ((printer (new (get-printer-class)))
             (output (new String-Printer))
             (parcels (package-components components :branch branch)))
@@ -495,7 +495,7 @@
   
   
   (method public virtual (paste-parcels parcels parent . rest)
-    (bind-keywords ((branch true) (design-events? true) (reporter nil)) rest
+    (bind-keywords ((branch true) (design-events? true) (reporter {})) rest
       (let* ((parent (determine-paster~ parent))
              (name-resolution (verify-name-conflicts parcels parent)))
         (prog1 (instantiate-parcels parcels parent :branch branch :name-resolution name-resolution :design-events? design-events? :descendant? false :reporter reporter)
@@ -552,7 +552,7 @@
   
   
   (method (package-components components . rest)
-    (bind-keywords ((branch nil)) rest
+    (bind-keywords ((branch {})) rest
       (map (function dynamic (component)
              (package-component component :branch branch))
            components)))
@@ -561,7 +561,7 @@
   (method (package-component component . rest)
     (unimplemented 'package-component)
     @convert
-    (bind-keywords ((branch nil)) rest
+    (bind-keywords ((branch {})) rest
       (let ((ancestry (component-ancestry component))
             (forms null))
         (iterate-branch-spine~ reference
@@ -581,7 +581,7 @@
   
   
   (method public virtual (instantiate-parcels parcels parent . rest)
-    (bind-keywords ((branch true) (name-resolution nil) (design-events? true) (descendant? false) (reporter nil)) rest
+    (bind-keywords ((branch true) (name-resolution {}) (design-events? true) (descendant? false) (reporter {})) rest
       (map (function dynamic (parcel)
              (when reporter
                (user-message~ reporter "Pasting {a}..." (get-master-name~ parcel)))
@@ -592,7 +592,7 @@
   
   
   (method public virtual (instantiate-parcel parcel parent . rest)
-    (bind-keywords ((branch true) (name-resolution nil) (design-events? true) (descendant? false)) rest
+    (bind-keywords ((branch true) (name-resolution {}) (design-events? true) (descendant? false)) rest
       (let* ((forms (get-content~ parcel))
              (master (car forms))
              (name (get-name~ master)))
@@ -610,7 +610,7 @@
                           (delete-components conflicts :branch branch))))))
         (let ((component (instantiate-form name name-resolution master parent branch design-events? descendant?)))
           (for-each (function dynamic (form)
-                      (instantiate-form name nil form parent branch design-events? descendant?))
+                      (instantiate-form name {} form parent branch design-events? descendant?))
                     (cdr forms))
           component))))
   
@@ -645,7 +645,7 @@
   
   (method public virtual (instantiate-children component children branch design-events?)
     (for-each (function dynamic (form)
-                (instantiate-form (get-name~ form) nil form component branch design-events? true))
+                (instantiate-form (get-name~ form) {} form component branch design-events? true))
               children))
   
   
@@ -727,7 +727,7 @@
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
   (method public virtual (add-view child parent . rest)
-    (bind-keywords ((position nil) (centered? false) (visible? true) . others) rest
+    (bind-keywords ((position {}) (centered? false) (visible? true) . others) rest
       (apply add-child child parent others)
       (when position
         (set-property child 'position position))
@@ -763,7 +763,7 @@
                 (let ((children (get-children~ form))
                       (cpn-form (get-form~ cpn)))
                   (if (not cpn-form)
-                      (embed-new-form form nil false)
+                      (embed-new-form form {} false)
                     (if (memq? cpn-form children)
                         (set! form cpn-form)
                       (let ((restore-form (find cpn children :key (function dynamic (form) (essay (is? form Restore-Form) (get-component~ form))))))
@@ -809,7 +809,7 @@
   
   
   (method public (find-owner component . rest)
-    (bind-optionals ((property nil)) rest
+    (bind-optionals ((property {})) rest
       (let ((ancestry (component-ancestry component)))
         (call/ec
           (lambda (return)
@@ -821,12 +821,12 @@
                                (or (and (not property) (eq? (get-action~ form) 'new))
                                    (and property (has-property?~ form property))))
                       (return owner))))))
-            nil)))))
+            {})))))
   
   
   (method (find-next-branch branch component property)
     (if (and branch (not (installed?~ branch)))
-        (values nil nil)
+        (values {} {})
       (let ((lower (get-installed-branches~ (either branch reference)))
             (ancestry (component-ancestry component)))
         (call/ec
@@ -838,7 +838,7 @@
                               (when (and form (has-property?~ form property))
                                 (return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
                       lower)
-            (values nil nil))))))
+            (values {} {}))))))
   
   
   (method (owned-form form ancestry)
@@ -848,15 +848,15 @@
                     (let ((children (get-children~ form))
                           (cpn-form (get-form~ cpn)))
                       (if (not cpn-form)
-                          (return nil)
+                          (return {})
                         (if (memq? cpn-form children)
                             (set! form cpn-form)
                           (let ((name (get-name~ cpn)))
                             (if (not name)
-                                (return nil)
+                                (return {})
                               (let ((subform (find name children :key form-name :test equal?)))
                                 (if (not subform)
-                                    (return nil)
+                                    (return {})
                                   (set! form subform)))))))))
                   ancestry)
         form)))

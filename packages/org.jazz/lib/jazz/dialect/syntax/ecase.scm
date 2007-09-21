@@ -48,7 +48,7 @@
 ;;               (else 3)))
 
 
-(syntax public (ecase target . clauses)
+(syntax (ecase target . clauses)
   (expand-ecase target clauses))
 
 

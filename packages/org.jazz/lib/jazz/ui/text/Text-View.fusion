@@ -76,9 +76,9 @@
   
   
   ;; a user friendly textual input format that is saved as is
-  (property protected text                      initialize nil                      getter get-text                      setter set-text)
+  (property protected text                      initialize {}                      getter get-text                      setter set-text)
   ;; the text content automaticaly saved in a canonical form when the text is visually edited
-  (property protected text-content              initialize nil                      getter get-text-content              setter set-text-content)
+  (property protected text-content              initialize {}                      getter get-text-content              setter set-text-content)
   (property protected editable?                 initialize true                     getter get-editable?                 setter set-editable?)
   (property protected selectable?               initialize true                     getter get-selectable?               setter set-selectable?)
   (property protected wrap?                     initialize false                    getter get-wrap?                     setter set-wrap?)
@@ -413,7 +413,7 @@
                     (throw-cancel)))
                  ((ignore)
                   (throw-cancel)))
-               nil)
+               {})
         (proc))))
   
   
@@ -455,11 +455,11 @@
   
   
   (method (on-backspace-press evt)
-    (backspace-press nil :word? (get-property~ evt :word?)))
+    (backspace-press {} :word? (get-property~ evt :word?)))
   
   
   (method (on-delete-press evt)
-    (delete-press nil :word? (get-property~ evt :word?)))
+    (delete-press {} :word? (get-property~ evt :word?)))
   
   
   (method (on-paragraph-style evt)
@@ -641,7 +641,7 @@
   
   
   (method (reset-virtual)
-    (set! virtual-h nil))
+    (set! virtual-h {}))
   
   
   (method (on-insert evt)
@@ -671,7 +671,7 @@
   
   (method (load-content moniker)
     (if (not moniker)
-        (set-content nil)
+        (set-content {})
       (read-content moniker))
     (update-status))
   
@@ -695,11 +695,11 @@
            (height <int> 0)
            (previous root-row)
            (rows (map (function dynamic (string)
-                        (let ((paragraph (make-string-paragraph nil string)))
+                        (let ((paragraph (make-string-paragraph {} string)))
                           (set! [previous paragraph] previous)
                           (set! [next previous] paragraph)
                           (set! previous paragraph)
-                          (wrap-paragraph nil paragraph)
+                          (wrap-paragraph {} paragraph)
                           (increase! count)
                           (increase! height [row-height paragraph])
                           paragraph))
@@ -715,7 +715,7 @@
     (assert (string? content))
     (set-content (parse-string-content content))
     (colorize-syntax)
-    (call-content-change nil))
+    (call-content-change {}))
   
   
   (method (make-string-paragraph format string)
@@ -821,7 +821,7 @@
   (method (content-size-change size <Dimension>)
     (set! visible-width [width size])
     (when wrap?
-      (wrap-content nil)))
+      (wrap-content {})))
   
   
   ;;;
@@ -995,7 +995,7 @@
         (kill-autoscroll-pulse)
         (drag-select view true)
         (set! selecting? false)
-        (set! previous-pos nil)
+        (set! previous-pos {})
         (update-caret)
         (when (empty-selection?) (ensure-displayed))
         (set! selection-mode 'char)
@@ -1148,7 +1148,7 @@
   
   (method (multi-part-region parts dh dv sc)
     (case (length parts)
-      ((0) nil)
+      ((0) {})
       ((1) (range-region (car parts) dh dv sc))
       ((2) (with-closed ((region (range-region (first parts) dh dv sc)))
            (let ((union (range-region (second parts) dh dv sc)))
@@ -1178,7 +1178,7 @@
   (method (kill-autoscroll-pulse)
     (when autoscroll-pulse
       (unregister-pulse autoscroll-pulse)
-      (set! autoscroll-pulse nil)))
+      (set! autoscroll-pulse {})))
   
   
   (method (pulse)
@@ -1391,7 +1391,7 @@
   
   
   (method (range-region range dh dv sc . rest)
-    (bind-keywords ((top nil) (bottom nil)) rest
+    (bind-keywords ((top {}) (bottom {})) rest
       (let ((region (new Region)))
         (with ((proc <Procedure>
                  (function dynamic (paragraph start end)
@@ -1419,7 +1419,7 @@
   
   
   (method public (invalidate-row row)
-    (invalidate-rect (row-range-rect row 0 nil)))
+    (invalidate-rect (row-range-rect row 0 {})))
   
   
   (method (invalidate-range range)
@@ -1458,9 +1458,9 @@
                 (limit [row end]))
             (loop (for n from beginning to limit)
                   (let ((paragraph (get-paragraph n)))
-                    (cond ((= n beginning) (proc paragraph [col start] nil))
-                          ((= n limit) (proc paragraph nil [col end]))
-                          (else (proc paragraph nil nil))))))))))
+                    (cond ((= n beginning) (proc paragraph [col start] {}))
+                          ((= n limit) (proc paragraph {} [col end]))
+                          (else (proc paragraph {} {}))))))))))
   
   
   ;;;
@@ -1901,7 +1901,7 @@
   
   (method (invalidate-update)
     (nextmethod)
-    (wrap-content nil))
+    (wrap-content {}))
   
   
   ;;;
@@ -1958,7 +1958,7 @@
            (page 0)
            (top 0)
            (bottom 0)
-           (together nil))
+           (together {}))
       (for-each-paragraph
        (function dynamic (rank paragraph)
          (when (and (>= rank start) (< rank end))
@@ -1974,7 +1974,7 @@
                  (set! top effective-bottom))
                (set! bottom bot))
              (when (and together (not (empty-string? string)))
-               (set! together nil))
+               (set! together {}))
              (when (and (not together) (get-keep-with-next?~ format))
                (set! together paragraph-top))))))
       (put~ pages (new Rect 0 top page-width bottom))
@@ -1988,16 +1988,16 @@
       ;; character sizes at no scaling and of course round of errors accumulate when in higher scaling
       (set! wrap-patch 50)
       (layout-scrollee)
-      (wrap-content nil)
+      (wrap-content {})
       (cons :wrap-width (cons width (nextmethod)))))
   
   
   (method (restore-printing preserved)
     (nextmethod preserved)
     (set! wrap-width (getf preserved :wrap-width))
-    (set! wrap-patch nil)
+    (set! wrap-patch {})
     (layout-scrollee)
-    (wrap-content nil))
+    (wrap-content {}))
   
   
   ;;;
@@ -2016,8 +2016,8 @@
   
   
   (method (draw-outline dc context update update-rect lh lv sh sv sc sc?)
-    (let ((top nil)
-          (bottom nil)
+    (let ((top {})
+          (bottom {})
           (printing? (getf context :printing?)))
       (unless printing?
         (draw-selection dc top bottom))
@@ -2090,7 +2090,7 @@
   (method public (cell-displayed? pos)
     (let* ((start (text->view pos))
            (end (+ start (new Point 0 (get-height-at pos)))))
-      (= (scroll-needed start end nil) {Point 0 0})))
+      (= (scroll-needed start end {}) {Point 0 0})))
   
   
   (method (on-center-caret evt)
@@ -2194,7 +2194,7 @@
   
   
   (method public (insert-hyperlink string . rest)
-    (bind-keywords ((font nil) (anchor nil) (action nil)) rest
+    (bind-keywords ((font {}) (anchor {}) (action {})) rest
       (let* ((font (either font {Font name: Hyperlink}))
              (style (new Hyperlink-Style :font font :color {Color name: Hyperlink} :anchor anchor :action action)))
         (insert-styled string style))))
@@ -2220,7 +2220,7 @@
   
   
   (method public (create-table . rest)
-    (bind-keywords ((size nil) (header? true) (node-column? false) (columns null) (row-count nil)) rest
+    (bind-keywords ((size {}) (header? true) (node-column? false) (columns null) (row-count {})) rest
       (let* ((border (new Table-Border))
              (tree (locate~ border 'tree)))
         (when size
@@ -2346,14 +2346,14 @@
                           (replace range (list "")))))
                   (if (= [end contiguous-undo-range] (- caret 1))
                       (set! [end contiguous-undo-range] caret)
-                    (set! contiguous-undo-range nil)))
-                (set! contiguous-undo-range nil)
+                    (set! contiguous-undo-range {})))
+                (set! contiguous-undo-range {})
                 (register-undo~ undoer
                   (let ((range (new Range start caret)))
                     (function ()
                       (replace range old)
                       (set-selection old-selection)))))
-            (call-content-change nil)
+            (call-content-change {})
             (when appl
               (update-focus-actions~ appl))
             caret)))))
@@ -2382,7 +2382,7 @@
   
   
   (method (invalidate-replacement paragraph top)
-    (let ((delta (wrap-paragraph nil paragraph)))
+    (let ((delta (wrap-paragraph {} paragraph)))
       ;; this has to be done, but possibly the right approach is
       ;; to have an invalid scrollee flag... set by the various row methods...
       ;; or maybe the fucking row-height can all be cleaned up!!!
@@ -2421,7 +2421,7 @@
   
   (method (invalidate-replacements paragraphs replaced inserted bottom before)
     (for-each (function dynamic (paragraph)
-                (wrap-paragraph-lowlevel nil paragraph))
+                (wrap-paragraph-lowlevel {} paragraph))
               paragraphs)
     (let* ((after (paragraphs-height paragraphs))
            (delta (- after before)))
@@ -2544,14 +2544,14 @@
   
   (method (parse-paragraph par intern-format intern-style)
     (if (string? par)
-        (cons nil (list (list par nil)))
+        (cons {} (list (list par {})))
       (let* ((scan (iterate par))
              (format (parse-format scan)))
         (cons (intern-format format) (parse-runs scan intern-style)))))
   
   
   (method (parse-format scan)
-    (let* ((format nil)
+    (let* ((format {})
            (add-formatting
             (function dynamic (proc)
               (when (not format)
@@ -2576,7 +2576,7 @@
   (method (parse-runs scan intern-style)
     (map (function dynamic (run)
            (cond ((string? run)
-                  (list run nil))
+                  (list run {}))
                  ((list? run)
                   (parse-run (iterate run) intern-style))
                  (else
@@ -2585,8 +2585,8 @@
   
   
   (method (parse-run scan intern-style)
-    (let* ((string nil)
-           (style nil)
+    (let* ((string {})
+           (style {})
            (add-styling
             (function dynamic (proc)
               (when (not style)
@@ -2623,7 +2623,7 @@
                (set! style (new Image-Style :portfolio portfolio :image-name image))))
             ((:moniker)
              (let ((moniker (get-next~ scan))
-                   (scaling nil))
+                   (scaling {}))
                (let ((next (peek~ scan)))
                  (when (eq? next :scaling)
                    (get-next~ scan)
@@ -2689,7 +2689,7 @@
   
   (method (parse-jml-paragraph node intern-format intern-style)
     (if (is? node JML-Text)
-        (cons nil (list (list (get-text~ node) nil)))
+        (cons {} (list (list (get-text~ node) {})))
       (let ((tag (get-tag~ node)))
         (case tag
           ((p) (parse-p-tag node intern-format intern-style))
@@ -2702,7 +2702,7 @@
   
   
   (method (parse-p-format node)
-    (let* ((format nil)
+    (let* ((format {})
            (add-formatting
             (function dynamic (proc)
               (when (not format)
@@ -2724,7 +2724,7 @@
   
   (method (parse-p-run node intern-style)
     (if (is? node JML-Text)
-        (list (get-text~ node) (intern-style nil))
+        (list (get-text~ node) (intern-style {}))
       (let ((tag (get-tag~ node)))
         (case tag
           ((style) (parse-style-tag node intern-style))
@@ -2784,7 +2784,7 @@
   
   (method protected (save-formatted moniker)
     (with-closed ((printer (new File-Printer :pathname moniker)))
-      (print-formatted printer nil)))
+      (print-formatted printer {})))
   
   
   (method protected (print-formatted printer range)
@@ -2890,7 +2890,7 @@
                                  (set! [previous paragraph] previous)
                                  (set! [next previous] paragraph)
                                  (set! previous paragraph)
-                                 (wrap-paragraph nil paragraph)
+                                 (wrap-paragraph {} paragraph)
                                  (increase! count)
                                  (increase! height [row-height paragraph])
                                  paragraph)))
@@ -2947,7 +2947,7 @@
   
   
   (method (range-paragraphs range)
-    (let ((last nil)
+    (let ((last {})
           (fact (new List-Factory)))
       (loop (for row from [row start range] to [row end range])
             (let ((paragraph (get-paragraph row)))
@@ -3037,7 +3037,7 @@
                               (function ()
                                 (replace-formatted range old)
                                 (set-selection selection))))
-            (call-content-change nil)
+            (call-content-change {})
             (when appl
               (update-focus-actions~ appl))
             caret)))))
@@ -3110,19 +3110,19 @@
   
   (method (set-paragraph-format paragraph format)
     (set! [format paragraph] (intern-format format))
-    (wrap-paragraph nil paragraph)
+    (wrap-paragraph {} paragraph)
     (set-modified? true)
     (layout-scrollee)
     (invalidate-view))
   
   
   (method public (apply-style name start . rest)
-    (bind-optionals ((end nil)) rest
+    (bind-optionals ((end {})) rest
       (stylize (get-style name) start end)))
   
   
   (method public (stylize name/style start . rest)
-    (bind-optionals ((end nil)) rest
+    (bind-optionals ((end {})) rest
       (when (not end)
         (set! end (new Cell [row start] (paragraph-length [row start]))))
       (set-text-style (new Range start end) (get-style name/style))))
@@ -3144,7 +3144,7 @@
       (for-each-range range
         (function dynamic (paragraph start end)
           (set-style~ paragraph start end style)
-          (wrap-paragraph nil paragraph)))
+          (wrap-paragraph {} paragraph)))
       (set-modified? true)
       (layout-scrollee)
       (invalidate-view)))
@@ -3154,7 +3154,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
-        (wrap-paragraph nil paragraph)))
+        (wrap-paragraph {} paragraph)))
     (set-modified? true)
     (layout-scrollee)
     (invalidate-view))
@@ -3164,7 +3164,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-font~ paragraph start end font)
-        (wrap-paragraph nil paragraph)))
+        (wrap-paragraph {} paragraph)))
     (set-modified? true)
     (layout-scrollee)
     (invalidate-view))
@@ -3175,7 +3175,7 @@
       (for-each-range range
         (function dynamic (paragraph start end)
           (set-style~ paragraph start end style)
-          (wrap-paragraph nil paragraph)
+          (wrap-paragraph {} paragraph)
           (invalidate-drawing~ paragraph)))
       @should-not-be-done-for-code-text (set-modified? true)))
   
@@ -3184,7 +3184,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-color~ paragraph start end color)
-        (wrap-paragraph nil paragraph)
+        (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph)))
     @should-not-be-done-for-code-text (set-modified? true))
   
@@ -3193,7 +3193,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-highlight-color~ paragraph start end color)
-        (wrap-paragraph nil paragraph)
+        (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph)))
     @should-not-be-done-for-code-text (set-modified? true))
   
@@ -3202,7 +3202,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-bold~ paragraph start end)
-        (wrap-paragraph nil paragraph)
+        (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
   
   
@@ -3210,7 +3210,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-italic~ paragraph start end)
-        (wrap-paragraph nil paragraph)
+        (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
   
   
@@ -3218,7 +3218,7 @@
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-underline~ paragraph start end)
-        (wrap-paragraph nil paragraph)
+        (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
   
   
@@ -3419,7 +3419,7 @@
   (method (make-runs string styles infos)
     (let ((offset 0))
       (map (function dynamic (info)
-             (bind-optionals ((str) (rank nil)) info
+             (bind-optionals ((str) (rank {})) info
                (let* ((limit (+ offset (length str)))
                       (subseq (subseq! string offset limit))
                       (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
@@ -3563,7 +3563,7 @@
   
   
   (definition Marked-Column
-    nil)
+    {})
   
   
   (method (on-mark-column evt)
@@ -3677,7 +3677,7 @@
   
   
   (method public (colorize color start . rest)
-    (bind-optionals ((end nil)) rest
+    (bind-optionals ((end {})) rest
       (when (not end)
         (set! end (new Cell [row start] (paragraph-length [row start]))))
       (set-text-color (new Range start end) color)))
@@ -3690,7 +3690,7 @@
   
   (method public (unfill pos)
     (let ((range (new Range pos (+ pos 1))))
-      (set-highlight-color range nil)))
+      (set-highlight-color range {})))
   
   
   ;;;
@@ -3804,7 +3804,7 @@
   
   
   (method public virtual (get-ruler)
-    nil)
+    {})
   
   
   (method (on-toggle-ruler evt)
@@ -3823,7 +3823,7 @@
     (for-each-range (get-selection)
       (function dynamic (paragraph start end)
         (set-font-name~ paragraph start end name)
-        (wrap-paragraph nil paragraph)))
+        (wrap-paragraph {} paragraph)))
     (set-modified? true)
     (layout-scrollee)
     (invalidate-view))
@@ -3833,7 +3833,7 @@
     (for-each-range (get-selection)
       (function dynamic (paragraph start end)
         (set-point-size~ paragraph start end size)
-        (wrap-paragraph nil paragraph)))
+        (wrap-paragraph {} paragraph)))
     (set-modified? true)
     (layout-scrollee)
     (invalidate-view))
@@ -3929,7 +3929,7 @@
   (method public (search-string target . rest)
     (unimplemented 'search-string)
     @convert
-    (bind-keywords ((position nil) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
+    (bind-keywords ((position {}) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
       (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
              (found (JzTextSearch (get-paragraphs) (get-limit) target [row pos] [col pos] reverse? whole-words? ignore-case? self constituent-test)))
         (when found
@@ -3939,7 +3939,7 @@
   (method public (multisearch-string targets . rest)
     (unimplemented 'multisearch-string)
     @convert
-    (bind-keywords ((position nil) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
+    (bind-keywords ((position {}) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
       (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
              (found (JzTextMultiSearch (get-paragraphs) end targets [row pos] [col pos] extended? reverse? whole-words? ignore-case? self constituent-test)))
         (when found
@@ -3948,7 +3948,7 @@
   
   
   (method (multisearch-content strings . rest)
-    (bind-keywords ((position nil) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (expression? (get-expression?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
+    (bind-keywords ((position {}) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (expression? (get-expression?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
       (cond (expression?
              (let* ((expl (new Jazz-Explorer self :start (text-beginning) :end (text-beginning)))
                     (moniker (get-moniker))

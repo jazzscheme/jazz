@@ -50,10 +50,6 @@
   #t)
 
 
-(define nil
-  #f)
-
-
 (define null
   '())
 

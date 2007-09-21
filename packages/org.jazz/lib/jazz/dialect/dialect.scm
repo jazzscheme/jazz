@@ -458,6 +458,7 @@
     (jazz.new-special-form 'void?         jazz.walk-void?)
     (jazz.new-special-form 'with-slots    jazz.walk-with-slots)
     (jazz.new-special-form 'with-self     jazz.walk-with-self)
+    (jazz.new-special-form 'time          jazz.walk-time)
     (jazz.new-special-form 'form          jazz.walk-form-special)))
 
 
@@ -1763,6 +1764,16 @@
                                 (%%list slot-name `(lambda () (%%list ',getter-name ',object-symbol)) `(lambda (value) (%%list ',setter-name ',object-symbol value)))))
                             slot-names)
             ,@body))))))
+
+
+;;;
+;;;; Time
+;;;
+
+
+(define (jazz.walk-time walker resume declaration environment form)
+  (let ((form (%%cadr form)))
+    `(time ,(jazz.walk walker resume declaration environment form))))
 
 
 ;;;

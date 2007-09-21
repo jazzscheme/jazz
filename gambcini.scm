@@ -394,10 +394,18 @@
     jazz.ui.layout.Figure
     jazz.ui.view.Drawing
     jazz.ui.view.View
-    jazz.ui.graphic.Font
-    jazz.process.Process
-    jazz.application.Application
-    jazz.ui.graphic.Cairo-Win32-Surface
+    jazz.ui.window.Window
+    jazz.ui.window.View-Player
+    jazz.ui.graphic.Cairo-Win32-Surface))
+
+(define Expl
+  '(jazz.ui.text.Text-Explorer
+    jazz.ui.text.Code-Explorer
+    jazz.jazz.text.Lisp-Explorer
+    jazz.jazz.text.Jazz-Explorer))
+
+(define Text
+  '(jazz.ui.graphic.Font
     jazz.library.element.Node
     jazz.library.exemplar.Exemplar
     jazz.ui.text.Format
@@ -410,12 +418,14 @@
     jazz.ui.text.Text-View
     jazz.ui.text.Code-Text-View
     jazz.jazz.text.Lisp-Text-View
-    jazz.jazz.text.Jazz-Text-View
-    jazz.jazz.text.Lisp-Explorer
-    jazz.jazz.text.Jazz-Explorer
-    jazz.ui.window.Window
-    jazz.ui.window.View-Player
-    jazz.jml
+    jazz.jazz.text.Jazz-Text-View))
+
+(define Appl
+  '(jazz.process.Process
+    jazz.application.Application))
+
+(define JML
+  '(jazz.jml
     jazz.jml.parser.JML-Parser))
 
 
@@ -428,6 +438,9 @@
 
 (define (bui)
   (for-each cj UI))
+
+(define (bexpl)
+  (for-each cj Expl))
 
 
 ;;;

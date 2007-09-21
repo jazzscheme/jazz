@@ -355,23 +355,28 @@
                   (return 'named-string))
               (set-end (new Cell (+ [row end] 1) 0)))))
         false)))
-  
+
   
   (method private (forward-scheme-char)
     (forward)
-    (forward)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-forward 0)))
-            (cond ((= c #\eof)
-                   (return false))
-                  (false ;; todo
-                    (set! kind 'char)
-                    (return kind))
-                  (else
-                   (forward)))))
-        false)))
+    (let ((c (char-forward 0)))
+      (if (not (alphanumeric? c))
+          (begin
+            (forward)
+            (set! kind 'char)
+            kind)
+        (call/ec
+          (lambda (return)
+            (while true
+              (let ((c (char-forward 0)))
+                (cond ((= c #\eof)
+                       (return false))
+                      ((not (jazz-constituent? c))
+                       (set! kind 'char)
+                       (return kind))
+                      (else
+                       (forward)))))
+            false)))))
   
   
   (method private (forward-string)

@@ -1621,6 +1621,8 @@
          (c-type ,struct* ,(if tag (list 'pointer struct tag*) (list 'pointer struct)))
          (definition ,(jazz.build-method-symbol struct-string 'make)
                      (c-function () ,struct* ,(string-append "___result_voidstar = calloc(1," sizeof ");")))
+         (definition ,(jazz.build-method-symbol struct-string 'free)
+                     (c-function (,struct*) (native void) "free(___arg1);"))
          (definition ,(jazz.build-method-symbol struct-string 'sizeof)
                      (c-function () (native unsigned-int) ,(string-append "___result = " sizeof ";")))
          ,@(apply append (map expand-accessor declarations))))))

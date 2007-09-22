@@ -8,16 +8,18 @@
 
 (class Cairo-Surface extends Object
 
-  (slot clipper-rect    accessors generate)
+  
+  (slot clipper-rect accessors generate)
 
-  (slot width accessors generate)
-  (slot height accessors generate)
-  (slot surface    accessors generate)
-  (slot context    accessors generate)
+  (slot width        accessors generate)
+  (slot height       accessors generate)
+  (slot surface      accessors generate)
+  (slot context      accessors generate)
 
-  (slot glyph-array accessors generate)
+  (slot glyph-array  accessors generate)
   (slot array-length accessors generate)
 
+  
   (method (initialize self width height . rest)
     (set-width self width)
     (set-height self height)
@@ -30,8 +32,8 @@
   (method (destroy self)
     (cairo_destroy (get-context self))
     (cairo_surface_destroy (get-surface self))
-    (if (not (not (get-glyph-array self)))
-	(free-glyph-array (get-glyph-array self))))
+    (when glyph-array
+      (free-glyph-array glyph-array)))
 
   
   ;;;
@@ -170,22 +172,22 @@
           (extents (cairo_text_extents_t-make))
           (lgt (string-length string)))
       (if (< (get-array-length self) lgt)
-	  (begin
-	    (if (not (not (get-glyph-array self)))
-		(free-glyph-array (get-glyph-array self)))
-	    (set-glyph-array self (alloc-glyph-array (* lgt 2)))
-	    (set-array-length self (* lgt 2))))
+          (begin
+            (when (get-glyph-array self)
+              (free-glyph-array (get-glyph-array self)))
+            (set-glyph-array self (alloc-glyph-array (* lgt 2)))
+            (set-array-length self (* lgt 2))))
       (cairo_font_extents (get-context self) font-ext)
       (let ((y (+ v (cairo_font_extents_t-ascent-ref font-ext))))
         (let iter ((i 0))
-	  (if (< i lgt)
-              (let ((glyph (glyph-array-ref (get-glyph-array self) i)))
-                (cairo_glyph_t-index-set! glyph (- (char->integer (string-ref string i)) 29))
-                (cairo_glyph_t-x-set! glyph (exact->inexact uph))
-                (cairo_glyph_t-y-set! glyph (exact->inexact y))
-                (cairo_glyph_extents (get-context self) glyph 1 extents)
-                (set! uph (+ uph (cairo_text_extents_t-x_advance-ref extents)))
-		(iter (+ i 1)))))
+             (if (< i lgt)
+                 (let ((glyph (glyph-array-ref (get-glyph-array self) i)))
+                   (cairo_glyph_t-index-set! glyph (- (char->integer (string-ref string i)) 29))
+                   (cairo_glyph_t-x-set! glyph (exact->inexact uph))
+                   (cairo_glyph_t-y-set! glyph (exact->inexact y))
+                   (cairo_glyph_extents (get-context self) glyph 1 extents)
+                   (set! uph (+ uph (cairo_text_extents_t-x_advance-ref extents)))
+                   (iter (+ i 1)))))
         ; (when highlight-color
         ;  (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
         (cairo_show_glyphs (get-context self) (get-glyph-array self) lgt)
@@ -262,16 +264,16 @@
             (cairo_scale (get-context self) (/ w 2) (/ h 2))
             (cairo_arc (get-context self) 0 0 1 0 (* 2 M_PI))
             (cairo_scale (get-context self) (/ 2 w) (/ 2 w))))
-        (if (not (not outside))
+        (if outside
             (begin
               (set-color self (if (is? outside Color)
                              outside
 			     (get-color-for-object~ self outside)))
-              (set-line-width self (if (and (is? outside Pen) (not (not (get-width~ outside))))
+              (set-line-width self (if (and (is? outside Pen) (get-width~ outside))
                                   (get-width~ outside)
                                 1))
               (stroke-preserve self)))
-        (if (not (not inside))
+        (if inside
             (begin
               (set-color self inside)
               (fill self))))))
@@ -577,16 +579,16 @@
     (with-saved-context self
       (lambda ()
         (procedure)
-        (if (not (not outside))
+        (if outside
             (begin
               (set-color self (if (is? outside Color)
 				  outside
 				  (get-color~ outside)))
-              (set-line-width self (if (and (is? outside Pen) (not (not (get-width~ outside))))
+              (set-line-width self (if (and (is? outside Pen) (get-width~ outside))
 				       (get-width~ outside)
 				       1))
               (stroke-preserve self)))
-        (if (not (not inside))
+        (if inside
             (begin
               (set-color self (if (is? inside Color)
 				  inside

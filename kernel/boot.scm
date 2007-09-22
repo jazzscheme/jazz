@@ -103,7 +103,7 @@
 
 
 (define jazz.Use-Print?
-  #f)
+  #t)
 
 (define jazz.Debug-Print?
   #f)

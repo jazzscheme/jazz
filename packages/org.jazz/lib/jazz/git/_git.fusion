@@ -333,11 +333,12 @@
                             (user-message "Extracting base/{a}..." base-name)
                             (create-directories~ base-file)
                             (with-closed ((printer (new File-Printer base-file)))
-                              (git-show (format "{a}:{a}" base-index base-name) printer))))))
+                              (git-show base-index printer))))))
                     
                     (define (setup-left)
                       (let ((working-file (new-file~ directory name-path)))
-                        (when (exists?~ working-file)
+                        (if (not (exists?~ working-file))
+                            (debug (format "Unable to find working file: {a}" name-path))
                           (let ((left-file (new-file~ merge-dir (cons "left" name-path))))
                             (unless (exists?~ left-file)
                               (user-message "Copying left/{a}..." name)
@@ -375,21 +376,33 @@
                     (define (apply-diff target-file deltas)
                       (let ((merged-file (new-brother~ target-file (let ((base (get-base~ target-file))
                                                                          (ext (get-extension~ target-file)))
-                                                                     (format "{a}_merge.{a}" base ext)))))
+                                                                     (format "{a}_merged.{a}" base ext)))))
                         (with-closed ((target-input (new File-Reader target-file))
                                       (merged-output (new File-Printer merged-file)))
-                          (let ((target-rank 0))
+                          (let ((target-rank 1))
                             (for-each (lambda (delta)
                                         (bind (target-line target-count result-line result-count lines) delta
+                                          ;; output target common lines
                                           (loop (repeat (- target-line target-rank))
                                                 (do (write-line (read-line target-input) merged-output)
                                                     (increase! target-rank)))
+                                          ;; skip replaced target lines
+                                          (loop (repeat target-count)
+                                                (do (read-line target-input)
+                                                    (increase! target-rank)))
+                                          ;; output new lines
                                           (for-each (lambda (info)
                                                       (bind (what . line) info
                                                         (when (or (eq? what 'b) (eq? what 'both))
                                                           (write-line line merged-output))))
                                                     lines)))
-                                      deltas)))
+                                      deltas))
+                          ;; output remaining
+                          (let iter ()
+                            (let ((line (read-line target-input)))
+                              (when line
+                                (write-line line merged-output)
+                                (iter)))))
                         (delete-file~ target-file)
                         (move-pathname~ merged-file target-file)))
                     

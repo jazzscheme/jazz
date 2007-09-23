@@ -455,9 +455,9 @@
 
 
 (definition public (= n m . rest)
-  (call/ec
-    (lambda (return)
-      (and (eq? (compare n m) :equal)
+  (and (eq? (compare n m) :equal)
+       (call/ec
+         (lambda (return)
            (or (null? rest)
                (let ((first m))
                  (loop (for object in rest)
@@ -473,9 +473,12 @@
 
 
 (definition public (< n m . rest)
-  (call/ec
-    (lambda (return)
-      (and (<2 n m)
+  (and (case (compare n m)
+         ((:less) true)
+         ((:greater :equal) false)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (call/ec
+         (lambda (return)
            (or (null? rest)
                (begin
                  (loop (for object in rest)
@@ -486,21 +489,17 @@
                  true))))))
 
 
-(definition (<2 x y)
-  (case (compare x y)
-    ((:less) true)
-    ((:greater :equal) false)
-    (else (error "Cannot compare {t} and {t}" x y))))
-
-
 (definition public (<= n m . rest)
   (not (apply > n m rest)))
 
 
 (definition public (> n m . rest)
-  (call/ec
-    (lambda (return)
-      (and (>2 n m)
+  (and (case (compare n m)
+         ((:greater) true)
+         ((:less :equal) false)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (call/ec
+         (lambda (return)
            (or (null? rest)
                (begin
                  (loop (for object in rest)
@@ -509,13 +508,6 @@
                          ((:less :equal) (return false))
                          (else (error "Cannot compare {t} and {t}" n object))))
                  true))))))
-
-
-(definition (>2 x y)
-  (case (compare x y)
-    ((:greater) true)
-    ((:less :equal) false)
-    (else (error "Cannot compare {t} and {t}" x y))))
 
 
 (definition public (>= n m . rest)
@@ -1282,7 +1274,12 @@
   (- (bitwise-and (+ int #x8000) #xFFFF) #x8000))
 
 (definition public (hiword int)
-  (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16))
+   (sign-word (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16)))
+
+(definition public (sign-word word)
+  (if (bit-set? 15 word)
+      (- word #x10000)
+    word))
 
 
 (definition (separate int1 int2)

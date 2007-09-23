@@ -14,6 +14,70 @@
 (display-environment-set! #t)
 
 
+(define (trc)
+  (trace jazz.ui.graphic.Cairo-Win32-Surface .Cairo-Win32-Surface.draw-image
+         jazz.ui.graphic.Cairo-Win32-Surface.Cairo-Win32-Surface.paint))
+
+
+(define (trall)
+  (trace jazz.platform.cairo.cairo-win32.cairo_pattern_destroy
+         jazz.platform.cairo.cairo-win32.cairo_image_surface_create
+         jazz.platform.cairo.cairo-win32.cairo_image_surface_create_from_png
+         jazz.platform.cairo.cairo-win32.cairo_font_face_destroy
+         jazz.platform.cairo.cairo-win32.cairo_win32_font_face_create_for_logfontw
+         jazz.platform.cairo.cairo-win32.cairo_device_to_user_distance
+         jazz.platform.cairo.cairo-win32.cairo_scale
+         jazz.platform.cairo.cairo-win32.cairo_identity_matrix
+         jazz.platform.cairo.cairo-win32.cairo_get_matrix
+         jazz.platform.cairo.cairo-win32.cairo_set_matrix
+         jazz.platform.cairo.cairo-win32.cairo_transform
+         jazz.platform.cairo.cairo-win32.cairo_translate
+         jazz.platform.cairo.cairo-win32.cairo_text_extents
+         jazz.platform.cairo.cairo-win32.cairo_show_glyphs
+         jazz.platform.cairo.cairo-win32.cairo_select_font_face
+         jazz.platform.cairo.cairo-win32.cairo_glyph_extents
+         jazz.platform.cairo.cairo-win32.cairo_font_extents
+         jazz.platform.cairo.cairo-win32.cairo_set_font_size
+         jazz.platform.cairo.cairo-win32.cairo_set_font_face
+         jazz.platform.cairo.cairo-win32.cairo_show_text
+         jazz.platform.cairo.cairo-win32.cairo_pattern_add_color_stop_rgb
+         jazz.platform.cairo.cairo-win32.cairo_pattern_create_linear
+         jazz.platform.cairo.cairo-win32.cairo_pattern_create_for_surface
+         jazz.platform.cairo.cairo-win32.cairo_pattern_get_rgba
+         jazz.platform.cairo.cairo-win32.cairo_get_source
+         jazz.platform.cairo.cairo-win32.cairo_set_source_rgba
+         jazz.platform.cairo.cairo-win32.cairo_set_source_rgb
+         jazz.platform.cairo.cairo-win32.cairo_set_source_surface
+         jazz.platform.cairo.cairo-win32.cairo_set_source
+         jazz.platform.cairo.cairo-win32.cairo_rel_move_to
+         jazz.platform.cairo.cairo-win32.cairo_get_line_width
+         jazz.platform.cairo.cairo-win32.cairo_set_line_width
+         jazz.platform.cairo.cairo-win32.cairo_rectangle
+         jazz.platform.cairo.cairo-win32.cairo_arc
+         jazz.platform.cairo.cairo-win32.cairo_rel_line_to
+         jazz.platform.cairo.cairo-win32.cairo_line_to
+         jazz.platform.cairo.cairo-win32.cairo_move_to
+         jazz.platform.cairo.cairo-win32.cairo_stroke_preserve
+         jazz.platform.cairo.cairo-win32.cairo_stroke
+         jazz.platform.cairo.cairo-win32.cairo_paint
+         jazz.platform.cairo.cairo-win32.cairo_fill
+         jazz.platform.cairo.cairo-win32.cairo_reset_clip
+         jazz.platform.cairo.cairo-win32.cairo_clip
+         jazz.platform.cairo.cairo-win32.cairo_status
+         jazz.platform.cairo.cairo-win32.cairo_restore
+         jazz.platform.cairo.cairo-win32.cairo_save
+         jazz.platform.cairo.cairo-win32.cairo_destroy
+         jazz.platform.cairo.cairo-win32.cairo_create
+         jazz.platform.cairo.cairo-win32.cairo_win32_surface_get_dc
+         jazz.platform.cairo.cairo-win32.cairo_win32_surface_create
+         jazz.platform.cairo.cairo-win32.cairo_surface_flush
+         jazz.platform.cairo.cairo-win32.cairo_surface_finish
+         jazz.platform.cairo.cairo-win32.cairo_surface_get_content
+         jazz.platform.cairo.cairo-win32.cairo_surface_status
+         jazz.platform.cairo.cairo-win32.cairo_surface_destroy
+         ))
+
+
 ;;;
 ;;;; Boot
 ;;;
@@ -292,10 +356,6 @@
   (cflag jazz.platform.x11 "" "-lX11"))
 
 
-(define (ccl)
-  (cflag jazz.platform.cairo "-I/usr/local/include/cairo -I/usr/include/freetype2" "-L/usr/local/lib -lcairo"))
-
-
 (define (ccw)
   (cflag jazz.platform.cairo.cairo-win32 "-IC://jazz//dev//jazz//bin//cairo//include" "-LC://jazz//dev//jazz//bin//cairo//lib -lcairo"))
 
@@ -389,14 +449,24 @@
 (define Lang
   '(jazz.dialect.language))
 
+(define Util
+  '(jazz.utilities))
+
 (define UI
   '(jazz.library.component.Component
+    jazz.ui.dialog
+    jazz.ui.view
+    jazz.ui.window
     jazz.ui.layout.Figure
     jazz.ui.view.Drawing
     jazz.ui.view.View
+    jazz.ui.view.Scrollbar
     jazz.ui.window.Window
     jazz.ui.window.View-Player
-    jazz.ui.graphic.Cairo-Win32-Surface))
+    jazz.ui.graphic.Cairo-Win32-Surface
+    jazz.ui.image.Image
+    jazz.ui.image.Portfolio
+    jazz.platform))
 
 (define Expl
   '(jazz.ui.text.Text-Explorer
@@ -406,8 +476,10 @@
 
 (define Text
   '(jazz.ui.graphic.Font
+    jazz.ui.graphic.Font-Metrics
     jazz.library.element.Node
     jazz.library.exemplar.Exemplar
+    jazz.library.exemplar.Exemplar-Domain
     jazz.ui.text.Format
     jazz.ui.text.Paragraph
     jazz.ui.text.Line
@@ -418,7 +490,13 @@
     jazz.ui.text.Text-View
     jazz.ui.text.Code-Text-View
     jazz.jazz.text.Lisp-Text-View
-    jazz.jazz.text.Jazz-Text-View))
+    jazz.jazz.text.Jazz-Text-View
+    jazz.ui.text.Text-Colorizer))
+
+(define Tree
+  '(jazz.ui.tree.Tree-View
+    jazz.ui.tree.Tree-Column
+    jazz.ui.tree.Tree-Row))
 
 (define Appl
   '(jazz.process.Process
@@ -431,16 +509,37 @@
 
 (define (bjz)
   (blang)
-  (bui))
+  (butil)
+  (bui)
+  (bexpl)
+  (btext)
+  (btree)
+  (bappl)
+  (bjml))
 
 (define (blang)
   (for-each cj Lang))
+
+(define (butil)
+  (for-each cj Util))
 
 (define (bui)
   (for-each cj UI))
 
 (define (bexpl)
   (for-each cj Expl))
+
+(define (btext)
+  (for-each cj Text))
+
+(define (btree)
+  (for-each cj Tree))
+
+(define (bappl)
+  (for-each cj Appl))
+
+(define (bjml)
+  (for-each cj JML))
 
 
 ;;;
@@ -476,6 +575,12 @@
 
 (define (cui)
   (for-each cln UI))
+
+(define (ctext)
+  (for-each cln Text))
+
+(define (ctree)
+  (for-each cln Tree))
 
 
 ;;;
@@ -546,16 +651,6 @@
 
 (define (ttc)
   (time (load "x")))
-
-
-(define (trc)
-  (time (call-with-input-file "c.fusion" (lambda (port) (read port) #t))))
-
-(define (trx)
-  (time (call-with-input-file "x.scm" (lambda (port) (read port) #t))))
-
-(define (tlx)
-  (time (load "x.scm")))
 
 
 (define (bpf)

@@ -49,26 +49,22 @@
 (class Cairo-Win32-Surface extends Object
   
   
-  (slot clipper <Rect+>)
+  (slot clipper)
   
-  
-  (slot surface <Integer+>)
-  (slot hdc     <Integer+>)
-  (slot context <Integer+>)
-  
+  (slot surface)
+  (slot hdc)
+  (slot context)
   
   (slot highlight-color    initialize {})
   
+  (slot dash-array         initialize {})
+  (slot empty-array        initialize {})
   
-  (slot dash-array         initialize false)
-  (slot empty-array        initialize false)
-  
-  
-  (slot glyph-array        initialize false)
+  (slot glyph-array        initialize {})
   (slot array-length       initialize 0)
 
   
-  (method (initialize surface <int> . rest)
+  (method (initialize surface . rest)
     (nextmethod)  
     (set! [surface self] surface)
     (set! [hdc self] (cairo_win32_surface_get_dc surface))
@@ -77,8 +73,8 @@
 
 
   (method (destroy)
-    (destroy-context)
     (destroy-surface)
+    (destroy-context)
     (nextmethod))
   
   
@@ -87,15 +83,19 @@
     (set! [context self] (cairo_create surface)))
   
   
-  (method protected virtual (destroy-context)
-    (cairo_destroy context))
-  
-  
   (method protected virtual (destroy-surface)
-    (unless (not surface)
-      (cairo_surface_destroy surface)))
+    (when surface
+      (cairo_surface_destroy surface)
+      (set! surface {})))
   
   
+  (method protected virtual (destroy-context)
+    (when context
+      (cairo_destroy context)
+      (set! context {})))
+  
+  
+  @probably-not-necessary
   (method public (cairo-finish)
     (cairo_surface_finish surface))
   

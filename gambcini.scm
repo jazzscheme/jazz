@@ -568,19 +568,37 @@
 
 (define (cjz)
   (clang)
-  (cui))
+  (cutil)
+  (cui)
+  (cexpl)
+  (ctext)
+  (ctree)
+  (cappl)
+  (cjml))
 
 (define (clang)
   (for-each cln Lang))
 
+(define (cutil)
+  (for-each cln Util))
+
 (define (cui)
   (for-each cln UI))
+
+(define (cexpl)
+  (for-each cln Expl))
 
 (define (ctext)
   (for-each cln Text))
 
 (define (ctree)
   (for-each cln Tree))
+
+(define (cappl)
+  (for-each cln Appl))
+
+(define (cjml)
+  (for-each cln JML))
 
 
 ;;;

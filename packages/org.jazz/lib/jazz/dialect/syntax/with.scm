@@ -53,7 +53,7 @@
          (begin
            ,@body)
        ,@(map (lambda (binding)
-                (list 'deallocate-object (car binding)))
+                `(release~ ,(car binding)))
               (reverse bindings)))))
 
 

@@ -51,10 +51,10 @@
   (if (null? expressions)
       (error "Not enough arguments for either")
     (let ((scan expressions)
-          (complex? false))
+          (complex? #f))
       (while (not (null? (cdr scan)))
         (when (not (symbol? (car scan)))
-          (set! complex? true))
+          (set! complex? #t))
         (set! scan (cdr scan)))
       (if (not complex?)
           (letrec ((proc

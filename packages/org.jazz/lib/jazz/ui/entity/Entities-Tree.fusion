@@ -156,7 +156,7 @@
   
   
   (method public virtual (add-entity factory . rest)
-    (bind-keywords ((parent null) (presentation null) (properties null) (select? true)) rest
+    (bind-keywords ((parent {}) (presentation {}) (properties null) (select? true)) rest
       (let* ((class (get-class~ factory))
              (selected (selected-entity))
              (parent (either parent (relocation-parent selected class) selected client))
@@ -182,8 +182,8 @@
   
   (method protected virtual (entity-presentation-request factory brothers . rest)
     (if (get-name-prohibited?~ factory)
-        null
-      (bind-keywords ((initial-value null)) rest
+        {}
+      (bind-keywords ((initial-value {})) rest
         (let* ((name-mandatory? (get-name-mandatory?~ factory))
                (name-unicity? (get-name-unicity?~ factory))
                (unicity-domain (essay name-unicity? (map (function dynamic (entity) (get-presentation~ entity)) brothers)))
@@ -194,11 +194,11 @@
   
   
   (method protected virtual (entity-properties-request factory)
-    null)
+    {})
   
   
   (method protected virtual (entity-name-validator)
-    null)
+    {})
   
   
   (method protected virtual (install-new-entity controller child parent presentation properties)
@@ -263,13 +263,12 @@
               (let ((parent (uniform entities :key (function dynamic (entity) (relocation-parent destination (class-of entity))))))
                 (if (not parent)
                     (bell)
-                  null
                   (move-entities~ controller entities parent)))
             (let* ((father (get-father~ dst))
                    (sons (get-sons~ father))
                    (rank (son-rank~ father dst))
                    (position (case part ((before) rank) ((after) (+ rank 1))))
-                   (target (if (< position (length sons)) (element sons position) null))
+                   (target (if (< position (length sons)) (element sons position) {}))
                    (target-data (essay target (get-user-data~ target))))
               (for-each (function dynamic (entity)
                           (send-before~ controller entity (essay target (send-entity-before entity target-data))))
@@ -278,7 +277,7 @@
   
   
   (method (move-entity-row row father . rest)
-    (bind-keywords ((position null)) rest
+    (bind-keywords ((position {})) rest
       (unless (and (eq? (get-father~ row) father) (= 1 (length (get-sons~ father))))
         (let* ((source (get-user-data~ row))
                (destination (either (get-user-data~ father) client))
@@ -286,7 +285,7 @@
           (move-row row father
             :position (either position (function dynamic ()
                                          (if (not sort?)
-                                             null
+                                             {}
                                            (find-entity-position source row father)))))))))
   
   
@@ -338,14 +337,14 @@
            (dst-parent (parent-relocation (get-parent~ dst)))
            (before? (eq? src-parent dst-parent))
            (before-last (row-rank (last (get-sons~ dst-father))))
-           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) null (+ dst-rank 1)))))
-           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) null)))
+           (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) {} (+ dst-rank 1)))))
+           (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) {})))
            (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (function dynamic (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
            (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
-                       (else null))))
+                       (else {}))))
       (when part
         (new Tree-Drop-Target :view self :row row :part part))))
   
@@ -354,7 +353,7 @@
   (method (get-row-target drag-drop row)
     (let* ((source (get-source~ drag-drop))
            (view (get-view~ source)))
-      null))
+      {}))
   
   
   @to-convert
@@ -424,7 +423,7 @@
            (parents (map (function dynamic (entity)
                            (determine-paster~ entity))
                          entities)))
-      (and (not (memq? null parents))
+      (and (not (memq? {} parents))
            (= 1 (length (remove-duplicates parents))))))
   
   
@@ -538,7 +537,7 @@
           (function dynamic (row rank)
             (when (eq? (get-user-data~ row) entity)
               (return row))))
-        null)))
+        {})))
   
   
   (method (entity-visible-row entity)
@@ -547,14 +546,14 @@
   
   (method public (select-entity entity)
     (let ((row (entity-visible-row entity)))
-      ;; if row is null, then the row must be collapsed and I should expand it...
+      ;; if row is {}, then the row must be collapsed and I should expand it...
       (when row
         (set-single-selection row))))
   
   
   (method public (select-entities entities)
     (let ((rows (remove-nils (map entity-visible-row entities))))
-      ;; if a row is null, then the row must be collapsed and I should expand it...
+      ;; if a row is {}, then the row must be collapsed and I should expand it...
       (set-selection rows)))
   
   
@@ -653,4 +652,4 @@
   
   
   (method public (show-properties)
-    (select-palette Properties-Manager :workspace null :focus? true))))
+    (select-palette Properties-Manager :workspace {} :focus? true))))

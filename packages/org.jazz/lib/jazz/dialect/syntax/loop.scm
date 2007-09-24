@@ -78,12 +78,12 @@
       (y <Object> #f)
       (res2 <int> 0))
   (while (and (< x end0) (not (eq? for1 #f)))
-    (set! y (%%car for1))
+    (set! y (car for1))
     (increase! res2 (* x y))
     (debug x)
     (finally (message-box "Done"))
     (increase! x 1)
-    (set! for1 (%%cdr for1)))
+    (set! for1 (cdr for1)))
   res2)
 
 
@@ -94,12 +94,12 @@
 #; ;; @expansion
 (let ((for0 <Object> list)
       (x <Object>)
-      (res1 <bool> false))
+      (res1 <bool> #f))
   (while (and (not (eq? for0 #f)))
-    (set! x (%%car for0))
+    (set! x (car for0))
     (when (test? x)
-      (set! res1 true))
-    (set! for0 (%%cdr for0)))
+      (set! res1 #t))
+    (set! for0 (cdr for0)))
   res1)
 
 
@@ -114,8 +114,8 @@
       (n <Object>)
       (ext1 <bool> #f))
   (while (and (not ext1) (not (eq? for0 #f)))
-    (set! n (%%car for0))
-    (set! for0 (%%cdr for0))
+    (set! n (car for0))
+    (set! for0 (cdr for0))
     (when (even? n)
       (set! ext1 #t))
     (when (not ext1)
@@ -255,7 +255,7 @@
       (let ((ret (unique "ret"))
             (ext (unique "ext")))
         (add-binding ret '<Object+> #f)
-        (add-binding ext '<bool> 'false)
+        (add-binding ext '<bool> '#f)
         (add-initial-test (list 'not ext))
         (set! return ret)
         (set! exit ext)))
@@ -324,8 +324,8 @@
              (add-binding for '<Object> lst)
              (add-binding variable (either type '<Object>))
              (add-test (list 'not (list 'eq? for 'jazz.null)))
-             (add-before (list 'set! variable (list '%%car for)))
-             (add-before (list 'set! for (list '%%cdr for)))
+             (add-before (list 'set! variable (list 'car for)))
+             (add-before (list 'set! for (list 'cdr for)))
              (when (not-null? rest)
                (bind (keyword value) rest
                  (case (unwrap-syntax keyword)
@@ -353,10 +353,10 @@
                (add-binding keyword '<Object> #f)
                (add-binding value '<Object> #f)
                (add-test (list 'not (list 'eq? for 'jazz.null)))
-               (add-before (list 'set! keyword (list '%%car for)))
-               (add-before (list 'set! for (list '%%cdr for)))
-               (add-before (list 'set! value (list '%%car for)))
-               (add-before (list 'set! for (list '%%cdr for)))))))
+               (add-before (list 'set! keyword (list 'car for)))
+               (add-before (list 'set! for (list 'cdr for)))
+               (add-before (list 'set! value (list 'car for)))
+               (add-before (list 'set! for (list 'cdr for)))))))
         ((iterate)
          (bind (iterator) rest
            (let ((val (unique "val"))
@@ -428,9 +428,9 @@
   (define (process-some actions rest)
     (bind (what . rest) rest
       (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<bool> 'false)
+        (add-binding res '<bool> '#f)
         (add-test (list 'not res))
-        (add-action (list 'when what (list 'set! res true)) actions)
+        (add-action (list 'when what (list 'set! res #t)) actions)
         (set-finally (list res)))))
   
   
@@ -442,9 +442,9 @@
   (define (process-every actions rest)
     (bind (what . rest) rest
       (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<bool> 'true)
+        (add-binding res '<bool> '#t)
         (add-test res)
-        (add-action (list 'when (list 'not what) (list 'set! res false)) actions)
+        (add-action (list 'when (list 'not what) (list 'set! res #f)) actions)
         (set-finally (list res)))))
   
   
@@ -514,7 +514,7 @@
                           (list 'begin
                                 (list 'set! ptr cns)
                                 (list 'set! res ptr))
-                          (list '%%set-cdr! ptr cns)
+                          (list 'set-cdr! ptr cns)
                           (list 'set! ptr cns))
                     actions)
         (set-finally (list res)))))
@@ -528,7 +528,7 @@
   (define (process-return actions rest)
     (bind-values (ret ext) (get-return/exit)
       (add-action (list 'set! ret (car rest)) actions)
-      (add-action (list 'set! ext true) actions)))
+      (add-action (list 'set! ext #t) actions)))
   
   
   ;;;
@@ -541,7 +541,7 @@
   
   
   ;;;
-  ;;;; Expand
+  ;;;; expand
   ;;;
   
   

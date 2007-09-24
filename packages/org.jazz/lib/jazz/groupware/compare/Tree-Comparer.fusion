@@ -48,7 +48,7 @@
   
   
   (method public (compare-nodes parent left-node right-node . rest)
-    (bind-keywords ((left-content true) (right-content true) (ignored-nodes null) (ignored-leaves null) (ignored-extensions null) (check-algorithm {}) (feedback {})) rest
+    (bind-keywords ((left-content true) (right-content true) (ignored-nodes '()) (ignored-leaves '()) (ignored-extensions '()) (check-algorithm {}) (feedback {})) rest
       (let* ((has-differences? (list false))
              (entry (compare-node-contents parent (create-item left-node) left-content (create-item right-node) right-content ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
         (values entry (car has-differences?) (scanned-values)))))
@@ -57,7 +57,7 @@
   (method (compare-node-contents parent node1 content1 node2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
     (node-feedback node1 node2 feedback)
     (let* ((fact    (new List-Factory))
-           (entry   (new-entry parent 'node node1 null node2 null))
+           (entry   (new-entry parent 'node node1 {} node2 {}))
            (nodes1  (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'nodes))
            (nodes2  (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'nodes))
            (leaves1 (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'leaves))
@@ -87,8 +87,8 @@
     (merge-ordered (function dynamic (what key left right)
                      (when (or left right)
                        (case what
-                         ((:left)  (set-car! has-differences? true) (put~ fact (new-entry parent kind left (when (= kind 'leaf) [value left]) null null)))
-                         ((:right) (set-car! has-differences? true) (put~ fact (new-entry parent kind null null right (when (= kind 'leaf) [value right]))))
+                         ((:left)  (set-car! has-differences? true) (put~ fact (new-entry parent kind left (when (= kind 'leaf) [value left]) {} {})))
+                         ((:right) (set-car! has-differences? true) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) [value right]))))
                          ((:same)  (let ((result (proc parent left (content-find left content1) right (content-find right content2) ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
                                    (when result
                                      (put~ fact result)))))))
@@ -167,7 +167,7 @@
   (method protected virtual (collect-item? item content ignored-nodes ignored-leaves ignored-extensions)
     (let* ((name (item-name item))
            (type (get-item-type item))
-           (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else null))))
+           (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else '()))))
       (and (or (and (eq? content true)
                     (not (member? name ignored)))
                (and (neq? content true)

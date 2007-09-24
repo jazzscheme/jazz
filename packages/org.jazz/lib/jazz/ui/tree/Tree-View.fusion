@@ -636,7 +636,7 @@
           (control? (control-down?)))
       (if (not cell)
           (when can-select-empty?
-            (set-selection null))
+            (set-selection '()))
         (let ((pos (cell-coordinates cell view))
               (column (get-column [col cell])))
           (mouse-down~ column cell pos shift? control?)))))
@@ -657,7 +657,7 @@
             (shift? (shift-down?))
             (control? (control-down?)))
         (unless (or dragging? cell)
-          (set-selection null))
+          (set-selection '()))
         ;; the idea is there to do the selection only at mouse-up when the cell is already
         ;; selected (necessary for dnd) but this code is a not very elegant quick solution
         (when (and cell (not dragging?))
@@ -812,7 +812,7 @@
     (let ((cell (view->tree pos)))
       (if (not cell)
           (when can-select-empty?
-            (set-selection null))
+            (set-selection '()))
         (let ((row (get-row [row cell])))
           (case selection-mode
             ((cell)
@@ -1395,9 +1395,9 @@
   
   (method (remove-all-columns)
     (remove-every-row)
-    (set-children null)
-    (set! columns null)
-    (set! columns-borders null)
+    (set-children '())
+    (set! columns '())
+    (set! columns-borders '())
     (set! columns-right 0)
     (set! node-column {})
     (invalidate-header))
@@ -1576,7 +1576,7 @@
     (let ((row (get-row [row cell])))
       (when row
         (when (>= [col cell] (length (get-children~ row)))
-          (set! selection null)
+          (set! selection '())
           (error "Sequence overrun"))
         (element (get-children~ row) [col cell]))))
   
@@ -1849,7 +1849,7 @@
   (method public (with-preserved-selection proc . rest)
     (bind-keywords ((use 'row) (test eqv?) (ensure-displayed? true) (generate-event? false)) rest
       (let ((saved-sel (remember-selection use)))
-        (set-selection null)
+        (set-selection '())
         (proc)
         (let ((selection (restore-selection use saved-sel test)))
           (when (in-edition?)
@@ -1967,24 +1967,24 @@
   (method (removed-update-selection rank count)
     (when (and edited-cell (>= [row edited-cell] rank))
       (decrease! [row edited-cell] count))
-    (let ((removed null))
+    (let ((removed '()))
       (with ((proc
-              (case selection-mode
-                ((cell) (function dynamic (cell)
-                        (let ((r [row cell]))
-                          (if (< r rank)
-                              cell
-                            (if (> r (+ rank count -1))
-                                (new Cell (- r count) [col cell])
-                              (set! removed (cons cell removed))
-                              null)))))
-                (else (function dynamic (r)
-                        (if (< r rank)
-                            r
-                          (if (> r (+ rank count -1))
-                              (- r count)
-                            (set! removed (cons r removed))
-                            null)))))))
+               (case selection-mode
+                 ((cell) (function dynamic (cell)
+                           (let ((r [row cell]))
+                             (if (< r rank)
+                                 cell
+                               (if (> r (+ rank count -1))
+                                   (new Cell (- r count) [col cell])
+                                 (set! removed (cons cell removed))
+                                 {})))))
+                 (else (function dynamic (r)
+                         (if (< r rank)
+                             r
+                           (if (> r (+ rank count -1))
+                               (- r count)
+                             (set! removed (cons r removed))
+                             {})))))))
         (set! selection (collect proc selection)))
       (either (essay removed (car removed))
               false)))

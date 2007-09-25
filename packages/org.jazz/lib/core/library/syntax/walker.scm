@@ -1414,7 +1414,7 @@
             (literals-expansion (jazz.collect-literals walker)))
         (jazz.validate-walk-problems walker)
         `(begin
-           ,@(jazz.declarations)
+           ,@(jazz.declarations 'library)
            ,@(let ((queue (jazz.new-queue)))
                (for-each (lambda (spec)
                            (jazz.parse-require spec
@@ -2356,7 +2356,7 @@
                   (lambda (port)
                     (parameterize ((jazz.parse-read? parse-read?))
                       (read port))))))))
-      (if (%%memq (%%car form) '(module library))
+      (if (and (%%not (%%eof-object? form)) (%%memq (%%car form) '(module library)))
           form
         (jazz.error "Invalid module declaration in {a}: {s}" filename form)))))
 

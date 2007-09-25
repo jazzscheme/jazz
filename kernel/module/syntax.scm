@@ -56,7 +56,7 @@
   (jazz.parse-module rest
     (lambda (requires body)
       `(begin
-         ,@(jazz.declarations)
+         ,@(jazz.declarations 'module)
          ,@(map (lambda (require)
                   (jazz.parse-require require
                     (lambda (module-name feature-requirement load phase)
@@ -124,37 +124,3 @@
                       (list invoice)
                     '())))
               invoices)))
-
-
-#; ;; from Gambit
-(define (satisfied? src feature-requirement)
-  (cond ((##symbol? feature-requirement)
-         (if (##member feature-requirement ##cond-expand-features)
-             #t
-           #f))
-        ((##pair? feature-requirement)
-         (let ((first (##car feature-requirement)))
-           (cond ((##eq? first 'not)
-                  (##shape src (##sourcify feature-requirement src) 2)
-                  (##not (satisfied? src (##cadr feature-requirement))))
-                 ((or (##eq? first 'and) (##eq? first 'or))
-                  (##shape src (##sourcify feature-requirement src) -1)
-                  (let loop ((lst (##cdr feature-requirement)))
-                       (if (##pair? lst)
-                           (let ((x (##car lst)))
-                             (if (##eq? (satisfied? src x) (##eq? first 'and))
-                                 (loop (##cdr lst))
-                               (##not (##eq? first 'and))))
-                         (##eq? first 'and))))
-                 (else
-                  (macro-raise
-                    (macro-make-expression-parsing-exception
-                      'ill-formed-cond-expand
-                      src
-                      '()))))))
-        (else
-         (macro-raise
-           (macro-make-expression-parsing-exception
-             'ill-formed-cond-expand
-             src
-             '())))))

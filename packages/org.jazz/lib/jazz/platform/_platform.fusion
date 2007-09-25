@@ -1531,7 +1531,7 @@
   (method public (get-size)
     (unimplemented 'get-size)
     @windows-specific
-    (with-closed ((reader (new File-Reader :pathname self :readable? false)))
+    (with-closed ((reader (new File-Reader self :readable? false)))
       (get-size~ reader)))
 
 
@@ -1541,7 +1541,7 @@
     (if (not (exists?))
         (error "Unable to get modification time of non-existant file: {t}" self)
       (let ((time (new FILETIME)))
-        (with-closed ((reader (new File-Reader :pathname self :readable? false)))
+        (with-closed ((reader (new File-Reader self :readable? false)))
           (GetFileTime (get-handle~ reader) NULL NULL time))
         (from-filetime time))))
 
@@ -1553,7 +1553,7 @@
           (at (get-attributes)))
       ;; this is ugly big time...
       (set-read/write)
-      (with-closed ((printer (new File-Printer :pathname self :mode 'append)))
+      (with-closed ((printer (new File-Printer self :mode 'append)))
         (SetFileTime (get-handle~ printer) NULL NULL ft))
       (set-attributes at)))
   
@@ -1602,7 +1602,7 @@
 
   (method (save-lines lines . rest)
     (bind-keywords ((platform {}) (use-utf8? false)) rest
-      (with-closed ((printer (new File-Printer :pathname self)))
+      (with-closed ((printer (new File-Printer self)))
         (write-lines printer lines (either platform Win32) use-utf8?)))))
 
 
@@ -2065,8 +2065,10 @@
 (definition (initialize-home-aliases)
   (new-alias 'Native true)
   (new-alias 'Network "\\")
-  ;; hardcoded
+  ;; hardcoded for now
   (new-alias 'Root '(Native "C:" "Jazz" "dev" "jazz"))
+  (new-alias 'org.jazz '(Root "packages" "org.jazz"))
+  (new-alias 'org.jedi '(Root "packages" "org.jedi"))
   (new-alias 'Home '(Native "C:" "Jazz" "dev" "jazz" "packages" "org.jedi" "projects" "jedi" "distribution"))
   (new-alias 'Users '(Native "C:" "Jazz" "dev" "jazz.dev" "Users"))
   (new-alias 'User '(Users "Guillaume"))
@@ -2308,7 +2310,7 @@
              (/= (hibyte (GetAsyncKeyState VK_MENU)) 0))
         (crash-process)
       (let ((file (either file (module-timestamped-file "Stack" "stack"))))
-        (with-closed ((printer (new File-Printer :pathname file)))
+        (with-closed ((printer (new File-Printer file)))
           (apply print-stack printer others))
         (when user-feedback?
           (message-box (format "Stack dumped to {t}" file)))

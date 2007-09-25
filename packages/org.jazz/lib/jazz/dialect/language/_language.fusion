@@ -2373,7 +2373,7 @@
 
 (definition public (split seq <Object> separator <Object>)
   (cond ((zero? (length seq))
-         seq)
+         (list seq))
         ((closure? separator)
          (let ((previous 0)
                (result (new List-Factory))
@@ -3842,21 +3842,21 @@
 
 (definition public (read-line reader)
   (let ((port (open-output-string)))
-    (let iter ()
+    (let iter ((empty? true))
       (let ((c (read-char reader)))
         (if (eof-object? c)
             (if empty?
                 {}
               (get-output-string port))
           (case c
-            ((#\newline)
+            ((#\linefeed)
              (get-output-string port))
             ((#\return)
              (let ((c (read-char reader)))
                (get-output-string port)))
             (else
              (write-char c port)
-             (iter))))))))
+             (iter false))))))))
 
 
 (definition (read-line-proper reader)
@@ -3868,7 +3868,7 @@
                 (values {} false)
               (values (get-output-string port) false))
           (case c
-            ((#\newline)
+            ((#\linefeed)
              (values (get-output-string port) true))
             ((#\return)
              (let ((c (read-char reader)))
@@ -3879,13 +3879,17 @@
 
 
 (definition (read-lines reader)
-  (let ((queue (new-queue)))
+  (let ((queue (new-queue))
+        (last-proper? false))
     (let iter ()
-      (let ((line (read-line reader)))
+      (bind-values (line proper?) (read-line-proper reader)
         (if line
             (begin
               (enqueue queue line)
+              (set! last-proper? proper?)
               (iter))
+          (when last-proper?
+            (enqueue queue ""))
           (queue-list queue))))))
 
 

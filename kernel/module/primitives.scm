@@ -387,7 +387,12 @@
     (define-macro (%%port? obj)
       (if (jazz.safe?)
           `(port? ,obj)
-        `(##port? ,obj))))
+        `(##port? ,obj)))
+    
+    (define-macro (%%eof-object? obj)
+      (if (jazz.safe?)
+          `(eof-object? ,obj)
+        `(##eof-object? ,obj))))
   
   (else))
 

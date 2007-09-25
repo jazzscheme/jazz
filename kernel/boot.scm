@@ -138,11 +138,15 @@
 
 (cond-expand
   (gambit
-    (define (jazz.declarations)
+    (define (jazz.declarations kind)
       `((declare (block)
                  (standard-bindings)
                  (extended-bindings)
-                 ,@(if (jazz.safe?)
+                 ,@(if ;; a first approximation on having different declarations for kernel modules
+                       ;; of course this solution would treat any user module like a kernel one...
+                       (case kind
+                         ((module) (jazz.safe?))
+                         ((library) (jazz.debug?)))
                        '()
                      `((not safe)))))))
   

@@ -349,17 +349,6 @@
   
   (method (get-specials)
     Specials)
-
-  
-  ;;;
-  ;;;; Translation
-  ;;;
-  
-  
-  (method (translate-key key)
-    key
-    @convert
-    (translate-jazz-key~ syntax key))
   
   
   ;;;
@@ -368,7 +357,54 @@
   
   
   (method protected virtual (on-evaluate evt)
-    @convert
+    (with-safe-explore
+      (function dynamic ()
+        (let ((range (current-definition-range)))
+          (when range
+            (with-cursor :wait
+              (function dynamic ()
+                (sleep 100)
+                (bind-values (header footer) (fusion-declarations range)
+                  (fusion-evaluate-forms (read-text-forms range) header footer)))))))))
+  
+  
+  (method (fusion-evaluate-forms forms header footer)
+    (let ((console-text (get-console-text))
+          (expl (new (explorer-class) self)))
+      (let ((names (map (function dynamic (form) (form-name~ expl form)) forms)))
+        (evaluation-break~ console-text)
+        (let ((results (map (lambda (form)
+                              ;; all this is a bit braindead but makes more sense with a remote debugger...
+                              (let ((expr (read-string-element (format "{a}{s}{a}" header form footer))))
+                                (pretty-print expr)
+                                (let ((result (eval expr)))
+                                  (pretty-print result)
+                                  result)))
+                            forms)))
+          ;; do nothing with results for now. only side effect
+          #f)
+        (display-evaluation~ console-text names false)
+        (user-message "Evaluated: {l}"
+                      (map (function dynamic (name)
+                             (either name '<expr>))
+                           names)))))
+  
+  
+  (method (fusion-declarations range)
+    (let ((header "")
+          (footer "")
+          (expl (new Jazz-Explorer self :range range)))
+      (while (outer-expr~ expl)
+        (when (fusion-declaration?~ expl)
+          (let* ((declaration (fusion-declaration~ expl))
+                 (declaration-header (join declaration " ")))
+            (set! header (format "({a}{%}{a}" declaration-header header))
+            (set! footer (format "{a})" footer)))))
+      (values header footer)))
+  
+  
+  @convert
+  (method protected virtual (on-evaluate evt)
     (with-safe-explore
       (function dynamic ()
         (let ((range (current-definition-range)))
@@ -377,18 +413,6 @@
               (function dynamic ()
                 (remove-highlights range)
                 (sleep 100)
-                (let ((unit-name (current-unit-name)))
-                  (when (and unit-name (not (in-manifest? unit-name)))
-                    (let* ((file (get-moniker))
-                           (name (string->symbol (get-base~ file)))
-                           (code (message-box (format "Unable to evaluate expression because {s} is not registered in the manifest. Add to manifest?" name)
-                                              :type 'confirmation)))
-                      (case code
-                        ((yes) (let ((map (get-manifest)))
-                               (map-set! map name (list :source file))
-                               (user-message "{s} added to manifest" name)))
-                        ((no) (error "Unable to evaluate expression"))
-                        ((cancel) (throw-cancel))))))
                 (let ((info (current-toplevel-info))
                       (forms (read-text-forms range)))
                   (when forms
@@ -414,47 +438,15 @@
                                   (evaluate-forms range forms class (if (list? imports) imports (list imports)))))))))))))))))))
   
   
+  @convert
   (method (evaluate-forms range forms class packages)
     (let ((names (evaluate-code range forms class packages)))
       (user-message "Evaluated: {l}" names)
-      ;; this could go into a separate output log to keep the console clean
       (let ((console (get-console-text)))
         (when console
           (evaluation-break~ console)
           (display-evaluation~ console names false)
           (fresh-prompt~ console)))))
-    
-  
-  (method (evaluate-code range forms unit packages)
-    @convert (
-    (let* ((model (if (or (package? unit) (interface? unit)) (class-of unit) unit))
-           (field-names (evaluate~ Interpreter forms {} model packages)))
-      (for-each (function dynamic (field-name)
-                  (when (eq? field-name 'class-form)
-                    (let ((form (definition-value (unit-field (class-of unit) field-name))))
-                      (setup-toplevel-context~ form unit))))
-                field-names)
-      field-names)))
-  
-  
-  ;;;
-  ;;;; Jazz
-  ;;;
-  
-  
-  (method public (jazz-expression range)
-    (jazz-add-declarations range))
-  
-  
-  (method (jazz-add-declarations range)
-    (let ((text (get-string range))
-          (expl (new Jazz-Explorer self :range range)))
-      (while (outer-expr~ expl)
-        (when (jazz-declaration?~ expl)
-          (let* ((declaration (jazz-declaration~ expl))
-                 (header (join declaration " ")))
-            (set! text (format "({a}{%}{a})" header text)))))
-      text))
 
 
   ;;;

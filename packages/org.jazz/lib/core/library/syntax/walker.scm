@@ -1281,7 +1281,12 @@
         (begin
           (set! imports (%%cdar scan))
           (set! scan (%%cdr scan))))
-      (values name dialect-name requires exports imports scan)))
+      (values name
+              dialect-name
+              (jazz.filter-features requires)
+              (jazz.filter-features exports)
+              (jazz.filter-features imports)
+              scan)))
 
 
 (define (jazz.parse-library-invoice specification)
@@ -1413,8 +1418,13 @@
            ,@(let ((queue (jazz.new-queue)))
                (for-each (lambda (spec)
                            (jazz.parse-require spec
-                             (lambda (module-name load phase)
-                               (jazz.enqueue queue `(jazz.load-module ',module-name)))))
+                             (lambda (module-name feature-requirement load phase)
+                               (jazz.enqueue queue
+                                 (if (not feature-requirement)
+                                     `(jazz.load-module ',module-name)
+                                   `(cond-expand
+                                      (,feature-requirement (jazz.load-module ',module-name))
+                                      (else)))))))
                          (%%get-library-declaration-requires declaration))
                (for-each (lambda (library-invoice)
                            (let ((only (%%get-library-invoice-only library-invoice))

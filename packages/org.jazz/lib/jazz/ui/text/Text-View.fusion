@@ -397,13 +397,13 @@
   
   (method protected virtual (select-outer)
     (let ((expl (new (explorer-class) self :range (get-selection))))
-      (when (outer-expr~ expl)
-        (set-selection (get-range~ expl)))))
+      (with-safe-explore
+        (function dynamic ()
+          (when (outer-expr~ expl)
+            (set-selection (get-range~ expl)))))))
   
   
   (method (with-safe-explore proc . rest)
-    (proc)
-    @catch-syntax-unimplemented
     (bind-keywords ((action 'ask)) rest
       (catch (Explore-Error err
                (case action
@@ -602,7 +602,7 @@
   (method (key-press key)
     (hide-text-cursor)
     (let ((char? false)
-          (translated (translate-key key)))
+          (translated (translate-key~ syntax key)))
       (set! char? true)
       (char-press key translated)
       (when (and (macro-recording?) (memq? key Non-Standard-Characters))
@@ -2480,15 +2480,6 @@
   
   (method protected virtual (recolorize-text start end-row)
     )
-
-  
-  ;;;
-  ;;;; Translation
-  ;;;
-  
-  
-  (method protected virtual (translate-key key)
-    key)
   
   
   ;;;

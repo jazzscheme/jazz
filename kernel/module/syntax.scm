@@ -59,7 +59,7 @@
          ,@(jazz.declarations)
          ,@(map (lambda (require)
                   (jazz.parse-require require
-                    (lambda (module-name load phase)
+                    (lambda (module-name feature-requirement load phase)
                       `(jazz.load-module ',module-name))))
                 requires)
          ,@body
@@ -70,15 +70,22 @@
   (if (and (%%pair? rest)
            (%%pair? (%%source-code (%%car rest)))
            (%%eq? (%%source-code (%%car (%%source-code (%%car rest)))) 'require))
-      (proc (%%cdr (%%desourcify (%%car rest))) (%%cdr rest))
+      (proc (jazz.filter-features (%%cdr (%%desourcify (%%car rest)))) (%%cdr rest))
     (proc '() rest)))
 
 
 (define (jazz.parse-require require proc)
   (let ((name (%%car require))
         (scan (%%cdr require))
+        (feature-requirement #f)
         (load #f)
         (phase 'runtime))
+    (if (and (%%pair? scan)
+             (%%pair? (%%car scan))
+             (%%eq? (%%caar scan) 'cond))
+        (begin
+          (set! feature-requirement (%%car (%%cdar scan)))
+          (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
              (%%pair? (%%car scan))
              (%%eq? (%%caar scan) 'load))
@@ -92,5 +99,62 @@
           (set! phase (%%car (%%cdar scan)))
           (set! scan (%%cdr scan))))
     (proc name
+          feature-requirement
           load
           phase)))
+
+
+(define (jazz.filter-features invoices)
+  (define (extract-feature-requirement invoice)
+    (if (and (%%not (%%null? (%%cdr invoice)))
+             (%%pair? (%%cadr invoice))
+             (%%eq? (%%car (%%cadr invoice)) 'cond))
+        (%%cadr (%%cadr invoice))
+      #f))
+  
+  (define (feature-safisfied? feature-requirement)
+    (if (%%symbol? feature-requirement)
+        (%%memq feature-requirement ##cond-expand-features)
+      (error "Features can only be symbols for now")))
+  
+  (apply append
+         (map (lambda (invoice)
+                (let ((feature-requirement (extract-feature-requirement invoice)))
+                  (if (or (not feature-requirement) (feature-safisfied? feature-requirement))
+                      (list invoice)
+                    '())))
+              invoices)))
+
+
+#; ;; from Gambit
+(define (satisfied? src feature-requirement)
+  (cond ((##symbol? feature-requirement)
+         (if (##member feature-requirement ##cond-expand-features)
+             #t
+           #f))
+        ((##pair? feature-requirement)
+         (let ((first (##car feature-requirement)))
+           (cond ((##eq? first 'not)
+                  (##shape src (##sourcify feature-requirement src) 2)
+                  (##not (satisfied? src (##cadr feature-requirement))))
+                 ((or (##eq? first 'and) (##eq? first 'or))
+                  (##shape src (##sourcify feature-requirement src) -1)
+                  (let loop ((lst (##cdr feature-requirement)))
+                       (if (##pair? lst)
+                           (let ((x (##car lst)))
+                             (if (##eq? (satisfied? src x) (##eq? first 'and))
+                                 (loop (##cdr lst))
+                               (##not (##eq? first 'and))))
+                         (##eq? first 'and))))
+                 (else
+                  (macro-raise
+                    (macro-make-expression-parsing-exception
+                      'ill-formed-cond-expand
+                      src
+                      '()))))))
+        (else
+         (macro-raise
+           (macro-make-expression-parsing-exception
+             'ill-formed-cond-expand
+             src
+             '())))))

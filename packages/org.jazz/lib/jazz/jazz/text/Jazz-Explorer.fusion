@@ -203,59 +203,53 @@
 
 
   ;;;
-  ;;;; Jazz
+  ;;;; Fusion
   ;;;
 
 
-  (method public (jazz-declaration?)
-    (form-expr? '(package in class interface remote-proxy coclass cointerface)))
+  (method public (fusion-declaration?)
+    (form-expr? '(library module class interface remote-proxy coclass cointerface)))
 
   
-  (definition jazz-library-keywords
-    '(dialect imports))
+  (definition fusion-library-keywords
+    '(export import require))
   
-  (definition jazz-module-keywords
-    '(dialect imports))
+  (definition fusion-module-keywords
+    '(require))
   
-  (definition jazz-package-keywords
-    '(includes uses))
-  
-  (definition jazz-in-keywords
-    '(module uses))
-  
-  (definition jazz-class-keywords
+  (definition fusion-class-keywords
     '(metaclass extends implements attributes))
   
-  (definition jazz-interface-keywords
+  (definition fusion-interface-keywords
     '(metaclass extends attributes))
 
-  (definition jazz-remote-proxy-keywords
+  (definition fusion-remote-proxy-keywords
     '(extends on))
 
 
-  (method public (jazz-declaration)
+  (method public (fusion-declaration)
     (let ((s (copy start))
           (e (copy end)))
       (set-end start)
       (enter-list)
       (forward-expr)
-      (let ((type (jazz-symbol)))
-        (prog1 (jazz-collect-keywords type)
+      (let ((type (fusion-symbol)))
+        (prog1 (fusion-collect-keywords type)
           (set-start s)
           (set-end e)))))
   
   
-  (method (jazz-collect-keywords type)
+  (method (fusion-collect-keywords type)
     (let ((fact (new List-Factory))
-          (keywords (jazz-keywords type)))
+          (keywords (fusion-keywords type)))
       (put~ fact (->string type))
       (forward-modifiers)
       (forward-expr)
-      (let ((name (jazz-symbol)))
+      (let ((name (fusion-symbol)))
         (put~ fact (->string name))
         (forward-expr)
         (let ((expr))
-          (while (and (= kind 'symbol) (memq? (set! expr (jazz-symbol)) keywords))
+          (while (and (= kind 'symbol) (memq? (set! expr (fusion-symbol)) keywords))
             (put~ fact (->string expr))
             (forward-expr)
             (put~ fact (get-marked))
@@ -263,19 +257,17 @@
       (get-output~ fact)))
   
   
-  (method (jazz-keywords type)
+  (method (fusion-keywords type)
     (case type
-      ((library)               jazz-library-keywords)
-      ((module)                jazz-module-keywords)
-      ((package)               jazz-package-keywords)
-      ((in)                    jazz-in-keywords)
-      ((class coclass)         jazz-class-keywords)
-      ((interface cointerface) jazz-interface-keywords)
-      ((remote-proxy)          jazz-remote-proxy-keywords)
+      ((library)               fusion-library-keywords)
+      ((module)                fusion-module-keywords)
+      ((class coclass)         fusion-class-keywords)
+      ((interface cointerface) fusion-interface-keywords)
+      ((remote-proxy)          fusion-remote-proxy-keywords)
       (else (error "Unknown declaration: {s}" type))))
   
   
-  (method (jazz-symbol)
+  (method (fusion-symbol)
     (string->symbol (get-marked)))
 
 

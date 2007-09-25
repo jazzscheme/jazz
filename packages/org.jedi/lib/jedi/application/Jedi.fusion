@@ -113,15 +113,12 @@
       @waiting
       (register-provider~ Provider (new Sybase-Provider))
       (register-provider~ Provider (new JDBC-Provider)))
-    @convert/wait
     (add-application-listener 'workspace (new Event-Handler :target self :method-name 'on-workspace))
-    @convert/wait
     (let ((listener (new Event-Handler :target self :method-name 'on-level-change)))
       (add-level-change-listener~ loop listener)))
   
   
   (method (on-level-change evt)
-    @convert/wait
     (let* ((loop (get-sender~ evt))
            (level (get-level~ loop))
            (enabled? (/= level 0)))
@@ -149,54 +146,6 @@
       (nextmethod rest)
       @convert/wait
       (display-boot-time launch-time)))
-  
-  
-  (method (conclude-process rest)
-    (nextmethod rest)
-    @convert/wait
-    (let ((outdated (outdated-core)))
-      (when outdated
-        (message-box (cons "The following core units are outdated and should be rebuilt"
-                           (map (function dynamic (name)
-                                  (let ((action
-                                         (function ()
-                                           (close-modal-dialog
-                                             (function ()
-                                               (edit-unit~ (get-application) name))))))
-                                    (list :bulleted (list :hyperlink action (->string name)))))
-                                outdated))))))
-  
-  
-  ;; One minute tolerance for yet again another fucking Windows short coming where their
-  ;; integrated unzip will strip the seconds from the modification time of unzipped files
-  @convert/wait
-  (definition Outdated-Core-Tolerance
-    600000000)
-  
-  
-  @convert/wait
-  (method (outdated-core)
-    (let ((outdated '()))
-      (for-each-map (function dynamic (name value)
-                      (bind (proc time . properties) value
-                        (when (getf properties :core? :not-found false)
-                          (let ((source (get-source~ Manifest name)))
-                            (when (and source (different-times? (get-modification-time~ source) (new Time time) :tolerance Outdated-Core-Tolerance))
-                              (set! outdated (cons name outdated)))))))
-                    (get-compiled-units))
-      (sort < outdated)))
-
-  
-  ;;;
-  ;;;; Aliases
-  ;;;
-  
-  
-  @convert/wait
-  (method (resolve-alias name)
-    (case name
-      ((Jazz-Distribution) (get-list~ (project-distribution-directory~ Launcher-Project)))
-      (else (nextmethod name))))
 
   
   ;;;

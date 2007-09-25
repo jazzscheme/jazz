@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; SQL Text Output
+;;;; Lisp Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,92 +35,52 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.sql.sql.SQL-Text-Output jazz
+(library jazz.jazz.text.Lisp-Syntax jazz
 
 
-(import (jazz.jml)
-        (jazz.sql)
-        (jazz.ui)
-        (jazz.literals)
+(import (jazz.ui)
         (jazz.library)
         (jazz.utilities))
 
 
-(class SQL-Text-Output extends Layout-View
-
-
-  (form
-    (<install>                                   size: {Dimension 650 400} layout-type: border
-      (<Layout-View>              name: tools
-        (<Push-Tool>              name: clear    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler form: on-clear}))
-      (<Scroller-View>            name: scroller location: center vscroll?: #t hscroll?: #t flat?: #t
-        (<!>                      name: content
-          (<SQL-Output-Text-View> name: text)))))
-               
-  
-  @convert-external
-  (method meta (external-name . rest)
-    'sql-text-output)
-
-  
-  ;;;
-  ;;;; Palette
-  ;;;
-  
-  
-  @convert-guest
-  (method meta (palette-class)
-    Tool-Palette)
-  
-  
-  @convert-guest
-  (method meta (palette-icon)
-    {Bitmap-Resource "Info"})
-  
-  
-  @convert-guest
-  (method meta (palette-title)
-    "Text Output")
-
-  
-  ;;;
-  ;;;; Docked
-  ;;;
-  
-  
-  (method (get-tools-view)
-    (locate 'tools))
-  
-  
-  (method (focus-default)
-    (let ((text (get-text)))
-      (acquire-focus~ text)))
+(class Lisp-Syntax extends Code-Syntax
   
   
   ;;;
-  ;;;; Access
-  ;;;
-
-  
-  (method public (get-text)
-    (locate 'text))
-  
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-
-
-  (method (delete-selection)
-    (let ((text (get-text)))
-      (clear-all~ text)))
-  
-  
-  ;;;
-  ;;;; Events
+  ;;;; Comment
   ;;;
   
   
-  (method (on-clear evt)
-    (let ((console (get-sql-console-text)))
-      (clear-table~ console)))))
+  (definition Comment
+    (make-string 1 #\semi-colon))
+  
+  
+  (definition Title-Comment
+    (make-string 4 #\semi-colon))
+  
+  
+  (method (comment-string)
+    Comment)
+  
+  
+  (method (title-comment-string)
+    Title-Comment)
+  
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+  
+  
+  (definition Auto-Complete-Characters
+    '(#\minus #\question-mark #\exclamation-mark #\period #\colon #\tilde #\>))
+  
+  
+  (method (auto-complete-characters)
+    Auto-Complete-Characters)
+  
+  
+  (method (auto-complete-char? key last)
+    (or (nextmethod key last)
+        @disabled-java-special-case
+        (and last (= last #\period))))))

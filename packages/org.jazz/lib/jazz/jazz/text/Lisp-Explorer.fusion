@@ -91,6 +91,7 @@
   
   
   (method (explore-error message start end)
+    (car 1)
     (signal (new Explore-Error :message message :start start :end end)))
   
   
@@ -574,13 +575,54 @@
   (method public (backward-whites)
     (call/ec
       (lambda (return)
-        (let ((done? false))
-          (while (not done?)
-            (let ((c (char-backward 0)))
-              (if (and c (whitespace? c))
-                  (when (not (backward))
-                    (return))
-                (set! done? true))))))))
+        (while true
+          (let ((done? false))
+            (while (not done?)
+              (let ((c (char-backward 0)))
+                (if (and c (whitespace? c))
+                    (when (not (backward))
+                      (return))
+                  (set! done? true)))))
+          (when (not (backward-lisp-comment))
+            (return))))))
+
+  
+  (method (backward-lisp-comment)
+    (let ((col (find-lisp-comment)))
+      (when col
+        (set! [col start] col)
+        true)))
+  
+  
+  (method (find-lisp-comment)
+    (let ((start-row [row start])
+          (start-col [col start])
+          (preserved-end (essay end (copy end)))
+          (result false))
+      (set-end (new Cell start-row 0))
+      (let ((result
+              (let iter ()
+                (when (and (= [row end] start-row) (< [col end] start-col))
+                  (let ((c0 (char-forward 0))
+                        (c1 (char-forward 1)))
+                    (cond ((= c0 #\")
+                           (forward-string)
+                           (iter))
+                          ((and (= c0 #\#) (= c1 #\|))
+                           (forward)
+                           (forward-delimited-string)
+                           (iter))
+                          ((and (= c0 #\#) (= c1 #\\))
+                           (forward)
+                           (forward-scheme-char)
+                           (iter))
+                          ((= c0 #\;)
+                           [col end])
+                          (else
+                           (forward)
+                           (iter))))))))
+        (set-end preserved-end)
+        result)))
 
 
   ;;;
@@ -648,7 +690,7 @@
                      (set! e (copy end))
                      (set-start s)
                      (let ((skipped (backward-all-expr))
-                            (starter (char-backward 0)))
+                           (starter (char-backward 0)))
                        (cond ((or (and ender (not (close-composite? ender)))
                                   (and (not starter) ender)
                                   (and starter ender (not (composites-match? starter ender))))

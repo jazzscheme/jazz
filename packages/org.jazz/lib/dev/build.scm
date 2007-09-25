@@ -142,6 +142,7 @@
 
 (define (jazz.for-each-submodule module-name proc)
   (let iter ((module-name module-name)
+             (feature-requirement #f)
              (load #f)
              (phase #f))
     (let ((declaration (jazz.locate-toplevel-declaration module-name)))

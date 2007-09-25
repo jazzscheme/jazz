@@ -39,16 +39,4 @@
 
 
 (jazz.define-macro (library . rest)
-  (jazz.walk-library rest))
-
-
-#;
-(##define-syntax library
-  (lambda (rest)
-    (jazz.walk-library (cdr rest))))
-
-
-#;
-(jazz.define-syntax (library rest)
-  (jazz.walk-library (cdr rest)))
-)
+  (jazz.walk-library rest)))

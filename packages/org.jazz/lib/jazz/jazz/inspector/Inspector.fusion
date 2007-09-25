@@ -39,50 +39,11 @@
 
 
 (import (jazz.jazz)
+        (jazz.jazz.inspector)
         (jazz.jml)
         (jazz.ui)
         (jazz.library)
         (jazz.utilities))
-
-
-;;;
-;;;; Package
-;;;
-
-
-(definition Unbound
-  (cons {} {}))
-
-
-(definition public (package-unbound)
-  Unbound)
-
-
-(definition public (package-info name value . rest)
-  (bind-optionals ((kind :value)) rest
-    (let* ((unbound? (eq? value Unbound))
-           (address (object-address value))
-           (presented (cond (unbound? "<unbound>") (else (->string value :reader))))
-           (more? (if unbound? false (or (memq? kind '(:frame :context)) (more-value? value)))))
-      (when (> (length presented) 512)
-        (set! presented (append (subseq presented 0 128) "...")))
-      (list name address presented more? kind))))
-
-
-(definition (more-value? value)
-  (and (not (null? value))
-       (not (empty-string? value))
-       (is-not? value Symbol)
-       (is-not? value Boolean)
-       (is-not? value Char)
-       (is-not? value Number)
-       (is-not? value Field)
-       (not (unit? value))))
-
-
-;;;
-;;;; Inspector
-;;;
 
 
 (class Inspector extends Tree-View
@@ -172,75 +133,4 @@
 
   (method public virtual (inspect data kind)
     (case kind
-      ((:value) (inspect-value data))))
-  
-  
-  (method meta public (inspect-value value)
-    (typecase value
-      ((List) (inspect-list value))
-      ((Hashtable) (inspect-hashtable value))
-      ((Map) (inspect-map value))
-      ((Sequence) (inspect-sequence value))
-      ((Record) (inspect-record value))
-      (else (inspect-slots value))))
-  
-  
-  (method meta (inspect-list lst)
-    (let ((fact (new List-Factory))
-          (rank 0))
-      (while (not-null? lst)
-        (if (pair? lst)
-            (begin
-              (put~ fact (package-info rank (car lst)))
-              (set! lst (cdr lst)))
-          (put~ fact (package-info 'rest lst))
-          (set! lst '()))
-        (increase! rank))
-      (get-output~ fact)))
-
-
-  (method meta (inspect-hashtable hashtable)
-    (let ((fact (new List-Factory)))
-      (for-each-hash (function dynamic (key value)
-                       (put~ fact (package-info key value)))
-                     hashtable)
-      (get-output~ fact)))
-
-
-  (method meta (inspect-map map)
-    (let ((fact (new List-Factory)))
-      (for-each-map (function dynamic (key value)
-                      (put~ fact (package-info key value)))
-                    map)
-      (get-output~ fact)))
-  
-  
-  (method meta (inspect-sequence seq)
-    (map package-info (naturals 0 (length seq)) seq))
-  
-  
-  (method meta (inspect-record record)
-    (let* ((structure (class-of record))
-           (parts (structure-form structure)))
-      (map (function dynamic (info)
-             (let ((name (second info)))
-               (package-info name (get record name))))
-           parts)))
-
-
-  (method meta (inspect-slots object)
-    (let* ((class (class-of object))
-           (slots (all-slots class))
-           (infos
-            (map (function dynamic (slot)
-                   (package-info (field-name slot)
-                                 (cond ((property? slot)
-                                        (read-property object slot))
-                                       ((bound? object slot)
-                                        (get-value object slot))
-                                       (else
-                                        Unbound))))
-                 slots)))
-      (if true
-          infos
-        (sort < infos :key car))))))
+      ((:value) (inspect-value data))))))

@@ -56,12 +56,31 @@
 
 
 ;;;
+;;;; Features
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (jazz.define-feature feature)
+      `(define-cond-expand-feature ,feature)))
+  (else))
+
+
+;;;
 ;;;; Processor
 ;;;
 
 
-(define jazz.Processor
-  'intel)
+(jazz.define-feature intel)
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(jazz.define-feature windows)
 
 
 ;;;
@@ -82,8 +101,12 @@
                    (chicken "c")
                    (gambit "g")
                    (else "u"))
-                 (case jazz.Processor
-                   ((intel) "i"))
+                 (cond-expand
+                   (mac "m")
+                   (windows "w")
+                   (x11 "x"))
+                 (cond-expand
+                   (intel "i"))
                  (case (jazz.safety-level)
                    ((safe) "s")
                    ((debug) "d")
@@ -103,7 +126,7 @@
 
 
 (define jazz.Use-Print?
-  #f)
+  #t)
 
 (define jazz.Debug-Print?
   #f)
@@ -122,8 +145,8 @@
                  ,@(if (jazz.safe?)
                        '()
                      `((not safe)))))))
-  (else
-    '()))
+  
+  (else))
 
 
 (define jazz.*log-port*

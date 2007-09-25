@@ -208,23 +208,20 @@
 
 
   (method public (fusion-declaration?)
-    (form-expr? '(library module class interface remote-proxy coclass cointerface)))
+    (form-expr? '(module library class interface)))
 
   
-  (definition fusion-library-keywords
-    '(export import require))
-  
-  (definition fusion-module-keywords
+  (definition fusion-module-parameters
     '(require))
+  
+  (definition fusion-library-parameters
+    '(require export import))
   
   (definition fusion-class-keywords
     '(metaclass extends implements attributes))
   
   (definition fusion-interface-keywords
     '(metaclass extends attributes))
-
-  (definition fusion-remote-proxy-keywords
-    '(extends on))
 
 
   (method public (fusion-declaration)
@@ -234,37 +231,84 @@
       (enter-list)
       (forward-expr)
       (let ((type (fusion-symbol)))
-        (prog1 (fusion-collect-keywords type)
+        (prog1 (case type
+                 ((module) (fusion-module-declaration))
+                 ((library) (fusion-library-declaration))
+                 ((class) (fusion-class-declaration))
+                 ((interface) (fusion-interface-declaration)))
           (set-start s)
           (set-end e)))))
   
   
-  (method (fusion-collect-keywords type)
-    (let ((fact (new List-Factory))
-          (keywords (fusion-keywords type)))
-      (put~ fact (->string type))
-      (forward-modifiers)
+  (method (fusion-module-declaration)
+    (forward-modifiers)
+    (forward-expr)
+    (let ((name (get-marked)))
       (forward-expr)
-      (let ((name (fusion-symbol)))
-        (put~ fact (->string name))
+      (let ((parameters (fusion-collect-parameters fusion-module-parameters)))
+        (cons "module" (cons name parameters)))))
+  
+  
+  (method (fusion-library-declaration)
+    (forward-modifiers)
+    (forward-expr)
+    (let ((name (get-marked)))
+      (forward-expr)
+      (let ((dialect (get-marked)))
         (forward-expr)
-        (let ((expr))
-          (while (and (= kind 'symbol) (memq? (set! expr (fusion-symbol)) keywords))
-            (put~ fact (->string expr))
+        (let ((parameters (fusion-collect-parameters fusion-library-parameters)))
+          (cons "library" (cons name (cons dialect parameters)))))))
+  
+  
+  (method (fusion-class-declaration)
+    (forward-modifiers)
+    (forward-expr)
+    (let ((name (get-marked)))
+      (forward-expr)
+      (let ((keywords (fusion-collect-keywords fusion-class-keywords)))
+        (cons "class" (cons name keywords)))))
+  
+  
+  (method (fusion-interface-declaration)
+    (forward-modifiers)
+    (forward-expr)
+    (let ((name (get-marked)))
+      (forward-expr)
+      (let ((keywords (fusion-collect-keywords fusion-interface-keywords)))
+        (cons "interface" (cons name keywords)))))
+  
+  
+  (method (fusion-collect-parameters parameters)
+    (let ((fact (new List-Factory)))
+      (let iter ()
+        (when (= kind 'list)
+          (let ((s (get-start))
+                (e (get-end)))
+            (set-end s)
+            (enter-list)
             (forward-expr)
-            (put~ fact (get-marked))
-            (forward-expr))))
+            (when (= kind 'symbol)
+              (let ((expr (fusion-symbol)))
+                (when (memq? expr parameters)
+                  (put~ fact (get-range-string s e))
+                  (exit-list)
+                  (forward-expr)
+                  (iter)))))))
       (get-output~ fact)))
   
   
-  (method (fusion-keywords type)
-    (case type
-      ((library)               fusion-library-keywords)
-      ((module)                fusion-module-keywords)
-      ((class coclass)         fusion-class-keywords)
-      ((interface cointerface) fusion-interface-keywords)
-      ((remote-proxy)          fusion-remote-proxy-keywords)
-      (else (error "Unknown declaration: {s}" type))))
+  (method (fusion-collect-keywords keywords)
+    (let ((fact (new List-Factory)))
+      (let iter ()
+        (when (= kind 'symbol)
+          (let ((expr (fusion-symbol)))
+            (when (memq? expr keywords)
+              (put~ fact (->string expr))
+              (forward-expr)
+              (put~ fact (get-marked))
+              (forward-expr)
+              (iter)))))
+      (get-output~ fact)))
   
   
   (method (fusion-symbol)
@@ -277,7 +321,7 @@
   
   
   (definition Jazz-Toplevels
-    '(dialect class interface remote-proxy package properties definition macro syntax method inline slot property form constant enumeration c-include c-type structure c-structure c-definition generic specific intrinsic external c-external coclass cointerface coexternal comethod javaexternal javamethod attributes datacontainer))
+    '(module library class interface remote-proxy definition macro syntax method inline slot property form constant enumeration c-include c-type structure c-structure c-definition generic specific intrinsic external c-external coclass cointerface coexternal comethod javaexternal javamethod attributes datacontainer))
 
 
   (method (definition-name? name)

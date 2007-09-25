@@ -710,6 +710,9 @@
 ;;;
 
 
+(define ? (void))
+
+
 (define-macro (E expr)
   (lj)
   `(library test jazz
@@ -724,8 +727,7 @@
              (jazz.ui.window)
              (jazz.utilities)
              (jedi))
-     (set! ? ,expr)
-     (debug ?)))
+     (set! ? ,expr)))
 
 
 (define-macro (O . rest)

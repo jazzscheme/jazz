@@ -53,7 +53,8 @@
       (macro-readtable-named-char-table-set! readtable (append (macro-readtable-named-char-table readtable) jazz.named-chars))
       (##readtable-char-class-set! readtable #\{ #t jazz.read-literal)
       (##readtable-char-class-set! readtable #\[ #t jazz.read-reference)
-      (##readtable-char-class-set! readtable #\@ #t jazz.read-comment))
+      (##readtable-char-class-set! readtable #\@ #t jazz.read-comment)
+      (##readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
     
     
     (define jazz.named-chars
@@ -138,6 +139,23 @@
           (read port)   ; comment name
           (read port))  ; commented expr
         (##read-datum-or-label-or-none-or-dot re)))
+    
+    
+    (define (jazz.read-delimited-string re next start-pos)
+      (let ((port (macro-readenv-port re)))
+        (read-char port)
+        (let ((output (open-output-string)))
+          (let iter ()
+            (let ((c (read-char port)))
+              (cond ((%%eof-object? c)
+                     #f)
+                    ((and (%%eqv? c #\")
+                          (eqv? (peek-char port) #\#))
+                     (read-char port)
+                     (get-output-string output))
+                    (else
+                     (write-char c output)
+                     (iter))))))))
     
     
     (define jazz.jazz-readtable

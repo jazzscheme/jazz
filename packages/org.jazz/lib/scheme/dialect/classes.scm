@@ -74,5 +74,5 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Scheme-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class jazz.allocate-scheme-walker
+(jazz.define-class-syntax jazz.Scheme-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-scheme-walker
   ()))

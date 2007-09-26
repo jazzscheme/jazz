@@ -338,14 +338,16 @@
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Slot-Declaration declaration) walker resume source-declaration environment)
   (let ((self (jazz.lookup-self walker environment)))
     (if self
-        (jazz.walk walker resume source-declaration environment `(slot-value self ',(%%get-lexical-binding-name declaration)))
+        (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator declaration) 'offset)))
+          `(%%object-ref self ,offset-locator))
       (jazz.walk-error walker resume source-declaration "Illegal reference to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
 (jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Slot-Declaration declaration) walker resume source-declaration environment value)
   (let ((self (jazz.lookup-self walker environment)))
     (if self
-        (jazz.walk walker resume source-declaration environment `(set-slot-value self ',(%%get-lexical-binding-name declaration) ,value))
+        (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator declaration) 'offset)))
+          `(%%object-set! self ,offset-locator ,(jazz.walk walker resume source-declaration environment value)))
       (jazz.walk-error walker resume source-declaration "Illegal assignment to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
@@ -406,16 +408,16 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals references autoloads) jazz.Object-Class jazz.allocate-jazz-walker
+(jazz.define-class-syntax jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-jazz-walker
   ())
 
 
-(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals references autoloads) jazz.Object-Class
+(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors literals variables references autoloads) jazz.Object-Class
   ())
 
 
 (define (jazz.new-jazz-walker)
-  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '() '() '() '()))
+  (jazz.allocate-jazz-walker jazz.Jazz-Walker '() '() '() '() '() '()))
 
 
 ;;;
@@ -965,17 +967,17 @@
                    (,(if (eq? (car form) 'property) '%property '%slot) ,name ,access ,compatibility ,(if (eq? initialize jazz.unspecified) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                    ,@(if generate-getter?
                          `((method ,getter-access ,getter-propagation ,getter-implementation ,getter-expansion (,getter-name)
-                             (slot-value self ',name)))
+                             ,name))
                        '())
                    ,@(if generate-setter?
                          `((method ,setter-access ,setter-propagation ,setter-implementation ,setter-expansion (,setter-name ,value)
-                             (set-slot-value self ',name ,value)))
+                             (set! ,name ,value)))
                        '()))))))))))
 
 
 (define (jazz.walk-%slot-declaration walker resume declaration environment form)
   (jazz.bind (name access compatibility initialize getter-name setter-name) (%%cdr form)
-    (let ((initialize (if (jazz.unspecified? initialize) (%%list 'quote '()) initialize)))
+    (let ((initialize (if (jazz.unspecified? initialize) #f initialize)))
       (let ((new-declaration (jazz.new-slot-declaration name access compatibility '() declaration initialize getter-name setter-name)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
@@ -990,26 +992,31 @@
            (class-declaration (%%get-declaration-parent new-declaration))
            (class-locator (%%get-declaration-locator class-declaration))
            (initialize (%%get-slot-declaration-initialize new-declaration))
-           (initialize-locator (jazz.compose-helper locator 'initialize)))
+           (initialize-locator (jazz.compose-helper locator 'initialize))
+           (slot-locator (jazz.compose-helper locator 'slot))
+           (offset-locator (jazz.compose-helper locator 'offset)))
       `(begin
          (define (,initialize-locator self)
            ,(jazz.walk walker resume declaration environment initialize))
-         ,(if (eq? (car form) '%property)
-              `(jazz.add-property ,class-locator ',name ,initialize-locator
-                 ,(jazz.walk walker resume declaration environment
-                   `(lambda (self)
-                      (with-self
-                        ,(if getter-name
-                             `(,getter-name)
-                           name))))
-                 ,(let ((value (jazz.generate-symbol "val")))
-                   (jazz.walk walker resume declaration environment
-                     `(lambda (self ,value)
-                        (with-self
-                          ,(if setter-name
-                               `(,setter-name ,value)
-                             `(set! ,name ,value)))))))
-            `(jazz.add-slot ,class-locator ',name ,initialize-locator))))))
+         (define ,slot-locator
+           ,(if (eq? (car form) '%property)
+                `(jazz.add-property ,class-locator ',name ,initialize-locator
+                   ,(jazz.walk walker resume declaration environment
+                      `(lambda (self)
+                         (with-self
+                           ,(if getter-name
+                                `(,getter-name)
+                              name))))
+                   ,(let ((value (jazz.generate-symbol "val")))
+                      (jazz.walk walker resume declaration environment
+                        `(lambda (self ,value)
+                           (with-self
+                             ,(if setter-name
+                                  `(,setter-name ,value)
+                                `(set! ,name ,value)))))))
+              `(jazz.add-slot ,class-locator ',name ,initialize-locator)))
+         (define ,offset-locator
+           (%%slot-offset (%%get-slot-rank ,slot-locator)))))))
 
 
 (define (jazz.get-slot-declaration-getter-locator declaration)

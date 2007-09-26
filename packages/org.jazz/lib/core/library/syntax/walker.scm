@@ -217,6 +217,16 @@
     (jazz.reverse! (proc declaration))))
 
 
+(define (jazz.find-class-declaration declaration)
+  (let iter ((decl declaration))
+    (cond ((not decl)
+           (jazz.error "Unable to find class declaration for {s}" declaration))
+          ((jazz.is? decl jazz.Class-Declaration)
+           decl)
+          (else
+           (iter (%%get-declaration-parent decl))))))
+
+
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Declaration binding) symbol)
   (jazz.lookup-declaration binding symbol #f))
 
@@ -1107,16 +1117,35 @@
 
 
 (define (jazz.walk-reference walker resume declaration environment reference)
-  (jazz.walk walker resume declaration environment
-    `(slot-value ,(%%get-reference-context reference)
-                 ',(%%get-reference-form reference))))
+  (let ((form (%%get-reference-form reference))
+        (context (%%get-reference-context reference)))
+    (if (eq? context 'self)
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
+          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
+            (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
+              `(%%object-ref self ,offset-locator))))
+      (let ((variable (jazz.register-variable walker declaration "offset")))
+        (let ((obj (jazz.generate-symbol "obj")))
+          `(let ((,obj ,(jazz.walk walker resume declaration environment context)))
+             (if (%%not ,variable)
+                 (set! ,variable (jazz.find-slot-offset ,obj ',form)))
+             (%%object-ref ,obj ,variable)))))))
 
-
+ 
 (define (jazz.walk-reference-assignment walker resume declaration environment reference value)
-  (jazz.walk walker resume declaration environment
-    `(set-slot-value ,(%%get-reference-context reference)
-                     ',(%%get-reference-form reference)
-                     ,value)))
+  (let ((form (%%get-reference-form reference))
+        (context (%%get-reference-context reference)))
+    (if (eq? context 'self)
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
+          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
+            (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
+              `(%%object-set! self ,offset-locator ,(jazz.walk walker resume declaration environment value)))))
+      (let ((variable (jazz.register-variable walker declaration "offset")))
+        (let ((obj (jazz.generate-symbol "obj")))
+          `(let ((,obj ,(jazz.walk walker resume declaration environment context)))
+             (if (%%not ,variable)
+                 (set! ,variable (jazz.find-slot-offset ,obj ',form)))
+             (%%object-set! ,obj ,variable ,(jazz.walk walker resume declaration environment value))))))))
 
 
 (jazz.encapsulate-class jazz.Reference)
@@ -1131,6 +1160,7 @@
   (warnings
    errors
    literals
+   variables
    references
    autoloads))
 
@@ -1411,7 +1441,8 @@
            (fullname (%%get-declaration-locator declaration)))
       (let ((body-expansion (jazz.walk-list walker resume declaration environment body))
             (references-expansion (jazz.expand-walker-references walker))
-            (literals-expansion (jazz.collect-literals walker)))
+            (literals-expansion (jazz.expand-walker-literals walker))
+            (variables-expansion (jazz.expand-walker-variables walker)))
         (jazz.validate-walk-problems walker)
         `(begin
            ,@(jazz.declarations 'library)
@@ -1452,6 +1483,7 @@
                (jazz.queue-list queue))
            ,@references-expansion
            ,@literals-expansion
+           ,@variables-expansion
            ,@body-expansion
            (jazz.module-loaded ',fullname))))))
 
@@ -1484,12 +1516,18 @@
            (jazz.queue-list queue)))))
 
 
-(define (jazz.collect-literals walker)
+(define (jazz.expand-walker-literals walker)
   (map (lambda (info)
          (let ((name (%%cadr info))
                (value (%%cddr info)))
            `(define ,name ,value)))
        (%%get-walker-literals walker)))
+
+
+(define (jazz.expand-walker-variables walker)
+  (map (lambda (variable)
+         `(define ,variable #f))
+       (%%get-walker-variables walker)))
 
 
 ;;;
@@ -1910,6 +1948,17 @@
 
 (define (jazz.symbolic-char name)
   (%%hashtable-ref jazz.Symbolic-Chars name #f))
+
+
+;;;
+;;;; Variable
+;;;
+
+
+(define (jazz.register-variable walker declaration suffix)
+  (let ((variable (jazz.generate-symbol (string-append (symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) "." suffix))))
+    (%%set-walker-variables walker (%%cons variable (%%get-walker-variables walker)))
+    variable))
 
 
 ;;;
@@ -2386,12 +2435,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class
+(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class
   ())
 
 
 (define (jazz.new-core-walker)
-  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() '() '()))
+  (jazz.allocate-core-walker jazz.Core-Walker '() '() '() '() '() '()))
 
 
 (jazz.encapsulate-class jazz.Core-Walker)

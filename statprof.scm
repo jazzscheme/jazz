@@ -203,7 +203,7 @@
                                     (string-append
                                      (number->string
                                       (round% (/ n *total*)))
-                                     "% "))))
+                                     "%%% "))))
                                
                             (td (pre style: ,(string-append     
                                               "background-color:#"
@@ -230,7 +230,7 @@
                           ,(round%
                             (/ (vector-sum (cdr bucket))
                                *total*))
-                          " %]")))
+                          " %%%]")))
                   *buckets*))))))))
 
 (define (round% n)

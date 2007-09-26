@@ -629,7 +629,8 @@
            (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
       (jazz.add-field class slot)
       (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fixnum+ slot-rank 1)))))
+      (%%set-class-instance-size class (%%fixnum+ slot-rank 1))
+      slot)))
 
 
 (define (jazz.remove-slots class)
@@ -648,6 +649,11 @@
   (%%assert (%%object? object)
     (let ((slot (jazz.require-object-field object slot-name)))
       (%%set-object-slot object (%%get-slot-rank slot) value))))
+
+
+(define (jazz.find-slot-offset object slot-name)
+  (let ((slot (jazz.require-object-field object slot-name)))
+    (%%slot-offset (%%get-slot-rank slot))))
 
 
 (define (jazz.initialize-slots object)
@@ -703,7 +709,8 @@
            (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
       (jazz.add-field class slot)
       (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fixnum+ slot-rank 1)))))
+      (%%set-class-instance-size class (%%fixnum+ slot-rank 1))
+      slot)))
 
 
 (jazz.encapsulate-class jazz.Property)

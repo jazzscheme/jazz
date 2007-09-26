@@ -38,16 +38,16 @@
 (module test.test-walker
 
 
-(jazz.define-class-syntax jazz.Test-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class jazz.allocate-test-walker
+(jazz.define-class-syntax jazz.Test-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-test-walker
   ())
 
 
-(jazz.define-class jazz.Test-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class
+(jazz.define-class jazz.Test-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class
   ())
 
 
 (define (jazz.new-test-walker)
-  (jazz.allocate-test-walker jazz.Test-Walker '() '() '() '() '()))
+  (jazz.allocate-test-walker jazz.Test-Walker '() '() '() '() '() '()))
 
 
 (jazz.encapsulate-class jazz.Test-Walker))

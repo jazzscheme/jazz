@@ -268,6 +268,7 @@
   ((warnings   %%get-walker-warnings   %%set-walker-warnings)
    (errors     %%get-walker-errors     %%set-walker-errors)
    (literals   %%get-walker-literals   %%set-walker-literals)
+   (variables  %%get-walker-variables   %%set-walker-variables)
    (references %%get-walker-references %%set-walker-references)
    (autoloads  %%get-walker-autoloads  %%set-walker-autoloads)))
 
@@ -447,5 +448,5 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals references autoloads) jazz.Object-Class jazz.allocate-core-walker
+(jazz.define-class-syntax jazz.Core-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-core-walker
   ()))

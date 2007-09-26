@@ -234,6 +234,15 @@
         int subtyp = (*___UNTAG(obj) & ___SMASK) >> ___HTB;
         if (subtyp == ___sJAZZ)
             ___RESULT = ___VECTORREF(obj,0);
+        else if (subtyp == ___sSTRUCTURE)
+        {
+            // quicky until we find a clean solution with Marc
+            ___SCMOBJ type = ___VECTORREF(obj,0);
+            if (type == ___ARG6)
+                ___RESULT = ___ARG7;
+            else
+                ___RESULT = ___ARG9;
+        }
         else
             ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
     }
@@ -245,11 +254,16 @@
         ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL-obj)];
 }
 end-of-c-code
-    ,obj
-    jazz.subtypes
-    jazz.Number
-    jazz.Char
-    jazz.specialtypes))
+    ,obj                ;; ___ARG1
+    jazz.subtypes       ;; ___ARG2
+    jazz.Number         ;; ___ARG3
+    jazz.Char           ;; ___ARG4
+    jazz.specialtypes   ;; ___ARG5
+    jazz.hashtable-type ;; ___ARG6
+    jazz.Hashtable      ;; ___ARG7
+    jazz.port-type      ;; ___ARG8
+    jazz.Port           ;; ___ARG9
+    ))
     
     (define-macro (%%class-of obj)
       (let ((expand

@@ -92,6 +92,9 @@
   (property protected inactive-selection-color  initialize Inactive-Selection-Color getter get-inactive-selection-color  setter set-inactive-selection-color)
   (property protected caret-pen                 initialize Caret-Pen                getter get-caret-pen                 setter set-caret-pen)
   (property protected platform                  initialize {}                       getter get-platform                  setter set-platform)
+  ;; this property is a temp optimisation because the lisp explorer does its job by creating a jazz text-view
+  ;; and colorizing a hidden text is kinda braindead!!!
+  (property protected colorize?                 initialize true                     getter get-colorize?                 setter set-colorize?)
   
   
   (slot protected syntax                initialize {})
@@ -255,6 +258,14 @@
   (method public (set-inactive-selection-color value)
     (set! inactive-selection-color value)
     (invalidate-view))
+  
+  
+  (method public (get-colorize?)
+    colorize?)
+  
+  
+  (method public (set-colorize? value)
+    (set! colorize? value))
   
   
   (method protected (get-paragraphs)
@@ -743,7 +754,8 @@
   (method public virtual (read-content moniker)
     (set-content (read-moniker moniker))
     (update-moniker-time moniker)
-    (colorize-syntax))
+    (when colorize?
+      (colorize-syntax)))
   
   
   (method protected virtual (read-moniker moniker)
@@ -2408,7 +2420,7 @@
            (bottom      (get-bottom~ last-par))
            (paragraphs  (strings->paragraphs first-par strings))
            (first-runs  (range-runs~ first-par 0 [col start]))
-           (last-runs   (range-runs~ last-par [col end] '()))
+           (last-runs   (range-runs~ last-par [col end] {}))
            (last-length (length (last strings)))
            (caret-row   (+ sr inserted -1))
            (caret-col   (+ (if (= inserted 1) [col start] 0) last-length)))

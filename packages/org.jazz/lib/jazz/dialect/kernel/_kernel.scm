@@ -455,6 +455,7 @@
 (native jazz.thread.Thread.set-scheme-thread)
 (native jazz.scheme.thread-specific-set!)
 (native jazz.thread-start!)
+(native jazz.thread-sleep!)
 
 
 ;;;
@@ -551,4 +552,14 @@
 ;;;
 
 
-(native jazz.current-instance))
+(native jazz.current-instance)
+
+
+;;;
+;;;; Statprof
+;;;
+
+
+(native jazz.start-statprof)
+(native jazz.stop-statprof)
+(native jazz.report-statprof))

@@ -43,8 +43,8 @@
 ;; - It is key to have compile time reference loading identical to runtime library loading
 ;;   to ensure that runtime problems are detected at compile time exactly as they would occur
 ;; - Autoload declarations are treated specially as they are the only case where different
-;;   references to the same declaration generate different code: direct access will just expand
-;;   to the locator while an autoload access must add code to load the module
+;;   references to the same declaration generate different code: direct access will expand to
+;;   just the locator while an autoload access must add code to load the module
 ;;
 ;; Todo
 ;; - Is the extra indirection level of having declaration references really necessary?
@@ -52,8 +52,8 @@
 ;;   the old load
 ;; - Think about the check order of imported modules. I do not like that they are checked in
 ;;   reversed order although with the new lookups the order should be irrelevant as it should be
-;; - Cleanup the probably not usefull new method jazz.resolve-declaration that I added to get things
-;;   working
+;; - Cleanup the probably not usefull new method jazz.resolve-declaration that I added to get
+;;   things working
 
 
 (module core.library.syntax.walker
@@ -72,7 +72,7 @@
   #f)
 
 
-;; Set to #f to debug the implementation itself
+;; Set to #f to debug bugs in the walker implementation itself
 (define jazz.Delay-Reporting?
   #t)
 

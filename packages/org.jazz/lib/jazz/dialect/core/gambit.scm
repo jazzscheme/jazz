@@ -38,7 +38,17 @@
 (module jazz.dialect.core.gambit
 
 
+;;;
+;;;; Instance
+;;;
+
+
 (define jazz.current-instance ##current-instance)
+
+
+;;;
+;;;; Foreign
+;;;
 
 
 (define jazz.foreign? ##foreign?)
@@ -51,7 +61,17 @@
 (define jazz.still-obj-refcount ##still-obj-refcount)
 
 
+;;;
+;;;; Port
+;;;
+
+
 (define jazz.close-port close-port)
+
+
+;;;
+;;;; Pathname
+;;;
 
 
 (define jazz.file-type file-type)
@@ -59,6 +79,54 @@
 (define jazz.rename-file rename-file)
 (define jazz.create-directory create-directory)
 (define jazz.directory-files directory-files)
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(define jazz.thread-sleep! thread-sleep!)
+
+
+;;;
+;;;; Statprof
+;;;
+
+
+(define jazz.statprof-loaded?
+  #f)
+
+
+(define (jazz.load-statprof)
+  (if (not jazz.statprof-loaded?)
+      (begin
+        (load "statprof")
+        (set! jazz.statprof-loaded? #t))))
+
+
+(define (jazz.start-statprof)
+  (jazz.load-statprof)
+  (profile-start!))
+
+(define (jazz.stop-statprof)
+  (profile-stop!))
+
+(define jazz.report-statprof
+  (let ((n 0))
+    (lambda ()
+      (let ((port (open-output-string)))
+        (display "STATPROF_REPORT_" port)
+        (display n port)
+        (set! n (+ n 1))
+        (let ((name (get-output-string port)))
+          (write-profile-report name)
+          name)))))
+
+
+;;;
+;;;; System
+;;;
 
 
 (define system-exit exit))

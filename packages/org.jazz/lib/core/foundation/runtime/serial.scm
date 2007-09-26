@@ -59,7 +59,7 @@
    (define (jazz.object->serial-number obj)
      (or (%%hashtable-ref jazz.serialized-objects obj #f)
          (let ((number serial-number))
-           (set! serial-number (%%fixnum+ serial-number 1))
+           (set! serial-number (%%fx+ serial-number 1))
            (%%hashtable-set! jazz.serialized-objects obj number)
            number)))
    
@@ -68,7 +68,7 @@
        (lambda (return)
          (%%iterate-hashtable jazz.serialized-objects
            (lambda (key value)
-             (if (%%fixnum= value number)
+             (if (%%fx= value number)
                  (return key))))
          (if (%%null? rest)
              (jazz.error "Unbound serial number: {s}" number)

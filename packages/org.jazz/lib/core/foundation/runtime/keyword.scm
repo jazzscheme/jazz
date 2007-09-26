@@ -63,12 +63,12 @@
    (define (jazz.keyword? obj)
      (and (%%symbol? obj)
           (let ((str (%%symbol->string obj)))
-            (%%eqv? (%%string-ref str (%%fixnum- (%%string-length str) 1)) #\:))))
+            (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\:))))
    
    
    (define (jazz.keyword->string keyword)
      (let ((str (%%symbol->string keyword)))
-       (%%substring str 0 (%%fixnum- (%%length str) 1))))
+       (%%substring str 0 (%%fx- (%%length str) 1))))
    
    
    (define (jazz.string->keyword string)

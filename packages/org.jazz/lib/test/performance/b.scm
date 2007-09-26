@@ -7,6 +7,6 @@
 
 
 (define (g-separate s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-separate s (%%fixnum- n 1)))))
+    (f-separate s (%%fx- n 1)))))

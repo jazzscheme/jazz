@@ -46,13 +46,13 @@
 (define (jazz.dispatch? symbol)
   (and (%%symbol? symbol)
        (let ((name (%%symbol->string symbol)))
-         (%%eqv? (%%string-ref name (%%fixnum- (%%string-length name) 1))
+         (%%eqv? (%%string-ref name (%%fx- (%%string-length name) 1))
                  #\~))))
 
 
 (define (jazz.dispatch->symbol dispatch)
   (let ((name (%%symbol->string dispatch)))
-    (%%string->symbol (%%substring name 0 (%%fixnum- (%%string-length name) 1)))))
+    (%%string->symbol (%%substring name 0 (%%fx- (%%string-length name) 1)))))
 
 
 (define (jazz.composite-name? symbol)
@@ -83,10 +83,10 @@
     (let* ((size (%%object-length object))
            (content (%%make-vector size)))
       (let iter ((n 0))
-        (if (%%fixnum< n size)
+        (if (%%fx< n size)
             (begin
               (%%vector-set! content n (%%object-ref object n))
-              (iter (%%fixnum+ n 1)))))
+              (iter (%%fx+ n 1)))))
       content)))
 
 
@@ -194,7 +194,7 @@
           '()
           slot-names
           instance-size
-          (if ascendant (%%fixnum+ (%%get-class-level ascendant) 1) 0)
+          (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
           #f
           '()
           '()
@@ -301,7 +301,7 @@
                 interfaces
                 (if ascendant (%%get-class-slots ascendant) '())
                 (if ascendant (%%get-class-instance-size ascendant) 0)
-                (if ascendant (%%fixnum+ (%%get-class-level ascendant) 1) 0)
+                (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
                 (if ascendant (jazz.copy-dispatch-table ascendant) #f)
                 #f
                 #f
@@ -393,7 +393,7 @@
   (%%assert (jazz.class? class)
     (let* ((base jazz.object-size)
            (size (%%get-class-instance-size class))
-           (object (%%make-object (%%fixnum+ base size))))
+           (object (%%make-object (%%fx+ base size))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
       ;; todo optimize initialize call and at the same time enable Object.initialize to take 0 arguments
@@ -629,14 +629,14 @@
            (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
       (jazz.add-field class slot)
       (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fixnum+ slot-rank 1))
+      (%%set-class-instance-size class (%%fx+ slot-rank 1))
       slot)))
 
 
 (define (jazz.remove-slots class)
   (let ((actual (%%get-class-slots class)))
     (%%set-class-slots class '())
-    (%%set-class-instance-size class (%%fixnum- (%%get-class-instance-size class) (%%length actual)))))
+    (%%set-class-instance-size class (%%fx- (%%get-class-instance-size class) (%%length actual)))))
 
 
 (define (jazz.slot-value object slot-name)
@@ -709,7 +709,7 @@
            (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
       (jazz.add-field class slot)
       (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fixnum+ slot-rank 1))
+      (%%set-class-instance-size class (%%fx+ slot-rank 1))
       slot)))
 
 

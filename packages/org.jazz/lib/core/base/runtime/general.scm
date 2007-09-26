@@ -82,13 +82,13 @@
 
 
 (define (jazz.find-char-reversed c str)
-  (let iter ((pos (%%fixnum- (%%string-length str) 1)))
-    (cond ((%%fixnum< pos 0)
+  (let iter ((pos (%%fx- (%%string-length str) 1)))
+    (cond ((%%fx< pos 0)
            #f)
           ((char=? (%%string-ref str pos) c)
            pos)
           (else
-           (iter (%%fixnum- pos 1))))))
+           (iter (%%fx- pos 1))))))
 
 
 (define (jazz.getprop plist target)
@@ -155,25 +155,25 @@
 (define (jazz.memstring char string)
   (let ((len (%%string-length string)))
     (let iter ((n 0))
-      (cond ((%%fixnum= n len)
+      (cond ((%%fx= n len)
              #f)
             ((%%eqv? (%%string-ref string n) char)
              #t)
             (else
-             (iter (%%fixnum+ n 1)))))))
+             (iter (%%fx+ n 1)))))))
 
 
 (define (jazz.split-string str separator)
   (let ((lst '())
         (end (%%string-length str)))
-    (let iter ((pos (%%fixnum- end 1)))
-      (if (%%fixnum> pos 0)
+    (let iter ((pos (%%fx- end 1)))
+      (if (%%fx> pos 0)
           (begin
             (if (%%eqv? (%%string-ref str pos) separator)
                 (begin
-                  (set! lst (%%cons (%%substring str (%%fixnum+ pos 1) end) lst))
+                  (set! lst (%%cons (%%substring str (%%fx+ pos 1) end) lst))
                   (set! end pos)))
-            (iter (%%fixnum- pos 1))))
+            (iter (%%fx- pos 1))))
         (%%cons (%%substring str 0 end) lst))))
 
 
@@ -197,15 +197,15 @@
          (pos (jazz.find-char-reversed #\. str)))
     (if (%%not pos)
         identifier
-      (%%string->symbol (%%substring str (%%fixnum+ pos 1) (%%string-length str))))))
+      (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str))))))
 
 
 (define (jazz.naturals from to)
   (let ((lst '())
         (n from))
-    (%%while (%%fixnum< n to)
+    (%%while (%%fx< n to)
       (set! lst (%%cons n lst))
-      (set! n (%%fixnum+ n 1)))
+      (set! n (%%fx+ n 1)))
     (jazz.reverse! lst)))
 
 

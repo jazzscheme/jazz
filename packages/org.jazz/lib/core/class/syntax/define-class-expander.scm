@@ -47,7 +47,7 @@
          (all-variables (map (lambda (slot-name) (jazz.generate-symbol slot-name)) all-slot-names))
          (all-length (%%length all-slot-names))
          (instance-size all-length)
-         (vector-size (%%fixnum+ jazz.object-size instance-size)))
+         (vector-size (%%fx+ jazz.object-size instance-size)))
     (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)))
 
 
@@ -59,7 +59,7 @@
          (all-variables (map (lambda (slot-name) (jazz.generate-symbol slot-name)) all-slot-names))
          (all-length (%%length all-slot-names))
          (instance-size all-length)
-         (vector-size (%%fixnum+ jazz.object-size instance-size)))
+         (vector-size (%%fx+ jazz.object-size instance-size)))
     (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)))
 
 
@@ -97,7 +97,7 @@
                                  (%%list '%%safe-assert (%%list '%%object-of-class? ,object ',name)
                                    (%%list '%%object-set! ,object ,rank ,value)))))))))
                 slots
-                (jazz.naturals (%%fixnum+ jazz.object-size ascendant-size) vector-size))))))
+                (jazz.naturals (%%fx+ jazz.object-size ascendant-size) vector-size))))))
 
 
 (define (jazz.expand-define-class-runtime name ascendant-name inherited-slot-names class-name slot-names)

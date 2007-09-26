@@ -205,13 +205,13 @@
 
 
 (definition public (compare a b)
-  (if (eq? a b)
+  (if (eqv? a b)
       :equal
     (compare-object~ a b)))
 
 
 (definition public (ci-compare a b)
-  (if (eq? a b)
+  (if (eqv? a b)
       :equal
     (ci-compare-object~ a b)))
 
@@ -400,17 +400,6 @@
   (is? obj Field))
 
 
-;; (definition (field-access                            Object))
-;; (definition (field-public?                           Object))
-;; (definition (field-protected?                        Object))
-;; (definition (field-private?                          Object))
-;; (definition (field-remote?                           Object))
-;; (definition (field-modifiers-count                   Object))
-;; (definition (field-relocation-info                   Object))
-;; (definition (field-name                              Object))
-;; (definition (field-creator                           Object))
-
-
 ;;;
 ;;;; Generic
 ;;;
@@ -467,14 +456,14 @@
 
 (definition public (= n m . rest)
   (and (eq? (compare n m) :equal)
-       (call/ec
-         (lambda (return)
-           (or (null? rest)
-               (let ((first m))
-                 (loop (for object in rest)
-                       (when (neq? (compare object first) :equal)
-                         (return false))
-                       (finally true))))))))
+       (let ((first m))
+         (let iter ((scan rest))
+           (cond ((null? scan)
+                  true)
+                 ((neq? (compare (car scan) first) :equal)
+                  false)
+                 (else
+                  (iter (cdr scan))))))))
 
 
 (definition public (/= n m . rest)
@@ -488,20 +477,31 @@
          ((:less) true)
          ((:greater :equal) false)
          (else (error "Cannot compare {t} and {t}" n m)))
-       (call/ec
-         (lambda (return)
-           (or (null? rest)
-               (begin
-                 (loop (for object in rest)
-                       (case (compare m object)
-                         ((:less) (set! m object))
-                         ((:greater :equal) (return false))
-                         (else (error "Cannot compare {t} and {t}" m object))))
-                 true))))))
+       (let iter ((scan rest)
+                  (max m))
+         (if (null? scan)
+             true
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less) (iter (cdr scan) value))
+               ((:greater :equal) false)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
 
 
 (definition public (<= n m . rest)
-  (not (apply > n m rest)))
+  (and (case (compare n m)
+         ((:less :equal) true)
+         ((:greater) false)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let iter ((scan rest)
+                  (max m))
+         (if (null? scan)
+             true
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less :equal) (iter (cdr scan) value))
+               ((:greater) false)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
 
 
 (definition public (> n m . rest)
@@ -509,32 +509,41 @@
          ((:greater) true)
          ((:less :equal) false)
          (else (error "Cannot compare {t} and {t}" n m)))
-       (call/ec
-         (lambda (return)
-           (or (null? rest)
-               (begin
-                 (loop (for object in rest)
-                       (case (compare m object)
-                         ((:greater) (set! m object))
-                         ((:less :equal) (return false))
-                         (else (error "Cannot compare {t} and {t}" n object))))
-                 true))))))
+       (let iter ((scan rest)
+                  (min m))
+         (if (null? scan)
+             true
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater) (iter (cdr scan) value))
+               ((:less :equal) false)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
 
 
 (definition public (>= n m . rest)
-  (not (apply < n m rest)))
+  (and (case (compare n m)
+         ((:greater :equal) true)
+         ((:less) false)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let iter ((scan rest)
+                  (min m))
+         (if (null? scan)
+             true
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater :equal) (iter (cdr scan) value))
+               ((:less) false)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
 
 
 (definition public (ci= . rest)
-  (call/ec
-    (lambda (return)
-      (if (null? rest)
-          true
-        (let ((first (car rest)))
-          (loop (for object in (cdr rest))
-                (when (neq? (ci-compare object first) :equal)
-                  (return false))
-                (finally true)))))))
+  (if (null? rest)
+      true
+    (let ((first (car rest)))
+      (loop (for object in (cdr rest))
+            (when (neq? (ci-compare object first) :equal)
+              (return false))
+            (finally true)))))
 
 
 (definition public (ci/= . rest)
@@ -542,33 +551,51 @@
 
 
 (definition public (ci< n . rest)
-  (call/ec
-    (lambda (return)
-      (loop (for object in rest)
-            (case (ci-compare n object)
-              ((:less) (set! n object))
-              ((:greater :equal) (return false))
-              (else (error "Cannot ci-compare {t} and {t}" n object))))
-      true)))
+  (let iter ((scan rest)
+             (max n))
+    (if (null? scan)
+        true
+      (let ((value (car scan)))
+        (case (ci-compare max value)
+          ((:less) (iter (cdr scan) value))
+          ((:greater :equal) false)
+          (else (error "Cannot ci-compare {t} and {t}" max value)))))))
 
 
 (definition public (ci<= n . rest)
-  (not (apply ci> n rest)))
+  (let iter ((scan rest)
+             (max n))
+    (if (null? scan)
+        true
+      (let ((value (car scan)))
+        (case (ci-compare max value)
+          ((:less :equal) (iter (cdr scan) value))
+          ((:greater) false)
+          (else (error "Cannot ci-compare {t} and {t}" max value)))))))
 
 
 (definition public (ci> n . rest)
-  (call/ec
-    (lambda (return)
-      (loop (for object in rest)
-            (case (ci-compare n object)
-              ((:greater) (set! n object))
-              ((:less :equal) (return false))
-              (else (error "Cannot ci-compare {t} and {t}" n object))))
-      true)))
+  (let iter ((scan rest)
+             (min n))
+    (if (null? scan)
+        true
+      (let ((value (car scan)))
+        (case (ci-compare min value)
+          ((:greater) (iter (cdr scan) value))
+          ((:less :equal) false)
+          (else (error "Cannot ci-compare {t} and {t}" min value)))))))
 
 
 (definition public (ci>= n . rest)
-  (not (apply ci< n rest)))
+  (let iter ((scan rest)
+             (min n))
+    (if (null? scan)
+        true
+      (let ((value (car scan)))
+        (case (ci-compare min value)
+          ((:greater :equal) (iter (cdr scan) value))
+          ((:less) false)
+          (else (error "Cannot ci-compare {t} and {t}" min value)))))))
 
 
 (definition public inline (boolean->integer bool)
@@ -976,9 +1003,6 @@
   (starts-with? (symbol->string symbol) "__"))
 
 
-;(definition (symbol-value                            Object))
-
-
 (definition public (symbol->keyword symbol)
   (string->keyword (symbol->string symbol)))
 
@@ -990,9 +1014,6 @@
 (definition (find-symbol str)
   ;; convert : this is not really correct
   (string->symbol str))
-
-
-;(definition (generate-symbol                         . rest))
 
 
 (definition (symbol-bound? name . rest)
@@ -1054,12 +1075,6 @@
 
 (definition (procedure? obj)
   (is? obj Procedure))
-
-
-;; (definition (procedure-signature                     Object))
-;; (definition (procedure-parameters                    Object))
-;; (definition (procedure-rest?                         Object))
-;; (definition (procedure-dispatch-node                 Object))
 
 
 ;;;
@@ -2029,12 +2044,10 @@
 
 
 (definition (find-string target <Object> seq <Object>)
-  (call/ec
-    (lambda (return)
-      (loop (for n from 0 below (length seq))
-            (when (= (element seq n) target)
-              (return n))
-            (finally {})))))
+  (loop (for n from 0 below (length seq))
+        (when (= (element seq n) target)
+          (return n))
+        (finally {})))
 
 
 (definition public (find-if predicate <Procedure> seq <Object> . rest)
@@ -3006,81 +3019,55 @@
 
 (definition public (memq? target <Object> list <Object>)
   (optimize (:frame? false)
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (eq? object target)
-                (return true))
-              (finally false))))))
+    (boolean (memq target list))))
 
 
 (definition public (memv? target <Object> list <Object>)
   (optimize (:frame? false)
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (eqv? object target)
-                (return true))
-              (finally false))))))
+    (boolean (memv target list))))
 
 
 (definition public (member? target <Object> list <Object> . rest)
   (bind-keywords ((key {}) (test equal?)) rest
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (apply-test test target (apply-key key object))
-                (return true))
-              (finally false))))))
-
-
-(definition public (assq target <Object> list <Object>)
-  (optimize (:frame? false)
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (eq? (car object) target)
-                (return object))
-              (finally #f))))))
-
-
-(definition public (assv target <Object> list <Object>)
-  (optimize (:frame? false)
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (eqv? (car object) target)
-                (return object))
-              (finally #f))))))
+    (let iter ((scan list))
+      (cond ((null? scan)
+             #f)
+            ((apply-test test target (apply-key key (car scan)))
+             #t)
+            (else
+             (iter (cdr scan)))))))
 
 
 (definition public (assoc target <Object> list <Object> . rest)
   (bind-keywords ((key {}) (test equal?)) rest
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (apply-test test target (apply-key key (car object)))
-                (return object))
-              (finally #f))))))
+    (let iter ((scan list))
+      (if (null? scan)
+          #f
+        (let ((pair (car scan)))
+          (if (apply-test test target (apply-key key (car pair)))
+              pair
+            (iter (cdr scan))))))))
 
 
 (definition public (rassoc target <Object> list <Object> . rest)
   (bind-keywords ((key {}) (test equal?)) rest
-    (call/ec
-      (lambda (return)
-        (loop (for object in list)
-              (when (apply-test test target (apply-key key (cdr object)))
-                (return object))
-              (finally #f))))))
+    (let iter ((scan list))
+      (if (null? scan)
+          #f
+        (let ((pair (car scan)))
+          (if (apply-test test target (apply-key key (cdr pair)))
+              pair
+            (iter (cdr scan))))))))
 
 
 (definition public (find-pair target <Object> list <Object>)
-  (call/ec
-    (lambda (return)
-      (while (not-null? list)
-        (if (eq? target (car list))
-            (return list)
-          (set! list (cdr list)))))))
+  (let iter ((scan list))
+    (cond ((null? scan)
+           #f)
+          ((eq? target (car scan))
+           scan)
+          (else
+           (iter (cdr scan))))))
 
 
 (definition public (reverse! list <Object>)
@@ -3439,11 +3426,6 @@
 (definition hash-clear hashtable-clear)
 
 
-;(definition (hash-add                                Hashtable Object Object))
-;(definition (hash-add-multiple                       Hashtable Object Object))
-;(definition (hash-clear                              Hashtable Object))
-;(definition (hashtable-test                          Hashtable))
-;(definition (hashtable-names                         Hashtable))
 (definition (empty-hashtable hashtable)
   (unimplemented 'empty-hashtable))
 
@@ -3686,10 +3668,6 @@
       (if (property? field)
           field
         (error "Unknown property: {t}" expr)))))
-
-       
-;; (definition (get-property-domain                     Object))
-;; (definition (set-property-domain                     Object Object))
 
 
 ;;;
@@ -4204,18 +4182,9 @@
   (apply new rest))
 
 
-;; (definition (type?                                   Object+))
-;; (definition (coerce                                  Object type))
 (definition (typed? obj classname)
   ;; not correct quicky
   (is? obj (autoload classname)))
-;; (definition (subtype?                                type type))
-;; (definition (subtyped?                               type Object))
-;; (definition (size-of                                 Object))
-
-;; (definition (type-ascendant                          Object))
-;; (definition (type-descendants                        Object))
-;; (definition (type-ancestors                          Object))
 
 
 ;;;
@@ -4263,7 +4232,7 @@
 
 
 (specific (length (Vector vector))
-  (scheme.vector-length vector))
+  (vector-length vector))
 
 
 (specific (tail (Vector vector) n)
@@ -4402,31 +4371,6 @@
   (let ((size (length axis)))
     (grow~ axis (+ size 1))
     (set-element! axis size obj)))
-
-
-;;;
-;;;; AnsiString
-;;;
-
-
-;; (definition (ansi-string?                            Object))
-;; (definition (empty-ansi-string?                      Object))
-;; (definition (adjust-ansi-string                      Object int))
-;; (definition (new-ansi-string-from-memory             int))
-
-
-;;;
-;;;; Array
-;;;
-
-
-;; (definition (new-array                               Object int))
-;; (definition (new-array-from-memory                   Object int int))
-;; (definition (array-type                              Object))
-;; (definition (array-length                            Object))
-;; (definition (array-element-address                   Object int))
-;; (definition (array-ref                               Object int))
-;; (definition (array-set!                              Object int Object))
 
 
 ;;;
@@ -4670,10 +4614,6 @@
 
   (method public (get-output)
     (get-output-string port)))
-
-
-;; (definition (reset-string-printer                    Object))
-;; (definition (get-string-output                       Object))
 
 
 ;;;
@@ -5193,9 +5133,6 @@
   (unimplemented 'break))
 
 
-;; (definition (break-next))
-
-
 ;;;
 ;;;; Localize
 ;;;
@@ -5217,15 +5154,6 @@
     (let ((symbol (generate-symbol "val")))
       (list 'let* (list (list symbol expr))
         (proc symbol)))))
-
-
-;;;
-;;;; Metaclass
-;;;
-
-
-;; (definition (metaclass?                              Object))
-;; (definition (metaclass-instance                      Object))
 
 
 ;;;
@@ -5359,19 +5287,6 @@
       (if (not on?)
           (cons 'begin body)
         (augment '%profile name condition body)))))
-
-
-;; (definition (get-profiler-on?))
-;; (definition (set-profiler-on?                        bool))
-;; (definition (profiler-overhead))
-;; (definition (get-profiles))
-;; (definition (reset-profiles))
-;; (definition (profile-name                            Object))
-;; (definition (profile-parent                          Object))
-;; (definition (profile-previous-brother                Object))
-;; (definition (profile-last-child                      Object))
-;; (definition (profile-count                           Object int))
-;; (definition (profile-total                           Object int))
 
 
 ;;;

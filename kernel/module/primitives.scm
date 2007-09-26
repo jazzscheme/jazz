@@ -134,46 +134,46 @@
 
 (cond-expand
   (gambit
-   (define-macro (%%fixnum= x y)
+   (define-macro (%%fx= x y)
      (if (jazz.safe?)
          `(= ,x ,y)
        `(##fixnum.= ,x ,y)))
    
-   (define-macro (%%fixnum< x y)
+   (define-macro (%%fx< x y)
      (if (jazz.safe?)
          `(< ,x ,y)
        `(##fixnum.< ,x ,y)))
    
-   (define-macro (%%fixnum<= x y)
+   (define-macro (%%fx<= x y)
      (if (jazz.safe?)
          `(<= ,x ,y)
        `(##fixnum.<= ,x ,y)))
    
-   (define-macro (%%fixnum> x y)
+   (define-macro (%%fx> x y)
      (if (jazz.safe?)
          `(> ,x ,y)
        `(##fixnum.> ,x ,y)))
    
-   (define-macro (%%fixnum>= x y)
+   (define-macro (%%fx>= x y)
      (if (jazz.safe?)
          `(>= ,x ,y)
        `(##fixnum.>= ,x ,y)))
    
-   (define-macro (%%fixnum+ x y)
+   (define-macro (%%fx+ x y)
      (if (jazz.safe?)
          `(+ ,x ,y)
        `(##fixnum.+ ,x ,y)))
    
-   (define-macro (%%fixnum- x y)
+   (define-macro (%%fx- x y)
      (if (jazz.safe?)
          `(- ,x ,y)
        `(##fixnum.- ,x ,y))))
 
   (else
-   (define-macro (%%fixnum> x y)
+   (define-macro (%%fx> x y)
      `(> ,x ,y))
    
-   (define-macro (%%fixnum+ x y)
+   (define-macro (%%fx+ x y)
      `(+ ,x ,y))))
 
 

@@ -75,11 +75,11 @@
 
 
 (define (jazz.find-char-reversed c str)
-  (let iter ((n (%%fixnum- (%%string-length str) 1)))
+  (let iter ((n (%%fx- (%%string-length str) 1)))
     (cond ((char=? (%%string-ref str n) c)
            n)
-          ((%%fixnum> n 0)
-           (iter (%%fixnum- n 1)))
+          ((%%fx> n 0)
+           (iter (%%fx- n 1)))
           (else
            #f))))
 
@@ -88,8 +88,8 @@
   (let ((pos (jazz.find-char-reversed #\/ filename)))
     (if (%%not pos)
         (proc "" filename)
-      (proc (%%substring filename 0 (%%fixnum+ pos 1))
-            (%%substring filename (%%fixnum+ pos 1) (%%string-length filename))))))
+      (proc (%%substring filename 0 (%%fx+ pos 1))
+            (%%substring filename (%%fx+ pos 1) (%%string-length filename))))))
 
 
 ;;;
@@ -209,7 +209,7 @@
                            (last-path o1))
                      (let ((next-path (try next)))
                        (if (file-exists? next-path)
-                           (iter (%%fixnum+ next 1) next-path)
+                           (iter (%%fx+ next 1) next-path)
                          last-path))))))))))
   (else))
 
@@ -247,12 +247,12 @@
 
 (define (jazz.string-replace str old new)
   (let ((cpy (string-copy str)))
-    (let iter ((n (%%fixnum- (%%string-length cpy) 1)))
-      (if (%%fixnum>= n 0)
+    (let iter ((n (%%fx- (%%string-length cpy) 1)))
+      (if (%%fx>= n 0)
           (begin
             (if (%%eqv? (%%string-ref cpy n) old)
                 (%%string-set! cpy n new))
-            (iter (%%fixnum- n 1)))))
+            (iter (%%fx- n 1)))))
     cpy))
 
 
@@ -342,7 +342,7 @@
 (define (jazz.filename-extension filename)
   (let ((pos (jazz.find-char-reversed #\. filename)))
     (if pos
-        (%%substring filename (%%fixnum+ pos 1) (%%string-length filename))
+        (%%substring filename (%%fx+ pos 1) (%%string-length filename))
       #f)))
 
 

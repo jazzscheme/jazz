@@ -159,6 +159,6 @@
                                   previous-specifics))
                    (newline)
                    (for-each (lambda (specific)
-                               (display-specific specific (%%fixnum+ level 1)))
+                               (display-specific specific (%%fx+ level 1)))
                              previous-specifics)))))
       (display-specific (%%get-generic-root-specific generic) 0)))))

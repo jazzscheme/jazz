@@ -10,10 +10,10 @@
 
 
 (define (ff n)
-  (if (%%fixnum> n 0)
+  (if (%%fx> n 0)
       (begin
         (%%pair? n)
-        (ff (%%fixnum- n 1)))))
+        (ff (%%fx- n 1)))))
 
 
 (declare (block)
@@ -23,10 +23,10 @@
 
 
 (define (gg n)
-  (if (%%fixnum> n 0)
+  (if (%%fx> n 0)
       (begin
         (%%pair? n)
-        (gg (%%fixnum- n 1)))))
+        (gg (%%fx- n 1)))))
 
 
 ;;;
@@ -41,15 +41,15 @@
 
 
 (define (f-module-block/standard/not-safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-module-block/standard/not-safe s (%%fixnum- n 1))))
+    (g-module-block/standard/not-safe s (%%fx- n 1))))
 
 
 (define (g-module-block/standard/not-safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-module-block/standard/not-safe s (%%fixnum- n 1))))
+    (f-module-block/standard/not-safe s (%%fx- n 1))))
 
 
 ;;;
@@ -65,15 +65,15 @@
 
 
 (define (f-module-block/runtime/safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-module-block/runtime/safe s (%%fixnum- n 1))))
+    (g-module-block/runtime/safe s (%%fx- n 1))))
 
 
 (define (g-module-block/runtime/safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-module-block/runtime/safe s (%%fixnum- n 1))))
+    (f-module-block/runtime/safe s (%%fx- n 1))))
 
 
 ;;;
@@ -89,15 +89,15 @@
 
 
 (define (f-module-separate/runtime/safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-module-separate/runtime/safe s (%%fixnum- n 1))))
+    (g-module-separate/runtime/safe s (%%fx- n 1))))
 
 
 (define (g-module-separate/runtime/safe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-module-separate/runtime/safe s (%%fixnum- n 1))))
+    (f-module-separate/runtime/safe s (%%fx- n 1))))
 
 
 ;;;
@@ -113,15 +113,15 @@
 
 
 (define (f-module-block/runtime/notsafe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-module-block/runtime/notsafe s (%%fixnum- n 1))))
+    (g-module-block/runtime/notsafe s (%%fx- n 1))))
 
 
 (define (g-module-block/runtime/notsafe s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-module-block/runtime/notsafe s (%%fixnum- n 1))))
+    (f-module-block/runtime/notsafe s (%%fx- n 1))))
 
 
 ;;;
@@ -136,15 +136,15 @@
 
 
 (define (f-module s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-module s (%%fixnum- n 1))))
+    (g-module s (%%fx- n 1))))
 
 
 (define (g-module s n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-module s (%%fixnum- n 1))))
+    (f-module s (%%fx- n 1))))
 
 
 ;;;
@@ -174,17 +174,17 @@
 (jazz.define-generic (f-generic (X x) n))
 
 (jazz.define-specific (f-generic (X x) n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-generic x (%%fixnum- n 1))))
+    (g-generic x (%%fx- n 1))))
 
 
 (jazz.define-generic (g-generic (X x) n))
 
 (jazz.define-specific (g-generic (X x) n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-generic x (%%fixnum- n 1))))
+    (f-generic x (%%fx- n 1))))
 
 
 ;;;
@@ -205,15 +205,15 @@
 
 
 (jazz.define-method (f-vtable (Z z) n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (g-vtable z (%%fixnum- n 1))))
+    (g-vtable z (%%fx- n 1))))
 
 
 (jazz.define-method (g-vtable (Z z) n)
-  (if (%%fixnum= n 0)
+  (if (%%fx= n 0)
       0
-    (f-vtable z (%%fixnum- n 1))))
+    (f-vtable z (%%fx- n 1))))
 
 
 (jazz.encapsulate-class Z)

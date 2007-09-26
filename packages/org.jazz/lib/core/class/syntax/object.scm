@@ -106,7 +106,7 @@
   (else
    (jazz.define-macro (%%object? expr)
      `(and (%%vector? ,expr)
-           (%%fixnum> (%%object-length ,expr) 0)
+           (%%fx> (%%object-length ,expr) 0)
            (%%eq? (%%object-ref expr 0) %%object-marker)))
    
    (jazz.define-macro (%%object . rest)
@@ -129,7 +129,7 @@
 
 
 (jazz.define-macro (%%slot-offset slot-rank)
-  `(%%fixnum+ jazz.object-size ,slot-rank))
+  `(%%fx+ jazz.object-size ,slot-rank))
 
 
 (jazz.define-macro (%%get-object-slot object slot-rank)

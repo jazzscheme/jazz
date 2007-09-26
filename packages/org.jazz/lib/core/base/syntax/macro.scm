@@ -87,5 +87,5 @@
         (display "__" port)
         (display prefix port)
         (display unique port)
-        (set! unique (%%fixnum+ unique 1))
+        (set! unique (%%fx+ unique 1))
         (%%string->symbol (get-output-string port)))))))

@@ -114,9 +114,9 @@
 (define (jazz.specifier? expr)
   (and (%%symbol? expr)
        (let ((str (%%symbol->string expr)))
-         (and (%%fixnum> (%%string-length str) 2)
+         (and (%%fx> (%%string-length str) 2)
               (%%eqv? (%%string-ref str 0) #\<)
-              (%%eqv? (%%string-ref str (%%fixnum- (%%string-length str) 1)) #\>)))))
+              (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\>)))))
 
 
 (define (jazz.partition lst key)

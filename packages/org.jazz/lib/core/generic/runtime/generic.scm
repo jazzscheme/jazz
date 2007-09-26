@@ -57,7 +57,7 @@
     (%%assertion (or ;; until special treatment for initialize
                      (eq? name 'initialize)
                      (and (%%not g) (%%not s))
-                     (and g s (%%fixnum= (%%length g) (%%length s))))
+                     (and g s (%%fx= (%%length g) (%%length s))))
                  (jazz.format "Inconsistant mandatory parameters for {a}: {a} and {a}" name g s)
       (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic))))))
 

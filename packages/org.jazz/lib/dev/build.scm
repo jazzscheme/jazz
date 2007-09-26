@@ -178,4 +178,4 @@
                        (begin
                          (write (list 'deleting bin)) (newline)
                          (delete-file bin)
-                         (iter (%%fixnum+ n 1))))))))))))
+                         (iter (%%fx+ n 1))))))))))))

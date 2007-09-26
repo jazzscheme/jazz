@@ -103,7 +103,7 @@
   (%%set-class-core-virtual-names class
     (%%append (%%get-class-core-virtual-names class)
               (%%list method-name)))
-  (%%fixnum- (%%length (%%get-class-core-virtual-names class))
+  (%%fx- (%%length (%%get-class-core-virtual-names class))
              1))
 
 
@@ -122,7 +122,7 @@
              (rank 0))
     (if (%%eq? (%%car scan) method-name)
         rank
-      (iter (%%cdr scan) (%%fixnum+ rank 1)))))
+      (iter (%%cdr scan) (%%fx+ rank 1)))))
 
 
 (define (jazz.get-method-implementation class method-name)
@@ -140,16 +140,16 @@
 (define (jazz.encapsulate-class class)
   (let ((virtual-names (%%get-class-core-virtual-names class)))
     (let ((vtable-size (%%length virtual-names)))
-      (%%when (%%fixnum> vtable-size 0)
+      (%%when (%%fx> vtable-size 0)
         (let ((vtable (make-vector vtable-size #f)))
           (let ((ascendant (%%get-class-ascendant class)))
             (%%when ascendant
               (let ((ascendant-vtable (%%get-class-core-vtable ascendant)))
                 (%%when ascendant-vtable
-                  (let iter ((n (%%fixnum- (%%vector-length ascendant-vtable) 1)))
-                    (%%when (%%fixnum>= n 0)
+                  (let iter ((n (%%fx- (%%vector-length ascendant-vtable) 1)))
+                    (%%when (%%fx>= n 0)
                       (%%vector-set! vtable n (%%vector-ref ascendant-vtable n))
-                      (iter (%%fixnum- n 1))))))))
+                      (iter (%%fx- n 1))))))))
           (for-each (lambda (method)
                       (let ((method-name (%%car method))
                             (method-implementation (%%cdr method)))

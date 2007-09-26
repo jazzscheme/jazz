@@ -96,12 +96,12 @@
 
 
 (define (jazz.make-access-lookups access-level)
-  (let ((lookups (%%make-vector (%%fixnum+ access-level 1))))
+  (let ((lookups (%%make-vector (%%fx+ access-level 1))))
     (let iter ((n 0))
       (if (<= n access-level)
           (begin
             (%%vector-set! lookups n (%%make-hashtable eq?))
-            (iter (%%fixnum+ n 1)))))
+            (iter (%%fx+ n 1)))))
     lookups))
 
 
@@ -1215,9 +1215,9 @@
                         (for-each (lambda (exception)
                                     (let ((locator (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-error-location exception)))))
                                       (jazz.format output "{%}    At {a}: {a}"
-                                                   (if (%%fixnum= (%%string-length locator) prefix)
+                                                   (if (%%fx= (%%string-length locator) prefix)
                                                        ""
-                                                     (%%substring locator (%%fixnum+ prefix 1) (%%string-length locator)))
+                                                     (%%substring locator (%%fx+ prefix 1) (%%string-length locator)))
                                                    (jazz.present-exception exception))))
                                   all))))
                   (jazz.partition all (lambda (error)
@@ -1971,6 +1971,12 @@
          (jazz.walk-keyword walker form))
         ((jazz.enumerator? form)
          (jazz.walk-enumerator walker form))
+        ;; inline false (until compiler support for constants)
+        ((eq? form 'false)
+         #f)
+        ;; inline true (until compiler support for constants)
+        ((eq? form 'true)
+         #t)
         (else
          (jazz.walk-symbol-reference walker resume declaration environment form))))
 

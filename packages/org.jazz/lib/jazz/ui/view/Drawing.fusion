@@ -69,7 +69,7 @@
 
 
 (definition (new-offscreen dc <Surface> width <int> height <int>)
-  (new Cairo-Memory-Surface dc :size (new Dimension width height)))
+  (new Cairo-Memory-Surface dc size: (new Dimension width height)))
 
 
 (class Drawing-Class extends Figure-Class
@@ -293,42 +293,40 @@
     )
 
 
-  (method public (logical->device shape . rest)
-    (bind-keywords ((orientation {}) (info {})) rest
-      (let ((info (either info (scaling-info))))
-        (if (not info)
-            shape
-          (bind-values (sh <int> sv <int> sc <Real>) info
-            (let ((horz (function dynamic (lh <int>) (round (+ (* (- lh sh) sc) sh))))
-                  (vert (function dynamic (lv <int>) (round (+ (* (- lv sv) sc) sv)))))
-              (typecase shape
-                ((Point) (new Point (horz [h shape]) (vert [v shape])))
-                ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
-                ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
-                ((Number) (case orientation
-                            ((horz) (horz shape))
-                            ((vert) (vert shape))
-                            (else (error "Unknown orientation: {t}" orientation))))
-                (else (error "Unable to translate {t}" shape)))))))))
+  (method public (logical->device shape (orientation: orientation {}) (info: info {}))
+    (let ((info (either info (scaling-info))))
+      (if (not info)
+          shape
+        (bind-values (sh <int> sv <int> sc <Real>) info
+          (let ((horz (function dynamic (lh <int>) (round (+ (* (- lh sh) sc) sh))))
+                (vert (function dynamic (lv <int>) (round (+ (* (- lv sv) sc) sv)))))
+            (typecase shape
+              ((Point) (new Point (horz [h shape]) (vert [v shape])))
+              ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
+              ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+              ((Number) (case orientation
+                          ((horz) (horz shape))
+                          ((vert) (vert shape))
+                          (else (error "Unknown orientation: {t}" orientation))))
+              (else (error "Unable to translate {t}" shape))))))))
 
 
-  (method public (device->logical shape . rest)
-    (bind-keywords ((orientation {}) (info {})) rest
-      (let ((info (either info (scaling-info))))
-        (if (not info)
-            shape
-          (bind-values (sh <int> sv <int> sc <Real>) info
-            (let ((horz (function dynamic (dh <int>) (+ (quotient (- dh sh) sc) sh)))
-                  (vert (function dynamic (dv <int>) (+ (quotient (- dv sv) sc) sv))))
-              (typecase shape
-                ((Point) (new Point (horz [h shape]) (vert [v shape])))
-                ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
-                ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
-                ((Number) (case orientation
-                            ((horz) (horz shape))
-                            ((vert) (vert shape))
-                            (else (error "Unknown orientation: {t}" orientation))))
-                (else (error "Unable to translate {t}" shape)))))))))
+  (method public (device->logical shape (orientation: orientation {}) (info: info {}))
+    (let ((info (either info (scaling-info))))
+      (if (not info)
+          shape
+        (bind-values (sh <int> sv <int> sc <Real>) info
+          (let ((horz (function dynamic (dh <int>) (+ (quotient (- dh sh) sc) sh)))
+                (vert (function dynamic (dv <int>) (+ (quotient (- dv sv) sc) sv))))
+            (typecase shape
+              ((Point) (new Point (horz [h shape]) (vert [v shape])))
+              ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
+              ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+              ((Number) (case orientation
+                          ((horz) (horz shape))
+                          ((vert) (vert shape))
+                          (else (error "Unknown orientation: {t}" orientation))))
+              (else (error "Unable to translate {t}" shape))))))))
   
   
   ;; Maybe this method should be optimized out by setting
@@ -401,22 +399,20 @@
   ;;;
   
   
-  (method public (for-each-drawing proc <Procedure> . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (loop (for child in children)
-            (when (and (is? child View)
-                       (or include-invisibles? (get-visible?~ child)))
-              (proc child)))))
+  (method public (for-each-drawing proc <Procedure> (include-invisibles?: include-invisibles? false))
+    (loop (for child in children)
+          (when (and (is? child View)
+                     (or include-invisibles? (get-visible?~ child)))
+            (proc child))))
   
   
-  (method public (for-each-drawing-reversed proc <Procedure> . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (with ((proc
-              (function dynamic (child)
-                (when (and (is? child View)
-                           (or include-invisibles? (get-visible?~ child)))
-                  (proc child)))))
-        (for-each-reversed proc children))))
+  (method public (for-each-drawing-reversed proc <Procedure> (include-invisibles?: include-invisibles? false))
+    (with ((proc
+             (function dynamic (child)
+               (when (and (is? child View)
+                          (or include-invisibles? (get-visible?~ child)))
+                 (proc child)))))
+      (for-each-reversed proc children)))
   
   
   ;;;
@@ -509,7 +505,7 @@
                   (when overlay
                     (draw-overlay~ overlay self offscreen [width size] [height size])))))
           (let ((effect (get-effect)))
-            (bit-blit~ offscreen dc :size size)
+            (bit-blit~ offscreen dc size: size)
             @not-converted-to-cairo
             (if (not effect)
               (with ((lie (new Point lh lv)))

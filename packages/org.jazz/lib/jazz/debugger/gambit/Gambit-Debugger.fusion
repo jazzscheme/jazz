@@ -61,11 +61,10 @@
   (slot mode)
   
   
-  (method (initialize . rest)
-    (bind-keywords ((console-text {})) rest
-      (nextmethod)
-      (set! [console-text self] console-text)
-      (set! [mode self] 'gambit)))
+  (method (initialize (console-text: console-text {}))
+    (nextmethod)
+    (set! [console-text self] console-text)
+    (set! [mode self] 'gambit))
   
   
   ;;;
@@ -77,7 +76,7 @@
     (add-exit-listener~ (get-application) self)
     (let* ((command "gsc -:dar-")
            (directory {Directory jazz})
-           (process (create-process command :directory directory :capture-input? true :capture-output? true :capture-error? true :console? false :debug-console? false :wait? false :visible? false)))
+           (process (create-process command :directory directory :capture-input? true :capture-output? true :capture-error? true console?: false :debug-console? false :wait? false visible?: false)))
       (set! [process self] (new Gambit-Debugger-Process process))
       (set! [standard-input self] (get-standard-input~ process))
       (set! [standard-output self] (get-standard-output~ process))
@@ -187,27 +186,26 @@
                     (if (and console? (eq? mode 'jazz))
                         (format "(package jazz.dev uses (jazz jazz.test product) {a})" command)
                       command)))
-             :console? console?)
+             console?: console?)
            (fresh-prompt~ console-text)
            '())))
   
   
   (method public (gambit-commands names commands console?)
     (for-each (function dynamic (name command)
-                (process-command name command :console? console?))
+                (process-command name command console?: console?))
               names
               commands)
     (fresh-prompt~ console-text))
   
   
-  (method (process-command name command . rest)
-    (bind-keywords ((console? false) (output? true)) rest
-      ;; this is a workaround for the annoying fact that in gambit
-      ;; definitions can only be evaluated when at error level 0
-      (write-line~ standard-input (if console? command (format ",t {a}" command)))
-      (when output?
-        (flush-output~ standard-input)
-        (gambit-output name: name))))
+  (method (process-command name command (console?: console? false) (output?: output? true))
+    ;; this is a workaround for the annoying fact that in gambit
+    ;; definitions can only be evaluated when at error level 0
+    (write-line~ standard-input (if console? command (format ",t {a}" command)))
+    (when output?
+      (flush-output~ standard-input)
+      (gambit-output name: name)))
   
   
   (method (refresh-gambit)
@@ -216,43 +214,42 @@
       (fresh-prompt~ console-text)))
   
   
-  (method (gambit-output . rest)
-    (bind-keywords ((name {})) rest
-      (let ((done? false)
-            (some-output? false)
-            (count 0)
-            (prmpt {}))
-        (sleep 25)
-        (with-colored-output~ console-text (eval-color~ console-text)
-          (function dynamic ()
-            (while (not done?)
-              (if (not (output-available?))
-                  (begin
-                    (increase! count)
-                    (when (> count 400)
-                      (set! done? true)))
-                (bind-values (output prompt) (parse-gambit-output)
-                  (display-output~ console-text output)
-                  (when name
-                    (let ((proc
-                            (function dynamic (name)
-                              (display-output~ console-text (if name (->string name) "<expr>"))
-                              (newline-output~ console-text))))
-                      (if (list? name)
-                          (for-each proc name)
-                        (proc name)))
-                    (set! name {}))
-                  (if some-output?
-                      (update-view~ console-text)
-                    (set! some-output? true))
-                  (if prompt
-                      (begin
-                        (set! prmpt prompt)
-                        (set! done? true))
-                    (set! count 0))))
-              (sleep 25))))
-        (when prmpt
-          (set-prompt~ console-text prmpt)))))
+  (method (gambit-output (name: name {}))
+    (let ((done? false)
+          (some-output? false)
+          (count 0)
+          (prmpt {}))
+      (sleep 25)
+      (with-colored-output~ console-text (eval-color~ console-text)
+        (function dynamic ()
+          (while (not done?)
+            (if (not (output-available?))
+                (begin
+                  (increase! count)
+                  (when (> count 400)
+                    (set! done? true)))
+              (bind-values (output prompt) (parse-gambit-output)
+                (display-output~ console-text output)
+                (when name
+                  (let ((proc
+                          (function dynamic (name)
+                            (display-output~ console-text (if name (->string name) "<expr>"))
+                            (newline-output~ console-text))))
+                    (if (list? name)
+                        (for-each proc name)
+                      (proc name)))
+                  (set! name {}))
+                (if some-output?
+                    (update-view~ console-text)
+                  (set! some-output? true))
+                (if prompt
+                    (begin
+                      (set! prmpt prompt)
+                      (set! done? true))
+                  (set! count 0))))
+            (sleep 25))))
+      (when prmpt
+        (set-prompt~ console-text prmpt))))
 
   
   ;;;
@@ -275,8 +272,8 @@
   (method (new-listener-thread)
     (new Thread
       name: "Gambit Listener"
-      :context self
-      :execute (function (thread)
+      context: self
+      execute: (function (thread)
                  (listen-gambit))))
   
   

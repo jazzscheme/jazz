@@ -354,13 +354,13 @@
     @Guest-Preferences
     (let* ((host (get-host))
            (pref (new Guest-Preferences
-                   :position (get-position)
-                   :size     (get-size)
+                   position: (get-position)
+                   size:     (get-size)
                    name:     (type-name (class-of self))
-                   :initargs (cons :position (cons (get-position~ host)
-                                                   (cons :size (cons (get-size~ host)
+                   :initargs (cons position: (cons (get-position~ host)
+                                                   (cons size: (cons (get-size~ host)
                                                                      initargs)))))))
-      (add-child~ designer pref session :design-events? false :select? false)))
+      (add-child~ designer pref session design-events?: false :select? false)))
   
   
   (method public virtual (focus-default)
@@ -399,7 +399,7 @@
     @convert-external-name
     (let* ((pref (get-preferences 'workspaces))
            (associations (get-associations~ pref))
-           (external (external-name :error? false)))
+           (external (external-name error?: false)))
       (filter-inexistant-workspaces pref
         (either (essay external (assq external associations))
                 (frame-workspaces)))))
@@ -1039,7 +1039,7 @@
         (function dynamic (file)
           (when (matches?~ regexp (get-name~ file))
             (delete-file~ file)))
-        :recursive? false)))
+        recursive?: false)))
 
   
   (method public virtual (print-layout . rest)
@@ -1054,7 +1054,7 @@
                    (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Page-Toolbar)))
               (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
               (layout-view~ toolbar))
-            (let* ((frame (new-frame Page-Editor :host-title "Print Layout" :client client))
+            (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
                    (pane (get-guest~ frame)))
               (acquire-focus~ pane)))))))
   
@@ -1063,7 +1063,7 @@
     (bind-keywords ((from-layout? false)) rest
       (with-locked-update
         (function dynamic ()
-          (let* ((frame (new-frame Preview-Pane :host-title "Print Preview" :host-visible? false :client self))
+          (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" host-visible?: false client: self))
                  (pane (get-guest~ frame))
                  (current (selected-workspace))
                  (ws (new Preview-Workspace name: 'preview :previous current :pane pane)))
@@ -1114,11 +1114,11 @@
       (set! position (new Point 0 0))
       (set! scaled? false)
       (update-displayed)
-      (list :position pos :scaled? sc?)))
+      (list position: pos :scaled? sc?)))
   
   
   (method protected virtual (restore-printing preserved)
-    (set! position (getf preserved :position))
+    (set! position (getf preserved position:))
     (set! scaled? (getf preserved :scaled?))
     (update-displayed))
   
@@ -1654,7 +1654,7 @@
   (method (call-content-change origin)
     (if (not content-change-handler)
         (content-change origin)
-      (let ((event (new Event :change self (list :origin origin))))
+      (let ((event (new Event :change self (list origin: origin))))
         (invoke~ content-change-handler self event))))
   
   
@@ -1677,7 +1677,7 @@
 
   (method public (call-selection-handler old selection force? user-origin?)
     (when selection-handler
-      (invoke~ selection-handler self (new Selection-Event :selection-change self old selection :force? force? :user-origin? user-origin?))))
+      (invoke~ selection-handler self (new Selection-Event :selection-change self old selection force?: force? :user-origin? user-origin?))))
 
 
 
@@ -1806,9 +1806,8 @@
     (set! action-handler x))
 
 
-  (method public virtual (process-action sender . rest)
-    (bind-optionals ((properties (action-properties))) rest
-      (notify-action sender properties)))
+  (method public virtual (process-action sender (properties (action-properties)))
+    (notify-action sender properties))
   
   
   (method protected virtual (action-properties)
@@ -1845,7 +1844,7 @@
   
   (method public (call-receive-files pos files)
     (if receive-files-handler
-        (invoke~ receive-files-handler self (new Event :receive-files self :position pos :files files))
+        (invoke~ receive-files-handler self (new Event :receive-files self position: pos :files files))
       (receive-files pos files)))
   
   
@@ -2002,7 +2001,7 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (close-popups~ view :event 'mouse-down)
+        (close-popups~ view event: 'mouse-down)
         (let ((acquired (acquire~ view self pos)))
           (set! mouse-down? true)
           (set! mouse-down-view view)
@@ -2104,10 +2103,9 @@
       (drag-move pos)))
 
   
-  (method (process-drag-up pos . rest)
-    (bind-optionals ((dragging? Current-Drag-Drop)) rest
-      (set! mouse-down? false)
-      (call-drag-up pos dragging?)))
+  (method (process-drag-up pos (dragging? Current-Drag-Drop))
+    (set! mouse-down? false)
+    (call-drag-up pos dragging?))
 
   
   (method (call-drag-up pos dragging?)
@@ -2120,7 +2118,7 @@
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
       (when view
-        (close-popups~ view :event 'double-click)
+        (close-popups~ view event: 'double-click)
         (let ((acquired (acquire~ view self pos)))
           (set! mouse-down? true)
           (set! mouse-down-view view)
@@ -2142,7 +2140,7 @@
       (let* ((pos (new Point h v))
              (view (find-mouse-view pos)))
         (when view
-          (close-popups~ view :event 'context-menu)
+          (close-popups~ view event: 'context-menu)
           (call-context-menu~ view (acquire~ view self pos))))))
   
   
@@ -2332,8 +2330,8 @@
     ;; This is crazy, but calling track-tooltip in a thread is necessary else TrackMouseEvent doesn't work!!
     (new Thread
       name: "Tooltip Reseter"
-      :context self
-      :execute (function (thread)
+      context: self
+      execute: (function (thread)
                  (track-tooltip))))
   
   
@@ -2374,18 +2372,18 @@
         (set-font~ view font))
       (set-preferred-size~ view)
       (let* ((height (get-cursor-height))
-             (tooltip (popup view (either (get-position~ context) (+ pos (new Dimension 0 height))) :class Tooltip :border border)))
+             (tooltip (popup view (either (get-position~ context) (+ pos (new Dimension 0 height))) class: Tooltip border: border)))
         (set-tooltip~ Current-Tooltip-Context tooltip))))
   
   
   (method (new-tooltip-view text)
     (if (and (get-formatted-tooltip?) (list? text))
-        (let* ((view (new Tooltip-Text :size {Dimension 400 100}))
+        (let* ((view (new Tooltip-Text size: {Dimension 400 100}))
                (text-view (get-text~ view)))
           (set-text~ text-view text)
           (set-size~ view (+ (get-size~ text-view) {Dimension 2 2}))
           view)
-      (new Tooltip-Label :title text)))
+      (new Tooltip-Label title: text)))
   
   
   (method (close-tooltip)
@@ -2478,7 +2476,7 @@
         (error "{t} is not of the expected Context-Menu class" menu)
       (unless (all-invisible? menu)
         (bind-keywords ((alternate-position {}) (initiator self)) rest
-          (let ((popup (popup menu pos :alternate-position alternate-position :class Menu-Transient :initiator initiator)))
+          (let ((popup (popup menu pos :alternate-position alternate-position class: Menu-Transient :initiator initiator)))
             popup)))))
   
   
@@ -2544,7 +2542,7 @@
              (position (to-desktop position))
              (size (+ (get-size~ view) {Dimension 4 4}))
              (border (either border (new Border-View name: 'border :border-type 'raised)))
-             (popup (popup~ player class :position (fit-point position alternate size max) :size size :close-root? close-root?)))
+             (popup (popup~ player class position: (fit-point position alternate size max) size: size :close-root? close-root?)))
         (set-initiator~ popup initiator)
         (set-parent~ border (get-root~ popup))
         (set-position~ border {Point 0 0})
@@ -2559,7 +2557,7 @@
   
   (method public virtual (close-popups . rest)
     (bind-keywords ((event {}) (all? false) (exclude '())) rest
-      (close-popups~ player :all? all? :exclude exclude)))
+      (close-popups~ player all?: all? exclude: exclude)))
   
   
   (method public virtual (popup-destroy popup)
@@ -2609,7 +2607,7 @@
   
   (method public virtual (get-drag-source)
     (let ((pos (get-drag-position)))
-      (new Drag-Source :view self :position pos :image (get-drag-image pos))))
+      (new Drag-Source view: self position: pos image: (get-drag-image pos))))
   
   
   (method public virtual (get-drag-position)
@@ -2743,7 +2741,7 @@
         (if (neq? drag-start drag-over)
             (let ((criteria (find-if (function dynamic (criteria) (accepts?~ criteria drag-info)) acceptance)))
               (if criteria
-                  (new Drop-Target :handler handler :view sender :position pos :criteria criteria)
+                  (new Drop-Target :handler handler view: sender position: pos :criteria criteria)
                 (current-drop~ sender drag-drop pos)))
           (current-drop~ sender drag-drop pos)))))
 
@@ -3253,7 +3251,7 @@
   (method public virtual (get-tooltip-context pos)
     (let ((text (get-tooltip-text)))
       (when text
-        (new Tooltip-Context :view self :text text))))
+        (new Tooltip-Context view: self text: text))))
 
   
   ;;;
@@ -3355,20 +3353,20 @@
   (method public (invalidate-border . rest)
     (bind-keywords ((insets {Rect 1 1 1 1})) rest
       (when (get-finished?)
-        (with-closed ((region (border-region :insets insets)))
+        (with-closed ((region (border-region insets: insets)))
           (invalidate-region region)))))
 
 
   (method public (redraw-border . rest)
     (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (with-closed ((region (border-region :insets insets)))
+      (with-closed ((region (border-region insets: insets)))
         (redraw-view :region region))))
 
 
   (method public (border-region . rest)
     (bind-keywords ((insets {Rect 1 1 1 1})) rest
       (with ((bounds (get-bounds)))
-        (frame-region bounds :insets insets))))
+        (frame-region bounds insets: insets))))
 
 
   ;;;
@@ -3511,7 +3509,7 @@
   (method public (outline-view)
     (let* ((display (new Columns-Display))
            (classes (new Indented-Column display))
-           (properties (new Aligned-Column display :border 3)))
+           (properties (new Aligned-Column display border: 3)))
       (for-each-descendant
         (function dynamic (view level)
           (when (is? view View)
@@ -3520,7 +3518,7 @@
                   (position (get-position~ view))
                   (size (get-size~ view)))
               (output~ classes type level)
-              (output~ properties (format "~{Point {a :width 4 :justify :right} {a :width 4 :justify :right}}   ~{Point {a :width 4 :justify :right} {a :width 4 :justify :right}}   ~{Dimension {a :width 4 :justify :right} {a :width 4 :justify :right}}"
+              (output~ properties (format "~{Point {a width: 4 :justify :right} {a width: 4 :justify :right}}   ~{Point {a width: 4 :justify :right} {a width: 4 :justify :right}}   ~{Dimension {a width: 4 :justify :right} {a width: 4 :justify :right}}"
                                           [h lie]
                                           [v lie]
                                           [h position]

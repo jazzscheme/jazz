@@ -52,20 +52,20 @@
 ; (begin
 ;   (definition (node-properties)
 ;     (quote
-;       (:nullable?
+;       (nullable?:
 ;        key:
-;        :criteria)))
+;        criteria:)))
 ;   (slot key initialize #f)
 ;   (slot criteria initialize #f)
 ;   (method (get-value property)
 ;           (case property
 ;             ((key:) key)
-;             ((:criteria) criteria)
+;             ((criteria:) criteria)
 ;             (else (nextmethod property))))
 ;   (method (set-value property value)
 ;           (case property
 ;             ((key:) (set! key value))
-;             ((:criteria) (set! criteria value))
+;             ((criteria:) (set! criteria value))
 ;             (else (nextmethod property value))))
 ;   (begin
 ;     (method public (get-key)
@@ -76,15 +76,15 @@
 ;     (method public (get-criteria)
 ;       criteria)
 ;     (method public (set-criteria value)
-;       (set-property :criteria value))))
+;       (set-property criteria: value))))
 
 
 (syntax (attributes . form)
   (define unspecified
     (cons #f #f))
-       
-  (define (symbol->enumerator symbol)
-    (string->enumerator (symbol->string symbol)))
+  
+  (define (symbol->keyword symbol)
+    (string->keyword (symbol->string symbol)))
   
   (let ((inherited (car form))
         (properties (cdr form))
@@ -92,7 +92,7 @@
         (value (generate-symbol "val")))
     `(begin
        (method (node-properties)
-         ',(map symbol->enumerator (append inherited (map car properties))))
+         ',(map symbol->keyword (append inherited (map car properties))))
        ,@(map (lambda (property)
                 (let ((name (car property))
                       (init (getf (cdr property) 'initialize unspecified)))
@@ -104,14 +104,14 @@
          (case ,property
            ,@(map (lambda (property)
                     (let ((name (car property)))
-                      (list (list (symbol->enumerator name)) name)))
+                      (list (list (symbol->keyword name)) name)))
                   properties)
            (else (nextmethod ,property))))
        (method (set-value ,property ,value)
          (case ,property
            ,@(map (lambda (property)
                     (let ((name (car property)))
-                      (list (list (symbol->enumerator name)) (list 'set! name value))))
+                      (list (list (symbol->keyword name)) (list 'set! name value))))
                   properties)
            (else (nextmethod ,property ,value))))
        ,@(map (lambda (property)
@@ -122,5 +122,5 @@
                      (method public (,getter)
                        ,name)
                      (method public (,setter ,value)
-                       (set-property ,(symbol->enumerator name) ,value)))))
+                       (set-property ,(symbol->keyword name) ,value)))))
               properties)))))

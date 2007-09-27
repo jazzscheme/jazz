@@ -58,29 +58,26 @@
   
   
   @convert-literal
-  (method meta (construct-literal context name size . rest)
-    (bind-optionals ((precision {}) (scale {})) rest
-      (assert (or (integer? size) (null? size)))
-      (assert (or (integer? precision) (null? precision)))
-      (assert (or (integer? scale) (null? scale)))
-      (new self name size precision scale)))
+  (method meta (construct-literal context name size (precision {}) (scale {}))
+    (assert (or (integer? size) (null? size)))
+    (assert (or (integer? precision) (null? precision)))
+    (assert (or (integer? scale) (null? scale)))
+    (new self name size precision scale))
   
   
-  (method meta public (new-datatype name size . rest)
-    (bind-optionals ((precision {}) (scale {})) rest
-      (new self name
-           (if (get-sizeable?~ (find-systype name)) size {})
-           (if (get-precisionable?~ (find-systype name)) precision {})
-           (if (get-scalable?~ (find-systype name)) scale {}))))
+  (method meta public (new-datatype name size (precision {}) (scale {}))
+    (new self name
+         (if (get-sizeable?~ (find-systype name)) size {})
+         (if (get-precisionable?~ (find-systype name)) precision {})
+         (if (get-scalable?~ (find-systype name)) scale {})))
   
   
-  (method (initialize name size . rest)
-    (bind-optionals ((precision {}) (scale {})) rest
-      (nextmethod)
-      (set! [name self] name)
-      (set! [size self] size)
-      (set! [precision self] precision)
-      (set! [scale self] scale)))
+  (method (initialize name size (precision {}) (scale {}))
+    (nextmethod)
+    (set! [name self] name)
+    (set! [size self] size)
+    (set! [precision self] precision)
+    (set! [scale self] scale))
   
   
   (method (compare-object target)
@@ -161,24 +158,23 @@
     (not-null? scale))
   
 
-  (method public virtual (get-native-with-value value . rest)
-    (bind-keywords ((indirect? false)) rest
-      (let* ((default-value (get-default-value~ (find-systype name)))
-             (value (either (let ((len (length value)))
-                              (if (and (>= len 2)
-                                       (= (subseq value 0 1) "(")
-                                       (= (subseq value (- len 1) len) ")"))
-                                  (subseq value 1 (- len 1))
-                                value))
-                            (cond 
-                             ((string? default-value) (format "'{a}'" default-value))
-                             (else default-value)))))
-        (cond
-         ((number? default-value) value)
-         ((string? default-value) (if indirect? (format "{a}" (double-apostrophe value))
-                                    (format "{a}" value)))
-         ((eq? value 'read-only) value)
-         (else "NULL")))))
+  (method public virtual (get-native-with-value value (indirect?: indirect? false))
+    (let* ((default-value (get-default-value~ (find-systype name)))
+           (value (either (let ((len (length value)))
+                            (if (and (>= len 2)
+                                     (= (subseq value 0 1) "(")
+                                     (= (subseq value (- len 1) len) ")"))
+                                (subseq value 1 (- len 1))
+                              value))
+                          (cond 
+                            ((string? default-value) (format "'{a}'" default-value))
+                            (else default-value)))))
+      (cond
+        ((number? default-value) value)
+        ((string? default-value) (if indirect? (format "{a}" (double-apostrophe value))
+                                   (format "{a}" value)))
+        ((eq? value 'read-only) value)
+        (else "NULL"))))
 
 
   (method (double-apostrophe value)

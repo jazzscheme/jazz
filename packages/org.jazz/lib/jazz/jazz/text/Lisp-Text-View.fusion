@@ -144,7 +144,7 @@
   
   (method (colorize-syntax . rest)
     (bind-keywords ((recoloring? false)) rest
-      (nextmethod :entries? false)
+      (nextmethod entries?: false)
       (with-safe-explore
         (function dynamic ()
           (colorize-declarations recoloring?)
@@ -182,56 +182,55 @@
     )
 
   
-  (method (colorize-declarations . rest)
-    (bind-optionals ((recoloring? false)) rest
-      (let ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
-            (colorizer (essay (not recoloring?) (new-colorizer self))))
-        (walk-declarations~ expl
-          {}
-          (function dynamic (context start end marked documented?)
-            (when marked
-              (apply-coloring colorizer start end (declaration-style documented?))))
-          (function dynamic (context start end)
-            (apply-coloring colorizer start end 'Declaration-Keyword))
-          (function dynamic (context start end mode kind)
-            (case kind
-              ((symbol)
-               @wait-no-easy-way-to-recolorize-when-on-multiple-lines
-               (when (memq? mode '(quote quasiquote))
-                 (apply-coloring {} start end 'Quotation)))
-              ((keyword)
-               ;; This test doesn't work because of our use of a Colorizer
-               @wait-fix
-               (when (eq? (get-name~ (get-style-at start)) 'Default)
-                 (apply-coloring colorizer start end 'Keyword)))
-              ((tag)
-               (colorize-tag colorizer start end))
-              ((specifier)
-               (colorize-specifier colorizer start end))
-              ((char)
-               (apply-coloring colorizer start end 'Char))
-              ((number)
-               @wait-this-is-too-much
-               (apply-coloring colorizer start end 'Number))
-              ((boolean)
-               (apply-coloring colorizer start end 'Boolean))
-              ((string)
-               (apply-coloring colorizer start end 'String))
-              ((delimited-string)
-               (apply-coloring colorizer start end 'Delimited-String))
-              ((named-string)
-               (apply-coloring colorizer start end 'Named-String))
-              ((expr-comment)
-               (apply-coloring colorizer start end 'Expr-Comment))
-              ((literal)
-               @wait-buggy-because-of-coloring-within-coloring
-               (apply-coloring colorizer start end 'Literal))
-              ((feature)
-               (apply-coloring colorizer start end 'Feature))))
-          (get-documentation-cataloguer~ (get-application))
-          true)
-        (when colorizer
-          (finish-current~ colorizer)))))
+  (method (colorize-declarations (recoloring? false))
+    (let ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
+          (colorizer (essay (not recoloring?) (new-colorizer self))))
+      (walk-declarations~ expl
+        {}
+        (function dynamic (context start end marked documented?)
+          (when marked
+            (apply-coloring colorizer start end (declaration-style documented?))))
+        (function dynamic (context start end)
+          (apply-coloring colorizer start end 'Declaration-Keyword))
+        (function dynamic (context start end mode kind)
+          (case kind
+            ((symbol)
+             @wait-no-easy-way-to-recolorize-when-on-multiple-lines
+             (when (memq? mode '(quote quasiquote))
+               (apply-coloring {} start end 'Quotation)))
+            ((keyword)
+             ;; This test doesn't work because of our use of a Colorizer
+             @wait-fix
+             (when (eq? (get-name~ (get-style-at start)) 'Default)
+               (apply-coloring colorizer start end 'Keyword)))
+            ((tag)
+             (colorize-tag colorizer start end))
+            ((specifier)
+             (colorize-specifier colorizer start end))
+            ((char)
+             (apply-coloring colorizer start end 'Char))
+            ((number)
+             @wait-this-is-too-much
+             (apply-coloring colorizer start end 'Number))
+            ((boolean)
+             (apply-coloring colorizer start end 'Boolean))
+            ((string)
+             (apply-coloring colorizer start end 'String))
+            ((delimited-string)
+             (apply-coloring colorizer start end 'Delimited-String))
+            ((named-string)
+             (apply-coloring colorizer start end 'Named-String))
+            ((expr-comment)
+             (apply-coloring colorizer start end 'Expr-Comment))
+            ((literal)
+             @wait-buggy-because-of-coloring-within-coloring
+             (apply-coloring colorizer start end 'Literal))
+            ((feature)
+             (apply-coloring colorizer start end 'Feature))))
+        (get-documentation-cataloguer~ (get-application))
+        true)
+      (when colorizer
+        (finish-current~ colorizer))))
   
   
   (method protected virtual (colorize-tag colorizer start end)
@@ -246,21 +245,20 @@
     )
   
   
-  (method (colorize-comments . rest)
-    (bind-optionals ((recoloring? false)) rest
-      (let ((expl (new (explorer-class) self end: (text-beginning)))
-            (colorizer (essay (not recoloring?) (new-colorizer self))))
-        (for-each-comment~ expl
-          (function dynamic (start end title?)
-            (let* ((row [row start])
-                   (len (paragraph-length row))
-                   (end (new Cell row len)))
-              (if (not title?)
-                  (apply-coloring colorizer start end 'Comment)
-                (apply-coloring colorizer start (+ start 4) 'Comment)
-                (apply-coloring colorizer (+ start 4) end 'Title)))))
-        (when colorizer
-          (finish-current~ colorizer)))))
+  (method (colorize-comments (recoloring? false))
+    (let ((expl (new (explorer-class) self end: (text-beginning)))
+          (colorizer (essay (not recoloring?) (new-colorizer self))))
+      (for-each-comment~ expl
+        (function dynamic (start end title?)
+          (let* ((row [row start])
+                 (len (paragraph-length row))
+                 (end (new Cell row len)))
+            (if (not title?)
+                (apply-coloring colorizer start end 'Comment)
+              (apply-coloring colorizer start (+ start 4) 'Comment)
+              (apply-coloring colorizer (+ start 4) end 'Title)))))
+      (when colorizer
+        (finish-current~ colorizer))))
 
   
   (method (recolorize-text start end-row)
@@ -352,7 +350,7 @@
            (col 0)
            (done? false))
       (while (not done?)
-        (let ((found (multisearch-string~ str '("#t" "#f") :position col)))
+        (let ((found (multisearch-string~ str '("#t" "#f") position: col)))
           (if (not found)
               (set! done? true)
             (bind (pos . target) found
@@ -529,7 +527,7 @@
                 (set-caret (+ end last-delta))
                 (when modified?
                   (set-modified? true))))
-            :action 'ignore)))))
+            action: 'ignore)))))
   
   
   (method (tabulate-lines start end)

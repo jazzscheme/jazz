@@ -64,7 +64,7 @@
         (<!>                         name: clear                       tooltip-text: "Pop Results")
         (<Separator>                 size: {Dimension 4 0})
         (<Border-View>                                                 size: {Dimension 120 21} border-insets: {Rect 1 1 1 1} border-color: {Color name: Medium}
-          (<Border-View>                                               border-color: {Color :red 200 :green 188 :blue 166}
+          (<Border-View>                                               border-color: {Color red: 200 green: 188 blue: 166}
             (<Stack-Combo>           name: stack)))
         (<Separator>                 name: edit-as-jazz-text-separator size: {Dimension 4 0} location: tail)
         (<Toggle-Tool>               name: edit-as-jazz-text           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Edit As Jazz Text" image-name: {Bitmap-Resource "Script"} portfolio: :icons))
@@ -212,7 +212,7 @@
                      (let* ((appl (get-application))
                             (jazz? (get-selected?~ (locate 'edit-as-jazz-text)))
                             (class (if jazz? Jazz-Text-View {})))
-                       (bind-values (frame new?) (edit-document~ appl source :class class :visible? false :return-new? true)
+                       (bind-values (frame new?) (edit-document~ appl source class: class visible?: false :return-new? true)
                          (let ((guest (get-guest~ frame)))
                            (when (is? guest Text-View)
                              (if forward?
@@ -284,13 +284,12 @@
         (->string (car info)))))
 
 
-  (method public (add-results results targets . rest)
-    (bind-optionals ((target {})) rest
-      (preserve-current-selection)
-      (set! current-results (list results targets target {}))
-      (set! results-stack (cons current-results results-stack))
-      (update-results)
-      (update-stack-combo)))
+  (method public (add-results results targets (target {}))
+    (preserve-current-selection)
+    (set! current-results (list results targets target {}))
+    (set! results-stack (cons current-results results-stack))
+    (update-results)
+    (update-stack-combo))
   
   
   (method (pop-results)
@@ -343,7 +342,7 @@
               (set-toplevel-controls?~ (get-node-column~ tree) flag))
             (remove-every-row~ tree)
             (for-each (function dynamic (info)
-                        (add-item info :target target))
+                        (add-item info target: target))
                       (sort < results key: present-info))))
         (when (and results (> (get-visible-count~ tree) 0))
           (set-selection~ tree (either selection (list 0))))
@@ -357,11 +356,11 @@
     (bind-keywords ((father {}) (target {})) rest
       (let ((tree (get-tree))
             (state (if (= mode 'references) 'dynamic 'collapsed))
-            (node (new Tree-Node :title (present-info info) :image (item-icon info)))
-            (location (new Tree-Label :title (item-location info)))
-            (type (new Tree-Label :title (item-type info)))
+            (node (new Tree-Node title: (present-info info) image: (item-icon info)))
+            (location (new Tree-Label title: (item-location info)))
+            (type (new Tree-Label title: (item-type info)))
             (user-data (if target (cons info target) info)))
-        (add-row~ tree :father father :state state :children (list node location type) :user-data user-data))))
+        (add-row~ tree father: father state: state children: (list node location type) user-data: user-data))))
 
   
   (method protected (update-tree-row row)
@@ -371,9 +370,9 @@
           (let* ((name (get-name~ entry))
                  (appl (get-application))
                  (cataloguer (get-cataloguer~ appl))
-                 (definitions (get-references~ cataloguer name :context context)))
+                 (definitions (get-references~ cataloguer name context: context)))
             (for-each (function dynamic (info)
-                        (add-item info :father row :target name))
+                        (add-item info father: row target: name))
                       (sort < definitions key: present-info)))))))
   
   

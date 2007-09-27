@@ -174,39 +174,38 @@
   ;;;
   
   
-  (method (browse-inheritance-tree . rest)
-    (bind-keywords ((root Object) (size-range true)) rest
-      (let ((tree (locate 'classes)))
-        (with-update-locked~ tree
-          (function dynamic ()
-            (remove-every-row~ tree)
-            (letrec ((get-size
-                      (function dynamic (type)
-                        (cond ((structure? type) (size-of type))
-                              ((class? type) (fourth (class-sizes type)))
-                              ((eq? type void) 0)
-                              (else (size-of type)))))
-                     (upward
-                      (function dynamic (type)
-                        (let* ((state 'expanded)
-                               (title (->string (type-name type)))
-                               (ascendant (type-ascendant type))
-                               (father (essay ascendant (upward ascendant))))
-                          (add-row~ tree :father father :state state :children (list (new Tree-Node :title title :image {Bitmap-Resource "Class"})) :user-data type))))
-                     (proc
-                      (function dynamic (type father)
-                        (let ((size (get-size type)))
-                          (when (or (eq? size-range true)
-                                    (and (>= size [start size-range])
-                                         (<= size [end size-range])))
-                            (let* ((state 'expanded @old (if (eq? type root) 'expanded 'collapsed))
-                                   (title (->string (type-name type)))
-                                   (father (add-row~ tree :father father :state state :children (list (new Tree-Node :title title :image {Bitmap-Resource "Class"})) :user-data type)))
-                              (for-each (function dynamic (subtype)
-                                          (proc subtype father))
-                                        (sort < (type-descendants type) key: type-name))))))))
-              (let ((ascendant (type-ascendant root)))
-                (proc root (essay ascendant (upward ascendant))))))))))
+  (method (browse-inheritance-tree (root: root Object) (size-range: size-range true))
+    (let ((tree (locate 'classes)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (letrec ((get-size
+                     (function dynamic (type)
+                       (cond ((structure? type) (size-of type))
+                             ((class? type) (fourth (class-sizes type)))
+                             ((eq? type void) 0)
+                             (else (size-of type)))))
+                   (upward
+                     (function dynamic (type)
+                       (let* ((state 'expanded)
+                              (title (->string (type-name type)))
+                              (ascendant (type-ascendant type))
+                              (father (essay ascendant (upward ascendant))))
+                         (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type))))
+                   (proc
+                     (function dynamic (type father)
+                       (let ((size (get-size type)))
+                         (when (or (eq? size-range true)
+                                   (and (>= size [start size-range])
+                                        (<= size [end size-range])))
+                           (let* ((state 'expanded @old (if (eq? type root) 'expanded 'collapsed))
+                                  (title (->string (type-name type)))
+                                  (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
+                             (for-each (function dynamic (subtype)
+                                         (proc subtype father))
+                                       (sort < (type-descendants type) key: type-name))))))))
+            (let ((ascendant (type-ascendant root)))
+              (proc root (essay ascendant (upward ascendant)))))))))
 
   
   ;;;

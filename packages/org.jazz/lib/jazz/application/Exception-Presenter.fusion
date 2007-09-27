@@ -49,37 +49,36 @@
 (class Exception-Presenter extends Object
   
   
-  (method public (present exception . rest)
-    (bind-keywords ((type 'error) (prefix? true)) rest
-      (let* ((message (present-message~ exception :prefix? prefix?))
-             (restartable? (restartable? exception))
-             (continuable? (continuable? exception))
-             (yes-action (list (case type ((message) (if continuable? "Stop" "OK")) (else "Debug")) 'yes))
-             (restart-action (if restartable? '("Restart" restart) {}))
-             (continue-action (if continuable? '("Continue" continue) {}))
-             (continue-all-action (if continuable? '("Continue All" continue-all #\A) {}))
-             (cancel-action (case type ((message) {}) (else (list (if continuable? "Stop" "Ignore") 'cancel))))
-             (execution-context (get-execution-context))
-             (execution-stack (get-execution-stack))
-             (continue-exception
-              (function dynamic ()
-                (restore-debugger)
-                (restore-messaging)
-                (continue exception))))
-        (if (and execution-context (get-auto-continue?~ execution-context) (get-continuable?~ execution-context))
-            (continue-exception)
-          (let ((code (message-box message
-                        :type type
-                        :content (present-execution-stack execution-stack)
-                        :actions (remove-nils (list yes-action continue-action continue-all-action cancel-action)))))
-            (case code
-              ((continue)
-               (continue-exception))
-              ((continue-all)
-               (set-auto-continue?~ execution-context true)
-               (continue-exception))
-              (else
-               code)))))))
+  (method public (present exception (type: type (quote error)) (prefix?: prefix? true))
+    (let* ((message (present-message~ exception :prefix? prefix?))
+           (restartable? (restartable? exception))
+           (continuable? (continuable? exception))
+           (yes-action (list (case type ((message) (if continuable? "Stop" "OK")) (else "Debug")) 'yes))
+           (restart-action (if restartable? '("Restart" restart) {}))
+           (continue-action (if continuable? '("Continue" continue) {}))
+           (continue-all-action (if continuable? '("Continue All" continue-all #\A) {}))
+           (cancel-action (case type ((message) {}) (else (list (if continuable? "Stop" "Ignore") 'cancel))))
+           (execution-context (get-execution-context))
+           (execution-stack (get-execution-stack))
+           (continue-exception
+             (function dynamic ()
+               (restore-debugger)
+               (restore-messaging)
+               (continue exception))))
+      (if (and execution-context (get-auto-continue?~ execution-context) (get-continuable?~ execution-context))
+          (continue-exception)
+        (let ((code (message-box message
+                                 :type type
+                                 :content (present-execution-stack execution-stack)
+                                 :actions (remove-nils (list yes-action continue-action continue-all-action cancel-action)))))
+          (case code
+            ((continue)
+             (continue-exception))
+            ((continue-all)
+             (set-auto-continue?~ execution-context true)
+             (continue-exception))
+            (else
+             code))))))
 
   
   ;;;
@@ -89,14 +88,14 @@
   
   (method (present-execution-stack execution-stack)
     (when execution-stack
-      (let* ((border (new Context-Border :size {Dimension 450 150}))
+      (let* ((border (new Context-Border size: {Dimension 450 150}))
              (tree (locate~ border 'tree)))
         (for-each (function dynamic (node)
                     (let* ((title (get-title~ node))
                            (details (get-details~ node))
-                           (row (add-row~ tree :state 'collapsed :children (list (new Tree-Node :title (either title "") :image {Bitmap-Resource "Branch"})))))
+                           (row (add-row~ tree state: 'collapsed children: (list (new Tree-Node title: (either title "") image: {Bitmap-Resource "Branch"})))))
                       (for-each (function dynamic (detail)
-                                  (add-row~ tree :father row :children (list (new Tree-Node :title detail :image {Bitmap-Resource "Info"}))))
+                                  (add-row~ tree father: row children: (list (new Tree-Node title: detail image: {Bitmap-Resource "Info"}))))
                                 details)))
                   execution-stack)
         border))))

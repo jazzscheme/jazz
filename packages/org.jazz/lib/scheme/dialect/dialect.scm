@@ -310,7 +310,7 @@
 ;;;
 
 
-(define (jazz.walk-parameter-list walker resume declaration environment parameters)
+(define (jazz.walk-parameter-list walker resume declaration environment parameters defaults?)
   (let ((section 'positional)
         (parameter-list (jazz.new-queue))
         (augmented-environment environment))
@@ -349,7 +349,7 @@
                                      (set! section 'named)))
                                (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
                                    (begin
-                                     (jazz.enqueue parameter-list (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
+                                     (jazz.enqueue parameter-list (%%list variable (if defaults? (jazz.walk walker resume declaration augmented-environment default) #f)))
                                      (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment)))
                                  (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" parameter))))
                             (else
@@ -359,7 +359,7 @@
                                    (begin
                                      (jazz.enqueue parameter-list #!optional)
                                      (set! section 'optional)))
-                               (jazz.enqueue parameter-list (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
+                               (jazz.enqueue parameter-list (%%list variable (if defaults? (jazz.walk walker resume declaration augmented-environment default) #f)))
                                (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment))))))
                      (else
                       (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter))))
@@ -376,7 +376,7 @@
 (define (jazz.walk-lambda walker resume declaration environment form)
   (let ((parameters (%%cadr form))
         (body (%%cddr form)))
-    (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters)
+    (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters #t)
       `(lambda ,parameter-list
          ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
 

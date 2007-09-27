@@ -38,20 +38,19 @@
 (library jazz.library.time.Date jazz
 
 
-(definition public (parse-string str . rest)
-  (bind-keywords ((error? true)) rest
-    (if (valid-string? str)
-        (let* ((len    (length str))
-               (year   (parse-integer (subseq str 0 4)))
-               (month  (parse-integer (subseq str 5 7)))
-               (day    (parse-integer (subseq str 8 10)))
-               (hour   (parse-integer (subseq str 11 13)))
-               (minute (parse-integer (subseq str 14 16)))
-               (second (if (memq? len '(19 23)) (parse-integer (subseq str 17 19)) 0))
-               (milliseconds (if (= len 23) (parse-integer (subseq str 20 23)) 0)))
-          (new Date year month day hour minute second milliseconds))
-      (when error?
-        (error "Unable to parse date: {t}" str)))))
+(definition public (parse-string str (error?: error? true))
+  (if (valid-string? str)
+      (let* ((len    (length str))
+             (year   (parse-integer (subseq str 0 4)))
+             (month  (parse-integer (subseq str 5 7)))
+             (day    (parse-integer (subseq str 8 10)))
+             (hour   (parse-integer (subseq str 11 13)))
+             (minute (parse-integer (subseq str 14 16)))
+             (second (if (memq? len '(19 23)) (parse-integer (subseq str 17 19)) 0))
+             (milliseconds (if (= len 23) (parse-integer (subseq str 20 23)) 0)))
+        (new Date year month day hour minute second milliseconds))
+    (when error?
+      (error "Unable to parse date: {t}" str))))
 
 
 (definition public (valid-string? str)
@@ -73,15 +72,14 @@
                       (= (element str 19) #\period)))))))
 
 
-(definition public (parse-date str . rest)
-  (bind-keywords ((error? true)) rest
-    (if (valid-date-string? str)
-        (let ((year   (parse-integer (subseq str 0 4)))
-              (month  (parse-integer (subseq str 5 7)))
-              (day    (parse-integer (subseq str 8 10))))
-          (new Date year month day))
-      (when error?
-        (error "Unable to parse date: {t}" str)))))
+(definition public (parse-date str (error?: error? true))
+  (if (valid-date-string? str)
+      (let ((year   (parse-integer (subseq str 0 4)))
+            (month  (parse-integer (subseq str 5 7)))
+            (day    (parse-integer (subseq str 8 10))))
+        (new Date year month day))
+    (when error?
+      (error "Unable to parse date: {t}" str))))
 
 
 (definition public (valid-date-string? str)
@@ -200,9 +198,8 @@
   
   
   @unimplemented
-  (method meta (construct-literal context year . rest)
-    (bind-optionals ((month 1) (day 1) (hour 0) (minute 0) (second 0) (milliseconds 0)) rest
-      (new self year month day hour minute second milliseconds)))
+  (method meta (construct-literal context year (month 1) (day 1) (hour 0) (minute 0) (second 0) (milliseconds 0))
+    (new self year month day hour minute second milliseconds))
   
   
   ;;;
@@ -228,17 +225,16 @@
   ;;;
   
   
-  (method (initialize year . rest)
-    (bind-optionals ((month 1) (day 1) (hour 0) (minute 0) (second 0) (milliseconds 0)) rest
-      (nextmethod)
-      (set! [year self] year)
-      (set! [month self] month)
-      (set! [day self] day)
-      (set! [hour self] hour)
-      (set! [minute self] minute)
-      (set! [second self] second)
-      (set! [milliseconds self] milliseconds)
-      (update)))
+  (method (initialize year (month 1) (day 1) (hour 0) (minute 0) (second 0) (milliseconds 0))
+    (nextmethod)
+    (set! [year self] year)
+    (set! [month self] month)
+    (set! [day self] day)
+    (set! [hour self] hour)
+    (set! [minute self] minute)
+    (set! [second self] second)
+    (set! [milliseconds self] milliseconds)
+    (update))
   
   
   (method (update)
@@ -314,11 +310,10 @@
     7)
   
   
-  (method public (add field . rest)
-   (bind-optionals ((value {})) rest
-     (if (not value)
-         (add-duration field)
-       (add-field field value))))
+  (method public (add field (value {}))
+    (if (not value)
+        (add-duration field)
+      (add-field field value)))
   
   
   ;; This implementation is ugly in terms of memory allocation.
@@ -625,23 +620,26 @@
   ;;;
   
   
-  (method public (present . rest)
-    (bind-keywords ((date-separator "/") (time-separator ":") (milliseconds-separator ".") (seconds? true) (milliseconds? false)) rest
-      (format "{a :width 4 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0} {a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a}"
-              (subseq (->string year) 0 4)
-              date-separator
-              month
-              date-separator
-              day
-              hour
-              time-separator
-              minute
-              (if (or seconds? milliseconds?)
-                  (format "{a}{a :width 2 :justify :right :padding #\\0}" time-separator second)
-                "")
-              (if milliseconds?
-                  (format "{a}{a :width 3 :justify :right :padding #\\0}" milliseconds-separator milliseconds)
-                ""))))
+  (method public (present (date-separator: date-separator "/")
+                          (time-separator: time-separator ":")
+                          (milliseconds-separator: milliseconds-separator ".")
+                          (seconds?: seconds? true)
+                          (milliseconds?: milliseconds? false))
+    (format "{a width: 4 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0} {a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a}"
+            (subseq (->string year) 0 4)
+            date-separator
+            month
+            date-separator
+            day
+            hour
+            time-separator
+            minute
+            (if (or seconds? milliseconds?)
+                (format "{a}{a width: 2 :justify :right :padding #\\0}" time-separator second)
+              "")
+            (if milliseconds?
+                (format "{a}{a width: 3 :justify :right :padding #\\0}" milliseconds-separator milliseconds)
+              "")))
   
   
   (method public (present-date . rest)
@@ -652,7 +650,7 @@
   @does-seem-necessary-anymore
   (method public (present-date2)
     (let ((date-separator "/"))
-      (format "{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 4 :justify :right :padding #\\0}"
+      (format "{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 4 :justify :right :padding #\\0}"
               day
               date-separator
               month
@@ -664,36 +662,34 @@
     (subseq (apply present rest) 11 16))
   
   
-  (method public (present-compact . rest)
-    (bind-keywords ((date-separator "/") (time-separator ":")) rest
-      (format "{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0} {a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}"
-              (subseq (->string year) 2)
-              date-separator
-              month
-              date-separator
-              day
-              hour
-              time-separator
-              minute)))
+  (method public (present-compact (date-separator: date-separator "/") (time-separator: time-separator ":"))
+    (format "{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0} {a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}"
+            (subseq (->string year) 2)
+            date-separator
+            month
+            date-separator
+            day
+            hour
+            time-separator
+            minute))
   
   
-  (method public (present-duration . rest)
-    (bind-keywords ((seconds? true)) rest
-      (let* ((printer (new String-Printer))
-             (empty? true)
-             (output
-              (function dynamic (field)
-                (let ((n (get-field field)))
-                  (when (/= n 0)
-                    (if empty?
-                        (set! empty? false)
-                      (format printer ", "))
-                    (format printer "{a} {a}{a}" n field (format-plural n)))))))
-        (output 'year)
-        (output 'month)
-        (output 'day)
-        (output 'hour)
-        (output 'minute)
-        (when (or seconds? empty?)
-          (output 'second))
-        (get-output~ printer))))))
+  (method public (present-duration (seconds?: seconds? true))
+    (let* ((printer (new String-Printer))
+           (empty? true)
+           (output
+             (function dynamic (field)
+               (let ((n (get-field field)))
+                 (when (/= n 0)
+                   (if empty?
+                       (set! empty? false)
+                     (format printer ", "))
+                   (format printer "{a} {a}{a}" n field (format-plural n)))))))
+      (output 'year)
+      (output 'month)
+      (output 'day)
+      (output 'hour)
+      (output 'minute)
+      (when (or seconds? empty?)
+        (output 'second))
+      (get-output~ printer)))))

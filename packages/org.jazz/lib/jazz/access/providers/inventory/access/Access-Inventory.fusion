@@ -50,19 +50,18 @@
   (slot database initialize {})
   
   
-  (method (initialize connection pathname password . rest)
-    (bind-keywords ((read-only? false)) rest
-      (nextmethod connection)
-      (unless (exists?~ pathname)
-        (error (format "'{a}' is not a valid path.  Make sure that the path name is spelled correctly and that you are connected to the server on which the file resides."
-                       (parse~ pathname))))
-      (set! engine (cocreate [DBEngine DAO]))
-      (validate-version "DAO" 'dao {} (get-DAO-version) :register :dao-version :cleanup destroy-inventory)
-      (with-closed ((workspaces (get-Workspaces~ engine))
-                    (workspace (get-Item~ workspaces 0)))
-        (set! database (OpenDatabase~ workspace (parse~ pathname) 0 read-only? (format "{a};PWD={a}" (type-connection-string) password)))
-        (validate-version "Access database" 'access-database (get-name~ pathname) (get-version) :register :access-database-version :cleanup destroy-inventory))
-      (destroy-mandatory)))
+  (method (initialize connection pathname password (read-only?: read-only? false))
+    (nextmethod connection)
+    (unless (exists?~ pathname)
+      (error (format "'{a}' is not a valid path.  Make sure that the path name is spelled correctly and that you are connected to the server on which the file resides."
+                     (parse~ pathname))))
+    (set! engine (cocreate [DBEngine DAO]))
+    (validate-version "DAO" 'dao {} (get-DAO-version) :register :dao-version :cleanup destroy-inventory)
+    (with-closed ((workspaces (get-Workspaces~ engine))
+                  (workspace (get-Item~ workspaces 0)))
+      (set! database (OpenDatabase~ workspace (parse~ pathname) 0 read-only? (format "{a};PWD={a}" (type-connection-string) password)))
+      (validate-version "Access database" 'access-database (get-name~ pathname) (get-version) :register :access-database-version :cleanup destroy-inventory))
+    (destroy-mandatory))
 
   
   (method (destroy)
@@ -231,18 +230,17 @@
     #x800A0CC1)
   
   
-  (method (get-procedure name . rest)
-    (bind-keywords ((error? true)) rest
-      (with-closed ((procedures (get-QueryDefs~ database)))
-        (let ((action
-               (function dynamic ()
-                 (get-Item~ procedures name))))
-          (let ((procedure
-                 (if error?
-                     (action)
-                   (cotry (action) (Procedure-Not-Existant {})))))
-            (when procedure
-              (new Access-Inventory-Procedure self self procedure)))))))
+  (method (get-procedure name (error?: error? true))
+    (with-closed ((procedures (get-QueryDefs~ database)))
+      (let ((action
+              (function dynamic ()
+                (get-Item~ procedures name))))
+        (let ((procedure
+                (if error?
+                    (action)
+                  (cotry (action) (Procedure-Not-Existant {})))))
+          (when procedure
+            (new Access-Inventory-Procedure self self procedure))))))
 
   
   (method (create-procedure name)

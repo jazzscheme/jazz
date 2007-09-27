@@ -313,10 +313,10 @@
             (with-execution-context
               (function dynamic ()
                 (set-workbench (instantiate~ (read-from-file file))))
-              :title "Load Workbench")
+              title: "Load Workbench")
             @this-is-very-dangerous-as-it-makes-the-loading-process-very-fragile-against-any-outside-manipulation
             (empty-map (get-manifest)))))
-      :continue-handler
+      continue-handler:
       (function dynamic (err)
         )))
   
@@ -429,7 +429,7 @@
   
   
   (method (find-favorite char)
-    (let ((pref (get-preferences 'favorites :error? false)))
+    (let ((pref (get-preferences 'favorites error?: false)))
       (when pref
         (let ((favorites (get-children~ pref)))
           (find-if (function dynamic (favorite)
@@ -442,26 +442,24 @@
   ;;;
 
   
-  (method (edit-definition object . rest)
-    (bind-keywords ((class {}) (context catalog-context) (workspace {}) (history-item {})) rest
-      (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object :context context) class)))
-        (if (null? definitions)
-            (bell)
-          (add-history history-item)
-          (case (length definitions)
-            ((1) (edit~ (car definitions) :workspace workspace))
-            (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions)))))))
+  (method (edit-definition object (class: class {}) (context: context catalog-context) (workspace: workspace {}) (history-item: history-item {}))
+    (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object context: context) class)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit~ (car definitions) workspace: workspace))
+          (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
 
   
-  (method (edit-references object . rest)
-    (bind-keywords ((context catalog-context) (history-item {})) rest
-      (let ((definitions (get-references~ (get-cataloguer) object :context context)))
-        (if (null? definitions)
-            (bell)
-          (add-history history-item)
-          (case (length definitions)
-            ((1) (edit-reference~ (car definitions) object))
-            (else (edit-references~ (get-guest~ (get-search-manager)) object definitions context)))))))
+  (method (edit-references object (context: context catalog-context) (history-item: history-item {}))
+    (let ((definitions (get-references~ (get-cataloguer) object context: context)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit-reference~ (car definitions) object))
+          (else (edit-references~ (get-guest~ (get-search-manager)) object definitions context))))))
   
   
   (method (filter-entries entries class)
@@ -493,7 +491,7 @@
           (bell)
         (let* ((form (get-form~ doc))
                (moniker (get-origin~ (get-toplevel~ form)))
-               (frame (edit-document moniker :visible? false))
+               (frame (edit-document moniker visible?: false))
                (text (get-guest~ frame))
                (location (append (get-location~ form) (list 0)))
                (range (location-range~ text location)))
@@ -509,7 +507,7 @@
            (editor (find-guest~ stage class))
            (info (list location object text text-location)))
       (if (not editor)
-          (new-frame class :client (get-documentation-catalog) :entry info)
+          (new-frame class client: (get-documentation-catalog) :entry info)
         (set-entry~ editor info)
         (bring-to-front~ (get-host~ editor)))))
 
@@ -531,14 +529,14 @@
   (method public (on-open-text evt)
     (let ((files (get-modal OpenFile-Dialog :multiple-selection? true)))
       (for-each (function dynamic (file)
-                  (edit-document file :class Jazz-Plain-Text-View))
+                  (edit-document file class: Jazz-Plain-Text-View))
                 (sort > files key: (function dynamic (file) (get-name~ file))))))
     
 
   (method public (on-open-jazz-text evt)
     (let ((files (get-modal OpenFile-Dialog :multiple-selection? true)))
       (for-each (function dynamic (file)
-                  (edit-document file :class Jazz-Text-View))
+                  (edit-document file class: Jazz-Text-View))
                 (sort > files key: (function dynamic (file) (get-name~ file))))))
   
   
@@ -656,7 +654,7 @@
   (method (on-class-browser evt)
     (let* ((focus (get-focus))
            (text (if (is? focus Text-View) (get-selected-string~ focus) {})))
-      (show-palette Class-Browser :initialize (function dynamic (palette browser)
+      (show-palette Class-Browser initialize: (function dynamic (palette browser)
                                                 (set-text~ browser text)))))
 
   
@@ -737,54 +735,54 @@
   
   
   (method public (on-properties evt)
-    (select-palette Properties-Manager :focus? true))
+    (select-palette Properties-Manager focus?: true))
 
   
   (method public (on-search-results evt)
-    (select-palette Search-Results :focus? true))
+    (select-palette Search-Results focus?: true))
   
   
   (method public (on-web-servers evt)
-    (select-palette Web-Servers-Manager :focus? true))
+    (select-palette Web-Servers-Manager focus?: true))
 
   
   (method public (on-output-log evt)
-    (select-palette Output-Log :focus? true))
+    (select-palette Output-Log focus?: true))
 
   
   (method public (on-user-log evt)
-    (let ((user-log (select-palette User-Log :focus? true)))
+    (let ((user-log (select-palette User-Log focus?: true)))
       (refresh~ user-log)))
 
   
   (method public (on-activities evt)
-    (select-palette Activities-Manager :focus? true))
+    (select-palette Activities-Manager focus?: true))
 
   
   (method public (on-workbench evt)
-    (select-palette Workbench-Manager :focus? true))
+    (select-palette Workbench-Manager focus?: true))
 
   
   (method public (on-favorites evt)
-    (select-palette Favorites-Manager :focus? true))
+    (select-palette Favorites-Manager focus?: true))
 
   
   (method public (on-repositories evt)
     @convert/wait
-    (select-palette Repositories-Manager :focus? true))
+    (select-palette Repositories-Manager focus?: true))
 
   
   (method public (on-contacts evt)
     @convert/wait
-    (select-palette Contacts-Manager :focus? true))
+    (select-palette Contacts-Manager focus?: true))
 
   
   (method public (on-chapters evt)
-    (select-palette Chapters-Browser :workspace 'text :focus? true))
+    (select-palette Chapters-Browser workspace: 'text focus?: true))
 
   
   (method public (on-hierarchy evt)
-    (select-palette Hierarchy-Browser :workspace 'text :focus? true))
+    (select-palette Hierarchy-Browser workspace: 'text focus?: true))
   
   
   (method public (on-bindings evt)
@@ -830,7 +828,7 @@
         (let ((default (get-active-configuration~ (get-preferences '(tools compare-directories)))))
           (if (not default)
               (new-frame Compare-Directories)
-            (let ((frame (new-frame Compare-Directories :host-visible? false)))
+            (let ((frame (new-frame Compare-Directories host-visible?: false)))
               (with-cursor :wait
                 (function dynamic ()
                   (configure~ (get-guest~ frame) default)

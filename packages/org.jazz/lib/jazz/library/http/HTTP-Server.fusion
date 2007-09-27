@@ -136,8 +136,8 @@
     (server-hit)
     (new Thread
       name: "HTTP Connection"
-      :context self
-      :execute (function (thread)
+      context: self
+      execute: (function (thread)
                  (unwind-protect
                      (let ((response (request-html socket)))
                        ;; should log intelligently the error
@@ -238,18 +238,17 @@
   ;;;
   
   
-  (method (request-response request response/html . rest)
-    (bind-keywords ((code {})) rest
-      (if (is? response/html HTTP-Response)
-          response/html
-        (let* ((body (effective-html request response/html))
-               (session (get-session~ request))
-               (response (new HTTP-Response :code code :body body)))
-          (add-connection-close response)
-          (add-content-type response "text/html")
-          (add-content-length response body)
-          (add-session-cookie response session)
-          response))))
+  (method (request-response request response/html (code: code {}))
+    (if (is? response/html HTTP-Response)
+        response/html
+      (let* ((body (effective-html request response/html))
+             (session (get-session~ request))
+             (response (new HTTP-Response :code code :body body)))
+        (add-connection-close response)
+        (add-content-type response "text/html")
+        (add-content-length response body)
+        (add-session-cookie response session)
+        response)))
   
   
   (method (effective-html request html)

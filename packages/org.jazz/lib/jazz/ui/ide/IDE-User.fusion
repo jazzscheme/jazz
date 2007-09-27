@@ -96,8 +96,8 @@
       @commented-until-fully-functional
       (new Thread
         name: "Messenger"
-        :context self
-        :execute (function (thread)
+        context: self
+        execute: (function (thread)
                    (while (not Stop-Messaging?)
                      (when (exists?~ file)
                        (receive-message file)
@@ -159,18 +159,16 @@
           (else (error "Unable to format SQL value: {s}" value))))
   
   
-  (method (output-tables tables . rest)
-    (bind-keywords ((name {}) (select? true)) rest
-      (let ((text (get-sql-console-text)))
-        (output-tables~ text tables name))
-      (when select?
-        (let ((appl (get-application)))
-          (select-workspace~ appl 'sql)))))
+  (method (output-tables tables (name: name {}) (select?: select? true))
+    (let ((text (get-sql-console-text)))
+      (output-tables~ text tables name))
+    (when select?
+      (let ((appl (get-application)))
+        (select-workspace~ appl 'sql))))
   
   
-  (method (output-table table . rest)
-    (bind-keywords ((name {}) (select? true)) rest
-      (output-tables (list table) name: name :select? select?)))
+  (method (output-table table (name: name {}) (select?: select? true))
+    (output-tables (list table) name: name :select? select?))
   
   
   (method (log-tables tables)
@@ -186,16 +184,15 @@
   ;;;
   
   
-  (method (glue n . rest)
-    (bind-optionals ((kind 1)) rest
-      (let* ((appl (get-application))
-             (stack (get-clipboard-stack~ appl))
-             (lst (cons (get-clipboard) (subseq stack 0 (- n 1))))
-             (glued (case kind
-                      ((1) (format "{l}" lst))
-                      ((2) (join lst ", ")))))
-        (set-clipboard glued)
-        (user-message "Clipboard set to {a}" glued))))
+  (method (glue n (kind 1))
+    (let* ((appl (get-application))
+           (stack (get-clipboard-stack~ appl))
+           (lst (cons (get-clipboard) (subseq stack 0 (- n 1))))
+           (glued (case kind
+                    ((1) (format "{l}" lst))
+                    ((2) (join lst ", ")))))
+      (set-clipboard glued)
+      (user-message "Clipboard set to {a}" glued)))
 
 
   ;;;

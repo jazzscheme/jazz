@@ -64,7 +64,7 @@
                 (favorites (instantiate~ (read-from-file file))))
             (install-context~ process favorites)
             favorites))))
-    :continue-handler
+    continue-handler:
     (function dynamic (err)
       )))
 
@@ -199,9 +199,9 @@
   (method public (add-to-favorites class title initargs)
     (bind-values (title parent) (get-modal Favorites-Adder :default-title title :default-root client)
       (when parent
-        (let ((favorite (apply new class :title title initargs)))
+        (let ((favorite (apply new class title: title initargs)))
           (add-child~ designer favorite parent)
-          (set-property~ designer favorite :title title)
+          (set-property~ designer favorite title: title)
           (for-each-property (function dynamic (property value)
                                (set-property~ designer favorite property value))
                              initargs)))))
@@ -215,7 +215,7 @@
   (method (import-favorites)
     (letrec ((tree (get-tree))
              (component (selected-component~ tree))
-             (directory (get-modal BrowseFolder-Dialog :title "Choose favorites folder"))
+             (directory (get-modal BrowseFolder-Dialog title: "Choose favorites folder"))
              (bad '())
              (proc
               (function dynamic (component directory)
@@ -224,20 +224,20 @@
                     (user-message "Importing {a}..." (get-base~ pathname))
                     (let ((title (get-base~ pathname)))
                       (if (directory? pathname)
-                          (let ((set (new Group :title title :visible? false)))
+                          (let ((set (new Group title: title visible?: false)))
                             (add-child~ designer set component)
-                            (set-property~ designer set :title title)
+                            (set-property~ designer set title: title)
                             (proc set pathname))
                         (when (and (file? pathname) (= (get-extension~ pathname) "url"))
                           (let ((url (extract-url pathname)))
                             (if (null? url)
                                 (set! bad (cons pathname bad))
-                              (let ((favorite (new Favorite-URL :title title :visible? false)))
+                              (let ((favorite (new Favorite-URL title: title visible?: false)))
                                 (add-child~ designer favorite component)
-                                (set-property~ designer favorite :title title)
+                                (set-property~ designer favorite title: title)
                                 (set-property~ designer favorite :url (new URL (list url))))))))))
-                  :directories? true
-                  :recursive? false))))
+                  directories?: true
+                  recursive?: false))))
       (with-update-locked~ tree
         (function dynamic ()
           (proc component directory)))
@@ -263,7 +263,7 @@
   (method public (new-favorites-menu)
     (unimplemented 'new-favorites-menu)
     @convert-manifest-stuff
-    (let* ((menu (new Favorites-Menu :client (get-tree)))
+    (let* ((menu (new Favorites-Menu client: (get-tree)))
            (tree (get-tree~ (locate 'descendants)))
            (components (selected-components~ tree)))
       (when (or (/= (length components) 1) (is-not? (car components) Favorite))

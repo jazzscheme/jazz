@@ -84,27 +84,26 @@
           (let ((name (intern-marked-symbol)))
             @convert
             (when (or (not name) (not (in-manifest? name)))
-              (signal (new Explore-Error :message (format "Unable to find unit {a} in manifest" (get-marked)) start: (get-start) end: (get-end))))
+              (signal (new Explore-Error message: (format "Unable to find unit {a} in manifest" (get-marked)) start: (get-start) end: (get-end))))
             (let ((unit (essay name (symbol-bound? name false) (global-value~ name false))))
               (list unit kind meta? name (collect-units-keywords))))))))
   
   
-  (method (forward-unit-keywords . rest)
-    (bind-optionals ((proc {})) rest
-      (let ((keyword)
-            (previous (get-end)))
-        (while (and (forward-expr)
-                    (begin
-                      (set! keyword (find-marked-symbol))
-                      (or (memq? keyword '(package class interface))
-                          (memq? keyword (get-macro-toplevels))
-                          (memq? keyword '(metaclass extends implements has on uses))))
-                    (forward-expr))
-          (set! previous (get-end))
-          (when proc
-            (proc keyword)))
-        (set-start previous)
-        (set-end previous))))
+  (method (forward-unit-keywords (proc {}))
+    (let ((keyword)
+          (previous (get-end)))
+      (while (and (forward-expr)
+                  (begin
+                    (set! keyword (find-marked-symbol))
+                    (or (memq? keyword '(package class interface))
+                        (memq? keyword (get-macro-toplevels))
+                        (memq? keyword '(metaclass extends implements has on uses))))
+                  (forward-expr))
+        (set! previous (get-end))
+        (when proc
+          (proc keyword)))
+      (set-start previous)
+      (set-end previous)))
   
   
   (method (collect-units-keywords)

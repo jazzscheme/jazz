@@ -463,11 +463,11 @@
   
   (method (save-guest designer session)
     (add-guest-preferences designer session
-      :mode          (get-mode)
-      :base-date     (get-base-date)
-      :left-moniker  (get-left-moniker)
-      :right-moniker (get-right-moniker)
-      :base-dates    Base-Dates))
+      mode:          (get-mode)
+      base-date:     (get-base-date)
+      left-moniker:  (get-left-moniker)
+      right-moniker: (get-right-moniker)
+      base-dates:    Base-Dates))
   
 
   ;;;
@@ -530,7 +530,7 @@
           (if (or (= [kind entry] 'node) (null? [left entry]))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl [left entry] :workspace 'groupware)))))))
+              (edit-document~ appl [left entry] workspace: 'groupware)))))))
   
   
   (method (on-open-blue evt)
@@ -541,7 +541,7 @@
           (if (or (= [kind entry] 'node) (null? [right entry]))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl [right entry] :workspace 'groupware)))))))
+              (edit-document~ appl [right entry] workspace: 'groupware)))))))
   
   
   ;;;
@@ -642,13 +642,13 @@
       (let ((comparer (new-comparer)))
         (bind-values (entry has-differences? scanned-values)
             (compare-nodes~ comparer {} left-tree right-tree
-             :left-content left-content
-             :right-content right-content
-             :ignored-nodes ignored-nodes
-             :ignored-leaves ignored-leaves
-             :ignored-extensions ignored-extensions
-             :check-algorithm (get-check-algorithm)
-             :feedback (function dynamic (left right) (scan-feedback left right)))
+             left-content: left-content
+             right-content: right-content
+             ignored-nodes: ignored-nodes
+             ignored-leaves: ignored-leaves
+             ignored-extensions: ignored-extensions
+             check-algorithm: (get-check-algorithm)
+             feedback: (function dynamic (left right) (scan-feedback left right)))
           (display-results entry)
           (user-message "Done")
           (essay has-differences? scanned-values)))))
@@ -684,13 +684,13 @@
            (lvl? (and (= kind 'node) left right))
            (name (if (< level 2) (present-root left right) (present-item ref)))
            (image (entry-image entry ref))
-           (c0 (new Tree-Node :title name :image image))
-           (c1 (new Tree-Label :title (present-value kind [left-value entry])))
-           (c2 (new Tree-Label :title (present-value kind [right-value entry])))
+           (c0 (new Tree-Node title: name image: image))
+           (c1 (new Tree-Label title: (present-value kind [left-value entry])))
+           (c2 (new Tree-Label title: (present-value kind [right-value entry])))
            (c3 entry)
            (c4 entry)
            (c5 entry)
-           (row (add-row~ tree :father father :state (if lvl? 'collapsed 'expanded) :children (list c0 c1 c2 c3 c4 c5) :user-data entry)))
+           (row (add-row~ tree father: father state: (if lvl? 'collapsed 'expanded) children: (list c0 c1 c2 c3 c4 c5) user-data: entry)))
       (when (not lvl?)
         (setup-action mode date entry)
         (ensure-expanded~ tree row))
@@ -784,7 +784,7 @@
   
   
   (method protected virtual (updater-built file)
-    (edit-document~ (get-application) file :workspace 'groupware))
+    (edit-document~ (get-application) file workspace: 'groupware))
 
   
   ;;;
@@ -817,46 +817,40 @@
         (goto-next-comparable n))))
   
   
-  (method protected (goto-next-comparable . rest)
-    (bind-optionals ((rank {})) rest
-      (goto-next comparable? rank)))
+  (method protected (goto-next-comparable (rank {}))
+    (goto-next comparable? rank))
   
   
-  (method protected (goto-previous-comparable . rest)
-    (bind-optionals ((rank {})) rest
-      (goto-previous comparable? rank)))
+  (method protected (goto-previous-comparable (rank {}))
+    (goto-previous comparable? rank))
   
   
-  (method protected (goto-next-uncomparable . rest)
-    (bind-optionals ((rank {})) rest
-      (goto-next uncomparable? rank)))
+  (method protected (goto-next-uncomparable (rank {}))
+    (goto-next uncomparable? rank))
   
   
-  (method protected (goto-previous-uncomparable . rest)
-    (bind-optionals ((rank {})) rest
-      (goto-previous uncomparable? rank)))
+  (method protected (goto-previous-uncomparable (rank {}))
+    (goto-previous uncomparable? rank))
   
   
-  (method protected (goto-next predicate . rest)
-    (bind-optionals ((rank {})) rest
-      (let* ((tree (locate 'results))
-             (selection (get-selection~ tree))
-             (rank (either rank (if (null? selection) 0 (+ (apply generic-max selection) 1))))
-             (next (find-next tree rank predicate)))
-        (when next
-          (set-selection~ tree (list next))
-          next))))
+  (method protected (goto-next predicate (rank {}))
+    (let* ((tree (locate 'results))
+           (selection (get-selection~ tree))
+           (rank (either rank (if (null? selection) 0 (+ (apply generic-max selection) 1))))
+           (next (find-next tree rank predicate)))
+      (when next
+        (set-selection~ tree (list next))
+        next)))
   
   
-  (method protected (goto-previous predicate . rest)
-    (bind-optionals ((rank {})) rest
-      (let* ((tree (locate 'results))
-             (selection (get-selection~ tree))
-             (rank (either rank (if (null? selection) (- (get-visible-count~ tree) 1) (- (apply generic-min selection) 1))))
-             (previous (find-previous tree rank predicate)))
-        (when previous
-          (set-selection~ tree (list previous))
-          previous))))
+  (method protected (goto-previous predicate (rank {}))
+    (let* ((tree (locate 'results))
+           (selection (get-selection~ tree))
+           (rank (either rank (if (null? selection) (- (get-visible-count~ tree) 1) (- (apply generic-min selection) 1))))
+           (previous (find-previous tree rank predicate)))
+      (when previous
+        (set-selection~ tree (list previous))
+        previous)))
   
   
   @new
@@ -1075,5 +1069,5 @@
   (method public (update-menu)
     (for-each (function dynamic (config)
                 (let ((title (get-presentation~ config)))
-                  (new Label-Item parent: self :title title :action-handler (new Event-Handler :target-name :document :method-name 'on-configure :properties (list :configuration config)))))
+                  (new Label-Item parent: self title: title action-handler: (new Event-Handler target-name: :document method-name: 'on-configure properties: (list :configuration config)))))
               (get-children~ (get-preferences '(tools compare-directories)))))))

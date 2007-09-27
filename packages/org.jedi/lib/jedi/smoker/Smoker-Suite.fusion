@@ -71,8 +71,8 @@
     @wait-Validation-Suite-cleanup-of-modules
     (new Activity
       name: "Smoker Validations"
-      :context self
-      :execute (function (activity)
+      context: self
+      execute: (function (activity)
                  (while true
                    (set-range~ activity (new Range 0 1))
                    (user-message~ activity "Validating")
@@ -117,8 +117,8 @@
       (set-search-targets~ view '(("Search-View" "")))
       (new Thread
         name: "Smoker Searches"
-        :context self
-        :execute (function (thread)
+        context: self
+        execute: (function (thread)
                    (let ((running {}))
                      (while true
                        (when running
@@ -140,19 +140,18 @@
     @wait (run-project-builds "Puzzle" Puzzle-Project   "Distribution" 1000 7000))
   
   
-  (method (run-project-builds title project-class project-title . rest)
-    (bind-optionals ((wait-before 0) (wait-beetween 0)) rest
-      (new Thread
-        name: (format "{a} Builds" title)
-        :context self
-        :execute (function (thread)
-                   (sleep wait-before)
-                   (let ((running {}))
-                     (while true
-                       (when running
-                         ;; todo: this will freeze the app if an error occurs
-                         ;; during the build because the wait-for will never complete...
-                         (wait-for running)
-                         (sleep wait-beetween))
-                       (let ((project (find-project~ project-class project-title)))
-                         (set! running (build~ project :threaded? true :keep-reporter? false)))))))))))
+  (method (run-project-builds title project-class project-title (wait-before 0) (wait-beetween 0))
+    (new Thread
+      name: (format "{a} Builds" title)
+      context: self
+      execute: (function (thread)
+                 (sleep wait-before)
+                 (let ((running {}))
+                   (while true
+                     (when running
+                       ;; todo: this will freeze the app if an error occurs
+                       ;; during the build because the wait-for will never complete...
+                       (wait-for running)
+                       (sleep wait-beetween))
+                     (let ((project (find-project~ project-class project-title)))
+                       (set! running (build~ project threaded?: true :keep-reporter? false))))))))))

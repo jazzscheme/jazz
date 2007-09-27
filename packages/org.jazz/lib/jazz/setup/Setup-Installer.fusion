@@ -146,9 +146,9 @@
         (function dynamic (list kind)
           (put~ fact (cons list kind)))
         :full? false
-        :files? true
-        :directories? true
-        :recursive? true)
+        files?: true
+        directories?: true
+        recursive?: true)
       (get-output~ fact)))
   
   
@@ -178,9 +178,9 @@
       (iterate-directory~ user-dir
         (function dynamic (dir)
           (set! users (cons (get-name~ dir) users)))
-        :files? false
-        :directories? true
-        :recursive? false)
+        files?: false
+        directories?: true
+        recursive?: false)
       users))
   
   
@@ -211,14 +211,13 @@
     )
   
   
-  (method (migrate-file install migrate reporter src-suffix . rest)
-    (bind-optionals ((dst-suffix src-suffix)) rest
-      (let ((src (new-file~ migrate src-suffix))
-            (dst (new-file~ install dst-suffix)))
-        (when (exists?~ src)
-          (user-message~ reporter "Copying {a}" (parse~ src))
-          (create-directories~ dst)
-          (copy-file~ src dst)))))
+  (method (migrate-file install migrate reporter src-suffix (dst-suffix src-suffix))
+    (let ((src (new-file~ migrate src-suffix))
+          (dst (new-file~ install dst-suffix)))
+      (when (exists?~ src)
+        (user-message~ reporter "Copying {a}" (parse~ src))
+        (create-directories~ dst)
+        (copy-file~ src dst))))
   
   
   (method (read-version dir)
@@ -232,9 +231,9 @@
   (method public (for-each-user migrate proc)
     (let ((users (new-directory~ migrate "Users")))
       (iterate-directory~ users proc
-        :files? false
-        :directories? true
-        :recursive? false)))
+        files?: false
+        directories?: true
+        recursive?: false)))
   
   
   ;;;
@@ -242,9 +241,8 @@
   ;;;
 
   
-  (method (for-each-form form proc . rest)
-    (bind-optionals ((parent {})) rest
-      (proc form parent)
-      (for-each (function dynamic (subform)
-                  (for-each-form subform proc form))
-                (get-children~ form))))))
+  (method (for-each-form form proc (parent {}))
+    (proc form parent)
+    (for-each (function dynamic (subform)
+                (for-each-form subform proc form))
+              (get-children~ form)))))

@@ -94,15 +94,15 @@
                                     (new Separator-Item parent: submenu)
                                   (let ((icon (get-class-image~ class))
                                         (title (format "{a}..." (get-class-presentation~ class)))
-                                        (handler (new Event-Handler :target self :method-name 'on-add-branch :properties (list :class class))))
-                                    (new Label-Item parent: submenu :icon icon :title title :action-handler handler))))
+                                        (handler (new Event-Handler target: self method-name: 'on-add-branch properties: (list class: class))))
+                                    (new Label-Item parent: submenu icon: icon title: title action-handler: handler))))
                               classes)))))
             (layout-menu~ menu)
             (track-popup-menu menu pos))))))
   
   
   (method (on-add-branch evt)
-    (let ((class (either (get-property~ evt :class) (get-addable-default-branch~ client)))
+    (let ((class (either (get-property~ evt class:) (get-addable-default-branch~ client)))
           (parent (selected-branch)))
       (add-branch class parent)))
   
@@ -120,8 +120,8 @@
     (let ((presentation (branch-presentation-request class (get-branches~ parent)))
           (branch (new class parent: parent))
           (designer (get-designer~ editor)))
-      (add-child~ designer branch parent :branch {})
-      (set-property~ designer branch :client-form (new Form :textual? false :action 'install) :branch {})
+      (add-child~ designer branch parent branch: {})
+      (set-property~ designer branch client-form: (new Form textual?: false action: 'install) branch: {})
       ;; Problem: at that point this update causes some node titles to be {}
       ;; because the branch doesn't yet have a name...
       (update-tree)
@@ -129,14 +129,13 @@
       (rename-branch branch presentation)))
   
   
-  (method protected virtual (branch-presentation-request class brothers . rest)
-    (bind-keywords ((initial-value {})) rest
-      (let* ((name-mandatory? (get-name-mandatory?~ class))
-             (name-unicity? (get-name-unicity?~ class))
-             (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
-             (name-validator (branch-name-validator))
-             (presentation (request-string :title (format "Enter {a} Name" (get-class-presentation~ class)) :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
-        presentation)))
+  (method protected virtual (branch-presentation-request class brothers (initial-value: initial-value {}))
+    (let* ((name-mandatory? (get-name-mandatory?~ class))
+           (name-unicity? (get-name-unicity?~ class))
+           (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
+           (name-validator (branch-name-validator))
+           (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation~ class)) :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
+      presentation))
   
   
   (method protected virtual (branch-name-validator)
@@ -184,12 +183,11 @@
     (show-properties :select-palette? true))
   
   
-  (method (show-properties . rest)
-    (bind-keywords ((select-palette? false)) rest
-      (let ((branch (selected-branch)))
-        (set-selection~ editor (if branch (list branch) '()) :origin self :force? true :focus? false)
-        (when select-palette?
-          (select-palette Properties-Manager :workspace {} :focus? true)))))
+  (method (show-properties (select-palette?: select-palette? false))
+    (let ((branch (selected-branch)))
+      (set-selection~ editor (if branch (list branch) '()) origin: self force?: true focus?: false)
+      (when select-palette?
+        (select-palette Properties-Manager workspace: {} focus?: true))))
   
   
   (method (maybe-show-properties)
@@ -219,14 +217,14 @@
         (remove-editor-listener~ editor self))
       (set! editor edt)
       (when editor
-        (add-editor-listener~ editor (new Event-Handler :target self :method-name 'on-editor)))))
+        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
     
   
   (method (on-editor evt)
     (case (get-kind~ evt)
-      ((:client-change) (set-client (get-property~ evt :client)))
-      ((:designer-change) (set-designer (get-property~ evt :designer)))
-      ((:branch-changed) (branch-changed (get-property~ evt :branch)))))
+      ((:client-change) (set-client (get-property~ evt client:)))
+      ((:designer-change) (set-designer (get-property~ evt designer:)))
+      ((:branch-changed) (branch-changed (get-property~ evt branch:)))))
   
   
   (method (branch-changed branch)
@@ -252,7 +250,7 @@
   
   
   (method (install-listener designer)
-    (let ((listener (new Event-Handler :target self :method-name 'on-designer)))
+    (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
       (add-designer-listener~ designer listener)))
   
   
@@ -324,14 +322,14 @@
   (method (insert-client)
     (let ((title (get-presentation~ client))
           (image (component-image client)))
-      (add-row :state 'expanded :children (list (new Tree-Node :title title :image image)) :user-data client)))
+      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: client)))
   
   
   (method (insert-branch node branch)
     (let ((children (get-children~ branch))
           (title    (component-presentation branch))
           (image    (component-image branch)))
-      (let ((handle (add-row :father node :state 'expanded :children (list (new Tree-Node :title title :image image)) :user-data branch)))
+      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: branch)))
         (for-each (function dynamic (child)
                     (insert-branch handle child))
                   (sort-branches children)))))

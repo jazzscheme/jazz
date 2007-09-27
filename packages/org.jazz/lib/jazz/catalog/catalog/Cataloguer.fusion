@@ -58,16 +58,15 @@
     catalogs)
 
 
-  (method public (get-catalog name . rest)
-    (bind-keywords ((error? true) (report? true)) rest
-      (either (find-catalog name)
-              (let ((pref (find-component~ (get-preferences 'catalogs) name)))
-                (if (not pref)
-                    (when error?
-                      (error "Unknown catalog: {t}" name))
-                  (let ((catalog (create-catalog pref report?)))
-                    (add-catalog catalog)
-                    catalog))))))
+  (method public (get-catalog name (error?: error? true) (report?: report? true))
+    (either (find-catalog name)
+            (let ((pref (find-component~ (get-preferences 'catalogs) name)))
+              (if (not pref)
+                  (when error?
+                    (error "Unknown catalog: {t}" name))
+                (let ((catalog (create-catalog pref report?)))
+                  (add-catalog catalog)
+                  catalog)))))
 
 
   (method public (get-main-catalog)
@@ -170,13 +169,12 @@
     (is? object Class-Entry))
 
   
-  (method public (get-definitions name . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let ((fact (new List-Factory)))
-        (for-each-catalog context
-          (function dynamic (catalog)
-            (put-sequence~ fact (get-definitions~ catalog name))))
-        (get-output~ fact))))
+  (method public (get-definitions name (context: context (get-context)))
+    (let ((fact (new List-Factory)))
+      (for-each-catalog context
+                        (function dynamic (catalog)
+                          (put-sequence~ fact (get-definitions~ catalog name))))
+      (get-output~ fact)))
 
 
   (method public (get-definition name)
@@ -186,45 +184,41 @@
         (car definitions))))
 
   
-  (method public (get-unit-definitions name . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let ((fact (new List-Factory)))
-        (for-each-catalog context
-          (function dynamic (catalog)
-            (put-sequence~ fact (get-unit-definitions~ catalog name))))
-        (get-output~ fact))))
+  (method public (get-unit-definitions name (context: context (get-context)))
+    (let ((fact (new List-Factory)))
+      (for-each-catalog context
+                        (function dynamic (catalog)
+                          (put-sequence~ fact (get-unit-definitions~ catalog name))))
+      (get-output~ fact)))
 
   
-  (method public (get-coalesced-definitions name . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let* ((definitions (get-definitions name :context context))
-             (coalesced (collect-if (function dynamic (entry)
-                                      (is-not? entry Constructor-Entry))
-                                    definitions)))
-        (if (and (= 1 (length coalesced))
-                 (is? (car coalesced) Unit-Entry))
-            coalesced
-          definitions))))
+  (method public (get-coalesced-definitions name (context: context (get-context)))
+    (let* ((definitions (get-definitions name context: context))
+           (coalesced (collect-if (function dynamic (entry)
+                                    (is-not? entry Constructor-Entry))
+                                  definitions)))
+      (if (and (= 1 (length coalesced))
+               (is? (car coalesced) Unit-Entry))
+          coalesced
+        definitions)))
   
   
-  (method public (get-references name . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let ((fact (new List-Factory)))
-        (for-each-catalog context
-          (function dynamic (catalog)
-            (put-sequence~ fact (get-references~ catalog name))))
-        (get-output~ fact))))
+  (method public (get-references name (context: context (get-context)))
+    (let ((fact (new List-Factory)))
+      (for-each-catalog context
+                        (function dynamic (catalog)
+                          (put-sequence~ fact (get-references~ catalog name))))
+      (get-output~ fact)))
   
   
-  (method public (get-file-entries file . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let ((fact (new List-Factory)))
-        (for-each-catalog context
-          (function dynamic (catalog)
-            (let ((entry (get-file-entry~ catalog file)))
-              (when entry
-                (put~ fact entry)))))
-        (get-output~ fact))))
+  (method public (get-file-entries file (context: context (get-context)))
+    (let ((fact (new List-Factory)))
+      (for-each-catalog context
+                        (function dynamic (catalog)
+                          (let ((entry (get-file-entry~ catalog file)))
+                            (when entry
+                              (put~ fact entry)))))
+      (get-output~ fact)))
 
 
   ;;;
@@ -232,10 +226,9 @@
   ;;;
 
 
-  (method public (get-completions name . rest)
-    (bind-keywords ((context (get-context))) rest
-      (let ((fact (new List-Factory)))
-        (for-each-catalog context
-          (function dynamic (catalog)
-            (put-sequence~ fact (get-completions~ catalog name))))
-        (get-output~ fact))))))
+  (method public (get-completions name (context: context (get-context)))
+    (let ((fact (new List-Factory)))
+      (for-each-catalog context
+                        (function dynamic (catalog)
+                          (put-sequence~ fact (get-completions~ catalog name))))
+      (get-output~ fact)))))

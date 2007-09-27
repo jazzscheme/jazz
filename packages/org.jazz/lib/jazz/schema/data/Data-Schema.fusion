@@ -54,19 +54,18 @@
   
   @convert-literal
   (method meta (construct-literal context properties tables views relations procedures)
-    (new self :properties properties :tables tables :views views :relations relations :procedures procedures))
+    (new self properties: properties :tables tables :views views :relations relations :procedures procedures))
   
   
-  (method (initialize . rest)
-    (bind-keywords ((name {}) (parent {}) (properties '()) (tables '()) (views '()) (relations '()) (procedures '())) rest
-      (nextmethod)
-      (set! [name self] name)
-      (set! [parent self] parent)
-      (set! [properties self] properties)
-      (add-tables tables)
-      (add-views views)
-      (add-relations relations)
-      (add-procedures procedures)))
+  (method (initialize (name: name {}) (parent: parent {}) (properties: properties (quote ())) (tables: tables (quote ())) (views: views (quote ())) (relations: relations (quote ())) (procedures: procedures (quote ())))
+    (nextmethod)
+    (set! [name self] name)
+    (set! [parent self] parent)
+    (set! [properties self] properties)
+    (add-tables tables)
+    (add-views views)
+    (add-relations relations)
+    (add-procedures procedures))
 
  
   (method (print printer readably)
@@ -338,9 +337,9 @@
   
   (method meta public (import-inventory source-name data-source reporter)
     (let* ((properties (list name: (present~ data-source) :provider (external-name~ (get-provider~ data-source)) :data-source (present~ data-source)))
-           (schema (new self :properties properties)))
+           (schema (new self properties: properties)))
       (with-closed ((connection (new-connection~ data-source)))
-        (let ((inventory (get-inventory~ connection :read-only? true)))
+        (let ((inventory (get-inventory~ connection read-only?: true)))
           (import-inventory~ schema source-name inventory reporter)
           schema))))
   
@@ -359,7 +358,7 @@
                     (let* ((owner (get-owner~ table))
                            (name (get-title~ table))
                            (properties (table-properties table))
-                           (data-table (new Data-Table :owner owner name: name :properties properties)))
+                           (data-table (new Data-Table :owner owner name: name properties: properties)))
                       (user-message~ reporter "Importing {a} Table {a}..." source-name name)
                       (unless (getf properties :linked?)
                         (set-primary-key~ data-table (create-primary-key data-table table))
@@ -387,7 +386,7 @@
       (when primary-key
         (let ((name (get-title~ primary-key))
               (properties (primary-key-properties primary-key)))
-          (new Data-Primary-Key name: name :properties properties)))))
+          (new Data-Primary-Key name: name properties: properties)))))
   
 
   (method (primary-key-properties primary-key)
@@ -404,14 +403,14 @@
                (let ((name (get-title~ column))
                      (properties (column-properties column (essay (not columns-consecutive?) ordinal-position))))
                  (increase! ordinal-position)
-                 (new Data-Column name: name :properties properties)))
+                 (new Data-Column name: name properties: properties)))
              columns))))
   
 
   (method (column-properties column ordinal-position)
     (list
      :datatype              (get-datatype~ column)
-     :nullable?             (get-nullable?~ column)
+     nullable?:             (get-nullable?~ column)
      :default-value         (get-default-value~ column)
      :validation-rule       (get-validation-rule~ column)
      :validation-text       (get-validation-text~ column)
@@ -431,7 +430,7 @@
       (map (function dynamic (index)
              (let ((name (get-title~ index))
                    (properties (index-properties index)))
-               (new Data-Index name: name :properties properties)))
+               (new Data-Index name: name properties: properties)))
            indexes)))
   
 
@@ -451,13 +450,13 @@
       (map (function dynamic (trigger)
              (let ((name (get-title~ trigger))
                    (properties (trigger-properties trigger)))
-               (new Data-Trigger name: name :properties properties)))
+               (new Data-Trigger name: name properties: properties)))
            triggers)))
   
 
   (method (trigger-properties trigger)
     (list
-     :text (get-text~ trigger)))
+     text: (get-text~ trigger)))
   
   
   (method (create-constraints data-table table)
@@ -465,13 +464,13 @@
       (map (function dynamic (constraint)
              (let ((name (get-title~ constraint))
                    (properties (constraint-properties constraint)))
-               (new Data-Constraint name: name :properties properties)))
+               (new Data-Constraint name: name properties: properties)))
            constraints)))
   
 
   (method (constraint-properties constraint)
     (list
-     :text                 (get-text~ constraint)
+     text:                 (get-text~ constraint)
      :checked?             (get-checked?~ constraint)
      :exclude-replication? (get-exclude-replication?~ constraint)))
   
@@ -481,7 +480,7 @@
       (for-each (function dynamic (view)
                   (let* ((name (get-title~ view))
                          (properties (view-properties view))
-                         (data-view (new Data-View name: name :properties properties)))
+                         (data-view (new Data-View name: name properties: properties)))
                     (user-message~ reporter "Importing {a} View {a}..." source-name name)
                     (add-view data-view)))
                 views)))
@@ -489,7 +488,7 @@
 
   (method (view-properties view)
     (list
-     :text (get-text~ view)))
+     text: (get-text~ view)))
   
   
   (method (import-relations source-name inventory reporter)
@@ -497,7 +496,7 @@
       (for-each (function dynamic (relation)
                   (let* ((name (get-title~ relation))
                          (properties (relation-properties relation))
-                         (data-relation (new Data-Relation name: name :properties properties)))
+                         (data-relation (new Data-Relation name: name properties: properties)))
                     (user-message~ reporter "Importing {a} Relation {a}..." source-name name)
                     (add-relation data-relation)))
                 relations)))
@@ -523,7 +522,7 @@
       (for-each (function dynamic (procedure)
                   (let* ((name (get-title~ procedure))
                          (properties (procedure-properties procedure))
-                         (data-procedure (new Data-Procedure name: name :properties properties)))
+                         (data-procedure (new Data-Procedure name: name properties: properties)))
                     (user-message~ reporter "Importing {a} Procedure {a}..." source-name name)
                     (add-procedure data-procedure)))
                 procedures)))
@@ -531,7 +530,7 @@
 
   (method (procedure-properties procedure)
     (list
-     :text (get-text~ procedure)))
+     text: (get-text~ procedure)))
   
   
   ;;;

@@ -624,24 +624,23 @@
                                                                       (keyword->symbol property))) value))
   
   
-  (method public (get-filtered-properties . rest)
-    (bind-keywords ((filter 'categorized)) rest
-      (if (= filter 'categorized)
-          (let ((properties (get-categorized-properties)))
-            (if (eq? properties true)
-                (get-all-properties filter)
-              (let ((class (class-of self)))
-                (letrec ((standardize
-                          (function dynamic (object)
-                            (cond ((string? object)
-                                   object)
-                                  ((symbol? object)
-                                   (either (unit-field class object)
-                                           (error "Field {t} is undefined in {t}" object class)))
-                                  (else
-                                   (map standardize object))))))
-                  (standardize properties)))))
-        (get-all-properties filter))))
+  (method public (get-filtered-properties (filter: filter (quote categorized)))
+    (if (= filter 'categorized)
+        (let ((properties (get-categorized-properties)))
+          (if (eq? properties true)
+              (get-all-properties filter)
+            (let ((class (class-of self)))
+              (letrec ((standardize
+                         (function dynamic (object)
+                           (cond ((string? object)
+                                  object)
+                                 ((symbol? object)
+                                  (either (unit-field class object)
+                                          (error "Field {t} is undefined in {t}" object class)))
+                                 (else
+                                  (map standardize object))))))
+                (standardize properties)))))
+      (get-all-properties filter)))
   
   
   (method (get-all-properties filter)
@@ -799,16 +798,15 @@
       parent))
   
   
-  (method public (collect-ascendants . rest)
-    (bind-optionals ((type {})) rest
-      (let ((ascendants '())
-            (parent (get-parent)))
-        (while (and parent (or (not type) (is-not? parent type)))
-          (set! ascendants (cons parent ascendants))
-          (set! parent (get-parent~ parent)))
-        (if (or (not parent) (and type (is? parent type)))
-            ascendants
-          (cons parent ascendants)))))
+  (method public (collect-ascendants (type {}))
+    (let ((ascendants '())
+          (parent (get-parent)))
+      (while (and parent (or (not type) (is-not? parent type)))
+        (set! ascendants (cons parent ascendants))
+        (set! parent (get-parent~ parent)))
+      (if (or (not parent) (and type (is? parent type)))
+          ascendants
+        (cons parent ascendants))))
   
   
   (method public (child-rank child <Object>)
@@ -1039,13 +1037,12 @@
       (cons branch (get-installed-branches~ branch))))
   
   
-  (method public (iterate-branch-spine proc . rest)
-    (bind-keywords ((branch {})) rest
-      (let ((branch (either branch (get-active-branch))))
-        (while (is? branch Branch)
-          (proc branch (get-client-form~ branch))
-          (set! branch (get-parent~ branch)))
-        (proc self (creator-effective-form)))))
+  (method public (iterate-branch-spine proc (branch: branch {}))
+    (let ((branch (either branch (get-active-branch))))
+      (while (is? branch Branch)
+        (proc branch (get-client-form~ branch))
+        (set! branch (get-parent~ branch)))
+      (proc self (creator-effective-form))))
   
   
   ;; For a creator that was install in another creator, it is
@@ -1159,19 +1156,18 @@
   ;;;
   
   
-  (method public virtual (component-path . rest)
-    (bind-optionals ((root creator)) rest
-      (let ((path '())
-            (scan self))
-        (while (neq? scan root)
-          (let ((name (get-name~ scan)))
-            (if (not name)
-                (error "Component {t} must be named to be part of a path" scan)
-              (set! path (cons name path))
-              (set! scan (get-parent-component~ scan))
-              (when (null? scan)
-                (error "{t} is not a descendant of the root component {t}" self root)))))
-        (new Path path))))
+  (method public virtual (component-path (root creator))
+    (let ((path '())
+          (scan self))
+      (while (neq? scan root)
+        (let ((name (get-name~ scan)))
+          (if (not name)
+              (error "Component {t} must be named to be part of a path" scan)
+            (set! path (cons name path))
+            (set! scan (get-parent-component~ scan))
+            (when (null? scan)
+              (error "{t} is not a descendant of the root component {t}" self root)))))
+      (new Path path)))
   
   
   (method public virtual (present-path root)
@@ -1200,27 +1196,26 @@
   ;;;
   
   
-  (method public (unfold-branches . rest)
-    (bind-keywords ((branches true) (properties '()) (include-root? true)) rest
-      (let* ((form (get-form~ (get-creator)))
-             (active-branch (get-branch))
-             (active-branch-name (essay active-branch (get-name~ active-branch)))
-             (all-branch-names (map (function dynamic (branch) (get-name~ branch)) (get-branches)))
-             (instantiate
-              (function dynamic (branch-name)
-                (if (= branch-name active-branch-name)
-                    self
-                  (let ((client (apply [instantiate form] properties)))
-                    (when branch-name
-                      (let ((branch (child~ client branch-name)))
-                        (set-restoreable?~ branch false)
-                        (set-active-branch~ client branch)))
-                    client)))))
-        (if (eq? branches true)
-            (if include-root?
-                (cons (instantiate {}) (map instantiate all-branch-names))
-              (map instantiate all-branch-names))
-          (map instantiate branches)))))
+  (method public (unfold-branches (branches: branches true) (properties: properties (quote ())) (include-root?: include-root? true))
+    (let* ((form (get-form~ (get-creator)))
+           (active-branch (get-branch))
+           (active-branch-name (essay active-branch (get-name~ active-branch)))
+           (all-branch-names (map (function dynamic (branch) (get-name~ branch)) (get-branches)))
+           (instantiate
+             (function dynamic (branch-name)
+               (if (= branch-name active-branch-name)
+                   self
+                 (let ((client (apply [instantiate form] properties)))
+                   (when branch-name
+                     (let ((branch (child~ client branch-name)))
+                       (set-restoreable?~ branch false)
+                       (set-active-branch~ client branch)))
+                   client)))))
+      (if (eq? branches true)
+          (if include-root?
+              (cons (instantiate {}) (map instantiate all-branch-names))
+            (map instantiate all-branch-names))
+        (map instantiate branches))))
 
 
   ;;;
@@ -1340,9 +1335,8 @@
     true)
   
   
-  (method public (determine-can-paste . rest)
-    (bind-optionals ((try-parent? true)) rest
-      (boolean (determine-paster try-parent?))))
+  (method public (determine-can-paste (try-parent? true))
+    (boolean (determine-paster try-parent?)))
   
   
   (method public (determine-paster . rest)
@@ -1391,7 +1385,7 @@
 
 
   (method public virtual (install-surrogate editor)
-    (set! surrogate (new (component-surrogate) :client self :editor editor))
+    (set! surrogate (new (component-surrogate) client: self :editor editor))
     (install-handlers~ surrogate)
     (install-children-surrogates editor))
   
@@ -1616,15 +1610,14 @@
     (for-each-parent proc))
   
   
-  (method public (for-each-descendant proc <Procedure> . rest)
-    (bind-keywords ((include-self? true)) rest
-      (letrec ((iterate
-                (function dynamic (component include? level)
-                  (when include?
-                    (proc component level))
-                  (loop (for child in (get-children~ component))
-                        (do (iterate child true (+ level 1)))))))
-        (iterate self include-self? 0))))
+  (method public (for-each-descendant proc <Procedure> (include-self?: include-self? true))
+    (letrec ((iterate
+               (function dynamic (component include? level)
+                 (when include?
+                   (proc component level))
+                 (loop (for child in (get-children~ component))
+                       (do (iterate child true (+ level 1)))))))
+      (iterate self include-self? 0)))
   
   
   (method public (for-each-sibling proc <Procedure>)

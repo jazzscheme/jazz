@@ -92,7 +92,7 @@
                  (jazz.global-value ',generic-locator)
                (jazz.new-generic ',method-locator ',(if rest? #f mandatory-parameters) (lambda () (%%list ,@parameter-access)))))
            (define ,method-locator
-             (lambda (,@parameter-names . ,rest-parameter)
+             (lambda (,@mandatory-parameters . ,rest-parameter)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
                  (jazz.update-generic ,generic-locator))
                (let ((,gensym-specific (%%specific-dispatch ,generic-locator ,(%%car parameter-names))))

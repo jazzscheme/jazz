@@ -118,6 +118,10 @@
 ;;;
 
 
+(define jazz.*run-loop?*
+  #t)
+
+
 (define jazz.parse-verbose?
   #f)
 
@@ -126,7 +130,7 @@
 
 
 (define jazz.Use-Print?
-  #t)
+  #f)
 
 (define jazz.Debug-Print?
   #f)
@@ -134,7 +138,7 @@
 
 ;; Set to #f to debug the walker itself
 (define jazz.Delay-Reporting?
-  #t)
+  #f)
 
 
 (define jazz.compile-options

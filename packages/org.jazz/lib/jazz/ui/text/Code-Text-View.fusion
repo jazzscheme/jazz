@@ -51,7 +51,7 @@
 
 
   (constant Completion-Color
-    {Color :red 128 :green 240 :blue 240})
+    {Color red: 128 green: 240 blue: 240})
 
 
   (property completion-color initialize Completion-Color getter get-completion-color setter set-completion-color)
@@ -62,7 +62,7 @@
   
   
   (form
-    (<install> default-style: {Text-Style name: Default :font {Font name: Code}} left-padding: 12))
+    (<install> default-style: {Text-Style name: Default font: {Font name: Code}} left-padding: 12))
   
   
   (method (new-syntax)
@@ -106,13 +106,12 @@
           (tabulate)))))
 
   
-  (method (backspace-press key . rest)
-    (bind-keywords ((word? false)) rest
-      (let ((previous (previous-cell (get-start))))
-        (if (not completion-active?)
-            (insert-char/backspace #\backspace :word? word?)
-          (when previous
-            (complete-current #\backspace previous {} true false))))))
+  (method (backspace-press key (word?: word? false))
+    (let ((previous (previous-cell (get-start))))
+      (if (not completion-active?)
+          (insert-char/backspace #\backspace :word? word?)
+        (when previous
+          (complete-current #\backspace previous {} true false)))))
 
 
   (method (char-press key translated)
@@ -278,12 +277,12 @@
         (cond ((header-string? form)
                (edit-filename~ appl (subseq form 1 (- (length form) 1))))
               ((file? form)
-               (edit-document~ appl form :workspace (edition-workspace)))
+               (edit-document~ appl form workspace: (edition-workspace)))
               ((is? form URL)
                (browse-url~ appl form))
               (else
                (let ((form (standardize-form form)))
-                 (edit-definition~ appl form :workspace (edition-workspace) :history-item (current-history-item) :context (get-context))))))))
+                 (edit-definition~ appl form workspace: (edition-workspace) history-item: (current-history-item) context: (get-context))))))))
 
   
   (method (on-edit-references evt)
@@ -291,7 +290,7 @@
           (appl (get-application)))
       (when form
         (let ((form (standardize-form form)))
-          (edit-references~ appl form :history-item (current-history-item) :context (get-context))))))
+          (edit-references~ appl form history-item: (current-history-item) context: (get-context))))))
     
   
   (method (standardize-form form)
@@ -329,11 +328,11 @@
                  (when cataloguer
                    (let* ((item (current-history-item))
                           (form (standardize-form form))
-                          (list (get-coalesced-definitions~ cataloguer form :context (get-context))))
+                          (list (get-coalesced-definitions~ cataloguer form context: (get-context))))
                      (case (length list)
                        ((0) (bell))
                        ((1) (add-history~ appl item) (edit~ (car list)))
-                       (else (track-popup-menu (new Definitions-Menu :history-item item :definitions list) pos)))))))))))
+                       (else (track-popup-menu (new Definitions-Menu history-item: item :definitions list) pos)))))))))))
 
 
   (method protected (edit-references pos)
@@ -344,11 +343,11 @@
           (when cataloguer
             (let* ((item (current-history-item))
                    (form (standardize-form form))
-                   (list (get-references~ cataloguer form :context (get-context))))
+                   (list (get-references~ cataloguer form context: (get-context))))
               (case (length list)
                 ((0) (bell))
                 ((1) (add-history~ appl item) (edit-reference~ (car list) form))
-                (else (track-popup-menu (new References-Menu :history-item item :target form :definitions list) pos)))))))))
+                (else (track-popup-menu (new References-Menu history-item: item target: form :definitions list) pos)))))))))
 
   
   ;;;
@@ -416,7 +415,7 @@
   
   (method public (recolorize-syntax)
     (uncolorize-all)
-    (colorize-syntax :recoloring? true))
+    (colorize-syntax recoloring?: true))
 
 
   (method (uncolorize-all)
@@ -443,11 +442,10 @@
     (build-search-automata (syntax-targets) true false self cpp/java-constituent?))
   
   
-  (method (colorize-syntax . rest)
-    (bind-keywords ((recoloring? false) (entries? true)) rest
-      (colorize-syntax-from (text-beginning) recoloring?)
-      (when entries?
-        (colorize-entries))))
+  (method (colorize-syntax (recoloring?: recoloring? false) (entries?: entries? true))
+    (colorize-syntax-from (text-beginning) recoloring?)
+    (when entries?
+      (colorize-entries)))
   
   
   (method (colorize-syntax-from pos recoloring?)
@@ -489,15 +487,14 @@
         found)))
   
   
-  (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? . rest)
-    (bind-keywords ((open "/*") (close "*/")) rest
-      (when recolorize?
-        (let ((found (multisearch-string (list (list close 'close) (open 'open)) :position start :extended? true :reverse? true)))
-          (when found
-            (bind (pos . (target type)) found
-              (when (= type 'open)
-                (apply-coloring colorizer pos end style)
-                (cdr found))))))))
+  (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
+    (when recolorize?
+      (let ((found (multisearch-string (list (list close 'close) (open 'open)) position: start :extended? true :reverse? true)))
+        (when found
+          (bind (pos . (target type)) found
+            (when (= type 'open)
+              (apply-coloring colorizer pos end style)
+              (cdr found)))))))
   
   
   (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
@@ -535,7 +532,7 @@
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
-        (let ((opening (multisearch-string '(("/*" open) ("*/" close)) :position start :extended? true :reverse? true)))
+        (let ((opening (multisearch-string '(("/*" open) ("*/" close)) position: start :extended? true :reverse? true)))
           (when opening
             (bind (start . (target type)) opening
               (when (= type 'open)
@@ -565,7 +562,7 @@
       (when (and moniker (file? moniker) (not (get-modified?)))
         (let ((cataloguer (get-cataloguer~ (get-application))))
           (when cataloguer
-            (let* ((entries (get-file-entries~ cataloguer moniker :context '(cpp/java)))
+            (let* ((entries (get-file-entries~ cataloguer moniker context: '(cpp/java)))
                    (file-entry (car entries)))
               (when (and file-entry (= (get-time~ file-entry) (get-moniker-time~ (get-controller))))
                 (get-definitions~ file-entry))))))))
@@ -594,7 +591,7 @@
     (let ((entries (get-parsed-entries)))
       (when entries
         (uncolorize-all)
-        (colorize-syntax :entries? false)
+        (colorize-syntax entries?: false)
         (for-each colorize-entry entries))))
 
   
@@ -620,11 +617,10 @@
   ;;;
   
   
-  (method (read-text-forms range . rest)
-    (bind-keywords ((string {}) (console? false)) rest
-      (let ((string (either string (get-string range))))
-        (with-closed ((reader (new String-Reader string)))
-          (read-until eof-object? reader)))))
+  (method (read-text-forms range (string: string {}) (console?: console? false))
+    (let ((string (either string (get-string range))))
+      (with-closed ((reader (new String-Reader string)))
+        (read-until eof-object? reader))))
   
   
   (method (offset-pos/range pos range)
@@ -769,7 +765,7 @@
       (let ((cataloguer (get-cataloguer~ (get-application))))
         (if (not cataloguer)
             '()
-          (let ((completions (get-completions~ cataloguer name :context (get-context)))
+          (let ((completions (get-completions~ cataloguer name context: (get-context)))
                 (length (length name)))
             (for-each (function dynamic (pair)
                         (let ((favorite (cdr pair)))
@@ -839,16 +835,15 @@
         (set-selection (new Range start end) :set-anchor? false))))
 
 
-  (method (insert-char/backspace c . rest)
-    (bind-keywords ((word? false)) rest
-      (when c
-        (if (/= c #\backspace)
-            (insert-char c)
-          ; remove competion before doing backspace
-          (when completion-active?
-            (replace-selection (list "")))
-          (backspace word?)
-          (flash-matching-character)))))
+  (method (insert-char/backspace c (word?: word? false))
+    (when c
+      (if (/= c #\backspace)
+          (insert-char c)
+        ; remove competion before doing backspace
+        (when completion-active?
+          (replace-selection (list "")))
+        (backspace word?)
+        (flash-matching-character))))
     
   
   ;;;
@@ -972,7 +967,7 @@
             (update-view))
         (let* ((pos (text->view end))
                @w(tran (acquire~ (get-desktop) self pos))
-               @w(tool (new Tooltip :position tran :size {Dimension 100 20} :visible? false))
+               @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: false))
                (expl (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
           (user-message "{l :detail :human}" (map (function dynamic (mark)
                                                     (get-string [range mark]))
@@ -1082,11 +1077,11 @@
     (if (< (length definitions) 20)
         (for-each (function dynamic (definition)
                     (let ((title (present~ definition 'definitions)))
-                      (new Label-Item parent: self :title title :action-handler (new Event-Handler :target self :method-name 'on-action :properties (list :definition definition)))))
+                      (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :definition definition)))))
                   (sort definition<? definitions))
       (let* ((menu self)
              (create-item (function dynamic (user-data title parent)
-                            (new Label-Item parent: parent :title title :action-handler (new Event-Handler :target menu :method-name 'on-action :properties (list :definition user-data)))))
+                            (new Label-Item parent: parent title: title action-handler: (new Event-Handler target: menu method-name: 'on-action properties: (list :definition user-data)))))
              (get-string (function dynamic (user-data) (present~ user-data 'definitions))))
         (make-condensed-menu definitions create-item key: get-string))))
   
@@ -1142,11 +1137,11 @@
     (if (< (length definitions) 20)
         (for-each (function dynamic (definition)
                     (let ((title (->string (present~ definition 'references))))
-                      (new Label-Item parent: self :title title :action-handler (new Event-Handler :target self :method-name 'on-action :properties (list :definition definition)))))
+                      (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :definition definition)))))
                   (sort definition<? definitions))
       (let* ((menu self)
              (create-item (function dynamic (user-data title parent)
-                            (new Label-Item parent: parent :title title :action-handler (new Event-Handler :target menu :method-name 'on-action :properties (list :definition user-data)))))
+                            (new Label-Item parent: parent title: title action-handler: (new Event-Handler target: menu method-name: 'on-action properties: (list :definition user-data)))))
              (get-string (function dynamic (user-data) (present~ user-data 'references))))
         (make-condensed-menu definitions create-item key: get-string))))
   

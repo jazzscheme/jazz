@@ -184,7 +184,7 @@
   (method (compare-moniker moniker)
     (let* ((left (new Document-Moniker moniker))
            (right moniker)
-           (frame (new-frame Compare-Databases :host-visible? false :left-moniker left :right-moniker right)))
+           (frame (new-frame Compare-Databases host-visible?: false left-moniker: left right-moniker: right)))
       (with-cursor :wait
         (function dynamic ()
           (compare-trees~ (get-guest~ frame))
@@ -207,7 +207,7 @@
   
   (method (install rest)
     (nextmethod rest)
-    (add-editor-listener (new Event-Handler :target self :method-name 'on-editor)))
+    (add-editor-listener (new Event-Handler target: self method-name: 'on-editor)))
 
 
   ;;;
@@ -311,7 +311,7 @@
   
   
   (method public virtual (show-properties)
-    (select-palette Properties-Manager :workspace {} :focus? true))
+    (select-palette Properties-Manager workspace: {} focus?: true))
   
   
   ;;;
@@ -323,19 +323,18 @@
     selection)
 
 
-  (method public (set-selection new . rest)
-    (bind-keywords ((origin {}) (force-parent? false) (force? false) (focus? true)) rest
-      (let ((appl (get-application))
-            (old selection))
-        (process-selection-changing old new origin force-parent? force? focus?)
-        (process-selection-changed old new origin force-parent? force? focus?)
-        (set-application-selected new force?)
-        (update-focus-actions~ appl))))
+  (method public (set-selection new (origin: origin {}) (force-parent?: force-parent? false) (force?: force? false) (focus?: focus? true))
+    (let ((appl (get-application))
+          (old selection))
+      (process-selection-changing old new origin force-parent? force? focus?)
+      (process-selection-changed old new origin force-parent? force? focus?)
+      (set-application-selected new force?)
+      (update-focus-actions~ appl)))
   
   
   (method (set-application-selected selected force?)
     (let ((appl (get-application)))
-      (set-selected~ appl self selected :force? force?)))
+      (set-selected~ appl self selected force?: force?)))
   
   
   (method (close-application-selected)
@@ -351,15 +350,14 @@
     (set-selection '()))
   
   
-  (method public (select component . rest)
-    (bind-keywords ((focus? true)) rest
-      (if (shift-down?)
-          (if (memq? component selection)
-              (set-selection (remove component selection) :focus? focus?)
-            (set-selection (append selection (list component)) :focus? focus?))
+  (method public (select component (focus?: focus? true))
+    (if (shift-down?)
         (if (memq? component selection)
-            (set-selection (cons component (remove component selection)) :focus? focus?)
-          (set-selection (list component) :focus? focus?)))))
+            (set-selection (remove component selection) focus?: focus?)
+          (set-selection (append selection (list component)) focus?: focus?))
+      (if (memq? component selection)
+          (set-selection (cons component (remove component selection)) focus?: focus?)
+        (set-selection (list component) focus?: focus?))))
   
   
   (method protected virtual (selection-changed old new origin force-parent? focus?)
@@ -395,7 +393,7 @@
   (method (save-content moniker)
     (process-saving)
     (save-to~ designer moniker)
-    (set-name~ designer (get-client) (get-base~ moniker) :branch {})
+    (set-name~ designer (get-client) (get-base~ moniker) branch: {})
     (update-moniker-time moniker)
     (if (not (get-modified?))
         (update-status)
@@ -436,7 +434,7 @@
   (method protected virtual (on-editor evt)
     (case (get-kind~ evt)
       ((:branch-changing)
-       (change-branch (get-property~ evt :branch)))
+       (change-branch (get-property~ evt branch:)))
       ((:branch-changed)
        (cleanup-selection))
       ((:selection-changing :saving)
@@ -504,15 +502,14 @@
     (essay designer (get-reference~ designer)))
   
   
-  (method public (edit-component component . rest)
-    (bind-keywords ((form (get-edited-form component))) rest
-      (when (/= component (get-reference))
-        (let ((old designer))
-          (uninstall-current-designer)
-          (when component
-            (install-current-designer component form))
-          (process-designer-change old designer)
-          (update-status)))))
+  (method public (edit-component component (form: form (get-edited-form component)))
+    (when (/= component (get-reference))
+      (let ((old designer))
+        (uninstall-current-designer)
+        (when component
+          (install-current-designer component form))
+        (process-designer-change old designer)
+        (update-status))))
   
   
   (method (get-edited-form component)
@@ -523,7 +520,7 @@
   
   (method protected virtual (install-current-designer component form)
     (set! designer (new (get-designer-class) form: form :reference component))
-    (add-designer-listener~ designer (new Event-Handler :target self :method-name 'on-designer))
+    (add-designer-listener~ designer (new Event-Handler target: self method-name: 'on-designer))
     (install-designer~ client designer))
   
   
@@ -539,7 +536,7 @@
     (let ((kind (get-kind~ evt)))
       (case kind
         ((:property-change)
-         (property-change (get-property~ evt :branch) (get-property~ evt :component) (get-property~ evt :property) (get-property~ evt :value) (get-property~ evt :undoable?))
+         (property-change (get-property~ evt branch:) (get-property~ evt :component) (get-property~ evt property:) (get-property~ evt :value) (get-property~ evt :undoable?))
          (set-controller-modified? true))
         ((:child-add :child-remove :send-before)
          (set-controller-modified? true)))))
@@ -560,7 +557,7 @@
   
   (method (process-client-change old client)
     (when listeners
-      (let ((evt (new Editor-Event :client-change self :old old :client client)))
+      (let ((evt (new Editor-Event :client-change self :old old client: client)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -568,7 +565,7 @@
   
   (method (process-designer-change old designer)
     (when listeners
-      (let ((evt (new Editor-Event :designer-change self :old old :designer designer)))
+      (let ((evt (new Editor-Event :designer-change self :old old designer: designer)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -576,7 +573,7 @@
   
   (method public (process-branch-changing branch)
     (when listeners
-      (let ((evt (new Editor-Event :branch-changing self :branch branch)))
+      (let ((evt (new Editor-Event :branch-changing self branch: branch)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -584,7 +581,7 @@
   
   (method public (process-branch-changed branch)
     (when listeners
-      (let ((evt (new Editor-Event :branch-changed self :branch branch)))
+      (let ((evt (new Editor-Event :branch-changed self branch: branch)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -592,7 +589,7 @@
   
   (method public (process-selection-changing old selection origin force-parent? force? user-origin?)
     (when listeners
-      (let ((evt (new Selection-Event :selection-changing self old selection :origin origin :force-parent? force-parent? :force? force? :user-origin? user-origin?)))
+      (let ((evt (new Selection-Event :selection-changing self old selection origin: origin :force-parent? force-parent? force?: force? :user-origin? user-origin?)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -600,7 +597,7 @@
   
   (method public (process-selection-changed old selection origin force-parent? force? user-origin?)
     (when listeners
-      (let ((evt (new Selection-Event :selection-changed self old selection :origin origin :force-parent? force-parent? :force? force? :user-origin? user-origin?)))
+      (let ((evt (new Selection-Event :selection-changed self old selection origin: origin :force-parent? force-parent? force?: force? :user-origin? user-origin?)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))
@@ -608,7 +605,7 @@
   
   (method public (process-property-selected property)
     (when listeners
-      (let ((evt (new Editor-Event :property-selected self :property property)))
+      (let ((evt (new Editor-Event :property-selected self property: property)))
         (for-each (function dynamic (listener)
                     (invoke~ listener self evt))
                   listeners))))

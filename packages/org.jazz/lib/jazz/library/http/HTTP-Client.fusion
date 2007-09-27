@@ -60,22 +60,21 @@
   ;;;
   
   
-  (method public (navigate host operation resource . rest)
-    (bind-keywords ((port 'http) (parameters '())) rest
-      (let* ((request (build-request host port operation resource parameters))
-             (response (send-request request host port))
-             (code (get-code~ response)))
-        (store-cookies response)
-        (case code
-          ((see-other)
-           (let* ((location (get-header~ response "Location"))
-                  (url (new URL (list location))))
-             (bind-values (hostname resource) (split~ url)
-               ;; should probably modify split to not remove the / instead...
-               (let ((resource (append "/" resource)))
-                 (navigate-safely (new Host name: hostname) "GET" resource)))))
-          (else
-           response)))))
+  (method public (navigate host operation resource (port: port (quote http)) (parameters: parameters (quote ())))
+    (let* ((request (build-request host port operation resource parameters))
+           (response (send-request request host port))
+           (code (get-code~ response)))
+      (store-cookies response)
+      (case code
+        ((see-other)
+         (let* ((location (get-header~ response "Location"))
+                (url (new URL (list location))))
+           (bind-values (hostname resource) (split~ url)
+             ;; should probably modify split to not remove the / instead...
+             (let ((resource (append "/" resource)))
+               (navigate-safely (new Host name: hostname) "GET" resource)))))
+        (else
+         response))))
   
   
   ;; The intent of this method is to cover the case where a redirect is
@@ -121,7 +120,7 @@
   
   
   (method (build-request host port operation resource parameters)
-    (let ((request (new HTTP-Request :operation operation :resource resource :parameters parameters)))
+    (let ((request (new HTTP-Request :operation operation :resource resource parameters: parameters)))
       (add-headers request host)
       (add-cookies request)
       request))

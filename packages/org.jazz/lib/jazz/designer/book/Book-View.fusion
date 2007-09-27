@@ -139,7 +139,7 @@
   
   (method public (set-client-from-forms client-forms)
     (for-each-property (function dynamic (name form)
-                         (let ((client (instantiate~ form :book book)))
+                         (let ((client (instantiate~ form book: book)))
                            (set-client~ book name client)))
                        client-forms)
     (clients-update))
@@ -157,7 +157,7 @@
       (function dynamic (name section)
         (let ((client (get-client~ section))
               (designer (get-designer~ section)))
-          (set-name~ designer client book-name :branch {})))))
+          (set-name~ designer client book-name branch: {})))))
 
   
   ;;;
@@ -166,20 +166,19 @@
   
   
   @convert-guest
-  (method meta (new-event . rest)
-    (bind-keywords ((host-visible? true)) rest
-      (let* ((frame (apply new-frame :host-visible? false rest))
-             (book-view (get-guest~ frame))
-             (book-name (unique-domain-name "New" (collect-names book-view)))
-             (controller (get-controller~ book-view))
-             (fact (new List-Factory)))
-        (set-newname~ controller book-name)
-        (update-status~ controller)
-        (clients-update~ book-view)
-        (update-names~ book-view book-name)
-        (bring-to-front~ frame)
-        (set-visible?~ frame host-visible?)
-        frame)))
+  (method meta (new-event (host-visible?: host-visible? true))
+    (let* ((frame (apply new-frame host-visible?: false rest))
+           (book-view (get-guest~ frame))
+           (book-name (unique-domain-name "New" (collect-names book-view)))
+           (controller (get-controller~ book-view))
+           (fact (new List-Factory)))
+      (set-newname~ controller book-name)
+      (update-status~ controller)
+      (clients-update~ book-view)
+      (update-names~ book-view book-name)
+      (bring-to-front~ frame)
+      (set-visible?~ frame host-visible?)
+      frame))
   
   
   @convert-guest
@@ -204,8 +203,8 @@
                 (let* ((section (get-section name))
                        (old-client (get-client~ section))
                        (old-name (get-name~ old-client))
-                       (form (new Form :textual? true :action 'new :model-name (get-model-name~ section)))
-                       (client (instantiate~ form :book self)))
+                       (form (new Form textual?: true action: 'new model-name: (get-model-name~ section)))
+                       (client (instantiate~ form book: self)))
                   (set-client~ section client)
                   (let ((designer (get-designer~ section)))
                     (set-name~ designer client old-name)
@@ -341,7 +340,7 @@
             (function dynamic (name section)
               (let ((designer (get-designer~ section)))
                 (set-origin~ (get-form~ designer) moniker)
-                (set-name~ designer (get-client~ section) base :branch {})
+                (set-name~ designer (get-client~ section) base branch: {})
                 (process-saving~ (get-editor~ section)))))
           (with-closed ((printer (new File-Printer moniker)))
             (set-printer-use-utf8? printer true)
@@ -371,7 +370,7 @@
   
   (method (output-properties printer)
     (let ((properties (get-properties)))
-      (format printer "{%}{%}:properties {a}{%}"
+      (format printer "{%}{%}properties: {a}{%}"
               (if (null? properties)
                   "()"
                 (format "{s}" properties)))))))

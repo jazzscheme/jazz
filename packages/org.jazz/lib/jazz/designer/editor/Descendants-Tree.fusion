@@ -151,14 +151,13 @@
   ;;;
 
 
-  (method (update . rest)
-    (bind-keywords ((expand-state (get-expand-state)) (selected-components '())) rest
-      (with-update-locked
-        (function dynamic ()
-          (remove-every-row)
-          (when client
-            (insert-toplevel (get-rights))
-            (update-selection expand-state selected-components))))))
+  (method (update (expand-state: expand-state (get-expand-state)) (selected-components: selected-components (quote ())))
+    (with-update-locked
+      (function dynamic ()
+        (remove-every-row)
+        (when client
+          (insert-toplevel (get-rights))
+          (update-selection expand-state selected-components)))))
   
   
   (method protected virtual (insert-toplevel rights)
@@ -169,16 +168,15 @@
     true)
   
   
-  (method protected virtual (insert-component row component rights update? level . rest)
-    (bind-keywords ((image {}) (state {})) rest
-      (when (insert-component? component)
-        (let* ((components (get-components~ component))
-               (title      (component-presentation component))
-               (image      (either image (component-image component)))
-               (state      (either state (component-state component) (if (null? components) 'collapsed (row-state component update? level))))
-               (subrow     (add-row :class Component-Row :father row :state state :children (list (new Component-Node :title title :image image)) :user-data component)))
-          (insert-components subrow component rights update? level)
-          subrow))))
+  (method protected virtual (insert-component row component rights update? level (image: image {}) (state: state {}))
+    (when (insert-component? component)
+      (let* ((components (get-components~ component))
+             (title      (component-presentation component))
+             (image      (either image (component-image component)))
+             (state      (either state (component-state component) (if (null? components) 'collapsed (row-state component update? level))))
+             (subrow     (add-row class: Component-Row father: row state: state children: (list (new Component-Node title: title image: image)) user-data: component)))
+        (insert-components subrow component rights update? level)
+        subrow)))
   
   
   (method protected virtual (insert-components row component rights update? level)
@@ -309,9 +307,9 @@
   (method (on-designer evt)
     (case (get-kind~ evt)
       ((:presentation-change) (presentation-change (get-property~ evt :component) (get-property~ evt :presentation)))
-      ((:child-add) (child-add (get-property~ evt :child) (get-property~ evt parent:) (get-property~ evt :descendant?)))
+      ((:child-add) (child-add (get-property~ evt :child) (get-property~ evt parent:) (get-property~ evt descendant?:)))
       ((:child-remove) (child-remove (get-property~ evt :child)))
-      ((:send-before) (send-before-target (get-property~ evt :child) (get-property~ evt parent:) (get-property~ evt :target)))
+      ((:send-before) (send-before-target (get-property~ evt :child) (get-property~ evt parent:) (get-property~ evt target:)))
       ((:refresh) (refresh (get-property~ evt :component) (get-property~ evt :what)))))
   
   
@@ -336,7 +334,7 @@
              (state (if (not descendant?) 'expanded 'collapsed)))
         (with-update-locked
           (function dynamic ()
-            (insert-component row child {} false level :state state)
+            (insert-component row child {} false level state: state)
             (when (not descendant?)
               (reorder-component child)
               (expand row)))))))
@@ -357,7 +355,7 @@
       (with-update-locked
         (function dynamic ()
           (move-component-row child-row parent-row
-            :position (function dynamic ()
+            position: (function dynamic ()
                         (find-component-insertion parent-row child target))))))))
 
 

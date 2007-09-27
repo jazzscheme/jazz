@@ -68,14 +68,17 @@
   (slot mode          initialize {})
   
   
-  (method (initialize . rest)
-    (bind-keywords ((cache? false) (portfolio {}) (image-name {}) (view-position {Point 0 0}) (view-size {})) rest
-      (nextmethod)
-      (set! [cache? self] cache?)
-      (set! [portfolio self] portfolio)
-      (set! [image-name self] image-name)
-      (set! [view-position self] view-position)
-      (set! [view-size self] view-size)))
+  (method (initialize (cache?: cache? false)
+                      (portfolio: portfolio {})
+                      (image-name: image-name {})
+                      (view-position: view-position {Point 0 0})
+                      (view-size: view-size {}))
+    (nextmethod)
+    (set! [cache? self] cache?)
+    (set! [portfolio self] portfolio)
+    (set! [image-name self] image-name)
+    (set! [view-position self] view-position)
+    (set! [view-size self] view-size))
   
   
   (method public (get-bounds)
@@ -96,24 +99,23 @@
            (error "Unable to get image bounds for {t}" self))))
   
   
-  (method public (get-size . rest)
-    (bind-keywords ((error? true)) rest
-      (cond (source
-             size)
-            (bitmap
-             (let ((info (BITMAP-make)))
-               (GetObject (either handle (load-image 'bitmap bitmap)) (size-of-BITMAP) info)
-               (new Dimension
-                 (BITMAP-bmWidth-ref info)
-                 (BITMAP-bmHeight-ref info))))
-            (metafile
-             (with ((bounds (get-bounds)))
-               (new Dimension
-                 (+ (rect-width bounds) 1)
-                 (+ (rect-height bounds) 1))))
-            (else
-             (when error?
-               (error "Unable to get image size for {t}" self))))))
+  (method public (get-size (error?: error? true))
+    (cond (source
+            size)
+          (bitmap
+            (let ((info (BITMAP-make)))
+              (GetObject (either handle (load-image 'bitmap bitmap)) (size-of-BITMAP) info)
+              (new Dimension
+                (BITMAP-bmWidth-ref info)
+                (BITMAP-bmHeight-ref info))))
+          (metafile
+            (with ((bounds (get-bounds)))
+              (new Dimension
+                (+ (rect-width bounds) 1)
+                (+ (rect-height bounds) 1))))
+          (else
+           (when error?
+             (error "Unable to get image size for {t}" self)))))
   
   
   (method public (get-width)
@@ -131,11 +133,10 @@
   ;;;
 
 
-  (method public (draw dc context h v . rest)
-    (bind-keywords ((size (get-size :error? false)) (style ILD_TRANSPARENT) (enabled? true)) rest
-      (let ((h (+ [h view-position] h))
-            (v (+ [v view-position] v)))
-        (draw-image-aux dc context h v size style enabled?))))
+  (method public (draw dc context h v (size: size (get-size error?: false)) (style: style ILD_TRANSPARENT) (enabled?: enabled? true))
+    (let ((h (+ [h view-position] h))
+          (v (+ [v view-position] v)))
+      (draw-image-aux dc context h v size style enabled?)))
   
   
   (method protected (draw-image-aux dc context h v size style enabled?)
@@ -167,7 +168,7 @@
 
   (method (draw-image dc context h v size style enabled?)
     (when image-name
-      (draw-image~ portfolio dc context image-name h v :style style :enabled? enabled?)))
+      (draw-image~ portfolio dc context image-name h v style: style enabled?: enabled?)))
 
 
   (method (draw-source dc h v size)
@@ -255,7 +256,7 @@
         (set! mode md)
         (when (or (= old 'filled) (= mode 'filled)
                   (= old 'stretched) (= mode 'stretched))
-          (update-image :force? true)))))
+          (update-image force?: true)))))
 
 
   (method public (get-view-position)
@@ -358,10 +359,9 @@
     (set! metafile (GetEnhMetaFile (parse~ moniker))))
 
 
-  (method public (update-image . rest)
-    (bind-keywords ((force? false)) rest
-      (when (or force? (= mode 'filled) (= mode 'stretched))
-        (set-source source))))
+  (method public (update-image (force?: force? false))
+    (when (or force? (= mode 'filled) (= mode 'stretched))
+      (set-source source)))
 
 
   (method (load-image-source file)

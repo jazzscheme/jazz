@@ -81,7 +81,7 @@
 (definition public (call-action action sender properties . rest)
   (bind-keywords ((event {})) rest
     (let ((action-item (require-action-item action)))
-      (invoke~ action-item sender properties :action action :event event))))
+      (invoke~ action-item sender properties action: action event: event))))
 
 
 (definition public (get-action-enabled? action)
@@ -364,11 +364,10 @@
     (->string n)))
 
 
-(definition public (format-plural n <int> . rest)
-  (bind-optionals ((plural "s")) rest
-    (if (= n 1)
-        ""
-      plural)))
+(definition public (format-plural n <int> (plural "s"))
+  (if (= n 1)
+      ""
+    plural))
 
 
 (definition public (format-gender word)
@@ -414,7 +413,7 @@
   (unimplemented 'get-debug-color)
   @unimplemented
   (unless Debug-Color
-    (set! Debug-Color (new Color :red 90 :green 90 :blue 90)))
+    (set! Debug-Color (new Color red: 90 green: 90 blue: 90)))
   Debug-Color)
 
 @old-debug
@@ -465,7 +464,7 @@
   ;; to convert
   @unimp
   (bind-keywords ((title {}) (details '()) (reporter {})) rest
-    (with-closed ((context (new Execution-Context :title title :details details :reporter reporter)))
+    (with-closed ((context (new Execution-Context title: title :details details reporter: reporter)))
       (proc))))
 
 
@@ -474,7 +473,7 @@
   ;; to convert
   @unimp
   (bind-keywords ((title {}) (details '()) (reporter {})) rest
-    (with-closed ((node (new Execution-Node :title title :details details :reporter reporter)))
+    (with-closed ((node (new Execution-Node title: title :details details reporter: reporter)))
       (proc))))
 
 
@@ -864,7 +863,7 @@
                            (format printer "{a}: {a}" (keyword->symbol property) value))
                          properties)
       (let ((message (get-output~ printer)))
-        (log-entry :tag tag name: name :message message :data data :log log)))))
+        (log-entry :tag tag name: name message: message :data data :log log)))))
 
 
 (definition public (new-log-node . rest)
@@ -905,7 +904,7 @@
   @later
   (bind-keywords ((tag {}) (name {}) (message {}) (log (current-log))) rest
     (let ((data (new Stack-Snapshot)))
-      (log-entry :tag tag name: name :message message :data data :log log))))
+      (log-entry :tag tag name: name message: message :data data :log log))))
 
 
 (definition public (profiles->jml profiles)
@@ -933,7 +932,7 @@
   (let ((name (profile-name profile))
         (count (profile-count profile 0))
         (total (profile-total profile 0)))
-    (new JML-Element parent 'profile :properties (list 'name name 'count count 'total total))))
+    (new JML-Element parent 'profile properties: (list 'name name 'count count 'total total))))
 
 
 (definition (insert-profile-children parent profile)
@@ -1130,10 +1129,10 @@
         (let* ((appl (get-application))
                (pref (get-repositories-preferences~ appl))
                (repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
-               (status (essay repository (get-file-status~ repository file :error? false)))
+               (status (essay repository (get-file-status~ repository file error?: false)))
                (code (cond ((not status)
                             (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
-                                               :title "File Status"
+                                               title: "File Status"
                                                :type 'question
                                                :process-keys? false)
                               ((yes) 'set-read/write)
@@ -1142,7 +1141,7 @@
                             'checkout)
                            (else
                             (case (message-box (format "File {s} is read-only. Do you want to check it out?{%}Overwrite read-only status by pressing \"Set Read/Write\"." (get-name~ moniker))
-                                               :title "File Status"
+                                               title: "File Status"
                                                :type 'confirmation
                                                :yes "Check Out"
                                                :no "Set Read/Write"
@@ -1286,20 +1285,18 @@
 ;;;
 
 
-(definition public (wait-while predicate <Procedure> . rest)
-  (bind-optionals ((window (get-toplevel))) rest
-    (let ((process (get-process)))
-      (while (predicate)
-        (process-one-message~ process window)
-        (sleep 0)))))
+(definition public (wait-while predicate <Procedure> (window (get-toplevel)))
+  (let ((process (get-process)))
+    (while (predicate)
+      (process-one-message~ process window)
+      (sleep 0))))
 
 
-(definition public (wait-until predicate <Procedure> . rest)
-  (bind-optionals ((window (get-toplevel))) rest
-    (let ((process (get-process)))
-      (while (not (predicate))
-        (process-one-message~ process window)
-        (sleep 0)))))
+(definition public (wait-until predicate <Procedure> (window (get-toplevel)))
+  (let ((process (get-process)))
+    (while (not (predicate))
+      (process-one-message~ process window)
+      (sleep 0))))
 
 
 ;;;
@@ -1337,7 +1334,7 @@
                                         (function ()
                                           (when handler
                                             (invoke~ handler self {})))))
-                                 (list (list :image image) "  " (list :hyperlink action title))))
+                                 (list (list image: image) "  " (list :hyperlink action title))))
                              actions)))
 
 
@@ -1380,7 +1377,7 @@
                         (for n from 0)
                         (collect (if (= n last)
                                      (new Display-Column display)
-                                   (new Aligned-Column display :border-after 1 :alignment 'left))))))
+                                   (new Aligned-Column display border-after: 1 alignment: 'left))))))
     (add-columns~ display columns)
     (for-each (function dynamic (row)
                 (for-each (function dynamic (object column)
@@ -1949,7 +1946,7 @@
 
 
 (definition public (sort-case-sensitive?)
-  (let ((pref (get-preferences '(interface tree) :error? false)))
+  (let ((pref (get-preferences '(interface tree) error?: false)))
     (and pref (get-sort-case-sensitive?~ pref))))
 
 
@@ -1991,7 +1988,7 @@
           (proc temp)
           (set! completed? true))
       (cond ((not completed?)
-             (delete-file~ temp :error? false))
+             (delete-file~ temp error?: false))
             ((exists?~ file)
              (move-pathname~ file back)
              (move-pathname~ temp file)
@@ -2165,11 +2162,10 @@
   (error "Sorry, this functionnality is temporarily disabled"))
 
 
-(definition public (must-implement definition-name . rest)
-  (bind-optionals ((what {})) rest
-    (error "The {a} definition must be implemented for {a} to work correctly"
-           definition-name
-           (either what "this application"))))
+(definition public (must-implement definition-name (what {}))
+  (error "The {a} definition must be implemented for {a} to work correctly"
+         definition-name
+         (either what "this application")))
 
 
 ;;;
@@ -2192,7 +2188,7 @@
 (definition public (string->sequence string type)
   (let* ((length (length string))
          (size   (* (+ length 1) 2))
-         (seq    (new type :size size)))
+         (seq    (new type size: size)))
     (for-each (function dynamic (i)
                 (let ((n (* i 2))
                       (c (char->integer (element string i))))
@@ -2279,7 +2275,7 @@
 @convert-and-relocate
 (definition public (request-data-source . rest)
   (bind-keywords ((provider {})) rest
-    (bind-values (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) :host-visible? false)
+    (bind-values (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) host-visible?: false)
       (let ((manager (get-guest~ dialog)))
         (when provider
           (set-provider~ manager (external-name~ provider)))
@@ -2318,6 +2314,6 @@
 
 
 (definition public (present-hour/minutes hour minutes)
-  (format "{a :width 2 :justify :right :padding #\\0}:{a :width 2 :justify :right :padding #\\0}"
+  (format "{a width: 2 :justify :right :padding #\\0}:{a width: 2 :justify :right :padding #\\0}"
     hour
     minutes)))

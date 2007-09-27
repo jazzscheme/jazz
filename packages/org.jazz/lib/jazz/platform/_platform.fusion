@@ -146,10 +146,10 @@
           (right  [right frame])
           (bottom [bottom frame])
           (region (new Region)))
-      (with-closed ((l (new Region :left left                     :top top                        :right (+ left [left insets]) :bottom bottom))
-                    (t (new Region :left left                     :top top                        :right right                  :bottom (+ top [top insets])))
-                    (r (new Region :left (- right [right insets]) :top top                        :right right                  :bottom bottom))
-                    (b (new Region :left left                     :top (- bottom [bottom insets]) :right right                  :bottom bottom)))
+      (with-closed ((l (new Region left: left                     top: top                        right: (+ left [left insets]) bottom: bottom))
+                    (t (new Region left: left                     top: top                        right: right                  bottom: (+ top [top insets])))
+                    (r (new Region left: (- right [right insets]) top: top                        right: right                  bottom: bottom))
+                    (b (new Region left: left                     top: (- bottom [bottom insets]) right: right                  bottom: bottom)))
         (combine!~ region l 'or)
         (combine!~ region t 'or)
         (combine!~ region r 'or)
@@ -795,8 +795,8 @@
   @threads
   (new Thread
     name: "Process Snapshot"
-    :context self
-    :execute (function (thread)
+    context: self
+    execute: (function (thread)
                (snapshot-process-content))))
 
 
@@ -805,8 +805,8 @@
   @threads
   (new Thread
     name: "Memory Dump"
-    :context self
-    :execute (function (thread)
+    context: self
+    execute: (function (thread)
                (dump-memory-content))))
 
 
@@ -1410,7 +1410,7 @@
   (method public (anchorize . rest)
     (bind-keywords ((anchors {})) rest
       (let* ((anchors (if (not anchors) (default-anchors) anchors))
-             (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor :error? false))) anchors))
+             (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: false))) anchors))
              (sorted (sort < anchored key: (function dynamic (path) (length (get-list~ path))))))
         (if (null? sorted)
             self
@@ -1553,7 +1553,7 @@
           (at (get-attributes)))
       ;; this is ugly big time...
       (set-read/write)
-      (with-closed ((printer (new File-Printer self :mode 'append)))
+      (with-closed ((printer (new File-Printer self mode: 'append)))
         (SetFileTime (get-handle~ printer) NULL NULL ft))
       (set-attributes at)))
   
@@ -1689,7 +1689,7 @@
                 (ext (extract-extension name))
                 (suffix 1))
             (while (exists?~ file)
-              (set! file (new-file (format "{a}{a}{a :width 2 :justify :right :padding #\\0}.{a}" base (either separator "") suffix ext)))
+              (set! file (new-file (format "{a}{a}{a width: 2 :justify :right :padding #\\0}.{a}" base (either separator "") suffix ext)))
               (increase! suffix))
             file)))))
 
@@ -1714,10 +1714,10 @@
                       (copy-file~ path dest))
                     (when touch-files?
                       (touch~ dest)))
-                (copy-directory~ path (new Directory (destination path)) :feedback feedback :touch-files? touch-files? :copy? copy?))))
-          :files? true
-          :directories? true
-          :recursive? false))))
+                (copy-directory~ path (new Directory (destination path)) feedback: feedback :touch-files? touch-files? :copy? copy?))))
+          files?: true
+          directories?: true
+          recursive?: false))))
   
   
   (method public virtual (delete-directory . rest)
@@ -1726,7 +1726,7 @@
     (bind-keywords ((overwrite-read-only? false) (feedback {})) rest
       (when feedback
         (feedback self))
-      (empty-directory :overwrite-read-only? overwrite-read-only? :feedback feedback)
+      (empty-directory :overwrite-read-only? overwrite-read-only? feedback: feedback)
       (remove-directory)))
   
   
@@ -1738,10 +1738,10 @@
         (function dynamic (path)
           (if (is? path File)
               (delete-file~ path :overwrite-read-only? overwrite-read-only?)
-            (delete-directory~ path :overwrite-read-only? overwrite-read-only? :feedback feedback)))
-        :files? true
-        :directories? true
-        :recursive? false)))
+            (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
+        files?: true
+        directories?: true
+        recursive?: false)))
   
   
   (method public (remove-directory)
@@ -1773,18 +1773,18 @@
     (iterate-directory
       (function dynamic (item)
         (put~ fact item))
-      :files? false
-      :directories? true
-      :recursive? false))
+      files?: false
+      directories?: true
+      recursive?: false))
   
   
   (method (collect-leaves fact)
     (iterate-directory
       (function dynamic (item)
         (put~ fact item))
-      :files? true
-      :directories? false
-      :recursive? false))
+      files?: true
+      directories?: false
+      recursive?: false))
      
    
   ;;;
@@ -1807,7 +1807,7 @@
         (function dynamic (file)
           (when (predicate file)
             (put~ fact file)))
-        :recursive? false)
+        recursive?: false)
       (get-output~ fact)))
   
   
@@ -2381,7 +2381,7 @@
     (format printer "  (~{Thread-Snapshot{%}")
     (format printer "    :model {a}{%}" (type-name (class-of thread)))
     (format printer "    :label {s}{%}" (get-name~ thread))
-    (format printer "    :state {a}{%}" (get-state~ thread))
+    (format printer "    state: {a}{%}" (get-state~ thread))
     (format printer "    :call-stack{%}")
     (format printer "    (")
     (print-stack-content thread printer)
@@ -2402,7 +2402,7 @@
           (hour   (get st 'wHour))
           (minute (get st 'wMinute))
           (second (get st 'wSecond)))
-      (format printer "{a :width 4 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0} {a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}{a}{a :width 2 :justify :right :padding #\\0}"
+      (format printer "{a width: 4 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0} {a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}"
         (subseq (->string year) 0 4)
         date-separator
         month

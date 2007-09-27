@@ -188,8 +188,8 @@
   (method (launch-supervisor-thread)
     (new Thread
       name: "Supervisor Thread"
-      :context self
-      :execute supervise-threads))
+      context: self
+      execute: supervise-threads))
   
   ;; tofix
   (method (prepare-phase rest)
@@ -317,15 +317,14 @@
   ;;;
   
 
-  (method public (exit-process . rest)
-    (bind-optionals ((status 0)) rest
-      (focus-exit)
-      (preserve-environment)
-      (close-environment)
-      (let ((signal (new Exit-Signal :status status)))
-        (if (catched? signal)
-            (throw signal)
-          (exit status)))))
+  (method public (exit-process (status 0))
+    (focus-exit)
+    (preserve-environment)
+    (close-environment)
+    (let ((signal (new Exit-Signal :status status)))
+      (if (catched? signal)
+          (throw signal)
+        (exit status))))
 
   ;;;
   ;;;; Alias
@@ -484,14 +483,12 @@
             (else {}))))
   
   
-  (method public (apply-preferences preferences . rest)
-    (bind-optionals ((client {})) rest
-      (apply-preferences~ preferences client)))
+  (method public (apply-preferences preferences (client {}))
+    (apply-preferences~ preferences client))
   
   
-  (method public (save-preferences preferences . rest)
-    (bind-optionals ((client {})) rest
-      (save-preferences~ preferences (get-preferences-designer) client)))
+  (method public (save-preferences preferences (client {}))
+    (save-preferences~ preferences (get-preferences-designer) client))
 
   
   (method public (set-preferences-property preferences property value)
@@ -644,7 +641,7 @@
   
   
   (method public virtual (prepare-user-aliases)
-    (let ((pref (get-preferences 'aliases :error? false)))
+    (let ((pref (get-preferences 'aliases error?: false)))
       (when pref
         (let ((aliases (get-children~ pref)))
           (for-each (function dynamic (pref)
@@ -730,7 +727,7 @@
   (method protected (start-stub-listener)
     (unless stub-listener
       (set! stub-listener (new Stub-Listener))
-      (unless (wait-started~ stub-listener :error? false)
+      (unless (wait-started~ stub-listener error?: false)
         (error "Unable to start stub listener"))))
   
   
@@ -1162,12 +1159,12 @@
   (method protected virtual (report-read-error exception)
     (let* ((message (present-message~ exception))
            (code (message-box message
-                              :title "Read Error")))
+                              title: "Read Error")))
       (stop-debugging)))
   
   
   (method protected virtual (report-walk-error exception)
     (let* ((message (present-message~ exception))
            (code (message-box message
-                              :title "Walk Error")))
+                              title: "Walk Error")))
       (stop-debugging)))))

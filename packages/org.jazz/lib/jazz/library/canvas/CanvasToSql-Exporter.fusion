@@ -58,14 +58,13 @@
     ";")
   
   
-  (method (initialize . rest)
-    (bind-keywords ((provider {}) (separator {}) (key-id? false)) rest
-      (nextmethod)
-      (set! [provider self] (if (is? provider Provider)
-                                provider
-                              (get-provider~ Provider provider)))
-      (set! [separator self] (either separator Default-Separator))
-      (set! [key-id? self] key-id?)))
+  (method (initialize (provider: provider {}) (separator: separator {}) (key-id?: key-id? false))
+    (nextmethod)
+    (set! [provider self] (if (is? provider Provider)
+                              provider
+                            (get-provider~ Provider provider)))
+    (set! [separator self] (either separator Default-Separator))
+    (set! [key-id? self] key-id?))
   
   
   ;;;
@@ -148,26 +147,25 @@
   ;;;
   
   
-  (method (select-primary-key component table . rest)
-    (bind-optionals ((column {})) rest
-      (if key-id?
-          (register-primary-key component (get-serial-key table))
-        (let ((var (register-primary-key component (string->symbol (format "pk{a}" key-suffix)))))
-          (increase! key-suffix)
-          (case (external-name~ provider)
-            ((sqlserver)
-             (format printer "SELECT {a} = MAX({a}) FROM {a}{a}{%}"
-                     (format-sql-value var)
-                     column
-                     table
-                     separator))
-            ((informix)
-             (format printer "SELECT MAX({a}) INTO {a} FROM {a}{a}{%}"
-                     column
-                     (format-sql-value var)
-                     table
-                     separator)))
-          var))))
+  (method (select-primary-key component table (column {}))
+    (if key-id?
+        (register-primary-key component (get-serial-key table))
+      (let ((var (register-primary-key component (string->symbol (format "pk{a}" key-suffix)))))
+        (increase! key-suffix)
+        (case (external-name~ provider)
+          ((sqlserver)
+           (format printer "SELECT {a} = MAX({a}) FROM {a}{a}{%}"
+             (format-sql-value var)
+             column
+             table
+             separator))
+          ((informix)
+           (format printer "SELECT MAX({a}) INTO {a} FROM {a}{a}{%}"
+             column
+             (format-sql-value var)
+             table
+             separator)))
+        var)))
   
   
   (method (get-serial-key table)

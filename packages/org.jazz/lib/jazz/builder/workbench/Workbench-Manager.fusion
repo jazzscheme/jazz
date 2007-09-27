@@ -501,15 +501,15 @@
            (if (and (exists?~ product-file) (determine-product-file? product-file))
                (install-product product-file parent true)
              (let ((subgroup (new Product-Group name: name)))
-               (add-child~ designer subgroup parent :design-events? (not descendant?) :descendant? descendant?)
-               (set-name~ designer subgroup name :design-events? (not descendant?))
+               (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
+               (set-name~ designer subgroup name design-events?: (not descendant?))
                (iterate-directory~ pathname
                  (function dynamic (pathname)
                    (import-pathname product pathname subgroup true))
-                 :files? true
-                 :directories? true
+                 files?: true
+                 directories?: true
                  :sort? true
-                 :recursive? false)
+                 recursive?: false)
                subgroup))))
         ((File)
          (when (import-filter? product pathname)
@@ -523,10 +523,10 @@
            (name (if (eq? model Jazz-File) (string->symbol (get-base~ file)) {}))
            (product-file (new model name: name :source file))
            (workbench (get-workbench)))
-      (add-child~ designer product-file parent :design-events? (not descendant?) :descendant? descendant?)
-      (set-property~ designer product-file 'source file :design-events? (not descendant?))
+      (add-child~ designer product-file parent design-events?: (not descendant?) descendant?: descendant?)
+      (set-property~ designer product-file 'source file design-events?: (not descendant?))
       (when (eq? model Jazz-File)
-        (set-name~ designer product-file name :design-events? (not descendant?))
+        (set-name~ designer product-file name design-events?: (not descendant?))
         (add-entry~ workbench name product-file))
       product-file))
   
@@ -640,17 +640,17 @@
             (let ((out-of-synch (get-output~ fact)))
               (if (null? out-of-synch)
                   (message-box "Content is synchronized")
-                (let* ((border (new Synchronize-Border :size {Dimension 500 200}))
+                (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
                        (tree (locate~ border 'tree))
                        (add
                         (function dynamic (what path)
-                          (let ((c0 (new Tree-Node :title (join path "/") :image {Bitmap-Resource "OpenedFolder"})))
-                            (add-row~ tree :children (list c0 {} {} {}))))))
+                          (let ((c0 (new Tree-Node title: (join path "/") image: {Bitmap-Resource "OpenedFolder"})))
+                            (add-row~ tree children: (list c0 {} {} {}))))))
                   (for-each (function dynamic (info)
                               (bind (what path) info
                                 (add what (reverse path))))
                             out-of-synch)
-                  (message-box "The following elements are out of synch. Synchronize?" :class Synchronize-Box :type 'confirmation :content border)))))))))
+                  (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box :type 'confirmation :content border)))))))))
   
   
   ;;;
@@ -667,10 +667,10 @@
                     (typecase pathname
                       ((Directory)
                        (iterate-directory~ pathname iterate
-                         :files? true
-                         :directories? true
+                         files?: true
+                         directories?: true
                          :sort? true
-                         :recursive? false))
+                         recursive?: false))
                       ((File)
                        (when (import-filter? product pathname)
                          (let ((model (extension-model (get-extension~ pathname))))
@@ -744,7 +744,7 @@
           (unhighlight-component~ tree active-project))
         (set! active-project project)
         (when active-project
-          (let ((row (user-data-row~ tree active-project :visible? false)))
+          (let ((row (user-data-row~ tree active-project visible?: false)))
             (when row
               (ensure-expanded~ tree row)))
           (highlight-component~ tree active-project)))
@@ -848,15 +848,15 @@
                  (clear-results~ output)
                  (select-results~ output)
                  (select-palette Output-Log)
-                 (build~ project-file project {} {} output :force? true)
+                 (build~ project-file project {} {} output force?: true)
                  (user-message "Done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})
       @w
       (new Thread
         name: "File Compiler"
         :information file
-        :context self
-        :execute proc)))
+        context: self
+        execute: proc)))
   
   
   ;;;
@@ -889,7 +889,7 @@
                  (clear-results~ output)
                  (select-results~ output)
                  (select-palette Output-Log)
-                 (preprocess~ file project {} {} output :force? true)
+                 (preprocess~ file project {} {} output force?: true)
                  (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})))
   
@@ -1022,7 +1022,7 @@
            (ignored-dirs (list "Debug" "Release" "Work"))
            (files        (list "vssver.scc"))
            (extensions   (list))
-           (frame        (new-frame Compare-Directories :left-moniker left :right-moniker right :left-content content :ignored-nodes ignored-dirs :ignored-leaves files :ignored-extensions extensions :host-visible? false)))
+           (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: false)))
       (with-cursor :wait
         (function dynamic ()
           (compare-trees~ (get-guest~ frame))
@@ -1078,11 +1078,11 @@
           ((Project) (new-project-menu object))
           ((Product) (new-product-menu object))
           ((Project-Dependencies) (new-dependencies-menu object))
-          (else (new Element-Menu :client (get-tree)))))))
+          (else (new Element-Menu client: (get-tree)))))))
   
   
   (method (new-group-menu object)
-    (let ((menu (new Group-Menu :client (get-tree))))
+    (let ((menu (new Group-Menu client: (get-tree))))
       (update-group/product-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1090,7 +1090,7 @@
   
   
   (method (new-project-menu object)
-    (let ((menu (new Project-Menu :client (get-tree))))
+    (let ((menu (new Project-Menu client: (get-tree))))
       (update-group/product-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1098,7 +1098,7 @@
   
   
   (method (new-product-menu object)
-    (let ((menu (new Product-Menu :client (get-tree))))
+    (let ((menu (new Product-Menu client: (get-tree))))
       (when (is? object Workbench)
         (set-visible?~ (locate~ menu 'synchronize-content) false))
       (update-group/product-menu menu)
@@ -1108,7 +1108,7 @@
   
   
   (method (new-dependencies-menu object)
-    (let ((menu (new Dependencies-Menu :client (get-tree))))
+    (let ((menu (new Dependencies-Menu client: (get-tree))))
       menu))
   
   
@@ -1208,7 +1208,7 @@
       (for-each (function dynamic (policy)
                   (let ((name (get-name~ policy))
                         (title (get-title~ policy)))
-                    (new Check-Item parent: self :checked? (eq? name [Current-Policy Workbench-Manager]) :title title :action-handler (new Event-Handler :target self :method-name 'on-action :properties (list :policy name)))))
+                    (new Check-Item parent: self :checked? (eq? name [Current-Policy Workbench-Manager]) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :policy name)))))
                 policies)))
   
   

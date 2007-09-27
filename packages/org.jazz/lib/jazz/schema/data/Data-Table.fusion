@@ -58,23 +58,22 @@
   
   @convert-literal
   (method meta (construct-literal context name properties primary-key columns indexes triggers constraints)
-    (new self name: name :properties properties :primary-key primary-key :columns columns :indexes indexes :triggers triggers :constraints constraints))
+    (new self name: name properties: properties :primary-key primary-key :columns columns :indexes indexes :triggers triggers :constraints constraints))
   
   
-  (method (initialize . rest)
-    (bind-keywords ((owner {}) (name {}) (parent {}) (properties '()) (request {}) (primary-key {}) (columns '()) (column-names '()) (indexes '()) (triggers '()) (constraints '()) (rows '())) rest
-      (nextmethod)
-      (set! [owner self] owner)
-      (set! [name self] name)
-      (set! [parent self] parent)
-      (set! [properties self] properties)
-      (set! [request self] request)
-      (set-primary-key primary-key)
-      (set-columns (either columns (create-columns column-names)))
-      (set-indexes indexes)
-      (set-triggers triggers)
-      (set-constraints constraints)
-      (set! [rows self] rows)))
+  (method (initialize (owner: owner {}) (name: name {}) (parent: parent {}) (properties: properties (quote ())) (request: request {}) (primary-key: primary-key {}) (columns: columns (quote ())) (column-names: column-names (quote ())) (indexes: indexes (quote ())) (triggers: triggers (quote ())) (constraints: constraints (quote ())) (rows: rows (quote ())))
+    (nextmethod)
+    (set! [owner self] owner)
+    (set! [name self] name)
+    (set! [parent self] parent)
+    (set! [properties self] properties)
+    (set! [request self] request)
+    (set-primary-key primary-key)
+    (set-columns (either columns (create-columns column-names)))
+    (set-indexes indexes)
+    (set-triggers triggers)
+    (set-constraints constraints)
+    (set! [rows self] rows))
   
   
   (method (create-columns column-names)
@@ -265,15 +264,14 @@
               columns))
   
   
-  (method public (get-columns-sql . rest)
-    (bind-keywords ((prefix {})) rest
-      (join (map (function dynamic (column)
-                   (let ((name (get-name~ column)))
-                     (if (null? prefix)
-                         name
-                       (append prefix name))))
-                 columns)
-            ", ")))
+  (method public (get-columns-sql (prefix: prefix {}))
+    (join (map (function dynamic (column)
+                 (let ((name (get-name~ column)))
+                   (if (null? prefix)
+                       name
+                     (append prefix name))))
+               columns)
+          ", "))
   
   
   (method public (add-column column)
@@ -399,9 +397,8 @@
     row)
   
   
-  (method public (new-row . rest)
-    (bind-optionals ((values '())) rest
-      (add-row (new Data-Row self values))))
+  (method public (new-row (values (quote ())))
+    (add-row (new Data-Row self values)))
   
   
   (method public (get-row rank)
@@ -413,13 +410,12 @@
   ;;;
   
   
-  (method public (load-request command connection . rest)
-    (bind-keywords ((max-load true)) rest
-      (let ((request (new-request~ connection)))
-        (bind-values (columns new-rows rows-missing?) (load-rows~ request command self :max-load max-load)
-          (set! rows (append! rows new-rows))
-          (set! missing? rows-missing?)
-          new-rows))))
+  (method public (load-request command connection (max-load: max-load true))
+    (let ((request (new-request~ connection)))
+      (bind-values (columns new-rows rows-missing?) (load-rows~ request command self :max-load max-load)
+        (set! rows (append! rows new-rows))
+        (set! missing? rows-missing?)
+        new-rows)))
   
   
   ;;;
@@ -474,7 +470,6 @@
   ;;;
   
   
-  (method public (sort-by name . rest)
-    (bind-keywords ((ascending? true)) rest
-      (let ((fn (if ascending? < >)))
-        (set! rows (sort fn rows key: (function dynamic (row) (get~ row name)))))))))
+  (method public (sort-by name (ascending?: ascending? true))
+    (let ((fn (if ascending? < >)))
+      (set! rows (sort fn rows key: (function dynamic (row) (get~ row name))))))))

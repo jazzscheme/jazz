@@ -101,30 +101,26 @@
                     (set-active-branch~ architecture old))))))
            
            (get
-            (function dynamic (component property . rest)
-              (bind-keywords ((branch true)) rest
-                (in-branch branch
-                 (function dynamic ()
-                   (read-property component property))))))
+            (function dynamic (component property (branch: branch true))
+              (in-branch branch
+                         (function dynamic ()
+                           (read-property component property)))))
            
            (set
-            (function dynamic (component property value . rest)
-              (bind-keywords ((branch true)) rest
-                (set-property~ designer component property value :branch branch))))
+            (function dynamic (component property value (branch: branch true))
+              (set-property~ designer component property value branch: branch)))
            
            (rem
-            (function dynamic (component property default-value . rest)
-              (bind-keywords ((branch true)) rest
-                (remove-property~ designer component property default-value :branch branch))))
+            (function dynamic (component property default-value (branch: branch true))
+              (remove-property~ designer component property default-value branch: branch)))
            
            (val
-            (function dynamic (component property value . rest)
-              (bind-keywords ((branch true)) rest
-                (when (/= (get component property :branch branch) value)
-                  (let ((message (format "(= (get {a} '{t}{a}) {t})" (get-name~ component) property (if (eq? branch true) "" (format " :branch {a}" (essay branch (get-name~ branch)))) value)))
-                    (if (null? suite)
-                        (error "Assertion {a} failed" message)
-                      (signal (new Tester-Error message true)))))))))
+            (function dynamic (component property value (branch: branch true))
+              (when (/= (get component property branch: branch) value)
+                (let ((message (format "(= (get {a} '{t}{a}) {t})" (get-name~ component) property (if (eq? branch true) "" (format " branch: {a}" (essay branch (get-name~ branch)))) value)))
+                  (if (null? suite)
+                      (error "Assertion {a} failed" message)
+                    (signal (new Tester-Error message true))))))))
       
       ;; A branch when considered in relation to the active branch can be of three kind:
       ;; 1- The active branch itself
@@ -140,9 +136,9 @@
       (val T1 'description "A")
       
       ;; set in a dormant branch
-      (set T1 'description "W" :branch W)
+      (set T1 'description "W" branch: W)
       (val T1 'description "A")
-      (val T1 'description "W" :branch W)
+      (val T1 'description "W" branch: W)
       
       ;; remove in the active branch
       (rem T2 'description {})
@@ -154,32 +150,32 @@
       (val T2 'description {})
       
       ;; remove in a dormant branch
-      (set T2 'description "W" :branch W)
-      (val T2 'description "W" :branch W)
-      (rem T2 'description {} :branch W)
-      (val T2 'description {} :branch W)
+      (set T2 'description "W" branch: W)
+      (val T2 'description "W" branch: W)
+      (rem T2 'description {} branch: W)
+      (val T2 'description {} branch: W)
       
       ;; Branch -> X
       
       (set-active-branch~ architecture X)
       
       ;; set in a parent branch who owns the property
-      (set T1 'description "2" :branch {})
-      (val T1 'description "2" :branch X)
+      (set T1 'description "2" branch: {})
+      (val T1 'description "2" branch: X)
       
       ;; set in the active branch
       (set T1 'description "X")
-      (val T1 'description "X" :branch X)
+      (val T1 'description "X" branch: X)
       
       ;; set in a parent branch who doesn't own the property
-      (set T1 'description "3" :branch {})
-      (val T1 'description "X" :branch X)
+      (set T1 'description "3" branch: {})
+      (val T1 'description "X" branch: X)
       
       ;; remove in a parent branch
-      (set T2 'description "2" :branch {})
-      (val T2 'description "2" :branch {})
-      (rem T2 'description {} :branch {})
-      (val T2 'description {} :branch {})
+      (set T2 'description "2" branch: {})
+      (val T2 'description "2" branch: {})
+      (rem T2 'description {} branch: {})
+      (val T2 'description {} branch: {})
       
       ;; Branch -> Y
       
@@ -190,8 +186,8 @@
       (set-active-branch~ architecture Z)
       
       ;; set in a parent branch
-      (set T3 'no 7 :branch Y)
-      (val T3 'no 2 :branch X)
+      (set T3 'no 7 branch: Y)
+      (val T3 'no 2 branch: X)
       
       ;; Branch -> W
       

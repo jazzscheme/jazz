@@ -117,20 +117,19 @@
       (get-repositories-preferences~ appl)))
   
   
-  (method meta (repository-preferences name . rest)
-    (bind-optionals ((pref (preferences))) rest
-      (when pref
-        (find-component~ pref name))))
+  (method meta (repository-preferences name (pref (preferences)))
+    (when pref
+      (find-component~ pref name)))
   
   
   (method meta public (reload-preferences pref)
     (let ((name (get-name~ pref)))
-      (remove-repository name :error? false)))
+      (remove-repository name error?: false)))
   
   
   (method meta public (remove-preferences pref)
     (let ((name (get-name~ pref)))
-      (remove-repository name :error? false)))
+      (remove-repository name error?: false)))
   
   
   ;;;
@@ -159,24 +158,22 @@
   ;;;
   
   
-  (method meta public (require-repository . rest)
-    (bind-optionals ((name {})) rest
-      (either (get-repository name)
-              (if (null? name)
-                  (error "No repository is currently active")
-                (error "Unable to find repository: {t}" name)))))
+  (method meta public (require-repository (name {}))
+    (either (get-repository name)
+            (if (null? name)
+                (error "No repository is currently active")
+              (error "Unable to find repository: {t}" name))))
   
   
-  (method meta public (get-repository . rest)
-    (bind-optionals ((name {})) rest
-      (let* ((pref (preferences))
-             (name (either name (essay pref (get-active~ pref)))))
-        (when name
-          (either (hash-ref Repositories name)
-                  (let ((pref (repository-preferences name pref)))
-                    (when (and pref (get-active?~ pref))
-                      (let ((repository (instantiate-preferences pref)))
-                        (hash-set! Repositories name repository)))))))))
+  (method meta public (get-repository (name {}))
+    (let* ((pref (preferences))
+           (name (either name (essay pref (get-active~ pref)))))
+      (when name
+        (either (hash-ref Repositories name)
+                (let ((pref (repository-preferences name pref)))
+                  (when (and pref (get-active?~ pref))
+                    (let ((repository (instantiate-preferences pref)))
+                      (hash-set! Repositories name repository))))))))
   
   
   ;;;
@@ -307,7 +304,7 @@
   (method public (file->path file . rest)
     (bind-keywords ((error? true)) rest
       (let* ((base (get-base-directory))
-             (anchored (anchor-to~ file base :error? error?)))
+             (anchored (anchor-to~ file base error?: error?)))
         (when anchored
           (tail (get-list~ anchored) (length (get-list~ base)))))))
   
@@ -378,7 +375,7 @@
           (when (and (or (eq? extension true) (ci= (get-extension~ file) extension))
                      (not (member? (get-name~ file) '("vssver.scc") test: ci=)))
             (put~ fact file)))
-        :recursive? false)
+        recursive?: false)
       (sort ci< (get-output~ fact) key: (function dynamic (file) (get-name~ file)))))
   
   
@@ -407,11 +404,11 @@
   (method public (propose-delete path)
     (if (null? path)
         (unimplemented 'propose-delete)
-      (let* ((border (new Layout-View :layout-type 'fill :layout-insets {Rect 2 0 0 2} :size {Dimension 150 20}))
-             (checkbox (new Check-Box parent: border :title "Destroy permanently"))
+      (let* ((border (new Layout-View :layout-type 'fill :layout-insets {Rect 2 0 0 2} size: {Dimension 150 20}))
+             (checkbox (new Check-Box parent: border title: "Destroy permanently"))
              (name (if path (last path) (last (get-base-project)))))
         (layout-view~ border)
-        (let ((code (message-box (format "Delete {a} from repository?" name) :type 'question :title "Delete" :content border)))
+        (let ((code (message-box (format "Delete {a} from repository?" name) :type 'question title: "Delete" :content border)))
           (when (= code 'yes)
             (if (get-checked?~ checkbox)
                 (destroy-item path)
@@ -439,7 +436,7 @@
         (unimplemented 'propose-rename)
       (let* ((name (if path (last path) (last base-project)))
              (unicity-domain (remove name (collect-names path) test: equal?))
-             (new-name (request-string :title "Enter New Name" :initial-value name :accepts-empty? false :unicity-domain unicity-domain)))
+             (new-name (request-string title: "Enter New Name" :initial-value name :accepts-empty? false :unicity-domain unicity-domain)))
         (rename-item path new-name))))
   
   
@@ -507,11 +504,11 @@
       (case (determine-operation item file {unspecified})
         ((get)
          (get-latest-action file :make-writable? make-writable?)
-         (log-line output (format "{a} fetched from repository" (get-name~ file)) :image {Bitmap-Resource "Document"}))
+         (log-line output (format "{a} fetched from repository" (get-name~ file)) image: {Bitmap-Resource "Document"}))
         ((skip)
-         (log-line output (format "{a} was skipped" (get-name~ file)) :image {Bitmap-Resource "Info"}))
+         (log-line output (format "{a} was skipped" (get-name~ file)) image: {Bitmap-Resource "Info"}))
         ((same)
-         (log-line output (format "{a} has not changed" (get-name~ file)) :image {Bitmap-Resource "Info"})))
+         (log-line output (format "{a} has not changed" (get-name~ file)) image: {Bitmap-Resource "Info"})))
       (if make-writable?
           (set-read/write~ file)
         (set-read-only~ file))))
@@ -536,7 +533,7 @@
   
   (method (get-latest-directory item directory output)
     (unless (exists?~ directory)
-      (log-line output (format "{a} created" (get-name~ directory)) :image {Bitmap-Resource "OpenedFolder"})
+      (log-line output (format "{a} created" (get-name~ directory)) image: {Bitmap-Resource "OpenedFolder"})
       (create~ directory)))
   
   
@@ -602,7 +599,7 @@
     (bind-keywords ((get? true)  (feedback? true)) rest
       (let ((code (message-box
                    (format "Undo checkout and revert to repository version?")
-                   :title "Undo checkout"
+                   title: "Undo checkout"
                    :type 'confirmation)))
         (case code
           ((yes)
@@ -638,7 +635,7 @@
   
   
   (method public (get-detached-status file)
-    (with-closed ((item (get-item file :error? false)))
+    (with-closed ((item (get-item file error?: false)))
       (cond
        ((not (exists?~ file))
         'not-present)
@@ -670,7 +667,7 @@
   (method public virtual (show-changes file)
     (with-cursor :wait
       (function dynamic ()
-        (let* ((frame (new-frame Compare-Files :host-visible? false :host-workspace 'text))
+        (let* ((frame (new-frame Compare-Files host-visible?: false host-workspace: 'text))
                (left file)
                (right (new Repository-Moniker self (file->path file)))
                (has-differences? (compare-monikers~ (get-guest~ frame) left right)))

@@ -65,10 +65,10 @@
   
   
   (definition public Active-Selection-Color
-    {Color :red 190 :green 190 :blue 230})
+    {Color red: 190 green: 190 blue: 230})
   
   (definition public Inactive-Selection-Color
-    {Color :red 201 :green 198 :blue 181})
+    {Color red: 201 green: 198 blue: 181})
   
   
   (definition Caret-Pen
@@ -150,7 +150,7 @@
     (when (not text)
       (set-content (empty-content)))
     (when editable?
-      (set! caret-pulse (new Pulse :owner self :period 500 :pulse-handler (new Event-Handler :execute (function dynamic (evt) (pulse-caret))))))
+      (set! caret-pulse (new Pulse :owner self :period 500 :pulse-handler (new Event-Handler execute: (function dynamic (evt) (pulse-caret))))))
     (set! tab-stops (make-tab-stops)))
   
   
@@ -182,7 +182,7 @@
   
   
   (method (new-default-style)
-    (new Text-Style name: 'Default :font {Font name: Ansi-Var}))
+    (new Text-Style name: 'Default font: {Font name: Ansi-Var}))
   
   
   ;;;
@@ -321,7 +321,7 @@
   
   
   (method (new-controller)
-    (new Document-Controller self :tool? (default-tool?) :console? (default-console?)))
+    (new Document-Controller self tool?: (default-tool?) console?: (default-console?)))
   
   
   (method protected virtual (default-tool?)
@@ -474,7 +474,7 @@
   
   
   (method (on-paragraph-style evt)
-    (set-selection-style (get-property~ evt :style)))
+    (set-selection-style (get-property~ evt style:)))
   
   
   (method (on-numbered evt)
@@ -507,7 +507,7 @@
   
   
   (method (on-alignment evt)
-    (let ((alignment (get-property~ evt :alignment)))
+    (let ((alignment (get-property~ evt alignment:)))
       (set-text-alignment (get-selection) alignment)))
   
   
@@ -526,7 +526,7 @@
   
   
   (method (on-text-color evt)
-    (let ((color (get-property~ evt :color))
+    (let ((color (get-property~ evt color:))
           (combo (popup-initiator~ (get-sender~ evt))))
       (close-popups)
       (when combo
@@ -539,7 +539,7 @@
   
   
   (method (on-highlight-color evt)
-    (let ((color (get-property~ evt :color))
+    (let ((color (get-property~ evt color:))
           (combo (popup-initiator~ (get-sender~ evt))))
       (close-popups)
       (when combo
@@ -804,7 +804,7 @@
   
   (method (compare-moniker moniker)
     (when moniker
-      (let ((frame (new-frame Compare-Files :host-visible? false)))
+      (let ((frame (new-frame Compare-Files host-visible?: false)))
         (compare-monikers~ (get-guest~ frame) (new Document-Moniker moniker) moniker)
         (set-visible?~ frame true))))
   
@@ -1445,7 +1445,7 @@
   
   ;; this should be unified with selection-region
   (method (text-selection-region dh dv sc top bottom)
-    (range-region selection dh dv sc :top top :bottom bottom))
+    (range-region selection dh dv sc top: top bottom: bottom))
   
   
   (method (selection-region-all dh dv sc)
@@ -1863,7 +1863,7 @@
   (method (on-goto-line evt)
     (let* ((start (get-start))
            (line (+ [row start] 1))
-           (string (request-string :title "Goto Line" :prefix "Line no:" :initial-value (->string line))))
+           (string (request-string title: "Goto Line" :prefix "Line no:" :initial-value (->string line))))
       (goto-line (- (parse-integer string) 1))))
   
   
@@ -2190,9 +2190,8 @@
       (set-style (new Range start (get-start)) style)))
   
   
-  (method public (insert-line line . rest)
-    (bind-optionals ((proper? true)) rest
-      (replace-selection (if proper? (list line "") (list line)))))
+  (method public (insert-line line (proper? true))
+    (replace-selection (if proper? (list line "") (list line))))
   
   
   (method public (insert-bulleted-line line)
@@ -2208,7 +2207,7 @@
   (method public (insert-hyperlink string . rest)
     (bind-keywords ((font {}) (anchor {}) (action {})) rest
       (let* ((font (either font {Font name: Hyperlink}))
-             (style (new Hyperlink-Style :font font :color {Color name: Hyperlink} :anchor anchor :action action)))
+             (style (new Hyperlink-Style font: font color: {Color name: Hyperlink} :anchor anchor action: action)))
         (insert-styled string style))))
   
   
@@ -2222,7 +2221,7 @@
            (end (get-end))
            (paragraph (get-paragraph [row end])))
       (set-parent~ view paragraph)
-      (let ((style (new View-Style :view view)))
+      (let ((style (new View-Style view: view)))
         (insert-styled " " style))))
   
   
@@ -2255,11 +2254,11 @@
       (for-each (function dynamic (column)
                   (let* ((node?  (and first? node-column?))
                          (class  (if node? Tree-Node-Column Tree-Label-Column))
-                         (title  (getf column :title))
-                         (width  (getf column :width))
+                         (title  (getf column title:))
+                         (width  (getf column width:))
                          (others (if node? (list :display-images? false) '())))
                     (set! first? false)
-                    (apply [add-column tree] :class class :title title :width width others)))
+                    (apply [add-column tree] class: class title: title width: width others)))
                 columns)))
   
   
@@ -2274,7 +2273,7 @@
                       (let ((children (map (function dynamic (column)
                                              (new Formatted-Text-View))
                                            columns)))
-                        (add-row~ tree :row-height row-height :children children)))
+                        (add-row~ tree :row-height row-height children: children)))
                     (naturals 0 row-count))))))
   
   
@@ -2598,28 +2597,28 @@
       (while (not (done?~ scan))
         (let ((target (get-next~ scan)))
           (case target
-            ((:style)
+            ((style:)
              (let ((name (get-next~ scan)))
                (set! style (get-style name))))
             ((:hyperlink)
              (let ((action (get-next~ scan)))
                (set! style (new-hyperlink-style action))))
-            ((:color)
+            ((color:)
              (let ((color (get-next~ scan)))
                (when (symbol? color)
                  (set! color (eval-symbol color Color)))
                (add-styling (function dynamic (style) (set-color~ style color)))))
-            ((:highlight)
+            ((highlight:)
              (let ((highlight (get-next~ scan)))
                (when (symbol? highlight)
                  (set! highlight (eval-symbol highlight Color)))
                (add-styling (function dynamic (style) (set-highlight~ style highlight)))))
-            ((:font)
+            ((font:)
              (let ((font (get-next~ scan)))
                (when (symbol? font)
                  (set! font (eval-symbol font Font)))
                (add-styling (function dynamic (style) (set-font~ style font)))))
-            ((:image)
+            ((image:)
              (let ((image (get-next~ scan))
                    (portfolio (get-icons-cache~ (get-application))))
                (set! string " ")
@@ -2641,7 +2640,7 @@
   
   
   (method protected virtual (new-hyperlink-style action)
-    (new Hyperlink-Style :font {Font name: Hyperlink-Small} :color {Color name: Hyperlink} :action action))
+    (new Hyperlink-Style font: {Font name: Hyperlink-Small} color: {Color name: Hyperlink} action: action))
   
   
   ;;;
@@ -3119,16 +3118,14 @@
     (invalidate-view))
   
   
-  (method public (apply-style name start . rest)
-    (bind-optionals ((end {})) rest
-      (stylize (get-style name) start end)))
+  (method public (apply-style name start (end {}))
+    (stylize (get-style name) start end))
   
   
-  (method public (stylize name/style start . rest)
-    (bind-optionals ((end {})) rest
-      (when (not end)
-        (set! end (new Cell [row start] (paragraph-length [row start]))))
-      (set-text-style (new Range start end) (get-style name/style))))
+  (method public (stylize name/style start (end {}))
+    (when (not end)
+      (set! end (new Cell [row start] (paragraph-length [row start]))))
+    (set-text-style (new Range start end) (get-style name/style)))
   
   
   (method public (set-style range style)
@@ -3265,7 +3262,7 @@
   
   (method (setup-format format)
     (let* ((name (get-name~ format))
-           (actual (essay name (locate~ formats name :error? false))))
+           (actual (essay name (locate~ formats name error?: false))))
       (if (not actual)
           (intern-format format)
         (modify-from~ actual format)
@@ -3274,7 +3271,7 @@
   
   (method public (add-format format)
     (let* ((name (get-name~ format))
-           (actual (essay name (locate~ formats name :error? false))))
+           (actual (essay name (locate~ formats name error?: false))))
       (if (not actual)
           (let ((format (copy format)))
             (set-domain~ format formats)
@@ -3286,7 +3283,7 @@
   
   (method public (get-format name . rest)
     (bind-keywords ((error? true)) rest
-      (locate~ formats name :error? error?)))
+      (locate~ formats name error?: error?)))
   
   
   (method public (intern-format format)
@@ -3334,7 +3331,7 @@
   
   (method (setup-style style)
     (let* ((name (get-name~ style))
-           (actual (essay name (locate~ styles name :error? false))))
+           (actual (essay name (locate~ styles name error?: false))))
       (if (not actual)
           (intern-style style)
         (modify-from~ actual style)
@@ -3343,7 +3340,7 @@
   
   (method public (add-style style)
     (let* ((name (get-name~ style))
-           (actual (essay name (locate~ styles name :error? false))))
+           (actual (essay name (locate~ styles name error?: false))))
       (if (not actual)
           (let ((style (copy style)))
             (set-domain~ style styles)
@@ -3357,7 +3354,7 @@
     (bind-keywords ((error? true)) rest
       (if (is? name/style Style)
           name/style
-        (locate~ styles name/style :error? error?))))
+        (locate~ styles name/style error?: error?))))
   
   
   (method public (intern-style style)
@@ -3679,11 +3676,10 @@
         (invalidate-paragraph paragraph))))
   
   
-  (method public (colorize color start . rest)
-    (bind-optionals ((end {})) rest
-      (when (not end)
-        (set! end (new Cell [row start] (paragraph-length [row start]))))
-      (set-text-color (new Range start end) color)))
+  (method public (colorize color start (end {}))
+    (when (not end)
+      (set! end (new Cell [row start] (paragraph-length [row start]))))
+    (set-text-color (new Range start end) color))
   
   
   (method public (fill color pos)
@@ -3757,8 +3753,8 @@
   
   
   (method public (set-selection-style name)
-    (let* ((format (get-format name :error? false))
-           (style (get-style name :error? false))
+    (let* ((format (get-format name error?: false))
+           (style (get-style name error?: false))
            (selection (get-selection))
            (start (get-start))
            (end (get-end))
@@ -3898,7 +3894,7 @@
   
   
   (method public virtual (select-next strings . rest)
-    (let ((found (multisearch-content strings :position (get-end) :reverse? false :constituent-test (get-constituent-test~ syntax))))
+    (let ((found (multisearch-content strings position: (get-end) :reverse? false :constituent-test (get-constituent-test~ syntax))))
       (when found
         (set-selection found)
         @not-so-sure
@@ -3909,7 +3905,7 @@
   
   
   (method public virtual (select-previous strings . rest)
-    (let ((found (multisearch-content strings :position (get-start) :reverse? true :constituent-test (get-constituent-test~ syntax))))
+    (let ((found (multisearch-content strings position: (get-start) :reverse? true :constituent-test (get-constituent-test~ syntax))))
       (when found
         (set-selection found)
         @not-so-sure
@@ -3964,12 +3960,12 @@
                       (search (cn) string))
                     strings)
              (with ((content (get-string-content)))
-               (let ((found (multisearch-string~ content strings :position (position-offset position) :reverse? reverse? :whole-words? whole-words? :ignore-case? ignore-case? :constituent-test constituent-test)))
+               (let ((found (multisearch-string~ content strings position: (position-offset position) :reverse? reverse? :whole-words? whole-words? :ignore-case? ignore-case? :constituent-test constituent-test)))
                  (when found
                    (bind (offset . string) found
                      (new Range (offset-position offset) (offset-position (+ offset (length string)))))))))
             (else
-             (let ((found (multisearch-string strings :position position :reverse? reverse? :constituent-test constituent-test)))
+             (let ((found (multisearch-string strings position: position :reverse? reverse? :constituent-test constituent-test)))
                (when found
                  (bind (cell . string) found
                    (new Range cell (new Cell [row cell] (+ [col cell] (length string)))))))))))
@@ -4013,7 +4009,7 @@
   
   (method (save-component-properties designer)
     (when (get-modified?)
-      (set-property~ designer self 'text-content (get-content) :design-events? false)
+      (set-property~ designer self 'text-content (get-content) design-events?: false)
       (set-modified? false)))
   
   

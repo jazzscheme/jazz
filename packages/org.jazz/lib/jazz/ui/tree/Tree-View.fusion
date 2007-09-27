@@ -459,10 +459,10 @@
   
   
   (definition Highlighted-Outer-Color
-    (new Color :red 0 :green 0 :blue 128))
+    (new Color red: 0 green: 0 blue: 128))
   
   (definition Highlighted-Inner-Color
-    (new Color :red 218 :green 218 :blue 255))
+    (new Color red: 218 green: 218 blue: 255))
     
   (definition Highlighted-Insert-Color
     {Color name: Dark-Red})
@@ -558,7 +558,7 @@
   (method protected virtual (invalidate-highlighted-cell row col)
     (with-closed ((inner (highlighted-target-rect row col))
                   (outer (inflate-rect inner 1 1))
-                  (region (frame-region outer :insets {Rect 2 2 2 2})))
+                  (region (frame-region outer insets: {Rect 2 2 2 2})))
       (invalidate-region region)))
 
   
@@ -650,29 +650,28 @@
           (drag-move~ column cell pos)))))
   
   
-  (method (drag-up view . rest)
-    (bind-optionals ((dragging? false)) rest
-      (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
-      (let ((cell (view->tree (either (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
-            (shift? (shift-down?))
-            (control? (control-down?)))
-        (unless (or dragging? cell)
-          (set-selection '()))
-        ;; the idea is there to do the selection only at mouse-up when the cell is already
-        ;; selected (necessary for dnd) but this code is a not very elegant quick solution
-        (when (and cell (not dragging?))
-          (let ((pos (cell-coordinates cell view))
-                (row (get-row [row cell]))
-                (column (get-column [col cell])))
-            (unless (mouse-down-part-control?~ selection-manager)
-              (complete-mouse-down~ column cell pos shift? control?)
-              (when auto-expand/collapse?
-                (auto-select~ row))
-              (focus-delegate)
-              (drag-up~ column cell pos)))))
-      (release-capture)
-      (process-action self)
-      (reset~ selection-manager)))
+  (method (drag-up view (dragging? false))
+    (mouse-up~ selection-manager (shift-down?) (control-down?) (alt-down?))
+    (let ((cell (view->tree (either (unless dragging? (get-mouse-down-view~ selection-manager)) view)))
+          (shift? (shift-down?))
+          (control? (control-down?)))
+      (unless (or dragging? cell)
+        (set-selection '()))
+      ;; the idea is there to do the selection only at mouse-up when the cell is already
+      ;; selected (necessary for dnd) but this code is a not very elegant quick solution
+      (when (and cell (not dragging?))
+        (let ((pos (cell-coordinates cell view))
+              (row (get-row [row cell]))
+              (column (get-column [col cell])))
+          (unless (mouse-down-part-control?~ selection-manager)
+            (complete-mouse-down~ column cell pos shift? control?)
+            (when auto-expand/collapse?
+              (auto-select~ row))
+            (focus-delegate)
+            (drag-up~ column cell pos)))))
+    (release-capture)
+    (process-action self)
+    (reset~ selection-manager))
   
   
   (method (call-double-click view)
@@ -914,11 +913,11 @@
                   (let ((rect (inflate-rect (cell-rect cell) 1 1))
                         (h (+ (content-h~ column (get-level~ row)) (if (= [col cell] 0) 2 -2))))
                     (new Tooltip-Context
-                      :view self
-                      :text (if formatted? text (split text (cn)))
-                      :bounds rect
-                      :position (get-tooltip-position text rect h 0)
-                      :font font))))))))))
+                      view: self
+                      text: (if formatted? text (split text (cn)))
+                      bounds: rect
+                      position: (get-tooltip-position text rect h 0)
+                      font: font))))))))))
   
   
   (method protected virtual (cell-tooltips?)
@@ -963,7 +962,7 @@
   
   
   (method protected virtual (get-drag-cell-source pos row col)
-    (new Tree-Drag-Source :view self :position pos @old :image @old (get-drag-image pos) :row row :col col))
+    (new Tree-Drag-Source view: self position: pos @old image: @old (get-drag-image pos) :row row :col col))
   
   
   (method (get-drag-hotspot)
@@ -990,8 +989,8 @@
            (height (get-height~ row))
            (bitmap)
            (mask))
-      (with-closed ((memdc (new Cairo-Memory-Surface cdc :size (new Dimension width height) :keep-bitmap? true))
-                    (maskdc (new Cairo-Memory-Surface cdc :size (new Dimension width height) :keep-bitmap? true)))
+      (with-closed ((memdc (new Cairo-Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? true))
+                    (maskdc (new Cairo-Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? true)))
         (fill-rect~ memdc (new Rect 0 0 width height) {Color name: White})
         (fill-rect~ maskdc (new Rect 0 0 width height) {Color name: White})
         (draw-image~ portfolio memdc {} image 0 0)
@@ -1004,7 +1003,7 @@
         (draw-text~ maskdc 19 2 title)
         (set! bitmap (get-bitmap~ memdc))
         (set! mask (get-bitmap~ maskdc)))
-      (let* ((portfolio (new Portfolio :width width :height height :masked? true))
+      (let* ((portfolio (new Portfolio width: width height: height :masked? true))
              (no (add-masked-bitmap~ portfolio bitmap mask)))
         (new Image :portfolio portfolio :image-name no))))
     
@@ -1055,7 +1054,7 @@
            (accept? (or (not src-range) (and (not (memq? current-rank src-selection)) (/= current-rank (+ (cdr src-range) 1))))))
       (when accept?
         (let ((part (if (= current-rank dst-rank) 'before 'after)))
-          (new Tree-Drop-Target :view self :row row :part part)))))
+          (new Tree-Drop-Target view: self :row row :part part)))))
   
   
   (method protected virtual (get-tree-target drag-drop pos)
@@ -1307,7 +1306,7 @@
             (when (/= 0 delta)
               (if false @w (/= delta min-delta)
                   (when (= self [% Development])
-                    (log-stack name: "fill-column" :message (format ":size {a}" size))
+                    (log-stack name: "fill-column" message: (format "size: {a}" size))
                     @reset-scroller-width xxx)
                 (for-each (function dynamic (pair)
                             (set-car! pair (+ (car pair) delta))
@@ -1483,7 +1482,7 @@
   (method (add-empty-row . rest)
     (bind-keywords ((father {})) rest
       (let ((father (either father root-row)))
-        (add-row :father father :children (map (function dynamic (column)
+        (add-row father: father children: (map (function dynamic (column)
                                                  (new-empty-cell~ column))
                                                columns)))))
   
@@ -1647,7 +1646,7 @@
             (cond
               ((mouse-down?~ selection-manager)
                (when (and close-auto-expanded? auto-expanded-row (/= auto-expanded-row row))
-                 (close-auto-expanded :new-spine (essay row (get-spine~ row)) :force? false)
+                 (close-auto-expanded :new-spine (essay row (get-spine~ row)) force?: false)
                  (set! delayed-autorow auto-expanded-row)
                  (set! auto-expanded-row {}))
                (when (and row (auto-inplace?~ row))
@@ -2180,7 +2179,7 @@
                           :draw-preserved? draw-preserved?
                           :preserved-data (get-cell-data cell)
                           :edition-end-proc end-proc
-                          :children (list editor))))
+                          children: (list editor))))
               (replace-cell cell view)
               (set-bounds~ view (expand-rect (offset-rect bounds 0 (- [top bounds])) [h location] [v location] 0 0))
               (invalidate-rect bounds)
@@ -2232,13 +2231,12 @@
         (select-cell (new Cell row col)))))
   
   
-  (method public virtual (select-down cell . rest)
-    (bind-optionals ((validate? true)) rest
-      (let ((row (+ [row cell] 1))
-            (col [col cell]))
-        (when (or (not validate?) (< row (get-visible-count)))
-          (end-edition)
-          (select-cell (new Cell row col))))))
+  (method public virtual (select-down cell (validate? true))
+    (let ((row (+ [row cell] 1))
+          (col [col cell]))
+      (when (or (not validate?) (< row (get-visible-count)))
+        (end-edition)
+        (select-cell (new Cell row col)))))
     
   
   (method public virtual (select-left cell)

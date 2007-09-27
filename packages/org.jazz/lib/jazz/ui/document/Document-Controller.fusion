@@ -60,16 +60,15 @@
   (slot last-repository-status initialize {})
 
 
-  (method (initialize document . rest)
-    (bind-keywords ((tool? false) (console? false)) rest
-      (nextmethod)
-      (set! [document self] document)
-      (set! [tool? self] tool?)
-      (set! [console? self] console?)
-      @waiting-see-repository-event-comment
-      (when (repository-register?)
-        (add-repository-listener self)
-        (destroy-mandatory))))
+  (method (initialize document (tool?: tool? false) (console?: console? false))
+    (nextmethod)
+    (set! [document self] document)
+    (set! [tool? self] tool?)
+    (set! [console? self] console?)
+    @waiting-see-repository-event-comment
+    (when (repository-register?)
+      (add-repository-listener self)
+      (destroy-mandatory)))
   
   
   (method (destroy)
@@ -262,14 +261,13 @@
   ;;;
 
 
-  (method public virtual (update-status . rest)
-    (bind-keywords ((refresh-repository-status? true)) rest
-      (when refresh-repository-status?
-        (set! last-repository-status {}))
-      (update-state)
-      (let ((host (get-host~ document)))
-        (when (and (is? host View-Host) (eq? (get-guest~ host) document))
-          (set-caption (document-status))))))
+  (method public virtual (update-status (refresh-repository-status?: refresh-repository-status? true))
+    (when refresh-repository-status?
+      (set! last-repository-status {}))
+    (update-state)
+    (let ((host (get-host~ document)))
+      (when (and (is? host View-Host) (eq? (get-guest~ host) document))
+        (set-caption (document-status)))))
   
   
   (method public virtual (document-status)
@@ -335,7 +333,7 @@
       (let ((moniker (find-moniker~ Repository moniker)))
         (when moniker
           (values (get-repository~ moniker)
-                  (get-repository-item~ moniker :error? false))))))
+                  (get-repository-item~ moniker error?: false))))))
   
   
   (method (repository-detached-status repository)
@@ -379,10 +377,9 @@
     (set! moniker-time (get-modification-time~ moniker)))
   
   
-  (method public (verify-reload . rest)
-    (bind-keywords ((propose-reload? true) (cancel-edition? false)) rest
-      (when (needs-reload?)
-        (propose-reload :propose-reload? propose-reload? :cancel-edition? cancel-edition?))))
+  (method public (verify-reload (propose-reload?: propose-reload? true) (cancel-edition?: cancel-edition? false))
+    (when (needs-reload?)
+      (propose-reload :propose-reload? propose-reload? :cancel-edition? cancel-edition?)))
   
   
   (method public (needs-reload?)
@@ -397,23 +394,22 @@
          (is-not? moniker Zipped)))
 
   
-  (method public (propose-reload . rest)
-    (bind-keywords ((propose-reload? true) (cancel-edition? false)) rest
-      (let ((code (if (not propose-reload?)
-                      'yes
-                    (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
-                                 :title "File Status"
-                                 :type 'confirmation))))
-        (case code
-          ((yes)
-           (reload-moniker~ document moniker)
-           (when cancel-edition?
-             (throw-cancel)))
-          ((no)
-           (update-moniker-time moniker)
-           (update-status))
-          ((cancel)
-           (throw-cancel))))))
+  (method public (propose-reload (propose-reload?: propose-reload? true) (cancel-edition?: cancel-edition? false))
+    (let ((code (if (not propose-reload?)
+                    'yes
+                  (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
+                               title: "File Status"
+                               :type 'confirmation))))
+      (case code
+        ((yes)
+         (reload-moniker~ document moniker)
+         (when cancel-edition?
+           (throw-cancel)))
+        ((no)
+         (update-moniker-time moniker)
+         (update-status))
+        ((cancel)
+         (throw-cancel)))))
   
 
   ;;;
@@ -443,7 +439,7 @@
   (method (out-write-allowed? moniker)
     (let ((code (message-box
                   (format "File {s} is read-only. Overwrite read-only status?" (get-name~ moniker))
-                  :title "File Status"
+                  title: "File Status"
                   :type 'confirmation)))
       (case code
         ((yes)
@@ -475,7 +471,7 @@
   (method (safe-zipped-confirmed? file size)
     (let ((code (message-box
                   (format "Save to large zip file {a} ({a}K)?" (get-name~ file) size)
-                  :title "Zip Confirmation"
+                  title: "Zip Confirmation"
                   :type 'confirmation)))
       (case code
         ((yes)

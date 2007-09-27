@@ -98,7 +98,7 @@
               (with-closed ((printer (new String-Printer)))
                 (generate-html~ component printer)
                 (let* ((text (get-output~ printer))
-                       (frame (new-frame HTML-Viewer :host-title title :host-position {Point 50 50} :host-size {Dimension 600 400}))
+                       (frame (new-frame HTML-Viewer host-title: title host-position: {Point 50 50} host-size: {Dimension 600 400}))
                        (view (get-guest~ frame)))
                   (set-text~ view text)))))))))
   
@@ -372,15 +372,15 @@
                   ;; because of relocation parcels may go to different parents...
                   (for-each (function dynamic (info)
                               (bind (model . parcels) info
-                                (paste-parcels~ designer parcels (relocation-parent parent model) :reporter reporter)))
+                                (paste-parcels~ designer parcels (relocation-parent parent model) reporter: reporter)))
                             (partition parcels key: (function dynamic (parcel) (let ((master (get-master~ parcel))) (get-model~ master)))))))))
           (user-message~ reporter "Completed")
           (set-done~ reporter))
-        :threaded? (not (typed? (get-application) 'Jedi))
+        threaded?: (not (typed? (get-application) 'Jedi))
         name: "Paste"
-        :context self
-        :progress-reporter Paste-Reporter
-        :cancelable? true)))
+        context: self
+        progress-reporter: Paste-Reporter
+        cancelable?: true)))
   
   
   (method (paste-properties)
@@ -399,9 +399,8 @@
               :can-survive? true))))))
   
   
-  (method (confirm-close . rest)
-    (bind-optionals ((components '())) rest
-      (confirm-action "Delete selected objects?")))
+  (method (confirm-close (components (quote ())))
+    (confirm-action "Delete selected objects?"))
   
   
   (method (confirm-action text)
@@ -443,20 +442,19 @@
                classes)))))
   
   
-  (method (add-component-class class . rest)
-    (bind-keywords ((parent {}) (presentation {}) (properties '()) (select? true)) rest
-      (let* ((selected (selected-component))
-             (parent (either parent (relocation-parent selected class) selected client))
-             (extra-properties properties))
-        ;; To support the new feature that it is now possible to
-        ;; insert a parent's child directly from the child itself
-        (when (not (memq? class (get-addable-classes~ parent)))
-          (set! parent (get-parent~ parent)))
-        (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
-               (child (create-new-component class parent creation-info extra-properties)))
-          (when select?
-            (select-component child))
-          child))))
+  (method (add-component-class class (parent: parent {}) (presentation: presentation {}) (properties: properties (quote ())) (select?: select? true))
+    (let* ((selected (selected-component))
+           (parent (either parent (relocation-parent selected class) selected client))
+           (extra-properties properties))
+      ;; To support the new feature that it is now possible to
+      ;; insert a parent's child directly from the child itself
+      (when (not (memq? class (get-addable-classes~ parent)))
+        (set! parent (get-parent~ parent)))
+      (let* ((creation-info (if presentation (values presentation '()) (add-component-request class parent)))
+             (child (create-new-component class parent creation-info extra-properties)))
+        (when select?
+          (select-component child))
+        child)))
   
   
   (method protected virtual (add-component-request class parent)
@@ -473,7 +471,7 @@
                (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
                (name-validator (component-name-validator))
                (pres (localize (get-class-presentation~ class)))
-               (presentation (request-string :title (new Locales :english (format "Enter {a} Name" pres) :french "Entrez le nom") :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
+               (presentation (request-string title: (new Locales :english (format "Enter {a} Name" pres) :french "Entrez le nom") :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
           presentation))))
   
   
@@ -540,7 +538,7 @@
                (cell (new Cell rank 0))
                (border (new Border-View :border-type 'solid :border-color {Color name: Dark-Red}))
                (scroller (new Scroller-View parent: border :vscroll? false :hscroll? false))
-               (text (new Tree-Embedded-Presentation-Text-View parent: (get-content~ scroller) :left-padding 1 :top-padding 1 :font font)))
+               (text (new Tree-Embedded-Presentation-Text-View parent: (get-content~ scroller) :left-padding 1 :top-padding 1 font: font)))
           (ensure-row-displayed rank)
           (set-string-content~ text (get-presentation~ component))
           (edit-cell cell
@@ -596,17 +594,16 @@
           (select-components components)))))
   
   
-  (method (move-component-row row father . rest)
-    (bind-keywords ((position {})) rest
-      (unless (and (eq? (get-father~ row) father) (= 1 (length (get-sons~ father))))
-        (let* ((source (get-user-data~ row))
-               (destination (either (get-user-data~ father) client))
-               (sort? (sort-components?~ destination)))
-          (move-row row father
-            :position (either position (function dynamic ()
-                                         (if (not sort?)
-                                             {}
-                                           (find-component-position source row father)))))))))
+  (method (move-component-row row father (position: position {}))
+    (unless (and (eq? (get-father~ row) father) (= 1 (length (get-sons~ father))))
+      (let* ((source (get-user-data~ row))
+             (destination (either (get-user-data~ father) client))
+             (sort? (sort-components?~ destination)))
+        (move-row row father
+          position: (either position (function dynamic ()
+                                       (if (not sort?)
+                                           {}
+                                         (find-component-position source row father))))))))
   
   
   (method public (reorder-component component)
@@ -653,7 +650,7 @@
                        ((and before? (or (= quarter 4) (and (not move?) (= quarter 3)))) 'after)
                        (else {}))))
       (when part
-        (new Tree-Drop-Target :view self :row row :part part))))
+        (new Tree-Drop-Target view: self :row row :part part))))
   
   
   (method (get-row-target drag-drop row)
@@ -668,7 +665,7 @@
                  (class (autoload model))
                  (component (get-user-data~ row)))
             (when (addable-class?~ component class)
-              (new Tree-Drop-Target :view self :row row))))
+              (new Tree-Drop-Target view: self :row row))))
         @wait
         ((Descendants-Tree)
           (get-row-reorder-target drag-drop row 'row))
@@ -693,10 +690,10 @@
   (method (receive-model window target)
     (let* ((model (eval-symbol (get-model~ window) self))
            (parent (get-user-data~ (get-row~ target)))
-           (child (new model :visible? false)))
+           (child (new model visible?: false)))
       (with-update-locked
         (function dynamic ()
-          (add-view~ (get-designer) child parent :position {Point 0 0} :centered? false)
+          (add-view~ (get-designer) child parent position: {Point 0 0} :centered? false)
           (rename-component child)))))
   
   
@@ -721,7 +718,7 @@
       (let* ((header-height 16)
              (borders-height 2)
              (height (+ header-height (get-height~ (get-tree~ card)) borders-height))
-             (subrow (add-row :class Editor-Row :father row :row-height height)))
+             (subrow (add-row class: Editor-Row father: row :row-height height)))
         (set! auto-expanded-row row)
         (set-parent~ border subrow)
         (set-editor~ subrow border)
@@ -742,7 +739,7 @@
   
   (method (on-selection-change evt)
     (when (and editor (eq? editor (get-selected-owner~ (get-application))))
-      (set-selection~ editor (selected-components) :origin self :force? true :focus? false)))
+      (set-selection~ editor (selected-components) origin: self force?: true focus?: false)))
   
   
   (method public (select-component component)

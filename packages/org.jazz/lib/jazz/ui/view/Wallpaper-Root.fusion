@@ -69,7 +69,7 @@
   
   
   (method (preferences)
-    (get-preferences 'wallpaper :error? false))
+    (get-preferences 'wallpaper error?: false))
 
 
   (method (install-wallpaper)
@@ -80,29 +80,28 @@
             (install-configuration (child~ pref active)))))))
   
   
-  (method (install-configuration config . rest)
-    (bind-optionals ((brws? false)) rest
-      (when (/= config configuration)
-        (set! browse? brws?)
-        (set! configuration config)
-        (if (not config)
-            (begin
-              (set! image {})
-              (set! wallpapers '())
-              (invalidate-view))
-          (set! image (new Image :cache? true))
-          (set-mode (get-mode~ config))
-          (set-random? (get-random?~ config))
-          (set-view-size~ image (get-size))
-          (let ((wallpaper (get-directory~ config)))
-            (when wallpaper
-              (let ((dir? (is? wallpaper Directory)))
-                (when dir?
-                  (setup-wallpapers wallpaper (get-recursive?~ config))
-                  (setup-favorites wallpaper (get-favorites~ config)))
-                (set-source (startup-file dir? wallpaper (get-startup~ config)))
-                (when (and dir? (not changer))
-                  (setup-changer (get-period~ config))))))))))
+  (method (install-configuration config (brws? false))
+    (when (/= config configuration)
+      (set! browse? brws?)
+      (set! configuration config)
+      (if (not config)
+          (begin
+            (set! image {})
+            (set! wallpapers '())
+            (invalidate-view))
+        (set! image (new Image :cache? true))
+        (set-mode (get-mode~ config))
+        (set-random? (get-random?~ config))
+        (set-view-size~ image (get-size))
+        (let ((wallpaper (get-directory~ config)))
+          (when wallpaper
+            (let ((dir? (is? wallpaper Directory)))
+              (when dir?
+                (setup-wallpapers wallpaper (get-recursive?~ config))
+                (setup-favorites wallpaper (get-favorites~ config)))
+              (set-source (startup-file dir? wallpaper (get-startup~ config)))
+              (when (and dir? (not changer))
+                (setup-changer (get-period~ config)))))))))
   
   
   (method (destroy)
@@ -166,7 +165,7 @@
   
   
   (method (on-change-mode evt)
-    (set-mode (get-property~ evt :mode)))
+    (set-mode (get-property~ evt mode:)))
 
 
   (method (size-change size)
@@ -230,7 +229,7 @@
         (function dynamic (file)
           (when (image-file? file)
             (set! files (cons file files))))
-        :recursive? recursive?)
+        recursive?: recursive?)
       (set! wallpapers (sort ci< files key: (function dynamic (file) (get-name~ file))))))
   
   
@@ -256,8 +255,8 @@
     (set! changer
           (new Thread
             name: "Wallpaper Changer"
-            :context self
-            :execute (function (thread)
+            context: self
+            execute: (function (thread)
                        (while (not done?)
                          (sleep period)
                          (unless paused?
@@ -379,7 +378,7 @@
                  (favorites (get-favorites~ configuration))
                  (favorite? (member? name favorites)))
             (format "{a}{a}" name (if favorite? " (favorite)" ""))))
-        :delay 2000)))
+        delay: 2000)))
   
   
   (method (flash-message message . rest)
@@ -387,8 +386,8 @@
     (bind-keywords ((delay 1000)) rest
       (new Thread
         name: "Message Flasher"
-        :context self
-        :execute (function synchronized (thread)
+        context: self
+        execute: (function synchronized (thread)
                    (user-message message)
                    (sleep delay)
                    (clear-user-message)))))
@@ -445,7 +444,7 @@
     (nextmethod dc context update lh lv)
     (let ((size (get-size)))
       (when image
-        (draw~ image dc context 0 0 :size size))))
+        (draw~ image dc context 0 0 size: size))))
 
   
   ;;;
@@ -465,7 +464,7 @@
       (new Wallpaper-Configuration
         :directory (get-modal BrowseFolder-Dialog)
         :period (essay configuration (get-period~ configuration))
-        :mode (essay configuration (get-mode~ configuration)))
+        mode: (essay configuration (get-mode~ configuration)))
       true)))
 
 
@@ -574,7 +573,7 @@
     (let ((selected? (if browse-item?
                          browse?
                        (eq? config configuration))))
-      (new Radio-Item parent: self :title title :selected? selected? :icon icon :action-handler (new Event-Handler :target-name :wallpaper :method-name 'on-configure :properties (list :configuration config))))))
+      (new Radio-Item parent: self title: title :selected? selected? icon: icon action-handler: (new Event-Handler target-name: :wallpaper method-name: 'on-configure properties: (list :configuration config))))))
 
 
 ;;;

@@ -828,10 +828,9 @@
   (slot message accessors generate)
   
   
-  (method (initialize . rest)
-    (bind-keywords ((message {})) rest
-      (nextmethod)
-      (set-message message)))
+  (method (initialize (message: message {}))
+    (nextmethod)
+    (set-message message))
   
   
   (method (print printer readably)
@@ -841,9 +840,8 @@
   
   
   @convert
-  (method (present-message . rest)
-    (bind-keywords ((prefix? true) (active-content? true)) rest
-      (present-error~ (process-class) self prefix? active-content?)))
+  (method (present-message (prefix?: prefix? true) (active-content?: active-content? true))
+    (present-error~ (process-class) self prefix? active-content?))
   
   
   @convert
@@ -1974,7 +1972,7 @@
       (find-list target seq key test (either start 0) return)
     (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
         (find-string target seq)
-      (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
+      (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
         (when start
           (set-position~ iter start))
         (call/ec
@@ -1991,7 +1989,7 @@
 
 
 (definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
-  (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq)))
+  (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq)))
         (count 0))
     (when start
       (set-position~ iter start))
@@ -2024,7 +2022,7 @@
       (find-if-list predicate seq key (either start 0) return)
     (call/ec
       (lambda (exit)
-        (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
+        (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
           (when start
             (set-position~ iter start))
           (with ((proc <Procedure>
@@ -2045,7 +2043,7 @@
         (find-string target seq)
       (call/ec
         (lambda (exit)
-          (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
+          (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
             (when start
               (set-position~ iter start))
             (with ((proc <Procedure>
@@ -2608,17 +2606,16 @@
   (slot current <Integer>)
 
 
-  (method (initialize seq . rest)
-    (bind-keywords ((direction 'forward) (start {})) rest
-      (nextmethod)
-      (set! sequence seq)
-      (set! sequence-length (length sequence))
-      (set-direction direction)
-      (if (not start)
-          (case direction
-            ((forward)  (goto-beginning))
-            ((backward) (goto-end)))
-        (set! current start))))
+  (method (initialize seq (direction: direction 'forward) (start: start {}))
+    (nextmethod)
+    (set! sequence seq)
+    (set! sequence-length (length sequence))
+    (set-direction direction)
+    (if (not start)
+        (case direction
+          ((forward)  (goto-beginning))
+          ((backward) (goto-end)))
+      (set! current start)))
 
 
   (method (peek-forward)
@@ -3200,10 +3197,9 @@
       (increase! size)))
 
 
-  (method (put-unique object . rest)
-    (bind-keywords ((test eqv?)) rest
-      (unless (member? object list test: test)
-        (put object))))
+  (method (put-unique object (test: test eqv?))
+    (unless (member? object list test: test)
+      (put object)))
 
 
   (method (put-sequence seq <Object>)
@@ -4190,10 +4186,9 @@
   (slot content accessors generate)
   
   
-  (method (initialize . rest)
-    (bind-optionals ((s 0)) rest
-      (set! size s)
-      (set! content (make-vector s {}))))
+  (method (initialize (s 0))
+    (set! size s)
+    (set! content (make-vector s {})))
   
   
   (method (print output detail)
@@ -4555,11 +4550,11 @@
 ;;;
 
 
-;; (format "{a :width 10 :justify :right} {l}" 5 lst)
+;; (format "{a width: 10 :justify :right} {l}" 5 lst)
 
 ;; In the preceding format :
 ;;   directives -> {a} and {l}
-;;   parameters -> :width 10 :justify :right
+;;   parameters -> width: 10 :justify :right
 ;;   arguments  -> 5 and lst
 
 
@@ -4600,52 +4595,51 @@
   ;;;
   
   
-  (method (process reader . rest)
-    (bind-optionals ((output? true)) rest
-      (let ((done? false))
-        (while (not done?)
-          (let ((c (read-char reader)))
-            (if (eof-object? c)
-                (set! done? true)
-              (case c
-                ((#\~)
-                 (let ((c (require-char reader)))
-                   (when output?
-                     (print-char c out))))
-                ((#\{)
-                 (let ((c (peek-char reader)))
-                   (case c
-                     ((#\?)
-                      (if (not output?)
-                          (error "Recursive conditional directive not yet supported")
-                        (read-char reader)
-                        (conditional-directive reader)))
-                     (else
-                      (let ((directive (read reader))
-                            (parameters (read-parameters reader)))
-                        (case directive
-                          ((a) (ascii-directive parameters output?))
-                          ((s) (sexpr-directive parameters output?))
-                          ((t) (text-directive parameters output?))
-                          ((p) (print-directive parameters output?))
-                          ((c) (char-directive parameters output?))
-                          ((u) (unsigned-directive parameters output?))
-                          ((x) (hexadecimal-directive parameters output?))
-                          ((b) (binary-directive parameters output?))
-                          ((r) (real-directive parameters output?))
-                          ((l) (list-directive parameters output?))
-                          ((k) (properties-directive parameters output?))
-                          ((_) (column-directive parameters output?))
-                          ((&) (tab-directive parameters output?))
-                          ((%) (newline-directive parameters output?))
-                          (($) (freshline-directive parameters output?))
-                          ((z) (localize-directive parameters output?))
-                          (else (error "Unknown format directive ~{{t}}" directive))))))))
-                (else
+  (method (process reader (output? true))
+    (let ((done? false))
+      (while (not done?)
+        (let ((c (read-char reader)))
+          (if (eof-object? c)
+              (set! done? true)
+            (case c
+              ((#\~)
+               (let ((c (require-char reader)))
                  (when output?
-                   (print-char c out))))))))
-        (when (and (toplevel? reader) (not (arguments-empty?)))
-          (error "Too many format arguments"))))
+                   (print-char c out))))
+              ((#\{)
+               (let ((c (peek-char reader)))
+                 (case c
+                   ((#\?)
+                    (if (not output?)
+                        (error "Recursive conditional directive not yet supported")
+                      (read-char reader)
+                      (conditional-directive reader)))
+                   (else
+                    (let ((directive (read reader))
+                          (parameters (read-parameters reader)))
+                      (case directive
+                        ((a) (ascii-directive parameters output?))
+                        ((s) (sexpr-directive parameters output?))
+                        ((t) (text-directive parameters output?))
+                        ((p) (print-directive parameters output?))
+                        ((c) (char-directive parameters output?))
+                        ((u) (unsigned-directive parameters output?))
+                        ((x) (hexadecimal-directive parameters output?))
+                        ((b) (binary-directive parameters output?))
+                        ((r) (real-directive parameters output?))
+                        ((l) (list-directive parameters output?))
+                        ((k) (properties-directive parameters output?))
+                        ((_) (column-directive parameters output?))
+                        ((&) (tab-directive parameters output?))
+                        ((%) (newline-directive parameters output?))
+                        (($) (freshline-directive parameters output?))
+                        ((z) (localize-directive parameters output?))
+                        (else (error "Unknown format directive ~{{t}}" directive))))))))
+              (else
+               (when output?
+                 (print-char c out))))))))
+    (when (and (toplevel? reader) (not (arguments-empty?)))
+      (error "Too many format arguments")))
   
   
   (method (read-parameters reader)
@@ -4903,7 +4897,7 @@
   
   
   (method (get-width parameters)
-    (keyword-parameter parameters :width {}))
+    (keyword-parameter parameters width: {}))
   
   
   (method (get-justify parameters)
@@ -4938,7 +4932,7 @@
   
   
   (method (get-properties parameters)
-    (keyword-parameter parameters :properties '()))
+    (keyword-parameter parameters properties: '()))
   
   
   (method (get-empty-value parameters)

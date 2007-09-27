@@ -621,7 +621,7 @@
                (recorder (get-recorder~ appl)))
           (when recorder
             (let ((handler {Event-Handler :focus on-insert})
-                  (event (new Event (if char? :char :key) self :content key)))
+                  (event (new Event (if char? :char key:) self :content key)))
               (when (record-event?~ appl event)
                 (record~ recorder handler event))))))))
   
@@ -659,7 +659,7 @@
     (let ((kind (get-kind~ evt))
           (content (get-property~ evt :content)))
       (case kind
-        ((:key :char) (call-key-press content))
+        ((key: :char) (call-key-press content))
         ((:string) (insert-string content)))))
   
   
@@ -1047,7 +1047,7 @@
              (par (get-paragraph [row pos])))
         (if (< [h view] (paragraph-left~ par))
             (select-paragraph [row pos])
-          (let ((expl (new (explorer-class) self :start pos :end pos)))
+          (let ((expl (new (explorer-class) self start: pos end: pos)))
             (with-safe-explore
               (function dynamic ()
                 (when (outer-expr~ expl)
@@ -1116,7 +1116,7 @@
       ((word)
        (if (inside?~ selection-anchor pos)
            (selection-range-from-anchor pos)
-         (let* ((expl (new (explorer-class) self :start pos :end pos))
+         (let* ((expl (new (explorer-class) self start: pos end: pos))
                 (kind (outer-expr~ expl :outer-composite? false))
                 (range (essay kind (get-range~ expl))))
            (cond ((not range)
@@ -1371,7 +1371,7 @@
   
   (method public (remove-spaces pos . rest)
     (bind-keywords ((keep 'one/none)) rest
-      (let ((expl (new (explorer-class) self :start [start pos] :end [end pos])))
+      (let ((expl (new (explorer-class) self start: [start pos] end: [end pos])))
         (backward-whitespaces~ expl)
         (forward-whitespaces~ expl)
         (let* ((range (get-range~ expl))
@@ -2136,7 +2136,7 @@
   
   
   (method public (next-word pos)
-    (let ((expl (new Text-Explorer self :start pos :end pos)))
+    (let ((expl (new Text-Explorer self start: pos end: pos)))
       (forward-whitespaces~ expl)
       (if (word-constituent? (get-char (get-end~ expl)))
           (forward-word~ expl)
@@ -2145,7 +2145,7 @@
   
   
   (method public (previous-word pos)
-    (let ((expl (new Text-Explorer self :start pos :end pos)))
+    (let ((expl (new Text-Explorer self start: pos end: pos)))
       (backward-whitespaces~ expl)
       (let ((start (get-start~ expl)))
         (when (> [col start] 0)
@@ -3235,8 +3235,8 @@
   (method public (for-each-selected-paragraph proc)
     (let ((selection (get-selection)))
       (for-each-paragraph proc
-                          :start [row start selection]
-                          :end (+ [row end selection] 1))))
+                          start: [row start selection]
+                          end: (+ [row end selection] 1))))
   
   
   ;;;
@@ -3768,16 +3768,16 @@
                (for-each-paragraph
                 (function dynamic (row paragraph)
                   (set-text-style (new Range (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
-                :start [row start]
-                :end (+ [row end] 1)))
+                start: [row start]
+                end: (+ [row end] 1)))
               (else
                (set-text-style selection style))))
       (when format
         (for-each-paragraph
          (function dynamic (row paragraph)
            (set-paragraph-format paragraph format))
-         :start [row start]
-         :end (+ [row end] 1)))
+         start: [row start]
+         end: (+ [row end] 1)))
       (set-modified? true)
       (layout-scrollee)
       (invalidate-view)))
@@ -3953,7 +3953,7 @@
   (method (multisearch-content strings . rest)
     (bind-keywords ((position {}) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (expression? (get-expression?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
       (cond (expression?
-             (let* ((expl (new Jazz-Explorer self :start (text-beginning) :end (text-beginning)))
+             (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
                     (moniker (get-moniker))
                     (mode (if (or (not moniker) (ci= (get-extension~ moniker) "jazz")) 'code 'quotation))
                     (found (search-expressions~ expl mode strings position whole-words? ignore-case?)))

@@ -223,25 +223,25 @@
 
 
   (method protected virtual (forward-expr)
-    (let ((expl (new (explorer-class) self :end (get-end))))
+    (let ((expl (new (explorer-class) self end: (get-end))))
       (when (forward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
   
   (method protected virtual (backward-expr)
-    (let ((expl (new (explorer-class) self :start (get-start))))
+    (let ((expl (new (explorer-class) self start: (get-start))))
       (when (backward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
   
   (method protected virtual (enter-composite)
-    (let ((expl (new (explorer-class) self :start (get-start) :end (get-end))))
+    (let ((expl (new (explorer-class) self start: (get-start) end: (get-end))))
       (when (enter-composite~ expl)
         (set-caret (get-end~ expl)))))
   
   
   (method protected virtual (exit-composite)
-    (let ((expl (new (explorer-class) self :start (get-end) :end (get-end))))
+    (let ((expl (new (explorer-class) self start: (get-end) end: (get-end))))
       (when (exit-list~ expl)
         (set-caret (get-end~ expl)))))
   
@@ -525,7 +525,7 @@
       (unless (>= (+ col 1) (length str))
         (let ((nxt (element str (+ col 1))))
           (unless (or (eq? nxt #\space) (eq? nxt #\=))
-            (let ((col (find-balanced #\< #\> str :start (+ col 1) :return 'position)))
+            (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
               (when col
                 (new Cell row (+ col 1)))))))))
 
@@ -649,7 +649,7 @@
              (col [col pos]))
         (when (and (> row 0) (= col 0))
           (let* ((line (paragraph-string (- row 1)))
-                 (rank (find-if (function dynamic (c) (not (whitespace? c))) line :return 'position)))
+                 (rank (find-if (function dynamic (c) (not (whitespace? c))) line return: 'position)))
             (if (not rank)
                 (insert-string line)
               (insert-string (subseq line 0 rank))))))))
@@ -699,7 +699,7 @@
             (unless (string-delimiter? c)
               (if (not (text-constituent?~ syntax c))
                   postfix
-                (let ((expl (new (explorer-class) self :start pos :end pos)))
+                (let ((expl (new (explorer-class) self start: pos end: pos)))
                   (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol keyword string)))
                     (let ((c (char-backward~ expl 0)))
                       (when (or (not c) (not (string-delimiter? c)))
@@ -720,7 +720,7 @@
       (when name
         (let* ((size (length name))
                (favorites (favorite-completions))
-               (favorite (assoc name favorites :test =))
+               (favorite (assoc name favorites test: =))
                (feedback? (not (macro-playing?))))
           (if favorite
               (begin
@@ -787,7 +787,7 @@
       (if (not (auto-complete-char?~ syntax key last))
           (complete-current key (get-start) (coerce key String) false true)
         (let* ((completion-string (join (selection-lines) (cn)))
-               (offset (essay completion-string (find key completion-string :return 'position)))
+               (offset (essay completion-string (find key completion-string return: 'position)))
                (replacement-string (essay offset (subseq completion-string 0 offset))))
           (when (and completion-active? @w (memq? key (auto-complete-characters~ class)) replacement-string)
               (replace-selection (list replacement-string)))
@@ -930,7 +930,7 @@
   (method (tabify-line row)
     @to-convert-to-outline-text
     (let* ((line (paragraph-string row))
-           (char (find-if (function dynamic (c) (not (whitespace? c))) line :return 'position)))
+           (char (find-if (function dynamic (c) (not (whitespace? c))) line return: 'position)))
       (when (and char (> char 0))
         (let* ((column (char->column line char))
                (tabs   (floor (/ column tab-size)))
@@ -955,7 +955,7 @@
         (when (flash-character? (get-char pos))
           (catch (Explore-Error err
                    (bell))
-            (let ((expl (new (explorer-class) self :start (get-end))))
+            (let ((expl (new (explorer-class) self start: (get-end))))
               (if (not (backward-expr~ expl))
                   (bell)
                 (flash-character (get-start~ expl) pos))))))))
@@ -973,7 +973,7 @@
         (let* ((pos (text->view end))
                @w(tran (acquire~ (get-desktop) self pos))
                @w(tool (new Tooltip :position tran :size {Dimension 100 20} :visible? false))
-               (expl (new (explorer-class) self :start (+ start 1) :end (+ start 1))))
+               (expl (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
           (user-message "{l :detail :human}" (map (function dynamic (mark)
                                                     (get-string [range mark]))
                                                   (collect-forward-exprs~ expl 3)))
@@ -1088,7 +1088,7 @@
              (create-item (function dynamic (user-data title parent)
                             (new Label-Item parent: parent :title title :action-handler (new Event-Handler :target menu :method-name 'on-action :properties (list :definition user-data)))))
              (get-string (function dynamic (user-data) (present~ user-data 'definitions))))
-        (make-condensed-menu definitions create-item :key get-string))))
+        (make-condensed-menu definitions create-item key: get-string))))
   
   
   (method (definition<? x y)
@@ -1148,7 +1148,7 @@
              (create-item (function dynamic (user-data title parent)
                             (new Label-Item parent: parent :title title :action-handler (new Event-Handler :target menu :method-name 'on-action :properties (list :definition user-data)))))
              (get-string (function dynamic (user-data) (present~ user-data 'references))))
-        (make-condensed-menu definitions create-item :key get-string))))
+        (make-condensed-menu definitions create-item key: get-string))))
   
   
   (method (definition<? x y)

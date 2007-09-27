@@ -184,7 +184,7 @@
   
   (method (colorize-declarations . rest)
     (bind-optionals ((recoloring? false)) rest
-      (let ((expl (new (explorer-class) self :start (text-beginning) :end (text-beginning)))
+      (let ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
             (colorizer (essay (not recoloring?) (new-colorizer self))))
         (walk-declarations~ expl
           {}
@@ -248,7 +248,7 @@
   
   (method (colorize-comments . rest)
     (bind-optionals ((recoloring? false)) rest
-      (let ((expl (new (explorer-class) self :end (text-beginning)))
+      (let ((expl (new (explorer-class) self end: (text-beginning)))
             (colorizer (essay (not recoloring?) (new-colorizer self))))
         (for-each-comment~ expl
           (function dynamic (start end title?)
@@ -290,7 +290,7 @@
              (col (skip-whitespace line)))
         (when (and (< col (length line)) (<= col Max-Declaration-Col) (= (element line col) #\open-parenthesis))
           (let* ((pos (new Cell row col))
-                 (expl (new (explorer-class) self :start pos :end pos)))
+                 (expl (new (explorer-class) self start: pos end: pos)))
             (walk-declaration~ expl
               {}
               (function dynamic (context start end marked documented?)
@@ -319,12 +319,12 @@
            (col 0)
            (done? false))
       (while (not done?)
-        (let ((comment (search "@" line :start col)))
+        (let ((comment (search "@" line start: col)))
           (if (not comment)
               (set! done? true)
             (unless (and (> comment 0) (= (element line (- comment 1)) #\,))
               (let* ((pos (new Cell row (+ comment 1)))
-                     (expl (new (explorer-class) self :start pos :end pos))
+                     (expl (new (explorer-class) self start: pos end: pos))
                      (kind (forward-expr~ expl))
                      (end (get-end~ expl)))
                 (when (and (= kind 'symbol) (= [row end] row))
@@ -368,7 +368,7 @@
            (col 0)
            (done? false))
       (while (not done?)
-        (let ((col (search "#\\" str :start col)))
+        (let ((col (search "#\\" str start: col)))
           (if (not col)
               (set! done? true)
             (if (not (alphanumeric? (get-char (new Cell row (+ col 2)))))
@@ -392,7 +392,7 @@
       (call/ec
         (lambda (return)
           (while (not done?)
-            (let ((col (search "<" str :start col)))
+            (let ((col (search "<" str start: col)))
               (if (not col)
                   (set! done? true)
                 (let ((end (find-specifier-end (new Cell row col))))
@@ -410,10 +410,10 @@
            (col 0)
            (done? false))
       (while (not done?)
-        (let ((col (search "\"" str :start col)))
+        (let ((col (search "\"" str start: col)))
           (if (not col)
               (set! done? true)
-            (let ((end (search "\"" str :start (+ col 1))))
+            (let ((end (search "\"" str start: (+ col 1))))
               (if (not end)
                   (begin
                     (apply-style 'String (new Cell row col))
@@ -429,10 +429,10 @@
            (col 0)
            (done? false))
       (while (not done?)
-        (let ((col (search "#\"" str :start col)))
+        (let ((col (search "#\"" str start: col)))
           (if (not col)
               (set! done? true)
-            (let ((end (search "\"#" str :start (+ col 2))))
+            (let ((end (search "\"#" str start: (+ col 2))))
               (if (not end)
                   (begin
                     (apply-style 'Delimited-String (new Cell row col))
@@ -567,7 +567,7 @@
   
   (method public (tabulate-delta row)
     (let* ((pos (new Cell row 0))
-           (expl (new (explorer-class) self :start pos))
+           (expl (new (explorer-class) self start: pos))
            (expressions (remove-specifiers (collect-backward-exprs~ expl)))
            (opening (- (get-start~ expl) 1))
            (count (length expressions))
@@ -666,7 +666,7 @@
   
   
   (method (expr-range pos)
-    (let ((expl (new (explorer-class) self :start pos :end pos)))
+    (let ((expl (new (explorer-class) self start: pos end: pos)))
       (outer-expr~ expl)
       (get-range~ expl)))
   
@@ -729,7 +729,7 @@
   
   
   (method public (definition-range pos)
-    (let ((expl (new (explorer-class) self :start pos :end pos))
+    (let ((expl (new (explorer-class) self start: pos end: pos))
           (range {})
           (definition? false)
           (done? false))
@@ -770,7 +770,7 @@
   
   
   (method public (highlight-expression range symbol)
-    (let ((expl (new (explorer-class) self :start [start range] :end [start range])))
+    (let ((expl (new (explorer-class) self start: [start range] end: [start range])))
       (iterate-expression~ expl
         (function dynamic (mode)
           (when (and (= (get-kind~ expl) 'symbol) (eq? (find-marked-symbol~ expl) symbol))
@@ -786,5 +786,5 @@
                                           (set-style~ run default-style)
                                           (invalidate-paragraph paragraph))))
                                     (get-runs~ paragraph)))
-                        :start [row start range]
-                        :end (+ [row end range] 1)))))
+                        start: [row start range]
+                        end: (+ [row end range] 1)))))

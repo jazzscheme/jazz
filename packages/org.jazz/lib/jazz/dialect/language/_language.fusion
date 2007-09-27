@@ -78,10 +78,9 @@
   
   
   @convert
-  (method meta public virtual (external-name . rest)
-    (bind-keywords ((error? true)) rest
-      (when error?
-        (error "Component class {t} does not define an external name" (type-name self)))))
+  (method meta public virtual (external-name (error?: error? true))
+    (when error?
+      (error "Component class {t} does not define an external name" (type-name self))))
   
   
   (method public virtual (class-actions)
@@ -216,9 +215,8 @@
     (ci-compare-object~ a b)))
 
 
-(definition public (copy obj . rest)
-  (bind-optionals ((deep? false)) rest
-    (copy-object~ obj deep?)))
+(definition public (copy obj (deep? false))
+  (copy-object~ obj deep?))
 
 
 (definition public (subcopy obj deep?)
@@ -890,7 +888,7 @@
 
 (definition (find-catch exception)
   (assoc exception (exceptions-catched)
-    :test is?))
+    test: is?))
 
 
 (definition (catched? exception)
@@ -930,9 +928,8 @@
   (call/cc proc))
 
 
-(definition (exit . rest)
-  (bind-optionals ((code 0)) rest
-    (system-exit code)))
+(definition (exit (code 0))
+  (system-exit code))
 
 
 ;;;
@@ -1200,24 +1197,22 @@
   n)
 
 
-(definition public (minimum lst . rest)
-  (bind-keywords ((key {}) (compare compare)) rest
-    (let ((min (car lst)))
-      (for-each (function dynamic (object)
-                  (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
-                    (set! min object)))
-                (cdr lst))
-      min)))
+(definition public (minimum lst (key: key {}) (compare: compare compare))
+  (let ((min (car lst)))
+    (for-each (function dynamic (object)
+                (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
+                  (set! min object)))
+              (cdr lst))
+    min))
 
 
-(definition public (maximum lst . rest)
-  (bind-keywords ((key {}) (compare compare)) rest
-    (let ((max (car lst)))
-      (for-each (function dynamic (object)
-                  (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
-                    (set! max object)))
-                (cdr lst))
-      max)))
+(definition public (maximum lst (key: key {}) (compare: compare compare))
+  (let ((max (car lst)))
+    (for-each (function dynamic (object)
+                (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
+                  (set! max object)))
+              (cdr lst))
+    max))
 
 
 (definition public (between? n lower upper)
@@ -1258,9 +1253,8 @@
 
 
 (definition public (naturals lower <int> upper <int>)
-  (optimize (:frame? false)
-    (loop (for n from lower below upper)
-          (collect n))))
+  (loop (for n from lower below upper)
+        (collect n)))
 
 
 (definition public (lobyte short)
@@ -1744,25 +1738,23 @@
           (else i))))
 
 
-(definition (subseq seq start . rest)
-  (bind-optionals ((end {}) (type {})) rest
-    (let* ((len (- (either end (length seq)) start))
-           (sub (allocate-sequence~ (either type (class-of seq)) len))
-           (i 0)
-           (j start))
-      (while (< i len)
-        (set-element! sub i (element seq j))
-        (set! i (+ i 1))
-        (set! j (+ j 1)))
-      sub)))
+(definition (subseq seq start (end {}) (type {}))
+  (let* ((len (- (either end (length seq)) start))
+         (sub (allocate-sequence~ (either type (class-of seq)) len))
+         (i 0)
+         (j start))
+    (while (< i len)
+      (set-element! sub i (element seq j))
+      (set! i (+ i 1))
+      (set! j (+ j 1)))
+    sub))
 
 
 (generic public (replace-subseq! (Sequence seq) start end replacement))
 
 
-(definition (subseq! seq start . rest)
-  (bind-optionals ((end (length seq))) rest
-    (subseq-share seq start end)))
+(definition (subseq! seq start (end (length seq)))
+  (subseq-share seq start end))
 
 
 (generic public (subseq-share (Sequence seq) start end))
@@ -1804,11 +1796,10 @@
   (merge-sort l))
 
 
-(definition (sort test seq . rest)
-  (bind-keywords ((key {})) rest
-    (if (list? seq)
-        (sort-list seq test key)
-      (unimplemented 'sort))))
+(definition (sort test seq (key {}))
+  (if (list? seq)
+      (sort-list seq test key)
+    (unimplemented 'sort)))
 
 
 (definition public inline (first   seq) (element seq 0))
@@ -1874,28 +1865,24 @@
 
 
 (definition private (apply-key key <Object> object <Object>)
-  (optimize (:frame? false)
-    (if (not key)
-        object
-      (key object))))
+  (if (not key)
+      object
+    (key object)))
 
 
-(definition private (apply-test test <Object> x <Object> y <Object> . rest)
-  (optimize (:frame? false)
-    (bind-optionals ((default-test eqv?)) rest
-      (if (not test)
-          (default-test x y)
-        (test x y)))))
+(definition private (apply-test test <Object> x <Object> y <Object> (default-test eqv?))
+  (if (not test)
+      (default-test x y)
+    (test x y)))
 
 
-(definition public (gather seq <Object> . rest)
-  (bind-keywords ((type List)) rest
-    (let ((dst (new List-Factory)))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (put~ dst object))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) type))))
+(definition public (gather seq <Object> (type: type List))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (put~ dst object))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) type)))
 
 
 ;; a quicky until full scanner functionality
@@ -1907,131 +1894,122 @@
     (get-output~ fact)))
 
 
-(definition public (collect proc <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (let ((dst (new List-Factory)))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (let ((object (proc (apply-key key object))))
-                   (when object
-                     (put~ dst object))))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (collect proc <Procedure> seq <Object> (key: key {}))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (let ((object (proc (apply-key key object))))
+                 (when object
+                   (put~ dst object))))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (collect-if predicate <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (let ((dst (new List-Factory)))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (predicate (apply-key key object))
-                   (put~ dst object)))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (collect-if predicate <Procedure> seq <Object> (key: key {}))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (predicate (apply-key key object))
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (collect-type type seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (let ((dst (new List-Factory)))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (is? (apply-key key object) type)
-                   (put~ dst object)))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (collect-type type seq <Object> (key: key {}))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (is? (apply-key key object) type)
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (collect-sections lst . rest)
-  (bind-keywords ((separator {}) (test {})) rest
-    (let ((sections (new List-Factory))
-          (section (new List-Factory)))
-      (for-each (function dynamic (value)
-                  (if (apply-test test separator value)
-                      (begin
-                        (put~ sections (get-output~ section))
-                        (reset~ section))
-                    (put~ section value)))
-                lst)
-      (put~ sections (get-output~ section))
-      (get-output~ sections))))
+(definition public (collect-sections lst (separator: separator {}) (test: test {}))
+  (let ((sections (new List-Factory))
+        (section (new List-Factory)))
+    (for-each (function dynamic (value)
+                (if (apply-test test separator value)
+                    (begin
+                      (put~ sections (get-output~ section))
+                      (reset~ section))
+                  (put~ section value)))
+              lst)
+    (put~ sections (get-output~ section))
+    (get-output~ sections)))
 
 
-(definition public (count target <Object> seq <Object> . rest)
-  (bind-keywords ((key {}) (test {})) rest
-    (let ((total 0))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (apply-test test target (apply-key key object))
-                   (increase! total)))))
-        (for-each proc (iterate seq)))
-      total)))
+(definition public (count target <Object> seq <Object> (key: key {}) (test: test {}))
+  (let ((total 0))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (apply-test test target (apply-key key object))
+                 (increase! total)))))
+      (for-each proc (iterate seq)))
+    total))
 
 
-(definition public (count-if predicate <Procedure> seq . rest)
-  (bind-keywords ((key {})) rest
-    (let ((total 0))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (predicate (apply-key key object))
-                   (increase! total)))))
-        (for-each proc (iterate seq)))
-      total)))
+(definition public (count-if predicate <Procedure> seq (key: key {}))
+  (let ((total 0))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (predicate (apply-key key object))
+                 (increase! total)))))
+      (for-each proc (iterate seq)))
+    total))
 
 
-(definition public (count-type type seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (let ((total 0))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (is? (apply-key key object) type)
-                   (increase! total)))))
-        (for-each proc (iterate seq)))
-      total)))
+(definition public (count-type type seq <Object> (key: key {}))
+  (let ((total 0))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (is? (apply-key key object) type)
+                 (increase! total)))))
+      (for-each proc (iterate seq)))
+    total))
 
 
-(definition public (find target seq . rest)
-  (bind-keywords ((key {}) (test {}) (start {}) (reversed? false) (return 'item)) rest
-    (if (and (list? seq) (not reversed?))
-        (find-list target seq key test (either start 0) return)
-      (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
-          (find-string target seq)
-        (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
-          (when start
-            (set-position~ iter start))
-          (call/ec
-            (lambda (exit)
-              (with ((proc <Procedure>
-                       (function dynamic (object)
-                         (when (apply-test test target (apply-key key object))
-                           (case return
-                             ((item) (exit object))
-                             ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                             (else (error "Unknown return type: {t}" return)))))))
-                (for-each proc iter))
-              {})))))))
+(definition public (find target seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
+  (if (and (list? seq) (not reversed?))
+      (find-list target seq key test (either start 0) return)
+    (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
+        (find-string target seq)
+      (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
+        (when start
+          (set-position~ iter start))
+        (call/ec
+          (lambda (exit)
+            (with ((proc <Procedure>
+                     (function dynamic (object)
+                       (when (apply-test test target (apply-key key object))
+                         (case return
+                           ((item) (exit object))
+                           ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                           (else (error "Unknown return type: {t}" return)))))))
+              (for-each proc iter))
+            {}))))))
 
 
-(definition public (find-balanced open close seq . rest)
-  (bind-keywords ((key {}) (test {}) (start {}) (reversed? false) (return 'item)) rest
-    (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq)))
-          (count 0))
-      (when start
-        (set-position~ iter start))
-      (call/ec
-        (lambda (exit)
-          (with ((proc <Procedure>
-                   (function dynamic (object)
-                     (cond ((apply-test test open (apply-key key object))
-                            (increase! count))
-                           ((apply-test test close (apply-key key object))
-                            (decrease! count)
-                            (when (< count 0)
-                              (case return
-                                ((item) (exit object))
-                                ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                                (else (error "Unknown return type: {t}" return)))))))))
-            (for-each proc iter))
-          {})))))
+(definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
+  (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq)))
+        (count 0))
+    (when start
+      (set-position~ iter start))
+    (call/ec
+      (lambda (exit)
+        (with ((proc <Procedure>
+                 (function dynamic (object)
+                   (cond ((apply-test test open (apply-key key object))
+                          (increase! count))
+                         ((apply-test test close (apply-key key object))
+                          (decrease! count)
+                          (when (< count 0)
+                            (case return
+                              ((item) (exit object))
+                              ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                              (else (error "Unknown return type: {t}" return)))))))))
+          (for-each proc iter))
+        {}))))
 
 
 (definition (find-string target <Object> seq <Object>)
@@ -2041,10 +2019,30 @@
         (finally {})))
 
 
-(definition public (find-if predicate <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {}) (start {}) (reversed? false) (return 'item)) rest
-    (if (and (list? seq) (not reversed?))
-        (find-if-list predicate seq key (either start 0) return)
+(definition public (find-if predicate <Procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
+  (if (and (list? seq) (not reversed?))
+      (find-if-list predicate seq key (either start 0) return)
+    (call/ec
+      (lambda (exit)
+        (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
+          (when start
+            (set-position~ iter start))
+          (with ((proc <Procedure>
+                   (function dynamic (object)
+                     (when (predicate (apply-key key object))
+                       (case return
+                         ((item) (exit object))
+                         ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                         (else (error "Unknown return type: {t}" return)))))))
+            (for-each proc iter)))
+        {}))))
+
+
+(definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false))
+  (if (and (list? seq) (not reversed?))
+      (find-list target seq key test (either start 0) 'position)
+    (if (and (string? seq) (not start) (not reversed?))
+        (find-string target seq)
       (call/ec
         (lambda (exit)
           (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
@@ -2052,70 +2050,45 @@
               (set-position~ iter start))
             (with ((proc <Procedure>
                      (function dynamic (object)
-                       (when (predicate (apply-key key object))
-                         (case return
-                           ((item) (exit object))
-                           ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                           (else (error "Unknown return type: {t}" return)))))))
-              (for-each proc iter)))
-          {})))))
+                       (when (apply-test test target (apply-key key object))
+                         (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
+              (for-each proc iter))
+            {}))))))
 
 
-(definition public (get-rank target <Object> seq <Object> . rest)
-  (bind-keywords ((key {}) (test {}) (start {}) (reversed? false)) rest
-    (if (and (list? seq) (not reversed?))
-        (find-list target seq key test (either start 0) 'position)
-      (if (and (string? seq) (not start) (not reversed?))
-          (find-string target seq)
-        (call/ec
-          (lambda (exit)
-            (let ((iter (if reversed? (explore seq :direction 'backward) (iterate seq))))
-              (when start
-                (set-position~ iter start))
-              (with ((proc <Procedure>
-                       (function dynamic (object)
-                         (when (apply-test test target (apply-key key object))
-                           (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
-                (for-each proc iter))
-              {})))))))
-
-
-(definition public (skip predicate <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {}) (start 0)) rest
-    (call/ec
-      (lambda (return)
-        (let ((iter (iterate seq)))
-          (set-position~ iter start)
-          (with ((proc <Procedure>
-                   (function dynamic (object)
-                     (when (not (predicate (apply-key key object)))
-                       (return (- (get-position~ iter) 1))))))
-            (for-each proc iter))
-          (get-position~ iter))))))
-
-
-(definition public (some? predicate <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (call/ec
-      (lambda (return)
-        (with ((proc <Procedure>
-                 (function dynamic (object)
-                   (when (predicate (apply-key key object))
-                     (return true)))))
-          (for-each proc (iterate seq)))
-        false))))
-
-
-(definition public (every? predicate <Procedure> seq <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (call/ec
-      (lambda (return)
+(definition public (skip predicate <Procedure> seq <Object> (key: key {}) (start: start 0))
+  (call/ec
+    (lambda (return)
+      (let ((iter (iterate seq)))
+        (set-position~ iter start)
         (with ((proc <Procedure>
                  (function dynamic (object)
                    (when (not (predicate (apply-key key object)))
-                     (return false)))))
-          (for-each proc (iterate seq)))
-        true))))
+                     (return (- (get-position~ iter) 1))))))
+          (for-each proc iter))
+        (get-position~ iter)))))
+
+
+(definition public (some? predicate <Procedure> seq <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (with ((proc <Procedure>
+               (function dynamic (object)
+                 (when (predicate (apply-key key object))
+                   (return true)))))
+        (for-each proc (iterate seq)))
+      false)))
+
+
+(definition public (every? predicate <Procedure> seq <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (with ((proc <Procedure>
+               (function dynamic (object)
+                 (when (not (predicate (apply-key key object)))
+                   (return false)))))
+        (for-each proc (iterate seq)))
+      true)))
 
 
 (definition public (append . rest)
@@ -2146,108 +2119,100 @@
   (apply-union rest))
 
 
-(definition public (apply-union lst . rest)
-  (bind-keywords ((test {})) rest
-    (if (null? lst)
-        '()
-      (let ((first (car lst))
-            (dst (new List-Factory)))
-        (put-sequence~ dst first)
-        (with ((proc <Procedure>
-                 (function dynamic (object)
-                   (when (not (member? object (get-output~ dst) :test test))
-                     (put~ dst object)))))
-          (for-each (function dynamic (set)
-                      (for-each proc (iterate set)))
-                    (cdr lst)))
-        (coerce (get-output~ dst) (class-of first))))))
+(definition public (apply-union lst (test: test {}))
+  (if (null? lst)
+      '()
+    (let ((first (car lst))
+          (dst (new List-Factory)))
+      (put-sequence~ dst first)
+      (with ((proc <Procedure>
+               (function dynamic (object)
+                 (when (not (member? object (get-output~ dst) test: test))
+                   (put~ dst object)))))
+        (for-each (function dynamic (set)
+                    (for-each proc (iterate set)))
+                  (cdr lst)))
+      (coerce (get-output~ dst) (class-of first)))))
 
 
 (definition public (intersection first . rest)
   (apply-intersection (cons first rest)))
 
 
-(definition public (apply-intersection lst . rest)
-  (bind-keywords ((test {})) rest
-    (when lst
-      (let ((first (car lst))
-            (lst (cdr lst))
-            (dst (new List-Factory)))
-        (with ((proc <Procedure>
-                 (function dynamic (object)
-                   (when (every? (function dynamic (set)
-                                   (member? object set :test test))
-                                 lst)
-                     (put~ dst object)))))
-          (for-each proc (iterate first)))
-        (coerce (get-output~ dst) (class-of first))))))
+(definition public (apply-intersection lst (test: test {}))
+  (when lst
+    (let ((first (car lst))
+          (lst (cdr lst))
+          (dst (new List-Factory)))
+      (with ((proc <Procedure>
+               (function dynamic (object)
+                 (when (every? (function dynamic (set)
+                                 (member? object set test: test))
+                               lst)
+                   (put~ dst object)))))
+        (for-each proc (iterate first)))
+      (coerce (get-output~ dst) (class-of first)))))
 
 
-(definition public (difference x <Object> y <Object> . rest)
-  (bind-keywords ((test eqv?)) rest
-    (if (not y)
-        x
-      (let ((dst (new List-Factory)))
-        (with ((proc <Procedure>
-                 (function dynamic (object)
-                   (when (not (member? object y :test test))
-                     (put~ dst object)))))
-          (for-each proc (iterate x)))
-        (coerce (get-output~ dst) (class-of x))))))
-
-
-(definition public (set-xor x <Object> y <Object> . rest)
-  (bind-keywords ((test eqv?)) rest
-    (union (difference x y :test test)
-           (difference y x :test test))))
-
-
-(definition public (remove target <Object> seq <Object> . rest)
-  (bind-keywords ((test eqv?)) rest
+(definition public (difference x <Object> y <Object> (test: test eqv?))
+  (if (not y)
+      x
     (let ((dst (new List-Factory)))
       (with ((proc <Procedure>
                (function dynamic (object)
-                 (when (not (apply-test test object target))
+                 (when (not (member? object y test: test))
                    (put~ dst object)))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) (class-of seq)))))
+        (for-each proc (iterate x)))
+      (coerce (get-output~ dst) (class-of x)))))
 
 
-(definition public (remove-trailing target <Object> list <Object> . rest)
-  (bind-keywords ((test eqv?)) rest
-    (let ((result '())
-          (trailing? true))
-      (with ((proc <Procedure>
-               (function dynamic (element)
-                 (unless (and trailing? (apply-test test target element))
-                   (set! result (cons element result))
-                   (set! trailing? false)))))
-        (for-each proc (reverse list)))
-      result)))
+(definition public (set-xor x <Object> y <Object> (test: test eqv?))
+  (union (difference x y test: test)
+         (difference y x test: test)))
 
 
-(definition public (remove-enclosing target <Object> seq <Object> . rest)
-  (bind-keywords ((test eqv?)) rest
-    (let* ((start 0)
-           (end (length seq))
-           (head start)
-           (tail end))
-      (while (and (< head end) (apply-test test (element seq head) target))
-        (increase! head))
-      (while (and (> tail head) (apply-test test (element seq (- tail 1)) target))
-        (decrease! tail))
-      (subseq seq head tail))))
+(definition public (remove target <Object> seq <Object> (test: test eqv?))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (not (apply-test test object target))
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (remove-duplicates seq <Object> . rest)
-  (bind-keywords ((key {}) (test eqv?)) rest
-    (let ((dst (new List-Factory)))
-      (with ((proc <Procedure>
-               (function dynamic (object)
-                 (when (not (member? (apply-key key object) (get-output~ dst) :key key :test test))
-                   (put~ dst object)))))
-        (for-each proc (iterate seq)))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
+  (let ((result '())
+        (trailing? true))
+    (with ((proc <Procedure>
+             (function dynamic (element)
+               (unless (and trailing? (apply-test test target element))
+                 (set! result (cons element result))
+                 (set! trailing? false)))))
+      (for-each proc (reverse list)))
+    result))
+
+
+(definition public (remove-enclosing target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (length seq))
+         (head start)
+         (tail end))
+    (while (and (< head end) (apply-test test (element seq head) target))
+      (increase! head))
+    (while (and (> tail head) (apply-test test (element seq (- tail 1)) target))
+      (decrease! tail))
+    (subseq seq head tail)))
+
+
+(definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
+  (let ((dst (new List-Factory)))
+    (with ((proc <Procedure>
+             (function dynamic (object)
+               (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
 (definition public (remove-nils seq <Object>)
@@ -2260,24 +2225,23 @@
 
 (definition public (trim-whitespace seq)
   (remove-enclosing {} seq
-    :test (function (c ignore)
+    test: (function (c ignore)
             (whitespace? c))))
 
 
-(definition public (mismatch target <Object> seq <Object> . rest)
-  (bind-keywords ((test =)) rest
-    (call/ec
-      (lambda (return)
-        (let ((srce (iterate seq))
-              (targ (iterate target))
-              (pos    0))
-          (while (not (done?~ srce))
-            (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
-              (return pos))
-            (increase! pos))
-          (if (done?~ targ)
-              {}
-            pos))))))
+(definition public (mismatch target <Object> seq <Object> (test: test =))
+  (call/ec
+    (lambda (return)
+      (let ((srce (iterate seq))
+            (targ (iterate target))
+            (pos    0))
+        (while (not (done?~ srce))
+          (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
+            (return pos))
+          (increase! pos))
+        (if (done?~ targ)
+            {}
+          pos)))))
 
 
 (definition public (prefix sequences <Object>)
@@ -2307,71 +2271,70 @@
         (done?~ targ)))))
 
 
-(definition public (search target <Object> seq <Object> . rest)
-  (bind-keywords ((reverse? false) (whole-words? false) (ignore-case? false) (all? false) (start {}) (constituent-test word-constituent?)) rest
-    (let ((len (length seq))
-          (size (length target))
-          (test (if ignore-case? ci= =)))
-      (define (match-case? pos)
-        (let ((to (- size 1)))
-          (let (iterate (i pos) (j 0))
-            (cond ((>= i len)
-                   #f)
-                  ((not (test (element seq i) (element target j)))
-                   #f)
-                  ((>= j to)
-                   #t)
-                  (else
-                   (iterate (+ i 1) (+ j 1)))))))
-      
-      (define (match? pos)
-        (and (>= pos 0)
-             (match-case? pos)
-             (or (not whole-words?)
-                 (let ((before (- pos 1))
-                       (after (+ pos size)))
-                   (if (and (>= before 0)
-                            (constituent-test (element seq before)))
-                       #f
-                     (if (< after len)
-                         (let ((c (element seq after)))
-                           ;; The explicit test for ~ is a kind off patch for the new ~ syntax
-                           (or (eqv? c #\~)
-                               (not (constituent-test (element seq after)))))
-                       #t))))))
-      
-      (define (find-backward pos)
+(definition public (search target <Object> seq <Object> (reverse?: reverse? false) (whole-words?: whole-words? false) (ignore-case?: ignore-case? false) (all?: all? false) (start: start {}) (constituent-test: constituent-test word-constituent?))
+  (let ((len (length seq))
+        (size (length target))
+        (test (if ignore-case? ci= =)))
+    (define (match-case? pos)
+      (let ((to (- size 1)))
+        (let (iterate (i pos) (j 0))
+          (cond ((>= i len)
+                 #f)
+                ((not (test (element seq i) (element target j)))
+                 #f)
+                ((>= j to)
+                 #t)
+                (else
+                 (iterate (+ i 1) (+ j 1)))))))
+    
+    (define (match? pos)
+      (and (>= pos 0)
+           (match-case? pos)
+           (or (not whole-words?)
+               (let ((before (- pos 1))
+                     (after (+ pos size)))
+                 (if (and (>= before 0)
+                          (constituent-test (element seq before)))
+                     #f
+                   (if (< after len)
+                       (let ((c (element seq after)))
+                         ;; The explicit test for ~ is a kind off patch for the new ~ syntax
+                         (or (eqv? c #\~)
+                             (not (constituent-test (element seq after)))))
+                     #t))))))
+    
+    (define (find-backward pos)
+      (let (iterate (pos pos))
+        (cond ((match? (- pos size))
+               (- pos size))
+              ((<= pos 0)
+               {})
+              (else
+               (iterate (- pos 1))))))
+    
+    (define (find-forward pos)
+      (let ((last (- len size)))
         (let (iterate (pos pos))
-          (cond ((match? (- pos size))
-                 (- pos size))
-                ((<= pos 0)
+          (cond ((match? pos)
+                 pos)
+                ((>= pos last)
                  {})
                 (else
-                 (iterate (- pos 1))))))
-      
-      (define (find-forward pos)
-        (let ((last (- len size)))
+                 (iterate (+ pos 1)))))))
+    
+    (let ((pos (either start (if reverse? len 0)))
+          (find (if reverse? find-backward find-forward))
+          (move (if reverse? - +)))
+      (if (not all?)
+          (find pos)
+        (let ((queue (new-queue)))
           (let (iterate (pos pos))
-            (cond ((match? pos)
-                   pos)
-                  ((>= pos last)
-                   {})
-                  (else
-                   (iterate (+ pos 1)))))))
-      
-      (let ((pos (either start (if reverse? len 0)))
-            (find (if reverse? find-backward find-forward))
-            (move (if reverse? - +)))
-        (if (not all?)
-            (find pos)
-          (let ((queue (new-queue)))
-            (let (iterate (pos pos))
-              (let ((found (find pos)))
-                (if found
-                    (begin
-                      (enqueue queue found)
-                      (iterate (move found size)))
-                  (queue-list queue))))))))))
+            (let ((found (find pos)))
+              (if found
+                  (begin
+                    (enqueue queue found)
+                    (iterate (move found size)))
+                (queue-list queue)))))))))
 
 
 (definition public (split seq <Object> separator <Object>)
@@ -2382,7 +2345,7 @@
                (result (new List-Factory))
                (done? false))
            (while (not done?)
-             (let ((pos (find-if separator seq :start previous :return 'position)))
+             (let ((pos (find-if separator seq start: previous return: 'position)))
                (if (not pos)
                    (set! done? true)
                  (put~ result (subseq seq previous pos))
@@ -2394,7 +2357,7 @@
                (incr (length separator))
                (result (new List-Factory)))
            (let (iterate)
-             (let ((pos (search separator seq :start previous)))
+             (let ((pos (search separator seq start: previous)))
                (when pos
                  (put~ result (subseq seq previous pos))
                  (set! previous (+ pos incr))
@@ -2403,22 +2366,21 @@
            (get-output~ result)))))
 
 
-(definition public (split-justified seq <Object> width separators <Object> . rest)
-  (bind-keywords ((column 0)) rest
-    (let ((pos 0)
-          (size (length seq))
-          (result (new List-Factory))
-          (done? false))
-      (while (not done?)
-        (let ((effective-width (- width column)))
-          (if (<= (- size pos) effective-width)
-              (begin
-                (put~ result (subseq seq pos))
-                (set! done? true))
-            (put~ result (subseq seq pos (+ pos effective-width)))
-            (set! column 0)
-            (increase! pos effective-width))))
-      (get-output~ result))))
+(definition public (split-justified seq <Object> width separators <Object> (column: column 0))
+  (let ((pos 0)
+        (size (length seq))
+        (result (new List-Factory))
+        (done? false))
+    (while (not done?)
+      (let ((effective-width (- width column)))
+        (if (<= (- size pos) effective-width)
+            (begin
+              (put~ result (subseq seq pos))
+              (set! done? true))
+          (put~ result (subseq seq pos (+ pos effective-width)))
+          (set! column 0)
+          (increase! pos effective-width))))
+    (get-output~ result)))
 
 
 (definition public (join sequences <Object> separator <Object>)
@@ -2449,138 +2411,129 @@
     (get-output~ fact)))
 
 
-(definition public (substitute old-value <Object> new-value <Object> seq <Object> . rest)
-  (bind-keywords ((key {}) (test {}) (sequence? false)) rest
-    (let ((src (iterate seq))
-          (dst (new List-Factory)))
-      (while (not (done?~ src))
-        (let ((object (get-next~ src)))
-          (if (apply-test test old-value (apply-key key object))
-              (if (not sequence?)
-                  (put~ dst new-value)
-                (put-sequence~ dst new-value))
-            (put~ dst object))))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (substitute old-value <Object> new-value <Object> seq <Object> (key: key {}) (test: test {}) (sequence?: sequence? false))
+  (let ((src (iterate seq))
+        (dst (new List-Factory)))
+    (while (not (done?~ src))
+      (let ((object (get-next~ src)))
+        (if (apply-test test old-value (apply-key key object))
+            (if (not sequence?)
+                (put~ dst new-value)
+              (put-sequence~ dst new-value))
+          (put~ dst object))))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (substitute-alist replacements <Object> seq <Object> . rest)
-  (bind-keywords ((key {}) (test {})) rest
-    (let ((src (iterate seq))
-          (dst (new List-Factory)))
-      (while (not (done?~ src))
-        (let ((object (get-next~ src))
-              (found? false))
-          (for-each (function dynamic (replacement)
-                      (unless found?
-                        (bind (old . new) replacement
-                          (when (apply-test test old (apply-key key object))
-                            (put-sequence~ dst new)
-                            (set! found? true)))))
-                    replacements)
-          (unless found?
-            (put~ dst object))))
-      (coerce (get-output~ dst) (class-of seq)))))
+(definition public (substitute-alist replacements <Object> seq <Object> (key: key {}) (test: test {}))
+  (let ((src (iterate seq))
+        (dst (new List-Factory)))
+    (while (not (done?~ src))
+      (let ((object (get-next~ src))
+            (found? false))
+        (for-each (function dynamic (replacement)
+                    (unless found?
+                      (bind (old . new) replacement
+                        (when (apply-test test old (apply-key key object))
+                          (put-sequence~ dst new)
+                          (set! found? true)))))
+                  replacements)
+        (unless found?
+          (put~ dst object))))
+    (coerce (get-output~ dst) (class-of seq))))
 
 
-(definition public (fill! seq object . rest)
-  (bind-keywords ((start {})) rest
-    (let ((src (iterate seq)))
-      (when start
-        (set-position~ src start))
-      (while (not (done?~ src))
-        (put~ src object)
-        (next~ src)))
-    seq))
+(definition public (fill! seq object (start: start {}))
+  (let ((src (iterate seq)))
+    (when start
+      (set-position~ src start))
+    (while (not (done?~ src))
+      (put~ src object)
+      (next~ src)))
+  seq)
 
 
-(definition public (replace! seq replacement . rest)
-  (bind-keywords ((start {})) rest
-    (let ((src (iterate seq))
-          (rep (iterate replacement)))
-      (when start
-        (set-position~ src start))
-      (while (and (not (done?~ src)) (not (done?~ rep)))
-        (put~ src (get-next~ rep))
-        (next~ src)))
-    seq))
+(definition public (replace! seq replacement (start: start {}))
+  (let ((src (iterate seq))
+        (rep (iterate replacement)))
+    (when start
+      (set-position~ src start))
+    (while (and (not (done?~ src)) (not (done?~ rep)))
+      (put~ src (get-next~ rep))
+      (next~ src)))
+  seq)
 
 
-(definition public (ordered-position object seq . rest)
-  (bind-keywords ((key {}) (test <=)) rest
-    (find object seq :key key :test test :return 'position)))
+(definition public (ordered-position object seq (key: key {}) (test: test <=))
+  (find object seq key: key test: test return: 'position))
 
 
-(definition public (insert-ordered! object seq . rest)
-  (bind-keywords ((key {}) (test <=)) rest
-    (let ((n (ordered-position object seq :key key :test test)))
-      (insert! object seq (either n (length seq))))))
+(definition public (insert-ordered! object seq (key: key {}) (test: test <=))
+  (let ((n (ordered-position object seq key: key test: test)))
+    (insert! object seq (either n (length seq)))))
 
 
-(definition public (merge-ordered proc x y . rest)
-  (bind-keywords ((key {}) (left-key key) (right-key key) (test {}) (case-insensitive? false)) rest
-    (let ((ix (iterate x))
-          (iy (iterate y))
-          (compare-proc (either test (if case-insensitive? ci-compare compare))))
-      (while (and (not (done?~ ix)) (not (done?~ iy)))
-        (let* ((ex (peek~ ix))
-               (ey (peek~ iy))
-               (kx (apply-key left-key ex))
-               (ky (apply-key right-key ey)))
-          (case (compare-proc kx ky)
-            ((:equal)   (proc :same kx ex ey)
-             (next~ ix)
-             (next~ iy))
-            ((:less)    (proc :left kx ex {})
-             (next~ ix))
-            ((:greater) (proc :right ky {} ey)
-             (next~ iy))
-            (else       (error "Unable to compare {t} and {t}" kx ky)))))
-      (while (not (done?~ ix))
-        (let ((expr (get-next~ ix)))
-          (proc :left (apply-key left-key expr) expr {})))
-      (while (not (done?~ iy))
-        (let ((expr (get-next~ iy)))
-          (proc :right (apply-key right-key expr) {} expr))))))
+(definition public (merge-ordered proc x y (key: key {}) (left-key: left-key key) (right-key: right-key key) (test: test {}) (case-insensitive?: case-insensitive? false))
+  (let ((ix (iterate x))
+        (iy (iterate y))
+        (compare-proc (either test (if case-insensitive? ci-compare compare))))
+    (while (and (not (done?~ ix)) (not (done?~ iy)))
+      (let* ((ex (peek~ ix))
+             (ey (peek~ iy))
+             (kx (apply-key left-key ex))
+             (ky (apply-key right-key ey)))
+        (case (compare-proc kx ky)
+          ((:equal)   (proc :same kx ex ey)
+           (next~ ix)
+           (next~ iy))
+          ((:less)    (proc :left kx ex {})
+           (next~ ix))
+          ((:greater) (proc :right ky {} ey)
+           (next~ iy))
+          (else       (error "Unable to compare {t} and {t}" kx ky)))))
+    (while (not (done?~ ix))
+      (let ((expr (get-next~ ix)))
+        (proc :left (apply-key left-key expr) expr {})))
+    (while (not (done?~ iy))
+      (let ((expr (get-next~ iy)))
+        (proc :right (apply-key right-key expr) {} expr)))))
 
 
-(definition public (merge proc lists . rest)
-  (bind-keywords ((key {}) (compare compare)) rest
-    (let ((scan (copy lists)))
-      (while (some? identity scan)
-        (let* ((min (minimum (map car (remove-nils scan)) :key key :compare compare))
-               (min-key (apply-key key min))
-               (res (new List-Factory)))
-          (for-each-pair (function dynamic (pair)
-                           (let* ((list (car pair))
-                                  (object (car list)))
-                             (if (or (not object)
-                                     (neq? (compare (apply-key key object) min-key) :equal))
-                                 (put~ res {})
-                               (put~ res object)
-                               (set-car! pair (cdr list)))))
-                         scan)
-          (proc min-key (get-output~ res)))))))
+(definition public (merge proc lists (key: key {}) (compare: compare compare))
+  (let ((scan (copy lists)))
+    (while (some? identity scan)
+      (let* ((min (minimum (map car (remove-nils scan)) key: key :compare compare))
+             (min-key (apply-key key min))
+             (res (new List-Factory)))
+        (for-each-pair (function dynamic (pair)
+                         (let* ((list (car pair))
+                                (object (car list)))
+                           (if (or (not object)
+                                   (neq? (compare (apply-key key object) min-key) :equal))
+                               (put~ res {})
+                             (put~ res object)
+                             (set-car! pair (cdr list)))))
+                       scan)
+        (proc min-key (get-output~ res))))))
 
 
 (definition public (random-element seq)
   (element seq (random (length seq))))
 
 
-(definition public (partition sequence . rest)
-  (bind-keywords ((key identity) (test {})) rest
-    (let ((result '()))
-      (with ((proc <Procedure>
-               (function dynamic (element)
-                 (let* ((category (key element))
-                        (pair (assoc category result :test test)))
-                   (if (not pair)
-                       (set! result (cons (cons category (list element)) result))
-                     (set-cdr! pair (cons element (cdr pair))))))))
-        (for-each proc sequence))
-      (reverse! (map (function dynamic (partition)
-                       (bind (key . elements) partition
-                         (cons key (reverse! elements))))
-                     result)))))
+(definition public (partition sequence (key: key identity) (test: test {}))
+  (let ((result '()))
+    (with ((proc <Procedure>
+             (function dynamic (element)
+               (let* ((category (key element))
+                      (pair (assoc category result test: test)))
+                 (if (not pair)
+                     (set! result (cons (cons category (list element)) result))
+                   (set-cdr! pair (cons element (cdr pair))))))))
+      (for-each proc sequence))
+    (reverse! (map (function dynamic (partition)
+                     (bind (key . elements) partition
+                       (cons key (reverse! elements))))
+                   result))))
 
 
 (definition public (partition-binary lst predicate)
@@ -2594,20 +2547,18 @@
     (values yes no)))
 
 
-(definition (starts-with? string target . rest)
-  (bind-keywords ((test equal?)) rest
-    (let ((str (length string))
-          (trg (length target)))
-      (and (>= str trg)
-           (test (subseq string 0 trg) target)))))
+(definition (starts-with? string target (test: test equal?))
+  (let ((str (length string))
+        (trg (length target)))
+    (and (>= str trg)
+         (test (subseq string 0 trg) target))))
 
 
-(definition (ends-with? string target . rest)
-  (bind-keywords ((test =)) rest
-    (let ((str (length string))
-          (trg (length target)))
-      (and (>= str trg)
-           (test (subseq! string (- str trg)) target)))))
+(definition (ends-with? string target (test: test =))
+  (let ((str (length string))
+        (trg (length target)))
+    (and (>= str trg)
+         (test (subseq! string (- str trg)) target))))
 
 
 ;; pickpick impl.
@@ -3001,46 +2952,41 @@
 
 
 (definition public (memq? target <Object> list <Object>)
-  (optimize (:frame? false)
-    (boolean (memq target list))))
+  (boolean (memq target list)))
 
 
 (definition public (memv? target <Object> list <Object>)
-  (optimize (:frame? false)
-    (boolean (memv target list))))
+  (boolean (memv target list)))
 
 
-(definition public (member? target <Object> list <Object> . rest)
-  (bind-keywords ((key {}) (test equal?)) rest
-    (let (iterate (scan list))
-      (cond ((null? scan)
-             #f)
-            ((apply-test test target (apply-key key (car scan)))
-             #t)
-            (else
-             (iterate (cdr scan)))))))
+(definition public (member? target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (cond ((null? scan)
+           #f)
+          ((apply-test test target (apply-key key (car scan)))
+           #t)
+          (else
+           (iterate (cdr scan))))))
 
 
-(definition public (assoc target <Object> list <Object> . rest)
-  (bind-keywords ((key {}) (test equal?)) rest
-    (let (iterate (scan list))
-      (if (null? scan)
-          #f
-        (let ((pair (car scan)))
-          (if (apply-test test target (apply-key key (car pair)))
-              pair
-            (iterate (cdr scan))))))))
+(definition public (assoc target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (if (null? scan)
+        #f
+      (let ((pair (car scan)))
+        (if (apply-test test target (apply-key key (car pair)))
+            pair
+          (iterate (cdr scan)))))))
 
 
-(definition public (rassoc target <Object> list <Object> . rest)
-  (bind-keywords ((key {}) (test equal?)) rest
-    (let (iterate (scan list))
-      (if (null? scan)
-          #f
-        (let ((pair (car scan)))
-          (if (apply-test test target (apply-key key (cdr pair)))
-              pair
-            (iterate (cdr scan))))))))
+(definition public (rassoc target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (if (null? scan)
+        #f
+      (let ((pair (car scan)))
+        (if (apply-test test target (apply-key key (cdr pair)))
+            pair
+          (iterate (cdr scan)))))))
 
 
 (definition public (find-pair target <Object> list <Object>)
@@ -3064,45 +3010,42 @@
     res))
 
 
-(definition public (remove! target <Object> list <Object> . rest)
-  (bind-keywords ((key {}) (test eqv?)) rest
-    (while (and (not-null? list) (test target (apply-key key (car list))))
-      (set! list (cdr list)))
-    (if (null? list)
-        '()
-      (let ((previous list)
-            (scan (cdr list)))
+(definition public (remove! target <Object> list <Object> (key: key {}) (test: test eqv?))
+  (while (and (not-null? list) (test target (apply-key key (car list))))
+    (set! list (cdr list)))
+  (if (null? list)
+      '()
+    (let ((previous list)
+          (scan (cdr list)))
+      (while (not-null? scan)
+        (if (test target (apply-key key (car scan)))
+            (begin
+              (set! scan (cdr scan))
+              (set-cdr! previous scan))
+          (set! previous scan)
+          (set! scan (cdr scan)))))
+    list))
+
+
+(definition public (getprop plist <Object> target <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (let ((scan plist))
         (while (not-null? scan)
-          (if (test target (apply-key key (car scan)))
-              (begin
-                (set! scan (cdr scan))
-                (set-cdr! previous scan))
-            (set! previous scan)
-            (set! scan (cdr scan)))))
-      list)))
+          (when (eqv? (apply-key key (car scan)) target)
+            (return scan))
+          (set! scan (cdr scan))
+          (when (not (pair? scan))
+            (error "Badly structured property list: {t}" plist))
+          (set! scan (cdr scan))))
+      #f)))
 
 
-(definition public (getprop plist <Object> target <Object> . rest)
-  (bind-keywords ((key {})) rest
-    (call/ec
-      (lambda (return)
-        (let ((scan plist))
-          (while (not-null? scan)
-            (when (eqv? (apply-key key (car scan)) target)
-              (return scan))
-            (set! scan (cdr scan))
-            (when (not (pair? scan))
-              (error "Badly structured property list: {t}" plist))
-            (set! scan (cdr scan))))
-        #f))))
-
-
-(definition public (getf plist <Object> target <Object> . rest)
-  (bind-keywords ((key {}) (not-found {})) rest
-    (let ((pair (getprop plist target key: key)))
-      (if (not pair)
-          not-found
-        (cadr pair)))))
+(definition public (getf plist <Object> target <Object> (key: key {}) (not-found: not-found {}))
+  (let ((pair (getprop plist target key: key)))
+    (if (not pair)
+        not-found
+      (cadr pair))))
 
 
 (definition public (setf plist <Object> target <Object> value <Object>)
@@ -3141,18 +3084,17 @@
   (apply append llist))
 
 
-(definition public (uniform lst . rest)
-  (bind-keywords ((key {}) (test {})) rest
-    (when lst
-      (call/ec
-        (lambda (return)
-          (let ((first (apply-key key (car lst))))
-            (for-each (function dynamic (object)
-                        (let ((value (apply-key key object)))
-                          (unless (apply-test test first value)
-                            (return {}))))
-                      (cdr lst))
-            first))))))
+(definition public (uniform lst (key: key {}) (test: test {}))
+  (when lst
+    (call/ec
+      (lambda (return)
+        (let ((first (apply-key key (car lst))))
+          (for-each (function dynamic (object)
+                      (let ((value (apply-key key object)))
+                        (unless (apply-test test first value)
+                          (return {}))))
+                    (cdr lst))
+          first)))))
 
 
 (definition public (sort-property-list prop-list <Object>)
@@ -3162,7 +3104,7 @@
          (alist   (begin
                     (for-each-property proc prop-list)
                     (get-output~ factory)))
-         (sorted  (sort < alist :key car)))
+         (sorted  (sort < alist key: car)))
     (apply append sorted)))
 
 
@@ -3260,7 +3202,7 @@
 
   (method (put-unique object . rest)
     (bind-keywords ((test eqv?)) rest
-      (unless (member? object list :test test)
+      (unless (member? object list test: test)
         (put object))))
 
 
@@ -3376,14 +3318,12 @@
       list)))
 
 
-(definition public (new-hashtable test . rest)
-  (bind-optionals ((hash {})) rest
-    (make-hashtable test (either hash #f))))
+(definition public (new-hashtable test (hash {}))
+  (make-hashtable test (either hash #f)))
 
 
-(definition public (hash-ref hashtable key . rest)
-  (let ((default (if (null? rest) {} (car rest))))
-    (hashtable-ref hashtable key default)))
+(definition public (hash-ref hashtable key (default {}))
+  (hashtable-ref hashtable key default))
 
 
 (definition public (hash-set! hashtable key value)
@@ -3723,20 +3663,18 @@
         (else (signal (new Convertion-Error :object string :type "boolean")))))
 
 
-(definition public (parse-strings string . rest)
-  (bind-keywords ((separator ",")) rest
-    (if (or (empty-string? string) (= string "{}"))
-        {}
-      (map (function dynamic (string)
-             (trim-spaces string))
-           (split string separator)))))
-
-
-(definition public (parse-delimited-string string . rest)
-  (bind-keywords ((separator ",")) rest
+(definition public (parse-strings string (separator: separator ","))
+  (if (or (empty-string? string) (= string "{}"))
+      {}
     (map (function dynamic (string)
-           (parse-strings string :separator " "))
-         (parse-strings string :separator separator))))
+           (trim-spaces string))
+         (split string separator))))
+
+
+(definition public (parse-delimited-string string (separator: separator ","))
+  (map (function dynamic (string)
+         (parse-strings string :separator " "))
+       (parse-strings string :separator separator)))
 
 
 (definition public (require-char reader)
@@ -3768,25 +3706,24 @@
             (iterate)))))))
 
 
-(definition public (read-delimited reader kind delimiter . rest)
-  (bind-optionals ((allow-eof? false)) rest
-    (let ((queue (new-queue)))
-      (let (iterate)
-        (skip-whites reader)
-        (let ((c (peek-char reader)))
-          (cond ((eof-object? c)
-                 (if allow-eof?
-                     (queue-list queue)
-                   (error "Unexpected end of stream reached while reading {a}" kind)))
-                ((eqv? c delimiter)
-                 (read-char reader)
-                 (queue-list queue))
-                ((eqv? c #\.)
-                 (enqueue-list queue (read reader))
-                 (iterate))
-                (else
-                 (enqueue queue (read reader))
-                 (iterate))))))))
+(definition public (read-delimited reader kind delimiter (allow-eof? false))
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (skip-whites reader)
+      (let ((c (peek-char reader)))
+        (cond ((eof-object? c)
+               (if allow-eof?
+                   (queue-list queue)
+                 (error "Unexpected end of stream reached while reading {a}" kind)))
+              ((eqv? c delimiter)
+               (read-char reader)
+               (queue-list queue))
+              ((eqv? c #\.)
+               (enqueue-list queue (read reader))
+               (iterate))
+              (else
+               (enqueue queue (read reader))
+               (iterate)))))))
 
 
 (definition public (string-delimiter? c)
@@ -3991,11 +3928,10 @@
        (zero? (string-length object))))
 
 
-(definition public (->string expr . rest)
-  (bind-optionals ((detail ':human)) rest
-    (let ((output (open-output-string)))
-      (print expr output detail)
-      (get-output-string output))))
+(definition public (->string expr (detail ':human))
+  (let ((output (open-output-string)))
+    (print expr output detail)
+    (get-output-string output)))
 
 
 (definition public (remove-trailing-newline string)
@@ -4054,25 +3990,24 @@
         (and d1? d2?)))))
 
 
-(definition public (unique-domain-name name domain . rest)
-  (bind-keywords ((separator {})) rest
-    (if (not (member? name domain))
-        name
-      (let* ((common-prefix (if (not separator) name (append name separator)))
-             (common-length (length common-prefix))
-             (suffixes (collect (function dynamic (string)
-                                  (when (starts-with? string common-prefix)
-                                    (subseq string common-length)))
-                                domain))
-             (n 1)
-             (suffix))
-        (while (member? (set! suffix (->string n)) suffixes)
-          (increase! n))
-        (append common-prefix suffix)))))
+(definition public (unique-domain-name name domain (separator: separator {}))
+  (if (not (member? name domain))
+      name
+    (let* ((common-prefix (if (not separator) name (append name separator)))
+           (common-length (length common-prefix))
+           (suffixes (collect (function dynamic (string)
+                                (when (starts-with? string common-prefix)
+                                  (subseq string common-length)))
+                              domain))
+           (n 1)
+           (suffix))
+      (while (member? (set! suffix (->string n)) suffixes)
+        (increase! n))
+      (append common-prefix suffix))))
 
 
 (definition public (remove-numeric-suffix string)
-  (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string :reversed? true :return 'position)))
+  (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string reversed?: true return: 'position)))
     (if (not pos)
         ""
       (subseq string 0 (+ pos 1)))))
@@ -4104,15 +4039,14 @@
 ;;;
 
 
-(definition public (new-thread class . rest)
-  (bind-keywords ((name #f) (execute #f) (start? #t)) rest
-    (let* ((thread (new class name))
-           (scheme-thread (make-scheme-thread thread execute)))
-      (set-scheme-thread thread scheme-thread)
-      (thread-specific-set! scheme-thread thread)
-      (if start?
-          (scheme-thread-start! scheme-thread))
-      thread)))
+(definition public (new-thread class (name: name #f) (execute: execute #f) (start?: start? #t))
+  (let* ((thread (new class name))
+         (scheme-thread (make-scheme-thread thread execute)))
+    (set-scheme-thread thread scheme-thread)
+    (thread-specific-set! scheme-thread thread)
+    (if start?
+        (scheme-thread-start! scheme-thread))
+    thread))
 
 
 (definition primary-thread-object
@@ -4441,27 +4375,24 @@
 
 
   (method (get-size)
-    (optimize (:frame? false)
-      (size-of int)))
+    (size-of int))
 
 
   (method (read-content address <int>)
-    (optimize (:frame? false)
-      (%read-int address)))
+    (%read-int address))
 
 
   (method (write-content address <int> object <Object>)
-    (optimize (:frame? false)
-      (%write-int address object)))
+    (%write-int address object))
 
 
   (method (entry-from-name name)
-    (either (find name entries :key first :test eq?)
+    (either (find name entries key: first test: eq?)
             (error "Unknown enumeration name: {t} in {t}" name self)))
 
 
   (method (entry-from-value value)
-    (either (find value entries :key second :test eqv?)
+    (either (find value entries key: second test: eqv?)
             (error "Unknown enumeration value: {t} in {t}" value self)))
 
 
@@ -4476,7 +4407,7 @@
   (method public (get-rank target)
     (if (= target name)
         0
-      (+ 1 (find target entries :key first :test eq? :return 'position)))))
+      (+ 1 (find target entries key: first test: eq? return: 'position)))))
 
 
 (definition public inline (enumeration? object <Object>)
@@ -4961,7 +4892,7 @@
   
   
   (method (keyword-parameter parameters keyword default)
-    (let ((param (getf parameters keyword :not-found default)))
+    (let ((param (getf parameters keyword not-found: default)))
       (if (eq? param :v)
           (next-argument)
         param)))
@@ -5179,79 +5110,68 @@
   )
 
 
-(definition (textual expr . rest)
-  (bind-optionals ((printer :output)) rest
-    (print~ expr (resolve-printer printer) :text)))
+(definition (textual expr (printer :output))
+  (print~ expr (resolve-printer printer) :text))
 
 
-(definition (describe expr . rest)
-  (bind-optionals ((printer :output)) rest
-    (print~ expr (resolve-printer printer) :describe)))
+(definition (describe expr (printer :output))
+  (print~ expr (resolve-printer printer) :describe))
 
 
-(definition (print-expr expr detail . rest)
-  (bind-optionals ((printer :output)) rest
-    (print~ expr (resolve-printer printer) detail)))
+(definition (print-expr expr detail (printer :output))
+  (print~ expr (resolve-printer printer) detail))
 
 
-(definition (print-char c . rest)
-  (bind-optionals ((printer :output)) rest
-    (write-char c (output-port printer))))
+(definition (print-char c (printer :output))
+  (write-char c (output-port printer)))
 
 
-(definition (print-unsigned n . rest)
-  (bind-optionals ((printer :output)) rest
-    ;; quick fix
-    (write n (output-port printer))))
+(definition (print-unsigned n (printer :output))
+  ;; quick fix
+  (write n (output-port printer)))
 
 
-(definition (print-hexadecimal n . rest)
-  (bind-optionals ((printer :output)) rest
-    ;; quick fix
-    (write n (output-port printer))))
+(definition (print-hexadecimal n (printer :output))
+  ;; quick fix
+  (write n (output-port printer)))
 
 
-(definition (print-binary b . rest)
-  (bind-optionals ((printer :output)) rest
-    ;; quick fix
-    (write b (output-port printer))))
+(definition (print-binary b (printer :output))
+  ;; quick fix
+  (write b (output-port printer)))
 
 
-(definition (print-real r precision . rest)
-  (bind-optionals ((printer :output)) rest
-    ;; quick fix
-    (write r (output-port printer))))
+(definition (print-real r precision (printer :output))
+  ;; quick fix
+  (write r (output-port printer)))
 
 
-(definition (print-list list separator last-separator before after detail . rest)
-  (bind-optionals ((printer :output)) rest
-    (when (not-null? list)
-      (when before
-        (display before printer))
-      (let (iterate (scan list))
-        (let ((expr (car scan)))
-          (print~ expr printer detail)
-          (let ((next (cdr scan)))
-            (when (not-null? next)
-              (if (list? next)
-                  (display (if (null? (cdr next)) last-separator separator) printer)
-                (display " . " printer)
-                (print~ next printer detail))
-              (iterate (cdr scan))))))
-      (when after
-        (display after printer)))))
+(definition (print-list list separator last-separator before after detail (printer :output))
+  (when (not-null? list)
+    (when before
+      (display before printer))
+    (let (iterate (scan list))
+      (let ((expr (car scan)))
+        (print~ expr printer detail)
+        (let ((next (cdr scan)))
+          (when (not-null? next)
+            (if (list? next)
+                (display (if (null? (cdr next)) last-separator separator) printer)
+              (display " . " printer)
+              (print~ next printer detail))
+            (iterate (cdr scan))))))
+    (when after
+      (display after printer))))
 
 
-(definition (fresh-line . rest)
-  (bind-optionals ((printer :output)) rest
-    (unless (at-fresh-line? printer)
-      (newline printer))))
+(definition (fresh-line (printer :output))
+  (unless (at-fresh-line? printer)
+    (newline printer)))
 
 
-(definition (at-fresh-line? . rest)
-  (bind-optionals ((printer :output)) rest
-    ;; todo
-    #f))
+(definition (at-fresh-line? (printer :output))
+  ;; todo
+  #f)
 
 
 ;;;
@@ -5262,9 +5182,9 @@
 (syntax public (profile . expressions)
   (let ((control (car expressions))
         (body (cdr expressions)))
-    (let ((on? (getf control :on? :key unwrap-syntax :not-found true))
-          (name (getf control name: :key unwrap-syntax))
-          (condition (getf control :condition :key unwrap-syntax)))
+    (let ((on? (getf control :on? key: unwrap-syntax not-found: true))
+          (name (getf control name: key: unwrap-syntax))
+          (condition (getf control :condition key: unwrap-syntax)))
       (if (not on?)
           (cons 'begin body)
         (augment '%profile name condition body)))))

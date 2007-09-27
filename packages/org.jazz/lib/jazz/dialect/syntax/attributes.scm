@@ -53,25 +53,25 @@
 ;   (definition (node-properties)
 ;     (quote
 ;       (:nullable?
-;        :key
+;        key:
 ;        :criteria)))
 ;   (slot key initialize #f)
 ;   (slot criteria initialize #f)
 ;   (method (get-value property)
 ;           (case property
-;             ((:key) key)
+;             ((key:) key)
 ;             ((:criteria) criteria)
 ;             (else (nextmethod property))))
 ;   (method (set-value property value)
 ;           (case property
-;             ((:key) (set! key value))
+;             ((key:) (set! key value))
 ;             ((:criteria) (set! criteria value))
 ;             (else (nextmethod property value))))
 ;   (begin
 ;     (method public (get-key)
 ;       key)
 ;     (method public (set-key value)
-;       (set-property :key value)))
+;       (set-property key: value)))
 ;   (begin
 ;     (method public (get-criteria)
 ;       criteria)

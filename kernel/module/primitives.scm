@@ -252,7 +252,17 @@
     (define-macro (%%keyword? obj)
       (if (jazz.safe?)
           `(keyword? ,obj)
-        `(##keyword? ,obj))))
+        `(##keyword? ,obj)))
+   
+    (define-macro (%%string->keyword str)
+      (if (jazz.safe?)
+          `(string->keyword ,str)
+        `(##string->keyword ,str)))
+   
+   (define-macro (%%keyword->string keyword)
+     (if (jazz.safe?)
+         `(keyword->string ,keyword)
+       `(##keyword->string ,keyword))))
 
   (else))
 

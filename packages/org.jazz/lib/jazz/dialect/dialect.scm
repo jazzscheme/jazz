@@ -680,13 +680,15 @@
     (let* ((new-declaration (jazz.find-form-declaration declaration form))
            (generic-locator (%%get-declaration-locator new-declaration))
            (dispatch-specifier (%%car parameters))
-           (dispatch-type-name (%%car dispatch-specifier))
-           (dispatch-type-declaration (jazz.lookup-reference walker resume declaration environment dispatch-type-name))
-           (dispatch-type-access (jazz.walk-binding-walk-reference dispatch-type-declaration walker resume new-declaration environment))
-           (dispatch-parameter (%%cadr dispatch-specifier))
-           (other-parameters (%%cdr parameters))
-           (generic-parameters (%%cons (%%list dispatch-type-access dispatch-parameter) other-parameters)))
-      `(jazz.define-generic ,(%%cons generic-locator generic-parameters)))))
+           (dispatch-type-specifier (%%car dispatch-specifier)))
+      (%%assert (jazz.specifier? dispatch-type-specifier)
+        (let* ((dispatch-type-name (jazz.specifier->name dispatch-type-specifier))
+               (dispatch-type-declaration (jazz.lookup-reference walker resume declaration environment dispatch-type-name))
+               (dispatch-type-access (jazz.walk-binding-walk-reference dispatch-type-declaration walker resume new-declaration environment))
+               (dispatch-parameter (%%cadr dispatch-specifier))
+               (other-parameters (%%cdr parameters))
+               (generic-parameters (%%cons (%%list dispatch-type-access dispatch-parameter) other-parameters)))
+          `(jazz.define-generic ,(%%cons generic-locator generic-parameters)))))))
 
 
 ;;;
@@ -723,22 +725,24 @@
            (generic-locator (%%get-declaration-locator generic-declaration))
            (generic-object-locator (jazz.generic-object-locator generic-locator))
            (dispatch-specifier (%%car parameters))
-           (dispatch-type-name (%%car dispatch-specifier))
-           (dispatch-type-declaration (jazz.lookup-reference walker resume declaration environment dispatch-type-name))
-           (dispatch-type-access (jazz.walk-binding-walk-reference dispatch-type-declaration walker resume declaration environment))
-           (dispatch-parameter (%%cadr dispatch-specifier))
-           (other-parameters (%%cdr parameters))
-           (generic-parameters (%%cons (%%list dispatch-type-access dispatch-parameter) other-parameters))
-           (specific-expansion
-             `(jazz.define-specific ,(%%cons generic-locator generic-parameters)
-                ,@(let* ((new-variables (%%cons (jazz.new-nextmethodvariable 'nextmethod) (jazz.parameters->variables (%%cons dispatch-parameter (%%cdr parameters)))))
-                         (new-environment (%%append new-variables environment)))
-                    (jazz.walk-body walker resume declaration new-environment body)))))
-      (if (%%not install?)
-          specific-expansion
-        `(begin
-           ,specific-expansion
-           (jazz.update-generic ,generic-object-locator))))))
+           (dispatch-type-specifier (%%car dispatch-specifier)))
+      (%%assert (jazz.specifier? dispatch-type-specifier)
+        (let* ((dispatch-type-name (jazz.specifier->name dispatch-type-specifier))
+               (dispatch-type-declaration (jazz.lookup-reference walker resume declaration environment dispatch-type-name))
+               (dispatch-type-access (jazz.walk-binding-walk-reference dispatch-type-declaration walker resume declaration environment))
+               (dispatch-parameter (%%cadr dispatch-specifier))
+               (other-parameters (%%cdr parameters))
+               (generic-parameters (%%cons (%%list dispatch-type-access dispatch-parameter) other-parameters))
+               (specific-expansion
+                 `(jazz.define-specific ,(%%cons generic-locator generic-parameters)
+                    ,@(let* ((new-variables (%%cons (jazz.new-nextmethodvariable 'nextmethod) (jazz.parameters->variables (%%cons dispatch-parameter (%%cdr parameters)))))
+                             (new-environment (%%append new-variables environment)))
+                        (jazz.walk-body walker resume declaration new-environment body)))))
+          (if (%%not install?)
+              specific-expansion
+            `(begin
+               ,specific-expansion
+               (jazz.update-generic ,generic-object-locator))))))))
 
 
 ;;;
@@ -1082,7 +1086,7 @@
         (let* ((found-declaration (jazz.lookup-declaration declaration name #f))
                (unit-declaration declaration)
                (unit-name (%%get-lexical-binding-name unit-declaration))
-               (generic-parameters (%%cons (%%list unit-name 'self) parameters)))
+               (generic-parameters (%%cons (%%list (jazz.name->specifier unit-name) 'self) parameters)))
           (case propagation
             ((inherited)
              (if (and found-declaration (%%is? found-declaration jazz.Generic-Declaration))

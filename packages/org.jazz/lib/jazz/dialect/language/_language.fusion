@@ -196,10 +196,10 @@
     (error "{t} is not an alphabetic type" self)))
 
 
-(generic public (fold-literal (Object obj)))
+(generic public (fold-literal (<Object> obj)))
 
 
-(specific (fold-literal (Object obj))
+(specific (fold-literal (<Object> obj))
   (error "Unable to fold literal: {t}" obj))
 
 
@@ -225,9 +225,9 @@
     obj))
 
 
-(generic public (coerce-string (Object obj)))
+(generic public (coerce-string (<Object> obj)))
 
-(specific (coerce-string (Object obj))
+(specific (coerce-string (<Object> obj))
   (error "{t} cannot be coerced into a string" obj))
 
 
@@ -330,9 +330,9 @@
   (coerce-object class object))
 
 
-(generic public (coerce-object (Class class) obj))
+(generic public (coerce-object (<Class> class) obj))
 
-(specific (coerce-object (Class class) obj)
+(specific (coerce-object (<Class> class) obj)
   (error "Unable to coerce {t} into a {t}" obj (type-name class)))
 
 
@@ -687,7 +687,7 @@
     (object-upcase)))
 
 
-(specific (coerce-string (Char c))
+(specific (coerce-string (<Char> c))
   (let ((port (open-output-string)))
     (write-char c port)
     (get-output-string port)))
@@ -984,7 +984,7 @@
       :incompatible)))
 
 
-(specific (coerce-string (Symbol symbol))
+(specific (coerce-string (<Symbol> symbol))
   (symbol->string symbol))
 
 
@@ -1452,13 +1452,13 @@
     ))
 
 
-(generic public (iterate (Object obj)))
+(generic public (iterate (<Object> obj)))
 
-(specific (iterate (Object obj))
+(specific (iterate (<Object> obj))
   (error "{t} is not an iterable type" obj))
 
 
-(specific (iterate (Iterator iter))
+(specific (iterate (<Iterator> iter))
   iter)
 
 
@@ -1608,7 +1608,7 @@
     (apply new Sequence-Explorer object rest)))
 
 
-(specific (coerce-object (Sequence-Class class) seq)
+(specific (coerce-object (<Sequence-Class> class) seq)
   ;; add List optimisation
   (let ((len (length seq)))
     (let ((new-sequence (allocate-sequence~ class len)))
@@ -1706,32 +1706,32 @@
   (is? seq Sequence))
 
 
-(generic public (element (Sequence seq) n))
+(generic public (element (<Sequence> seq) n))
 
 
-(generic public (set-element! (Sequence seq) n obj))
+(generic public (set-element! (<Sequence> seq) n obj))
 
 
-(generic public (length (Sequence seq)))
+(generic public (length (<Sequence> seq)))
 
 
 (definition (empty? seq)
   (= 0 (length seq)))
 
 
-(generic public (tail (Sequence seq) start))
+(generic public (tail (<Sequence> seq) start))
 
 
-(generic public (last (Sequence seq)))
+(generic public (last (<Sequence> seq)))
 
 
-(generic public (butlast (Sequence seq)))
+(generic public (butlast (<Sequence> seq)))
 
 
-(generic public (skip-whitespace (Sequence seq)))
+(generic public (skip-whitespace (<Sequence> seq)))
 
 
-(specific (skip-whitespace (Sequence seq))
+(specific (skip-whitespace (<Sequence> seq))
   (let (iterate (i 0))
     (cond ((= i (length seq)) i)
           ((eq? (element seq i) #\space) (iterate (+ i 1)))
@@ -1750,22 +1750,22 @@
     sub))
 
 
-(generic public (replace-subseq! (Sequence seq) start end replacement))
+(generic public (replace-subseq! (<Sequence> seq) start end replacement))
 
 
 (definition (subseq! seq start (end (length seq)))
   (subseq-share seq start end))
 
 
-(generic public (subseq-share (Sequence seq) start end))
+(generic public (subseq-share (<Sequence> seq) start end))
 
-(specific (subseq-share (Sequence seq) start end)
+(specific (subseq-share (<Sequence> seq) start end)
   (if (and (= start 0) (= end -1))
       seq
     (new Subseq seq start (- (if (= end -1) (length seq) end) start))))
 
 
-(specific (iterate (Sequence seq))
+(specific (iterate (<Sequence> seq))
   (new Sequence-Explorer seq))
 
 
@@ -2759,43 +2759,43 @@
           (unmarshal~ (cdr self)))))
 
 
-(specific (element (List list) n)
+(specific (element (<List> list) n)
   (list-ref list n))
 
 
-(specific (set-element! (List list) n obj)
+(specific (set-element! (<List> list) n obj)
   (list-set! list n obj))
 
 
-(specific (length (List list))
+(specific (length (<List> list))
   (scheme.length list))
 
 
-(specific (tail (List list) n)
+(specific (tail (<List> list) n)
   (if (or (null? list) (= n 0))
       list
     (tail (cdr list) (- n 1))))
 
 
-(specific (last (List list))
+(specific (last (<List> list))
   (if (null? (cdr list))
       (car list)
     (last (cdr list))))
 
 
-(specific (butlast (List list))
+(specific (butlast (<List> list))
   (if (or (null? list) (null? (cdr list)))
       '()
     (cons (car list) (butlast (cdr list)))))
 
 
-(specific (subseq-share (List list) start end)
+(specific (subseq-share (<List> list) start end)
   (if (or (= start 0) (= end -1))
       list
     (subseq list start end)))
 
 
-(specific (replace-subseq! (List list) start end seq)
+(specific (replace-subseq! (<List> list) start end seq)
   (if (= start 0)
       (begin
         (set-cdr! (last-tail seq) (tail list end))
@@ -3108,7 +3108,7 @@
     (apply append sorted)))
 
 
-(specific (iterate (List list))
+(specific (iterate (<List> list))
   (new List-Iterator list))
 
 
@@ -3342,7 +3342,7 @@
   (iterate-hashtable hashtable proc))
 
 
-(specific (iterate (Hashtable hashtable))
+(specific (iterate (<Hashtable> hashtable))
   (unimplemented 'iterate))
 
 
@@ -3410,7 +3410,7 @@
   (for-each-hash proc map))
 
 
-(specific (iterate (Map map))
+(specific (iterate (<Map> map))
   (iterate-hashtable map))
 
 
@@ -3847,7 +3847,7 @@
     (make-string len)))
 
 
-(specific (coerce-object (String-Class class) obj)
+(specific (coerce-object (<String-Class> class) obj)
   (if (sequence? obj)
       (nextmethod class obj)
     (coerce-string obj)))
@@ -3890,34 +3890,34 @@
       :incompatible)))
 
 
-(specific (element (String string) n)
+(specific (element (<String> string) n)
   (string-ref string n))
 
 
-(specific (set-element! (String string) n obj)
+(specific (set-element! (<String> string) n obj)
   (string-set! string n obj))
 
 
-(specific (length (String string))
+(specific (length (<String> string))
   (scheme.string-length string))
 
 
-(specific (tail (String string) n)
+(specific (tail (<String> string) n)
   (let ((lgt (length string)))
     (if (>= n lgt)
         ""
       (substring string n (length string)))))
 
 
-(specific (last (String string))
+(specific (last (<String> string))
   (element string (- (length string) 1)))
 
 
-(specific (butlast (String string))
+(specific (butlast (<String> string))
   (substring string 0 (- (length string) 1)))
 
 
-(specific (replace-subseq! (Sequence seq) start end replacement)
+(specific (replace-subseq! (<Sequence> seq) start end replacement)
   (append! (subseq seq 0 start)
            replacement
            (subseq seq end (length seq))))
@@ -4139,27 +4139,27 @@
          (zero? (length object)))))
 
 
-(specific (element (Vector vector) n)
+(specific (element (<Vector> vector) n)
   (vector-ref vector n))
 
 
-(specific (set-element! (Vector vector) n obj)
+(specific (set-element! (<Vector> vector) n obj)
   (vector-set! vector n obj))
 
 
-(specific (length (Vector vector))
+(specific (length (<Vector> vector))
   (vector-length vector))
 
 
-(specific (tail (Vector vector) n)
+(specific (tail (<Vector> vector) n)
   (list->vector (tail (vector->list vector) n)))
 
 
-(specific (last (Vector vector))
+(specific (last (<Vector> vector))
   (element vector (- (length vector) 1)))
 
 
-(specific (butlast (Vector vector))
+(specific (butlast (<Vector> vector))
   (list->vector (butlast (vector->list))))
 
 
@@ -4226,19 +4226,19 @@
                    (iterate (+ i 1))))))))))
 
 
-(specific (element (Axis axis) n)
+(specific (element (<Axis> axis) n)
   (vector-ref (get-content~ axis) n))
 
 
-(specific (set-element! (Axis axis) n obj)
+(specific (set-element! (<Axis> axis) n obj)
   (vector-set! (get-content~ axis) n obj))
 
 
-(specific (length (Axis axis))
+(specific (length (<Axis> axis))
   (get-size~ axis))
 
 
-(specific (tail (Axis axis) n)
+(specific (tail (<Axis> axis) n)
   (let ((new-axis (new Axis n))
         (offset (- (length axis) n)))
     (let (iterate (i 0))
@@ -4248,11 +4248,11 @@
         (iterate (+ i 1))))))
 
 
-(specific (last (Axis axis))
+(specific (last (<Axis> axis))
   (element axis (- (length axis) 1)))
 
 
-(specific (replace-subseq! (Axis axis) start end replacement)
+(specific (replace-subseq! (<Axis> axis) start end replacement)
   (let* ((before (- end start))
          (after (length replacement))
          (delta (- after before))
@@ -5240,25 +5240,25 @@
           (format output "{s} {s} {s}" sequence start size))))))
 
 
-(specific (element (Subseq subseq) n)
+(specific (element (<Subseq> subseq) n)
   (element [sequence subseq] (+ [start subseq] n)))
 
 
-(specific (set-element! (Subseq subseq) n obj)
+(specific (set-element! (<Subseq> subseq) n obj)
   (set-element! [sequence subseq] (+ [start subseq] n) obj))
 
 
-(specific (length (Subseq subseq))
+(specific (length (<Subseq> subseq))
   [size subseq])
 
 
-(specific (subseq-share (Subseq subseq) s e)
+(specific (subseq-share (<Subseq> subseq) s e)
   (if (or (= s 0) (= e -1))
       subseq
     (new Subseq [sequence subseq] (+ [start subseq] s) (- (if (= e -1) (length subseq) e) s))))
 
 
-(specific (coerce-string (Subseq subseq))
+(specific (coerce-string (<Subseq> subseq))
   (if (string? [sequence subseq])
       (substring [sequence subseq] [start subseq] (+ [start subseq] [size subseq]))
     (error "Cannot coerce sequence to string")))

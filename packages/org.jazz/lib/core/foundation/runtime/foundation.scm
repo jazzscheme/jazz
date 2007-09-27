@@ -119,6 +119,17 @@
               (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\>)))))
 
 
+(define (jazz.specifier->name specifier)
+  (let ((extract
+          (lambda (string)
+            (%%substring string 1 (%%fx- (%%string-length string) 1)))))
+    (%%string->symbol (extract (%%symbol->string specifier)))))
+
+
+(define (jazz.name->specifier name)
+  (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
+
+
 (define (jazz.partition lst key)
   (let ((partitions (jazz.new-queue)))
     (for-each (lambda (element)

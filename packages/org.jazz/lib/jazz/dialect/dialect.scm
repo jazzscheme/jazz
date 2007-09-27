@@ -653,7 +653,7 @@
 (define (jazz.parse-generic walker resume declaration rest)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.generic-modifiers rest)
     (let ((signature (%%car rest)))
-      (%%assert (%%null? (%%cdr rest))
+      (%%assertion (%%null? (%%cdr rest)) (jazz.format "Ill-formed generic containing a body: {s}" signature)
         (let ((name (%%car signature))
               (parameters (%%cdr signature)))
           (values name access compatibility parameters))))))
@@ -730,19 +730,19 @@
         (let* ((dispatch-type-name (jazz.specifier->name dispatch-type-specifier))
                (dispatch-type-declaration (jazz.lookup-reference walker resume declaration environment dispatch-type-name))
                (dispatch-type-access (jazz.walk-binding-walk-reference dispatch-type-declaration walker resume declaration environment))
+               (dispatch-type-specifier (if (%%symbol? dispatch-type-access) (jazz.name->specifier dispatch-type-access) dispatch-type-access))
                (dispatch-parameter (%%cadr dispatch-specifier))
                (other-parameters (%%cdr parameters))
-               (generic-parameters (%%cons (%%list dispatch-type-access dispatch-parameter) other-parameters))
-               (specific-expansion
-                 `(jazz.define-specific ,(%%cons generic-locator generic-parameters)
-                    ,@(let* ((new-variables (%%cons (jazz.new-nextmethodvariable 'nextmethod) (jazz.parameters->variables (%%cons dispatch-parameter (%%cdr parameters)))))
-                             (new-environment (%%append new-variables environment)))
-                        (jazz.walk-body walker resume declaration new-environment body)))))
-          (if (%%not install?)
-              specific-expansion
-            `(begin
-               ,specific-expansion
-               (jazz.update-generic ,generic-object-locator))))))))
+               (generic-parameters (%%cons (%%list dispatch-type-specifier dispatch-parameter) other-parameters)))
+          (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment generic-parameters)
+            (let ((specific-expansion
+                    `(jazz.define-specific ,(%%cons generic-locator parameter-list)
+                       ,@(jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethodvariable 'nextmethod) augmented-environment) body))))
+              (if (%%not install?)
+                  specific-expansion
+                `(begin
+                   ,specific-expansion
+                   (jazz.update-generic ,generic-object-locator))))))))))
 
 
 ;;;

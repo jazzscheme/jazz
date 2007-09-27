@@ -132,6 +132,11 @@
   #f)
 
 
+;; Set to #f to debug the walker itself
+(define jazz.Delay-Reporting?
+  #t)
+
+
 (define jazz.compile-options
   '(debug))
 

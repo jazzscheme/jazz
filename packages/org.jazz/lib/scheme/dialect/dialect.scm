@@ -306,57 +306,78 @@
 
 
 ;;;
+;;;; Parameters
+;;;
+
+
+(define (jazz.walk-parameter-list walker resume declaration environment parameters)
+  (let ((section 'positional)
+        (parameter-list (jazz.new-queue))
+        (augmented-environment environment))
+    (let iter ((scan parameters))
+      (cond ((%%null? scan))
+            ((%%symbol? scan)
+             (jazz.enqueue parameter-list #!rest)
+             (jazz.enqueue parameter-list scan)
+             (set! augmented-environment (%%cons (jazz.new-variable scan) augmented-environment)))
+            (else
+             (let ((parameter (%%car scan)))
+               (cond ((%%symbol? parameter)
+                      (if (%%eq? section 'positional)
+                          ;; ignore type specifiers for now
+                          (if (%%not (jazz.specifier? parameter))
+                              (begin
+                                (jazz.enqueue parameter-list parameter)
+                                (set! augmented-environment (%%cons (jazz.new-variable parameter) augmented-environment))))
+                        (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
+                     ((%%pair? parameter)
+                      (cond ((or (jazz.specifier? (%%car parameter))
+                                 ;; quicky support for autoload expression
+                                 (%%pair? (%%car parameter)))
+                             (if (%%eq? section 'positional)
+                                 (begin
+                                   (jazz.enqueue parameter-list parameter)
+                                   (set! augmented-environment (%%cons (jazz.new-variable (%%cadr parameter)) augmented-environment)))
+                               (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
+                            ((%%keyword? (%%car parameter))
+                             (let ((keyword (%%car parameter))
+                                   (variable (%%cadr parameter))
+                                   (default (%%car (%%cddr parameter))))
+                               (if (%%eq? section 'positional)
+                                   (begin
+                                     (jazz.enqueue parameter-list #!key)
+                                     (set! section 'named)))
+                               (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
+                                   (begin
+                                     (jazz.enqueue parameter-list (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
+                                     (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment)))
+                                 (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" parameter))))
+                            (else
+                             (let ((variable (%%car parameter))
+                                   (default (%%cadr parameter)))
+                               (if (or (%%eq? section 'positional) (%%eq? section 'named))
+                                   (begin
+                                     (jazz.enqueue parameter-list #!optional)
+                                     (set! section 'optional)))
+                               (jazz.enqueue parameter-list (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
+                               (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment))))))
+                     (else
+                      (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter))))
+             (iter (%%cdr scan)))))
+    (values (jazz.queue-list parameter-list)
+            augmented-environment)))
+
+
+;;;
 ;;;; Lambda
 ;;;
 
 
 (define (jazz.walk-lambda walker resume declaration environment form)
-  (let ((bindings (%%cadr form))
+  (let ((parameters (%%cadr form))
         (body (%%cddr form)))
-    (let ((section 'positional)
-          (parameters (jazz.new-queue))
-          (augmented-environment environment))
-      (let iter ((scan bindings))
-        (cond ((%%null? scan))
-              ((%%symbol? scan)
-               (jazz.enqueue parameters #!rest)
-               (jazz.enqueue parameters scan)
-               (set! augmented-environment (%%cons (jazz.new-variable scan) augmented-environment)))
-              (else
-               (let ((binding (%%car scan)))
-                 (cond ((%%symbol? binding)
-                        (if (%%eq? section 'positional)
-                            (if (%%not (jazz.specifier? binding))
-                                (begin
-                                  (jazz.enqueue parameters binding)
-                                  (set! augmented-environment (%%cons (jazz.new-variable binding) augmented-environment))))
-                          (jazz.walk-error walker resume declaration "Ill-formed lambda bindings: {s}" bindings)))
-                       ((%%pair? binding)
-                        (if (%%keyword? (%%car binding))
-                            (let ((keyword (%%car binding))
-                                  (variable (%%cadr binding))
-                                  (default (%%car (%%cddr binding))))
-                              (if (%%eq? section 'positional)
-                                  (begin
-                                    (jazz.enqueue parameters #!key)
-                                    (set! section 'named)))
-                              (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
-                                  (begin
-                                    (jazz.enqueue parameters (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
-                                    (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment)))
-                                (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" binding)))
-                          (let ((variable (%%car binding))
-                                (default (%%cadr binding)))
-                            (if (or (%%eq? section 'positional) (%%eq? section 'named))
-                                (begin
-                                  (jazz.enqueue parameters #!optional)
-                                  (set! section 'optional)))
-                            (jazz.enqueue parameters (%%list variable (jazz.walk walker resume declaration augmented-environment default)))
-                            (set! augmented-environment (%%cons (jazz.new-variable variable) augmented-environment)))))
-                       (else
-                        (jazz.walk-error walker resume declaration "Ill-formed lambda binding: {s}" binding))))
-               (iter (%%cdr scan)))))
-      `(lambda ,(jazz.queue-list parameters)
+    (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters)
+      `(lambda ,parameter-list
          ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
 
 

@@ -42,8 +42,6 @@
         (jazz.dialect.syntax.either (phase syntax))
         (jazz.dialect.syntax.increase (phase syntax))
         (jazz.dialect.syntax.bind (phase syntax))
-        (jazz.dialect.syntax.bind-optionals (phase syntax))
-        (jazz.dialect.syntax.bind-values (phase syntax))
         (jazz.dialect.syntax.while (phase syntax))
         (jazz.dialect.syntax.macros (phase syntax)))
 
@@ -240,7 +238,7 @@
   
   
   (define (add-binding variable type . rest)
-    (bind-optionals ((value Unbound)) rest
+    (let ((value (if (null? rest) Unbound (car rest))))
       (let ((binding (cons variable (cons type (if (eq? value Unbound) (list #f) (list value))))))
         (set! bindings (append! bindings (list binding))))
       variable))
@@ -316,7 +314,7 @@
 
 
   (define (process-for actions rest)
-    (bind-values (variable type key rest) (parse-for rest)
+    (receive (variable type key rest) (parse-for rest)
       (case (unwrap-syntax key)
         ((in)
          (bind (lst . rest) rest
@@ -526,7 +524,7 @@
 
 
   (define (process-return actions rest)
-    (bind-values (ret ext) (get-return/exit)
+    (receive (ret ext) (get-return/exit)
       (add-action (list 'set! ret (car rest)) actions)
       (add-action (list 'set! ext #t) actions)))
   

@@ -72,11 +72,6 @@
   #f)
 
 
-;; Set to #f to debug bugs in the walker implementation itself
-(define jazz.Delay-Reporting?
-  #t)
-
-
 ;;;
 ;;;; Walk Access
 ;;;

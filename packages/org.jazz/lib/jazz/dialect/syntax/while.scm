@@ -43,9 +43,9 @@
 
 
 (define-macro (while test . body)
-  (let ((iterate (generate-symbol "iter")))
-    `(let ,iterate ()
+  (let ((iter (generate-symbol "iter")))
+    `(let ,iter ()
        (if ,test
            (begin
              ,@body
-             (,iterate)))))))
+             (,iter)))))))

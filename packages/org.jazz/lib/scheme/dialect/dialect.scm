@@ -350,20 +350,22 @@
       (jazz.walk-named-let walker resume declaration environment form)
     (let ((bindings (%%cadr form))
           (body (%%cddr form)))
-      (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
-        (let ((augmented-environment environment)
-              (expanded-bindings (jazz.new-queue)))
-          (for-each (lambda (binding-form)
-                      (receive (variable value) (jazz.parse-binding walker resume declaration (jazz.remove-specifiers-quicky binding-form))
-                        (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
-                        (set! augmented-environment (%%cons variable augmented-environment))))
-                    bindings)
-          `(let ,(map (lambda (expanded-binding)
-                        (let ((variable (%%car expanded-binding))
-                              (value (%%cdr expanded-binding)))
-                          `(,(%%get-lexical-binding-name variable) ,value)))
-                      (jazz.queue-list expanded-bindings))
-             ,@(jazz.walk-body walker resume declaration augmented-environment effective-body)))))))
+      (if (and (%%pair? bindings) (%%symbol? (%%car bindings)))
+          (jazz.walk-signature-named-let walker resume declaration environment bindings body)
+        (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+          (let ((augmented-environment environment)
+                (expanded-bindings (jazz.new-queue)))
+            (for-each (lambda (binding-form)
+                        (receive (variable value) (jazz.parse-binding walker resume declaration (jazz.remove-specifiers-quicky binding-form))
+                          (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
+                          (set! augmented-environment (%%cons variable augmented-environment))))
+                      bindings)
+            `(let ,(map (lambda (expanded-binding)
+                          (let ((variable (%%car expanded-binding))
+                                (value (%%cdr expanded-binding)))
+                            `(,(%%get-lexical-binding-name variable) ,value)))
+                        (jazz.queue-list expanded-bindings))
+               ,@(jazz.walk-body walker resume declaration augmented-environment effective-body))))))))
 
 
 (define (jazz.walk-letstar walker resume declaration environment form)
@@ -498,6 +500,14 @@
                             `(,(%%get-lexical-binding-name variable) ,value)))
                         (jazz.queue-list expanded-bindings))
          ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
+
+
+(define (jazz.walk-signature-named-let walker resume declaration environment bindings body)
+  (let ((name (%%car bindings))
+        (bindings (%%cdr bindings)))
+    (jazz.walk-named-let walker resume declaration environment
+      `(let ,name ,bindings
+         ,@body))))
 
 
 ;;;

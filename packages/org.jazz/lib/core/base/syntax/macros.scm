@@ -74,12 +74,12 @@
 
   (else
     (define (jazz.expand-while test . body)
-      (let ((iterate (jazz.generate-symbol "iter")))
-        `(let ,iterate ()
-              (if ,test
-                  (begin
-                    ,@body
-                    (,iterate))))))))
+      (let ((iter (jazz.generate-symbol "iter")))
+        `(let ,iter ()
+           (if ,test
+               (begin
+                 ,@body
+                 (,iter))))))))
 
 
 ;;;

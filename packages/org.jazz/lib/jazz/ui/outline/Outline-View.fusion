@@ -175,19 +175,18 @@
   ;;;
   
   
-  (method public (get-expand-state . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (when root-row
-        (letrec ((proc
-                  (function dynamic (row)
-                    (let ((title (get-title~ (first-child~ row)))
-                          (state (get-state~ row))
-                          (sons (get-sons~ row)))
-                      (when (or (and include-invisibles? sons) (= state 'expanded))
-                        (cons title
-                              (cons state
-                                    (collect proc sons))))))))
-          (collect proc (get-sons~ root-row))))))
+  (method public (get-expand-state (include-invisibles?: include-invisibles? false))
+    (when root-row
+      (letrec ((proc
+                 (function dynamic (row)
+                   (let ((title (get-title~ (first-child~ row)))
+                         (state (get-state~ row))
+                         (sons (get-sons~ row)))
+                     (when (or (and include-invisibles? sons) (= state 'expanded))
+                       (cons title
+                             (cons state
+                                   (collect proc sons))))))))
+        (collect proc (get-sons~ root-row)))))
   
   
   ;; This function will only work properly for a fully collapsed outline.
@@ -451,7 +450,7 @@
                 (layout-scrollee)
                 (when (< top display-height)
                   (invalidate-rect (row-rect rank))
-                  (scroll-view~ display 0 height (new Rect 0 (+ top height) display-width display-height) :erase? false))))))
+                  (scroll-view~ display 0 height (new Rect 0 (+ top height) display-width display-height) erase?: false))))))
         (update-father-control father)
         row)))
   
@@ -485,16 +484,15 @@
                  (display-height [height display-size]))
             (layout-scrollee)
             (when (and top (< top display-height))
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height) :erase? false))))
+              (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height) erase?: false))))
         (detach-descendants~ row)
         (update-father-control father))))
   
   
-  (method public (move-row row father . rest)
-    (bind-keywords ((position {})) rest
-      (remove-row row)
-      (let ((position (if (procedure? position) (position) position)))
-        (add-row :row row father: father position: position))))
+  (method public (move-row row father (position: position {}))
+    (remove-row row)
+    (let ((position (if (procedure? position) (position) position)))
+      (add-row :row row father: father position: position)))
   
   
   (method public (find-ordered-position title father)
@@ -637,10 +635,9 @@
       (add-empty-row)))
   
   
-  (method public virtual (add-empty-row . rest)
-    (bind-keywords ((father {})) rest
-      (let ((father (either father root-row)))
-        (add-row father: father))))
+  (method public virtual (add-empty-row (father: father {}))
+    (let ((father (either father root-row)))
+      (add-row father: father)))
   
   
   (method protected virtual (row-selected? row)
@@ -687,26 +684,29 @@
     selection)
   
   
-  (method public virtual (set-selection sel . rest)
-    (bind-keywords ((force? false) (ensure-displayed? true) (generate-event? true) (user-origin? false)) rest
-      (when (or force? (/= sel selection))
-        (let ((old selection))
-          (set! selection sel)
-          (when ensure-displayed?
-            (ensure-displayed))
-          (when (not-null? old)
-            (invalidate-selection old))
-          (when (not-null? selection)
-            (invalidate-selection selection))
-          (when generate-event?
-            (call-selection-handler old selection force? user-origin?))))))
+  (method public virtual (set-selection sel
+                                        (force?: force? false)
+                                        (ensure-displayed?: ensure-displayed? true)
+                                        (generate-event?: generate-event? true)
+                                        (user-origin?: user-origin? false))
+    (when (or force? (/= sel selection))
+      (let ((old selection))
+        (set! selection sel)
+        (when ensure-displayed?
+          (ensure-displayed))
+        (when (not-null? old)
+          (invalidate-selection old))
+        (when (not-null? selection)
+          (invalidate-selection selection))
+        (when generate-event?
+          (call-selection-handler old selection force? user-origin?)))))
 
   
   (method public virtual (invalidate-selection sel)
     (let ((player (get-player)))
       (when player
         (let ((root (get-root)))
-          (bind-values (dh dv sc) (get-delta~ root self)
+          (receive (dh dv sc) (get-delta~ root self)
             (with-closed ((region (selection-region sel dh dv sc)))
               (invalidate-region~ player region true)))))))
   
@@ -716,7 +716,7 @@
   
   
   (method protected (selection-row-region n dh dv sc)
-    (new Region :rect (acquire-delta dh dv sc (selection-row-rect n))))
+    (new Region rect: (acquire-delta dh dv sc (selection-row-rect n))))
     
   
   (method protected virtual (selection-row-rect n)
@@ -761,17 +761,16 @@
       (recurse root-row (row-visible?~ root-row))))
   
   
-  (method public (for-each-visible-row proc . rest)
-    (bind-keywords ((start {}) (end {}) (wrap? false)) rest
-      (let ((row (either start [next root-row]))
-            (rank (if start (row-rank start) 0)))
-        (when rank
-          (while (and row (neq? row end))
-            (proc row rank)
-            (set! row [next row])
-            (increase! rank))
-          (when (and wrap? start (not row))
-            (for-each-visible-row proc end: (either end start)))))))
+  (method public (for-each-visible-row proc (start: start {}) (end: end {}) (wrap?: wrap? false))
+    (let ((row (either start [next root-row]))
+          (rank (if start (row-rank start) 0)))
+      (when rank
+        (while (and row (neq? row end))
+          (proc row rank)
+          (set! row [next row])
+          (increase! rank))
+        (when (and wrap? start (not row))
+          (for-each-visible-row proc end: (either end start))))))
   
   
   (method public (for-each-visible-descendant parent-row proc)
@@ -958,7 +957,7 @@
     (link-rows previous first)
     (link-rows last next)
     (when (and (not update-locked?) visible?)
-      (bind-values (count height width) (count-visible-size first last true)
+      (receive (count height width) (count-visible-size first last true)
         (increase! visible-count count)
         (increase! visible-height height)
         (update-visible-width-incremental [level previous] width)
@@ -975,14 +974,14 @@
           (when (< (+ top (get-scrolled-v)) display-height)
             (when in-expand?
               (invalidate-expand previous top dynamic?))
-            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height) :erase? false))
+            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height) erase?: false))
           (layout-scrollee)
           (when (> count 0)
             (ensure-row-range-displayed (+ rank 1) (+ rank count)))))))
   
   
   (method public (hide-rows first last visible? in-collapse?)
-    (bind-values (count height width) (count-visible-size first last visible?)
+    (receive (count height width) (count-visible-size first last visible?)
       (when visible?
         (decrease! visible-count count)
         (decrease! visible-height height))
@@ -1005,7 +1004,7 @@
               (collapse-selection rank removed))
             (when (< top display-height)
               (invalidate-collapse rank first top removed)
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)) :erase? false)))
+              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)) erase?: false)))
           (layout-scrollee)))))
   
   
@@ -1127,7 +1126,7 @@
   
   
   (method (row-region n)
-    (new Region :rect (get-bounds~ (get-row n))))
+    (new Region rect: (get-bounds~ (get-row n))))
   
   
   (method protected (row->v r)

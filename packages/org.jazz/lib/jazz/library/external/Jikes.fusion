@@ -22,20 +22,19 @@
   ;;;
   
   
-  (method public (compile file . rest)
-    (bind-keywords ((directory {}) (class-path {})) rest
-      (user-message "Compiling {a}..." (parse~ file))
-      (let ((command (build-command file class-path)))
-        (bind-values (code output-lines error-lines)
-            (create-process command
-             :directory directory
-             :capture-output? true
-             :capture-error? true
-             :pipe-size 262144
-             visible?: false)
-          (when (/= code EXIT_SUCCESS)
-            (report-errors error-lines))))
-      (user-message "Done")))
+  (method public (compile file (directory: directory {}) (class-path: class-path {}))
+    (user-message "Compiling {a}..." (parse~ file))
+    (let ((command (build-command file class-path)))
+      (receive (code output-lines error-lines)
+          (create-process command
+                          directory: directory
+                          :capture-output? true
+                          :capture-error? true
+                          :pipe-size 262144
+                          visible?: false)
+        (when (/= code EXIT_SUCCESS)
+          (report-errors error-lines))))
+    (user-message "Done"))
 
   
   ;;;
@@ -44,7 +43,7 @@
   
   
   (method (build-command file class-path)
-    (format "Jikes +F +Z +P +E +T1 -g -classpath {l :detail :human :separator \";\"} \"{a}\"" class-path (parse~ file)))
+    (format "Jikes +F +Z +P +E +T1 -g -classpath {l detail: :human separator: \";\"} \"{a}\"" class-path (parse~ file)))
 
   
   ;;;
@@ -57,7 +56,7 @@
       ;; for testing...
       (bind (file range msg) (car parsed)
         (message-box msg)
-        (edit-document~ (get-application) file :selection range))))
+        (edit-document~ (get-application) file selection: range))))
   
 
   (method (parse-error line)

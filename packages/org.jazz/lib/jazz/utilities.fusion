@@ -78,10 +78,9 @@
           (error "Unable to find action: {t}" action)))
 
 
-(definition public (call-action action sender properties . rest)
-  (bind-keywords ((event {})) rest
-    (let ((action-item (require-action-item action)))
-      (invoke~ action-item sender properties action: action event: event))))
+(definition public (call-action action sender properties (event: event {}))
+  (let ((action-item (require-action-item action)))
+    (invoke~ action-item sender properties action: action event: event)))
 
 
 (definition public (get-action-enabled? action)
@@ -418,23 +417,22 @@
 
 @old-debug
 (definition public (debug . rest)
-  (debug-string (format "{l :detail :describe}" rest)))
+  (debug-string (format "{l detail: :describe}" rest)))
 
 
-(definition public (debug-string string . rest)
+(definition public (debug-string string (color: color {}))
   (unimplemented 'debug-string)
   @get-application
-  (bind-keywords ((color {})) rest
-    (let ((appl (get-application)))
-      (when (and appl (get-loop-running?~ appl))
-        (let ((text (get-console-text)))
-          (when text
-            (fresh-line)
-            (with-colored-output~ text (either color (get-debug-color))
-              (function dynamic ()
-                (display string)))
-            (fresh-prompt~ text)))))
-    {}))
+  (let ((appl (get-application)))
+    (when (and appl (get-loop-running?~ appl))
+      (let ((text (get-console-text)))
+        (when text
+          (fresh-line)
+          (with-colored-output~ text (either color (get-debug-color))
+            (function dynamic ()
+              (display string)))
+          (fresh-prompt~ text)))))
+  {})
 
 
 (definition public (debug-text . rest)
@@ -459,22 +457,20 @@
 ;; Does this have to do with debugging?
 
 
-(definition public (with-execution-context proc . rest)
+(definition public (with-execution-context proc (title: title {}) (details: details '()) (reporter: reporter {}))
   (proc)
   ;; to convert
   @unimp
-  (bind-keywords ((title {}) (details '()) (reporter {})) rest
-    (with-closed ((context (new Execution-Context title: title :details details reporter: reporter)))
-      (proc))))
+  (with-closed ((context (new Execution-Context title: title :details details reporter: reporter)))
+    (proc)))
 
 
-(definition public (with-execution-node proc . rest)
+(definition public (with-execution-node proc (title: title {}) (details: details '()) (reporter: reporter {}))
   (proc)
   ;; to convert
   @unimp
-  (bind-keywords ((title {}) (details '()) (reporter {})) rest
-    (with-closed ((node (new Execution-Node title: title :details details reporter: reporter)))
-      (proc))))
+  (with-closed ((node (new Execution-Node title: title :details details reporter: reporter)))
+    (proc)))
 
 
 (definition public (get-execution-context)
@@ -505,16 +501,15 @@
   (slot previous-node)
   
   
-  (definition (initialize . rest)
-    (bind-keywords ((title {}) (details '()) (reporter {})) rest
-      (nextmethod)
-      (set! [title self] title)
-      (set! [details self] details)
-      (set! [reporter self] reporter)
-      (let ((thread (active-thread)))
-        (set! [previous-node self] (get-active-node~ thread))
-        (set-active-node~ thread self))
-      (destroy-mandatory)))
+  (definition (initialize (title: title {}) (details: details '()) (reporter: reporter {}))
+    (nextmethod)
+    (set! [title self] title)
+    (set! [details self] details)
+    (set! [reporter self] reporter)
+    (let ((thread (active-thread)))
+      (set! [previous-node self] (get-active-node~ thread))
+      (set-active-node~ thread self))
+    (destroy-mandatory))
   
   
   (definition (destroy)
@@ -615,32 +610,30 @@
   false)
 
 
-(definition public (with-restart proc . rest)
+(definition public (with-restart proc (cleanup {}))
   (unimplemented 'with-restart)
   @call-cc?
-  (bind-optionals ((cleanup {})) rest
-    (let ((preserved Restartable?))
-      (unwind-protect
-          (begin
-            (set! Restartable? true)
-            (while true
-              (catch Restart
-                (proc)
-                (return))
-              (when cleanup
-                (cleanup))))
-        (set! Restartable? preserved)))))
+  (let ((preserved Restartable?))
+    (unwind-protect
+        (begin
+          (set! Restartable? true)
+          (while true
+            (catch Restart
+              (proc)
+              (return))
+            (when cleanup
+              (cleanup))))
+      (set! Restartable? preserved))))
 
 
 (definition public (restartable? exception)
   Restartable?)
 
 
-(definition public (restart . rest)
+(definition public (restart (exception {}))
   (unimplemented 'restart)
   @call-cc?
-  (bind-optionals ((exception {})) rest
-    (throw (new Restart))))
+  (throw (new Restart)))
 
 
 ;;;
@@ -651,11 +644,11 @@
 (definition public (extract-jazz-file-unit file)
   (let ((in/toplevel (extract-jazz-file-toplevel file)))
     (when in/toplevel
-      (bind-values (in toplevel) in/toplevel
+      (receive (in toplevel) in/toplevel
         (let ((package (extract-package in))
               (type/name/extends (extract-unit toplevel)))
           (when type/name/extends
-            (bind-values (type name extends) type/name/extends
+            (receive (type name extends) type/name/extends
               (values package type name extends))))))))
 
 
@@ -819,56 +812,50 @@
   (set-parameter 'current-log log))
 
 
-(definition public (with-log log proc . rest)
+(definition public (with-log log proc (name: name {}) (file: file {}))
   (unimplemented 'with-log)
   @unwind-protect
-  (bind-keywords ((name {}) (file {})) rest
-    (let ((preserved (get-current-log)))
-      (unwind-protect
-          (begin
-            (set-current-log log)
-            (proc))
-        (set-current-log preserved))
-      (let ((name (get-name~ log)))
-        (when (and name (not file))
-          (add-log log))))))
+  (let ((preserved (get-current-log)))
+    (unwind-protect
+        (begin
+          (set-current-log log)
+          (proc))
+      (set-current-log preserved))
+    (let ((name (get-name~ log)))
+      (when (and name (not file))
+        (add-log log)))))
 
 
-(definition public (with-node proc . rest)
-  (bind-keywords ((node {}) (tag {}) (name {}) (message {}) (data {}) (log (current-log))) rest
-    (let ((node (either node (new-entry~ log tag name message data))))
-      (with-node~ log node proc))))
+(definition public (with-node proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (let ((node (either node (new-entry~ log tag name message data))))
+    (with-node~ log node proc)))
 
 
-(definition public (log-node node . rest)
-  (bind-keywords ((log (current-log))) rest
-    (log-node~ log node)))
+(definition public (log-node node (log: log (current-log)))
+  (log-node~ log node))
 
 
-(definition public (log-entry . rest)
-  (bind-keywords ((tag {}) (name {}) (message {}) (data {}) (log (current-log))) rest
-    (log-entry~ log tag name message data)))
+(definition public (log-entry (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (log-entry~ log tag name message data))
 
 
-(definition public (log-properties properties . rest)
+(definition public (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
   (unimplemented 'log-properties)
   @String-Printer
-  (bind-keywords ((tag {}) (name {}) (message {}) (data {}) (log (current-log))) rest
-    (let ((printer (new String-Printer))
-          (first? true))
-      (for-each-property (function dynamic (property value)
-                           (if first?
-                               (set! first? false)
-                             (format printer ", "))
-                           (format printer "{a}: {a}" (keyword->symbol property) value))
-                         properties)
-      (let ((message (get-output~ printer)))
-        (log-entry :tag tag name: name message: message :data data :log log)))))
+  (let ((printer (new String-Printer))
+        (first? true))
+    (for-each-property (function dynamic (property value)
+                         (if first?
+                             (set! first? false)
+                           (format printer ", "))
+                         (format printer "{a}: {a}" (keyword->symbol property) value))
+      properties)
+    (let ((message (get-output~ printer)))
+      (log-entry :tag tag name: name message: message :data data :log log))))
 
 
-(definition public (new-log-node . rest)
-  (bind-keywords ((tag {}) (name {}) (message {}) (data {}) (log (current-log))) rest
-    (new-entry~ log tag name message data)))
+(definition public (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
+  (new-entry~ log tag name message data))
 
 
 ;;;
@@ -876,35 +863,32 @@
 ;;;
 
 
-(definition public (with-profile proc . rest)
+(definition public (with-profile proc (node: node {}) (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
   (unimplemented 'with-profile)
   @Profiling-later
-  (bind-keywords ((node {}) (tag {}) (name {}) (message {}) (data {}) (log (current-log))) rest
-    (with-node
-      (function dynamic (node)
-        (let ((result))
-          (log-profile name: 'before :log log)
-          ;; this is ugly but necessary not to change stack depth
-          (set! result (proc node))
-          (log-profile name: 'after :log log)
-          result))
-      :node (either node (new-entry~ log tag name message data)))))
+  (with-node
+    (function dynamic (node)
+      (let ((result))
+        (log-profile name: 'before :log log)
+        ;; this is ugly but necessary not to change stack depth
+        (set! result (proc node))
+        (log-profile name: 'after :log log)
+        result))
+    :node (either node (new-entry~ log tag name message data))))
 
 
-(definition public (log-profile . rest)
+(definition public (log-profile (name: name {}) (log: log (current-log)))
   (unimplemented 'log-profile)
-  @Profiling-later
-  (bind-keywords ((name {}) (log (current-log))) rest
-    (gc)
-    (log-node (resources-snapshot~ Performance name: name) :log log)))
+  @Profiling-later (
+  (gc)
+  (log-node (resources-snapshot~ Performance name: name) :log log)))
 
 
-(definition public (log-stack . rest)
+(definition public (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (current-log)))
   (unimplemented 'log-stack)
   @later
-  (bind-keywords ((tag {}) (name {}) (message {}) (log (current-log))) rest
-    (let ((data (new Stack-Snapshot)))
-      (log-entry :tag tag name: name message: message :data data :log log))))
+  (let ((data (new Stack-Snapshot)))
+    (log-entry :tag tag name: name message: message :data data :log log)))
 
 
 (definition public (profiles->jml profiles)
@@ -1035,13 +1019,12 @@
   Active-Locale)
 
 
-(definition public (set-locale loc . rest)
-  (bind-keywords ((update? true)) rest
-    (when (/= loc Active-Locale)
-      (set! Active-Locale loc)
-      (select-locale loc)
-      (when update?
-        (locale-update)))))
+(definition public (set-locale loc (update?: update? true))
+  (when (/= loc Active-Locale)
+    (set! Active-Locale loc)
+    (select-locale loc)
+    (when update?
+      (locale-update))))
 
 
 (definition (select-locale locale)
@@ -1120,47 +1103,46 @@
         (set-alias name (tokenise alias))))))
 
 
-(definition public (ensure-read/write moniker . rest)
+(definition public (ensure-read/write moniker (cancel-action: cancel-action 'throw))
   @convert
-  (bind-keywords ((cancel-action 'throw)) rest
-    (let ((file (get-file~ moniker)))
-      (if (or (not (exists?~ file)) (read/write?~ file))
-          'no-action
-        (let* ((appl (get-application))
-               (pref (get-repositories-preferences~ appl))
-               (repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
-               (status (essay repository (get-file-status~ repository file error?: false)))
-               (code (cond ((not status)
-                            (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
-                                               title: "File Status"
-                                               :type 'question
-                                               :process-keys? false)
-                              ((yes) 'set-read/write)
-                              ((no) 'cancel)))
-                           ((or (= status 'checked-out-me) (get-auto-checkout?~ pref))
-                            'checkout)
-                           (else
-                            (case (message-box (format "File {s} is read-only. Do you want to check it out?{%}Overwrite read-only status by pressing \"Set Read/Write\"." (get-name~ moniker))
-                                               title: "File Status"
-                                               :type 'confirmation
-                                               :yes "Check Out"
-                                               :no "Set Read/Write"
-                                               :cancel (case cancel-action (throw "Cancel") (ignore "Ignore"))
-                                               :process-keys? false)
-                              ((yes) 'checkout)
-                              ((no) 'set-read/write)
-                              ((cancel) 'cancel))))))
-          (case code
-            ((checkout)
-             (unless (= status 'checked-out-me)
-               (checkout-file~ repository file))
-             (set-read/write~ file)
-             'checkout)
-            ((set-read/write)
-             (set-read/write~ file)
-             'read/write)
-            ((cancel)
-             (throw-cancel))))))))
+  (let ((file (get-file~ moniker)))
+    (if (or (not (exists?~ file)) (read/write?~ file))
+        'no-action
+      (let* ((appl (get-application))
+             (pref (get-repositories-preferences~ appl))
+             (repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
+             (status (essay repository (get-file-status~ repository file error?: false)))
+             (code (cond ((not status)
+                          (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
+                                             title: "File Status"
+                                             type: 'question
+                                             process-keys?: false)
+                            ((yes) 'set-read/write)
+                            ((no) 'cancel)))
+                         ((or (= status 'checked-out-me) (get-auto-checkout?~ pref))
+                          'checkout)
+                         (else
+                          (case (message-box (format "File {s} is read-only. Do you want to check it out?{%}Overwrite read-only status by pressing \"Set Read/Write\"." (get-name~ moniker))
+                                             title: "File Status"
+                                             type: 'confirmation
+                                             yes: "Check Out"
+                                             no: "Set Read/Write"
+                                             cancel: (case cancel-action (throw "Cancel") (ignore "Ignore"))
+                                             process-keys?: false)
+                            ((yes) 'checkout)
+                            ((no) 'set-read/write)
+                            ((cancel) 'cancel))))))
+        (case code
+          ((checkout)
+           (unless (= status 'checked-out-me)
+             (checkout-file~ repository file))
+           (set-read/write~ file)
+           'checkout)
+          ((set-read/write)
+           (set-read/write~ file)
+           'read/write)
+          ((cancel)
+           (throw-cancel)))))))
 
 
 (definition public (convert-extension object from to)
@@ -1212,40 +1194,39 @@
 ;;;
 
 
-(definition public (with-safe-execution title proc . rest)
+(definition public (with-safe-execution title proc (continue-text: continue-text {}) (continue-handler: continue-handler {}))
   (proc)
   @convert-message-box?
-  (bind-keywords ((continue-text {}) (continue-handler {})) rest
-    (call-with-catch Error
-          (function dynamic (err)
-            (dump-stack :exception err)
-            (let ((invite (format "The following error occured while {a}:" title))
-                  (message (present-message~ err :active-content? false))
-                  (message-box? (message-box?)))
-              (let ((text
-                      (if (not message-box?)
-                          (format "{a}{%}{%}{a}{%}{%}Press Yes to try and continue, No to exit" invite (car message))
-                        (append (list invite {})
-                                message
-                                (if (and continue-handler continue-text)
-                                    (append (list {}) continue-text)
-                                  '())))))
-                (if (not continue-handler)
-                    (begin
-                      (if (not message-box?)
-                          (system-message text)
-                        (message-box text :yes "Exit"))
-                      (exit))
-                  (case (if (not message-box?)
-                            (system-message text :type 'question)
-                          (message-box text
-                                       :type 'question
-                                       :yes "Continue"
-                                       :no "Exit"))
-                    ((yes) (continue-handler err))
-                    ((no) (exit)))))))
-        {}
-      proc)))
+  (call-with-catch Error
+        (function dynamic (err)
+          (dump-stack :exception err)
+          (let ((invite (format "The following error occured while {a}:" title))
+                (message (present-message~ err :active-content? false))
+                (message-box? (message-box?)))
+            (let ((text
+                    (if (not message-box?)
+                        (format "{a}{%}{%}{a}{%}{%}Press Yes to try and continue, No to exit" invite (car message))
+                      (append (list invite {})
+                              message
+                              (if (and continue-handler continue-text)
+                                  (append (list {}) continue-text)
+                                '())))))
+              (if (not continue-handler)
+                  (begin
+                    (if (not message-box?)
+                        (system-message text)
+                      (message-box text yes: "Exit"))
+                    (exit))
+                (case (if (not message-box?)
+                          (system-message text type: 'question)
+                        (message-box text
+                                     type: 'question
+                                     yes: "Continue"
+                                     no: "Exit"))
+                  ((yes) (continue-handler err))
+                  ((no) (exit)))))))
+      {}
+    proc))
 
 
 ;;;
@@ -1354,11 +1335,11 @@
 (definition public (message-box text . rest)
   (let ((process (get-process)))
     (if (not process)
-        (system-message text rest)
+        (apply system-message text rest)
       (show-box~ process text rest))))
 
 
-(definition public (system-message text rest)
+(definition public (system-message text . rest)
   (MessageBox NULL text NULL MB_TASKMODAL))
 
 
@@ -1490,17 +1471,16 @@
       ((both) (if (> rw rh) rh rw)))))
 
 
-(definition public (fit-within outer rect . rest)
-  (bind-keywords ((minimum-size {Dimension 0 0}) (padding 0)) rest
-    (let* ((size (rect-size rect))
-           (position (rect-position rect))
-           (width  (max [width minimum-size]  (min [width size] (- [width outer] padding padding))))
-           (height (max [height minimum-size] (min [height size](- [height outer] padding padding))))
-           (new-size (new Dimension width height))
-           (min-position (new Point padding padding))
-           (max-position (new Point (- [width outer] [width new-size] padding) (- [height outer] [height new-size] padding)))
-           (new-position (new Point (between [h min-position] [h position] [h max-position]) (between [v min-position] [v position] [v max-position]))))
-      (values new-position new-size))))
+(definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))
+  (let* ((size (rect-size rect))
+         (position (rect-position rect))
+         (width  (max [width minimum-size]  (min [width size] (- [width outer] padding padding))))
+         (height (max [height minimum-size] (min [height size](- [height outer] padding padding))))
+         (new-size (new Dimension width height))
+         (min-position (new Point padding padding))
+         (max-position (new Point (- [width outer] [width new-size] padding) (- [height outer] [height new-size] padding)))
+         (new-position (new Point (between [h min-position] [h position] [h max-position]) (between [v min-position] [v position] [v max-position]))))
+    (values new-position new-size)))
 
 
 (definition public (rect-union x <Rect> y <Rect>)
@@ -1733,11 +1713,11 @@
   (case direction
     ((vertical) (let ((info (loop-cell [col cell] [row cell] [col max-cell] [row max-cell] [col min-cell] [row min-cell] -1 >)))
                   (when info
-                    (bind-values (major minor) info
+                    (receive (major minor) info
                       (new Cell minor major)))))
     ((horizontal) (let ((info (loop-cell [row cell] [col cell] [row max-cell] [col max-cell] [row min-cell] [col min-cell] -1 >)))
                     (when info
-                      (bind-values (major minor) info
+                      (receive (major minor) info
                         (new Cell major minor)))))))
 
 
@@ -1745,11 +1725,11 @@
   (case direction
     ((vertical) (let ((info (loop-cell [col cell] [row cell] [col min-cell] [row min-cell] [col max-cell] [row max-cell] 1 <)))
                   (when info
-                    (bind-values (major minor) info
+                    (receive (major minor) info
                       (new Cell minor major)))))
     ((horizontal) (let ((info (loop-cell [row cell] [col cell] [row min-cell] [col min-cell] [row max-cell] [col max-cell] 1 <)))
                     (when info
-                      (bind-values (major minor) info
+                      (receive (major minor) info
                         (new Cell major minor)))))))
 
 
@@ -1768,69 +1748,67 @@
 ;;;
 
 
-(definition public (output-header title printer . rest)
-  (bind-keywords ((language 'jazz) (system {}) (license {}) (author {}) (copyright {}) (contributors '()) (end-proper? true)) rest
-    (with-printer printer
-      (function dynamic (printer)
-        (let* ((system (either system (system-title~ (get-process))))
-               (system-padding (make-string (length system) #\=))
-               (comment (case language ((jazz) ";;;") ((cpp/java) "//")))
-               (toplevel-comment (case language ((jazz) ";;;;") ((cpp/java) "///"))))
-          (format printer #"{a}=={a}=={%}"# comment system-padding)
-          (format printer #"{a}  {a}{%}"# comment system)
-          (format printer #"{a}=={a}=={%}"# comment system-padding)
-          (format printer #"{a}{%}"# comment)
-          (format printer #"{a} {a}{%}"# toplevel-comment title)
-          (format printer #"{a}"# comment)
-          (case license
-            ((jazzscheme)
-             (format printer "{%}")
-             (format printer #"{a}  The contents of this file are subject to the Mozilla Public License Version{%}"# comment)
-             (format printer #"{a}  1.1 (the "License"); you may not use this file except in compliance with{%}"# comment)
-             (format printer #"{a}  the License. You may obtain a copy of the License at{%}"# comment)
-             (format printer #"{a}  http://www.mozilla.org/MPL/{%}"# comment)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  Software distributed under the License is distributed on an "AS IS" basis,{%}"# comment)
-             (format printer #"{a}  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License{%}"# comment)
-             (format printer #"{a}  for the specific language governing rights and limitations under the{%}"# comment)
-             (format printer #"{a}  License.{%}"# comment)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  The Original Code is JazzScheme.{%}"# comment)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  The Initial Developer of the Original Code is {a}.{%}"# comment author)
-             (format printer #"{a}  Portions created by the Initial Developer are Copyright (C) {a}{%}"# comment copyright)
-             (format printer #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  Contributor(s):{%}"# comment)
-             (for-each (function dynamic (contributor)
-                         (format printer #"{a}    {a}{%}"# comment contributor))
-                       contributors)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  Alternatively, the contents of this file may be used under the terms of{%}"# comment)
-             (format printer #"{a}  the GNU General Public License Version 2 or later (the "GPL"), in which{%}"# comment)
-             (format printer #"{a}  case the provisions of the GPL are applicable instead of those above. If{%}"# comment)
-             (format printer #"{a}  you wish to allow use of your version of this file only under the terms of{%}"# comment)
-             (format printer #"{a}  the GPL, and not to allow others to use your version of this file under the{%}"# comment)
-             (format printer #"{a}  terms of the MPL, indicate your decision by deleting the provisions above{%}"# comment)
-             (format printer #"{a}  and replace them with the notice and other provisions required by the GPL.{%}"# comment)
-             (format printer #"{a}  If you do not delete the provisions above, a recipient may use your version{%}"# comment)
-             (format printer #"{a}  of this file under the terms of any one of the MPL or the GPL.{%}"# comment)
-             (format printer #"{a}{%}"# comment)
-             (format printer #"{a}  See www.jazzscheme.org for details."# comment)))
-          (when end-proper?
-            (format printer "{%}")))))))
+(definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? true))
+  (with-printer printer
+    (function dynamic (printer)
+      (let* ((system (either system (system-title~ (get-process))))
+             (system-padding (make-string (length system) #\=))
+             (comment (case language ((jazz) ";;;") ((cpp/java) "//")))
+             (toplevel-comment (case language ((jazz) ";;;;") ((cpp/java) "///"))))
+        (format printer #"{a}=={a}=={%}"# comment system-padding)
+        (format printer #"{a}  {a}{%}"# comment system)
+        (format printer #"{a}=={a}=={%}"# comment system-padding)
+        (format printer #"{a}{%}"# comment)
+        (format printer #"{a} {a}{%}"# toplevel-comment title)
+        (format printer #"{a}"# comment)
+        (case license
+          ((jazzscheme)
+           (format printer "{%}")
+           (format printer #"{a}  The contents of this file are subject to the Mozilla Public License Version{%}"# comment)
+           (format printer #"{a}  1.1 (the "License"); you may not use this file except in compliance with{%}"# comment)
+           (format printer #"{a}  the License. You may obtain a copy of the License at{%}"# comment)
+           (format printer #"{a}  http://www.mozilla.org/MPL/{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Software distributed under the License is distributed on an "AS IS" basis,{%}"# comment)
+           (format printer #"{a}  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License{%}"# comment)
+           (format printer #"{a}  for the specific language governing rights and limitations under the{%}"# comment)
+           (format printer #"{a}  License.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  The Original Code is JazzScheme.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  The Initial Developer of the Original Code is {a}.{%}"# comment author)
+           (format printer #"{a}  Portions created by the Initial Developer are Copyright (C) {a}{%}"# comment copyright)
+           (format printer #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Contributor(s):{%}"# comment)
+           (for-each (function dynamic (contributor)
+                       (format printer #"{a}    {a}{%}"# comment contributor))
+                     contributors)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  Alternatively, the contents of this file may be used under the terms of{%}"# comment)
+           (format printer #"{a}  the GNU General Public License Version 2 or later (the "GPL"), in which{%}"# comment)
+           (format printer #"{a}  case the provisions of the GPL are applicable instead of those above. If{%}"# comment)
+           (format printer #"{a}  you wish to allow use of your version of this file only under the terms of{%}"# comment)
+           (format printer #"{a}  the GPL, and not to allow others to use your version of this file under the{%}"# comment)
+           (format printer #"{a}  terms of the MPL, indicate your decision by deleting the provisions above{%}"# comment)
+           (format printer #"{a}  and replace them with the notice and other provisions required by the GPL.{%}"# comment)
+           (format printer #"{a}  If you do not delete the provisions above, a recipient may use your version{%}"# comment)
+           (format printer #"{a}  of this file under the terms of any one of the MPL or the GPL.{%}"# comment)
+           (format printer #"{a}{%}"# comment)
+           (format printer #"{a}  See www.jazzscheme.org for details."# comment)))
+        (when end-proper?
+          (format printer "{%}"))))))
 
 
-(definition public (output-section title printer . rest)
-  (bind-keywords ((language 'jazz) (level 0)) rest
-    (let ((comment (case language ((jazz) ";;;") ((cpp/java) "//")))
-          (toplevel (case language ((jazz) ";;;;") ((cpp/java) "///")))
-          (extra (case language ((jazz) "") ((cpp/java) (make-string (+ (length title) 4) #\-)))))
-      (format printer "{%}{%}")
-      (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
-      (format printer "{_ :v}{a} {a}{%}" (* level 2) toplevel title)
-      (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
-      (format printer "{%}{%}"))))
+(definition public (output-section title printer (language: language 'jazz) (level: level 0))
+  (let ((comment (case language ((jazz) ";;;") ((cpp/java) "//")))
+        (toplevel (case language ((jazz) ";;;;") ((cpp/java) "///")))
+        (extra (case language ((jazz) "") ((cpp/java) (make-string (+ (length title) 4) #\-)))))
+    (format printer "{%}{%}")
+    (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format printer "{_ :v}{a} {a}{%}" (* level 2) toplevel title)
+    (format printer "{_ :v}{a}{a}{%}" (* level 2) comment extra)
+    (format printer "{%}{%}")))
 
 
 ;;;
@@ -1926,18 +1904,17 @@
 ;;;
 
 
-(definition public (get-preferences name . rest)
-  (bind-keywords ((error? true)) rest
-    (let* ((process (get-process))
-           (root (get-preferences-root~ process)))
-      (if (not root)
-          (when error?
-            (error "Could not find preferences"))
-        (if (not name)
-            root
-          (either (find-component~ root name)
-                  (when error?
-                    (error "Could not find preferences: {t}" name))))))))
+(definition public (get-preferences name (error?: error? true))
+  (let* ((process (get-process))
+         (root (get-preferences-root~ process)))
+    (if (not root)
+        (when error?
+          (error "Could not find preferences"))
+      (if (not name)
+          root
+        (either (find-component~ root name)
+                (when error?
+                  (error "Could not find preferences: {t}" name)))))))
 
 
 (definition public (set-preference preferences property value)
@@ -1974,7 +1951,7 @@
 
 
 (definition public (backup-file file)
-  (new-unique-file~ (get-parent~ file) (format "{a}.back.{a}" (get-base~ file) (get-extension~ file)) :separator {}))
+  (new-unique-file~ (get-parent~ file) (format "{a}.back.{a}" (get-base~ file) (get-extension~ file)) separator: {}))
 
 
 (definition public (fail-safe-save file proc)
@@ -2030,7 +2007,7 @@
          (content (read-tab-delimited input))
          (jml (parser content))
          (pref (new JML-Preferences))
-         (parser (new JML-Parser :preferences pref))
+         (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
     (with-closed ((printer (new File-Printer output)))
       (set-printer-use-utf8? printer true)
@@ -2273,13 +2250,12 @@
 
 
 @convert-and-relocate
-(definition public (request-data-source . rest)
-  (bind-keywords ((provider {})) rest
-    (bind-values (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) host-visible?: false)
-      (let ((manager (get-guest~ dialog)))
-        (when provider
-          (set-provider~ manager (external-name~ provider)))
-        (process-modal~ dialog)))))
+(definition public (request-data-source (provider: provider {}))
+  (receive (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) host-visible?: false)
+    (let ((manager (get-guest~ dialog)))
+      (when provider
+        (set-provider~ manager (external-name~ provider)))
+      (process-modal~ dialog))))
 
 
 ;;;
@@ -2291,10 +2267,9 @@
   20000000)
 
 
-(definition (different-times? time1 time2 . rest)
-  (bind-keywords ((tolerance 2-Seconds-Tolerance)) rest
-    (> (abs (- (get-elapse~ time1) (get-elapse~ time2)))
-       tolerance)))
+(definition (different-times? time1 time2 (tolerance: tolerance 2-Seconds-Tolerance))
+  (> (abs (- (get-elapse~ time1) (get-elapse~ time2)))
+     tolerance))
 
 
 (definition (different-file-content? file1 file2)
@@ -2314,6 +2289,6 @@
 
 
 (definition public (present-hour/minutes hour minutes)
-  (format "{a width: 2 :justify :right :padding #\\0}:{a width: 2 :justify :right :padding #\\0}"
+  (format "{a width: 2 justify: :right padding: #\\0}:{a width: 2 justify: :right padding: #\\0}"
     hour
     minutes)))

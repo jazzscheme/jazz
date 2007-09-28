@@ -50,11 +50,10 @@
   (slot database initialize {})
   
   
-  (method (initialize connection pathname password . rest)
-    (bind-keywords ((read-only? false)) rest
-      (nextmethod connection)
-      (set! database (get-database~ (get-data-source~ connection)))
-      (destroy-mandatory)))
+  (method (initialize connection pathname password (read-only?: read-only? false))
+    (nextmethod connection)
+    (set! database (get-database~ (get-data-source~ connection)))
+    (destroy-mandatory))
 
   
   (method (destroy)
@@ -220,18 +219,17 @@
     #x800A0CC1)
   
   
-  (method (get-procedure name . rest)
-    @w(bind-keywords ((error? true)) rest
-      (with-closed ((procedures (get-QueryDefs~ database)))
+  (method (get-procedure name (error?: error? true))
+    @w(with-closed ((procedures (get-QueryDefs~ database)))
         (let* ((action
-                (function dynamic ()
-                  (get-Item~ procedures name)))
+                 (function dynamic ()
+                   (get-Item~ procedures name)))
                (procedure
-                (if error?
-                    (action)
-                  (cotry (action) (Procedure-Not-Existant {})))))
+                 (if error?
+                     (action)
+                   (cotry (action) (Procedure-Not-Existant {})))))
           (when procedure
-            (new MySQL-Inventory-Procedure self self procedure))))))
+            (new MySQL-Inventory-Procedure self self procedure)))))
 
   
   (method (create-procedure name)

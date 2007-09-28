@@ -128,13 +128,12 @@
     (get-Deleted~ handle))
   
   
-  (method (get-items . rest)
-    (bind-keywords ((deleted? false)) rest
-      (with-closed ((items (get-Items~ handle deleted?)))
-        (let ((count (get-Count~ items)))
-          (map (function dynamic (n)
-                 (new VSS-Repository-Item repository (get-Item~ items n)))
-               (naturals 1 (+ count 1)))))))
+  (method (get-items (deleted?: deleted? false))
+    (with-closed ((items (get-Items~ handle deleted?)))
+      (let ((count (get-Count~ items)))
+        (map (function dynamic (n)
+               (new VSS-Repository-Item repository (get-Item~ items n)))
+             (naturals 1 (+ count 1))))))
   
   
   (method (get-checkouts)
@@ -225,19 +224,16 @@
   ;;;
   
   
-  (method (checkin local . rest)
-    (bind-keywords ((keep-checked-out? false)) rest
-      (Checkin~ handle "" (parse~ local) (if keep-checked-out? VSSFLAG_KEEPYES VSSFLAG_KEEPNO))))
+  (method (checkin local (keep-checked-out?: keep-checked-out? false))
+    (Checkin~ handle "" (parse~ local) (if keep-checked-out? VSSFLAG_KEEPYES VSSFLAG_KEEPNO)))
   
   
-  (method (checkout local . rest)
-    (bind-keywords ((get? true)) rest
-      (Checkout~ handle "" (parse~ local) (if get? 0 VSSFLAG_GETNO))))
+  (method (checkout local (get?: get? true))
+    (Checkout~ handle "" (parse~ local) (if get? 0 VSSFLAG_GETNO)))
   
   
-  (method (undo-checkout local . rest)
-    (bind-keywords ((get? true)) rest
-      (UndoCheckout~ handle (parse~ local) (if get? 0 VSSFLAG_GETNO))))
+  (method (undo-checkout local (get?: get? true))
+    (UndoCheckout~ handle (parse~ local) (if get? 0 VSSFLAG_GETNO)))
   
   
   (method (is-different? local)
@@ -291,18 +287,17 @@
   ;;;
   
   
-  (method (get-content . rest)
-    (bind-keywords ((nodes? true) (leaves? true)) rest
-      (let ((fact (new List-Factory))
-            (items (get-items)))
-        (for-each (function dynamic (item)
-                    (let ((type (get-type~ item)))
-                      (if (or (and nodes? (= type VSSITEM_PROJECT))
-                              (and leaves? (= type VSSITEM_FILE)))
-                          (put~ fact item)
-                        (close~ item))))
-                  items)
-        (get-output~ fact))))
+  (method (get-content (nodes?: nodes? true) (leaves?: leaves? true))
+    (let ((fact (new List-Factory))
+          (items (get-items)))
+      (for-each (function dynamic (item)
+                  (let ((type (get-type~ item)))
+                    (if (or (and nodes? (= type VSSITEM_PROJECT))
+                            (and leaves? (= type VSSITEM_FILE)))
+                        (put~ fact item)
+                      (close~ item))))
+                items)
+      (get-output~ fact)))
 
   
   ;;;

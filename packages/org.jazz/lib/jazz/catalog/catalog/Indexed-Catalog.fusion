@@ -55,16 +55,15 @@
   (slot references-index)
 
 
-  (method (initialize name file directories extensions recursive? active? references? . rest)
-    (bind-keywords ((report? true)) rest
-      (nextmethod name file active?)
-      (set! [directories self] directories)
-      (set! [extensions self] extensions)
-      (set! [recursive? self] recursive?)
-      (set! [references? self] references?)
-      (set! [content self] (new-hashtable equal?))
-      (set! [definitions-index self] (new-hashtable equal?))
-      (set! [references-index self] (new-hashtable equal?))))
+  (method (initialize name file directories extensions recursive? active? references? (report?: report? true))
+    (nextmethod name file active?)
+    (set! [directories self] directories)
+    (set! [extensions self] extensions)
+    (set! [recursive? self] recursive?)
+    (set! [references? self] references?)
+    (set! [content self] (new-hashtable equal?))
+    (set! [definitions-index self] (new-hashtable equal?))
+    (set! [references-index self] (new-hashtable equal?)))
 
 
   ;;;
@@ -151,7 +150,7 @@
       
   
   (method (activate)
-    (load-content :report? true))
+    (load-content report?: true))
       
   
   (method (deactivate)
@@ -163,16 +162,15 @@
   ;;;
 
 
-  (method public (load-content . rest)
-    (bind-keywords ((report? false)) rest
-      (when (and (not loaded?) (get-active?) (exists?~ file))
-        (when report?
-          (user-message "Loading Catalog..."))
-        (load-hashtable content file true)
-        (update-catalog-indexes report?)
-        (set! loaded? true)
-        (when report?
-          (user-message "Done")))))
+  (method public (load-content (report?: report? false))
+    (when (and (not loaded?) (get-active?) (exists?~ file))
+      (when report?
+        (user-message "Loading Catalog..."))
+      (load-hashtable content file true)
+      (update-catalog-indexes report?)
+      (set! loaded? true)
+      (when report?
+        (user-message "Done"))))
 
   
   (method (update-catalog-indexes report?)
@@ -222,18 +220,17 @@
   ;;;
   
   
-  (method (update . rest)
-    (bind-keywords ((report? true)) rest
-      (set-active? true)
+  (method (update (report?: report? true))
+    (set-active? true)
+    (when report?
+      (user-message "Updating Catalog..."))
+    (let ((processed (scan)))
+      (sweep)
+      (reset-marks)
       (when report?
-        (user-message "Updating Catalog..."))
-      (let ((processed (scan)))
-        (sweep)
-        (reset-marks)
-        (when report?
-          (user-message "{a} Catalog Updated ({s} files processed)"
-                        name
-                        processed)))))
+        (user-message "{a} Catalog Updated ({s} files processed)"
+                      name
+                      processed))))
   
   
   (method public (update-file file)
@@ -305,7 +302,7 @@
   (method (get-parser extension)
     (let ((class (get-parser-class extension)))
       (when class
-        (new class self :references? references?))))
+        (new class self references?: references?))))
 
   
   (method (scan-file? file)

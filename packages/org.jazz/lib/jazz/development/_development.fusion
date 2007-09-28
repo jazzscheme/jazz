@@ -187,7 +187,7 @@
 
 
 (definition public (cmf)
-  (get-modal OpenFile-Dialog :multiple-selection? true))
+  (get-modal OpenFile-Dialog multiple-selection?: true))
 
 
 (definition public (csf)
@@ -214,33 +214,31 @@
 ;;;
 
 
-(definition public (touch-launcher . rest)
+(definition public (touch-launcher (base: base {}))
   (unimplemented 'touch-launcher)
   @convert
-  (bind-keywords ((base {})) rest
-    (let* ((workbench (get-workbench))
-           (launcher (find-project~ workbench 'Launcher-Project))
-           (class-names [Critical-Units launcher]))
-      (touch-classes class-names
-                     :filter (function dynamic (class-name)
-                               (or (not base)
-                                   (subtype? (autoload class-name) base)))))))
+  (let* ((workbench (get-workbench))
+         (launcher (find-project~ workbench 'Launcher-Project))
+         (class-names [Critical-Units launcher]))
+    (touch-classes class-names
+                   :filter (function dynamic (class-name)
+                             (or (not base)
+                                 (subtype? (autoload class-name) base))))))
 
 
-(definition public (touch-classes class-names . rest)
+(definition public (touch-classes class-names (filter: filter {}))
   (unimplemented 'touch-classes)
   @convert
-  (bind-keywords ((filter {})) rest
-    (let ((touched 0))
-      (for-each (function dynamic (class-name)
-                  (when (or (null? filter) (filter class-name))
-                    (let ((file (get-manifest-source class-name)))
-                      (touch~ file)
-                      (increase! touched))))
-                class-names)
-      (message-box (format "{a} file{a} touched"
-                     touched
-                     (format-plural touched))))))
+  (let ((touched 0))
+    (for-each (function dynamic (class-name)
+                (when (or (null? filter) (filter class-name))
+                  (let ((file (get-manifest-source class-name)))
+                    (touch~ file)
+                    (increase! touched))))
+              class-names)
+    (message-box (format "{a} file{a} touched"
+                         touched
+                         (format-plural touched)))))
 
 
 (definition public (compile-classes class-names . rest)
@@ -274,7 +272,7 @@
 
 
 (definition public (rename-files find replacement)
-  (let ((files (get-modal OpenFile-Dialog title: "Rename" :multiple-selection? true))
+  (let ((files (get-modal OpenFile-Dialog title: "Rename" multiple-selection?: true))
         (find-regexp (new Regular-Expression find))
         (replacement-regexp (new Regular-Expression replacement))
         (succeeded 0)
@@ -345,15 +343,14 @@
       (draw-text~ dc [h pos] [v pos] title true))))
 
 
-(definition (setup-receiver receiver . rest)
-  (bind-keywords ((title {}) (position {}) (size {}) (invite {})) rest
-    (new-palette Receiver-View
-      host-title: (either title "Receive Files")
-      host-position: (either position {Point 219 169})
-      host-size: (either size {Dimension 434 224})
-      ;; convert :guest-context self
-      :invite invite
-      :receiver receiver)))
+(definition (setup-receiver receiver (title: title {}) (position: position {}) (size: size {}) (invite: invite {}))
+  (new-palette Receiver-View
+               host-title: (either title "Receive Files")
+               host-position: (either position {Point 219 169})
+               host-size: (either size {Dimension 434 224})
+               ;; convert :guest-context self
+               :invite invite
+               :receiver receiver))
 
 
 ;;;
@@ -376,18 +373,17 @@
 
 
 @convert
-(definition public (reporting-allocations zone result-proc proc . rest)
-  (bind-keywords ((return 'name)) rest
-    (let* ((classes (map car (zone-statistics zone)))
-           (before (map class-all-instances classes)))
-      (proc)
-      (let* ((after (map class-all-instances classes))
-             (all (map list (map (case return ((name) type-name) ((class) identity)) classes) (map - after before))))
-        (result-proc
-          (collect-if (function dynamic (info)
-                        (bind (class all) info
-                          (/= all 0)))
-                      all))))))
+(definition public (reporting-allocations zone result-proc proc (return: return 'name))
+  (let* ((classes (map car (zone-statistics zone)))
+         (before (map class-all-instances classes)))
+    (proc)
+    (let* ((after (map class-all-instances classes))
+           (all (map list (map (case return ((name) type-name) ((class) identity)) classes) (map - after before))))
+      (result-proc
+        (collect-if (function dynamic (info)
+                      (bind (class all) info
+                        (/= all 0)))
+                    all)))))
 
 
 ;;;
@@ -425,12 +421,11 @@
 
 
 @convert
-(definition public (debug-table table . rest)
-  (bind-keywords ((name {}) (max-display 250)) rest
-    (let ((text (get-sql-console-text)))
-      (set! [current-request text] name)
-      (display-table~ text table max-display 0)
-      table)))
+(definition public (debug-table table (name: name {}) (max-display: max-display 250))
+  (let ((text (get-sql-console-text)))
+    (set! [current-request text] name)
+    (display-table~ text table max-display 0)
+    table))
 
 
 ;;;
@@ -519,21 +514,20 @@
 
 
 @convert
-(definition public (report-allocations . rest)
-  (bind-keywords ((delta? false)) rest
-    (let* ((all (all-allocations))
-           (heap (all-heap-allocations))
-           (stack (- all heap))
-           (percentage (percentage stack all)))
-      (if (or (not delta?) (null? Previous-All))
-          (user-message (tie "all {all}, heap {heap}, stack {percentage}%"))
-        (let* ((delta-all (- all Previous-All))
-               (delta-heap (- heap Previous-Heap))
-               (delta-stack (- delta-all delta-heap))
-               (percentage (percentage delta-stack delta-all)))
-          (user-message (tie "all {delta-all}, heap {delta-heap}, stack {percentage}%"))))
-      (set! Previous-All all)
-      (set! Previous-Heap heap))))
+(definition public (report-allocations (delta?: delta? false))
+  (let* ((all (all-allocations))
+         (heap (all-heap-allocations))
+         (stack (- all heap))
+         (percentage (percentage stack all)))
+    (if (or (not delta?) (null? Previous-All))
+        (user-message (tie "all {all}, heap {heap}, stack {percentage}%"))
+      (let* ((delta-all (- all Previous-All))
+             (delta-heap (- heap Previous-Heap))
+             (delta-stack (- delta-all delta-heap))
+             (percentage (percentage delta-stack delta-all)))
+        (user-message (tie "all {delta-all}, heap {delta-heap}, stack {percentage}%"))))
+    (set! Previous-All all)
+    (set! Previous-Heap heap)))
 
 
 @convert

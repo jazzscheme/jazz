@@ -271,11 +271,10 @@
   ;;;
   
   
-  (method (gambit . rest)
-    (bind-keywords ((expr {}) (maximum-heapsize 102400) (exception-handler :repl)) rest
-      (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
-             (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
-        (create-process command :directory {Directory jazz} :capture-input? false :capture-output? false :capture-error? false :wait? false size: {Dimension 900 500} visible?: true))))
+  (method (gambit (expr: expr {}) (maximum-heapsize: maximum-heapsize 102400) (exception-handler: exception-handler :repl))
+    (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
+           (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
+      (create-process command directory: {Directory jazz} :capture-input? false :capture-output? false :capture-error? false :wait? false size: {Dimension 900 500} visible?: true)))
   
   
   ;;;
@@ -465,9 +464,9 @@
   (method (setup-exemplar)
     (set! ed (new Exemplar-Domain))
     (set! xa (new X :domain ed name: 'a :a 1 :b 2 :c 3))
-    (set! xb (new X :domain ed name: 'b :base 'a :b 5))
-    (set! x1 (new X :domain ed :base 'a :a 10))
-    (set! x2 (new X :domain ed :base 'b :a 20))
+    (set! xb (new X :domain ed name: 'b base: 'a :b 5))
+    (set! x1 (new X :domain ed base: 'a :a 10))
+    (set! x2 (new X :domain ed base: 'b :a 20))
     (user-message "Setup done"))
   
   
@@ -556,7 +555,7 @@
                         (remove-spaces~ text (new Range
                                                (new Cell row (paragraph-length~ text row))
                                                (new Cell row (paragraph-length~ text row)))
-                          :keep 'one))
+                          keep: 'one))
                       (naturals start end))
             (let ((paragraph (get-paragraph~ (get-paragraph~ text start))))
               (unless (get-bulleted?~ (get-format~ paragraph))
@@ -584,7 +583,7 @@
             (list :bulleted "This message-box")
             (list :bulleted :indent 2 "really" " " (list :hyperlink (function () (close-modal-dialog (function () (debug 'yo)))) "really") " " (list image: {Bitmap-Resource "BlueRed"}) " " (list highlight: 'Light-Red "really"))
             (list :bulleted :indent 1 "rocks!"))
-      :sound {}))
+      sound: {}))
   
   
   @wait
@@ -606,7 +605,7 @@
   
   @wait
   (definition Excel-Lib
-    (new Type-Lib :file Excel-Dll))
+    (new Type-Lib file: Excel-Dll))
   
   @wait
   (definition Excel-Extractor
@@ -619,7 +618,7 @@
   
   @wait
   (method (generate-typelib pathname)
-    (let* ((library (new Type-Lib :file pathname))
+    (let* ((library (new Type-Lib file: pathname))
            (extractor (new Type-Extractor :library library)))
       (extract~ extractor)))
   
@@ -956,7 +955,7 @@
   
   @wait
   (method (test)
-    (with-log (new Log name: 'test :file {File Base "Logs" "Test.jml"})
+    (with-log (new Log name: 'test file: {File Base "Logs" "Test.jml"})
       (function dynamic ()
         (log-entry name: "hello")
         (log-entry name: "world"))))
@@ -981,7 +980,7 @@
   
   @wait
   (method (test)
-    (with-log (new Log name: 'test :file {File Base "Logs" "Test.jml"})
+    (with-log (new Log name: 'test file: {File Base "Logs" "Test.jml"})
       (function dynamic ()
         (log-entry name: "hello")
         (log-entry name: "world")
@@ -1005,7 +1004,7 @@
   
   @wait
   (method (test-resources)
-    (with-log (new Log name: "Resources" :file {File Base "Logs" "Resources.jml"})
+    (with-log (new Log name: "Resources" file: {File Base "Logs" "Resources.jml"})
       (function dynamic ()
         (test-accelerator-table)
         (test-bitmap)
@@ -1130,7 +1129,7 @@
   (method (test-region)
     (with-profile
       (function dynamic (node)
-        (new Region :rect {Rect 0 0 100 100}))
+        (new Region rect: {Rect 0 0 100 100}))
       name: "Region"))
   
   
@@ -1431,7 +1430,7 @@
   
   @wait
   (method (test)
-    (bind-values (a b) (my-dialog)
+    (receive (a b) (my-dialog)
       (message-box (format "a: {a}, b: {a}" a b))))
   
   
@@ -1517,53 +1516,50 @@
   ;;;
   
   
-  (method (reprint-toplevel-form . rest)
-    (bind-keywords ((space-properties? true) (align-name? true)) rest
-      (let* ((text (get-focus))
-             (range (toplevel-expr~ text (get-end~ text)))
-             (string (get-string~ text range))
-             (form (jml->form (read-string-element string))))
-        (if (is-not? form Form)
-            (bell)
-          (let* ((designer (new Designer form: form))
-                 (output (saved-form~ designer false 0 :space-properties? space-properties? :align-name? align-name?)))
-            (with-update-locked~ text
-              (function dynamic ()
-                (set-selection~ text range)
-                (insert-string~ text output))))))))
+  (method (reprint-toplevel-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+    (let* ((text (get-focus))
+           (range (toplevel-expr~ text (get-end~ text)))
+           (string (get-string~ text range))
+           (form (jml->form (read-string-element string))))
+      (if (is-not? form Form)
+          (bell)
+        (let* ((designer (new Designer form: form))
+               (output (saved-form~ designer false 0 space-properties?: space-properties? align-name?: align-name?)))
+          (with-update-locked~ text
+            (function dynamic ()
+              (set-selection~ text range)
+              (insert-string~ text output)))))))
   
   
-  (method (reprint-current-form . rest)
-    (bind-keywords ((space-properties? true) (align-name? true)) rest
-      (let* ((text (get-focus))
-             (classes (current-classes~ text (get-selection~ text)))
-             (range (definition-range~ text (get-end~ text)))
-             (string (get-string~ text range))
-             (form (jml->form (second (read-string-element string)))))
-        (if (is-not? form Form)
-            (bell)
-          (let* ((designer (new Designer form: form))
-                 (output (saved-form~ designer true (+ 1 (length classes)) :space-properties? space-properties? :align-name? align-name?)))
-            (with-update-locked~ text
-              (function dynamic ()
-                (set-selection~ text range)
-                (insert-string~ text output))))))))
+  (method (reprint-current-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+    (let* ((text (get-focus))
+           (classes (current-classes~ text (get-selection~ text)))
+           (range (definition-range~ text (get-end~ text)))
+           (string (get-string~ text range))
+           (form (jml->form (second (read-string-element string)))))
+      (if (is-not? form Form)
+          (bell)
+        (let* ((designer (new Designer form: form))
+               (output (saved-form~ designer true (+ 1 (length classes)) space-properties?: space-properties? align-name?: align-name?)))
+          (with-update-locked~ text
+            (function dynamic ()
+              (set-selection~ text range)
+              (insert-string~ text output)))))))
   
   
-  (method (reprint-selected-form . rest)
-    (bind-keywords ((space-properties? true) (align-name? true)) rest
-      (let* ((text (get-focus))
-             (range (get-selection~ text))
-             (string (get-string~ text range))
-             (form (jml->form (read-string-element string))))
-        (if (is-not? form Form)
-            (bell)
-          (let* ((designer (new Designer form: form))
-                 (output (saved-form~ designer false 0 :space-properties? space-properties? :align-name? align-name?)))
-            (with-update-locked~ text
-              (function dynamic ()
-                (set-selection~ text range)
-                (insert-string~ text output))))))))
+  (method (reprint-selected-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+    (let* ((text (get-focus))
+           (range (get-selection~ text))
+           (string (get-string~ text range))
+           (form (jml->form (read-string-element string))))
+      (if (is-not? form Form)
+          (bell)
+        (let* ((designer (new Designer form: form))
+               (output (saved-form~ designer false 0 space-properties?: space-properties? align-name?: align-name?)))
+          (with-update-locked~ text
+            (function dynamic ()
+              (set-selection~ text range)
+              (insert-string~ text output)))))))
 
   
   ;;;
@@ -1751,7 +1747,7 @@
   
   @wait
   (method (test0)
-    (let ((f (new XML-Formatter :pretty true :indentation 2)))
+    (let ((f (new XML-Formatter :pretty true indentation: 2)))
       (begin-element~ f "body")
       (begin-element~ f "h1")
         (add-attribute~ f "align" "center")
@@ -1816,7 +1812,7 @@
   (method (test-directx)
     (let ((frame (new Frame title: "DirectX" size: {Dimension 600 400} position: {Point 100 100}))
           (dx (cocreate [DirectX7 DxVBLib])))
-      (bind-values (hr ptr) (DirectDrawCreate~ dx "")
+      (receive (hr ptr) (DirectDrawCreate~ dx "")
         (assert-hr hr 1)
         (let ((dd (cobind ptr [DirectDraw7 DxVBLib])))
           (SetCooperativeLevel~ dd (get-hwnd~ frame) [DDSCL_NORMAL DxVBLib])
@@ -1824,14 +1820,14 @@
             (set ddsd 'lSize (size-of [DDSURFACEDESC2 DxVBLib]))
             (set ddsd 'lFlags [DDSD_CAPS DxVBLib])
             (set ddsd '(ddsCaps lCaps) [DDSCAPS_PRIMARYSURFACE DxVBLib])
-            (bind-values (hr ptr) (CreateSurface~ dd (record-address ddsd))
+            (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
               (assert-hr hr 2)
               (let ((primary (cobind ptr [DirectDrawSurface7 DxVBLib])))
                 (set ddsd 'lFlags (bit-or [DDSD_WIDTH DxVBLib] [DDSD_HEIGHT DxVBLib] [DDSD_CAPS DxVBLib]))
                 (set ddsd '(ddsCaps lCaps) [DDSCAPS_OFFSCREENPLAIN DxVBLib])
                 (set ddsd 'lWidth 600)
                 (set ddsd 'lHeight 400)
-                (bind-values (hr ptr) (CreateSurface~ dd (record-address ddsd))
+                (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
                   (assert-hr hr 3)
                   (let ((offscreen (cobind ptr [DirectDrawSurface7 DxVBLib]))
                         (rect (rect->RECT {Rect 0 0 600 400}))
@@ -1856,7 +1852,7 @@
   @wait
   (method (test-analyser)
     (let ((analyser (new Reference-Analyser :include-path? true)))
-      (bind-values (references resources) (find-references~ analyser '(Jedi) {})
+      (receive (references resources) (find-references~ analyser '(Jedi) {})
         (set-% references)
         (message-box "Done"))))
   
@@ -1870,7 +1866,7 @@
     (let ((times (gc-times)))
       (for-each (function dynamic (info name)
                   (bind (maximum average) info
-                    (format :console "{%}{a width: 16}: {s width: 2 :justify :right} {s width: 2 :justify :right}"
+                    (format :console "{%}{a width: 16}: {s width: 2 justify: :right} {s width: 2 justify: :right}"
                             name
                             maximum
                             average)))

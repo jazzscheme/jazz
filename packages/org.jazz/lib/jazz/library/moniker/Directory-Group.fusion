@@ -47,7 +47,7 @@
   
   
   (method (print printer readably)
-    (format printer "~{Directory-Group {l :detail :v}}"
+    (format printer "~{Directory-Group {l detail: :v}}"
             (get-list)
             readably))
   
@@ -133,24 +133,23 @@
   ;;;
   
   
-  (method public (iterate-directory proc . rest)
+  (method public (iterate-directory proc (full?: full? true) (files?: files? true) (directories?: directories? false) (recursive?: recursive? true) (ignored-directories: ignored-directories '()))
     ;;  this function might not give the expected result
     ;;  if full? is false and the content elements are not all brothers
     ;;  ignored-directories is not used to filter the first level, only susequent ones
-    (bind-keywords ((full? true) (files? true) (directories? false) (recursive? true) (ignored-directories '())) rest
-      (let ((items (get-list)))
-        (for-each (function dynamic (element)
-                    (typecase element
-                      ((File)
-                       (when files?
-                         (if full? (proc element) (proc (list (get-name~ element)) 'file))))
-                      ((Directory)
-                       (when directories?
-                         (let ((name (get-name~ element)))
-                           (when (and directories? (not (member? name ignored-directories)))
-                             (if full?
-                                 (proc element)
-                               (proc (list name) 'directory)))
-                           (when recursive?
-                             (iterate-directory-content~ element files? directories? recursive? ignored-directories (list name) (parse~ element) proc)))))))
-                  items))))))
+    (let ((items (get-list)))
+      (for-each (function dynamic (element)
+                  (typecase element
+                    ((File)
+                     (when files?
+                       (if full? (proc element) (proc (list (get-name~ element)) 'file))))
+                    ((Directory)
+                     (when directories?
+                       (let ((name (get-name~ element)))
+                         (when (and directories? (not (member? name ignored-directories)))
+                           (if full?
+                               (proc element)
+                             (proc (list name) 'directory)))
+                         (when recursive?
+                           (iterate-directory-content~ element files? directories? recursive? ignored-directories (list name) (parse~ element) proc)))))))
+                items)))))

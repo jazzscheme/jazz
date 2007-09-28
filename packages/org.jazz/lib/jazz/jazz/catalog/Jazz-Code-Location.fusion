@@ -60,18 +60,17 @@
         (format printer "{s}" location))))
 
 
-  (method (edit . rest)
-    (bind-keywords ((workspace {}) (activate-focus? true) (error? true)) rest
-      (let ((location (find-location workspace: workspace error?: error?)))
-        (when location
-          (bind-values (frame text range) location
-            (set-selection~ text range :ensure-displayed? false)
-            (ensure-displayed~ text :force-vertical 'head)
-            (bring-to-front~ frame)
-            (set-visible?~ frame true)
-            (when activate-focus?
-              (acquire-focus~ frame))
-            frame)))))
+  (method (edit (workspace: workspace {}) (activate-focus?: activate-focus? true) (error?: error? true))
+    (let ((location (find-location workspace: workspace error?: error?)))
+      (when location
+        (receive (frame text range) location
+          (set-selection~ text range :ensure-displayed? false)
+          (ensure-displayed~ text :force-vertical 'head)
+          (bring-to-front~ frame)
+          (set-visible?~ frame true)
+          (when activate-focus?
+            (acquire-focus~ frame))
+          frame))))
   
   
   (method public (find-source)
@@ -79,24 +78,22 @@
       (find-class-source class-name)))
   
   
-  (method public (find-location . rest)
-    (bind-keywords ((workspace {}) (error? true)) rest
-      (bind (class-name . sublocation) location
-        (let ((frame (find-class class-name workspace: workspace error?: error?)))
-          (when frame
-            (let* ((text  (get-guest~ frame))
-                   (range (location-range~ text sublocation :toplevel-location location)))
-              (values frame text range)))))))
+  (method public (find-location (workspace: workspace {}) (error?: error? true))
+    (bind (class-name . sublocation) location
+      (let ((frame (find-class class-name workspace: workspace error?: error?)))
+        (when frame
+          (let* ((text  (get-guest~ frame))
+                 (range (location-range~ text sublocation :toplevel-location location)))
+            (values frame text range))))))
   
   
-  (method (find-class class-name . rest)
-    (bind-keywords ((workspace {}) (error? true)) rest
-      (let* ((appl (get-application))
-             (toplevel-name (extract-toplevel-name class-name))
-             (source (find-class-source toplevel-name)))
-        (either (edit-document~ appl source workspace: workspace visible?: false)
-                (when error?
-                  (signal (new Location-Error :kind 'unknown :location class-name)))))))
+  (method (find-class class-name (workspace: workspace {}) (error?: error? true))
+    (let* ((appl (get-application))
+           (toplevel-name (extract-toplevel-name class-name))
+           (source (find-class-source toplevel-name)))
+      (either (edit-document~ appl source workspace: workspace visible?: false)
+              (when error?
+                (signal (new Location-Error :kind 'unknown :location class-name))))))
   
   
   (method (find-class-source class-name)

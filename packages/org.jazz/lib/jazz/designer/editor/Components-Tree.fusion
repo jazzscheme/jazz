@@ -399,12 +399,12 @@
               :can-survive? true))))))
   
   
-  (method (confirm-close (components (quote ())))
+  (method (confirm-close (components '()))
     (confirm-action "Delete selected objects?"))
   
   
   (method (confirm-action text)
-    (let ((code (message-box (localize text) :type 'confirmation)))
+    (let ((code (message-box (localize text) type: 'confirmation)))
       (case code
         ((yes) true)
         ((no) false)
@@ -442,7 +442,7 @@
                classes)))))
   
   
-  (method (add-component-class class (parent: parent {}) (presentation: presentation {}) (properties: properties (quote ())) (select?: select? true))
+  (method (add-component-class class (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? true))
     (let* ((selected (selected-component))
            (parent (either parent (relocation-parent selected class) selected client))
            (extra-properties properties))
@@ -462,17 +462,16 @@
             (component-properties-request class)))
   
   
-  (method protected virtual (component-presentation-request class brothers . rest)
+  (method protected virtual (component-presentation-request class brothers (initial-value: initial-value {}))
     (if (get-name-prohibited?~ class)
         {}
-      (bind-keywords ((initial-value {})) rest
-        (let* ((name-mandatory? (get-name-mandatory?~ class))
-               (name-unicity? (get-name-unicity?~ class))
-               (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
-               (name-validator (component-name-validator))
-               (pres (localize (get-class-presentation~ class)))
-               (presentation (request-string title: (new Locales :english (format "Enter {a} Name" pres) :french "Entrez le nom") :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
-          presentation))))
+      (let* ((name-mandatory? (get-name-mandatory?~ class))
+             (name-unicity? (get-name-unicity?~ class))
+             (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
+             (name-validator (component-name-validator))
+             (pres (localize (get-class-presentation~ class)))
+             (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
+        presentation)))
   
   
   (method protected virtual (component-properties-request class)
@@ -484,7 +483,7 @@
   
   
   (method (create-new-component class parent creation-info extra-properties)
-    (bind-values (presentation added-properties) creation-info
+    (receive (presentation added-properties) creation-info
       (let ((child (new class parent: parent))
             (name (essay presentation (presentation->name~ class presentation)))
             (designer (get-designer)))
@@ -529,16 +528,16 @@
     (let ((row (component-row component)))
       (when row
         (ensure-expanded row)
-        (let* ((presentation (component-presentation-request (class-of component) (get-brothers~ component) :initial-value (get-presentation~ component)))
+        (let* ((presentation (component-presentation-request (class-of component) (get-brothers~ component) initial-value: (get-presentation~ component)))
                (rank (row-rank row))
                (cell (new Cell rank 0)))
           (end-rename component cell presentation))
         @other-approach-but-much-tougher-to-ensure-that-the-name-follows-certains-restrictions
         (let* ((rank (row-rank row))
                (cell (new Cell rank 0))
-               (border (new Border-View :border-type 'solid :border-color {Color name: Dark-Red}))
-               (scroller (new Scroller-View parent: border :vscroll? false :hscroll? false))
-               (text (new Tree-Embedded-Presentation-Text-View parent: (get-content~ scroller) :left-padding 1 :top-padding 1 font: font)))
+               (border (new Border-View border-type: 'solid border-color: {Color name: Dark-Red}))
+               (scroller (new Scroller-View parent: border vscroll?: false hscroll?: false))
+               (text (new Tree-Embedded-Presentation-Text-View parent: (get-content~ scroller) left-padding: 1 top-padding: 1 font: font)))
           (ensure-row-displayed rank)
           (set-string-content~ text (get-presentation~ component))
           (edit-cell cell
@@ -707,7 +706,7 @@
     (let* ((selection (get-single-selection))
            (row (get-row selection))
            (component (selected-component))
-           (border (new Border-View :border-type 'edge :border-insets {Rect 1 1 1 1}))
+           (border (new Border-View border-type: 'edge :border-insets {Rect 1 1 1 1}))
            (card (new Properties-Card parent: border))
            (tree (get-tree~ card)))
       (set-flat?~ (get-header~ tree) true)

@@ -61,7 +61,7 @@
   
   @new
   (method meta public (expand form)
-    (bind-values (meta? modifiers rest) (parse-modifiers form)
+    (receive (meta? modifiers rest) (parse-modifiers form)
       (let ((base (+ (length modifiers) 1)))
         (bind (enumeration-name . items) rest
           (let ((declaration (new Enumeration-Declaration enumeration-name))
@@ -102,7 +102,7 @@
       (constant b (set-enumeration! <enumeration> 'b 2))))
   
   (method meta public (expand form)
-    (bind-values (meta? modifiers rest) (parse-modifiers form)
+    (receive (meta? modifiers rest) (parse-modifiers form)
       (let ((base (+ (length modifiers) 1)))
         (bind (enumeration-name . items) rest
           (let* ((items (standardize-items items))

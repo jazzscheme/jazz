@@ -226,7 +226,7 @@
                (let ((action (get-property~ column :difference)))
                  (or (= (first (get-property~ column :ordinal-position)) 'modify)
                      (= (first (get-property~ column :datatype)) 'modify)
-                     (= (first (get-property~ column :nullable?)) 'modify))
+                     (= (first (get-property~ column nullable?:)) 'modify))
                  @wait (case action
                          ((right) (increase! column-pos))
                          ((left) (decrease! column-pos))
@@ -307,7 +307,7 @@
              (let ((field-name (get-name~ field))
                     (datatype (get-native~ (third (get-datatype~ field))))
                     (ordinal-position (third (get-property~ field :ordinal-position)))
-                    (nullable-string (if (third (get-property~ field :nullable?))
+                    (nullable-string (if (third (get-property~ field nullable?:))
                                          "NULL"
                                        "NOT NULL"))
                     (identity-string (if (third (get-property~ field :identity?))
@@ -338,7 +338,7 @@
                   (let ((ordinal-position (get-property~ column :ordinal-position))
                          (new-default-value (third (get-property~ column :default-value)))
                          (new-default-value-action (first (get-property~ column :default-value)))
-                         (new-nullable? (third (get-property~ column :nullable?)))
+                         (new-nullable? (third (get-property~ column nullable?:)))
                          (new-datatype (third (get-property~ column :datatype))))
                     (and (null? (second ordinal-position)) 
                          (third ordinal-position)
@@ -361,7 +361,7 @@
                            new-columns))
            (new-values (map (function dynamic (column)
                               (let* ((new-column? (null? (object-old-property column :ordinal-position)))
-                                     (nullable? (object-new-property column :nullable?))
+                                     (nullable? (object-new-property column nullable?:))
                                      (datatype (object-new-property column :datatype))
                                      (default-value (get-native-with-value~ datatype (object-new-property column :default-value) :indirect? true))
                                      (read-only? (= default-value 'read-only)))
@@ -373,7 +373,7 @@
                                        (let ((safe-name (encapsulate-name (get-name~ column)))
                                              (must-convert? (eq? (action-for-property column :datatype) 'modify))
                                              (need-default? (and (not nullable?)
-                                                                 (eq? (action-for-property column :nullable?) 'modify))))
+                                                                 (eq? (action-for-property column nullable?:) 'modify))))
                                          (cond ((and must-convert? need-default?)
                                                 (format "isnull(convert({a},{a}),{a})" (get-native~ datatype) safe-name default-value))
                                                (must-convert?
@@ -384,8 +384,8 @@
                                                 safe-name)))))))
                             new-columns))
            (script-copy (tie "IF EXISTS(SELECT * FROM [{old-table}])~{%}"
-                             "~{&}EXEC('INSERT INTO [{new-table}] ({new-names l :detail :human :separator \", \"})~{%}"
-                             "~{&}~{&}SELECT {new-values l :detail :human :separator \", \"} FROM [{old-table}] TABLOCKX')~{%}"
+                             "~{&}EXEC('INSERT INTO [{new-table}] ({new-names l detail: :human separator: \", \"})~{%}"
+                             "~{&}~{&}SELECT {new-values l detail: :human separator: \", \"} FROM [{old-table}] TABLOCKX')~{%}"
                              "~{%}"))
            (script-drop-rename-table (tie "DROP TABLE [{old-table}]~{%}"
                                           "~{%}"
@@ -659,7 +659,7 @@
     (let* ((table-name (get-name~ (get-parent~ index)))
            (index-name (get-name~ index))
            (fields/orders (create-fields/orders-list (third (get-property~ index :fields/orders))))
-           (unique (if (third (get-property~ index :unique?))
+           (unique (if (third (get-property~ index unique?:))
                        "UNIQUE"
                      ""))
            (clustered (if (third (get-property~ index :clustered?)) "CLUSTERED" "NONCLUSTERED"))
@@ -670,7 +670,7 @@
            (statistics-norecompute (if (third (get-property~ index :recompute-statistics?)) {} "STATISTICS_NORECOMPUTE"))
            (options-list (remove-nils (list pad-index fill-factor-text ignore-dup-key statistics-norecompute)))
            (options (if options-list 
-                        (tie "WITH {options-list l :detail :human :separator \", \"}")
+                        (tie "WITH {options-list l detail: :human separator: \", \"}")
                       ""))
            (script (tie "CREATE {unique} {clustered} INDEX {index-name} ON [{table-name}]~{%}"
                         "~{&}(~{%}"
@@ -718,8 +718,8 @@
            (text (third (get-property~ constraint text:)))
            (check? true) ;not implement now always true
            (check-text (if check? "" "WITH NOCHECK"))  
-           (replication-text (if (third (get-property~ constraint :exclude-replication?)) "NOT FOR REPLICATION" ""))
-           (checked-text (if (not (third (get-property~ constraint :checked?)))
+           (replication-text (if (third (get-property~ constraint exclude-replication?:)) "NOT FOR REPLICATION" ""))
+           (checked-text (if (not (third (get-property~ constraint checked?:)))
                              (tie  "ALTER TABLE [{table-name}]~{%}"
                                    "~{&}NOCHECK CONSTRAINT [{constraint-name}]~{%}") 
                            ""))
@@ -759,22 +759,22 @@
            (primary-fields (third (get-primary-columns~ relation)))
            (foreign-table (third (get-foreign-table~ relation)))
            (foreign-fields (third (get-foreign-columns~ relation)))
-           (on-update-cascade (if (third (get-property~ relation :update-cascade?)) "ON UPDATE CASCADE" ""))
-           (on-delete-cascade (if (third (get-property~ relation :delete-cascade?)) "ON DELETE CASCADE" ""))
-           (replication-text (if (third (get-property~ relation :exclude-replication?)) "NOT FOR REPLICATION" ""))
+           (on-update-cascade (if (third (get-property~ relation update-cascade?:)) "ON UPDATE CASCADE" ""))
+           (on-delete-cascade (if (third (get-property~ relation delete-cascade?:)) "ON DELETE CASCADE" ""))
+           (replication-text (if (third (get-property~ relation exclude-replication?:)) "NOT FOR REPLICATION" ""))
            (check? true) ;not implement now always true
            (check-text (if check? "" "WITH NOCHECK"))  
-           (checked-text (if (not (third (get-property~ relation :checked?)))
+           (checked-text (if (not (third (get-property~ relation checked?:)))
                              (tie  "ALTER TABLE [{foreign-table}]~{%}"
                                    "~{&}NOCHECK CONSTRAINT [{relation-name}]~{%}") 
                            ""))
            (script (tie "ALTER TABLE [{foreign-table}] {check-text} ADD CONSTRAINT~{%}"
                         "~{&}{relation-name} FOREIGN KEY~{%}"
                         "~{&}(~{%}"
-                        "~{&}{foreign-fields l :detail :human :separator \", \"}~{%}"
+                        "~{&}{foreign-fields l detail: :human separator: \", \"}~{%}"
                         "~{&}) REFERENCES {primary-table}~{%}"
                         "~{&}(~{%}"
-                        "~{&}{primary-fields l :detail :human :separator \", \"}~{%}"
+                        "~{&}{primary-fields l detail: :human separator: \", \"}~{%}"
                         "~{&}) {on-update-cascade} {on-delete-cascade} {replication-text}~{%}"
                         "{checked-text}")))
       (execute-sql-commit-preserve script)))
@@ -968,10 +968,10 @@
       ((view)        (create-view~ parent name))
       ((relation)    (if (is-not? parent SQLServer-Inventory)
                        (create-relation~ parent name)
-                     (let ((primary-table (third (get-property~ object :primary-table)))
-                            (primary-fields (third (get-property~ object :primary-columns)))
-                            (foreign-table (third (get-property~ object :foreign-table)))
-                            (foreign-fields (third (get-property~ object :foreign-columns))))
+                     (let ((primary-table (third (get-property~ object primary-table:)))
+                            (primary-fields (third (get-property~ object primary-columns:)))
+                            (foreign-table (third (get-property~ object foreign-table:)))
+                            (foreign-fields (third (get-property~ object foreign-columns:))))
                        (create-relation-complete~ parent name primary-table primary-fields foreign-table foreign-fields))))
       ((procedure)   (create-procedure~ parent name))
       (else (error "Unknown component kind:" kind))))
@@ -1183,7 +1183,7 @@
       ((view)        (remove-view~ parent child-name))
       ((relation)    (if (is-not? parent SQLServer-Inventory)
                        (remove-relation~ parent child-name)
-                     (let ((foreign-table (second (get-property~ object :foreign-table))))
+                     (let ((foreign-table (second (get-property~ object foreign-table:))))
                        (remove-relation~ parent child-name foreign-table))))
       ((procedure)   (remove-procedure~ parent child-name))
       (else (error "Unknown component kind:" kind))))

@@ -29,10 +29,6 @@
             (set! loaded? #t))))))
 
 
-(define (b)
-  (jazz.boot-kernel))
-
-
 (define (bl)
   (jazz.boot-kernel)
   (jazz.load-module 'core.library))
@@ -702,7 +698,7 @@
   (apply test.test rest))
 
 
-(define (b)
+(define (j)
   (lj)
   (jazz.load-module 'jazz.platform.literals)
   (l test.boot))

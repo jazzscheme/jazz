@@ -38,46 +38,47 @@
 (library jazz.ui.clipboard jazz
 
 
+(import (jazz.platform.windows))
+
+
 (definition *super-quicky-clipboard*
   "")
 
 
-(definition public (get-clipboard . rest)
+(definition public (get-clipboard (type: type 'text))
   *super-quicky-clipboard*
   @platform-dependant
-  (bind-keywords ((type 'text)) rest
-    (case type
-      ((metafile)
-       (with-opened-clipboard
-         (function dynamic ()
-           (get-clipboard-metafile))))
-      ((text)
-       (with-opened-clipboard
-         (function dynamic ()
-           ;; Because I do not store unicode characters in saved files,
-           ;; lets get only ansi text from the clipboard...
-           (get-clipboard-text :format CF_TEXT :unicode? false)))))))
+  (case type
+    ((metafile)
+     (with-opened-clipboard
+       (function dynamic ()
+         (get-clipboard-metafile))))
+    ((text)
+     (with-opened-clipboard
+       (function dynamic ()
+         ;; Because I do not store unicode characters in saved files,
+         ;; lets get only ansi text from the clipboard...
+         (get-clipboard-text :format CF_TEXT :unicode? false))))))
 
 
-(definition public (set-clipboard object . rest)
+(definition public (set-clipboard object (type: type {}) (empty?: empty? true))
   (set! *super-quicky-clipboard* object)
   @platform-dependant
-  (bind-keywords ((type {}) (empty? true)) rest
-    (typecase object
-      ((String)
-       (with-opened-clipboard
-         (function dynamic ()
-           (set-clipboard-text object))
-         :empty? empty?))
-      (else
-       (case type
-         ((metafile)
-          (with-opened-clipboard
-            (function dynamic ()
-              (set-clipboard-metafile object))
-            :empty? empty?))
-         (else
-          (unimplemented 'set-clipboard)))))))
+  (typecase object
+    ((String)
+     (with-opened-clipboard
+       (function dynamic ()
+         (set-clipboard-text object))
+       :empty? empty?))
+    (else
+     (case type
+       ((metafile)
+        (with-opened-clipboard
+          (function dynamic ()
+            (set-clipboard-metafile object))
+          :empty? empty?))
+       (else
+        (unimplemented 'set-clipboard))))))
 
 
 (definition public (get-clipboard-formats)
@@ -90,20 +91,19 @@
     (get-output~ formats)))
 
 
-(definition public (with-opened-clipboard proc . rest)
+(definition public (with-opened-clipboard proc (empty?: empty? false))
   (unimplemented 'with-opened-clipboard)
   @platform-dependant
-  (bind-keywords ((empty? false)) rest
-    (let ((opened? false))
-      (unwind-protect
-          (begin
-            (OpenClipboard NULL)
-            (set! opened? true)
-            (when empty?
-              (EmptyClipboard))
-            (proc))
-        (when opened?
-          (CloseClipboard))))))
+  (let ((opened? false))
+    (unwind-protect
+        (begin
+          (OpenClipboard NULL)
+          (set! opened? true)
+          (when empty?
+            (EmptyClipboard))
+          (proc))
+      (when opened?
+        (CloseClipboard)))))
 
 
 (definition public (clipboard-format-available? format)
@@ -170,18 +170,16 @@
 ;;;
 
 
-(definition public (get-clipboard-text . rest)
+(definition public (get-clipboard-text (format: format CF_UNICODETEXT) (unicode?: unicode? true))
   (unimplemented 'get-clipboard-text)
   @platform-dependant
-  (bind-keywords ((format CF_UNICODETEXT) (unicode? true)) rest
-    (JzGetClipboardText (get-format format) unicode?)))
+  (JzGetClipboardText (get-format format) unicode?))
 
 
-(definition public (set-clipboard-text text . rest)
+(definition public (set-clipboard-text text (format: format CF_UNICODETEXT) (unicode?: unicode? true))
   (unimplemented 'set-clipboard-text)
   @platform-dependant
-  (bind-keywords ((format CF_UNICODETEXT) (unicode? true)) rest
-    (JzSetClipboardText text (get-format format) unicode?)))
+  (JzSetClipboardText text (get-format format) unicode?))
 
 
 (definition public (set-clipboard-metafile metafile)

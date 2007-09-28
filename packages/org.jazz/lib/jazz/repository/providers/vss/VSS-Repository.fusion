@@ -71,15 +71,14 @@
   ;;;
   
   
-  (method meta (new-repository pref name . rest)
-    (bind-keywords ((username {}) (password {})) rest
-      (let* ((pref (if (symbol? pref) (repository-preferences pref) pref))
-             (ini-file (get-ini-file~ pref))
-             (username (either username (get-username~ pref)))
-             (password (either password (get-password~ pref)))
-             (base-project (get-base-project~ pref))
-             (base-directory (get-base-directory~ pref)))
-        (new self name: name :ini-file ini-file username: username password: password :base-project base-project :base-directory base-directory))))
+  (method meta (new-repository pref name (username: username {}) (password: password {}))
+    (let* ((pref (if (symbol? pref) (repository-preferences pref) pref))
+           (ini-file (get-ini-file~ pref))
+           (username (either username (get-username~ pref)))
+           (password (either password (get-password~ pref)))
+           (base-project (get-base-project~ pref))
+           (base-directory (get-base-directory~ pref)))
+      (new self name: name :ini-file ini-file username: username password: password :base-project base-project :base-directory base-directory)))
 
   
   ;;;
@@ -216,27 +215,26 @@
     #x8004D117)
  
   
-  (method (get-item file/path . rest)
-    (bind-keywords ((error? true) (deleted? false)) rest
-      (let* ((path (file/path->path file/path))
-             (spec (path->spec path)))
-        (let ((pref (get-preferences 'debug error?: false)))
-          (when (and pref (get-debug-repository?~ pref))
-            (message-box spec)))
-        (cotry (let ((item (get-VSSItem~ (get-database) spec deleted?)))
-                 (new VSS-Repository-Item self item))
-          (Database-Locked
-           (when error?
-             (error "Repository is locked")))
-          (File-Or-Project-Not-Found
-           (when error?
-             (error "File or project not found: {a}" spec)))
-          (Database-Inexistant
-           (when error?
-             (error "Database path does not exist")))
-          (else
-           (when error?
-             (error "Unknown error")))))))
+  (method (get-item file/path (error?: error? true) (deleted?: deleted? false))
+    (let* ((path (file/path->path file/path))
+           (spec (path->spec path)))
+      (let ((pref (get-preferences 'debug error?: false)))
+        (when (and pref (get-debug-repository?~ pref))
+          (message-box spec)))
+      (cotry (let ((item (get-VSSItem~ (get-database) spec deleted?)))
+               (new VSS-Repository-Item self item))
+        (Database-Locked
+          (when error?
+            (error "Repository is locked")))
+        (File-Or-Project-Not-Found
+          (when error?
+            (error "File or project not found: {a}" spec)))
+        (Database-Inexistant
+          (when error?
+            (error "Database path does not exist")))
+        (else
+         (when error?
+           (error "Unknown error"))))))
   
   
   (method (in-repository? file)
@@ -306,11 +304,10 @@
   ;;;
   
   
-  (method (get-file-status file . rest)
-    (bind-keywords ((error? true)) rest
-      (with-closed ((item (get-item file error?: error?)))
-        (when item
-          (get-status~ item)))))
+  (method (get-file-status file (error?: error? true))
+    (with-closed ((item (get-item file error?: error?)))
+      (when item
+        (get-status~ item))))
   
   
   (method (get-file-checkouts-usernames file)

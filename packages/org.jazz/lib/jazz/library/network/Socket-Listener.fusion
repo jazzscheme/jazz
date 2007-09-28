@@ -94,11 +94,10 @@
       (error "Socked listener not started: {t}" self)))
   
   
-  (method public (wait-started . rest)
+  (method public (wait-started (timeout: timeout 30000) (error?: error? true))
     ;; Note that timeout is quite large because listening to a socket can trigger a firewall
     ;; that will pop a dialog asking for user confirmation (even when listening to localhost!).
-    (bind-keywords ((timeout 30000) (error? true)) rest
-      (wait-for started-impulse :timeout timeout error?: error?)))
+    (wait-for started-impulse :timeout timeout error?: error?))
   
   
   ;;;
@@ -110,19 +109,18 @@
     -1)
 
   
-  (method protected (start-listener . rest)
-    (bind-keywords ((host {}) (port 'any)) rest
-      (set! listening-socket (new Listening-Socket name: "Listening Socket"))
-      (listen~ listening-socket :host host :port port)
-      (set! server-state 'started)
-      (set-event~ started-impulse)
-      (while (neq? server-state 'stopping)
-        (let ((handle (accept~ listening-socket)))
-          ;; This happens when stop-listener closes and thus unblocks the listening socket...
-          (unless (= handle Invalid-Socket)
-            (let ((connection-socket (new Socket name: "Connection Socket" :handle handle)))
-              (accept-connection connection-socket)))))
-      (set! server-state 'stopped)))
+  (method protected (start-listener (host: host {}) (port: port 'any))
+    (set! listening-socket (new Listening-Socket name: "Listening Socket"))
+    (listen~ listening-socket :host host :port port)
+    (set! server-state 'started)
+    (set-event~ started-impulse)
+    (while (neq? server-state 'stopping)
+      (let ((handle (accept~ listening-socket)))
+        ;; This happens when stop-listener closes and thus unblocks the listening socket...
+        (unless (= handle Invalid-Socket)
+          (let ((connection-socket (new Socket name: "Connection Socket" :handle handle)))
+            (accept-connection connection-socket)))))
+    (set! server-state 'stopped))
   
   
   (method public virtual (stop-listener)

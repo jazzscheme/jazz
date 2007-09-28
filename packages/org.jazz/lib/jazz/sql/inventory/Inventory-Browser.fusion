@@ -204,9 +204,9 @@
            (systype {})
            (size {}))
       (while (null? systype)
-        (set! systype (find-systype~ datatype (request-string title: "Enter field type" :initial-value "char"))))
+        (set! systype (find-systype~ datatype (request-string title: "Enter field type" initial-value: "char"))))
       (when (get-sizeable?~ systype)
-        (set! size (parse-integer (request-string title: "Enter field size" :initial-value "12"))))
+        (set! size (parse-integer (request-string title: "Enter field size" initial-value: "12"))))
       (set-datatype~ column (new Datatype (get-name~ systype) size))
       (append-column~ table column)
       (append-table~ database table)))
@@ -219,9 +219,9 @@
            (systype {})
            (size {}))
       (while (null? systype)
-        (set! systype (find-systype~ datatype (request-string title: "Enter field type" :initial-value "char"))))
+        (set! systype (find-systype~ datatype (request-string title: "Enter field type" initial-value: "char"))))
       (when (get-sizeable?~ systype)
-        (set! size (parse-integer (request-string title: "Enter field size" :initial-value "12"))))
+        (set! size (parse-integer (request-string title: "Enter field size" initial-value: "12"))))
       (execute-sql-commit-preserve
        (function dynamic ()
          (generate-sql-header-script)))
@@ -258,11 +258,11 @@
            (systype {})
            (size {}))
       (while (null? systype)
-        (set! systype (find-systype~ datatype (request-string title: "Enter field type" :initial-value "Text"))))
+        (set! systype (find-systype~ datatype (request-string title: "Enter field type" initial-value: "Text"))))
       (when (get-sizeable?~ systype)
-        (set! size (parse-integer (request-string title: "Enter field size" :initial-value "12"))))
+        (set! size (parse-integer (request-string title: "Enter field size" initial-value: "12"))))
       (set-datatype~ column (new datatype (get-name~ systype) size))
-      (set-nullable?~ column (parse-boolean (request-string title: "Enter nullable?" :initial-value "True")))
+      (set-nullable?~ column (parse-boolean (request-string title: "Enter nullable?" initial-value: "True")))
       (append-column~ table column)))
   
   
@@ -274,11 +274,11 @@
            (systype {})
            (size {}))
       (while (null? systype)
-        (set! systype (find-systype~ datatype (request-string title: "Enter field type" :initial-value "Text"))))
+        (set! systype (find-systype~ datatype (request-string title: "Enter field type" initial-value: "Text"))))
       (when (get-sizeable?~ systype)
-        (set! size (parse-integer (request-string title: "Enter field size" :initial-value "12"))))
+        (set! size (parse-integer (request-string title: "Enter field size" initial-value: "12"))))
       (set-datatype~ column (new datatype (get-name~ systype) size))
-      (set-nullable?~ column (parse-boolean (request-string title: "Enter nullable?" :initial-value "True")))
+      (set-nullable?~ column (parse-boolean (request-string title: "Enter nullable?" initial-value: "True")))
       (append-column~ table column)))
   
   
@@ -541,7 +541,7 @@
           (systype {})
           (size {}))
       (while (null? systype)
-        (set! systype (find-systype~ datatype (request-string title: "Enter field type" :initial-value "Text"))))
+        (set! systype (find-systype~ datatype (request-string title: "Enter field type" initial-value: "Text"))))
       (when (get-sizeable?~ systype)
         (set! size (parse-integer (request-string title: "Enter field size"))))
       (set-datatype~ column (new datatype (get-name~ systype) size))
@@ -550,7 +550,7 @@
   
   (method (modify-nullable?)
     (let ((column (selected-element))
-          (value (parse-boolean (request-string title: "Enter nullable?" :initial-value "True"))))
+          (value (parse-boolean (request-string title: "Enter nullable?" initial-value: "True"))))
       (set-nullable?~ column value)))
   
   
@@ -605,7 +605,7 @@
   
   (method (modify-auto-increment?)
     (let ((column (selected-element))
-          (value (parse-boolean (request-string title: "Enter auto increment" :initial-value "False"))))
+          (value (parse-boolean (request-string title: "Enter auto increment" initial-value: "False"))))
       (set-auto-increment?~ column value)))
   
   
@@ -727,15 +727,14 @@
       def-table))
 
   
-  (method (execute-sql-commit-preserve proc . rest)
-    (bind-keywords ((reload-inventory? false)) rest
-      (let* ((instructions (proc))
-             (script (tie "BEGIN TRANSACTION~{%}"
-                          "{instructions}"
-                          "COMMIT~{%}")))
-        (execute~ connection script))
-      (when reload-inventory?
-        (reload-inventory~ connection))))
+  (method (execute-sql-commit-preserve proc (reload-inventory?: reload-inventory? false))
+    (let* ((instructions (proc))
+           (script (tie "BEGIN TRANSACTION~{%}"
+                        "{instructions}"
+                        "COMMIT~{%}")))
+      (execute~ connection script))
+    (when reload-inventory?
+      (reload-inventory~ connection)))
   
   
   (method (identity-string)
@@ -747,7 +746,7 @@
            (let ((field-name (get-name~ field))
                   (datatype (get-native~ (third (get-datatype~ field))))
                   (ordinal-position (third (get-property~ field :ordinal-position)))
-                  (nullable-string (if (third (get-property~ field :nullable?))
+                  (nullable-string (if (third (get-property~ field nullable?:))
                                        "NULL"
                                      "NOT NULL"))
                   (identity-string (if (third (get-property~ field :identity?))
@@ -874,7 +873,7 @@
            (clustered? (get-clustered?~ primary-key))
            (fill-factor (get-fill-factor~ primary-key)))
       (append-row~ output (new Data-Row output (list "Name" title)))
-      (append-row~ output (new Data-Row output (list "Fields" (format "{l :detail :human :separator \", \"}" fields/orders-list))))
+      (append-row~ output (new Data-Row output (list "Fields" (format "{l detail: :human separator: \", \"}" fields/orders-list))))
       (append-row~ output (new Data-Row output (list "Clustered?" clustered?)))
       (append-row~ output (new Data-Row output (list "FillFactor" fill-factor)))
       output))
@@ -947,7 +946,7 @@
                                  (format "{a} {a}" (get-title~ field) (case order ((ascending) "asc") ((descending) "desc")))))
                              fields)))
       (append-row~ output (new Data-Row output (list "Name" title)))
-      (append-row~ output (new Data-Row output (list "Fields" (format "{l :detail :human :separator \", \"}" fields-list))))
+      (append-row~ output (new Data-Row output (list "Fields" (format "{l detail: :human separator: \", \"}" fields-list))))
       (when (is? index SQLServer-Inventory-Index) (append-row~ output (new Data-Row output (list "IgnoreDuplicates" ignore-duplicates?))))
       (append-row~ output (new Data-Row output (list "Unique" unique?)))
       (when (is? index SQLServer-Inventory-Index) (append-row~ output (new Data-Row output (list "Clustered" clustered?))))
@@ -975,10 +974,10 @@
            (delete-cascade? (get-delete-cascade?~ relation)))
       (append-row~ output (new Data-Row output (list "Name" title)))
       (append-row~ output (new Data-Row output (list "PrimaryTable" primary-table)))
-      (append-row~ output (new Data-Row output (list "PrimaryFields" (format "{l :detail :human :separator \", \"}" primary-field-names))))
+      (append-row~ output (new Data-Row output (list "PrimaryFields" (format "{l detail: :human separator: \", \"}" primary-field-names))))
       (append-row~ output (new Data-Row output (list "ForeignTable" foreign-table)))
-      (append-row~ output (new Data-Row output (list "ForeignFields" (format "{l :detail :human :separator \", \"}" foreign-field-names))))
-      (when (is? relation Access-Inventory-Relation) (append-row~ output (new Data-Row output (list "Attributes" (format "{l :detail :human :separator \", \"}" attributes-list)))))
+      (append-row~ output (new Data-Row output (list "ForeignFields" (format "{l detail: :human separator: \", \"}" foreign-field-names))))
+      (when (is? relation Access-Inventory-Relation) (append-row~ output (new Data-Row output (list "Attributes" (format "{l detail: :human separator: \", \"}" attributes-list)))))
       (when (is? relation SQLServer-Inventory-Relation) (append-row~ output (new Data-Row output (list "Checked" checked?))))
       (when (is? relation SQLServer-Inventory-Relation) (append-row~ output (new Data-Row output (list "ExcludeReplication" exclude-replication?))))
       (when (is? relation SQLServer-Inventory-Relation) (append-row~ output (new Data-Row output (list "UpdateCascade" update-cascade?))))

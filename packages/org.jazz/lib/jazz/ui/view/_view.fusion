@@ -94,15 +94,14 @@
 
 
 ;; tofix : That was in Platfrm. Is it ok here?
-(definition public (with-cursor cursor proc . rest)
-  (bind-keywords ((duration {})) rest
-    (unwind-protect
-        (begin
-          (set-cursor cursor)
-          (when duration
-            (sleep duration))
-          (proc))
-      (update-cursor))))
+(definition public (with-cursor cursor proc (duration: duration {}))
+  (unwind-protect
+      (begin
+        (set-cursor cursor)
+        (when duration
+          (sleep duration))
+        (proc))
+    (update-cursor)))
 
 
 (definition public (update-cursor)
@@ -156,7 +155,7 @@
 (definition public (get-modal guest-class . rest)
   (receive-primary
     (function dynamic ()
-      (bind-values (process? dialog/result) (apply new-dialog guest-class host-visible?: false rest)
+      (receive (process? dialog/result) (apply new-dialog guest-class host-visible?: false rest)
         (if (not process?)
             dialog/result
           (process-modal~ dialog/result))))))
@@ -164,7 +163,7 @@
 
 (definition public (new-dialog guest-class . rest)
   (bind-keywords ((host-title (dialog-title)) (host-sizable? (dialog-sizable?)) (host-closable? (dialog-closable?)) (host-visible? true) (guest {}) (initialize {}) . others) rest
-    (let* ((host (new (dialog-class) :in-parent? false :sizable? host-sizable? :closable? host-closable? visible?: false))
+    (let* ((host (new (dialog-class) :in-parent? false sizable?: host-sizable? closable?: host-closable? visible?: false))
            (guest (either guest (new-guest guest-class others)))
            (size (either (dialog-size) (get-size~ guest)))
            (pos (either (dialog-position) (center-dialog size))))
@@ -456,41 +455,40 @@
 ;;;
 
 
-(definition (with-progress proc . rest)
+(definition (with-progress proc (threaded?: threaded? true) (name: name {}) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? true) (abnormal-cleanup: abnormal-cleanup {}))
   (unimplemented 'with-progress)
   @Thread
-  (bind-keywords ((threaded? true) (name {}) (context self) (progress-reporter Progress-Reporter) (cancelable? true) (abnormal-cleanup {})) rest
-    (if (not threaded?)
-        (proc (new User-Reporter))
-      (bind-values (process? dialog) (new-dialog progress-reporter :host-closable? cancelable? :guest-context context)
-        (let ((reporter (get-guest~ dialog)))
-          (when (not cancelable?)
-            (disable-cancel~ reporter))
-          (new Thread
-            name: (either name "Worker Thread")
-            context: self
-            execute: (function (thread)
-                       (let* ((result)
-                              (resignal {})
-                              (abnormal
-                                (function dynamic (sig)
-                                  (when abnormal-cleanup
-                                    (abnormal-cleanup))
-                                  (set! resignal sig))))
-                         (unwind-protect
-                             ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
-                             ;; The fact that we are using a thread for user interface responsiveness should not affect
-                             ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
-                             ;; definition which will resignal them to the calling thread
-                             (catch (Signal sig
-                                            (if (forwardable?~ sig)
-                                                (abnormal sig)
-                                              (signal sig)))
-                               (set! result (proc reporter)))
-                           (if resignal
-                               (signal-modal~ dialog resignal)
-                             (end-modal~ dialog result))))))
-          (process-modal~ dialog))))))
+  (if (not threaded?)
+      (proc (new User-Reporter))
+    (receive (process? dialog) (new-dialog progress-reporter :host-closable? cancelable? :guest-context context)
+      (let ((reporter (get-guest~ dialog)))
+        (when (not cancelable?)
+          (disable-cancel~ reporter))
+        (new Thread
+          name: (either name "Worker Thread")
+          context: self
+          execute: (function (thread)
+                     (let* ((result)
+                            (resignal {})
+                            (abnormal
+                              (function dynamic (sig)
+                                (when abnormal-cleanup
+                                  (abnormal-cleanup))
+                                (set! resignal sig))))
+                       (unwind-protect
+                           ;; Conceptually, the with-progress proc is executed in the same thread as the caller...
+                           ;; The fact that we are using a thread for user interface responsiveness should not affect
+                           ;; the semantics of proc which is why we resignal forwardable signals through the signal-modal
+                           ;; definition which will resignal them to the calling thread
+                           (catch (Signal sig
+                                          (if (forwardable?~ sig)
+                                              (abnormal sig)
+                                            (signal sig)))
+                             (set! result (proc reporter)))
+                         (if resignal
+                             (signal-modal~ dialog resignal)
+                           (end-modal~ dialog result))))))
+        (process-modal~ dialog)))))
 
 
 ;;;
@@ -498,25 +496,24 @@
 ;;;
 
 
-(definition public (ui-message-box text rest)
-  (bind-keywords ((class {}) (type 'message) (title {}) (icon {}) (content {}) (sound 'default) (selection {}) (yes {}) (no {}) (cancel {}) (actions '()) (default-button {}) (process-keys? true) (sizable? false)) rest
-    (receive-primary
-      (function dynamic ()
-        (bind-values (process? dialog) (new-dialog (either class Message-Box) host-visible?: false :host-sizable? sizable?)
-          (let ((guest (get-guest~ dialog)))
-            (process-box~ guest text
-              :type type
-              title: title
-              icon: icon
-              :content content
-              :sound sound
-              :selection selection
-              :yes yes
-              :no no
-              :cancel cancel
-              :actions actions
-              :default-button default-button
-              :process-keys? process-keys?)))))))
+(definition public (ui-message-box text (class: class {}) (type: type 'message) (title: title {}) (icon: icon {}) (content: content {}) (sound: sound 'default) (selection: selection {}) (yes: yes {}) (no: no {}) (cancel: cancel {}) (actions: actions '()) (default-button: default-button {}) (process-keys?: process-keys? true) (sizable?: sizable? false))
+  (receive-primary
+    (function dynamic ()
+      (receive (process? dialog) (new-dialog (either class Message-Box) host-visible?: false :host-sizable? sizable?)
+        (let ((guest (get-guest~ dialog)))
+          (process-box~ guest text
+            type: type
+            title: title
+            icon: icon
+            content: content
+            sound: sound
+            selection: selection
+            yes: yes
+            no: no
+            cancel: cancel
+            actions: actions
+            default-button: default-button
+            process-keys?: process-keys?))))))
 
 
 ;;;
@@ -527,74 +524,70 @@
 ;; These should really be hooks to modify the dialog at creation time...
 
 
-(definition public (request-string . rest)
+(definition public (request-string (class: class String-Request) (title: title {}) (prefix: prefix {}) (initial-value: initial-value {}) (accepts-empty?: accepts-empty? true) (unicity-domain: unicity-domain {}) (validator: validator {}))
   (unimplemented 'request-string)
   @Locale
-  (bind-keywords ((class String-Request) (title {}) (prefix {}) (initial-value {}) (accepts-empty? true) (unicity-domain {}) (validator {})) rest
-    (bind-values (process? dialog) (new-dialog class)
-      (let* ((view (get-guest~ dialog))
-             (prfx (locate~ view 'prefix))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter String"))
-        (set-accepts-empty?~ view accepts-empty?)
-        (set-unicity-domain~ view unicity-domain)
-        (set-validator~ view validator)
-        (set-title~ prfx (either prefix "String:"))
-        (set-string-content~ text (if initial-value (->string initial-value) ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              {}
-            string))))))
+  (receive (process? dialog) (new-dialog class)
+    (let* ((view (get-guest~ dialog))
+           (prfx (locate~ view 'prefix))
+           (text (locate~ view 'text)))
+      (set-title~ dialog (either title "Enter String"))
+      (set-accepts-empty?~ view accepts-empty?)
+      (set-unicity-domain~ view unicity-domain)
+      (set-validator~ view validator)
+      (set-title~ prfx (either prefix "String:"))
+      (set-string-content~ text (if initial-value (->string initial-value) ""))
+      (select-all~ text)
+      (acquire-focus~ text)
+      (let ((string (process-modal~ dialog)))
+        (if (empty-string? string)
+            {}
+          string)))))
 
 
-(definition public (request-name . rest)
+(definition public (request-name (title: title {}) (prefix: prefix {}) . others)
   (unimplemented 'request-name)
   @Locale
-  (bind-keywords ((title {}) (prefix {}) . others) rest
-    (let* ((title (either title "Enter Name"))
-           (prefix (either prefix "Name:"))
-           (string (apply request-string title: title :prefix prefix others)))
-      (if (not string)
-          {}
-        (string->symbol string)))))
+  (let* ((title (either title "Enter Name"))
+         (prefix (either prefix "Name:"))
+         (string (apply request-string title: title :prefix prefix others)))
+    (if (not string)
+        {}
+      (string->symbol string))))
 
 
-(definition public (request-text . rest)
+(definition public (request-text (class: class Text-Request) (title: title {}) (initial-text: initial-text {}))
   (unimplemented 'request-text)
   @Text-Request
-  (bind-keywords ((class Text-Request) (title {}) (initial-text {})) rest
-    (bind-values (process? dialog) (new-dialog class)
-      (let* ((view (get-guest~ dialog))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter Text"))
-        (set-string-content~ text (either initial-text ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              {}
-            string))))))
+  (receive (process? dialog) (new-dialog class)
+    (let* ((view (get-guest~ dialog))
+           (text (locate~ view 'text)))
+      (set-title~ dialog (either title "Enter Text"))
+      (set-string-content~ text (either initial-text ""))
+      (select-all~ text)
+      (acquire-focus~ text)
+      (let ((string (process-modal~ dialog)))
+        (if (empty-string? string)
+            {}
+          string)))))
 
 
-(definition public (request-date . rest)
+(definition public (request-date (class: class Date-Request) (title: title {}) (prefix: prefix {}) (initial-date: initial-date {}))
   (unimplemented 'request-date)
   @Date-Request
-  (bind-keywords ((class Date-Request) (title {}) (prefix {}) (initial-date {})) rest
-    (bind-values (process? dialog) (new-dialog class)
-      (let* ((view (get-guest~ dialog))
-             (prfx (locate~ view 'prefix))
-             (text (locate~ view 'text)))
-        (set-title~ dialog (either title "Enter Date"))
-        (set-title~ prfx (either prefix "Date:"))
-        (set-string-content~ text (if initial-date (present~ initial-date) ""))
-        (select-all~ text)
-        (acquire-focus~ text)
-        (let ((string (process-modal~ dialog)))
-          (if (empty-string? string)
-              {}
-            (parse-string~ Date string)))))))
+  (receive (process? dialog) (new-dialog class)
+    (let* ((view (get-guest~ dialog))
+           (prfx (locate~ view 'prefix))
+           (text (locate~ view 'text)))
+      (set-title~ dialog (either title "Enter Date"))
+      (set-title~ prfx (either prefix "Date:"))
+      (set-string-content~ text (if initial-date (present~ initial-date) ""))
+      (select-all~ text)
+      (acquire-focus~ text)
+      (let ((string (process-modal~ dialog)))
+        (if (empty-string? string)
+            {}
+          (parse-string~ Date string))))))
 
 
 ;;;
@@ -701,29 +694,28 @@
               (find-palette~ (get-workspace-splitter) class)))))
 
 
-(definition public (select-palette class . rest)
-  (bind-keywords ((name {}) (workspace 'home) (focus? false)) rest
-    (let ((guest (find-palette class))
-          (proc
-            (function dynamic (view)
-              (when view
-                (let* ((host (get-host~ view))
-                       (parent (get-parent~ host)))
-                  (when (is? parent Pad-Window)
-                    (set-selection~ parent host))
-                  (for-each-splitter (if (is? parent Splitter-Window) host parent)
-                                     (function dynamic (splitter window)
-                                       (when (and (eq? (get-state~ splitter) 'zoom)
-                                                  (neq? (get-zoomed~ splitter) window))
-                                         (unzoom~ splitter))))
-                  (when focus?
-                    (acquire-focus~ host))
-                  view)))))
-      (if guest
-          (proc guest)
-        (when workspace
-          (apply-preferences~ (get-preferences (list 'workspaces workspace)))
-          (proc (find-palette class)))))))
+(definition public (select-palette class (name: name {}) (workspace: workspace 'home) (focus?: focus? false))
+  (let ((guest (find-palette class))
+        (proc
+          (function dynamic (view)
+            (when view
+              (let* ((host (get-host~ view))
+                     (parent (get-parent~ host)))
+                (when (is? parent Pad-Window)
+                  (set-selection~ parent host))
+                (for-each-splitter (if (is? parent Splitter-Window) host parent)
+                  (function dynamic (splitter window)
+                    (when (and (eq? (get-state~ splitter) 'zoom)
+                               (neq? (get-zoomed~ splitter) window))
+                      (unzoom~ splitter))))
+                (when focus?
+                  (acquire-focus~ host))
+                view)))))
+    (if guest
+        (proc guest)
+      (when workspace
+        (apply-preferences~ (get-preferences (list 'workspaces workspace)))
+        (proc (find-palette class))))))
 
 
 (definition public (for-each-docked proc)

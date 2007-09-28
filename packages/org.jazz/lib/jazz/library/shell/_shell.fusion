@@ -95,77 +95,76 @@
 ;;;
 
 
-(definition public (create-process command . rest)
+(definition public (create-process command (directory: directory {}) (prefix-directory?: prefix-directory? false) (capture-input?: capture-input? false) (capture-output?: capture-output? false) (capture-error?: capture-error? false) (pipe-size: pipe-size 65536) (size: size {}) (visible?: visible? true) (console?: console? true) (debug-console?: debug-console? false) (wait-ready: wait-ready {}) (wait-ready-timeout: wait-ready-timeout 5000) (wait?: wait? true) (timeout: timeout {}))
   (unimplemented 'create-process)
   @windows-specific
-  (bind-keywords ((directory {}) (prefix-directory? false) (capture-input? false) (capture-output? false) (capture-error? false) (pipe-size 65536) (size {}) (visible? true) (console? true) (debug-console? false) (wait-ready {}) (wait-ready-timeout 5000) (wait? true) (timeout {})) rest
-    (if (and directory (not (exists?~ directory)))
-        (error "Unable to create process into inexistant directory: {s}" directory)
-      (let ((si (new STARTUPINFO))
-            (pi (new PROCESS_INFORMATION))
-            (sa (new SECURITY_ATTRIBUTES))
-            (cmd (if prefix-directory? (format "{a}\\{a}" (parse~ directory) command) command)))
-        (set sa 'nLength (size-of SECURITY_ATTRIBUTES))
-        (set sa 'bInheritHandle true)
-        (let ((input-pipe  (new Pipe :security-attributes sa size: pipe-size))
-              (output-pipe (new Pipe :security-attributes sa size: pipe-size))
-              (error-pipe  (new Pipe :security-attributes sa size: pipe-size)))
-          (set si 'cb (size-of STARTUPINFO))
-          (let ((flags (if (or capture-input? capture-output? capture-error?) STARTF_USESTDHANDLES 0)))
-            (when size
-              (set si 'dwXSize (get-width~ size))
-              (set si 'dwYSize (get-height~ size))
-              (set! flags (bit-or flags STARTF_USESIZE)))
-            (when (not visible?)
-              (set! flags (bit-or flags STARTF_USESHOWWINDOW))
-              (set si 'wShowWindow SW_HIDE))
-            (set si 'dwFlags flags))
-          (when capture-input?
-            (set si 'hStdInput (get-read-handle~ input-pipe)))
-          (when capture-output?
-            (set si 'hStdOutput (get-write-handle~ output-pipe)))
-          (when capture-error?
-            (set si 'hStdError (get-write-handle~ error-pipe)))
-          (if (not (CreateProcess
-                     NULL
-                     cmd
-                     NULL
-                     NULL
-                     ;; If anybody ever wants to put that bInheritHandles back to true, they better
-                     ;; think carefully about it, as this was the cause of an unbelievably tough to debug
-                     ;; bug, where sockets didn't have the same behavior when used between two processes
-                     ;; if they where started independently or if one created the other...
-                     ;; old code : (and (not wait-ready) wait?)
-                     (or capture-input? capture-output? capture-error?)
-                     (bit-or (if console? CREATE_NEW_CONSOLE 0))
-                     NULL
-                     (if directory (parse~ directory) NULL)
-                     si
-                     pi))
-              (error "Could not create process {t} (error {t})"
-                     cmd
-                     (winerror))
-            (when debug-console?
-              (sleep 5000))
-            (let ((process-handle (get pi 'hProcess))
-                  (process-id (get pi 'dwProcessId)))
-              (cond (wait-ready
-                      (let ((wait-event (CreateEvent NULL false false wait-ready)))
-                        (ecase (WaitForSingleObject wait-event wait-ready-timeout)
-                          ((WAIT_TIMEOUT) {})
-                          (else (new Child-Process process-handle process-id input-pipe output-pipe error-pipe)))))
-                    ((not wait?)
-                     (new Child-Process process-handle process-id input-pipe output-pipe error-pipe))
-                    (else
-                     (wait-for process-handle :timeout timeout)
-                     (let* ((output-content (essay capture-output? (read-content~ (get-reader~ output-pipe))))
-                            (output-lines (essay capture-output? output-content (split output-content (cn))))
-                            (error-content (essay capture-error? (read-content~ (get-reader~ error-pipe))))
-                            (error-lines (essay capture-error? error-content (split error-content (cn)))))
-                       (bind-values (ok? code) (GetExitCodeProcess process-handle)
-                         (CloseHandle (get pi 'hProcess))
-                         (CloseHandle (get pi 'hThread))
-                         (close~ input-pipe)
-                         (close~ output-pipe)
-                         (close~ error-pipe)
-                         (values code output-lines error-lines)))))))))))))
+  (if (and directory (not (exists?~ directory)))
+      (error "Unable to create process into inexistant directory: {s}" directory)
+    (let ((si (new STARTUPINFO))
+          (pi (new PROCESS_INFORMATION))
+          (sa (new SECURITY_ATTRIBUTES))
+          (cmd (if prefix-directory? (format "{a}\\{a}" (parse~ directory) command) command)))
+      (set sa 'nLength (size-of SECURITY_ATTRIBUTES))
+      (set sa 'bInheritHandle true)
+      (let ((input-pipe  (new Pipe :security-attributes sa size: pipe-size))
+            (output-pipe (new Pipe :security-attributes sa size: pipe-size))
+            (error-pipe  (new Pipe :security-attributes sa size: pipe-size)))
+        (set si 'cb (size-of STARTUPINFO))
+        (let ((flags (if (or capture-input? capture-output? capture-error?) STARTF_USESTDHANDLES 0)))
+          (when size
+            (set si 'dwXSize (get-width~ size))
+            (set si 'dwYSize (get-height~ size))
+            (set! flags (bit-or flags STARTF_USESIZE)))
+          (when (not visible?)
+            (set! flags (bit-or flags STARTF_USESHOWWINDOW))
+            (set si 'wShowWindow SW_HIDE))
+          (set si 'dwFlags flags))
+        (when capture-input?
+          (set si 'hStdInput (get-read-handle~ input-pipe)))
+        (when capture-output?
+          (set si 'hStdOutput (get-write-handle~ output-pipe)))
+        (when capture-error?
+          (set si 'hStdError (get-write-handle~ error-pipe)))
+        (if (not (CreateProcess
+                   NULL
+                   cmd
+                   NULL
+                   NULL
+                   ;; If anybody ever wants to put that bInheritHandles back to true, they better
+                   ;; think carefully about it, as this was the cause of an unbelievably tough to debug
+                   ;; bug, where sockets didn't have the same behavior when used between two processes
+                   ;; if they where started independently or if one created the other...
+                   ;; old code : (and (not wait-ready) wait?)
+                   (or capture-input? capture-output? capture-error?)
+                   (bit-or (if console? CREATE_NEW_CONSOLE 0))
+                   NULL
+                   (if directory (parse~ directory) NULL)
+                   si
+                   pi))
+            (error "Could not create process {t} (error {t})"
+                   cmd
+                   (winerror))
+          (when debug-console?
+            (sleep 5000))
+          (let ((process-handle (get pi 'hProcess))
+                (process-id (get pi 'dwProcessId)))
+            (cond (wait-ready
+                    (let ((wait-event (CreateEvent NULL false false wait-ready)))
+                      (ecase (WaitForSingleObject wait-event wait-ready-timeout)
+                        ((WAIT_TIMEOUT) {})
+                        (else (new Child-Process process-handle process-id input-pipe output-pipe error-pipe)))))
+                  ((not wait?)
+                   (new Child-Process process-handle process-id input-pipe output-pipe error-pipe))
+                  (else
+                   (wait-for process-handle :timeout timeout)
+                   (let* ((output-content (essay capture-output? (read-content~ (get-reader~ output-pipe))))
+                          (output-lines (essay capture-output? output-content (split output-content (cn))))
+                          (error-content (essay capture-error? (read-content~ (get-reader~ error-pipe))))
+                          (error-lines (essay capture-error? error-content (split error-content (cn)))))
+                     (receive (ok? code) (GetExitCodeProcess process-handle)
+                       (CloseHandle (get pi 'hProcess))
+                       (CloseHandle (get pi 'hThread))
+                       (close~ input-pipe)
+                       (close~ output-pipe)
+                       (close~ error-pipe)
+                       (values code output-lines error-lines))))))))))))

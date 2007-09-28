@@ -624,7 +624,7 @@
                                                                       (keyword->symbol property))) value))
   
   
-  (method public (get-filtered-properties (filter: filter (quote categorized)))
+  (method public (get-filtered-properties (filter: filter 'categorized))
     (if (= filter 'categorized)
         (let ((properties (get-categorized-properties)))
           (if (eq? properties true)
@@ -1100,7 +1100,7 @@
   
   (method public virtual (search-component target <Object>)
     (let ((name (getf target name:))
-          (type (getf target :type)))
+          (type (getf target type:)))
       (and (or (not name) (search-name name))
            (or (not type) (search-type type)))))
   
@@ -1196,7 +1196,7 @@
   ;;;
   
   
-  (method public (unfold-branches (branches: branches true) (properties: properties (quote ())) (include-root?: include-root? true))
+  (method public (unfold-branches (branches: branches true) (properties: properties '()) (include-root?: include-root? true))
     (let* ((form (get-form~ (get-creator)))
            (active-branch (get-branch))
            (active-branch-name (essay active-branch (get-name~ active-branch)))
@@ -1339,20 +1339,19 @@
     (boolean (determine-paster try-parent?)))
   
   
-  (method public (determine-paster . rest)
+  (method public (determine-paster (try-parent? true))
     (unimplemented 'determine-paster)
     @unimplemented
-    (bind-optionals ((try-parent? true)) rest
-      (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
-        (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
-               (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
-          (cond ((memq? {} models)
-                 {})
-                ((every? addable-class? models)
-                 self)
-                (else
-                 (when (and try-parent? parent)
-                   (determine-paster~ parent false))))))))
+    (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
+      (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
+             (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
+        (cond ((memq? {} models)
+               {})
+              ((every? addable-class? models)
+               self)
+              (else
+               (when (and try-parent? parent)
+                 (determine-paster~ parent false)))))))
   
   
   (method public virtual (can-send-before? types father before)

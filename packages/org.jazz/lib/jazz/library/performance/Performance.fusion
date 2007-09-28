@@ -46,22 +46,21 @@
   ;;;
   
   
-  (method public (performance-snapshot . rest)
-    (bind-keywords ((name {})) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((creation-time (new FILETIME))
-              (exit-time (new FILETIME))
-              (kernel-time (new FILETIME))
-              (user-time (new FILETIME)))
-          (GetProcessTimes handle creation-time exit-time kernel-time user-time)
-          (let ((time (function dynamic (filetime)
-                        (make-long (get filetime 'dwLowDateTime)
-                                   (get filetime 'dwHighDateTime)))))
-            (parse-jml
-              `(<performance>
-                 name: ,name
-                 kernel-time: ,(time kernel-time)
-                 user-time: ,(time user-time))))))))
+  (method public (performance-snapshot (name: name {}))
+    (let ((handle (GetCurrentProcess)))
+      (let ((creation-time (new FILETIME))
+            (exit-time (new FILETIME))
+            (kernel-time (new FILETIME))
+            (user-time (new FILETIME)))
+        (GetProcessTimes handle creation-time exit-time kernel-time user-time)
+        (let ((time (function dynamic (filetime)
+                      (make-long (get filetime 'dwLowDateTime)
+                                 (get filetime 'dwHighDateTime)))))
+          (parse-jml
+            `(<performance>
+               name: ,name
+               kernel-time: ,(time kernel-time)
+               user-time: ,(time user-time)))))))
   
   
   ;;;
@@ -69,39 +68,38 @@
   ;;;
   
   
-  (method public (resources-snapshot . rest)
-    (bind-keywords ((name {})) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((private-bytes (get-private-bytes)))
-          (let ((gui-gdi-objects (GetGuiResources handle GR_GDIOBJECTS))
-                (gui-user-objects (GetGuiResources handle GR_USEROBJECTS)))
-            (bind-values (ok? handles) (GetProcessHandleCount handle)
-              (bind (symbols-allocated symbols-free) (symbols-statistics)
-                (let ((system-stack (system-stack-info))
-                      (data-stack (data-stack-info))
-                      (undestroyed (gc-undestroyed-count)))
-                  (bind (collector-stack collector-roots) (gc-statistics)
-                    (bind (symbols zones heap) (statistics)
-                      (bind ({} {} string vector hashtable map virtual object collector) heap
-                        (bind (size bags committed allocated free bytes-committed bytes-allocated bytes-free usage trigger-count lifetime) (last (objects-info zones))
-                          (parse-jml
-                            `(<resources>
-                               name: ,name
-                               private-bytes: ,private-bytes
-                               committed: ,bytes-committed
-                               allocated: ,bytes-allocated
-                               gui-gdi-objects: ,gui-gdi-objects
-                               gui-user-objects: ,gui-user-objects
-                               handles: ,handles
-                               symbols: ,(- symbols-allocated symbols-free)
-                               strings: ,string
-                               virtual: ,virtual
-                               system-stack: ,system-stack
-                               data-stack: ,data-stack
-                               collector-stack: ,collector-stack
-                               collector-roots: ,collector-roots
-                               undestroyed: ,undestroyed
-                               bags: ,bags))))))))))))))
+  (method public (resources-snapshot (name: name {}))
+    (let ((handle (GetCurrentProcess)))
+      (let ((private-bytes (get-private-bytes)))
+        (let ((gui-gdi-objects (GetGuiResources handle GR_GDIOBJECTS))
+              (gui-user-objects (GetGuiResources handle GR_USEROBJECTS)))
+          (receive (ok? handles) (GetProcessHandleCount handle)
+            (bind (symbols-allocated symbols-free) (symbols-statistics)
+              (let ((system-stack (system-stack-info))
+                    (data-stack (data-stack-info))
+                    (undestroyed (gc-undestroyed-count)))
+                (bind (collector-stack collector-roots) (gc-statistics)
+                  (bind (symbols zones heap) (statistics)
+                    (bind ({} {} string vector hashtable map virtual object collector) heap
+                      (bind (size bags committed allocated free bytes-committed bytes-allocated bytes-free usage trigger-count lifetime) (last (objects-info zones))
+                        (parse-jml
+                          `(<resources>
+                             name: ,name
+                             private-bytes: ,private-bytes
+                             committed: ,bytes-committed
+                             allocated: ,bytes-allocated
+                             gui-gdi-objects: ,gui-gdi-objects
+                             gui-user-objects: ,gui-user-objects
+                             handles: ,handles
+                             symbols: ,(- symbols-allocated symbols-free)
+                             strings: ,string
+                             virtual: ,virtual
+                             system-stack: ,system-stack
+                             data-stack: ,data-stack
+                             collector-stack: ,collector-stack
+                             collector-roots: ,collector-roots
+                             undestroyed: ,undestroyed
+                             bags: ,bags)))))))))))))
   
   
   ;; All this could probably be encapsulated by caching the query and/or counter
@@ -129,7 +127,7 @@
   
   (method (setup-private-bytes)
     (let* ((query (new Performance-Query))
-           (counter (add-counter~ query :object-name "Process" :counter-name "Private Bytes")))
+           (counter (add-counter~ query object-name: "Process" counter-name: "Private Bytes")))
       (set! Private-Bytes-Query query)
       (set! Private-Bytes-Counter counter)))
   
@@ -208,15 +206,14 @@
   ;;;
   
   
-  (method public (i/o-snapshot . rest)
-    (bind-keywords ((name {})) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((io (new IO_COUNTERS)))
-          (GetProcessIoCounters handle io)
-          (parse-jml
-            `(<i/o>
-               name: ,name
-               read-bytes: ,(get io 'ReadTransferCount)
-               write-bytes: ,(get io 'WriteTransferCount)
-               other-bytes: ,(get io 'OtherTransferCount))))))))
+  (method public (i/o-snapshot (name: name {}))
+    (let ((handle (GetCurrentProcess)))
+      (let ((io (new IO_COUNTERS)))
+        (GetProcessIoCounters handle io)
+        (parse-jml
+          `(<i/o>
+             name: ,name
+             read-bytes: ,(get io 'ReadTransferCount)
+             write-bytes: ,(get io 'WriteTransferCount)
+             other-bytes: ,(get io 'OtherTransferCount)))))))
 )

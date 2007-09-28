@@ -462,7 +462,7 @@
 
 
 (define (jazz.walk-receive walker resume declaration environment form)
-  (let* ((parameters (%%cadr form))
+  (let* ((parameters (jazz.remove-specifiers-quicky (%%cadr form)))
          (values (%%car (%%cddr form)))
          (body (%%cdr (%%cddr form)))
          (variables (map jazz.new-variable parameters))

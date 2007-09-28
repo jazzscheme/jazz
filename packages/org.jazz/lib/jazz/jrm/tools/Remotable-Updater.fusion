@@ -52,22 +52,21 @@
 (class Remotable-Updater extends Code-Generator
 
 
-  (method public (update . rest)
-    (bind-keywords ((force? false)) rest
-      (let ((remotables (collect-remotables))
-            (environment (new-environment (new-map) {}))
-            (output (get-output-log))
-            (dirty? false))
-        (clear-results~ output)
-        (select-results~ output)
-        (select-palette Output-Log)
-        (for-each (function dynamic (name)
-                    (when (update-remotable name environment force? output)
-                      (set! dirty? true)))
-                  remotables)
-        (when dirty?
-          (log-line~ output ""))
-        (log-line~ output (format "Remotable Code{a} Updated" (if force? " Force" "")) image: {Bitmap-Resource "Done"}))))
+  (method public (update (force?: force? false))
+    (let ((remotables (collect-remotables))
+          (environment (new-environment (new-map) {}))
+          (output (get-output-log))
+          (dirty? false))
+      (clear-results~ output)
+      (select-results~ output)
+      (select-palette Output-Log)
+      (for-each (function dynamic (name)
+                  (when (update-remotable name environment force? output)
+                    (set! dirty? true)))
+                remotables)
+      (when dirty?
+        (log-line~ output ""))
+      (log-line~ output (format "Remotable Code{a} Updated" (if force? " Force" "")) image: {Bitmap-Resource "Done"})))
   
   
   (method (collect-remotables)
@@ -85,7 +84,7 @@
     (let* ((class (get-unit name environment))
            (ascendant (type-ascendant class))
            (ascendant-remotable? (get-remotable?~ (get-entry~ (get-workbench) (type-name ascendant))))
-           (generator (new Remotable-Generator class: class :ascendant (essay ascendant-remotable? ascendant)))
+           (generator (new Remotable-Generator class: class ascendant: (essay ascendant-remotable? ascendant)))
            (source-file (get-manifest-source name))
            (remotable-name (remotable-name~ generator))
            (remotable-file (essay remotable-name (get-manifest-source remotable-name))))

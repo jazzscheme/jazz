@@ -749,7 +749,7 @@
   
   (method public (sort-column column)
     (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
-    (bind-values (equal smaller greater) (sort-predicates)
+    (receive (equal smaller greater) (sort-predicates)
       (letrec ((direction (if sort-ascending? smaller greater))
                (proc (function dynamic (row)
                        (let ((sorted (sort-rows (get-sons~ row) column equal direction)))
@@ -1024,7 +1024,7 @@
   (method (get-reorder-target drag-drop pos)
     (let ((info (view->tree-extended pos)))
       (when info
-        (bind-values (cell v height) info
+        (receive (cell v height) info
           (when cell
             (let* ((rank [row cell])
                    (quarter (get-row-quarter v height))
@@ -1064,7 +1064,7 @@
   (method protected (get-tree-row-target drag-drop pos)
     (let ((info (view->tree-extended pos)))
       (when info
-        (bind-values (cell v height) info
+        (receive (cell v height) info
           (when cell
             (let ((row (get-row [row cell]))
                   (current (get-target~ drag-drop)))
@@ -1076,7 +1076,7 @@
   (method public (get-tree-cell-target drag-drop pos)
     (let ((info (view->tree-extended pos)))
       (when info
-        (bind-values (cell v height) info
+        (receive (cell v height) info
           (when cell
             (let ((row (get-row [row cell]))
                   (col [col cell])
@@ -1247,7 +1247,7 @@
     (when user?
       (acquire-focus))
     (let ((row (get-row n)))
-      (set-selection (list n) :user-origin? true)
+      (set-selection (list n) user-origin?: true)
       (when auto-expand/collapse?
         (auto-select~ row))
       (update-view)))
@@ -1256,7 +1256,7 @@
   (method (move-cell cell direction user?)
     (when user?
       (acquire-focus))
-    (set-selection (list cell) :ensure-displayed? false :user-origin? true)
+    (set-selection (list cell) :ensure-displayed? false user-origin?: true)
     (let ((rect (cell-rect cell)))
       (case direction
         ((left)  (scroll (new Point (horizontal-scroll-needed [left rect] 'backward) 0)))
@@ -1281,10 +1281,9 @@
            (= [v needed] 0))))
   
   
-  (method (select-all . rest)
-    (bind-keywords ((user-origin? false)) rest
-      (when multiple-selection?
-        (set-selection (naturals 0 visible-count) :user-origin? user-origin?))))
+  (method (select-all (user-origin?: user-origin? false))
+    (when multiple-selection?
+      (set-selection (naturals 0 visible-count) user-origin?: user-origin?)))
 
   
   ;;;
@@ -1385,11 +1384,10 @@
     (invalidate-header))
   
   
-  (method public (remove-columns . rest)
-    (bind-keywords ((preserve-node-column? false) (preserve {})) rest
-      (if (or preserve-node-column? preserve)
-          (remove-columns-preserving preserve-node-column? preserve)
-        (remove-all-columns))))
+  (method public (remove-columns (preserve-node-column?: preserve-node-column? false) (preserve: preserve {}))
+    (if (or preserve-node-column? preserve)
+        (remove-columns-preserving preserve-node-column? preserve)
+      (remove-all-columns)))
   
   
   (method (remove-all-columns)
@@ -1479,12 +1477,11 @@
           (invalidate-rect (image-rect~ node-column father top))))))
   
   
-  (method (add-empty-row . rest)
-    (bind-keywords ((father {})) rest
-      (let ((father (either father root-row)))
-        (add-row father: father children: (map (function dynamic (column)
-                                                 (new-empty-cell~ column))
-                                               columns)))))
+  (method (add-empty-row (father: father {}))
+    (let ((father (either father root-row)))
+      (add-row father: father children: (map (function dynamic (column)
+                                               (new-empty-cell~ column))
+                                             columns))))
   
   
   (method (row-selected? row)
@@ -1513,50 +1510,46 @@
         {})))
 
 
-  (method public (user-data-row data . rest)
-    (bind-keywords ((test eqv?) (visible? true)) rest
-      (call/ec
-        (lambda (return)
-          ((if visible? for-each-visible-row for-each-row)
-           (function dynamic (row rank)
-             (when (test (get-user-data~ row) data)
-               (return row))))
-          {}))))
-
-
-  (method public (user-data-rows data-list . rest)
-    (bind-keywords ((test eqv?) (visible? true)) rest
-      (let ((fact (new List-Factory)))
+  (method public (user-data-row data (test: test eqv?) (visible?: visible? true))
+    (call/ec
+      (lambda (return)
         ((if visible? for-each-visible-row for-each-row)
          (function dynamic (row rank)
-           (let ((user-data (get-user-data~ row)))
-             (when (member? user-data data-list test: test)
-               (put~ fact row)))))
-        (get-output~ fact))))
+           (when (test (get-user-data~ row) data)
+             (return row))))
+        {})))
+
+
+  (method public (user-data-rows data-list (test: test eqv?) (visible?: visible? true))
+    (let ((fact (new List-Factory)))
+      ((if visible? for-each-visible-row for-each-row)
+       (function dynamic (row rank)
+         (let ((user-data (get-user-data~ row)))
+           (when (member? user-data data-list test: test)
+             (put~ fact row)))))
+      (get-output~ fact)))
 
 
   ;; Because it returns the rank, this method only makes sense on visible rows
-  (method public (user-data-index data . rest)
-    (bind-keywords ((test eqv?)) rest
-      (call/ec
-        (lambda (return)
-          (for-each-visible-row
-            (function dynamic (row rank)
-              (when (test (get-user-data~ row) data)
-                (return rank))))
-          {}))))
-
-
-  ;; Because it returns the rank, this method only makes sense on visible rows
-  (method public (user-data-indexes data-list . rest)
-    (bind-keywords ((test eqv?)) rest
-      (let ((fact (new List-Factory)))
+  (method public (user-data-index data (test: test eqv?))
+    (call/ec
+      (lambda (return)
         (for-each-visible-row
           (function dynamic (row rank)
-            (let ((user-data (get-user-data~ row)))
-              (when (member? user-data data-list test: test)
-                (put~ fact rank)))))
-        (get-output~ fact))))
+            (when (test (get-user-data~ row) data)
+              (return rank))))
+        {})))
+
+
+  ;; Because it returns the rank, this method only makes sense on visible rows
+  (method public (user-data-indexes data-list (test: test eqv?))
+    (let ((fact (new List-Factory)))
+      (for-each-visible-row
+        (function dynamic (row rank)
+          (let ((user-data (get-user-data~ row)))
+            (when (member? user-data data-list test: test)
+              (put~ fact rank)))))
+      (get-output~ fact)))
   
   
   (method public (select-user-data-row data)
@@ -1638,33 +1631,32 @@
          (set! selection (cons rank selection))))))
   
   
-  (method public (auto-expand/collapse row . rest)
-    (bind-keywords ((close-auto-expanded? true) (auto-toggle? false)) rest
-      (with-update-locked
-        (function dynamic ()
-          (let ((selected-rows (selection->rows selection)))
-            (cond
-              ((mouse-down?~ selection-manager)
-               (when (and close-auto-expanded? auto-expanded-row (/= auto-expanded-row row))
-                 (close-auto-expanded :new-spine (essay row (get-spine~ row)) force?: false)
-                 (set! delayed-autorow auto-expanded-row)
-                 (set! auto-expanded-row {}))
-               (when (and row (auto-inplace?~ row))
-                 (auto-toggle row auto-toggle?)))
-              ((mouse-up?~ selection-manager)
-               (when delayed-autorow
-                 (if row
-                     (close-delayed-row :new-spine (get-spine~ row))
-                   (auto-collapse~ delayed-autorow)
-                   (set! delayed-autorow {})))
-               (when (and row (not (auto-inplace?~ row)))
-                 (auto-toggle row auto-toggle?)))
-              (else
-               (when close-auto-expanded?
-                 (close-auto-expanded :new-spine (essay row (get-spine~ row))))
-               (when row
-                 (auto-toggle row auto-toggle?))))
-            (set! selection (rows->selection selected-rows)))))))
+  (method public (auto-expand/collapse row (close-auto-expanded?: close-auto-expanded? true) (auto-toggle?: auto-toggle? false))
+    (with-update-locked
+      (function dynamic ()
+        (let ((selected-rows (selection->rows selection)))
+          (cond
+            ((mouse-down?~ selection-manager)
+             (when (and close-auto-expanded? auto-expanded-row (/= auto-expanded-row row))
+               (close-auto-expanded :new-spine (essay row (get-spine~ row)) force?: false)
+               (set! delayed-autorow auto-expanded-row)
+               (set! auto-expanded-row {}))
+             (when (and row (auto-inplace?~ row))
+               (auto-toggle row auto-toggle?)))
+            ((mouse-up?~ selection-manager)
+             (when delayed-autorow
+               (if row
+                   (close-delayed-row :new-spine (get-spine~ row))
+                 (auto-collapse~ delayed-autorow)
+                 (set! delayed-autorow {})))
+             (when (and row (not (auto-inplace?~ row)))
+               (auto-toggle row auto-toggle?)))
+            (else
+             (when close-auto-expanded?
+               (close-auto-expanded :new-spine (essay row (get-spine~ row))))
+             (when row
+               (auto-toggle row auto-toggle?))))
+          (set! selection (rows->selection selected-rows))))))
   
   
   (method (auto-toggle row auto-toggle?)
@@ -1676,35 +1668,33 @@
       (set! auto-expanded-row row)))
   
   
-  (method public (close-delayed-row . rest)
-    (bind-keywords ((new-spine {})) rest
-      (when delayed-autorow
-        (let ((old-spine (get-spine~ delayed-autorow))
-              (done? false))
-          (set! delayed-autorow {})
-          (for-each-reversed (function dynamic (row)
-                               (unless done?
-                                 (if (memq? row new-spine)
-                                     (set! done? true)
-                                   (auto-collapse~ row))))
-                             old-spine)))))
+  (method public (close-delayed-row (new-spine: new-spine {}))
+    (when delayed-autorow
+      (let ((old-spine (get-spine~ delayed-autorow))
+            (done? false))
+        (set! delayed-autorow {})
+        (for-each-reversed (function dynamic (row)
+                             (unless done?
+                               (if (memq? row new-spine)
+                                   (set! done? true)
+                                 (auto-collapse~ row))))
+          old-spine))))
   
   
-  (method public (close-auto-expanded . rest)
-    (bind-keywords ((new-spine {}) (force? true)) rest
-      (when auto-expanded-row
-        (let ((old-spine (get-spine~ auto-expanded-row))
-              (done? false))
-          (set! auto-expanded-row {})
-          (for-each-reversed (function dynamic (row)
-                               (unless done?
-                                 (if (memq? row new-spine)
-                                     (set! done? true)
-                                   (if (or force? (auto-inplace?~ row))
-                                       (auto-collapse~ row)
-                                     (set! auto-expanded-row row)
-                                     (set! done? true)))))
-                             old-spine)))))
+  (method public (close-auto-expanded (new-spine: new-spine {}) (force?: force? true))
+    (when auto-expanded-row
+      (let ((old-spine (get-spine~ auto-expanded-row))
+            (done? false))
+        (set! auto-expanded-row {})
+        (for-each-reversed (function dynamic (row)
+                             (unless done?
+                               (if (memq? row new-spine)
+                                   (set! done? true)
+                                 (if (or force? (auto-inplace?~ row))
+                                     (auto-collapse~ row)
+                                   (set! auto-expanded-row row)
+                                   (set! done? true)))))
+          old-spine))))
   
   
   (method (close-auto-expanded-row)
@@ -1756,17 +1746,17 @@
           (cond ((and shift? control?)
                  (set! selection-pivot element)
                  (unless (member? element selection)
-                   (set-selection (list element) :set-pivot? false :user-origin? true)))
+                   (set-selection (list element) :set-pivot? false user-origin?: true)))
                 (shift?
                  (unless (= selection-mode 'cell) ; unimplemented
                    (let ((pivot (either selection-pivot 0)))
-                     (cond ((= element pivot) (set-selection (list element) :set-pivot? false :user-origin? true))
-                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) :set-pivot? false :user-origin? true))
-                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) :set-pivot? false :user-origin? true))))))
+                     (cond ((= element pivot) (set-selection (list element) :set-pivot? false user-origin?: true))
+                           ((> element pivot) (set-selection (naturals pivot (+ element 1)) :set-pivot? false user-origin?: true))
+                           ((< element pivot) (set-selection (naturals element (+ pivot 1)) :set-pivot? false user-origin?: true))))))
                 (control?
                  (if (member? element selection)
-                     (set-selection (remove element selection test: equal?) :set-pivot? false :user-origin? true)
-                   (set-selection (cons element selection) :set-pivot? false :user-origin? true))
+                     (set-selection (remove element selection test: equal?) :set-pivot? false user-origin?: true)
+                   (set-selection (cons element selection) :set-pivot? false user-origin?: true))
                  (when (= element selection-pivot)
                    (cond ((null? selection) (set! selection-pivot {}))
                          ((< selection-pivot (car selection)) (set! selection-pivot (car selection)))
@@ -1774,7 +1764,7 @@
         (when (and (member? element selection) (allow-start-drag?~ selection-manager))
           (delay-selection~ selection-manager))
         (set! selection-pivot element)
-        (set-selection (list element) :set-pivot? false :user-origin? true))))
+        (set-selection (list element) :set-pivot? false user-origin?: true))))
   
   
   (method public (get-selection)
@@ -1785,30 +1775,34 @@
     (sort < selection))
   
   
-  (method public (set-selection sel . rest)
-    (bind-keywords ((force? false) (set-pivot? true) (ensure-displayed? true) (auto-expand? true)
-                    (generate-event? true) (user-origin? false)) rest
-      (unless (locked?~ selection-manager)
-        (reset~ locator)
-        (when (change-selection?~ selection-manager)
-          (let ((old-selection selection))
-            (set! selection sel)
-            (when set-pivot?
-              (set! selection-pivot (if (null? selection) {} (car selection))))
-            (when (not-null? old-selection)
-              (invalidate-selection old-selection))
-            (when (not-null? selection)
-              (invalidate-selection selection))
-            (when generate-event?
-              (selection-change old-selection force? user-origin?))))
-        (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))
-          (when (and auto-expand/collapse? auto-expand?)
-            (unless multiple-selection?
-              (auto-expand/collapse auto-row :auto-toggle? true))
-            (when auto-row
-              (auto-select~ auto-row))))
-        (when (and ensure-displayed? (end-delayed?~ selection-manager))
-          (ensure-displayed)))))
+  (method public (set-selection sel
+                                (force?: force? false)
+                                (set-pivot?: set-pivot? true)
+                                (ensure-displayed?: ensure-displayed? true)
+                                (auto-expand?: auto-expand? true)
+                                (generate-event?: generate-event? true)
+                                (user-origin?: user-origin? false))
+    (unless (locked?~ selection-manager)
+      (reset~ locator)
+      (when (change-selection?~ selection-manager)
+        (let ((old-selection selection))
+          (set! selection sel)
+          (when set-pivot?
+            (set! selection-pivot (if (null? selection) {} (car selection))))
+          (when (not-null? old-selection)
+            (invalidate-selection old-selection))
+          (when (not-null? selection)
+            (invalidate-selection selection))
+          (when generate-event?
+            (selection-change old-selection force? user-origin?))))
+      (let ((auto-row (essay (not-null? sel) (get-row (selection-row (car sel))))))
+        (when (and auto-expand/collapse? auto-expand?)
+          (unless multiple-selection?
+            (auto-expand/collapse auto-row :auto-toggle? true))
+          (when auto-row
+            (auto-select~ auto-row))))
+      (when (and ensure-displayed? (end-delayed?~ selection-manager))
+        (ensure-displayed))))
   
   
   (method protected virtual (selection-change old-selection force? user-origin?)
@@ -1845,17 +1839,16 @@
          (else (map proc saved-sel))))))
   
   
-  (method public (with-preserved-selection proc . rest)
-    (bind-keywords ((use 'row) (test eqv?) (ensure-displayed? true) (generate-event? false)) rest
-      (let ((saved-sel (remember-selection use)))
-        (set-selection '())
-        (proc)
-        (let ((selection (restore-selection use saved-sel test)))
-          (when (in-edition?)
-            (let ((edition-row (get-parent~ cell-editor)))
-              (when (neq? edition-row (get-row [row edited-cell]))
-                (set! [row edited-cell] (row-rank edition-row)))))
-          (set-selection selection :ensure-displayed? ensure-displayed? :generate-event? generate-event? :auto-expand? false)))))
+  (method public (with-preserved-selection proc (use: use 'row) (test: test eqv?) (ensure-displayed?: ensure-displayed? true) (generate-event?: generate-event? false))
+    (let ((saved-sel (remember-selection use)))
+      (set-selection '())
+      (proc)
+      (let ((selection (restore-selection use saved-sel test)))
+        (when (in-edition?)
+          (let ((edition-row (get-parent~ cell-editor)))
+            (when (neq? edition-row (get-row [row edited-cell]))
+              (set! [row edited-cell] (row-rank edition-row)))))
+        (set-selection selection :ensure-displayed? ensure-displayed? generate-event?: generate-event? :auto-expand? false))))
   
   
   (method public (get-single-selection)
@@ -1910,17 +1903,16 @@
          selection))
   
   
-  (method public (with-deleted-selection selection proc . rest)
-    (bind-keywords ((can-survive? false)) rest
-      (let ((data (essay can-survive? (get-selection-data selection)))
-            (smallest (apply generic-min selection)))
-        (proc)
-        (let ((sel (essay can-survive? (remove-nils (map user-data-index data)))))
-          (if (and can-survive? (= (length selection) (length sel)))
-              (set-selection sel)
-            (when (and smallest (> smallest 0))
-              (let ((previous (- smallest 1)))
-                (set-single-selection previous))))))))
+  (method public (with-deleted-selection selection proc (can-survive?: can-survive? false))
+    (let ((data (essay can-survive? (get-selection-data selection)))
+          (smallest (apply generic-min selection)))
+      (proc)
+      (let ((sel (essay can-survive? (remove-nils (map user-data-index data)))))
+        (if (and can-survive? (= (length selection) (length sel)))
+            (set-selection sel)
+          (when (and smallest (> smallest 0))
+            (let ((previous (- smallest 1)))
+              (set-single-selection previous)))))))
   
   
   (method (selection->rows selection)
@@ -1999,7 +1991,7 @@
   
   (method (selection-element-region element dh dv sc)
     (case selection-mode
-      ((cell) (new Region :rect (acquire-delta dh dv sc (cell-rect element))))
+      ((cell) (new Region rect: (acquire-delta dh dv sc (cell-rect element))))
       (else (selection-row-region element dh dv sc))))
     
   
@@ -2080,7 +2072,7 @@
   
   
   (method public (cell-region cell)
-    (new Region :rect (cell-rect cell)))
+    (new Region rect: (cell-rect cell)))
   
   
   (method (cell-content-rect cell)
@@ -2105,23 +2097,22 @@
       (offset-rect (text-rect~ (get-column col) row cell width (get-height~ row) false) 0 top)))
 
 
-  (method public (view->tree pos . rest)
-    (bind-keywords ((any? false) (uniform-height? false)) rest
-      (let ((row (if uniform-height? (floor (/ [v pos] default-row-height)) (v->row [v pos])))
-            (col (h->col [h pos])))
-        (when (and row col (>= row 0))
-          (let ((cell (new Cell row col)))
-            (if any?
-                cell
-              (when (cell-visible? cell)
-                cell)))))))
+  (method public (view->tree pos (any?: any? false) (uniform-height?: uniform-height? false))
+    (let ((row (if uniform-height? (floor (/ [v pos] default-row-height)) (v->row [v pos])))
+          (col (h->col [h pos])))
+      (when (and row col (>= row 0))
+        (let ((cell (new Cell row col)))
+          (if any?
+              cell
+            (when (cell-visible? cell)
+              cell))))))
 
 
   ;; Should unify with view->tree...
   (method public (view->tree-extended pos)
     (let ((info (v->row-extended [v pos])))
       (when info
-        (bind-values (row v height) info
+        (receive (row v height) info
           (let ((col (h->col [h pos])))
             (when (and row col (>= row 0))
               (let ((cell (new Cell row col)))
@@ -2163,29 +2154,28 @@
     edited-cell)
   
   
-  (method public (edit-cell cell . rest)
-    (bind-keywords ((editor {}) (location {Point 0 0}) (draw-preserved? false) (close-editor? true) (end-proc {})) rest
-      (when (< [col cell] (get-columns-count))
-        (end-edition)
-        (ensure-row-exists [row cell])
-        ;; We need proper layout to get the cell rect...
-        (when update-locked?
-          (update-displayed)
-          (layout-scrollee-content))
-        (let ((bounds (cell-editor-rect cell)))
-          (when bounds
-            (let ((view (new Tree-Cell-View
-                          :location (new Point (+ [left bounds] [h location]) [v location])
-                          :draw-preserved? draw-preserved?
-                          :preserved-data (get-cell-data cell)
-                          :edition-end-proc end-proc
-                          children: (list editor))))
-              (replace-cell cell view)
-              (set-bounds~ view (expand-rect (offset-rect bounds 0 (- [top bounds])) [h location] [v location] 0 0))
-              (invalidate-rect bounds)
-              (set! edited-cell cell)
-              (set! cell-editor view)
-              (set! close-cell-editor? close-editor?)))))))
+  (method public (edit-cell cell (editor: editor {}) (location: location {Point 0 0}) (draw-preserved?: draw-preserved? false) (close-editor?: close-editor? true) (end-proc: end-proc {}))
+    (when (< [col cell] (get-columns-count))
+      (end-edition)
+      (ensure-row-exists [row cell])
+      ;; We need proper layout to get the cell rect...
+      (when update-locked?
+        (update-displayed)
+        (layout-scrollee-content))
+      (let ((bounds (cell-editor-rect cell)))
+        (when bounds
+          (let ((view (new Tree-Cell-View
+                        :location (new Point (+ [left bounds] [h location]) [v location])
+                        :draw-preserved? draw-preserved?
+                        :preserved-data (get-cell-data cell)
+                        :edition-end-proc end-proc
+                        children: (list editor))))
+            (replace-cell cell view)
+            (set-bounds~ view (expand-rect (offset-rect bounds 0 (- [top bounds])) [h location] [v location] 0 0))
+            (invalidate-rect bounds)
+            (set! edited-cell cell)
+            (set! cell-editor view)
+            (set! close-cell-editor? close-editor?))))))
   
   
   (method public (end-edition)
@@ -2307,7 +2297,7 @@
                (row (get-row [row cell]))
                (node (car (get-children~ row)))
                (user-data (get-user-data~ row)))
-          (bind-values (cell part) (get-debugged~ column cell pos)
+          (receive (cell part) (get-debugged~ column cell pos)
             (let ((data (get-cell-data cell)))
               (set! [%c Development] cell)
               (set! [%d Development] data)
@@ -2328,7 +2318,7 @@
                        (row (get-row [row cell]))
                        (node (car (get-children~ row)))
                        (user-data (get-user-data~ row)))
-                  (bind-values (cell part) (get-debugged~ column cell pos)
+                  (receive (cell part) (get-debugged~ column cell pos)
                     (let ((data (get-cell-data cell)))
                       (list
                        (list "Node Column" node-column)

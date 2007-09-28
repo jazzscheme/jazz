@@ -64,31 +64,38 @@
   '())
 
 
-(definition public (pick-figure action . rest)
-  (bind-keywords ((menu {}) (include 'all) (exclude '()) (draw-overlays? true) (feedback {}) (feedback-figure? true) (report-figure? true) (tooltips? true)) rest
-    (unless In-Pick?
-      (with-locked-update
-        (function dynamic ()
-          (let ((windows (process-windows))
-                (toplevel (get-toplevel)))
-            (when windows
-              (setup-pick)
-              (set! All-Pickers '())
-              (set! Draw-Overlays? draw-overlays?)
-              (set! Feedback-Figure? feedback-figure?)
-              (set! Report-Figure? report-figure?)
-              (for-each (function dynamic (window)
-                          (install-overlays window)
-                          (let* ((position {Point 0 0})
-                                 (size (get-size~ window))
-                                 (excluded? (or (memq? window exclude) (and (= include 'toplevel) (neq? window toplevel))))
-                                 (picker (new Figure-Picker parent: window position: position size: size action: action :window window menu: menu :excluded? excluded? feedback: feedback tooltips?: tooltips?)))
-                            (bring-to-front~ picker)
-                            (invalidate-window~ window)
-                            (set! All-Pickers (cons picker All-Pickers))))
-                        windows)
-              (simulate-mouse-move)
-              (set! In-Pick? true))))))))
+(definition public (pick-figure action
+                                (menu: menu {})
+                                (include: include 'all)
+                                (exclude: exclude '())
+                                (draw-overlays?: draw-overlays? true)
+                                (feedback: feedback {})
+                                (feedback-figure?: feedback-figure? true)
+                                (report-figure?: report-figure? true)
+                                (tooltips?: tooltips? true))
+  (unless In-Pick?
+    (with-locked-update
+      (function dynamic ()
+        (let ((windows (process-windows))
+              (toplevel (get-toplevel)))
+          (when windows
+            (setup-pick)
+            (set! All-Pickers '())
+            (set! Draw-Overlays? draw-overlays?)
+            (set! Feedback-Figure? feedback-figure?)
+            (set! Report-Figure? report-figure?)
+            (for-each (function dynamic (window)
+                        (install-overlays window)
+                        (let* ((position {Point 0 0})
+                               (size (get-size~ window))
+                               (excluded? (or (memq? window exclude) (and (= include 'toplevel) (neq? window toplevel))))
+                               (picker (new Figure-Picker parent: window position: position size: size action: action :window window menu: menu :excluded? excluded? feedback: feedback tooltips?: tooltips?)))
+                          (bring-to-front~ picker)
+                          (invalidate-window~ window)
+                          (set! All-Pickers (cons picker All-Pickers))))
+                      windows)
+            (simulate-mouse-move)
+            (set! In-Pick? true)))))))
 
 
 (definition (setup-pick)
@@ -122,7 +129,7 @@
              (overlapped (get-overlapped~ view))
              (picker (find-picker overlapped))
              (pos (mouse-position~ view)))
-        (bind-values (player view root-rect view-rect row-rect) (feedback-info picker {} {} view pos)
+        (receive (player view root-rect view-rect row-rect) (feedback-info picker {} {} view pos)
           (set! Feedback-Player player)
           (set! Feedback-View view)
           (set! Feedback-Root-Rect root-rect)
@@ -175,7 +182,7 @@
 
 
 (definition (setup-feedback picker window position view pos)
-  (bind-values (player view root-rect view-rect row-rect) (feedback-info picker window position view pos)
+  (receive (player view root-rect view-rect row-rect) (feedback-info picker window position view pos)
     (when (or (neq? player Feedback-Player)
               (neq? view Feedback-View)
               (/= view-rect Feedback-View-Rect)
@@ -325,7 +332,7 @@
       
       
       (method (get-tooltip-context pos)
-        (bind-values (window position view pos) (mouse-figure [h pos] [v pos])
+        (receive (window position view pos) (mouse-figure [h pos] [v pos])
           (when view
             (let* ((view-player (get-player~ view))
                    (view-root (get-root~ view))
@@ -359,7 +366,7 @@
     (if excluded?
         (when Report-Figure?
           (clear-user-message))
-      (bind-values (window position view pos) (mouse-figure h v)
+      (receive (window position view pos) (mouse-figure h v)
         (when feedback
           (let ((proc (if (eq? feedback true)
                           setup-feedback
@@ -374,7 +381,7 @@
   (method (mouse-up h v)
     (nextmethod h v)
     (unless excluded?
-      (bind-values (window position view pos) (mouse-figure h v)
+      (receive (window position view pos) (mouse-figure h v)
         (with-locked-update
           (function dynamic ()
             (end-pick)
@@ -404,7 +411,7 @@
       (if (is-not? parent View-Player)
           (bell)
         (close-popups)
-        (bind-values (window position view pos) (mouse-figure h v)
+        (receive (window position view pos) (mouse-figure h v)
           (let ((menu (menu window position view pos)))
             (setup-actions menu window position view pos)
             (track-popup-menu~ (get-root~ parent) menu (new Point h v))

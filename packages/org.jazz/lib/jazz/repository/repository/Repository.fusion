@@ -145,12 +145,11 @@
         (hash-set! Repositories name repository))))
   
   
-  (method meta (remove-repository name . rest)
-    (bind-keywords ((error? true)) rest
-      (if (not (get-repository name))
-          (when error?
-            (error "Unable to find repository {a}" name))
-        (hash-clear Repositories name))))
+  (method meta (remove-repository name (error?: error? true))
+    (if (not (get-repository name))
+        (when error?
+          (error "Unable to find repository {a}" name))
+      (hash-clear Repositories name)))
   
   
   ;;;
@@ -224,12 +223,11 @@
   ;;;
   
   
-  (method (initialize . rest)
-    (bind-keywords ((name {}) (base-project {}) (base-directory {})) rest
-      (nextmethod)
-      (set! [name self] name)
-      (set! [base-project self] base-project)
-      (set! [base-directory self] base-directory)))
+  (method (initialize (name: name {}) (base-project: base-project {}) (base-directory: base-directory {}))
+    (nextmethod)
+    (set! [name self] name)
+    (set! [base-project self] base-project)
+    (set! [base-directory self] base-directory))
   
   
   (method protected virtual (install-initargs initargs)
@@ -301,12 +299,11 @@
       file/path))
   
   
-  (method public (file->path file . rest)
-    (bind-keywords ((error? true)) rest
-      (let* ((base (get-base-directory))
-             (anchored (anchor-to~ file base error?: error?)))
-        (when anchored
-          (tail (get-list~ anchored) (length (get-list~ base)))))))
+  (method public (file->path file (error?: error? true))
+    (let* ((base (get-base-directory))
+           (anchored (anchor-to~ file base error?: error?)))
+      (when anchored
+        (tail (get-list~ anchored) (length (get-list~ base))))))
   
   
   (method public (path->file path)
@@ -338,19 +335,18 @@
       (message-box (format "{a} added to repository {a}" (get-name~ file) (get-name)))))
   
   
-  (method public (add-files-to-project path . rest)
-    (bind-keywords ((extension (add-default-extension))) rest
-      (with-closed ((project (get-item path)))
-        (let* ((directory (path->directory path))
-               (chooser (add-chooser-class))
-               (actual (collect-actual project))
-               (all (collect-files directory extension))
-               (effective (difference all actual test: pathname=))
-               (files (get-modal~ chooser :files effective)))
-          (for-each (function dynamic (file)
-                      (with-closed ((item (add-file~ project file)))
-                        ))
-                    files)))))
+  (method public (add-files-to-project path (extension: extension (add-default-extension)))
+    (with-closed ((project (get-item path)))
+      (let* ((directory (path->directory path))
+             (chooser (add-chooser-class))
+             (actual (collect-actual project))
+             (all (collect-files directory extension))
+             (effective (difference all actual test: pathname=))
+             (files (get-modal~ chooser :files effective)))
+        (for-each (function dynamic (file)
+                    (with-closed ((item (add-file~ project file)))
+                      ))
+                  files))))
   
   
   (method protected virtual (add-chooser-class)
@@ -362,7 +358,7 @@
   
   
   (method (collect-actual project)
-    (with-closed ((items (get-content~ project :nodes? false :leaves? true)))
+    (with-closed ((items (get-content~ project nodes?: false leaves?: true)))
       (map (function dynamic (item)
              (get-pathname~ item))
            items)))
@@ -389,7 +385,7 @@
   
   
   (method (collect-subprojects project)
-    (with-closed ((items (get-content~ project :nodes? true :leaves? false)))
+    (with-closed ((items (get-content~ project nodes?: true leaves?: false)))
       (map (function dynamic (item)
              (get-name~ item))
            items)))
@@ -408,7 +404,7 @@
              (checkbox (new Check-Box parent: border title: "Destroy permanently"))
              (name (if path (last path) (last (get-base-project)))))
         (layout-view~ border)
-        (let ((code (message-box (format "Delete {a} from repository?" name) :type 'question title: "Delete" :content border)))
+        (let ((code (message-box (format "Delete {a} from repository?" name) type: 'question title: "Delete" content: border)))
           (when (= code 'yes)
             (if (get-checked?~ checkbox)
                 (destroy-item path)
@@ -436,7 +432,7 @@
         (unimplemented 'propose-rename)
       (let* ((name (if path (last path) (last base-project)))
              (unicity-domain (remove name (collect-names path) test: equal?))
-             (new-name (request-string title: "Enter New Name" :initial-value name :accepts-empty? false :unicity-domain unicity-domain)))
+             (new-name (request-string title: "Enter New Name" initial-value: name :accepts-empty? false :unicity-domain unicity-domain)))
         (rename-item path new-name))))
   
   
@@ -444,7 +440,7 @@
     (when path
       (let ((parent-path (butlast path)))
         (with-closed ((parent-item (get-item parent-path))
-                      (items (get-content~ parent-item :nodes? true :leaves? true)))
+                      (items (get-content~ parent-item nodes?: true leaves?: true)))
           (map (function dynamic (item)
                  (remote->local (get-name~ item)))
                items)))))
@@ -496,22 +492,21 @@
            (if (file? pathname)
                (get-latest-file item pathname output)
              (get-latest-directory item pathname output)))
-         :base pathname))))
+         base: pathname))))
 
   
-  (method public (get-latest-file item file output)
-    (bind-keywords ((make-writable? false) (feedback? true)) '()
-      (case (determine-operation item file {unspecified})
-        ((get)
-         (get-latest-action file :make-writable? make-writable?)
-         (log-line output (format "{a} fetched from repository" (get-name~ file)) image: {Bitmap-Resource "Document"}))
-        ((skip)
-         (log-line output (format "{a} was skipped" (get-name~ file)) image: {Bitmap-Resource "Info"}))
-        ((same)
-         (log-line output (format "{a} has not changed" (get-name~ file)) image: {Bitmap-Resource "Info"})))
-      (if make-writable?
-          (set-read/write~ file)
-        (set-read-only~ file))))
+  (method public (get-latest-file item (make-writable?: make-writable? false) (feedback?: feedback? true))
+    (case (determine-operation item file {unspecified})
+      ((get)
+       (get-latest-action file :make-writable? make-writable?)
+       (log-line output (format "{a} fetched from repository" (get-name~ file)) image: {Bitmap-Resource "Document"}))
+      ((skip)
+       (log-line output (format "{a} was skipped" (get-name~ file)) image: {Bitmap-Resource "Info"}))
+      ((same)
+       (log-line output (format "{a} has not changed" (get-name~ file)) image: {Bitmap-Resource "Info"})))
+    (if make-writable?
+        (set-read/write~ file)
+      (set-read-only~ file)))
   
   
   (method (determine-operation item file overwrite)
@@ -522,7 +517,7 @@
         (if read-only?
             (if different? 'get 'same)
           (let ((ask (if (unspecified? overwrite)
-                         (message-box "File is writeable, do you wish to replace it?" :type 'question)
+                         (message-box "File is writeable, do you wish to replace it?" type: 'question)
                        (if overwrite 'yes 'no))))
             (if (= ask 'yes) 'get 'same))))))
   
@@ -560,60 +555,57 @@
     )
   
   
-  (method public (checkin-file file . rest)
-    (bind-keywords ((keep-checked-out? false) (feedback? true)) rest
-      (call-repository-event :checkin self file)
-      (checkin-action file :keep-checked-out? keep-checked-out?)
-      (unless keep-checked-out?
-        (set-read-only~ file))
-      (call-repository-event :item-status self file)
-      (when feedback?
-        (user-message "{a} checked in" (get-name~ file)))))
+  (method public (checkin-file file (keep-checked-out?: keep-checked-out? false) (feedback?: feedback? true))
+    (call-repository-event :checkin self file)
+    (checkin-action file :keep-checked-out? keep-checked-out?)
+    (unless keep-checked-out?
+      (set-read-only~ file))
+    (call-repository-event :item-status self file)
+    (when feedback?
+      (user-message "{a} checked in" (get-name~ file))))
 
   
   (method protected virtual abstract (checkin-action file . rest)
     )
   
   
-  (method public (checkout-file file . rest)
-    (bind-keywords ((get? {unspecified}) (feedback? true)) rest
-      (let ((operation (with-closed ((item (get-item file)))
-                         (determine-operation item file get?)))
-            (output (get-output-log)))
-        (checkout-action file :get? (= operation 'get))
-        (set-read/write~ file)
-        (call-repository-event :item-status self file)
-        (when feedback?
-          (let ((action (case operation
-                          ((get) "fetched")
-                          ((skip) "skipped")
-                          ((same) "no change"))))
-            (user-message "{a} checked out ({a})" (get-name~ file) action))))))
+  (method public (checkout-file file (get?: get? {unspecified}) (feedback?: feedback? true))
+    (let ((operation (with-closed ((item (get-item file)))
+                       (determine-operation item file get?)))
+          (output (get-output-log)))
+      (checkout-action file :get? (= operation 'get))
+      (set-read/write~ file)
+      (call-repository-event :item-status self file)
+      (when feedback?
+        (let ((action (case operation
+                        ((get) "fetched")
+                        ((skip) "skipped")
+                        ((same) "no change"))))
+          (user-message "{a} checked out ({a})" (get-name~ file) action)))))
   
   
   (method protected virtual abstract (checkout-action file . rest)
     )
   
   
-  (method public (undo-checkout-file file . rest)
-    (bind-keywords ((get? true)  (feedback? true)) rest
-      (let ((code (message-box
-                   (format "Undo checkout and revert to repository version?")
-                   title: "Undo checkout"
-                   :type 'confirmation)))
-        (case code
-          ((yes)
-           (with-cursor :wait
-             (function dynamic ()
-               (undo-checkout-action file :get? get?)
-               (when get?
-                 (set-read-only~ file))
-               (call-repository-event :item-status self file)
-               (when feedback?
-                 (user-message "{a} checkout undone" (get-name~ file))))))
-          ((no))
-          ((cancel)
-           (throw-cancel))))))
+  (method public (undo-checkout-file file (get?: get? true) (feedback?: feedback? true))
+    (let ((code (message-box
+                  (format "Undo checkout and revert to repository version?")
+                  title: "Undo checkout"
+                  type: 'confirmation)))
+      (case code
+        ((yes)
+         (with-cursor :wait
+           (function dynamic ()
+             (undo-checkout-action file :get? get?)
+             (when get?
+               (set-read-only~ file))
+             (call-repository-event :item-status self file)
+             (when feedback?
+               (user-message "{a} checkout undone" (get-name~ file))))))
+        ((no))
+        ((cancel)
+         (throw-cancel)))))
     
   
   (method public virtual abstract (undo-checkout-action file . rest)
@@ -661,7 +653,7 @@
   
   
   (method public virtual (show-history file)
-    (get-modal Repository-Version-Browser :file file))
+    (get-modal Repository-Version-Browser file: file))
   
   
   (method public virtual (show-changes file)
@@ -690,7 +682,7 @@
   
   
   (method public (present-usernames usernames)
-    (format "{l :separator \", \" :last-separator \" and \" :detail :human}" usernames))
+    (format "{l separator: \", \" last-separator: \" and \" detail: :human}" usernames))
   
   
   (method (get-checkouts-usernames file)

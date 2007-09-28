@@ -92,7 +92,7 @@
     (goto-first-file)
     (let ((proc
            (function dynamic ()
-             (bind-values (filename size) (get-current-file-info)
+             (receive (filename size) (get-current-file-info)
                (proc filename size)))))
       (proc)
       (while (goto-next-file)
@@ -113,7 +113,7 @@
   (method public (read-current-file-content)
     (unimplemented 'read-current-file-content)
     @convert-ansi-string
-    (bind-values (filename size) (get-current-file-info)
+    (receive (filename size) (get-current-file-info)
       (let ((string (new Ansi-String size: size)))
         (with-opened-current-file
           (function dynamic ()
@@ -124,7 +124,7 @@
   (method public (read-current-file-block-content)
     (unimplemented 'read-current-file-block-content)
     @windows-specific
-    (bind-values (filename size) (get-current-file-info)
+    (receive (filename size) (get-current-file-info)
       (let ((block (new Heap-Block size: size)))
         (with-opened-current-file
           (function dynamic ()
@@ -150,13 +150,12 @@
     (unzip-go-to-next-file handle))
   
   
-  (method public (locate-file filename . rest)
+  (method public (locate-file filename (error?: error? true))
     (unimplemented 'locate-file)
     @convert-ansi-string
-    (bind-keywords ((error? true)) rest
-      (unless (or (unzip-locate-file handle (coerce filename Ansi-String))
-                  (not error?))
-        (error "Unable to locate file {t} in unzip file" filename))))
+    (unless (or (unzip-locate-file handle (coerce filename Ansi-String))
+                (not error?))
+      (error "Unable to locate file {t} in unzip file" filename)))
   
   
   (method public (get-current-file-info)

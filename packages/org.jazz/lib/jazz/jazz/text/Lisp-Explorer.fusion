@@ -656,60 +656,59 @@
   ;; We may want to limit exploration to symbols only and refuse composite expressions
 
 
-  (method (outer-expr . rest)
-    (bind-keywords ((composite? true) (outer-composite? true)) rest
-      (let ((s (copy start))
-            (e (copy end))
-            (prv (previous-char start 0))
-            (nxt (next-char end 0)))
-        (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (jazz-constituent? nxt))))))
-               (backward-expr))
-              ((and prv (= s e) (jazz-constituent? prv))
-               (forward-constituent)
-               (backward-constituent))
-              ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (jazz-constituent? prv)))))
-               (forward-expr))
-              ((and nxt (jazz-constituent? nxt))
-               (forward-constituent)
-               (backward-constituent))
-              ((and (memv? prv '(#\quote #\backquote #\comma #\at))
-                    (let* ((s (get-char s))
-                           @see-further-comment
-                           (e (get-char e)))
-                      (or (jazz-constituent? s)
-                          (and (= prv #\comma) (= s #\at))
-                          (and (= prv #\quote) (= s #\comma))
-                          (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
-               (set-start (previous-pos start 1))
-               true)
-              ((and composite? (= prv #\double-quote) (= nxt #\double-quote))
-               (set-start (previous-pos start 1))
-               (set-end (next-pos end 1))
-               true)
-              (else
-               (when outer-composite?
-                 (forward-all-expr)
-                 (let ((ender (char-forward 0)))
-                     (set! e (copy end))
-                     (set-start s)
-                     (let ((skipped (backward-all-expr))
-                           (starter (char-backward 0)))
-                       (cond ((or (and ender (not (close-composite? ender)))
-                                  (and (not starter) ender)
-                                  (and starter ender (not (composites-match? starter ender))))
-                              (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
-                             ((or (and starter (not (open-composite? starter)))
-                                  (and starter (not ender)))
-                              (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
-                             (else
-                              (set-end e)
-                              (let ((pc (previous-char start 0))
-                                     (nc (next-char end 0)))
-                                (when (and (open-composite? pc)
-                                           (= nc (cdr (assq pc Composites))))
-                                  (backward)
-                                  (forward)
-                                  skipped))))))))))))
+  (method (outer-expr (composite?: composite? true) (outer-composite?: outer-composite? true))
+    (let ((s (copy start))
+          (e (copy end))
+          (prv (previous-char start 0))
+          (nxt (next-char end 0)))
+      (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (jazz-constituent? nxt))))))
+             (backward-expr))
+            ((and prv (= s e) (jazz-constituent? prv))
+             (forward-constituent)
+             (backward-constituent))
+            ((and composite? nxt (= s e) (or (open-composite? nxt) (and (string-delimiter? nxt) (not (jazz-constituent? prv)))))
+             (forward-expr))
+            ((and nxt (jazz-constituent? nxt))
+             (forward-constituent)
+             (backward-constituent))
+            ((and (memv? prv '(#\quote #\backquote #\comma #\at))
+                  (let* ((s (get-char s))
+                         @see-further-comment
+                         (e (get-char e)))
+                    (or (jazz-constituent? s)
+                        (and (= prv #\comma) (= s #\at))
+                        (and (= prv #\quote) (= s #\comma))
+                        (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
+             (set-start (previous-pos start 1))
+             true)
+            ((and composite? (= prv #\double-quote) (= nxt #\double-quote))
+             (set-start (previous-pos start 1))
+             (set-end (next-pos end 1))
+             true)
+            (else
+             (when outer-composite?
+               (forward-all-expr)
+               (let ((ender (char-forward 0)))
+                 (set! e (copy end))
+                 (set-start s)
+                 (let ((skipped (backward-all-expr))
+                       (starter (char-backward 0)))
+                   (cond ((or (and ender (not (close-composite? ender)))
+                              (and (not starter) ender)
+                              (and starter ender (not (composites-match? starter ender))))
+                          (explore-error (format "Found unexpected character while exploring forward: {a}" (present-char ender)) e (next-pos e 1)))
+                         ((or (and starter (not (open-composite? starter)))
+                              (and starter (not ender)))
+                          (explore-error (format "Found unexpected character while exploring backward: {a}" (present-char starter)) (previous-pos start 1) start))
+                         (else
+                          (set-end e)
+                          (let ((pc (previous-char start 0))
+                                (nc (next-char end 0)))
+                            (when (and (open-composite? pc)
+                                       (= nc (cdr (assq pc Composites))))
+                              (backward)
+                              (forward)
+                              skipped)))))))))))
 
 
   (method public (form-expr)
@@ -785,7 +784,7 @@
   
   
   (method (definition-only-name)
-    (bind-values (package? meta? name) (definition-name)
+    (receive (package? meta? name) (definition-name)
       name))
 
 
@@ -843,14 +842,12 @@
   ;;;
   
   
-  (method public (iterate-expressions proc . rest)
-    (bind-keywords ((mode 'code) (recursive? true)) rest
-      (for-each-expressions proc mode)))
+  (method public (iterate-expressions proc (mode: mode 'code) (recursive?: recursive? true))
+    (for-each-expressions proc mode))
   
   
-  (method public (iterate-expression proc . rest)
-    (bind-keywords ((mode 'code) (recursive? true)) rest
-      (for-each-expression proc mode)))
+  (method public (iterate-expression proc (mode: mode 'code) (recursive?: recursive? true))
+    (for-each-expression proc mode))
   
   
   (method (for-each-expressions proc mode)
@@ -891,7 +888,7 @@
         (for-each-expressions proc mode))))
   
   
-  (method public (walk-expressions context expression (mode (quote code)) (first? true))
+  (method public (walk-expressions context expression (mode 'code) (first? true))
     (while (forward-expr)
       (walk-expression context expression mode first?)
       (set! first? false)))
@@ -972,10 +969,10 @@
   
   
   (method (match? expl-mode target)
-    (bind-values (mode expression) (parse-expression target)
+    (receive (mode expression) (parse-expression target)
       (let ((expl-kind (get-kind)))
         (if (pattern-variable? expression)
-            (bind-values (name kind) (parse-pattern-variable expression)
+            (receive (name kind) (parse-pattern-variable expression)
               (and (or (not mode) (eq? mode expl-mode))
                    (or (not kind) (eq? kind expl-kind))))
           (let ((kind (expression-kind expression)))
@@ -1005,7 +1002,7 @@
   
   
   (method (parse-pattern-variable variable)
-    (let ((elements (parse-strings (subseq (symbol->string variable) 1) :separator ":")))
+    (let ((elements (parse-strings (subseq (symbol->string variable) 1) separator: ":")))
       (bind-optionals ((name "") (kind "") (mode "")) elements
         (values (if (empty-string? name) {} (string->symbol name))
                 (if (empty-string? kind) {} (string->symbol kind))

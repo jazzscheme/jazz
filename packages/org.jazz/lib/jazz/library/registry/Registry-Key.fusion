@@ -49,12 +49,11 @@
   (slot predefined?)
 
 
-  (method (initialize . rest)
-    (bind-keywords ((key {}) (predefined? false)) rest
-      (nextmethod)
-      (set! [key self] key)
-      (set! [predefined? self] predefined?)
-      (destroy-mandatory)))
+  (method (initialize (key: key {}) (predefined?: predefined? false))
+    (nextmethod)
+    (set! [key self] key)
+    (set! [predefined? self] predefined?)
+    (destroy-mandatory))
 
 
   (method (destroy)
@@ -64,17 +63,16 @@
     (nextmethod))
 
 
-  (method public (open-key path . rest)
-    (bind-keywords ((container {}) (class Registry-Key) (error? true)) rest
-      (bind-values (err subkey) (RegOpenKeyEx key path 0 KEY_READ)
-        (if (= err ERROR_SUCCESS)
-            (new-in container class key: subkey)
-          (when error?
-            (error "Unable to open registry key: {t}" path))))))
+  (method public (open-key path (container: container {}) (class: class Registry-Key) (error?: error? true))
+    (receive (err subkey) (RegOpenKeyEx key path 0 KEY_READ)
+      (if (= err ERROR_SUCCESS)
+          (new-in container class key: subkey)
+        (when error?
+          (error "Unable to open registry key: {t}" path)))))
 
 
   (method public (create-key path (container {}) (class Registry-Key))
-    (bind-values (err subkey) (RegCreateKey key path)
+    (receive (err subkey) (RegCreateKey key path)
       (if (= err ERROR_SUCCESS)
           (new-in container class key: subkey)
         (error "Unable to create registry key: {t}" path))))
@@ -83,7 +81,7 @@
   (method public (get-default)
     (let* ((size 512)
            (value (make-string (- size 1))))
-      (bind-values (err size) (RegQueryValue key NULL value size)
+      (receive (err size) (RegQueryValue key NULL value size)
         (if (or (= err ERROR_SUCCESS) (= err ERROR_MORE_DATA))
             (begin
               (adjust-string value)
@@ -101,7 +99,7 @@
   (method public (get-value value-name)
     (let* ((size 512)
            (value (make-string (- size 1))))
-      (bind-values (err type size) (RegQueryValueEx key value-name 0 value size)
+      (receive (err type size) (RegQueryValueEx key value-name 0 value size)
         (if (or (= err ERROR_SUCCESS) (= err ERROR_MORE_DATA))
             (begin
               (adjust-string value)

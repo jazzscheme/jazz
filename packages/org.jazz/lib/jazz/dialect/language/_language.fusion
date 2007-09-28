@@ -1177,21 +1177,19 @@
 
 ;; waiting optimizing compiler to put back as min
 (definition public (generic-min n . rest)
-  (with ((proc <Procedure>
-           (function dynamic (object)
-             (when (< object n)
-               (set! n object)))))
-    (for-each proc rest))
+  (for-each (function dynamic (object)
+              (when (< object n)
+                (set! n object)))
+            rest)
   n)
 
 
 ;; waiting optimizing compiler to put back as max
 (definition public (generic-max n . rest)
-  (with ((proc <Procedure>
-           (function dynamic (object)
-             (when (> object n)
-               (set! n object)))))
-    (for-each proc rest))
+  (for-each (function dynamic (object)
+              (when (> object n)
+                (set! n object)))
+            rest)
   n)
 
 
@@ -1827,35 +1825,18 @@
   (element seq (- (length seq) n 1)))
 
 
-(definition public (for-each proc <Procedure> seq <Object> . rest)
-  (bind-optionals ((other {})) rest
-    (if (and (list? seq)
-             (every? list? rest)) 
-        (apply scheme.for-each (cons proc (cons seq rest)))
-      (cond ((not other)
-             (loop (for obj iterate seq)
-                   (proc obj)))
-            (else
-             (loop (for obj1 iterate seq)
-                   (for obj2 iterate other)
-                   (proc obj1 obj2)))))))
+(definition public (for-each proc <Procedure> seq . rest)
+  (if (list? seq)
+      (apply scheme.for-each proc seq rest)
+    (loop (for obj iterate seq)
+          (proc obj))))
 
 
-(definition public (map proc <Procedure> seq <Object> . rest)
-  (bind-optionals ((other {})) rest
-    (if (and (list? seq) (every? list? rest))
-        (apply scheme.map (cons proc (cons seq rest)))
-      (let ((dst (new List-Factory)))
-        (cond ((not other)
-               (let ((src (iterate seq)))
-                 (while (not (done?~ src))
-                   (put~ dst (proc (get-next~ src))))))
-              (else
-               (let ((src1 (iterate seq))
-                     (src2 (iterate other)))
-                 (while (and (not (done?~ src2)) (not (done?~ src2)))
-                   (put~ dst (proc (get-next~ src1) (get-next~ src2)))))))
-        (coerce (get-output~ dst) (if (sequence? seq) (class-of seq) List))))))
+(definition public (map proc <Procedure> seq . rest)
+  (if (list? seq)
+      (apply scheme.map proc seq rest)
+    (loop (for obj iterate seq)
+          (collect (proc obj)))))
 
 
 (definition public (map-to type proc <Procedure> seq <Object> . rest)
@@ -1874,53 +1855,32 @@
     (test x y)))
 
 
-(definition public (gather seq <Object> (type: type List))
-  (let ((dst (new List-Factory)))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (put~ dst object))))
-      (for-each proc (iterate seq)))
-    (coerce (get-output~ dst) type)))
-
-
-;; a quicky until full scanner functionality
-(definition public (gather-scan proc <Procedure> value <Object>)
-  (let ((fact (new List-Factory)))
-    (while value
-      (put~ fact value)
-      (set! value (proc value)))
-    (get-output~ fact)))
+(definition public (gather iterable <Object> (type: type List))
+  (coerce (loop (for obj iterate iterable)
+                (collect obj))
+          type))
 
 
 (definition public (collect proc <Procedure> seq <Object> (key: key {}))
-  (let ((dst (new List-Factory)))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (let ((object (proc (apply-key key object))))
-                 (when object
-                   (put~ dst object))))))
-      (for-each proc (iterate seq)))
-    (coerce (get-output~ dst) (class-of seq))))
+  (coerce (loop (for obj iterate seq)
+                (with val (proc (apply-key key obj)))
+                (when val
+                  (collect val)))
+          (class-of seq)))
 
 
 (definition public (collect-if predicate <Procedure> seq <Object> (key: key {}))
-  (let ((dst (new List-Factory)))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (when (predicate (apply-key key object))
-                 (put~ dst object)))))
-      (for-each proc (iterate seq)))
-    (coerce (get-output~ dst) (class-of seq))))
+  (coerce (loop (for obj iterate seq)
+                (when (predicate (apply-key key obj))
+                  (collect obj)))
+          (class-of seq)))
 
 
 (definition public (collect-type type seq <Object> (key: key {}))
-  (let ((dst (new List-Factory)))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (when (is? (apply-key key object) type)
-                 (put~ dst object)))))
-      (for-each proc (iterate seq)))
-    (coerce (get-output~ dst) (class-of seq))))
+  (coerce (loop (for obj iterate seq)
+                (when (is? (apply-key key obj) type)
+                  (collect obj)))
+          (class-of seq)))
 
 
 (definition public (collect-sections lst (separator: separator {}) (test: test {}))
@@ -1939,31 +1899,25 @@
 
 (definition public (count target <Object> seq <Object> (key: key {}) (test: test {}))
   (let ((total 0))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (when (apply-test test target (apply-key key object))
-                 (increase! total)))))
-      (for-each proc (iterate seq)))
+    (loop (for object iterate seq)
+          (when (apply-test test target (apply-key key object))
+            (increase! total)))
     total))
 
 
 (definition public (count-if predicate <Procedure> seq (key: key {}))
   (let ((total 0))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (when (predicate (apply-key key object))
-                 (increase! total)))))
-      (for-each proc (iterate seq)))
+    (loop (for object iterate seq)
+          (when (predicate (apply-key key object))
+            (increase! total)))
     total))
 
 
 (definition public (count-type type seq <Object> (key: key {}))
   (let ((total 0))
-    (with ((proc <Procedure>
-             (function dynamic (object)
-               (when (is? (apply-key key object) type)
-                 (increase! total)))))
-      (for-each proc (iterate seq)))
+    (loop (for object iterate seq)
+          (when (is? (apply-key key object) type)
+            (increase! total)))
     total))
 
 
@@ -2934,7 +2888,8 @@
 
 ;; Scheme's definition scan's the list so we need to first convert all calls to list?
 (definition public inline (list? object)
-  (is? object List))
+  (or (null? object)
+      (pair? object)))
 
 
 (definition public (augment . rest)
@@ -3646,7 +3601,7 @@
 (definition public (parse-integer string)
   (if (and (not (empty-string? string)) (numeric? string))
       (read-string-element string)
-    (signal (new Convertion-Error :object string :type "integer"))))
+    (signal (new Convertion-Error object: string type: "integer"))))
 
 
 (definition public (parse-hexadecimal string)
@@ -3656,7 +3611,7 @@
 (definition public (parse-boolean string)
   (cond ((ci= string "true") true)
         ((ci= string "false") false)
-        (else (signal (new Convertion-Error :object string :type "boolean")))))
+        (else (signal (new Convertion-Error object: string type: "boolean")))))
 
 
 (definition public (parse-strings string (separator: separator ","))
@@ -3669,8 +3624,8 @@
 
 (definition public (parse-delimited-string string (separator: separator ","))
   (map (function dynamic (string)
-         (parse-strings string :separator " "))
-       (parse-strings string :separator separator)))
+         (parse-strings string separator: " "))
+       (parse-strings string separator: separator)))
 
 
 (definition public (require-char reader)
@@ -3779,7 +3734,7 @@
   (let ((queue (new-queue))
         (last-proper? false))
     (let (iterate)
-      (bind-values (line proper?) (read-line-proper reader)
+      (receive (line proper?) (read-line-proper reader)
         (if line
             (begin
               (enqueue queue line)
@@ -4550,11 +4505,11 @@
 ;;;
 
 
-;; (format "{a width: 10 :justify :right} {l}" 5 lst)
+;; (format "{a width: 10 justify: :right} {l}" 5 lst)
 
 ;; In the preceding format :
 ;;   directives -> {a} and {l}
-;;   parameters -> width: 10 :justify :right
+;;   parameters -> width: 10 justify: :right
 ;;   arguments  -> 5 and lst
 
 
@@ -4893,7 +4848,7 @@
   
   
   (method (get-list? parameters)
-    (keyword-parameter parameters :list? false))
+    (keyword-parameter parameters list?: false))
   
   
   (method (get-width parameters)
@@ -4901,34 +4856,34 @@
   
   
   (method (get-justify parameters)
-    (let ((param (keyword-parameter parameters :justify :left)))
+    (let ((param (keyword-parameter parameters justify: :left)))
       (if (not (memq? param '(:left :right)))
           (error "Unknown justification {t}" param)
         param)))
   
   
   (method (get-padding parameters)
-    (keyword-parameter parameters :padding #\space))
+    (keyword-parameter parameters padding: #\space))
   
   
   (method (get-separator parameters)
-    (keyword-parameter parameters :separator " "))
+    (keyword-parameter parameters separator: " "))
   
   
   (method (get-last-separator parameters separator)
-    (keyword-parameter parameters :last-separator separator))
+    (keyword-parameter parameters last-separator: separator))
   
   
   (method (get-before parameters)
-    (keyword-parameter parameters :before {}))
+    (keyword-parameter parameters before: {}))
   
   
   (method (get-after parameters)
-    (keyword-parameter parameters :after {}))
+    (keyword-parameter parameters after: {}))
   
   
   (method (get-precision parameters)
-    (keyword-parameter parameters :precision 3))
+    (keyword-parameter parameters precision: 3))
   
   
   (method (get-properties parameters)
@@ -4936,11 +4891,11 @@
   
   
   (method (get-empty-value parameters)
-    (keyword-parameter parameters :empty-value {}))
+    (keyword-parameter parameters empty-value: {}))
   
   
   (method (get-detail parameters)
-    (keyword-parameter parameters :detail :reader))
+    (keyword-parameter parameters detail: :reader))
   
   
   ;;;

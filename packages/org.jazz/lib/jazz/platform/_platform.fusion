@@ -127,11 +127,10 @@
 
 ;;; Windows logging specific
 ;;; Not needed right now.
-(definition public (make-event-id code . rest)
+(definition public (make-event-id . rest) ;; CONVERT code (severity: severity SEVERITY_SUCCESS) (facility: facility FACILITY_NULL))
   (unimplemented 'make-event-id)
   @Platform-Specific
-  (bind-keywords ((severity SEVERITY_SUCCESS) (facility FACILITY_NULL)) rest
-    (+ severity facility code)))
+  (+ severity facility code))
 
 
 ;;;
@@ -139,22 +138,21 @@
 ;;;
 
 
-(definition public (frame-region frame <Rect> . rest)
-  (bind-keywords ((insets (new Rect 1 1 1 1))) rest
-    (let ((left   [left frame])
-          (top    [top frame])
-          (right  [right frame])
-          (bottom [bottom frame])
-          (region (new Region)))
-      (with-closed ((l (new Region left: left                     top: top                        right: (+ left [left insets]) bottom: bottom))
-                    (t (new Region left: left                     top: top                        right: right                  bottom: (+ top [top insets])))
-                    (r (new Region left: (- right [right insets]) top: top                        right: right                  bottom: bottom))
-                    (b (new Region left: left                     top: (- bottom [bottom insets]) right: right                  bottom: bottom)))
-        (combine!~ region l 'or)
-        (combine!~ region t 'or)
-        (combine!~ region r 'or)
-        (combine!~ region b 'or)
-        region))))
+(definition public (frame-region frame <Rect> (insets: insets (new Rect 1 1 1 1)))
+  (let ((left   [left frame])
+        (top    [top frame])
+        (right  [right frame])
+        (bottom [bottom frame])
+        (region (new Region)))
+    (with-closed ((l (new Region left: left                     top: top                        right: (+ left [left insets]) bottom: bottom))
+                  (t (new Region left: left                     top: top                        right: right                  bottom: (+ top [top insets])))
+                  (r (new Region left: (- right [right insets]) top: top                        right: right                  bottom: bottom))
+                  (b (new Region left: left                     top: (- bottom [bottom insets]) right: right                  bottom: bottom)))
+      (combine!~ region l 'or)
+      (combine!~ region t 'or)
+      (combine!~ region r 'or)
+      (combine!~ region b 'or)
+      region)))
 
 
 ;;;
@@ -281,18 +279,16 @@
     (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
 
 
-(definition public (log-error-event message . rest)
+(definition public (log-error-event message . rest) ;; CONVERT (event-id: event-id (make-event-id 1 :severity SEVERITY_ERROR)))
   (unimplemented 'log-error-event)
   @unimp
-  (bind-keywords ((event-id (make-event-id 1 :severity SEVERITY_ERROR))) rest
-    (log-event EVENTLOG_ERROR_TYPE event-id message)))
+  (log-event EVENTLOG_ERROR_TYPE event-id message))
 
 
-(definition public (log-success-event message . rest)
+(definition public (log-success-event message (event-id: event-id (make-event-id 1)))
   (unimplemented 'log-success-event)
   @unimp
-  (bind-keywords ((event-id (make-event-id 1))) rest
-    (log-event EVENTLOG_SUCCESS event-id message)))
+  (log-event EVENTLOG_SUCCESS event-id message))
 
 
 ;;;
@@ -300,13 +296,12 @@
 ;;;
 
 
-(definition public (play-sound sound . rest)
+(definition public (play-sound sound (asynchronous?: asynchronous? true))
   @platform-dependant
-  (bind-keywords ((asynchronous? true)) rest
-    (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
-      (if (file? sound)
-          (PlaySound (parse~ sound) NULL (bit-or SND_FILENAME async-bit))
-        (PlaySound sound NULL async-bit)))))
+  (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
+    (if (file? sound)
+        (PlaySound (parse~ sound) NULL (bit-or SND_FILENAME async-bit))
+      (PlaySound sound NULL async-bit))))
 
 
 (definition public (with-preserved-current-directory proc)
@@ -411,22 +406,21 @@
   Windows-Version)
 
 
-(definition public (validate-version title what context version . rest)
+(definition public (validate-version title what context version (register: register {}) (cleanup: cleanup {}))
   (unimplemented 'validate-version)
   @unimp
-  (bind-keywords ((register {}) (cleanup {})) rest
-    (when register
-      (register-crash-info register context (present~ version)))
-    (let* ((process (get-process))
-           (mandatory (mandatory-version~ process what)))
-      (when (and mandatory (< version mandatory))
-        (when cleanup
-          (cleanup))
-        (error "{a}{a} has version {a} and must be at least {a}"
-               title
-               (if context (format " {a}" context) "")
-               (present~ version)
-               (present~ mandatory))))))
+  (when register
+    (register-crash-info register context (present~ version)))
+  (let* ((process (get-process))
+         (mandatory (mandatory-version~ process what)))
+    (when (and mandatory (< version mandatory))
+      (when cleanup
+        (cleanup))
+      (error "{a}{a} has version {a} and must be at least {a}"
+             title
+             (if context (format " {a}" context) "")
+             (present~ version)
+             (present~ mandatory)))))
 
 
 
@@ -593,44 +587,43 @@
 
 ;; All this state manipulation is necessary because I dont
 ;; know any Windows API that returns the running state of a thread...
-(definition public (wait-for object/objects . rest)
+(definition public (wait-for object/objects (timeout: timeout {}) (error?: error? true))
   (unimplemented 'wait-for)
   @unimp
-  (bind-keywords ((timeout {}) (error? true)) rest
-    (let* ((get-handle
-             (function dynamic (object)
-               (if (integer? object)
-                   object
-                 (get-handle~ object))))
-           (timeout (either timeout INFINITE))
-           (single? (not (list? object/objects)))
-           (handle/array
-             (if single?
-                 (get-handle object/objects)
-               (let ((handles (remove-nils (map get-handle object/objects))))
-                 (when handles
-                   (let* ((count (length object/objects))
-                          (array (new-array int count)))
-                     (loop (for object in object/objects)
-                           (for n from 0)
-                           (do (array-set! array n (get-handle object))))
-                     array)))))
-           (thread (active-thread))
-           (state (get-state~ thread)))
-      ;; Can happen for instance if the thread has already terminated...
-      (if (not handle/array)
-          true
-        (unwind-protect
-            (begin
-              (set-state~ thread (+ state 1))
-              (let ((result (if single?
-                                (WaitForSingleObject handle/array timeout)
-                              (WaitForMultipleObjects (array-length handle/array) handle/array true timeout))))
-                (if (= result WAIT_OBJECT_0)
-                    true
-                  (when (and (= result WAIT_TIMEOUT) error?)
-                    (error "Wait for {t} timed out" object/objects)))))
-          (set-state~ thread state))))))
+  (let* ((get-handle
+           (function dynamic (object)
+             (if (integer? object)
+                 object
+               (get-handle~ object))))
+         (timeout (either timeout INFINITE))
+         (single? (not (list? object/objects)))
+         (handle/array
+           (if single?
+               (get-handle object/objects)
+             (let ((handles (remove-nils (map get-handle object/objects))))
+               (when handles
+                 (let* ((count (length object/objects))
+                        (array (new-array int count)))
+                   (loop (for object in object/objects)
+                         (for n from 0)
+                         (do (array-set! array n (get-handle object))))
+                   array)))))
+         (thread (active-thread))
+         (state (get-state~ thread)))
+    ;; Can happen for instance if the thread has already terminated...
+    (if (not handle/array)
+        true
+      (unwind-protect
+          (begin
+            (set-state~ thread (+ state 1))
+            (let ((result (if single?
+                              (WaitForSingleObject handle/array timeout)
+                            (WaitForMultipleObjects (array-length handle/array) handle/array true timeout))))
+              (if (= result WAIT_OBJECT_0)
+                  true
+                (when (and (= result WAIT_TIMEOUT) error?)
+                  (error "Wait for {t} timed out" object/objects)))))
+        (set-state~ thread state)))))
 
 
 ;;;
@@ -668,7 +661,7 @@
   (values (proc) {} {})
   @print-stack
   ;; a quick solution to get accurate debug info back to the calling thread
-  (bind-values (result err stack)
+  (receive (result err stack)
       (receive-primary
         (function dynamic ()
           (let ((result)
@@ -775,7 +768,7 @@
   @gambit-threads
   (let* ((count 512)
          (processes (new-array int count)))
-    (bind-values (success? received) (EnumProcesses processes count)
+    (receive (success? received) (EnumProcesses processes count)
       (let ((fact (new List-Factory)))
         (for-each (function dynamic (n)
                     (let ((id (array-ref processes n)))
@@ -1012,7 +1005,7 @@
   
   
   (method public virtual (present-location)
-    (format "{l :detail :human}" (get-list~ (get-parent))))
+    (format "{l detail: :human}" (get-list~ (get-parent))))
   
   
   ;;;
@@ -1191,39 +1184,38 @@
     (set-list lst))
   
   
-  (method public (parse . rest)
-    (bind-keywords ((separator "\\")) rest
-      (let ((printer (new String-Printer))
-            (first? true)
-            (aliases '()))
-        (letrec ((parse
-                  (function dynamic (path)
-                    (cond ((null? path))
-                          ((eq? path true))
-                          ((string? path)
-                           (if first?
-                               (set! first? false)
-                             (display separator printer))
-                           (display path printer))
-                          ((symbol? path)
-                           (if (memq? path aliases)
-                               (error "Recursive alias {a} in {s}" path self)
-                             (set! aliases (cons path aliases))
-                             (if (is-alias? path)
-                                 (parse (get-alias path))
-                               (error "Unknown alias: {s}" path))))
-                          ((pair? path)
-                           (parse (car path))
-                           (parse (cdr path)))
-                          (else
-                           (error "Bad pathname component {t}" path))))))
-          (parse (get-list)))
-        (add-suffix printer)
-        (get-output~ printer))))
+  (method public (parse (separator: separator "\\"))
+    (let ((printer (new String-Printer))
+          (first? true)
+          (aliases '()))
+      (letrec ((parse
+                 (function dynamic (path)
+                   (cond ((null? path))
+                         ((eq? path true))
+                         ((string? path)
+                          (if first?
+                              (set! first? false)
+                            (display separator printer))
+                          (display path printer))
+                         ((symbol? path)
+                          (if (memq? path aliases)
+                              (error "Recursive alias {a} in {s}" path self)
+                            (set! aliases (cons path aliases))
+                            (if (is-alias? path)
+                                (parse (get-alias path))
+                              (error "Unknown alias: {s}" path))))
+                         ((pair? path)
+                          (parse (car path))
+                          (parse (cdr path)))
+                         (else
+                          (error "Bad pathname component {t}" path))))))
+        (parse (get-list)))
+      (add-suffix printer)
+      (get-output~ printer)))
   
   
   (method public (parse-unix)
-    (parse :separator "/"))
+    (parse separator: "/"))
   
   
   (method protected virtual (add-suffix printer)
@@ -1234,13 +1226,12 @@
     (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
 
 
-  (method public (move-pathname dst . rest)
+  (method public (move-pathname dst (error?: error? true))
     (rename-file (parse) (parse~ dst))
     @windows-specific
-    (bind-keywords ((error? true)) rest
-      (let ((ok? (MoveFile (parse) (parse~ dst))))
-        (when (and error? (not ok?))
-          (error "Unable to move {t} to {t}" self dst)))))
+    (let ((ok? (MoveFile (parse) (parse~ dst))))
+      (when (and error? (not ok?))
+        (error "Unable to move {t} to {t}" self dst))))
   
 
   (method (compare-object target)
@@ -1332,15 +1323,14 @@
     )
   
   
-  (method public (get-attributes . rest)
+  (method public (get-attributes (error?: error? true))
     (unimplemented 'get-attributes)
     @windows-specific
-    (bind-keywords ((error? true)) rest
-      (let ((attributes (GetFileAttributes (parse))))
-        (if (= attributes -1)
-            (when error?
-              (error "Unable to get file attributes for {t}" self))
-          attributes))))
+    (let ((attributes (GetFileAttributes (parse))))
+      (if (= attributes -1)
+          (when error?
+            (error "Unable to get file attributes for {t}" self))
+        attributes)))
   
   
   (method public (set-attributes flags)
@@ -1386,35 +1376,33 @@
   ;;;
   
   
-  (method public (anchor-to anchor . rest)
-    (bind-keywords ((error? true)) rest
-      (let* ((base-list (get-list~ anchor))
-             (base-expd (expand~ anchor))
-             (base-length (length base-expd))
-             (expd (expand))
-             (rank (mismatch base-expd expd test: ci=))
-             (result-list))
-        (call/ec
-          (lambda (return)
-            (cond ((not rank)
-                   (set! result-list base-list))
-                  ((< rank base-length)
-                   (if error?
-                       (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
-                     (return {})))
-                  (else
-                   (set! result-list (append base-list (subseq expd base-length)))))
-            (new (class-of self) result-list))))))
+  (method public (anchor-to anchor (error?: error? true))
+    (let* ((base-list (get-list~ anchor))
+           (base-expd (expand~ anchor))
+           (base-length (length base-expd))
+           (expd (expand))
+           (rank (mismatch base-expd expd test: ci=))
+           (result-list))
+      (call/ec
+        (lambda (return)
+          (cond ((not rank)
+                 (set! result-list base-list))
+                ((< rank base-length)
+                 (if error?
+                     (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
+                   (return {})))
+                (else
+                 (set! result-list (append base-list (subseq expd base-length)))))
+          (new (class-of self) result-list)))))
   
   
-  (method public (anchorize . rest)
-    (bind-keywords ((anchors {})) rest
-      (let* ((anchors (if (not anchors) (default-anchors) anchors))
-             (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: false))) anchors))
-             (sorted (sort < anchored key: (function dynamic (path) (length (get-list~ path))))))
-        (if (null? sorted)
-            self
-          (car sorted)))))
+  (method public (anchorize (anchors: anchors {}))
+    (let* ((anchors (if (not anchors) (default-anchors) anchors))
+           (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: false))) anchors))
+           (sorted (sort < anchored key: (function dynamic (path) (length (get-list~ path))))))
+      (if (null? sorted)
+          self
+        (car sorted))))
   
   
   (method (default-anchors)
@@ -1438,38 +1426,37 @@
   
   
   (method (get-modal . rest)
-    (unimplemented 'get-modal)
-    @convert
     (bind-keywords ((mode 'open) (actual {}) . others) rest
+      (unimplemented 'get-modal)
+      @convert
       (let ((class (case mode
                      ((open) OpenFile-Dialog)
                      ((save) SaveFile-Dialog))))
-        (apply [get-modal class] :directory (essay actual (get-directory~ actual)) others))))
+        (apply [get-modal class] directory: (essay actual (get-directory~ actual)) others))))
   
   
   (method (new-moniker list)
     (new self list)))
 
 
-(definition public (create-temporary-file . rest)
+(definition public (create-temporary-file (directory: directory {}) (prefix: prefix "JZZ"))
   (unimplemented 'create-temporary-file)
   @windows-specific
-  (bind-keywords ((directory {}) (prefix "JZZ")) rest
-    (let* ((directory (either directory (get-tmp-directory)))
-           (dir (parse~ directory)))
-      (if (empty-string? dir)
-          (error "Unable to use {t} as a temporary directory" directory)
-        (let ((filename (make-string MAX_PATH)))
-          (GetTempFileName (parse~ directory) prefix 0 filename)
-          (adjust-string filename)
-          (new File (list 'Native filename)))))))
+  (let* ((directory (either directory (get-tmp-directory)))
+         (dir (parse~ directory)))
+    (if (empty-string? dir)
+        (error "Unable to use {t} as a temporary directory" directory)
+      (let ((filename (make-string MAX_PATH)))
+        (GetTempFileName (parse~ directory) prefix 0 filename)
+        (adjust-string filename)
+        (new File (list 'Native filename))))))
 
 
 (class File metaclass File-Class extends Pathname
   
   
   (method (print printer readably)
-    (format printer "~{File {l :detail :v}}"
+    (format printer "~{File {l detail: :v}}"
             (get-list)
             readably))
   
@@ -1500,25 +1487,23 @@
     (get-parent))
 
 
-  (method public (copy-file dst . rest)
+  (method public (copy-file dst (overwrite-read-only?: overwrite-read-only? false))
     (_copy-file (parse) (parse~ dst))
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false)) rest
-      (overwrite-read-only~ dst overwrite-read-only?)
-      (let ((ok? (CopyFile (parse) (parse~ dst) false)))
-        (when (not ok?)
-          (error "Unable to copy file {t} to {t}" self dst)))))
+    (overwrite-read-only~ dst overwrite-read-only?)
+    (let ((ok? (CopyFile (parse) (parse~ dst) false)))
+      (when (not ok?)
+        (error "Unable to copy file {t} to {t}" self dst))))
   
   
-  (method public (delete-file . rest)
+  (method public (delete-file (overwrite-read-only?: overwrite-read-only? false) (error?: error? true))
     (file-delete (parse))
     @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (error? true)) rest
-      (overwrite-read-only overwrite-read-only?)
-      (let ((deleted? (DeleteFile (parse))))
-        (when (and error? (not deleted?))
-          (error "Unable to delete file {t}" self))
-        deleted?)))
+    (overwrite-read-only overwrite-read-only?)
+    (let ((deleted? (DeleteFile (parse))))
+      (when (and error? (not deleted?))
+        (error "Unable to delete file {t}" self))
+      deleted?))
   
   
   (method (overwrite-read-only overwrite-read-only?)
@@ -1600,10 +1585,9 @@
       (read-lines reader)))
 
 
-  (method (save-lines lines . rest)
-    (bind-keywords ((platform {}) (use-utf8? false)) rest
-      (with-closed ((printer (new File-Printer self)))
-        (write-lines printer lines (either platform Win32) use-utf8?)))))
+  (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? false))
+    (with-closed ((printer (new File-Printer self)))
+      (write-lines printer lines (either platform Win32) use-utf8?))))
 
 
 (definition public inline (file? object)
@@ -1623,10 +1607,10 @@
   
   
   (method (get-modal . rest)
-    (unimplemented 'get-modal)
-    @convert
     (bind-keywords ((mode {}) (actual {}) . others) rest
-      (apply [get-modal BrowseFolder-Dialog] :directory actual others)))
+      (unimplemented 'get-modal)
+      @convert
+      (apply [get-modal BrowseFolder-Dialog] directory: actual others)))
   
   
   (method (new-moniker list)
@@ -1637,7 +1621,7 @@
   
   
   (method (print printer readably)
-    (format printer "~{Directory {l :detail :v}}"
+    (format printer "~{Directory {l detail: :v}}"
             (get-list)
             readably))
   
@@ -1680,68 +1664,64 @@
     (new Directory (append (get-list) (if (list? name) name (list name)))))
   
   
-  (method public (new-unique-file name . rest)
-    (bind-keywords ((separator "_")) rest
-      (let ((file (new-file name)))
-        (if (not (exists?~ file))
-            file
-          (let ((base (extract-base name))
-                (ext (extract-extension name))
-                (suffix 1))
-            (while (exists?~ file)
-              (set! file (new-file (format "{a}{a}{a width: 2 :justify :right :padding #\\0}.{a}" base (either separator "") suffix ext)))
-              (increase! suffix))
-            file)))))
+  (method public (new-unique-file name (separator: separator "_"))
+    (let ((file (new-file name)))
+      (if (not (exists?~ file))
+          file
+        (let ((base (extract-base name))
+              (ext (extract-extension name))
+              (suffix 1))
+          (while (exists?~ file)
+            (set! file (new-file (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (either separator "") suffix ext)))
+            (increase! suffix))
+          file))))
 
 
-  (method public (copy-directory dst . rest)
+  (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? false) (copy?: copy? true))
     (unimplemented 'copy-directory)
     @windows-specific
-    (bind-keywords ((copier {}) (feedback {}) (touch-files? false) (copy? true)) rest
-      (when feedback
-        (feedback self))
-      (create-directories~ dst)
-      (let ((destination
-             (function dynamic (path)
-               (append (get-list~ dst) (list (get-name~ path))))))
-        (iterate-directory
-          (function dynamic (path)
-            (when (or (eq? copy? true) (copy? path))
-              (if (is? path File)
-                  (let ((dest (new File (destination path))))
-                    (if copier
-                        (copier path dest)
-                      (copy-file~ path dest))
-                    (when touch-files?
-                      (touch~ dest)))
-                (copy-directory~ path (new Directory (destination path)) feedback: feedback :touch-files? touch-files? :copy? copy?))))
-          files?: true
-          directories?: true
-          recursive?: false))))
-  
-  
-  (method public virtual (delete-directory . rest)
-    (unimplemented 'delete-directory)
-    @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback {})) rest
-      (when feedback
-        (feedback self))
-      (empty-directory :overwrite-read-only? overwrite-read-only? feedback: feedback)
-      (remove-directory)))
-  
-  
-  (method public (empty-directory . rest)
-    (unimplemented 'empty-directory)
-    @windows-specific
-    (bind-keywords ((overwrite-read-only? false) (feedback {})) rest
+    (when feedback
+      (feedback self))
+    (create-directories~ dst)
+    (let ((destination
+            (function dynamic (path)
+              (append (get-list~ dst) (list (get-name~ path))))))
       (iterate-directory
         (function dynamic (path)
-          (if (is? path File)
-              (delete-file~ path :overwrite-read-only? overwrite-read-only?)
-            (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
+          (when (or (eq? copy? true) (copy? path))
+            (if (is? path File)
+                (let ((dest (new File (destination path))))
+                  (if copier
+                      (copier path dest)
+                    (copy-file~ path dest))
+                  (when touch-files?
+                    (touch~ dest)))
+              (copy-directory~ path (new Directory (destination path)) feedback: feedback :touch-files? touch-files? :copy? copy?))))
         files?: true
         directories?: true
         recursive?: false)))
+  
+  
+  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? false) (feedback: feedback {}))
+    (unimplemented 'delete-directory)
+    @windows-specific
+    (when feedback
+      (feedback self))
+    (empty-directory :overwrite-read-only? overwrite-read-only? feedback: feedback)
+    (remove-directory))
+  
+  
+  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? false) (feedback: feedback {}))
+    (unimplemented 'empty-directory)
+    @windows-specific
+    (iterate-directory
+      (function dynamic (path)
+        (if (is? path File)
+            (delete-file~ path :overwrite-read-only? overwrite-read-only?)
+          (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
+      files?: true
+      directories?: true
+      recursive?: false))
   
   
   (method public (remove-directory)
@@ -1761,12 +1741,11 @@
     (output~ compiler ")"))
   
   
-  (method public (get-content . rest)
-    (bind-keywords ((nodes? true) (leaves? true)) rest
-      (let ((fact (new List-Factory)))
-        (when nodes? (collect-nodes fact))
-        (when leaves? (collect-leaves fact))
-        (get-output~ fact))))
+  (method public (get-content (nodes?: nodes? true) (leaves?: leaves? true))
+    (let ((fact (new List-Factory)))
+      (when nodes? (collect-nodes fact))
+      (when leaves? (collect-leaves fact))
+      (get-output~ fact)))
   
   
   (method (collect-nodes fact)
@@ -1816,14 +1795,13 @@
   ;;;
   
   
-  (method public virtual (iterate-directory proc . rest)
-    (bind-keywords ((full? true) (files? true) (directories? false) (sort? false) (recursive? true) (ignored-directories '())) rest
-      (let ((directory (if full? (get-list) {})))
-        (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
-          (function dynamic (list kind)
-            (case kind
-              ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
-              ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory)))))))))
+  (method public virtual (iterate-directory proc (full?: full? true) (files?: files? true) (directories?: directories? false) (sort?: sort? false) (recursive?: recursive? true) (ignored-directories: ignored-directories '()))
+    (let ((directory (if full? (get-list) {})))
+      (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
+        (function dynamic (list kind)
+          (case kind
+            ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
+            ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory))))))))
   
   
   (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
@@ -1874,18 +1852,17 @@
         (FindClose handle))))
   
   
-  (method public (count-files . rest)
-    (bind-keywords ((filter {}) (max-count false)) rest
-      (let ((count 0))
-        (call/ec
-          (lambda (return)
-            (iterate-directory
-              (function dynamic (file)
-                (when (or (not filter) (filter file))
-                  (increase! count)
-                  (when (and max-count (> count max-count))
-                    (return false)))))
-            count))))))
+  (method public (count-files (filter: filter {}) (max-count: max-count false))
+    (let ((count 0))
+      (call/ec
+        (lambda (return)
+          (iterate-directory
+            (function dynamic (file)
+              (when (or (not filter) (filter file))
+                (increase! count)
+                (when (and max-count (> count max-count))
+                  (return false)))))
+          count)))))
 
 
 (definition public inline (directory? object)
@@ -1916,11 +1893,10 @@
       @convert (get-manifest-source name)))
 
 
-(definition public (get-alias name . rest)
-  (bind-keywords ((error? true)) rest
-    (either (find-alias name)
-            (when error?
-              (error "Unknown alias: {t}" name)))))
+(definition public (get-alias name (error?: error? true))
+  (either (find-alias name)
+          (when error?
+            (error "Unknown alias: {t}" name))))
 
 
 (definition public (find-alias name)
@@ -2301,9 +2277,9 @@
 
 
 (definition public (dump-stack . rest)
-  (unimplemented 'dump-stack)
-  @windows-specific
   (bind-keywords ((file {}) (user-feedback? false) . others) rest
+    (unimplemented 'dump-stack)
+    @windows-specific
     ;; this is really not nice but will do for now as sometimes a stack
     ;; just won't do if the problem is entirelly in the C code...
     (if (and (/= (hibyte (GetAsyncKeyState VK_CONTROL)) 0)
@@ -2349,43 +2325,42 @@
     (apply print-stack-to destination rest)))
 
 
-(definition (print-stack-to printer . rest)
+(definition (print-stack-to printer . rest) ;; CONVERT (thread: thread (active-thread)) (execution-stack: execution-stack (bootsafe-get-execution-stack)) (exception: exception {}))
   (unimplemented 'print-stack-to)
-  @windows-specific
-  (bind-keywords ((thread (active-thread)) (execution-stack (bootsafe-get-execution-stack)) (exception {})) rest
-    (format printer "~{Process-Snapshot{%}{%}")
-    (format printer "  ;;;{%}")
-    (format printer "  ;;;; PROCESS{%}")
-    (format printer "  ;;;{%}{%}")
-    (format printer "  :process {s}{%}" (parse~ (module-pathname)))
-    (format printer "  :application {s}{%}" (command-argument "app"))
-    (format printer "  :date \"")
-    (print-date printer)
-    (format printer "\"{%}")
-    (when exception
-      (format printer "{%}")
-      (format printer "  ;;;{%}")
-      (format printer "  ;;;; EXCEPTION{%}")
-      (format printer "  ;;;{%}{%}")
-      (format printer "  :exception{%}")
-      (format printer "  ~{Exception-Snapshot{%}")
-      (format printer "   :description {s}}{%}" (get-message~ exception)))
+  @windows-specific (
+  (format printer "~{Process-Snapshot{%}{%}")
+  (format printer "  ;;;{%}")
+  (format printer "  ;;;; PROCESS{%}")
+  (format printer "  ;;;{%}{%}")
+  (format printer "  :process {s}{%}" (parse~ (module-pathname)))
+  (format printer "  :application {s}{%}" (command-argument "app"))
+  (format printer "  date: \"")
+  (print-date printer)
+  (format printer "\"{%}")
+  (when exception
     (format printer "{%}")
-    ;; todo
-    (when execution-stack
-      )
     (format printer "  ;;;{%}")
-    (format printer "  ;;;; THREADS{%}")
+    (format printer "  ;;;; EXCEPTION{%}")
     (format printer "  ;;;{%}{%}")
-    (format printer "  :threads{%}")
-    (format printer "  (~{Thread-Snapshot{%}")
-    (format printer "    :model {a}{%}" (type-name (class-of thread)))
-    (format printer "    :label {s}{%}" (get-name~ thread))
-    (format printer "    state: {a}{%}" (get-state~ thread))
-    (format printer "    :call-stack{%}")
-    (format printer "    (")
-    (print-stack-content thread printer)
-    (format printer ")})}{%}")))
+    (format printer "  :exception{%}")
+    (format printer "  ~{Exception-Snapshot{%}")
+    (format printer "   :description {s}}{%}" (get-message~ exception)))
+  (format printer "{%}")
+  ;; todo
+  (when execution-stack
+    )
+  (format printer "  ;;;{%}")
+  (format printer "  ;;;; THREADS{%}")
+  (format printer "  ;;;{%}{%}")
+  (format printer "  :threads{%}")
+  (format printer "  (~{Thread-Snapshot{%}")
+  (format printer "    :model {a}{%}" (type-name (class-of thread)))
+  (format printer "    :label {s}{%}" (get-name~ thread))
+  (format printer "    state: {a}{%}" (get-state~ thread))
+  (format printer "    :call-stack{%}")
+  (format printer "    (")
+  (print-stack-content thread printer)
+  (format printer ")})}{%}")))
 
 
 ;; Temp copied from Date class because I don't want to make Date a core class
@@ -2402,7 +2377,7 @@
           (hour   (get st 'wHour))
           (minute (get st 'wMinute))
           (second (get st 'wSecond)))
-      (format printer "{a width: 4 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0} {a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}{a}{a width: 2 :justify :right :padding #\\0}"
+      (format printer "{a width: 4 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0} {a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}"
         (subseq (->string year) 0 4)
         date-separator
         month
@@ -2448,15 +2423,14 @@
   (toplevel-hwnds))
 
 ;;tofix
-(definition public (process-windows . rest)
+(definition public (process-windows (include-invisibles?: include-invisibles? false))
   (unimplemented 'process-windows)
   @integrate
-  (bind-keywords ((include-invisibles? false)) rest
-    (collect (function dynamic (hwnd)
-               (let ((window (get-window hwnd)))
-                 (when (and window (or include-invisibles? (get-visible?~ window)))
-                   window)))
-             (process-hwnds))))
+  (collect (function dynamic (hwnd)
+             (let ((window (get-window hwnd)))
+               (when (and window (or include-invisibles? (get-visible?~ window)))
+                 window)))
+           (process-hwnds)))
 
 
 (definition public (all-child-windows hwnd)

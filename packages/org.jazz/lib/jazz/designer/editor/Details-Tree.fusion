@@ -68,7 +68,7 @@
     (unless (or (null? origin) (eq? origin self))
       (let ((component (car selection)))
         (when component
-          (bind-values (client parent?) (determine-client component force-parent?)
+          (receive (client parent?) (determine-client component force-parent?)
             (set-client client)
             (if (not parent?)
                 {}
@@ -76,14 +76,14 @@
                 (when row
                   (void) ;; to not get an empty body
                   @waiting-this-causes-a-bug-in-the-card-update
-                  (set-selection (list (row-rank row)) :generate-event? true)))))))))
+                  (set-selection (list (row-rank row)) generate-event?: true)))))))))
   
   
   @group
   (method (selection-changed selection old origin force-parent? focus?)
     (let ((component (car selection)))
       (when (or (null? component) (is? component Group))
-        (set-selection '() :generate-event? false)
+        (set-selection '() generate-event?: false)
         (set-client component))))
   
   
@@ -99,12 +99,11 @@
   ;;;
 
 
-  (method (update . rest)
-    (bind-keywords ((expand-state (get-expand-state)) (selected-components (selected-components))) rest
-      (with-update-locked
-        (function dynamic ()
-          (setup-columns)
-          (insert-rows expand-state selected-components)))))
+  (method (update (expand-state: expand-state (get-expand-state)) (selected-components: selected-components (selected-components)))
+    (with-update-locked
+      (function dynamic ()
+        (setup-columns)
+        (insert-rows expand-state selected-components))))
   
   
   (method (setup-columns)
@@ -112,13 +111,13 @@
       (set! base (essay client (get-addable-base~ client)))
       (set! details (essay client (get-addable-details~ client)))
       (set-filled-column {})
-      (remove-columns :preserve-node-column? true)
+      (remove-columns preserve-node-column?: true)
       (if (or (null? base) (null? details))
           (set-filled-column (get-name~ node-column))
         (let ((first? true))
           (for-each (function dynamic (detail)
                       (bind (path width filled?) detail
-                        (bind-values (base ignore name title) (split-detail-path base {} path)
+                        (receive (base ignore name title) (split-detail-path base {} path)
                           (let ((property (unit-field base name)))
                             (if (null? property)
                                 (error "Addable child {a} of {a} has no property {a}" base client name)
@@ -171,7 +170,7 @@
                                   (if (not based?)
                                       (new Tree-Label title: "")
                                     (bind (path width filled?) detail
-                                      (bind-values (base component name ignore) (split-detail-path base component path)
+                                      (receive (base component name ignore) (split-detail-path base component path)
                                         (let* ((property (unit-field base name))
                                                (value (read-property component property))
                                                (title (present-property~ component property value)))
@@ -215,9 +214,9 @@
   
   (method (on-designer evt)
     (case (get-kind~ evt)
-      ((:child-add) (child-add (get-property~ evt :child) (get-property~ evt parent:)))
-      ((:child-remove) (child-remove (get-property~ evt :child)))
-      ((:property-change) (property-change (get-property~ evt :component) (get-property~ evt property:) (get-property~ evt :value)))))
+      ((:child-add) (child-add (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:child-remove) (child-remove (get-property~ evt child:)))
+      ((:property-change) (property-change (get-property~ evt component:) (get-property~ evt property:) (get-property~ evt value:)))))
   
   
   (method (child-add child parent)

@@ -214,8 +214,8 @@
   (method (on-designer evt)
     (nextmethod evt)
     (case (get-kind~ evt)
-      ((:child-add) (child-add (get-property~ evt :child) (get-property~ evt parent:)))
-      ((:child-remove) (child-remove (get-property~ evt :child)))))
+      ((:child-add) (child-add (get-property~ evt child:) (get-property~ evt parent:)))
+      ((:child-remove) (child-remove (get-property~ evt child:)))))
   
   
   (method (child-add child parent)
@@ -248,7 +248,7 @@
     (let* ((sender (get-sender~ evt))
            (combo (get-combo~ sender))
            (pos (new Point 0 [height (get-size~ sender)])))
-      (track-popup-menu~ sender (new Policies-Menu) pos :initiator combo)))
+      (track-popup-menu~ sender (new Policies-Menu) pos initiator: combo)))
   
   
   (method (on-highlight-document evt)
@@ -272,7 +272,7 @@
            (parent (selected-object))
            (file (with-import-directory default-directory? parent
                    (function dynamic (directory)
-                     (get-modal OpenFile-Dialog :extensions '(("Jazz Files (*.jazz)" . "*.jazz")) :directory directory)))))
+                     (get-modal OpenFile-Dialog extensions: '(("Jazz Files (*.jazz)" . "*.jazz")) directory: directory)))))
       (install-product file parent false)))
   
   
@@ -390,9 +390,9 @@
                 (is? parent Product))
         (let ((default-directory (either (default-import-directory parent :must-exist? false) {Directory User})))
           (when (or (exists?~ default-directory)
-                    (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) :type 'question) 'yes))
+                    (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
             (create-directories~ default-directory)
-            (bind-values (kind template directory name) (get-modal Add-File-Dialog :directory default-directory)
+            (receive (kind template directory name) (get-modal Add-File-Dialog directory: default-directory)
               (when (memq? kind '(product module project))
                 (set! directory (new-directory~ directory name))
                 (create~ directory))
@@ -463,9 +463,9 @@
            (product (ascendant-product parent))
            (directory (with-import-directory default-directory? parent
                         (function dynamic (directory)
-                          (get-modal BrowseFolder-Dialog :directory directory))))
+                          (get-modal BrowseFolder-Dialog directory: directory))))
            (count (count-files~ directory :filter (function dynamic (file) (import-filter? product file)) :max-count MaxFiles-Warning)))
-      (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) :type 'question) 'yes))
+      (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames product (list directory))
           (let ((component (import-pathname product directory parent false)))
             (process-refresh~ designer component 'descendants))
@@ -478,7 +478,7 @@
            (product (ascendant-product parent))
            (files (with-import-directory default-directory? parent
                     (function dynamic (directory)
-                      (get-modal OpenFile-Dialog :multiple-selection? true :directory directory)))))
+                      (get-modal OpenFile-Dialog multiple-selection?: true directory: directory)))))
       (import-pathnames product files parent)))
   
   
@@ -538,35 +538,34 @@
       (when (ci= ext "jazz")
         (let ((info (extract-jazz-file-unit file)))
           (when info
-            (bind-values (package type name extends) info
+            (receive (package type name extends) info
               (when (in-manifest? extends)
                 (subtype? (autoload extends) Product))))))))
   
   
-  (method (default-import-directory object . rest)
+  (method (default-import-directory object (must-exist?: must-exist? true))
     (unimplemented 'default-import-directory)
     @convert
-    (bind-keywords ((must-exist? true)) rest
-      (letrec ((default
-                (function dynamic (object)
-                  (typecase object
-                    ((Workbench)
-                     {Directory Root})
-                    ((Product)
-                     (let ((source (get-manifest-source (type-name (class-of object)))))
-                       (get-parent~ source)))
-                    ((Product-Group)
-                     (get-directory~ object))
-                    (else
-                     (let ((parent-dir (default (get-parent~ object))))
-                       (when parent-dir
-                         (let ((dir (new Directory (append (get-list~ parent-dir) (list (get-name~ object))))))
-                           (if (or (not must-exist?) (exists?~ dir))
-                               dir
-                             parent-dir)))))))))
-        (let ((dir (default object)))
-          (when dir
-            (anchorize~ dir))))))
+    (letrec ((default
+               (function dynamic (object)
+                 (typecase object
+                   ((Workbench)
+                    {Directory Root})
+                   ((Product)
+                    (let ((source (get-manifest-source (type-name (class-of object)))))
+                      (get-parent~ source)))
+                   ((Product-Group)
+                    (get-directory~ object))
+                   (else
+                    (let ((parent-dir (default (get-parent~ object))))
+                      (when parent-dir
+                        (let ((dir (new Directory (append (get-list~ parent-dir) (list (get-name~ object))))))
+                          (if (or (not must-exist?) (exists?~ dir))
+                              dir
+                            parent-dir)))))))))
+      (let ((dir (default object)))
+        (when dir
+          (anchorize~ dir)))))
   
   
   (method (with-import-directory default-directory? object proc)
@@ -650,7 +649,7 @@
                               (bind (what path) info
                                 (add what (reverse path))))
                             out-of-synch)
-                  (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box :type 'confirmation :content border)))))))))
+                  (message-box "The following elements are out of synch. Synchronize?" class: Synchronize-Box type: 'confirmation content: border)))))))))
   
   
   ;;;
@@ -854,7 +853,7 @@
       @w
       (new Thread
         name: "File Compiler"
-        :information file
+        information: file
         context: self
         execute: proc)))
   
@@ -1208,7 +1207,7 @@
       (for-each (function dynamic (policy)
                   (let ((name (get-name~ policy))
                         (title (get-title~ policy)))
-                    (new Check-Item parent: self :checked? (eq? name [Current-Policy Workbench-Manager]) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :policy name)))))
+                    (new Check-Item parent: self checked?: (eq? name [Current-Policy Workbench-Manager]) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :policy name)))))
                 policies)))
   
   

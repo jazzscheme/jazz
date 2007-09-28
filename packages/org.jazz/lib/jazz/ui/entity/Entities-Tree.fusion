@@ -155,12 +155,12 @@
     '())
   
   
-  (method public virtual (add-entity factory (parent: parent {}) (presentation: presentation {}) (properties: properties (quote ())) (select?: select? true))
+  (method public virtual (add-entity factory (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? true))
     (let* ((class (get-class~ factory))
            (selected (selected-entity))
            (parent (either parent (relocation-parent selected class) selected client))
            (extra-properties properties))
-      (bind-values (presentation added-properties) (if presentation (values presentation '()) (add-entity-request factory parent))
+      (receive (presentation added-properties) (if presentation (values presentation '()) (add-entity-request factory parent))
         (let ((child (new class parent: parent))
               (name (presentation->name~ factory presentation))
               (controller (get-controller)))
@@ -179,17 +179,16 @@
             (entity-properties-request factory)))
   
   
-  (method protected virtual (entity-presentation-request factory brothers . rest)
+  (method protected virtual (entity-presentation-request factory brothers (initial-value: initial-value {}))
     (if (get-name-prohibited?~ factory)
         {}
-      (bind-keywords ((initial-value {})) rest
-        (let* ((name-mandatory? (get-name-mandatory?~ factory))
-               (name-unicity? (get-name-unicity?~ factory))
-               (unicity-domain (essay name-unicity? (map (function dynamic (entity) (get-presentation~ entity)) brothers)))
-               (name-validator (entity-name-validator))
-               (pres (localize (get-factory-presentation~ factory)))
-               (presentation (request-string title: (new Locales :english (format "Enter {a} Name" pres) :french "Entrez le nom") :initial-value initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
-          presentation))))
+      (let* ((name-mandatory? (get-name-mandatory?~ factory))
+             (name-unicity? (get-name-unicity?~ factory))
+             (unicity-domain (essay name-unicity? (map (function dynamic (entity) (get-presentation~ entity)) brothers)))
+             (name-validator (entity-name-validator))
+             (pres (localize (get-factory-presentation~ factory)))
+             (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
+        presentation)))
   
   
   (method protected virtual (entity-properties-request factory)
@@ -227,7 +226,7 @@
     (let ((row (entity-row entity)))
       (when row
         (ensure-expanded row)
-        (let* ((presentation (entity-presentation-request (get-factory~ entity) (entity-brothers entity) :initial-value (get-presentation~ entity)))
+        (let* ((presentation (entity-presentation-request (get-factory~ entity) (entity-brothers entity) initial-value: (get-presentation~ entity)))
                (rank (row-rank row))
                (cell (new Cell rank 0)))
           (end-rename entity cell presentation)))))
@@ -489,12 +488,12 @@
                 (delete-entities~ controller entities))))))))
   
   
-  (method (confirm-close (entities (quote ())))
+  (method (confirm-close (entities '()))
     (confirm-action "Delete selected objects?"))
   
   
   (method (confirm-action text)
-    (let ((code (message-box (localize text) :type 'confirmation)))
+    (let ((code (message-box (localize text) type: 'confirmation)))
       (case code
         ((yes) true)
         ((no) false)

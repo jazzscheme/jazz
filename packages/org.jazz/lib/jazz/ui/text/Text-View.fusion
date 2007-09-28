@@ -150,7 +150,7 @@
     (when (not text)
       (set-content (empty-content)))
     (when editable?
-      (set! caret-pulse (new Pulse :owner self :period 500 :pulse-handler (new Event-Handler execute: (function dynamic (evt) (pulse-caret))))))
+      (set! caret-pulse (new Pulse owner: self period: 500 pulse-handler: (new Event-Handler execute: (function dynamic (evt) (pulse-caret))))))
     (set! tab-stops (make-tab-stops)))
   
   
@@ -414,18 +414,17 @@
             (set-selection (get-range~ expl)))))))
   
   
-  (method (with-safe-explore proc . rest)
-    (bind-keywords ((action 'ask)) rest
-      (catch (Explore-Error err
-               (case action
-                 ((ask)
-                  (when (eq? (message-box (get-message~ err) :type 'question :yes "Show Me" :no "Ignore") 'yes)
-                    (set-selection (get-range~ err))
-                    (throw-cancel)))
-                 ((ignore)
-                  (throw-cancel)))
-               {})
-        (proc))))
+  (method (with-safe-explore proc (action: action 'ask))
+    (catch (Explore-Error err
+                          (case action
+                            ((ask)
+                             (when (eq? (message-box (get-message~ err) type: 'question yes: "Show Me" no: "Ignore") 'yes)
+                               (set-selection (get-range~ err))
+                               (throw-cancel)))
+                            ((ignore)
+                             (throw-cancel)))
+                          {})
+      (proc)))
   
   
   ;;;
@@ -466,11 +465,11 @@
   
   
   (method (on-backspace-press evt)
-    (backspace-press {} :word? (get-property~ evt :word?)))
+    (backspace-press {} word?: (get-property~ evt word?:)))
   
   
   (method (on-delete-press evt)
-    (delete-press {} :word? (get-property~ evt :word?)))
+    (delete-press {} word?: (get-property~ evt word?:)))
   
   
   (method (on-paragraph-style evt)
@@ -621,19 +620,17 @@
                (recorder (get-recorder~ appl)))
           (when recorder
             (let ((handler {Event-Handler :focus on-insert})
-                  (event (new Event (if char? :char key:) self :content key)))
+                  (event (new Event (if char? :char key:) self content: key)))
               (when (record-event?~ appl event)
                 (record~ recorder handler event))))))))
   
   
-  (method (backspace-press key . rest)
-    (bind-keywords ((word? false)) rest
-      (backspace word?)))
+  (method (backspace-press key (word?: word? false))
+    (backspace word?))
   
   
-  (method (delete-press key . rest)
-    (bind-keywords ((word? false)) rest
-      (delete-action word?)))
+  (method (delete-press key (word?: word? false))
+    (delete-action word?))
   
   
   (method (return-press key)
@@ -657,9 +654,9 @@
   
   (method (on-insert evt)
     (let ((kind (get-kind~ evt))
-          (content (get-property~ evt :content)))
+          (content (get-property~ evt content:)))
       (case kind
-        ((key: :char) (call-key-press content))
+        ((:key :char) (call-key-press content))
         ((:string) (insert-string content)))))
   
   
@@ -688,7 +685,7 @@
   
   
   (method protected virtual (empty-content)
-    (new Text :paragraphs (list "")))
+    (new Text paragraphs: (list "")))
   
   
   (method (get-content)
@@ -775,7 +772,7 @@
     (let* ((content (get-content))
            (limit (get-limit))
            (use-utf8? (determine-use-utf8? content)))
-      (save-lines~ moniker content :platform platform :use-utf8? use-utf8?)))
+      (save-lines~ moniker content platform: platform use-utf8?: use-utf8?)))
   
   
   (method (determine-use-utf8? content)
@@ -818,7 +815,7 @@
   (method (on-export-html evt)
     (let* ((moniker (get-moniker))
            (initial-filename (essay moniker (format "{a}.html" (get-base~ moniker))))
-           (file (get-modal SaveFile-Dialog :initial-filename initial-filename :default-extension "html" :extensions '(("HTML (*.html)" . "*.html")))))
+           (file (get-modal SaveFile-Dialog :initial-filename initial-filename :default-extension "html" extensions: '(("HTML (*.html)" . "*.html")))))
       (with-closed ((output (new File-Printer file)))
         (let ((convert (new TextToHTML-Exporter self output)))
           (export-html~ convert)))
@@ -975,7 +972,7 @@
             (reset-selection pos))
           (let ((par (get-paragraph [row pos])))
             (if (< [h view] (paragraph-left~ par))
-                (set-selection (selection-line [row pos]) :set-anchor? true)
+                (set-selection (selection-line [row pos]) set-anchor?: true)
               (when (or focus? (not focus-selects-all?))
                 (if (shift-down?)
                     (change-selection pos)
@@ -1031,13 +1028,13 @@
                (parts (range-difference range selection))
                (player (get-player))
                (root (get-root)))
-          (bind-values (dh dv sc) (get-delta~ root self)
+          (receive (dh dv sc) (get-delta~ root self)
             (change-selection pos)
             (with-closed ((region (multi-part-region parts dh dv sc)))
               (when region
                 (if final?
                     (invalidate-region~ player region true)
-                  (redraw-window~ player :region region)
+                  (redraw-window~ player region: region)
                   (set! previous-pos pos)))))))))
   
   
@@ -1051,22 +1048,21 @@
             (with-safe-explore
               (function dynamic ()
                 (when (outer-expr~ expl)
-                  (set-selection (get-range~ expl) :set-anchor? true))
+                  (set-selection (get-range~ expl) set-anchor?: true))
                 (set! selecting? true)
                 (set! selection-mode 'word)
                 (reset-virtual)
                 (set! previous-pos pos))))))))
   
   
-  (method protected (context-menu-click pos . rest)
-    (bind-keywords ((move-caret {})) rest
-      (when (and enabled? selectable?)
-        (set-focus self)
-        (let ((text (view->text pos)))
-          (when (and (/= move-caret 'never)
-                     (or (= move-caret 'always) (< text (get-start)) (>= text (get-end))))
-            (set-caret (view->text pos))
-            (update-caret))))))
+  (method protected (context-menu-click pos (move-caret: move-caret {}))
+    (when (and enabled? selectable?)
+      (set-focus self)
+      (let ((text (view->text pos)))
+        (when (and (/= move-caret 'never)
+                   (or (= move-caret 'always) (< text (get-start)) (>= text (get-end))))
+          (set-caret (view->text pos))
+          (update-caret)))))
   
   
   (method (right-mouse-down pos)
@@ -1209,8 +1205,8 @@
   
   
   (method public (on-home evt)
-    (let ((document? (get-property~ evt :document?))
-          (extend? (get-property~ evt :extend?)))
+    (let ((document? (get-property~ evt document?:))
+          (extend? (get-property~ evt extend?:)))
       (reset-virtual)
       (if document?
           (if extend?
@@ -1228,8 +1224,8 @@
   
   
   (method public (on-end evt)
-    (let ((document? (get-property~ evt :document?))
-          (extend? (get-property~ evt :extend?)))
+    (let ((document? (get-property~ evt document?:))
+          (extend? (get-property~ evt extend?:)))
       (reset-virtual)
       (if document?
           (if extend?
@@ -1239,13 +1235,12 @@
       (process-selection-change)))
   
   
-  (method public (goto-paragraph-end . rest)
-    (bind-keywords ((extend-selection? false)) rest
-      (let* ((pos (selection-tail 'forward))
-             (end (new Cell [row pos] (paragraph-length [row pos]))))
-        (if extend-selection?
-            (change-selection end)
-          (set-caret end)))))
+  (method public (goto-paragraph-end (extend-selection?: extend-selection? false))
+    (let* ((pos (selection-tail 'forward))
+           (end (new Cell [row pos] (paragraph-length [row pos]))))
+      (if extend-selection?
+          (change-selection end)
+        (set-caret end))))
   
   
   (method (left-arrow-press modifiers)
@@ -1366,21 +1361,20 @@
   (method public (on-remove-spaces evt)
     (if (not (empty-selection?))
         (bell)
-      (remove-spaces selection :keep (get-property~ evt :keep))))
+      (remove-spaces selection keep: (get-property~ evt keep:))))
   
   
-  (method public (remove-spaces pos . rest)
-    (bind-keywords ((keep 'one/none)) rest
-      (let ((expl (new (explorer-class) self start: [start pos] end: [end pos])))
-        (backward-whitespaces~ expl)
-        (forward-whitespaces~ expl)
-        (let* ((range (get-range~ expl))
-               (one-left? (and (= [row start range] [row end range]) (= (+ [col start range] 1) [col end range]))))
-          (replace (get-range~ expl)
-                   (case keep
-                     ((none) (list ""))
-                     ((one) (list " "))
-                     ((one/none) (if one-left? (list "") (list " ")))))))))
+  (method public (remove-spaces pos (keep: keep 'one/none))
+    (let ((expl (new (explorer-class) self start: [start pos] end: [end pos])))
+      (backward-whitespaces~ expl)
+      (forward-whitespaces~ expl)
+      (let* ((range (get-range~ expl))
+             (one-left? (and (= [row start range] [row end range]) (= (+ [col start range] 1) [col end range]))))
+        (replace (get-range~ expl)
+                 (case keep
+                   ((none) (list ""))
+                   ((one) (list " "))
+                   ((one/none) (if one-left? (list "") (list " "))))))))
   
   
   (method public (on-display-info evt)
@@ -1402,15 +1396,14 @@
   ;;;
   
   
-  (method (range-region range dh dv sc . rest)
-    (bind-keywords ((top {}) (bottom {})) rest
-      (let ((region (new Region)))
-        (with ((proc <Procedure>
-                 (function dynamic (paragraph start end)
-                   (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
-                     (combine!~ region sub 'or)))))
-          (for-each-range range proc))
-        region)))
+  (method (range-region range dh dv sc (top: top {}) (bottom: bottom {}))
+    (let ((region (new Region)))
+      (with ((proc <Procedure>
+               (function dynamic (paragraph start end)
+                 (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
+                   (combine!~ region sub 'or)))))
+        (for-each-range range proc))
+      region))
   
   
   (method (row-range-rect row start end)
@@ -1438,7 +1431,7 @@
     (let ((player (get-player)))
       (when player
         (let ((root (get-root)))
-          (bind-values (dh dv sc) (get-delta~ root self)
+          (receive (dh dv sc) (get-delta~ root self)
             (with-closed ((region (range-region range dh dv sc)))
               (invalidate-region~ player region true)))))))
   
@@ -1594,7 +1587,7 @@
   
   (method public (on-jump-mark evt)
     (when mark
-      (if (get-property~ evt :extend?)
+      (if (get-property~ evt extend?:)
           (set-selection (new Range
                            (minimum (list [start selection-anchor] [start mark]))
                            (maximum (list [end selection-anchor] [end mark]))))
@@ -1641,20 +1634,19 @@
     selection)
   
   
-  (method public (set-selection range . rest)
-    (bind-keywords ((ensure-displayed? true) (set-anchor? true)) rest
-      (validate-range range)
-      (when (and range (/= selection range))
-        (when (or set-anchor? (not selection-anchor))
-          (set-selection-anchor range))
-        (update-selection range)
-        (update-caret)
-        (when ensure-displayed?
-          ;; To allow forward mouse drag scrolling.
-          (unless selecting?
-            (ensure-displayed)))
-        (unless (and mouse-down? (eq? mouse-in self))
-          (update-focus-actions~ (get-application))))))
+  (method public (set-selection range (ensure-displayed?: ensure-displayed? true) (set-anchor?: set-anchor? true))
+    (validate-range range)
+    (when (and range (/= selection range))
+      (when (or set-anchor? (not selection-anchor))
+        (set-selection-anchor range))
+      (update-selection range)
+      (update-caret)
+      (when ensure-displayed?
+        ;; To allow forward mouse drag scrolling.
+        (unless selecting?
+          (ensure-displayed)))
+      (unless (and mouse-down? (eq? mouse-in self))
+        (update-focus-actions~ (get-application)))))
   
   
   (method public (update-selection range)
@@ -1662,7 +1654,7 @@
       (if (not player)
           (set! selection range)
         (let ((root (get-root)))
-          (bind-values (dh dv sc) (get-delta~ root self)
+          (receive (dh dv sc) (get-delta~ root self)
             (with-closed ((old (selection-region-all dh dv sc)))
               (set! selection range)
               (with-closed ((new (selection-region-all dh dv sc)))
@@ -1678,7 +1670,7 @@
   
   (method public (reset-selection pos)
     (let ((range (new Range pos pos)))
-      (set-selection range :set-anchor? true)))
+      (set-selection range set-anchor?: true)))
   
   
   (method (fit-range range)
@@ -1714,7 +1706,7 @@
   ;; The selection change up to a specified position
   (method public (change-selection pos . rest)
     (bind-keywords ((set-anchor? false) . others) rest
-      (when pos (apply set-selection (selection-range pos) :set-anchor? set-anchor? others))))
+      (when pos (apply set-selection (selection-range pos) set-anchor?: set-anchor? others))))
   
   
   (method (fit-caret)
@@ -1863,7 +1855,7 @@
   (method (on-goto-line evt)
     (let* ((start (get-start))
            (line (+ [row start] 1))
-           (string (request-string title: "Goto Line" :prefix "Line no:" :initial-value (->string line))))
+           (string (request-string title: "Goto Line" :prefix "Line no:" initial-value: (->string line))))
       (goto-line (- (parse-integer string) 1))))
   
   
@@ -2204,15 +2196,14 @@
     (insert-string (cn)))
   
   
-  (method public (insert-hyperlink string . rest)
-    (bind-keywords ((font {}) (anchor {}) (action {})) rest
-      (let* ((font (either font {Font name: Hyperlink}))
-             (style (new Hyperlink-Style font: font color: {Color name: Hyperlink} :anchor anchor action: action)))
-        (insert-styled string style))))
+  (method public (insert-hyperlink string (font: font {}) (anchor: anchor {}) (action: action {}))
+    (let* ((font (either font {Font name: Hyperlink}))
+           (style (new Hyperlink-Style font: font color: {Color name: Hyperlink} :anchor anchor action: action)))
+      (insert-styled string style)))
   
   
   (method public (insert-image moniker)
-    (let ((style (new Image-Style :moniker moniker)))
+    (let ((style (new Image-Style moniker: moniker)))
       (insert-styled " " style)))
   
   
@@ -2230,17 +2221,16 @@
   ;;;
   
   
-  (method public (create-table . rest)
-    (bind-keywords ((size {}) (header? true) (node-column? false) (columns '()) (row-count {})) rest
-      (let* ((border (new Table-Border))
-             (tree (locate~ border 'tree)))
-        (when size
-          (set-size~ border size))
-        (when (not header?)
-          (set-shown?~ (locate~ border 'header) false))
-        (setup-columns tree node-column? columns)
-        (setup-rows tree header? columns row-count)
-        border)))
+  (method public (create-table (size: size {}) (header?: header? true) (node-column?: node-column? false) (columns: columns '()) (row-count: row-count {}))
+    (let* ((border (new Table-Border))
+           (tree (locate~ border 'tree)))
+      (when size
+        (set-size~ border size))
+      (when (not header?)
+        (set-shown?~ (locate~ border 'header) false))
+      (setup-columns tree node-column? columns)
+      (setup-rows tree header? columns row-count)
+      border))
   
   
   (method public (insert-table . rest)
@@ -2521,7 +2511,7 @@
   
   
   (method (parse-string-content content)
-    (new Text :paragraphs (split content (cn))))
+    (new Text paragraphs: (split content (cn))))
   
   
   (method (parse-formatted-content content)
@@ -2539,9 +2529,9 @@
                               (parse-paragraph par intern-format intern-style))
                             content)))
       (new Formatted-Text
-        :formats (get-output~ formats)
-        :styles (get-output~ styles)
-        :paragraphs paragraphs)))
+        formats: (get-output~ formats)
+        styles: (get-output~ styles)
+        paragraphs: paragraphs)))
   
   
   (method (parse-paragraph par intern-format intern-style)
@@ -2592,7 +2582,7 @@
            (add-styling
             (function dynamic (proc)
               (when (not style)
-                (set! style (new Text-Style :base 'Default)))
+                (set! style (new Text-Style base: 'Default)))
               (proc style))))
       (while (not (done?~ scan))
         (let ((target (get-next~ scan)))
@@ -2623,7 +2613,7 @@
                    (portfolio (get-icons-cache~ (get-application))))
                (set! string " ")
                (set! style (new Image-Style :portfolio portfolio :image-name image))))
-            ((:moniker)
+            ((moniker:)
              (let ((moniker (get-next~ scan))
                    (scaling {}))
                (let ((next (peek~ scan)))
@@ -2631,7 +2621,7 @@
                    (get-next~ scan)
                    (set! scaling (get-next~ scan))))
                (set! string " ")
-               (set! style (new Image-Style :moniker moniker :scaled? scaling :scaling scaling))))
+               (set! style (new Image-Style moniker: moniker :scaled? scaling :scaling scaling))))
             (else
              (if (string? target)
                  (set! string target)
@@ -2684,9 +2674,9 @@
                               (parse-jml-paragraph par intern-format intern-style))
                             (get-children~ node))))
       (new Formatted-Text
-        :formats (get-output~ formats)
-        :styles (get-output~ styles)
-        :paragraphs paragraphs)))
+        formats: (get-output~ formats)
+        styles: (get-output~ styles)
+        paragraphs: paragraphs)))
   
   
   (method (parse-jml-paragraph node intern-format intern-style)
@@ -2735,7 +2725,7 @@
   
   (method (parse-style-tag node intern-style)
     (let ((string (get-text~ (first-child~ node)))
-          (style (new Text-Style :base 'Default)))
+          (style (new Text-Style base: 'Default)))
       (for-each-property (function dynamic (property value)
                            (case property
                              ((font-weight) (set-font-weight~ style value))
@@ -2793,11 +2783,11 @@
     (let ((formats (collect-persistent~ formats))
           (styles (collect-persistent~ styles)))
       (format printer "~{Formatted-Text{%}")
-      (format printer " :formats{%}")
+      (format printer " formats:{%}")
       (print-formats formats printer)
-      (format printer " :styles{%}")
+      (format printer " styles:{%}")
       (print-styles styles printer)
-      (format printer " :paragraphs{%}")
+      (format printer " paragraphs:{%}")
       (format printer " (")
       (let ((first? true)
             (paragraphs (if (not range)
@@ -2856,9 +2846,9 @@
     (let ((formats (collect-persistent~ formats))
           (styles (collect-persistent~ styles)))
       (new Formatted-Text
-        :formats (coerce formats List)
-        :styles (coerce styles List)
-        :paragraphs (get-formatted-paragraphs formats styles))))
+        formats: (coerce formats List)
+        styles: (coerce styles List)
+        paragraphs: (get-formatted-paragraphs formats styles))))
   
   
   (method (get-formatted-paragraphs formats styles)
@@ -3222,11 +3212,10 @@
         (invalidate-drawing~ paragraph))))
   
   
-  (method public (for-each-paragraph proc . rest)
-    (bind-keywords ((start 0) (end (get-length))) rest
-      (let ((paragraphs (get-paragraphs)))
-        (loop (for row from start below end)
-              (proc row (element paragraphs row))))))
+  (method public (for-each-paragraph proc (start: start 0) (end: end (get-length)))
+    (let ((paragraphs (get-paragraphs)))
+      (loop (for row from start below end)
+            (proc row (element paragraphs row)))))
   
   
   (method public (for-each-selected-paragraph proc)
@@ -3281,9 +3270,8 @@
         actual)))
   
   
-  (method public (get-format name . rest)
-    (bind-keywords ((error? true)) rest
-      (locate~ formats name error?: error?)))
+  (method public (get-format name (error?: error? true))
+    (locate~ formats name error?: error?))
   
   
   (method public (intern-format format)
@@ -3350,11 +3338,10 @@
         actual)))
   
   
-  (method public (get-style name/style . rest)
-    (bind-keywords ((error? true)) rest
-      (if (is? name/style Style)
-          name/style
-        (locate~ styles name/style error?: error?))))
+  (method public (get-style name/style (error?: error? true))
+    (if (is? name/style Style)
+        name/style
+      (locate~ styles name/style error?: error?)))
   
   
   (method public (intern-style style)
@@ -3419,7 +3406,7 @@
   (method (make-runs string styles infos)
     (let ((offset 0))
       (map (function dynamic (info)
-             (bind-optionals ((str) (rank {})) info
+             (bind (str rank) info
                (let* ((limit (+ offset (length str)))
                       (subseq (subseq! string offset limit))
                       (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
@@ -3844,11 +3831,11 @@
   
   
   (method (pick-text-color sender)
-    (popup-colors~ (get-parent~ sender) :geometry {Cell 3 8}))
+    (popup-colors~ (get-parent~ sender) geometry: {Cell 3 8}))
   
   
   (method (pick-highlight-color sender)
-    (popup-colors~ (get-parent~ sender) :geometry {Cell 3 8}))
+    (popup-colors~ (get-parent~ sender) geometry: {Cell 3 8}))
   
   
   ;;;
@@ -3925,72 +3912,67 @@
     (select-previous targets))
   
   
-  (method public (search-string target . rest)
+  (method public (search-string target (position: position {}) (reverse?: reverse? false) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     (unimplemented 'search-string)
     @convert
-    (bind-keywords ((position {}) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
-      (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
-             (found (JzTextSearch (get-paragraphs) (get-limit) target [row pos] [col pos] reverse? whole-words? ignore-case? self constituent-test)))
-        (when found
-          (new Cell (car found) (cdr found))))))
+    (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
+           (found (JzTextSearch (get-paragraphs) (get-limit) target [row pos] [col pos] reverse? whole-words? ignore-case? self constituent-test)))
+      (when found
+        (new Cell (car found) (cdr found)))))
   
   
-  (method public (multisearch-string targets . rest)
+  (method public (multisearch-string targets (position: position {}) (end: end (get-limit)) (extended?: extended? false) (reverse?: reverse? false) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     (unimplemented 'multisearch-string)
     @convert
-    (bind-keywords ((position {}) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
-      (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
-             (found (JzTextMultiSearch (get-paragraphs) end targets [row pos] [col pos] extended? reverse? whole-words? ignore-case? self constituent-test)))
-        (when found
-          (bind ((row . col) . target) found
-            (cons (new Cell row col) target))))))
+    (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
+           (found (JzTextMultiSearch (get-paragraphs) end targets [row pos] [col pos] extended? reverse? whole-words? ignore-case? self constituent-test)))
+      (when found
+        (bind ((row . col) . target) found
+          (cons (new Cell row col) target)))))
   
   
-  (method (multisearch-content strings . rest)
-    (bind-keywords ((position {}) (end (get-limit)) (extended? false) (reverse? false) (whole-words? (get-whole-words?~ (get-application))) (ignore-case? (get-ignore-case?~ (get-application))) (expression? (get-expression?~ (get-application))) (constituent-test (get-constituent-test~ syntax))) rest
-      (cond (expression?
-             (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
-                    (moniker (get-moniker))
-                    (mode (if (or (not moniker) (ci= (get-extension~ moniker) "jazz")) 'code 'quotation))
-                    (found (search-expressions~ expl mode strings position whole-words? ignore-case?)))
+  (method (multisearch-content strings (position: position {}) (end: end (get-limit)) (extended?: extended? false) (reverse?: reverse? false) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (expression?: expression? (get-expression?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+    (cond (expression?
+            (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
+                   (moniker (get-moniker))
+                   (mode (if (or (not moniker) (ci= (get-extension~ moniker) "jazz")) 'code 'quotation))
+                   (found (search-expressions~ expl mode strings position whole-words? ignore-case?)))
+              (when found
+                (car found))))
+          ;; Quick solution to the fact that the generic multisearch doesn't yet support multiline strings
+          ((some? (function dynamic (string)
+                    (search (cn) string))
+                  strings)
+           (with ((content (get-string-content)))
+             (let ((found (multisearch-string~ content strings position: (position-offset position) :reverse? reverse? :whole-words? whole-words? :ignore-case? ignore-case? :constituent-test constituent-test)))
                (when found
-                 (car found))))
-            ;; Quick solution to the fact that the generic multisearch doesn't yet support multiline strings
-            ((some? (function dynamic (string)
-                      (search (cn) string))
-                    strings)
-             (with ((content (get-string-content)))
-               (let ((found (multisearch-string~ content strings position: (position-offset position) :reverse? reverse? :whole-words? whole-words? :ignore-case? ignore-case? :constituent-test constituent-test)))
-                 (when found
-                   (bind (offset . string) found
-                     (new Range (offset-position offset) (offset-position (+ offset (length string)))))))))
-            (else
-             (let ((found (multisearch-string strings position: position :reverse? reverse? :constituent-test constituent-test)))
-               (when found
-                 (bind (cell . string) found
-                   (new Range cell (new Cell [row cell] (+ [col cell] (length string)))))))))))
+                 (bind (offset . string) found
+                   (new Range (offset-position offset) (offset-position (+ offset (length string)))))))))
+          (else
+           (let ((found (multisearch-string strings position: position :reverse? reverse? :constituent-test constituent-test)))
+             (when found
+               (bind (cell . string) found
+                 (new Range cell (new Cell [row cell] (+ [col cell] (length string))))))))))
 
   
-  (method public (search-occurrences string . rest)
-    (bind-keywords ((whole-words? false) (ignore-case? false) (constituent-test (get-constituent-test~ syntax))) rest
-      (let ((queue (new-queue)))
-        (for-each-paragraph
-          (function dynamic (row paragraph)
-            (let ((line [string paragraph]))
-              (for-each (lambda (col)
-                          (enqueue queue (new Cell row col)))
-                        (search string line all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
-        (queue-list queue))))
+  (method public (search-occurrences string (whole-words?: whole-words? false) (ignore-case?: ignore-case? false) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+    (let ((queue (new-queue)))
+      (for-each-paragraph
+        (function dynamic (row paragraph)
+          (let ((line [string paragraph]))
+            (for-each (lambda (col)
+                        (enqueue queue (new Cell row col)))
+                      (search string line all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
+      (queue-list queue)))
   
   
-  (method public (multisearch-occurrences targets . rest)
+  (method public (multisearch-occurrences targets (whole-words?: whole-words? false) (ignore-case?: ignore-case? false) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     '()
     @convert-optimized
-    (bind-keywords ((whole-words? false) (ignore-case? false) (constituent-test (get-constituent-test~ syntax))) rest
-      (map (function dynamic (info)
-             (bind ((row . col) . target) info
-               (cons (new Cell row col) target)))
-           (JzTextMultiSearchOccurrences (get-paragraphs) (get-limit) targets false whole-words? ignore-case? self constituent-test))))
+    (map (function dynamic (info)
+           (bind ((row . col) . target) info
+             (cons (new Cell row col) target)))
+         (JzTextMultiSearchOccurrences (get-paragraphs) (get-limit) targets false whole-words? ignore-case? self constituent-test)))
   
   
   ;;;

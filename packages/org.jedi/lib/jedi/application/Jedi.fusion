@@ -142,7 +142,7 @@
   
   
   (method (finish-process rest)
-    (bind-optionals ((launch-time {})) rest
+    (let ((launch-time (getf rest launch-time:)))
       (nextmethod rest)
       @convert/wait
       (display-boot-time launch-time)))
@@ -319,31 +319,30 @@
   ;;;
 
 
-  (method public (launch project . rest)
+  (method public (launch project (configuration: configuration {}) (jazz-directory: jazz-directory {}) (home-directory: home-directory (project-home~ project)) (user: user (either (essay configuration (get-user~ configuration)) (project-user~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c++?: debug-c++? (either (essay configuration (get-debug-c++?~ configuration)) false)) (wait?: wait? false) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
     @convert/wait
-    (bind-keywords ((configuration {}) (jazz-directory {}) (home-directory (project-home~ project)) (user (either (essay configuration (get-user~ configuration)) (project-user~ project))) (debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c++? (either (essay configuration (get-debug-c++?~ configuration)) false)) (wait? false) (command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime (either (essay configuration (get-runtime~ configuration)) 'launcher))) rest
-      (let ((app-class (project-application~ project)))
-        (if (not app-class)
-            (error "{a} is not a launchable project" (get-name~ project))
-          (export-manifest~ project)
-          (when debug?
-            (start-stub-listener)
-            (start-proxy-dispatcher))
-          (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c++? {File Base "InterpreterDebug.exe"} {File Base "Interpreter.exe"})) ((launcher) (if debug-c++? {File Base "LauncherDebug.exe"} {File Base "Launcher.exe"})))))
-                 (app-arg            (format " /app {a}" app-class))
-                 (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
-                 (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Root})))
-                 (user-arg           (if user (format " /user {a}" user) ""))
-                 (debug-arg          (if debug? (format " /debug true") ""))
-                 (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ stub-listener))) ""))
-                 (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ stub-listener)) ""))
-                 (action-arg         (if command-action (format " {a}" command-action) ""))
-                 (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
-                 (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg user-arg arguments-arg)))
-            (save-all)
-            @w
-            (debug-string command)
-            (create-process command :directory home-directory :wait? wait?))))))
+    (let ((app-class (project-application~ project)))
+      (if (not app-class)
+          (error "{a} is not a launchable project" (get-name~ project))
+        (export-manifest~ project)
+        (when debug?
+          (start-stub-listener)
+          (start-proxy-dispatcher))
+        (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c++? {File Base "InterpreterDebug.exe"} {File Base "Interpreter.exe"})) ((launcher) (if debug-c++? {File Base "LauncherDebug.exe"} {File Base "Launcher.exe"})))))
+               (app-arg            (format " /app {a}" app-class))
+               (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
+               (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Root})))
+               (user-arg           (if user (format " /user {a}" user) ""))
+               (debug-arg          (if debug? (format " /debug true") ""))
+               (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ stub-listener))) ""))
+               (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ stub-listener)) ""))
+               (action-arg         (if command-action (format " {a}" command-action) ""))
+               (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
+               (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg user-arg arguments-arg)))
+          (save-all)
+          @w
+          (debug-string command)
+          (create-process command directory: home-directory :wait? wait?)))))
 
   
   ;;;
@@ -351,21 +350,20 @@
   ;;;
   
   
-  (method public (execute project . rest)
+  (method public (execute project (user: user (project-user~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? false))
     @convert/wait
-    (bind-keywords ((user (project-user~ project)) (command-action (project-command-action~ project)) (command-arguments (project-command-arguments~ project)) (wait? false)) rest
-      (let ((app-class (project-application~ project)))
-        (if (not app-class)
-            (error "{a} is not an executable project" (get-presentation~ project))
-          (let* ((file          (outputed-file~ project))
-                 (filename      (parse~ file))
-                 (user-arg      (if user (format " /user {a}" user) ""))
-                 (action-arg    (if command-action (format " {a}" command-action) ""))
-                 (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
-                 (command       (format "\"{a}\"{a}{a}{a}" filename action-arg user-arg arguments-arg)))
-            @w
-            (debug-string command)
-            (create-process command :wait? wait?))))))
+    (let ((app-class (project-application~ project)))
+      (if (not app-class)
+          (error "{a} is not an executable project" (get-presentation~ project))
+        (let* ((file          (outputed-file~ project))
+               (filename      (parse~ file))
+               (user-arg      (if user (format " /user {a}" user) ""))
+               (action-arg    (if command-action (format " {a}" command-action) ""))
+               (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
+               (command       (format "\"{a}\"{a}{a}{a}" filename action-arg user-arg arguments-arg)))
+          @w
+          (debug-string command)
+          (create-process command :wait? wait?)))))
 
 
   ;;;
@@ -613,7 +611,7 @@
   (method (on-import-jsc-directory evt)
     @convert/wait
     (let ((directory (get-modal BrowseFolder-Dialog))
-          (name (request-string title: "Enter initial branch name" :prefix "Name" :initial-value "InitialImport"))
+          (name (request-string title: "Enter initial branch name" :prefix "Name" initial-value: "InitialImport"))
           (depot {Directory Native "C:" "JSC" "TestA" "Depot"} @w (get-modal BrowseFolder-Dialog))
           (importer (new JSC-Directory-Importer))
           (user (->string (type-name (get-user~ (get-application))))))

@@ -71,11 +71,10 @@
 ;;;
 
 
-(definition public (parse-jml jml . rest)
-  (bind-keywords ((preferences-class {}) (parser-class {})) rest
-    (let* ((pref (new (either preferences-class JML-Preferences)))
-           (parser (new (either parser-class JML-Parser) :preferences pref)))
-      (parse~ parser jml))))
+(definition public (parse-jml jml (preferences-class: preferences-class {}) (parser-class: parser-class {}))
+  (let* ((pref (new (either preferences-class JML-Preferences)))
+         (parser (new (either parser-class JML-Parser) preferences: pref)))
+    (parse~ parser jml)))
 
 
 ;;;
@@ -92,11 +91,10 @@
 ;;;
 
 
-(definition public (render-jml node printer . rest)
-  (bind-keywords ((preferences-class {}) (renderer-class {})) rest
-    (let* ((pref (new (either preferences-class JML-Preferences)))
-           (renderer (new (either renderer-class JML-Renderer) pref)))
-      (render~ renderer node printer))))
+(definition public (render-jml node printer (preferences-class: preferences-class {}) (renderer-class: renderer-class {}))
+  (let* ((pref (new (either preferences-class JML-Preferences)))
+         (renderer (new (either renderer-class JML-Renderer) pref)))
+    (render~ renderer node printer)))
 
 
 ;;;
@@ -104,30 +102,29 @@
 ;;;
 
 
-(definition public (parse-jml-properties/children list . rest)
-  (bind-keywords ((keywords? false) (proper? true)) rest
-    (let ((scan list)
-          (properties (new List-Factory))
-          (content {}))
-      (while (not-null? scan)
-        (let ((element (car scan)))
-          (if (and (not content) (keyword? element) (or (not proper?) (jml-keyword? element)))
-              (let ((put
-                      (function dynamic (property value)
-                        (put~ properties property)
-                        (put~ properties value))))
-                (if (jml-keyword? element)
-                    (begin
-                      (put (extract-jml-property element keywords?) (cadr scan))
-                      (set! scan (cddr scan)))
-                  (put element {})
-                  (set! scan (cdr scan))))
-            (when (not content)
-              (set! content (new List-Factory)))
-            (put~ content element)
-            (set! scan (cdr scan)))))
-      (values (get-output~ properties)
-              (if content (get-output~ content) '())))))
+(definition public (parse-jml-properties/children list (keywords?: keywords? false) (proper?: proper? true))
+  (let ((scan list)
+        (properties (new List-Factory))
+        (content {}))
+    (while (not-null? scan)
+      (let ((element (car scan)))
+        (if (and (not content) (keyword? element) (or (not proper?) (jml-keyword? element)))
+            (let ((put
+                    (function dynamic (property value)
+                      (put~ properties property)
+                      (put~ properties value))))
+              (if (jml-keyword? element)
+                  (begin
+                    (put (extract-jml-property element keywords?) (cadr scan))
+                    (set! scan (cddr scan)))
+                (put element {})
+                (set! scan (cdr scan))))
+          (when (not content)
+            (set! content (new List-Factory)))
+          (put~ content element)
+          (set! scan (cdr scan)))))
+    (values (get-output~ properties)
+            (if content (get-output~ content) '()))))
 
 
 (definition (extract-jml-property keyword keywords?)
@@ -137,16 +134,15 @@
       (symbol->keyword symbol))))
 
 
-(definition public (get-jml-property list property . rest)
-  (bind-keywords ((not-found '())) rest
-    (let ((scan list))
-      (call/ec
-        (lambda (return)
-          (while (not-null? scan)
-            (when (eqv? (car scan) property)
-              (return (cadr scan)))
-            (set! scan (cddr scan)))
-          not-found)))))
+(definition public (get-jml-property list property (not-found: not-found '()))
+  (let ((scan list))
+    (call/ec
+      (lambda (return)
+        (while (not-null? scan)
+          (when (eqv? (car scan) property)
+            (return (cadr scan)))
+          (set! scan (cddr scan)))
+        not-found))))
 
 
 ;;;
@@ -275,7 +271,7 @@
 (definition public (load-jml file)
   (with-closed ((reader (new File-Reader file)))
     (let* ((pref (new JML-Preferences))
-           (parser (new JML-Parser :preferences pref)))
+           (parser (new JML-Parser preferences: pref)))
       (parse~ parser reader))))
 
 

@@ -84,7 +84,7 @@
            (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
       (select-debuggee~ controller-debugger debuggee)
       (select-foreground-hwnd controller-toplevel-hwnd))
-    (break-action :type 'error message: message :location location frame: frame)))
+    (break-action type: 'error message: message :location location frame: frame)))
 
 
 ;;;
@@ -248,19 +248,18 @@
   (break-action message: message :edit? edit? :location location frame: frame))
 
 
-(definition public (break-action . rest)
-  (bind-keywords ((type 'break) (message {}) (edit? true) (location {}) (frame {})) rest
-    (let* ((appl (get-application))
-           (debugger (get-controller-debugger-server~ appl))
-           (location (essay edit? location))
-           (frame (essay edit? frame)))
-      (if (is? debugger Remote-Proxy)
-          (break-loop~ (get-loop~ (get-application)) :type type message: message frame: frame)
-        (let ((code-location (essay location (new Jazz-Code-Location location))))
-          (unwind-protect
-              (break-loop~ (get-loop~ (get-application)) :type type message: message frame: frame :proc (function dynamic () (install-break edit? frame code-location)))
-            (when edit?
-              (uninstall-break))))))))
+(definition public (break-action (type: type 'break) (message: message {}) (edit?: edit? true) (location: location {}) (frame: frame {}))
+  (let* ((appl (get-application))
+         (debugger (get-controller-debugger-server~ appl))
+         (location (essay edit? location))
+         (frame (essay edit? frame)))
+    (if (is? debugger Remote-Proxy)
+        (break-loop~ (get-loop~ (get-application)) type: type message: message frame: frame)
+      (let ((code-location (essay location (new Jazz-Code-Location location))))
+        (unwind-protect
+            (break-loop~ (get-loop~ (get-application)) type: type message: message frame: frame :proc (function dynamic () (install-break edit? frame code-location)))
+          (when edit?
+            (uninstall-break)))))))
 
 
 (definition (install-break edit? frame code-location)
@@ -269,7 +268,7 @@
     (when edit?
       (when code-location
         (let ((location (find-location~ code-location)))
-          (bind-values (frame text range) location
+          (receive (frame text range) location
             (fill~ text Break-Color [start range]))
           (set! break-indicator location)))
       (with-locked-update
@@ -283,7 +282,7 @@
   (when break-indicator
     (catch (Location-Error err
                            (message-box (get-message~ err)))
-      (bind-values (frame text range) break-indicator
+      (receive (frame text range) break-indicator
         (unfill~ text [start range]))
       (set! break-indicator {}))))
 

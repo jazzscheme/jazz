@@ -258,7 +258,7 @@
     true
     @convert
     (catch (Parse-Error err
-             (case (message-box (get-message~ err) :type 'question :yes "Change It" :no "Revert")
+             (case (message-box (get-message~ err) type: 'question yes: "Change It" no: "Revert")
                ((yes)
                 (focus-editor start: (get-start~ err) end: (get-end~ err))
                 false)
@@ -380,8 +380,8 @@
   (method public virtual (edit-in-cell)
     (let* ((tree (get-tree))
            (cell (new Cell (row-rank~ tree self) 1))
-           (border (new Border-View :border-type 'solid :border-color {Color name: Dark-Red}))
-           (scroller (new Scroller-View parent: border :vscroll? false :hscroll? false))
+           (border (new Border-View border-type: 'solid border-color: {Color name: Dark-Red}))
+           (scroller (new Scroller-View parent: border vscroll?: false hscroll?: false))
            (content (get-content~ scroller)))
       (set-layout-type~ content 'fill)
       (unless editor
@@ -401,14 +401,13 @@
       (set! editor {})))
   
   
-  (method public virtual (focus-editor . rest)
-    (bind-keywords ((start {}) (end {}) (select-all? true)) rest
-      (let ((editor (focused-editor)))
-        (when editor
-          (acquire-focus~ editor)
-          (cond ((null? start) (when select-all? (select-all~ editor)))
-                ((null? end) (set-caret~ editor start))
-                (else (set-selection~ editor (new Range start end))))))))
+  (method public virtual (focus-editor (start: start {}) (end: end {}) (select-all?: select-all? true))
+    (let ((editor (focused-editor)))
+      (when editor
+        (acquire-focus~ editor)
+        (cond ((null? start) (when select-all? (select-all~ editor)))
+              ((null? end) (set-caret~ editor start))
+              (else (set-selection~ editor (new Range start end)))))))
   
   
   (method public virtual (focused-editor)
@@ -423,8 +422,8 @@
   (method public (edit-in-row)
     (let* ((tree (get-tree))
            (subrow (add-row~ tree class: Editor-Row father: self :row-height (editor-height)))
-           (border (new Border-View parent: subrow :border-type 'solid :border-color {Color name: Dark-Red}))
-           (scroller (new Scroller-View parent: border :vscroll? true :hscroll? false)))
+           (border (new Border-View parent: subrow border-type: 'solid border-color: {Color name: Dark-Red}))
+           (scroller (new Scroller-View parent: border vscroll?: true hscroll?: false)))
       (unless editor
         (set! editor (new-editor)))
       (set-parent~ editor (get-content~ scroller))
@@ -455,9 +454,9 @@
   
   (method protected virtual (new-editor)
     (new (editor-class)
-      :value-row self
-      :left-padding 1
-      :top-padding 1))
+      value-row: self
+      left-padding: 1
+      top-padding: 1))
   
   
   (method protected virtual (editor-class)
@@ -519,17 +518,16 @@
     )
 
   
-  (method public (add-row father title value . rest)
-    (bind-keywords ((class Value-Row) (user-data {})) rest
-      (let* ((tree (get-tree))
-             (node (new Tree-Node title: title image: {Bitmap-Resource "Item"}))
-             (label (new Tree-Label))
-             (row (new class parent: tree :row-height 17 children: (list node label) user-data: user-data))
-             (value (if (= value 'unspecified) (default-value~ row) value))
-             (presented (present~ row value)))
-        (set-value~ row value)
-        (set-title~ label presented)
-        (add-row~ tree father: father :row row))))
+  (method public (add-row father title value (class: class Value-Row) (user-data: user-data {}))
+    (let* ((tree (get-tree))
+           (node (new Tree-Node title: title image: {Bitmap-Resource "Item"}))
+           (label (new Tree-Label))
+           (row (new class parent: tree :row-height 17 children: (list node label) user-data: user-data))
+           (value (if (= value 'unspecified) (default-value~ row) value))
+           (presented (present~ row value)))
+      (set-value~ row value)
+      (set-title~ label presented)
+      (add-row~ tree father: father :row row)))
 
   
   ;;;
@@ -599,7 +597,7 @@
           (let ((class (get-menu-class)))
             (if (null? class)
                 (bell)
-              (let ((menu (new class :value-row self)))
+              (let ((menu (new class value-row: self)))
                 (update-menu menu)
                 (track-popup-menu~ tree menu pos))))))))
   
@@ -610,10 +608,10 @@
   
   (method (update-menu menu)
     (when (is? father List-Row)
-      (new Label-Item parent: menu :before 'revert title: "Remove Item" icon: {Bitmap-Resource "Remove"} action-handler: (new Event-Handler target: self method-name: 'on-remove-item))
+      (new Label-Item parent: menu before: 'revert title: "Remove Item" icon: {Bitmap-Resource "Remove"} action-handler: (new Event-Handler target: self method-name: 'on-remove-item))
       (unless (auto-number?~ father)
-        (new Label-Item parent: menu :before 'revert title: "&Rename Item" action-handler: (new Event-Handler target: self method-name: 'on-rename-item) :accelerator '(F2)))
-      (new Separator-Item parent: menu :before 'revert)
+        (new Label-Item parent: menu before: 'revert title: "&Rename Item" action-handler: (new Event-Handler target: self method-name: 'on-rename-item) :accelerator '(F2)))
+      (new Separator-Item parent: menu before: 'revert)
       (layout-menu~ menu)))
   
   

@@ -130,24 +130,23 @@
     COLOR_BTNFACE)
   
 
-  (method public (register-class . rest)
+  (method public (register-class (class: class (window-class)) (icon: icon {}))
     @wait
-    (bind-keywords ((class (window-class)) (icon {})) rest
-      (let ((instance (current-instance))
-            (background (class-background))
-            (wc (make-WNDCLASS)))
-        (WNDCLASS-style-set! wc          (class-style))
-        (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
-        (WNDCLASS-cbClsExtra-set! wc     0)
-        (WNDCLASS-cbWndExtra-set! wc     0)
-        (WNDCLASS-hInstance-set! wc      instance)
-        (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon width: 16 height: 16) NULL)
-        (WNDCLASS-hCursor-set! wc        NULL)
-        ;; To-Fix Remettre le handle brush
-        (WNDCLASS-hbrBackground-set! wc  background)
-        (WNDCLASS-lpszMenuName-set! wc   NULL)
-        (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
-        (set! CLASS_ATOM (RegisterClass wc))))))
+    (let ((instance (current-instance))
+          (background (class-background))
+          (wc (make-WNDCLASS)))
+      (WNDCLASS-style-set! wc          (class-style))
+      (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
+      (WNDCLASS-cbClsExtra-set! wc     0)
+      (WNDCLASS-cbWndExtra-set! wc     0)
+      (WNDCLASS-hInstance-set! wc      instance)
+      (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon width: 16 height: 16) NULL)
+      (WNDCLASS-hCursor-set! wc        NULL)
+      ;; To-Fix Remettre le handle brush
+      (WNDCLASS-hbrBackground-set! wc  background)
+      (WNDCLASS-lpszMenuName-set! wc   NULL)
+      (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
+      (set! CLASS_ATOM (RegisterClass wc)))))
 
 
 (class Window metaclass Window-Class extends Figure implements Message-Consumer
@@ -754,31 +753,29 @@
     (RedrawWindow hwnd NULL NULL (bit-or RDW_ERASE RDW_INVALIDATE)))
   
   
-  (method public (fade-in . rest)
-    (bind-keywords ((fade-speed {})) rest
-      (set-alpha-blending 0)
-      (set-visible? true)
-      (update-window)
-      (let* ((max 255)
-             (delay (* (clocks/second) 0.15))
-             (now (clock))
-             (start now))
-        (while (< now (+ start delay))
-          (set-alpha-blending (ceil (* (- now start) (/ max delay))))
-          (set! now (clock)))
-        (set-alpha-blending max))
-      (set-layered? false)))
+  (method public (fade-in (fade-speed: fade-speed {}))
+    (set-alpha-blending 0)
+    (set-visible? true)
+    (update-window)
+    (let* ((max 255)
+           (delay (* (clocks/second) 0.15))
+           (now (clock))
+           (start now))
+      (while (< now (+ start delay))
+        (set-alpha-blending (ceil (* (- now start) (/ max delay))))
+        (set! now (clock)))
+      (set-alpha-blending max))
+    (set-layered? false))
   
   
-  (method public (fade-out)
+  (method public (fade-out (to: to 0) (step: step 5))
     @need-to-get-layered-attributes
-    (bind-keywords ((to 0) (step 5)) rest
-      (let ((alpha))
-        (loop (for n from 0 to to by step)
-              (set-alpha-blending n)
-              (set! alpha n))
-        (unless (= alpha to)
-          (set-alpha-blending to)))))
+    (let ((alpha))
+      (loop (for n from 0 to to by step)
+            (set-alpha-blending n)
+            (set! alpha n))
+      (unless (= alpha to)
+        (set-alpha-blending to))))
 
 
   ;;;
@@ -814,14 +811,13 @@
   ;;;
   
   
-  (method public (track-mouse-event flags . rest)
-    (bind-keywords ((time HOVER_DEFAULT)) rest
-      (with ((rec (TRACKMOUSEEVENT-make)))
-        (TRACKMOUSEEVENT-cbSize-set! rec (size-of-TRACKMOUSEEVENT))
-        (TRACKMOUSEEVENT-dwFlags-set! rec flags)
-        (TRACKMOUSEEVENT-hwndTrack-set! rec hwnd)
-        (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
-        (TrackMouseEvent rec))))
+  (method public (track-mouse-event flags (time: time HOVER_DEFAULT))
+    (with ((rec (TRACKMOUSEEVENT-make)))
+      (TRACKMOUSEEVENT-cbSize-set! rec (size-of-TRACKMOUSEEVENT))
+      (TRACKMOUSEEVENT-dwFlags-set! rec flags)
+      (TRACKMOUSEEVENT-hwndTrack-set! rec hwnd)
+      (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
+      (TrackMouseEvent rec)))
 
 
   ;;;
@@ -1005,7 +1001,7 @@
   (method public (ensure-displayed)
     (let ((outer (if (not parent) (get-size~ (get-desktop)) (get-size~ parent)))
           (rect (get-rect)))
-      (bind-values (new-position new-size) (fit-within outer rect :padding 8)
+      (receive (new-position new-size) (fit-within outer rect padding: 8)
         (set-size new-size)
         (set-position new-position))))
 
@@ -1083,12 +1079,11 @@
       (RECT->rect rect)))
 
 
-  (method public (scroll-window dh dv rect . rest)
-    (bind-keywords ((clip-rect {}) (erase? true)) rest
-      (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
-        (with ((rect (rect->RECT rect))
-               (clip-rect (rect->RECT clip-rect)))
-          (ScrollWindowEx hwnd dh dv rect clip-rect NULL NULL flags)))))
+  (method public (scroll-window dh dv rect (clip-rect: clip-rect {}) (erase?: erase? true))
+    (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
+      (with ((rect (rect->RECT rect))
+             (clip-rect (rect->RECT clip-rect)))
+        (ScrollWindowEx hwnd dh dv rect clip-rect NULL NULL flags))))
 
   
   (method public (invalidate-rect rect (erase? false))
@@ -1107,31 +1102,27 @@
       (InvalidateRect hwnd NULL erase?)))
 
   
-  (method public (redraw-window . rest)
-    (bind-keywords ((rect {}) (region {})) rest
-      (when hwnd
-        ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
-        ;; toplevel would redraw it's children. Hope it doesn't break any code...
-        (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
-          (with ((rect (if (not rect) NULL (rect->RECT rect))))
-            (RedrawWindow hwnd rect (if region (get-handle~ region) NULL) flags))))))
+  (method public (redraw-window (rect: rect {}) (region: region {}))
+    (when hwnd
+      ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
+      ;; toplevel would redraw it's children. Hope it doesn't break any code...
+      (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
+        (with ((rect (if (not rect) NULL (rect->RECT rect))))
+          (RedrawWindow hwnd rect (if region (get-handle~ region) NULL) flags)))))
 
 
-  (method public (invalidate-border . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (with-closed ((region (border-region insets: insets)))
-        (invalidate-region region))))
+  (method public (invalidate-border (insets: insets {Rect 1 1 1 1}))
+    (with-closed ((region (border-region insets: insets)))
+      (invalidate-region region)))
 
 
-  (method public (redraw-border . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (with-closed ((region (border-region insets: insets)))
-        (redraw-window :region region))))
+  (method public (redraw-border (insets: insets {Rect 1 1 1 1}))
+    (with-closed ((region (border-region insets: insets)))
+      (redraw-window region: region)))
 
 
-  (method public (border-region . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (frame-region (get-client-rect) insets: insets)))
+  (method public (border-region (insets: insets {Rect 1 1 1 1}))
+    (frame-region (get-client-rect) insets: insets))
 
 
   (method public (get-update-rect)
@@ -1189,13 +1180,12 @@
     (last (get-windows)))
     
   
-  (method public (get-windows . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (with ((proc <Procedure>
-              (function dynamic (child)
-                (and (is? child Window)
-                     (or include-invisibles? (get-visible?~ child))))))
-        (collect-if proc (get-children)))))
+  (method public (get-windows (include-invisibles?: include-invisibles? false))
+    (with ((proc <Procedure>
+             (function dynamic (child)
+               (and (is? child Window)
+                    (or include-invisibles? (get-visible?~ child))))))
+      (collect-if proc (get-children))))
 
 
   (method public (front-window?)

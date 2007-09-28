@@ -360,7 +360,7 @@
                    :initargs (cons position: (cons (get-position~ host)
                                                    (cons size: (cons (get-size~ host)
                                                                      initargs)))))))
-      (add-child~ designer pref session design-events?: false :select? false)))
+      (add-child~ designer pref session design-events?: false select?: false)))
   
   
   (method public virtual (focus-default)
@@ -693,14 +693,13 @@
     (set! outline value))
   
   
-  (method public (outline-select . rest)
-    (bind-keywords ((focus? false)) rest
-      (let* ((row (outline-row))
-             (rank (row-rank~ outline row))
-             (elem (if (and (is? outline Tree-View) (eq? (get-selection-mode~ outline) 'cell)) (new Cell rank 0) rank)))
-        (when focus?
-          (acquire-focus~ outline))
-        (set-selection~ outline (list elem)))))
+  (method public (outline-select (focus?: focus? false))
+    (let* ((row (outline-row))
+           (rank (row-rank~ outline row))
+           (elem (if (and (is? outline Tree-View) (eq? (get-selection-mode~ outline) 'cell)) (new Cell rank 0) rank)))
+      (when focus?
+        (acquire-focus~ outline))
+      (set-selection~ outline (list elem))))
   
   
   (method public (outline-row)
@@ -787,7 +786,7 @@
   (method (get-delta origin)
     (let ((origin-player (get-player~ origin)))
       (if (and player origin-player (neq? player origin-player))
-          (bind-values (h <Real> v <Real> sc <Real>) (get-lie-parent 0.0 0.0 1.0)
+          (receive (h <Real> v <Real> sc <Real>) (get-lie-parent 0.0 0.0 1.0)
             (let ((delta <Point> (- (get-global~ origin) (get-global))))
               (values (* [h delta] sc) (* [v delta] sc) sc)))
         (nextmethod origin))))
@@ -1009,7 +1008,7 @@
   (method public virtual (print-document)
     (unimplemented 'print-document)
     @Print-Dialog
-    (bind-values (hdc print-to-file? selection? pages? from to nb-copies orientation) (get-modal Print-Dialog)
+    (receive (hdc print-to-file? selection? pages? from to nb-copies orientation) (get-modal Print-Dialog)
       (if print-to-file?
           (print-picture)
         (let* ((dc (new DC hdc))
@@ -1042,38 +1041,36 @@
         recursive?: false)))
 
   
-  (method public virtual (print-layout . rest)
-    (bind-keywords ((from-preview? false)) rest
-      (with-locked-update
-        (function dynamic ()
-          (let* ((client (current-document))
-                 (current (selected-workspace))
-                 (ws (new Page-Workspace name: 'page :previous current)))
-            (apply-preferences~ ws)
-            (let* ((toplevel (get-toplevel))
-                   (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Page-Toolbar)))
-              (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
-              (layout-view~ toolbar))
-            (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
-                   (pane (get-guest~ frame)))
-              (acquire-focus~ pane)))))))
+  (method public virtual (print-layout (from-preview?: from-preview? false))
+    (with-locked-update
+      (function dynamic ()
+        (let* ((client (current-document))
+               (current (selected-workspace))
+               (ws (new Page-Workspace name: 'page :previous current)))
+          (apply-preferences~ ws)
+          (let* ((toplevel (get-toplevel))
+                 (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Page-Toolbar)))
+            (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
+            (layout-view~ toolbar))
+          (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
+                 (pane (get-guest~ frame)))
+            (acquire-focus~ pane))))))
   
 
-  (method public virtual (print-preview . rest)
-    (bind-keywords ((from-layout? false)) rest
-      (with-locked-update
-        (function dynamic ()
-          (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" host-visible?: false client: self))
-                 (pane (get-guest~ frame))
-                 (current (selected-workspace))
-                 (ws (new Preview-Workspace name: 'preview :previous current :pane pane)))
-            (apply-preferences~ ws)
-            (let* ((toplevel (get-toplevel))
-                   (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Preview-Toolbar)))
-              (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
-              (layout-view~ toolbar))
-            (set-visible?~ frame true)
-            (acquire-focus~ pane))))))
+  (method public virtual (print-preview (from-layout?: from-layout? false))
+    (with-locked-update
+      (function dynamic ()
+        (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" host-visible?: false client: self))
+               (pane (get-guest~ frame))
+               (current (selected-workspace))
+               (ws (new Preview-Workspace name: 'preview :previous current :pane pane)))
+          (apply-preferences~ ws)
+          (let* ((toplevel (get-toplevel))
+                 (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Preview-Toolbar)))
+            (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
+            (layout-view~ toolbar))
+          (set-visible?~ frame true)
+          (acquire-focus~ pane)))))
   
   
   (method public virtual (get-print-area context)
@@ -1129,35 +1126,34 @@
   
   
   @convert
-  (method public (export-picture . rest)
-    (bind-keywords ((context {}) (where 'file) (destination {}) (empty-clipboard? true)) rest
-      ;; it is necessary to use a temporary file because directly poping
-      ;; the savefile dialog can disrupt the context (ex: popups closing)
-      (let ((file (case where ((clipboard) {}) ((file) (create-temporary-file)))))
-        (with-cursor :wait
-          (function dynamic ()
-            (let ((metafile))
-              (with-closed ((picture (new Picture :file file)))
-                (with-printing
-                  (function dynamic ()
-                    (let* ((area (get-print-area context))
-                           (lie (get-lie))
-                           (lh [h lie])
-                           (lv [v lie]))
-                      (with ((content (offset-rect area lh lv)))
-                        (with-clipper~ picture content
-                          (function dynamic ()
-                            (paint-drawing picture context {} lh lv [left content] [top content] 1.0 false)))))))
-                (set! metafile (get-metafile~ picture)))
-              (if (eq? where 'clipboard)
-                  (set-clipboard metafile :type 'metafile :empty? empty-clipboard?)
-                (delete-metafile~ Picture metafile)
-                (catch (Cancel-Signal
-                         (delete-file~ file))
-                  (let ((dest (either destination (get-modal SaveFile-Dialog :default-extension "emf" :extensions '(("Enhanced metafile (*.emf)" . "*.emf"))))))
-                    (when (exists?~ dest)
-                      (delete-file~ dest))
-                    (move-pathname~ file dest))))))))))
+  (method public (export-picture (context: context {}) (where: where 'file) (destination: destination {}) (empty-clipboard?: empty-clipboard? true))
+    ;; it is necessary to use a temporary file because directly poping
+    ;; the savefile dialog can disrupt the context (ex: popups closing)
+    (let ((file (case where ((clipboard) {}) ((file) (create-temporary-file)))))
+      (with-cursor :wait
+        (function dynamic ()
+          (let ((metafile))
+            (with-closed ((picture (new Picture file: file)))
+              (with-printing
+                (function dynamic ()
+                  (let* ((area (get-print-area context))
+                         (lie (get-lie))
+                         (lh [h lie])
+                         (lv [v lie]))
+                    (with ((content (offset-rect area lh lv)))
+                      (with-clipper~ picture content
+                        (function dynamic ()
+                          (paint-drawing picture context {} lh lv [left content] [top content] 1.0 false)))))))
+              (set! metafile (get-metafile~ picture)))
+            (if (eq? where 'clipboard)
+                (set-clipboard metafile type: 'metafile :empty? empty-clipboard?)
+              (delete-metafile~ Picture metafile)
+              (catch (Cancel-Signal
+                       (delete-file~ file))
+                (let ((dest (either destination (get-modal SaveFile-Dialog :default-extension "emf" extensions: '(("Enhanced metafile (*.emf)" . "*.emf"))))))
+                  (when (exists?~ dest)
+                    (delete-file~ dest))
+                  (move-pathname~ file dest)))))))))
 
 
   ;;;
@@ -1243,7 +1239,7 @@
                 (with ((rect (get-bounds~ display))
                        (clipper (get-view-clipper))
                        (clip-rect (acquire~ display self clipper)))
-                  (scroll-view~ display dh dv rect :clip-rect clip-rect)))))))))
+                  (scroll-view~ display dh dv rect clip-rect: clip-rect)))))))))
   
   
   (method protected virtual (redraw-scrollbars)
@@ -1254,17 +1250,16 @@
     )
     
   
-  (method public (scroll-view dh dv rect . rest)
-    (bind-keywords ((clip-rect {}) (erase? true)) rest
-      (let ((player (get-player))
-            (root (get-root))
-            (display (get-display)))
-        (when (and player (fully-visible?))
-          (with ((acquired (acquire~ root self rect))
-                 (display-rect (get-display-rect))
-                 (clip-rect (acquire~ root display (either clip-rect display-rect))))
-            (bind-values (h v sc) (get-lie-parent 0.0 0.0 1.0)
-              (scroll-window~ player (round (* dh sc)) (round (* dv sc)) acquired :clip-rect clip-rect :erase? erase?)))))))
+  (method public (scroll-view dh dv rect (clip-rect: clip-rect {}) (erase?: erase? true))
+    (let ((player (get-player))
+          (root (get-root))
+          (display (get-display)))
+      (when (and player (fully-visible?))
+        (with ((acquired (acquire~ root self rect))
+               (display-rect (get-display-rect))
+               (clip-rect (acquire~ root display (either clip-rect display-rect))))
+          (receive (h v sc) (get-lie-parent 0.0 0.0 1.0)
+            (scroll-window~ player (round (* dh sc)) (round (* dv sc)) acquired clip-rect: clip-rect erase?: erase?))))))
  
   
   (method public (get-scrolled-position)
@@ -1461,31 +1456,29 @@
       v))
     
   
-  (method public (scroll-displayed h v rect . rest)
-    (bind-keywords ((clip-rect {}) (erase? true)) rest
-      (scroll-view~ (get-display) h v rect :clip-rect clip-rect :erase? erase?)))
+  (method public (scroll-displayed h v rect (clip-rect: clip-rect {}) (erase?: erase? true))
+    (scroll-view~ (get-display) h v rect clip-rect: clip-rect erase?: erase?))
   
   
-  (method public (scroll-needed start end context . rest)
-    (bind-keywords ((force-vertical {}) (force-horizontal {}) (reposition? false)) rest
-      (let ((display-pos (get-display-position))
-             (display-size (get-display-size))
-             (needed
-              (function dynamic (start end context pos size force-direction)
-                (let* ((start-offset (- pos start))
-                       (end-offset (- (+ pos size) end))
-                       (big-range? (> (- end start) size))
-                       (proc (function dynamic (use-head?)
-                               (let ((context (if context (round (* size context)) 0)))
-                                 (if use-head? (+ start-offset context) (- end-offset context))))))
-                  (cond
-                   (reposition? (proc (neq? force-direction 'tail)))
-                   ((and (> start-offset 0) (> end-offset 0)) (proc (if (not force-direction) (not big-range?) (eq? force-direction 'head))))
-                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
-                   (else 0))))))
-        (new Point
-          (needed [h start] [h end] (essay context (car context)) [h display-pos] [width display-size] force-horizontal)
-          (needed [v start] [v end] (essay context (cdr context)) [v display-pos] [height display-size] force-vertical)))))
+  (method public (scroll-needed start end context (force-vertical: force-vertical {}) (force-horizontal: force-horizontal {}) (reposition?: reposition? false))
+    (let ((display-pos (get-display-position))
+          (display-size (get-display-size))
+          (needed
+            (function dynamic (start end context pos size force-direction)
+              (let* ((start-offset (- pos start))
+                     (end-offset (- (+ pos size) end))
+                     (big-range? (> (- end start) size))
+                     (proc (function dynamic (use-head?)
+                             (let ((context (if context (round (* size context)) 0)))
+                               (if use-head? (+ start-offset context) (- end-offset context))))))
+                (cond
+                  (reposition? (proc (neq? force-direction 'tail)))
+                  ((and (> start-offset 0) (> end-offset 0)) (proc (if (not force-direction) (not big-range?) (eq? force-direction 'head))))
+                  ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
+                  (else 0))))))
+      (new Point
+        (needed [h start] [h end] (essay context (car context)) [h display-pos] [width display-size] force-horizontal)
+        (needed [v start] [v end] (essay context (cdr context)) [v display-pos] [height display-size] force-vertical))))
   
   
   (method public (horizontal-scroll-needed target direction)
@@ -1569,22 +1562,20 @@
   ;;;
   
   
-  (method public (for-each-view proc . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (loop (for child in children)
-            (when (and (is? child View)
-                       (or include-invisibles? (get-visible?~ child)))
-              (proc child)))))
+  (method public (for-each-view proc (include-invisibles?: include-invisibles? false))
+    (loop (for child in children)
+          (when (and (is? child View)
+                     (or include-invisibles? (get-visible?~ child)))
+            (proc child))))
   
   
-  (method public (for-each-view-reversed proc . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (let ((proc
-              (function dynamic (child)
-                (when (and (is? child View)
-                           (or include-invisibles? (get-visible?~ child)))
-                  (proc child)))))
-        (for-each-reversed proc children))))
+  (method public (for-each-view-reversed proc (include-invisibles?: include-invisibles? false))
+    (let ((proc
+            (function dynamic (child)
+              (when (and (is? child View)
+                         (or include-invisibles? (get-visible?~ child)))
+                (proc child)))))
+      (for-each-reversed proc children)))
   
   
   ;;;
@@ -1610,13 +1601,12 @@
     (last (get-views)))
     
   
-  (method public (get-views . rest)
-    (bind-keywords ((include-invisibles? false)) rest
-      (with ((proc <Procedure>
-              (function dynamic (child)
-                (and (is? child View)
-                     (or include-invisibles? (get-visible?~ child))))))
-        (collect-if proc (get-children)))))
+  (method public (get-views (include-invisibles?: include-invisibles? false))
+    (with ((proc <Procedure>
+             (function dynamic (child)
+               (and (is? child View)
+                    (or include-invisibles? (get-visible?~ child))))))
+      (collect-if proc (get-children))))
 
 
   (method public (front-view?)
@@ -1677,7 +1667,7 @@
 
   (method public (call-selection-handler old selection force? user-origin?)
     (when selection-handler
-      (invoke~ selection-handler self (new Selection-Event :selection-change self old selection force?: force? :user-origin? user-origin?))))
+      (invoke~ selection-handler self (new Selection-Event :selection-change self old selection force?: force? user-origin?: user-origin?))))
 
 
 
@@ -2278,12 +2268,11 @@
   ;;;
   
   
-  (method public (track-hovering . rest)
+  (method public (track-hovering (time: time HOVER_DEFAULT))
     @windows-specific
-    (bind-keywords ((time HOVER_DEFAULT)) rest
-      (let ((player (get-player)))
-        (when player
-          (track-mouse-event~ player TME_HOVER :time time)))))
+    (let ((player (get-player)))
+      (when player
+        (track-mouse-event~ player TME_HOVER :time time))))
   
   
   (method public (cancel-hovering)
@@ -2366,7 +2355,7 @@
   
   (method (popup-text pos context text)
     (let ((view (new-tooltip-view text))
-          (border (new Border-View :border-type 'solid))
+          (border (new Border-View border-type: 'solid))
           (font (get-font~ context)))
       (when font
         (set-font~ view font))
@@ -2423,40 +2412,37 @@
   ;;;
   
   
-  (method public (get-selected-element . rest)
-    (bind-keywords ((class Radio-Button) (group {})) rest
-      (let ((element
-             (find-if (function dynamic (child)
-                        (and (is? child class)
-                             (or (not group) (eq? (get-group~ child) group))
-                             (get-selected?~ child)))
-                      children)))
-        (when element
-          (get-name~ element)))))
+  (method public (get-selected-element (class: class Radio-Button) (group: group {}))
+    (let ((element
+            (find-if (function dynamic (child)
+                       (and (is? child class)
+                            (or (not group) (eq? (get-group~ child) group))
+                            (get-selected?~ child)))
+                     children)))
+      (when element
+        (get-name~ element))))
   
   
-  (method public (set-selected-element name . rest)
-    (bind-keywords ((class Radio-Button) (group {})) rest
-      (let ((found? false))
-        (for-each (function dynamic (child)
-                    (when (and (is? child class)
-                               (or (not group) (eq? (get-group~ child) group)))
-                      (let ((selected? (eq? (get-name~ child) name)))
-                        (set-selected?~ child selected?)
-                        (when selected?
-                          (set! found? true)))))
-                  children)
-        (unless found?
-          (error "Unable to find element: {t}" name)))))
-  
-  
-  (method public (unselect-elements . rest)
-    (bind-keywords ((class Radio-Button) (group {})) rest
+  (method public (set-selected-element name (class: class Radio-Button) (group: group {}))
+    (let ((found? false))
       (for-each (function dynamic (child)
                   (when (and (is? child class)
                              (or (not group) (eq? (get-group~ child) group)))
-                    (unselect~ child)))
-                children)))
+                    (let ((selected? (eq? (get-name~ child) name)))
+                      (set-selected?~ child selected?)
+                      (when selected?
+                        (set! found? true)))))
+                children)
+      (unless found?
+        (error "Unable to find element: {t}" name))))
+  
+  
+  (method public (unselect-elements (class: class Radio-Button) (group: group {}))
+    (for-each (function dynamic (child)
+                (when (and (is? child class)
+                           (or (not group) (eq? (get-group~ child) group)))
+                  (unselect~ child)))
+              children))
 
 
   ;;;
@@ -2471,13 +2457,12 @@
     (set! context-menu-handler handler))
 
 
-  (method public (track-popup-menu menu pos . rest)
+  (method public (track-popup-menu menu pos (alternate-position: alternate-position {}) (initiator: initiator self))
     (if (is-not? menu Context-Menu)
         (error "{t} is not of the expected Context-Menu class" menu)
       (unless (all-invisible? menu)
-        (bind-keywords ((alternate-position {}) (initiator self)) rest
-          (let ((popup (popup menu pos :alternate-position alternate-position class: Menu-Transient :initiator initiator)))
-            popup)))))
+        (let ((popup (popup menu pos alternate-position: alternate-position class: Menu-Transient initiator: initiator)))
+          popup))))
   
   
   (method (all-invisible? menu)
@@ -2532,32 +2517,30 @@
   ;;;
   
   
-  (method public (popup view position . rest)
-    (bind-keywords ((alternate-position {}) (initiator self) (class Popup) (border {}) (fade-speed {}) (effect {}) (close-root? true)) rest
-      (let* ((toplevel (get-toplevel))
-             (desktop (get-desktop))
-             (player (get-player))
-             (max (get-size~ desktop))
-             (alternate (to-desktop (either alternate-position position)))
-             (position (to-desktop position))
-             (size (+ (get-size~ view) {Dimension 4 4}))
-             (border (either border (new Border-View name: 'border :border-type 'raised)))
-             (popup (popup~ player class position: (fit-point position alternate size max) size: size :close-root? close-root?)))
-        (set-initiator~ popup initiator)
-        (set-parent~ border (get-root~ popup))
-        (set-position~ border {Point 0 0})
-        (set-size~ border (get-size~ popup))
-        (set-parent~ view border)
-        (set-visible?~ view true)
-        (layout-view~ border)
-        (set-effect~ (get-root~ popup) effect)
-        (fade-in~ popup :fade-speed fade-speed)
-        popup)))
+  (method public (popup view position (alternate-position: alternate-position {}) (initiator: initiator self) (class: class Popup) (border: border {}) (fade-speed: fade-speed {}) (effect: effect {}) (close-root?: close-root? true))
+    (let* ((toplevel (get-toplevel))
+           (desktop (get-desktop))
+           (player (get-player))
+           (max (get-size~ desktop))
+           (alternate (to-desktop (either alternate-position position)))
+           (position (to-desktop position))
+           (size (+ (get-size~ view) {Dimension 4 4}))
+           (border (either border (new Border-View name: 'border border-type: 'raised)))
+           (popup (popup~ player class position: (fit-point position alternate size max) size: size close-root?: close-root?)))
+      (set-initiator~ popup initiator)
+      (set-parent~ border (get-root~ popup))
+      (set-position~ border {Point 0 0})
+      (set-size~ border (get-size~ popup))
+      (set-parent~ view border)
+      (set-visible?~ view true)
+      (layout-view~ border)
+      (set-effect~ (get-root~ popup) effect)
+      (fade-in~ popup fade-speed: fade-speed)
+      popup))
   
   
-  (method public virtual (close-popups . rest)
-    (bind-keywords ((event {}) (all? false) (exclude '())) rest
-      (close-popups~ player all?: all? exclude: exclude)))
+  (method public virtual (close-popups (event: event {}) (all?: all? false) (exclude: exclude '()))
+    (close-popups~ player all?: all? exclude: exclude))
   
   
   (method public virtual (popup-destroy popup)
@@ -2729,21 +2712,20 @@
     {})
   
   
-  (method public (standard-current-drop evt acceptance . rest)
-    (bind-keywords ((handler {})) rest
-      (let* ((sender (get-sender~ evt))
-             (pos (get-position~ evt))
-             (drag-drop (get-drag-drop~ evt))
-             (current (get-target~ drag-drop))
-             (drag-start (get-view~ (get-source~ drag-drop)))
-             (drag-over (get-view~ drag-drop))
-             (drag-info (cons drag-start drag-over)))
-        (if (neq? drag-start drag-over)
-            (let ((criteria (find-if (function dynamic (criteria) (accepts?~ criteria drag-info)) acceptance)))
-              (if criteria
-                  (new Drop-Target :handler handler view: sender position: pos :criteria criteria)
-                (current-drop~ sender drag-drop pos)))
-          (current-drop~ sender drag-drop pos)))))
+  (method public (standard-current-drop evt acceptance (handler: handler {}))
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (drag-drop (get-drag-drop~ evt))
+           (current (get-target~ drag-drop))
+           (drag-start (get-view~ (get-source~ drag-drop)))
+           (drag-over (get-view~ drag-drop))
+           (drag-info (cons drag-start drag-over)))
+      (if (neq? drag-start drag-over)
+          (let ((criteria (find-if (function dynamic (criteria) (accepts?~ criteria drag-info)) acceptance)))
+            (if criteria
+                (new Drop-Target :handler handler view: sender position: pos :criteria criteria)
+              (current-drop~ sender drag-drop pos)))
+        (current-drop~ sender drag-drop pos))))
 
   
   (method public (get-receive-drop-handler)
@@ -2822,7 +2804,7 @@
                (recorder (get-recorder~ appl)))
           (when recorder
             (let ((handler {Event-Handler :focus on-insert})
-                  (event (new Event (if char? :char key:) self :content key)))
+                  (event (new Event (if char? :char key:) self content: key)))
               (when (record-event?~ appl event)
                 (record~ recorder handler event))))))))
   
@@ -3302,47 +3284,44 @@
           (invalidate-region~ player region true)))))
   
   
-  (method public (redraw-view . rest)
-    (bind-keywords ((rect {}) (region {})) rest
-      (let ((player (get-player)))
-        (when player
-          (let ((root (get-root)))
-            (cond (rect
-                   (with ((acquired (acquire~ root self rect)))
-                     (redraw-window~ player :rect acquired)))
-                  ;; todo: not using acquire is a potentiel scaling bug...
-                  (region
-                   (let ((delta (- (get-lie) (get-lie~ root))))
-                     (offset!~ region [h delta] [v delta])
-                     (redraw-window~ player :region region)))
-                  (else
-                   (with ((bounds (get-bounds))
-                          (acquired (acquire~ root self bounds)))
-                     (redraw-window~ player :rect acquired)))))))))
+  (method public (redraw-view (rect: rect {}) (region: region {}))
+    (let ((player (get-player)))
+      (when player
+        (let ((root (get-root)))
+          (cond (rect
+                  (with ((acquired (acquire~ root self rect)))
+                    (redraw-window~ player rect: acquired)))
+                ;; todo: not using acquire is a potentiel scaling bug...
+                (region
+                  (let ((delta (- (get-lie) (get-lie~ root))))
+                    (offset!~ region [h delta] [v delta])
+                    (redraw-window~ player region: region)))
+                (else
+                 (with ((bounds (get-bounds))
+                        (acquired (acquire~ root self bounds)))
+                   (redraw-window~ player rect: acquired))))))))
   
 
-  (method public (redraw-view-only . rest)
+  (method public (redraw-view-only (rect: rect {}) (region: region {}))
     ;; quicky
-    (apply redraw-view rest)
+    (redraw-view rect: rect region: region)
     @convert
-    (bind-keywords ((rect {}) (region {})) rest
-      (let ((player (get-player)))
-        (when player
-          (let ((hwnd (get-hwnd~ player)))
-            (with ((hrgn (CreateRectRgn 0 0 0 0)))
-              (GetUpdateRgn hwnd hrgn false)
-              (ValidateRect hwnd NULL)
-              (redraw-view :rect rect :region region)
-              (InvalidateRgn hwnd hrgn false)
-              (DeleteObject hrgn)))))))
+    (let ((player (get-player)))
+      (when player
+        (let ((hwnd (get-hwnd~ player)))
+          (with ((hrgn (CreateRectRgn 0 0 0 0)))
+            (GetUpdateRgn hwnd hrgn false)
+            (ValidateRect hwnd NULL)
+            (redraw-view rect: rect region: region)
+            (InvalidateRgn hwnd hrgn false)
+            (DeleteObject hrgn))))))
   
   
-  (method public (update-view . rest)
-    (bind-keywords ((effect {})) rest
-      (let ((player (get-player)))
-        (when player
-          (set-effect effect)
-          (update-window~ player)))))
+  (method public (update-view (effect: effect {}))
+    (let ((player (get-player)))
+      (when player
+        (set-effect effect)
+        (update-window~ player))))
 
   
   ;;;
@@ -3350,23 +3329,20 @@
   ;;;
 
 
-  (method public (invalidate-border . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (when (get-finished?)
-        (with-closed ((region (border-region insets: insets)))
-          (invalidate-region region)))))
-
-
-  (method public (redraw-border . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
+  (method public (invalidate-border (insets: insets {Rect 1 1 1 1}))
+    (when (get-finished?)
       (with-closed ((region (border-region insets: insets)))
-        (redraw-view :region region))))
+        (invalidate-region region))))
 
 
-  (method public (border-region . rest)
-    (bind-keywords ((insets {Rect 1 1 1 1})) rest
-      (with ((bounds (get-bounds)))
-        (frame-region bounds insets: insets))))
+  (method public (redraw-border (insets: insets {Rect 1 1 1 1}))
+    (with-closed ((region (border-region insets: insets)))
+      (redraw-view region: region)))
+
+
+  (method public (border-region (insets: insets {Rect 1 1 1 1}))
+    (with ((bounds (get-bounds)))
+      (frame-region bounds insets: insets)))
 
 
   ;;;
@@ -3518,7 +3494,7 @@
                   (position (get-position~ view))
                   (size (get-size~ view)))
               (output~ classes type level)
-              (output~ properties (format "~{Point {a width: 4 :justify :right} {a width: 4 :justify :right}}   ~{Point {a width: 4 :justify :right} {a width: 4 :justify :right}}   ~{Dimension {a width: 4 :justify :right} {a width: 4 :justify :right}}"
+              (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
                                           [h lie]
                                           [v lie]
                                           [h position]

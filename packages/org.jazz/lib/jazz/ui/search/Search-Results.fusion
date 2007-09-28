@@ -197,22 +197,22 @@
         (if (typed? info 'Catalog-Entry)
             (case mode
               ((references)
-               (edit-reference~ info references-target :activate-focus? focus?))
+               (edit-reference~ info references-target activate-focus?: focus?))
               (else
-               (edit~ info :activate-focus? focus?)))
+               (edit~ info activate-focus?: focus?)))
           (if (and (pair? info) (typed? (car info) 'Catalog-Entry))
               (bind (entry . target) info
                 (case mode
                   ((references)
-                   (edit-reference~ entry target :activate-focus? focus?))
+                   (edit-reference~ entry target activate-focus?: focus?))
                   (else
-                   (edit~ entry :activate-focus? focus?))))
+                   (edit~ entry activate-focus?: focus?))))
             (let ((edit
                    (function dynamic (source targets)
                      (let* ((appl (get-application))
                             (jazz? (get-selected?~ (locate 'edit-as-jazz-text)))
                             (class (if jazz? Jazz-Text-View {})))
-                       (bind-values (frame new?) (edit-document~ appl source class: class visible?: false :return-new? true)
+                       (receive (frame new?) (edit-document~ appl source class: class visible?: false :return-new? true)
                          (let ((guest (get-guest~ frame)))
                            (when (is? guest Text-View)
                              (if forward?
@@ -352,15 +352,14 @@
         (update-search-actions~ appl))))
   
   
-  (method (add-item info . rest)
-    (bind-keywords ((father {}) (target {})) rest
-      (let ((tree (get-tree))
-            (state (if (= mode 'references) 'dynamic 'collapsed))
-            (node (new Tree-Node title: (present-info info) image: (item-icon info)))
-            (location (new Tree-Label title: (item-location info)))
-            (type (new Tree-Label title: (item-type info)))
-            (user-data (if target (cons info target) info)))
-        (add-row~ tree father: father state: state children: (list node location type) user-data: user-data))))
+  (method (add-item info (father: father {}) (target: target {}))
+    (let ((tree (get-tree))
+          (state (if (= mode 'references) 'dynamic 'collapsed))
+          (node (new Tree-Node title: (present-info info) image: (item-icon info)))
+          (location (new Tree-Label title: (item-location info)))
+          (type (new Tree-Label title: (item-type info)))
+          (user-data (if target (cons info target) info)))
+      (add-row~ tree father: father state: state children: (list node location type) user-data: user-data)))
 
   
   (method protected (update-tree-row row)

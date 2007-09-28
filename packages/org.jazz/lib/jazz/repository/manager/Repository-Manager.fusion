@@ -223,7 +223,7 @@
   (method (insert-file tree file base status?)
     (let* ((status (if status? (file-status file) 'unknown))
            (c0 (new Tree-Node title: (get-name~ file) image: (status-image status)))
-           (c1 (new Tree-Label title: (format "{l :detail :human}" (cdr (get-list~ (get-parent~ file))))))
+           (c1 (new Tree-Label title: (format "{l detail: :human}" (cdr (get-list~ (get-parent~ file))))))
            (c2 (new Tree-Label title: (status-title status)))
            (c3 (new Tree-Label title: (file-type file))))
       (add-row~ tree children: (list c0 c1 c2 c3) user-data: file)))
@@ -278,7 +278,7 @@
               (put~ fact pathname))))
         files?: true
         directories?: false
-        :ignored-directories Ignored-Nodes)
+        ignored-directories: Ignored-Nodes)
       (get-output~ fact)))
 
 
@@ -291,32 +291,31 @@
     #x8004D73C)
   
   
-  (method (checkin-files keep-checked-out? . rest)
-    (bind-keywords ((report? true)) rest
-      (let* ((tree (locate 'files))
-             (rows (get-selected-rows~ tree))
-             (ccnt 0)
-             (ncnt 0))
-        (with-cursor :wait
-          (function dynamic ()
-            (for-each (function dynamic (row)
-                        (let* ((file (get-user-data~ row))
-                               (checked-in? (checkin-file file keep-checked-out?)))
-                          (if (not checked-in?)
-                              (increase! ncnt)
-                            (increase! ccnt)
-                            (unless keep-checked-out?
-                              (remove-row~ tree row)))))
-                      rows)))
-        (user-message "Done")
-        (when (or report? (/= ncnt 0))
-          (message-box
-            (format "{a} file{a} checked in{a}"
-                    ccnt
-                    (format-plural ccnt)
-                    (if (= ncnt 0)
-                        ""
-                      (format " ({a} {a} read/write but not checked out)" ncnt (format-was/were ncnt)))))))))
+  (method (checkin-files keep-checked-out? (report?: report? true))
+    (let* ((tree (locate 'files))
+           (rows (get-selected-rows~ tree))
+           (ccnt 0)
+           (ncnt 0))
+      (with-cursor :wait
+        (function dynamic ()
+          (for-each (function dynamic (row)
+                      (let* ((file (get-user-data~ row))
+                             (checked-in? (checkin-file file keep-checked-out?)))
+                        (if (not checked-in?)
+                            (increase! ncnt)
+                          (increase! ccnt)
+                          (unless keep-checked-out?
+                            (remove-row~ tree row)))))
+                    rows)))
+      (user-message "Done")
+      (when (or report? (/= ncnt 0))
+        (message-box
+          (format "{a} file{a} checked in{a}"
+                  ccnt
+                  (format-plural ccnt)
+                  (if (= ncnt 0)
+                      ""
+                    (format " ({a} {a} read/write but not checked out)" ncnt (format-was/were ncnt))))))))
   
   
   (method (checkin-file file keep-checked-out?)

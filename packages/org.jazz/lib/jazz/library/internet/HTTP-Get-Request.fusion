@@ -71,7 +71,7 @@
                (buffer (new Heap-Block size: (+ size 1)))
                (done? false))
           (while (not done?)
-            (bind-values (ok? bytes-read) (InternetReadFile handle buffer size)
+            (receive (ok? bytes-read) (InternetReadFile handle buffer size)
               (if (= bytes-read 0)
                   (set! done? true)
                 (set-element! buffer bytes-read 0)
@@ -79,16 +79,15 @@
           (get-output~ printer)))))
   
   
-  (method public (get-image . rest)
+  (method public (get-image (error?: error? true))
     (unimplemented 'get-image)
     @windows-specific
-    (bind-keywords ((error? true)) rest
-      (send)
-      (let ((status (query-status-code)))
-        (if (/= status HTTP_STATUS_OK)
-            (when error?
-              (error "Unable to get from request ({t})" status))
-          (let* ((size (query-content-length))
-                 (buffer (new Heap-Block size: size)))
-            (bind-values (ok? bytes-read) (InternetReadFile handle buffer size)
-              buffer))))))))
+    (send)
+    (let ((status (query-status-code)))
+      (if (/= status HTTP_STATUS_OK)
+          (when error?
+            (error "Unable to get from request ({t})" status))
+        (let* ((size (query-content-length))
+               (buffer (new Heap-Block size: size)))
+          (receive (ok? bytes-read) (InternetReadFile handle buffer size)
+            buffer)))))))

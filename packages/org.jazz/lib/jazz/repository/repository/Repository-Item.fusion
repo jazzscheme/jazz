@@ -192,25 +192,24 @@
   ;;;
   
   
-  (method public (iterate-item proc . rest)
-    (bind-keywords ((base {}) (include-self? true) (recursive? true)) rest
-      (letrec ((root (essay base (get-list~ base)))
-               (iterate
-                (function dynamic (item path include-self?)
-                  (let ((project? (get-project?~ item)))
-                    (when include-self?
-                      (if base
-                          (let* ((class (if project? Directory File))
-                                 (pathname (new class (append root (reverse path)))))
-                            (proc item pathname))
-                        (proc item)))
-                    (when (and project? (or recursive? (eq? item self)))
-                      (with-closed ((items (get-items~ item)))
-                        (for-each (function dynamic (subitem)
-                                    (let ((local (remote->local~ repository (get-name~ subitem))))
-                                      (iterate subitem (essay base (cons local path)) true)))
-                                  items)))))))
-        (iterate self '() include-self?))))
+  (method public (iterate-item proc (base: base {}) (include-self?: include-self? true) (recursive?: recursive? true))
+    (letrec ((root (essay base (get-list~ base)))
+             (iterate
+               (function dynamic (item path include-self?)
+                 (let ((project? (get-project?~ item)))
+                   (when include-self?
+                     (if base
+                         (let* ((class (if project? Directory File))
+                                (pathname (new class (append root (reverse path)))))
+                           (proc item pathname))
+                       (proc item)))
+                   (when (and project? (or recursive? (eq? item self)))
+                     (with-closed ((items (get-items~ item)))
+                       (for-each (function dynamic (subitem)
+                                   (let ((local (remote->local~ repository (get-name~ subitem))))
+                                     (iterate subitem (essay base (cons local path)) true)))
+                                 items)))))))
+      (iterate self '() include-self?)))
 
     
   ;;;

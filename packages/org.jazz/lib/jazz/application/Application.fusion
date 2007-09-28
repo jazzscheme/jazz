@@ -654,7 +654,7 @@
                     (let ((guest (get-guest~ window)))
                       (when (is? guest Document)
                         (verify-reload~ (get-controller~ guest))))))
-                (get-windows~ stage :include-invisibles? true))))
+                (get-windows~ stage include-invisibles?: true))))
   
   
   (method public (verify-reload moniker)
@@ -1042,7 +1042,7 @@
     (with-safe-execution "loading the bindings"
       (function dynamic ()
         (set! bindings (load-bindings))
-        (set! bindings-designer (new Designer form: (get-form~ bindings) :reference bindings))
+        (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
         (let ((branch (locate-component~ bindings 'user)))
           (when (is? branch Branch)
             (set-active-branch~ bindings branch))))
@@ -1225,8 +1225,8 @@
   
   (method (show-box text rest)
     (if (not (get-bindings~ (get-application)))
-        (system-message text rest)
-      (ui-message-box text rest)))
+        (apply system-message text rest)
+      (apply ui-message-box text rest)))
   
   
   ;;;
@@ -1596,7 +1596,7 @@
   
   
   (method public (show-console (class: class Jazz-Console-Manager)
-                               (workspace: workspace (quote home))
+                               (workspace: workspace 'home)
                                (focus?: focus? true))
     (let ((console (select-palette class workspace: workspace)))
       (when (and console focus?)
@@ -1676,10 +1676,10 @@
            (yes "Show Me")
            (no "Ignore")
            (code (message-box message
-                              :type 'message
+                              type: 'message
                               title: "Read Error"
-                              :yes yes
-                              :no no)))
+                              yes: yes
+                              no: no)))
       (when (= code 'yes)
         (edit-read-error exception))
       (stop-debugging)))
@@ -1710,8 +1710,8 @@
           (start (get-start~ error))
           (end (get-end~ error)))
       (if (string? source)
-          (message-box source :selection (new Range start end))
-        (edit-document~ (get-application) source :selection (new Range start end)))))
+          (message-box source selection: (new Range start end))
+        (edit-document~ (get-application) source selection: (new Range start end)))))
   
   
   @convert-error
@@ -1730,10 +1730,10 @@
            (yes "Highlight")
            (no "Ignore")
            (code (message-box message
-                              :type 'message
+                              type: 'message
                               title: "Walk Error"
-                              :yes yes
-                              :no no)))
+                              yes: yes
+                              no: no)))
       (when (= code 'yes)
         (highlight-walk-problems exception))
       (stop-debugging)))
@@ -1780,7 +1780,7 @@
       (user-message "{a}" message)
       (let ((location (edit-walk-problem problem)))
         (when location
-          (bind-values (frame text range) location
+          (receive (frame text range) location
             (let ((text (get-guest~ frame)))
               (set-selection~ text range)
               (bring-to-front~ frame)
@@ -1791,7 +1791,7 @@
   @convert-error
   (method meta (edit-walk-problem problem)
     (let ((declarations (walk-problem-declarations problem)))
-      (bind-values (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter declarations)
+      (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter declarations)
         (when (and object (definition? object))
           (let ((value (definition-value object)))
             (when (closure? value)
@@ -1810,7 +1810,7 @@
                         (message (walk-problem-message~ Interpreter problem))
                         (location (edit-walk-problem problem)))
                     (when location
-                      (bind-values (frame text range) location
+                      (receive (frame text range) location
                         (let ((text (get-guest~ frame))
                               (row [row start range]))
                           (when (or (not first-row) (< row first-row))
@@ -1840,7 +1840,7 @@
   
   
   (method (present-execution-context exception type prefix?)
-    (present~ (new Exception-Presenter) exception :type type :prefix? prefix?))
+    (present~ (new Exception-Presenter) exception type: type prefix?: prefix?))
 
   
   ;;;
@@ -2096,7 +2096,7 @@
   
   @windows-specific
   (method (initialize-dde)
-    (bind-values (err instance) (DdeInitialize 0 (get-dde-callback) APPCLASS_STANDARD 0)
+    (receive (err instance) (DdeInitialize 0 (get-dde-callback) APPCLASS_STANDARD 0)
 	  (when (= err DMLERR_NO_ERROR)
         (set! DDE-Instance instance)
         (set! Application-Service (DdeCreateStringHandle DDE-Instance (process-name) CP_WINUNICODE))
@@ -2125,7 +2125,7 @@
   
   
   (method public (open-files (directory: directory {}))
-    (let ((files (get-modal OpenFile-Dialog :directory directory :extensions (open-extensions) :multiple-selection? true)))
+    (let ((files (get-modal OpenFile-Dialog directory: directory extensions: (open-extensions) multiple-selection?: true)))
       (for-each edit-file
                 (sort > files key: (function dynamic (file) (get-name~ file))))))
   
@@ -2317,7 +2317,7 @@
                                              (xor main-documents? (dependent-document?~ controller))
                                              (get-modified?~ (get-controller~ guest)))
                                     (save~ guest)))))))
-                        (get-windows~ stage :include-invisibles? true)))))
+                        (get-windows~ stage include-invisibles?: true)))))
       ;; saving dependent documents will make their main document modified
       (save-documents false)
       (save-documents true)))
@@ -2421,7 +2421,7 @@
     (let* ((file Default-Page-Setup-File)
            (form (if (exists?~ file) (read-from-file file) Default-Page-Setup-Form)))
       (set! Default-Page-Setup (instantiate~ form))
-      (set! Default-Page-Setup-Designer (new Designer form: (get-form~ Default-Page-Setup) :reference Default-Page-Setup))))
+      (set! Default-Page-Setup-Designer (new Designer form: (get-form~ Default-Page-Setup) reference: Default-Page-Setup))))
   
   
   (method (save-page-setup)

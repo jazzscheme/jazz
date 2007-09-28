@@ -321,7 +321,7 @@
     (focus-exit)
     (preserve-environment)
     (close-environment)
-    (let ((signal (new Exit-Signal :status status)))
+    (let ((signal (new Exit-Signal status: status)))
       (if (catched? signal)
           (throw signal)
         (exit status))))
@@ -456,7 +456,7 @@
         (let ((pref (load-preferences)))
           (cond (pref
                  (set! preferences-root pref)
-                 (set! preferences-designer (new Designer form: (get-form~ preferences-root) :reference preferences-root)))
+                 (set! preferences-designer (new Designer form: (get-form~ preferences-root) reference: preferences-root)))
                 (else
                  (set! preferences-root {})
                  (set! preferences-designer {})))
@@ -665,7 +665,7 @@
   
   
   (method public virtual (show-box text rest)
-    (system-message text rest))
+    (apply system-message text rest))
 
 
   ;;;
@@ -813,11 +813,10 @@
       server))
   
   
-  (method (launch-router-server . rest)
-    (bind-keywords ((interpreted? false)) rest
-      (if (not interpreted?)
-          (unimplemented 'launch-router-server)
-        (launch-process :app "Router" :homedir "Products\\org.jazz.opt\\Projects\\Router\\Distribution" :wait-ready "JAZZ.ROUTER"))))
+  (method (launch-router-server (interpreted?: interpreted? false))
+    (if (not interpreted?)
+        (unimplemented 'launch-router-server)
+      (launch-process :app "Router" :homedir "Products\\org.jazz.opt\\Projects\\Router\\Distribution" :wait-ready "JAZZ.ROUTER")))
 
 
   ;;;
@@ -860,15 +859,14 @@
       (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee self)))))
   
   
-  (method public (detach-from-controller . rest)
-    (bind-keywords ((reattach-local? true)) rest
-      (when controller-process-server
-        (detach-from-debugger)
-        (set! controller-process-server {})
-        (set! controller-directory-server {})
-        (set! local-debuggee {})
-        (when reattach-local?
-          (reattach-local-controller)))))
+  (method public (detach-from-controller (reattach-local?: reattach-local? true))
+    (when controller-process-server
+      (detach-from-debugger)
+      (set! controller-process-server {})
+      (set! controller-directory-server {})
+      (set! local-debuggee {})
+      (when reattach-local?
+        (reattach-local-controller))))
   
   
   (method protected virtual (reattach-local-controller)
@@ -909,18 +907,24 @@
   ;;;
   
   
-  (method public (launch-process . rest)
-    (bind-keywords ((app {}) (homedir {}) (user {}) (command-action {}) (command-arguments '()) (debug? false) (wait-ready {}) (wait-ready-timeout 5000)) rest
-      (let* ((root          (parse~ {Directory Root}))
-             (launcher      (parse~ {File Base "Launcher.exe"}))
-             (homedir-arg   (if homedir (format " /homedir \"{a}\\{a}\"" root homedir) ""))
-             (rootdir-arg   (format " /rootdir \"{a}\"" root))
-             (app-arg       (format " /app {a}" app))
-             (user-arg      (format " /user {a}" user))
-             (action-arg    (if command-action (format " {a}" command-action) ""))
-             (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
-             (command       (format "\"{a}\"{a}{a}{a}{a}{a}{a}" launcher action-arg homedir-arg rootdir-arg app-arg user-arg arguments-arg)))
-        (create-process command :wait-ready wait-ready :wait-ready-timeout wait-ready-timeout :wait? false))))
+  (method public (launch-process (app: app {})
+                                 (homedir: homedir {})
+                                 (user: user {})
+                                 (command-action: command-action {})
+                                 (command-arguments: command-arguments '())
+                                 (debug?: debug? false)
+                                 (wait-ready: wait-ready {})
+                                 (wait-ready-timeout: wait-ready-timeout 5000))
+    (let* ((root          (parse~ {Directory Root}))
+           (launcher      (parse~ {File Base "Launcher.exe"}))
+           (homedir-arg   (if homedir (format " /homedir \"{a}\\{a}\"" root homedir) ""))
+           (rootdir-arg   (format " /rootdir \"{a}\"" root))
+           (app-arg       (format " /app {a}" app))
+           (user-arg      (format " /user {a}" user))
+           (action-arg    (if command-action (format " {a}" command-action) ""))
+           (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
+           (command       (format "\"{a}\"{a}{a}{a}{a}{a}{a}" launcher action-arg homedir-arg rootdir-arg app-arg user-arg arguments-arg)))
+      (create-process command :wait-ready wait-ready :wait-ready-timeout wait-ready-timeout :wait? false)))
 
 
   ;;;
@@ -1027,7 +1031,7 @@
     (log-execution-context exception)
     (cond ((or Critical-Error? (not loop-running?))
            (dump-stack :exception exception)
-           (present-exception exception :type 'message)
+           (present-exception exception type: 'message)
            (exit-process))
           (else
            ;; so that the debugger problem is the one that gets critical errored!
@@ -1053,7 +1057,7 @@
         (let ((stack (get-execution-stack))
               (reporter (get-reporter~ context)))
           (when reporter
-            (let ((message (present-message~ exception :prefix? prefix?)))
+            (let ((message (present-message~ exception prefix?: prefix?)))
               (report-execution-context message stack reporter)))))))
 
   
@@ -1118,19 +1122,18 @@
     )
 
 
-  (method (present-exception exception . rest)
-    (bind-keywords ((type 'error) (prefix? true)) rest
-      (if (and (get-execution-context)
-               ;; a quick patch for now
-               (typed? self 'Application))
-          (present-execution-context exception type prefix?)
-        (let* ((message (present-message~ exception :prefix? prefix?))
-               (yes (case type ((message) "OK") (else "Debug")))
-               (cancel (case type ((message) {}) (else "Ignore"))))
-          (message-box message
-                       :type type
-                       :yes yes
-                       :cancel cancel)))))
+  (method (present-exception exception (type: type 'error) (prefix?: prefix? true))
+    (if (and (get-execution-context)
+             ;; a quick patch for now
+             (typed? self 'Application))
+        (present-execution-context exception type prefix?)
+      (let* ((message (present-message~ exception prefix?: prefix?))
+             (yes (case type ((message) "OK") (else "Debug")))
+             (cancel (case type ((message) {}) (else "Ignore"))))
+        (message-box message
+                     type: type
+                     yes: yes
+                     cancel: cancel))))
   
   
   (method protected virtual (present-execution-context exception type prefix?)

@@ -247,12 +247,12 @@
         (if (not (alias-displayed?))
             (let ((handler (get-protocol-handler protocol))
                   (list (tokenise string)))
-              (anchorize~ (new-moniker~ handler list) :anchors anchors))
+              (anchorize~ (new-moniker~ handler list) anchors: anchors))
           (let ((content (read-string-content string)))
-            (bind-values (handler list) (parse-content content)
+            (receive (handler list) (parse-content content)
               (let ((moniker (new-moniker~ handler list)))
                 (if (is? moniker Pathname)
-                    (anchorize~ moniker :anchors anchors)
+                    (anchorize~ moniker anchors: anchors)
                   moniker))))))))
   
   
@@ -263,11 +263,10 @@
         (values (parse-protocol protocol) list))))
   
   
-  (method public (set-moniker moniker . rest)
-    (bind-keywords ((generate-event? true)) rest
-      (set-string-content~ (get-text) (if (null? moniker) "" (present-moniker moniker)))
-      (when generate-event?
-        (call-moniker-update))))
+  (method public (set-moniker moniker (generate-event?: generate-event? true))
+    (set-string-content~ (get-text) (if (null? moniker) "" (present-moniker moniker)))
+    (when generate-event?
+      (call-moniker-update)))
   
   
   (method protected virtual (moniker-update)
@@ -336,7 +335,7 @@
   
   (method (validate-content)
     (catch (Parse-Error err
-             (message-box (get-message~ err) :yes "Change It")
+             (message-box (get-message~ err) yes: "Change It")
              (focus-body)
              (throw-cancel))
       (get-moniker)))

@@ -156,15 +156,6 @@
        (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:)))
 
 
-(define (jazz.enumerator->string enumerator)
-  (let ((str (%%symbol->string enumerator)))
-    (%%substring str 1 (%%string-length str))))
-
-
-(define (jazz.string->enumerator string)
-  (%%string->symbol (%%string-append ":" string)))
-
-
 ;;;
 ;;;; List
 ;;;

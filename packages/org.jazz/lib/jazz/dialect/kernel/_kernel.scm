@@ -116,8 +116,6 @@
 
 
 (native jazz.enumerator?)
-(native jazz.string->enumerator)
-(native jazz.enumerator->string)
 
 
 ;;;

@@ -1032,12 +1032,9 @@
         (scan (unbox-list box))
         (found (void)))
     (while (and (void? found) (not-null? scan))
-      (let ((elem (cond ((keyword? (car scan))
-                         (keyword->symbol (car scan)))
-                        ((enumerator? (car scan))
-                         (enumerator->symbol (car scan)))
-                        (else
-                         (car scan)))))
+      (let ((elem (if (keyword? (car scan))
+                      (keyword->symbol (car scan))
+                    (error "Bad keyword list: {s}" (unbox-list box)))))
         (if (eq? keyword elem)
           (begin
             (set! found (cadr scan))
@@ -3537,7 +3534,7 @@
 (definition public (property-field object <Object> expr <Object>)
   (if (property? expr)
       expr
-    (let ((field (unit-field (class-of object) (if (keyword? expr) (keyword->symbol expr) (if (enumerator? expr) (enumerator->symbol expr) expr)))))
+    (let ((field (unit-field (class-of object) (if (keyword? expr) (keyword->symbol expr) expr))))
       (if (property? field)
           field
         (error "Unknown property: {t}" expr)))))
@@ -4258,15 +4255,6 @@
 
 (definition public (closure? object <Object>)
   (procedure? object))
-
-
-;;;
-;;;; Enumerator
-;;;
-
-
-(definition public inline (enumerator->symbol enumerator)
-  (string->symbol (enumerator->string enumerator)))
 
 
 ;;;

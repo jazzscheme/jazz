@@ -699,8 +699,8 @@
   (method (set-unformatted-content lst)
     (let* ((lst (either lst (empty-content)))
            (lst (if (list? lst) lst [paragraphs lst]))
-           (count <int> 0)
-           (height <int> 0)
+           (count <fx> 0)
+           (height <fx> 0)
            (previous root-row)
            (rows (map (function dynamic (string)
                         (let ((paragraph (make-string-paragraph {} string)))
@@ -932,8 +932,8 @@
              (par <Paragraph> (get-paragraph [row caret-pos]))
              (lne (get-line-at~ par [col caret-pos]))
              (run (get-run~ par [col caret-pos]))
-             (height <int> (if run (get-height~ run) (get-height~ par)))
-             (top <int> (+ [v pos] (- (get-height~ lne) height))))
+             (height <fx> (if run (get-height~ run) (get-height~ par)))
+             (top <fx> (+ [v pos] (- (get-height~ lne) height))))
         (new Rect [h pos] top (+ [h pos] width) (+ top height)))))
   
   
@@ -1097,7 +1097,7 @@
           (set-selection (new Range (new Cell row 0) (new Cell row len)))))))
   
   
-  (method (selection-line row <int>)
+  (method (selection-line row <fx>)
     (let ((limit (get-limit)))
       (when (<= row limit)
         (if (= row limit)
@@ -1398,7 +1398,7 @@
   
   (method (range-region range dh dv sc (top: top {}) (bottom: bottom {}))
     (let ((region (new Region)))
-      (with ((proc <Procedure>
+      (with ((proc <procedure>
                (function dynamic (paragraph start end)
                  (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
                    (combine!~ region sub 'or)))))
@@ -1819,7 +1819,7 @@
       (get-string (get-selection))))
   
   
-  (method public (next pos <Cell> offset <int>)
+  (method public (next pos <Cell> offset <fx>)
     (let ((ok? true)
           (pos (copy pos)))
       (while (and ok? (> offset 0))
@@ -1829,7 +1829,7 @@
         pos)))
   
   
-  (method public (previous pos <Cell> offset <int>)
+  (method public (previous pos <Cell> offset <fx>)
     (let ((ok? true)
           (pos (copy pos)))
       (while (and ok? (> offset 0))
@@ -1839,7 +1839,7 @@
         pos)))
   
   
-  (method public (get-column row <int>)
+  (method public (get-column row <fx>)
     (let ((pos (new Cell row 0)))
       (while (memq? (get-char pos) '(#\space #\tab))
         (increase! pos))
@@ -2037,7 +2037,7 @@
           (fill-region~ dc region (if has-focus? (get-selection-color) (get-inactive-selection-color)))))))
   
   
-  (method (draw-caret dc sc <Real> sc? <bool>)
+  (method (draw-caret dc sc <fl> sc? <bool>)
     (when (and caret-visible? (not caret-pulsed?) (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
       (let ((proc
              (function dynamic (rect)
@@ -3406,12 +3406,13 @@
   (method (make-runs string styles infos)
     (let ((offset 0))
       (map (function dynamic (info)
-             (bind-optionals ((str) (rank {})) info
-               (let* ((limit (+ offset (length str)))
-                      (subseq (subseq! string offset limit))
-                      (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
-                 (set! offset limit)
-                 (new Run subseq style))))
+             (let ((str (car info)))
+               (bind-optionals ((rank {})) (cdr info)
+                 (let* ((limit (+ offset (length str)))
+                        (subseq (subseq! string offset limit))
+                        (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
+                   (set! offset limit)
+                   (new Run subseq style)))))
            infos)))
   
   

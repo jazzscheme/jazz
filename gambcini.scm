@@ -391,7 +391,8 @@
   '(jazz.dialect.language))
 
 (define Util
-  '(jazz.utilities))
+  '(jazz.library.utility.Cell
+    jazz.utilities))
 
 (define UI
   '(jazz.library.component.Component
@@ -708,6 +709,10 @@
   (lj)
   (jazz.load-module 'jazz.platform.literals)
   (l test.boot))
+
+
+(define (tj)
+  (time (j)))
 
 
 (define-macro (lp . rest)

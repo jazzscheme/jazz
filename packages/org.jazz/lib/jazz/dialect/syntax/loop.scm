@@ -70,11 +70,11 @@
       (finally (message-box "Done")))
 
 #; ;; @expansion
-(let ((x <int> 0)
-      (end0 <int> (upper-bound))
+(let ((x <fx> 0)
+      (end0 <fx> (upper-bound))
       (for1 <Object> (get-list))
       (y <Object> #f)
-      (res2 <int> 0))
+      (res2 <fx> 0))
   (while (and (< x end0) (not (eq? for1 #f)))
     (set! y (car for1))
     (increase! res2 (* x y))
@@ -337,8 +337,8 @@
                  (for (unique "for"))
                  (len (unique "len")))
              (add-binding vec '<Vector> vector)
-             (add-binding for '<int> 0)
-             (add-binding len '<int> (list 'length vec))
+             (add-binding for '<fx> 0)
+             (add-binding len '<fx> (list 'length vec))
              (add-binding variable (either type '<Object>))
              (add-test (list '< for len))
              (add-before (list 'set! variable (list 'element vec for)))
@@ -379,11 +379,11 @@
                    ((downto) (set! to (cadr scan)) (set! test '>=) (set! update 'decrease!) (set! scan (cddr scan)))
                    ((by) (set! by (cadr scan)) (set! scan (cddr scan)))
                    (else (error "Unknown for keyword: {t}" key)))))
-             (add-binding variable '<int> from)
+             (add-binding variable '<fx> from)
              (when to
                (let ((end (if (symbol? to) to (unique "end"))))
                  (when (not (eq? end to))
-                   (add-binding end '<int> to))
+                   (add-binding end '<fx> to))
                  (add-test (list test variable end))))
              (add-after (list update variable by)))))
         ((first)
@@ -413,7 +413,7 @@
   (define (process-repeat actions rest)
     (bind (count) rest
       (let ((rpt (unique "rpt")))
-        (add-binding rpt '<int> count)
+        (add-binding rpt '<fx> count)
         (add-test (list '> rpt 0))
         (add-after (list 'decrease! rpt)))))
   
@@ -489,7 +489,7 @@
   (define (process-sum actions rest)
     (bind (what . rest) rest
       (let ((res (if (null? rest) (unique "res") (cadr rest))))
-        (add-binding res '<int> 0)
+        (add-binding res '<fx> 0)
         (add-action (list 'increase! res what) actions)
         (set-finally (list res)))))
   
@@ -504,9 +504,9 @@
       (let ((res (if (null? rest) (unique "res") (cadr rest)))
             (ptr (unique "ptr"))
             (cns (unique "cns")))
-        (add-binding res '<List> ''())
-        (add-binding ptr '<List> ''())
-        (add-binding cns '<List>)
+        (add-binding res '<list> ''())
+        (add-binding ptr '<list> ''())
+        (add-binding cns '<list>)
         (add-action (list 'set! cns (list 'cons what ''())) actions)
         (add-action (list 'if (list 'jazz.null? ptr)
                           (list 'begin

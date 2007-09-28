@@ -54,7 +54,7 @@
   {})
 
 
-(definition (get-offscreen dc <Surface> width <int> height <int>)
+(definition (get-offscreen dc <Surface> width <fx> height <fx>)
   (if (and offscreen
            (let ((size (get-size~ offscreen)))
              (and (<= width [width size])
@@ -68,7 +68,7 @@
     offscreen))
 
 
-(definition (new-offscreen dc <Surface> width <int> height <int>)
+(definition (new-offscreen dc <Surface> width <fx> height <fx>)
   (new Cairo-Memory-Surface dc size: (new Dimension width height)))
 
 
@@ -84,7 +84,7 @@
     {})
   
   
-  (method public (get-effect-offscreen dc <Surface> width <int> height <int>)
+  (method public (get-effect-offscreen dc <Surface> width <fx> height <fx>)
     (if (and effect-offscreen
              (let ((size (get-size~ effect-offscreen)))
                (and (<= width [width size])
@@ -125,11 +125,11 @@
   
   
   (method public (get-lie)
-    (receive (h <Real> v <Real> sc) (get-lie-parent 0.0 0.0 1.0)
+    (receive (h <fl> v <fl> sc) (get-lie-parent 0.0 0.0 1.0)
       (new Point (round h) (round v))))
   
   
-  (method protected virtual (get-lie-parent h <Real> v <Real> sc <Real>)
+  (method protected virtual (get-lie-parent h <fl> v <fl> sc <fl>)
     (if (not parent)
         (values h v sc)
       (get-lie-parent~ parent (+ [h position] h) (+ [v position] v) sc)))
@@ -166,18 +166,18 @@
       (acquire-delta dh dv sc shape)))
 
 
-  (method public (acquire-delta dh <Real> dv <Real> sc <Real> shape)
+  (method public (acquire-delta dh <fl> dv <fl> sc <fl> shape)
     (typecase shape
       ((Point)
-       (let ((h <int> [h shape])
-             (v <int> [v shape]))
+       (let ((h <fx> [h shape])
+             (v <fx> [v shape]))
          (new Point (round (+ dh (* h sc)))
                     (round (+ dv (* v sc))))))
       ((Rect)
-       (let ((left <int> [left shape])
-             (top <int> [top shape])
-             (right <int> [right shape])
-             (bottom <int> [bottom shape]))
+       (let ((left <fx> [left shape])
+             (top <fx> [top shape])
+             (right <fx> [right shape])
+             (bottom <fx> [bottom shape]))
          (new Rect (round (+ dh (* left sc)))
                    (round (+ dv (* top sc)))
                    (round (+ dh (* right sc)))
@@ -187,8 +187,8 @@
   
   
   (method protected virtual (get-delta origin)
-    (receive (origin-h <Real> origin-v <Real> origin-sc <Real>) (get-lie-parent~ origin 0.0 0.0 1.0)
-      (receive (dh <Real> dv <Real> sc <Real>) (get-lie-parent 0.0 0.0 1.0)
+    (receive (origin-h <fl> origin-v <fl> origin-sc <fl>) (get-lie-parent~ origin 0.0 0.0 1.0)
+      (receive (dh <fl> dv <fl> sc <fl>) (get-lie-parent 0.0 0.0 1.0)
         (values (/ (- origin-h dh) sc) (/ (- origin-v dv) sc) (/ origin-sc sc)))))
 
   
@@ -213,15 +213,15 @@
     [width size])
   
   
-  (method public (set-width width <int>)
+  (method public (set-width width <fx>)
     (set-size (new Dimension width (get-height))))
 
 
-  (method public (get-height) <int>
+  (method public (get-height) <fx>
     [height size])
   
   
-  (method public (set-height height <int>)
+  (method public (set-height height <fx>)
     (set-size (new Dimension (get-width) height)))
   
   
@@ -297,9 +297,9 @@
     (let ((info (either info (scaling-info))))
       (if (not info)
           shape
-        (receive (sh <int> sv <int> sc <Real>) info
-          (let ((horz (function dynamic (lh <int>) (round (+ (* (- lh sh) sc) sh))))
-                (vert (function dynamic (lv <int>) (round (+ (* (- lv sv) sc) sv)))))
+        (receive (sh <fx> sv <fx> sc <fl>) info
+          (let ((horz (function dynamic (lh <fx>) (round (+ (* (- lh sh) sc) sh))))
+                (vert (function dynamic (lv <fx>) (round (+ (* (- lv sv) sc) sv)))))
             (typecase shape
               ((Point) (new Point (horz [h shape]) (vert [v shape])))
               ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
@@ -315,9 +315,9 @@
     (let ((info (either info (scaling-info))))
       (if (not info)
           shape
-        (receive (sh <int> sv <int> sc <Real>) info
-          (let ((horz (function dynamic (dh <int>) (+ (quotient (- dh sh) sc) sh)))
-                (vert (function dynamic (dv <int>) (+ (quotient (- dv sv) sc) sv))))
+        (receive (sh <fx> sv <fx> sc <fl>) info
+          (let ((horz (function dynamic (dh <fx>) (+ (quotient (- dh sh) sc) sh)))
+                (vert (function dynamic (dv <fx>) (+ (quotient (- dv sv) sc) sv))))
             (typecase shape
               ((Point) (new Point (horz [h shape]) (vert [v shape])))
               ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
@@ -333,8 +333,8 @@
   ;; scaling info in every child of the scaled drawing...
   (method (scaling-info)
     (let ((drawing self)
-           (sh <int> 0)
-           (sv <int> 0))
+           (sh <fx> 0)
+           (sv <fx> 0))
       (call/ec
         (lambda (return)
           (while drawing
@@ -399,14 +399,14 @@
   ;;;
   
   
-  (method public (for-each-drawing proc <Procedure> (include-invisibles?: include-invisibles? false))
+  (method public (for-each-drawing proc <procedure> (include-invisibles?: include-invisibles? false))
     (loop (for child in children)
           (when (and (is? child View)
                      (or include-invisibles? (get-visible?~ child)))
             (proc child))))
   
   
-  (method public (for-each-drawing-reversed proc <Procedure> (include-invisibles?: include-invisibles? false))
+  (method public (for-each-drawing-reversed proc <procedure> (include-invisibles?: include-invisibles? false))
     (with ((proc
              (function dynamic (child)
                (when (and (is? child View)
@@ -434,13 +434,13 @@
   (method protected virtual (find-subdrawing pos <Point>)
     (call/ec
       (lambda (return)
-        (with ((proc <Procedure>
+        (with ((proc <procedure>
                  (function dynamic (view)
                    (with ((delta <Point> (- pos (get-position~ view))))
                      (let* ((scaled? (get-scaled?~ view))
                             (found (if (not scaled?)
                                        (find-drawing~ view delta)
-                                     (let ((scaling <Real> (get-scaling~ view)))
+                                     (let ((scaling <fl> (get-scaling~ view)))
                                        (with ((scaled (new Point
                                                         (round (/ [h delta] scaling))
                                                         (round (/ [v delta] scaling)))))
@@ -471,7 +471,7 @@
   ;; always have an update rect available for consultation...
   
   ;; debug
-  (method public (paint dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+  (method public (paint dc <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (when (get-visible?)
       ;; beurk code for testing
       (if (or (get-scaled?) sc?)
@@ -485,7 +485,7 @@
           (paint-displayed dc context update lh lv sh sv sc sc?)))))
 
 
-  (method public (paint-displayed dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+  (method public (paint-displayed dc <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (if (not (get-offscreen?))
         (paint-drawing dc context update lh lv sh sv sc sc?)
       (let ((offscreen (get-offscreen dc [width size] [height size])))
@@ -513,7 +513,7 @@
               (set-effect {})))))))
 
   
-  (method public (paint-drawing dc <Surface> context <Object> update <Object> lh <int> lv <int> sh <int> sv <int> sc <Real> sc? <bool>)
+  (method public (paint-drawing dc <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (let* ((scaled? (get-scaled?))
            (scaling (get-scaling))
            (new-sh (if (not scaled?) sh lh))
@@ -566,8 +566,8 @@
     (set! *current-color* (modulo (+ *current-color* 1) *nb-colors*)))
   
   
-  (method public virtual (draw-children dc <Surface> context update lh <int> lv <int> sh sv sc sc?)
-    (with ((proc <Procedure>
+  (method public virtual (draw-children dc <Surface> context update lh <fx> lv <fx> sh sv sc sc?)
+    (with ((proc <procedure>
             (function dynamic (drawing)
               (let ((pos (get-position~ drawing)))
                 (paint~ drawing dc context update (+ lh [h pos]) (+ lv [v pos]) sh sv sc sc?)))))

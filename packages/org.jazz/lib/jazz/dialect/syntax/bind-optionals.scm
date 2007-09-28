@@ -61,7 +61,7 @@
 
 (define-macro (bind-optionals bindings rest . body)
   (if (= 1 (length bindings))
-      `(let ((,(caar bindings) (if (not-null? ,rest) (car rest) ,(cadar bindings))))
+      `(let ((,(caar bindings) (if (not-null? ,rest) (car ,rest) ,(cadar bindings))))
          ,@body)
     (let ((scan (generate-symbol "scan")))
       `(let (,@bindings

@@ -158,7 +158,8 @@
 
 
 (jazz.define-class jazz.Lexical-Binding jazz.Walk-Binding () jazz.Object-Class
-  (name))
+  (name
+   type))
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Lexical-Binding binding) symbol)
@@ -175,7 +176,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Declaration jazz.Lexical-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Declaration jazz.Lexical-Binding (name type) jazz.Object-Class
   (access
    compatibility
    attributes
@@ -306,7 +307,7 @@
 (jazz.define-method (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration)
   (or (%%get-declaration-reference-declaration declaration-reference)
       (receive (name symbol) (jazz.parse-exported-symbol library-declaration (%%get-declaration-reference-name declaration-reference))
-        (let ((declaration (jazz.new-export-declaration name 'public 'uptodate '() #f symbol)))
+        (let ((declaration (jazz.new-export-declaration name type 'public 'uptodate '() #f symbol)))
           (%%set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
 
@@ -336,7 +337,8 @@
 (define (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference)
   (or (%%get-declaration-reference-declaration declaration-reference)
       (let* ((name (%%get-declaration-reference-name declaration-reference))
-             (declaration (jazz.new-autoload-declaration name #f library-declaration exported-library-reference)))
+             (type #f)
+             (declaration (jazz.new-autoload-declaration name type #f library-declaration exported-library-reference)))
         (%%assert declaration
           (%%set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
@@ -350,12 +352,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Module-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (requires))
 
 
 (define (jazz.new-module-declaration name parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name 'public 'uptodate '() #f parent '() #f requires)))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent '() #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -368,7 +370,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (lookups))
 
 
@@ -392,7 +394,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name access compatibility attributes toplevel parent children locator lookups) jazz.Object-Class
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups) jazz.Object-Class
   (dialect
    requires
    exports
@@ -400,7 +402,7 @@
 
 
 (define (jazz.new-library-declaration name parent dialect requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name 'public 'uptodate '() #f parent '() #f (jazz.make-access-lookups jazz.public-access) dialect requires exports imports)))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent '() #f (jazz.make-access-lookups jazz.public-access) dialect requires exports imports)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -514,12 +516,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (symbol))
 
 
-(define (jazz.new-export-declaration name access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name access compatibility attributes #f parent '() #f symbol)))
+(define (jazz.new-export-declaration name type access compatibility attributes parent symbol)
+  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent '() #f symbol)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -544,14 +546,14 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (library
    exported-library
    declaration))
 
 
-(define (jazz.new-autoload-declaration name parent library-declaration exported-library)
-  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name 'public 'uptodate '() #f parent '() #f library-declaration exported-library #f)))
+(define (jazz.new-autoload-declaration name type parent library-declaration exported-library)
+  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent '() #f library-declaration exported-library #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -590,12 +592,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   ())
 
 
-(define (jazz.new-macro-declaration name access compatibility attributes parent)
-  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name access compatibility attributes #f parent '() #f)))
+(define (jazz.new-macro-declaration name type access compatibility attributes parent)
+  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent '() #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -626,12 +628,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   ())
 
 
-(define (jazz.new-syntax-declaration name access compatibility attributes parent)
-  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name access compatibility attributes #f parent '() #f)))
+(define (jazz.new-syntax-declaration name type access compatibility attributes parent)
+  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent '() #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -662,14 +664,14 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (kind
    expansion
    references))
 
 
-(define (jazz.new-c-type-declaration name access compatibility attributes parent kind expansion references)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name access compatibility attributes #f parent '() #f kind expansion references)))
+(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion references)
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent '() #f kind expansion references)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -700,12 +702,12 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
   (signature))
 
 
-(define (jazz.new-c-definition-declaration name access compatibility attributes parent parameters)
-  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name access compatibility attributes #f parent '() #f (and parameters (jazz.new-walk-signature parameters)))))
+(define (jazz.new-c-definition-declaration name type access compatibility attributes parent parameters)
+  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent '() #f (and parameters (jazz.new-walk-signature parameters)))))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -899,7 +901,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
   ())
 
 
@@ -911,12 +913,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Variable jazz.Symbol-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class
   ())
 
 
-(define (jazz.new-variable name)
-  (jazz.allocate-variable jazz.Variable name))
+(define (jazz.new-variable name type)
+  (jazz.allocate-variable jazz.Variable name type))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Variable binding) walker resume source-declaration environment)
@@ -935,12 +937,12 @@
 ;;;
 
 
-(jazz.define-class jazz.RestVariable jazz.Variable (name) jazz.Object-Class
+(jazz.define-class jazz.RestVariable jazz.Variable (name type) jazz.Object-Class
   ())
 
 
-(define (jazz.new-restvariable name)
-  (jazz.allocate-restvariable jazz.RestVariable name))
+(define (jazz.new-restvariable name type)
+  (jazz.allocate-restvariable jazz.RestVariable name type))
 
 
 (jazz.encapsulate-class jazz.RestVariable)
@@ -951,12 +953,12 @@
 ;;;
 
 
-(jazz.define-class jazz.NextMethodVariable jazz.Variable (name) jazz.Object-Class
+(jazz.define-class jazz.NextMethodVariable jazz.Variable (name type) jazz.Object-Class
   ())
 
 
-(define (jazz.new-nextmethodvariable name)
-  (jazz.allocate-nextmethodvariable jazz.NextMethodVariable name))
+(define (jazz.new-nextmethodvariable name type)
+  (jazz.allocate-nextmethodvariable jazz.NextMethodVariable name type))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.NextMethodVariable binding) walker resume source-declaration environment)
@@ -982,12 +984,12 @@
 ;; Support for dialects that have an implicit self concept
 
 
-(jazz.define-class jazz.Self-Binding jazz.Lexical-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Self-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
   ())
 
 
-(define (jazz.new-self-binding)
-  (jazz.allocate-self-binding jazz.Self-Binding 'self))
+(define (jazz.new-self-binding type)
+  (jazz.allocate-self-binding jazz.Self-Binding 'self type))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Self-Binding declaration) walker resume source-declaration environment)
@@ -1013,13 +1015,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type) jazz.Object-Class
   (getter
    setter))
 
 
 (define (jazz.new-macro-symbol name getter setter)
-  (jazz.allocate-macro-symbol jazz.Macro-Symbol name getter setter))
+  (jazz.allocate-macro-symbol jazz.Macro-Symbol name #f getter setter))
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Macro-Symbol binding) walker resume source-declaration environment)
@@ -1040,7 +1042,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Form-Binding jazz.Lexical-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Form-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
   ())
 
 
@@ -1052,12 +1054,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Special-Form jazz.Form-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Special-Form jazz.Form-Binding (name type) jazz.Object-Class
   (walk))
 
 
 (define (jazz.new-special-form name walk)
-  (jazz.allocate-special-form jazz.Special-Form name walk))
+  (jazz.allocate-special-form jazz.Special-Form name #f walk))
 
 
 (jazz.define-method (jazz.walk-binding-walkable? (jazz.Special-Form binding))
@@ -1077,12 +1079,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Form jazz.Form-Binding (name) jazz.Object-Class
+(jazz.define-class jazz.Macro-Form jazz.Form-Binding (name type) jazz.Object-Class
   (expander))
 
 
 (define (jazz.new-macro-form name expander)
-  (jazz.allocate-macro-form jazz.Macro-Form name expander))
+  (jazz.allocate-macro-form jazz.Macro-Form name #f expander))
 
 
 (jazz.define-method (jazz.walk-binding-expandable? (jazz.Macro-Form binding))
@@ -1749,7 +1751,7 @@
                               (let ((name (if (%%symbol? signature)
                                               signature
                                             (%%car signature))))
-                                (set! augmented-environment (%%cons (jazz.new-variable name) augmented-environment)))))
+                                (set! augmented-environment (%%cons (jazz.new-variable name #f) augmented-environment)))))
                           internal-defines)
                 (%%append (map (lambda (internal-define)
                                  (jazz.walk-internal-define walker resume declaration augmented-environment internal-define))
@@ -1759,18 +1761,19 @@
 
 
 (define (jazz.walk-internal-define walker resume declaration augmented-environment form)
-  (receive (name value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
+  (receive (name type value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
     `(define ,name
        ,(jazz.walk walker resume declaration augmented-environment value))))
 
 
 (define (jazz.parse-define walker resume declaration rest)
   (if (%%symbol? (%%car rest))
-      (values (%%car rest) (%%cadr rest) #f)
+      (values (%%car rest) #f (%%cadr rest) #f)
     (let ((name (%%caar rest))
+          (type #f)
           (parameters (%%cdar rest))
           (body (%%cdr rest)))
-      (values name `(lambda ,parameters ,@body) parameters))))
+      (values name type `(lambda ,parameters ,@body) parameters))))
 
 
 ;;;
@@ -2162,15 +2165,16 @@
 
 (define (jazz.parse-native walker resume declaration rest)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.native-modifiers rest)
-    (let ((name (%%car rest)))
+    (let ((name (%%car rest))
+          (type #f))
       (%%assert (%%null? (%%cdr rest))
-        (values name access compatibility)))))
+        (values name type access compatibility)))))
 
 
 (define (jazz.walk-native-declaration walker resume declaration environment form)
-  (receive (name access compatibility) (jazz.parse-native walker resume declaration (%%cdr form))
+  (receive (name type access compatibility) (jazz.parse-native walker resume declaration (%%cdr form))
     (receive (name symbol) (jazz.parse-exported-symbol declaration name)
-      (let ((new-declaration (jazz.new-export-declaration name access compatibility '() declaration symbol)))
+      (let ((new-declaration (jazz.new-export-declaration name type access compatibility '() declaration symbol)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
 
@@ -2194,8 +2198,9 @@
     (let* ((signature (%%car rest))
            (body (%%cdr rest))
            (name (%%car signature))
+           (type #f)
            (parameters (%%cdr signature)))
-      (values name access compatibility parameters body))))
+      (values name type access compatibility parameters body))))
 
 
 (define (jazz.expand-macro walker resume declaration environment . rest)
@@ -2203,19 +2208,19 @@
 
 
 (define (jazz.expand-macro-form walker resume declaration form)
-  (receive (name access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
-    `(%macro ,name ,access ,compatibility ,parameters ,body)))
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
+    `(%macro ,name ,type ,access ,compatibility ,parameters ,body)))
 
 
 (define (jazz.walk-%macro-declaration walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters body) (%%cdr form)
-    (let ((new-declaration (jazz.new-macro-declaration name access compatibility '() declaration)))
+  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
+    (let ((new-declaration (jazz.new-macro-declaration name type access compatibility '() declaration)))
       (jazz.add-declaration-child walker resume declaration new-declaration)
       new-declaration)))
 
 
 (define (jazz.walk-%macro walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters body) (%%cdr form)
+  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration form))
            (locator (%%get-declaration-locator new-declaration))
            (new-variables (jazz.parameters->variables parameters))
@@ -2239,8 +2244,9 @@
     (let* ((signature (%%car rest))
            (body (%%cdr rest))
            (name (%%car signature))
+           (type #f)
            (parameters (%%cdr signature)))
-      (values name access compatibility parameters body))))
+      (values name type access compatibility parameters body))))
 
 
 (define (jazz.expand-syntax walker resume declaration environment . rest)
@@ -2248,19 +2254,19 @@
 
 
 (define (jazz.expand-syntax-form walker resume declaration form)
-  (receive (name access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
-    `(%syntax ,name ,access ,compatibility ,parameters ,body)))
+  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
+    `(%syntax ,name ,type ,access ,compatibility ,parameters ,body)))
 
 
 (define (jazz.walk-%syntax-declaration walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters body) (%%cdr form)
-    (let ((new-declaration (jazz.new-syntax-declaration name access compatibility '() declaration)))
+  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
+    (let ((new-declaration (jazz.new-syntax-declaration name type access compatibility '() declaration)))
       (jazz.add-declaration-child walker resume declaration new-declaration)
       new-declaration)))
 
 
 (define (jazz.walk-%syntax walker resume declaration environment form)
-  (jazz.bind (name access compatibility parameters body) (%%cdr form)
+  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration form))
            (locator (%%get-declaration-locator new-declaration))
            (new-variables (jazz.parameters->variables parameters))
@@ -2279,10 +2285,10 @@
         (scan parameters))
     (%%while (%%not (%%null? scan))
       (cond ((%%pair? scan)
-             (jazz.enqueue queue (jazz.new-variable (%%car scan)))
+             (jazz.enqueue queue (jazz.new-variable (%%car scan) #f))
              (set! scan (%%cdr scan)))
             (else
-             (jazz.enqueue queue (jazz.new-restvariable scan))
+             (jazz.enqueue queue (jazz.new-restvariable scan #f))
              (set! scan '()))))
     (jazz.queue-list queue)))
 

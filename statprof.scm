@@ -10,10 +10,12 @@
 
 (define *buckets* #f)
 (define *total* 0)
+(define *unknown* 0)
 
 (define (profile-start!)
   (set! *buckets* '())
   (set! *total* 0)
+  (set! *unknown* 0)
   (##interrupt-vector-set! 1 profile-heartbeat!))
 
 (define (profile-stop!)
@@ -41,25 +43,26 @@
    (lambda (cont)
      (##thread-heartbeat!)
      (let ((id (identify-continuation cont)))
-       (if (not (eq? id 'unknown))
-           (let ((bucket (assoc (car id) *buckets*)))
-             (set! *total* (+ *total* 1))
-             (if (not bucket)
-                 (begin
-                   (set! *buckets* (cons 
-                                    (cons (car id) 
-                                          ;; fixme: arbitrary hard limit
-                                          ;; on the length of source
-                                          ;; files
-                                          (make-vector 50000 0)) 
-                                    *buckets*))
-                   (set! bucket (car *buckets*))))
-
-             (vector-set! (cdr bucket)
-                          (cadr id) 
-                          (+ (vector-ref (cdr bucket) 
-                                         (cadr id))
-                             1))))))))
+       (if (eq? id 'unknown)
+           (set! *unknown* (+ *unknown* 1))
+         (let ((bucket (assoc (car id) *buckets*)))
+           (set! *total* (+ *total* 1))
+           (if (not bucket)
+               (begin
+                 (set! *buckets* (cons 
+                                   (cons (car id) 
+                                         ;; fixme: arbitrary hard limit
+                                         ;; on the length of source
+                                         ;; files
+                                         (make-vector 50000 0)) 
+                                   *buckets*))
+                 (set! bucket (car *buckets*))))
+           
+           (vector-set! (cdr bucket)
+                        (cadr id) 
+                        (+ (vector-ref (cdr bucket) 
+                                       (cadr id))
+                           1))))))))
 
 
 ;; ----------------------------------------------------------------------------
@@ -220,6 +223,8 @@
        (sexp->html
         `(html
           (body
+            (p "total = " ,*total*)
+            (p "unknown = " ,*unknown*)
            ,@(map (lambda (bucket)
                     (let ((file-path (string-append 
                                       directory-name

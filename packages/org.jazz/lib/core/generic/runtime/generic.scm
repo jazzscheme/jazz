@@ -55,7 +55,7 @@
         (s (%%get-specific-mandatory-parameters specific))
         (name (%%get-generic-name generic)))
     (%%assertion (or ;; until special treatment for initialize
-                     (eq? name 'initialize)
+                     (%%eq? name 'initialize)
                      (and (%%not g) (%%not s))
                      (and g s (%%fx= (%%length g) (%%length s))))
                  (jazz.format "Inconsistant mandatory parameters for {a}: {a} and {a}" name g s)

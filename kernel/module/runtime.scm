@@ -133,7 +133,7 @@
     
     (define (jazz.load-src src)
       (jazz.load-verbose src)
-      (parameterize ((jazz.load-indent-level (+ (jazz.load-indent-level) 2)))
+      (parameterize ((jazz.load-indent-level (%%fx+ (jazz.load-indent-level) 2)))
         (jazz.load-filename src))
       (if jazz.done-verbose?
           (jazz.load-done-verbose src)))
@@ -142,7 +142,7 @@
     (define (jazz.load-bin bin)
       (jazz.load-verbose bin)
       (parameterize ((jazz.walk-for 'interpret)
-                     (jazz.load-indent-level (+ (jazz.load-indent-level) 2)))
+                     (jazz.load-indent-level (%%fx+ (jazz.load-indent-level) 2)))
         (jazz.load-filename bin))
       (if jazz.done-verbose?
           (jazz.load-done-verbose bin)))
@@ -232,17 +232,17 @@
     (jazz.split-filename path
       (lambda (dir name)
         (let iter ((scan jazz.PackageDirs))
-          (if (null? scan)
+          (if (%%null? scan)
               (jazz.kernel-error "Unable to find module:" module-name)
-            (let ((prefix (car scan)))
+            (let ((prefix (%%car scan)))
               (let ((prefixed-path (%%string-append prefix path))
                     (prefixed-dir (%%string-append prefix dir)))
                 (cond ((jazz.directory-exists? prefixed-path)
                        (%%string-append prefixed-path "/_" name))
-                      ((and (not (equal? dir "")) (jazz.directory-exists? prefixed-dir))
+                      ((and (%%not (%%equal? dir "")) (jazz.directory-exists? prefixed-dir))
                        prefixed-path)
                       (else
-                       (iter (cdr scan))))))))))))
+                       (iter (%%cdr scan))))))))))))
 
 
 (define (jazz.string-replace str old new)

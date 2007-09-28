@@ -133,9 +133,9 @@
 (define (jazz.implementation-name name parameter-access)
   (let ((virtual-types (map jazz.access->name parameter-access)))
     ;; special case to make implementation name more readable until a jazz debugger
-    (if (= (length virtual-types) 1)
+    (if (%%fx= (length virtual-types) 1)
         (let ((name (jazz.last (jazz.split-identifier name))))
-          (%%string->symbol (%%string-append (car virtual-types) "." (symbol->string name) ":implementation")))
+          (%%string->symbol (%%string-append (%%car virtual-types) "." (%%symbol->string name) ":implementation")))
       (%%string->symbol (%%string-append (%%symbol->string name) ":implementation." (jazz.join-strings virtual-types "/"))))))
 
 

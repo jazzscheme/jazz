@@ -48,12 +48,12 @@
 ;;;
 
 
-(define (jazz.compile-library-expansion library-name)
+(define (jazz.compile-library-with-options library-name options)
   (let ((filename (jazz.module-filename library-name)))
     (let ((src (jazz.require-module-source filename)))
       (jazz.with-extension-reader (jazz.filename-extension src)
         (lambda ()
-          (compile-file src (list 'expansion)))))))
+          (compile-file src options))))))
 
 
 (define (jazz.compile-library-with-flags library-name #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f))

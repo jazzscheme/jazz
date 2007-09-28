@@ -121,6 +121,6 @@
          (map (lambda (invoice)
                 (let ((feature-requirement (extract-feature-requirement invoice)))
                   (if (or (not feature-requirement) (feature-safisfied? feature-requirement))
-                      (list invoice)
+                      (%%list invoice)
                     '())))
               invoices)))

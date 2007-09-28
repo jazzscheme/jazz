@@ -141,7 +141,13 @@
 (define-macro (ee library-name)
   `(begin
      (bd)
-     (jazz.compile-library-expansion ',library-name)))
+     (jazz.compile-library-with-options ',library-name (list 'expansion))))
+
+
+(define-macro (eg library-name)
+  `(begin
+     (bd)
+     (jazz.compile-library-with-options ',library-name (list 'gvm))))
 
 
 (define (expand library-name)

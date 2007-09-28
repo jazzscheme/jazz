@@ -93,7 +93,7 @@
 (define (jazz.make-access-lookups access-level)
   (let ((lookups (%%make-vector (%%fx+ access-level 1))))
     (let iter ((n 0))
-      (if (<= n access-level)
+      (if (%%fx<= n access-level)
           (begin
             (%%vector-set! lookups n (%%make-hashtable eq?))
             (iter (%%fx+ n 1)))))
@@ -214,7 +214,7 @@
 
 (define (jazz.find-class-declaration declaration)
   (let iter ((decl declaration))
-    (cond ((not decl)
+    (cond ((%%not decl)
            (jazz.error "Unable to find class declaration for {s}" declaration))
           ((jazz.is? decl jazz.Class-Declaration)
            decl)
@@ -1114,7 +1114,7 @@
 (define (jazz.walk-reference walker resume declaration environment reference)
   (let ((form (%%get-reference-form reference))
         (context (%%get-reference-context reference)))
-    (if (eq? context 'self)
+    (if (%%eq? context 'self)
         (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
           (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
             (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
@@ -1130,7 +1130,7 @@
 (define (jazz.walk-reference-assignment walker resume declaration environment reference value)
   (let ((form (%%get-reference-form reference))
         (context (%%get-reference-context reference)))
-    (if (eq? context 'self)
+    (if (%%eq? context 'self)
         (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
           (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
             (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
@@ -1446,7 +1446,7 @@
                            (jazz.parse-require spec
                              (lambda (module-name feature-requirement load phase)
                                (jazz.enqueue queue
-                                 (if (not feature-requirement)
+                                 (if (%%not feature-requirement)
                                      `(jazz.load-module ',module-name)
                                    `(cond-expand
                                       (,feature-requirement (jazz.load-module ',module-name))
@@ -1820,7 +1820,7 @@
                    (%%keyword? expr)
                    (%%number? expr)
                    (%%symbol? expr)
-                   (and (%%pair? expr) (scheme-data? (car expr)) (scheme-data? (cdr expr)))))))
+                   (and (%%pair? expr) (scheme-data? (%%car expr)) (scheme-data? (%%cdr expr)))))))
     (and (%%pair? form)
          (scheme-data? form))))
 
@@ -1853,7 +1853,7 @@
 (define (jazz.register-literal walker resume declaration literal)
   ;; calling jazz.get-registered-literal to only register when not already there
   ;; doesnt work directly because some literals are interned and thus can be shared
-  (let ((name (jazz.generate-symbol (string-append (symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) ".lit"))))
+  (let ((name (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) ".lit"))))
     ;; it is important to register before any subliterals to ensure they come before us
     (let ((info (%%cons literal (%%cons name #f))))
       (%%set-walker-literals walker (%%cons info (%%get-walker-literals walker)))
@@ -1873,7 +1873,7 @@
   (let* ((library-declaration (%%get-declaration-toplevel declaration))
          (environment (%%cons library-declaration (jazz.walker-environment walker))))
     (jazz.walk walker resume library-declaration environment
-      (cond ((pair? literal)
+      (cond ((%%pair? literal)
              `(cons ',(car literal) ',(cdr literal)))
             (else
              (jazz.dialect.language.fold-literal literal))))))
@@ -1951,7 +1951,7 @@
 
 
 (define (jazz.register-variable walker declaration suffix)
-  (let ((variable (jazz.generate-symbol (string-append (symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) "." suffix))))
+  (let ((variable (jazz.generate-symbol (%%string-append (%%symbol->string (%%get-declaration-locator (%%get-declaration-toplevel declaration))) "." suffix))))
     (%%set-walker-variables walker (%%cons variable (%%get-walker-variables walker)))
     variable))
 
@@ -1967,10 +1967,10 @@
         ((jazz.enumerator? form)
          (jazz.walk-enumerator walker form))
         ;; inline false (until compiler support for constants)
-        ((eq? form 'false)
+        ((%%eq? form 'false)
          #f)
         ;; inline true (until compiler support for constants)
-        ((eq? form 'true)
+        ((%%eq? form 'true)
          #t)
         (else
          (jazz.walk-symbol-reference walker resume declaration environment form))))
@@ -2141,7 +2141,7 @@
   (let ((mandatory (%%get-walk-signature-mandatory signature))
         (rest? (%%get-walk-signature-rest? signature))
         (passed (%%length arguments)))
-    (if (%%not ((if rest? >= =) passed mandatory))
+    (if (if rest? (%%fx< passed mandatory) (%%not (%%fx= passed mandatory)))
         (let ((locator (%%get-declaration-locator declaration)))
           (jazz.walk-error walker resume source-declaration "Wrong number of arguments to {a} (passed {a} expected{a} {a})"
             locator passed (if rest? " at least" "") mandatory)))))
@@ -2372,7 +2372,7 @@
                    (jazz.parse-library-declaration (%%cdr form))))))))
       (let ((declaration
               (if jazz.parse-verbose?
-                  (parameterize ((jazz.load-indent-level (+ (jazz.load-indent-level) 2)))
+                  (parameterize ((jazz.load-indent-level (%%fx+ (jazz.load-indent-level) 2)))
                     (load-declaration))
                 (load-declaration))))
         (if (and jazz.parse-verbose? jazz.done-verbose?)
@@ -2398,7 +2398,7 @@
 
 
 (define (jazz.read-toplevel-form filename . rest)
-  (let ((parse-read? (if (null? rest) #t (car rest))))
+  (let ((parse-read? (if (%%null? rest) #t (%%car rest))))
     (let ((form
             (jazz.with-extension-reader (jazz.filename-extension filename)
               (lambda ()

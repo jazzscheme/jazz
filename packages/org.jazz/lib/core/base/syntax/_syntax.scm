@@ -38,7 +38,6 @@
 (module core.base.syntax
 
 
-(require (core.base.syntax.quasiquote (load interpreted))
-         (core.base.syntax.void (load interpreted))
+(require (core.base.syntax.void (load interpreted))
          (core.base.syntax.macro (load interpreted))
          (core.base.syntax.macros (load interpreted))))

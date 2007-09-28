@@ -42,53 +42,53 @@
   jazz.object-size)
 
 (define jazz.unit-fields
-  (+ jazz.unit-name 1))
+  (%%fx+ jazz.unit-name 1))
 
 (define jazz.unit-ancestors
-  (+ jazz.unit-fields 1))
+  (%%fx+ jazz.unit-fields 1))
 
 (define jazz.unit-descendants
-  (+ jazz.unit-ancestors 1))
+  (%%fx+ jazz.unit-ancestors 1))
 
 (define jazz.class-ascendant
-  (+ jazz.unit-descendants 1))
+  (%%fx+ jazz.unit-descendants 1))
 
 (define jazz.class-interfaces
-  (+ jazz.class-ascendant 1))
+  (%%fx+ jazz.class-ascendant 1))
 
 (define jazz.class-slots
-  (+ jazz.class-interfaces 1))
+  (%%fx+ jazz.class-interfaces 1))
 
 (define jazz.class-instance-size
-  (+ jazz.class-slots 1))
+  (%%fx+ jazz.class-slots 1))
 
 (define jazz.class-level
-  (+ jazz.class-instance-size 1))
+  (%%fx+ jazz.class-instance-size 1))
 
 (define jazz.class-dispatch-table
-  (+ jazz.class-level 1))
+  (%%fx+ jazz.class-level 1))
 
 (define jazz.class-core-method-alist
-  (+ jazz.class-dispatch-table 1))
+  (%%fx+ jazz.class-dispatch-table 1))
 
 (define jazz.class-core-virtual-alist
-  (+ jazz.class-core-method-alist 1))
+  (%%fx+ jazz.class-core-method-alist 1))
 
 (define jazz.class-core-virtual-names
-  (+ jazz.class-core-virtual-alist 1))
+  (%%fx+ jazz.class-core-virtual-alist 1))
 
 (define jazz.class-core-vtable
-  (+ jazz.class-core-virtual-names 1))
+  (%%fx+ jazz.class-core-virtual-names 1))
 
 (define jazz.class-class-table
-  (+ jazz.class-core-vtable 1))
+  (%%fx+ jazz.class-core-vtable 1))
 
 (define jazz.class-interface-table
-  (+ jazz.class-class-table 1))
+  (%%fx+ jazz.class-class-table 1))
 
 
 (define jazz.class-size
-  (+ jazz.class-interface-table 1))
+  (%%fx+ jazz.class-interface-table 1))
 
 
 (jazz.define-macro (%%get-unit-name unit)

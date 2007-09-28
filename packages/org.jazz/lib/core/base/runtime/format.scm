@@ -53,9 +53,9 @@
 
 
 (define (jazz.parse-format rest proc)
-  (if (string? (car rest))
-      (proc ':string (car rest) (cdr rest))
-    (proc (car rest) (cadr rest) (cddr rest))))
+  (if (string? (%%car rest))
+      (proc ':string (%%car rest) (%%cdr rest))
+    (proc (%%car rest) (%%cadr rest) (%%cddr rest))))
 
 
 (define jazz.lowlevel-format

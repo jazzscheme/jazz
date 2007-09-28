@@ -56,7 +56,7 @@
 
 
 (define jazz.object-size
-  (+ jazz.object-class 1))
+  (%%fx+ jazz.object-class 1))
 
 
 (cond-expand

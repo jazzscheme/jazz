@@ -65,7 +65,7 @@
 
 (define (jazz.register-autoload name module-name)
   (let ((actual (jazz.get-autoload name)))
-    (if (or (not actual) (eq? actual module-name))
+    (if (or (%%not actual) (%%eq? actual module-name))
         (jazz.set-autoload name module-name)
       (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name actual module-name))))
 

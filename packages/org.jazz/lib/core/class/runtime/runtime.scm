@@ -510,26 +510,26 @@
     (define jazz.port-type
       (##structure-type (open-output-string)))
     
-    (vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
-    (vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
-    (vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Number)
-    (vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
+    (%%vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
+    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Number)
     ;; super quicky untill we add structure dispatch to %%c-class-of
-    (vector-set! jazz.subtypes (macro-subtype-structure) jazz.Port)
-    (vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
-    (vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
-    (vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
-    (vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
-    (vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
-    (vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Number)
-    (vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-structure) jazz.Port)
+    (%%vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
+    (%%vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
+    (%%vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
+    (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
+    (%%vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
+    (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Number)
     
-    (vector-set! jazz.specialtypes 0 jazz.Boolean)
-    (vector-set! jazz.specialtypes 1 jazz.Boolean)
-    (vector-set! jazz.specialtypes 2 jazz.Null)
-    ;;(vector-set! jazz.specialtypes 3 jazz.EOF)
-    ;;(vector-set! jazz.specialtypes 4 jazz.Void)
-    ;;(vector-set! jazz.specialtypes 4 jazz.Absent)
+    (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes 1 jazz.Boolean)
+    (%%vector-set! jazz.specialtypes 2 jazz.Null)
+    ;;(%%vector-set! jazz.specialtypes 3 jazz.EOF)
+    ;;(%%vector-set! jazz.specialtypes 4 jazz.Void)
+    ;;(%%vector-set! jazz.specialtypes 4 jazz.Absent)
     )
   
   (else))
@@ -624,7 +624,7 @@
 
 (define (jazz.add-slot class slot-name slot-initialize)
   ;; this is a quicky that needs to be well tought out
-  (%%when (not (%%get-unit-field class slot-name))
+  (%%when (%%not (%%get-unit-field class slot-name))
     (let* ((slot-rank (%%get-class-instance-size class))
            (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
       (jazz.add-field class slot)
@@ -697,14 +697,14 @@
 
 (define (jazz.all-properties unit)
   (let iter ((slots (%%get-class-slots unit)))
-     (cond ((null? slots) '())
-           ((jazz.property? (car slots)) (cons (car slots) (iter (cdr slots))))
-           (else (iter (cdr slots)))))) 
+     (cond ((%%null? slots) '())
+           ((jazz.property? (%%car slots)) (%%cons (%%car slots) (iter (%%cdr slots))))
+           (else (iter (%%cdr slots)))))) 
 
 
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)
   ;; this is a quicky that needs to be well tought out
-  (%%when (not (%%get-unit-field class slot-name))
+  (%%when (%%not (%%get-unit-field class slot-name))
     (let* ((slot-rank (%%get-class-instance-size class))
            (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
       (jazz.add-field class slot)

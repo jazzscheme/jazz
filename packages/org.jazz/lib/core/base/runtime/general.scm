@@ -219,7 +219,7 @@
 
 
 (define jazz.hashtable-merge
-  (let ((unbound (list 'unbound)))
+  (let ((unbound (%%list 'unbound)))
     (lambda (into from duplicate-proc)
       (%%iterate-hashtable from
         (lambda (key value)

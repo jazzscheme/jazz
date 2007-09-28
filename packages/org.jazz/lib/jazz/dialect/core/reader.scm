@@ -150,7 +150,7 @@
               (cond ((%%eof-object? c)
                      #f)
                     ((and (%%eqv? c #\")
-                          (eqv? (peek-char port) #\#))
+                          (%%eqv? (peek-char port) #\#))
                      (read-char port)
                      (get-output-string output))
                     (else

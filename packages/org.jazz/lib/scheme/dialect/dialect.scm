@@ -297,7 +297,7 @@
          (macro-symbols (map (lambda (binding)
                                (let ((name (%%car binding))
                                      (getter (%%cadr binding))
-                                     (setter (car (cddr binding))))
+                                     (setter (%%car (%%cddr binding))))
                                  (jazz.new-macro-symbol name (eval getter) (eval setter))))
                              bindings))
          (new-environment (%%append macro-symbols environment)))

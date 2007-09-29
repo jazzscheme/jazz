@@ -73,8 +73,7 @@
 
 
 (define (ll)
-  (bl)
-  (jazz.load-module 'jazz))
+  (bl))
 
 
 (define (lj)
@@ -86,6 +85,10 @@
 
 (define (lt)
   (l test))
+
+
+(define (lw)
+  (l w))
 
 
 (define (tffi)
@@ -188,6 +191,10 @@
 
 (define (ejt)
   (e jazz.test))
+
+
+(define (ew)
+  (e w))
 
 
 ;;;

@@ -76,19 +76,19 @@
     `(set! ,locator ,walk)))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Definition-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Definition-Declaration declaration) walker resume source-declaration operator arguments)
   (let ((signature (%%get-definition-declaration-signature declaration)))
     (if signature
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
-(jazz.define-method (jazz.walk-binding-walk-call (jazz.Definition-Declaration declaration) walker resume source-declaration environment call arguments)
+(jazz.define-method (jazz.walk-binding-walk-call (jazz.Definition-Declaration declaration) walker resume source-declaration environment operator arguments)
   (let ((self (jazz.lookup-self walker environment)))
     (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@(jazz.walk-list walker resume source-declaration environment arguments))
-      (nextmethod declaration walker resume source-declaration environment call arguments))))
+      (nextmethod declaration walker resume source-declaration environment operator arguments))))
 
 
 (jazz.encapsulate-class jazz.Definition-Declaration)
@@ -117,20 +117,20 @@
       path)))
 
 
-(jazz.define-method (jazz.walk-binding-walk-call (jazz.Generic-Declaration declaration) walker resume source-declaration environment call arguments)
+(jazz.define-method (jazz.walk-binding-walk-call (jazz.Generic-Declaration declaration) walker resume source-declaration environment operator arguments)
   (let ((self (jazz.lookup-self walker environment)))
     (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@(jazz.walk-list walker resume source-declaration environment arguments))
-      (nextmethod declaration walker resume source-declaration environment call arguments))))
+      (nextmethod declaration walker resume source-declaration environment operator arguments))))
 
 
 (jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Generic-Declaration declaration) walker resume source-declaration environment value)
   (jazz.walk-error walker resume source-declaration "Illegal assignment to a generic: {s}" (%%get-declaration-locator declaration)))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Generic-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Generic-Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.validate-arguments walker resume source-declaration declaration (%%get-generic-declaration-signature declaration) arguments))
 
 
@@ -351,7 +351,7 @@
       (jazz.walk-error walker resume source-declaration "Illegal assignment to a slot: {s}" (%%get-declaration-locator declaration)))))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Slot-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Slot-Declaration declaration) walker resume source-declaration operator arguments)
   #f)
 
 

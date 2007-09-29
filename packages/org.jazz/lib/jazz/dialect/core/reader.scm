@@ -52,7 +52,7 @@
     (define (jazz.jazzify-readtable! readtable)
       (macro-readtable-named-char-table-set! readtable (append (macro-readtable-named-char-table readtable) jazz.named-chars))
       (##readtable-char-class-set! readtable #\{ #t jazz.read-literal)
-      (##readtable-char-class-set! readtable #\[ #t jazz.read-reference)
+      (##readtable-char-class-set! readtable #\[ #t jazz.read-slot-access)
       (##readtable-char-class-set! readtable #\@ #t jazz.read-comment)
       (##readtable-char-sharp-handler-set! readtable #\" jazz.read-delimited-string))
     
@@ -121,14 +121,14 @@
               (jazz.construct-literal (map ##desourcify lst)))))))
     
     
-    (define (jazz.read-reference re c)
+    (define (jazz.read-slot-access re c)
       (let ((start-pos (##readenv-current-filepos re)))
         (read-char (macro-readenv-port re))
         (let ((lst (%%reverse (##build-list re #t start-pos #\]))))
           (let iter ((ref (##desourcify (%%car lst)))
                      (scan (%%cdr lst)))
             (if (%%not (%%null? scan))
-                (iter (jazz.new-reference (##desourcify (%%car scan)) ref) (%%cdr scan))
+                (iter (jazz.new-slot-access (##desourcify (%%car scan)) ref) (%%cdr scan))
               (macro-readenv-wrap re ref))))))
     
     

@@ -38,6 +38,9 @@
 ;; Concepts
 ;; - lookup: direct lookup of a symbol returning a declaration
 ;; - resolve: references are resolved only on first usage
+;; - generate: take a source code expr and generate equivalent scheme code
+;;   - walk: take a source code expr and generate an expression tree
+;;   - emit: take an expression tree and emit scheme code
 ;;
 ;; Notes
 ;; - It is key to have compile time reference loading identical to runtime library loading
@@ -111,9 +114,10 @@
 
 (jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
 (jazz.define-virtual (jazz.walk-binding-walk-reference (jazz.Walk-Binding binding) walker resume source-declaration environment))
+(jazz.define-virtual (jazz.walk-binding-emit-code (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-walk-assignment (jazz.Walk-Binding binding) walker resume source-declaration environment value))
-(jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration call arguments))
-(jazz.define-virtual (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment call arguments))
+(jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
+(jazz.define-virtual (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment operator arguments))
 (jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 (jazz.define-virtual (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
@@ -128,17 +132,21 @@
   #f)
 
 
+(jazz.define-method (jazz.walk-binding-emit-code (jazz.Walk-Binding binding))
+  (jazz.error "Unable to emit code for: {s}" binding))
+
+
 (jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Walk-Binding binding) walker resume source-declaration environment value)
   #f)
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments)
   (jazz.void))
 
 
-(jazz.define-method (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment call arguments)
+(jazz.define-method (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment operator arguments)
   `(,(jazz.walk-binding-walk-reference binding walker resume source-declaration environment)
-    ,@(jazz.walk-list walker resume source-declaration environment arguments)))
+    ,@arguments))
 
 
 (jazz.define-method (jazz.walk-binding-walkable? (jazz.Walk-Binding binding))
@@ -227,7 +235,7 @@
   (jazz.lookup-declaration binding symbol #f))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.walk-error walker resume source-declaration "{a} is not callable" (%%get-declaration-locator declaration)))
 
 
@@ -530,11 +538,15 @@
   (%%get-export-declaration-symbol declaration))
 
 
+(jazz.define-method (jazz.walk-binding-emit-code (jazz.Export-Declaration declaration))
+  (%%get-export-declaration-symbol declaration))
+
+
 (jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Export-Declaration declaration) walker resume source-declaration environment value)
   (jazz.walk-error walker resume source-declaration "Illegal assignment to an export: {s}" (%%get-declaration-locator declaration)))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.void))
 
 
@@ -720,7 +732,7 @@
   (jazz.walk-error walker resume source-declaration "Illegal assignment to a c-definition: {s}" (%%get-declaration-locator declaration)))
 
 
-(jazz.define-method (jazz.walk-binding-validate-call (jazz.C-Definition-Declaration declaration) walker resume source-declaration call arguments)
+(jazz.define-method (jazz.walk-binding-validate-call (jazz.C-Definition-Declaration declaration) walker resume source-declaration operator arguments)
   (let ((signature (%%get-c-definition-declaration-signature declaration)))
     (if signature
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
@@ -922,6 +934,10 @@
 
 
 (jazz.define-method (jazz.walk-binding-walk-reference (jazz.Variable binding) walker resume source-declaration environment)
+  (jazz.new-reference binding))
+
+
+(jazz.define-method (jazz.walk-binding-emit-code (jazz.Variable binding))
   (%%get-lexical-binding-name binding))
 
 
@@ -1100,24 +1116,24 @@
 
 
 ;;;
-;;;; Reference
+;;;; Slot Access
 ;;;
 
 
-(jazz.define-class jazz.Reference jazz.Object () jazz.Object-Class
-  (form
+(jazz.define-class jazz.Slot-Access jazz.Object () jazz.Object-Class
+  (name
    context))
 
 
-(define (jazz.new-reference form context)
-  (jazz.allocate-reference jazz.Reference form context))
+(define (jazz.new-slot-access name context)
+  (jazz.allocate-slot-access jazz.Slot-Access name context))
 
 
-(define (jazz.walk-reference walker resume declaration environment reference)
-  (let ((form (%%get-reference-form reference))
-        (context (%%get-reference-context reference)))
+(define (jazz.walk-slot-access walker resume declaration environment slot-access)
+  (let ((name (%%get-slot-access-name slot-access))
+        (context (%%get-slot-access-context slot-access)))
     (if (%%eq? context 'self)
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name #f)))
           (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
             (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
               `(%%object-ref self ,offset-locator))))
@@ -1125,15 +1141,15 @@
         (let ((obj (jazz.generate-symbol "obj")))
           `(let ((,obj ,(jazz.walk walker resume declaration environment context)))
              (if (%%not ,variable)
-                 (set! ,variable (jazz.find-slot-offset ,obj ',form)))
+                 (set! ,variable (jazz.find-slot-offset ,obj ',name)))
              (%%object-ref ,obj ,variable)))))))
 
  
-(define (jazz.walk-reference-assignment walker resume declaration environment reference value)
-  (let ((form (%%get-reference-form reference))
-        (context (%%get-reference-context reference)))
+(define (jazz.walk-slot-access-assignment walker resume declaration environment slot-access value)
+  (let ((name (%%get-slot-access-name slot-access))
+        (context (%%get-slot-access-context slot-access)))
     (if (%%eq? context 'self)
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) form #f)))
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name #f)))
           (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
             (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator slot-declaration) 'offset)))
               `(%%object-set! self ,offset-locator ,(jazz.walk walker resume declaration environment value)))))
@@ -1141,11 +1157,11 @@
         (let ((obj (jazz.generate-symbol "obj")))
           `(let ((,obj ,(jazz.walk walker resume declaration environment context)))
              (if (%%not ,variable)
-                 (set! ,variable (jazz.find-slot-offset ,obj ',form)))
+                 (set! ,variable (jazz.find-slot-offset ,obj ',name)))
              (%%object-set! ,obj ,variable ,(jazz.walk walker resume declaration environment value))))))))
 
 
-(jazz.encapsulate-class jazz.Reference)
+(jazz.encapsulate-class jazz.Slot-Access)
 
 
 ;;;
@@ -1436,7 +1452,7 @@
            (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
            (environment (%%cons declaration (jazz.walker-environment walker)))
            (fullname (%%get-declaration-locator declaration)))
-      (let ((body-expansion (jazz.walk-list walker resume declaration environment body))
+      (let ((body-expansion (jazz.generate-list walker resume declaration environment body))
             (references-expansion (jazz.expand-walker-references walker))
             (literals-expansion (jazz.expand-walker-literals walker))
             (variables-expansion (jazz.expand-walker-variables walker)))
@@ -1696,6 +1712,369 @@
 
 
 ;;;
+;;;; Type
+;;;
+
+
+(jazz.define-class jazz.Type jazz.Object () jazz.Object-Class
+  (name))
+
+
+(define (jazz.new-type name)
+  (jazz.allocate-type jazz.Type name))
+
+
+(jazz.encapsulate-class jazz.Type)
+
+
+;;;
+;;;; Expression
+;;;
+
+
+(jazz.define-class jazz.Expression jazz.Object () jazz.Object-Class
+  (type))
+
+
+(jazz.define-virtual (jazz.emit-code (jazz.Expression expression)))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Expression expression))
+  (jazz.error "Unable to emit code for: {s}" expression))
+
+
+(jazz.define-virtual (jazz.emit-call (jazz.Expression expression) arguments))
+
+
+(jazz.define-method (jazz.emit-call (jazz.Expression expression) arguments)
+  `(,(jazz.emit-code expression) ,@arguments))
+
+
+(define (jazz.emit-codes expressions)
+  (map (lambda (expression)
+         (jazz.emit-code expression))
+       expressions))
+
+
+(jazz.encapsulate-class jazz.Expression)
+
+
+;;;
+;;;; Constant
+;;;
+
+
+(jazz.define-class jazz.Constant jazz.Expression (type) jazz.Object-Class
+  (expansion))
+
+
+(define (jazz.new-constant expansion)
+  (jazz.allocate-constant jazz.Constant #f expansion))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Constant expression))
+  (%%get-constant-expansion expression))
+
+
+(jazz.encapsulate-class jazz.Constant)
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(jazz.define-class jazz.Reference jazz.Expression (type) jazz.Object-Class
+  (binding))
+
+
+(define (jazz.new-reference binding)
+  (jazz.allocate-reference jazz.Reference #f binding))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Reference expression))
+  (jazz.walk-binding-emit-code (%%get-reference-binding expression)))
+
+
+#; ;; wait
+(jazz.define-method (jazz.emit-call (jazz.Expression expression) arguments)
+  `(,(jazz.emit-code operator) ,@arguments))
+
+
+(jazz.encapsulate-class jazz.Reference)
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(jazz.define-class jazz.Assignment jazz.Expression (type) jazz.Object-Class
+  (location
+   value))
+
+
+(define (jazz.new-assignment location value)
+  (jazz.allocate-assignment jazz.Assignment #f location value))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Assignment expression))
+  (jazz.error "Todo"))
+
+
+(jazz.encapsulate-class jazz.Assignment)
+
+
+;;;
+;;;; Body
+;;;
+
+
+(jazz.define-class jazz.Body jazz.Expression (type) jazz.Object-Class
+  (expressions))
+
+
+(define (jazz.new-body expressions)
+  (jazz.allocate-body jazz.Body #f expressions))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Body expression))
+  (jazz.emit-codes
+    (%%get-body-expressions expression)))
+
+
+(jazz.encapsulate-class jazz.Body)
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(jazz.define-class jazz.Lambda jazz.Expression (type) jazz.Object-Class
+  (parameters
+   body))
+
+
+(define (jazz.new-lambda parameters body)
+  (jazz.allocate-lambda jazz.Lambda #f parameters body))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Lambda expression))
+  (let ((parameters (%%get-lambda-parameters expression))
+        (body (%%get-lambda-body expression)))
+    `(lambda ,parameters
+       ,@(jazz.emit-code body))))
+
+
+(jazz.encapsulate-class jazz.Lambda)
+
+
+;;;
+;;;; Let
+;;;
+
+
+(jazz.define-class jazz.Let jazz.Expression (type) jazz.Object-Class
+  (bindings
+   body))
+
+
+(define (jazz.new-let bindings body)
+  (jazz.allocate-let jazz.Let #f bindings body))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Let expression))
+  (let ((bindings (%%get-let-bindings expression))
+        (body (%%get-let-body expression)))
+    `(let ,(map (lambda (binding)
+                  (let ((variable (%%car binding))
+                        (value (%%cdr binding)))
+                    `(,(%%get-lexical-binding-name variable) ,(jazz.emit-code value))))
+                bindings)
+       ,@(jazz.emit-code body))))
+
+
+(jazz.encapsulate-class jazz.Let)
+
+
+;;;
+;;;; Call
+;;;
+
+
+(jazz.define-class jazz.Call jazz.Expression (type) jazz.Object-Class
+  (operator
+   arguments))
+
+
+(define (jazz.new-call operator arguments)
+  (jazz.allocate-call jazz.Call #f operator arguments))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Call expression))
+  (let ((operator (%%get-call-operator expression))
+        (arguments (%%get-call-arguments expression)))
+    (jazz.emit-call operator (jazz.emit-codes arguments))))
+
+
+(define (jazz.inline-call procedure-binding walker resume declaration environment call arguments)
+  #f
+  #;
+  (let ((name (%%get-declaration-locator procedure-binding))
+        (args
+          (lambda ()
+            (jazz.walk-list walker resume source-declaration environment arguments))))
+    (jazz.debug name)
+    (cond ((and (%%eq? name 'jazz.dialect.language.<)
+                (jazz.every? (lambda (argument)
+                               (jazz.debug argument (%%get-lexical-binding-type argument))
+                               (%%eq? (%%get-lexical-binding-type argument) 'fx))
+                             arguments))
+           (##fx< ,@(args)))
+          (else
+           #f))))
+
+
+(jazz.encapsulate-class jazz.Call)
+
+
+;;;
+;;;; If
+;;;
+
+
+(jazz.define-class jazz.If jazz.Expression (type) jazz.Object-Class
+  (test
+   yes
+   no))
+
+
+(define (jazz.new-if test yes no)
+  (jazz.allocate-if jazz.If #f test yes no))
+
+
+(jazz.define-method (jazz.emit-code (jazz.If expression))
+  `(if ,(jazz.emit-code (%%get-if-test expression))
+       ,(jazz.emit-code (%%get-if-yes expression))
+     ,@(jazz.emit-code (%%get-if-no expression))))
+
+
+(jazz.encapsulate-class jazz.If)
+
+
+;;;
+;;;; Cond
+;;;
+
+
+(jazz.define-class jazz.Cond jazz.Expression (type) jazz.Object-Class
+  (clauses))
+
+
+(define (jazz.new-cond clauses)
+  (jazz.allocate-cond jazz.Cond #f clauses))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Cond expression))
+  `(cond ,@(map (lambda (clause)
+                  (let ((test (%%car clause))
+                        (body (%%cdr clause)))
+                    `(,(if (%%not test)
+                           'else
+                         (jazz.emit-code test))
+                      ,@(jazz.emit-code body))))
+                (%%get-cond-clauses expression))))
+
+
+(jazz.encapsulate-class jazz.Cond)
+
+
+;;;
+;;;; Case
+;;;
+
+
+(jazz.define-class jazz.Case jazz.Expression (type) jazz.Object-Class
+  (target
+   clauses))
+
+
+(define (jazz.new-case target clauses)
+  (jazz.allocate-case jazz.Case #f target clauses))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Case expression))
+  (let ((target (%%get-case-target expression))
+        (clauses (%%get-case-clauses expression)))
+    `(case ,(jazz.emit-code target)
+       ,@(map (lambda (clause)
+                (let* ((tries (%%car clause))
+                       (body (%%cdr clause)))
+                  `(,tries ,@(jazz.emit-code body))))
+              clauses))))
+
+
+(jazz.encapsulate-class jazz.Case)
+
+
+;;;
+;;;; And
+;;;
+
+
+(jazz.define-class jazz.And jazz.Expression (type) jazz.Object-Class
+  (expressions))
+
+
+(define (jazz.new-and expressions)
+  (jazz.allocate-and jazz.And #f expressions))
+
+
+(jazz.define-method (jazz.emit-code (jazz.And expression))
+  `(and ,@(jazz.emit-codes (%%get-and-expressions expression))))
+
+
+(jazz.encapsulate-class jazz.And)
+
+
+;;;
+;;;; Or
+;;;
+
+
+(jazz.define-class jazz.Or jazz.Expression (type) jazz.Object-Class
+  (expressions))
+
+
+(define (jazz.new-or expressions)
+  (jazz.allocate-or jazz.Or #f expressions))
+
+
+(jazz.define-method (jazz.emit-code (jazz.Or expression))
+  `(or ,@(jazz.emit-codes (%%get-or-expressions expression))))
+
+
+(jazz.encapsulate-class jazz.Or)
+
+
+;;;
+;;;; Generate
+;;;
+
+
+(define (jazz.generate walker resume declaration environment form)
+  (let ((expression (jazz.walk walker resume declaration environment form)))
+    (jazz.emit-code expression)))
+
+
+(define (jazz.generate-list walker resume declaration environment form-list)
+  (map (lambda (form)
+         (jazz.generate walker resume declaration environment form))
+       form-list))
+
+
+;;;
 ;;;; Walk
 ;;;
 
@@ -1705,8 +2084,8 @@
          (jazz.walk-symbol walker resume declaration environment form))
         ((%%pair? form)
          (jazz.walk-form walker resume declaration environment form))
-        ((%%is? form jazz.Reference)
-         (jazz.walk-reference walker resume declaration environment form))
+        ((%%is? form jazz.Slot-Access)
+         (jazz.walk-slot-access walker resume declaration environment form))
         (else
          (jazz.walk-constant walker resume declaration environment form))))
 
@@ -1722,6 +2101,8 @@
 
 
 (define (jazz.walk-body walker resume declaration environment form-list)
+  (jazz.new-body (jazz.walk-list walker resume declaration environment form-list))
+  #; ;; wait
   (let ((internal-defines '()))
     (letrec ((process
                (lambda (form)
@@ -1784,7 +2165,7 @@
 (define (jazz.walk-quote walker resume declaration environment form)
   (let ((expression (%%cadr form)))
     (if (%%null? expression)
-        '(quote ())
+        (jazz.new-constant '(quote ()))
       (jazz.walk-constant walker resume declaration environment expression))))
 
 
@@ -1804,11 +2185,11 @@
          (%%keyword? form)
          (%%number? form)
          (%%null? form))
-     form)
+     (jazz.new-constant form))
     ((or (%%symbol? form)
          (%%vector? form)
          (jazz.scheme-pair-literal? form))
-     `(quote ,form))
+     (jazz.new-constant `(quote ,form)))
     (else
      (jazz.register-literal walker resume declaration form))))
 
@@ -1861,7 +2242,7 @@
     (let ((info (%%cons literal (%%cons name #f))))
       (%%set-walker-literals walker (%%cons info (%%get-walker-literals walker)))
       (%%set-cdr! (%%cdr info) (jazz.walk-literal walker resume declaration literal)))
-    name))
+    (jazz.new-constant name)))
 
 
 (define (jazz.get-registered-literal walker literal)
@@ -1984,7 +2365,7 @@
         (value (%%car (%%cddr form))))
     (cond ((%%symbol? form)
            (jazz.walk-symbol-assignment walker resume declaration environment form value))
-          ((%%is? form jazz.Reference)
+          ((%%is? form jazz.Slot-Access)
            (jazz.walk-reference-assignment walker resume declaration environment form value))
           (else
            (jazz.error "Illegal set! of {s}" form)))))
@@ -2127,14 +2508,16 @@
 
 
 (define (jazz.walk-call walker resume declaration environment procedure-binding form)
-  (let ((call (%%car form))
+  (let ((operator (%%car form))
         (arguments (%%cdr form)))
     (if procedure-binding
-        (jazz.walk-binding-validate-call procedure-binding walker resume declaration call arguments))
-    (if procedure-binding
-        (jazz.walk-binding-walk-call procedure-binding walker resume declaration environment call arguments)
-      `(,(jazz.walk walker resume declaration environment call)
-        ,@(jazz.walk-list walker resume declaration environment arguments)))))
+        (jazz.walk-binding-validate-call procedure-binding walker resume declaration operator arguments))
+    (let ((walked-arguments (jazz.walk-list walker resume declaration environment arguments)))
+      (if procedure-binding
+          (jazz.new-call (jazz.new-reference procedure-binding)
+                         walked-arguments)
+        (jazz.new-call (jazz.walk walker resume declaration environment operator)
+                       walked-arguments)))))
 
 
 (jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))

@@ -44,7 +44,7 @@
 ;; debug - standard debug mode with tests to make jazz user code safe
 ;; release - release mode without tests for user stable code
 (define jazz.safety-level
-  (make-parameter 'debug))
+  (make-parameter 'safe))
 
 
 (define (jazz.safe?)

@@ -49,9 +49,10 @@
 
 (jazz.define-virtual-syntax (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-reference (jazz.Walk-Binding binding) walker resume source-declaration environment))
+(jazz.define-virtual-syntax (jazz.walk-binding-emit-code (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-assignment (jazz.Walk-Binding binding) walker resume source-declaration environment value))
-(jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration call arguments))
-(jazz.define-virtual-syntax (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment call arguments))
+(jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
+(jazz.define-virtual-syntax (jazz.walk-binding-walk-call (jazz.Walk-Binding binding) walker resume source-declaration environment operator arguments))
 (jazz.define-virtual-syntax (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 (jazz.define-virtual-syntax (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
@@ -425,14 +426,151 @@
 
 
 ;;;
-;;;; Reference
+;;;; Slot Access
 ;;;
 
 
 ;; this should be moved to jazz
-(jazz.define-class-syntax jazz.Reference jazz.Object () jazz.Object-Class jazz.allocate-reference
-  ((form    %%get-reference-form    ())
-   (context %%get-reference-context ())))
+(jazz.define-class-syntax jazz.Slot-Access jazz.Object () jazz.Object-Class jazz.allocate-slot-access
+  ((name    %%get-slot-access-name    ())
+   (context %%get-slot-access-context ())))
+
+
+;;;
+;;;; Type
+;;;
+
+
+(jazz.define-class-syntax jazz.Type jazz.Object () jazz.Object-Class jazz.allocate-type
+  ((name %%get-type-name ())))
+
+
+;;;
+;;;; Expression
+;;;
+
+
+(jazz.define-class-syntax jazz.Expression jazz.Object () jazz.Object-Class ()
+  ((type %%get-expression-type ())))
+
+
+(jazz.define-virtual-syntax (jazz.emit-code (jazz.Expression expression)))
+(jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments))
+
+
+;;;
+;;;; Constant
+;;;
+
+
+(jazz.define-class-syntax jazz.Constant jazz.Expression (type) jazz.Object-Class jazz.allocate-constant
+  ((expansion %%get-constant-expansion ())))
+
+
+;;;
+;;;; Reference
+;;;
+
+
+(jazz.define-class-syntax jazz.Reference jazz.Expression (type) jazz.Object-Class jazz.allocate-reference
+  ((binding %%get-reference-binding ())))
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(jazz.define-class-syntax jazz.Assignment jazz.Expression (type) jazz.Object-Class jazz.allocate-assignment
+  ((location %%get-assignment-location ())
+   (value    %%get-assignment-value    ())))
+
+
+;;;
+;;;; Body
+;;;
+
+
+(jazz.define-class-syntax jazz.Body jazz.Expression (type) jazz.Object-Class jazz.allocate-body
+  ((expressions %%get-body-expressions ())))
+
+
+;;;
+;;;; Lambda
+;;;
+
+
+(jazz.define-class-syntax jazz.Lambda jazz.Expression (type) jazz.Object-Class jazz.allocate-lambda
+  ((parameters %%get-lambda-parameters ())
+   (body       %%get-lambda-body       ())))
+
+
+;;;
+;;;; Let
+;;;
+
+
+(jazz.define-class-syntax jazz.Let jazz.Expression (type) jazz.Object-Class jazz.allocate-let
+  ((bindings %%get-let-bindings ())
+   (body     %%get-let-body     ())))
+
+
+;;;
+;;;; Call
+;;;
+
+
+(jazz.define-class-syntax jazz.Call jazz.Expression (type) jazz.Object-Class jazz.allocate-call
+  ((operator  %%get-call-operator  ())
+   (arguments %%get-call-arguments ())))
+
+
+;;;
+;;;; If
+;;;
+
+
+(jazz.define-class-syntax jazz.If jazz.Expression (type) jazz.Object-Class jazz.allocate-if
+  ((test %%get-if-test ())
+   (yes  %%get-if-yes ())
+   (no   %%get-if-no ())))
+
+
+;;;
+;;;; Cond
+;;;
+
+
+(jazz.define-class-syntax jazz.Cond jazz.Expression (type) jazz.Object-Class jazz.allocate-cond
+  ((clauses %%get-cond-clauses ())))
+
+
+;;;
+;;;; Case
+;;;
+
+
+(jazz.define-class-syntax jazz.Case jazz.Expression (type) jazz.Object-Class jazz.allocate-case
+  ((target  %%get-case-target  ())
+   (clauses %%get-case-clauses ())))
+
+
+;;;
+;;;; And
+;;;
+
+
+(jazz.define-class-syntax jazz.And jazz.Expression (type) jazz.Object-Class jazz.allocate-and
+  ((expressions %%get-and-expressions ())))
+
+
+;;;
+;;;; Or
+;;;
+
+
+(jazz.define-class-syntax jazz.Or jazz.Expression (type) jazz.Object-Class jazz.allocate-or
+  ((expressions %%get-or-expressions ())))
 
 
 ;;;

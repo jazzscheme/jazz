@@ -57,6 +57,15 @@
 
 
 ;;;
+;;;; Category
+;;;
+
+
+(native jazz.get-category-name)
+(native jazz.get-class-ascendant)
+
+
+;;;
 ;;;; Char
 ;;;
 
@@ -252,7 +261,7 @@
 (native jazz.new)
 (native jazz.class-of)
 (native jazz.object?)
-(native jazz.unit?)
+(native jazz.category?)
 (native jazz.class?)
 (native jazz.interface?)
 (native jazz.method?)
@@ -291,15 +300,6 @@
 
 (native jazz.property-getter)
 (native jazz.property-setter)
-
-
-;;;
-;;;; Units
-;;;
-
-
-(native jazz.get-unit-name)
-(native jazz.get-class-ascendant)
 
 
 ;;;

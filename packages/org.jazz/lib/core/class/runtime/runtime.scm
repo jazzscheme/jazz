@@ -128,8 +128,8 @@
   (%%not (%%object? expr)))
 
 
-(define (jazz.subtype? target unit)
-  (%%boolean (%%subtype? target unit)))
+(define (jazz.subtype? target category)
+  (%%boolean (%%subtype? target category)))
 
 
 (define (jazz.subclass? target class)
@@ -184,7 +184,7 @@
   (let ((core-class
          (%%object
           class
-          ; Unit
+          ; Category
           name
           fields
           #f
@@ -202,9 +202,9 @@
           #f
           #f
           #f)))
-    (%%set-unit-ancestors core-class (jazz.compute-core-class-ancestors core-class ascendant))
+    (%%set-category-ancestors core-class (jazz.compute-core-class-ancestors core-class ascendant))
     (%%when ascendant
-      (%%set-unit-descendants ascendant (%%cons core-class (%%get-unit-descendants ascendant)))
+      (%%set-category-descendants ascendant (%%cons core-class (%%get-category-descendants ascendant)))
       (%%set-class-dispatch-table core-class (jazz.copy-dispatch-table ascendant)))
     core-class))
 
@@ -212,7 +212,7 @@
 (define (jazz.compute-core-class-ancestors class ascendant)
   (if (%%not ascendant)
       (%%list class)
-    (%%cons class (%%get-unit-ancestors ascendant))))
+    (%%cons class (%%get-category-ancestors ascendant))))
 
 
 (define (jazz.validate-inherited-slots name ascendant inherited-slot-names)
@@ -246,33 +246,33 @@
 (define (jazz.classname->string class)
   (if (%%null? class)
       "()"
-    (%%symbol->string (%%get-unit-name class))))
+    (%%symbol->string (%%get-category-name class))))
 
 
 (jazz.encapsulate-class jazz.Object)
 
 
 ;;;
-;;;; Unit
+;;;; Category
 ;;;
 
 
-(jazz.define-class jazz.Unit jazz.Object () ()
+(jazz.define-class jazz.Category jazz.Object () ()
   (name
    fields
    ancestors
    descendants))
 
 
-(define (jazz.unit? object)
-  (%%is? object jazz.Unit))
+(define (jazz.category? object)
+  (%%is? object jazz.Category))
 
 
-(define (jazz.add-field unit field)
-  (%%set-unit-field unit (%%get-field-name field) field))
+(define (jazz.add-field category field)
+  (%%set-category-field category (%%get-field-name field) field))
 
 
-(jazz.encapsulate-class jazz.Unit)
+(jazz.encapsulate-class jazz.Category)
 
 
 ;;;
@@ -280,7 +280,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Class jazz.Unit (name fields ancestors descendants) ()
+(jazz.define-class jazz.Class jazz.Category (name fields ancestors descendants) ()
   (ascendant
    interfaces
    slots
@@ -309,9 +309,9 @@
                 #f
                 #f
                 #f)))
-    (%%set-unit-ancestors class (jazz.compute-class-ancestors class ascendant interfaces))
+    (%%set-category-ancestors class (jazz.compute-class-ancestors class ascendant interfaces))
     (%%when ascendant
-      (%%set-unit-descendants ascendant (%%cons class (%%get-unit-descendants ascendant))))
+      (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.dialect.language.Object.initialize class)
     class))
 
@@ -320,9 +320,9 @@
   (jazz.remove-duplicates
     (%%append (if (%%not ascendant)
                   (%%list class)
-                (%%cons class (%%get-unit-ancestors ascendant)))
+                (%%cons class (%%get-category-ancestors ascendant)))
               (%%apply append (map (lambda (interface)
-                                     (%%get-unit-ancestors interface))
+                                     (%%get-category-ancestors interface))
                                    interfaces)))))
 
 
@@ -372,16 +372,16 @@
          (jazz.error "Unable to get class of {s}" expr))))
 
 
-(define (jazz.is? object unit)
-  (%%boolean (%%is? object unit)))
+(define (jazz.is? object category)
+  (%%boolean (%%is? object category)))
 
 
-(define (jazz.is-not? object unit)
-  (%%boolean (%%not (%%is? object unit))))
+(define (jazz.is-not? object category)
+  (%%boolean (%%not (%%is? object category))))
 
 
-(define (jazz.get-unit-name unit)
-  (%%get-unit-name unit))
+(define (jazz.get-category-name category)
+  (%%get-category-name category))
 
 
 (define (jazz.slot-form? form)
@@ -413,7 +413,7 @@
 (define (jazz.iterate-descendants-tree class proc)
   (let iter ((class class))
     (proc class)
-    (for-each iter (%%get-unit-descendants class))))
+    (for-each iter (%%get-category-descendants class))))
 
 
 (jazz.encapsulate-class jazz.Class)
@@ -436,7 +436,7 @@
 ;;;
 
 
-(%%set-object-class jazz.Unit jazz.Class)
+(%%set-object-class jazz.Category jazz.Class)
 (%%set-object-class jazz.Class jazz.Class)
 (%%set-object-class jazz.Object-Class jazz.Class)
 (%%set-object-class jazz.Object jazz.Object-Class)
@@ -540,16 +540,16 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface jazz.Unit (name fields ancestors descendants) jazz.Object-Class
+(jazz.define-class jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Object-Class
   (ascendants
    rank))
 
 
 (define (jazz.new-interface class name ascendants)
   (let ((interface (jazz.allocate-interface class name (%%make-hashtable eq?) #f '() ascendants #f)))
-    (%%set-unit-ancestors interface (jazz.compute-interface-ancestors interface ascendants))
+    (%%set-category-ancestors interface (jazz.compute-interface-ancestors interface ascendants))
     (for-each (lambda (ascendant)
-                (%%set-unit-descendants ascendant (%%cons class (%%get-unit-descendants ascendant))))
+                (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
               ascendants)
     interface))
 
@@ -557,7 +557,7 @@
 (define (jazz.compute-interface-ancestors interface ascendants)
   (jazz.remove-duplicates
     (%%cons interface (%%apply append (map (lambda (ascendant)
-                                             (%%get-unit-ancestors ascendant))
+                                             (%%get-category-ancestors ascendant))
                                            ascendants)))))
 
 
@@ -585,9 +585,9 @@
   (%%get-field-name field))
 
 
-(define (jazz.find-field unit field-name)
-  (or (%%get-unit-field unit field-name)
-      (let ((ascendant (%%get-class-ascendant unit)))
+(define (jazz.find-field category field-name)
+  (or (%%get-category-field category field-name)
+      (let ((ascendant (%%get-class-ascendant category)))
         (if (%%not ascendant)
             #f
           (jazz.find-field ascendant field-name)))))
@@ -597,7 +597,7 @@
   (let* ((class (%%class-of object))
          (field (jazz.find-field class name)))
     (if (%%not field)
-        (jazz.error "Unknown field '{s} of {s}" name (%%get-unit-name (%%get-object-class object)))
+        (jazz.error "Unknown field '{s} of {s}" name (%%get-category-name (%%get-object-class object)))
       field)))
 
 
@@ -624,7 +624,7 @@
 
 (define (jazz.add-slot class slot-name slot-initialize)
   ;; this is a quicky that needs to be well tought out
-  (or (%%get-unit-field class slot-name)
+  (or (%%get-category-field class slot-name)
       (let* ((slot-rank (%%get-class-instance-size class))
              (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
         (jazz.add-field class slot)
@@ -695,8 +695,8 @@
   (%%get-property-setter property))
 
 
-(define (jazz.all-properties unit)
-  (let iter ((slots (%%get-class-slots unit)))
+(define (jazz.all-properties category)
+  (let iter ((slots (%%get-class-slots category)))
      (cond ((%%null? slots) '())
            ((jazz.property? (%%car slots)) (%%cons (%%car slots) (iter (%%cdr slots))))
            (else (iter (%%cdr slots)))))) 
@@ -704,7 +704,7 @@
 
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)
   ;; this is a quicky that needs to be well tought out
-  (or (%%get-unit-field class slot-name)
+  (or (%%get-category-field class slot-name)
       (let* ((slot-rank (%%get-class-instance-size class))
              (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
         (jazz.add-field class slot)

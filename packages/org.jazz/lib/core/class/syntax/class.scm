@@ -38,20 +38,20 @@
 (module core.class.syntax.class
 
 
-(define jazz.unit-name
+(define jazz.category-name
   jazz.object-size)
 
-(define jazz.unit-fields
-  (%%fx+ jazz.unit-name 1))
+(define jazz.category-fields
+  (%%fx+ jazz.category-name 1))
 
-(define jazz.unit-ancestors
-  (%%fx+ jazz.unit-fields 1))
+(define jazz.category-ancestors
+  (%%fx+ jazz.category-fields 1))
 
-(define jazz.unit-descendants
-  (%%fx+ jazz.unit-ancestors 1))
+(define jazz.category-descendants
+  (%%fx+ jazz.category-ancestors 1))
 
 (define jazz.class-ascendant
-  (%%fx+ jazz.unit-descendants 1))
+  (%%fx+ jazz.category-descendants 1))
 
 (define jazz.class-interfaces
   (%%fx+ jazz.class-ascendant 1))
@@ -91,32 +91,32 @@
   (%%fx+ jazz.class-interface-table 1))
 
 
-(jazz.define-macro (%%get-unit-name unit)
-  `(%%object-ref ,unit ,jazz.unit-name))
+(jazz.define-macro (%%get-category-name category)
+  `(%%object-ref ,category ,jazz.category-name))
 
 
-(jazz.define-macro (%%get-unit-fields unit)
-  `(%%object-ref ,unit ,jazz.unit-fields))
+(jazz.define-macro (%%get-category-fields category)
+  `(%%object-ref ,category ,jazz.category-fields))
 
 
-(jazz.define-macro (%%set-unit-fields unit fields)
-  `(%%object-set! ,unit ,jazz.unit-fields ,fields))
+(jazz.define-macro (%%set-category-fields category fields)
+  `(%%object-set! ,category ,jazz.category-fields ,fields))
 
 
-(jazz.define-macro (%%get-unit-ancestors unit)
-  `(%%object-ref ,unit ,jazz.unit-ancestors))
+(jazz.define-macro (%%get-category-ancestors category)
+  `(%%object-ref ,category ,jazz.category-ancestors))
 
 
-(jazz.define-macro (%%set-unit-ancestors unit ancestors)
-  `(%%object-set! ,unit ,jazz.unit-ancestors ,ancestors))
+(jazz.define-macro (%%set-category-ancestors category ancestors)
+  `(%%object-set! ,category ,jazz.category-ancestors ,ancestors))
 
 
-(jazz.define-macro (%%get-unit-descendants unit)
-  `(%%object-ref ,unit ,jazz.unit-descendants))
+(jazz.define-macro (%%get-category-descendants category)
+  `(%%object-ref ,category ,jazz.category-descendants))
 
 
-(jazz.define-macro (%%set-unit-descendants unit ancestors)
-  `(%%object-set! ,unit ,jazz.unit-descendants ,ancestors))
+(jazz.define-macro (%%set-category-descendants category ancestors)
+  `(%%object-set! ,category ,jazz.category-descendants ,ancestors))
 
 
 (jazz.define-macro (%%get-class-ascendant class)
@@ -215,12 +215,12 @@
   `(%%object-set! ,object ,jazz.object-class ,class))
 
 
-(jazz.define-macro (%%subtype? target unit)
-  `(%%memq ,unit (%%get-unit-ancestors ,target)))
+(jazz.define-macro (%%subtype? target category)
+  `(%%memq ,category (%%get-category-ancestors ,target)))
 
 
 (jazz.define-macro (%%subclass? target class)
-  `(%%memq ,class (%%get-unit-ancestors ,target)))
+  `(%%memq ,class (%%get-category-ancestors ,target)))
 
 
 (cond-expand
@@ -310,6 +310,6 @@ end-of-c-code
               (expand symbol))))))))
 
 
-(jazz.define-macro (%%is? object unit)
-  `(%%subtype? (%%class-of ,object) ,unit)))
+(jazz.define-macro (%%is? object category)
+  `(%%subtype? (%%class-of ,object) ,category)))
  

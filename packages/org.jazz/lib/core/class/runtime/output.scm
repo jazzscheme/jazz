@@ -138,7 +138,7 @@
       (lambda (port obj)
         (if (and jazz.Use-Print? jazz.dialect.language.Object.print)
             (jazz.dialect.language.Object.print obj port ':reader)
-          (let ((class-name (%%get-unit-name (%%get-object-class obj)))
+          (let ((class-name (%%get-category-name (%%get-object-class obj)))
                 (serial-number (object->serial-number obj)))
             (display "#<jazz " port)
             (display class-name port)

@@ -71,7 +71,7 @@
 
 (jazz.define-method (jazz.emit-binding-call (jazz.Definition-Declaration declaration) arguments)
   (let ((self (jazz.lookup-self)))
-    (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
+    (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@arguments)
@@ -88,7 +88,7 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration))
   (let ((locator (%%get-declaration-locator declaration))
         (self (jazz.lookup-self)))
-    (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
+    (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(lambda rest (apply ,locator self rest))
       locator)))
 
@@ -123,7 +123,7 @@
 
 (jazz.define-method (jazz.emit-binding-call (jazz.Generic-Declaration declaration) arguments)
   (let ((self (jazz.lookup-self)))
-    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
+    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@arguments)
@@ -143,7 +143,7 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Generic-Declaration declaration))
   (let ((locator (%%get-declaration-locator declaration))
         (self (jazz.lookup-self)))
-    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Unit-Declaration))
+    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(lambda rest (apply ,locator self rest))
       locator)))
 
@@ -191,19 +191,19 @@
 
 
 ;;;
-;;;; Unit
+;;;; Category
 ;;;
 
 
-(jazz.define-class jazz.Unit-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups body) jazz.Object-Class
+(jazz.define-class jazz.Category-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups body) jazz.Object-Class
   (metaclass))
 
 
-(jazz.define-method (jazz.emit-binding-reference (jazz.Unit-Declaration declaration))
+(jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration))
   (%%get-declaration-locator declaration))
 
 
-(jazz.encapsulate-class jazz.Unit-Declaration)
+(jazz.encapsulate-class jazz.Category-Declaration)
 
 
 ;;;
@@ -211,7 +211,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Unit-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
+(jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
   (ascendant
    interfaces))
 
@@ -274,11 +274,11 @@
              (let ((core-class (jazz.get-core-class name)))
                (jazz.validate-core-class/class core-class declaration)
                (let ((ascendant-access (if (%%not ascendant-declaration) #f (jazz.emit-binding-reference ascendant-declaration))))
-                 `((define ,locator ,(%%get-unit-name core-class))
+                 `((define ,locator ,(%%get-category-name core-class))
                    (begin
                      ,@(if ascendant-access (%%list ascendant-access) '())
                      (jazz.remove-slots ,locator)))))
-           (let ((metaclass-declaration (%%get-unit-declaration-metaclass declaration)))
+           (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
              (let ((metaclass-access (if (%%not metaclass-declaration) 'jazz.Object-Class (jazz.emit-binding-reference metaclass-declaration)))
                    (ascendant-access (if (%%not ascendant-declaration) #f (jazz.emit-binding-reference ascendant-declaration)))
                    (interface-accesses (map (lambda (declaration) (jazz.emit-binding-reference declaration)) interface-declarations)))
@@ -299,7 +299,7 @@
 
 
 (define (jazz.validate-core-class/class core-class declaration)
-  (jazz.validate-core-class/unit core-class declaration)
+  (jazz.validate-core-class/category core-class declaration)
   (jazz.validate-core-class/slots core-class declaration))
 
 
@@ -310,14 +310,14 @@
       (jazz.error "Inconsistant core-class/class slots for {s}: {s} / {s}" (%%get-lexical-binding-name declaration) core-class-slot-names declaration-slot-names))))
 
 
-(define (jazz.validate-core-class/unit core-class declaration)
+(define (jazz.validate-core-class/category core-class declaration)
   (jazz.validate-core-class/ascendant core-class declaration)
   (jazz.validate-core-class/interfaces core-class declaration))
 
 
 (define (jazz.validate-core-class/ascendant core-class declaration)
   (let* ((core-class-ascendant (%%get-class-ascendant core-class))
-         (core-class-ascendant-name (if (%%not core-class-ascendant) '() (jazz.identifier-name (%%get-unit-name core-class-ascendant))))
+         (core-class-ascendant-name (if (%%not core-class-ascendant) '() (jazz.identifier-name (%%get-category-name core-class-ascendant))))
          (declaration-ascendant (%%get-class-declaration-ascendant declaration))
          (declaration-ascendant-name (if (%%not declaration-ascendant) '() (jazz.identifier-name (%%get-declaration-locator declaration-ascendant)))))
     (%%when (%%not (%%eq? core-class-ascendant-name declaration-ascendant-name))
@@ -335,7 +335,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Unit-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
+(jazz.define-class jazz.Interface-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
   (ascendants))
 
 
@@ -383,7 +383,7 @@
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (ascendant-declarations (%%get-interface-declaration-ascendants declaration))
-         (metaclass-declaration (%%get-unit-declaration-metaclass declaration))
+         (metaclass-declaration (%%get-category-declaration-metaclass declaration))
          (metaclass-access (if (%%not metaclass-declaration) 'jazz.Interface (jazz.emit-binding-reference metaclass-declaration)))
          (ascendant-accesses (map (lambda (declaration) (jazz.emit-binding-reference declaration)) ascendant-declarations))
          (body (%%get-namespace-declaration-body declaration)))
@@ -1263,32 +1263,32 @@
 
 (define (jazz.expand-method walker resume declaration environment . rest)
   (receive (name type access compatibility propagation implementation expansion parameters body) (jazz.parse-method walker resume declaration rest)
-    (if (%%is? declaration jazz.Unit-Declaration)
+    (if (%%is? declaration jazz.Category-Declaration)
         (let* ((found-declaration (jazz.lookup-declaration declaration name #f))
-               (unit-declaration declaration)
-               (unit-name (%%get-lexical-binding-name unit-declaration))
+               (category-declaration declaration)
+               (category-name (%%get-lexical-binding-name category-declaration))
                (parameters (jazz.wrap-parameters parameters))
-               (generic-parameters (%%cons (%%list (jazz.name->specifier unit-name) 'self) parameters)))
+               (generic-parameters (%%cons (%%list (jazz.name->specifier category-name) 'self) parameters)))
           (case propagation
             ((inherited)
              (if (and found-declaration (%%is? found-declaration jazz.Generic-Declaration))
                  `(%specific ,name ,generic-parameters #t (with-self ,@body))
-               (jazz.expand-final-method unit-name access name parameters body)))
+               (jazz.expand-final-method category-name access name parameters body)))
             (else
              (if (%%eq? implementation 'abstract)
                  `(generic ,access ,(%%cons name generic-parameters))
                `(begin
                   (generic ,access ,(%%cons name generic-parameters))
                   (%specific ,name ,generic-parameters #t (with-self ,@body)))))))
-      (jazz.walk-error walker resume declaration "Methods can only be defined inside units: {s}" name))))
+      (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name))))
 
 
-(define (jazz.expand-final-method unit-name access method-name parameters body)
+(define (jazz.expand-final-method category-name access method-name parameters body)
   `(begin
      (definition ,access ,(%%cons method-name (%%cons 'self parameters))
        (with-self
          ,@body))
-     (update-dispatch-table ,unit-name ',method-name ,method-name)))
+     (update-dispatch-table ,category-name ',method-name ,method-name)))
 
 
 (define (jazz.wrap-parameters parameters)
@@ -1613,7 +1613,7 @@
 
 (define (jazz.expand-c-type-form walker resume declaration form)
   (receive (name type access compatibility c-type) (jazz.parse-c-type walker resume declaration (%%cdr form))
-    (if (%%is? declaration jazz.Unit-Declaration)
+    (if (%%is? declaration jazz.Category-Declaration)
         (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name)
       `(%c-type ,name ,type ,access ,compatibility ,c-type))))
 

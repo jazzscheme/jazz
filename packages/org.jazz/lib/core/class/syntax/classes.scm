@@ -48,11 +48,11 @@
 
 
 ;;;
-;;;; Unit
+;;;; Category
 ;;;
 
 
-(jazz.define-class-syntax jazz.Unit jazz.Object () () ()
+(jazz.define-class-syntax jazz.Category jazz.Object () () ()
   ((name        () ())
    (fields      () ())
    (ancestors   () ())
@@ -64,7 +64,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Class jazz.Unit (name fields ancestors descendants) () jazz.allocate-class
+(jazz.define-class-syntax jazz.Class jazz.Category (name fields ancestors descendants) () jazz.allocate-class
   ((ascendant          () ())
    (interfaces         () ())
    (slots              () ())
@@ -122,7 +122,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Interface jazz.Unit (name fields ancestors descendants) jazz.Object-Class jazz.allocate-interface
+(jazz.define-class-syntax jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Object-Class jazz.allocate-interface
   ((ascendants () ())
    (rank       () ())))
 
@@ -136,12 +136,12 @@
   ((name %%get-field-name ())))
 
 
-(jazz.define-macro (%%get-unit-field unit field-name)
-  `(%%hashtable-ref (%%get-unit-fields ,unit) ,field-name #f))
+(jazz.define-macro (%%get-category-field category field-name)
+  `(%%hashtable-ref (%%get-category-fields ,category) ,field-name #f))
 
 
-(jazz.define-macro (%%set-unit-field unit field-name field)
-  `(%%hashtable-set! (%%get-unit-fields ,unit) ,field-name ,field))
+(jazz.define-macro (%%set-category-field category field-name field)
+  `(%%hashtable-set! (%%get-category-fields ,category) ,field-name ,field))
 
 
 ;;;

@@ -42,42 +42,42 @@
   
   
   (method public (extract-doc file)
-    (let ((units (documented-units))
+    (let ((categories (documented-categories))
           (environment (new-environment (new-map) {})))
       (with-closed ((printer (new File-Printer file)))
-        (for-each (function dynamic (unit-name)
-                    (let ((unit (get-unit unit-name environment)))
-                      (extract-unit unit printer)))
-                  units))
-      (user-message "Doc extracted ({a} units)" (length units))))
+        (for-each (function dynamic (category-name)
+                    (let ((category (get-category category-name environment)))
+                      (extract-category category printer)))
+                  categories))
+      (user-message "Doc extracted ({a} categories)" (length categories))))
   
   
   ;;;
-  ;;;; Units
+  ;;;; Categories
   ;;;
   
   
-  (method (extract-unit unit printer)
-    (let ((name (type-name unit))
-          (meta (class-of unit)))
+  (method (extract-category category printer)
+    (let ((name (type-name category))
+          (meta (class-of category)))
       (user-message "Extracting {a}..." name)
       (format printer "%%hs%%{a}%%he%%{%}" name)
-      (extract-unit-signature unit printer)
-      (unless (memq? name '(Unit Type))
+      (extract-category-signature category printer)
+      (unless (memq? name '(Category Type))
         (extract-fields meta " meta" printer))
-      (extract-fields unit "" printer)
+      (extract-fields category "" printer)
       (format printer "{%}{%}")))
   
   
-  (method (extract-unit-signature unit printer)
-    (let ((kind (unit-kind unit))
-          (ascendant (type-ascendant unit)))
-      (format printer "{%}  {a} %%us%%{a}%%ue%%" kind (type-name unit))
+  (method (extract-category-signature category printer)
+    (let ((kind (category-kind category))
+          (ascendant (type-ascendant category)))
+      (format printer "{%}  {a} %%us%%{a}%%ue%%" kind (type-name category))
       (when ascendant
         (format printer " extends %%rs%%{a}%%re%%" (type-name ascendant)))
       (case kind
         ((class)
-          (let ((interfaces (class-interfaces unit)))
+          (let ((interfaces (class-interfaces category)))
             (case (length interfaces)
               ((0))
               ((1) (format printer " implements %%rs%%{l}%%re%%" (map type-name interfaces)))
@@ -89,18 +89,18 @@
       (format printer "{%}")))
   
   
-  (method (extract-fields unit prefix printer)
-    (let ((forms (collect-forms unit)))
-      (extract-properties unit forms prefix printer)
-      (extract-methods unit forms prefix printer)))
+  (method (extract-fields category prefix printer)
+    (let ((forms (collect-forms category)))
+      (extract-properties category forms prefix printer)
+      (extract-methods category forms prefix printer)))
   
 
-  (method (collect-forms unit)
+  (method (collect-forms category)
     (map (function dynamic (info)
            (bind (name . value) info
-             (let ((field (unit-field unit name)))
+             (let ((field (category-field category name)))
                (list field name value))))
-         (gather (unit-forms unit))))
+         (gather (category-forms category))))
   
   
   ;;;
@@ -108,7 +108,7 @@
   ;;;
   
   
-  (method (extract-properties unit forms prefix printer)
+  (method (extract-properties category forms prefix printer)
     (let ((properties (collect-type Property forms key: car)))
       (when properties
         (format printer "{%}")
@@ -130,7 +130,7 @@
   ;;;
   
   
-  (method (extract-methods unit forms prefix printer)
+  (method (extract-methods category forms prefix printer)
     (let ((methods (sort < (collect-if (function dynamic (form)
                                          (bind (field name value) form
                                            (or (memq? name '(construct-literal initialize))
@@ -138,7 +138,7 @@
                                                     (or (field-public? field)
                                                         (definition-virtual? field))
                                                     (function? value)
-                                                    (eq? (field-creator (definition-origin field)) unit)))))
+                                                    (eq? (field-creator (definition-origin field)) category)))))
                                        forms)
                          key: second)))
       (when methods
@@ -195,16 +195,16 @@
   ;;;
 
   
-  (method (documented-units)
-    (let ((units '()))
+  (method (documented-categories)
+    (let ((categories '()))
       (for-each-source
-        (function dynamic (unit-name source properties)
-          (when (neq? unit-name 'Language)
-            (set! units (cons unit-name units)))))
-      (sort < units)))
+        (function dynamic (category-name source properties)
+          (when (neq? category-name 'Language)
+            (set! categories (cons category-name categories)))))
+      (sort < categories)))
   
   
-  (method (unit-kind unit)
-    (cond ((class? unit) 'class)
-          ((interface? unit) 'interface)
-          ((package? unit) 'package))))
+  (method (category-kind category)
+    (cond ((class? category) 'class)
+          ((interface? category) 'interface)
+          ((package? category) 'package))))

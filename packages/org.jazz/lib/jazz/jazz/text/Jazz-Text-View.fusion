@@ -134,7 +134,7 @@
   (method (on-design-form evt)
     (unimplemented 'on-design-form)
     @convert
-    (let* ((name (current-unit-name))
+    (let* ((name (current-category-name))
            (class (autoload name)))
       (if (not (subtype? class Component))
           (error "Only Component classes can be designed")
@@ -151,16 +151,16 @@
   
   @old
   (method (on-design-form evt)
-    (let* ((name (current-unit-name))
+    (let* ((name (current-category-name))
            (class (autoload name))
            (metaclass (class-of class)))
       (if (not (subtype? class Component))
           (error "Only Component classes can be designed")
-        (let* ((definition (unit-field metaclass 'class-form))
+        (let* ((definition (category-field metaclass 'class-form))
                (owner? (eq? (field-creator definition) metaclass)))
           (when (not owner?)
             (install-class-form definition name)
-            (set! definition (unit-field metaclass 'class-form)))
+            (set! definition (category-field metaclass 'class-form)))
           (let* ((form (definition-value definition))
                  (frame (find-editor form)))
             (if frame
@@ -175,13 +175,13 @@
   (method (install-class-form definition model-name)
     (unimplemented 'install-class-form)
     @convert
-    (receive (in unit-info) (current-toplevel-info)
-      (bind (unit kind meta? name keywords) unit-info
+    (receive (in category-info) (current-toplevel-info)
+      (bind (category kind meta? name keywords) category-info
         (let ((imports (getf keywords 'uses))
               (form (new Form action: 'new model-name: model-name)))
-          (evaluate~ Interpreter (list '(form (<install>))) {} unit imports)
+          (evaluate~ Interpreter (list '(form (<install>))) {} category imports)
           @old
-          (evaluate-code (list (list 'definition 'meta 'class-form form)) unit imports)))))
+          (evaluate-code (list (list 'definition 'meta 'class-form form)) category imports)))))
   
   
   (method (find-editor form)
@@ -413,8 +413,8 @@
                     (let ((classes (current-classes range)))
                       (when classes
                         (let ((toplevel (car classes)))
-                          (if (and (get-modified?) (not (unit-loaded? toplevel)))
-                              (let ((code (message-box (format "Do you want to save {s}?{%}{%}Because this unit has not yet been loaded in memory, it needs to be saved to disk for correct evaluation." toplevel)
+                          (if (and (get-modified?) (not (category-loaded? toplevel)))
+                              (let ((code (message-box (format "Do you want to save {s}?{%}{%}Because this category has not yet been loaded in memory, it needs to be saved to disk for correct evaluation." toplevel)
                                                        type: 'confirmation)))
                                 (case code
                                   ((yes)
@@ -423,12 +423,12 @@
                                   ((no))
                                   ((cancel)
                                    (throw-cancel))))
-                            (receive (in unit-info) info
-                              (bind (unit kind meta? name keywords) unit-info
+                            (receive (in category-info) info
+                              (bind (category kind meta? name keywords) category-info
                                 (let ((appl (get-application))
                                       (class (location-class classes :load? true))
                                       (imports (getf keywords 'uses)))
-                                  (expand-macro-evaluations unit forms)
+                                  (expand-macro-evaluations category forms)
                                   (evaluate-forms range forms class (if (list? imports) imports (list imports)))))))))))))))))))
   
   
@@ -586,7 +586,7 @@
           (for-each (function dynamic (name)
                       (if (eq? name 'meta)
                           (set! meta? true)
-                        (set! class (definition-value (unit-field (if meta? (class-of class) class) name)))
+                        (set! class (definition-value (category-field (if meta? (class-of class) class) name)))
                         (set! meta? false)))
                     (cdr loc)))
         class)))
@@ -604,7 +604,7 @@
   (method (definition-name-info object)
     (unimplemented 'definition-name-info)
     @convert
-    (cond ((unit? object)
+    (cond ((category? object)
            (values 1 false))
           ((slot? object)
            (values (+ 1 (field-modifiers-count object)) false))
@@ -767,20 +767,20 @@
                    (= (get-kind~ expl) 'symbol))
           (case (char-backward~ expl 0)
             ((#\open-parenthesis) (show-method-arguments expl))
-            ((#\open-bracket) (show-unit-fields)))))))
+            ((#\open-bracket) (show-category-fields)))))))
   
   
   (method (show-method-arguments expl)
     (let ((name (get-marked~ expl))
           (info (current-toplevel-info)))
       (when info
-        (receive (in unit-info) info
-          (bind (unit kind meta? name keywords) unit-info
-            (when unit
+        (receive (in category-info) info
+          (bind (category kind meta? name keywords) category-info
+            (when category
               (let ((symbol (find-symbol name)))
                 (when symbol
                   (let ((imports (getf keywords 'uses)))
-                    (show-symbol-arguments symbol unit imports))))))))))
+                    (show-symbol-arguments symbol category imports))))))))))
 
 
   (method (show-symbol-arguments symbol class packages)
@@ -842,15 +842,15 @@
       (lambda (return)
         (for-each (function dynamic (package)
                     (let* ((name (type-name package))
-                           (package (either (get-interpreted-unit~ Interpreter-Services name) package))
-                           (field (unit-field (class-of package) symbol)))
+                           (package (either (get-interpreted-category~ Interpreter-Services name) package))
+                           (field (category-field (class-of package) symbol)))
                       (when field
                         (return field))))
                   packages)
         {})))
   
   
-  (method (show-unit-fields)
+  (method (show-category-fields)
     @wait
     (let ((popup (new Completion-Popup :owner-text self position: {Point 500 500})))
       (show~ popup)))
@@ -886,22 +886,22 @@
 
   
   ;;;
-  ;;;; Unit
+  ;;;; Category
   ;;;
   
 
   (method protected virtual (current-toplevel-info)
     (let* ((expl (new Jazz-Explorer self end: (text-beginning)))
-           (in   (forward-in~ expl))
-           (unit (forward-unit~ expl)))
-      (values in unit)))
+           (in (forward-in~ expl))
+           (category (forward-category~ expl)))
+      (values in category)))
   
   
   (method (current-classes range)
     (let ((expl (new Jazz-Explorer self :range range))
           (classes '()))
       (while (outer-expr~ expl)
-        (when (unit-expr?~ expl)
+        (when (category-expr?~ expl)
           (receive (package? meta? name) (definition-name~ expl)
             (set! classes (cons name classes))
             (when meta?
@@ -909,9 +909,9 @@
       classes))
   
   
-  (method (current-unit-name)
-    (receive (in unit-info) (current-toplevel-info)
-      (bind (unit kind meta? name keywords) unit-info
+  (method (current-category-name)
+    (receive (in category-info) (current-toplevel-info)
+      (bind (category kind meta? name keywords) category-info
         name)))
   
   

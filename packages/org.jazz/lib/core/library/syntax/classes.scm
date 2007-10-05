@@ -444,8 +444,35 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Type jazz.Object () jazz.Object-Class jazz.allocate-type
-  ((name %%get-type-name ())))
+(jazz.define-class-syntax jazz.Type jazz.Object () jazz.Object-Class ()
+  ())
+
+
+;;;
+;;;; Primitive Type
+;;;
+
+
+(jazz.define-class-syntax jazz.Primitive-Type jazz.Type () jazz.Object-Class jazz.allocate-primitive-type
+  ((name %%get-primitive-type-name ())))
+
+
+;;;
+;;;; Unit Type
+;;;
+
+
+(jazz.define-class-syntax jazz.Unit-Type jazz.Type () jazz.Object-Class jazz.allocate-unit-type
+  ((declaration %%get-unit-type-declaration ())))
+
+
+;;;
+;;;; Union Type
+;;;
+
+
+(jazz.define-class-syntax jazz.Union-Type jazz.Type () jazz.Object-Class jazz.allocate-union-type
+  ((types %%get-union-type-types ())))
 
 
 ;;;

@@ -624,13 +624,13 @@
 
 (define (jazz.add-slot class slot-name slot-initialize)
   ;; this is a quicky that needs to be well tought out
-  (%%when (%%not (%%get-unit-field class slot-name))
-    (let* ((slot-rank (%%get-class-instance-size class))
-           (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
-      (jazz.add-field class slot)
-      (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fx+ slot-rank 1))
-      slot)))
+  (or (%%get-unit-field class slot-name)
+      (let* ((slot-rank (%%get-class-instance-size class))
+             (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
+        (jazz.add-field class slot)
+        (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+        (%%set-class-instance-size class (%%fx+ slot-rank 1))
+        slot)))
 
 
 (define (jazz.remove-slots class)
@@ -704,13 +704,13 @@
 
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)
   ;; this is a quicky that needs to be well tought out
-  (%%when (%%not (%%get-unit-field class slot-name))
-    (let* ((slot-rank (%%get-class-instance-size class))
-           (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
-      (jazz.add-field class slot)
-      (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-      (%%set-class-instance-size class (%%fx+ slot-rank 1))
-      slot)))
+  (or (%%get-unit-field class slot-name)
+      (let* ((slot-rank (%%get-class-instance-size class))
+             (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
+        (jazz.add-field class slot)
+        (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
+        (%%set-class-instance-size class (%%fx+ slot-rank 1))
+        slot)))
 
 
 (jazz.encapsulate-class jazz.Property)

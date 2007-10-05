@@ -2104,13 +2104,31 @@
 
 
 (define (jazz.inline-call operator arguments)
-  (cond ((and (%%eq? (%%get-declaration-locator (%%get-reference-binding operator)) 'jazz.dialect.language.<)
-              (jazz.every? (lambda (argument)
-                             (%%eq? (%%get-lexical-binding-type (%%get-reference-binding argument)) 'fx))
-                           arguments))
-         `(##fx< ,@(jazz.emit-expressions arguments)))
-        (else
-         #f)))
+  (define (operator-locator)
+    (if (%%is? operator jazz.Reference)
+        (let ((binding (%%get-reference-binding operator)))
+          (if (%%is? binding jazz.Declaration)
+              (%%get-declaration-locator binding)
+            #f))
+      #f))
+  
+  (define (arguments-types)
+    (map (lambda (argument)
+           (%%get-expression-type argument))
+         arguments))
+  
+  (let ((locator (operator-locator)))
+    (cond ((%%eq? locator 'jazz.dialect.language.<)
+           (let ((types (arguments-types)))
+             (if (jazz.every? (lambda (type)
+                                (%%eq? type 'fx))
+                              types)
+                 (begin
+           (jazz.debug arguments)
+                 `(##fx< ,@(jazz.emit-expressions arguments)))
+               #f)))
+          (else
+           #f))))
 
 
 (jazz.encapsulate-class jazz.Call)

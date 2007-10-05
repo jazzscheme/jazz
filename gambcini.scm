@@ -14,6 +14,10 @@
 (display-environment-set! #t)
 
 
+(define (y)
+  (jazz.reload-module 'jazz.ui.graphic.Cairo-Win32-Surface))
+
+
 ;;;
 ;;;; Boot
 ;;;

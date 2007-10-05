@@ -162,7 +162,7 @@
 (define (jazz.specific-next? next-specific specific)
   (let ((next-signature (%%get-specific-signature next-specific))
         (signature (%%get-specific-signature specific)))
-    (jazz.subtype? (%%car signature) (%%car next-signature))))
+    (jazz.subcategory? (%%car signature) (%%car next-signature))))
 
 
 (define (jazz.specific-dispatch-equal? specific1 specific2)
@@ -181,7 +181,7 @@
        (let ((found (jazz.find-if
                       (lambda (next-specific)
                         (let ((next-signature (%%get-specific-signature next-specific)))
-                          (jazz.subtype? class (%%car next-signature))))
+                          (jazz.subcategory? class (%%car next-signature))))
                       (%%get-specific-previous-specifics previous-found))))
          (if found
              (iter found)

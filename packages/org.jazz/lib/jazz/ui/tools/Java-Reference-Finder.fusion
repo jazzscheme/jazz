@@ -66,7 +66,7 @@
       (<Radio-Tool>                    name: all               position: {Point 4 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "AllReferences"} tooltip?: #t tooltip-text: "Show All Names" action-handler: {Event-Handler form: on-update} portfolio: :icons)
       (<Radio-Tool>                    name: live              position: {Point 28 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "LiveReferences"} tooltip?: #t tooltip-text: "Show Live Names" action-handler: {Event-Handler form: on-update} portfolio: :icons)
       (<Radio-Tool>                    name: dead              position: {Point 52 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "DeadReferences"} tooltip?: #t tooltip-text: "Show Dead Names" action-handler: {Event-Handler form: on-update} portfolio: :icons selected?: #t)
-      (<Toggle-Tool>                   name: unit-only         position: {Point 111 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "Class"} tooltip?: #t tooltip-text: "Show Only Units" action-handler: {Event-Handler form: on-update} portfolio: :icons selected?: #t)
+      (<Toggle-Tool>                   name: category-only     position: {Point 111 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "Class"} tooltip?: #t tooltip-text: "Show Only Categories" action-handler: {Event-Handler form: on-update} portfolio: :icons selected?: #t)
       (<Push-Button>                   name: find              title: "Find" position: {Point 833 7} size: {Dimension 100 22} action-handler: {Event-Handler form: on-find} default?: #t)
       (<Border-View>                   name: references-border position: {Point 2 33} size: {Dimension 296 465} border-type: edge
         (<Scroller-View>                                       vscroll?: #t
@@ -153,7 +153,7 @@
            (all? (get-selected?~ (locate 'all)))
            (live? (get-selected?~ (locate 'live)))
            (dead? (get-selected?~ (locate 'dead)))
-           (unit-only? (get-selected?~ (locate 'unit-only)))
+           (category-only? (get-selected?~ (locate 'category-only)))
            (live-count 0)
            (dead-count 0))
       (with-update-locked~ tree
@@ -161,7 +161,7 @@
           (remove-every-row~ tree)
           (when references
             (for-each (function dynamic (name)
-                        (when (or (not unit-only?) (defines-unit? name))
+                        (when (or (not category-only?) (defines-category? name))
                           (let ((reference (hash-ref references name)))
                             (if (null? reference)
                                 (increase! dead-count)
@@ -174,8 +174,8 @@
                                                                      "<root>"
                                                                    (present~ reference 'references)))))
                                     (c2 (new Tree-Label title: (let* ((definition (car (get-definitions~ catalog name)))
-                                                                      (unit-name (get-unit-name~ definition)))
-                                                                 unit-name))))
+                                                                      (category-name (get-category-name~ definition)))
+                                                                 category-name))))
                                 (add-row~ tree children: (list c0 c1 c2) user-data: name))))))
                       sorted-names))))
       (set-title~ (locate 'live-count) (format "Live: {s}" live-count))
@@ -183,8 +183,8 @@
       (user-message "Done")))
   
   
-  (method (defines-unit? name)
-    (find-if (function dynamic (entry) (is? entry Unit-Entry))
+  (method (defines-category? name)
+    (find-if (function dynamic (entry) (is? entry Category-Entry))
              (get-definitions~ (get-main-catalog~ (get-cataloguer~ (get-application))) name)))
   
   

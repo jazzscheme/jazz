@@ -268,6 +268,8 @@
 (native jazz.is?)
 (native jazz.is-not?)
 (native jazz.subtype?)
+(native jazz.subcategory?)
+(native jazz.subclass?)
 (native jazz.load-module)
 (native jazz.load-metaclass)
 (native jazz.reload-module)

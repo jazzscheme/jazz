@@ -215,14 +215,6 @@
   `(%%object-set! ,object ,jazz.object-class ,class))
 
 
-(jazz.define-macro (%%subtype? target category)
-  `(%%memq ,category (%%get-category-ancestors ,target)))
-
-
-(jazz.define-macro (%%subclass? target class)
-  `(%%memq ,class (%%get-category-ancestors ,target)))
-
-
 (cond-expand
   (gambit
     (define-macro (%%c-class-of obj)
@@ -256,7 +248,7 @@
 end-of-c-code
     ,obj                ;; ___ARG1
     jazz.subtypes       ;; ___ARG2
-    jazz.Number         ;; ___ARG3
+    jazz.Fixnum         ;; ___ARG3
     jazz.Char           ;; ___ARG4
     jazz.specialtypes   ;; ___ARG5
     jazz.hashtable-type ;; ___ARG6
@@ -307,9 +299,5 @@ end-of-c-code
             (expand expr)
           (let ((symbol (jazz.generate-symbol "value")))
             (%%list 'let (%%list (%%list symbol expr))
-              (expand symbol))))))))
-
-
-(jazz.define-macro (%%is? object category)
-  `(%%subtype? (%%class-of ,object) ,category)))
+              (expand symbol)))))))))
  

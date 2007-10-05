@@ -38,24 +38,25 @@
 (module core.class.syntax.define-method-expander
 
 
-(define (jazz.expand-define-virtual-syntax signature)
+(define (jazz.expand-define-virtual-syntax signature bootstrap-type?)
   (let* ((name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
          (object-parameter (%%cadr (%%car parameters)))
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz.method-implementation-name class-name name))
-         (rank-name (jazz.method-rank-name implementation-name)))
+         (rank-name (jazz.method-rank-name implementation-name))
+         (is-test (if bootstrap-type? 'jazz.is-type? '%%is?)))
     `(define-macro (,name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
-           (%%list '%%safe-assertion (list '%%is? ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+           (%%list '%%safe-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
              (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of ,object-parameter)) ',rank-name)
                      ,object-parameter
                      ,@extra-parameters))
          (let ((obj (jazz.generate-symbol "obj")))
            (%%list 'let
                    (%%list (%%list obj ,object-parameter))
-             (%%list '%%safe-assertion (list '%%is? obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+             (%%list '%%safe-assertion (list ',is-test obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
                (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of obj)) ',rank-name)
                        obj
                        ,@extra-parameters))))))))

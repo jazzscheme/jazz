@@ -440,15 +440,6 @@
 
 
 ;;;
-;;;; Type
-;;;
-
-
-(jazz.define-class-syntax jazz.Type jazz.Object () jazz.Object-Class jazz.allocate-type
-  ((name %%get-type-name ())))
-
-
-;;;
 ;;;; Expression
 ;;;
 
@@ -457,6 +448,7 @@
   ((type %%get-expression-type ())))
 
 
+(jazz.define-virtual-syntax (jazz.expression-type (jazz.Expression expression)))
 (jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression)))
 (jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments))
 

@@ -1707,28 +1707,19 @@
 
 
 ;;;
-;;;; Type
-;;;
-
-
-(jazz.define-class jazz.Type jazz.Object () jazz.Object-Class
-  (name))
-
-
-(define (jazz.new-type name)
-  (jazz.allocate-type jazz.Type name))
-
-
-(jazz.encapsulate-class jazz.Type)
-
-
-;;;
 ;;;; Expression
 ;;;
 
 
 (jazz.define-class jazz.Expression jazz.Object () jazz.Object-Class
   (type))
+
+
+(jazz.define-virtual (jazz.expression-type (jazz.Expression expression)))
+
+
+(jazz.define-method (jazz.expression-type (jazz.Expression expression))
+  (%%get-expression-type expression))
 
 
 (jazz.define-virtual (jazz.emit-expression (jazz.Expression expression)))
@@ -1763,8 +1754,8 @@
   (expansion))
 
 
-(define (jazz.new-constant expansion)
-  (jazz.allocate-constant jazz.Constant #f expansion))
+(define (jazz.new-constant expansion type)
+  (jazz.allocate-constant jazz.Constant type expansion))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Constant expression))
@@ -1813,6 +1804,10 @@
 
 (define (jazz.new-reference binding)
   (jazz.allocate-reference jazz.Reference #f binding))
+
+
+(jazz.define-method (jazz.expression-type (jazz.Reference expression))
+  (%%get-lexical-binding-type (%%get-reference-binding expression)))
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Reference expression))
@@ -2103,6 +2098,29 @@
         (jazz.emit-call operator (jazz.emit-expressions arguments)))))
 
 
+(jazz.encapsulate-class jazz.Call)
+
+
+;;;
+;;;; Inline
+;;;
+
+
+(define jazz.inline-patterns
+  (%%make-hashtable eq?))
+
+
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.=  (list (list jazz.Fixnum '##fx=)  (list jazz.Flonum '##fl=)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.<  (list (list jazz.Fixnum '##fx<)  (list jazz.Flonum '##fl<)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.<= (list (list jazz.Fixnum '##fx<=) (list jazz.Flonum '##fl<=)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.>  (list (list jazz.Fixnum '##fx>)  (list jazz.Flonum '##fl>)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.>= (list (list jazz.Fixnum '##fx>=) (list jazz.Flonum '##fl>=)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.+  (list (list jazz.Fixnum '##fx+)  (list jazz.Flonum '##fl+)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.-  (list (list jazz.Fixnum '##fx-)  (list jazz.Flonum '##fl-)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language.*  (list (list jazz.Fixnum '##fx*)  (list jazz.Flonum '##fl*)))
+(%%hashtable-set! jazz.inline-patterns 'jazz.dialect.language./  (list                            (list jazz.Flonum '##fl*)))
+
+
 (define (jazz.inline-call operator arguments)
   (define (operator-locator)
     (if (%%is? operator jazz.Reference)
@@ -2114,24 +2132,22 @@
   
   (define (arguments-types)
     (map (lambda (argument)
-           (%%get-expression-type argument))
+           (jazz.expression-type argument))
          arguments))
   
-  (let ((locator (operator-locator)))
-    (cond ((%%eq? locator 'jazz.dialect.language.<)
-           (let ((types (arguments-types)))
-             (if (jazz.every? (lambda (type)
-                                (%%eq? type 'fx))
-                              types)
-                 (begin
-           (jazz.debug arguments)
-                 `(##fx< ,@(jazz.emit-expressions arguments)))
-               #f)))
-          (else
-           #f))))
-
-
-(jazz.encapsulate-class jazz.Call)
+  (let ((patterns (%%hashtable-ref jazz.inline-patterns (operator-locator) #f)))
+    (if patterns
+        (let ((types (arguments-types)))
+          (let iter ((scan patterns))
+            (if (%%null? scan)
+                #f
+              (jazz.bind (inline-type inline-name) (%%car scan)
+                (if (jazz.every? (lambda (type)
+                                   (and type (%%subtype? type inline-type)))
+                                 types)
+                    `(,inline-name ,@(jazz.emit-expressions arguments))
+                  (iter (%%cdr scan)))))))
+      #f)))
 
 
 ;;;
@@ -2462,33 +2478,43 @@
 (define (jazz.walk-quote walker resume declaration environment form)
   (let ((expression (%%cadr form)))
     (if (%%null? expression)
-        (jazz.new-constant '(quote ()))
+        (jazz.new-constant '(quote ()) jazz.Null)
       (jazz.walk-constant walker resume declaration environment expression))))
 
 
 (define (jazz.walk-keyword walker keyword)
-  (jazz.new-constant keyword))
+  (jazz.new-constant keyword jazz.Keyword))
 
 
 (define (jazz.walk-enumerator walker enumerator)
-  (jazz.new-constant (%%list 'quote enumerator)))
+  (jazz.new-constant (%%list 'quote enumerator) jazz.Symbol))
 
 
 (define (jazz.walk-constant walker resume declaration environment form)
-  (cond
-    ((or (%%boolean? form)
-         (%%char? form)
-         (%%string? form)
-         (%%keyword? form)
-         (%%number? form)
-         (%%null? form))
-     (jazz.new-constant form))
-    ((or (%%symbol? form)
-         (%%vector? form)
-         (jazz.scheme-pair-literal? form))
-     (jazz.new-constant `(quote ,form)))
-    (else
-     (jazz.register-literal walker resume declaration form))))
+  (cond ((%%boolean? form)
+         (jazz.new-constant form jazz.Boolean))
+        ((%%char? form)
+         (jazz.new-constant form jazz.Char))
+        ((%%string? form)
+         (jazz.new-constant form jazz.String))
+        ((%%keyword? form)
+         (jazz.new-constant form jazz.Keyword))
+        ((%%fixnum? form)
+         (jazz.new-constant form jazz.Fixnum))
+        ((%%flonum? form)
+         (jazz.new-constant form jazz.Flonum))
+        ((%%number? form)
+         (jazz.new-constant form jazz.Number))
+        ((%%symbol? form)
+         (jazz.new-constant `(quote ,form) jazz.Symbol))
+        ((%%vector? form)
+         (jazz.new-constant `(quote ,form) jazz.Vector))
+        ((%%null? form)
+         (jazz.new-constant `(quote ,form) jazz.Null))
+        ((jazz.scheme-pair-literal? form)
+         (jazz.new-constant `(quote ,form) jazz.Pair))
+        (else
+         (jazz.register-literal walker resume declaration form))))
 
 
 (define (jazz.scheme-pair-literal? form)
@@ -2540,7 +2566,7 @@
       (let ((info (%%cons literal (%%cons name #f))))
         (%%set-library-declaration-literals library-declaration (%%cons info (%%get-library-declaration-literals library-declaration)))
         (%%set-cdr! (%%cdr info) (jazz.walk-literal walker resume declaration literal)))
-      (jazz.new-constant name))))
+      (jazz.new-constant name #f))))
 
 
 (define (jazz.get-registered-literal library-declaration literal)
@@ -2651,10 +2677,10 @@
          (jazz.walk-enumerator walker form))
         ;; inline false (until compiler support for constants)
         ((%%eq? form 'false)
-         (jazz.new-constant #f))
+         (jazz.new-constant #f jazz.Boolean))
         ;; inline true (until compiler support for constants)
         ((%%eq? form 'true)
-         (jazz.new-constant #t))
+         (jazz.new-constant #t jazz.Boolean))
         (else
          (jazz.walk-symbol-reference walker resume declaration environment form))))
 

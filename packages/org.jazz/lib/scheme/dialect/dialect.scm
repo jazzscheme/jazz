@@ -422,6 +422,17 @@
 
 
 ;;;
+;;;; Specifier
+;;;
+
+
+(define (jazz.parse-specifier lst proc)
+  (if (and (%%pair? lst) (jazz.specifier? (%%car lst)))
+      (proc (jazz.specifier->type (%%car lst)) (%%cdr lst))
+    (proc #f lst)))
+
+
+;;;
 ;;;; Type
 ;;;
 
@@ -446,15 +457,28 @@
   (%%make-hashtable eq?))
 
 
+(%%hashtable-set! jazz.primitive-types 'bool      jazz.Boolean)
+(%%hashtable-set! jazz.primitive-types 'char      jazz.Char)
+(%%hashtable-set! jazz.primitive-types 'int       jazz.Integer)
+(%%hashtable-set! jazz.primitive-types 'real      jazz.Real)
+(%%hashtable-set! jazz.primitive-types 'fx        jazz.Fixnum)
+(%%hashtable-set! jazz.primitive-types 'fl        jazz.Flonum)
+(%%hashtable-set! jazz.primitive-types 'list      jazz.List)
+(%%hashtable-set! jazz.primitive-types 'null      jazz.Null)
+(%%hashtable-set! jazz.primitive-types 'pair      jazz.Pair)
+(%%hashtable-set! jazz.primitive-types 'port      jazz.Port)
+(%%hashtable-set! jazz.primitive-types 'procedure jazz.Procedure)
+(%%hashtable-set! jazz.primitive-types 'string    jazz.String)
+(%%hashtable-set! jazz.primitive-types 'symbol    jazz.Symbol)
+(%%hashtable-set! jazz.primitive-types 'keyword   jazz.Keyword)
+(%%hashtable-set! jazz.primitive-types 'vector    jazz.Vector)
+(%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
+
+
 (define (jazz.specifier->type specifier)
   (let ((name (jazz.specifier->name specifier)))
-    name))
-
-
-(define (jazz.parse-specifier lst proc)
-  (if (and (%%pair? lst) (%%not (%%null? lst)) (jazz.specifier? (%%car lst)))
-      (proc (jazz.specifier->type (%%car lst)) (%%cdr lst))
-    (proc #f lst)))
+    (or (%%hashtable-ref jazz.primitive-types name #f)
+        #f)))
 
 
 ;;;

@@ -48,11 +48,44 @@
 
 
 ;;;
+;;;; Type
+;;;
+
+
+(jazz.define-class-syntax jazz.Type jazz.Object () () ()
+  ())
+
+
+(jazz.define-virtual-syntax (jazz.of-type? (jazz.Type type) object) #t)
+(jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) class) #t)
+
+
+(jazz.define-macro (%%subtype? target type)
+  `(jazz.of-subtype? ,type ,target))
+
+
+(jazz.define-macro (%%subcategory? target category)
+  `(%%memq ,category (%%get-category-ancestors ,target)))
+
+
+(jazz.define-macro (%%subclass? target class)
+  `(%%memq ,class (%%get-category-ancestors ,target)))
+
+
+(jazz.define-macro (%%is? object type)
+  `(jazz.of-type? ,type ,object))
+
+
+(jazz.define-macro (%%instance-of? object class)
+  `(%%subclass? (%%class-of ,object) ,class))
+
+
+;;;
 ;;;; Category
 ;;;
 
 
-(jazz.define-class-syntax jazz.Category jazz.Object () () ()
+(jazz.define-class-syntax jazz.Category jazz.Type () () ()
   ((name        () ())
    (fields      () ())
    (ancestors   () ())
@@ -103,6 +136,12 @@
 (jazz.define-class-syntax jazz.Char      jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Numeric   jazz.Object   () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Number    jazz.Numeric  () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Complex   jazz.Number   () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Real      jazz.Complex  () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Rational  jazz.Real     () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Integer   jazz.Rational () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Fixnum    jazz.Integer  () jazz.Object-Class   () ())
+(jazz.define-class-syntax jazz.Flonum    jazz.Real     () jazz.Object-Class   () ())
 (jazz.define-class-syntax jazz.Sequence  jazz.Object   () jazz.Sequence-Class () ())
 (jazz.define-class-syntax jazz.List      jazz.Sequence () jazz.List-Class     () ())
 (jazz.define-class-syntax jazz.Null      jazz.List     () jazz.List-Class     () ())

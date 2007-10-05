@@ -128,8 +128,12 @@
   (%%not (%%object? expr)))
 
 
-(define (jazz.subtype? target category)
-  (%%boolean (%%subtype? target category)))
+(define (jazz.subtype? target type)
+  (%%boolean (%%subtype? target type)))
+
+
+(define (jazz.subcategory? target category)
+  (%%boolean (%%subcategory? target category)))
 
 
 (define (jazz.subclass? target class)
@@ -222,11 +226,6 @@
 
 
 ;;;
-;;;; Classes
-;;;
-
-
-;;;
 ;;;; Object
 ;;;
 
@@ -253,11 +252,37 @@
 
 
 ;;;
+;;;; Type
+;;;
+
+
+(jazz.define-class jazz.Type jazz.Object () ()
+  ())
+
+
+(jazz.define-virtual (jazz.of-type? (jazz.Type type) object))
+
+
+(jazz.define-method (jazz.of-type? (jazz.Type type) object)
+  (jazz.of-subtype? type (%%class-of object)))
+
+
+(jazz.define-virtual (jazz.of-subtype? (jazz.Type type) class))
+
+
+(jazz.define-method (jazz.of-subtype? (jazz.Type type) class)
+  (jazz.error "Unable to test type on: {s}" type))
+
+
+(jazz.encapsulate-class jazz.Type)
+
+
+;;;
 ;;;; Category
 ;;;
 
 
-(jazz.define-class jazz.Category jazz.Object () ()
+(jazz.define-class jazz.Category jazz.Type () ()
   (name
    fields
    ancestors
@@ -266,6 +291,10 @@
 
 (define (jazz.category? object)
   (%%is? object jazz.Category))
+
+
+(jazz.define-method (jazz.of-subtype? (jazz.Category type) class)
+  (%%memq type (%%get-category-ancestors class)))
 
 
 (define (jazz.add-field category field)
@@ -306,7 +335,7 @@
                 #f
                 #f
                 #f
-                #f
+                (if ascendant (%%get-class-core-vtable ascendant) #f)
                 #f
                 #f)))
     (%%set-category-ancestors class (jazz.compute-class-ancestors class ascendant interfaces))
@@ -338,8 +367,8 @@
   (%%class-of-impl expr))
 
 
-;; this function enables jazz to bootstrap fully interpreted
-;; note that we need to implement every type that can potentially be used by Jazz code
+;; This function enables jazz to bootstrap fully interpreted
+;; Note that we need to implement every type that can potentially be used by Jazz code
 ;; so that really means every type if we want to be a super set of the underlying scheme!
 (define (jazz.class-of-native expr)
   (cond ((%%boolean? expr)
@@ -347,9 +376,9 @@
         ((%%char? expr)
          jazz.Char)
         ((%%integer? expr)
-         jazz.Number)
+         jazz.Integer)
         ((%%real? expr)
-         jazz.Number)
+         jazz.Real)
         ((%%null? expr)
          jazz.Null)
         ((%%pair? expr)
@@ -378,6 +407,12 @@
 
 (define (jazz.is-not? object category)
   (%%boolean (%%not (%%is? object category))))
+
+
+;; for bootstrapping the of-type? / of-subtype? core methods
+(define (jazz.is-type? object type-class)
+  ;; should add a low-level test here
+  #t)
 
 
 (define (jazz.get-category-name category)
@@ -436,6 +471,7 @@
 ;;;
 
 
+(%%set-object-class jazz.Type jazz.Class)
 (%%set-object-class jazz.Category jazz.Class)
 (%%set-object-class jazz.Class jazz.Class)
 (%%set-object-class jazz.Object-Class jazz.Class)
@@ -457,6 +493,12 @@
 (jazz.define-class jazz.Char      jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.Numeric   jazz.Object   () jazz.Object-Class   ())
 (jazz.define-class jazz.Number    jazz.Numeric  () jazz.Object-Class   ())
+(jazz.define-class jazz.Complex   jazz.Number   () jazz.Object-Class   ())
+(jazz.define-class jazz.Real      jazz.Complex  () jazz.Object-Class   ())
+(jazz.define-class jazz.Rational  jazz.Real     () jazz.Object-Class   ())
+(jazz.define-class jazz.Integer   jazz.Rational () jazz.Object-Class   ())
+(jazz.define-class jazz.Fixnum    jazz.Integer  () jazz.Object-Class   ())
+(jazz.define-class jazz.Flonum    jazz.Real     () jazz.Object-Class   ())
 (jazz.define-class jazz.Sequence  jazz.Object   () jazz.Sequence-Class ())
 (jazz.define-class jazz.List      jazz.Sequence () jazz.List-Class     ())
 (jazz.define-class jazz.Null      jazz.List     () jazz.List-Class     ())
@@ -477,7 +519,14 @@
 (jazz.encapsulate-class jazz.Vector-Class)
 (jazz.encapsulate-class jazz.Boolean)
 (jazz.encapsulate-class jazz.Char)
+(jazz.encapsulate-class jazz.Numeric)
 (jazz.encapsulate-class jazz.Number)
+(jazz.encapsulate-class jazz.Complex)
+(jazz.encapsulate-class jazz.Real)
+(jazz.encapsulate-class jazz.Rational)
+(jazz.encapsulate-class jazz.Integer)
+(jazz.encapsulate-class jazz.Fixnum)
+(jazz.encapsulate-class jazz.Flonum)
 (jazz.encapsulate-class jazz.Sequence)
 (jazz.encapsulate-class jazz.List)
 (jazz.encapsulate-class jazz.Null)
@@ -512,8 +561,8 @@
     
     (%%vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
     (%%vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
-    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Number)
-    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Rational)
+    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Complex)
     ;; super quicky untill we add structure dispatch to %%c-class-of
     (%%vector-set! jazz.subtypes (macro-subtype-structure) jazz.Port)
     (%%vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
@@ -521,8 +570,8 @@
     (%%vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
     (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
     (%%vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
-    (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Number)
-    (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Number)
+    (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Flonum)
+    (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Rational)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)

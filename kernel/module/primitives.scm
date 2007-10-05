@@ -134,6 +134,11 @@
 
 (cond-expand
   (gambit
+   (define-macro (%%fixnum? obj)
+     (if (jazz.safe?)
+         `(fixnum? ,obj)
+       `(##fixnum? ,obj)))
+   
    (define-macro (%%fx= x y)
      (if (jazz.safe?)
          `(= ,x ,y)
@@ -167,13 +172,83 @@
    (define-macro (%%fx- x y)
      (if (jazz.safe?)
          `(- ,x ,y)
-       `(##fixnum.- ,x ,y))))
+       `(##fixnum.- ,x ,y)))
+   
+   (define-macro (%%fx* x y)
+     (if (jazz.safe?)
+         `(* ,x ,y)
+       `(##fixnum.* ,x ,y))))
 
   (else
    (define-macro (%%fx> x y)
      `(> ,x ,y))
    
    (define-macro (%%fx+ x y)
+     `(+ ,x ,y))))
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+(cond-expand
+  (gambit
+   (define-macro (%%flonum? obj)
+     (if (jazz.safe?)
+         `(flonum? ,obj)
+       `(##flonum? ,obj)))
+   
+   (define-macro (%%fl= x y)
+     (if (jazz.safe?)
+         `(= ,x ,y)
+       `(##flonum.= ,x ,y)))
+   
+   (define-macro (%%fl< x y)
+     (if (jazz.safe?)
+         `(< ,x ,y)
+       `(##flonum.< ,x ,y)))
+   
+   (define-macro (%%fl<= x y)
+     (if (jazz.safe?)
+         `(<= ,x ,y)
+       `(##flonum.<= ,x ,y)))
+   
+   (define-macro (%%fl> x y)
+     (if (jazz.safe?)
+         `(> ,x ,y)
+       `(##flonum.> ,x ,y)))
+   
+   (define-macro (%%fl>= x y)
+     (if (jazz.safe?)
+         `(>= ,x ,y)
+       `(##flonum.>= ,x ,y)))
+   
+   (define-macro (%%fl+ x y)
+     (if (jazz.safe?)
+         `(+ ,x ,y)
+       `(##flonum.+ ,x ,y)))
+   
+   (define-macro (%%fl- x y)
+     (if (jazz.safe?)
+         `(- ,x ,y)
+       `(##flonum.- ,x ,y)))
+   
+   (define-macro (%%fl* x y)
+     (if (jazz.safe?)
+         `(* ,x ,y)
+       `(##flonum.* ,x ,y)))
+   
+   (define-macro (%%fl/ x y)
+     (if (jazz.safe?)
+         `(/ ,x ,y)
+       `(##flonum./ ,x ,y))))
+
+  (else
+   (define-macro (%%fl> x y)
+     `(> ,x ,y))
+   
+   (define-macro (%%fl+ x y)
      `(+ ,x ,y))))
 
 

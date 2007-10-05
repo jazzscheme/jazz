@@ -42,21 +42,23 @@
   (let* ((name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
-         (class-parameter (%%cadr (%%car parameters)))
+         (object-parameter (%%cadr (%%car parameters)))
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz.method-implementation-name class-name name))
          (rank-name (jazz.method-rank-name implementation-name)))
-    `(define-macro (,name ,class-parameter ,@extra-parameters)
-       (if (%%symbol? ,class-parameter)
-           (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of ,class-parameter)) ',rank-name)
-                   ,class-parameter
-                   ,@extra-parameters)
+    `(define-macro (,name ,object-parameter ,@extra-parameters)
+       (if (%%symbol? ,object-parameter)
+           (%%list '%%safe-assertion (list '%%is? ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+             (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of ,object-parameter)) ',rank-name)
+                     ,object-parameter
+                     ,@extra-parameters))
          (let ((obj (jazz.generate-symbol "obj")))
            (%%list 'let
-                   (%%list (%%list obj ,class-parameter))
-                   (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of obj)) ',rank-name)
-                           obj
-                           ,@extra-parameters)))))))
+                   (%%list (%%list obj ,object-parameter))
+             (%%list '%%safe-assertion (list '%%is? obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+               (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of obj)) ',rank-name)
+                       obj
+                       ,@extra-parameters))))))))
 
 
 (define (jazz.expand-define-virtual signature)
@@ -73,13 +75,13 @@
   (let* ((name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
-         (class-parameter (%%cadr (%%car parameters)))
+         (object-parameter (%%cadr (%%car parameters)))
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz.method-implementation-name class-name name)))
     `(begin
        (define ,implementation-name
          (let ((nextmethod (jazz.find-nextmethod ,class-name ',name)))
-           (lambda (,class-parameter ,@extra-parameters)
+           (lambda (,object-parameter ,@extra-parameters)
              ,@body)))
        (jazz.register-method ,class-name ',name ,implementation-name))))
 

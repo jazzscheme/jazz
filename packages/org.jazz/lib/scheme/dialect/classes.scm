@@ -44,7 +44,8 @@
 
 
 (jazz.define-class-syntax jazz.Define-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-define-declaration
-  ((signature %%get-define-declaration-signature ())))
+  ((signature %%get-define-declaration-signature ())
+   (value     %%get-define-declaration-value     %%set-define-declaration-value)))
 
 
 ;;;
@@ -53,7 +54,8 @@
 
 
 (jazz.define-class-syntax jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-define-macro-declaration
-  ())
+  ((parameters %%get-define-macro-parameters ())
+   (body       %%get-define-macro-body       %%set-define-macro-body)))
 
 
 ;;;
@@ -65,13 +67,10 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
-
-
 ;;;
 ;;;; Walker
 ;;;
 
 
-(jazz.define-class-syntax jazz.Scheme-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class jazz.allocate-scheme-walker
+(jazz.define-class-syntax jazz.Scheme-Walker jazz.Walker (warnings errors) jazz.Object-Class jazz.allocate-scheme-walker
   ()))

@@ -39,4 +39,4 @@
 
 
 (jazz.define-macro (library . rest)
-  (jazz.walk-library rest)))
+  (jazz.expand-library rest)))

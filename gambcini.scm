@@ -113,6 +113,17 @@
 
 
 ;;;
+;;;; Walk
+;;;
+
+
+(define (walk library-name)
+  (let ((source (jazz.determine-module-source (jazz.module-filename library-name))))
+    (let ((form (jazz.read-toplevel-form source #f)))
+      (pretty-print (jazz.walk-library (cdr form))))))
+
+
+;;;
 ;;;; Expand
 ;;;
 
@@ -171,7 +182,7 @@
             (rest (cdr form)))
         (pretty-print (case kind
                         ((module) (jazz.expand-module (car rest) (cdr rest)))
-                        ((library) (jazz.walk-library rest)))
+                        ((library) (jazz.expand-library rest)))
                       port)))))
 
 
@@ -195,6 +206,10 @@
 
 (define (ew)
   (e w))
+
+
+(define (llex)
+  (lex jazz.dialect.language))
 
 
 ;;;

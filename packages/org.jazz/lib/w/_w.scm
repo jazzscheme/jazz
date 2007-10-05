@@ -38,9 +38,13 @@
 (library w scheme
 
 
+(define append!
+  append)
+
+
 (define (f)
   (let ((x <fx> 2))
-    (write (< x x))
+    (write (list x (< x 5)))
     (newline)))
 
 (f))

@@ -44,23 +44,14 @@
 
 
 (jazz.define-class jazz.Define-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
-  (signature))
+  (signature
+   value))
 
 
 (define (jazz.new-define-declaration name type parent parameters)
-  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'public 'uptodate '() #f parent '() #f (and parameters (jazz.new-walk-signature parameters)))))
+  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'public 'uptodate '() #f parent '() #f (and parameters (jazz.new-signature parameters)) #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
-
-
-(jazz.define-method (jazz.walk-binding-walk-reference (jazz.Define-Declaration declaration) walker resume source-declaration environment)
-  (%%get-declaration-locator declaration))
-
-
-(jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Define-Declaration declaration) walker resume source-declaration environment value)
-  (let ((locator (%%get-declaration-locator declaration))
-        (walk (jazz.walk walker resume source-declaration environment value)))
-    `(set! ,locator ,walk)))
 
 
 ;; Not 100% Scheme clean as it is possible to set! a define at runtime...
@@ -68,6 +59,26 @@
   (let ((signature (%%get-define-declaration-signature declaration)))
     (if signature
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
+
+
+(jazz.define-method (jazz.emit-declaration (jazz.Define-Declaration declaration))
+  (let ((locator (%%get-declaration-locator declaration))
+        (value (%%get-define-declaration-value declaration)))
+    `(define ,locator
+       ,(jazz.emit-expression value))))
+
+
+(jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration))
+  (%%get-declaration-locator declaration))
+
+
+(jazz.define-method (jazz.walk-binding-assignable? (jazz.Define-Declaration declaration))
+  #t)
+
+
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value)
+  (let ((locator (%%get-declaration-locator declaration)))
+    `(set! ,locator ,(jazz.emit-expression value))))
 
 
 (jazz.encapsulate-class jazz.Define-Declaration)
@@ -79,11 +90,12 @@
 
 
 (jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
-  ())
+  (parameters
+   body))
 
 
-(define (jazz.new-define-macro-declaration name type parent)
-  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'public 'uptodate '() #f parent '() #f)))
+(define (jazz.new-define-macro-declaration name type parent parameters)
+  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'public 'uptodate '() #f parent '() #f parameters #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -102,8 +114,12 @@
           (%%apply expander (%%cdr form)))))))
 
 
-(jazz.define-method (jazz.walk-binding-walk-assignment (jazz.Define-Macro-Declaration declaration) walker resume source-declaration environment value)
-  (jazz.walk-error walker resume source-declaration "Illegal assignment to a macro: {s}" (%%get-declaration-locator declaration)))
+(jazz.define-method (jazz.emit-declaration (jazz.Define-Macro-Declaration declaration))
+  (let ((locator (%%get-declaration-locator declaration))
+        (parameters (%%get-define-macro-parameters declaration))
+        (body (%%get-define-macro-body declaration)))
+    `(jazz.define-macro ,(%%cons locator parameters)
+       ,@(jazz.emit-expression body))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)
@@ -134,12 +150,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors literals variables references autoloads) jazz.Object-Class
+(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors) jazz.Object-Class
   ())
 
 
 (define (jazz.new-scheme-walker)
-  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '() '() '() '() '()))
+  (jazz.allocate-scheme-walker jazz.Scheme-Walker '() '()))
 
 
 ;;;
@@ -222,11 +238,12 @@
 
 (define (jazz.walk-%define walker resume declaration environment form)
   (jazz.bind (name type value parameters) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (locator (%%get-declaration-locator new-declaration))
            (new-environment (%%cons new-declaration environment)))
-      `(define ,locator
-         ,(jazz.generate walker resume new-declaration new-environment value)))))
+      (%%set-define-declaration-value new-declaration
+        (jazz.walk walker resume new-declaration new-environment value))
+      new-declaration)))
 
 
 ;;;
@@ -254,19 +271,20 @@
 
 (define (jazz.walk-%define-macro-declaration walker resume declaration environment form)
   (jazz.bind (name type parameters body) (%%cdr form)
-    (let ((new-declaration (jazz.new-define-macro-declaration name type declaration)))
+    (let ((new-declaration (jazz.new-define-macro-declaration name type declaration parameters)))
       (jazz.add-declaration-child walker resume declaration new-declaration)
       new-declaration)))
 
 
 (define (jazz.walk-%define-macro walker resume declaration environment form)
   (jazz.bind (name type parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (locator (%%get-declaration-locator new-declaration))
            (new-variables (jazz.parameters->variables parameters))
            (new-environment (%%append new-variables environment)))
-      `(jazz.define-macro ,(%%cons locator parameters)
-         ,@(jazz.walk-body walker resume new-declaration new-environment body)))))
+      (%%set-define-macro-body new-declaration
+        (jazz.walk walker resume new-declaration new-environment body))
+      new-declaration)))
 
 
 ;;;
@@ -311,35 +329,45 @@
 ;;;
 
 
-(define (jazz.walk-parameter-list walker resume declaration environment parameters defaults?)
+;; symbol : positional parameter
+;; (specifier/non-symbol/non-keyword-expression symbol) : dynamic parameter
+;; (symbol expression) : optional parameter
+;; (keyword symbol expression) : named parameter
+;; . symbol : rest parameter
+(define (jazz.walk-parameter-list walker resume declaration environment parameters walk?)
   (let ((section 'positional)
         (parameter-list (jazz.new-queue))
         (augmented-environment environment))
     (let iter ((scan parameters))
       (cond ((%%null? scan))
+            ;; rest parameter
             ((%%symbol? scan)
              (jazz.enqueue parameter-list #!rest)
              (jazz.enqueue parameter-list scan)
              (set! augmented-environment (%%cons (jazz.new-variable scan #f) augmented-environment)))
             (else
              (let ((parameter (%%car scan)))
-               (cond ((%%symbol? parameter)
-                      (if (%%eq? section 'positional)
-                          ;; ignore type specifiers for now
-                          (if (%%not (jazz.specifier? parameter))
+               (jazz.parse-specifier (%%cdr scan)
+                 (lambda (type rest)
+                   (cond ;; positional parameter
+                         ((%%symbol? parameter)
+                          (if (%%eq? section 'positional)
                               (begin
                                 (jazz.enqueue parameter-list parameter)
-                                (set! augmented-environment (%%cons (jazz.new-variable parameter #f) augmented-environment))))
-                        (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
-                     ((%%pair? parameter)
-                      (cond ((or (jazz.specifier? (%%car parameter))
+                                (set! augmented-environment (%%cons (jazz.new-variable parameter type) augmented-environment)))
+                            (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
+                         ((%%pair? parameter)
+                          (cond ;; dynamic parameter
+                            ((or (jazz.specifier? (%%car parameter))
                                  ;; quicky support for autoload expression
                                  (%%pair? (%%car parameter)))
                              (if (%%eq? section 'positional)
-                                 (begin
-                                   (jazz.enqueue parameter-list parameter)
+                                 (let* ((specifier/code (%%car parameter))
+                                        (code (if (jazz.specifier? specifier/code) (jazz.specifier->name specifier/code) specifier/code)))
+                                   (jazz.enqueue parameter-list (%%list (if walk? (jazz.walk walker resume declaration augmented-environment code) #f) (%%cadr parameter)))
                                    (set! augmented-environment (%%cons (jazz.new-variable (%%cadr parameter) #f) augmented-environment)))
                                (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
+                            ;; named parameter
                             ((%%keyword? (%%car parameter))
                              (let ((keyword (%%car parameter))
                                    (variable (%%cadr parameter))
@@ -350,9 +378,10 @@
                                      (set! section 'named)))
                                (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
                                    (begin
-                                     (jazz.enqueue parameter-list (%%list variable (if defaults? (jazz.walk walker resume declaration augmented-environment default) #f)))
+                                     (jazz.enqueue parameter-list (%%list variable (if walk? (jazz.walk walker resume declaration augmented-environment default) #f)))
                                      (set! augmented-environment (%%cons (jazz.new-variable variable #f) augmented-environment)))
                                  (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" parameter))))
+                            ;; optional parameter
                             (else
                              (let ((variable (%%car parameter))
                                    (default (%%cadr parameter)))
@@ -360,13 +389,23 @@
                                    (begin
                                      (jazz.enqueue parameter-list #!optional)
                                      (set! section 'optional)))
-                               (jazz.enqueue parameter-list (%%list variable (if defaults? (jazz.walk walker resume declaration augmented-environment default) #f)))
+                               (jazz.enqueue parameter-list (%%list variable (if walk? (jazz.walk walker resume declaration augmented-environment default) #f)))
                                (set! augmented-environment (%%cons (jazz.new-variable variable #f) augmented-environment))))))
-                     (else
-                      (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter))))
-             (iter (%%cdr scan)))))
+                         (else
+                          (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter)))
+                   (iter rest)))))))
     (values (jazz.queue-list parameter-list)
             augmented-environment)))
+
+
+(define (jazz.emit-parameters parameters)
+  (map (lambda (parameter)
+         (if (%%pair? parameter)
+             (if (%%is? (%%car parameter) jazz.Expression)
+                 (%%list (jazz.emit-expression (%%car parameter)) (%%cadr parameter))
+               (%%list (%%car parameter) (jazz.emit-expression (%%cadr parameter))))
+           parameter))
+       parameters))
 
 
 ;;;
@@ -380,13 +419,6 @@
     (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters #t)
       (jazz.new-lambda parameter-list
         (jazz.walk-body walker resume declaration augmented-environment body)))))
-
-
-(jazz.define-virtual (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters))
-
-
-(jazz.define-method (jazz.walk-parameters (jazz.Scheme-Walker walker) parameters)
-  parameters)
 
 
 ;;;
@@ -419,6 +451,12 @@
     name))
 
 
+(define (jazz.parse-specifier lst proc)
+  (if (and (%%pair? lst) (%%not (%%null? lst)) (jazz.specifier? (%%car lst)))
+      (proc (jazz.specifier->type (%%car lst)) (%%cdr lst))
+    (proc #f lst)))
+
+
 ;;;
 ;;;; Binding
 ;;;
@@ -426,11 +464,11 @@
 
 (define (jazz.parse-binding walker resume declaration form)
   (%%assertion (and (%%pair? form) (%%pair? (%%cdr form))) (jazz.format "Ill-formed binding: {s}" form)
-    (let ((symbol (%%car form))
-          (second (%%cadr form)))
-      (if (jazz.specifier? second)
-          (values (jazz.new-variable symbol (jazz.specifier->type second)) (%%car (%%cddr form)))
-        (values (jazz.new-variable symbol #f) second)))))
+    (let ((symbol (%%car form)))
+      (jazz.parse-specifier (%%cdr form)
+        (lambda (type rest)
+          (let ((value (%%car rest)))
+            (values (jazz.new-variable symbol type) value)))))))
 
 
 (define (jazz.walk-let walker resume declaration environment form)
@@ -439,21 +477,17 @@
     (let ((bindings (%%cadr form))
           (body (%%cddr form)))
       (if (and (%%pair? bindings) (%%symbol? (%%car bindings)))
-          (jazz.walk-signature-named-let walker resume declaration environment bindings body)
+          (jazz.signature-named-let walker resume declaration environment bindings body)
         (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
           (let ((augmented-environment environment)
                 (expanded-bindings (jazz.new-queue)))
             (for-each (lambda (binding-form)
-                        (receive (variable value) (jazz.parse-binding walker resume declaration (jazz.remove-specifiers-quicky binding-form))
+                        (receive (variable value) (jazz.parse-binding walker resume declaration binding-form)
                           (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
                           (set! augmented-environment (%%cons variable augmented-environment))))
                       bindings)
-            (jazz.new-let (map (lambda (expanded-binding)
-                                 (let ((variable (%%car expanded-binding))
-                                       (value (%%cdr expanded-binding)))
-                                   (cons variable value)))
-                               (jazz.queue-list expanded-bindings))
-                          (jazz.walk-body walker resume declaration augmented-environment effective-body))))))))
+            (jazz.new-let (jazz.queue-list expanded-bindings)
+              (jazz.walk-body walker resume declaration augmented-environment effective-body))))))))
 
 
 (define (jazz.walk-letstar walker resume declaration environment form)
@@ -462,16 +496,12 @@
     (let ((augmented-environment environment)
           (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (binding-form)
-                  (receive (variable value) (jazz.parse-binding walker resume declaration (jazz.remove-specifiers-quicky binding-form))
+                  (receive (variable value) (jazz.parse-binding walker resume declaration binding-form)
                     (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration augmented-environment value)))
                     (set! augmented-environment (%%cons variable augmented-environment))))
                 bindings)
-    `(let* ,(map (lambda (expanded-binding)
-                   (let ((variable (%%car expanded-binding))
-                         (value (%%cdr expanded-binding)))
-                     `(,(%%get-lexical-binding-name variable) ,value)))
-                 (jazz.queue-list expanded-bindings))
-       ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
+    (jazz.new-letstar (jazz.queue-list expanded-bindings)
+      (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
 (define (jazz.walk-letrec walker resume declaration environment form)
@@ -479,24 +509,33 @@
         (body (%%cddr form)))
     (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (%%car binding-form) #f)) bindings))
            (augmented-environment (%%append new-variables environment)))
-      `(letrec ,(map (lambda (binding-form)
-                       (let ((variable (%%car binding-form))
-                             (value (%%cadr binding-form)))
-                         `(,variable ,(jazz.walk walker resume declaration augmented-environment value))))
-                     bindings)
-         ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
+      (jazz.new-letrec (map (lambda (variable binding-form)
+                              (let ((value (%%cadr binding-form)))
+                                (cons variable (jazz.walk walker resume declaration augmented-environment value))))
+                            new-variables
+                            bindings)
+        (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
 (define (jazz.walk-receive walker resume declaration environment form)
-  (let* ((parameters (jazz.remove-specifiers-quicky (%%cadr form)))
-         (values (%%car (%%cddr form)))
+  (define (walk-parameters parameters)
+    (let ((queue (jazz.new-queue)))
+      (let iter ((scan parameters))
+        (if (%%null? scan)
+            (jazz.queue-list queue)
+          (let ((expr (%%car scan)))
+            (jazz.parse-specifier (%%cdr scan)
+              (lambda (type rest)
+                (jazz.enqueue queue (jazz.new-variable expr type))
+                (iter rest))))))))
+  
+  (let* ((parameters (%%cadr form))
+         (expression (%%car (%%cddr form)))
          (body (%%cdr (%%cddr form)))
-         (variables (map (lambda (parameter)
-                           (jazz.new-variable parameter #f))
-                         parameters))
+         (variables (walk-parameters parameters))
          (new-environment (%%append variables environment)))
-    `(receive ,parameters ,(jazz.walk walker resume declaration environment values)
-       ,@(jazz.walk-body walker resume declaration new-environment body))))
+    (jazz.new-receive variables (jazz.walk walker resume declaration environment expression)
+       (jazz.walk-body walker resume declaration new-environment body))))
 
 
 ;;;
@@ -543,11 +582,11 @@
 
 
 (define (jazz.walk-and walker resume declaration environment form)
-  (jazz.new-and (jazz.walk-list walker resume declaration environment expressions)))
+  (jazz.new-and (jazz.walk-list walker resume declaration environment (%%cdr form))))
 
 
 (define (jazz.walk-or walker resume declaration environment form)
-  (jazz.new-or (jazz.walk-list walker resume declaration environment expressions)))
+  (jazz.new-or (jazz.walk-list walker resume declaration environment (%%cdr form))))
 
 
 ;;;
@@ -557,7 +596,7 @@
 
 (define (jazz.walk-begin walker resume declaration environment form)
   (let ((body (%%cdr form)))
-    `(begin ,@(jazz.walk-list walker resume declaration environment body))))
+    (jazz.new-begin (jazz.walk-list walker resume declaration environment body))))
 
 
 ;;;
@@ -582,15 +621,12 @@
                     (set! augmented-environment (%%cons variable augmented-environment))))
                 bindings)
       (set! augmented-environment (%%cons (jazz.new-variable name #f) augmented-environment))
-      `(let ,name ,(map (lambda (expanded-binding)
-                          (let ((variable (%%car expanded-binding))
-                                (value (%%cdr expanded-binding)))
-                            `(,(%%get-lexical-binding-name variable) ,value)))
-                        (jazz.queue-list expanded-bindings))
-         ,@(jazz.walk-body walker resume declaration augmented-environment body)))))
+      (jazz.new-named-let name 
+        (jazz.queue-list expanded-bindings)
+        (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
-(define (jazz.walk-signature-named-let walker resume declaration environment bindings body)
+(define (jazz.signature-named-let walker resume declaration environment bindings body)
   (let ((name (%%car bindings))
         (bindings (%%cdr bindings)))
     (jazz.walk-named-let walker resume declaration environment
@@ -621,7 +657,7 @@
                       (%%list (%%car form) (jazz.walk walker resume declaration environment (%%cadr form)))
                     (%%cons (walk (%%car form)) (walk (%%cdr form))))
                 form))))
-    (%%list (%%car form) (walk (%%cadr form)))))
+    (jazz.new-quasiquote (walk (%%cadr form)))))
 
 
 (jazz.encapsulate-class jazz.Scheme-Walker)

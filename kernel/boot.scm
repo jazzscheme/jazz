@@ -44,7 +44,7 @@
 ;; debug - standard debug mode with tests to make jazz user code safe
 ;; release - release mode without tests for user stable code
 (define jazz.safety-level
-  (make-parameter 'safe))
+  (make-parameter 'debug))
 
 
 (define (jazz.safe?)
@@ -81,36 +81,6 @@
 
 
 (jazz.define-feature windows)
-
-
-;;;
-;;;; Build
-;;;
-
-
-(define jazz.Use-Bin-Directory?
-  #t)
-
-(define jazz.Use-Build-Suffix?
-  #f)
-
-
-(define jazz.build-suffix
-  (string-append (cond-expand
-                   (blues "b")
-                   (chicken "c")
-                   (gambit "g")
-                   (else "u"))
-                 (cond-expand
-                   (mac "m")
-                   (windows "w")
-                   (x11 "x"))
-                 (cond-expand
-                   (intel "i"))
-                 (case (jazz.safety-level)
-                   ((safe) "s")
-                   ((debug) "d")
-                   ((release) "r"))))
 
 
 ;;;
@@ -199,6 +169,36 @@
 
 (define (jazz.gc)
   (##gc))
+
+
+;;;
+;;;; Build
+;;;
+
+
+(define jazz.Use-Bin-Directory?
+  #t)
+
+(define jazz.Use-Build-Suffix?
+  #f)
+
+
+(define jazz.build-suffix
+  (string-append (cond-expand
+                   (blues "b")
+                   (chicken "c")
+                   (gambit "g")
+                   (else "u"))
+                 (cond-expand
+                   (mac "m")
+                   (windows "w")
+                   (x11 "x"))
+                 (cond-expand
+                   (intel "i"))
+                 (case (jazz.safety-level)
+                   ((safe) "s")
+                   ((debug) "d")
+                   ((release) "r"))))
 
 
 ;;;

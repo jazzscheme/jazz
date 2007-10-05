@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz->C++ Compiler
+;;;; Test
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,8 +16,8 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Dominique Boucher.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,33 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.compiler.Annotation-Holder jazz
+(library w scheme
 
 
-(import (jazz.compiler)
-        (jazz.library)
-        (jazz.utilities))
+(define append!
+  append)
 
 
-(class public Annotation-Holder extends Object
+(define (f)
+  (let ((x <fx> 2))
+    (write (list x (< x 5)))
+    (newline)))
 
-  
-  (slot annotations)
-
-  
-  (method (initialize . rest)
-    (nextmethod)
-    (set! annotations '()))
-  
-  
-  (method public (get-annotation object)
-    (cdr (assq object annotations)))
-  
-  
-  (method public (set-annotation! object value)
-    (let ((p (assq object annotations)))
-      (if p
-          (set-cdr! p value)
-        (set! annotations (cons (cons object value) annotations))))
-    value)))
-
+(f))

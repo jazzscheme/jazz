@@ -50,7 +50,7 @@
 
 (jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class
   (mandatory-parameters
-    signature
+   signature
    implementation
    next-implementation
    next-specific

@@ -73,8 +73,7 @@
 
 
 (define (ll)
-  (bl)
-  (jazz.load-module 'jazz))
+  (bl))
 
 
 (define (lj)
@@ -86,6 +85,10 @@
 
 (define (lt)
   (l test))
+
+
+(define (lw)
+  (l w))
 
 
 (define (tffi)
@@ -107,6 +110,17 @@
             (begin
               (proc expr)
               (iter (read reader))))))))
+
+
+;;;
+;;;; Walk
+;;;
+
+
+(define (walk library-name)
+  (let ((source (jazz.determine-module-source (jazz.module-filename library-name))))
+    (let ((form (jazz.read-toplevel-form source #f)))
+      (pretty-print (jazz.walk-library (cdr form))))))
 
 
 ;;;
@@ -168,7 +182,7 @@
             (rest (cdr form)))
         (pretty-print (case kind
                         ((module) (jazz.expand-module (car rest) (cdr rest)))
-                        ((library) (jazz.walk-library rest)))
+                        ((library) (jazz.expand-library rest)))
                       port)))))
 
 
@@ -188,6 +202,14 @@
 
 (define (ejt)
   (e jazz.test))
+
+
+(define (ew)
+  (e w))
+
+
+(define (llex)
+  (lex jazz.dialect.language))
 
 
 ;;;

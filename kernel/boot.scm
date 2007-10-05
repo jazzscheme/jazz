@@ -84,36 +84,6 @@
 
 
 ;;;
-;;;; Build
-;;;
-
-
-(define jazz.Use-Bin-Directory?
-  #t)
-
-(define jazz.Use-Build-Suffix?
-  #f)
-
-
-(define jazz.build-suffix
-  (string-append (cond-expand
-                   (blues "b")
-                   (chicken "c")
-                   (gambit "g")
-                   (else "u"))
-                 (cond-expand
-                   (mac "m")
-                   (windows "w")
-                   (x11 "x"))
-                 (cond-expand
-                   (intel "i"))
-                 (case (jazz.safety-level)
-                   ((safe) "s")
-                   ((debug) "d")
-                   ((release) "r"))))
-
-
-;;;
 ;;;; Jazz
 ;;;
 
@@ -199,6 +169,36 @@
 
 (define (jazz.gc)
   (##gc))
+
+
+;;;
+;;;; Build
+;;;
+
+
+(define jazz.Use-Bin-Directory?
+  #t)
+
+(define jazz.Use-Build-Suffix?
+  #f)
+
+
+(define jazz.build-suffix
+  (string-append (cond-expand
+                   (blues "b")
+                   (chicken "c")
+                   (gambit "g")
+                   (else "u"))
+                 (cond-expand
+                   (mac "m")
+                   (windows "w")
+                   (x11 "x"))
+                 (cond-expand
+                   (intel "i"))
+                 (case (jazz.safety-level)
+                   ((safe) "s")
+                   ((debug) "d")
+                   ((release) "r"))))
 
 
 ;;;

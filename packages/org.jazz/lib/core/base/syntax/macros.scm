@@ -95,6 +95,10 @@
   (apply jazz.expand-%%assert (jazz.debug?) rest))
 
 
+(jazz.define-macro (%%safe-assertion . rest)
+  (apply jazz.expand-%%assertion (jazz.safe?) rest))
+
+
 (jazz.define-macro (%%assertion . rest)
   (apply jazz.expand-%%assertion (jazz.debug?) rest))
 

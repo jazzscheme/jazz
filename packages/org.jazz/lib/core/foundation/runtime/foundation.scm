@@ -98,19 +98,6 @@
       lst)))
 
 
-(define (jazz.remove-specifiers-quicky form)
-  (let ((queue (jazz.new-queue)))
-    (let iter ((scan form))
-      (if (%%pair? scan)
-          (begin
-            (if (%%not (jazz.specifier? (%%car scan)))
-                (jazz.enqueue queue (%%car scan)))
-            (iter (%%cdr scan)))
-        (if (%%not (%%null? scan))
-            (jazz.enqueue-list queue scan))))
-    (jazz.queue-list queue)))
-
-
 (define (jazz.specifier? expr)
   (and (%%symbol? expr)
        (let ((str (%%symbol->string expr)))

@@ -1,0 +1,259 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Platform-dependant Window Definitions (Windows)
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Assem Hakmeh
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.windows jazz
+
+
+(import (jazz.platform.windows)
+        (jazz.ui))
+
+
+(definition public processed '(processed))
+(definition public unprocessed '(unprocessed))
+
+
+;; So that the window<->hwnd association can be made on the very first windows message
+(definition in-creation {})
+
+
+(definition (set-in-creation in)
+  (set! in-creation in))
+
+
+(definition (get-in-creation)
+  in-creation)
+
+
+(definition CLASS_ATOM
+  #f)
+
+
+(definition (window-class)
+  "JWindow")
+
+
+(definition (class-style)
+  (bit-or CS_OWNDC CS_DBLCLKS))
+
+
+(definition (class-background)
+  (GetSysColorBrush COLOR_BTNFACE))
+
+
+(definition (register-window-class)
+  (let ((instance (current-instance))
+        (background (class-background))
+        (wc (WNDCLASS-make)))
+    (WNDCLASS-style-set! wc          (class-style))
+    (WNDCLASS-lpfnWndProc-set! wc    call-process-hwnd-message)
+    (WNDCLASS-cbClsExtra-set! wc     0)
+    (WNDCLASS-cbWndExtra-set! wc     0)
+    (WNDCLASS-hInstance-set! wc      instance)
+    (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon :width 16 :height 16) NULL)
+    (WNDCLASS-hCursor-set! wc        NULL)
+    ;; To-Fix Remettre le handle brush
+    (WNDCLASS-hbrBackground-set! wc  background)
+    (WNDCLASS-lpszMenuName-set! wc   NULL)
+    (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
+    (set! CLASS_ATOM (RegisterClass wc))))
+
+
+(register-window-class)
+
+  
+(definition (child-style? rest)
+  true)
+
+
+(definition (window-style window rest)
+  (typecase window
+      ((Dialog)           (bit-or (if (child-style? rest) WS_CHILD 0)
+                                  WS_CLIPCHILDREN
+                                  WS_CLIPSIBLINGS
+                                  WS_POPUP
+                                  WS_BORDER
+                                  WS_OVERLAPPED
+                                  WS_CAPTION
+                                  WS_DLGFRAME
+                                  (if (getf rest :sizable? :not-found true) WS_THICKFRAME 0)
+                                  (if (getf rest :closable? :not-found true) WS_SYSMENU 0)))
+      ((Frame)            (bit-or WS_CHILD
+                                  WS_SYSMENU
+                                  WS_CLIPCHILDREN
+                                  WS_CLIPSIBLINGS))
+      ((Message-Window)   0)
+      ((Orphanage-Window) 0)
+      ((Palette)          (bit-or WS_POPUP
+                                  WS_CLIPCHILDREN))
+      ((Popup)            (bit-or WS_POPUP
+                                  WS_CLIPCHILDREN))
+      @unimplemented
+      ((State-Toplevel)   (bit-or WS_POPUP
+                                  WS_CLIPCHILDREN))
+      ((Toplevel)         (bit-or WS_CLIPSIBLINGS
+                                  WS_CLIPCHILDREN
+                                  WS_POPUP
+                                  WS_OVERLAPPED
+                                  WS_MINIMIZEBOX
+                                  WS_SYSMENU))
+      (else               (bit-or (if (child-style? rest) WS_CHILD 0)
+                                  WS_CLIPCHILDREN
+                                  WS_CLIPSIBLINGS))))
+
+
+(definition (window-ex-style window rest)
+  (typecase window
+      ((Dialog)           WS_EX_DLGMODALFRAME)
+      ((Palette)          WS_EX_TOOLWINDOW)
+      ((Popup)            WS_EX_TOOLWINDOW)
+      ((Toplevel)         WS_EX_APPWINDOW)
+      ((Transient)        (bit-or WS_EX_TOOLWINDOW WS_EX_TOPMOST))
+      (else               0)))
+
+
+(definition (window-parent window parent)
+  (if (not parent)
+      NULL
+    (get-handle~ parent)))
+
+
+(definition (create-handle window parent rest)
+  (typecase window
+    ((Desktop) (GetDesktopWindow))
+    (else
+     (CreateWindowEx
+       (window-ex-style window rest)
+       CLASS_ATOM @w (either hwnd-class (window-class))
+       NULL
+       (window-style window rest)
+       0 0 500 500
+       (window-parent window parent)
+       NULL
+       (current-instance)
+       NULL))))
+
+
+(definition (prepare-handle window parent rest)
+  (bind-keywords ((hwnd {}) . others) rest
+    (set-in-creation window)
+    (let ((hwnd (create-handle window parent rest)))
+      (if (not hwnd)
+          (error "Unable to create window {t} error {t}"
+                 (list :class (window-class) :style (window-style window rest) :ex-style (window-ex-style window rest) parent: (window-parent window parent))
+                 (GetLastError))
+        (DragAcceptFiles hwnd true)
+        hwnd))))
+
+
+(definition (bring-window-to-top hwnd)
+      (BringWindowToTop hwnd))
+
+
+(definition (show-window handle)
+  (ShowWindow handle SW_SHOWNORMAL))
+
+
+(definition (hide-window handle)
+  (ShowWindow handle SW_HIDE))
+
+
+(definition (minimize-window handle)
+  (ShowWindow handle SW_MINIMIZE))
+
+
+(definition (destroy-window handle)
+  (DestroyWindow handle))
+
+
+(definition (dispatch-message window msg <int> wparam <int> lparam <int>)
+  (if (eq? (process-window-message window msg wparam lparam) unprocessed)
+      (DefWindowProc (get-handle~ window) msg wparam lparam)
+    0))
+
+
+;;;
+;;;; Messages
+;;;
+
+
+(definition (process-window-message window msg <int> wparam <int> lparam <int>)
+  (ecase msg
+    ((WM_ERASEBKGND)      (erase-background~ window wparam))
+    ((WM_PAINT)           (paint~ window))
+    ((WM_SETCURSOR)       (cursor-update~ window (= (loword lparam) HTCLIENT)))
+    ((WM_MOUSEMOVE)       (mouse-move~ window (loword lparam) (hiword lparam)))
+    ((WM_MOUSEHOVER)      (mouse-hover~ window (loword lparam) (hiword lparam)))
+    ((WM_MOUSEWHEEL)      (mouse-wheel~ window (hiword wparam)))
+    ((WM_LBUTTONDOWN)     (mouse-down~ window (loword lparam) (hiword lparam)))
+    ((WM_LBUTTONUP)       (mouse-up~ window (loword lparam) (hiword lparam)))
+    ((WM_LBUTTONDBLCLK)   (double-click~ window (loword lparam) (hiword lparam)))
+    ((WM_MBUTTONDOWN)     (middle-mouse-down~ window (loword lparam) (hiword lparam)))
+    ((WM_MBUTTONUP)       (middle-mouse-up~ window (loword lparam) (hiword lparam)))
+    ((WM_RBUTTONDOWN)     (right-mouse-down~ window (loword lparam) (hiword lparam)))
+    ((WM_RBUTTONUP)       (right-mouse-up~ window (loword lparam) (hiword lparam)))
+    ((WM_CONTEXTMENU)     (call-context-menu~ window (loword lparam) (hiword lparam)))
+    ((WM_SYSKEYDOWN)      (system-key-down~ window wparam))
+    ((WM_SYSKEYUP)        (system-key-up~ window wparam))
+    ((WM_KEYDOWN)         (call-key-down~ window wparam))
+    ((WM_KEYUP)           (call-key-up~ window wparam))
+    ((WM_CHAR)            (call-key-press~ window wparam))
+    ((WM_COMMAND)         (on-command~ window lparam wparam))
+    ((WM_SYSCOMMAND)      (on-system-command~ window (bit-and wparam #xFFF0)))
+    ((WM_MOVE)            (call-position-change~ window (loword lparam) (hiword lparam)))
+    ((WM_SIZE)            (call-size-change~ window wparam (loword lparam) (hiword lparam)))
+    ((WM_MOUSEACTIVATE)   (on-mouse-activate~ window))
+    ((WM_ACTIVATE)        (on-activate~ window (loword wparam)))
+    ((WM_ACTIVATEAPP)     (on-activate-app~ window wparam))
+    ((WM_CLOSE)           (on-close~ window {}))
+    ((WM_DESTROY)         (window-destroy~ window))
+    ((WM_NCDESTROY)       (on-nc-destroy~ window {}))
+    ((WM_CAPTURECHANGED)  (call-lost-capture~ window lparam))
+    ((WM_SETFOCUS)        (call-focus-gain~ window))
+    ((WM_KILLFOCUS)       (call-focus-lose~ window wparam))
+    ((WM_DROPFILES)       (drop-files~ window wparam))
+    ((WM_SETTINGCHANGE)   (setting-change~ window wparam))
+    ((WM_TIMER)           (on-timer~ window wparam))
+    (else                 unprocessed)))
+
+
+(definition (set-capture handle)
+  (SetCapture handle))
+
+
+(definition (unset-capture)
+  (ReleaseCapture)))

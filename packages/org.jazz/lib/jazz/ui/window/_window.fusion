@@ -38,13 +38,13 @@
 (library jazz.ui.window jazz
 
 
+(export (jazz.ui.window.windows))
+
+
 (import (jazz.ui)
         (jazz.platform)
-        (jazz.platform.windows))
-
-
-(definition public processed '(processed))
-(definition public unprocessed '(unprocessed))
+        (jazz.platform.windows)
+        (jazz.ui.window.windows))
 
 
 ;;;
@@ -118,24 +118,12 @@
 ;;;
 
 
-;; So that the window<->hwnd association can be made on the very first windows message
-(definition in-creation {})
-
-
-(definition (set-in-creation in)
-  (set! in-creation in))
-
-
-(definition (get-in-creation)
-  in-creation)
-
-
 (set! process-hwnd-message
       (function (hwnd <fx> msg <fx> wparam <fx> lparam <fx>)
         (let ((window (get-window hwnd)))
           (when (and (not window) (get-in-creation))
             (set! window (get-in-creation))
-            (set-hwnd~ window hwnd)
+            (set-handle~ window hwnd)
             (set-window hwnd window)
             (set-in-creation {}))
           (if (not window)
@@ -181,7 +169,7 @@
     (let ((toplevel (get-toplevel)))
       (unwind-protect
           (begin
-            (LockWindowUpdate (get-hwnd~ toplevel))
+            (LockWindowUpdate (get-handle~ toplevel))
             (set! locked-update? true)
             (proc))
         (when locked-update?
@@ -237,7 +225,7 @@
 (definition (get-front-frame)
   (let ((stage (get-stage)))
     (when stage
-      (let ((hwnd (GetWindow (get-hwnd~ stage) GW_CHILD)))
+      (let ((hwnd (GetWindow (get-handle~ stage) GW_CHILD)))
         (while (and hwnd (not (IsWindowVisible hwnd)))
           (set! hwnd (GetWindow hwnd GW_HWNDNEXT)))
         (when hwnd

@@ -60,7 +60,7 @@
                             (body (cdr clause)))
                         (cond ((eq? value 'else)
                                (cons 'else body))
-                          ((list? value)
+                          ((pair? value)
                            (cons (cons 'or (map (lambda (value)
                                                   (list 'eqv? symbol value))
                                                 value))

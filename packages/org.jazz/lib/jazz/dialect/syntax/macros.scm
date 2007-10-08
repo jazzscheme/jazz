@@ -81,7 +81,7 @@
          `(call-with-catch ,type (lambda (x) x)
             (lambda ()
               ,@body)))
-        ((list? type)
+        ((pair? type)
          `(call-with-catch ,(car type) (lambda (,(cadr type)) ,@(cddr type))
             (lambda ()
               ,@body)))

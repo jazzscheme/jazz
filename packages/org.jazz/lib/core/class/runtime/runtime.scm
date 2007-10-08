@@ -274,6 +274,12 @@
   (jazz.error "Unable to test type on: {s}" type))
 
 
+;; for bootstrapping the of-type? / of-subtype? core methods
+(define (jazz.is-type? object type-class)
+  ;; should add a low-level test here
+  #t)
+
+
 (jazz.encapsulate-class jazz.Type)
 
 
@@ -295,6 +301,18 @@
 
 (jazz.define-method (jazz.of-subtype? (jazz.Category type) class)
   (%%memq type (%%get-category-ancestors class)))
+
+
+(define (jazz.is? object category)
+  (%%boolean (%%is? object category)))
+
+
+(define (jazz.is-not? object category)
+  (%%boolean (%%not (%%is? object category))))
+
+
+(define (jazz.get-category-name category)
+  (%%get-category-name category))
 
 
 (define (jazz.add-field category field)
@@ -401,22 +419,16 @@
          (jazz.error "Unable to get class of {s}" expr))))
 
 
-(define (jazz.is? object category)
-  (%%boolean (%%is? object category)))
-
-
-(define (jazz.is-not? object category)
-  (%%boolean (%%not (%%is? object category))))
-
-
-;; for bootstrapping the of-type? / of-subtype? core methods
-(define (jazz.is-type? object type-class)
-  ;; should add a low-level test here
-  #t)
-
-
-(define (jazz.get-category-name category)
-  (%%get-category-name category))
+;;tBool is_class_subtype(jType target, jType type)
+;;{
+;;	tInt	target_offset = target->class_ancestors_sizeGet();
+;;	tInt	type_offset = type->class_ancestors_sizeGet();
+;;	
+;;	return	target_offset >= type_offset && 
+;;			target->ancestorsGet()[type_offset-1] == type;
+;;}
+(jazz.define-method (jazz.of-type? (jazz.Class class) object)
+  (jazz.of-subtype? class (%%class-of object)))
 
 
 (define (jazz.slot-form? form)
@@ -612,6 +624,21 @@
 
 (define (jazz.interface? object)
   (%%is? object jazz.Interface))
+
+
+;;tBool is_interface_subtype(jType target, jType type)
+;;{
+;;	jTypePtr	ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
+;;	jTypePtr	ptr = target->ancestorsGet() + target->ancestors_sizeGet();
+;;	
+;;	while (--ptr >= ptr_start)
+;;		if (*ptr == type)
+;;			return true;
+;;	
+;;	return false;
+;;}
+(jazz.define-method (jazz.of-type? (jazz.Interface interface) object)
+  (jazz.of-subtype? interface (%%class-of object)))
 
 
 (jazz.encapsulate-class jazz.Interface)

@@ -1495,9 +1495,10 @@
            (walker (jazz.dialect-walker dialect))
            (resume #f)
            (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
-           (environment (%%cons declaration (jazz.walker-environment walker))))
-      (%%set-namespace-declaration-body declaration
-        (jazz.walk-list walker resume declaration environment body))
+           (environment (%%cons declaration (jazz.walker-environment walker)))
+           (body (jazz.walk-list walker resume declaration environment body)))
+      (jazz.validate-walk-problems walker)
+      (%%set-namespace-declaration-body declaration body)
       declaration)))
 
 
@@ -1704,6 +1705,23 @@
 (define (jazz.lookup-reference walker resume declaration environment symbol)
   (or (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)
       (jazz.walk-unresolved walker resume declaration symbol)))
+
+
+;;;
+;;;; Specifier
+;;;
+
+
+(define (jazz.specifier->type walker resume declaration environment specifier)
+  #f
+  #; ;; a try
+  (let ((name (jazz.specifier->name specifier)))
+    ;; quick fix to be put back
+    (if (let ((str (%%symbol->string name)))
+          (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\+))
+        #f
+      (or (jazz.lookup-primitive-type name)
+          (jazz.lookup-reference walker resume declaration environment name)))))
 
 
 ;;;
@@ -2091,6 +2109,13 @@
   (jazz.allocate-call jazz.Call #f operator arguments))
 
 
+(jazz.define-method (jazz.expression-type (jazz.Call expression))
+  (let ((operator (%%get-call-operator expression)))
+    (if (%%is? operator jazz.Reference)
+        (jazz.expression-type operator)
+      #f)))
+
+
 (jazz.define-method (jazz.emit-expression (jazz.Call expression))
   (let ((operator (%%get-call-operator expression))
         (arguments (%%get-call-arguments expression)))
@@ -2135,6 +2160,7 @@
            (jazz.expression-type argument))
          arguments))
   
+  #f #;
   (let ((patterns (%%hashtable-ref jazz.inline-patterns (operator-locator) #f)))
     (if patterns
         (let ((types (arguments-types)))
@@ -2142,6 +2168,7 @@
             (if (%%null? scan)
                 #f
               (jazz.bind (inline-type inline-name) (%%car scan)
+                ;; (jazz.debug arguments types)
                 (if (jazz.every? (lambda (type)
                                    (and type (%%subtype? type inline-type)))
                                  types)

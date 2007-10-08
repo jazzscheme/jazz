@@ -417,8 +417,7 @@
   '(jazz.dialect.language))
 
 (define Util
-  '(jazz.library.utility.Cell
-    jazz.utilities))
+  '(jazz.utilities))
 
 (define UI
   '(jazz.library.component.Component
@@ -437,7 +436,10 @@
     jazz.platform))
 
 (define Expl
-  '(jazz.ui.text.Text-Explorer
+  '(jazz.library.utility.Cell
+    jazz.ui.text.Paragraph
+    jazz.ui.text.Text-View
+    jazz.ui.text.Text-Explorer
     jazz.ui.text.Code-Explorer
     jazz.jazz.text.Lisp-Explorer
     jazz.jazz.text.Jazz-Explorer))

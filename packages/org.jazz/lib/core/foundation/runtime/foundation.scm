@@ -74,7 +74,7 @@
 
 
 (define (jazz.listify obj)
-  (if (list? obj)
+  (if (or (%%null? obj) (%%pair? obj))
       obj
     (%%list obj)))
 

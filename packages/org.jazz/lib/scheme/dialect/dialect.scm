@@ -348,11 +348,11 @@
             (else
              (let ((parameter (%%car scan)))
                (jazz.parse-specifier (%%cdr scan)
-                 (lambda (type rest)
+                 (lambda (specifier rest)
                    (cond ;; positional parameter
                          ((%%symbol? parameter)
                           (if (%%eq? section 'positional)
-                              (begin
+                              (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f)))
                                 (jazz.enqueue parameter-list parameter)
                                 (set! augmented-environment (%%cons (jazz.new-variable parameter type) augmented-environment)))
                             (jazz.walk-error walker resume declaration "Ill-formed lambda parameters: {s}" parameters)))
@@ -428,7 +428,7 @@
 
 (define (jazz.parse-specifier lst proc)
   (if (and (%%pair? lst) (jazz.specifier? (%%car lst)))
-      (proc (jazz.specifier->type (%%car lst)) (%%cdr lst))
+      (proc (%%car lst) (%%cdr lst))
     (proc #f lst)))
 
 
@@ -475,10 +475,26 @@
 (%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
 
 
-(define (jazz.specifier->type specifier)
-  (let ((name (jazz.specifier->name specifier)))
-    (or (%%hashtable-ref jazz.primitive-types name #f)
-        #f)))
+(define (jazz.type->specifier type)
+  (let ((name (jazz.primitive-type->name type)))
+    (if name
+        (jazz.name->specifier name)
+      #f)))
+
+
+(define (jazz.primitive-type->name type)
+  ;; not very efficient first draft
+  (call/cc
+    (lambda (return)
+      (%%iterate-hashtable jazz.primitive-types
+        (lambda (key value)
+          (if (%%eq? value type)
+              (return key))))
+      #f)))
+
+
+(define (jazz.lookup-primitive-type name)
+  (%%hashtable-ref jazz.primitive-types name #f))
 
 
 ;;;
@@ -486,12 +502,13 @@
 ;;;
 
 
-(define (jazz.parse-binding walker resume declaration form)
+(define (jazz.parse-binding walker resume declaration environment form)
   (%%assertion (and (%%pair? form) (%%pair? (%%cdr form))) (jazz.format "Ill-formed binding: {s}" form)
     (let ((symbol (%%car form)))
       (jazz.parse-specifier (%%cdr form)
-        (lambda (type rest)
-          (let ((value (%%car rest)))
+        (lambda (specifier rest)
+          (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f))
+                (value (%%car rest)))
             (values (jazz.new-variable symbol type) value)))))))
 
 
@@ -506,7 +523,7 @@
           (let ((augmented-environment environment)
                 (expanded-bindings (jazz.new-queue)))
             (for-each (lambda (binding-form)
-                        (receive (variable value) (jazz.parse-binding walker resume declaration binding-form)
+                        (receive (variable value) (jazz.parse-binding walker resume declaration environment binding-form)
                           (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
                           (set! augmented-environment (%%cons variable augmented-environment))))
                       bindings)
@@ -520,7 +537,7 @@
     (let ((augmented-environment environment)
           (expanded-bindings (jazz.new-queue)))
       (for-each (lambda (binding-form)
-                  (receive (variable value) (jazz.parse-binding walker resume declaration binding-form)
+                  (receive (variable value) (jazz.parse-binding walker resume declaration environment binding-form)
                     (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration augmented-environment value)))
                     (set! augmented-environment (%%cons variable augmented-environment))))
                 bindings)
@@ -549,9 +566,10 @@
             (jazz.queue-list queue)
           (let ((expr (%%car scan)))
             (jazz.parse-specifier (%%cdr scan)
-              (lambda (type rest)
-                (jazz.enqueue queue (jazz.new-variable expr type))
-                (iter rest))))))))
+              (lambda (specifier rest)
+                (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f)))
+                  (jazz.enqueue queue (jazz.new-variable expr type))
+                  (iter rest)))))))))
   
   (let* ((parameters (%%cadr form))
          (expression (%%car (%%cddr form)))
@@ -599,7 +617,7 @@
                           (let* ((tries (%%car clause))
                                  (body (%%cdr clause))
                                  (effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
-                            (if (or (%%eq? tries 'else) (list? tries))
+                            (if (or (%%eq? tries 'else) (%%pair? tries))
                                 (cons tries (jazz.walk-list walker resume declaration environment effective-body))
                               (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries))))
                         clauses))))

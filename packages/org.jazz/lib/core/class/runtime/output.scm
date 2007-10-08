@@ -87,7 +87,7 @@
 
 
 (define (jazz.output-value value output detail)
-  (cond ((list? value)
+  (cond ((or (%%null? value) (%%pair? value))
          (jazz.output-list value output detail))
         ((jazz.primitive? value)
          (jazz.print value output detail))
@@ -111,7 +111,7 @@
           (jazz.output-value (%%car scan) output detail)
           (set! scan (%%cdr scan))
           (if (%%not (%%null? scan))
-              (if (list? scan)
+              (if (%%pair? scan)
                   (display " " output)
                 (begin
                   (display " . " output)

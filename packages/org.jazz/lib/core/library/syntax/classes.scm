@@ -220,7 +220,7 @@
 (jazz.define-class-syntax jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-autoload-declaration
   ((library          %%get-autoload-declaration-library          ())
    (exported-library %%get-autoload-declaration-exported-library ())
-   (declaration      %%get-autoload-declaration-declaration %%set-autoload-declaration-declaration)))
+   (declaration      %%get-autoload-declaration-declaration      %%set-autoload-declaration-declaration)))
 
 
 ;;;

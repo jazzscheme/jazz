@@ -200,6 +200,8 @@
 (native bitwise-xor)
 (native arithmetic-shift)
 (native bit-set?)
+(native fixnum?)
+(native flonum?)
 
 
 ;;;
@@ -372,7 +374,7 @@
 
 
 (native skip-whites)
-
+(native jazz.eof-object)
 
 
 ;;;
@@ -470,6 +472,14 @@
 
 
 ;;;
+;;;; Type
+;;;
+
+
+(native jazz.cast-error)
+
+
+;;;
 ;;;; Void
 ;;;
 
@@ -514,14 +524,6 @@
 
 (native make-parameter)
 (native parameterize)
-
-
-;;;
-;;;; EOF
-;;;
-
-
-(native jazz.eof-object)
 
 
 ;;;

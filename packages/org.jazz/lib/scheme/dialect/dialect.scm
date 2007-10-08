@@ -65,7 +65,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-expression value))))
+       ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration))
@@ -224,20 +224,21 @@
 
 
 (define (jazz.expand-define-form walker resume declaration form)
-  (receive (name type value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
-    `(%define ,name ,type ,value ,parameters)))
+  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
+    `(%define ,name ,specifier ,value ,parameters)))
 
 
 (define (jazz.walk-%define-declaration walker resume declaration environment form)
-  (jazz.bind (name type value parameters) (%%cdr form)
+  (jazz.bind (name specifier value parameters) (%%cdr form)
     (%%assert (%%is? declaration jazz.Namespace-Declaration)
-      (let ((new-declaration (jazz.new-define-declaration name type declaration parameters)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
+      (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f)))
+        (let ((new-declaration (jazz.new-define-declaration name type declaration parameters)))
+          (jazz.add-declaration-child walker resume declaration new-declaration)
+          new-declaration)))))
 
 
 (define (jazz.walk-%define walker resume declaration environment form)
-  (jazz.bind (name type value parameters) (%%cdr form)
+  (jazz.bind (name specifier value parameters) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (locator (%%get-declaration-locator new-declaration))
            (new-environment (%%cons new-declaration environment)))
@@ -414,87 +415,13 @@
 
 
 (define (jazz.walk-lambda walker resume declaration environment form)
-  (let ((parameters (%%cadr form))
-        (body (%%cddr form)))
-    (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters #t)
-      (jazz.new-lambda parameter-list
-        (jazz.walk-body walker resume declaration augmented-environment body)))))
-
-
-;;;
-;;;; Specifier
-;;;
-
-
-(define (jazz.parse-specifier lst proc)
-  (if (and (%%pair? lst) (jazz.specifier? (%%car lst)))
-      (proc (%%car lst) (%%cdr lst))
-    (proc #f lst)))
-
-
-;;;
-;;;; Type
-;;;
-
-
-;; TO THINK
-;; <fx> -> fixnum
-;; <fl> -> flonum
-;; <integer> -> integer
-;; <rational> -> rational
-;; <real> -> real
-;; <complex> -> complex
-;; <string> -> string
-;; <Object>
-;; <Point>
-;; <Point+> ;; pas sur
-;; #f ou bien <any> ou bien ???
-;; keep <int> ... for interfaces to java, c, ... !?
-;; <void> !?
-
-
-(define jazz.primitive-types
-  (%%make-hashtable eq?))
-
-
-(%%hashtable-set! jazz.primitive-types 'bool      jazz.Boolean)
-(%%hashtable-set! jazz.primitive-types 'char      jazz.Char)
-(%%hashtable-set! jazz.primitive-types 'int       jazz.Integer)
-(%%hashtable-set! jazz.primitive-types 'real      jazz.Real)
-(%%hashtable-set! jazz.primitive-types 'fx        jazz.Fixnum)
-(%%hashtable-set! jazz.primitive-types 'fl        jazz.Flonum)
-(%%hashtable-set! jazz.primitive-types 'list      jazz.List)
-(%%hashtable-set! jazz.primitive-types 'null      jazz.Null)
-(%%hashtable-set! jazz.primitive-types 'pair      jazz.Pair)
-(%%hashtable-set! jazz.primitive-types 'port      jazz.Port)
-(%%hashtable-set! jazz.primitive-types 'procedure jazz.Procedure)
-(%%hashtable-set! jazz.primitive-types 'string    jazz.String)
-(%%hashtable-set! jazz.primitive-types 'symbol    jazz.Symbol)
-(%%hashtable-set! jazz.primitive-types 'keyword   jazz.Keyword)
-(%%hashtable-set! jazz.primitive-types 'vector    jazz.Vector)
-(%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
-
-
-(define (jazz.type->specifier type)
-  (let ((name (jazz.primitive-type->name type)))
-    (if name
-        (jazz.name->specifier name)
-      #f)))
-
-
-(define (jazz.primitive-type->name type)
-  ;; not very efficient first draft
-  (call/cc
-    (lambda (return)
-      (%%iterate-hashtable jazz.primitive-types
-        (lambda (key value)
-          (if (%%eq? value type)
-              (return key))))
-      #f)))
-
-
-(define (jazz.lookup-primitive-type name)
-  (%%hashtable-ref jazz.primitive-types name #f))
+  (let ((parameters (%%cadr form)))
+    (jazz.parse-specifier (%%cddr form)
+      (lambda (specifier body)
+        (receive (parameter-list augmented-environment) (jazz.walk-parameter-list walker resume declaration environment parameters #t)
+          (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f)))
+            (jazz.new-lambda type parameter-list
+              (jazz.walk-body walker resume declaration augmented-environment body))))))))
 
 
 ;;;

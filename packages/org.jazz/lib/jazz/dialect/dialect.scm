@@ -82,7 +82,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-expression value))))
+       ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration))
@@ -99,7 +99,7 @@
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Definition-Declaration declaration) value)
   (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz.emit-expression value))))
+    `(set! ,locator ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.encapsulate-class jazz.Definition-Declaration)
@@ -863,13 +863,17 @@
 (define (jazz.parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz.parse-modifiers walker resume declaration jazz.definition-modifiers rest)
     (if (%%symbol? (%%car rest))
-        (values (%%car rest) #f access compatibility expansion (%%cadr rest) #f)
+        (let ((name (%%car rest)))
+          (jazz.parse-specifier (%%cdr rest)
+            (lambda (specifier rest)
+              (values name specifier access compatibility expansion (%%car rest) #f))))
       (let* ((name (%%caar rest))
              (parameters (%%cdar rest)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
-              (values name specifier access compatibility expansion `(lambda ,parameters ,@effective-body) parameters))))))))
+            (let ((specifier-list (if specifier (%%list specifier) '()))
+                  (effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+              (values name #f access compatibility expansion `(lambda ,parameters ,@specifier-list ,@effective-body) parameters))))))))
 
 
 (define (jazz.expand-definition walker resume declaration environment . rest)
@@ -1287,24 +1291,24 @@
                (category-name (%%get-lexical-binding-name category-declaration))
                (parameters (jazz.wrap-parameters parameters))
                (generic-parameters (%%cons (%%list (jazz.name->specifier category-name) 'self) parameters))
-               (specifier (if type (%%list (jazz.type->specifier type)) '())))
+               (specifier-list (if type (%%list specifier) '())))
           (case propagation
             ((inherited)
              (if (and found-declaration (%%is? found-declaration jazz.Generic-Declaration))
                  `(%specific ,name ,generic-parameters #t (with-self ,@body))
-               (jazz.expand-final-method category-name specifier access name parameters body)))
+               (jazz.expand-final-method category-name specifier-list access name parameters body)))
             (else
              (if (%%eq? implementation 'abstract)
-                 `(generic ,access ,(%%cons name generic-parameters) ,@specifier)
+                 `(generic ,access ,(%%cons name generic-parameters) ,@specifier-list)
                `(begin
-                  (generic ,access ,(%%cons name generic-parameters) ,@specifier)
+                  (generic ,access ,(%%cons name generic-parameters) ,@specifier-list)
                   (%specific ,name ,generic-parameters #t (with-self ,@body)))))))
       (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name))))
 
 
-(define (jazz.expand-final-method category-name specifier access method-name parameters body)
+(define (jazz.expand-final-method category-name specifier-list access method-name parameters body)
   `(begin
-     (definition ,access ,(%%cons method-name (%%cons 'self parameters)) ,@specifier
+     (definition ,access ,(%%cons method-name (%%cons 'self parameters)) ,@specifier-list
        (with-self
          ,@body))
      (update-dispatch-table ,category-name ',method-name ,method-name)))

@@ -101,7 +101,7 @@
 (define (jazz.load-statprof)
   (if (not jazz.statprof-loaded?)
       (begin
-        (load "statprof")
+        (load "contrib/statprof/statprof")
         (set! jazz.statprof-loaded? #t))))
 
 

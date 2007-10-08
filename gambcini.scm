@@ -662,7 +662,7 @@
 
 
 (define (lsp)
-  (load "statprof"))
+  (load "contrib/statprof/statprof"))
 
 
 (define (spb)

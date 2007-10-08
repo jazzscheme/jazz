@@ -1831,14 +1831,14 @@
 
 
 (definition public (for-each proc <procedure> seq . rest)
-  (if (list? seq)
+  (if (or (null? seq) (pair? seq))
       (apply scheme.for-each proc seq rest)
     (loop (for obj iterate seq)
           (proc obj))))
 
 
 (definition public (map proc <procedure> seq . rest)
-  (if (list? seq)
+  (if (or (null? seq) (pair? seq))
       (apply scheme.map proc seq rest)
     (loop (for obj iterate seq)
           (collect (proc obj)))))
@@ -1927,7 +1927,7 @@
 
 
 (definition public (find target seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
-  (if (and (list? seq) (not reversed?))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-list target seq key test (either start 0) return)
     (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
         (find-string target seq)
@@ -1977,7 +1977,7 @@
 
 
 (definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
-  (if (and (list? seq) (not reversed?))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
     (call/ec
       (lambda (exit)
@@ -1996,7 +1996,7 @@
 
 
 (definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false))
-  (if (and (list? seq) (not reversed?))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-list target seq key test (either start 0) 'position)
     (if (and (string? seq) (not start) (not reversed?))
         (find-string target seq)
@@ -2056,7 +2056,7 @@
              (function dynamic (sequence)
                (put-sequence~ fact sequence))))
       (let* ((first (car rest))
-             (list? (list? first)))
+             (list? (or (null? first) (pair? first))))
         (set-pure-list?~ fact list?)
         (for-each proc rest)
         (let ((output (get-output~ fact)))
@@ -2806,7 +2806,7 @@
 
 
 (definition public (append! . rest)
-  (if (list? (car rest))
+  (if (or (null? (car rest)) (pair? (car rest)))
       (let ((queue (new-queue)))
         (for-each (function (lst)
                     (enqueue-list queue lst))
@@ -2889,12 +2889,6 @@
                       lst)))
                  (else
                   (iterate scan (cdr scan))))))))
-
-
-;; Scheme's definition scan's the list so we need to first convert all calls to list?
-(definition public inline (list? object)
-  (or (null? object)
-      (pair? object)))
 
 
 (definition public (augment . rest)
@@ -3164,7 +3158,7 @@
 
   (method (put-sequence seq <Object>)
     (when seq
-      (if (not (list? seq))
+      (if (not (pair? seq))
           (nextmethod seq)
         (cond ((null? current)
                (set! current seq)
@@ -5100,7 +5094,7 @@
         (print~ expr printer detail)
         (let ((next (cdr scan)))
           (when (not-null? next)
-            (if (list? next)
+            (if (pair? next)
                 (display (if (null? (cdr next)) last-separator separator) printer)
               (display " . " printer)
               (print~ next printer detail))

@@ -52,15 +52,15 @@ Distribution
 ------------
 Readme.txt               :  Readme file
 
-Doc
+doc
 
-Products                 :  Installed products
+packages                 :  Installed packages
 
-Users                    :  Standard users
+users                    :  Standard users
 
-Users\<user>\<user>.jazz :  The class representing the user
+users\<user>\<user>.jazz :  The class representing the user
 
-Users\<user>\Settings    :  User's settings
+users\<user>\settings    :  User's settings
   Connections.jml        :  User's SQL database connections
   Preferences.jml        :  User's preferences
   Workbench.jml          :  User's workbench of installed products
@@ -68,7 +68,7 @@ Users\<user>\Settings    :  User's settings
 
 Launching
 ---------
-Just execute either Bin\Launcher.exe or Bin\Interpreter.exe
+Just start gsc in this directory and execute (j)
 
 
 Documentation

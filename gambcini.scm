@@ -28,7 +28,7 @@
     (lambda ()
       (if (not loaded?)
           (begin
-            (load "boot")
+            (load "kernel/boot")
             (jazz.load-kernel)
             (set! loaded? #t))))))
 

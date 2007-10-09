@@ -2811,19 +2811,20 @@
 ;;;
 
 
-(define (jazz.walk-symbol walker resume declaration environment form)
-  (cond ((%%keyword? form)
-         (jazz.walk-keyword walker form))
-        ((jazz.enumerator? form)
-         (jazz.walk-enumerator walker form))
+(jazz.define-virtual (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol))
+
+
+(jazz.define-method (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol)
+  (cond ((jazz.enumerator? symbol)
+         (jazz.walk-enumerator walker symbol))
         ;; inline false (until compiler support for constants)
-        ((%%eq? form 'false)
+        ((%%eq? symbol 'false)
          (jazz.new-constant #f jazz.Boolean))
         ;; inline true (until compiler support for constants)
-        ((%%eq? form 'true)
+        ((%%eq? symbol 'true)
          (jazz.new-constant #t jazz.Boolean))
         (else
-         (jazz.walk-symbol-reference walker resume declaration environment form))))
+         (jazz.walk-symbol-reference walker resume declaration environment symbol))))
 
 
 (define (jazz.walk-setbang walker resume declaration environment form)
@@ -2912,7 +2913,10 @@
 ;;;
 
 
-(define (jazz.walk-symbol-assignment walker resume declaration environment symbol value)
+(jazz.define-virtual (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value))
+
+
+(jazz.define-method (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value)
   (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
     (if binding
         (if (jazz.walk-binding-assignable? binding)

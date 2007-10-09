@@ -696,6 +696,43 @@
 
 
 ;;;
+;;;; Symbol
+;;;
+
+
+(jazz.define-method (jazz.walk-symbol (jazz.Jazz-Walker walker) resume declaration environment symbol)
+  (let ((slot-name (jazz.self-access symbol)))
+    (if slot-name
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
+          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
+            (jazz.new-reference slot-declaration)))
+      (nextmethod walker resume declaration environment symbol))))
+
+
+(define (jazz.self-access symbol)
+  (let* ((name (%%symbol->string symbol))
+         (len (%%string-length name))
+         (size (%%fx- len 5)))
+    (and (%%fx> size 0)
+         (%%equal? (%%substring name size len) "~self")
+         (%%string->symbol (%%substring name 0 size)))))
+
+
+;;;
+;;;; Assignment
+;;;
+
+
+(jazz.define-method (jazz.walk-symbol-assignment (jazz.Jazz-Walker walker) resume declaration environment symbol value)
+  (let ((slot-name (jazz.self-access symbol)))
+    (if slot-name
+        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) slot-name #f)))
+          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
+            (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
+      (nextmethod walker resume declaration environment symbol value))))
+
+
+;;;
 ;;;; Form
 ;;;
 

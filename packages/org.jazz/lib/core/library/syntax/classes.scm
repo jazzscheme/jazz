@@ -282,7 +282,9 @@
 (jazz.define-virtual-syntax (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form))
 (jazz.define-virtual-syntax (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration))
 (jazz.define-virtual-syntax (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual-syntax (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value))
 (jazz.define-virtual-syntax (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual-syntax (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol))
 (jazz.define-virtual-syntax (jazz.walk-form (jazz.Walker walker) resume declaration environment form))
 (jazz.define-virtual-syntax (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
 

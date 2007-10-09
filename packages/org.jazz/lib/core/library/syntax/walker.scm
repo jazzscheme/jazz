@@ -689,44 +689,19 @@
       expr
     (let ((value (jazz.generate-symbol "val")))
       `(let ((,value ,expr))
-         ,(jazz.test-type value type)))))
+         ,(jazz.check-type value type)))))
 
 
-(define (jazz.test-type value type)
-  (cond ((%%eq? type jazz.Fixnum) (jazz.test-fixnum value))
-        ((%%eq? type jazz.Integer) (jazz.test-integer value))
-        ((%%eq? type jazz.Flonum) (jazz.test-flonum value))
-        ((%%eq? type jazz.Real) (jazz.test-real value))
-        ((%%is? type jazz.Autoload-Declaration) #; (jazz.debug (%%get-lexical-binding-name type)) (jazz.test-category value (jazz.resolve-declaration type)))
-        ((%%is? type jazz.Category-Declaration) (jazz.test-category value type))
-        (else (jazz.error "Unable to cast to: {s}" type))))
+(define (jazz.check-type value type)
+  (cond ((%%is? type jazz.Autoload-Declaration) (jazz.check-category value (jazz.resolve-declaration type)))
+        ((%%is? type jazz.Category-Declaration) (jazz.check-category value type))
+        (else (let ((name (%%get-category-name type)))
+                `(if (%%is? ,value ,name)
+                     ,value
+                   (jazz.cast-error ,value ,name))))))
 
 
-(define (jazz.test-fixnum value)
-  `(if (%%fixnum? ,value)
-       ,value
-     (jazz.cast-error ,value jazz.Fixnum)))
-
-
-(define (jazz.test-integer value)
-  `(if (%%integer? ,value)
-       ,value
-     (jazz.cast-error ,value jazz.Integer)))
-
-
-(define (jazz.test-flonum value)
-  `(if (%%flonum? ,value)
-       ,value
-     (jazz.cast-error ,value jazz.Flonum)))
-
-
-(define (jazz.test-real value)
-  `(if (%%real? ,value)
-       ,value
-     (jazz.cast-error ,value jazz.Real)))
-
-
-(define (jazz.test-category value category-declaration)
+(define (jazz.check-category value category-declaration)
   (let ((category (jazz.emit-binding-reference category-declaration)))
     `(if (%%is? ,value ,category)
          ,value
@@ -745,6 +720,7 @@
 
 
 (define (jazz.specifier->type walker resume declaration environment specifier)
+  #f #;
   (let ((name (jazz.specifier->name specifier)))
     (cond ((%%eq? name 'void)
            ;; quicky until we have a real void type
@@ -756,6 +732,25 @@
           (else
            (or (jazz.lookup-primitive-type name)
                (jazz.lookup-reference walker resume declaration environment name))))))
+
+
+#; (
+;; waiting because types are needed as soon as in the scheme kernel so
+;; we cannot easily use high level classes to implement primitive types
+(define jazz.type-synonyms
+  (%%make-hashtable eq?))
+
+
+(%%hashtable-set! jazz.type-synonyms 'bool 'Boolean)
+(%%hashtable-set! jazz.type-synonyms 'char 'Char)
+(%%hashtable-set! jazz.type-synonyms 'int 'Integer)
+(%%hashtable-set! jazz.type-synonyms 'fx 'Fixnum)
+(%%hashtable-set! jazz.type-synonyms 'fl 'Flonum)
+
+
+(define (jazz.type-synonym name)
+  (or (%%hashtable-ref jazz.type-synonyms name #f)
+      name)))
 
 
 ;;;
@@ -2282,7 +2277,7 @@
             (if (%%null? scan)
                 #f
               (jazz.bind (inline-type inline-name) (%%car scan)
-                ;; (jazz.debug arguments types)
+                ;;(jazz.debug arguments types)
                 (if (jazz.every? (lambda (type)
                                    (and type (%%subtype? type inline-type)))
                                  types)

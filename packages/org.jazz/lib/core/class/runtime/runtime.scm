@@ -387,34 +387,26 @@
 
 ;; This function enables jazz to bootstrap fully interpreted
 ;; Note that we need to implement every type that can potentially be used by Jazz code
-;; so that really means every type if we want to be a super set of the underlying scheme!
+;; so that really means every type if we want to be a superset of the underlying scheme
 (define (jazz.class-of-native expr)
-  (cond ((%%boolean? expr)
-         jazz.Boolean)
-        ((%%char? expr)
-         jazz.Char)
-        ((%%integer? expr)
-         jazz.Integer)
-        ((%%real? expr)
-         jazz.Real)
-        ((%%null? expr)
-         jazz.Null)
-        ((%%pair? expr)
-         jazz.Pair)
-        ((%%string? expr)
-         jazz.String)
-        ((%%vector? expr)
-         jazz.Vector)
-        ((%%symbol? expr)
-         jazz.Symbol)
-        ((%%keyword? expr)
-         jazz.Keyword)
-        ((%%port? expr)
-         jazz.Port)
-        ((%%procedure? expr)
-         jazz.Procedure)
-        ((%%foreign? expr)
-         jazz.Foreign)
+  (cond ((%%boolean? expr)   jazz.Boolean)
+        ((%%char? expr)      jazz.Char)
+        ((%%fixnum? expr)    jazz.Fixnum)
+        ((%%flonum? expr)    jazz.Flonum)
+        ((%%integer? expr)   jazz.Integer)
+        ((%%rational? expr)  jazz.Rational)
+        ((%%real? expr)      jazz.Real)
+        ((%%complex? expr)   jazz.Complex)
+        ((%%number? expr)    jazz.Number)
+        ((%%null? expr)      jazz.Null)
+        ((%%pair? expr)      jazz.Pair)
+        ((%%string? expr)    jazz.String)
+        ((%%vector? expr)    jazz.Vector)
+        ((%%symbol? expr)    jazz.Symbol)
+        ((%%keyword? expr)   jazz.Keyword)
+        ((%%port? expr)      jazz.Port)
+        ((%%procedure? expr) jazz.Procedure)
+        ((%%foreign? expr)   jazz.Foreign)
         (else
          (jazz.error "Unable to get class of {s}" expr))))
 
@@ -491,66 +483,502 @@
 
 
 ;;;
-;;;; Primitive Classes
+;;;; Boolean
 ;;;
 
 
-(jazz.define-class jazz.Sequence-Class jazz.Object-Class   (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
-(jazz.define-class jazz.List-Class     jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
-(jazz.define-class jazz.String-Class   jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
-(jazz.define-class jazz.Vector-Class   jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class ())
+(jazz.define-class jazz.Boolean-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
 
 
-(jazz.define-class jazz.Boolean   jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Char      jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Numeric   jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Number    jazz.Numeric  () jazz.Object-Class   ())
-(jazz.define-class jazz.Complex   jazz.Number   () jazz.Object-Class   ())
-(jazz.define-class jazz.Real      jazz.Complex  () jazz.Object-Class   ())
-(jazz.define-class jazz.Rational  jazz.Real     () jazz.Object-Class   ())
-(jazz.define-class jazz.Integer   jazz.Rational () jazz.Object-Class   ())
-(jazz.define-class jazz.Fixnum    jazz.Integer  () jazz.Object-Class   ())
-(jazz.define-class jazz.Flonum    jazz.Real     () jazz.Object-Class   ())
-(jazz.define-class jazz.Sequence  jazz.Object   () jazz.Sequence-Class ())
-(jazz.define-class jazz.List      jazz.Sequence () jazz.List-Class     ())
-(jazz.define-class jazz.Null      jazz.List     () jazz.List-Class     ())
-(jazz.define-class jazz.Pair      jazz.List     () jazz.List-Class     ())
-(jazz.define-class jazz.Port      jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Procedure jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Foreign   jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.String    jazz.Sequence () jazz.String-Class   ())
-(jazz.define-class jazz.Symbol    jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Keyword   jazz.Object   () jazz.Object-Class   ())
-(jazz.define-class jazz.Vector    jazz.Sequence () jazz.Vector-Class   ())
-(jazz.define-class jazz.Hashtable jazz.Object   () jazz.Object-Class   ())
+(jazz.define-method (jazz.of-type? (jazz.Boolean-Class class) object)
+  #t)
+
+
+(jazz.encapsulate-class jazz.Boolean-Class)
+
+
+(jazz.define-class jazz.Boolean jazz.Object () jazz.Boolean-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Boolean)
+
+
+;;;
+;;;; Char
+;;;
+
+
+(jazz.define-class jazz.Char-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Char-Class class) object)
+  (%%char? object))
+
+
+(jazz.encapsulate-class jazz.Char-Class)
+
+
+(jazz.define-class jazz.Char jazz.Object () jazz.Char-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Char)
+
+
+;;;
+;;;; Numeric
+;;;
+
+
+(jazz.define-class jazz.Numeric-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Numeric-Class)
+
+
+(jazz.define-class jazz.Numeric jazz.Object () jazz.Numeric-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Numeric)
+
+
+;;;
+;;;; Number
+;;;
+
+
+(jazz.define-class jazz.Number-Class jazz.Numeric-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Number-Class class) object)
+  (%%number? object))
+
+
+(jazz.encapsulate-class jazz.Number-Class)
+
+
+(jazz.define-class jazz.Number jazz.Numeric () jazz.Number-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Number)
+
+
+;;;
+;;;; Complex
+;;;
+
+
+(jazz.define-class jazz.Complex-Class jazz.Number-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Complex-Class class) object)
+  (%%complex? object))
+
+
+(jazz.encapsulate-class jazz.Complex-Class)
+
+
+(jazz.define-class jazz.Complex jazz.Number () jazz.Complex-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Complex)
+
+
+;;;
+;;;; Real
+;;;
+
+
+(jazz.define-class jazz.Real-Class jazz.Complex-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Real-Class class) object)
+  (%%real? object))
+
+
+(jazz.encapsulate-class jazz.Real-Class)
+
+
+(jazz.define-class jazz.Real jazz.Complex () jazz.Real-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Real)
+
+
+;;;
+;;;; Rational
+;;;
+
+
+(jazz.define-class jazz.Rational-Class jazz.Real-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Rational-Class class) object)
+  (%%rational? object))
+
+
+(jazz.encapsulate-class jazz.Rational-Class)
+
+
+(jazz.define-class jazz.Rational jazz.Real () jazz.Rational-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Rational)
+
+
+;;;
+;;;; Integer
+;;;
+
+
+(jazz.define-class jazz.Integer-Class jazz.Rational-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Integer-Class class) object)
+  (%%integer? object))
+
+
+(jazz.encapsulate-class jazz.Integer-Class)
+
+
+(jazz.define-class jazz.Integer jazz.Rational () jazz.Integer-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Integer)
+
+
+;;;
+;;;; Fixnum
+;;;
+
+
+(jazz.define-class jazz.Fixnum-Class jazz.Integer-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Fixnum-Class class) object)
+  (%%fixnum? object))
+
+
+(jazz.encapsulate-class jazz.Fixnum-Class)
+
+
+(jazz.define-class jazz.Fixnum jazz.Integer () jazz.Fixnum-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Fixnum)
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+(jazz.define-class jazz.Flonum-Class jazz.Real-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Flonum-Class class) object)
+  (%%flonum? object))
+
+
+(jazz.encapsulate-class jazz.Flonum-Class)
+
+
+(jazz.define-class jazz.Flonum jazz.Real () jazz.Flonum-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Flonum)
+
+
+;;;
+;;;; Sequence
+;;;
+
+
+(jazz.define-class jazz.Sequence-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
 
 
 (jazz.encapsulate-class jazz.Sequence-Class)
-(jazz.encapsulate-class jazz.List-Class)
-(jazz.encapsulate-class jazz.String-Class)
-(jazz.encapsulate-class jazz.Vector-Class)
-(jazz.encapsulate-class jazz.Boolean)
-(jazz.encapsulate-class jazz.Char)
-(jazz.encapsulate-class jazz.Numeric)
-(jazz.encapsulate-class jazz.Number)
-(jazz.encapsulate-class jazz.Complex)
-(jazz.encapsulate-class jazz.Real)
-(jazz.encapsulate-class jazz.Rational)
-(jazz.encapsulate-class jazz.Integer)
-(jazz.encapsulate-class jazz.Fixnum)
-(jazz.encapsulate-class jazz.Flonum)
+
+
+(jazz.define-class jazz.Sequence jazz.Object () jazz.Sequence-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.Sequence)
+
+
+;;;
+;;;; List
+;;;
+
+
+(jazz.define-class jazz.List-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.encapsulate-class jazz.List-Class)
+
+
+(jazz.define-class jazz.List jazz.Sequence () jazz.List-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.List)
+
+
+;;;
+;;;; Null
+;;;
+
+
+(jazz.define-class jazz.Null-Class jazz.List-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Null-Class class) object)
+  (%%null? object))
+
+
+(jazz.encapsulate-class jazz.Null-Class)
+
+
+(jazz.define-class jazz.Null jazz.List () jazz.Null-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.Null)
+
+
+;;;
+;;;; Pair
+;;;
+
+
+(jazz.define-class jazz.Pair-Class jazz.List-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Pair-Class class) object)
+  (%%pair? object))
+
+
+(jazz.encapsulate-class jazz.Pair-Class)
+
+
+(jazz.define-class jazz.Pair jazz.List () jazz.Pair-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.Pair)
-(jazz.encapsulate-class jazz.Port)
-(jazz.encapsulate-class jazz.Procedure)
-(jazz.encapsulate-class jazz.Foreign)
+
+
+;;;
+;;;; String
+;;;
+
+
+(jazz.define-class jazz.String-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.String-Class class) object)
+  (%%string? object))
+
+
+(jazz.encapsulate-class jazz.String-Class)
+
+
+(jazz.define-class jazz.String jazz.Sequence () jazz.String-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.String)
-(jazz.encapsulate-class jazz.Symbol)
-(jazz.encapsulate-class jazz.Keyword)
+
+
+;;;
+;;;; Vector
+;;;
+
+
+(jazz.define-class jazz.Vector-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Vector-Class class) object)
+  (%%vector? object))
+
+
+(jazz.encapsulate-class jazz.Vector-Class)
+
+
+(jazz.define-class jazz.Vector jazz.Sequence () jazz.Vector-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.Vector)
+
+
+;;;
+;;;; Port
+;;;
+
+
+(jazz.define-class jazz.Port-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Port-Class class) object)
+  (%%port? object))
+
+
+(jazz.encapsulate-class jazz.Port-Class)
+
+
+(jazz.define-class jazz.Port jazz.Object () jazz.Port-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Port)
+
+
+;;;
+;;;; Procedure
+;;;
+
+
+(jazz.define-class jazz.Procedure-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Procedure-Class class) object)
+  (%%procedure? object))
+
+
+(jazz.encapsulate-class jazz.Procedure-Class)
+
+
+(jazz.define-class jazz.Procedure jazz.Object () jazz.Procedure-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Procedure)
+
+
+;;;
+;;;; Foreign
+;;;
+
+
+(jazz.define-class jazz.Foreign-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Foreign-Class class) object)
+  (%%foreign? object))
+
+
+(jazz.encapsulate-class jazz.Foreign-Class)
+
+
+(jazz.define-class jazz.Foreign jazz.Object () jazz.Foreign-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Foreign)
+
+
+;;;
+;;;; Symbol
+;;;
+
+
+(jazz.define-class jazz.Symbol-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Symbol-Class class) object)
+  (%%symbol? object))
+
+
+(jazz.encapsulate-class jazz.Symbol-Class)
+
+
+(jazz.define-class jazz.Symbol jazz.Object () jazz.Symbol-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Symbol)
+
+
+;;;
+;;;; Keyword
+;;;
+
+
+(jazz.define-class jazz.Keyword-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Keyword-Class class) object)
+  (%%keyword? object))
+
+
+(jazz.encapsulate-class jazz.Keyword-Class)
+
+
+(jazz.define-class jazz.Keyword jazz.Object () jazz.Keyword-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Keyword)
+
+
+;;;
+;;;; Hashtable
+;;;
+
+
+(jazz.define-class jazz.Hashtable-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-type? (jazz.Hashtable-Class class) object)
+  (%%hashtable? object))
+
+
+(jazz.encapsulate-class jazz.Hashtable-Class)
+
+
+(jazz.define-class jazz.Hashtable jazz.Object () jazz.Hashtable-Class
+  ())
+
+
 (jazz.encapsulate-class jazz.Hashtable)
+
+
+;;;
+;;;; Types
+;;;
 
 
 (cond-expand
@@ -601,7 +1029,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Object-Class
+(jazz.define-class jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Class
   (ascendants
    rank))
 

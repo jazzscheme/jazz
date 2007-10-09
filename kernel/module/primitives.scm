@@ -78,6 +78,21 @@
 
 
 ;;;
+;;;; Complex
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (%%complex? obj)
+      (if (jazz.safe?)
+          `(complex? ,obj)
+        `(##complex? ,obj))))
+
+  (else))
+
+
+;;;
 ;;;; Control
 ;;;
 
@@ -479,6 +494,21 @@
           `(eof-object? ,obj)
         `(##eof-object? ,obj))))
   
+  (else))
+
+
+;;;
+;;;; Rational
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (%%rational? obj)
+      (if (jazz.safe?)
+          `(rational? ,obj)
+        `(##rational? ,obj))))
+
   (else))
 
 

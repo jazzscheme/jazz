@@ -83,9 +83,9 @@
            (ch (/ width 2))
            (cv (/ height 2))
            (scale (/ (- (min width height) 50) 5)))
-      (set! [ch self] ch)
-      (set! [cv self] cv)
-      (set! [scale self] scale)))
+      (set! ch~self ch)
+      (set! cv~self cv)
+      (set! scale~self scale)))
   
   
   (method (complex->view r i)
@@ -113,16 +113,16 @@
               (do (unless outside?
                     (let ((next (+ (* z z) c)))
                       (when (not dragging?)
-                        (line dc [r z] [i z] [r next] [i next])
+                        (line dc (get-r~ z) (get-i~ z) (get-r~ next) (get-i~ next))
                         (sleep 100))
                       (let ((norm (norm next)))
                         (if (> norm 2)
                             (begin
-                              (set! pixel (new Pixel c (complex->view [r c] [i c]) n (iteration-color n)))
+                              (set! pixel (new Pixel c (complex->view (get-r~ c) (get-i~ c)) n (iteration-color n)))
                               (set! outside? true))
                           (set! z next)))))))
         (when (not outside?)
-          (set! pixel (new Pixel c (complex->view [r c] [i c]) {} (iteration-color {}))))
+          (set! pixel (new Pixel c (complex->view (get-r~ c) (get-i~ c)) {} (iteration-color {}))))
         (put~ pixels pixel)
         (if dragging?
             (draw-pixel dc pixel)
@@ -152,8 +152,8 @@
   
   (method (recalculate-pixel-positions)
     (for-each (function dynamic (pixel)
-                (let ((c [c pixel]))
-                  (set! [pos pixel] (complex->view [r c] [i c]))))
+                (let ((c (get-c~ pixel)))
+                  (set-pos~ pixel (complex->view (get-r~ c) (get-i~ c)))))
               (get-output~ pixels)))
 
   
@@ -191,17 +191,17 @@
       (line dc 0 -2 0 2)
       (let ((lt (complex->view -2 -2))
              (rb (complex->view 2 2)))
-        (ellipse~ dc (new Rect [h lt] [v lt] [h rb] [v rb]) Radius-Color {}))
+        (ellipse~ dc (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) Radius-Color {}))
       (for-each (function dynamic (pixel)
                   (draw-pixel dc pixel))
                 (get-output~ pixels))))
   
   
   (method (draw-pixel dc pixel (radius Pixel-Radius))
-    (let ((pos [pos pixel])
-          (color [color pixel]))
+    (let ((pos (get-pos~ pixel))
+          (color (get-color~ pixel)))
       (when Draw-Outside?
-        (ellipse~ dc (new Rect (- [h pos] radius) (- [v pos] radius) (+ [h pos] radius) (+ [v pos] radius)) color color))))
+        (ellipse~ dc (new Rect (- (get-h~ pos) radius) (- (get-v~ pos) radius) (+ (get-h~ pos) radius) (+ (get-v~ pos) radius)) color color))))
   
   
   (method (iteration-color n)
@@ -213,7 +213,7 @@
   (method (line dc r i dr di)
     (let ((src (complex->view r i))
           (dst (complex->view dr di)))
-      (line~ dc [h src] [v src] [h dst] [v dst])))
+      (line~ dc (get-h~ src) (get-v~ src) (get-h~ dst) (get-v~ dst))))
   
   
   ;;;
@@ -223,17 +223,17 @@
   
   (method (mouse-down pos)
     (acquire-focus)
-    (let ((c (view->complex [h pos] [v pos])))
-      (set! [c self] c)
-      (set! [n self] 0)
+    (let ((c (view->complex (get-h~ pos) (get-v~ pos))))
+      (set! c~self c)
+      (set! n~self 0)
       (iterate false)
       (redraw-view)))
   
   
   (method (drag-move pos)
-    (let ((c (view->complex [h pos] [v pos])))
-      (set! [c self] c)
-      (set! [n self] 0)
+    (let ((c (view->complex (get-h~ pos) (get-v~ pos))))
+      (set! c~self c)
+      (set! n~self 0)
       (iterate true)))
   
   
@@ -273,7 +273,7 @@
     
     (method (initialize c pos iter color)
       (nextmethod)
-      (set! [c self] c)
-      (set! [pos self] pos)
-      (set! [iter self] iter)
-      (set! [color self] color))))
+      (set! c~self c)
+      (set! pos~self pos)
+      (set! iter~self iter)
+      (set! color~self color))))

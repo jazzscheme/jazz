@@ -375,14 +375,14 @@
   
   
   (method protected (layout-column column)
-    (let ((row [next root-row])
+    (let ((row (get-next~ root-row))
           (rt 0))
       (while row
         (let* ((height (get-effective-height~ row))
                (rb (+ rt height)))
           (set-size~ row (new Dimension columns-right height))
           (set! rt rb)
-          (set! row [next row])
+          (set! row (get-next~ row))
           (increase! rt row-spacing)))))
   
 
@@ -438,8 +438,8 @@
           (for-each-visible-row
             (function dynamic (row rank)
               (let* ((highlight-border 3)
-                     (nw (+ (either [node-width row] 0) highlight-border))
-                     (w (+ (text-h~ node-column [level row]) nw)))
+                     (nw (+ (either (get-node-width~ row) 0) highlight-border))
+                     (w (+ (text-h~ node-column (get-level~ row)) nw)))
                 (when (> w width)
                   (set! width w)))))
           (set! visible-width width)
@@ -471,8 +471,8 @@
   (method (draw-outline dc context update update-rect lh lv sh sv sc sc?)
     (nextmethod dc context update update-rect lh lv sh sv sc sc?)
     (let* ((pos (get-position))
-           (left (+ [left update-rect] [h pos]))
-           (right (+ [right update-rect] [h pos]))
+           (left (+ (get-left~ update-rect) (get-h~ pos)))
+           (right (+ (get-right~ update-rect) (get-h~ pos)))
            (height (get-height)))
       ;; probably buggy in ftx fix with alain
       (when (and empty-background (<= columns-right right))
@@ -583,10 +583,10 @@
             (function dynamic (v)
               (let* ((top (+ v offset))
                      (bottom (+ top 2)))
-                (new Rect [left rect] top [right rect] bottom)))))
+                (new Rect (get-left~ rect) top (get-right~ rect) bottom)))))
       (case insert
-        ((before) (proc [top rect]))
-        ((after) (proc [bottom rect])))))
+        ((before) (proc (get-top~ rect)))
+        ((after) (proc (get-bottom~ rect))))))
 
   
   ;;;
@@ -627,7 +627,7 @@
   (method (mouse-down view)
     (let* ((cell (view->tree view))
            (pos (essay cell (cell-coordinates cell view)))
-           (part (essay cell (find-part~ (get-column [col cell]) cell pos))))
+           (part (essay cell (find-part~ (get-column (get-col~ cell)) cell pos))))
       (mouse-down~ selection-manager view part (shift-down?) (control-down?) (alt-down?) (get-multiple-selection?)))
     (acquire-focus)
     (acquire-capture)
@@ -638,7 +638,7 @@
           (when can-select-empty?
             (set-selection '()))
         (let ((pos (cell-coordinates cell view))
-              (column (get-column [col cell])))
+              (column (get-column (get-col~ cell))))
           (mouse-down~ column cell pos shift? control?)))))
   
   
@@ -646,7 +646,7 @@
     (let ((cell (view->tree view)))
       (when cell
         (let ((pos (cell-coordinates cell view))
-              (column (get-column [col cell])))
+              (column (get-column (get-col~ cell))))
           (drag-move~ column cell pos)))))
   
   
@@ -661,8 +661,8 @@
       ;; selected (necessary for dnd) but this code is a not very elegant quick solution
       (when (and cell (not dragging?))
         (let ((pos (cell-coordinates cell view))
-              (row (get-row [row cell]))
-              (column (get-column [col cell])))
+              (row (get-row (get-row~ cell)))
+              (column (get-column (get-col~ cell))))
           (unless (mouse-down-part-control?~ selection-manager)
             (complete-mouse-down~ column cell pos shift? control?)
             (when auto-expand/collapse?
@@ -678,7 +678,7 @@
     (let ((cell (view->tree view)))
       (when cell
         (let* ((pos (cell-coordinates cell view))
-               (column (get-column [col cell]))
+               (column (get-column (get-col~ cell)))
                (part (find-part~ column cell pos)))
           (case part
             ((control) (mouse-down view))
@@ -691,7 +691,7 @@
     (let ((cell (view->tree view)))
       (when cell
         (let* ((pos (cell-coordinates cell view))
-               (column (get-column [col cell]))
+               (column (get-column (get-col~ cell)))
                (part (find-part~ column cell pos)))
           (double-click~ column cell pos)))))
   
@@ -699,7 +699,7 @@
   (method (context-menu view)
     (let ((cell (view->tree view)))
       (when cell
-        (let ((row (get-row [row cell])))
+        (let ((row (get-row (get-row~ cell))))
           (context-menu~ row (acquire~ row self view))))))
   
   
@@ -812,14 +812,14 @@
       (if (not cell)
           (when can-select-empty?
             (set-selection '()))
-        (let ((row (get-row [row cell])))
+        (let ((row (get-row (get-row~ cell))))
           (case selection-mode
             ((cell)
              (unless (member? cell (get-selection))
                (set-selection (list cell))))
             (else
-             (unless (memq? [row cell] (get-selection))
-               (set-selection (list [row cell])))))
+             (unless (memq? (get-row~ cell) (get-selection))
+               (set-selection (list (get-row~ cell))))))
           (when auto-expand/collapse?
             (auto-select~ row)))
         (update-view))
@@ -900,18 +900,18 @@
         (nextmethod pos)
       (let ((cell (view->tree pos)))
         (when cell
-          (let ((row (get-row [row cell]))
-                (column (get-column [col cell]))
+          (let ((row (get-row (get-row~ cell)))
+                (column (get-column (get-col~ cell)))
                 (text (localize (get-cell-tooltip cell))))
             (when text
-              (let* ((width (column-width [col cell]))
+              (let* ((width (column-width (get-col~ cell)))
                      (height (get-height~ row))
                      (content-rect (content-rect~ column row cell width height))
                      (formatted? (get-formatted-tooltip?))
                      (text-width (if formatted? 0 (+ (text-width~ font text) 5))))
                 (when (or (cell-tooltips?) (> text-width (rect-width content-rect)))
                   (let ((rect (inflate-rect (cell-rect cell) 1 1))
-                        (h (+ (content-h~ column (get-level~ row)) (if (= [col cell] 0) 2 -2))))
+                        (h (+ (content-h~ column (get-level~ row)) (if (= (get-col~ cell) 0) 2 -2))))
                     (new Tooltip-Context
                       view: self
                       text: (if formatted? text (split text (cn)))
@@ -925,7 +925,7 @@
   
   
   (method protected virtual (get-cell-tooltip cell)
-    (let ((column (get-column [col cell]))
+    (let ((column (get-column (get-col~ cell)))
           (data (get-cell-data cell)))
       (get-cell-tooltip~ column data)))
   
@@ -956,8 +956,8 @@
   (method (get-drag-source)
     (let* ((pos (get-drag-position))
            (cell (view->tree pos))
-           (row (get-row [row cell]))
-           (col [col cell]))
+           (row (get-row (get-row~ cell)))
+           (col (get-col~ cell)))
       (get-drag-cell-source pos row col)))
   
   
@@ -967,15 +967,15 @@
   
   (method (get-drag-hotspot)
     (let* ((cell (view->tree mouse-down-point))
-           (row (get-row [row cell]))
+           (row (get-row (get-row~ cell)))
            (left (image-h~ node-column (get-level~ row)))
-           (top [v (get-position~ row)]))
+           (top (get-v~ (get-position~ row))))
       (new Point left top)))
   
   
   (method (get-drag-image pos)
     (let* ((cell (view->tree pos))
-           (row [row cell]))
+           (row (get-row~ cell)))
       (get-node-image row)))
 
   
@@ -1026,11 +1026,11 @@
       (when info
         (receive (cell v height) info
           (when cell
-            (let* ((rank [row cell])
+            (let* ((rank (get-row~ cell))
                    (quarter (get-row-quarter v height))
                    (current (get-target~ drag-drop))
                    (row (get-row rank)))
-              (if (and current (eq? self [view current]) (eq? row (get-row~ current)) (= quarter (get-quarter~ current)))
+              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= quarter (get-quarter~ current)))
                   current
                 (get-row-reorder-target drag-drop row quarter))))))))
   
@@ -1066,9 +1066,9 @@
       (when info
         (receive (cell v height) info
           (when cell
-            (let ((row (get-row [row cell]))
+            (let ((row (get-row (get-row~ cell)))
                   (current (get-target~ drag-drop)))
-              (if (and current (eq? self [view current]) (eq? row (get-row~ current)))
+              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
                   current
                 (get-row-target drag-drop row))))))))
   
@@ -1078,12 +1078,12 @@
       (when info
         (receive (cell v height) info
           (when cell
-            (let ((row (get-row [row cell]))
-                  (col [col cell])
+            (let ((row (get-row (get-row~ cell)))
+                  (col (get-col~ cell))
                   (source (get-source~ drag-drop))
                   (current (get-target~ drag-drop)))
               (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
-                (if (and current (eq? self [view current]) (eq? row (get-row~ current)) (= col (get-col~ current)))
+                (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
                     current
                   (get-cell-target drag-drop row col)))))))))
   
@@ -1139,7 +1139,7 @@
       (when (> count 0)
         (case selection-mode
           ((cell)
-           (let ((col (if selection-pivot [col selection-pivot] 0)))
+           (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
              (set-selection (list (new Cell 0 col)))))
           (else
            (set-selection (list 0)))))))
@@ -1154,7 +1154,7 @@
       (when (> count 0)
         (case selection-mode
           ((cell)
-           (let ((col (if selection-pivot [col selection-pivot] 0)))
+           (let ((col (if selection-pivot (get-col~ selection-pivot) 0)))
              (set-selection (list (new Cell (- count 1) col)))))
           (else
            (set-selection (list (- count 1))))))))
@@ -1169,8 +1169,8 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (when (> [col cell] 0)
-             (move-cell (new Cell [row cell] (- [col cell] 1)) 'left user?)))))
+           (when (> (get-col~ cell) 0)
+             (move-cell (new Cell (get-row~ cell) (- (get-col~ cell) 1)) 'left user?)))))
       ((row)
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1190,8 +1190,8 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (when (> [row cell] 0)
-             (move-cell (new Cell (- [row cell] 1) [col cell]) 'up user?)))))
+           (when (> (get-row~ cell) 0)
+             (move-cell (new Cell (- (get-row~ cell) 1) (get-col~ cell)) 'up user?)))))
       (else
        (let ((count (get-visible-count)))
          (if (null? selection)
@@ -1211,8 +1211,8 @@
       ((cell)
        (when (not-null? selection)
          (let ((cell selection-pivot))
-           (when (< [col cell] (- (get-columns-count) 1))
-             (move-cell (new Cell [row cell] (+ [col cell] 1)) 'right user?)))))
+           (when (< (get-col~ cell) (- (get-columns-count) 1))
+             (move-cell (new Cell (get-row~ cell) (+ (get-col~ cell) 1)) 'right user?)))))
       (else
        (let ((row (get-selected-row)))
          (if (not row)
@@ -1232,8 +1232,8 @@
         ((cell)
          (when (not-null? selection)
            (let ((cell selection-pivot))
-             (when (< [row cell] last)
-               (move-cell (new Cell (+ [row cell] 1) [col cell]) 'down user?)))))
+             (when (< (get-row~ cell) last)
+               (move-cell (new Cell (+ (get-row~ cell) 1) (get-col~ cell)) 'down user?)))))
         (else
          (if (null? selection)
              (when (> count 0)
@@ -1259,10 +1259,10 @@
     (set-selection (list cell) :ensure-displayed? false user-origin?: true)
     (let ((rect (cell-rect cell)))
       (case direction
-        ((left)  (scroll (new Point (horizontal-scroll-needed [left rect] 'backward) 0)))
-        ((up)    (scroll (new Point 0 (vertical-scroll-needed [top rect] 'backward))))
-        ((right) (scroll (new Point (horizontal-scroll-needed [right rect] 'forward) 0)))
-        ((down)  (scroll (new Point 0 (vertical-scroll-needed [bottom rect] 'forward))))))
+        ((left)  (scroll (new Point (horizontal-scroll-needed (get-left~ rect) 'backward) 0)))
+        ((up)    (scroll (new Point 0 (vertical-scroll-needed (get-top~ rect) 'backward))))
+        ((right) (scroll (new Point (horizontal-scroll-needed (get-right~ rect) 'forward) 0)))
+        ((down)  (scroll (new Point 0 (vertical-scroll-needed (get-bottom~ rect) 'forward))))))
     (update-view))
   
   
@@ -1271,14 +1271,14 @@
            (top (get-top~ row))
            (bottom (get-bottom~ row))
            (needed (scroll-needed (new Point 0 top) (new Point 0 bottom) {})))
-      (= [v needed] 0)))
+      (= (get-v~ needed) 0)))
   
   
   (method (cell-displayed? cell)
     (let* ((rect (cell-rect cell))
-           (needed (scroll-needed (new Point [left rect] [top rect]) (new Point [right rect] [bottom rect]) {})))
-      (and (= [h needed] 0)
-           (= [v needed] 0))))
+           (needed (scroll-needed (new Point (get-left~ rect) (get-top~ rect)) (new Point (get-right~ rect) (get-bottom~ rect)) {})))
+      (and (= (get-h~ needed) 0)
+           (= (get-v~ needed) 0))))
   
   
   (method (select-all (user-origin?: user-origin? false))
@@ -1298,13 +1298,13 @@
         (when (< rank (length columns-borders))
           (let* ((filled-borders (element columns-borders rank))
                  (min-delta (- (get-width~ column) 10))
-                 (size-delta (- [width size] (space-after-column rank) (borders-right filled-borders)))
+                 (size-delta (- (get-width~ size) (space-after-column rank) (borders-right filled-borders)))
                  (delta @w (max size-delta min-delta) size-delta)
                  (old-right (cdr filled-borders))
                  (new-right (+ old-right delta)))
             (when (/= 0 delta)
               (if false @w (/= delta min-delta)
-                  (when (= self [% Development])
+                  (when (= self (get-%~ Development))
                     (log-stack name: "fill-column" message: (format "size: {a}" size))
                     @reset-scroller-width xxx)
                 (for-each (function dynamic (pair)
@@ -1313,10 +1313,10 @@
                           (tail columns-borders (+ rank 1)))
                 (set-cdr! filled-borders new-right)
                 (increase! columns-right delta)
-                (increase! [width column] delta)
+                (set-width~ column (+ (get-width~ column) delta))
                 (with ((rect (new Rect
                                (- (min old-right new-right) 2) 0
-                               [width size] [height size])))
+                               (get-width~ size) (get-height~ size))))
                   (invalidate-rect rect))
                 (invalidate-header))))))))
   
@@ -1327,7 +1327,7 @@
              (rank (column-rank column)))
         (when (< rank (length columns-borders))
           (let* ((filled-borders (element columns-borders rank))
-                 (delta (- [width size] (space-after-column rank) (borders-right filled-borders)))
+                 (delta (- (get-width~ size) (space-after-column rank) (borders-right filled-borders)))
                  (old-right (cdr filled-borders))
                  (new-right (+ old-right delta)))
             (for-each (function dynamic (pair)
@@ -1336,10 +1336,10 @@
                       (tail columns-borders (+ rank 1)))
             (set-cdr! filled-borders new-right) 
             (increase! columns-right delta)
-            (increase! [width column] delta)
+            (set-width~ column (+ (get-width~ column) delta))
             (with ((rect (new Rect
                            (- (min old-right new-right) 2) 0
-                           [width size] [height size])))
+                           (get-width~ size) (get-height~ size))))
               (invalidate-rect rect))
             (invalidate-header))))))
   
@@ -1486,7 +1486,7 @@
   
   (method (row-selected? row)
     (case selection-mode
-      ((cell) (some? (function dynamic (cell) (= [row cell] row)) selection))
+      ((cell) (some? (function dynamic (cell) (= (get-row~ cell) row)) selection))
       (else (memq? row selection))))
   
   
@@ -1565,17 +1565,17 @@
   
   
   (method public (get-cell-data cell)
-    (let ((row (get-row [row cell])))
+    (let ((row (get-row (get-row~ cell))))
       (when row
-        (when (>= [col cell] (length (get-children~ row)))
+        (when (>= (get-col~ cell) (length (get-children~ row)))
           (set! selection '())
           (error "Sequence overrun"))
-        (element (get-children~ row) [col cell]))))
+        (element (get-children~ row) (get-col~ cell)))))
   
   
   (method public (set-cell-data cell data)
-    (let ((row (get-row [row cell])))
-      (set-element! (get-children~ row) [col cell] data)))
+    (let ((row (get-row (get-row~ cell))))
+      (set-element! (get-children~ row) (get-col~ cell) data)))
   
   
   (method public (invalidate-cell cell)
@@ -1593,9 +1593,9 @@
   
   
   (method (expand/collapse row)
-    (let ((top [v (get-position~ row)]))
+    (let ((top (get-v~ (get-position~ row))))
       (invalidate-rect (control-rect~ node-column row top)))
-    (case [state row]
+    (case (get-state~ row)
       ((dynamic) (dynamic-expand row))
       (else (nextmethod row))))
   
@@ -1607,7 +1607,7 @@
   
   (method (invalidate-expand row top dynamic?)
     (invalidate-rect (image-rect~ node-column row top))
-    (if (and dynamic? (null? [sons row]))
+    (if (and dynamic? (null? (get-sons~ row)))
         (invalidate-rect (control-rect~ node-column row top))
       (invalidate-rect (plus/minus-rect~ node-column row top))))
   
@@ -1623,7 +1623,7 @@
     (case selection-mode
       ((cell)
        (when removed
-         (let ((cell (new Cell rank [col removed])))
+         (let ((cell (new Cell rank (get-col~ removed))))
            (unless (member? cell selection)
              (set! selection (cons cell selection))))))
       (else
@@ -1709,8 +1709,8 @@
   
   
   (method public (set-dynamic row)
-    (when (/= [state row] 'dynamic)
-      (set! [state row] 'dynamic)
+    (when (/= (get-state~ row) 'dynamic)
+      (set-state~ row 'dynamic)
       (let* ((rank (row-rank row))
              (top (row-top rank)))
         (invalidate-rect (control-rect~ node-column row top)))))
@@ -1741,7 +1741,7 @@
   
   
   (method public (process-selection cell shift? control?)
-    (let ((element (case selection-mode ((cell) cell) (else [row cell]))))
+    (let ((element (case selection-mode ((cell) cell) (else (get-row~ cell)))))
       (if (and multiple-selection? (or shift? control?))
           (cond ((and shift? control?)
                  (set! selection-pivot element)
@@ -1815,10 +1815,10 @@
     (let ((proc (case use
                   ((row) get-row)
                   ((rank) identity)
-                  ((data) (function dynamic (row) [user-data (get-row row)])))))
+                  ((data) (function dynamic (row) (get-user-data~ (get-row row)))))))
       (case selection-mode
         ((cell) (map (function dynamic (cell)
-                     (cons (proc [row cell]) [col cell]))
+                     (cons (proc (get-row~ cell)) (get-col~ cell)))
                    (get-selection)))
         (else (map proc (get-selection))))))
   
@@ -1846,8 +1846,8 @@
       (let ((selection (restore-selection use saved-sel test)))
         (when (in-edition?)
           (let ((edition-row (get-parent~ cell-editor)))
-            (when (neq? edition-row (get-row [row edited-cell]))
-              (set! [row edited-cell] (row-rank edition-row)))))
+            (when (neq? edition-row (get-row (get-row~ edited-cell)))
+              (set-row~ edited-cell (row-rank edition-row)))))
         (set-selection selection :ensure-displayed? ensure-displayed? generate-event?: generate-event? :auto-expand? false))))
   
   
@@ -1870,7 +1870,7 @@
   (method (selected-row-proc)
     (case selection-mode
       ((cell) (function (cell)
-              (get-row [row cell])))
+              (get-row (get-row~ cell))))
       (else get-row)))
   
   
@@ -1919,7 +1919,7 @@
     (case selection-mode
       ((cell)
        (map (function dynamic (cell)
-              (cons (get-visible-row [row cell]) [col cell]))
+              (cons (get-visible-row (get-row~ cell)) (get-col~ cell)))
             selection))
       (else
        (map get-visible-row selection))))
@@ -1938,15 +1938,15 @@
   
   ;; update slots that are rank based
   (method (added-update-selection rank count)
-    (when (and edited-cell (>= [row edited-cell] rank))
-      (increase! [row edited-cell] count))
+    (when (and edited-cell (>= (get-row~ edited-cell) rank))
+      (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
     (with ((proc
             (case selection-mode
               ((cell) (function dynamic (pair)
                       (let* ((cell (car pair))
-                             (r [row cell]))
+                             (r (get-row~ cell)))
                         (when (>= r rank)
-                          (set-car! pair (new Cell (+ r count) [col cell]))))))
+                          (set-car! pair (new Cell (+ r count) (get-col~ cell)))))))
               (else (function dynamic (pair)
                       (let ((r (car pair)))
                         (when (>= r rank)
@@ -1956,17 +1956,17 @@
   
   ;; update slots that are rank based
   (method (removed-update-selection rank count)
-    (when (and edited-cell (>= [row edited-cell] rank))
-      (decrease! [row edited-cell] count))
+    (when (and edited-cell (>= (get-row~ edited-cell) rank))
+      (set-row~ edited-cell (- (get-row~ edited-cell) count)))
     (let ((removed '()))
       (with ((proc
                (case selection-mode
                  ((cell) (function dynamic (cell)
-                           (let ((r [row cell]))
+                           (let ((r (get-row~ cell)))
                              (if (< r rank)
                                  cell
                                (if (> r (+ rank count -1))
-                                   (new Cell (- r count) [col cell])
+                                   (new Cell (- r count) (get-col~ cell))
                                  (set! removed (cons cell removed))
                                  {})))))
                  (else (function dynamic (r)
@@ -1998,14 +1998,14 @@
   (method (selection-row-rect n)
     (let* ((row   (get-row n))
            (left  (row-text-left~ node-column row))
-           (top   [v (get-position~ row)])
+           (top   (get-v~ (get-position~ row)))
            (right columns-right))
       (new Rect (- left 3) top right (+ top (get-height~ row)))))
   
   
   (method (selection-row element)
     (case selection-mode
-      ((cell) [row element])
+      ((cell) (get-row~ element))
       (else element)))
   
   
@@ -2015,8 +2015,8 @@
   
   
   (method public (cell-visible? cell)
-    (and (< [row cell] visible-count)
-         (< [col cell] (get-columns-count))))
+    (and (< (get-row~ cell) visible-count)
+         (< (get-col~ cell) (get-columns-count))))
 
 
   ;;;
@@ -2054,20 +2054,20 @@
   (method (row-rect n)
     (let* ((row   (get-row n))
            (left  (borders-left (car columns-borders)))
-           (top   [v (get-position~ row)])
+           (top   (get-v~ (get-position~ row)))
            (right columns-right))
       (new Rect left top right (+ top (get-height~ row)))))
   
   
   (method public (cell-position cell)
     (let ((rect (cell-rect cell)))
-      (new Point [left rect] [top rect])))
+      (new Point (get-left~ rect) (get-top~ rect))))
 
   
   (method public (cell-rect cell)
-    (let* ((borders (get-borders [col cell]))
-           (row (get-row [row cell]))
-           (top [v (get-position~ row)]))
+    (let* ((borders (get-borders (get-col~ cell)))
+           (row (get-row (get-row~ cell)))
+           (top (get-v~ (get-position~ row))))
       (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
   
   
@@ -2076,10 +2076,10 @@
   
   
   (method (cell-content-rect cell)
-    (let* ((n       [row cell])
-           (col     [col cell])
+    (let* ((n       (get-row~ cell))
+           (col     (get-col~ cell))
            (row     (get-row n))
-           (top     [v (get-position~ row)])
+           (top     (get-v~ (get-position~ row)))
            (cell    (get-cell-data cell))
            (width   (column-width col))
            (borders (get-borders col))
@@ -2088,18 +2088,18 @@
     
   
   (method (cell-text-rect cell)
-    (let* ((n     [row cell])
-           (col   [col cell])
+    (let* ((n     (get-row~ cell))
+           (col   (get-col~ cell))
            (row   (get-row n))
-           (top   [v (get-position~ row)])
+           (top   (get-v~ (get-position~ row)))
            (cell  (get-cell-data cell))
            (width (column-width (get-node-column-index))))
       (offset-rect (text-rect~ (get-column col) row cell width (get-height~ row) false) 0 top)))
 
 
   (method public (view->tree pos (any?: any? false) (uniform-height?: uniform-height? false))
-    (let ((row (if uniform-height? (floor (/ [v pos] default-row-height)) (v->row [v pos])))
-          (col (h->col [h pos])))
+    (let ((row (if uniform-height? (floor (/ (get-v~ pos) default-row-height)) (v->row (get-v~ pos))))
+          (col (h->col (get-h~ pos))))
       (when (and row col (>= row 0))
         (let ((cell (new Cell row col)))
           (if any?
@@ -2110,10 +2110,10 @@
 
   ;; Should unify with view->tree...
   (method public (view->tree-extended pos)
-    (let ((info (v->row-extended [v pos])))
+    (let ((info (v->row-extended (get-v~ pos))))
       (when info
         (receive (row v height) info
-          (let ((col (h->col [h pos])))
+          (let ((col (h->col (get-h~ pos))))
             (when (and row col (>= row 0))
               (let ((cell (new Cell row col)))
                 (when (cell-visible? cell)
@@ -2122,8 +2122,8 @@
 
   (method public (tree->view cell)
     (new Point
-      (col->h [col cell])
-      (row->v [row cell])))
+      (col->h (get-col~ cell))
+      (row->v (get-row~ cell))))
   
 
   (method public (h->col h)
@@ -2155,9 +2155,9 @@
   
   
   (method public (edit-cell cell (editor: editor {}) (location: location {Point 0 0}) (draw-preserved?: draw-preserved? false) (close-editor?: close-editor? true) (end-proc: end-proc {}))
-    (when (< [col cell] (get-columns-count))
+    (when (< (get-col~ cell) (get-columns-count))
       (end-edition)
-      (ensure-row-exists [row cell])
+      (ensure-row-exists (get-row~ cell))
       ;; We need proper layout to get the cell rect...
       (when update-locked?
         (update-displayed)
@@ -2165,13 +2165,13 @@
       (let ((bounds (cell-editor-rect cell)))
         (when bounds
           (let ((view (new Tree-Cell-View
-                        :location (new Point (+ [left bounds] [h location]) [v location])
+                        :location (new Point (+ (get-left~ bounds) (get-h~ location)) (get-v~ location))
                         :draw-preserved? draw-preserved?
                         :preserved-data (get-cell-data cell)
                         :edition-end-proc end-proc
                         children: (list editor))))
             (replace-cell cell view)
-            (set-bounds~ view (expand-rect (offset-rect bounds 0 (- [top bounds])) [h location] [v location] 0 0))
+            (set-bounds~ view (expand-rect (offset-rect bounds 0 (- (get-top~ bounds))) (get-h~ location) (get-v~ location) 0 0))
             (invalidate-rect bounds)
             (set! edited-cell cell)
             (set! cell-editor view)
@@ -2195,15 +2195,15 @@
   
   
   (method public (replace-cell cell child)
-    (replace-child~ (get-row [row cell]) [col cell] child))
+    (replace-child~ (get-row (get-row~ cell)) (get-col~ cell) child))
     
   
   (method (cell-editor-rect cell)
-    (let* ((n       [row cell])
-           (col     [col cell])
+    (let* ((n       (get-row~ cell))
+           (col     (get-col~ cell))
            (row     (get-row n))
            (column  (get-column col))
-           (top     [v (get-position~ row)])
+           (top     (get-v~ (get-position~ row)))
            (cell    (get-cell-data cell))
            (width   (if show-header? (column-width col) (get-width)))
            (borders (get-borders col))
@@ -2214,39 +2214,39 @@
   
   
   (method public virtual (select-up cell)
-    (let ((row (- [row cell] 1))
-          (col [col cell]))
+    (let ((row (- (get-row~ cell) 1))
+          (col (get-col~ cell)))
       (when (>= row 0)
         (end-edition)
         (select-cell (new Cell row col)))))
   
   
   (method public virtual (select-down cell (validate? true))
-    (let ((row (+ [row cell] 1))
-          (col [col cell]))
+    (let ((row (+ (get-row~ cell) 1))
+          (col (get-col~ cell)))
       (when (or (not validate?) (< row (get-visible-count)))
         (end-edition)
         (select-cell (new Cell row col)))))
     
   
   (method public virtual (select-left cell)
-    (let ((row [row cell])
-          (col (- [col cell] 1)))
+    (let ((row (get-row~ cell))
+          (col (- (get-col~ cell) 1)))
       (when (>= col 0)
         (end-edition)
         (select-cell (new Cell row col)))))
 
   
   (method public virtual (select-right cell)
-    (let ((row [row cell])
-          (col (+ [col cell] 1)))
+    (let ((row (get-row~ cell))
+          (col (+ (get-col~ cell) 1)))
       (when (< col (get-columns-count))
         (end-edition)
         (select-cell (new Cell row col)))))
   
   
   (method public virtual (select-cell cell)
-    (set-single-selection [row cell]))
+    (set-single-selection (get-row~ cell)))
 
 
   ;;;
@@ -2293,19 +2293,19 @@
     (let ((cell (view->tree view)))
       (when cell
         (let* ((pos (cell-coordinates cell view))
-               (column (get-column [col cell]))
-               (row (get-row [row cell]))
+               (column (get-column (get-col~ cell)))
+               (row (get-row (get-row~ cell)))
                (node (car (get-children~ row)))
                (user-data (get-user-data~ row)))
           (receive (cell part) (get-debugged~ column cell pos)
             (let ((data (get-cell-data cell)))
-              (set! [%c Development] cell)
-              (set! [%d Development] data)
-              (set! [%n Development] node)
-              (set! [%o Development] column)
-              (set! [%p Development] part)
-              (set! [%r Development] row)
-              (set! [%u Development] user-data)))))))
+              (set-%c~ Development cell)
+              (set-%d~ Development data)
+              (set-%n~ Development node)
+              (set-%o~ Development column)
+              (set-%p~ Development part)
+              (set-%r~ Development row)
+              (set-%u~ Development user-data)))))))
 
 
   @convert
@@ -2314,8 +2314,8 @@
             (let ((cell (view->tree view)))
               (when cell
                 (let* ((pos (cell-coordinates cell view))
-                       (column (get-column [col cell]))
-                       (row (get-row [row cell]))
+                       (column (get-column (get-col~ cell)))
+                       (row (get-row (get-row~ cell)))
                        (node (car (get-children~ row)))
                        (user-data (get-user-data~ row)))
                   (receive (cell part) (get-debugged~ column cell pos)
@@ -2352,7 +2352,7 @@
           (let* ((node (proc2 row))
                  (title (get-title~ node)))
             (proc title rank)))
-        start: (when row (if prefix row [next row]))
+        start: (when row (if prefix row (get-next~ row)))
         :wrap? true)))
   
   
@@ -2366,8 +2366,8 @@
     (let ((sel (get-single-selection)))
       (case selection-mode
         ((cell)
-         (set! column (if sel [col sel] 0))
-         (cons (essay sel (get-row [row sel]))
+         (set! column (if sel (get-col~ sel) 0))
+         (cons (essay sel (get-row (get-row~ sel)))
                (function dynamic (row) (element (get-children~ row) column))))
         (else
          (cons (essay sel (get-row sel))

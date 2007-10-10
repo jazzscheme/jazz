@@ -38,7 +38,13 @@
 (library jazz.library.automata.Automata jazz
 
 
-(definition no-char '(no-char))
+(definition no-char
+  '(no-char))
+
+
+;;;
+;;;; Automata
+;;;
 
 
 (class Automata extends Object
@@ -51,16 +57,21 @@
   
   
   (method (initialize s)
-    (set! [nbVectored self] 0)
-    (set! [nbListed self] 0)
-    (set! [nbLettered self] 0)
-    (set! [start self] s))
+    (set! nbVectored~self 0)
+    (set! nbListed~self 0)
+    (set! nbLettered~self 0)
+    (set! start~self s))
   
   
   (method public (run tape)
-    (let (iterate (state [start self]))
+    (let (iterate (state start))
       (when state
         (iterate (transition~ state))))))
+
+
+;;;
+;;;; Tape
+;;;
            
 
 (class Tape extends Object
@@ -77,42 +88,52 @@
   
   
   (method (initialize p l r c)
-    (set! [paragraphs self] p)
-    (set! [limit self] l)
-    (set! [row self] r)
-    (set! [col self] c)
-    (set! [scan self] (get-string~ (element paragraphs row)))
-    (set! [start-row self] 0)
-    (set! [start-col self] 0)
-    (set! [found self] (new Queue)))
+    (set! paragraphs~self p)
+    (set! limit~self l)
+    (set! row~self r)
+    (set! col~self c)
+    (set! scan~self (get-string~ (element paragraphs row)))
+    (set! start-row~self 0)
+    (set! start-col~self 0)
+    (set! found~self (new Queue)))
   
   
   (method public (get-next)
-    (if (= [col self] (length [scan self]))
-        (if (< [row self] [limit self])
+    (if (= col (length scan))
+        (if (< row limit)
             (begin
-              (set! [row self] (+ [row self] 1))
-              (set! [col self] 0)
-              (set! [scan self] (get-string~ (element paragraphs row)))
+              (set! row (+ row 1))
+              (set! col 0)
+              (set! scan (get-string~ (element paragraphs row)))
               #\newline)
           no-char)
-      (set! [col self] (+ [col self] 1))
-      (element [scan self] (- [col self] 1))))
+      (set! col (+ col 1))
+      (element scan (- col 1))))
   
   
   (method public (add-found info)
-    (enqueue~ [found self] info))
+    (enqueue~ found info))
   
   
   (method public (get-found)
-    (queue-list~ [found self])))
-  
-  
+    (queue-list~ found)))
+
+
+;;;
+;;;; Transitions
+;;;
+
+
 (class Transitions extends Object
   
   
   (method public virtual (add-transition char state))
   (method public virtual (follow char)))
+
+
+;;;
+;;;; VectoredTransitions
+;;;
   
   
 (definition NbAscii 256)
@@ -128,15 +149,20 @@
   
   
   (method (initialize . rest)
-    (set! [vector self] (make-vector NbTransitions Nil)))
+    (set! vector (make-vector NbTransitions Nil)))
   
   
   (method (add-transition c state)
-    (set-element! [vector self] (char->integer (if (> c NbAscii) NotAsciiTransition c)) state))
+    (set-element! vector (char->integer (if (> c NbAscii) NotAsciiTransition c)) state))
   
   
   (method (follow c)
-    (element [vector self] (char->integer (if (> c NbAscii) NotAsciiTransition c)))))
+    (element vector (char->integer (if (> c NbAscii) NotAsciiTransition c)))))
+
+
+;;;
+;;;; State
+;;;
   
 
 (class State extends Object
@@ -147,8 +173,8 @@
   
   
   (method (initialize n t)
-    (set! [name self] n)
-    (set! [transitions self] t))
+    (set! name n)
+    (set! transitions t))
   
   
   (method public (add-transition c state)
@@ -170,16 +196,27 @@
   (method public virtual (action tape)))
 
 
+;;;
+;;;; StartState
+;;;
+
+
 (class StartState extends State
+  
   
   (method (initialize t)
     (nextmethod "start" t))
   
   
   (method (transition tape)
-    (set! [start-row tape] [row tape])
-    (set! [start-col tape] [col tape])
+    (set-start-row~ tape (get-row~ tape))
+    (set-start-col~ tape (get-col~ tape))
     (nextmethod tape)))
+
+
+;;;
+;;;; FoundState
+;;;
 
 
 (class FoundState extends State
@@ -190,15 +227,15 @@
   
   
   (method (initialize f ns)
-    (set! [found self] f)
-    (set! [next-state self] ns)
+    (set! found f)
+    (set! next-state ns)
     (nextmethod "found" Nil))
   
   
   (method (transition tape)
     (action~ tape)
-    [next-state tape])
+    (get-next-state~ tape))
   
   
   (method (action tape)
-    (add-found~ tape (list [found self] [start-row tape] [start-col tape])))))
+    (add-found~ tape (list found (get-start-row~ tape) (get-start-col~ tape))))))

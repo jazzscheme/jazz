@@ -115,7 +115,7 @@
   
   
   (method (get-columns-borders)
-    [columns-borders client])
+    (get-columns-borders~ client))
 
   
   (method (invalidate-columns)
@@ -161,7 +161,7 @@
   
   
   (method (get-hscroll-amount)
-    (either (essay client [h (get-position~ client)]) 0))
+    (either (essay client (get-h~ (get-position~ client))) 0))
 
 
   ;; most probably not called as it was missing the orientation parameter in the old jazz!
@@ -184,12 +184,12 @@
   (method (draw dc context update lh lv)
     (with ((update-rect (get-update-rect dc update lh lv)))
       (let ((height (get-header-height)))
-        (when (or (not update-rect) (< [top update-rect] height))
+        (when (or (not update-rect) (< (get-top~ update-rect) height))
           (fill-rect~ dc update-rect {Color name: Dark})
           (let* ((h (get-hscroll-amount))
-                 (cs [column-spacing client])
-                 (sorted-column [sorted-column client])
-                 (sort-ascending? [sort-ascending? client])
+                 (cs (get-column-spacing~ client))
+                 (sorted-column (get-sorted-column~ client))
+                 (sort-ascending? (get-sort-ascending?~ client))
                  (spaced? (/= cs 0))
                  (flat? (flat-look?))
                  (rank 0))
@@ -208,7 +208,7 @@
 
 
   (method (cursor-update pos)
-    (if (or resizing? (resized-col (- [h pos] (get-hscroll-amount))))
+    (if (or resizing? (resized-col (- (get-h~ pos) (get-hscroll-amount))))
         (set-cursor :west-east)
       (set-cursor :arrow)))
   
@@ -220,7 +220,7 @@
   
   (method (get-tooltip-context client)
     (let* ((hscrolled (get-hscroll-amount))
-           (h (- [h client] hscrolled))
+           (h (- (get-h~ client) hscrolled))
            (col (h->col h)))
       (when col
         (let ((column (get-column col)))
@@ -240,8 +240,8 @@
   
   (method (mouse-down client)
     (acquire-capture)
-    (let ((h (- [h client] (get-hscroll-amount)))
-          (v [v client]))
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
       (let ((col (resized-col h)))
         (if (not col)
             (let ((col (h->col h)))
@@ -255,8 +255,8 @@
   
   
   (method (drag-move client)
-    (let ((h (- [h client] (get-hscroll-amount)))
-          (v [v client]))
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
       (if (not resizing?)
           (let ((col (h->col h)))
             (when col
@@ -277,8 +277,8 @@
   
   
   (method (drag-up client . rest)
-    (let ((h (- [h client] (get-hscroll-amount)))
-          (v [v client]))
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
       (if (not resizing?)
           (let ((col (h->col h)))
             (when col
@@ -292,8 +292,8 @@
   
   
   (method (double-click client)
-    (let ((h (- [h client] (get-hscroll-amount)))
-          (v [v client]))
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
       (let ((col (h->col h)))
         (when col
           (let ((column (get-column col)))

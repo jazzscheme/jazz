@@ -330,7 +330,7 @@
   ;; tofix : window-specific
   (method (call-context-menu h v)
     (let ((pos (acquire (get-desktop) (new Point h v))))
-      (context-menu [h pos] [v pos])))
+      (context-menu (get-h~ pos) (get-v~ pos))))
   
   
   (method protected virtual (context-menu h v)
@@ -797,12 +797,12 @@
   
 
   (method (set-position pos)
-    (SetWindowPos handle NULL [h pos] [v pos] 0 0 (bit-or SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bit-or SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
   (method public (move-window dh dv)
     (let ((pos (get-position)))
-      (set-position (new Point (+ [h pos] dh) (+ [v pos] dv)))))
+      (set-position (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv)))))
 
 
   (method (get-size)
@@ -818,7 +818,7 @@
 
   (method public (size-window dwidth dheight)
     (let ((size (get-size)))
-      (set-size (new Dimension (+ [width size] dwidth) (+ [height size] dheight)))))
+      (set-size (new Dimension (+ (get-width~ size) dwidth) (+ (get-height~ size) dheight)))))
 
 
   (method public (get-window-size)
@@ -829,11 +829,11 @@
 
 
   (method public (set-window-size size)
-    (SetWindowPos handle NULL 0 0 [width size] [height size] (bit-or SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bit-or SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
   
   
   (method public (set-bounds rect)
-    (SetWindowPos handle NULL [left rect] [top rect] (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
   
   
   (method public (grow-bounds dh dv dwidth dheight)
@@ -843,16 +843,12 @@
       (set-position pos)))
 
 
-  ;; to-fix [width (get-size)]
   (method public (get-width)
-    (let ((size (get-size)))
-      [width size]))
+    (get-width~ (get-size)))
 
   
-  ;; to-fix [width (get-size)]
   (method public (get-height)
-    (let ((size (get-size)))
-      [height size]))
+    (get-height~ (get-size)))
   
 
   (method public (get-rect)
@@ -894,21 +890,21 @@
 
   (method public (point-in-window? point)
     (let ((size (get-window-size)))
-      (and (in-interval? [h point] 0 [width size])
-           (in-interval? [v point] 0 [height size]))))
+      (and (in-interval? (get-h~ point) 0 (get-width~ size))
+           (in-interval? (get-v~ point) 0 (get-height~ size)))))
 
 
   (method public (find-window point)
     (with ((pt (POINT-make)))
-      (POINT-x-set! pt [h point])
-      (POINT-y-set! pt [v point])
+      (POINT-x-set! pt (get-h~ point))
+      (POINT-y-set! pt (get-v~ point))
       (get-window (WindowFromPoint pt))))
   
   
   (method public (find-child-window point)
     (with ((pt (POINT-make)))
-      (POINT-x-set! pt [h point])
-      (POINT-y-set! pt [v point])
+      (POINT-x-set! pt (get-h~ point))
+      (POINT-y-set! pt (get-v~ point))
       (let ((window (get-window (ChildWindowFromPointEx handle pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT)))))
         (if (or (not window) (eq? window self))
             window

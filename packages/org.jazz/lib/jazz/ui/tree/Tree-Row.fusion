@@ -50,7 +50,7 @@
   (property protected user-data initialize {} getter get-user-data  setter set-user-data)
   
   
-  (slot protected node-width initialize {})
+  (slot protected node-width initialize {} getter generate)
   
   
   (method (print printer readably)
@@ -71,13 +71,13 @@
 
   (method (initialize (parent: parent {}) (father: father {}) (level: level {}) (state: state 'collapsed) (row-height: row-height {}) (children: children '()) (visible?: visible? true) (user-data: user-data {}))
     (nextmethod)
-    (set! [parent self] parent)
-    (set! [father self] father)
-    (set! [level self] level)
-    (set! [state self] state)
-    (set! [row-height self] row-height)
+    (set! parent~self parent)
+    (set! father~self father)
+    (set! level~self level)
+    (set! state~self state)
+    (set! row-height~self row-height)
     (set-children children)
-    (set! [user-data self] user-data)
+    (set! user-data~self user-data)
     (set-installed? true)
     (set-finished? true)
     (set-visible-flag visible?))
@@ -109,7 +109,7 @@
     (when (not-null? list)
       (let ((node (car list)))
         (when (is? node Tree-Node)
-          (set! node-width (text-width~ (get-font~ parent) (localize [title node]))))))
+          (set! node-width (text-width~ (get-font~ parent) (localize (get-title~ node)))))))
     (for-each (function dynamic (child)
                 (if (is? child View)
                     (set-parent~ child self)
@@ -199,13 +199,13 @@
     (let ((tree (get-tree)))
       (when (and tree children)
         (let ((h 0)
-              (cs [column-spacing tree])
+              (cs (get-column-spacing~ tree))
               (height (get-effective-height)))
           (for-each (function dynamic (column cell)
-                      (let ((width [width column]))
+                      (let ((width (get-width~ column)))
                         (layout-cell~ column self cell h 0 width height)
                         (increase! h (+ width cs))))
-                    [columns tree]
+                    (get-columns~ tree)
                     children)))))
   
   
@@ -235,11 +235,11 @@
     (let* ((h 0)
            (v 0)
            (tree (get-tree))
-           (cs [column-spacing tree])
+           (cs (get-column-spacing~ tree))
            (height (get-height)))
       (for-each (function dynamic (column cell)
                   (when (get-visible?~ column)
-                    (let ((width [width column]))
+                    (let ((width (get-width~ column)))
                       (if (is-not? cell View)
                           (paint-cell~ column dc context update (+ lh h) (+ lv v) h v width height self cell sh sv sc sc?)
                         (when (and (is? cell Tree-Cell-View) (get-draw-preserved?~ cell))
@@ -248,9 +248,9 @@
                           (draw-level~ column dc self cell width height)
                           (draw-control~ column dc self cell width height))
                         (let ((pos (get-position~ cell)))
-                          (paint-displayed~ cell dc context update (+ lh [h pos]) (+ lv [v pos]) sh sv sc sc?)))
+                          (paint-displayed~ cell dc context update (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?)))
                       (increase! h (+ width cs)))))
-                [columns tree]
+                (get-columns~ tree)
                 children)))
   
   

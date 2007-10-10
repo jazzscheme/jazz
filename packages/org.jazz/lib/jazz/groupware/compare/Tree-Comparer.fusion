@@ -64,7 +64,7 @@
            (n       (function dynamic () (compare-items entry 'node nodes1 content1 nodes2 content2 ignored-nodes ignored-leaves ignored-extensions compare-node-contents check-algorithm feedback fact has-differences?)))
            (l       (function dynamic () (compare-items entry 'leaf leaves1 true leaves2 true ignored-nodes ignored-leaves ignored-extensions compare-leaf-values check-algorithm feedback fact has-differences?))))
       (compare-nodes/leaves n l)
-      (set! [children entry] (get-output~ fact))
+      (set-children~ entry (get-output~ fact))
       entry))
   
   
@@ -75,8 +75,8 @@
   
   (method protected virtual (compare-leaf-values parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
     (leaf-feedback leaf1 leaf2 feedback)
-    (let ((value1 [value leaf1])
-          (value2 [value leaf2]))
+    (let ((value1 (get-value~ leaf1))
+          (value2 (get-value~ leaf2)))
       (when (and leaf1 leaf2 (different? leaf1 leaf2 check-algorithm))
         (set-car! has-differences? true)
         (new-entry parent 'leaf leaf1 value1 leaf2 value2))))
@@ -86,8 +86,8 @@
     (merge-ordered (function dynamic (what key left right)
                      (when (or left right)
                        (case what
-                         ((:left)  (set-car! has-differences? true) (put~ fact (new-entry parent kind left (when (= kind 'leaf) [value left]) {} {})))
-                         ((:right) (set-car! has-differences? true) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) [value right]))))
+                         ((:left)  (set-car! has-differences? true) (put~ fact (new-entry parent kind left (when (= kind 'leaf) (get-value~ left)) {} {})))
+                         ((:right) (set-car! has-differences? true) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) (get-value~ right)))))
                          ((:same)  (let ((result (proc parent left (content-find left content1) right (content-find right content2) ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
                                    (when result
                                      (put~ fact result)))))))
@@ -107,7 +107,7 @@
   
   
   (method protected virtual (node-feedback node1 node2 feedback)
-    (feedback [moniker node1] [moniker node2]))
+    (feedback (get-moniker~ node1) (get-moniker~ node2)))
   
   
   (method protected virtual (leaf-feedback leaf1 leaf2 feedback)
@@ -124,7 +124,7 @@
   
   
   (method (item-name item)
-    [name item])
+    (get-name~ item))
   
   
   (method protected virtual (create-item moniker)
@@ -154,7 +154,7 @@
   
   
   (method protected virtual (new-entry parent kind left left-value right right-value)
-    (new Compare-Entry parent kind (essay left [moniker left]) left-value (essay right [moniker right]) right-value))
+    (new Compare-Entry parent kind (essay left (get-moniker~ left)) left-value (essay right (get-moniker~ right)) right-value))
   
   
   (method (collect-items node content ignored-nodes ignored-leaves ignored-extensions kind)
@@ -174,7 +174,7 @@
            (or (/= type 'leaf)
                (null? ignored-extensions)
                (member? name Not-Ignored-Leaves)
-               (not (member? (get-extension~ [moniker item]) ignored-extensions))))))
+               (not (member? (get-extension~ (get-moniker~ item)) ignored-extensions))))))
   
   
   (method protected virtual (scanned-values)

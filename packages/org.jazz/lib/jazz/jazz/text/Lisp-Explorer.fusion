@@ -346,14 +346,14 @@
     @to-complete
     (call/ec
       (lambda (return)
-        (let ((name (subseq (get-paragraph [row end]) [col end])))
-          (set-end (new Cell (+ [row end] 1) 0))
-          (while (< [row end] limit)
-            (if (= (subseq (get-paragraph [row end]) [col end]) name)
+        (let ((name (subseq (get-paragraph (get-row~ end)) (get-col~ end))))
+          (set-end (new Cell (+ (get-row~ end) 1) 0))
+          (while (< (get-row~ end) limit)
+            (if (= (subseq (get-paragraph (get-row~ end)) (get-col~ end)) name)
                 (begin
-                  (set-end (new Cell (+ [row end] 1) 0))
+                  (set-end (new Cell (+ (get-row~ end) 1) 0))
                   (return 'named-string))
-              (set-end (new Cell (+ [row end] 1) 0)))))
+              (set-end (new Cell (+ (get-row~ end) 1) 0)))))
         false)))
 
   
@@ -593,19 +593,19 @@
   (method (backward-lisp-comment)
     (let ((col (find-lisp-comment)))
       (when col
-        (set! [col start] col)
+        (set-col~ start col)
         true)))
   
   
   (method (find-lisp-comment)
-    (let ((start-row [row start])
-          (start-col [col start])
+    (let ((start-row (get-row~ start))
+          (start-col (get-col~ start))
           (preserved-end (essay end (copy end)))
           (result false))
       (set-end (new Cell start-row 0))
       (let ((result
               (let (iterate)
-                (when (and (= [row end] start-row) (< [col end] start-col))
+                (when (and (= (get-row~ end) start-row) (< (get-col~ end) start-col))
                   (let ((c0 (char-forward 0))
                         (c1 (char-forward 1)))
                     (cond ((= c0 #\")
@@ -620,7 +620,7 @@
                            (forward-scheme-char)
                            (iterate))
                           ((= c0 #\;)
-                           [col end])
+                           (get-col~ end))
                           (else
                            (forward)
                            (iterate))))))))
@@ -800,14 +800,14 @@
     ;; from the implicitly deduced List to Object.
     (let ((previous-row {}))
       (for-each (function dynamic (pos)
-                  (let ((row [row pos])
-                        (col [col pos]))
+                  (let ((row (get-row~ pos))
+                        (col (get-col~ pos)))
                     (when (or (not previous-row) (/= row previous-row))
                       (let ((string (paragraph-string row))
                             (style (get-style-at~ text pos))
                             (start pos))
                         (unless (or (eq? (get-name~ style) 'Expr-Comment) (string-style?~ text style))
-                          (set! previous-row [row pos])
+                          (set! previous-row (get-row~ pos))
                           (set-end pos)
                           (paragraph-end)
                           (proc start end (and (< (+ col 4) (length string)) (= (subseq string col (+ col 4)) (title-comment-string~ (get-syntax~ text))))))))))
@@ -829,10 +829,10 @@
   
   
   (method protected (walk-parameters context declaration keyword expression doc line)
-    (let ((line [row end])
+    (let ((line (get-row~ end))
           (out? false))
       (while (and (forward-expr) (not out?))
-        (if (/= [row start] line)
+        (if (/= (get-row~ start) line)
             (set! out? true)
           (walk-expression context expression 'code false)))))
 

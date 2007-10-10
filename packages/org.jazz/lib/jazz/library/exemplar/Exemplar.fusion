@@ -54,19 +54,19 @@
   (method (initialize . rest)
     (bind-keywords ((domain {}) (base {}) . others) rest
       (apply nextmethod others)
-      (set! [domain self] domain)
-      (set! [base self] base)
-      (set! [ascendant self] {})
-      (set! [inited? self] false)
-      (set! [persistent? self] true)
+      (set! domain~self domain)
+      (set! base~self base)
+      (set! ascendant~self {})
+      (set! inited?~self false)
+      (set! persistent?~self true)
       (when domain
         (install))))
   
   
   (method (copy-object deep?)
     (let ((exemplar (nextmethod deep?)))
-      (set! [domain exemplar] domain)
-      (set! [base exemplar] base)
+      (set-domain-value~ exemplar domain)
+      (set-base-value~ exemplar base)
       exemplar))
 
 
@@ -74,7 +74,7 @@
     (cond ((is-not? target (class-of self))
            :incompatible)
           ((and (= (nextmethod target) :equal)
-                (= base [base target]))
+                (= base (get-base~ target)))
            :equal)
           (else
            :not-equal)))
@@ -121,7 +121,7 @@
         (lambda (return)
           (for-each-ascendant
             (function dynamic (ascendant)
-              (when (eq? [name ascendant] target)
+              (when (eq? (get-name~ ascendant) target)
                 (return true))))
           false))))
   
@@ -138,14 +138,14 @@
   
   (method public (extend (domain: domain domain))
     (let ((exemplar (new (class-of self))))
-      (set! [domain exemplar] domain)
+      (set-domain-value~ exemplar domain)
       (cond ((not name)
-             (set! [base exemplar] base)
+             (set-base-value~ exemplar base)
              (copy-properties exemplar)
-             (set! [owned exemplar] (copy owned))
-             (set! [inited? exemplar] true))
+             (set-owned~ exemplar (copy owned))
+             (set-inited?~ exemplar true))
             (else
-             (set! [base exemplar] name)
+             (set-base-value~ exemplar name)
              (install~ exemplar)))
       exemplar))
   
@@ -180,13 +180,13 @@
   
   (method public (modify-from from)
     (unless (eq? self from)
-      (set! name [name from])
-      (set! base [base from])
+      (set! name (get-name~ from))
+      (set! base (get-base~ from))
       (for-each (function dynamic (property)
                   (set-value property (get-value~ from property)))
                 (node-properties))
-      (set! owned (copy [owned from]))
-      (set! persistent? [persistent? from])
+      (set! owned (copy (get-owned~ from)))
+      (set! persistent? (get-persistent?~ from))
       (update)))
   
   
@@ -212,6 +212,10 @@
   ;;;
   
   
+  (method public inline (set-domain-value d)
+    (set! domain d))
+  
+  
   (method public (get-domain)
     domain)
   
@@ -228,6 +232,10 @@
   ;;;
   ;;;; Base
   ;;;
+  
+  
+  (method public inline (set-base-value b)
+    (set! base b))
   
   
   (method public (get-base)

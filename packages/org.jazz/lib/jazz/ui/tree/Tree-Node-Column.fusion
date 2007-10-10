@@ -107,14 +107,14 @@
   
   
   (method (complete-mouse-down cell pos shift? control?)
-    (let ((row (get-row~ parent [row cell])))
+    (let ((row (get-row~ parent (get-row~ cell))))
       (case (find-part cell pos)
         ((control) (expand/collapse~ parent row))
         ((content) (process-selection~ parent cell shift? control?)))))
   
   
   (method (double-click cell pos)
-    (expand/collapse~ parent (get-row~ parent [row cell])))
+    (expand/collapse~ parent (get-row~ parent (get-row~ cell))))
   
 
   ;;;
@@ -123,9 +123,9 @@
   
   
   (method (find-part cell pos)
-    (let ((h [h pos])
-          (v [v pos])
-          (base (level-h [level (get-row~ parent [row cell])])))
+    (let ((h (get-h~ pos))
+          (v (get-v~ pos))
+          (base (level-h (get-level~ (get-row~ parent (get-row~ cell))))))
       (if (and controls? toplevel-controls? (and (>= h (+ base 4)) (>= v 4) (< h (+ base 13)) (< v 13)))
           'control
         'content)))
@@ -137,16 +137,16 @@
   
   
   (method protected (row-text-left row)
-    (- (text-h [level row]) 1))
+    (- (text-h (get-level~ row)) 1))
   
   
   (method protected (text-rect row cell width height force-node?)
-    (let* ((title (localize [title cell]))
-           (h (- (text-h [level row]) 1))
+    (let* ((title (localize (get-title~ cell)))
+           (h (- (text-h (get-level~ row)) 1))
            (max (- width h 2))
-           (font (either [font cell] (get-font~ parent))))
+           (font (either (get-font~ cell) (get-font~ parent))))
       (with ((extent (text-extent~ font title)))
-        (let* ((title-width [width extent])
+        (let* ((title-width (get-width~ extent))
                (width (min (if (or force-node? (<= (get-columns-count~ parent) 1)) title-width width) max)))
           (new Rect h 0 (+ h width 4) height)))))
   
@@ -157,17 +157,17 @@
   
   
   (method protected (control-rect row top)
-    (let ((h (control-h [level row])))
+    (let ((h (control-h (get-level~ row))))
       (new Rect (+ h 4) (+ top 4) (+ h 13) (+ top 13))))
   
   
   (method protected (plus/minus-rect row top)
-    (let ((h (control-h [level row])))
+    (let ((h (control-h (get-level~ row))))
       (new Rect (+ h 5) (+ top 5) (+ h 12) (+ top 12))))
   
   
   (method protected (image-rect row top)
-    (let ((h (image-h [level row])))
+    (let ((h (image-h (get-level~ row))))
       (new Rect (+ h 0) (+ top 0) (+ h 16) (+ top 16))))
   
   
@@ -178,7 +178,7 @@
   
   (method (layout-cell row cell h v width height)
     (when (is? cell View)
-      (let ((offset (image-h [level row])))
+      (let ((offset (image-h (get-level~ row))))
         (set-position~ cell (new Point (+ h offset) v))
         (set-size~ cell (new Dimension (- width offset) height)))))
   
@@ -211,11 +211,11 @@
           (with ((rect (text-rect row cell width height false)))
             (let ((background (get-background~ parent)))
               (when background
-                (with ((r (new Rect 0 0 [left rect] height)))
+                (with ((r (new Rect 0 0 (get-left~ rect) height)))
                   (fill-rect~ dc r (either (get-cell-background~ parent) {Color name: White})))
                 (fill-rect~ dc rect (selection-color~ parent)))))
-        (let ((background [background cell])
-              (frame-color [frame-color cell]))
+        (let ((background (get-background~ cell))
+              (frame-color (get-frame-color~ cell)))
           (when (or background frame-color)
             (with ((rect (text-rect row cell width height true)))
               (when background
@@ -226,8 +226,8 @@
   
   (method public (draw-level dc row cell width height)
     (set-pen~ dc Alternate-Pen)
-    (let ((level [level row])
-          (row-v [v (get-position~ row)]))
+    (let ((level (get-level~ row))
+          (row-v (get-v~ (get-position~ row))))
       (for-each (function dynamic (n)
                   (let ((h (level-h n))
                         (sf? (visible-sibling-follows?~ row)))
@@ -241,13 +241,13 @@
                              (horz-adjusted (+ half-adjusted (if (odd? height) -1 0) (if (and (odd? row-v) (even? height)) 1 0))))
                         (line~ dc (+ h 8) top-adjusted (+ h 8) (if sf? height half-adjusted))
                         (line~ dc (+ h 8) horz-adjusted (+ h 19) horz-adjusted)))
-                    (set! row [father row])))
+                    (set! row (get-father~ row))))
                 (new Naturals start: level end: 0 reversed?: true)))
     (set-pen~ dc {Pen name: Black}))
   
   
   (method protected (draw-control dc row cell width height)
-    (let* ((level [level row])
+    (let* ((level (get-level~ row))
            (toplevel? (= level 0)))
       (when (and (expandable?~ row) controls? (or (not toplevel?) toplevel-controls?))
         (let ((h (control-h level)))
@@ -259,29 +259,29 @@
                 (fill-rect~ dc rect {Color name: White}))))
           (set-pen~ dc {Pen name: Black})
           (line~ dc (+ h 6) 8 (+ h 11) 8)
-          (when (/= [state row] 'expanded)
+          (when (/= (get-state~ row) 'expanded)
             (line~ dc (+ h 8) 6 (+ h 8) 11))))))
   
   
   (method (draw-image dc context row cell width height)
-    (let ((h (image-h [level row]))
-          (image [image cell]))
+    (let ((h (image-h (get-level~ row)))
+          (image (get-image~ cell)))
       (when (and display-images? image)
         (draw-image~ (get-portfolio~ parent) dc context image h 0))))
   
   
   (method (draw-title dc context row cell h v width height)
-    (let ((title (localize (either [title cell] "")))
-          (h (text-h [level row]))
-          (font [font cell]))
-      (set-text-color~ dc (cell-color [color cell] context))
+    (let ((title (localize (either (get-title~ cell) "")))
+          (h (text-h (get-level~ row)))
+          (font (get-font~ cell)))
+      (set-text-color~ dc (cell-color (get-color~ cell) context))
       (when font
         (set-font~ dc font))
       (draw-text~ dc h title-vertical-offset title)))
   
   
   (method (level-h level)
-    (- (* level [indentation parent])
+    (- (* level (get-indentation~ parent))
        (if (or (= level 0) toplevel-controls?) 0 16)))
   
   

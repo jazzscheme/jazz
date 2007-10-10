@@ -108,21 +108,21 @@
           (h 2))
       (for-each (function dynamic (header)
 	              (let* ((title (localize (get-title~ header)))
-                      (next (+ h padding [width (text-extent~ font title)] padding)))
-                    (set! [borders header] (cons h next))
+                      (next (+ h padding (get-width~ (text-extent~ font title)) padding)))
+                    (set-borders~ header (cons h next))
                     (increase! n)
                     (set! h next)))
                 children)))
 
   
   (method (find-header pt)
-    (let ((h [h pt])
-          (v [v pt]))
+    (let ((h (get-h~ pt))
+          (v (get-v~ pt)))
       (when (< v headers-height)
         (call/ec
           (lambda (return)
             (for-each (function dynamic (header n)
-                        (bind (left . right) [borders header]
+                        (bind (left . right) (get-borders~ header)
                           (when (and (>= h left) (< h right))
                             (return n))))
                       children
@@ -131,7 +131,7 @@
   
   
   (method (redraw-header n)
-    (bind (lf . rg) [borders (child-ranked n)]
+    (bind (lf . rg) (get-borders~ (child-ranked n))
       (invalidate-rect (new Rect (- lf 2) 0 (+ rg 2) headers-height))))
 
 
@@ -214,8 +214,8 @@
   (method (draw-top dc size)
     (let* ((left    0)
            (top     0)
-           (right   [width size])
-           (bottom  [height size])
+           (right   (get-width~ size))
+           (bottom  (get-height~ size))
            (content (if (null? children) top (+ top headers-height -1))))
       (set-font~ dc {Font name: Ansi-Var})
       (draw-edge~ dc (new Rect left content right bottom) inner: 'raised outer: 'raised edges: '(right bottom))
@@ -227,7 +227,7 @@
                          (title-color (get-title-color~ header))
                          (selected? (= n selection))
                          (top (if selected? 0 2)))
-                    (bind (lf . rg) [borders header]
+                    (bind (lf . rg) (get-borders~ header)
                       (when selected?
                         (decrease! lf 2)
                         (increase! rg 2))
@@ -256,15 +256,15 @@
       (set-pen~ dc {Pen name: Light})
       (if (null? children)
           (line~ dc 0 0 right 0)
-        (let ((h (cdr [borders (last children)])))
+        (let ((h (cdr (get-borders~ (last children)))))
           (line~ dc h content (- right 1) content)))))
   
   
   (method (draw-bottom dc size)
     (let* ((left    0)
            (top     0)
-           (right   (- [width size] 1))
-           (bottom  (- [height size] 1))
+           (right   (- (get-width~ size) 1))
+           (bottom  (- (get-height~ size) 1))
            (content (- bottom headers-height)))
       (set-pen~ dc {Pen name: Light})
       (set-font~ dc {Font name: Ansi-Var})

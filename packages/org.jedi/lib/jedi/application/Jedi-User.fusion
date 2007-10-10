@@ -378,7 +378,7 @@
   
   @wait
   (method (test-shift)
-    (debug [foo (new X)]))
+    (debug (get-foo~ (new X))))
   
   
   @wait
@@ -510,7 +510,7 @@
       (while (enter-composite~ explorer)
         (let ((sizes (new List-Factory)))
           (while (forward-expr~ explorer)
-            (let ((size (- [col (get-end~ explorer)] [col (get-start~ explorer)])))
+            (let ((size (- (get-col~ (get-end~ explorer)) (get-col~ (get-start~ explorer)))))
               (put~ sizes size)))
           (update-maxes (get-output~ sizes)))
         (exit-composite~ explorer))
@@ -525,7 +525,7 @@
             (let ((maxes maxes))
               (while (forward-expr~ explorer)
                 (let* ((max (car maxes))
-                       (size (- [col (get-end~ explorer)] [col (get-start~ explorer)]))
+                       (size (- (get-col~ (get-end~ explorer)) (get-col~ (get-start~ explorer))))
                        (diff (- max size)))
                   (when (> diff 0)
                     (let ((end (get-end~ explorer)))
@@ -542,8 +542,8 @@
   
   @wait
   (method (text-macro text)
-    (let* ((start [row (get-start~ text)])
-           (end [row (get-end~ text)])
+    (let* ((start (get-row~ (get-start~ text)))
+           (end (get-row~ (get-end~ text)))
            (col (get-column~ text start))
            (char (get-char~ text (new Cell start col))))
       (if (/= char #\-)
@@ -626,8 +626,8 @@
   @wait
   (method (test-excel)
     (with-closed ((printer (new File-Printer {File Jazz "Dummy.jazz"})))
-      (set! [to-emit Excel-Extractor] (list Excel-Type))
-      (set! [emited Excel-Extractor] {})
+      (set-to-emit~ Excel-Extractor (list Excel-Type))
+      (set-emited~ Excel-Extractor {})
       (emit-type-info~ Excel-Extractor Excel-Type printer)))
   
   
@@ -1239,7 +1239,7 @@
   (method (read-process-monitor-stack file)
     (let ((reader (new File-Reader file))
           (readtable (new Readtable)))
-      (set-syntax~ readtable #\comma [TWhitespace Reader])
+      (set-syntax~ readtable #\comma TWhitespace)
       (set-readtable~ reader readtable)
       (let ((lines (new List-Factory))
             (done? false))
@@ -1761,7 +1761,7 @@
   @test  
   (method (test1)
     (let ((processor (new XML-Formatter :pretty false))
-          (converter [process-sxml SXML]))
+          (converter process-sxml))
        (converter
         '(body 
           (h1 ((align "center"))
@@ -1811,37 +1811,37 @@
   @souvenir
   (method (test-directx)
     (let ((frame (new Frame title: "DirectX" size: {Dimension 600 400} position: {Point 100 100}))
-          (dx (cocreate [DirectX7 DxVBLib])))
+          (dx (cocreate DxVBLib.DirectX7)))
       (receive (hr ptr) (DirectDrawCreate~ dx "")
         (assert-hr hr 1)
-        (let ((dd (cobind ptr [DirectDraw7 DxVBLib])))
-          (SetCooperativeLevel~ dd (get-handle~ frame) [DDSCL_NORMAL DxVBLib])
-          (let ((ddsd (new [DDSURFACEDESC2 DxVBLib])))
-            (set ddsd 'lSize (size-of [DDSURFACEDESC2 DxVBLib]))
-            (set ddsd 'lFlags [DDSD_CAPS DxVBLib])
-            (set ddsd '(ddsCaps lCaps) [DDSCAPS_PRIMARYSURFACE DxVBLib])
+        (let ((dd (cobind ptr DxVBLib.DirectDraw7)))
+          (SetCooperativeLevel~ dd (get-handle~ frame) DxVBLib.DDSCL_NORMAL)
+          (let ((ddsd (new DxVBLib.DDSURFACEDESC2)))
+            (set ddsd 'lSize (size-of DxVBLib.DDSURFACEDESC2))
+            (set ddsd 'lFlags DxVBLib.DDSD_CAPS)
+            (set ddsd '(ddsCaps lCaps) DxVBLib.DDSCAPS_PRIMARYSURFACE)
             (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
               (assert-hr hr 2)
-              (let ((primary (cobind ptr [DirectDrawSurface7 DxVBLib])))
-                (set ddsd 'lFlags (bit-or [DDSD_WIDTH DxVBLib] [DDSD_HEIGHT DxVBLib] [DDSD_CAPS DxVBLib]))
-                (set ddsd '(ddsCaps lCaps) [DDSCAPS_OFFSCREENPLAIN DxVBLib])
+              (let ((primary (cobind ptr DxVBLib.DirectDrawSurface7)))
+                (set ddsd 'lFlags (bit-or DxVBLib.DDSD_WIDTH DxVBLib.DDSD_HEIGHT DxVBLib.DDSD_CAPS))
+                (set ddsd '(ddsCaps lCaps) DxVBLib.DDSCAPS_OFFSCREENPLAIN)
                 (set ddsd 'lWidth 600)
                 (set ddsd 'lHeight 400)
                 (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
                   (assert-hr hr 3)
-                  (let ((offscreen (cobind ptr [DirectDrawSurface7 DxVBLib]))
+                  (let ((offscreen (cobind ptr DxVBLib.DirectDrawSurface7))
                         (rect (rect->RECT {Rect 0 0 600 400}))
                         (fr (new RECT)))
                     (GetClientRect (get-handle~ frame) fr)
                     (MapWindowPoints (get-handle~ frame) NULL fr 2)
-                    (BltFast~ primary (get fr 'Left) (get fr 'Top) ptr (record-address rect) [DDBLTFAST_WAIT DxVBLib]))))))))))
+                    (BltFast~ primary (get fr 'Left) (get fr 'Top) ptr (record-address rect) DxVBLib.DDBLTFAST_WAIT))))))))))
   
   
   @souvenir
   (method (assert-hr hr n)
     (unless (succeeded? hr)
       (set-clipboard (->string hr))
-      (error "COM error {t} {t}" (value->name~ [CONST_DDRAWERR DxVBLib] hr) n)))
+      (error "COM error {t} {t}" (value->name~ DxVBLib.CONST_DDRAWERR hr) n)))
     
   
   ;;;

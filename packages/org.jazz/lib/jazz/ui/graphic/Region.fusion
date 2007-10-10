@@ -47,22 +47,22 @@
 (class Region extends Object implements Handle-Container
   
   
-  (slot public handle)
-  (slot public rectangles)
+  (slot public handle     getter generate)
+  (slot public rectangles getter generate)
     
     
   (method (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
     (nextmethod)
     (cond (handle
-            (set! [handle self] handle))
+            (set! handle~self handle))
           (rect
-            (set! [handle self] (with ((rect (rect->RECT rect))) (CreateRectRgnIndirect rect)))
+            (set! handle~self (with ((rect (rect->RECT rect))) (CreateRectRgnIndirect rect)))
             (set! rectangles (list rect)))
           (left
-            (set! [handle self] (CreateRectRgn left top right bottom))
+            (set! handle~self (CreateRectRgn left top right bottom))
             (set! rectangles (list (new Rect left top right bottom))))
           (else
-           (set! [handle self] (CreateRectRgn 0 0 0 0))
+           (set! handle~self (CreateRectRgn 0 0 0 0))
            (set! rectangles (list (new Rect 0 0 0 0)))))
     (destroy-mandatory))
 
@@ -72,17 +72,13 @@
     (nextmethod))
   
   
-  (method (get-handle)
-    handle)
-  
-  
   (method public (offset! h v)
     (OffsetRgn handle (inexact->exact h) (inexact->exact v)))
 
 
   (method public (combine! region mode)
     (CombineRgn handle handle (get-handle~ region) (get-combine-mode mode))
-    (set! rectangles (append rectangles [rectangles region])))
+    (set! rectangles (append rectangles (get-rectangles~ region))))
   
   
   (method (get-combine-mode mode)

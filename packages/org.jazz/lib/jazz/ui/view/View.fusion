@@ -132,7 +132,7 @@
   (method meta protected virtual (center-dialog inner)
     (let* ((outer (get-size~ (get-desktop)))
            (pos (center inner outer)))
-      (new Point [h pos] (- [v pos] 50))))
+      (new Point (get-h~ pos) (- (get-v~ pos) 50))))
 
 
   ;;;
@@ -766,7 +766,7 @@
   (method (get-lie-parent h <fl> v <fl> sc <fl>)
     (if (or (not parent) (not scaled?))
         (nextmethod h v sc)
-      (get-lie-parent~ parent (+ [h position] (* h scaling)) (+ [v position] (* v scaling)) (* sc scaling))))
+      (get-lie-parent~ parent (+ (get-h~ position) (* h scaling)) (+ (get-v~ position) (* v scaling)) (* sc scaling))))
 
   
   ;;;
@@ -788,7 +788,7 @@
       (if (and player origin-player (neq? player origin-player))
           (receive (h <fl> v <fl> sc <fl>) (get-lie-parent 0.0 0.0 1.0)
             (let ((delta <Point> (- (get-global~ origin) (get-global))))
-              (values (* [h delta] sc) (* [v delta] sc) sc)))
+              (values (* (get-h~ delta) sc) (* (get-v~ delta) sc) sc)))
         (nextmethod origin))))
   
   
@@ -1086,8 +1086,8 @@
            (pages (new List-Factory)))
       (for-each (function dynamic (row)
                   (for-each (function dynamic (col)
-                              (let* ((h (+ [left area] (* col page-width)))
-                                     (v (+ [top area] (* row page-height)))
+                              (let* ((h (+ (get-left~ area) (* col page-width)))
+                                     (v (+ (get-top~ area) (* row page-height)))
                                      (page (new Rect h v (+ h page-width) (+ v page-height))))
                                 (put~ pages page)))
                             (naturals 0 cols)))
@@ -1138,12 +1138,12 @@
                 (function dynamic ()
                   (let* ((area (get-print-area context))
                          (lie (get-lie))
-                         (lh [h lie])
-                         (lv [v lie]))
+                         (lh (get-h~ lie))
+                         (lv (get-v~ lie)))
                     (with ((content (offset-rect area lh lv)))
                       (with-clipper~ picture content
                         (function dynamic ()
-                          (paint-drawing picture context {} lh lv [left content] [top content] 1.0 false)))))))
+                          (paint-drawing picture context {} lh lv (get-left~ content) (get-top~ content) 1.0 false)))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
                 (set-clipboard metafile type: 'metafile :empty? empty-clipboard?)
@@ -1216,12 +1216,12 @@
                (display (get-display))
                (display-size (get-size~ display))
                (sc (if scaled? scaling 1.0))
-               (min-h (- (/ [width display-size] sc) [width size]))
-               (min-v (- (/ [height display-size] sc) [height size]))
+               (min-h (- (/ (get-width~ display-size) sc) (get-width~ size)))
+               (min-v (- (/ (get-height~ display-size) sc) (get-height~ size)))
                (max-h 0)
                (max-v 0)
-               (h (round (min (max [h dest] min-h) max-h)))
-               (v (round (min (max [v dest] min-v) max-v)))
+               (h (round (min (max (get-h~ dest) min-h) max-h)))
+               (v (round (min (max (get-v~ dest) min-v) max-v)))
                (new-pos (new Point (round (* h sc)) (round (* v sc)))))
           (when (/= new-pos position)
             (set! position (new Point (round (* h sc)) (round (* v sc))))
@@ -1229,8 +1229,8 @@
               (set-scroll-pos 'horz (- h) true)
               (set-scroll-pos 'vert (- v) true))
             (update-scrollbars)
-            (let ((dh (- h [h pos]))
-                  (dv (- v [v pos])))
+            (let ((dh (- h (get-h~ pos)))
+                  (dv (- v (get-v~ pos))))
               (scroll-invalidate dh dv)
               ;; temp for testing...
               (if scaled?
@@ -1267,11 +1267,11 @@
  
   
   (method public (get-scrolled-h)
-    [h (get-scrolled-position)])
+    (get-h~ (get-scrolled-position)))
  
   
   (method public (get-scrolled-v)
-    [v (get-scrolled-position)])
+    (get-v~ (get-scrolled-position)))
   
   
   (method public (set-scrolled-position pos)
@@ -1378,17 +1378,17 @@
           (if (not scaled?)
               pos
             (new Point
-              (round (/ [h pos] scaling))
-              (round (/ [v pos] scaling)))))
+              (round (/ (get-h~ pos) scaling))
+              (round (/ (get-v~ pos) scaling)))))
       {Point 0 0}))
     
   
   (method public (get-display-h)
-    [h (get-display-position)])
+    (get-h~ (get-display-position)))
     
   
   (method public (get-display-v)
-    [v (get-display-position)])
+    (get-v~ (get-display-position)))
     
   
   (method public (get-display-size)
@@ -1396,19 +1396,19 @@
         (let ((size <Dimension> (get-size~ parent)))
           (if (not scaled?)
               size
-            (new Dimension (round (/ [width size] scaling)) (round (/ [height size] scaling)))))
+            (new Dimension (round (/ (get-width~ size) scaling)) (round (/ (get-height~ size) scaling)))))
       (get-size)))
     
   
   (method public (get-display-width)
     (if scroller
-        [width (get-display-size)]
+        (get-width~ (get-display-size))
       (get-width)))
     
   
   (method public (get-display-height)
     (if scroller
-        [height (get-display-size)]
+        (get-height~ (get-display-size))
       (get-height)))
   
   
@@ -1422,19 +1422,19 @@
     (if scroller
         (if (not scaled?)
             (+ pos position)
-          (new Point (round (+ [h pos] (/ [h position] scaling))) (round (+ [v pos] (/ [v position] scaling)))))
+          (new Point (round (+ (get-h~ pos) (/ (get-h~ position) scaling))) (round (+ (get-v~ pos) (/ (get-v~ position) scaling)))))
       pos))
 
   
   (method public (h-view->display h <fx>)
     (if scroller
-        (+ h [h (get-scrolled-position)])
+        (+ h (get-h~ (get-scrolled-position)))
       h))
 
   
   (method public (v-view->display v <fx>)
     (if scroller
-        (+ v [v (get-scrolled-position)])
+        (+ v (get-v~ (get-scrolled-position)))
       v))
 
   
@@ -1446,13 +1446,13 @@
   
   (method public (h-display->view h)
     (if scroller
-        (- h [h (get-scrolled-position)])
+        (- h (get-h~ (get-scrolled-position)))
       h))
 
   
   (method public (v-display->view v)
     (if scroller
-        (- v [v (get-scrolled-position)])
+        (- v (get-v~ (get-scrolled-position)))
       v))
     
   
@@ -1477,8 +1477,8 @@
                   ((and (< start-offset 0) (< end-offset 0)) (proc (if (not force-direction) big-range? (eq? force-direction 'head))))
                   (else 0))))))
       (new Point
-        (needed [h start] [h end] (essay context (car context)) [h display-pos] [width display-size] force-horizontal)
-        (needed [v start] [v end] (essay context (cdr context)) [v display-pos] [height display-size] force-vertical))))
+        (needed (get-h~ start) (get-h~ end) (essay context (car context)) (get-h~ display-pos) (get-width~ display-size) force-horizontal)
+        (needed (get-v~ start) (get-v~ end) (essay context (cdr context)) (get-v~ display-pos) (get-height~ display-size) force-vertical))))
   
   
   (method public (horizontal-scroll-needed target direction)
@@ -1717,10 +1717,10 @@
   
   
   (method public virtual (size-change size <Dimension>)
-    (let ((pw (essay previous-size [width previous-size]))
-          (ph (essay previous-size [height previous-size]))
-          (width [width size])
-          (height [height size]))
+    (let ((pw (essay previous-size (get-width~ previous-size)))
+          (ph (essay previous-size (get-height~ previous-size)))
+          (width (get-width~ size))
+          (height (get-height~ size)))
       (set! previous-size size)
       (when pw
         (let ((dh (- width pw))
@@ -2072,7 +2072,7 @@
 
   
   (method (process-drag-move pos)
-    (if (and (eq? self mouse-down-view) (get-draggable?) (or (not Current-Drag-Drop) (eq? self [view source Current-Drag-Drop])))
+    (if (and (eq? self mouse-down-view) (get-draggable?) (or (not Current-Drag-Drop) (eq? self (get-view~ (get-source~ Current-Drag-Drop)))))
         (begin
           (when (allow-start-drag? pos)
             (let ((drag-drop (get-drag-drop)))
@@ -2326,16 +2326,16 @@
   
   (method (in-tooltip? pos)
     (when Current-Tooltip-Context
-      (let ((view [view Current-Tooltip-Context])
-            (rect [bounds Current-Tooltip-Context]))
+      (let ((view (get-view~ Current-Tooltip-Context))
+            (rect (get-bounds~ Current-Tooltip-Context)))
         (when rect
           (in-rect? (acquire~ view self pos) rect)))))
   
   
   (method (process-tooltip pos)
     (unless (is? (get-overlapped) Tooltip)
-      (let ((view [view Current-Tooltip-Context])
-            (rect [bounds Current-Tooltip-Context]))
+      (let ((view (get-view~ Current-Tooltip-Context))
+            (rect (get-bounds~ Current-Tooltip-Context)))
         (when (and rect (not (in-rect? (acquire~ view self pos) rect)))
           (reset-tooltip)))))
   
@@ -2603,17 +2603,17 @@
   
   (method (drag-start pos hotspot drag-drop)
     (set! Current-Drag-Drop drag-drop)
-    (let ((view [view source drag-drop]))
+    (let ((view (get-view~ (get-source~ drag-drop))))
       (set-cursor :no)
       (acquire-focus~ view)
       (acquire-capture~ view)
       @old
-      (let* ((image [image source drag-drop])
+      (let* ((image (get-image~ (get-source~ drag-drop)))
              (portfolio (get-portfolio~ image))
              (image-name (get-image-name~ image)))
-        (ImageList_BeginDrag (get-handle~ portfolio) (get-image~ portfolio image-name) [h hotspot] [v hotspot]))
+        (ImageList_BeginDrag (get-handle~ portfolio) (get-image~ portfolio image-name) (get-h~ hotspot) (get-v~ hotspot)))
       (let ((global (to-desktop~ view pos)))
-        @old(ImageList_DragEnter (get-handle~ (get-desktop)) [h global] [v global])
+        @old(ImageList_DragEnter (get-handle~ (get-desktop)) (get-h~ global) (get-v~ global))
         (hide-drag-image)
         (process-drag-feedback global))))
   
@@ -2621,15 +2621,15 @@
   (method (drag-follow pos)
     (when Current-Drag-Drop
       (let* ((drag-drop Current-Drag-Drop)
-             (view [view source drag-drop])
+             (view (get-view~ (get-source~ drag-drop)))
              (global (to-desktop~ view pos)))
-        @old(ImageList_DragMove [h global] [v global])
+        @old(ImageList_DragMove (get-h~ global) (get-v~ global))
         (process-drag-feedback global))))
   
   
   (method (drag-drop drag-drop pos)
     (drag-end)
-    (when [target drag-drop]
+    (when (get-target~ drag-drop)
       (drop drag-drop pos)))
   
   
@@ -2640,24 +2640,24 @@
         (unhighlight-current drag-drop)
         @old(ImageList_EndDrag)
         @old(ImageList_DragLeave (get-handle~ (get-desktop)))
-        (release-capture~ [view source drag-drop])
+        (release-capture~ (get-view~ (get-source~ drag-drop)))
         (set! Current-Drag-Drop {}))))
   
   
   (method (process-drag-feedback global)
     (let* ((drag-drop Current-Drag-Drop)
-           (current [view drag-drop])
+           (current (get-view~ drag-drop))
            (desktop (get-desktop))
            (view (find-view~ desktop global)))
-      (set! [view drag-drop] view)
+      (set-view~ drag-drop view)
       (when view
         (let* ((local (to-view~ desktop global view))
                (target (call-current-drop~ view drag-drop local)))
-          (when (neq? target [target drag-drop])
+          (when (neq? target (get-target~ drag-drop))
             (set-cursor (if target :move :no))
             (hide-drag-image)
             (unhighlight-current drag-drop)
-            (set! [target drag-drop] target)
+            (set-target~ drag-drop target)
             (when target
               (highlight-current drag-drop view local))
             (when target
@@ -2677,9 +2677,9 @@
   
   
   (method (unhighlight-current drag-drop)
-    (let ((current-target [target drag-drop]))
+    (let ((current-target (get-target~ drag-drop)))
       (when current-target
-        (unhighlight-drop~ [view current-target] drag-drop))))
+        (unhighlight-drop~ (get-view~ current-target) drag-drop))))
   
   
   (method public virtual (highlight-drop drag-drop pos)
@@ -3247,12 +3247,12 @@
       (if (not parent)
           (copy r)
         (let ((sc <fl> (if scaled? scaling 1.0)))
-          (with ((p <Rect> (get-translated-clipper~ parent (- (* h sc) [h position]) (- (* v sc) [v position]))))
+          (with ((p <Rect> (get-translated-clipper~ parent (- (* h sc) (get-h~ position)) (- (* v sc) (get-v~ position)))))
             (when scaled?
-              (set! [left p] (round (/ [left p] sc)))
-              (set! [top p] (round (/ [top p] sc)))
-              (set! [right p] (round (/ [right p] sc)))
-              (set! [bottom p] (round (/ [bottom p] sc))))
+              (set-left~ p (round (/ (get-left~ p) sc)))
+              (set-top~ p (round (/ (get-top~ p) sc)))
+              (set-right~ p (round (/ (get-right~ p) sc)))
+              (set-bottom~ p (round (/ (get-bottom~ p) sc))))
             (rect-intersection p r))))))
 
 
@@ -3280,7 +3280,7 @@
       (when player
         (let* ((root (get-root))
                (delta (- (get-lie) (get-lie~ root))))
-          (offset!~ region [h delta] [v delta])
+          (offset!~ region (get-h~ delta) (get-v~ delta))
           (invalidate-region~ player region true)))))
   
   
@@ -3294,7 +3294,7 @@
                 ;; todo: not using acquire is a potentiel scaling bug...
                 (region
                   (let ((delta (- (get-lie) (get-lie~ root))))
-                    (offset!~ region [h delta] [v delta])
+                    (offset!~ region (get-h~ delta) (get-v~ delta))
                     (redraw-window~ player region: region)))
                 (else
                  (with ((bounds (get-bounds))
@@ -3456,10 +3456,10 @@
   @convert
   (method public virtual (debug-view pos)
     (set-%~ Development self)
-    (set! [%m Development] pos)
-    (set! [%r Development] (get-root))
-    (set! [%h Development] (get-player))
-    (set! [%g Development] (when (is? player View-Host) (get-guest~ player))))
+    (set-%m~ Development pos)
+    (set-%r~ Development (get-root))
+    (set-%h~ Development (get-player))
+    (set-%g~ Development (when (is? player View-Host) (get-guest~ player))))
 
 
   (method public virtual (describe-view pos)
@@ -3492,12 +3492,12 @@
                   (size (get-size~ view)))
               (output~ classes type level)
               (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
-                                          [h lie]
-                                          [v lie]
-                                          [h position]
-                                          [v position]
-                                          [width size]
-                                          [height size]))
+                                          (get-h~ lie)
+                                          (get-v~ lie)
+                                          (get-h~ position)
+                                          (get-v~ position)
+                                          (get-width~ size)
+                                          (get-height~ size)))
               (newline~ display)))))
       (print-to~ display (list classes properties) :console)
       (format :console "{%}")

@@ -445,7 +445,7 @@
 (definition public (debug-self object . rest)
   (unimplemented 'debug-self)
   @Development
-  (when (eq? object [% Development])
+  (when (eq? object (get-%~ Development))
     (apply debug rest)))
 
 
@@ -488,7 +488,7 @@
          (lst '()))
     (while node
       (set! lst (cons node lst))
-      (set! node (essay (is-not? node Execution-Context) [previous-node node])))
+      (set! node (essay (is-not? node Execution-Context) (get-previous-node~ node))))
     lst))
 
 @unimplemented
@@ -503,11 +503,11 @@
   
   (definition (initialize (title: title {}) (details: details '()) (reporter: reporter {}))
     (nextmethod)
-    (set! [title self] title)
-    (set! [details self] details)
-    (set! [reporter self] reporter)
+    (set! title~self title)
+    (set! details~self details)
+    (set! reporter~self reporter)
     (let ((thread (active-thread)))
-      (set! [previous-node self] (get-active-node~ thread))
+      (set! previous-node~self (get-active-node~ thread))
       (set-active-node~ thread self))
     (destroy-mandatory))
   
@@ -541,7 +541,7 @@
   (definition (initialize . rest)
     (apply nextmethod rest)
     (let ((thread (active-thread)))
-      (set! [previous-context self] (get-active-context~ thread))
+      (set! previous-context~self (get-active-context~ thread))
       (set-active-context~ thread self))
     (destroy-mandatory))
   
@@ -579,20 +579,20 @@
   (let ((context (get-execution-context)))
     (if (not context)
         (error "Registering a continuable error outside an execution context is not allowed")
-      (let ((preserved [continuable? context]))
+      (let ((preserved (get-continuable?~ context)))
         (unwind-protect
             (begin
-              (set! [continuable? context] true)
+              (set-continuable?~ context true)
               (catch Continue
                 (proc)))
-          (set! [continuable? context] preserved))))))
+          (set-continuable?~ context preserved))))))
 
 
 (definition public (continuable? exception)
   (unimplemented 'continuable?)
   @call-cc?
   (let ((context (get-execution-context)))
-    (and context [continuable? context])))
+    (and context (get-continuable?~ context))))
 
 
 (definition public (continue exception)
@@ -990,13 +990,13 @@
 (definition public (macro-recording?)
   #f
   @Macro-Recorder
-  (and (in-manifest? 'Macro-Recorder) [Recording? Macro-Recorder]))
+  (and (in-manifest? 'Macro-Recorder) Recording?))
 
 
 (definition public (macro-playing?)
   #f
   @Macro-Recorder
-  (and (in-manifest? 'Macro-Recorder) [Recording-Playing? Macro-Recorder]))
+  (and (in-manifest? 'Macro-Recorder) Recording-Playing?))
 
 
 ;;;
@@ -1381,15 +1381,15 @@
 
 
 (definition public (size-rect size <Dimension>) <Rect>
-  (new Rect 0 0 [width size] [height size]))
+  (new Rect 0 0 (get-width~ size) (get-height~ size)))
 
 
 (definition public (position/size->rect position <Point> size <Dimension>) <Rect>
-  (h/v/size->rect [h position] [v position] size))
+  (h/v/size->rect (get-h~ position) (get-v~ position) size))
 
 
 (definition public (h/v/size->rect h <fx> v <fx> size <Dimension>) <Rect>
-  (new Rect h v (+ h [width size]) (+ v [height size])))
+  (new Rect h v (+ h (get-width~ size)) (+ v (get-height~ size))))
 
 
 (definition public (h/v/width/height h <fx> v <fx> width <fx> height <fx>) <Rect>
@@ -1397,14 +1397,14 @@
 
 
 (definition public (corners->rect top-left <Point> bottom-right <Point>) <Rect>
-  (new Rect [h top-left] [v top-left] [h bottom-right] [v bottom-right]))
+  (new Rect (get-h~ top-left) (get-v~ top-left) (get-h~ bottom-right) (get-v~ bottom-right)))
 
 
 (definition public (normalize-rect rect <Rect>) <Rect>
-  (let ((l [left rect])
-        (t [top rect])
-        (r [right rect])
-        (b [bottom rect]))
+  (let ((l (get-left~ rect))
+        (t (get-top~ rect))
+        (r (get-right~ rect))
+        (b (get-bottom~ rect)))
     (new Rect
       (if (<= l r) l r)
       (if (<= t b) t b)
@@ -1413,7 +1413,7 @@
 
 
 (definition public (rect-position rect <Rect>) <Point>
-  (new Point [left rect] [top rect]))
+  (new Point (get-left~ rect) (get-top~ rect)))
 
 
 (definition public (rect-size rect <Rect>) <Dimension>
@@ -1423,39 +1423,39 @@
 
 
 (definition public (rect-width rect <Rect>) <fx>
-  (- [right rect] [left rect]))
+  (- (get-right~ rect) (get-left~ rect)))
 
 
 (definition public (rect-height rect <Rect>) <fx>
-  (- [bottom rect] [top rect]))
+  (- (get-bottom~ rect) (get-top~ rect)))
 
 
 (definition public (offset-rect rect <Rect> h <fx> v <fx>) <Rect>
   (new Rect
-    (+ [left rect]   h)
-    (+ [top rect]    v)
-    (+ [right rect]  h)
-    (+ [bottom rect] v)))
+    (+ (get-left~ rect)   h)
+    (+ (get-top~ rect)    v)
+    (+ (get-right~ rect)  h)
+    (+ (get-bottom~ rect) v)))
 
 
 (definition public (inflate-rect rect <Rect> w <fx> h <fx>) <Rect>
   (new Rect
-    (- [left rect]   w)
-    (- [top rect]    h)
-    (+ [right rect]  w)
-    (+ [bottom rect] h)))
+    (- (get-left~ rect)   w)
+    (- (get-top~ rect)    h)
+    (+ (get-right~ rect)  w)
+    (+ (get-bottom~ rect) h)))
 
 
 (definition public (expand-rect rect <Rect> l <fx> t <fx> r <fx> b <fx>) <Rect>
   (new Rect
-    (+ [left rect]   l)
-    (+ [top rect]    t)
-    (+ [right rect]  r)
-    (+ [bottom rect] b)))
+    (+ (get-left~ rect)   l)
+    (+ (get-top~ rect)    t)
+    (+ (get-right~ rect)  r)
+    (+ (get-bottom~ rect) b)))
 
 
 (definition public (base-rect rect <Rect>) <Rect>
-  (offset-rect rect (- [left rect]) (- [top rect])))
+  (offset-rect rect (- (get-left~ rect)) (- (get-top~ rect))))
 
 
 (definition public (fit-rects src dst mode)
@@ -1474,59 +1474,59 @@
 (definition public (fit-within outer rect (minimum-size: minimum-size {Dimension 0 0}) (padding: padding 0))
   (let* ((size (rect-size rect))
          (position (rect-position rect))
-         (width  (max [width minimum-size]  (min [width size] (- [width outer] padding padding))))
-         (height (max [height minimum-size] (min [height size](- [height outer] padding padding))))
+         (width  (max (get-width~ minimum-size)  (min (get-width~ size) (- (get-width~ outer) padding padding))))
+         (height (max (get-height~ minimum-size) (min (get-height~ size)(- (get-height~ outer) padding padding))))
          (new-size (new Dimension width height))
          (min-position (new Point padding padding))
-         (max-position (new Point (- [width outer] [width new-size] padding) (- [height outer] [height new-size] padding)))
-         (new-position (new Point (between [h min-position] [h position] [h max-position]) (between [v min-position] [v position] [v max-position]))))
+         (max-position (new Point (- (get-width~ outer) (get-width~ new-size) padding) (- (get-height~ outer) (get-height~ new-size) padding)))
+         (new-position (new Point (between (get-h~ min-position) (get-h~ position) (get-h~ max-position)) (between (get-v~ min-position) (get-v~ position) (get-v~ max-position)))))
     (values new-position new-size)))
 
 
 (definition public (rect-union x <Rect> y <Rect>)
   (new Rect
-    (if (< [left x] [left y]) [left x] [left y])
-    (if (< [top x] [top y]) [top x] [top y])
-    (if (> [right x] [right y]) [right x] [right y])
-    (if (> [bottom x] [bottom y]) [bottom x] [bottom y])))
+    (if (< (get-left~ x) (get-left~ y)) (get-left~ x) (get-left~ y))
+    (if (< (get-top~ x) (get-top~ y)) (get-top~ x) (get-top~ y))
+    (if (> (get-right~ x) (get-right~ y)) (get-right~ x) (get-right~ y))
+    (if (> (get-bottom~ x) (get-bottom~ y)) (get-bottom~ x) (get-bottom~ y))))
 
 
 (definition public (rect-intersection x <Rect> y <Rect>) <Rect>
   (if (rect-intersect? x y)
       (new Rect
-        (if (> [left x] [left y]) [left x] [left y])
-        (if (> [top x] [top y]) [top x] [top y])
-        (if (< [right x] [right y]) [right x] [right y])
-        (if (< [bottom x] [bottom y]) [bottom x] [bottom y]))
+        (if (> (get-left~ x) (get-left~ y)) (get-left~ x) (get-left~ y))
+        (if (> (get-top~ x) (get-top~ y)) (get-top~ x) (get-top~ y))
+        (if (< (get-right~ x) (get-right~ y)) (get-right~ x) (get-right~ y))
+        (if (< (get-bottom~ x) (get-bottom~ y)) (get-bottom~ x) (get-bottom~ y)))
     (new Rect 0 0 0 0)))
 
 
 (definition public (rect-intersect? x <Rect> y <Rect>)
-  (and (< [left x] [right y])
-       (< [top x] [bottom y])
-       (> [right x] [left y])
-       (> [bottom x] [top y])))
+  (and (< (get-left~ x) (get-right~ y))
+       (< (get-top~ x) (get-bottom~ y))
+       (> (get-right~ x) (get-left~ y))
+       (> (get-bottom~ x) (get-top~ y))))
 
 
 (definition public (rects-intersect? rect <Rect> position <Point> size <Dimension>)
-  (and (< [left rect] (+ [h position] [width size]))
-       (< [top rect] (+ [v position] [height size]))
-       (> [right rect] [h position])
-       (> [bottom rect] [v position])))
+  (and (< (get-left~ rect) (+ (get-h~ position) (get-width~ size)))
+       (< (get-top~ rect) (+ (get-v~ position) (get-height~ size)))
+       (> (get-right~ rect) (get-h~ position))
+       (> (get-bottom~ rect) (get-v~ position))))
 
 
 (definition public (in-rect? pt <Point> rect <Rect>)
-  (and (>= [h pt] [left rect])
-       (>= [v pt] [top rect])
-       (<  [h pt] [right rect])
-       (<  [v pt] [bottom rect])))
+  (and (>= (get-h~ pt) (get-left~ rect))
+       (>= (get-v~ pt) (get-top~ rect))
+       (<  (get-h~ pt) (get-right~ rect))
+       (<  (get-v~ pt) (get-bottom~ rect))))
 
 
 (definition public (in-size? pt <Point> size <Dimension>)
-  (and (>= [h pt] 0)
-       (>= [v pt] 0)
-       (<  [h pt] [width size])
-       (<  [v pt] [height size])))
+  (and (>= (get-h~ pt) 0)
+       (>= (get-v~ pt) 0)
+       (<  (get-h~ pt) (get-width~ size))
+       (<  (get-v~ pt) (get-height~ size))))
 
 ;; Nous aurons besoin de notre propre implementation des regions.
 
@@ -1535,34 +1535,34 @@
   @To-be-redone
   (with ((rect (new-rect h
                          v
-                         (+ h [width size])
-                         (+ v [height size]))))
-    (RectInRegion [handle region]
+                         (+ h (get-width~ size))
+                         (+ v (get-height~ size)))))
+    (RectInRegion (get-handle~ region)
                   rect)))
 
 
 (definition public (add-rects r1 r2)
   (new Rect
-    (+ [left r1] [left r2])
-    (+ [top r1] [top r2])
-    (+ [right r1] [right r2])
-    (+ [bottom r1] [bottom r2])))
+    (+ (get-left~ r1) (get-left~ r2))
+    (+ (get-top~ r1) (get-top~ r2))
+    (+ (get-right~ r1) (get-right~ r2))
+    (+ (get-bottom~ r1) (get-bottom~ r2))))
 
 
 (definition public (subtract-rects r1 r2)
   (new Rect
-    (- [left r1] [left r2])
-    (- [top r1] [top r2])
-    (- [right r1] [right r2])
-    (- [bottom r1] [bottom r2])))
+    (- (get-left~ r1) (get-left~ r2))
+    (- (get-top~ r1) (get-top~ r2))
+    (- (get-right~ r1) (get-right~ r2))
+    (- (get-bottom~ r1) (get-bottom~ r2))))
 
 
 (definition public (inverse-rect rect)
   (new Rect
-    [top rect]
-    [left rect]
-    [bottom rect]
-    [right rect]))
+    (get-top~ rect)
+    (get-left~ rect)
+    (get-bottom~ rect)
+    (get-right~ rect)))
 
 
 (definition public (center inner outer)
@@ -1583,8 +1583,8 @@
                 (else (error "Unknown justification: {t}" j)))))))
     (cond ((and (is? inner Dimension) (is? outer Dimension))
            (new Point
-             (proc [width inner] [width outer] (if (pair? justification) (first justification) justification))
-             (proc [height inner] [height outer] (if (pair? justification) (second justification) justification))))
+             (proc (get-width~ inner) (get-width~ outer) (if (pair? justification) (first justification) justification))
+             (proc (get-height~ inner) (get-height~ outer) (if (pair? justification) (second justification) justification))))
           ((and (number? inner) (number? outer))
            (proc inner outer justification))
           (else
@@ -1612,12 +1612,12 @@
 
 (definition public (fit-point pos <Point> alternate <Point> size <Dimension> max <Dimension>)
   (new Point
-    (fit [h pos] [h alternate] [width size] [width max])
-    (fit [v pos] [v alternate] [height size] [height max])))
+    (fit (get-h~ pos) (get-h~ alternate) (get-width~ size) (get-width~ max))
+    (fit (get-v~ pos) (get-v~ alternate) (get-height~ size) (get-height~ max))))
 
 
 (definition public (scalar-product a <Point> b <Point>)
-  (+ (* [h a] [h b]) (* [v a] [v b])))
+  (+ (* (get-h~ a) (get-h~ b)) (* (get-v~ a) (get-v~ b))))
 
 
 (definition public (distance start end)
@@ -1625,13 +1625,13 @@
 
 
 (definition public (line-distance point <Point> start <Point> end <Point>)
-  (let ((divider (sqrt (+ (sqr (- [h start] [h end]))
-                          (sqr (- [v start] [v end]))))))
+  (let ((divider (sqrt (+ (sqr (- (get-h~ start) (get-h~ end)))
+                          (sqr (- (get-v~ start) (get-v~ end)))))))
     (if (= divider 0)
         {}
       (abs
-        (/ (scalar-product (new Point (- [h point] [h start]) (- [v point] [v start]))
-                           (new Point (- [v end] [v start]) (- [h start] [h end])))
+        (/ (scalar-product (new Point (- (get-h~ point) (get-h~ start)) (- (get-v~ point) (get-v~ start)))
+                           (new Point (- (get-v~ end) (get-v~ start)) (- (get-h~ start) (get-h~ end))))
            divider)))))
 
 
@@ -1661,20 +1661,20 @@
 (definition public (scale shape sc)
   (typecase shape
     ((Point)
-     (let ((h <fx> [h shape])
-           (v <fx> [v shape]))
+     (let ((h <fx> (get-h~ shape))
+           (v <fx> (get-v~ shape)))
        (new Point (round (* h sc))
             (round (* v sc)))))
     ((Dimension)
-     (let ((width <fx> [width shape])
-           (height <fx> [height shape]))
+     (let ((width <fx> (get-width~ shape))
+           (height <fx> (get-height~ shape)))
        (new Dimension (round (* width sc))
             (round (* height sc)))))
     ((Rect)
-     (let ((left <fx> [left shape])
-           (top <fx> [top shape])
-           (right <fx> [right shape])
-           (bottom <fx> [bottom shape]))
+     (let ((left <fx> (get-left~ shape))
+           (top <fx> (get-top~ shape))
+           (right <fx> (get-right~ shape))
+           (bottom <fx> (get-bottom~ shape)))
        (new Rect (round (* left sc))
             (round (* top sc))
             (round (* right sc))
@@ -1688,7 +1688,7 @@
 
 
 (definition public (get-area size)
-  (* [width size] [height size]))
+  (* (get-width~ size) (get-height~ size)))
 
 
 ;;;
@@ -1711,11 +1711,11 @@
 
 (definition (previous-cell cell min-cell max-cell direction)
   (case direction
-    ((vertical) (let ((info (loop-cell [col cell] [row cell] [col max-cell] [row max-cell] [col min-cell] [row min-cell] -1 >)))
+    ((vertical) (let ((info (loop-cell (get-col~ cell) (get-row~ cell) (get-col~ max-cell) (get-row~ max-cell) (get-col~ min-cell) (get-row~ min-cell) -1 >)))
                   (when info
                     (receive (major minor) info
                       (new Cell minor major)))))
-    ((horizontal) (let ((info (loop-cell [row cell] [col cell] [row max-cell] [col max-cell] [row min-cell] [col min-cell] -1 >)))
+    ((horizontal) (let ((info (loop-cell (get-row~ cell) (get-col~ cell) (get-row~ max-cell) (get-col~ max-cell) (get-row~ min-cell) (get-col~ min-cell) -1 >)))
                     (when info
                       (receive (major minor) info
                         (new Cell major minor)))))))
@@ -1723,11 +1723,11 @@
 
 (definition (next-cell cell min-cell max-cell direction)
   (case direction
-    ((vertical) (let ((info (loop-cell [col cell] [row cell] [col min-cell] [row min-cell] [col max-cell] [row max-cell] 1 <)))
+    ((vertical) (let ((info (loop-cell (get-col~ cell) (get-row~ cell) (get-col~ min-cell) (get-row~ min-cell) (get-col~ max-cell) (get-row~ max-cell) 1 <)))
                   (when info
                     (receive (major minor) info
                       (new Cell minor major)))))
-    ((horizontal) (let ((info (loop-cell [row cell] [col cell] [row min-cell] [col min-cell] [row max-cell] [col max-cell] 1 <)))
+    ((horizontal) (let ((info (loop-cell (get-row~ cell) (get-col~ cell) (get-row~ min-cell) (get-col~ min-cell) (get-row~ max-cell) (get-col~ max-cell) 1 <)))
                     (when info
                       (receive (major minor) info
                         (new Cell major minor)))))))
@@ -2195,7 +2195,8 @@
          (definition (initialize ,table ,@fields)
            (nextmethod ,table)
            ,@(map (function dynamic (field)
-                    `(set! [,field self] ,field))
+                    (let ((access (string->symbol (format "{a}~self" field))))
+                      `(set! ,access ,field)))
                   fields))))))
 
 

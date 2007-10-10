@@ -144,7 +144,7 @@
   
   
   (method protected virtual (content-rect row cell width height)
-    (let ((h (content-h [level row])))
+    (let ((h (content-h (get-level~ row))))
       (new Rect h 0 width height)))
     
   
@@ -267,7 +267,7 @@
       (let ((color (background-color cell context)))
         (fill-rect~ dc rect color))
       (when (is? cell Tree-Cell)
-        (let ((frame-color [frame-color cell]))
+        (let ((frame-color (get-frame-color~ cell)))
           (when frame-color
             (frame-rect~ dc rect frame-color))))))
   
@@ -276,19 +276,19 @@
     (let ((selected? (getf context :selected?)))
       (if (and selected? (cell-selected? context))
           (selection-color~ parent)
-        (either (essay (is? cell Tree-Cell) [background cell])
+        (either (essay (is? cell Tree-Cell) (get-background~ cell))
                 (get-cell-background~ parent)
                 {Color name: White}))))
   
   
   (method protected (cell-selected? context)
-    (case [selection-mode parent]
+    (case (get-selection-mode~ parent)
       ((cell) (let ((row-rank (getf context :row-rank))
                   (col-rank (column-rank~ parent self)))
               (some? (function dynamic (cell)
-                       (and (= row-rank [row cell])
-                            (= col-rank [col cell])))
-                     [selection parent])))
+                       (and (= row-rank (get-row~ cell))
+                            (= col-rank (get-col~ cell))))
+                     (get-selection~ parent))))
       ((node) (let ((col-rank (column-rank~ parent self)))
               (= col-rank 0)))
       ((row) true)))
@@ -329,7 +329,7 @@
   
   (method protected (justify-title dc width title justification)
     (let ((extent (get-text-extent~ dc title)))
-      (justify [width extent] width justification)))
+      (justify (get-width~ extent) width justification)))
 
   
   (method (draw-sorted dc h v title sorted)

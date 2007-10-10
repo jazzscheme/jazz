@@ -246,8 +246,8 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= [kind entry] 'node) [left entry] [right entry])
-                          (set! [action entry] 'copy-right)
+                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                          (set-action~ entry 'copy-right)
                           (let ((cell (new Cell n $Action-Column)))
                             (invalidate-cell~ tree cell)))))
                     (get-selection~ tree))))))
@@ -266,9 +266,9 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= [kind entry] 'node) [left entry] [right entry])
+                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
                           (let ((cell (new Cell n $Action-Column)))
-                            (set! [action entry] 'copy-left)
+                            (set-action~ entry 'copy-left)
                             (invalidate-cell~ tree cell)))))
                     (get-selection~ tree))))))
   
@@ -284,8 +284,8 @@
         (if (> (length selection) 1)
             (bell)
           (let ((entry (get-user-data~ (get-row~ tree (car selection)))))
-            (when (and (= [kind entry] 'leaf) [left entry] [right entry])
-              (compare-leaves [left entry] [right entry] entry)))))))
+            (when (and (= (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry))
+              (compare-leaves (get-left~ entry) (get-right~ entry) entry)))))))
   
   
   (method (on-no-action evt)
@@ -294,8 +294,8 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= [kind entry] 'node) [left entry] [right entry])
-                          (set! [action entry] {})
+                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                          (set-action~ entry {})
                           (let ((cell (new Cell n $Action-Column)))
                             (invalidate-cell~ tree cell)))))
                     (get-selection~ tree))))))
@@ -346,9 +346,9 @@
             (let* ((row (get-row~ tree n))
                    (entry (get-user-data~ row))
                    (entry-father (get-user-data~ (get-father~ row)))
-                   (left [left entry])
-                   (right [right entry])
-                   (action [action entry]))
+                   (left (get-left~ entry))
+                   (right (get-right~ entry))
+                   (action (get-action~ entry)))
               (when (memq? action '(copy-right copy-left))
                 (case action
                   ((copy-right)
@@ -356,19 +356,19 @@
                        (if left
                            (copy-item left right)
                          (delete-item right))
-                     (let ((new-right (make-item left right-root [right entry-father])))
-                       (set! [right entry] new-right)
+                     (let ((new-right (make-item left right-root (get-right~ entry-father))))
+                       (set-right~ entry new-right)
                        (add-item left new-right))))
                   ((copy-left)
                    (if left
                        (if right
                            (copy-item right left)
                          (delete-item left))
-                     (let ((new-left (make-item right left-root [left entry-father])))
-                       (set! [left entry] new-left)
+                     (let ((new-left (make-item right left-root (get-left~ entry-father))))
+                       (set-left~ entry new-left)
                        (add-item right new-left)))))
                 ;; When copying nodes, treatment is a bit different because they stay showed...
-                (if (and (= [kind entry] 'node)
+                (if (and (= (get-kind~ entry) 'node)
                          (or (and (= action 'copy-right) left (null? right))
                              (and (= action 'copy-left) right (null? left))))
                     (begin
@@ -379,7 +379,7 @@
                         ((copy-left)
                          (let ((cell (new Cell n $Right-Column)))
                            (invalidate-cell~ tree cell))))
-                      (set! [action entry] {})
+                      (set-action~ entry {})
                       (let ((cell (new Cell n $Action-Column)))
                         (invalidate-cell~ tree cell)))
                   (remove-row~ tree row)
@@ -527,10 +527,10 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (= [kind entry] 'node) (null? [left entry]))
+          (if (or (= (get-kind~ entry) 'node) (null? (get-left~ entry)))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl [left entry] workspace: 'groupware)))))))
+              (edit-document~ appl (get-left~ entry) workspace: 'groupware)))))))
   
   
   (method (on-open-blue evt)
@@ -538,10 +538,10 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (= [kind entry] 'node) (null? [right entry]))
+          (if (or (= (get-kind~ entry) 'node) (null? (get-right~ entry)))
               (bell)
             (let ((appl (get-application)))
-              (edit-document~ appl [right entry] workspace: 'groupware)))))))
+              (edit-document~ appl (get-right~ entry) workspace: 'groupware)))))))
   
   
   ;;;
@@ -676,17 +676,17 @@
   
   
   (method (display-entry mode date tree father entry level)
-    (let* ((kind [kind entry])
-           (left [left entry])
-           (right [right entry])
-           (action [action entry])
+    (let* ((kind (get-kind~ entry))
+           (left (get-left~ entry))
+           (right (get-right~ entry))
+           (action (get-action~ entry))
            (ref (either left right))
            (lvl? (and (= kind 'node) left right))
            (name (if (< level 2) (present-root left right) (present-item ref)))
            (image (entry-image entry ref))
            (c0 (new Tree-Node title: name image: image))
-           (c1 (new Tree-Label title: (present-value kind [left-value entry])))
-           (c2 (new Tree-Label title: (present-value kind [right-value entry])))
+           (c1 (new Tree-Label title: (present-value kind (get-left-value~ entry))))
+           (c2 (new Tree-Label title: (present-value kind (get-right-value~ entry))))
            (c3 entry)
            (c4 entry)
            (c5 entry)
@@ -696,7 +696,7 @@
         (ensure-expanded~ tree row))
       (for-each (function dynamic (child)
                   (display-entry mode date tree row child (+ level 1)))
-                [children entry])))
+                (get-children~ entry))))
   
   
   (method (setup-action mode base-date entry)
@@ -706,20 +706,20 @@
   
   
   (method (setup-backup base-date entry)
-    (let ((left        [left entry])
-           (left-value  [left-value entry])
-           (right       [right entry])
-           (right-value [right-value entry]))
-      (set! [action entry] (backup-action base-date left left-value right right-value))))
+    (let ((left        (get-left~ entry))
+          (left-value  (get-left-value~ entry))
+          (right       (get-right~ entry))
+          (right-value (get-right-value~ entry)))
+      (set-action~ entry (backup-action base-date left left-value right right-value))))
   
   
   (method (setup-merge base-date entry)
-    (when (= [kind entry] 'leaf)
-      (let ((left        [left entry])
-             (left-value  [left-value entry])
-             (right       [right entry])
-             (right-value [right-value entry]))
-        (set! [action entry] (merge-action base-date left left-value right right-value)))))
+    (when (= (get-kind~ entry) 'leaf)
+      (let ((left        (get-left~ entry))
+            (left-value  (get-left-value~ entry))
+            (right       (get-right~ entry))
+            (right-value (get-right-value~ entry)))
+        (set-action~ entry (merge-action base-date left left-value right right-value)))))
   
   
   (method (reset-actions)
@@ -768,12 +768,12 @@
           (let* ((row (get-row~ tree n))
                  (entry (get-user-data~ row))
                  (entry-father (get-user-data~ (get-father~ row)))
-                 (left [left entry])
-                 (right [right entry])
-                 (action [action entry]))
+                 (left (get-left~ entry))
+                 (right (get-right~ entry))
+                 (action (get-action~ entry)))
             (case action
-              ((copy-right) (add-action left (either right (make-item left right-root [right entry-father])) builder))
-              ((copy-left)  (add-action right (either left (make-item right left-root [left entry-father])) builder))))
+              ((copy-right) (add-action left (either right (make-item left right-root (get-right~ entry-father))) builder))
+              ((copy-left)  (add-action right (either left (make-item right left-root (get-left~ entry-father))) builder))))
           (increase! n)))))
   
   
@@ -886,11 +886,11 @@
   
   
   (method (comparable? entry)
-    (and (= [kind entry] 'leaf) [left entry] [right entry]))
+    (and (= (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry)))
   
   
   (method (uncomparable? entry)
-    (xor [left entry] [right entry]))
+    (xor (get-left~ entry) (get-right~ entry)))
   
   
   ;;;
@@ -927,7 +927,7 @@
   
   
   (method protected virtual (entry-image entry ref)
-    (case [kind entry]
+    (case (get-kind~ entry)
       ((node) {Bitmap-Resource "TypeFolder"})
       ((leaf) {Bitmap-Resource "TypeFile"})))
   
@@ -960,7 +960,7 @@
   
   (method (draw-cell dc context row cell width height)
     (draw-background dc context row cell width height)
-    (let ((lvl? (and (= [kind cell] 'node) [left cell] [right cell])))
+    (let ((lvl? (and (= (get-kind~ cell) 'node) (get-left~ cell) (get-right~ cell))))
       (when (and (not lvl?) (present? cell))
         (let ((image (present-image cell)))
           (draw-image~ (get-icons-cache~ (get-application)) dc context image (quotient (- width 16) 2) 0)))))
@@ -988,7 +988,7 @@
   
   
   (method (present? cell)
-    [left cell])
+    (get-left~ cell))
   
   
   (method (present-image cell)
@@ -1005,10 +1005,10 @@
   
   (method (draw-cell dc context row cell width height)
     (draw-background dc context row cell width height)
-    (let ((action [action cell]))
+    (let ((action (get-action~ cell)))
       (when action
         (let ((appl (get-application))
-              (image (action-image action [left cell] [right cell])))
+              (image (action-image action (get-left~ cell) (get-right~ cell))))
           (draw-image~ (get-icons-cache~ appl) dc context image (+ (quotient (- width 16) 2) 1) 0))))))
 
 
@@ -1026,7 +1026,7 @@
   
   
   (method (present? cell)
-    [right cell])
+    (get-right~ cell))
   
   
   (method (present-image cell)

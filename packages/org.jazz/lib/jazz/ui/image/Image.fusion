@@ -74,11 +74,11 @@
                       (view-position: view-position {Point 0 0})
                       (view-size: view-size {}))
     (nextmethod)
-    (set! [cache? self] cache?)
-    (set! [portfolio self] portfolio)
-    (set! [image-name self] image-name)
-    (set! [view-position self] view-position)
-    (set! [view-size self] view-size))
+    (set! cache?~self cache?)
+    (set! portfolio~self portfolio)
+    (set! image-name~self image-name)
+    (set! view-position~self view-position)
+    (set! view-size~self view-size))
   
   
   (method public (get-bounds)
@@ -120,12 +120,12 @@
   
   (method public (get-width)
     (cond (portfolio (get-width~ portfolio))
-          (else [width (get-size)])))
+          (else (get-width~ (get-size)))))
   
   
   (method public (get-height)
     (cond (portfolio (get-height~ portfolio))
-          (else [height (get-size)])))
+          (else (get-height~ (get-size)))))
 
 
   ;;;
@@ -134,8 +134,8 @@
 
 
   (method public (draw dc context h v (size: size (get-size error?: false)) (style: style ILD_TRANSPARENT) (enabled?: enabled? true))
-    (let ((h (+ [h view-position] h))
-          (v (+ [v view-position] v)))
+    (let ((h (+ (get-h~ view-position) h))
+          (v (+ (get-v~ view-position) v)))
       (draw-image-aux dc context h v size style enabled?)))
   
   
@@ -184,30 +184,30 @@
     (unimplemented 'draw-source-bitmap)
     @windows-specific
     (when handle
-      (draw-HBITMAP~ Imaging (get-hdc~ dc) handle h v [width size] [height size] NULL)))
+      (draw-HBITMAP~ Imaging (get-hdc~ dc) handle h v (get-width~ size) (get-height~ size) NULL)))
 
 
   (method (draw-centered dc h v)
     (let ((centered (center size view-size)))
-      (when (or (> [width view-size] [width size])
-                (> [height view-size] [height size]))
-        (with ((rect (new Rect 0 0 [width view-size] [height view-size])))
+      (when (or (> (get-width~ view-size) (get-width~ size))
+                (> (get-height~ view-size) (get-height~ size)))
+        (with ((rect (new Rect 0 0 (get-width~ view-size) (get-height~ view-size))))
           (fill-rect~ dc rect {Color name: Black})))
-      (draw-source-bitmap dc [h centered] [v centered])))
+      (draw-source-bitmap dc (get-h~ centered) (get-v~ centered))))
 
 
   (method (draw-tiled dc h v)
     (let ((v 0))
-      (while (< v [height view-size])
+      (while (< v (get-height~ view-size))
         (let ((h 0))
-          (while (< h [width view-size])
+          (while (< h (get-width~ view-size))
             (draw-source-bitmap dc h v)
-            (increase! h [width size])))
-        (increase! v [height size]))))
+            (increase! h (get-width~ size))))
+        (increase! v (get-height~ size)))))
 
 
   (method (draw-positioned dc h v)
-    (draw-source-bitmap dc (+ [h view-position] h) (+ [v view-position] v)))
+    (draw-source-bitmap dc (+ (get-h~ view-position) h) (+ (get-v~ view-position) v)))
   
   
   ;;;
@@ -375,8 +375,8 @@
           (when view-size
             (case mode
               ((filled)
-                (let* ((nw [width view-size])
-                       (nh [height view-size])
+                (let* ((nw (get-width~ view-size))
+                       (nh (get-height~ view-size))
                        (resized-rgb (heap-alloc (* nw nh 3))))
                   (resize-RGB~ Imaging rgb w h resized-rgb nw nh)
                   (heap-free rgb)
@@ -384,8 +384,8 @@
                   (set! w nw)
                   (set! h nh)))
               ((stretched)
-                (let* ((rw (/ [width view-size] w))
-                       (rh (/ [height view-size] h))
+                (let* ((rw (/ (get-width~ view-size) w))
+                       (rh (/ (get-height~ view-size) h))
                        (ratio (if (> rw rh) rh rw))
                        (nw (round (* w ratio)))
                        (nh (round (* h ratio)))

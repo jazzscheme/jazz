@@ -60,13 +60,13 @@
   
   
   (method (get-item-type item)
-    (typecase [moniker item]
+    (typecase (get-moniker~ item)
       ((Directory) 'node)
       ((File) 'leaf)))
   
   
   (method (get-item-content item kind)
-    (let* ((parent [moniker item])
+    (let* ((parent (get-moniker~ item))
            (content (get-content~ parent nodes?: (= kind 'nodes) leaves?: (= kind 'leaves))))
       (if (is? parent Directory-Group)
           (map (function dynamic (moniker index)
@@ -78,16 +78,16 @@
   
   (method (compare-leaf-values parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
     (leaf-feedback leaf1 leaf2 feedback)
-    (let ((value1 [value leaf1])
-          (value2 [value leaf2]))
+    (let ((value1 (get-value~ leaf1))
+          (value2 (get-value~ leaf2)))
       (when (and leaf1 leaf2)
         (cond ((different? leaf1 leaf2 check-algorithm)
                (set-car! has-differences? true)
                (new-entry parent 'leaf leaf1 value1 leaf2 value2))
               ((and (not (different? leaf1 leaf2 'timestamp))
                     (or (null? scanned-date)
-                        (> (get-elapse~ [value leaf1]) (get-elapse~ scanned-date))))
-               (set! scanned-date [value leaf1])
+                        (> (get-elapse~ (get-value~ leaf1)) (get-elapse~ scanned-date))))
+               (set! scanned-date (get-value~ leaf1))
                {})
               (else
                {})))))
@@ -95,15 +95,15 @@
   
   (method (different? leaf1 leaf2 check-algorithm)
     (case (either check-algorithm 'timestamp)
-      ((timestamp) (different-times? [value leaf1] [value leaf2]))
+      ((timestamp) (different-times? (get-value~ leaf1) (get-value~ leaf2)))
       ;; Have to think if this is the right approach to first check the timestamp and just then
       ;; check the content (using this approach it is possible to use 'content on large directories...)
       ((content) (and ;; need this for git and mercurial that don't keep the dates
-                      ;; (different-times? [value leaf1] [value leaf2])
-                   (different-file-content? [moniker leaf1] [moniker leaf2])))
+                      ;; (different-times? (get-value~ leaf1) (get-value~ leaf2))
+                   (different-file-content? (get-moniker~ leaf1) (get-moniker~ leaf2))))
       @w
-      ((whitespace) (and (different-times? [value leaf1] [value leaf2])
-                    (different-file-content-no-whitespace? [moniker leaf1] [moniker leaf2])))))
+      ((whitespace) (and (different-times? (get-value~ leaf1) (get-value~ leaf2))
+                    (different-file-content-no-whitespace? (get-moniker~ leaf1) (get-moniker~ leaf2))))))
   
   
   (method (scanned-values)

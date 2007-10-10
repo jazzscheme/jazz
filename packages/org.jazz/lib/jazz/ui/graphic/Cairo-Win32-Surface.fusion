@@ -66,9 +66,9 @@
   
   (method (initialize surface . rest)
     (nextmethod)  
-    (set! [surface self] surface)
-    (set! [hdc self] (cairo_win32_surface_get_dc surface))
-    (set! [context self] (cairo_create surface))
+    (set! surface~self surface)
+    (set! hdc~self (cairo_win32_surface_get_dc surface))
+    (set! context~self (cairo_create surface))
     (destroy-mandatory))
 
 
@@ -80,7 +80,7 @@
   
   (method public (new-context)
     (destroy-context)
-    (set! [context self] (cairo_create surface)))
+    (set! context (cairo_create surface)))
   
   
   (method protected virtual (destroy-surface)
@@ -121,18 +121,18 @@
   (method public (logical->device shape <Object>)
     (typecase shape
       ((Point)
-       (let ((array (cairo_user_to_device context (exact->inexact [h shape]) (exact->inexact [v shape]))))
+       (let ((array (cairo_user_to_device context (exact->inexact (get-h~ shape)) (exact->inexact (get-v~ shape)))))
          (new Point (double-array-ref array 0) (double-array-ref array 1))))))
   
   
   (method public (device->logical shape <Object>)
     (typecase shape
       ((Point)
-       (let ((array (cairo_device_to_user context (exact->inexact [h shape]) (exact->inexact [v shape]))))
+       (let ((array (cairo_device_to_user context (exact->inexact (get-h~ shape)) (exact->inexact (get-v~ shape)))))
          (new Point (double-array-ref array 0) (double-array-ref array 1))))
       ((Rect)
-       (let ((array1 (cairo_device_to_user context (exact->inexact [left shape]) (exact->inexact [top shape])))
-             (array2 (cairo_device_to_user context (exact->inexact [right shape]) (exact->inexact [bottom shape]))))
+       (let ((array1 (cairo_device_to_user context (exact->inexact (get-left~ shape)) (exact->inexact (get-top~ shape))))
+             (array2 (cairo_device_to_user context (exact->inexact (get-right~ shape)) (exact->inexact (get-bottom~ shape)))))
          (new Rect (double-array-ref array1 0) (double-array-ref array1 1) (double-array-ref array2 0) (double-array-ref array2 1))))))
   
   
@@ -154,21 +154,21 @@
   
   
   (method public (setup-clipper clipper <Rect>)
-    (set! [clipper self] clipper))
+    (set! clipper~self clipper))
   
   
   (method public (get-clipper)
-    (new Rect [left clipper]
-              [top clipper]
-              [right clipper]
-              [bottom clipper]))
+    (new Rect (get-left~ clipper)
+              (get-top~ clipper)
+              (get-right~ clipper)
+              (get-bottom~ clipper)))
   
   
   (method public (set-clipper rect <Rect>)
-    (set! [left clipper] [left rect])
-    (set! [top clipper] [top rect])
-    (set! [right clipper] [right rect])
-    (set! [bottom clipper] [bottom rect])
+    (set-left~ clipper (get-left~ rect))
+    (set-top~ clipper (get-top~ rect))
+    (set-right~ clipper (get-right~ rect))
+    (set-bottom~ clipper (get-bottom~ rect))
     (select-clipper clipper))
 
 
@@ -308,8 +308,8 @@
           (begin
             (if glyph-array
                 (free-glyph-array glyph-array))
-            (set! [glyph-array self] (alloc-glyph-array (* lgt 2)))
-            (set! [array-length self] (* lgt 2))))
+            (set! glyph-array (alloc-glyph-array (* lgt 2)))
+            (set! array-length (* lgt 2))))
       (cairo_font_extents context font-ext)
       (let ((y (+ v (cairo_font_extents_t-ascent-ref font-ext))))
         (let (iterate (i 0))
@@ -347,15 +347,15 @@
   
   
   (method public (fill-region region <Region> color)
-    (loop (for rect in [rectangles region])
+    (loop (for rect in (get-rectangles~ region))
           (do (fill-rect rect color))))
   
   
   (method public (gradient-fill rect <Rect> start end . rest)
     (with-saved-context
       (function dynamic ()
-        (let* ((mid (/ (- [bottom rect] [top rect]) 2))
-               (pattern (cairo_pattern_create_linear (exact->inexact [left rect]) (exact->inexact mid) (exact->inexact [right rect]) (exact->inexact mid))))
+        (let* ((mid (/ (- (get-bottom~ rect) (get-top~ rect)) 2))
+               (pattern (cairo_pattern_create_linear (exact->inexact (get-left~ rect)) (exact->inexact mid) (exact->inexact (get-right~ rect)) (exact->inexact mid))))
           (add-color-stop-rgb pattern 0 start)
           (add-color-stop-rgb pattern 1 end)
           (draw-rectangle rect)
@@ -367,10 +367,10 @@
   (method public (ellipse rect <Rect> outside inside)
     (with-saved-context
       (function dynamic ()  
-        (let ((left [left rect])
-              (right [right rect])
-              (top [top rect])
-              (bottom [bottom rect]))
+        (let ((left (get-left~ rect))
+              (right (get-right~ rect))
+              (top (get-top~ rect))
+              (bottom (get-bottom~ rect)))
           (let ((w (- right left))
                 (h (- bottom top)))
             (cairo_translate context (+ left (/ w 2)) (+ top (/ h 2)))
@@ -421,7 +421,7 @@
                         ((eq? direction 'down) 1)
                         (else 0))))
           (set-color {Color name: Black})
-          (draw-arrow-tip (+ [left rect] 3 dh) (+ [top rect] 4 dv) 3 direction)))))
+          (draw-arrow-tip (+ (get-left~ rect) 3 dh) (+ (get-top~ rect) 4 dv) 3 direction)))))
    
   
   (method public (draw-caption rect <Rect> type (pushed? false))
@@ -433,27 +433,27 @@
         (if pushed?
             (begin
               (draw-edge rect inner: 'sunken edges: 'rectangle)
-              (draw-edge (new Rect (+ [left rect] 1) (+ [top rect] 1) (- [right rect] 1) (- [bottom rect] 1)) outer: 'sunken edges: 'rectangle))
+              (draw-edge (new Rect (+ (get-left~ rect) 1) (+ (get-top~ rect) 1) (- (get-right~ rect) 1) (- (get-bottom~ rect) 1)) outer: 'sunken edges: 'rectangle))
           (draw-edge rect inner: 'raised outer: 'raised edges: 'rectangle))
         (set-color {Color name: Black})
-        (let ((rect (if pushed? (new Rect (+ [left rect] 1) (+ [top rect] 1) (+ [right rect] 1) (+ [bottom rect] 1)) rect)))
+        (let ((rect (if pushed? (new Rect (+ (get-left~ rect) 1) (+ (get-top~ rect) 1) (+ (get-right~ rect) 1) (+ (get-bottom~ rect) 1)) rect)))
           (cond ((eq? type 'close)
                  (set-line-width 1)
-                 (move-to (+ [left rect] 4) (+ [top rect] 3))
-                 (line-to (- [right rect] 4) (- [bottom rect] 4))
-                 (move-to (- [right rect] 4) (+ [top rect] 3))
-                 (line-to (+ [left rect] 4) (- [bottom rect] 4))
+                 (move-to (+ (get-left~ rect) 4) (+ (get-top~ rect) 3))
+                 (line-to (- (get-right~ rect) 4) (- (get-bottom~ rect) 4))
+                 (move-to (- (get-right~ rect) 4) (+ (get-top~ rect) 3))
+                 (line-to (+ (get-left~ rect) 4) (- (get-bottom~ rect) 4))
                  (stroke))
                 ((eq? type 'minimize)
                  (set-line-width 1)
-                 (move-to (+ [left rect] 4) (- [bottom rect] 5))
-                 (line-to (- [right rect] 6) (- [bottom rect] 5))
-                 (move-to (+ [left rect] 4) (- [bottom rect] 4))
-                 (line-to (- [right rect] 6) (- [bottom rect] 4))
+                 (move-to (+ (get-left~ rect) 4) (- (get-bottom~ rect) 5))
+                 (line-to (- (get-right~ rect) 6) (- (get-bottom~ rect) 5))
+                 (move-to (+ (get-left~ rect) 4) (- (get-bottom~ rect) 4))
+                 (line-to (- (get-right~ rect) 6) (- (get-bottom~ rect) 4))
                  (stroke))
                 ((eq? type 'restore)
                  (set-line-width 1)
-                 (move-to (+ [left rect] 3) (- [bottom rect] 3 0.5))
+                 (move-to (+ (get-left~ rect) 3) (- (get-bottom~ rect) 3 0.5))
                  (line-to-rel 5.5 0)
                  (line-to-rel 0 -4)
                  (line-to-rel -5.5 0)
@@ -461,7 +461,7 @@
                  (line-to-rel 6 0)
                  (move-to-rel -5.5 0)
                  (line-to-rel 0 5)
-                 (move-to (+ [left rect] 8) (- [bottom rect] 6 0.5))
+                 (move-to (+ (get-left~ rect) 8) (- (get-bottom~ rect) 6 0.5))
                  (line-to-rel 2.5 0)
                  (line-to-rel 0 -4)
                  (line-to-rel -5.5 0)
@@ -471,7 +471,7 @@
                  (line-to-rel 0 3)             
                  (stroke))
                 ((eq? type 'maximize)
-                 (move-to (+ [left rect] 3) (- [bottom rect] 3 0.5))
+                 (move-to (+ (get-left~ rect) 3) (- (get-bottom~ rect) 3 0.5))
                  (line-to-rel 8.5 0)
                  (line-to-rel 0 -7)
                  (line-to-rel -8.5 0)
@@ -485,9 +485,9 @@
   (method public (draw-radio-button rect <Rect> (inactive?: inactive? false) (selected?: selected? false))
     (with-saved-context
       (function dynamic ()
-        (let ((x (+ [left rect] (/ (- [right rect] [left rect]) 2)))
-              (y (+ [top rect] (/ (- [bottom rect] [top rect]) 2)))
-              (r (/ (- [right rect] [left rect]) 2)))
+        (let ((x (+ (get-left~ rect) (/ (- (get-right~ rect) (get-left~ rect)) 2)))
+              (y (+ (get-top~ rect) (/ (- (get-bottom~ rect) (get-top~ rect)) 2)))
+              (r (/ (- (get-right~ rect) (get-left~ rect)) 2)))
           (cairo_arc context x y r 0 (* 2 M_PI))
           (set-color (if inactive? 
                          {Color name: Light-Background}
@@ -519,26 +519,26 @@
         (if pushed?
             (begin
               (set-color {Color name: Draw-Edge-Dark})
-              (line [left rect] [top rect] (- [right rect] 1) [top rect])
-              (line [left rect] [top rect] [left rect] (- [bottom rect] 1))
+              (line (get-left~ rect) (get-top~ rect) (- (get-right~ rect) 1) (get-top~ rect))
+              (line (get-left~ rect) (get-top~ rect) (get-left~ rect) (- (get-bottom~ rect) 1))
               (set-color {Color name: Draw-Edge-Medium})
-              (line (+ [left rect] 1) (+ [top rect] 1) (- [right rect] 2) (+ [top rect] 1))
-              (line (+ [left rect] 1) (+ [left rect] 1) (+ [left rect] 1) (- [bottom rect] 2))
+              (line (+ (get-left~ rect) 1) (+ (get-top~ rect) 1) (- (get-right~ rect) 2) (+ (get-top~ rect) 1))
+              (line (+ (get-left~ rect) 1) (+ (get-left~ rect) 1) (+ (get-left~ rect) 1) (- (get-bottom~ rect) 2))
               (set-color {Color name: White})
-              (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])
-              (line (- [right rect] 1) (- [bottom rect] 1) [left rect] (- [bottom rect] 1)))
+              (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect))
+              (line (- (get-right~ rect) 1) (- (get-bottom~ rect) 1) (get-left~ rect) (- (get-bottom~ rect) 1)))
           (set-color {Color name: White})
-          (move-to [left rect] (- [bottom rect] 1))
-          (line-to-no-stroke [left rect] [top rect])
-          (line-to-no-stroke (- [right rect] 1) [top rect])
+          (move-to (get-left~ rect) (- (get-bottom~ rect) 1))
+          (line-to-no-stroke (get-left~ rect) (get-top~ rect))
+          (line-to-no-stroke (- (get-right~ rect) 1) (get-top~ rect))
           (stroke)
           (set-line-width 1)
           (set-color {Color name: Draw-Edge-Dark})
-          (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])
-          (line (- [right rect] 1) (- [bottom rect] 1) [left rect] (- [bottom rect] 1))
+          (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect))
+          (line (- (get-right~ rect) 1) (- (get-bottom~ rect) 1) (get-left~ rect) (- (get-bottom~ rect) 1))
           (set-color {Color name: Draw-Edge-Medium})
-          (line (- [right rect] 2) (+ [top rect] 1) (- [right rect] 2) (- [bottom rect] 1))
-          (line (- [right rect] 2) (- [bottom rect] 2) (+ [left rect] 1) (- [bottom rect] 2))))))
+          (line (- (get-right~ rect) 2) (+ (get-top~ rect) 1) (- (get-right~ rect) 2) (- (get-bottom~ rect) 1))
+          (line (- (get-right~ rect) 2) (- (get-bottom~ rect) 2) (+ (get-left~ rect) 1) (- (get-bottom~ rect) 2))))))
      
   
   ;;;
@@ -553,7 +553,7 @@
                            (destination-size: destination-size {}))
     (let ((dest-context (get-context~ dest-dc)))
       (cairo_save dest-context)
-      (cairo_set_source_surface dest-context (get-surface) (exact->inexact [h destination]) (exact->inexact [v destination]))
+      (cairo_set_source_surface dest-context (get-surface) (exact->inexact (get-h~ destination)) (exact->inexact (get-v~ destination)))
       (paint~ dest-dc)
       (cairo_restore dest-context)))
   
@@ -582,74 +582,74 @@
             (cond ((eq? inner 'raised)
                    (set-color {Color name: White})
                    (if outer                
-                       (line [left rect] (+ [top rect] 1) [right rect] (+ [top rect] 1))
-                     (line [left rect] [top rect] [right rect] [top rect])))
+                       (line (get-left~ rect) (+ (get-top~ rect) 1) (get-right~ rect) (+ (get-top~ rect) 1))
+                     (line (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-top~ rect))))
                   ((eq? inner 'sunken)
                    (set-color {Color name: Draw-Edge-Dark})
                    (if outer                
-                       (line [left rect] (+ [top rect] 1) [right rect] (+ [top rect] 1))
-                     (line [left rect] [top rect] [right rect] [top rect])))))
+                       (line (get-left~ rect) (+ (get-top~ rect) 1) (get-right~ rect) (+ (get-top~ rect) 1))
+                     (line (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-top~ rect))))))
           (when (memq? 'left edges)
             (cond ((eq? inner 'raised)
                    (set-color {Color name: White})
                    (if outer                
-                       (line (+ [left rect] 1) [top rect] (+ [left rect] 1) [bottom rect])
-                     (line [left rect] [top rect] [left rect] [bottom rect])))
+                       (line (+ (get-left~ rect) 1) (get-top~ rect) (+ (get-left~ rect) 1) (get-bottom~ rect))
+                     (line (get-left~ rect) (get-top~ rect) (get-left~ rect) (get-bottom~ rect))))
                   ((eq? inner 'sunken)
                    (set-color {Color name: Draw-Edge-Dark})
                    (if outer                
-                       (line (+ [left rect] 1) [top rect] (+ [left rect] 1) [bottom rect])
-                     (line [left rect] [top rect] [left rect] [bottom rect])))))
+                       (line (+ (get-left~ rect) 1) (get-top~ rect) (+ (get-left~ rect) 1) (get-bottom~ rect))
+                     (line (get-left~ rect) (get-top~ rect) (get-left~ rect) (get-bottom~ rect))))))
           (when (memq? 'right edges)
             (cond ((eq? inner 'raised)
                    (set-color {Color name: Draw-Edge-Medium})
                    (if outer                
-                       (line (- [right rect] 2) [top rect] (- [right rect] 2) [bottom rect])
-                     (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])))
+                       (line (- (get-right~ rect) 2) (get-top~ rect) (- (get-right~ rect) 2) (get-bottom~ rect))
+                     (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect))))
                   ((eq? inner 'sunken)
                    (set-color (new Color red: 241 green: 239 blue: 226))
                    (if outer               
-                       (line (- [right rect] 2) [top rect] (- [right rect] 2) [bottom rect])
-                     (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect])))))
+                       (line (- (get-right~ rect) 2) (get-top~ rect) (- (get-right~ rect) 2) (get-bottom~ rect))
+                     (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect))))))
           (when (memq? 'bottom edges)
             (cond ((eq? inner 'raised)
                    (set-color {Color name: Draw-Edge-Medium})
                    (if outer                
-                       (line [left rect] (- [bottom rect] 2) [right rect] (- [bottom rect] 2))
-                     (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1))))
+                       (line (get-left~ rect) (- (get-bottom~ rect) 2) (get-right~ rect) (- (get-bottom~ rect) 2))
+                     (line (get-left~ rect) (- (get-bottom~ rect) 1) (get-right~ rect) (- (get-bottom~ rect) 1))))
                   ((eq? inner 'sunken)
                    (set-color {Color name: Draw-Edge-Light})
                    (if outer                
-                       (line [left rect] (- [bottom rect] 2) [right rect] (- [bottom rect] 2))
-                     (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1))))))
+                       (line (get-left~ rect) (- (get-bottom~ rect) 2) (get-right~ rect) (- (get-bottom~ rect) 2))
+                     (line (get-left~ rect) (- (get-bottom~ rect) 1) (get-right~ rect) (- (get-bottom~ rect) 1))))))
           (when (memq? 'top edges)
             (cond ((eq? outer 'raised)
                    (set-color {Color name: Draw-Edge-Light})
-                   (line [left rect] [top rect] [right rect] [top rect]))
+                   (line (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-top~ rect)))
                   ((eq? outer 'sunken)
                    (set-color {Color name: Draw-Edge-Medium})
-                   (line [left rect] [top rect] [right rect] [top rect]))))
+                   (line (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-top~ rect)))))
           (when (memq? 'left edges)
             (cond ((eq? outer 'raised)
                    (set-color {Color name: Draw-Edge-Light})
-                   (line [left rect] [top rect] [left rect] [bottom rect]))
+                   (line (get-left~ rect) (get-top~ rect) (get-left~ rect) (get-bottom~ rect)))
                   ((eq? outer 'sunken)
                    (set-color {Color name: Draw-Edge-Medium})
-                   (line [left rect] [top rect] [left rect] [bottom rect]))))
+                   (line (get-left~ rect) (get-top~ rect) (get-left~ rect) (get-bottom~ rect)))))
           (when (memq? 'right edges)
             (cond ((eq? outer 'raised)
                    (set-color {Color name: Draw-Edge-Dark})
-                   (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect]))
+                   (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect)))
                   ((eq? outer 'sunken)
                    (set-color {Color name: White})
-                   (line (- [right rect] 1) [top rect] (- [right rect] 1) [bottom rect]))))
+                   (line (- (get-right~ rect) 1) (get-top~ rect) (- (get-right~ rect) 1) (get-bottom~ rect)))))
           (when (memq? 'bottom edges)
             (cond ((eq? outer 'raised)
                    (set-color {Color name: Draw-Edge-Dark})
-                   (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1)))
+                   (line (get-left~ rect) (- (get-bottom~ rect) 1) (get-right~ rect) (- (get-bottom~ rect) 1)))
                   ((eq? outer 'sunken)
                    (set-color {Color name: White})
-                   (line [left rect] (- [bottom rect] 1) [right rect] (- [bottom rect] 1)))))))))
+                   (line (get-left~ rect) (- (get-bottom~ rect) 1) (get-right~ rect) (- (get-bottom~ rect) 1)))))))))
   
 
   (method public (fill-rect rect <Rect> color)
@@ -675,14 +675,14 @@
     (with-saved-context
       (function dynamic ()
         (set-pen (new Pen color: {Color name: Light-Background}))
-        (move-to [left rect] (- [bottom rect] 1))
-        (line-to-no-stroke [left rect] [top rect])
-        (line-to-no-stroke (- [right rect] 1) [top rect])
+        (move-to (get-left~ rect) (- (get-bottom~ rect) 1))
+        (line-to-no-stroke (get-left~ rect) (get-top~ rect))
+        (line-to-no-stroke (- (get-right~ rect) 1) (get-top~ rect))
         (stroke)
         (set-pen (new Pen color: {Color name: Dark}))
-        (move-to (- [right rect] 1) [top rect])
-        (line-to-no-stroke (- [right rect] 1) (- [bottom rect] 1))
-        (line-to [left rect] (- [bottom rect] 1)))))
+        (move-to (- (get-right~ rect) 1) (get-top~ rect))
+        (line-to-no-stroke (- (get-right~ rect) 1) (- (get-bottom~ rect) 1))
+        (line-to (get-left~ rect) (- (get-bottom~ rect) 1)))))
   
   
   (method public (draw-arrow-tip h <fx> v <fx> size direction)
@@ -754,10 +754,10 @@
         (set-color color)
         (draw-rectangle 
           (new Rect 
-            (+ [left rect] 0.5)
-            (+ [top rect] 0.5)
-            (- [right rect] 0.5)
-            (- [bottom rect] 0.5)))
+            (+ (get-left~ rect) 0.5)
+            (+ (get-top~ rect) 0.5)
+            (- (get-right~ rect) 0.5)
+            (- (get-bottom~ rect) 0.5)))
         (stroke))))
   
   
@@ -864,10 +864,10 @@
   
   
   (method public (draw-rectangle rect <Rect>)
-    (let ((x [left rect])
-          (y [top rect])
-          (w (- [right rect] [left rect]))
-          (h (- [bottom rect] [top rect])))
+    (let ((x (get-left~ rect))
+          (y (get-top~ rect))
+          (w (- (get-right~ rect) (get-left~ rect)))
+          (h (- (get-bottom~ rect) (get-top~ rect))))
       (cairo_rectangle context
                       (exact->inexact x)
                       (exact->inexact y)
@@ -876,9 +876,9 @@
   
   
   (method public (set-color color <Color>)    
-    (let ((r (/ [red color] 255.0))
-          (g (/ [green color] 255.0))
-          (b (/ [blue color] 255.0)))  
+    (let ((r (/ (get-red~ color) 255.0))
+          (g (/ (get-green~ color) 255.0))
+          (b (/ (get-blue~ color) 255.0)))  
       (cairo_set_source_rgb context 
                             (exact->inexact r) 
                             (exact->inexact g) 
@@ -886,9 +886,9 @@
   
   
   (method (add-color-stop-rgb pattern offset color)
-    (let ((red (/ [red color] 255))
-          (green (/ [green color] 255))
-          (blue (/ [blue color] 255)))
+    (let ((red (/ (get-red~ color) 255))
+          (green (/ (get-green~ color) 255))
+          (blue (/ (get-blue~ color) 255)))
       (cairo_pattern_add_color_stop_rgb pattern (exact->inexact offset) (exact->inexact red) (exact->inexact green) (exact->inexact blue))))
   
   

@@ -60,11 +60,11 @@
   
   
   (method public (apply-style start <Cell> end <Cell> name/style <Object>)
-    (let ((sr [row start])
-          (er [row end])
+    (let ((sr (get-row~ start))
+          (er (get-row~ end))
           (style (get-style~ text name/style)))
       (if (= sr er)
-          (add-run sr [col start] [col end] style)
+          (add-run sr (get-col~ start) (get-col~ end) style)
         (add-runs start end style))))
   
   
@@ -75,7 +75,7 @@
       (set! col 0)
       (reset~ runs))
     (let* ((paragraph <Paragraph> (get-paragraph~ text row))
-           (string [string paragraph]))
+           (string (get-string~ paragraph)))
       (when (> start col)
         (let ((from 0))
           (for-each (function dynamic (run)
@@ -96,13 +96,13 @@
   
   
   (method (add-runs start <Cell> end <Cell> style <Object>)
-    (let ((beginning [row start])
-          (limit [row end]))
+    (let ((beginning (get-row~ start))
+          (limit (get-row~ end)))
       (loop (for n from beginning to limit)
             (let ((paragraph <Paragraph> (get-paragraph~ text n)))
-              (cond ((= n beginning) (add-run n [col start] (length [string paragraph]) style))
-                    ((= n limit) (add-run n 0 [col end] style))
-                    (else (add-run n 0 (length [string paragraph]) style)))))))
+              (cond ((= n beginning) (add-run n (get-col~ start) (length (get-string~ paragraph)) style))
+                    ((= n limit) (add-run n 0 (get-col~ end) style))
+                    (else (add-run n 0 (length (get-string~ paragraph)) style)))))))
   
   
   (method (put-run string <Sequence> style <Object>)
@@ -112,10 +112,10 @@
   (method public (finish-current)
     (when (and row runs)
       (let* ((paragraph <Paragraph> (get-paragraph~ text row))
-             (string [string paragraph])
+             (string (get-string~ paragraph))
              (len (length string)))
         (when (> len col)
           (put~ runs (new Run (subseq! string col len) (get-style~ text 'Default))))
         (let ((runs (get-output~ runs)))
-          (set! [runs paragraph] runs)
+          (set-runs~ paragraph runs)
           (wrap-paragraph~ text {} paragraph)))))))

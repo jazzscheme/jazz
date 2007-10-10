@@ -103,7 +103,7 @@
   
   (method (mouse-down pos)
     (nextmethod pos)
-    (user-message "Color: {s}" (line-color [row (get-start)])))
+    (user-message "Color: {s}" (line-color (get-row~ (get-start)))))
   
   
   (method (line-color row)
@@ -117,8 +117,8 @@
                  (style (get-style~ run)))
             (when (is? style Text-Style)
               (let ((color (get-color~ style)))
-                (cond ((eq? color [Green-Color guest]) 'green)
-                      ((eq? color [Blue-Color guest]) 'blue)
+                (cond ((eq? color Green-Color) 'green)
+                      ((eq? color Blue-Color) 'blue)
                       (else {})))))))))
   
   
@@ -142,9 +142,9 @@
            (guest (get-guest~ frame))
            (run (get-run row)))
       (when run
-        (case [color run]
-          ((green) (new Compare-Diff run (get-run (+ [end run] 1))))
-          ((blue)  (new Compare-Diff (get-run (- [start run] 1)) run))))))
+        (case (get-color~ run)
+          ((green) (new Compare-Diff run (get-run (+ (get-end~ run) 1))))
+          ((blue)  (new Compare-Diff (get-run (- (get-start~ run) 1)) run))))))
   
   
   (method protected (select-diff diff default-selection)
@@ -160,21 +160,21 @@
   (method protected (goto-next-diff)
     (let ((old-selection selection))
       (set-caret (move-forward (get-end) false))
-      (select-diff (if (= old-selection selection) {} (next-diff [row (get-end)])) old-selection)))
+      (select-diff (if (= old-selection selection) {} (next-diff (get-row~ (get-end)))) old-selection)))
   
   
   (method protected (goto-previous-diff)
     (let ((old-selection selection))
       (set-caret (move-backward (get-start) false))
-      (select-diff (if (= old-selection selection) {} (previous-diff [row (get-start)])) old-selection)))
+      (select-diff (if (= old-selection selection) {} (previous-diff (get-row~ (get-start)))) old-selection)))
   
   
   (method protected (goto-first-diff)
-    (select-diff (next-diff [row (text-beginning)]) selection))
+    (select-diff (next-diff (get-row~ (text-beginning))) selection))
   
   
   (method protected (goto-last-diff)
-    (select-diff (previous-diff [row (text-ending)]) selection))
+    (select-diff (previous-diff (get-row~ (text-ending))) selection))
   
   
   (method (next-diff row)
@@ -206,43 +206,43 @@
   
   (method protected (keep-green)
     (let* ((pos (get-start))
-           (diff (get-diff [row pos])))
+           (diff (get-diff (get-row~ pos))))
       (if (null? diff)
           (bell)
-        (when [blue diff]
-          (replace-text (get-range~ [blue diff] self) '("")))
-        (when [green diff]
+        (when (get-blue~ diff)
+          (replace-text (get-range~ (get-blue~ diff) self) '("")))
+        (when (get-green~ diff)
           (for-each (function dynamic (n)
                       (uncolorize-row n))
-                    (naturals [start green diff] (+ [end green diff] 1))))
-        (if (null? [green diff])
-            (set-caret (previous-end-of-line [row pos]))
-          (let ((range (get-range~ [green diff] self)))
-            (set-selection (new Range [start range] (previous-end-of-line [row end range]))))))))
+                    (naturals (get-start~ (get-green~ diff)) (+ (get-end~ (get-green~ diff)) 1))))
+        (if (null? (get-green~ diff))
+            (set-caret (previous-end-of-line (get-row~ pos)))
+          (let ((range (get-range~ (get-green~ diff) self)))
+            (set-selection (new Range (get-start~ range) (previous-end-of-line (get-row~ (get-end~ range))))))))))
   
   
   (method protected (keep-blue)
     (let* ((pos (get-start))
-           (diff (get-diff [row pos])))
+           (diff (get-diff (get-row~ pos))))
       (if (null? diff)
           (bell)
-        (when [blue diff]
+        (when (get-blue~ diff)
           (for-each (function dynamic (n)
                       (uncolorize-row n))
-                    (naturals [start blue diff] (+ [end blue diff] 1))))
-        (when [green diff]
-          (replace-text (get-range~ [green diff] self) '("")))
-        (if (null? [blue diff])
+                    (naturals (get-start~ (get-blue~ diff)) (+ (get-end~ (get-blue~ diff)) 1))))
+        (when (get-green~ diff)
+          (replace-text (get-range~ (get-green~ diff) self) '("")))
+        (if (null? (get-blue~ diff))
             (set-caret pos)
-          (let ((range (get-range~ [blue diff] self))
-                (row-count (if (null? [green diff]) 0 (get-height~ [green diff] self))))
-            (set-selection (new Range (new Cell (- [row start range] row-count) 0)
-                                      (previous-end-of-line (- [row end range] row-count)))))))))
+          (let ((range (get-range~ (get-blue~ diff) self))
+                (row-count (if (null? (get-green~ diff)) 0 (get-height~ (get-green~ diff) self))))
+            (set-selection (new Range (new Cell (- (get-row~ (get-start~ range)) row-count) 0)
+                                      (previous-end-of-line (- (get-row~ (get-end~ range)) row-count)))))))))
   
   
   (method protected (keep-both)
     (let* ((pos (get-start))
-           (diff (get-diff [row pos])))
+           (diff (get-diff (get-row~ pos))))
       (if (null? diff)
           (bell)
         (for-each (function dynamic (n)

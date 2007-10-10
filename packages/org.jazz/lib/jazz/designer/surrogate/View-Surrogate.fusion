@@ -219,7 +219,7 @@
                (rect (position/size->rect pos size)))
           (frame-rect~ dc rect {Color name: Black})
           (fill-rect~ dc (inflate-rect rect -1 -1) {Color name: White})
-          (draw-text~ dc (+ [h pos] 3) (+ [v pos] 2) string)))))
+          (draw-text~ dc (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string)))))
   
   
   (method (draw-surrogate-frame dc)
@@ -237,10 +237,10 @@
            (outside (acquire~ editor client bounds))
            (clipper (get-view-clipper~ client))
            (acquired (acquire~ (get-root~ editor) client clipper)))
-      (let ((l [left outside])
-            (t [top outside])
-            (r (- [right outside] 1))
-            (b (- [bottom outside] 1)))
+      (let ((l (get-left~ outside))
+            (t (get-top~ outside))
+            (r (- (get-right~ outside) 1))
+            (b (- (get-bottom~ outside) 1)))
         (set-pen~ dc (selected-pen rank))
         (line~ dc l t r t)
         (line~ dc r t r b)
@@ -338,14 +338,14 @@
   
   (method (on-drag-move evt)
     (let ((pos (get-position~ evt)))
-      (if [rubber-band? editor]
+      (if (get-rubber-band?~ editor)
           (process-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
         (drag-move pos))))
   
   
   (method (on-drag-up evt)
     (let ((pos (get-position~ evt)))
-      (if [rubber-band? editor]
+      (if (get-rubber-band?~ editor)
           (end-rubber-band~ editor (acquire~ (get-client~ editor) client pos))
         (drag-up pos))))
   
@@ -423,8 +423,8 @@
            (set! start-position {})
            (let* ((old-pos (from-desktop~ client old-position))
                   (delta (- pos old-pos))
-                  (dh [h delta])
-                  (dv [v delta]))
+                  (dh (get-h~ delta))
+                  (dv (get-v~ delta)))
              (if (null? current-part)
                  (move-selection dh dv NoModifiers)
                (size-client dh dv current-part
@@ -530,14 +530,14 @@
             (outer (outer-client~ (get-surrogate~ client))))
         (when (move-client?~ (get-surrogate~ outer))
           (let ((pos (get-position~ outer)))
-            (set-property~ designer outer position: (new Point (+ [h pos] dh) (+ [v pos] dv))))))))
+            (set-property~ designer outer position: (new Point (+ (get-h~ pos) dh) (+ (get-v~ pos) dv))))))))
 
 
   (method (size-client dwidth dheight)
     (when (or (/= dwidth 0) (/= dheight 0))
       (let* ((outer (outer-client))
              (size (get-size~ outer))
-             (new-size (new Dimension (+ [width size] dwidth) (+ [height size] dheight))))
+             (new-size (new Dimension (+ (get-width~ size) dwidth) (+ (get-height~ size) dheight))))
         (with-closed ((region (border-region)))
           (set-property~ (get-designer~ editor) outer size: new-size)
           (invalidate-region~ outer region))

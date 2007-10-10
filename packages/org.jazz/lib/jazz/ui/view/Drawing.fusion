@@ -57,8 +57,8 @@
 (definition (get-offscreen dc <Surface> width <fx> height <fx>)
   (if (and offscreen
            (let ((size (get-size~ offscreen)))
-             (and (<= width [width size])
-                  (<= height [height size]))))
+             (and (<= width (get-width~ size))
+                  (<= height (get-height~ size)))))
       (begin
         (new-context~ offscreen)
         offscreen)
@@ -87,8 +87,8 @@
   (method public (get-effect-offscreen dc <Surface> width <fx> height <fx>)
     (if (and effect-offscreen
              (let ((size (get-size~ effect-offscreen)))
-               (and (<= width [width size])
-                    (<= height [height size]))))
+               (and (<= width (get-width~ size))
+                    (<= height (get-height~ size)))))
         effect-offscreen
       (when effect-offscreen
         (close~ effect-offscreen))
@@ -132,7 +132,7 @@
   (method protected virtual (get-lie-parent h <fl> v <fl> sc <fl>)
     (if (not parent)
         (values h v sc)
-      (get-lie-parent~ parent (+ [h position] h) (+ [v position] v) sc)))
+      (get-lie-parent~ parent (+ (get-h~ position) h) (+ (get-v~ position) v) sc)))
   
   
   (method public (set-lie lie <Point>)
@@ -169,15 +169,15 @@
   (method public (acquire-delta dh <fl> dv <fl> sc <fl> shape)
     (typecase shape
       ((Point)
-       (let ((h <fx> [h shape])
-             (v <fx> [v shape]))
+       (let ((h <fx> (get-h~ shape))
+             (v <fx> (get-v~ shape)))
          (new Point (round (+ dh (* h sc)))
                     (round (+ dv (* v sc))))))
       ((Rect)
-       (let ((left <fx> [left shape])
-             (top <fx> [top shape])
-             (right <fx> [right shape])
-             (bottom <fx> [bottom shape]))
+       (let ((left <fx> (get-left~ shape))
+             (top <fx> (get-top~ shape))
+             (right <fx> (get-right~ shape))
+             (bottom <fx> (get-bottom~ shape)))
          (new Rect (round (+ dh (* left sc)))
                    (round (+ dv (* top sc)))
                    (round (+ dh (* right sc)))
@@ -210,7 +210,7 @@
   
 
   (method public (get-width)
-    [width size])
+    (get-width~ size))
   
   
   (method public (set-width width <fx>)
@@ -218,7 +218,7 @@
 
 
   (method public (get-height) <fx>
-    [height size])
+    (get-height~ size))
   
   
   (method public (set-height height <fx>)
@@ -226,19 +226,19 @@
   
   
   (method public (get-left)
-    [h position])
+    (get-h~ position))
   
   
   (method public (get-top)
-    [v position])
+    (get-v~ position))
   
   
   (method public (get-right)
-    (+ [h position] [width size]))
+    (+ (get-h~ position) (get-width~ size)))
   
   
   (method public (get-bottom)
-    (+ [v position] [height size]))
+    (+ (get-v~ position) (get-height~ size)))
 
   
   (method public (get-bounds)
@@ -301,9 +301,9 @@
           (let ((horz (function dynamic (lh <fx>) (round (+ (* (- lh sh) sc) sh))))
                 (vert (function dynamic (lv <fx>) (round (+ (* (- lv sv) sc) sv)))))
             (typecase shape
-              ((Point) (new Point (horz [h shape]) (vert [v shape])))
-              ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
-              ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+              ((Point) (new Point (horz (get-h~ shape)) (vert (get-v~ shape))))
+              ((Dimension) (new Dimension (horz (get-width~ shape)) (vert (get-height~ shape))))
+              ((Rect) (new Rect (horz (get-left~ shape)) (vert (get-top~ shape)) (horz (get-right~ shape)) (vert (get-bottom~ shape))))
               ((Number) (case orientation
                           ((horz) (horz shape))
                           ((vert) (vert shape))
@@ -319,9 +319,9 @@
           (let ((horz (function dynamic (dh <fx>) (+ (quotient (- dh sh) sc) sh)))
                 (vert (function dynamic (dv <fx>) (+ (quotient (- dv sv) sc) sv))))
             (typecase shape
-              ((Point) (new Point (horz [h shape]) (vert [v shape])))
-              ((Dimension) (new Dimension (horz [width shape]) (vert [height shape])))
-              ((Rect) (new Rect (horz [left shape]) (vert [top shape]) (horz [right shape]) (vert [bottom shape])))
+              ((Point) (new Point (horz (get-h~ shape)) (vert (get-v~ shape))))
+              ((Dimension) (new Dimension (horz (get-width~ shape)) (vert (get-height~ shape))))
+              ((Rect) (new Rect (horz (get-left~ shape)) (vert (get-top~ shape)) (horz (get-right~ shape)) (vert (get-bottom~ shape))))
               ((Number) (case orientation
                           ((horz) (horz shape))
                           ((vert) (vert shape))
@@ -343,8 +343,8 @@
               (if sc?
                   (return (values sh sv sc))
                 (let ((pos (get-position~ drawing)))
-                  (decrease! sh [h pos])
-                  (decrease! sv [v pos]))
+                  (decrease! sh (get-h~ pos))
+                  (decrease! sv (get-v~ pos)))
                 (set! drawing (get-parent~ drawing)))))
           {}))))
 
@@ -442,8 +442,8 @@
                                        (find-drawing~ view delta)
                                      (let ((scaling <fl> (get-scaling~ view)))
                                        (with ((scaled (new Point
-                                                        (round (/ [h delta] scaling))
-                                                        (round (/ [v delta] scaling)))))
+                                                        (round (/ (get-h~ delta) scaling))
+                                                        (round (/ (get-v~ delta) scaling)))))
                                          (find-drawing~ view scaled))))))
                        (when found
                          (return found)))))))
@@ -477,7 +477,7 @@
       (if (or (get-scaled?) sc?)
           (with ((rect (h/v/size->rect lh lv size)))
             ;; quick patch for the time being
-            (when true @w (rect-intersects-region? [left scaled] [top scaled] (rect-size scaled) update)
+            (when true @w (rect-intersects-region? (get-left~ scaled) (get-top~ scaled) (rect-size scaled) update)
               (paint-displayed dc context update lh lv sh sv sc sc?)))
         (when (cond ((not update) true)
                     ((is? update Rect) (with ((lie (new Point lh lv))) (rects-intersect? update lie size)))
@@ -488,7 +488,7 @@
   (method public (paint-displayed dc <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (if (not (get-offscreen?))
         (paint-drawing dc context update lh lv sh sv sc sc?)
-      (let ((offscreen (get-offscreen dc [width size] [height size])))
+      (let ((offscreen (get-offscreen dc (get-width~ size) (get-height~ size))))
         (with ((origin (new Point 0 0))
                (clipper (get-bounds)))
           (setup-clipper~ offscreen clipper)
@@ -503,7 +503,7 @@
                 (SetMapMode offhdc MM_TEXT)
                 (let ((overlay (get-overlay)))
                   (when overlay
-                    (draw-overlay~ overlay self offscreen [width size] [height size])))))
+                    (draw-overlay~ overlay self offscreen (get-width~ size) (get-height~ size))))))
           (let ((effect (get-effect)))
             (bit-blit~ offscreen dc size: size)
             @not-converted-to-cairo
@@ -520,7 +520,7 @@
            (new-sv (if (not scaled?) sv lv))
            (new-sc (if (not scaled?) sc scaling))
            (new-sc? (if (not scaled?) sc? true)))
-      (with-transform~ dc self lh lv [width size] [height size] new-sh new-sv new-sc new-sc?
+      (with-transform~ dc self lh lv (get-width~ size) (get-height~ size) new-sh new-sv new-sc new-sc?
         (function dynamic ()
           (render dc context update lh lv new-sh new-sv new-sc new-sc?)))))
 
@@ -570,7 +570,7 @@
     (with ((proc <procedure>
             (function dynamic (drawing)
               (let ((pos (get-position~ drawing)))
-                (paint~ drawing dc context update (+ lh [h pos]) (+ lv [v pos]) sh sv sc sc?)))))
+                (paint~ drawing dc context update (+ lh (get-h~ pos)) (+ lv (get-v~ pos)) sh sv sc sc?)))))
       (for-each-drawing proc)))
   
   
@@ -598,7 +598,7 @@
            (r (offset-rect b (round h) (round v))))
       (if (not parent)
           (copy r)
-        (with ((p (get-translated-clipper~ parent (- h [h position]) (- v [v position]))))
+        (with ((p (get-translated-clipper~ parent (- h (get-h~ position)) (- v (get-v~ position)))))
           (rect-intersection p r)))))
   
   

@@ -249,7 +249,7 @@
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (for-each-comment~ expl
         (function dynamic (start end title?)
-          (let* ((row [row start])
+          (let* ((row (get-row~ start))
                  (len (paragraph-length row))
                  (end (new Cell row len)))
             (if (not title?)
@@ -262,7 +262,7 @@
   
   (method (recolorize-text start end-row)
     (nextmethod start end-row)
-    (loop (for row from [row start] to end-row)
+    (loop (for row from (get-row~ start) to end-row)
           (recolorize-row row)))
 
   
@@ -324,7 +324,7 @@
                      (expl (new (explorer-class) self start: pos end: pos))
                      (kind (forward-expr~ expl))
                      (end (get-end~ expl)))
-                (when (and (= kind 'symbol) (= [row end] row))
+                (when (and (= kind 'symbol) (= (get-row~ end) row))
                   (apply-style 'Expr-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
             (set! col (+ comment 1)))))))
   
@@ -397,7 +397,7 @@
                       (return)
                     (let ((before (essay (> col 0) (get-char (new Cell row (- col 1))))))
                       (apply-style (if (= before #\open-parenthesis) 'Tag 'Specifier) (new Cell row col) end))
-                    (set! col (+ [col end] 1)))))))))))
+                    (set! col (+ (get-col~ end) 1)))))))))))
   
   
   (method (recolorize-strings row)
@@ -522,7 +522,7 @@
           (with-safe-explore
             (function dynamic ()
               (set-caret (get-start))
-              (receive (modified? last-delta) (tabulate-lines [row start] [row end])
+              (receive (modified? last-delta) (tabulate-lines (get-row~ start) (get-row~ end))
                 (set-caret (+ end last-delta))
                 (when modified?
                   (set-modified? true))))
@@ -544,9 +544,9 @@
     (loop (for first? first true then false)
           (for mark in lst)
           (when (or first?
-                    (let ((range [range mark]))
-                      (/= (get-char [start range]) #\<)
-                      (/= (get-char (- [end range] 1)) #\>)))
+                    (let ((range (get-range~ mark)))
+                      (/= (get-char (get-start~ range)) #\<)
+                      (/= (get-char (- (get-end~ range) 1)) #\>)))
             (collect mark))))
   
   
@@ -571,27 +571,27 @@
            (rank (- count 1))
            (col {}))
       (if (null? expressions)
-          (set! col (+ [col opening] 1))
+          (set! col (+ (get-col~ opening) 1))
         (let* ((first (car expressions))
-               (first-string (get-string [range first]))
-               (first-symbol (essay (= [kind first] 'symbol) (effective-symbol first-string)))
+               (first-string (get-string (get-range~ first)))
+               (first-symbol (essay (= (get-kind~ first) 'symbol) (effective-symbol first-string)))
                (first-tag? (tag? first-symbol))
                (first-with? (and first-symbol (starts-with? first-string "with-")))
                (first-without? (and first-symbol (starts-with? first-string "without-")))
                (first-dispatch? (and first-symbol (ends-with? first-string "~")))
                (first-indent (if (or first-tag? first-with? first-without?) 1 0)))
           (if (or (not first-symbol) first-tag?)
-              (set! col (+ [col start range first] first-indent))
+              (set! col (+ (get-col~ (get-start~ (get-range~ first))) first-indent))
             (let* ((special-info (assq first-symbol (get-specials)))
                    (info (either (essay special-info (cdr special-info)) (get-macro-tabulation first-symbol))))
               (if (not info)
                   (let ((first-last (first-on-last-line expressions count))
-                        (first-row [row start range first]))
-                    (if (and (= [row start range first-last] first-row) (or first-with? first-without? first-dispatch? (/= count 2)) (neq? first-symbol 'else))
-                        (set! col (+ [col opening] 2))
-                      (let ((proposed-col (+ [col start range first-last] (if (= count 1) first-indent 0)))
-                            (threshold (+ [col opening] 2 4))
-                            (default-col (+ [col opening] 2)))
+                        (first-row (get-row~ (get-start~ (get-range~ first)))))
+                    (if (and (= (get-row~ (get-start~ (get-range~ first-last))) first-row) (or first-with? first-without? first-dispatch? (/= count 2)) (neq? first-symbol 'else))
+                        (set! col (+ (get-col~ opening) 2))
+                      (let ((proposed-col (+ (get-col~ (get-start~ (get-range~ first-last))) (if (= count 1) first-indent 0)))
+                            (threshold (+ (get-col~ opening) 2 4))
+                            (default-col (+ (get-col~ opening) 2)))
                         (if (and (> proposed-col threshold)
                                  (upper-case? (element first-string 0)))
                             (set! col default-col)
@@ -600,12 +600,12 @@
                   (when modifiers?
                     (decrease! rank (count-modifiers (cdr expressions))))
                   (if (= specials -1)
-                      (set! col [col opening])
+                      (set! col (get-col~ opening))
                     (if (= specials 0)
-                        (set! col (+ [col opening] 2))
+                        (set! col (+ (get-col~ opening) 2))
                       (if (> rank specials)
-                          (set! col [col start range (first-on-last-line expressions count)])
-                        (set! col (+ [col opening] (* (+ (- specials rank) 1) 2))))))))))))
+                          (set! col (get-col~ (get-start~ (get-range~ (first-on-last-line expressions count)))))
+                        (set! col (+ (get-col~ opening) (* (+ (- specials rank) 1) 2))))))))))))
       (- col (get-column row))))
   
   
@@ -620,7 +620,7 @@
     (let ((total 0)
           (done? false))
       (while (and (not-null? expressions) (not done?))
-        (let ((symbol (find-symbol (get-string [range (car expressions)]))))
+        (let ((symbol (find-symbol (get-string (get-range~ (car expressions))))))
           ;; the (new (explorer-class)) is temporary
           (if (or (not symbol) (not (memq? symbol (get-modifiers~ (new (explorer-class) self)))))
               (set! done? true)
@@ -632,8 +632,8 @@
   (method (first-on-last-line expressions count)
     (let* ((reversed (if (> count 1) (reverse (cdr expressions)) (reverse expressions)))
            (first (car reversed))
-           (line [row start range first]))
-      (while (and (not-null? reversed) (= [row start range (car reversed)] line))
+           (line (get-row~ (get-start~ (get-range~ first)))))
+      (while (and (not-null? reversed) (= (get-row~ (get-start~ (get-range~ (car reversed)))) line))
         (set! first (car reversed))
         (set! reversed (cdr reversed)))
       first))
@@ -767,7 +767,7 @@
   
   
   (method public (highlight-expression range symbol)
-    (let ((expl (new (explorer-class) self start: [start range] end: [start range])))
+    (let ((expl (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
       (iterate-expression~ expl
         (function dynamic (mode)
           (when (and (= (get-kind~ expl) 'symbol) (eq? (find-marked-symbol~ expl) symbol))
@@ -783,5 +783,5 @@
                                           (set-style~ run default-style)
                                           (invalidate-paragraph paragraph))))
                                     (get-runs~ paragraph)))
-                        start: [row start range]
-                        end: (+ [row end range] 1)))))
+                        start: (get-row~ (get-start~ range))
+                        end: (+ (get-row~ (get-end~ range)) 1)))))

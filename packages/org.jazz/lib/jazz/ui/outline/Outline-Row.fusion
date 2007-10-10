@@ -54,8 +54,8 @@
   (property protected row-height initialize {}         getter get-row-height setter set-row-height)
   
   
-  (slot protected previous initialize {})
-  (slot protected next     initialize {})
+  (slot protected previous initialize {} accessors generate)
+  (slot protected next     initialize {} accessors generate)
 
 
   ;;;
@@ -136,7 +136,7 @@
       (remove-son~ father self))
     (set-father father-row)
     (when father
-      (add-son~ father self (either position (length [sons father])))))
+      (add-son~ father self (either position (length (get-sons~ father))))))
   
   
   (method public (for-each-father proc)
@@ -254,7 +254,7 @@
       (let* ((last (last-descendant))
              (previous (previous-visible-row self))
              (next (if previous
-                       [next previous]
+                       (get-next~ previous)
                      (essay father (first-visible-son~ father)))))
         (nextmethod)
         (if parent
@@ -292,34 +292,34 @@
   (method public (count-visible)
     (let ((scan next)
           (count 0))
-      (while (and scan (> [level scan] level))
-        (set! scan [next scan])
+      (while (and scan (> (get-level~ scan) level))
+        (set! scan (get-next~ scan))
         (increase! count))
       count))
   
   
   (method public (node-height)
-    (+ (get-effective-height) [row-spacing parent] (sons-height)))
+    (+ (get-effective-height) (get-row-spacing~ parent) (sons-height)))
   
   
   (method public (sons-height)
     (let ((scan next)
           (total 0)
-          (rs [row-spacing parent]))
-      (while (and scan (> [level scan] level))
+          (rs (get-row-spacing~ parent)))
+      (while (and scan (> (get-level~ scan) level))
         (increase! total (+ (get-effective-height~ scan) rs))
-        (set! scan [next scan]))
+        (set! scan (get-next~ scan)))
       total))
   
   
   (method public (sons-width)
     (let ((scan next)
           (width 0))
-      (while (and scan (> [level scan] level))
+      (while (and scan (> (get-level~ scan) level))
         (let ((w (get-effective-width~ scan)))
           (when (and w (> w width))
             (set! width w)))
-        (set! scan [next scan]))
+        (set! scan (get-next~ scan)))
       width))
   
   
@@ -335,14 +335,14 @@
   
   (method public (previous-visible-row target)
     (let ((previous-visible-sibling (previous-visible-sibling~ target))
-          (father [father target]))
+          (father (get-father~ target)))
       (either (essay previous-visible-sibling (last-descendant~ previous-visible-sibling))
               (essay father (expanded?~ father) father))))
   
   
   (method public (previous-visible-sibling)
     (let* ((sibling {})
-           (siblings (essay father [sons father]))
+           (siblings (essay father (get-sons~ father)))
            (scan (first siblings))
            (found-self? false))
       (for-each (function dynamic (scan)
@@ -358,8 +358,8 @@
   (method protected (last-visible-descendant)
     (let ((scan (first-visible-son)))
       (when scan
-        (while (and [next scan] (> [level next scan] level))
-          (set! scan [next scan]))
+        (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
+          (set! scan (get-next~ scan)))
         scan)))
   
   
@@ -370,7 +370,7 @@
   
   (method public (add-son row position)
     (when (null? sons)
-      (let ((class [sons-class parent]))
+      (let ((class (get-sons-class~ parent)))
         (when class
           (set! sons (new (eval-symbol class self))))))
     (set-father~ row self)
@@ -384,9 +384,9 @@
         (let* ((before (cond ((= pos 0) (if expanded? self {}))
                              ((= pos count) (if expanded? (last-descendant) (last-visible-descendant)))
                              (else (previous-visible-row (element sons pos)))))
-               (following (essay before [next before]))
+               (following (essay before (get-next~ before)))
                (after (cond (expanded? following)
-                            (following (essay (> [level following] level) following))
+                            (following (essay (> (get-level~ following) level) following))
                             ((and (= pos 0)(/= count 0)) (first-visible-son))
                             (else {}))))
           (link before row)
@@ -402,10 +402,10 @@
   
   (method public (remove-son row)
     (let ((following (next-non-descendant~ row)))
-      (when [previous row]
-        (set! [next previous row] following))
+      (when (get-previous~ row)
+        (set-next~ (get-previous~ row) following))
       (when following
-        (set! [previous following] [previous row]))
+        (set-previous~ following (get-previous~ row)))
       (set! sons (remove! row sons))))
   
   
@@ -420,7 +420,7 @@
   
   
   (method public (replace-sons replacement start-row start end-row end)
-    (let ((before (essay start-row [previous start-row]))
+    (let ((before (essay start-row (get-previous~ start-row)))
           (after end-row))
       (relink replacement before after)
       (set! sons (replace-subseq! sons start end replacement))))
@@ -436,18 +436,18 @@
   ;; until we unify link and link-rows
   (method (link before after)
     (when before
-      (set! [next before] after))
+      (set-next~ before after))
     (when after
-      (set! [previous after] before)))
+      (set-previous~ after before)))
   
   
   ;; until we unify unlink and unlink-rows
   (method (unlink first last)
-    (let ((previous [previous first])
-          (next [next last]))
+    (let ((previous (get-previous~ first))
+          (next (get-next~ last)))
       (link previous next)
-      (set! [previous first] {})
-      (set! [next last] {})))
+      (set-previous~ first {})
+      (set-next~ last {})))
   
   
   ;;;
@@ -478,8 +478,8 @@
   (method protected (last-proper-descendant)
     (let ((scan (first-descendant)))
       (when scan
-        (while (and [next scan] (> [level next scan] level))
-          (set! scan [next scan]))
+        (while (and (get-next~ scan) (> (get-level~ (get-next~ scan)) level))
+          (set! scan (get-next~ scan)))
         scan)))
   
   
@@ -489,7 +489,7 @@
   
   
   (method protected (next-non-descendant)
-    [next (last-descendant)])
+    (get-next~ (last-descendant)))
   
   
   (method protected (visible-sibling-follows?)
@@ -499,11 +499,11 @@
                  (prog1 (and found? (get-visible-flag~ son))
                    (when (eq? son self)
                      (set! found? true))))
-               [sons father]))))
+               (get-sons~ father)))))
   
   
   (method protected (sibling-follows?)
-    (and father (neq? self (last [sons father]))))
+    (and father (neq? self (last (get-sons~ father)))))
   
   
   ;;;
@@ -513,11 +513,11 @@
   
   (method public (get-spine)
     (let ((row self)
-          (root [root-row parent])
+          (root (get-root-row~ parent))
           (spine {}))
       (while (neq? row root)
         (set! spine (cons row spine))
-        (set! row [father row]))
+        (set! row (get-father~ row)))
       spine))
   
   

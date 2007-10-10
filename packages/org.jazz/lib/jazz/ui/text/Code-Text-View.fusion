@@ -101,7 +101,7 @@
         (end-completion)
       (if (not accepts-returns?)
           (navigate-view (shift-key? modifiers))
-        (if (or (empty-selection?) (= [row (get-start)] [row (get-end)]))
+        (if (or (empty-selection?) (= (get-row~ (get-start)) (get-row~ (get-end))))
             (insert-char #\tab)
           (tabulate)))))
 
@@ -500,10 +500,10 @@
   (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
     (let ((title? (and title-char (= (get-char (next start 2)) title-char))))
       (if (not title?)
-          (apply-coloring colorizer start (new Cell [row start] (paragraph-length [row start])) line-style)
+          (apply-coloring colorizer start (new Cell (get-row~ start) (paragraph-length (get-row~ start))) line-style)
         (apply-coloring colorizer start (+ start 3) line-style)
-        (apply-coloring colorizer (+ start 3) (new Cell [row start] (paragraph-length [row start])) title-style))
-      (let ((row [row start]))
+        (apply-coloring colorizer (+ start 3) (new Cell (get-row~ start) (paragraph-length (get-row~ start))) title-style))
+      (let ((row (get-row~ start)))
         (set! found (cdr found))
         (while (and found (= (second (car found)) row))
           (set! found (cdr found)))
@@ -516,8 +516,8 @@
   
   
   (method (find-specifier-end start)
-    (let* ((row [row start])
-           (col [col start])
+    (let* ((row (get-row~ start))
+           (col (get-col~ start))
            (str (paragraph-string row)))
       (unless (>= (+ col 1) (length str))
         (let ((nxt (element str (+ col 1))))
@@ -528,7 +528,7 @@
 
   
   (method (recolorize-text start end-row)
-    (let ((pos (new Cell [row start] 0))
+    (let ((pos (new Cell (get-row~ start) 0))
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
@@ -537,11 +537,11 @@
             (bind (start . (target type)) opening
               (when (= type 'open)
                 (set! pos start))))))
-      (let ((range (naturals [row pos] (+ end-row 1))))
+      (let ((range (naturals (get-row~ pos) (+ end-row 1))))
         (for-each uncolorize-row range))
       @convert-automata
       (let ((colorizer (new-colorizer self))
-            (found (automata-search (syntax-automata) (get-paragraphs) end-row [row pos] [col pos])))
+            (found (automata-search (syntax-automata) (get-paragraphs) end-row (get-row~ pos) (get-col~ pos))))
         (while found
           (let ((info (car found)))
             (bind ((target type) row col) info
@@ -624,11 +624,11 @@
   
   
   (method (offset-pos/range pos range)
-    (if (= 0 [row start range] [row end range])
-        (new Range (+ pos [start range]) (+ pos [end range]))
+    (if (= 0 (get-row~ (get-start~ range)) (get-row~ (get-end~ range)))
+        (new Range (+ pos (get-start~ range)) (+ pos (get-end~ range)))
       (new Range
-        (new Cell (+ [row pos] [row start range]) [col start range])
-        (new Cell (+ [row pos] [row end range]) [col end range]))))
+        (new Cell (+ (get-row~ pos) (get-row~ (get-start~ range))) (get-col~ (get-start~ range)))
+        (new Cell (+ (get-row~ pos) (get-row~ (get-end~ range))) (get-col~ (get-end~ range))))))
 
   
   ;;;
@@ -641,8 +641,8 @@
         (for-each (if (shift-down?) untabulate-line tabulate-line)
                   (selected-lines))
       (let* ((pos (get-start))
-             (row [row pos])
-             (col [col pos]))
+             (row (get-row~ pos))
+             (col (get-col~ pos)))
         (when (and (> row 0) (= col 0))
           (let* ((line (paragraph-string (- row 1)))
                  (rank (find-if (function dynamic (c) (not (whitespace? c))) line return: 'position)))
@@ -778,7 +778,7 @@
   (method protected virtual (auto-complete key)
     (get-style-at (get-start))
     (let* ((end (get-end))
-           (last (essay (> [col end] 0) (get-char (- end 1))))
+           (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
            (class (class-of self)))
       (if (not (auto-complete-char?~ syntax key last))
           (complete-current key (get-start) (coerce key String) false true)
@@ -872,7 +872,7 @@
       (let* ((cell (view->text pos))
              (range (expr-range cell)))
         (when (control-down?)
-          (decrease! [start range]))
+          (set-start~ range (- (get-start~ range) 1)))
         (let ((copy (get-string range)))
           (when range
             (mouse-insert~ destination copy))))
@@ -919,7 +919,7 @@
   
   (method (tabify)
     (for-each tabify-line
-              (naturals [row (get-start)] (+ [row (get-end)] 1))))
+              (naturals (get-row~ (get-start)) (+ (get-row~ (get-end)) 1))))
   
   
   (method (tabify-line row)
@@ -970,7 +970,7 @@
                @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: false))
                (expl (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
           (user-message "{l detail: :human}" (map (function dynamic (mark)
-                                                    (get-string [range mark]))
+                                                    (get-string (get-range~ mark)))
                                                   (collect-forward-exprs~ expl 3)))
           (sleep 200)))))
   
@@ -1041,7 +1041,7 @@
            (entry (find-if (function dynamic (element)
                              (equal? string (get-name~ element)))
                            entries)))
-      (set! [%t Development] entry))))
+      (set-%t~ Development entry))))
 
 
 ;;;

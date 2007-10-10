@@ -1281,46 +1281,6 @@
 
 
 ;;;
-;;;; Access
-;;;
-
-
-(jazz.define-class jazz.Access jazz.Object () jazz.Object-Class
-  (name
-   context))
-
-
-(define (jazz.new-access name context)
-  (jazz.allocate-access jazz.Access name context))
-
-
-(define (jazz.walk-access walker resume declaration environment access)
-  (let ((name (%%get-access-name access))
-        (context (%%get-access-context access)))
-    (if (%%eq? context 'self)
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name #f)))
-          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
-            (jazz.new-reference slot-declaration)))
-      (jazz.new-slot-reference declaration name
-        (jazz.walk walker resume declaration environment context)))))
-
-
-(define (jazz.walk-access-assignment walker resume declaration environment access value)
-  (let ((name (%%get-access-name access))
-        (context (%%get-access-context access)))
-    (if (%%eq? context 'self)
-        (let ((slot-declaration (jazz.lookup-declaration (jazz.find-class-declaration declaration) name #f)))
-          (%%assert (%%is? slot-declaration jazz.Slot-Declaration)
-            (jazz.new-assignment slot-declaration (jazz.walk walker resume declaration environment value))))
-      (jazz.new-slot-assignment declaration name
-        (jazz.walk walker resume declaration environment context)
-        (jazz.walk walker resume declaration environment value)))))
-
-
-(jazz.encapsulate-class jazz.Access)
-
-
-;;;
 ;;;; Walker
 ;;;
 
@@ -2536,8 +2496,6 @@
          (jazz.walk-symbol walker resume declaration environment form))
         ((%%pair? form)
          (jazz.walk-form walker resume declaration environment form))
-        ((%%is? form jazz.Access)
-         (jazz.walk-access walker resume declaration environment form))
         (else
          (jazz.walk-constant walker resume declaration environment form))))
 
@@ -2830,12 +2788,9 @@
 (define (jazz.walk-setbang walker resume declaration environment form)
   (let ((form (%%cadr form))
         (value (%%car (%%cddr form))))
-    (cond ((%%symbol? form)
-           (jazz.walk-symbol-assignment walker resume declaration environment form value))
-          ((%%is? form jazz.Access)
-           (jazz.walk-access-assignment walker resume declaration environment form value))
-          (else
-           (jazz.error "Illegal set! of {s}" form)))))
+    (if (%%symbol? form)
+        (jazz.walk-symbol-assignment walker resume declaration environment form value)
+      (jazz.error "Illegal set! of {s}" form))))
 
 
 (define (jazz.lookup-symbol walker environment symbol)

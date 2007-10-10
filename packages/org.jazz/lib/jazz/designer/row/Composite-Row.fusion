@@ -89,8 +89,8 @@
   
   (method (parse-error (message: message {}) (start: start {}) (end: end {}) (part: part {}))
     (let ((message (either message (syntax-message)))
-          (start (either start (essay part [start part])))
-          (end (either end (essay part [end part]))))
+          (start (either start (essay part (get-start~ part))))
+          (end (either end (essay part (get-end~ part)))))
       (signal (new Parse-Error message: message start: (essay start (new Cell 0 start)) end: (essay end (new Cell 0 end))))))
   
   
@@ -125,27 +125,27 @@
   
   (method (navigate-backward)
     (let* ((entries (current-entries))
-           (pos [col (get-start~ editor)])
+           (pos (get-col~ (get-start~ editor)))
            (part (pos->part entries pos)))
       (if (null? part)
           (bell)
-        (let ((previous (- [rank part] 1)))
+        (let ((previous (- (get-rank~ part) 1)))
           (for-each-part entries
             (function dynamic (part)
-              (when (= [rank part] previous)
+              (when (= (get-rank~ part) previous)
                 (select-part part))))))))
   
   
   (method (navigate-forward)
     (let* ((entries (current-entries))
-           (pos [col (get-end~ editor)])
+           (pos (get-col~ (get-end~ editor)))
            (part (pos->part entries pos)))
       (if (null? part)
           (bell)
-        (let ((next (+ [rank part] 1)))
+        (let ((next (+ (get-rank~ part) 1)))
           (for-each-part entries
             (function dynamic (part)
-              (when (= [rank part] next)
+              (when (= (get-rank~ part) next)
                 (select-part part))))))))
   
   
@@ -154,12 +154,12 @@
   
   
   (method (current-part entries)
-    (let ((pos [col (get-start~ editor)]))
+    (let ((pos (get-col~ (get-start~ editor))))
       (pos->part entries pos)))
   
   
   (method (current-position entries)
-    (let ((pos [col (get-start~ editor)]))
+    (let ((pos (get-col~ (get-start~ editor))))
       (pos->position entries pos)))
   
   
@@ -168,7 +168,7 @@
       (lambda (return)
         (for-each-part entries
           (function dynamic (part)
-            (when (and (>= pos [start part]) (<= pos [end part]))
+            (when (and (>= pos (get-start~ part)) (<= pos (get-end~ part)))
               (return part))))
         {})))
   
@@ -179,12 +179,12 @@
         (let ((string (get-string-content~ editor)))
           (for-each-part entries
             (function dynamic (part)
-              (if (between? pos [start part] [end part])
-                  (return [position part])
-                (let* ((n [end part])
+              (if (between? pos (get-start~ part) (get-end~ part))
+                  (return (get-position~ part))
+                (let* ((n (get-end~ part))
                        (end (find-entry-end string n)))
                   (when (and end (between? pos (+ n 1) end))
-                    (return (+ [position part] 1)))))))
+                    (return (+ (get-position~ part) 1)))))))
           (decrease! pos)
           (while true
             (if (< pos 0)
@@ -240,7 +240,7 @@
                               (add-row~ tree children: (list (new Tree-Node image: {Bitmap-Resource "DesignColumn"} title: name)) user-data: name))
                             sorted))
                 (let* ((start (get-start~ editor))
-                       (par (get-paragraph~ editor [row start]))
+                       (par (get-paragraph~ editor (get-row~ start)))
                        (view (text->view~ editor start))
                        (pos (+ view (new Dimension -10 (+ (get-height~ par) 2))))
                        (alternate (+ view (new Dimension -10 -2))))
@@ -257,8 +257,8 @@
       (if (null? part)
           (let ((position (current-position entries)))
             (when position
-              (values position {} [col (get-start~ editor)] [col (get-end~ editor)])))
-        (values [position part] [text part] [start part] [end part]))))
+              (values position {} (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
+        (values (get-position~ part) (get-text~ part) (get-start~ part) (get-end~ part)))))
   
   
   (method (complete-part start end tree)
@@ -325,7 +325,7 @@
   
   
   (method (select-part part)
-    (set-selection~ editor (new Range (new Cell 0 [start part]) (new Cell 0 [end part])))))
+    (set-selection~ editor (new Range (new Cell 0 (get-start~ part)) (new Cell 0 (get-end~ part))))))
 
 
 ;;;
@@ -345,11 +345,11 @@
   
   (method (initialize rank position text start end)
     (nextmethod)
-    (set! [rank self] rank)
-    (set! [position self] position)
-    (set! [text self] text)
-    (set! [start self] start)
-    (set! [end self] end))
+    (set! rank~self rank)
+    (set! position~self position)
+    (set! text~self text)
+    (set! start~self start)
+    (set! end~self end))
   
   
   (method (print printer readably)

@@ -67,7 +67,7 @@
     (receive (commons set1 set2) (collect-commons initial-set1 initial-set2)
       (if (and (not-null? set1) (not-null? set2))
           (let* ((line <Compare-Line> (car set1))
-                 (string <string> [string line])
+                 (string <string> (get-string~ line))
                  (proc <procedure>
                   (function dynamic (line <Compare-Line>)
                     (insert-line root line))))
@@ -77,8 +77,8 @@
             (set! matches (append! commons (collect-matches root))))
         (set! matches commons))
       (let* ((sames (map (function dynamic (node <Compare-Node>) (extract-diff~ node moniker1 moniker2)) matches))
-             (sames1 (sort < sames key: (function dynamic (diff <list>) [rank (element diff 0)])))
-             (sames2 (sort < sames key: (function dynamic (diff <list>) [rank (element diff 1)]))))
+             (sames1 (sort < sames key: (function dynamic (diff <list>) (get-rank~ (element diff 0)))))
+             (sames2 (sort < sames key: (function dynamic (diff <list>) (get-rank~ (element diff 1))))))
         (collect-lines sames1 sames2 initial-set1 initial-set2))))
       
   
@@ -86,10 +86,10 @@
   ;; n'est pas < que ou on est rendu dans la liste 1, on continue la liste 1.
   ;; Pour les restants, on les affichent avant le match suivant.
   (method (collect-lines sames1 sames2 set1 set2)
-    (let* ((rank1 <fx> [rank (first set1)])
-           (rank2 <fx> [rank (first set2)])
-           (end1 <fx> [rank (last set1)])
-           (end2 <fx> [rank (last set2)])
+    (let* ((rank1 <fx> (get-rank~ (first set1)))
+           (rank2 <fx> (get-rank~ (first set2)))
+           (end1 <fx> (get-rank~ (last set1)))
+           (end2 <fx> (get-rank~ (last set2)))
            (next1 (car sames1))
            (next2 (car sames2))
            (fact (new List-Factory))
@@ -103,11 +103,11 @@
               rank))
            (done? false))
       (while (not done?)
-        (let ((next (if (and (not-null? next2) (< [rank (first next2)] rank1)) next2 next1)))
+        (let ((next (if (and (not-null? next2) (< (get-rank~ (first next2)) rank1)) next2 next1)))
           (if (not next)
               (set! done? true)
-            (let ((stop1 [rank (first next)])
-                  (stop2 [rank (second next)]))
+            (let ((stop1 (get-rank~ (first next)))
+                  (stop2 (get-rank~ (second next))))
               (cond ((and (eq? next1 next) (eq? next2 next) (< rank1 stop1) (< rank2 stop2))
                      (put-sequence~ fact (compare-line-sets (subseq lines1 rank1 stop1) (subseq lines2 rank2 stop2)))
                      (set! rank1 stop1)
@@ -138,7 +138,7 @@
              (let ((line1 (car set1))
                    (line2 (car set2))
                    (commons '()))
-               (while (and (not-null? set1) (not-null? set2) (= [string line1] [string line2]))
+               (while (and (not-null? set1) (not-null? set2) (= (get-string~ line1) (get-string~ line2)))
                  (set! commons (cons (new Compare-Node (list line1 line2) #\nul) commons))
                  (set! set1 (cdr set1))
                  (set! set2 (cdr set2))
@@ -162,21 +162,21 @@
   
   
   (method (insert-line node <Compare-Node> line <Compare-Line>)
-    (letrec ((string [string line])
+    (letrec ((string (get-string~ line))
              (proc
               (function dynamic (subnode <Compare-Node> n <fx>)
-                (let ((baseline (car [lines subnode])))
+                (let ((baseline (car (get-lines~ subnode))))
                   (if (not-null? baseline)
-                      (let ((basestring [string baseline]))
+                      (let ((basestring (get-string~ baseline)))
                         (if (= basestring string)
                             (add-line~ subnode line)
                           (let* ((key (string-ref basestring n))
-                                 (newnode (new Compare-Node [lines subnode] key)))
+                                 (newnode (new Compare-Node (get-lines~ subnode) key)))
                             (set-lines~ subnode '())
                             (add-child~ subnode newnode)
                             (proc subnode n))))
                     (let* ((c (string-ref string n))
-                           (matchnode (find c [children subnode] key: (function dynamic (node <Compare-Node>) [key node]))))
+                           (matchnode (find c (get-children~ subnode) key: (function dynamic (node <Compare-Node>) (get-key~ node)))))
                       (if (null? matchnode)
                           (add-child~ subnode (new Compare-Node (list line) c))
                         (proc matchnode (+ n 1)))))))))
@@ -184,16 +184,16 @@
   
   
   (method (collect-matches node <Compare-Node>)
-    (let ((children [children node]))
+    (let ((children (get-children~ node)))
       (append! (collect-if (function dynamic (subnode <Compare-Node>)
-                             (let ((lines [lines subnode]))
+                             (let ((lines (get-lines~ subnode)))
                                (and (not-null? lines)
                                     (= (length lines) 2)
-                                    (neq? [moniker (first lines)]
-                                          [moniker (second lines)]))))
+                                    (neq? (get-moniker~ (first lines))
+                                          (get-moniker~ (second lines))))))
                            children)
                (apply append! (map collect-matches (collect-if (function dynamic (subnode <Compare-Node>)
-                                                                 (null? [lines subnode]))
+                                                                 (null? (get-lines~ subnode)))
                                                                children))))))
 
 
@@ -224,7 +224,7 @@
                 (format printer "{_ :v}{s}{%}" (* level 2) node)
                 (for-each (function dynamic (subnode <Compare-Node>)
                             (proc subnode (+ level 1)))
-                          [children node]))))
+                          (get-children~ node)))))
       (proc node 0)))
 
 

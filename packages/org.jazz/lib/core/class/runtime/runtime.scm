@@ -46,8 +46,10 @@
 (define (jazz.dispatch? symbol)
   (and (%%symbol? symbol)
        (let ((name (%%symbol->string symbol)))
-         (%%eqv? (%%string-ref name (%%fx- (%%string-length name) 1))
-                 #\~))))
+         (let ((len (%%string-length name)))
+           (and (%%fx> len 1)
+                (%%eqv? (%%string-ref name (%%fx- len 1))
+                        #\~))))))
 
 
 (define (jazz.dispatch->symbol dispatch)

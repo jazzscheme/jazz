@@ -3486,7 +3486,7 @@
 
 (definition (input-port obj)
   (if (is? obj Reader)
-      [port obj]
+      (get-port~ obj)
     obj))
 
 
@@ -3499,7 +3499,7 @@
   (if (not obj)
       (current-output-port)
     (if (is? obj Printer)
-        [port obj]
+        (get-port~ obj)
       obj)))
 
 
@@ -3665,7 +3665,7 @@
 (class Reader extends Object
   
   
-  (slot port))
+  (slot port getter generate))
 
 
 (definition public (read . rest)
@@ -4394,8 +4394,8 @@
   
   (method (initialize name entries)
     (nextmethod name Enumeration)
-    (set! [name self] name)
-    (set! [entries self] entries))
+    (set! name~self name)
+    (set! entries~self entries))
   
   
   (method (foldable?)
@@ -4483,12 +4483,12 @@
 (class Printer extends Object
   
   
-  (slot port)
+  (slot port getter generate)
   
   
   (method (initialize port)
     (nextmethod)
-    (set! [port self] port))
+    (set! port~self port))
 
 
   (method (destroy)
@@ -4631,11 +4631,11 @@
   
   (method (initialize control-string arguments)
     (nextmethod)
-    (set! [control-string self] control-string)
-    (set! [control-reader self] (new String-Reader control-string))
-    (set! [arguments self] arguments)
-    (set! [arguments-iterator self] (new List-Iterator arguments))
-    (set! [formatter self] {}))
+    (set! control-string~self control-string)
+    (set! control-reader~self (new String-Reader control-string))
+    (set! arguments~self arguments)
+    (set! arguments-iterator~self (new List-Iterator arguments))
+    (set! formatter~self {}))
   
   
   ;;;
@@ -5272,16 +5272,16 @@
 (class Subseq metaclass Subseq-Class extends Sequence
   
   
-  (slot sequence)
-  (slot start)
-  (slot size)
+  (slot sequence getter generate)
+  (slot start    getter generate)
+  (slot size     getter generate)
   
   
   (method (initialize sequence start size)
     (nextmethod)
-    (set! [sequence self] sequence)
-    (set! [start self] start)
-    (set! [size self] size))
+    (set! sequence~self sequence)
+    (set! start~self start)
+    (set! size~self size))
   
   
   (method (print output detail)
@@ -5295,35 +5295,35 @@
 
 
 (specific (element (<Subseq> subseq) n)
-  (element [sequence subseq] (+ [start subseq] n)))
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
 
 
 (specific (set-element! (<Subseq> subseq) n obj)
-  (set-element! [sequence subseq] (+ [start subseq] n) obj))
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
 
 
 (specific (length (<Subseq> subseq))
-  [size subseq])
+  (get-size~ subseq))
 
 
 (specific (subseq-share (<Subseq> subseq) s e)
   (if (or (= s 0) (= e -1))
       subseq
-    (new Subseq [sequence subseq] (+ [start subseq] s) (- (if (= e -1) (length subseq) e) s))))
+    (new Subseq (get-sequence~ subseq) (+ (get-start~ subseq) s) (- (if (= e -1) (length subseq) e) s))))
 
 
 (specific (coerce-string (<Subseq> subseq))
-  (if (string? [sequence subseq])
-      (substring [sequence subseq] [start subseq] (+ [start subseq] [size subseq]))
+  (if (string? (get-sequence~ subseq))
+      (substring (get-sequence~ subseq) (get-start~ subseq) (+ (get-start~ subseq) (get-size~ subseq)))
     (error "Cannot coerce sequence to string")))
 
 
 (definition (offset-subseq! subseq offset)
-  (set! [start subseq] (+ [start subseq] offset)))
+  (set-start~ subseq (+ (get-start~ subseq) offset)))
 
 
 (definition (grow-subseq! subseq n)
-  (set! [size subseq] (+ [size subseq] n)))
+  (set-size~ subseq (+ (get-size~ subseq) n)))
 
 
 ;;;

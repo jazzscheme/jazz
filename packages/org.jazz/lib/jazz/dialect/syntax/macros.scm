@@ -96,6 +96,13 @@
        ,val)))
 
 
+(syntax (~ name object)
+  (let ((obj (generate-symbol "obj")))
+    `(let ((,obj ,object))
+       (lambda rest
+         (apply (dispatch ',name ,obj) ,obj rest)))))
+
+
 (macro (form>> form)
   `(jml->form ',form))
 

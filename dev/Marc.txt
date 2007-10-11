@@ -1,0 +1,72 @@
+﻿Questions
+---------
+
+- Is it possible to obtain the platform at runtime?
+- Would it be difficult to support compiling define-macro? It forces me to always seperate the code into 2 files when
+  I want the expander to be compiled and it is very annoying: possible by using the underlying code used by define-macro
+- Is it possible to explicitly pass (macro-absent)? : no
+- When it's time to compile Jazz code, I'll clearly have correct code with circular symbol dependencies... We have to
+  have a solution even if only to be able to load a binary file with suppressed warnings...
+- Is there a way to add Jazz's 2 initialized and destroyed bits to Jazz objects without paying a penalty : not really
+- It seems that the construct that works for the loader doesn't work for the compiler :
+  (parameterize ((current-readtable jazz.jazz-readtable))
+    (compile-file-to src bindir "" cc-flags ld-flags))
+  (set! ##main-readtable ...)
+- It would be nice if compile-file had an option of not generating the .o1 when using options like -expansion
+- Can statprof be used on compiled code? yes but better if compiled with -debug
+- Is statprof really reliable in that it reaches all the code? : yes
+- All of Gambit's tools are really useless in the presence of macros. Can something be done?
+  : define-macro receives a version that is completely stripped of position infos but
+    ##define-syntax receive the info intact. Gambit extends ##define-syntax to permit a transformation lambda
+- If need be can Gambit's heartbeat be made faster? yes but it is already set to max by passing 0 to the function that sets it
+* Does Marc have any opinion on the serious problem of Jazz user code capturing generated code like in
+  (definition (f)
+  (let ((begin 2))
+    (if #t
+        3
+      5)))
+  that gets expanded into
+  (define test.f
+  (lambda ()
+    (let ((begin 2))
+      (if #t
+          3
+        (begin 5)))))
+- Is it ok to use the default hash function for hashing Shortcuts? Also, do I understand correctly that a custom hash function
+  should return a fixnum? and if yes are there any fn to add 2 fixnums and return a fixnum? - NO
+- Is ##define-syntax supposed to work in compiled code? : fixed
+- If I want to reimplement Jazz's bug slayer module in Gambit, can a reliable stack trace be optained from C code? Also, does Marc know
+  of an equivalent to Windows's SetUnhandledExceptionFilter in portable C? : Marc thinks that yes with signal handlers
+- Confirm that the following 2 notations are equivalent :
+  (c-define-type int1 "int")
+  (c-define-type int2 (type "int"))
+  When I return the 2 types I get :
+  t1 = '#<foreign #17 0x412f420>
+  t2 = '#<int #18 0x3400410>
+  : they should but are not. the first one should not be used directly
+- As ___CONS cannot be used in C code what should be used? : ___EXT(make_pair)
+- Donc toute memoire allouee en C on doit creer des objets STILL sinon le gc peut non avoir. Mais si je veut retourner disons une
+  paire, comment je fait car alors elle a un refcount = 1 et ne sera jamais collecte et si je release avant le retour, il y a un
+  petit moment ou le gc peut passer non? Ou bien es-ce que le gc parcourt les __result? : au moment du release, le resultat est
+  dans ___R1 qui sera protege
+* Le statement dans la doc:
+  Moreover the C code is always placed at the head of a compound statement whose lifetime encloses the C to Scheme conversion of the result. Consequently, temporary storage (strings in particular) declared at the head of the C code can be returned by assigning them to `___result' or `___result_voidstar'. In the c-name-or-code, the macro `___AT_END' may be defined as the piece of C 
+  semble indiquer qu'on peut { S s; ___result_voidstar = s; } non?
+* Comment connaitre si file ou directory dans directory-files? Et aussi n'es-ce pas vraiment inefficace de reappeler l'os alors
+  qu'on avait surement l'info quand on scannais...
+* Gambit really needs a solution to internal defines beeing represented only as #<procedure> in the backtrace
+* Is global variable access like function calls, e.g. alot less efficient when crossing modules? no they become C global variables
+* Les objets natifs à Gambit qui sont implémentés par des structures comme les ports et les hashtables. Comment pour ces cas obtenir un dispatch rapide et sans blotter la grosseur du ##c-code?
+* Should I use ##fx+ or ##fixnum.+ or ???
+* Is there a difference between (f . rest) and (f #!rest rest) ?
+* Is implementing proper tail calls in an interpreter very complex? Are there some issues about an interpreter preserving proper continuations? Any other Scheme specific gotchas?
+
+
+Todo
+----
+
+- option to disables warnings when code has circular dependencies
+- code snippet to enable compiling a define-macro or ##define-syntax
+- code snippet for ##main-readtable and fix compile-file that doesn't use the current-readtable parameter
+- repl #0 for the last eval or the last printed value
+- compile-file option to suppress .o1 generation

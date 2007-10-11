@@ -42,11 +42,11 @@
 (define primordial-exception-handler
   (current-exception-handler))
 
-(if jazz.Debug-Print?
+(if jazz.debug-print?
     (current-exception-handler
       (lambda (exc)
-        (if jazz.Debug-Print?
-            (set! jazz.Use-Print? #f))
+        (if jazz.debug-print?
+            (set! jazz.use-print? #f))
         (primordial-exception-handler exc))))
 
 
@@ -91,7 +91,7 @@
          (jazz.output-list value output detail))
         ((jazz.primitive? value)
          (jazz.print value output detail))
-        ((and jazz.Use-Print? jazz.dialect.language.Object.print)
+        ((and jazz.use-print? jazz.dialect.language.Object.print)
          (jazz.dialect.language.Object.print value output detail))
         (else
          (jazz.write-jazz output value))))
@@ -136,7 +136,7 @@
   (gambit
     (set! jazz.write-jazz
       (lambda (port obj)
-        (if (and jazz.Use-Print? jazz.dialect.language.Object.print)
+        (if (and jazz.use-print? jazz.dialect.language.Object.print)
             (jazz.dialect.language.Object.print obj port ':reader)
           (let ((class-name (%%get-category-name (%%get-object-class obj)))
                 (serial-number (object->serial-number obj)))

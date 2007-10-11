@@ -52,6 +52,7 @@
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
+(jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value))
 (jazz.define-virtual-syntax (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
@@ -89,6 +90,7 @@
 (jazz.define-virtual-syntax (jazz.get-declaration-references (jazz.Declaration declaration)))
 (jazz.define-virtual-syntax (jazz.emit-declaration (jazz.Declaration declaration)))
 (jazz.define-virtual-syntax (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
+(jazz.define-virtual-syntax (jazz.fold-declaration (jazz.Declaration declaration) f k s))
 
 
 ;;;
@@ -363,7 +365,7 @@
 
 
 (jazz.define-class-syntax jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class jazz.allocate-variable
-  ())
+  ((setters %%get-variable-setters %%set-variable-setters)))
 
 
 ;;;
@@ -371,7 +373,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.RestVariable jazz.Variable (name type) jazz.Object-Class jazz.allocate-restvariable
+(jazz.define-class-syntax jazz.RestVariable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-restvariable
   ())
 
 
@@ -380,7 +382,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.NextMethodVariable jazz.Variable (name type) jazz.Object-Class jazz.allocate-nextmethodvariable
+(jazz.define-class-syntax jazz.NextMethodVariable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-nextmethodvariable
   ())
 
 
@@ -453,6 +455,7 @@
 (jazz.define-virtual-syntax (jazz.expression-type (jazz.Expression expression)))
 (jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression)))
 (jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments))
+(jazz.define-virtual-syntax (jazz.fold-expression (jazz.Expression expression) f k s))
 
 
 ;;;

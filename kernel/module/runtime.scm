@@ -127,40 +127,19 @@
     (define jazz.walk-for
       (make-parameter #f))
     
-    (define jazz.load-indent-level
-      (make-parameter 0))
-    
     
     (define (jazz.load-src src)
-      (jazz.load-verbose src)
-      (parameterize ((jazz.load-indent-level (%%fx+ (jazz.load-indent-level) 2)))
-        (jazz.load-filename src))
-      (if jazz.done-verbose?
-          (jazz.load-done-verbose src)))
+      (jazz.with-verbose jazz.load-verbose? "loading" (%%substring src 6 (%%string-length src))
+        (lambda ()
+          (parameterize ((jazz.walk-for 'interpret))
+            (jazz.load-filename src)))))
     
     
     (define (jazz.load-bin bin)
-      (jazz.load-verbose bin)
-      (parameterize ((jazz.walk-for 'interpret)
-                     (jazz.load-indent-level (%%fx+ (jazz.load-indent-level) 2)))
-        (jazz.load-filename bin))
-      (if jazz.done-verbose?
-          (jazz.load-done-verbose bin)))
-    
-    
-    (define (jazz.load-verbose filename)
-      (display (make-string (jazz.load-indent-level) #\space))
-      (display "; loading ")
-      (display filename)
-      (display " ...")
-      (newline))
-    
-    
-    (define (jazz.load-done-verbose filename)
-      (display (make-string (jazz.load-indent-level) #\space))
-      (display "; done ")
-      (display " ...")
-      (newline))
+      (jazz.with-verbose jazz.load-verbose? "loading" (%%substring bin 5 (%%string-length bin))
+        (lambda ()
+          (parameterize ((jazz.walk-for 'interpret))
+            (jazz.load-filename bin)))))
     
     
     (define (jazz.require-module-source filename)
@@ -171,7 +150,7 @@
     (define (jazz.determine-module-source filename)
       (let ((try
               (lambda (ext)
-                (let ((path (%%string-append filename "." ext)))
+                (let ((path (%%string-append "../../" filename "." ext)))
                   (if (file-exists? path)
                       path
                     #f)))))
@@ -183,34 +162,22 @@
     (define (jazz.determine-module-bindir filename)
       (jazz.split-filename filename
         (lambda (dirname name)
-          (cond (jazz.Use-Bin-Directory?
-                 (%%string-append "bin/_obj/" jazz.build-suffix "/" dirname))
-                (jazz.Use-Build-Suffix?
-                 (%%string-append dirname "_bin/" jazz.build-suffix "/"))
-                (else
-                 dirname)))))
+          (%%string-append "_obj/" dirname))))
     
     
     (define (jazz.determine-module-binary filename)
-      (jazz.split-filename filename
-        (lambda (dirname name)
-          (let ((try
-                  (lambda (n)
-                    (cond (jazz.Use-Bin-Directory?
-                           (%%string-append "bin/_obj/" jazz.build-suffix "/" dirname name ".o" (number->string n)))
-                          (jazz.Use-Build-Suffix?
-                           (%%string-append dirname "_bin/" jazz.build-suffix "/" name ".o" (number->string n)))
-                          (else
-                           (%%string-append dirname name ".o" (number->string n)))))))
-            (let ((o1 (try 1)))
-              (if (%%not (file-exists? o1))
-                  #f
-                (let iter ((next 2)
-                           (last-path o1))
-                     (let ((next-path (try next)))
-                       (if (file-exists? next-path)
-                           (iter (%%fx+ next 1) next-path)
-                         last-path))))))))))
+      (let ((try
+              (lambda (n)
+                (%%string-append "_obj/" filename ".o" (number->string n)))))
+        (let ((o1 (try 1)))
+          (if (%%not (file-exists? o1))
+              #f
+            (let iter ((next 2)
+                       (last-path o1))
+                 (let ((next-path (try next)))
+                   (if (file-exists? next-path)
+                       (iter (%%fx+ next 1) next-path)
+                     last-path))))))))
   (else))
 
 
@@ -219,15 +186,15 @@
 ;;;
 
 
-;; Quick draft. Code is not really correct as it uses the parent folder
-;; to determine in which prefix a file is located which can be not correct
-;; Also, library roots of packages should be determined automatically
 (define jazz.PackageDirs
   '("packages/org.jazz/lib/"
     "packages/org.jedi/lib/"))
 
 
-(define (jazz.module-filename module-name)
+;; Quick draft. The code is not really correct as it uses the parent folder
+;; to determine in which prefix a file is located which can potentially be not
+;; correct. Also, library roots of packages should be determined automatically
+(define (jazz.determine-module-filename module-name)
   (let ((path (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
     (jazz.split-filename path
       (lambda (dir name)
@@ -237,9 +204,9 @@
             (let ((prefix (%%car scan)))
               (let ((prefixed-path (%%string-append prefix path))
                     (prefixed-dir (%%string-append prefix dir)))
-                (cond ((jazz.directory-exists? prefixed-path)
+                (cond ((jazz.directory-exists? (%%string-append "../../" prefixed-path))
                        (%%string-append prefixed-path "/_" name))
-                      ((and (%%not (%%equal? dir "")) (jazz.directory-exists? prefixed-dir))
+                      ((and (%%not (%%equal? dir "")) (jazz.directory-exists? (%%string-append "../../" prefixed-dir)))
                        prefixed-path)
                       (else
                        (iter (%%cdr scan))))))))))))
@@ -304,7 +271,7 @@
              (lambda ()
                (jazz.set-environment-module module-name jazz.Loading-State))
              (lambda ()
-               (jazz.load-module-file (jazz.module-filename module-name)))
+               (jazz.load-module-file (jazz.determine-module-filename module-name)))
              (lambda ()
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State)))))

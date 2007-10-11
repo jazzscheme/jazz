@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Specific
+;;;; Jazz Configuration
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,106 +35,56 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.gambit
-
-
 ;;;
-;;;; Collector
+;;;; Load
 ;;;
 
 
-(define jazz.gc ##gc)
+(define jazz.load-verbose?
+  (make-parameter #t))
 
+(define jazz.parse-verbose?
+  #f)
 
-;;;
-;;;; Instance
-;;;
-
-
-(define jazz.current-instance ##current-instance)
-
-
-;;;
-;;;; Foreign
-;;;
-
-
-(define jazz.foreign? ##foreign?)
-(define jazz.foreign-address foreign-address)
-(define jazz.foreign-release! foreign-release!)
-(define jazz.foreign-released? foreign-released?)
-(define jazz.foreign-tag ##foreign-tag)
-(define jazz.still-obj-refcount-dec! ##still-obj-refcount-dec!)
-(define jazz.still-obj-refcount-inc! ##still-obj-refcount-inc!)
-(define jazz.still-obj-refcount ##still-obj-refcount)
-
-
-;;;
-;;;; Port
-;;;
-
-
-(define jazz.close-port close-port)
-
-
-;;;
-;;;; Pathname
-;;;
-
-
-(define jazz.file-type file-type)
-(define jazz._copy-file copy-file)
-(define jazz.rename-file rename-file)
-(define jazz.create-directory create-directory)
-(define jazz.directory-files directory-files)
-
-
-;;;
-;;;; Thread
-;;;
-
-
-(define jazz.thread-sleep! thread-sleep!)
-
-
-;;;
-;;;; Statprof
-;;;
-
-
-(define jazz.statprof-loaded?
+(define jazz.done-verbose?
   #f)
 
 
-(define (jazz.load-statprof)
-  (if (not jazz.statprof-loaded?)
-      (begin
-        (load "contrib/statprof/statprof")
-        (set! jazz.statprof-loaded? #t))))
-
-
-(define (jazz.start-statprof)
-  (jazz.load-statprof)
-  (profile-start!))
-
-(define (jazz.stop-statprof)
-  (profile-stop!))
-
-(define jazz.report-statprof
-  (let ((n 0))
-    (lambda ()
-      (let ((port (open-output-string)))
-        (display "STATPROF_REPORT_" port)
-        (display n port)
-        (set! n (+ n 1))
-        (let ((name (get-output-string port)))
-          (write-profile-report name)
-          name)))))
-
-
 ;;;
-;;;; System
+;;;; Walker
 ;;;
 
 
-(define system-exit exit))
+;; Set to #f to debug the walker itself
+(define jazz.delay-reporting?
+  #t)
+
+
+;;;
+;;;; Jazz
+;;;
+
+
+(define jazz.use-print?
+  #t)
+
+(define jazz.debug-print?
+  #f)
+
+
+;;;
+;;;; Build
+;;;
+
+
+(define jazz.compile-options
+  '(debug))
+
+
+;;;
+;;;; Loop
+;;;
+
+
+(define jazz.run-loop?
+  #t)

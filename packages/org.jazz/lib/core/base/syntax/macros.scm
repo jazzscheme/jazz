@@ -123,67 +123,6 @@
 
 
 ;;;
-;;;; Validate
-;;;
-
-
-(jazz.define-macro (%%validate . rest)
-  (apply jazz.expand-validate rest))
-
-
-(define (jazz.expand-validate form expected)
-  `(begin
-     (write ',form)
-     (display " -> ")
-     (let* ((result ,form)
-            (expected-result ,expected))
-       (display result)
-       (if (%%not (%%eqv? result expected-result))
-           (begin
-             (display " FAILED(")
-             (display expected-result)
-             (display ")"))))
-     (newline)))
-
-
-;;;
-;;;; Typecase
-;;;
-
-
-; @macro (typecase target (a 1) ((b c) 2) (else 3))
-; @expansion (let ((sym8 target))
-;              (cond ((%%eqv? sym8 a) 1)
-;                    ((or (%%eqv? sym8 b) (%%eqv? sym8 c)) 2)
-;                    (else 3)))
-
-
-(jazz.define-macro (jazz.typecase target . clauses)
-  (cond ((%%symbol? target)
-         (jazz.expand-typecase-clauses target clauses))
-        (else
-         (let ((symbol (jazz.generate-symbol "value")))
-           (%%list 'let (%%list (%%list symbol target))
-             (jazz.expand-typecase-clauses symbol clauses))))))
-  
-
-(define (jazz.expand-typecase-clauses variable clauses)
-  (%%cons 'cond (map (lambda (clause)
-                       (let ((value (%%car clause))
-                             (body (%%cdr clause)))
-                         (cond ((%%eq? value 'else)
-                                (%%cons 'else body))
-                           ((%%pair? value)
-                            (%%cons (%%cons 'or (map (lambda (value)
-                                                       (%%list 'jazz.is? variable value))
-                                                     value))
-                                    body))
-                           (else
-                            (%%cons (%%list 'jazz.is? variable value) body)))))
-                     clauses)))
-
-
-;;;
 ;;;; Bind
 ;;;
 

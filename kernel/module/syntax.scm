@@ -56,7 +56,7 @@
   (jazz.parse-module rest
     (lambda (requires body)
       `(begin
-         ,@(jazz.declarations 'module)
+         ,@(jazz.declares 'module)
          ,@(map (lambda (require)
                   (jazz.parse-require require
                     (lambda (module-name feature-requirement load phase)

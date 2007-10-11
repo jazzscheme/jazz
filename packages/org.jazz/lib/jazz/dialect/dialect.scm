@@ -102,6 +102,12 @@
     `(set! ,locator ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
 
 
+(jazz.define-method (jazz.fold-declaration (jazz.Definition-Declaration declaration) f k s)
+  (f declaration
+     (k (jazz.fold-statement (%%get-definition-declaration-value declaration) f k s)
+        s)))
+
+
 (jazz.encapsulate-class jazz.Definition-Declaration)
 
 
@@ -287,7 +293,7 @@
                    (if (jazz.global-variable? ',locator)
                        (jazz.global-value ',locator)
                      (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))))))
-       ,@(jazz.emit-declarations/expressions body))))
+       ,@(jazz.emit-statements body))))
 
 
 (jazz.encapsulate-class jazz.Class-Declaration)
@@ -390,7 +396,7 @@
     `(begin
        (define ,locator
          (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
-       ,@(jazz.emit-declarations/expressions body))))
+       ,@(jazz.emit-statements body))))
 
 
 (jazz.encapsulate-class jazz.Interface-Declaration)
@@ -594,7 +600,6 @@
     (jazz.new-macro-form 'coclass         jazz.expand-coclass)
     (jazz.new-macro-form 'cointerface     jazz.expand-cointerface)
     (jazz.new-macro-form 'assert          jazz.expand-assert)
-    (jazz.new-macro-form 'validate        jazz.expand-validate)
     (jazz.new-macro-form 'c-structure     jazz.expand-c-structure)
     (jazz.new-macro-form 'c-union         jazz.expand-c-union)
     (jazz.new-macro-form 'c-external      jazz.expand-c-external)
@@ -776,6 +781,11 @@
              (jazz.emit-expressions body))))))
 
 
+(jazz.define-method (jazz.fold-expression (jazz.With-Self expression) f k s)
+  (f expression
+     (jazz.fold-expressions (%%get-with-self-body expression) f k s s)))
+
+
 (jazz.encapsulate-class jazz.With-Self)
 
 
@@ -801,6 +811,12 @@
        ((jazz.dispatch ',name ,object)
         ,object
         ,@(jazz.emit-expressions (%%cdr arguments))))))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Dispatch expression) f k s)
+  (f expression
+     (k (%%get-dispatch-name expression)
+        (jazz.fold-expressions (%%get-dispatch-arguments expression) f k s s))))
 
 
 (jazz.encapsulate-class jazz.Dispatch)

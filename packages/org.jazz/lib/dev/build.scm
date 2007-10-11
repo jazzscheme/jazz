@@ -49,7 +49,7 @@
 
 
 (define (jazz.compile-library-with-options library-name options)
-  (let ((filename (jazz.module-filename library-name)))
+  (let ((filename (jazz.determine-module-filename library-name)))
     (let ((src (jazz.require-module-source filename)))
       (jazz.with-extension-reader (jazz.filename-extension src)
         (lambda ()
@@ -57,7 +57,7 @@
 
 
 (define (jazz.compile-library-with-flags library-name #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f))
-  (let ((filename (jazz.module-filename library-name)))
+  (let ((filename (jazz.determine-module-filename library-name)))
     (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?)))
 
 
@@ -82,7 +82,7 @@
 
 
 (define (jazz.compile-library-to-c library-name)
-  (let* ((filename (jazz.module-filename library-name))
+  (let* ((filename (jazz.determine-module-filename library-name))
          (source (jazz.require-module-source filename))
          (c-file (string-append filename ".c")))
     (if (file-exists? c-file)
@@ -91,7 +91,7 @@
 
 
 (define (jazz.compile-library library-name)
-  (let ((filename (jazz.require-module-source (jazz.module-filename library-name))))
+  (let ((filename (jazz.require-module-source (jazz.determine-module-filename library-name))))
     (jazz.compile-filename-with-flags filename)))
 
 
@@ -119,10 +119,7 @@
 
 
 (define (jazz.build-bin-dir directory)
-  (cond (jazz.Use-Bin-Directory?
-         (jazz.create-directories (string-append "bin/_obj/" jazz.build-suffix "/" directory)))
-        (jazz.Use-Build-Suffix?
-         (jazz.create-directories (string-append directory "/_bin/" jazz.build-suffix)))))
+  (jazz.create-directories (%%string-append "_obj/" directory)))
 
 
 (define (jazz.build-kernel)
@@ -134,7 +131,7 @@
   (jazz.for-each-submodule module-name
     (lambda (module-name declaration load phase)
       (%%when (not (eq? load 'interpreted))
-        (let* ((filename (jazz.module-filename module-name))
+        (let* ((filename (jazz.determine-module-filename module-name))
                (directory (jazz.split-filename filename (lambda (dir file) dir))))
           (jazz.build-bin-dir directory)
           (jazz.compile-filename-with-flags filename))))))
@@ -170,7 +167,7 @@
   (jazz.for-each-submodule module-name
     (lambda (declaration load phase)
       (if (not (eq? load 'interpreted))
-          (let* ((filename (jazz.module-filename module-name))
+          (let* ((filename (jazz.determine-module-filename module-name))
                  (bindir (jazz.determine-module-bindir filename)))
             (let iter ((n 0))
                  (let ((bin (%%string-append bindir filename ".o" (number->string n))))

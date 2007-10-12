@@ -87,20 +87,20 @@
 ;;;
 
 
-(jazz.define-macro (%%safe-assert . rest)
-  (apply jazz.expand-%%assert (jazz.safe?) rest))
+(jazz.define-macro (%%kernel-assert . rest)
+  (apply jazz.expand-%%assert jazz.debug-kernel? rest))
+
+
+(jazz.define-macro (%%kernel-assertion . rest)
+  (apply jazz.expand-%%assertion jazz.debug-kernel? rest))
 
 
 (jazz.define-macro (%%assert . rest)
-  (apply jazz.expand-%%assert (jazz.debug?) rest))
-
-
-(jazz.define-macro (%%safe-assertion . rest)
-  (apply jazz.expand-%%assertion (jazz.safe?) rest))
+  (apply jazz.expand-%%assert jazz.debug-user? rest))
 
 
 (jazz.define-macro (%%assertion . rest)
-  (apply jazz.expand-%%assertion (jazz.debug?) rest))
+  (apply jazz.expand-%%assertion jazz.debug-user? rest))
 
 
 (define (jazz.expand-%%assert test? assertion . body)

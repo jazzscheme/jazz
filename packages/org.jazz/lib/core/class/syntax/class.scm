@@ -283,7 +283,7 @@ end-of-c-code
             (jazz.class-of-native ,var)))))
     
     (define-macro (%%class-of-impl var)
-      (if (jazz.debug?)
+      (if jazz.debug-user?
           `(or (%%class-of ,var)
                (jazz.error "Unable to get class of {s}" ,var))
         `(%%class-of ,var))))

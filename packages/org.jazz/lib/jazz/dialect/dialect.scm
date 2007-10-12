@@ -1525,7 +1525,7 @@
 (define (jazz.expand-assert walker resume declaration environment assertion . body)
   `(begin)
   #; ;; wait
-  (if (jazz.debug?)
+  (if jazz.debug-user?
       (let ((message (let ((port (open-output-string)))
                        (display "Assertion " port)
                        (write assertion port)

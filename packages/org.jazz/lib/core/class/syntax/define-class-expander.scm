@@ -80,21 +80,21 @@
                     `(begin
                        ,@(if (%%null? slot-getter)
                              '()
-                           (if (jazz.safe?)
+                           (if jazz.debug-kernel?
                                `((define (,slot-getter ,object)
-                                   (%%safe-assert (%%object-of-class? ,object ,name)
+                                   (%%kernel-assert (%%object-of-class? ,object ,name)
                                      (%%object-ref ,object ,rank))))
                              `((jazz.define-macro (,slot-getter ,object)
-                                 (%%list '%%safe-assert (%%list '%%object-of-class? ,object ',name)
+                                 (%%list '%%kernel-assert (%%list '%%object-of-class? ,object ',name)
                                    (%%list '%%object-ref ,object ,rank))))))
                        ,@(if (%%null? slot-setter)
                              '()
-                           (if (jazz.safe?)
+                           (if jazz.debug-kernel?
                                `((define (,slot-setter ,object ,value)
-                                   (%%safe-assert (%%object-of-class? ,object ,name)
+                                   (%%kernel-assert (%%object-of-class? ,object ,name)
                                      (%%object-set! ,object ,rank ,value))))
                              `((jazz.define-macro (,slot-setter ,object ,value)
-                                 (%%list '%%safe-assert (%%list '%%object-of-class? ,object ',name)
+                                 (%%list '%%kernel-assert (%%list '%%object-of-class? ,object ',name)
                                    (%%list '%%object-set! ,object ,rank ,value)))))))))
                 slots
                 (jazz.naturals (%%fx+ jazz.object-size ascendant-size) vector-size))))))

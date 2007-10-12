@@ -49,14 +49,14 @@
          (is-test (if bootstrap-type? 'jazz.is-type? '%%is?)))
     `(define-macro (,name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
-           (%%list '%%safe-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+           (%%list '%%kernel-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
              (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of ,object-parameter)) ',rank-name)
                      ,object-parameter
                      ,@extra-parameters))
          (let ((obj (jazz.generate-symbol "obj")))
            (%%list 'let
                    (%%list (%%list obj ,object-parameter))
-             (%%list '%%safe-assertion (list ',is-test obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+             (%%list '%%kernel-assertion (list ',is-test obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
                (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of obj)) ',rank-name)
                        obj
                        ,@extra-parameters))))))))

@@ -24,6 +24,14 @@
 
 
 ;;;
+;;;; System
+;;;
+
+
+;; defined by the underlying Scheme system
+
+
+;;;
 ;;;; Platform
 ;;;
 
@@ -44,8 +52,7 @@
 ;;;
 
 
-(define jazz.safety-level
-  (make-parameter 'debug))
+(jazz.define-feature safe)
 
 
 ;;;

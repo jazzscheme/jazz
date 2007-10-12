@@ -156,7 +156,8 @@
                     #f)))))
         (or (try "scm")
             (try "jazz")
-            (try "fusion"))))
+            (try "fusion")
+            (try "jscm"))))
     
     
     (define (jazz.determine-module-bindir filename)
@@ -271,7 +272,7 @@
              (lambda ()
                (jazz.set-environment-module module-name jazz.Loading-State))
              (lambda ()
-               (jazz.load-module-file (jazz.determine-module-filename module-name)))
+               (jazz.load-source-file (jazz.determine-module-filename module-name)))
              (lambda ()
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State)))))
@@ -279,7 +280,7 @@
            (jazz.kernel-error "Circular loading of module:" module-name)))))
 
 
-(define (jazz.load-module-file filename)
+(define (jazz.load-source-file filename)
   (jazz.with-load-src/bin filename
     (lambda (src)
       (jazz.with-extension-reader (jazz.filename-extension src)

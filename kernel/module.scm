@@ -129,7 +129,18 @@
   
   (kernel-load "kernel/module/primitives")
   (kernel-load "kernel/module/syntax")
-  (kernel-load "kernel/module/runtime"))
+  (kernel-load "kernel/module/runtime")
+  
+  ;; for now this is the best solution I found to guaranty that the kernel
+  ;; can be loaded fully interpreted without having to do any build but at
+  ;; the same time also load a compiled .o file from the bin dir if present
+  (jazz.with-load-src/bin "kernel/module/runtime"
+    (lambda (src)
+      #f)
+    (lambda (bin)
+      (jazz.with-verbose jazz.load-verbose? "loading" (substring bin 5 (string-length bin))
+        (lambda ()
+          (jazz.load-filename bin))))))
 
 
 ;;;

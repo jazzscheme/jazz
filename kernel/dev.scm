@@ -40,44 +40,41 @@
 ;;;
 
 
-(define-macro (l module-name)
-  `(begin
-     (jazz.boot-kernel)
-     (jazz.load-module ',module-name)
-     (void)))
+(define (l module-name)
+  (jazz.boot-kernel)
+  (jazz.load-module module-name)
+  (void))
 
 
-(define-macro (rl module-name)
-  `(begin
-     (jazz.boot-kernel)
-     (jazz.reload-module ',module-name)
-     (void)))
+(define (rl module-name)
+  (jazz.boot-kernel)
+  (jazz.reload-module module-name)
+  (void))
 
 
 (define (ll)
-  (l core.library))
+  (l 'core.library))
 
 
 (define (ld)
   (ll)
-  (l dev))
+  (l 'dev))
 
 
 (define (lj)
   (ll)
-  (l jazz)
-  (l jazz.literals)
-  (l jazz.platform.literals))
+  (l 'jazz)
+  (l 'jazz.literals)
+  (l 'jazz.platform.literals))
 
 
 (define (lt)
-  (l test))
+  (l 'test))
 
 
-(define-macro (lex module-name)
-  `(begin
-     (ef ,module-name)
-     (load "x")))
+(define (lex module-name)
+  (ef module-name)
+  (load "x"))
 
 
 (define (llex)
@@ -105,8 +102,8 @@
 ;;;
 
 
-(define-macro (em module-name)
-  `(expand-module ',module-name))
+(define (em module-name)
+  (expand-module module-name))
 
 
 (define (expand-module module-name)
@@ -117,28 +114,24 @@
         (pretty-print (jazz.expand-module name rest) (current-output-port))))))
 
 
-(define-macro (e library-name)
-  `(begin
-     (ll)
-     (expand ',library-name)))
+(define (e library-name)
+  (ll)
+  (expand library-name))
 
 
-(define-macro (ef library-name)
-  `(begin
-     (ll)
-     (expand-to-file ',library-name)))
+(define (ef library-name)
+  (ll)
+  (expand-to-file library-name))
 
 
-(define-macro (ee library-name)
-  `(begin
-     (ld)
-     (jazz.compile-library-with-options ',library-name (list 'expansion))))
+(define (ee library-name)
+  (ld)
+  (jazz.compile-library-with-options library-name (list 'expansion)))
 
 
-(define-macro (eg library-name)
-  `(begin
-     (ld)
-     (jazz.compile-library-with-options ',library-name (list 'gvm))))
+(define (eg library-name)
+  (ld)
+  (jazz.compile-library-with-options library-name (list 'gvm)))
 
 
 (define (expand library-name)
@@ -186,12 +179,12 @@
             (jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))))
 
 
-(define-macro (c library-name)
-  `(jazz.compile-library-with-flags ',library-name))
+(define (c library-name)
+  (jazz.compile-library-with-flags library-name))
 
 
-(define-macro (cflag module-name cc-flags ld-flags)
-  `(jazz.compile-library-with-flags ',module-name cc-flags: ,cc-flags ld-flags: ,ld-flags))
+(define (cflag module-name cc-flags ld-flags)
+  (jazz.compile-library-with-flags module-name cc-flags: cc-flags ld-flags: ld-flags))
 
 
 (define (bwindows)
@@ -205,19 +198,19 @@
 
 
 (define (cx)
-  (cflag jazz.platform.x11 "" "-lX11"))
+  (cflag 'jazz.platform.x11 "" "-lX11"))
 
 
 (define (ccw)
-  (cflag jazz.platform.cairo.cairo-win32 "-IC://jazz//dev//jazz//include//cairo" "-LC://jazz//dev//jazz//lib//cairo -lcairo"))
+  (cflag 'jazz.platform.cairo.cairo-win32 "-IC://jazz//dev//jazz//include//cairo" "-LC://jazz//dev//jazz//lib//cairo -lcairo"))
 
 (define (cf)
-  (cflag jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))
+  (cflag 'jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))
 
 
 (define (cl)
   (ld)
-  (c jazz.dialect.language))
+  (c 'jazz.dialect.language))
 
 
 (define (ct)
@@ -239,36 +232,35 @@
   (jazz.build-kernel))
 
 
-(define-macro (bmodule module-name)
-  `(begin
-     (ld)
-     (jazz.build-module ',module-name)))
+(define (bmodule module-name)
+  (ld)
+  (jazz.build-module module-name))
 
 
 (define (bjazz)
   (ll)
   (bkernel)
-  (bmodule core.base)
-  (bmodule core.class)
-  (bmodule core.foundation)
-  (bmodule core.generic)
-  (bmodule core.library)
-  (bmodule scheme.dialect)
-  (bmodule jazz.dialect))
+  (bmodule 'core.base)
+  (bmodule 'core.class)
+  (bmodule 'core.foundation)
+  (bmodule 'core.generic)
+  (bmodule 'core.library)
+  (bmodule 'scheme.dialect)
+  (bmodule 'jazz.dialect))
 
 
 (define (bwin)
   (ld)
-  (cflag jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
-  (cflag jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
-  (cflag jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows"))
+  (cflag 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
+  (cflag 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
+  (cflag 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows"))
 
 
 (define (bcairo)
@@ -292,7 +284,8 @@
   (lj)
   (let* ((file (jazz.determine-module-filename module-name))
          (jazz (jazz.determine-module-source file))
-         (jscm (string-append file ".jscm"))
+         (jscmfile (string-append file ".jscm"))
+         (jscm (string-append "../../" jscmfile))
          (bin (jazz.determine-module-binary file))
          (jazztime (time->seconds (file-last-modification-time jazz)))
          (jscmtime (and (file-exists? jscm) (time->seconds (file-last-modification-time jscm))))
@@ -302,7 +295,7 @@
         (begin
           (expand-to-file module-name jscm)
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename-with-flags jscm source?: #t))))))
+            (jazz.compile-filename-with-flags jscmfile source?: #t))))))
 
 
 (define Lang
@@ -506,13 +499,11 @@
 
 (define (j)
   (lj)
-  (l jazz.platform.literals)
-  (l test.boot))
+  (l 'jazz.platform.literals)
+  (l 'test.boot))
 
 
-(define-macro (lp . rest)
-  `(begin
-     ,@(if (null? rest)
-           '()
-         `((rl ,(car rest))))
-     (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process))))
+(define (lp . rest)
+  (if (not (null? rest))
+      (rl (car rest)))
+  (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))

@@ -37,4 +37,4 @@
 
 (load "../../kernel/config")
 (load "../../kernel/module")
-(load "../../kernel/debug")
+(load "../../kernel/dev")

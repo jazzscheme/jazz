@@ -35,6 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(generate-proper-tail-calls #f)
+(display-environment-set! #t)
+
+
 ;;;
 ;;;; Load
 ;;;
@@ -63,7 +67,11 @@
 
 (define (lj)
   (ll)
-  (l 'jazz)
+  (l 'jazz))
+
+
+(define (la)
+  (lj)
   (l 'jazz.literals)
   (l 'jazz.platform.literals))
 
@@ -157,7 +165,7 @@
 
 
 (define (et)
-  (e test))
+  (e 'test))
 
 
 ;;;
@@ -202,7 +210,7 @@
 
 
 (define (ccw)
-  (cflag 'jazz.platform.cairo.cairo-win32 "-IC://jazz//dev//jazz//include//cairo" "-LC://jazz//dev//jazz//lib//cairo -lcairo"))
+  (cflag 'jazz.platform.cairo.cairo-win32 "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
 
 (define (cf)
   (cflag 'jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))
@@ -270,11 +278,15 @@
 (define (bffi)
   (ld)
   (jazz.compile-library-with-flags 'jazz.platform.windows.WinUser cc-flags: "-D UNICODE" ld-flags: "-mwindows -lUser32" force?: #t)
-  (jazz.compile-library-with-flags 'jazz.platform.cairo.cairo-win32 cc-flags: "-IC://jazz//dev//jazz//bin//cairo//include" ld-flags: "-LC://jazz//dev//jazz//bin//cairo//lib -lcairo" force?: #t))
+  (jazz.compile-library-with-flags 'jazz.platform.cairo.cairo-win32 cc-flags: "-IC:/jazz/dev/jazz/bin/cairo/include" ld-flags: "-LC:/jazz/dev/jazz/bin/cairo/lib -lcairo" force?: #t))
 
 
 (define (ball)
   (bjazz)
+  (bui))
+
+
+(define (bui)
   (bwin)
   (ccw))
 
@@ -304,7 +316,7 @@
 (define Util
   '(jazz.utilities))
 
-(define UI
+(define View
   '(jazz.library.component.Component
     jazz.ui.dialog
     jazz.ui.view
@@ -378,8 +390,8 @@
 (define (butil)
   (for-each cj Util))
 
-(define (bui)
-  (for-each cj UI))
+(define (bview)
+  (for-each cj View))
 
 (define (bexpl)
   (for-each cj Expl))
@@ -437,8 +449,8 @@
 (define (cutil)
   (for-each cln Util))
 
-(define (cui)
-  (for-each cln UI))
+(define (cview)
+  (for-each cln view))
 
 (define (cexpl)
   (for-each cln Expl))

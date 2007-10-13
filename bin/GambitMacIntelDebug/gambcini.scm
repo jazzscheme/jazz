@@ -32,7 +32,7 @@
 ;;;
 
 
-(jazz.define-feature windows)
+(jazz.define-feature mac)
 
 
 ;;;

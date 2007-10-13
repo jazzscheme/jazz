@@ -44,7 +44,8 @@
 
 
 (jazz.define-class-syntax jazz.Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-definition-declaration
-  ((signature %%get-definition-declaration-signature ())
+  ((expansion %%get-definition-declaration-expansion ())
+   (signature %%get-definition-declaration-signature ())
    (value     %%get-definition-declaration-value     %%set-definition-declaration-value)))
 
 
@@ -65,10 +66,10 @@
 
 
 (jazz.define-class-syntax jazz.Specific-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-specific-declaration
-  ((generic    %%get-specific-declaration-generic    ())
-   (parameters %%get-specific-declaration-parameters ())
-   (method?    %%get-specific-declaration-method?    ())
-   (body       %%get-specific-declaration-body       %%set-specific-declaration-body)))
+  ((generic   %%get-specific-declaration-generic   ())
+   (signature %%get-specific-declaration-signature ())
+   (method?   %%get-specific-declaration-method?   ())
+   (body      %%get-specific-declaration-body      %%set-specific-declaration-body)))
 
 
 ;;;

@@ -51,6 +51,7 @@
 (jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments))
+(jazz.define-virtual-syntax (jazz.inline-binding-call (jazz.Walk-Binding binding) call))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value))
@@ -231,8 +232,8 @@
 
 
 (jazz.define-class-syntax jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-macro-declaration
-  ((parameters %%get-macro-declaration-parameters ())
-   (body       %%get-macro-declaration-body       %%set-macro-declaration-body)))
+  ((signature %%get-macro-declaration-signature ())
+   (body      %%get-macro-declaration-body      %%set-macro-declaration-body)))
 
 
 ;;;
@@ -241,8 +242,8 @@
 
 
 (jazz.define-class-syntax jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-syntax-declaration
-  ((parameters %%get-syntax-declaration-parameters ())
-   (body       %%get-syntax-declaration-body       %%set-syntax-declaration-body)))
+  ((signature %%get-syntax-declaration-signature ())
+   (body      %%get-syntax-declaration-body      %%set-syntax-declaration-body)))
 
 
 ;;;
@@ -345,9 +346,11 @@
 
 
 (jazz.define-class-syntax jazz.Signature jazz.Object () jazz.Object-Class jazz.allocate-signature
-  ((parameters %%get-signature-parameters ())
-   (mandatory  %%get-signature-mandatory  ())
-   (rest?      %%get-signature-rest?      ())))
+  ((mandatory  %%get-signature-mandatory  ())
+   (positional %%get-signature-positional ())
+   (optional   %%get-signature-optional   ())
+   (named      %%get-signature-named      ())
+   (rest       %%get-signature-rest       ())))
 
 
 ;;;
@@ -369,20 +372,59 @@
 
 
 ;;;
-;;;; RestVariable
+;;;; NextMethod Variable
 ;;;
 
 
-(jazz.define-class-syntax jazz.RestVariable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-restvariable
+(jazz.define-class-syntax jazz.NextMethod-Variable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-nextmethod-variable
   ())
 
 
 ;;;
-;;;; NextMethodVariable
+;;;; Parameter
 ;;;
 
 
-(jazz.define-class-syntax jazz.NextMethodVariable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-nextmethodvariable
+(jazz.define-class-syntax jazz.Parameter jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-parameter
+  ())
+
+
+(jazz.define-virtual-syntax (jazz.emit-parameter (jazz.Parameter parameter)))
+
+
+;;;
+;;;; Dynamic Parameter
+;;;
+
+
+(jazz.define-class-syntax jazz.Dynamic-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-dynamic-parameter
+  ((class %%get-dynamic-parameter-class ())))
+
+
+;;;
+;;;; Optional Parameter
+;;;
+
+
+(jazz.define-class-syntax jazz.Optional-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-optional-parameter
+  ((default %%get-optional-parameter-default %%set-optional-parameter-default)))
+
+
+;;;
+;;;; Named Parameter
+;;;
+
+
+(jazz.define-class-syntax jazz.Named-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-named-parameter
+  ((default %%get-named-parameter-default %%set-named-parameter-default)))
+
+
+;;;
+;;;; Rest Parameter
+;;;
+
+
+(jazz.define-class-syntax jazz.Rest-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-rest-parameter
   ())
 
 
@@ -501,8 +543,8 @@
 
 
 (jazz.define-class-syntax jazz.Lambda jazz.Expression (type) jazz.Object-Class jazz.allocate-lambda
-  ((parameters %%get-lambda-parameters ())
-   (body       %%get-lambda-body       ())))
+  ((signature %%get-lambda-signature ())
+   (body      %%get-lambda-body      ())))
 
 
 ;;;

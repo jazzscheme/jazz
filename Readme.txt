@@ -5,15 +5,18 @@ Jedi is the IDE
 
 
 Platforms
----------
+=========
+
 Windows, Mac OS X, Linux / X11
 
 
 Distribution
-------------
-Readme.txt               :  Readme file
+============
 
-bin                      :  System/Platform/Architecture/Safety files
+Readme.txt               :  Readme file
+Install.txt              :  Installation instructions
+
+bin                      :  Architecture dependent files
 contrib                  :  Outside contributions
 dev                      :  Stuff for developers of JazzScheme itself
 doc                      :  Documentation
@@ -24,15 +27,17 @@ packages                 :  Installed packages
 
 
 Launching
----------
+=========
+
 At this time, there is no executable. Just start gsc in the proper subdirectory
 of the bin directory and execute (j). For example, under Windows, you could use
 the bin/GambitWinIntelDebug directory to run a debug version of Jazz.
 
 
 Documentation
--------------
-JazzScheme documentation is available online at www.jazzscheme.org
+=============
+
+JazzScheme documentation is available in the doc directory and online at www.jazzscheme.org
 
 
 ------------------------------------------

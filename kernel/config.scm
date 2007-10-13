@@ -41,7 +41,7 @@
 
 
 (define jazz.load-verbose?
-  (make-parameter #t))
+  #t)
 
 (define jazz.parse-verbose?
   #f)
@@ -60,14 +60,20 @@
   #t)
 
 
+(define jazz.warnings?
+  #t)
+
+
 ;;;
 ;;;; Jazz
 ;;;
 
 
+;; Print Jazz objects by calling their print method?
 (define jazz.use-print?
-  #t)
+  #f)
 
+;; Usefull to debug a recursive error occuring inside a print method
 (define jazz.debug-print?
   #f)
 
@@ -77,8 +83,16 @@
 ;;;
 
 
-(define jazz.compile-options
-  '(debug))
+(cond-expand
+  (safe
+    (define jazz.compile-options
+      '(debug)))
+  (debug
+    (define jazz.compile-options
+      '(debug)))
+  (release
+    (define jazz.compile-options
+      '())))
 
 
 ;;;

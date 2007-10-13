@@ -7,10 +7,6 @@
 ;;;
 
 
-(generate-proper-tail-calls #f)
-(display-environment-set! #t)
-
-
 ;;;
 ;;;; Features
 ;;;

@@ -134,28 +134,6 @@
 
 
 ;;;
-;;;; Region
-;;;
-
-
-(definition public (frame-region frame <Rect> (insets: insets (new Rect 1 1 1 1)))
-  (let ((left   (get-left~ frame))
-        (top    (get-top~ frame))
-        (right  (get-right~ frame))
-        (bottom (get-bottom~ frame))
-        (region (new Region)))
-    (with-closed ((l (new Region left: left                          top: top                             right: (+ left (get-left~ insets)) bottom: bottom))
-                  (t (new Region left: left                          top: top                             right: right                       bottom: (+ top (get-top~ insets))))
-                  (r (new Region left: (- right (get-right~ insets)) top: top                             right: right                       bottom: bottom))
-                  (b (new Region left: left                          top: (- bottom (get-bottom~ insets)) right: right                       bottom: bottom)))
-      (combine!~ region l 'or)
-      (combine!~ region t 'or)
-      (combine!~ region r 'or)
-      (combine!~ region b 'or)
-      region)))
-
-
-;;;
 ;;;; Cursor
 ;;;
 
@@ -423,21 +401,6 @@
              (present~ mandatory)))))
 
 
-
-
-(definition public (get-window-focus)
-  (let ((focus (GetFocus)))
-    (when focus
-      (get-window focus))))
-
-
-(definition public (set-window-focus window)
-  (SetFocus (if window (get-handle~ window) NULL)))
-
-
-
-
-
 ;;;
 ;;;; Message
 ;;;
@@ -684,57 +647,6 @@
           stack)
         (error "{a}" (get-output~ printer))))))
 
-
-;;;
-;;;; Focus
-;;;
-
-
-;; All this and also the interaction with View-Player.call-focus-lose needs big time
-;; cleanup... Currently, a view's focus-gain definition can get called many times in a row.
-
-
-;; This seems to be platform independent...???
-
-(definition public Focus
-  {})
-
-
-(definition public (get-focus)
-  Focus)
-
-
-(definition public (set-focus view)
-  (let ((player (essay view (get-player~ view))))
-    (when (neq? view Focus)
-      (let ((old Focus))
-        (when Focus
-          (let ((focus Focus))
-            ;; more robust to errors in focus-lose
-            (set! Focus {})
-            (call-focus-lose~ focus player view)))
-        (set-window-focus player)
-        (set! Focus {})
-        (when view
-          (call-focus-gain~ view))
-        (set! Focus view)
-        (process-focus-change~ (get-application) old view)))))
-
-
-(definition public (validate-focus)
-  (let ((focus (get-focus)))
-    (when focus
-      (unless (focus-validate~ focus {})
-        (set-focus focus)
-        (throw-cancel)))))
-
-
-(definition public (clear-focus window)
-  (when Focus
-    (let ((old Focus))
-      (call-focus-lose~ Focus window {})
-      (set! Focus {})
-      (process-focus-change~ (get-application) old {}))))
 
 ;;;
 ;;;; Processes
@@ -2393,27 +2305,6 @@
 ;;;
 ;;;; Window
 ;;;
-
-
-(definition public Windows-Table
-  (new-hashtable eqv?))
-
-
-(definition public inline (get-window hwnd)
-  (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
-    (hash-ref Windows-Table hwnd)))
-
-
-(definition public inline (set-window hwnd window)
-  (hash-set! Windows-Table (foreign-address hwnd) window))
-
-
-(definition public (get-toplevel)
-  (get-toplevel~ (get-application)))
-
-
-(definition public (get-stage)
-  (get-stage~ (get-application)))
 
 
 ;;tofix

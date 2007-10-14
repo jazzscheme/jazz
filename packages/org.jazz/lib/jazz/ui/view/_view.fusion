@@ -778,4 +778,59 @@
 (definition (complete-drag-up dragging?)
   (when mouse-down?
     (let ((pos (mouse-position~ mouse-down-view)))
-      (process-drag-up~ mouse-down-view pos dragging?)))))
+      (process-drag-up~ mouse-down-view pos dragging?))))
+
+
+;;;
+;;;; Focus
+;;;
+
+
+;;;
+;;;; Focus
+;;;
+
+
+;; All this and also the interaction with View-Player.call-focus-lose needs big time
+;; cleanup... Currently, a view's focus-gain definition can get called many times in a row.
+
+
+(definition public Focus
+  {})
+
+
+(definition public (get-focus)
+  Focus)
+
+
+(definition public (set-focus view)
+  (let ((player (essay view (get-player~ view))))
+    (when (neq? view Focus)
+      (let ((old Focus))
+        (when Focus
+          (let ((focus Focus))
+            ;; more robust to errors in focus-lose
+            (set! Focus {})
+            (call-focus-lose~ focus player view)))
+        (set-window-focus player)
+        (set! Focus {})
+        (when view
+          (call-focus-gain~ view))
+        (set! Focus view)
+        (process-focus-change~ (get-application) old view)))))
+
+
+(definition public (validate-focus)
+  (let ((focus (get-focus)))
+    (when focus
+      (unless (focus-validate~ focus {})
+        (set-focus focus)
+        (throw-cancel)))))
+
+
+(definition public (clear-focus window)
+  (when Focus
+    (let ((old Focus))
+      (call-focus-lose~ Focus window {})
+      (set! Focus {})
+      (process-focus-change~ (get-application) old {})))))

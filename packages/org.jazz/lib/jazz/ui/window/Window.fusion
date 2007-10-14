@@ -43,8 +43,6 @@
         (jazz.ui)
         (jazz.ui.window)
         (jazz.utilities)
-        (jazz.platform)
-        (jazz.platform.windows)
         (jazz.platform.cairo.cairo-win32)
         (jazz.literals))
 
@@ -242,18 +240,7 @@
   
 
   (method protected virtual (paint)
-    (paint-window))
-  
-  
-  (method protected (paint-window)
-    (with ((ps (PAINTSTRUCT-make)))
-      (let ((hdc (BeginPaint handle ps)))
-        (with ((dc (new Cairo-Win32-Surface (cairo_win32_surface_create hdc))))
-          ;;(draw-placeholder dc)
-          (draw dc ps)
-          (close~ dc)
-          (EndPaint handle ps))))
-    processed)
+    (paint-window self))
   
   
   (definition *colors*
@@ -374,18 +361,14 @@
   ;;;
   
   
-  (method (system-key-down wparam)
-    (if (/= wparam VK_MENU)
-        unprocessed
-      (view-update-cursor)
-      processed))
+  (method (system-key-down)
+    (view-update-cursor)
+    processed)
   
   
-  (method (system-key-up wparam)
-    (if (/= wparam VK_MENU)
-        unprocessed
-      (view-update-cursor)
-      processed))
+  (method (system-key-up)
+    (view-update-cursor)
+    processed)
   
   
   (method (modifier-changed wparam)
@@ -432,20 +415,22 @@
     unprocessed)
 
 
-  (method public (call-size-change type width height)
-    ;; Windows sends a size message with both the width
-    ;; and the height equal to zero when minimizing a window...
-    (when (or (/= width 0) (/= height 0))
-      (when (get-installed?)
-        (let ((size (new Dimension width height)))
-          (size-change size)
-          (set! previous-size size)))))
+  (method public (call-size-change width height)
+    (when (get-installed?)
+      (let ((size (new Dimension width height)))
+        (size-change size)
+        (set! previous-size size))))
 
 
   (method protected virtual (size-change size)
     unprocessed)
 
 
+  ;; tofix
+  ;; This will be more complicated. This is associated to
+  ;; accelerators. For now this should stay that way...
+  ;; The other case is notifications from control window.
+  ;; This should be easier.
   (method protected virtual (on-command lparam wparam)
     (if (= lparam 0)
         (let ((action-item/shortcut (get-id-cookie (loword wparam))))
@@ -472,7 +457,7 @@
 
   ;; when a toplevel window (including palettes) is activated or deactivated
   (method protected virtual (on-activate kind)
-    (if (= kind WA_INACTIVE)
+    (if (eq? kind 'inactive)
         (on-deactivate-palette)
       (on-activate-palette))
     unprocessed)
@@ -499,11 +484,11 @@
   (method (window-destroy)
     (destroy-component)
     unprocessed)
-
-
+  
+  
   (method (on-nc-destroy evt)
     (set-window handle {})
-    (set-handle NULL)
+    (set-handle #f)
     unprocessed)
 
 
@@ -528,6 +513,8 @@
   ;;;
   
   
+  ;; tofix : this will clearly need to be moved. But let's
+  ;; keep it simple for now...
   (method (drop-files wparam)
     (unimplemented 'drop-files)
     @get-toplevel-handle
@@ -540,6 +527,8 @@
       (SetForegroundWindow (get-toplevel-handle))))
   
   
+  ;; tofix : this will clearly need to be moved. But let's
+  ;; keep it simple for now...
   (method (received-files wparam)
     (unimplemented 'received-files)
     @adjust-string
@@ -579,75 +568,36 @@
   (method (on-timer serial-number)
     (let ((object (serial-number->object serial-number)))
       (call-pulse~ object)))
-
-
+  
+  
   ;;;
-  ;;;; Style
+  ;;;; Fade
   ;;;
-
-
-  (method (get-style)
-    (GetWindowLong handle GWL_STYLE))
-
-
-  (method (set-style style)
-    (SetWindowLong handle GWL_STYLE style))
-
-
-  (method (get-ex-style)
-    (GetWindowLong handle GWL_EXSTYLE))
-
-
-  (method (set-ex-style style)
-    (SetWindowLong handle GWL_EXSTYLE style))
-  
-  
-  (method (child-window?)
-    (mask-bit-set? (get-style) WS_CHILD))
-
-
-  ;;;
-  ;;;; Layers
-  ;;;
-  
-  
-  (method public (get-layered?)
-    (mask-bit-set? (get-ex-style) WS_EX_LAYERED))
-  
-  
-  (method public (set-layered? flag)
-    (SetWindowLong handle GWL_EXSTYLE (mask-bit-set (GetWindowLong handle GWL_EXSTYLE) WS_EX_LAYERED flag)))
-  
-  
-  (method public (set-alpha-blending n)
-    (set-layered? true)
-    (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-    (RedrawWindow handle NULL NULL (bit-or RDW_ERASE RDW_INVALIDATE)))
   
   
   (method public (fade-in (fade-speed: fade-speed {}))
-    (set-alpha-blending 0)
+    (set-alpha-blending handle 0)
     (set-visible? true)
     (update-window)
     (let* ((max 255)
-           (delay (* (clocks/second) 0.15))
-           (now (clock))
+           (delay 0.15)
+           (now (time->seconds (current-time)))
            (start now))
       (while (< now (+ start delay))
-        (set-alpha-blending (ceil (* (- now start) (/ max delay))))
-        (set! now (clock)))
-      (set-alpha-blending max))
-    (set-layered? false))
+        (set-alpha-blending handle (ceil (* (- now start) (/ max delay))))
+        (set! now (time->seconds (current-time))))
+      (set-alpha-blending handle max))
+    (set-layered? handle false))
   
   
   (method public (fade-out (to: to 0) (step: step 5))
     @need-to-get-layered-attributes
     (let ((alpha))
       (loop (for n from 0 to to by step)
-            (set-alpha-blending n)
+            (set-alpha-blending handle n)
             (set! alpha n))
       (unless (= alpha to)
-        (set-alpha-blending to))))
+        (set-alpha-blending handle to))))
 
 
   ;;;
@@ -679,30 +629,16 @@
 
 
   ;;;
-  ;;;; Tracking
-  ;;;
-  
-  
-  (method public (track-mouse-event flags (time: time HOVER_DEFAULT))
-    (with ((rec (TRACKMOUSEEVENT-make)))
-      (TRACKMOUSEEVENT-cbSize-set! rec (size-of-TRACKMOUSEEVENT))
-      (TRACKMOUSEEVENT-dwFlags-set! rec flags)
-      (TRACKMOUSEEVENT-hwndTrack-set! rec handle)
-      (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
-      (TrackMouseEvent rec)))
-
-
-  ;;;
   ;;;; Management
   ;;;
 
 
   (method public (send-message msg wparam lparam)
-    (SendMessage handle msg wparam lparam))
+    (platform-send-message handle msg wparam lparam))
 
 
   (method public (post-message msg wparam lparam)
-    (PostMessage handle msg wparam lparam))
+    (platform-post-message handle msg wparam lparam))
 
 
   (method public (get-handle)
@@ -715,7 +651,7 @@
 
   (method public (set-parent parent)
     (nextmethod parent)
-    (SetParent handle (if parent (get-handle~ parent) NULL)))
+    (platform-set-parent handle parent))
 
 
   (method (get-frame)
@@ -731,16 +667,12 @@
       (get-overlapped~ parent)))
   
   
-  (method public (get-window-owner)
-    (get-window (GetWindow handle GW_OWNER)))
-  
-  
   (method public (get-root-owner)
-    (let ((root (get-window-owner)))
+    (let ((root (get-window (get-window-owner-handle handle))))
       (when root
         (let ((done? false))
           (while (not done?)
-            (let ((owner (get-window-owner~ root)))
+            (let ((owner (get-window (get-window-owner-handle (get-handle~ root)))))
               (if (not owner)
                   (set! done? true)
                 (set! root owner))))
@@ -748,7 +680,7 @@
   
   
   (method public (get-top-window)
-    (get-window (GetTopWindow handle)))
+    (get-window (get-top-window-handle handle)))
   
 
   (method public virtual (get-title)
@@ -757,47 +689,33 @@
 
   (method public virtual (set-title value)
     (set! title value)
-    (set-window-title (localize title)))
+    (set-window-title handle (localize title)))
   
 
   (method public (get-window-title)
     (get-hwnd-title handle))
   
 
-  (method public (set-window-title title)
-    (SetWindowText handle title))
-  
-
   (method public (acquire window shape)
     (typecase shape
       ((Point)
-        (with ((acquired (point->POINT shape)))
-          (MapWindowPoints (get-handle~ window) handle acquired 1)
-          (POINT->point acquired)))
+       (acquire-point handle window shape))
       ((Rect)
-        (with ((acquired (rect->RECT shape)))
-          (MapWindowPoints (get-handle~ window) handle (RECT->POINTS acquired) 2)
-          (RECT->rect acquired)))
+       (acquire-rect handle window shape))
       (else
         (error "Unable to translate {t}" shape))))
-
-
-  (method (get-position)
-    (with ((rect (RECT-make)))
-      (GetWindowRect handle rect)
-      (when (and parent (child-window?))
-        (MapWindowPoints NULL (get-handle~ parent) (RECT->POINTS rect) 2))
-      (new Point (RECT-left-ref rect) (RECT-top-ref rect))))
   
   
   (method public (get-window-position)
-    (with ((pos (new-point 0 0)))
-      (MapWindowPoints handle NULL pos 1)
-      (new Point (POINT-x-ref pos) (POINT-y-ref pos))))
+    (platform-get-window-position handle))
+  
+  
+  (method (get-position)
+    (platform-get-position handle (if (get-parent) (get-handle~ (get-parent)) #f)))
   
 
   (method (set-position pos)
-    (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bit-or SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
+    (platform-set-position handle pos))
 
 
   (method public (move-window dh dv)
@@ -806,9 +724,7 @@
 
 
   (method (get-size)
-    (with ((rect (RECT-make)))
-      (GetClientRect handle rect)
-      (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (platform-get-size handle))
 
 
   (method (set-size size)
@@ -822,18 +738,15 @@
 
 
   (method public (get-window-size)
-    (let ((rect (RECT-make)))
-      (GetWindowRect handle rect)
-      (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
-                     (- (RECT-bottom-ref rect) (RECT-top-ref rect)))))
+    (platform-get-window-size handle))
 
 
   (method public (set-window-size size)
-    (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bit-or SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
+    (platform-set-window-size handle size))
   
   
   (method public (set-bounds rect)
-    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
+    (platform-set-bounds handle rect))
   
   
   (method public (grow-bounds dh dv dwidth dheight)
@@ -852,19 +765,12 @@
   
 
   (method public (get-rect)
-    (with ((rect (RECT-make)))
-      (GetWindowRect handle rect)
-      (when parent
-        (MapWindowPoints NULL (get-handle~ parent) (RECT->POINTS rect) 2))
-      (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (platform-get-rect handle (if (get-parent) (get-handle~ (get-parent)) #f)))
   
 
   (method public (get-bounds)
-    (with ((rect (RECT-make)))
-      (GetWindowRect handle rect)
-      (MapWindowPoints NULL handle (RECT->POINTS rect) 2)
-      (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
-  
+    (platform-get-bounds handle))
+
   
   (method public (ensure-displayed)
     (let ((outer (if (not parent) (get-size~ (get-desktop)) (get-size~ parent)))
@@ -875,9 +781,7 @@
 
 
   (method public (mouse-position)
-    (with ((point (POINT-make)))
-      (GetCursorPos point)
-      (acquire (get-desktop) (new Point (POINT-x-ref point) (POINT-y-ref point)))))
+    (acquire (get-desktop) (platform-mouse-position)))
 
 
   (method public (mouse-window)
@@ -895,20 +799,14 @@
 
 
   (method public (find-window point)
-    (with ((pt (POINT-make)))
-      (POINT-x-set! pt (get-h~ point))
-      (POINT-y-set! pt (get-v~ point))
-      (get-window (WindowFromPoint pt))))
+    (get-window (platform-window-from-point point)))
   
   
   (method public (find-child-window point)
-    (with ((pt (POINT-make)))
-      (POINT-x-set! pt (get-h~ point))
-      (POINT-y-set! pt (get-v~ point))
-      (let ((window (get-window (ChildWindowFromPointEx handle pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT)))))
-        (if (or (not window) (eq? window self))
-            window
-          (find-child-window~ window (acquire~ window self point))))))
+    (let ((window (get-window (platform-child-window-from-point handle point))))
+      (if (or (not window) (eq? window self))
+          window
+        (find-child-window~ window (acquire~ window self point)))))
 
 
   (method public (flash-window)
@@ -922,7 +820,7 @@
 
 
   (method public (move x y cx cy)
-    (MoveWindow handle x y cx cy true))
+    (platform-move-window handle x y cx cy true))
 
 
   (method public (acquire-focus)
@@ -930,53 +828,39 @@
   
   
   (method public (get-enabled?)
-    (IsWindowEnabled handle))
+    (platform-window-enabled? handle))
   
   
   (method public (enable-window)
-    (EnableWindow handle true))
+    (platform-enable-window handle))
   
   
   (method public (disable-window)
-    (EnableWindow handle false))
+    (platform-disable-window handle))
 
 
   (method public (get-client-rect)
-    (with ((rect (RECT-make)))
-      (GetClientRect handle rect)
-      (RECT->rect rect)))
+    (platform-get-client-rect handle))
 
 
   (method public (scroll-window dh dv rect (clip-rect: clip-rect {}) (erase?: erase? true))
-    (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
-      (with ((rect (rect->RECT rect))
-             (clip-rect (rect->RECT clip-rect)))
-        (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
+    (platform-scroll-window handle dh dv rect clip-rect erase?))
 
   
   (method public (invalidate-rect rect (erase? false))
-    (when handle
-      (with ((rect (rect->RECT rect)))
-        (InvalidateRect handle rect erase?))))
+    (platform-invalidate-rect handle rect erase?))
 
   
   (method public (invalidate-region region (erase? false))
-    (when handle
-      (InvalidateRgn handle (get-handle~ region) erase?)))
+    (platform-invalidate-region handle region erase?))
 
   
   (method public (invalidate-window (erase? false))
-    (when handle
-      (InvalidateRect handle NULL erase?)))
+    (platform-invalidate-window handle erase?))
 
   
   (method public (redraw-window (rect: rect {}) (region: region {}))
-    (when handle
-      ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
-      ;; toplevel would redraw it's children. Hope it doesn't break any code...
-      (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
-        (with ((rect (if (not rect) NULL (rect->RECT rect))))
-          (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)))))
+    (platform-redraw-window handle rect region))
 
 
   (method public (invalidate-border (insets: insets {Rect 1 1 1 1}))
@@ -994,31 +878,27 @@
 
 
   (method public (get-update-rect)
-    (with ((rect (RECT-make)))
-      (GetUpdateRect handle rect false)
-      (RECT->rect rect)))
+    (platform-get-update-rect handle))
 
 
   (method public (get-update-region)
-    (let ((region (new Region)))
-      (GetUpdateRgn handle (get-handle~ region) false)
-      region))
+    (platform-get-update-region handle))
 
-
+  @tofix-not-useful-for-now
   (method public (get-class-background)
     (GetClassLong handle GCL_HBRBACKGROUND))
 
 
   (method public (update-window)
-    (UpdateWindow handle))
+    (platform-update-window handle))
   
   
   (method public (show-noactivate)
-    (SetWindowPos handle HWND_TOP 0 0 0 0 (bit-or SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+    (platform-show-noactivate handle))
   
   
   (method public (hide-noactivate)
-    (SetWindowPos handle 0 0 0 0 0 (bit-or SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+    (platform-hide-noactivate handle))
 
 
   ;;;
@@ -1063,13 +943,13 @@
   
   (method (bring-to-front)
     (nextmethod)
-    (BringWindowToTop handle))
+    (platform-bring-window-to-front handle))
 
 
   (method (send-to-back)
     (nextmethod)
-    (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bit-or SWP_NOMOVE SWP_NOSIZE)))
-
+    (platform-send-window-to-back handle))
+    
 
   ;;;
   ;;;; Layout

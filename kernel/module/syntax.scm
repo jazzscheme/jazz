@@ -112,15 +112,16 @@
         (%%cadr (%%cadr invoice))
       #f))
   
-  (define (feature-safisfied? feature-requirement)
-    (if (%%symbol? feature-requirement)
-        (%%memq feature-requirement ##cond-expand-features)
-      (error "Features can only be symbols for now")))
-  
   (apply append
          (map (lambda (invoice)
                 (let ((feature-requirement (extract-feature-requirement invoice)))
-                  (if (or (not feature-requirement) (feature-safisfied? feature-requirement))
+                  (if (or (not feature-requirement) (jazz.feature-safisfied? feature-requirement))
                       (%%list invoice)
                     '())))
               invoices)))
+
+
+(define (jazz.feature-safisfied? feature-requirement)
+  (if (%%symbol? feature-requirement)
+      (%%memq feature-requirement ##cond-expand-features)
+    (error "Features can only be symbols for now")))

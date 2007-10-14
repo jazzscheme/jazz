@@ -51,7 +51,7 @@
 (jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment))
-(jazz.define-virtual-syntax (jazz.emit-inline-binding-call (jazz.Walk-Binding binding) call environment))
+(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) call environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment))

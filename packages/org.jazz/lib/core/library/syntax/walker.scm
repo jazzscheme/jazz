@@ -103,7 +103,7 @@
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment))
-(jazz.define-virtual (jazz.emit-inline-binding-call (jazz.Walk-Binding binding) call environment))
+(jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) call environment))
 (jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment))
@@ -132,7 +132,7 @@
     #f))
 
 
-(jazz.define-method (jazz.emit-inline-binding-call (jazz.Walk-Binding binding) call environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) call environment)
   #f)
 
 
@@ -1670,7 +1670,7 @@
     (let ((declaration (jazz.new-library-declaration name #f dialect-name requires exports imports)))
       (jazz.load-library-syntax declaration)
       (jazz.setup-library-lookups declaration)
-      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
+      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body #t)
       (jazz.validate-walk-problems walker)
       declaration)))
 
@@ -1741,10 +1741,38 @@
            (resume #f)
            (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
            (environment (%%cons declaration (jazz.walker-environment walker)))
-           (body (jazz.walk-list walker resume declaration environment body)))
+           (body (jazz.walk-toplevel walker resume declaration environment body)))
       (jazz.validate-walk-problems walker)
       (%%set-namespace-declaration-body declaration body)
       declaration)))
+
+
+(define (jazz.cond-expand form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'cond-expand))
+      (let iter ((scan (%%cdr form)))
+        (if (%%null? scan)
+            (jazz.error "Unfulfilled cond-expand")
+          (let ((clause (%%car scan)))
+            (if (or (%%not (%%pair? clause))
+                    (%%not (%%symbol? (%%car clause))))
+                (jazz.error "Ill-formed cond-expand clause: {s}" clause)
+              (let ((feature-requirement (%%car clause)))
+                (if (or (jazz.feature-safisfied? feature-requirement)
+                        (%%eq? feature-requirement 'else))
+                    (%%cadr clause)
+                  (iter (%%cdr scan))))))))
+    form))
+
+
+(define (jazz.walk-toplevel walker resume declaration environment form-list)
+  (let ((queue (jazz.new-queue)))
+    (for-each (lambda (form)
+                (call/cc
+                  (lambda (resume)
+                    (jazz.enqueue queue (jazz.walk walker resume declaration environment (jazz.cond-expand form))))))
+              form-list)
+    (jazz.queue-list queue)))
 
 
 (define (jazz.load-dialect dialect-name)
@@ -1903,18 +1931,18 @@
     #f))
 
 
-(define (jazz.walk-declarations walker resume declaration environment forms)
-  (letrec ((walk
-            (lambda (forms)
-              (for-each (lambda (form)
-                          (call/cc
-                            (lambda (resume)
-                              (let ((expansion (jazz.expand-macros walker resume declaration environment form)))
-                                (if (jazz.begin-form? expansion)
-                                    (walk (%%cdr expansion))
-                                  (jazz.walk-declaration walker resume declaration environment expansion))))))
-                        forms))))
-      (walk forms)))
+(define (jazz.walk-declarations walker resume declaration environment forms toplevel?)
+  (define (walk forms)
+    (for-each (lambda (form)
+                (call/cc
+                  (lambda (resume)
+                    (let ((expansion (jazz.expand-macros walker resume declaration environment (if toplevel? (jazz.cond-expand form) form))))
+                      (if (jazz.begin-form? expansion)
+                          (walk (%%cdr expansion))
+                        (jazz.walk-declaration walker resume declaration environment expansion))))))
+              forms))
+  
+  (walk forms))
 
 
 (define (jazz.add-declaration-child walker resume declaration child)
@@ -2463,8 +2491,8 @@
 
 (jazz.define-method (jazz.emit-expression (jazz.Call expression) environment)
   (let ((operator (%%get-call-operator expression)))
-    (or (jazz.emit-inline-primitive operator expression environment)
-        (jazz.emit-inline-call operator expression environment)
+    (or (jazz.emit-inlined-primitive operator expression environment)
+        (jazz.emit-inlined-call operator expression environment)
         (jazz.emit-call operator (jazz.emit-expressions (%%get-call-arguments expression) environment) environment))))
 
 
@@ -2478,7 +2506,7 @@
 
 
 ;;;
-;;;; Inline Primitive
+;;;; Inlined Primitive
 ;;;
 
 
@@ -2497,7 +2525,7 @@
 (%%hashtable-set! jazz.inline-patterns 'scheme.dialect.kernel./  (list                            (list jazz.Flonum '##fl*)))
 
 
-(define (jazz.emit-inline-primitive operator call environment)
+(define (jazz.emit-inlined-primitive operator call environment)
   (define (operator-locator)
     (if (%%is? operator jazz.Reference)
         (let ((binding (%%get-reference-binding operator)))
@@ -2531,14 +2559,14 @@
 
 
 ;;;
-;;;; Inline Call
+;;;; Inlined Call
 ;;;
 
 
-(define (jazz.emit-inline-call operator call environment)
+(define (jazz.emit-inlined-call operator call environment)
   (if (%%is? operator jazz.Reference)
       (let ((binding (%%get-reference-binding operator)))
-        (jazz.emit-inline-binding-call binding call environment))
+        (jazz.emit-inlined-binding-call binding call environment))
     #f))
 
 

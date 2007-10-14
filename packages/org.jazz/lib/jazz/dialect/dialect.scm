@@ -83,7 +83,7 @@
       (nextmethod declaration arguments environment))))
 
 
-(jazz.define-method (jazz.emit-inline-binding-call (jazz.Definition-Declaration declaration) call environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) call environment)
   (if (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
       (let ((value (%%get-definition-declaration-value declaration)))
         (if (%%is? value jazz.Lambda)
@@ -1066,7 +1066,7 @@
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-class-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
-          (jazz.walk-declarations walker resume new-declaration new-environment body)
+          (jazz.walk-declarations walker resume new-declaration new-environment body #f)
           new-declaration)))))
 
 
@@ -1124,7 +1124,7 @@
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-interface-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
-          (jazz.walk-declarations walker resume new-declaration new-environment body)
+          (jazz.walk-declarations walker resume new-declaration new-environment body #f)
           new-declaration)))))
 
 

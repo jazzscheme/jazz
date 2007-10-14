@@ -65,11 +65,13 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
+       ,(jazz.emit-cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration))
-  (%%get-declaration-locator declaration))
+  (jazz.new-code
+    (%%get-declaration-locator declaration)
+    #f))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Define-Declaration declaration))
@@ -78,7 +80,9 @@
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value environment)
   (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz.emit-expression value environment))))
+    (jazz.new-code
+      `(set! ,locator ,(%%code-form (jazz.emit-expression value environment)))
+      #f)))
 
 
 (jazz.encapsulate-class jazz.Define-Declaration)
@@ -119,7 +123,7 @@
         (signature (%%get-define-macro-signature declaration))
         (body (%%get-define-macro-body declaration)))
     `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature environment))
-       ,@(jazz.emit-expression body environment))))
+       ,@(%%code-form (jazz.emit-expression body environment)))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)

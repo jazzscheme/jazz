@@ -499,15 +499,43 @@
 ;;;
 
 
+#;
 (jazz.define-macro (jazz.new-code form type)
   `(cons ,form ,type))
 
 
+#;
 (jazz.define-macro (%%code-form code)
   `(%%car ,code))
 
+#;
 (jazz.define-macro (%%code-type code)
   `(%%cdr ,code))
+
+
+(jazz.define-macro (jazz.new-code form type)
+  `(list 'CODE ,form ,type))
+
+
+(jazz.define-macro (%%code-form code)
+  (let ((cde (jazz.generate-symbol "cde")))
+    `(let ((,cde ,code))
+       (if (eq? (car ,cde) 'CODE)
+           (cadr ,cde)
+         (jazz.error "Code expected in %%code-form: {s}" ,cde)))))
+
+(jazz.define-macro (%%code-type code)
+  (let ((cde (jazz.generate-symbol "cde")))
+    `(let ((,cde ,code))
+       (if (eq? (car ,cde) 'CODE)
+           (caddr ,cde)
+         (jazz.error "Code expected in %%code-type: {s}" ,cde)))))
+
+
+(define (jazz.codes-forms codes)
+  (map (lambda (code)
+         (%%code-form code))
+       codes))
 
 
 ;;;

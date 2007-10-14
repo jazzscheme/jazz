@@ -2463,8 +2463,8 @@
 
 (jazz.define-method (jazz.emit-expression (jazz.Call expression) environment)
   (let ((operator (%%get-call-operator expression)))
-    (or ;;(jazz.emit-inline-primitive operator expression environment)
-        ;;(jazz.emit-inline-call operator expression environment)
+    (or (jazz.emit-inline-primitive operator expression environment)
+        (jazz.emit-inline-call operator expression environment)
         (jazz.emit-call operator (jazz.emit-expressions (%%get-call-arguments expression) environment) environment))))
 
 

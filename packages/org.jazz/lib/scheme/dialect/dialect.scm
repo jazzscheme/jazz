@@ -61,11 +61,11 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Define-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Define-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
+       ,(jazz.cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration))
@@ -76,9 +76,9 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value environment)
   (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz.emit-expression value))))
+    `(set! ,locator ,(jazz.emit-expression value environment))))
 
 
 (jazz.encapsulate-class jazz.Define-Declaration)
@@ -114,12 +114,12 @@
           (%%apply expander (%%cdr form)))))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Define-Macro-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Define-Macro-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-define-macro-signature declaration))
         (body (%%get-define-macro-body declaration)))
-    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature))
-       ,@(jazz.emit-expression body))))
+    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature environment))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)
@@ -241,7 +241,6 @@
 (define (jazz.walk-%define walker resume declaration environment form)
   (jazz.bind (name specifier value parameters) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
-           (locator (%%get-declaration-locator new-declaration))
            (new-environment (%%cons new-declaration environment)))
       (%%set-define-declaration-value new-declaration
         (jazz.walk walker resume new-declaration new-environment value))
@@ -281,8 +280,7 @@
 
 (define (jazz.walk-%define-macro walker resume declaration environment form)
   (jazz.bind (name type parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
-           (locator (%%get-declaration-locator new-declaration)))
+    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-body new-declaration
           (jazz.walk walker resume new-declaration augmented-environment body))

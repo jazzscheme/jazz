@@ -90,6 +90,15 @@
 
 
 ;;;
+;;;; Parse
+;;;
+
+
+(define (parse library-name)
+  (jazz.locate-toplevel-declaration library-name))
+
+
+;;;
 ;;;; Walk
 ;;;
 
@@ -513,6 +522,11 @@
   (lj)
   (l 'jazz.platform.literals)
   (l 'test.boot))
+
+
+(define (tj)
+  (set! jazz.run-loop? #f)
+  (time (j)))
 
 
 (define (lp . rest)

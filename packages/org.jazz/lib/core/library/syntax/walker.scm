@@ -102,11 +102,11 @@
 (jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
-(jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments))
-(jazz.define-virtual (jazz.inline-binding-call (jazz.Walk-Binding binding) call))
+(jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment))
+(jazz.define-virtual (jazz.emit-inline-binding-call (jazz.Walk-Binding binding) call environment))
 (jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
-(jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value))
+(jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment))
 (jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 (jazz.define-virtual (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
@@ -125,12 +125,12 @@
   (jazz.void))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments)
+(jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment)
   `(,(jazz.emit-binding-reference binding)
     ,@arguments))
 
 
-(jazz.define-method (jazz.inline-binding-call (jazz.Walk-Binding binding) call)
+(jazz.define-method (jazz.emit-inline-binding-call (jazz.Walk-Binding binding) call environment)
   #f)
 
 
@@ -142,7 +142,7 @@
   (jazz.void))
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment)
   (jazz.void))
 
 
@@ -247,10 +247,10 @@
   '())
 
 
-(jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Declaration declaration) environment)
   (jazz.error "Unable to emit: {s}" declaration))
 
 
@@ -466,8 +466,8 @@
                      #f)))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration))
-  (let ((body-expansion (jazz.emit-statements (%%get-namespace-declaration-body declaration)))
+(jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
+  (let ((body-expansion (jazz.emit-statements (%%get-namespace-declaration-body declaration) environment))
         (references-expansion (jazz.expand-library-references declaration))
         (literals-expansion (jazz.expand-library-literals declaration))
         (variables-expansion (jazz.expand-library-variables declaration))
@@ -594,7 +594,7 @@
   (jazz.void))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Export-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Export-Declaration declaration) environment)
   `(begin))
 
 
@@ -790,12 +790,12 @@
           (%%apply expander (%%cdr form)))))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Macro-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Macro-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-macro-declaration-signature declaration))
         (body (%%get-macro-declaration-body declaration)))
-    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature))
-       ,@(jazz.emit-expression body))))
+    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature environment))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.encapsulate-class jazz.Macro-Declaration)
@@ -831,12 +831,12 @@
           (%%apply expander (%%cdr form)))))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Syntax-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Syntax-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-syntax-declaration-signature declaration))
         (body (%%get-syntax-declaration-body declaration)))
-    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature))
-       ,@(jazz.emit-expression body))))
+    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature environment))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.encapsulate-class jazz.Syntax-Declaration)
@@ -863,7 +863,7 @@
   (%%get-c-type-declaration-references declaration))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.C-Type-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.C-Type-Declaration declaration) environment)
   `(begin))
 
 
@@ -902,7 +902,7 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.C-Definition-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.C-Definition-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-c-definition-declaration-signature declaration))
         (parameter-types (%%get-c-definition-declaration-parameter-types declaration))
@@ -910,8 +910,8 @@
         (c-name (%%get-c-definition-declaration-c-name declaration))
         (scope (%%get-c-definition-declaration-scope declaration))
         (body (%%get-c-definition-declaration-body declaration)))
-    `(c-define ,(%%cons locator (jazz.emit-parameters signature)) ,parameter-types ,result-type ,c-name ,scope
-       ,@(jazz.emit-expression body))))
+    `(c-define ,(%%cons locator (jazz.emit-parameters signature environment)) ,parameter-types ,result-type ,c-name ,scope
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.C-Definition-Declaration declaration))
@@ -1080,6 +1080,12 @@
     (jazz.allocate-signature jazz.Signature mandatory positional optional named rest)))
 
 
+(define (jazz.only-positional? signature)
+  (and (%%null? (%%get-signature-optional signature))
+       (%%null? (%%get-signature-named signature))
+       (%%not (%%get-signature-rest signature))))
+
+
 (jazz.encapsulate-class jazz.Signature)
 
 
@@ -1120,8 +1126,8 @@
   (%%set-variable-setters binding (cons assignment (%%get-variable-setters binding))))
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Variable binding) value)
-  `(set! ,(%%get-lexical-binding-name binding) ,(jazz.emit-expression value)))
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Variable binding) value environment)
+  `(set! ,(%%get-lexical-binding-name binding) ,(jazz.emit-expression value environment)))
 
 
 (jazz.encapsulate-class jazz.Variable)
@@ -1164,10 +1170,10 @@
   (jazz.allocate-parameter jazz.Parameter name type '()))
 
 
-(jazz.define-virtual (jazz.emit-parameter (jazz.Parameter parameter)))
+(jazz.define-virtual (jazz.emit-parameter (jazz.Parameter parameter) environment))
 
 
-(jazz.define-method (jazz.emit-parameter (jazz.Parameter parameter))
+(jazz.define-method (jazz.emit-parameter (jazz.Parameter parameter) environment)
   (%%get-lexical-binding-name parameter))
 
 
@@ -1187,9 +1193,9 @@
   (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type '() class))
 
 
-(jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter))
+(jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) environment)
   (let ((class (%%get-dynamic-parameter-class parameter)))
-    (%%list (jazz.emit-expression class) (%%get-lexical-binding-name parameter))))
+    (%%list (jazz.emit-expression class environment) (%%get-lexical-binding-name parameter))))
 
 
 (jazz.encapsulate-class jazz.Dynamic-Parameter)
@@ -1208,9 +1214,9 @@
   (jazz.allocate-optional-parameter jazz.Optional-Parameter name type '() default))
 
 
-(jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter))
+(jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) environment)
   (let ((default (%%get-optional-parameter-default parameter)))
-    (%%list (%%get-lexical-binding-name parameter) (jazz.emit-expression default))))
+    (%%list (%%get-lexical-binding-name parameter) (jazz.emit-expression default environment))))
 
 
 (jazz.encapsulate-class jazz.Optional-Parameter)
@@ -1229,9 +1235,9 @@
   (jazz.allocate-named-parameter jazz.Named-Parameter name type '() default))
 
 
-(jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter))
+(jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) environment)
   (let ((default (%%get-named-parameter-default parameter)))
-    (%%list (%%get-lexical-binding-name parameter) (jazz.emit-expression default))))
+    (%%list (%%get-lexical-binding-name parameter) (jazz.emit-expression default environment))))
 
 
 (jazz.encapsulate-class jazz.Named-Parameter)
@@ -1250,7 +1256,7 @@
   (jazz.allocate-rest-parameter jazz.Rest-Parameter name type '()))
 
 
-(jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter))
+(jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter) environment)
   (%%get-lexical-binding-name parameter))
 
 
@@ -1306,7 +1312,7 @@
 
 
 #; ;; convert to walk / emit
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Macro-Symbol binding) value)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Macro-Symbol binding) value environment)
   (let ((setter (%%get-macro-symbol-setter binding)))
     (jazz.walk walker resume source-declaration environment (setter value))))
 
@@ -1374,6 +1380,64 @@
 
 
 (jazz.encapsulate-class jazz.Macro-Form)
+
+
+;;;
+;;;; Annotated Variable
+;;;
+
+
+(jazz.define-class jazz.Annotated-Variable jazz.Object () jazz.Object-Class
+  (variable
+   type))
+
+
+(define (jazz.new-annotated-variable variable type)
+  (jazz.allocate-annotated-variable jazz.Annotated-Variable variable type))
+
+
+(jazz.encapsulate-class jazz.Annotated-Variable)
+
+
+;;;
+;;;; Annotated Frame
+;;;
+
+
+(jazz.define-class jazz.Annotated-Frame jazz.Object () jazz.Object-Class
+  (variables
+   reset))
+
+
+(define (jazz.new-annotated-frame variables reset)
+  (jazz.allocate-annotated-frame jazz.Annotated-Frame variables reset))
+
+
+(jazz.encapsulate-class jazz.Annotated-Frame)
+
+
+;;;
+;;;; Annotation
+;;;
+
+
+(define (jazz.annotate-bindings bindings)
+  (map (lambda (binding)
+         (let ((variable (%%car binding)))
+           (jazz.new-annotated-variable variable (%%get-expression-type variable))))
+       bindings))
+
+
+(define (jazz.with-annotated-frame variables proc)
+  (let ((reset #f))
+    (call/cc
+      (lambda (k)
+        (set! reset k)))
+    (proc (jazz.new-annotated-frame variables reset))))
+
+
+(define (jazz.augment-variable variable new-type)
+  #f)
 
 
 ;;;
@@ -1651,7 +1715,7 @@
 
 
 (define (jazz.expand-library partial-form)
-  (jazz.emit-declaration (jazz.walk-library partial-form)))
+  (jazz.emit-declaration (jazz.walk-library partial-form) '()))
 
 
 (define (jazz.walk-library partial-form)
@@ -1699,7 +1763,7 @@
   (map (lambda (info)
          (let ((name (%%cadr info))
                (value (%%cddr info)))
-           `(define ,name ,(jazz.emit-expression value))))
+           `(define ,name ,(jazz.emit-expression value '()))))
        (%%get-library-declaration-literals library-declaration)))
 
 
@@ -1903,18 +1967,18 @@
   (%%get-expression-type expression))
 
 
-(jazz.define-virtual (jazz.emit-expression (jazz.Expression expression)))
+(jazz.define-virtual (jazz.emit-expression (jazz.Expression expression) environment))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Expression expression))
+(jazz.define-method (jazz.emit-expression (jazz.Expression expression) environment)
   (jazz.error "Unable to emit code for: {s}" expression))
 
 
-(jazz.define-virtual (jazz.emit-call (jazz.Expression expression) arguments))
+(jazz.define-virtual (jazz.emit-call (jazz.Expression expression) arguments environment))
 
 
-(jazz.define-method (jazz.emit-call (jazz.Expression expression) arguments)
-  `(,(jazz.emit-expression expression) ,@arguments))
+(jazz.define-method (jazz.emit-call (jazz.Expression expression) arguments environment)
+  `(,(jazz.emit-expression expression environment) ,@arguments))
 
 
 (jazz.define-virtual (jazz.fold-expression (jazz.Expression expression) f k s))
@@ -1924,9 +1988,9 @@
   (f expression s))
 
 
-(define (jazz.emit-expressions expressions)
+(define (jazz.emit-expressions expressions environment)
   (map (lambda (expression)
-         (jazz.emit-expression expression))
+         (jazz.emit-expression expression environment))
        expressions))
 
 
@@ -1953,7 +2017,7 @@
   (jazz.allocate-constant jazz.Constant type expansion))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Constant expression))
+(jazz.define-method (jazz.emit-expression (jazz.Constant expression) environment)
   (%%get-constant-expansion expression))
 
 
@@ -1973,13 +2037,13 @@
   (jazz.allocate-quasiquote jazz.Quasiquote #f form))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Quasiquote expression))
+(jazz.define-method (jazz.emit-expression (jazz.Quasiquote expression) environment)
   (letrec ((emit
             (lambda (form)
               (if (%%pair? form)
                   (if (or (%%eq? (%%car form) 'unquote)
                           (%%eq? (%%car form) 'unquote-splicing))
-                      (%%list (%%car form) (jazz.emit-expression (%%cadr form)))
+                      (%%list (%%car form) (jazz.emit-expression (%%cadr form) environment))
                     (%%cons (emit (%%car form)) (emit (%%cdr form))))
                 form))))
     (%%list 'quasiquote (emit (%%get-quasiquote-form expression)))))
@@ -2005,12 +2069,12 @@
   (%%get-lexical-binding-type (%%get-reference-binding expression)))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Reference expression))
+(jazz.define-method (jazz.emit-expression (jazz.Reference expression) environment)
   (jazz.emit-binding-reference (%%get-reference-binding expression)))
 
 
-(jazz.define-method (jazz.emit-call (jazz.Reference expression) arguments)
-  (jazz.emit-binding-call (%%get-reference-binding expression) arguments))
+(jazz.define-method (jazz.emit-call (jazz.Reference expression) arguments environment)
+  (jazz.emit-binding-call (%%get-reference-binding expression) arguments environment))
 
 
 (jazz.encapsulate-class jazz.Reference)
@@ -2030,8 +2094,8 @@
   (jazz.allocate-assignment jazz.Assignment #f binding value))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Assignment expression))
-  (jazz.emit-binding-assignment (%%get-assignment-binding expression) (%%get-assignment-value expression)))
+(jazz.define-method (jazz.emit-expression (jazz.Assignment expression) environment)
+  (jazz.emit-binding-assignment (%%get-assignment-binding expression) (%%get-assignment-value expression) environment))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Assignment expression) f k s)
@@ -2057,12 +2121,12 @@
   (jazz.allocate-lambda jazz.Lambda type signature body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Lambda expression))
+(jazz.define-method (jazz.emit-expression (jazz.Lambda expression) environment)
   (let ((type (%%get-expression-type expression))
         (signature (%%get-lambda-signature expression))
         (body (%%get-lambda-body expression)))
-    `(lambda ,(jazz.emit-parameters signature)
-       ,(jazz.cast `(begin ,@(jazz.emit-expression body)) type))))
+    `(lambda ,(jazz.emit-parameters signature environment)
+       ,(jazz.cast `(begin ,@(jazz.emit-expression body environment)) type))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Lambda expression) f k s)
@@ -2089,15 +2153,36 @@
   (jazz.allocate-let jazz.Let #f bindings body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Let expression))
+(jazz.define-method (jazz.emit-expression (jazz.Let expression) environment)
   (let ((bindings (%%get-let-bindings expression))
         (body (%%get-let-body expression)))
-    `(let ,(map (lambda (binding)
-                  (let ((variable (%%car binding))
-                        (value (%%cdr binding)))
-                    `(,(%%get-lexical-binding-name variable) ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type variable)))))
-                bindings)
-       ,@(jazz.emit-expression body))))
+    (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          `(let ,(map (lambda (binding)
+                        (let ((variable (%%car binding))
+                              (value (%%cdr binding)))
+                          `(,(%%get-lexical-binding-name variable) ,(jazz.cast (jazz.emit-expression value augmented-environment) (%%get-lexical-binding-type variable)))))
+                      bindings)
+             ,@(jazz.emit-expression body augmented-environment)))))))
+
+
+#; ;; new version yet again
+(jazz.define-method (jazz.emit-expression (jazz.Let expression) environment)
+  (let ((bindings (%%get-let-bindings expression))
+        (body (%%get-let-body expression)))
+    (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          (jazz.let ((body-code (jazz.emit-expression body augmented-environment)))
+            (jazz.new-code
+              `(let ,(map (lambda (binding)
+                            (let ((variable (%%car binding))
+                                  (value (%%cdr binding)))
+                              `(,(%%get-lexical-binding-name variable) ,(jazz.cast (jazz.emit-expression value augmented-environment) (%%get-lexical-binding-type variable)))))
+                          bindings)
+                 ,@(%%code-form body-code))
+              (%%code-type body-code))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Let expression) f k s)
@@ -2122,16 +2207,16 @@
   (jazz.allocate-named-let jazz.Named-Let #f bindings body name))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Named-Let expression))
+(jazz.define-method (jazz.emit-expression (jazz.Named-Let expression) environment)
   (let ((name (%%get-named-let-name expression))
         (bindings (%%get-let-bindings expression))
         (body (%%get-let-body expression)))
     `(let ,name ,(map (lambda (binding)
                   (let ((variable (%%car binding))
                         (value (%%cdr binding)))
-                    `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value))))
+                    `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value environment))))
                 bindings)
-       ,@(jazz.emit-expression body))))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Named-Let expression) f k s)
@@ -2157,15 +2242,15 @@
   (jazz.allocate-letstar jazz.Letstar #f bindings body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Letstar expression))
+(jazz.define-method (jazz.emit-expression (jazz.Letstar expression) environment)
   (let ((bindings (%%get-letstar-bindings expression))
         (body (%%get-letstar-body expression)))
     `(let* ,(map (lambda (binding)
                    (let ((variable (%%car binding))
                          (value (%%cdr binding)))
-                     `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value))))
+                     `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value environment))))
                  bindings)
-       ,@(jazz.emit-expression body))))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Letstar expression) f k s)
@@ -2191,15 +2276,15 @@
   (jazz.allocate-letrec jazz.Letrec #f bindings body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Letrec expression))
+(jazz.define-method (jazz.emit-expression (jazz.Letrec expression) environment)
   (let ((bindings (%%get-letrec-bindings expression))
         (body (%%get-letrec-body expression)))
     `(letrec ,(map (lambda (binding)
                      (let ((variable (%%car binding))
                            (value (%%cdr binding)))
-                       `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value))))
+                       `(,(%%get-lexical-binding-name variable) ,(jazz.emit-expression value environment))))
                    bindings)
-       ,@(jazz.emit-expression body))))
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Letrec expression) f k s)
@@ -2226,15 +2311,15 @@
   (jazz.allocate-receive jazz.Receive #f variables expression body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Receive expression))
+(jazz.define-method (jazz.emit-expression (jazz.Receive expression) environment)
   (let ((variables (%%get-receive-variables expression))
         (expression (%%get-receive-expression expression))
         (body (%%get-receive-body expression)))
     `(receive ,(map (lambda (variable)
                       (%%get-lexical-binding-name variable))
                     variables)
-              ,(jazz.emit-expression expression)
-       ,@(jazz.emit-expression body))))
+              ,(jazz.emit-expression expression environment)
+       ,@(jazz.emit-expression body environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Receive expression) f k s)
@@ -2260,11 +2345,11 @@
   (jazz.allocate-body jazz.Body #f internal-defines expressions))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Body expression))
+(jazz.define-method (jazz.emit-expression (jazz.Body expression) environment)
   (let ((internal-defines (%%get-body-internal-defines expression))
         (expressions (%%get-body-expressions expression)))
-    (append (jazz.emit-expressions internal-defines)
-            (jazz.emit-expressions expressions))))
+    (append (jazz.emit-expressions internal-defines environment)
+            (jazz.emit-expressions expressions environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Body expression) f k s)
@@ -2290,11 +2375,11 @@
   (jazz.allocate-internal-define jazz.Internal-Define #f name value))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Internal-Define expression))
+(jazz.define-method (jazz.emit-expression (jazz.Internal-Define expression) environment)
   (let ((name (%%get-internal-define-name expression))
         (value (%%get-internal-define-value expression)))
     `(define ,name
-       ,(jazz.emit-expression value))))
+       ,(jazz.emit-expression value environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Internal-Define expression) f k s)
@@ -2319,10 +2404,10 @@
   (jazz.allocate-begin jazz.Begin #f expressions))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Begin expression))
+(jazz.define-method (jazz.emit-expression (jazz.Begin expression) environment)
   (let ((expressions (%%get-begin-expressions expression)))
     `(begin
-       ,@(jazz.emit-statements expressions))))
+       ,@(jazz.emit-statements expressions environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Begin expression) f k s)
@@ -2354,11 +2439,11 @@
       #f)))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Call expression))
+(jazz.define-method (jazz.emit-expression (jazz.Call expression) environment)
   (let ((operator (%%get-call-operator expression)))
-    (or (jazz.inline-primitive operator expression)
-        (jazz.inline-call operator expression)
-        (jazz.emit-call operator (jazz.emit-expressions (%%get-call-arguments expression))))))
+    (or (jazz.emit-inline-primitive operator expression environment)
+        (jazz.emit-inline-call operator expression environment)
+        (jazz.emit-call operator (jazz.emit-expressions (%%get-call-arguments expression) environment) environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Call expression) f k s)
@@ -2390,7 +2475,7 @@
 (%%hashtable-set! jazz.inline-patterns 'scheme.dialect.kernel./  (list                            (list jazz.Flonum '##fl*)))
 
 
-(define (jazz.inline-primitive operator call)
+(define (jazz.emit-inline-primitive operator call environment)
   (define (operator-locator)
     (if (%%is? operator jazz.Reference)
         (let ((binding (%%get-reference-binding operator)))
@@ -2416,7 +2501,7 @@
                   (if (jazz.every? (lambda (type)
                                      (and type (%%subtype? type inline-type)))
                                    types)
-                      `(,inline-name ,@(jazz.emit-expressions arguments))
+                      `(,inline-name ,@(jazz.emit-expressions arguments environment))
                     (iter (%%cdr scan))))))))
       #f)))
 
@@ -2426,10 +2511,10 @@
 ;;;
 
 
-(define (jazz.inline-call operator call)
+(define (jazz.emit-inline-call operator call environment)
   (if (%%is? operator jazz.Reference)
       (let ((binding (%%get-reference-binding operator)))
-        (jazz.inline-binding-call binding call))
+        (jazz.emit-inline-binding-call binding call environment))
     #f))
 
 
@@ -2448,11 +2533,11 @@
   (jazz.allocate-if jazz.If #f test yes no))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.If expression))
-  `(if ,(jazz.emit-expression (%%get-if-test expression))
-       ,(jazz.emit-expression (%%get-if-yes expression))
+(jazz.define-method (jazz.emit-expression (jazz.If expression) environment)
+  `(if ,(jazz.emit-expression (%%get-if-test expression) environment)
+       ,(jazz.emit-expression (%%get-if-yes expression) environment)
      (begin
-       ,@(jazz.emit-expressions (%%get-if-no expression)))))
+       ,@(jazz.emit-expressions (%%get-if-no expression) environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.If expression) f k s)
@@ -2478,14 +2563,14 @@
   (jazz.allocate-cond jazz.Cond #f clauses))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Cond expression))
+(jazz.define-method (jazz.emit-expression (jazz.Cond expression) environment)
   `(cond ,@(map (lambda (clause)
                   (let ((test (%%car clause))
                         (body (%%cdr clause)))
                     `(,(if (%%not test)
                            'else
-                         (jazz.emit-expression test))
-                      ,@(jazz.emit-expressions body))))
+                         (jazz.emit-expression test environment))
+                      ,@(jazz.emit-expressions body environment))))
                 (%%get-cond-clauses expression))))
 
 
@@ -2510,14 +2595,14 @@
   (jazz.allocate-case jazz.Case #f target clauses))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Case expression))
+(jazz.define-method (jazz.emit-expression (jazz.Case expression) environment)
   (let ((target (%%get-case-target expression))
         (clauses (%%get-case-clauses expression)))
-    `(case ,(jazz.emit-expression target)
+    `(case ,(jazz.emit-expression target environment)
        ,@(map (lambda (clause)
                 (let* ((tries (%%car clause))
                        (body (%%cdr clause)))
-                  `(,tries ,@(jazz.emit-expressions body))))
+                  `(,tries ,@(jazz.emit-expressions body environment))))
               clauses))))
 
 
@@ -2541,8 +2626,8 @@
   (jazz.allocate-and jazz.And #f expressions))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.And expression))
-  `(and ,@(jazz.emit-expressions (%%get-and-expressions expression))))
+(jazz.define-method (jazz.emit-expression (jazz.And expression) environment)
+  `(and ,@(jazz.emit-expressions (%%get-and-expressions expression) environment)))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.And expression) f k s)
@@ -2566,8 +2651,8 @@
   (jazz.allocate-or jazz.Or #f expressions))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Or expression))
-  `(or ,@(jazz.emit-expressions (%%get-or-expressions expression))))
+(jazz.define-method (jazz.emit-expression (jazz.Or expression) environment)
+  `(or ,@(jazz.emit-expressions (%%get-or-expressions expression) environment)))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Or expression) f k s)
@@ -2591,7 +2676,7 @@
   (jazz.allocate-c-include jazz.C-Include #f name))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Include expression))
+(jazz.define-method (jazz.emit-expression (jazz.C-Include expression) environment)
   (let ((name (%%get-c-include-name expression)))
     `(c-declare ,(%%string-append "#include " name))))
 
@@ -2616,7 +2701,7 @@
   (jazz.allocate-c-declare jazz.C-Declare #f code))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Declare expression))
+(jazz.define-method (jazz.emit-expression (jazz.C-Declare expression) environment)
   (let ((code (%%get-c-declare-code expression)))
     `(c-declare ,code)))
 
@@ -2641,7 +2726,7 @@
   (jazz.allocate-c-initialize jazz.C-Initialize #f code))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Initialize expression))
+(jazz.define-method (jazz.emit-expression (jazz.C-Initialize expression) environment)
   (let ((code (%%get-c-initialize-code expression)))
     `(c-initialize ,code)))
 
@@ -2666,7 +2751,7 @@
   (jazz.allocate-c-function jazz.C-Function #f expansion))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.C-Function expression))
+(jazz.define-method (jazz.emit-expression (jazz.C-Function expression) environment)
   (%%get-c-function-expansion expression))
 
 
@@ -2690,10 +2775,10 @@
   (jazz.allocate-time jazz.Time #f expression))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Time expression))
+(jazz.define-method (jazz.emit-expression (jazz.Time expression) environment)
   (let ((expression (%%get-time-expression expression)))
     `(time
-       ,(jazz.emit-expression expression))))
+       ,(jazz.emit-expression expression environment))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Time expression) f k s)
@@ -2708,14 +2793,16 @@
 ;;;
 
 
-(define (jazz.emit-statement statement)
+(define (jazz.emit-statement statement environment)
   (if (jazz.is? statement jazz.Declaration)
-      (jazz.emit-declaration statement)
-    (jazz.emit-expression statement)))
+      (jazz.emit-declaration statement environment)
+    (jazz.emit-expression statement environment)))
 
 
-(define (jazz.emit-statements statements)
-  (map jazz.emit-statement statements))
+(define (jazz.emit-statements statements environment)
+  (map (lambda (statement)
+         (jazz.emit-statement statement environment))
+       statements))
 
 
 (define (jazz.fold-statement statement f k s)
@@ -3235,8 +3322,6 @@
 
 
 (jazz.define-method (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments)
-  (void)
-  #; ;; wait to put back
   (let ((mandatory (%%get-signature-mandatory signature))
         (rest (%%get-signature-rest signature))
         (passed (%%length arguments)))
@@ -3322,8 +3407,7 @@
 
 (define (jazz.walk-%macro walker resume declaration environment form)
   (jazz.bind (name type access compatibility parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
-           (locator (%%get-declaration-locator new-declaration)))
+    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-macro-declaration-body new-declaration
           (jazz.walk-body walker resume new-declaration augmented-environment body))
@@ -3369,8 +3453,7 @@
 
 (define (jazz.walk-%syntax walker resume declaration environment form)
   (jazz.bind (name type access compatibility parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
-           (locator (%%get-declaration-locator new-declaration)))
+    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-syntax-declaration-body new-declaration
           (jazz.walk-body walker resume new-declaration augmented-environment body))
@@ -3464,7 +3547,7 @@
         signature))))
 
 
-(define (jazz.emit-parameters signature)
+(define (jazz.emit-parameters signature environment)
   (let ((positional (%%get-signature-positional signature))
         (optional (%%get-signature-optional signature))
         (named (%%get-signature-named signature))
@@ -3473,7 +3556,7 @@
         (enqueue-parameters
           (lambda (queue lst)
             (for-each (lambda (parameter)
-                        (jazz.enqueue queue (jazz.emit-parameter parameter)))
+                        (jazz.enqueue queue (jazz.emit-parameter parameter environment)))
                       lst))))
     (enqueue-parameters queue positional)
     (%%when (%%not (%%null? optional))
@@ -3484,7 +3567,7 @@
       (enqueue-parameters queue named))
     (%%when rest
       (jazz.enqueue queue #!rest)
-      (jazz.enqueue queue (jazz.emit-parameter rest)))
+      (jazz.enqueue queue (jazz.emit-parameter rest environment)))
     (jazz.queue-list queue)))
 
 

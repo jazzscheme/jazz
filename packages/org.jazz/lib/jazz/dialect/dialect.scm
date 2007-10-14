@@ -72,32 +72,38 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.Definition-Declaration declaration) arguments)
+(jazz.define-method (jazz.emit-binding-call (jazz.Definition-Declaration declaration) arguments environment)
   (let ((self (jazz.lookup-self)))
     (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@arguments)
-      (nextmethod declaration arguments))))
+      (nextmethod declaration arguments environment))))
 
 
-(jazz.define-method (jazz.inline-binding-call (jazz.Definition-Declaration declaration) call)
+(jazz.define-method (jazz.emit-inline-binding-call (jazz.Definition-Declaration declaration) call environment)
   (if (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
       (let ((value (%%get-definition-declaration-value declaration)))
         (if (%%is? value jazz.Lambda)
-            (begin
-              ;;(step)
-              #f)
-          ;; constant inlining not yet supported
-          #f))
+            (let ((signature (%%get-lambda-signature value)))
+              (if (jazz.only-positional? signature)
+                  (begin
+                    (if (%%eq? (%%get-lexical-binding-name declaration) 'nneq?)
+                        (step))
+                    #f)
+                (jazz.error "Only positional parameters are supported in inlining: {s}" (%%get-lexical-binding-name declaration))))
+          #f
+          #; ;; not correct as the value is always #f when looking up external declarations!
+             ;; we need to walk the value even at parse time for inline declarations
+          (jazz.error "Constant inlining is not yet supported: {s}" (%%get-lexical-binding-name declaration))))
     #f))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Definition-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Definition-Declaration declaration) environment)
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
+       ,(jazz.cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration))
@@ -112,9 +118,9 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Definition-Declaration declaration) value)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Definition-Declaration declaration) value environment)
   (let ((locator (%%get-declaration-locator declaration)))
-    `(set! ,locator ,(jazz.cast (jazz.emit-expression value) (%%get-lexical-binding-type declaration)))))
+    `(set! ,locator ,(jazz.cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
 
 
 (jazz.define-method (jazz.fold-declaration (jazz.Definition-Declaration declaration) f k s)
@@ -142,23 +148,23 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.emit-binding-call (jazz.Generic-Declaration declaration) arguments)
+(jazz.define-method (jazz.emit-binding-call (jazz.Generic-Declaration declaration) arguments environment)
   (let ((self (jazz.lookup-self)))
     (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
         `(,(%%get-declaration-locator declaration)
           self
           ,@arguments)
-      (nextmethod declaration arguments))))
+      (nextmethod declaration arguments environment))))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Generic-Declaration declaration) walker resume source-declaration operator arguments)
   (jazz.validate-arguments walker resume source-declaration declaration (%%get-generic-declaration-signature declaration) arguments))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Generic-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Generic-Declaration declaration) environment)
   (let ((generic-locator (%%get-declaration-locator declaration))
         (signature (%%get-generic-declaration-signature declaration)))
-    `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-parameters signature)))))
+    `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-parameters signature environment)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Generic-Declaration declaration))
@@ -190,7 +196,7 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Specific-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Specific-Declaration declaration) environment)
   (let* ((generic-declaration (%%get-specific-declaration-generic declaration))
          (generic-locator (%%get-declaration-locator generic-declaration))
          (generic-object-locator (jazz.generic-object-locator generic-locator))
@@ -198,8 +204,8 @@
          (method? (%%get-specific-declaration-method? declaration))
          (body (%%get-specific-declaration-body declaration)))
     (let ((specific-expansion
-            `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-parameters signature))
-               ,@(jazz.emit-expression body))))
+            `(jazz.define-specific ,(%%cons generic-locator (jazz.emit-parameters signature environment))
+               ,@(jazz.emit-expression body environment))))
       (if (%%not method?)
           specific-expansion
         `(begin
@@ -284,7 +290,7 @@
                      #f)))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Class-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Class-Declaration declaration) environment)
   (let ((name (%%get-lexical-binding-name declaration))
         (locator (%%get-declaration-locator declaration))
         (ascendant-declaration (%%get-class-declaration-ascendant declaration))
@@ -308,7 +314,7 @@
                    (if (jazz.global-variable? ',locator)
                        (jazz.global-value ',locator)
                      (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))))))
-       ,@(jazz.emit-statements body))))
+       ,@(jazz.emit-statements body environment))))
 
 
 (jazz.encapsulate-class jazz.Class-Declaration)
@@ -400,7 +406,7 @@
                      #f)))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Interface-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Interface-Declaration declaration) environment)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (ascendant-declarations (%%get-interface-declaration-ascendants declaration))
@@ -411,7 +417,7 @@
     `(begin
        (define ,locator
          (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
-       ,@(jazz.emit-statements body))))
+       ,@(jazz.emit-statements body environment))))
 
 
 (jazz.encapsulate-class jazz.Interface-Declaration)
@@ -450,7 +456,7 @@
   #f)
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Slot-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Slot-Declaration declaration) environment)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
@@ -461,7 +467,7 @@
          (offset-locator (jazz.compose-helper locator 'offset)))
     `(begin
        (define (,initialize-locator self)
-         ,(jazz.emit-expression initialize))
+         ,(jazz.emit-expression initialize environment))
        (define ,slot-locator
          (jazz.add-slot ,class-locator ',name ,initialize-locator))
        (define ,offset-locator
@@ -479,10 +485,10 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Slot-Declaration declaration) value)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Slot-Declaration declaration) value environment)
   (if (jazz.lookup-self)
       (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator declaration) 'offset)))
-        `(%%object-set! self ,offset-locator ,(jazz.emit-expression value)))
+        `(%%object-set! self ,offset-locator ,(jazz.emit-expression value environment)))
     (jazz.walk-error walker resume source-declaration "Illegal assignment to a slot: {s}" (%%get-declaration-locator declaration))))
 
 
@@ -505,7 +511,7 @@
     new-declaration))
 
 
-(jazz.define-method (jazz.emit-declaration (jazz.Property-Declaration declaration))
+(jazz.define-method (jazz.emit-declaration (jazz.Property-Declaration declaration) environment)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
          (class-declaration (%%get-declaration-parent declaration))
@@ -518,11 +524,11 @@
          (setter (%%get-property-declaration-setter declaration)))
     `(begin
        (define (,initialize-locator self)
-         ,(jazz.emit-expression initialize))
+         ,(jazz.emit-expression initialize environment))
        (define ,slot-locator
          (jazz.add-property ,class-locator ',name ,initialize-locator
-           ,(jazz.emit-expression getter)
-           ,(jazz.emit-expression setter)))
+           ,(jazz.emit-expression getter environment)
+           ,(jazz.emit-expression setter environment)))
        (define ,offset-locator
          (%%slot-offset (%%get-slot-rank ,slot-locator))))))
 
@@ -788,12 +794,12 @@
   (jazz.allocate-with-self jazz.With-Self #f body))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.With-Self expression))
+(jazz.define-method (jazz.emit-expression (jazz.With-Self expression) environment)
   (let ((body (%%get-with-self-body expression)))
     (jazz.simplify-begin
       `(begin
          ,@(parameterize ((jazz.*self* #t))
-             (jazz.emit-expressions body))))))
+             (jazz.emit-expressions body environment))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.With-Self expression) f k s)
@@ -818,14 +824,14 @@
   (jazz.allocate-dispatch jazz.Dispatch #f name arguments))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Dispatch expression))
+(jazz.define-method (jazz.emit-expression (jazz.Dispatch expression) environment)
   (let ((name (%%get-dispatch-name expression))
         (arguments (%%get-dispatch-arguments expression))
         (object (jazz.generate-symbol "object")))
-    `(let ((,object ,(jazz.emit-expression (%%car arguments))))
+    `(let ((,object ,(jazz.emit-expression (%%car arguments) environment)))
        ((jazz.dispatch ',name ,object)
         ,object
-        ,@(jazz.emit-expressions (%%cdr arguments))))))
+        ,@(jazz.emit-expressions (%%cdr arguments) environment)))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Dispatch expression) f k s)
@@ -885,16 +891,20 @@
           (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
       (let ((new-declaration (jazz.new-definition-declaration name type access compatibility '() declaration expansion signature)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
+        (%%when (%%eq? expansion 'inline)
+          (let ((new-environment (%%cons new-declaration environment)))
+            (%%set-definition-declaration-value new-declaration
+              (jazz.walk walker resume new-declaration new-environment value))))
         new-declaration))))
 
 
 (define (jazz.walk-%definition walker resume declaration environment form)
   (jazz.bind (name specifier access compatibility expansion value parameters) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
-           (locator (%%get-declaration-locator new-declaration))
            (new-environment (%%cons new-declaration environment)))
-      (%%set-definition-declaration-value new-declaration
-        (jazz.walk walker resume new-declaration new-environment value))
+      (%%when (%%not (%%eq? expansion 'inline))
+        (%%set-definition-declaration-value new-declaration
+          (jazz.walk walker resume new-declaration new-environment value)))
       new-declaration)))
 
 
@@ -1291,7 +1301,7 @@
             ((inherited)
              (if (and found-declaration (%%is? found-declaration jazz.Generic-Declaration))
                  `(%specific ,name ,generic-parameters #t (with-self ,@body))
-               (jazz.expand-final-method category-name specifier-list access name parameters body)))
+               (jazz.expand-final-method category-name specifier-list access expansion name parameters body)))
             (else
              (if (%%eq? implementation 'abstract)
                  `(generic ,access ,(%%cons name generic-parameters) ,@specifier-list)
@@ -1301,9 +1311,9 @@
       (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name))))
 
 
-(define (jazz.expand-final-method category-name specifier-list access method-name parameters body)
+(define (jazz.expand-final-method category-name specifier-list access expansion method-name parameters body)
   `(begin
-     (definition ,access ,(%%cons method-name (%%cons 'self parameters)) ,@specifier-list
+     (definition ,access ,expansion ,(%%cons method-name (%%cons 'self parameters)) ,@specifier-list
        (with-self
          ,@body))
      (update-dispatch-table ,category-name ',method-name ,method-name)))

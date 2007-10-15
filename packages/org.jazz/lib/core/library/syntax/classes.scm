@@ -525,24 +525,23 @@
 ;;;
 
 
-#;
 (jazz.define-macro (jazz.new-code form type)
   `(cons ,form ,type))
 
 
-#;
 (jazz.define-macro (%%code-form code)
   `(%%car ,code))
 
-#;
 (jazz.define-macro (%%code-type code)
   `(%%cdr ,code))
 
 
+#; ;; typed debugging version
 (jazz.define-macro (jazz.new-code form type)
   `(list 'CODE ,form ,type))
 
 
+#; ;; typed debugging version
 (jazz.define-macro (%%code-form code)
   (let ((cde (jazz.generate-symbol "cde")))
     `(let ((,cde ,code))
@@ -550,6 +549,7 @@
            (cadr ,cde)
          (jazz.error "Code expected in %%code-form: {s}" ,cde)))))
 
+#; ;; typed debugging version
 (jazz.define-macro (%%code-type code)
   (let ((cde (jazz.generate-symbol "cde")))
     `(let ((,cde ,code))

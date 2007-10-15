@@ -469,14 +469,6 @@
 
 
 ;;;
-;;;; Type
-;;;
-
-
-(native jazz.cast-error)
-
-
-;;;
 ;;;; Unspecified
 ;;;
 

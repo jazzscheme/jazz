@@ -76,6 +76,10 @@
   `(jazz.of-type? ,type ,object))
 
 
+(jazz.define-macro (%%is-not? object type)
+  `(%%not (%%is? ,object ,type)))
+
+
 (jazz.define-macro (%%instance-of? object class)
   `(%%subclass? (%%class-of ,object) ,class))
 

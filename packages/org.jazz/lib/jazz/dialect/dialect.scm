@@ -650,9 +650,7 @@
     (jazz.new-special-form 'c-initialize  jazz.walk-c-initialize)
     (jazz.new-special-form 'c-function    jazz.walk-c-function)
     (jazz.new-special-form 'function      jazz.walk-function)
-    (jazz.new-special-form 'not-void?     jazz.walk-not-void?)
     (jazz.new-special-form 'parameterize  jazz.walk-parameterize)
-    (jazz.new-special-form 'void?         jazz.walk-void?)
     (jazz.new-special-form 'with-slots    jazz.walk-with-slots)
     (jazz.new-special-form 'with-self     jazz.walk-with-self)
     (jazz.new-special-form 'time          jazz.walk-time)))
@@ -733,7 +731,7 @@
           (%%hashtable-set! table (%%car rest) (%%cadr rest))
           (set! rest (%%cddr rest)))))
     (%%apply values (%%append (map (lambda (keyword)
-                                     (%%hashtable-ref table keyword jazz.unspecified))
+                                     (%%hashtable-ref table keyword (jazz.unspecified)))
                                    keywords)
                               (%%list rest)))))
 
@@ -893,7 +891,7 @@
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
             (let ((specifier-list (if specifier (%%list specifier) '()))
-                  (effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+                  (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
               (values name #f access compatibility expansion `(lambda ,parameters ,@specifier-list ,@effective-body) parameters))))))))
 
 
@@ -996,7 +994,7 @@
   (receive (rest) (jazz.parse-modifiers walker resume declaration jazz.specific-modifiers rest)
     (let* ((signature (%%car rest))
            (body (%%cdr rest))
-           (effective-body (if (%%null? body) (%%list (%%list 'void)) body))
+           (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
            (name (%%car signature))
            (parameters (%%cdr signature)))
       (values name parameters effective-body))))
@@ -1226,7 +1224,7 @@
                      (generate-getter? (%%eq? getter-generation 'generate))
                      (generate-setter? (%%eq? setter-generation 'generate)))
                 `(begin
-                   (,(if (%%eq? (%%car form) 'property) '%property '%slot) ,name ,specifier ,access ,compatibility ,(if (%%eq? initialize jazz.unspecified) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
+                   (,(if (%%eq? (%%car form) 'property) '%property '%slot) ,name ,specifier ,access ,compatibility ,(if (%%unspecified? initialize) initialize `(with-self ,initialize)) ,getter-name ,setter-name)
                    ,@(if generate-getter?
                          `((method ,getter-access ,getter-propagation ,getter-implementation ,getter-expansion (,getter-name)
                              ,name))
@@ -1302,7 +1300,7 @@
       (let ((signature (%%car rest)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body))
+            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
                   (name (%%car signature))
                   (parameters (%%cdr signature)))
               (values name specifier access compatibility propagation implementation expansion parameters effective-body))))))))
@@ -1377,7 +1375,7 @@
 
 ;; temp
 (jazz.define-method (jazz.validate-arguments (jazz.Jazz-Walker walker) resume source-declaration declaration signature arguments)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 ;;;
@@ -1542,7 +1540,7 @@
   #;
   (let ((referenced-access (%%get-declaration-access referenced-declaration)))
     (case referenced-access
-      ((public)    (jazz.void))
+      ((public)    (jazz.unspecified))
       ((private)   (jazz.validate-private-access walker resume declaration referenced-declaration))
       ((protected) (jazz.validate-protected-access walker resume declaration referenced-declaration)))))
 
@@ -1555,7 +1553,7 @@
 
 (define (jazz.validate-protected-access walker resume declaration referenced-declaration)
   ;; todo
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (define (jazz.illegal-access walker resume declaration referenced-declaration)
@@ -1956,7 +1954,7 @@
   (receive (extent rest) (jazz.parse-modifiers walker resume declaration jazz.function-modifiers (%%cdr form))
     (let* ((parameters (%%car rest))
            (body (%%cdr rest))
-           (effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+           (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
       (values extent parameters effective-body))))
 
 
@@ -1983,21 +1981,6 @@
                                ,(jazz.walk walker resume declaration environment value))))
                          bindings)
        ,@(jazz.walk-body walker resume declaration environment body))))
-
-
-;;;
-;;;; Void
-;;;
-
-
-(define (jazz.walk-void? walker resume declaration environment form)
-  (let ((value (%%cadr form)))
-    `(%%eq? ,(jazz.walk walker resume declaration environment value) jazz.Void)))
-
-
-(define (jazz.walk-not-void? walker resume declaration environment form)
-  (let ((value (%%cadr form)))
-    `(%%neq? ,(jazz.walk walker resume declaration environment value) jazz.Void)))
 
 
 ;;;

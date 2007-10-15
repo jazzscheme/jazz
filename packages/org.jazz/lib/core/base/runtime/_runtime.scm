@@ -41,7 +41,7 @@
 (require (core.base.runtime.exception)
          (core.base.runtime.global)
          (core.base.runtime.compile)
-         (core.base.runtime.void)
+         (core.base.runtime.unspecified)
          (core.base.runtime.quit)
          (core.base.runtime.general)
          (core.base.runtime.output)

@@ -365,7 +365,7 @@
           (body (%%cddr form)))
       (if (and (%%pair? bindings) (%%symbol? (%%car bindings)))
           (jazz.signature-named-let walker resume declaration environment bindings body)
-        (let ((effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+        (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
           (let ((augmented-environment environment)
                 (expanded-bindings (jazz.new-queue)))
             (for-each (lambda (binding-form)
@@ -439,7 +439,7 @@
                  (jazz.walk walker resume declaration environment yes)
                  (jazz.walk-list walker resume declaration environment
                    (if (%%null? no)
-                       '((void))
+                       '((unspecified))
                      no)))))
 
 
@@ -462,7 +462,7 @@
                    (map (lambda (clause)
                           (let* ((tries (%%car clause))
                                  (body (%%cdr clause))
-                                 (effective-body (if (%%null? body) (%%list (%%list 'void)) body)))
+                                 (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                             (if (or (%%eq? tries 'else) (%%pair? tries))
                                 (cons tries (jazz.walk-list walker resume declaration environment effective-body))
                               (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries))))

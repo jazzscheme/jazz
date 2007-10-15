@@ -60,8 +60,7 @@
        (let* ,(map (lambda (binding)
                      (let ((variable (car binding))
                            (default (cadr binding)))
-                       ;; TO-FIX string->symbol
-                       `(,variable (find-keyword ',variable ,box (lambda () ,default)))))
+                       `(,variable (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default)))))
                    (proper-list bindings))
          ,@(if (symbol? oth)
               `((let ((,oth (unbox-list ,box)))

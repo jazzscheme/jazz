@@ -118,11 +118,11 @@
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Walk-Binding binding))
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment)
@@ -141,11 +141,11 @@
 
 
 (jazz.define-method (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.walk-binding-walkable? (jazz.Walk-Binding binding))
@@ -593,7 +593,7 @@
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Export-Declaration declaration) walker resume source-declaration operator arguments)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Export-Declaration declaration) environment)
@@ -652,46 +652,57 @@
 
 
 ;;;
-;;;; Primitive Type
+;;;; Void
 ;;;
 
 
-(define jazz.primitive-types
-  (%%make-hashtable eq?))
+(jazz.define-class jazz.Void-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
 
 
-(%%hashtable-set! jazz.primitive-types 'object    jazz.Object)
-(%%hashtable-set! jazz.primitive-types 'bool      jazz.Boolean)
-(%%hashtable-set! jazz.primitive-types 'char      jazz.Char)
-(%%hashtable-set! jazz.primitive-types 'number    jazz.Number)
-(%%hashtable-set! jazz.primitive-types 'int       jazz.Integer)
-(%%hashtable-set! jazz.primitive-types 'real      jazz.Real)
-(%%hashtable-set! jazz.primitive-types 'fx        jazz.Fixnum)
-(%%hashtable-set! jazz.primitive-types 'fl        jazz.Flonum)
-(%%hashtable-set! jazz.primitive-types 'list      jazz.List)
-(%%hashtable-set! jazz.primitive-types 'null      jazz.Null)
-(%%hashtable-set! jazz.primitive-types 'pair      jazz.Pair)
-(%%hashtable-set! jazz.primitive-types 'port      jazz.Port)
-(%%hashtable-set! jazz.primitive-types 'procedure jazz.Procedure)
-(%%hashtable-set! jazz.primitive-types 'string    jazz.String)
-(%%hashtable-set! jazz.primitive-types 'symbol    jazz.Symbol)
-(%%hashtable-set! jazz.primitive-types 'keyword   jazz.Keyword)
-(%%hashtable-set! jazz.primitive-types 'vector    jazz.Vector)
-(%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
+(jazz.define-method (jazz.of-subtype? (jazz.Void-Class type) class)
+  #f)
 
 
-(define (jazz.lookup-primitive-type name)
-  (%%hashtable-ref jazz.primitive-types name #f))
+(jazz.encapsulate-class jazz.Void-Class)
+
+
+(jazz.define-class jazz.Void jazz.Type () jazz.Void-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Void)
 
 
 ;;;
-;;;; Void Type
+;;;; Any
 ;;;
+
+
+(jazz.define-class jazz.Any-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.of-subtype? (jazz.Any-Class type) class)
+  #t)
+
+
+(jazz.encapsulate-class jazz.Any-Class)
+
+
+(jazz.define-class jazz.Any jazz.Type () jazz.Any-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Any)
 
 
 ;;;
 ;;;; Cast
 ;;;
+
+
+;; No conversion beeing necessary between any types, casting is thus only a type check
 
 
 (define (jazz.cast-error value type)
@@ -735,10 +746,7 @@
 
 (define (jazz.specifier->type walker resume declaration environment specifier)
   (let ((name (jazz.specifier->name specifier)))
-    (cond ((%%eq? name 'void)
-           ;; quicky until we have a real void type
-           (jazz.lookup-primitive-type 'object))
-          ;; quick fix to be put back
+    (cond ;; quick fix to be put back
           ((let ((str (%%symbol->string name)))
              (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\+))
            #f)
@@ -747,23 +755,38 @@
                (jazz.lookup-reference walker resume declaration environment name))))))
 
 
-;; waiting because types are needed as soon as in the scheme kernel so
-;; we cannot easily use high level classes to implement primitive types
-#; (
-(define jazz.type-synonyms
+;;;
+;;;; Primitive Types
+;;;
+
+
+(define jazz.primitive-types
   (%%make-hashtable eq?))
 
 
-(%%hashtable-set! jazz.type-synonyms 'bool 'Boolean)
-(%%hashtable-set! jazz.type-synonyms 'char 'Char)
-(%%hashtable-set! jazz.type-synonyms 'int 'Integer)
-(%%hashtable-set! jazz.type-synonyms 'fx 'Fixnum)
-(%%hashtable-set! jazz.type-synonyms 'fl 'Flonum)
+(%%hashtable-set! jazz.primitive-types 'any       jazz.Any)
+(%%hashtable-set! jazz.primitive-types 'bool      jazz.Boolean)
+(%%hashtable-set! jazz.primitive-types 'char      jazz.Char)
+(%%hashtable-set! jazz.primitive-types 'number    jazz.Number)
+(%%hashtable-set! jazz.primitive-types 'int       jazz.Integer)
+(%%hashtable-set! jazz.primitive-types 'real      jazz.Real)
+(%%hashtable-set! jazz.primitive-types 'fx        jazz.Fixnum)
+(%%hashtable-set! jazz.primitive-types 'fl        jazz.Flonum)
+(%%hashtable-set! jazz.primitive-types 'list      jazz.List)
+(%%hashtable-set! jazz.primitive-types 'null      jazz.Null)
+(%%hashtable-set! jazz.primitive-types 'pair      jazz.Pair)
+(%%hashtable-set! jazz.primitive-types 'port      jazz.Port)
+(%%hashtable-set! jazz.primitive-types 'procedure jazz.Procedure)
+(%%hashtable-set! jazz.primitive-types 'string    jazz.String)
+(%%hashtable-set! jazz.primitive-types 'symbol    jazz.Symbol)
+(%%hashtable-set! jazz.primitive-types 'keyword   jazz.Keyword)
+(%%hashtable-set! jazz.primitive-types 'vector    jazz.Vector)
+(%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
+(%%hashtable-set! jazz.primitive-types 'void      jazz.Void)
 
 
-(define (jazz.type-synonym name)
-  (or (%%hashtable-ref jazz.type-synonyms name #f)
-      name)))
+(define (jazz.lookup-primitive-type name)
+  (%%hashtable-ref jazz.primitive-types name #f))
 
 
 ;;;
@@ -1440,7 +1463,7 @@
 (define (jazz.annotate-bindings bindings)
   (map (lambda (binding)
          (let ((variable (%%car binding)))
-           (jazz.new-annotated-variable variable (%%get-expression-type variable))))
+           (jazz.new-annotated-variable variable (%%get-lexical-binding-type variable))))
        bindings))
 
 
@@ -1496,7 +1519,7 @@
 (define (jazz.walker-error walker resume error)
   (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
   (if (and resume jazz.delay-reporting?)
-      (resume (jazz.void))
+      (resume (jazz.unspecified))
     (jazz.validate-walk-problems walker)))
 
 
@@ -1527,18 +1550,6 @@
 ;;;
 ;;;; Parse
 ;;;
-
-
-(define jazz.unspecified
-  'jazz.unspecified)
-
-
-(define (jazz.unspecified? expr)
-  (%%eq? expr jazz.unspecified))
-
-
-(define (jazz.specified? expr)
-  (%%neq? expr jazz.unspecified))
 
 
 (define (jazz.parse-modifiers walker resume declaration infos rest)
@@ -3286,7 +3297,7 @@
 
 
 (jazz.define-method (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration)
-  (jazz.void))
+  (jazz.unspecified))
 
 
 (define (jazz.validate-compatibility walker declaration referenced-declaration)

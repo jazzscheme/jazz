@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Void
+;;;; Unspecified
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,27 +35,30 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.void
+(module core.base.runtime.unspecified
 
 
 (cond-expand
   (blues
-    (define jazz.Void
-      {})
-    
-    (define (jazz.void)
+    (define jazz.Unspecified
       {}))
   
   (gambit
-    (define jazz.Void
-      (void))
-    
-    (define (jazz.void)
-      jazz.Void))
+    (define jazz.Unspecified
+      (void)))
   
   (else
-    (define jazz.Void
-      (%%list 'jazz.void))
-    
-    (define (jazz.void)
-      jazz.Void))))
+    (define jazz.Unspecified
+      (%%list 'jazz.unspecified))))
+
+
+(define (jazz.unspecified)
+  jazz.Unspecified)
+
+
+(define (jazz.unspecified? expr)
+  (%%eq? expr jazz.Unspecified))
+
+
+(define (jazz.specified? expr)
+  (%%neq? expr jazz.Unspecified)))

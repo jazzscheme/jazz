@@ -220,7 +220,6 @@
 (native jazz.keyword?)
 (native jazz.string->keyword)
 (native jazz.keyword->string)
-(native jazz.find-keyword)
 
 
 ;;;
@@ -434,8 +433,6 @@
 
 
 (native jazz.generate-symbol)
-(native symbol->keyword)
-(native keyword->symbol)
 
 
 ;;;
@@ -480,13 +477,13 @@
 
 
 ;;;
-;;;; Void
+;;;; Unspecified
 ;;;
 
 
-(native jazz.void)
-(native jazz.void?)
-(native jazz.not-void?)
+(native jazz.unspecified)
+(native jazz.unspecified?)
+(native jazz.specified?)
 
 
 ;;;

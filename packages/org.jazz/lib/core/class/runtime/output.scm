@@ -76,8 +76,8 @@
 
 
 (define (jazz.->string value)
-  (cond ((%%void? value)
-         "<void>")
+  (cond ((%%unspecified? value)
+         "<unspecified>")
         ((%%values? value)
          "<values>")
         (else

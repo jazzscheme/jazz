@@ -57,7 +57,7 @@
 
 ;; Set to #f to debug the walker itself
 (define jazz.delay-reporting?
-  #t)
+  #f)
 
 
 (define jazz.warnings?

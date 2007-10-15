@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Void
+;;;; Unspecified
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,37 +35,16 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.syntax.void
+(module core.base.syntax.unspecified
 
 
-(cond-expand
-  (blues
-    (define-macro (%%void? value)
-      `(blues.with-void
-         (lambda ()
-           (void? ,value))))
-    
-    (define-macro (%%not-void? value)
-      `(%%not (%%void? ,value))))
-  
-  (gambit
-    (define-macro (%%void? value)
-      `(%%eq? ,value jazz.Void))
-    
-    (define-macro (%%not-void? value)
-      `(%%not (%%eq? ,value jazz.Void))))
-  
-  (else
-   (define-macro (%%void? value)
-      `(%%eq? ,value jazz.Void))
-    
-    (define-macro (%%not-void? value)
-      `(%%not (%%eq? ,value jazz.Void)))))
+(define-macro (%%unspecified)
+  'jazz.Unspecified)
 
 
-(define (jazz.void? value)
-  (%%void? value))
+(define-macro (%%unspecified? value)
+  `(%%eq? ,value jazz.Unspecified))
 
 
-(define (jazz.not-void? value)
-  (%%not-void? value)))
+(define-macro (%%specified? value)
+  `(%%neq? ,value jazz.Unspecified)))

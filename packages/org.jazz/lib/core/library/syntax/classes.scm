@@ -48,10 +48,10 @@
 
 
 (jazz.define-virtual-syntax (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
-(jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding)))
+(jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding) environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment))
-(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) call environment))
+(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment))
@@ -232,7 +232,7 @@
 
 
 (jazz.define-class-syntax jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-macro-declaration
-  ((signature %%get-macro-declaration-signature ())
+  ((signature %%get-macro-declaration-signature %%set-macro-declaration-signature)
    (body      %%get-macro-declaration-body      %%set-macro-declaration-body)))
 
 
@@ -242,7 +242,7 @@
 
 
 (jazz.define-class-syntax jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-syntax-declaration
-  ((signature %%get-syntax-declaration-signature ())
+  ((signature %%get-syntax-declaration-signature %%set-syntax-declaration-signature)
    (body      %%get-syntax-declaration-body      %%set-syntax-declaration-body)))
 
 
@@ -257,6 +257,15 @@
 
 (jazz.define-class-syntax jazz.Void jazz.Type () jazz.Void-Class ()
   ())
+
+
+;;;
+;;;; Function
+;;;
+
+
+(jazz.define-class-syntax jazz.Function-Type jazz.Type () jazz.Class jazz.allocate-function-type
+  ((return-type %%get-function-type-return-type ())))
 
 
 ;;;
@@ -507,7 +516,7 @@
 
 (jazz.define-class-syntax jazz.Annotated-Variable jazz.Object () jazz.Object-Class jazz.allocate-annotated-variable
   ((variable %%get-annotated-variable-variable ())
-   (type     %%get-annotated-variable-type     ())))
+   (type     %%get-annotated-variable-type     %%set-annotated-variable-type)))
 
 
 ;;;
@@ -564,6 +573,12 @@
        codes))
 
 
+(define (jazz.codes-types codes)
+  (map (lambda (code)
+         (%%code-type code))
+       codes))
+
+
 ;;;
 ;;;; Slot Access
 ;;;
@@ -584,7 +599,6 @@
   ((type %%get-expression-type ())))
 
 
-(jazz.define-virtual-syntax (jazz.expression-type (jazz.Expression expression)))
 (jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression) environment))
 (jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments environment))
 (jazz.define-virtual-syntax (jazz.fold-expression (jazz.Expression expression) f k s))
@@ -653,7 +667,7 @@
 
 
 (jazz.define-class-syntax jazz.Named-Let jazz.Let (type bindings body) jazz.Object-Class jazz.allocate-named-let
-  ((name %%get-named-let-name ())))
+  ((variable %%get-named-let-variable ())))
 
 
 ;;;
@@ -703,8 +717,8 @@
 
 
 (jazz.define-class-syntax jazz.Internal-Define jazz.Expression (type) jazz.Object-Class jazz.allocate-internal-define
-  ((name  %%get-internal-define-name  ())
-   (value %%get-internal-define-value ())))
+  ((variable %%get-internal-define-variable ())
+   (value    %%get-internal-define-value    ())))
 
 
 ;;;

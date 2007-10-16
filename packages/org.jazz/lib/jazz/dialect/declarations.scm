@@ -55,7 +55,6 @@
 
 
 (jazz.define-class-syntax jazz.Generic-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-generic-declaration
-  ;; the %%set is temp for a quicky
   ((signature     %%get-generic-declaration-signature     %%set-generic-declaration-signature)
    (dispatch-type %%get-generic-declaration-dispatch-type ())))
 

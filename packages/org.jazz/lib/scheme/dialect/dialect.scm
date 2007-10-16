@@ -65,10 +65,10 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration)))))
+       ,(jazz.emit-cast (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
 
 
-(jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration))
+(jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
     jazz.Any))
@@ -122,8 +122,11 @@
   (let ((locator (%%get-declaration-locator declaration))
         (signature (%%get-define-macro-signature declaration))
         (body (%%get-define-macro-body declaration)))
-    `(jazz.define-macro ,(%%cons locator (jazz.emit-parameters signature environment))
-       ,@(%%code-form (jazz.emit-expression body environment)))))
+    (jazz.with-annotated-frame (jazz.annotate-signature signature)
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature augmented-environment))
+             ,@(%%code-form (jazz.emit-expression body augmented-environment))))))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)
@@ -286,6 +289,7 @@
   (jazz.bind (name type parameters body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
+        (%%set-define-macro-signature new-declaration signature)
         (%%set-define-macro-body new-declaration
           (jazz.walk walker resume new-declaration augmented-environment body))
         new-declaration))))
@@ -353,7 +357,7 @@
     (let ((symbol (%%car form)))
       (jazz.parse-specifier (%%cdr form)
         (lambda (specifier rest)
-          (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) jazz.Any))
+          (let ((type (if specifier (jazz.specifier->type walker resume declaration environment specifier) #f))
                 (value (%%car rest)))
             (values (jazz.new-variable symbol type) value)))))))
 
@@ -508,10 +512,11 @@
                     (jazz.enqueue expanded-bindings (%%cons variable (jazz.walk walker resume declaration environment value)))
                     (set! augmented-environment (%%cons variable augmented-environment))))
                 bindings)
-      (set! augmented-environment (%%cons (jazz.new-variable name #f) augmented-environment))
-      (jazz.new-named-let name 
-        (jazz.queue-list expanded-bindings)
-        (jazz.walk-body walker resume declaration augmented-environment body)))))
+      (let ((variable (jazz.new-variable name #f)))
+        (set! augmented-environment (%%cons variable augmented-environment))
+        (jazz.new-named-let variable
+          (jazz.queue-list expanded-bindings)
+          (jazz.walk-body walker resume declaration augmented-environment body))))))
 
 
 (define (jazz.signature-named-let walker resume declaration environment bindings body)

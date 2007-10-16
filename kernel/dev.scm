@@ -77,7 +77,7 @@
 
 
 (define (lt)
-  (l 'test))
+  (rl 'test))
 
 
 (define (lex module-name)

@@ -54,7 +54,7 @@
 
 
 (jazz.define-class-syntax jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-define-macro-declaration
-  ((signature %%get-define-macro-signature ())
+  ((signature %%get-define-macro-signature %%set-define-macro-signature)
    (body      %%get-define-macro-body      %%set-define-macro-body)))
 
 

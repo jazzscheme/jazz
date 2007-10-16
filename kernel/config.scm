@@ -96,6 +96,15 @@
 
 
 ;;;
+;;;; Debug
+;;;
+
+
+(define jazz.debug-types
+  #f)
+
+
+;;;
 ;;;; Loop
 ;;;
 

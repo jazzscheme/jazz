@@ -265,7 +265,27 @@
 
 
 (jazz.define-class-syntax jazz.Function-Type jazz.Type () jazz.Class jazz.allocate-function-type
-  ((return-type %%get-function-type-return-type ())))
+  ((result     %%get-function-type-result     ())
+   (parameters %%get-function-type-parameters ())))
+
+
+;;;
+;;;; Template
+;;;
+
+
+(jazz.define-class-syntax jazz.Template-Type jazz.Type () jazz.Class jazz.allocate-template-type
+  ((class %%get-template-type-class ())
+   (types %%get-template-type-types ())))
+
+
+;;;
+;;;; Nillable
+;;;
+
+
+(jazz.define-class-syntax jazz.Nillable-Type jazz.Type () jazz.Class jazz.allocate-nillable-type
+  ((type %%get-nillable-type-type ())))
 
 
 ;;;

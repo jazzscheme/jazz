@@ -506,7 +506,7 @@
             (cns (unique "cns")))
         (add-binding res '<list> ''())
         (add-binding ptr '<list> ''())
-        (add-binding cns '<list>)
+        (add-binding cns '<list+>)
         (add-action (list 'set! cns (list 'cons what ''())) actions)
         (add-action (list 'if (list 'jazz.null? ptr)
                           (list 'begin

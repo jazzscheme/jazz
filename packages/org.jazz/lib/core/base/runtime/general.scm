@@ -147,6 +147,18 @@
     result))
 
 
+(define (jazz.partition lst key)
+  (let ((partition '()))
+    (for-each (lambda (element)
+                (let* ((category (key element))
+                       (set (assv category partition)))
+                  (if (%%not set)
+                      (set! partition (%%cons (%%cons category (%%list element)) partition))
+                    (%%set-cdr! set (%%cons element (%%cdr set))))))
+              lst)
+    partition))
+
+
 ;;;
 ;;;; String
 ;;;
@@ -185,6 +197,20 @@
                 (display string output))
               (%%cdr strings))
     (get-output-string output)))
+
+
+;;;
+;;;; Vector
+;;;
+
+
+(define (jazz.resize-vector vector size)
+  (let ((new-vector (%%make-vector size #f)))
+    (let iter ((offset (- (min size (%%vector-length vector)) 1)))
+         (%%when (>= offset 0)
+           (%%vector-set! new-vector offset (%%vector-ref vector offset))
+           (iter (- offset 1))))
+    new-vector))
 
 
 ;;;

@@ -629,10 +629,10 @@
          `(vector ,@rest)
        `(##vector ,@rest)))
    
-   (define-macro (%%make-vector size)
+   (define-macro (%%make-vector size . rest)
      (if jazz.debug-kernel?
-         `(make-vector ,size)
-       `(##make-vector ,size)))
+         `(make-vector ,size ,@rest)
+       `(##make-vector ,size ,@rest)))
    
    (define-macro (%%vector-length vector)
      (if jazz.debug-kernel?
@@ -647,7 +647,12 @@
    (define-macro (%%vector-set! vector n value)
      (if jazz.debug-kernel?
          `(vector-set! ,vector ,n ,value)
-       `(##vector-set! ,vector ,n ,value))))
+       `(##vector-set! ,vector ,n ,value)))
+   
+   (define-macro (%%vector-copy vector . rest)
+     (if jazz.debug-kernel?
+         `(vector-copy ,vector ,@rest)
+       `(##vector-copy ,vector ,@rest))))
 
   (else
    (define-macro (%%vector? obj)
@@ -656,8 +661,8 @@
    (define-macro (%%vector . rest)
      `(vector ,@rest))
    
-   (define-macro (%%make-vector size)
-     `(make-vector ,size))
+   (define-macro (%%make-vector size . rest)
+     `(make-vector ,size ,@rest))
    
    (define-macro (%%vector-length vector)
      `(vector-length ,vector))
@@ -666,4 +671,7 @@
      `(vector-ref ,vector ,n))
    
    (define-macro (%%vector-set! vector n value)
-     `(vector-set! ,vector ,n ,value))))
+     `(vector-set! ,vector ,n ,value))
+   
+   (define-macro (%%vector-copy vector . rest)
+     `(vector-copy ,vector ,@rest))))

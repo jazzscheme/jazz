@@ -40,7 +40,7 @@
 
 
 ;;;
-;;;; General
+;;;; List
 ;;;
 
         
@@ -98,12 +98,33 @@
       lst)))
 
 
+(define (jazz.proper-list lst)
+  (let ((proper (jazz.new-queue)))
+    (%%while (%%pair? lst)
+      (jazz.enqueue proper (%%car lst))
+      (set! lst (%%cdr lst)))
+    (jazz.queue-list proper)))
+
+
+(cond-expand
+  (blues
+    (define jazz.list-copy
+      copy))
+  (else))
+
+
+;;;
+;;;; Specifier
+;;;
+
+
 (define (jazz.specifier? expr)
   (and (%%symbol? expr)
        (let ((str (%%symbol->string expr)))
-         (and (%%fx> (%%string-length str) 2)
-              (%%eqv? (%%string-ref str 0) #\<)
-              (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) #\>)))))
+         (let ((len (%%string-length str)))
+           (and (%%fx> len 2)
+                (%%eqv? (%%string-ref str 0) #\<)
+                (%%eqv? (%%string-ref str (%%fx- len 1)) #\>))))))
 
 
 (define (jazz.specifier->name specifier)
@@ -117,22 +138,6 @@
   (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
 
 
-(define (jazz.partition lst key)
-  (let ((partitions (jazz.new-queue)))
-    (for-each (lambda (element)
-                (let* ((category (key element))
-                       (partition (assv category (jazz.queue-list partitions))))
-                  (if (%%not partition)
-                      (let ((elements (jazz.new-queue)))
-                        (jazz.enqueue elements element)
-                        (jazz.enqueue partitions (%%cons category elements)))
-                    (jazz.enqueue (%%cdr partition) element))))
-              lst)
-    (map (lambda (partition)
-           (%%cons (%%car partition) (jazz.queue-list (%%cdr partition))))
-         (jazz.queue-list partitions))))
-
-
 ;;;
 ;;;; Enumerator
 ;;;
@@ -141,26 +146,6 @@
 (define (jazz.enumerator? obj)
   (and (%%symbol? obj)
        (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:)))
-
-
-;;;
-;;;; List
-;;;
-
-
-(cond-expand
-  (blues
-    (define jazz.list-copy
-      copy))
-  (else))
-
-
-(define (jazz.proper-list lst)
-  (let ((proper (jazz.new-queue)))
-    (%%while (%%pair? lst)
-      (jazz.enqueue proper (%%car lst))
-      (set! lst (%%cdr lst)))
-    (jazz.queue-list proper)))
 
 
 ;;;

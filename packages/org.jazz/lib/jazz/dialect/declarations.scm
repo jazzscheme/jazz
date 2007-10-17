@@ -135,9 +135,12 @@
 
 
 (jazz.define-class-syntax jazz.Method-Declaration jazz.Field-Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-method-declaration
-  ((propagation    %%get-method-declaration-propagation    ())
+  ((root           %%get-method-declaration-root           ())
+   (propagation    %%get-method-declaration-propagation    ())
    (implementation %%get-method-declaration-implementation ())
    (expansion      %%get-method-declaration-expansion      ())
+   (remote         %%get-method-declaration-remote         ())
+   (synchronized   %%get-method-declaration-synchronized   ())
    (parameters     %%get-method-declaration-parameters     ())))
 
 

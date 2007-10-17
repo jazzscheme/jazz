@@ -106,6 +106,11 @@
   #f)
 
 
+(define profile-start! #f) (set! profile-start! #f)
+(define profile-stop! #f) (set! profile-stop! #f)
+(define write-profile-report #f) (set! write-profile-report #f)
+
+
 (define (jazz.load-statprof)
   (if (not jazz.statprof-loaded?)
       (begin
@@ -117,8 +122,10 @@
   (jazz.load-statprof)
   (profile-start!))
 
+
 (define (jazz.stop-statprof)
   (profile-stop!))
+
 
 (define jazz.report-statprof
   (let ((n 0))

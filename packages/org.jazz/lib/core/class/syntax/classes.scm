@@ -58,6 +58,7 @@
 
 (jazz.define-virtual-syntax (jazz.of-type? (jazz.Type type) object) #t)
 (jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) class) #t)
+(jazz.define-virtual-syntax (jazz.emit-specifier (jazz.Type type)) #t)
 
 
 (jazz.define-macro (%%subtype? target type)
@@ -184,8 +185,9 @@
 
 
 (jazz.define-class-syntax jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Object-Class jazz.allocate-interface
-  ((ascendants () ())
-   (rank       () ())))
+  ((ascendants   %%get-interface-ascendants   ())
+   (rank         %%get-interface-rank         ())
+   (virtual-size %%get-interface-virtual-size %%set-interface-virtual-size)))
 
 
 ;;;
@@ -231,8 +233,30 @@
 
 
 (jazz.define-class-syntax jazz.Method jazz.Field (name) jazz.Object-Class jazz.allocate-method
-  ((propagation    %%get-method-propagation    ())
-   (implementation %%get-method-implementation ())))
+  ())
+
+
+(jazz.define-class-syntax jazz.Final-Method jazz.Method (name) jazz.Object-Class jazz.allocate-final-method
+  ((locator %%get-final-method-locator %%set-final-method-locator)))
+
+
+(jazz.define-class-syntax jazz.Root-Method jazz.Method (name) jazz.Object-Class jazz.allocate-root-method
+  ((locator-tree  %%get-root-method-locator-tree  %%set-root-method-locator-tree)
+   (dispatch-type %%get-root-method-dispatch-type %%set-root-method-dispatch-type)
+   (category-rank %%get-root-method-category-rank %%set-root-method-category-rank)
+   (locator-rank  %%get-root-method-locator-rank  %%set-root-method-locator-rank)))
+
+
+;;;
+;;;; Method-Node
+;;;
+
+
+(jazz.define-class-syntax jazz.Method-Node jazz.Object () jazz.Object-Class jazz.allocate-method-node
+  ((category  %%get-method-node-category  %%set-method-node-category)
+   (locator   %%get-method-node-locator   %%set-method-node-locator)
+   (next-node %%get-method-node-next-node %%set-method-node-next-node)
+   (children  %%get-method-node-children  %%set-method-node-children)))
 
 
 ;;;

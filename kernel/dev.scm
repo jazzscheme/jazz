@@ -48,6 +48,10 @@
   (jazz.type->specifier (jazz.WS specifier)))
 
 
+(define (sbug)
+  (s '<fx<fx/<fx^fx:fx>/fx>^fx:fx>))
+
+
 ;;;
 ;;;; Load
 ;;;

@@ -727,7 +727,17 @@
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Function-Type type))
-  #f)
+  (let ((output (open-output-string)))
+    (let ((first? #t))
+      (for-each (lambda (type)
+                  (if first?
+                      (set! first? #f)
+                    (write-char #\^ output))
+                  (display (jazz.emit-specifier type) output))
+                (%%get-function-type-parameters type)))
+    (write-char #\: output)
+    (display (jazz.emit-specifier (%%get-function-type-result type)) output)
+    (%%string->symbol (get-output-string output))))
 
 
 (jazz.encapsulate-class jazz.Function-Type)
@@ -758,11 +768,11 @@
       (for-each (lambda (type)
                   (if first?
                       (set! first? #f)
-                    (begin
-                      (write-char #\/)
-                      (display (jazz.emit-specifier type) output))))
+                    (write-char #\/ output))
+                  (display (jazz.emit-specifier type) output))
                 (%%get-template-type-types type)))
-    (write-char #\> output)))
+    (write-char #\> output)
+    (%%string->symbol (get-output-string output))))
 
 
 (jazz.encapsulate-class jazz.Template-Type)
@@ -865,7 +875,7 @@
 
 ;; <any>
 ;; <Point<fx>+> ;; Nillable
-;; <fx/fx:pair> ;; Function
+;; <fx^fx:pair> ;; Function
 ;; <Object>
 ;; <Point>
 ;; <Point<fx>>  ;; Template
@@ -892,102 +902,75 @@
             (if (or (%%eof-object? c)
                     (%%eqv? c #\<)
                     (%%eqv? c #\>)
-                    (%%eqv? c #\/)
+                    (%%eqv? c #\^)
                     (%%eqv? c #\:)
+                    (%%eqv? c #\/)
                     (%%eqv? c #\+))
                 (let ((name (%%string->symbol (get-output-string output))))
                   (or (jazz.lookup-primitive-type name)
-                      (jazz.lookup-reference walker resume declaration environment name)))
-              (begin
-                (read-char input)
-                (write-char c output)
-                (iter)))))))
-    
-    (define (parse-till terminator)
-      (let ((queue (jazz.new-queue)))
-        (let iter ()
-          (if (%%eqv? (peek-char input) terminator)
-              (jazz.queue-list queue)
-            (begin
-              (jazz.enqueue queue (parse))
-              (iter))))))
-    
-    (define (parse)
-      (if (%%eqv? (peek-char input) #\<)
-          (begin
-            (read-char input)
-            (let ((type (parse)))
-              (if (%%eqv? (read-char input) #\>)
-                  type
-                (ill-formed))))
-        (let ((type (parse-name)))
-          (let ((next (peek-char input)))
-            (case next
-              ((#\+)
-               (read-char input)
-               #; ;; wait as we need a locator for the new type!
-               (jazz.new-nillable-type type)
-               jazz.Any)
-              ((#\<)
-               (jazz.new-template-type type (parse-till #\>)))
-              (else
-               type))))))
-    
-    (parse)))
-
-
-(define (jazz.WS specifier)
-  (let ((input (open-input-string (%%symbol->string specifier))))
-    (define (ill-formed)
-      (jazz.error "Ill-formed specifier: {s}" specifier))
-    
-    (define (parse-name)
-      (let ((output (open-output-string)))
-        (let iter ()
-          (let ((c (peek-char input)))
-            (if (or (%%eof-object? c)
-                    (%%eqv? c #\<)
-                    (%%eqv? c #\>)
-                    (%%eqv? c #\/)
-                    (%%eqv? c #\:)
-                    (%%eqv? c #\+))
-                (let ((name (%%string->symbol (get-output-string output))))
-                  (or (jazz.lookup-primitive-type name)
+                      (jazz.lookup-reference walker resume declaration environment name)
                       (ill-formed)))
               (begin
                 (read-char input)
                 (write-char c output)
                 (iter)))))))
     
-    (define (parse-till terminator)
+    (define (parse-until separator terminator)
       (let ((queue (jazz.new-queue)))
         (let iter ()
           (if (%%eqv? (peek-char input) terminator)
-              (jazz.queue-list queue)
+              (begin
+                (read-char input)
+                (jazz.queue-list queue))
             (begin
-              (jazz.enqueue queue (parse))
-              (iter))))))
+              (jazz.enqueue queue (parse #t))
+              (let ((next (peek-char input)))
+                (cond ((%%eqv? next separator)
+                       (read-char input)
+                       (iter))
+                      ((%%eqv? next terminator)
+                       (iter))
+                      (else
+                       (ill-formed)))))))))
     
-    (define (parse)
+    (define (parse atomic?)
       (if (%%eqv? (peek-char input) #\<)
           (begin
             (read-char input)
-            (let ((type (parse)))
+            (let ((type (parse #f)))
               (if (%%eqv? (read-char input) #\>)
                   type
                 (ill-formed))))
-        (let ((type (parse-name)))
-          (let ((next (peek-char input)))
-            (case next
-              ((#\+)
-               (read-char input)
-               (jazz.new-nillable-type type))
-              ((#\<)
-               (jazz.new-template-type type (parse-till #\>)))
-              (else
-               type))))))
+        (if (%%eqv? (peek-char input) #\:)
+            (begin
+              (read-char input)
+              (jazz.new-function-type (parse #t) '()))
+          (let ((type (parse-name)))
+            (let ((next (peek-char input)))
+              (case next
+                ((#\+)
+                 (read-char input)
+                 (jazz.new-nillable-type type))
+                ((#\:)
+                 (if atomic?
+                     type
+                   (begin
+                     (read-char input)
+                     (jazz.new-function-type (parse #t) (list type)))))
+                ((#\^)
+                 (if atomic?
+                     type
+                   (begin
+                     (read-char input)
+                     (let ((parameters (cons type (parse-until #\^ #\:))))
+                       (jazz.new-function-type (parse #t) parameters)))))
+                ((#\<)
+                 (read-char input)
+                 (jazz.new-template-type type (parse-until #\/ #\>)))
+                (else
+                 type)))))))
     
-    (parse)))
+    (parse #f)))
 
 
 (define (jazz.type->specifier type)

@@ -148,15 +148,18 @@
 
 
 (define (jazz.partition lst key)
-  (let ((partition '()))
-    (for-each (lambda (element)
-                (let* ((category (key element))
-                       (set (assv category partition)))
-                  (if (%%not set)
-                      (set! partition (%%cons (%%cons category (%%list element)) partition))
-                    (%%set-cdr! set (%%cons element (%%cdr set))))))
-              lst)
-    partition))
+  (let iter ((scan lst))
+    (if (null? scan)
+        '()
+      (let* ((partition (iter (cdr scan)))
+             (element (car scan))
+             (category (key element))
+             (set (assv category partition)))
+        (if (not set)
+            (cons (cons category (list element)) partition)
+          (begin
+            (set-cdr! set (cons element (cdr set)))
+            partition))))))
 
 
 ;;;

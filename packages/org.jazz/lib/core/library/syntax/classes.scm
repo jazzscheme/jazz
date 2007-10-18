@@ -318,7 +318,7 @@
 
 
 (jazz.define-class-syntax jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-c-definition-declaration
-  ((signature       %%get-c-definition-declaration-signature       ())
+  ((signature       %%get-c-definition-declaration-signature       %%set-c-definition-declaration-signature)
    (parameter-types %%get-c-definition-declaration-parameter-types ())
    (result-type     %%get-c-definition-declaration-result-type     ())
    (c-name          %%get-c-definition-declaration-c-name          ())
@@ -554,49 +554,9 @@
 ;;;
 
 
-(jazz.define-macro (jazz.new-code form type)
-  `(cons ,form ,type))
-
-
-(jazz.define-macro (%%code-form code)
-  `(%%car ,code))
-
-(jazz.define-macro (%%code-type code)
-  `(%%cdr ,code))
-
-
-#; ;; typed debugging version
-(jazz.define-macro (jazz.new-code form type)
-  `(list 'CODE ,form ,type))
-
-
-#; ;; typed debugging version
-(jazz.define-macro (%%code-form code)
-  (let ((cde (jazz.generate-symbol "cde")))
-    `(let ((,cde ,code))
-       (if (eq? (car ,cde) 'CODE)
-           (cadr ,cde)
-         (jazz.error "Code expected in %%code-form: {s}" ,cde)))))
-
-#; ;; typed debugging version
-(jazz.define-macro (%%code-type code)
-  (let ((cde (jazz.generate-symbol "cde")))
-    `(let ((,cde ,code))
-       (if (eq? (car ,cde) 'CODE)
-           (caddr ,cde)
-         (jazz.error "Code expected in %%code-type: {s}" ,cde)))))
-
-
-(define (jazz.codes-forms codes)
-  (map (lambda (code)
-         (%%code-form code))
-       codes))
-
-
-(define (jazz.codes-types codes)
-  (map (lambda (code)
-         (%%code-type code))
-       codes))
+(jazz.define-class-syntax jazz.Code jazz.Object () jazz.Object-Class jazz.allocate-code
+  ((form %%get-code-form ())
+   (type %%get-code-type ())))
 
 
 ;;;

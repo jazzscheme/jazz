@@ -285,13 +285,13 @@
       (let ((class-rank (%%get-class-level class)))
         (let iter ((class class))
              (let* ((class-table (%%get-class-class-table class))
-                    (locator-table (jazz.resize-vector (%%vector-ref class-table class-rank) count)))
+                    (implementation-table (jazz.resize-vector (%%vector-ref class-table class-rank) count)))
                (for-each (lambda (field)
-                           (let ((locator-rank (%%get-root-method-locator-rank field))
-                                 (locator (%%get-method-node-locator (%%get-root-method-locator-tree field))))
-                             (%%vector-set! locator-table locator-rank locator)))
+                           (let ((implementation-rank (%%get-virtual-method-implementation-rank field))
+                                 (implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                             (%%vector-set! implementation-table implementation-rank implementation)))
                          added-methods)
-               (%%vector-set! class-table class-rank locator-table))
+               (%%vector-set! class-table class-rank implementation-table))
              (for-each (lambda (descendant)
                          (iter descendant))
                        (%%get-category-descendants class)))))))
@@ -300,29 +300,29 @@
 (define (jazz.update-class-class-root-methods class)
   (let* ((class-table (%%get-class-class-table class))
          (class-rank (%%get-class-level class))
-         (root-locator-table (%%vector-ref class-table class-rank))
-         (count (if root-locator-table (%%vector-length root-locator-table) 0))
+         (root-implementation-table (%%vector-ref class-table class-rank))
+         (count (if root-implementation-table (%%vector-length root-implementation-table) 0))
          (added-methods '()))
     (%%iterate-hashtable (%%get-category-fields class)
       (lambda (key field)
-        (%%when (%%is? field jazz.Root-Method)
-          (let ((locator-rank (%%get-root-method-locator-rank field)))
-            (if locator-rank
-                (let ((old-locator (%%vector-ref root-locator-table locator-rank))
-                      (new-locator (%%get-method-node-locator (%%get-root-method-locator-tree field))))
-                  (%%when (%%neq? old-locator new-locator)
+        (%%when (%%is? field jazz.Virtual-Method)
+          (let ((implementation-rank (%%get-virtual-method-implementation-rank field)))
+            (if implementation-rank
+                (let ((old-implementation (%%vector-ref root-implementation-table implementation-rank))
+                      (new-implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                  (%%when (%%neq? old-implementation new-implementation)
                     ;; method exists and has changed - update vtable + propagate to descendants
                     (let iter ((class class))
                          (let* ((class-table (%%get-class-class-table class))
-                                (locator-table (%%vector-ref class-table class-rank)))
-                           (%%when (%%eq? old-locator (%%vector-ref locator-table locator-rank))
-                             (%%vector-set! locator-table locator-rank new-locator)
+                                (implementation-table (%%vector-ref class-table class-rank)))
+                           (%%when (%%eq? old-implementation (%%vector-ref implementation-table implementation-rank))
+                             (%%vector-set! implementation-table implementation-rank new-implementation)
                              (for-each (lambda (descendant)
                                          (iter descendant))
                                        (%%get-category-descendants class)))))))
               (begin
-                (%%set-root-method-category-rank field class-rank)
-                (%%set-root-method-locator-rank field count)
+                (%%set-virtual-method-category-rank field class-rank)
+                (%%set-virtual-method-implementation-rank field count)
                 (set! count (+ count 1))
                 (set! added-methods (cons field added-methods))))))))
     (values count added-methods)))
@@ -517,7 +517,7 @@
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.create-class-tables class)
-    (jazz.dialect.language.Object.initialize class)
+    (jazz.initialize-object class '())
     class))
 
 
@@ -593,12 +593,29 @@
            (object (%%make-object (%%fx+ base size))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
-      ;; todo optimize initialize call and at the same time enable Object.initialize to take 0 arguments
+      ;; todo optimize initialize call and at the same time enable Object.initialize to take variable arguments
       ;; (%%when (%%not (%%null? (%%get-generic-pending-specifics jazz.dialect.language.Object.initialize!generic)))
       ;;  (jazz.update-generic jazz.dialect.language.Object.initialize!generic))
       ;; (apply (%%hashtable-ref (%%get-class-dispatch-table class) 'initialize) object rest)
-      (apply jazz.dialect.language.Object.initialize object rest)
+      (jazz.initialize-object object rest)
       object)))
+
+
+(define (jazz.initialize-object object rest)
+  (if jazz.neo?
+      (jazz.neo-initialize-object object rest)
+    (apply jazz.dialect.language.Object.initialize object rest)))
+
+
+;; the rank of basic methods like initialize should be harcode to 0, 1, ...
+(define jazz.neo-initialize-object
+  (let ((rank #f))
+    (lambda (object rest)
+      (if (%%not rank)
+          (let ((field (%%get-category-field jazz.Object 'initialize)))
+            (set! rank (%%get-virtual-method-implementation-rank field))))
+      (let ((implementation (%%vector-ref (%%vector-ref (%%get-class-class-table (%%get-object-class object)) 0) rank)))
+        (apply implementation object rest)))))
 
 
 (define jazz.dialect.language.Object.initialize
@@ -1317,7 +1334,6 @@
   (jazz.of-subtype? interface (%%class-of object)))
 
 
-;;jazz.update-class
 (define (jazz.update-interface interface)
   (receive (count added-methods) (jazz.update-interface-root-methods interface)
     (%%when (%%not-null? added-methods)
@@ -1326,29 +1342,28 @@
         (let iter ((category interface))
              (%%when (%%is? category jazz.Class)
                (let* ((interface-table (%%get-class-interface-table category))
-                      (locator-table (jazz.resize-vector (%%vector-ref interface-table interface-rank) count)))
+                      (implementation-table (jazz.resize-vector (%%vector-ref interface-table interface-rank) count)))
                  (for-each (lambda (field)
-                             (let ((locator-rank (%%get-root-method-locator-rank field))
-                                   (locator (%%get-method-node-locator (%%get-root-method-locator-tree field))))
-                               (%%vector-set! locator-table locator-rank locator)))
+                             (let ((implementation-rank (%%get-virtual-method-implementation-rank field))
+                                   (implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                               (%%vector-set! implementation-table implementation-rank implementation)))
                            added-methods)
-                 (%%vector-set! interface-table interface-rank locator-table)))
+                 (%%vector-set! interface-table interface-rank implementation-table)))
              (for-each (lambda (descendant)
                          (iter descendant))
                        (%%get-category-descendants category)))))))
 
 
-;jazz.add-dispatch-method
 (define (jazz.update-interface-root-methods interface)
   (let* ((interface-rank (%%get-interface-rank interface))
          (count (%%get-interface-virtual-size interface))
          (added-methods '()))
     (%%iterate-hashtable (%%get-category-fields interface)
       (lambda (key field)
-        (%%when (and (%%is? field jazz.Root-Method)
-                     (%%not (%%get-root-method-locator-rank field)))
-          (%%set-root-method-category-rank field interface-rank)
-          (%%set-root-method-locator-rank field count)
+        (%%when (and (%%is? field jazz.Virtual-Method)
+                     (%%not (%%get-virtual-method-implementation-rank field)))
+          (%%set-virtual-method-category-rank field interface-rank)
+          (%%set-virtual-method-implementation-rank field count)
           (set! count (+ count 1))
           (set! added-methods (cons field added-methods)))))
     (values count added-methods)))
@@ -1527,15 +1542,15 @@
 
 (define (jazz.locate-method-owner category method-name)
   (let iter ((category category))
-       (cond ((not category)
-              #f)
-             ((%%get-category-field category method-name)
-              category)
-             ((%%is? category jazz.Class)
-              (or (iter (%%get-class-ascendant category))
-                  (jazz.find-in iter (%%get-class-interfaces category))))
-             ((%%is? category jazz.Interface)
-              (jazz.find-in iter (%%get-interface-ascendants category))))))
+    (cond ((not category)
+           #f)
+          ((%%get-category-field category method-name)
+           category)
+          ((%%is? category jazz.Class)
+           (or (iter (%%get-class-ascendant category))
+               (jazz.find-in iter (%%get-class-interfaces category))))
+          ((%%is? category jazz.Interface)
+           (jazz.find-in iter (%%get-interface-ascendants category))))))
 
 
 (jazz.encapsulate-class jazz.Method)
@@ -1547,33 +1562,33 @@
 
 
 (jazz.define-class jazz.Final-Method jazz.Method (name) jazz.Object-Class
-  (locator))
+  (implementation))
 
 
-(define (jazz.new-final-method name locator)
-  (jazz.allocate-final-method jazz.Final-Method name locator))
+(define (jazz.new-final-method name implementation)
+  (jazz.allocate-final-method jazz.Final-Method name implementation))
 
 
-(define (jazz.add-final-method class method-name method-locator)
+(define (jazz.add-final-method class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
     (cond ((not owner)
-           (jazz.create-final-method class method-name method-locator))
+           (jazz.create-final-method class method-name method-implementation))
           ((%%eq? owner class)
-           (jazz.update-final-method class method-name method-locator))
+           (jazz.update-final-method class method-name method-implementation))
           (else
-           (jazz.error "Cannot redefine virtual method: {a}" method-locator)))))
+           (jazz.error "Cannot redefine virtual method: {a}" method-implementation)))))
 
 
-(define (jazz.update-final-method class method-name method-locator)
+(define (jazz.update-final-method class method-name method-implementation)
   (let ((field (%%get-category-field class method-name)))
     (if (%%is? field jazz.Final-Method)
-        (%%set-final-method-locator field method-locator)
-      (jazz.error "Cannot change method propagation to final: {a}" method-locator))
+        (%%set-final-method-implementation field method-implementation)
+      (jazz.error "Cannot change method propagation to final: {a}" method-implementation))
     field))
 
 
-(define (jazz.create-final-method class method-name method-locator)
-  (let ((method (jazz.new-final-method method-name method-locator)))
+(define (jazz.create-final-method class method-name method-implementation)
+  (let ((method (jazz.new-final-method method-name method-implementation)))
     (jazz.add-field class method)
     method))
 
@@ -1582,49 +1597,49 @@
 
 
 ;;;
-;;;; Root Method
+;;;; Virtual Method
 ;;;
 
-;jazz.Class-Root-Method
-(jazz.define-class jazz.Root-Method jazz.Method (name) jazz.Object-Class
-  (locator-tree
+
+(jazz.define-class jazz.Virtual-Method jazz.Method (name) jazz.Object-Class
+  (implementation-tree
    dispatch-type
    category-rank
-   locator-rank))
+   implementation-rank))
 
 
-(define (jazz.new-root-method name locator-tree dispatch-type category-rank locator-rank)
-  (jazz.allocate-root-method jazz.Root-Method name locator-tree dispatch-type category-rank locator-rank))
+(define (jazz.new-virtual-method name implementation-tree dispatch-type category-rank implementation-rank)
+  (jazz.allocate-virtual-method jazz.Virtual-Method name implementation-tree dispatch-type category-rank implementation-rank))
 
 
-(define (jazz.add-root-method category method-name method-locator)
+(define (jazz.add-virtual-method category method-name method-implementation)
   (let ((owner (jazz.locate-method-owner category method-name)))
     (cond ((not owner)
-           (jazz.create-root-method category method-name method-locator))
+           (jazz.create-virtual-method category method-name method-implementation))
           ((%%eq? owner category)
-           (jazz.update-root-method category method-name method-locator))
+           (jazz.update-virtual-method category method-name method-implementation))
           (else
-           (jazz.error "Cannot rebase virtual method: {a}" method-locator)))))
+           (jazz.error "Cannot rebase virtual method: {a}" method-implementation)))))
 
 
-(define (jazz.update-root-method category method-name method-locator)
+(define (jazz.update-virtual-method category method-name method-implementation)
   (let ((field (%%get-category-field category method-name)))
-    (if (%%is? field jazz.Root-Method)
-        (let ((node (%%get-root-method-locator-tree field)))
-          (%%set-method-node-locator node method-locator))
-      (jazz.error "Cannot virtualize final method: {a}" method-locator))
+    (if (%%is? field jazz.Virtual-Method)
+        (let ((node (%%get-virtual-method-implementation-tree field)))
+          (%%set-method-node-implementation node method-implementation))
+      (jazz.error "Cannot virtualize final method: {a}" method-implementation))
     field))
 
 
-(define (jazz.create-root-method category method-name method-locator)
+(define (jazz.create-virtual-method category method-name method-implementation)
   (let* ((dispatch-type (if (%%is? category jazz.Class) 'class 'interface))
-         (node (jazz.new-method-node category method-locator #f '()))
-         (method (jazz.new-root-method method-name node dispatch-type #f #f)))
+         (node (jazz.new-method-node category method-implementation #f '()))
+         (method (jazz.new-virtual-method method-name node dispatch-type #f #f)))
     (jazz.add-field category method)
     method))
 
 
-(jazz.encapsulate-class jazz.Root-Method)
+(jazz.encapsulate-class jazz.Virtual-Method)
 
 
 ;;;
@@ -1632,56 +1647,56 @@
 ;;;
 
 
-;jazz.update-interface-root-methods
-(define (jazz.add-dispatch-method class method-name method-locator)
+(define (jazz.add-dispatch-method class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
     (cond ((not owner)
-           (jazz.error "Cannot locate root method: {a}" method-locator))
+           (jazz.error "Cannot locate root method: {a}" method-implementation))
           ((%%eq? owner class)
-           (jazz.error "Cannot remove root method: {a}" method-locator))
+           (jazz.error "Cannot remove root method: {a}" method-implementation))
           (else
            (let ((field (%%get-category-field owner method-name)))
-             (cond ((%%is? field jazz.Root-Method)
-                    (let ((root-node (%%get-root-method-locator-tree field)))
-                      (receive (start-node end-nodes) (jazz.create/update-dispatch-method root-node class method-locator)
-                        (let ((category-rank (%%get-root-method-category-rank field))
-                              (locator-rank (%%get-root-method-locator-rank field)))
+             (cond ((%%is? field jazz.Virtual-Method)
+                    (let ((root-node (%%get-virtual-method-implementation-tree field)))
+                      (receive (start-node end-nodes) (jazz.create/update-dispatch-method root-node class method-implementation)
+                        (let ((category-rank (%%get-virtual-method-category-rank field))
+                              (implementation-rank (%%get-virtual-method-implementation-rank field)))
                           (jazz.update-method-tree (lambda (class)
-                                                     (let* ((dispatch-table (case (%%get-root-method-dispatch-type field)
+                                                     (let* ((dispatch-table (case (%%get-virtual-method-dispatch-type field)
                                                                               ((class)     (%%get-class-class-table class))
                                                                               ((interface) (%%get-class-interface-table class))))
                                                             (method-table (%%vector-ref dispatch-table category-rank)))
-                                                       (%%vector-set! method-table locator-rank method-locator)))
+                                                       (%%vector-set! method-table implementation-rank method-implementation)))
                                                    start-node end-nodes)
                           start-node))))
                    ((%%is? field jazz.Final-Method)
-                    (jazz.error "Cannot remove final method: {a}" method-locator))
+                    (jazz.error "Cannot remove final method: {a}" method-implementation))
                    (else
                     (error "Method jazz.add-dispatch-method unimplemented for Interface"))))))))
 
 
-(define (jazz.create/update-dispatch-method root-node class method-locator)
-  (let ((node (jazz.locate-best-method-node root-node class)))
+(define (jazz.create/update-dispatch-method root-node class method-implementation)
+  (let ((node (jazz.locate-most-specific-method-node root-node class)))
     (if (%%eq? class (%%get-method-node-category node))
-        (jazz.update-dispatch-method node class method-locator)
-      (jazz.create-dispatch-method node class method-locator))))
+        (jazz.update-dispatch-method node class method-implementation)
+      (jazz.create-dispatch-method node class method-implementation))))
 
 
-(define (jazz.update-dispatch-method node class method-locator)
-  (%%set-method-node-locator node method-locator)
+(define (jazz.update-dispatch-method node class method-implementation)
+  (%%set-method-node-implementation node method-implementation)
   (values node (%%get-method-node-children node)))
 
 
-(define (jazz.create-dispatch-method node class method-locator)
+(define (jazz.create-dispatch-method node class method-implementation)
   (let* ((partition (jazz.partition (%%get-method-node-children node)
                                     (lambda (child)
                                       (let ((child-class (%%get-method-node-category child)))
                                         (%%subtype? class child-class)))))
          (new-children (%%cdr (or (assq #t partition) '(#t))))
          (old-children (%%cdr (or (assq #f partition) '(#f))))
-         (new-node (jazz.new-method-node class method-locator node new-children)))
+         (new-node (jazz.new-method-node class method-implementation node new-children)))
     (for-each (lambda (child)
-                (%%set-method-node-next-node child new-node))
+                (%%set-method-node-next-node child new-node)
+                (%%set-method-node-next-implementation child method-implementation))
               new-children)
     (%%set-method-node-children node (%%cons new-node old-children))
     (values new-node new-children)))
@@ -1694,22 +1709,24 @@
 
 (jazz.define-class jazz.Method-Node jazz.Object () jazz.Object-Class
   (category
-   locator
+   implementation
    next-node
+   next-implementation
    children))
 
 
-(define (jazz.new-method-node category locator next-node children)
-  (jazz.allocate-method-node jazz.Method-Node category locator next-node children))
+(define (jazz.new-method-node category implementation next-node children)
+  (let ((next-implementation (if next-node (%%get-method-node-implementation next-node) #f)))
+    (jazz.allocate-method-node jazz.Method-Node category implementation next-node next-implementation children)))
 
 
-(define (jazz.locate-best-method-node node category)
+(define (jazz.locate-most-specific-method-node node category)
   (let iter ((node node))
        (if (%%eq? category (%%get-method-node-category node))
            node ; exact match
          (let sub-iter ((children (%%get-method-node-children node)))
               (if (%%null? children)
-                  node ; inexact match
+                  node ; inherited match
                 (let* ((child (%%car children))
                        (child-category (%%get-method-node-category child)))
                   (if (%%subtype? category child-category)

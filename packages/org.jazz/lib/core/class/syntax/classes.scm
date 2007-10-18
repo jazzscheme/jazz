@@ -236,15 +236,25 @@
   ())
 
 
+;;;
+;;;; Final-Method
+;;;
+
+
 (jazz.define-class-syntax jazz.Final-Method jazz.Method (name) jazz.Object-Class jazz.allocate-final-method
-  ((locator %%get-final-method-locator %%set-final-method-locator)))
+  ((implementation %%get-final-method-implementation %%set-final-method-implementation)))
 
 
-(jazz.define-class-syntax jazz.Root-Method jazz.Method (name) jazz.Object-Class jazz.allocate-root-method
-  ((locator-tree  %%get-root-method-locator-tree  %%set-root-method-locator-tree)
-   (dispatch-type %%get-root-method-dispatch-type %%set-root-method-dispatch-type)
-   (category-rank %%get-root-method-category-rank %%set-root-method-category-rank)
-   (locator-rank  %%get-root-method-locator-rank  %%set-root-method-locator-rank)))
+;;;
+;;;; Virtual-Method
+;;;
+
+
+(jazz.define-class-syntax jazz.Virtual-Method jazz.Method (name) jazz.Object-Class jazz.allocate-virtual-method
+  ((implementation-tree  %%get-virtual-method-implementation-tree  %%set-virtual-method-implementation-tree)
+   (dispatch-type        %%get-virtual-method-dispatch-type        %%set-virtual-method-dispatch-type)
+   (category-rank        %%get-virtual-method-category-rank        %%set-virtual-method-category-rank)
+   (implementation-rank  %%get-virtual-method-implementation-rank  %%set-virtual-method-implementation-rank)))
 
 
 ;;;
@@ -253,10 +263,11 @@
 
 
 (jazz.define-class-syntax jazz.Method-Node jazz.Object () jazz.Object-Class jazz.allocate-method-node
-  ((category  %%get-method-node-category  %%set-method-node-category)
-   (locator   %%get-method-node-locator   %%set-method-node-locator)
-   (next-node %%get-method-node-next-node %%set-method-node-next-node)
-   (children  %%get-method-node-children  %%set-method-node-children)))
+  ((category            %%get-method-node-category            %%set-method-node-category)
+   (implementation      %%get-method-node-implementation      %%set-method-node-implementation)
+   (next-node           %%get-method-node-next-node           %%set-method-node-next-node)
+   (next-implementation %%get-method-node-next-implementation %%set-method-node-next-implementation)
+   (children            %%get-method-node-children            %%set-method-node-children)))
 
 
 ;;;

@@ -104,8 +104,7 @@
                                      (kept-specifics (if keep (%%cons specific (%%cdr keep)) (%%list specific)))
                                      (move (assq #t partition))
                                      (moved-specifics (if move (%%cdr move) '())))
-                                (%%set-specific-previous-specifics next-specific
-                                                                      kept-specifics)
+                                (%%set-specific-previous-specifics next-specific kept-specifics)
                                 (common-proc moved-specifics next-specific))))
            (common-proc (lambda (moved-specifics next-specific)
                           (%%set-specific-previous-specifics specific moved-specifics)

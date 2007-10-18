@@ -40,6 +40,15 @@
 
 
 ;;;
+;;;; Test
+;;;
+
+
+(define (s specifier)
+  (jazz.type->specifier (jazz.WS specifier)))
+
+
+;;;
 ;;;; Load
 ;;;
 
@@ -76,7 +85,13 @@
   (l 'jazz.platform.literals))
 
 
+(define (lit)
+  (lj)
+  (l 'jazz.literals))
+
+
 (define (lt)
+  (ll)
   (rl 'test))
 
 
@@ -86,7 +101,7 @@
 
 
 (define (llex)
-  (lex jazz.dialect.language))
+  (lex 'jazz.dialect.language))
 
 
 ;;;

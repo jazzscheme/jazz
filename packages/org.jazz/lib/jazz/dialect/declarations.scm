@@ -135,13 +135,14 @@
 
 
 (jazz.define-class-syntax jazz.Method-Declaration jazz.Field-Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-method-declaration
-  ((root           %%get-method-declaration-root           ())
-   (propagation    %%get-method-declaration-propagation    ())
-   (implementation %%get-method-declaration-implementation ())
-   (expansion      %%get-method-declaration-expansion      ())
-   (remote         %%get-method-declaration-remote         ())
-   (synchronized   %%get-method-declaration-synchronized   ())
-   (parameters     %%get-method-declaration-parameters     ())))
+  ((root         %%get-method-declaration-root         ())
+   (propagation  %%get-method-declaration-propagation  ())
+   (abstraction  %%get-method-declaration-abstraction  ())
+   (expansion    %%get-method-declaration-expansion    ())
+   (remote       %%get-method-declaration-remote       ())
+   (synchronized %%get-method-declaration-synchronized ())
+   (signature    %%get-method-declaration-signature    %%set-method-declaration-signature)
+   (body         %%get-method-declaration-body         %%set-method-declaration-body)))
 
 
 ;;;
@@ -183,4 +184,14 @@
 
 (jazz.define-class-syntax jazz.Dispatch jazz.Expression (type) jazz.Object-Class jazz.allocate-dispatch
   ((name      %%get-dispatch-name      ())
-   (arguments %%get-dispatch-arguments ()))))
+   (arguments %%get-dispatch-arguments ())))
+
+
+;;;
+;;;; NeoDispatch
+;;;
+
+
+(jazz.define-class-syntax jazz.NeoDispatch jazz.Expression (type) jazz.Object-Class jazz.allocate-neodispatch
+  ((name      %%get-neodispatch-name      ())
+   (arguments %%get-neodispatch-arguments ()))))

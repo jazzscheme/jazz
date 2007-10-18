@@ -35,6 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(cond-expand
+  (neo
+    (define jazz.neo?
+      #t))
+  (else
+    (define jazz.neo?
+      #f)))
+
+
 ;;;
 ;;;; Load
 ;;;

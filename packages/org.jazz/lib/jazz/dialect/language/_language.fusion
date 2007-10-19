@@ -365,10 +365,6 @@
   (slot name accessors generate))
 
 
-(definition public (property? obj)
-  (is? obj Property))
-
-
 (definition public (category-field category field-name)
   (find-field category field-name))
 
@@ -816,22 +812,22 @@
     constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent))
 
 
-(definition public (character-type ascii-c)
+(definition public (character-type ascii-c <char>) <symbol>
   (vector-ref character-types (char->integer ascii-c)))
 
 
-(definition (jazz-constituent? c)
+(definition (jazz-constituent? c <char>) <bool>
   (or (alphanumeric? c)
       (eq? (character-type c) 'constituent)
       (eqv? c #\#)))
 
 
-(definition (cpp/java-constituent? c)
+(definition (cpp/java-constituent? c <char>) <bool>
   (or (alphanumeric? c)
       (eqv? c #\_)))
 
 
-(definition (sql-constituent? c)
+(definition (sql-constituent? c <char>) <bool>
   (or (alphanumeric? c)
       (eqv? c #\_)
       (eqv? c #\@)
@@ -1084,14 +1080,14 @@
                       (car scan)
                     (error "Bad keyword list: {s}" (unbox-list box)))))
         (if (eq? keyword elem)
+            (begin
+              (set! found (cadr scan))
+              (set-cdr! before (cddr scan)))
           (begin
-            (set! found (cadr scan))
-            (set-cdr! before (cddr scan)))
-        (begin
-          (set! before (cdr scan))
-          (if (null? (cdr scan))
-              (error "Bad keyword list: {s}" (unbox-list box))
-            (set! scan (cddr scan)))))))
+            (set! before (cdr scan))
+            (if (null? (cdr scan))
+                (error "Bad keyword list: {s}" (unbox-list box))
+              (set! scan (cddr scan)))))))
     (if (specified? found)
         found
       (default))))
@@ -1836,10 +1832,10 @@
            self)))
   
   
-  (method public virtual abstract (sequence-element n))
+  (method public virtual abstract (sequence-element n <fx>))
   
   
-  (method public virtual abstract (sequence-set-element! n obj))
+  (method public virtual abstract (sequence-set-element! n <fx> obj))
   
   
   (method public virtual abstract (sequence-length))
@@ -1854,13 +1850,13 @@
   (method public virtual abstract (sequence-butlast))
   
   
-  (method public virtual (sequence-subseq! start end)
+  (method public virtual (sequence-subseq! start <fx> end <fx>)
     (if (and (= start 0) (= end -1))
         self
       (new Subseq self start (- (if (= end -1) (length self) end) start))))
 
 
-  (method public virtual (sequence-replace-subseq! start end replacement)
+  (method public virtual (sequence-replace-subseq! start <fx> end <fx> replacement)
     (append! (subseq self 0 start)
              replacement
              (subseq self end (length self)))))
@@ -1870,15 +1866,15 @@
   (is? seq Sequence))
 
 
-(definition public inline (element seq <Sequence> n)
+(definition public inline (element seq <Sequence> n <int>)
   (sequence-element~ seq n))
 
 
-(definition public inline (set-element! seq <Sequence> n obj)
+(definition public inline (set-element! seq <Sequence> n <int> obj)
   (sequence-set-element!~ seq n obj))
 
 
-(definition public inline (length seq <Sequence>)
+(definition public inline (length seq <Sequence>) <int>
   (sequence-length~ seq))
 
 
@@ -3655,6 +3651,10 @@
   (slot setter accessors generate))
 
 
+(definition public inline (property? obj)
+  (is? obj Property))
+
+
 (definition public (symbolize-property property <Object>)
   (cond ((field? property) (get-name~ property))
         ((keyword? property) (keyword->symbol property))
@@ -4288,8 +4288,8 @@
   (definition GOLDEN_RATIO 1.6)
   
   
-  (slot size    accessors generate)
-  (slot content accessors generate)
+  (slot size    <fx>     accessors generate)
+  (slot content <vector> accessors generate)
   
   
   (method (initialize (s 0))
@@ -4317,7 +4317,7 @@
   
   (method (sequence-tail n)
     (let ((new-axis (new Axis n))
-          (offset (- (length self) n)))
+          (offset (- size n)))
       (let (iterate (i 0))
         (if (>= i n)
             new-axis
@@ -4326,14 +4326,14 @@
   
   
   (method (sequence-last)
-    (element self (- (length self) 1)))
+    (element self (- size 1)))
   
   
-  (method (sequence-replace-subseq! start end replacement)
+  (method (sequence-replace-subseq! start <fx> end <fx> replacement)
     (let* ((before (- end start))
            (after (length replacement))
            (delta (- after before))
-           (old-size (get-size~ self))
+           (old-size size)
            (new-size (+ old-size delta)))
       (cond ((< after before)
              (let (iterate (n (- old-size end))
@@ -4365,7 +4365,7 @@
       (set-element! content n obj)))
   
   
-  (method public (grow n)
+  (method public (grow n <fx>)
     (cond ((<= n (length content))
            (set-size n))
           ((= size 0)
@@ -4383,7 +4383,7 @@
                    (iterate (+ i 1))))))))))
 
 
-(definition (axis-add axis obj)
+(definition (axis-add axis <Axis> obj)
   (let ((size (length axis)))
     (grow~ axis (+ size 1))
     (set-element! axis size obj)))
@@ -5098,11 +5098,6 @@
 ;;;
 
 
-;; wait inline
-(definition public (function? object <Object>)
-  (procedure? object))
-
-
 (definition public (compose f g)
   (function (x)
     (f (g x))))
@@ -5309,12 +5304,12 @@
 (class Subseq metaclass Subseq-Class extends Sequence
   
   
-  (slot sequence getter    generate)
-  (slot start    accessors generate)
-  (slot size     accessors generate)
+  (slot sequence      getter    generate)
+  (slot start    <fx> accessors generate)
+  (slot size     <fx> accessors generate)
   
   
-  (method (initialize sequence start size)
+  (method (initialize sequence start <fx> size <fx>)
     (nextmethod)
     (set! sequence~self sequence)
     (set! start~self start)
@@ -5337,29 +5332,29 @@
       (error "Cannot coerce sequence to string")))
   
   
-  (method (sequence-element n)
+  (method (sequence-element n <fx>) <any>
     (element sequence (+ start n)))
   
   
-  (method (sequence-set-element! n obj)
+  (method (sequence-set-element! n <fx> obj) <void>
     (set-element! sequence (+ start n) obj))
   
   
-  (method (sequence-length)
+  (method (sequence-length) <int>
     size)
   
   
-  (method (sequence-subseq! s e)
+  (method (sequence-subseq! s <fx> e <fx>)
     (if (or (= s 0) (= e -1))
         self
       (new Subseq sequence (+ start s) (- (if (= e -1) (length self) e) s)))))
 
 
-(definition (offset-subseq! subseq offset)
+(definition (offset-subseq! subseq <Subseq> offset <fx>) <void>
   (set-start~ subseq (+ (get-start~ subseq) offset)))
 
 
-(definition (grow-subseq! subseq n)
+(definition (grow-subseq! subseq <Subseq> n <fx>) <void>
   (set-size~ subseq (+ (get-size~ subseq) n)))
 
 
@@ -5389,7 +5384,7 @@
 ;;;
 
 
-(definition public (word-constituent? c <Object>)
+(definition public (word-constituent? c <char>) <bool>
   (or (alphabetic? c)
       (numeric? c)
       (memq? c '(#\- #\@)))))

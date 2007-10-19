@@ -45,7 +45,7 @@
 
 
 (define (s specifier)
-  (jazz.type->specifier (jazz.WS specifier)))
+  (jazz.type->specifier (jazz.walk-specifier #f #f #f '() specifier)))
 
 
 (define (sbug)

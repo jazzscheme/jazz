@@ -74,33 +74,33 @@
       `(##subtype-set! (%%make-vector ,size) (%%subtype-jazz)))
     
     (jazz.define-macro (%%object-length object)
-      (if jazz.debug-kernel?
-          (let ((obj (jazz.generate-symbol "obj")))
-            `(let ((,obj ,object))
-               (%%kernel-assert (%%object? ,obj)
+      (if jazz.debug-core?
+          (jazz.with-expression-value object
+            (lambda (obj)
+              `(%%core-assert (%%object? ,obj)
                  (##vector-length ,obj))))
         `(##vector-length ,object)))
     
     (jazz.define-macro (%%object-ref object n)
-      (if jazz.debug-kernel?
-          (let ((obj (jazz.generate-symbol "obj"))
-                (rnk (jazz.generate-symbol "rnk")))
-            `(let ((,obj ,object)
-                   (,rnk ,n))
-               (%%kernel-assert (%%object? ,obj)
-                 (%%kernel-assert (##fixnum.< ,rnk (##vector-length ,obj))
-                   (##vector-ref ,obj ,n)))))
+      (if jazz.debug-core?
+          (jazz.with-expression-value object
+            (lambda (obj)
+              (jazz.with-expression-value n
+                (lambda (rnk)
+                  `(%%core-assert (%%object? ,obj)
+                     (%%core-assert (##fixnum.< ,rnk (##vector-length ,obj))
+                       (##vector-ref ,obj ,n)))))))
         `(##vector-ref ,object ,n)))
     
     (jazz.define-macro (%%object-set! object n value)
-      (if jazz.debug-kernel?
-          (let ((obj (jazz.generate-symbol "obj"))
-                (rnk (jazz.generate-symbol "rnk")))
-            `(let ((,obj ,object)
-                   (,rnk ,n))
-               (%%kernel-assert (%%object? ,obj)
-                 (%%kernel-assert (##fixnum.< ,rnk (##vector-length ,obj))
-                   (##vector-set! ,obj ,n ,value)))))
+      (if jazz.debug-core?
+          (jazz.with-expression-value object
+            (lambda (obj)
+              (jazz.with-expression-value n
+                (lambda (rnk)
+                  `(%%core-assert (%%object? ,obj)
+                     (%%core-assert (##fixnum.< ,rnk (##vector-length ,obj))
+                       (##vector-set! ,obj ,n ,value)))))))
         `(##vector-set! ,object ,n ,value))))
   
   (else

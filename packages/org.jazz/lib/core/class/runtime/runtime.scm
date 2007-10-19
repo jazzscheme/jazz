@@ -417,11 +417,25 @@
   (jazz.of-subtype? type (%%class-of object)))
 
 
-(jazz.define-virtual (jazz.of-subtype? (jazz.Type type) class))
+(jazz.define-virtual (jazz.of-subtype? (jazz.Type type) subtype))
 
 
-(jazz.define-method (jazz.of-subtype? (jazz.Type type) class)
+(jazz.define-method (jazz.of-subtype? (jazz.Type type) subtype)
   (jazz.error "Unable to test type on: {s}" type))
+
+
+(jazz.define-virtual (jazz.category-type? (jazz.Type type)))
+
+
+(jazz.define-method (jazz.category-type? (jazz.Type type))
+  #f)
+
+
+(jazz.define-virtual (jazz.emit-type (jazz.Type type)))
+
+
+(jazz.define-method (jazz.emit-type (jazz.Type type))
+  (jazz.error "Unable to emit type for: {s}" type))
 
 
 (jazz.define-virtual (jazz.emit-specifier (jazz.Type type)))
@@ -431,10 +445,31 @@
   (jazz.error "Unable to emit specifier for: {s}" type))
 
 
-;; for bootstrapping the of-type? / of-subtype? core methods
-(define (jazz.is-type? object type-class)
-  ;; should add a low-level test here
+(jazz.define-virtual (jazz.emit-test (jazz.Type type) value environment))
+
+
+(jazz.define-method (jazz.emit-test (jazz.Type type) value environment)
+  (let ((locator (jazz.emit-type type)))
+    `(%%is? ,value ,locator)))
+
+
+(jazz.define-virtual (jazz.emit-check (jazz.Type type) value environment))
+
+
+(jazz.define-method (jazz.emit-check (jazz.Type type) value environment)
+  (let ((locator (jazz.emit-type type)))
+    `(if (%%not ,(jazz.emit-test type value environment))
+         (jazz.type-error ,value ,locator))))
+
+
+;; for bootstrapping the core methods of type
+(define (jazz.bootstrap-type? object type-class)
+  ;; should add a low-level test here if possible
   #t)
+
+
+(define (jazz.type? object)
+  (%%is? object jazz.Type))
 
 
 (jazz.encapsulate-class jazz.Type)
@@ -453,11 +488,20 @@
 
 
 (define (jazz.category? object)
-  (%%is? object jazz.Category))
+  (jazz.category-type? object))
 
 
-(jazz.define-method (jazz.of-subtype? (jazz.Category type) class)
-  (%%memq type (%%get-category-ancestors class)))
+(jazz.define-method (jazz.of-subtype? (jazz.Category type) subtype)
+  (and (jazz.category-type? subtype)
+       (%%memq type (%%get-category-ancestors subtype))))
+
+
+(jazz.define-method (jazz.category-type? (jazz.Category type))
+  #t)
+
+
+(jazz.define-method (jazz.emit-type (jazz.Category type))
+  (%%get-category-name type))
 
 
 (define (jazz.is? object category)
@@ -674,6 +718,10 @@
   'bool)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Boolean-Class type) value environment)
+  `(%%boolean? ,value))
+
+
 (jazz.encapsulate-class jazz.Boolean-Class)
 
 
@@ -699,6 +747,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Char-Class class))
   'char)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Char-Class type) value environment)
+  `(%%char? ,value))
 
 
 (jazz.encapsulate-class jazz.Char-Class)
@@ -751,6 +803,10 @@
   'number)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Number-Class type) value environment)
+  `(%%number? ,value))
+
+
 (jazz.encapsulate-class jazz.Number-Class)
 
 
@@ -776,6 +832,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Complex-Class class))
   'complex)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Complex-Class type) value environment)
+  `(%%complex? ,value))
 
 
 (jazz.encapsulate-class jazz.Complex-Class)
@@ -805,6 +865,10 @@
   'real)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Real-Class type) value environment)
+  `(%%real? ,value))
+
+
 (jazz.encapsulate-class jazz.Real-Class)
 
 
@@ -830,6 +894,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Rational-Class class))
   'rational)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Rational-Class type) value environment)
+  `(%%rational? ,value))
 
 
 (jazz.encapsulate-class jazz.Rational-Class)
@@ -859,6 +927,10 @@
   'int)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Integer-Class type) value environment)
+  `(%%integer? ,value))
+
+
 (jazz.encapsulate-class jazz.Integer-Class)
 
 
@@ -886,6 +958,10 @@
   'fx)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Fixnum-Class type) value environment)
+  `(%%fixnum? ,value))
+
+
 (jazz.encapsulate-class jazz.Fixnum-Class)
 
 
@@ -909,8 +985,12 @@
   (%%flonum? object))
 
 
-(jazz.define-method (jazz.emit-specifier (jazz.Fixnum-Class class))
+(jazz.define-method (jazz.emit-specifier (jazz.Flonum-Class class))
   'fl)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Flonum-Class type) value environment)
+  `(%%flonum? ,value))
 
 
 (jazz.encapsulate-class jazz.Flonum-Class)
@@ -959,6 +1039,10 @@
   'list)
 
 
+(jazz.define-method (jazz.emit-test (jazz.List-Class type) value environment)
+  `(or (%%null? ,value) (%%pair? ,value)))
+
+
 (jazz.encapsulate-class jazz.List-Class)
 
 
@@ -984,6 +1068,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Null-Class class))
   'null)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Null-Class type) value environment)
+  `(%%null? ,value))
 
 
 (jazz.encapsulate-class jazz.Null-Class)
@@ -1013,6 +1101,10 @@
   'pair)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Pair-Class type) value environment)
+  `(%%pair? ,value))
+
+
 (jazz.encapsulate-class jazz.Pair-Class)
 
 
@@ -1038,6 +1130,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.String-Class class))
   'string)
+
+
+(jazz.define-method (jazz.emit-test (jazz.String-Class type) value environment)
+  `(%%string? ,value))
 
 
 (jazz.encapsulate-class jazz.String-Class)
@@ -1067,6 +1163,10 @@
   'vector)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Vector-Class type) value environment)
+  `(%%vector? ,value))
+
+
 (jazz.encapsulate-class jazz.Vector-Class)
 
 
@@ -1094,6 +1194,10 @@
   'port)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Port-Class type) value environment)
+  `(%%port? ,value))
+
+
 (jazz.encapsulate-class jazz.Port-Class)
 
 
@@ -1117,8 +1221,18 @@
   (%%procedure? object))
 
 
+#; ;; do this tomorrow I'm going nuts lol
+(jazz.define-method (jazz.of-subtype? (jazz.Procedure-Class class) subtype)
+  (or (nextmethod class subtype)
+      (%%is? subtype jazz.Function-Type)))
+
+
 (jazz.define-method (jazz.emit-specifier (jazz.Procedure-Class class))
   'procedure)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Procedure-Class type) value environment)
+  `(%%procedure? ,value))
 
 
 (jazz.encapsulate-class jazz.Procedure-Class)
@@ -1148,6 +1262,10 @@
   'foreign)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Foreign-Class type) value environment)
+  `(%%foreign? ,value))
+
+
 (jazz.encapsulate-class jazz.Foreign-Class)
 
 
@@ -1173,6 +1291,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Symbol-Class class))
   'symbol)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Symbol-Class type) value environment)
+  `(%%symbol? ,value))
 
 
 (jazz.encapsulate-class jazz.Symbol-Class)
@@ -1202,6 +1324,10 @@
   'keyword)
 
 
+(jazz.define-method (jazz.emit-test (jazz.Keyword-Class type) value environment)
+  `(%%keyword? ,value))
+
+
 (jazz.encapsulate-class jazz.Keyword-Class)
 
 
@@ -1227,6 +1353,10 @@
 
 (jazz.define-method (jazz.emit-specifier (jazz.Hashtable-Class class))
   'hashtable)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Hashtable-Class type) value environment)
+  `(%%hashtable? ,value))
 
 
 (jazz.encapsulate-class jazz.Hashtable-Class)

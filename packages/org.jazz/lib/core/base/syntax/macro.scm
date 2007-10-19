@@ -79,6 +79,14 @@
          ,@body))))
 
 
+(define (jazz.with-expression-value expr proc)
+  (if (symbol? expr)
+      (proc expr)
+    (let ((value (jazz.generate-symbol "val")))
+      `(let ((,value ,expr))
+         ,(proc value)))))
+
+
 (define jazz.generate-symbol
   (let ((unique 0))
     (lambda rest

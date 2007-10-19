@@ -75,11 +75,12 @@
 (jazz.define-method (jazz.emit-binding-call (jazz.Definition-Declaration declaration) arguments environment)
   (let ((self (jazz.lookup-self)))
     (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-        (jazz.new-code
-          `(,(%%get-declaration-locator declaration)
-            self
-            ,@(jazz.codes-forms arguments))
-          jazz.Any)
+        (let ((type (%%get-lexical-binding-type declaration)))
+          (jazz.new-code
+            `(,(%%get-declaration-locator declaration)
+              self
+              ,@(jazz.codes-forms arguments))
+            (jazz.call-return-type type)))
       (nextmethod declaration arguments environment))))
 
 
@@ -105,7 +106,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
+       ,(jazz.emit-type-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) environment)
@@ -125,7 +126,7 @@
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Definition-Declaration declaration) value environment)
   (let ((locator (%%get-declaration-locator declaration)))
     (jazz.new-code
-      `(set! ,locator ,(jazz.emit-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))
+      `(set! ,locator ,(jazz.emit-type-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))
       jazz.Any)))
 
 
@@ -498,7 +499,7 @@
       (let ((offset-locator (jazz.compose-helper (%%get-declaration-locator declaration) 'offset)))
         (jazz.new-code
           `(%%object-ref self ,offset-locator)
-          jazz.Any))
+          (%%get-lexical-binding-type declaration)))
     (jazz.error "Illegal reference to a slot: {s}" (%%get-declaration-locator declaration))))
 
 
@@ -602,11 +603,12 @@
 (jazz.define-method (jazz.emit-binding-call (jazz.Method-Declaration declaration) arguments environment)
   (let ((self (jazz.lookup-self)))
     (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-        (jazz.new-code
-          `(,(%%get-declaration-locator declaration)
-            self
-            ,@(jazz.codes-forms arguments))
-          jazz.Any)
+        (let ((type (%%get-lexical-binding-type declaration)))
+          (jazz.new-code
+            `(,(%%get-declaration-locator declaration)
+              self
+              ,@(jazz.codes-forms arguments))
+            (jazz.call-return-type type)))
       (nextmethod declaration arguments environment))))
 
 
@@ -644,9 +646,7 @@
                         ,(%%get-code-form (jazz.emit-expression body augmented-environment)))
                       (,method-call ,class-locator ',name ,method-locator)))
                   ((%%eq? abstraction 'abstract)
-                   `(,method-call ,class-locator ',name jazz.call-into-abstract))
-                  (else
-                    (jazz.debug 555)))))))))
+                   `(,method-call ,class-locator ',name jazz.call-into-abstract)))))))))
 
 
 (jazz.encapsulate-class jazz.Method-Declaration)
@@ -955,13 +955,13 @@
 
 (jazz.define-method (jazz.emit-expression (jazz.Dispatch expression) environment)
   (let ((name (%%get-dispatch-name expression))
-        (arguments (%%get-dispatch-arguments expression))
-        (object (jazz.generate-symbol "object")))
+        (arguments (%%get-dispatch-arguments expression)))
     (jazz.new-code
-      `(let ((,object ,(%%get-code-form (jazz.emit-expression (%%car arguments) environment))))
-         ((jazz.dispatch ',name ,object)
-          ,object
-          ,@(jazz.codes-forms (jazz.emit-expressions (%%cdr arguments) environment))))
+      (jazz.with-expression-value (%%get-code-form (jazz.emit-expression (%%car arguments) environment))
+        (lambda (object)
+          `((jazz.dispatch ',name ,object)
+            ,object
+            ,@(jazz.codes-forms (jazz.emit-expressions (%%cdr arguments) environment)))))
       jazz.Any)))
 
 
@@ -975,9 +975,11 @@
 
 
 (define (jazz.walk-dispatch walker resume declaration environment form)
-  (let ((name (jazz.dispatch->symbol (%%car form))))
-    (jazz.new-dispatch name
-      (jazz.walk-list walker resume declaration environment (%%cdr form)))))
+  (let ((name (jazz.dispatch->symbol (%%car form)))
+        (arguments (%%cdr form)))
+    (%%assertion (%%not (%%null? arguments)) (jazz.format "Dispatch call must contain at least one argument: {s}" form)
+      (jazz.new-dispatch name
+        (jazz.walk-list walker resume declaration environment arguments)))))
 
 
 ;;;
@@ -1041,9 +1043,11 @@
 
 
 (define (jazz.walk-neodispatch walker resume declaration environment form)
-  (let ((name (jazz.dispatch->symbol (%%car form))))
-    (jazz.new-neodispatch name
-      (jazz.walk-list walker resume declaration environment (%%cdr form)))))
+  (let ((name (jazz.dispatch->symbol (%%car form)))
+        (arguments (%%cdr form)))
+    (%%assertion (%%not (%%null? arguments)) (jazz.format "Dispatch call must contain at least one argument: {s}" form)
+      (jazz.new-neodispatch name
+        (jazz.walk-list walker resume declaration environment arguments)))))
 
 
 ;;;
@@ -1068,9 +1072,11 @@
              (parameters (%%cdar rest)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (let ((specifier-list (if specifier (%%list specifier) '()))
-                  (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-              (values name #f access compatibility expansion `(lambda ,parameters ,@specifier-list ,@effective-body) parameters))))))))
+            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
+              (let ((value
+                     `(lambda ,parameters
+                        ,@effective-body)))
+                (values name specifier access compatibility expansion value parameters)))))))))
 
 
 (define (jazz.expand-definition walker resume declaration environment . rest)
@@ -1084,15 +1090,16 @@
 
 (define (jazz.walk-%definition-declaration walker resume declaration environment form)
   (jazz.bind (name specifier access compatibility expansion value parameters) (%%cdr form)
-    (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
-          (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
-      (let ((new-declaration (jazz.new-definition-declaration name type access compatibility '() declaration expansion signature)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        (%%when (%%eq? expansion 'inline)
-          (let ((new-environment (%%cons new-declaration environment)))
-            (%%set-definition-declaration-value new-declaration
-              (jazz.walk walker resume new-declaration new-environment value))))
-        new-declaration))))
+    (let ((type (jazz.specifier->type walker resume declaration environment specifier)))
+      (let ((effective-type (if (and specifier parameters) (jazz.new-function-type '() type) type))
+            (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
+        (let ((new-declaration (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature)))
+          (jazz.add-declaration-child walker resume declaration new-declaration)
+          (%%when (%%eq? expansion 'inline)
+            (let ((new-environment (%%cons new-declaration environment)))
+              (%%set-definition-declaration-value new-declaration
+                (jazz.walk walker resume new-declaration new-environment value))))
+          new-declaration)))))
 
 
 (define (jazz.walk-%definition walker resume declaration environment form)

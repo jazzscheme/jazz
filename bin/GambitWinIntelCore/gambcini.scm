@@ -48,7 +48,7 @@
 ;;;
 
 
-(jazz.define-feature safe)
+(jazz.define-feature core)
 
 
 ;;;

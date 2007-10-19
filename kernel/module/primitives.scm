@@ -55,7 +55,7 @@
      `(boolean? ,obj))
    
    (define-macro (%%not expr)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(not ,expr)
        `(##not ,expr))))
   
@@ -70,7 +70,7 @@
 (cond-expand
   (gambit
     (define-macro (%%char? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(char? ,obj)
         `(##char? ,obj))))
 
@@ -85,7 +85,7 @@
 (cond-expand
   (gambit
     (define-macro (%%complex? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(complex? ,obj)
         `(##complex? ,obj))))
 
@@ -100,12 +100,12 @@
 (cond-expand
   (gambit
    (define-macro (%%procedure? obj)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(procedure? ,obj)
        `(##procedure? ,obj)))
    
    (define-macro (%%apply proc lst)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(apply ,proc ,lst)
        `(##apply ,proc ,lst))))
   
@@ -120,7 +120,7 @@
 (cond-expand
   (gambit
    (define-macro (%%eq? x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(eq? ,x ,y)
        `(##eq? ,x ,y)))
    
@@ -128,12 +128,12 @@
      `(%%not (%%eq? ,x ,y)))
    
    (define-macro (%%eqv? x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(eqv? ,x ,y)
        `(##eqv? ,x ,y)))
    
    (define-macro (%%equal? x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(equal? ,x ,y)
        `(##equal? ,x ,y))))
   
@@ -150,47 +150,47 @@
 (cond-expand
   (gambit
    (define-macro (%%fixnum? obj)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(fixnum? ,obj)
        `(##fixnum? ,obj)))
    
    (define-macro (%%fx= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(= ,x ,y)
        `(##fixnum.= ,x ,y)))
    
    (define-macro (%%fx< x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(< ,x ,y)
        `(##fixnum.< ,x ,y)))
    
    (define-macro (%%fx<= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(<= ,x ,y)
        `(##fixnum.<= ,x ,y)))
    
    (define-macro (%%fx> x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(> ,x ,y)
        `(##fixnum.> ,x ,y)))
    
    (define-macro (%%fx>= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(>= ,x ,y)
        `(##fixnum.>= ,x ,y)))
    
    (define-macro (%%fx+ x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(+ ,x ,y)
        `(##fixnum.+ ,x ,y)))
    
    (define-macro (%%fx- x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(- ,x ,y)
        `(##fixnum.- ,x ,y)))
    
    (define-macro (%%fx* x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(* ,x ,y)
        `(##fixnum.* ,x ,y))))
 
@@ -210,52 +210,52 @@
 (cond-expand
   (gambit
    (define-macro (%%flonum? obj)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(flonum? ,obj)
        `(##flonum? ,obj)))
    
    (define-macro (%%fl= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(= ,x ,y)
        `(##flonum.= ,x ,y)))
    
    (define-macro (%%fl< x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(< ,x ,y)
        `(##flonum.< ,x ,y)))
    
    (define-macro (%%fl<= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(<= ,x ,y)
        `(##flonum.<= ,x ,y)))
    
    (define-macro (%%fl> x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(> ,x ,y)
        `(##flonum.> ,x ,y)))
    
    (define-macro (%%fl>= x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(>= ,x ,y)
        `(##flonum.>= ,x ,y)))
    
    (define-macro (%%fl+ x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(+ ,x ,y)
        `(##flonum.+ ,x ,y)))
    
    (define-macro (%%fl- x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(- ,x ,y)
        `(##flonum.- ,x ,y)))
    
    (define-macro (%%fl* x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(* ,x ,y)
        `(##flonum.* ,x ,y)))
    
    (define-macro (%%fl/ x y)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(/ ,x ,y)
        `(##flonum./ ,x ,y))))
 
@@ -296,12 +296,12 @@
          (make-table test: ,test hash: ,hash)))
     
     (define-macro (%%hashtable-ref hashtable key default)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(table-ref ,hashtable ,key ,default)
         `(##table-ref ,hashtable ,key ,default)))
     
     (define-macro (%%hashtable-set! hashtable key value)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(table-set! ,hashtable ,key ,value)
         `(##table-set! ,hashtable ,key ,value)))
     
@@ -340,17 +340,17 @@
 (cond-expand
   (gambit
     (define-macro (%%keyword? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(keyword? ,obj)
         `(##keyword? ,obj)))
    
     (define-macro (%%string->keyword str)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(string->keyword ,str)
         `(##string->keyword ,str)))
    
    (define-macro (%%keyword->string keyword)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(keyword->string ,keyword)
        `(##keyword->string ,keyword))))
 
@@ -365,62 +365,62 @@
 (cond-expand
   (gambit
     (define-macro (%%null? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(null? ,obj)
         `(##null? ,obj)))
     
     (define-macro (%%pair? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(pair? ,obj)
         `(##pair? ,obj)))
     
     (define-macro (%%car pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(car ,pair)
         `(##car ,pair)))
     
     (define-macro (%%cdr pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(cdr ,pair)
         `(##cdr ,pair)))
     
     (define-macro (%%set-car! pair val)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(set-car! ,pair ,val)
         `(##set-car! ,pair ,val)))
     
     (define-macro (%%set-cdr! pair val)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(set-cdr! ,pair ,val)
         `(##set-cdr! ,pair ,val)))
     
     (define-macro (%%caar pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(caar ,pair)
         `(##caar ,pair)))
     
     (define-macro (%%cadr pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(cadr ,pair)
         `(##cadr ,pair)))
     
     (define-macro (%%cdar pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(cdar ,pair)
         `(##cdar ,pair)))
     
     (define-macro (%%cddr pair)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(cddr ,pair)
         `(##cddr ,pair)))
     
     (define-macro (%%length lst)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(length ,lst)
         `(##length ,lst)))
     
     (define-macro (%%memq obj lst)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(memq ,obj ,lst)
         `(##memq ,obj ,lst)))
     
@@ -428,22 +428,22 @@
       `(memv ,obj ,lst))
     
     (define-macro (%%cons x y)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(cons ,x ,y)
         `(##cons ,x ,y)))
     
     (define-macro (%%list . rest)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(list ,@rest)
         `(##list ,@rest)))
     
     (define-macro (%%append x y)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(append ,x ,y)
         `(##append ,x ,y)))
     
     (define-macro (%%reverse lst)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(reverse ,lst)
         `(##reverse ,lst))))
   
@@ -460,17 +460,17 @@
 (cond-expand
   (gambit
     (define-macro (%%number? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(number? ,obj)
         `(##number? ,obj)))
     
     (define-macro (%%integer? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(integer? ,obj)
         `(##integer? ,obj)))
     
     (define-macro (%%real? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(real? ,obj)
         `(##real? ,obj))))
 
@@ -485,12 +485,12 @@
 (cond-expand
   (gambit
     (define-macro (%%port? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(port? ,obj)
         `(##port? ,obj)))
     
     (define-macro (%%eof-object? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(eof-object? ,obj)
         `(##eof-object? ,obj))))
   
@@ -505,7 +505,7 @@
 (cond-expand
   (gambit
     (define-macro (%%rational? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(rational? ,obj)
         `(##rational? ,obj))))
 
@@ -520,32 +520,32 @@
 (cond-expand
   (gambit
     (define-macro (%%string? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(string? ,obj)
         `(##string? ,obj)))
    
     (define-macro (%%string-length str)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(string-length ,str)
         `(##string-length ,str)))
    
    (define-macro (%%string-ref str pos)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(string-ref ,str ,pos)
        `(##string-ref ,str ,pos)))
    
    (define-macro (%%string-set! str pos val)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(string-set! ,str ,pos ,val)
        `(##string-set! ,str ,pos ,val)))
    
    (define-macro (%%substring str start end)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(substring ,str ,start ,end)
        `(##substring ,str ,start ,end)))
    
    (define-macro (%%string-append . rest)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(string-append ,@rest)
        `(##string-append ,@rest))))
 
@@ -560,17 +560,17 @@
 (cond-expand
   (gambit
     (define-macro (%%symbol? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(symbol? ,obj)
         `(##symbol? ,obj)))
    
     (define-macro (%%string->symbol str)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(string->symbol ,str)
         `(##string->symbol ,str)))
    
    (define-macro (%%symbol->string symbol)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(symbol->string ,symbol)
        `(##symbol->string ,symbol))))
 
@@ -620,37 +620,37 @@
 (cond-expand
   (gambit
     (define-macro (%%vector? obj)
-      (if jazz.debug-kernel?
+      (if jazz.debug-core?
           `(vector? ,obj)
         `(##vector? ,obj)))
    
    (define-macro (%%vector . rest)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(vector ,@rest)
        `(##vector ,@rest)))
    
    (define-macro (%%make-vector size . rest)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(make-vector ,size ,@rest)
        `(##make-vector ,size ,@rest)))
    
    (define-macro (%%vector-length vector)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(vector-length ,vector)
        `(##vector-length ,vector)))
    
    (define-macro (%%vector-ref vector n)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(vector-ref ,vector ,n)
        `(##vector-ref ,vector ,n)))
    
    (define-macro (%%vector-set! vector n value)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(vector-set! ,vector ,n ,value)
        `(##vector-set! ,vector ,n ,value)))
    
    (define-macro (%%vector-copy vector . rest)
-     (if jazz.debug-kernel?
+     (if jazz.debug-core?
          `(vector-copy ,vector ,@rest)
        `(##vector-copy ,vector ,@rest))))
 

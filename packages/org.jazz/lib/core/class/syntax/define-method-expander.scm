@@ -46,17 +46,16 @@
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz.method-implementation-name class-name name))
          (rank-name (jazz.method-rank-name implementation-name))
-         (is-test (if bootstrap-type? 'jazz.is-type? '%%is?)))
+         (is-test (if bootstrap-type? 'jazz.bootstrap-type? '%%is?)))
     `(define-macro (,name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
-           (%%list '%%kernel-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+           (%%list '%%core-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
              (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of ,object-parameter)) ',rank-name)
                      ,object-parameter
                      ,@extra-parameters))
-         (let ((obj (jazz.generate-symbol "obj")))
-           (%%list 'let
-                   (%%list (%%list obj ,object-parameter))
-             (%%list '%%kernel-assertion (list ',is-test obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
+         (jazz.with-expression-value ,object-parameter
+           (lambda (obj)
+             (%%list '%%core-assertion (list ',is-test obj ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)
                (%%list (%%list '%%vector-ref (%%list '%%get-class-core-vtable (%%list '%%class-of obj)) ',rank-name)
                        obj
                        ,@extra-parameters))))))))

@@ -87,12 +87,12 @@
 ;;;
 
 
-(jazz.define-macro (%%kernel-assert . rest)
-  (apply jazz.expand-%%assert jazz.debug-kernel? rest))
+(jazz.define-macro (%%core-assert . rest)
+  (apply jazz.expand-%%assert jazz.debug-core? rest))
 
 
-(jazz.define-macro (%%kernel-assertion . rest)
-  (apply jazz.expand-%%assertion jazz.debug-kernel? rest))
+(jazz.define-macro (%%core-assertion . rest)
+  (apply jazz.expand-%%assertion jazz.debug-core? rest))
 
 
 (jazz.define-macro (%%assert . rest)

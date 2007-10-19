@@ -65,7 +65,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
+       ,(jazz.emit-type-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) environment)
@@ -441,10 +441,11 @@
         (no (%%cdr (%%cddr form))))
     (jazz.new-if (jazz.walk walker resume declaration environment test)
                  (jazz.walk walker resume declaration environment yes)
-                 (jazz.walk-list walker resume declaration environment
-                   (if (%%null? no)
-                       '((unspecified))
-                     no)))))
+                 (jazz.walk walker resume declaration environment
+                   (cons 'begin
+                         (if (%%null? no)
+                             '((unspecified))
+                           no))))))
 
 
 (define (jazz.walk-cond walker resume declaration environment form)

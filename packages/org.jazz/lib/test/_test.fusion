@@ -55,13 +55,180 @@
         (test.a))
 
 
+(definition (f x <Object+>)
+  (set! x 2))
+
+
+@w
+(definition (find-string target <Object> seq <Object>)
+  (loop (for n from 0 below (length seq))
+        (when (= (list-ref seq n) target)
+          (return n))
+        (finally {})))
+
+@w(
+(definition (foo) <fx>
+  2)
+
+(class X extends Object
+  
+  (method virtual (f) <fx>
+    2)
+  
+  (method (g)
+    (+ (f) 1)))
+
+(class Y extends X
+  
+  (method (f)
+    3)
+  
+  (method (h)
+    (+ (f) 1))))
+
+
+@w
+(definition (f)
+  (let iter ((n 0))
+    (+ n n)
+    (iter "boum")))
+
+
+@w
+(definition (f start <fx> end <fx> replacement)
+  (let* ((before (- end start))
+         (after (length replacement)))
+    (let ((a start))
+      (let (iterate (b start))
+        (+ after before)
+        (+ a a)
+        (+ b b)))))
+
+
+@w
+(class Axis metaclass Axis-Class extends Sequence
+  
+  
+  (definition MIN_SIZE 8)
+  (definition GOLDEN_RATIO 1.6)
+  
+  
+  (slot size    <fx>     accessors generate)
+  (slot content <vector> accessors generate)
+  
+  
+  (method (initialize (s 0))
+    (set! size s)
+    (set! content (make-vector s {})))
+  
+  
+  (method (print output detail)
+    (print-unreadable self output
+      (function (output)
+        (format output "{s} {s}" size content))))
+  
+  
+  (method (sequence-element n)
+    (vector-ref content n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (vector-set! content n obj))
+  
+  
+  (method (sequence-length)
+    size)
+  
+  
+  (method (sequence-tail n)
+    (let ((new-axis (new Axis n))
+          (offset (- (length self) n)))
+      (let (iterate (i 0))
+        (if (>= i n)
+            new-axis
+          (set-element! new-axis i (element self (+ i offset)))
+          (iterate (+ i 1))))))
+  
+  
+  (method (sequence-last)
+    (element self (- (length self) 1)))
+  
+  
+  (method (sequence-replace-subseq! start <fx> end <fx> replacement)
+    (let* ((before (- end start))
+           (after (length replacement))
+           (delta (- after before))
+           (old-size size)
+           (new-size (+ old-size delta)))
+      (cond ((< after before)
+             (let (iterate (n (- old-size end))
+                           (src end)
+                           (dst (+ end delta)))
+               (when (> n 0)
+                 (set-element! self dst (element self src))
+                 (set-element! self src {})
+                 (iterate (- n 1) (+ src 1) (+ dst 1))))
+             (grow new-size))     
+            ((> after before)
+             (grow new-size)
+             (let (iterate (n (- old-size end))
+                           (src (- old-size 1))
+                           (dst (+ (- old-size 1) delta)))
+               (when (> n 0)
+                 (set-element! self dst (element self src))
+                 (iterate (- n 1) (- src 1) (- dst 1))))))
+      (let (iterate (n 0) (dst start))
+        (when (< n after)
+          (set-element! self dst (element replacement n))
+          (iterate (+ n 1) (+ dst 1))))
+      self))
+  
+  
+  (method public (add obj)
+    (let ((n size))
+      (grow (+ n 1))
+      (set-element! content n obj)))
+  
+  
+  (method public (grow n <fx>)
+    (cond ((<= n (length content))
+           (set-size n))
+          ((= size 0)
+           (set-size n)
+           (set! content (make-vector MIN_SIZE {})))
+          (else
+           (let ((old-real-size (length content))
+                 (old-content content))
+             (set-size n)
+             (set! content (make-vector (inexact->exact (round (* n GOLDEN_RATIO))) {}))
+             (let (iterate (i 0))
+               (when (< i old-real-size)
+                 (begin
+                   (set-element! content i (element old-content i))
+                   (iterate (+ i 1))))))))))
+
+
 ;;;
 ;;;; Types
 ;;;
 
 
+@w (
+(class X extends Object
+  
+  (slot a <fx> initialize 0)
+  
+  (method (f b <fx>)
+    (+ a b)))
+
+
 (definition (yoo) <pair>
   '(a))
+
+
+(definition yuu <:pair>
+  (lambda ()
+    '(a)))
 
 
 (definition (f aa <pair>)
@@ -71,16 +238,12 @@
       (let* ((ff '(a)))
         (letrec ((gg '(a)))
           (receive (hh <pair>) (values '(a))
-            (debug (car aa) (car bb) (car cc) (car dd) (car ee) (car ff) (car gg) (car hh) (car (yoo)))
+            (car aa) (car bb) (car cc) (car dd) (car ee) (car ff) (car gg) (car hh) (car (yoo)) (car (yuu))
+            (car (cons 1 2))
+            (+ (string-length "a") 1)
+            (* (+ (length '(a)) 1) 2)
             (set! cc 2)
-            (set! ee 3)))))))
-
-
-@w
-(definition (ff x <fx> y <fx>)
-  (let ((a 2))
-    (+ x y)
-    (* x a)))
+            (set! ee 3))))))))
 
 
 @inlining

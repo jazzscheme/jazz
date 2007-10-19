@@ -40,24 +40,24 @@
 ;;;
 
 
-;; safe - kernel debug mode with tests to make the kernel safe
+;; core - core debug mode with tests to make the core safe
 ;; debug - standard debug mode with tests to make user code safe
 ;; release - release mode without tests for stable user code
 
 
 (cond-expand
-  (safe
-    (define jazz.debug-kernel?
+  (core
+    (define jazz.debug-core?
       #t)
     (define jazz.debug-user?
       #t))
   (debug
-    (define jazz.debug-kernel?
+    (define jazz.debug-core?
       #f)
     (define jazz.debug-user?
       #t))
   (release
-    (define jazz.debug-kernel?
+    (define jazz.debug-core?
       #f)
     (define jazz.debug-user?
       #f)))
@@ -77,7 +77,7 @@
                  ,@(if ;; a first approximation on having different declarations for kernel modules
                        ;; of course this solution would treat any user module like a kernel one...
                        (case kind
-                         ((module) jazz.debug-kernel?)
+                         ((module) jazz.debug-core?)
                          ((library) jazz.debug-user?))
                        '()
                      `((not safe)))))))

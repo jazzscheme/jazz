@@ -258,20 +258,15 @@ end-of-c-code
     ))
     
     (define-macro (%%class-of obj)
-      (let ((expand
-              (lambda (symbol)
-                (case (jazz.walk-for)
-                  ((compile)
-                   `(%%c-class-of ,symbol))
-                  (else
-                   `(if (%%object? ,symbol)
-                        (%%get-object-class ,symbol)
-                      (jazz.i-class-of ,symbol)))))))
-        (if (%%symbol? obj)
-            (expand obj)
-          (let ((symbol (jazz.generate-symbol "value")))
-            (%%list 'let (%%list (%%list symbol obj))
-              (expand symbol))))))
+      (jazz.with-expression-value obj
+        (lambda (symbol)
+          (case (jazz.walk-for)
+            ((compile)
+             `(%%c-class-of ,symbol))
+            (else
+             `(if (%%object? ,symbol)
+                  (%%get-object-class ,symbol)
+                (jazz.i-class-of ,symbol)))))))
     
     (define-macro (%%i-class-of-impl var)
       (case (jazz.walk-for)
@@ -289,15 +284,10 @@ end-of-c-code
         `(%%class-of ,var))))
   
   (else
-    (define-macro (%%class-of expr)
-      (let ((expand
-              (lambda (symbol)
-                `(if (%%object? ,symbol)
-                     (%%get-object-class ,symbol)
-                   (jazz.class-of-native ,symbol)))))
-        (if (%%symbol? expr)
-            (expand expr)
-          (let ((symbol (jazz.generate-symbol "value")))
-            (%%list 'let (%%list (%%list symbol expr))
-              (expand symbol)))))))))
+    (define-macro (%%class-of obj)
+      (jazz.with-expression-value obj
+        (lambda (symbol)
+          `(if (%%object? ,symbol)
+               (%%get-object-class ,symbol)
+             (jazz.class-of-native ,symbol))))))))
  

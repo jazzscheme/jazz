@@ -57,8 +57,12 @@
 
 
 (jazz.define-virtual-syntax (jazz.of-type? (jazz.Type type) object) #t)
-(jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) class) #t)
+(jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) subtype) #t)
+(jazz.define-virtual-syntax (jazz.category-type? (jazz.Type type)) #t)
+(jazz.define-virtual-syntax (jazz.emit-type (jazz.Type type)) #t)
 (jazz.define-virtual-syntax (jazz.emit-specifier (jazz.Type type)) #t)
+(jazz.define-virtual-syntax (jazz.emit-test (jazz.Type type) value environment) #t)
+(jazz.define-virtual-syntax (jazz.emit-check (jazz.Type type) value environment) #t)
 
 
 (jazz.define-macro (%%subtype? target type)

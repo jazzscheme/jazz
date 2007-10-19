@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Walk-Binding jazz.Object () jazz.Object-Class ()
+(jazz.define-class-syntax jazz.Walk-Binding jazz.Type () jazz.Object-Class ()
   ())
 
 
@@ -265,8 +265,8 @@
 
 
 (jazz.define-class-syntax jazz.Function-Type jazz.Type () jazz.Class jazz.allocate-function-type
-  ((result     %%get-function-type-result     ())
-   (parameters %%get-function-type-parameters ())))
+  ((parameters %%get-function-type-parameters ())
+   (result     %%get-function-type-result     ())))
 
 
 ;;;

@@ -93,7 +93,7 @@
 
 
 (cond-expand
-  (safe
+  (core
     (define jazz.compile-options
       '(debug)))
   (debug
@@ -102,15 +102,6 @@
   (release
     (define jazz.compile-options
       '())))
-
-
-;;;
-;;;; Debug
-;;;
-
-
-(define jazz.debug-types
-  #f)
 
 
 ;;;

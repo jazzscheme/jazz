@@ -38,22 +38,13 @@
 (module core.class.runtime.runtime
 
 
-(define jazz.new-interface:next-rank
+(define jazz.new-interface-rank
   0)
 
 
 ;;;
 ;;;; Identifier
 ;;;
-
-
-(define (jazz.neodispatch? symbol)
-  (and (%%symbol? symbol)
-       (let ((name (%%symbol->string symbol)))
-         (let ((len (%%string-length name)))
-           (and (%%fx> len 1)
-                (%%eqv? (%%string-ref name (%%fx- len 1))
-                        #\$))))))
 
 
 (define (jazz.dispatch? symbol)
@@ -205,7 +196,7 @@
 
 (define (jazz.create-class-interface-table class)
   (%%when (%%not (%%get-class-interface-table class))
-    (let ((vtable (%%make-vector jazz.new-interface:next-rank #f))
+    (let ((vtable (%%make-vector jazz.new-interface-rank #f))
           (ascendant (%%get-class-ascendant class)))
       (%%when ascendant
         (let ((ascendant-interface-table (%%get-class-interface-table ascendant)))
@@ -220,7 +211,7 @@
       (for-each (lambda (category)
                   (%%when (%%is? category jazz.Interface)
                     (let* ((rank (%%get-interface-rank category))
-                           (size (%%get-interface-virtual-size category)))
+                           (size (%%get-category-virtual-size category)))
                       (%%when (%%not (%%vector-ref vtable rank))
                         (%%vector-set! vtable rank (%%make-vector size jazz.call-into-abstract))))))
                 (%%get-category-ancestors class))
@@ -270,7 +261,6 @@
           (jazz.update-core-class class))))))
 
 
-;;jazz.update-interface
 (define (jazz.update-class class)
   (jazz.update-class-class-table class))
 
@@ -280,15 +270,16 @@
 
 
 (define (jazz.update-class-class-table class)
-  (receive (count added-methods) (jazz.update-class-class-root-methods class)
+  (let ((added-methods (jazz.update-class-class-root-methods class)))
     (%%when (%%not-null? added-methods)
-      (let ((class-rank (%%get-class-level class)))
+      (let ((class-rank (%%get-class-level class))
+            (class-virtual-size (%%get-category-virtual-size class)))
         (let iter ((class class))
              (let* ((class-table (%%get-class-class-table class))
-                    (implementation-table (jazz.resize-vector (%%vector-ref class-table class-rank) count)))
+                    (implementation-table (jazz.resize-vector (%%vector-ref class-table class-rank) class-virtual-size)))
                (for-each (lambda (field)
-                           (let ((implementation-rank (%%get-virtual-method-implementation-rank field))
-                                 (implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                           (let ((implementation-rank (%%get-method-implementation-rank field))
+                                 (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
                              (%%vector-set! implementation-table implementation-rank implementation)))
                          added-methods)
                (%%vector-set! class-table class-rank implementation-table))
@@ -301,15 +292,14 @@
   (let* ((class-table (%%get-class-class-table class))
          (class-rank (%%get-class-level class))
          (root-implementation-table (%%vector-ref class-table class-rank))
-         (count (if root-implementation-table (%%vector-length root-implementation-table) 0))
          (added-methods '()))
     (%%iterate-hashtable (%%get-category-fields class)
       (lambda (key field)
-        (%%when (%%is? field jazz.Virtual-Method)
-          (let ((implementation-rank (%%get-virtual-method-implementation-rank field)))
-            (if implementation-rank
+        (%%when (jazz.virtual-method? field)
+          (if (%%get-method-category-rank field)
+              (let ((implementation-rank (%%get-method-implementation-rank field)))
                 (let ((old-implementation (%%vector-ref root-implementation-table implementation-rank))
-                      (new-implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                      (new-implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
                   (%%when (%%neq? old-implementation new-implementation)
                     ;; method exists and has changed - update vtable + propagate to descendants
                     (let iter ((class class))
@@ -319,13 +309,11 @@
                              (%%vector-set! implementation-table implementation-rank new-implementation)
                              (for-each (lambda (descendant)
                                          (iter descendant))
-                                       (%%get-category-descendants class)))))))
+                                       (%%get-category-descendants class))))))))
               (begin
-                (%%set-virtual-method-category-rank field class-rank)
-                (%%set-virtual-method-implementation-rank field count)
-                (set! count (+ count 1))
-                (set! added-methods (cons field added-methods))))))))
-    (values count added-methods)))
+                (%%set-method-category-rank field class-rank)
+                (set! added-methods (cons field added-methods)))))))
+    added-methods))
 
 
 ;;;
@@ -340,6 +328,7 @@
           ; Category
           name
           fields
+          0
           #f
           '()
           ; Class
@@ -431,13 +420,6 @@
   #f)
 
 
-(jazz.define-virtual (jazz.emit-type (jazz.Type type)))
-
-
-(jazz.define-method (jazz.emit-type (jazz.Type type))
-  (jazz.error "Unable to emit type for: {s}" type))
-
-
 (jazz.define-virtual (jazz.emit-specifier (jazz.Type type)))
 
 
@@ -445,11 +427,18 @@
   (jazz.error "Unable to emit specifier for: {s}" type))
 
 
+(jazz.define-virtual (jazz.emit-type (jazz.Type type) environment))
+
+
+(jazz.define-method (jazz.emit-type (jazz.Type type) environment)
+  (jazz.error "Unable to emit type for: {s}" type))
+
+
 (jazz.define-virtual (jazz.emit-test (jazz.Type type) value environment))
 
 
 (jazz.define-method (jazz.emit-test (jazz.Type type) value environment)
-  (let ((locator (jazz.emit-type type)))
+  (let ((locator (jazz.emit-type type environment)))
     `(%%is? ,value ,locator)))
 
 
@@ -457,7 +446,7 @@
 
 
 (jazz.define-method (jazz.emit-check (jazz.Type type) value environment)
-  (let ((locator (jazz.emit-type type)))
+  (let ((locator (jazz.emit-type type environment)))
     `(if (%%not ,(jazz.emit-test type value environment))
          (jazz.type-error ,value ,locator))))
 
@@ -483,6 +472,7 @@
 (jazz.define-class jazz.Category jazz.Type () ()
   (name
    fields
+   virtual-size
    ancestors
    descendants))
 
@@ -500,7 +490,7 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-type (jazz.Category type))
+(jazz.define-method (jazz.emit-type (jazz.Category type) environment)
   (%%get-category-name type))
 
 
@@ -528,7 +518,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Class jazz.Category (name fields ancestors descendants) ()
+(jazz.define-class jazz.Class jazz.Category (name fields virtual-size ancestors descendants) ()
   (ascendant
    interfaces
    slots
@@ -544,7 +534,7 @@
 
 
 (define (jazz.new-class class-of-class name ascendant interfaces)
-  (let ((class (jazz.allocate-class class-of-class name (%%make-hashtable eq?) #f '()
+  (let ((class (jazz.allocate-class class-of-class name (%%make-hashtable eq?) 0 #f '()
                 ascendant
                 interfaces
                 (if ascendant (%%get-class-slots ascendant) '())
@@ -645,21 +635,9 @@
       object)))
 
 
+;; the rank of initialize is known to be 0 as it is the first method of Object
 (define (jazz.initialize-object object rest)
-  (if jazz.neo?
-      (jazz.neo-initialize-object object rest)
-    (apply jazz.dialect.language.Object.initialize object rest)))
-
-
-;; the rank of basic methods like initialize should be harcode to 0, 1, ...
-(define jazz.neo-initialize-object
-  (let ((rank #f))
-    (lambda (object rest)
-      (if (%%not rank)
-          (let ((field (%%get-category-field jazz.Object 'initialize)))
-            (set! rank (%%get-virtual-method-implementation-rank field))))
-      (let ((implementation (%%vector-ref (%%vector-ref (%%get-class-class-table (%%get-object-class object)) 0) rank)))
-        (apply implementation object rest)))))
+  (apply (%%vector-ref (%%vector-ref (%%get-class-class-table (%%get-object-class object)) 0) 0) object rest))
 
 
 (define jazz.dialect.language.Object.initialize
@@ -682,7 +660,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Object-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) ()
+(jazz.define-class jazz.Object-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) ()
   ())
 
 
@@ -706,7 +684,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Boolean-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Boolean-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -737,7 +715,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Char-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Char-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -768,7 +746,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Numeric-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Numeric-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -791,7 +769,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Number-Class jazz.Numeric-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Number-Class jazz.Numeric-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -822,7 +800,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Complex-Class jazz.Number-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Complex-Class jazz.Number-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -853,7 +831,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Real-Class jazz.Complex-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Real-Class jazz.Complex-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -884,7 +862,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Rational-Class jazz.Real-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Rational-Class jazz.Real-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -915,7 +893,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Integer-Class jazz.Rational-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Integer-Class jazz.Rational-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -946,7 +924,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Fixnum-Class jazz.Integer-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Fixnum-Class jazz.Integer-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -977,7 +955,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Flonum-Class jazz.Real-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Flonum-Class jazz.Real-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1008,7 +986,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Sequence-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Sequence-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1031,7 +1009,7 @@
 ;;;
 
 
-(jazz.define-class jazz.List-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.List-Class jazz.Sequence-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1058,7 +1036,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Null-Class jazz.List-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Null-Class jazz.List-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1089,7 +1067,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Pair-Class jazz.List-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Pair-Class jazz.List-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1120,7 +1098,7 @@
 ;;;
 
 
-(jazz.define-class jazz.String-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.String-Class jazz.Sequence-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1151,7 +1129,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Vector-Class jazz.Sequence-Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Vector-Class jazz.Sequence-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1182,7 +1160,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Port-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Port-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1213,7 +1191,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Procedure-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Procedure-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1221,9 +1199,9 @@
   (%%procedure? object))
 
 
-#; ;; do this tomorrow I'm going nuts lol
 (jazz.define-method (jazz.of-subtype? (jazz.Procedure-Class class) subtype)
   (or (nextmethod class subtype)
+      #; ;; fix cause it is defined only is a later module
       (%%is? subtype jazz.Function-Type)))
 
 
@@ -1250,7 +1228,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Foreign-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Foreign-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1281,7 +1259,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Symbol-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Symbol-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1312,7 +1290,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Keyword-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Keyword-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1343,7 +1321,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Hashtable-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Hashtable-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1422,15 +1400,14 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface jazz.Category (name fields ancestors descendants) jazz.Class
+(jazz.define-class jazz.Interface jazz.Category (name fields virtual-size ancestors descendants) jazz.Class
   (ascendants
-   rank
-   virtual-size))
+   rank))
 
 
 (define (jazz.new-interface class name ascendants)
-  (let ((interface (jazz.allocate-interface class name (%%make-hashtable eq?) #f '() ascendants jazz.new-interface:next-rank 0)))
-    (set! jazz.new-interface:next-rank (+ jazz.new-interface:next-rank 1))
+  (let ((interface (jazz.allocate-interface class name (%%make-hashtable eq?) 0 #f '() ascendants jazz.new-interface-rank)))
+    (set! jazz.new-interface-rank (+ jazz.new-interface-rank 1))
     (%%set-category-ancestors interface (jazz.compute-interface-ancestors interface ascendants))
     (for-each (lambda (ascendant)
                 (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
@@ -1465,17 +1442,16 @@
 
 
 (define (jazz.update-interface interface)
-  (receive (count added-methods) (jazz.update-interface-root-methods interface)
+  (let ((added-methods (jazz.update-interface-root-methods interface)))
     (%%when (%%not-null? added-methods)
-      (%%set-interface-virtual-size interface count)
       (let ((interface-rank (%%get-interface-rank interface)))
         (let iter ((category interface))
              (%%when (%%is? category jazz.Class)
                (let* ((interface-table (%%get-class-interface-table category))
-                      (implementation-table (jazz.resize-vector (%%vector-ref interface-table interface-rank) count)))
+                      (implementation-table (jazz.resize-vector (%%vector-ref interface-table interface-rank) (%%get-category-virtual-size interface))))
                  (for-each (lambda (field)
-                             (let ((implementation-rank (%%get-virtual-method-implementation-rank field))
-                                   (implementation (%%get-method-node-implementation (%%get-virtual-method-implementation-tree field))))
+                             (let ((implementation-rank (%%get-method-implementation-rank field))
+                                   (implementation (%%get-method-node-implementation (%%get-method-implementation-tree field))))
                                (%%vector-set! implementation-table implementation-rank implementation)))
                            added-methods)
                  (%%vector-set! interface-table interface-rank implementation-table)))
@@ -1486,17 +1462,14 @@
 
 (define (jazz.update-interface-root-methods interface)
   (let* ((interface-rank (%%get-interface-rank interface))
-         (count (%%get-interface-virtual-size interface))
          (added-methods '()))
     (%%iterate-hashtable (%%get-category-fields interface)
       (lambda (key field)
-        (%%when (and (%%is? field jazz.Virtual-Method)
-                     (%%not (%%get-virtual-method-implementation-rank field)))
-          (%%set-virtual-method-category-rank field interface-rank)
-          (%%set-virtual-method-implementation-rank field count)
-          (set! count (+ count 1))
+        (%%when (and (jazz.virtual-method? field)
+                     (%%not (%%get-method-category-rank field)))
+          (%%set-method-category-rank field interface-rank)
           (set! added-methods (cons field added-methods)))))
-    (values count added-methods)))
+    added-methods))
 
 
 (jazz.encapsulate-class jazz.Interface)
@@ -1655,19 +1628,25 @@
 
 
 (jazz.define-class jazz.Method jazz.Field (name) jazz.Object-Class
-  ())
-
-
-(define (jazz.new-method name)
-  (jazz.allocate-method jazz.Method name))
+  (dispatch-type
+   implementation
+   implementation-tree
+   category-rank
+   implementation-rank))
 
 
 (define (jazz.method? object)
   (%%is? object jazz.Method))
 
 
-(define (jazz.method-virtual? method)
-  (%%not (%%is? method jazz.Final-Method)))
+(define (jazz.final-method? field)
+  (and (%%is? field jazz.Method)
+       (%%eq? (%%get-method-dispatch-type field) 'final)))
+
+
+(define (jazz.virtual-method? field)
+  (and (%%is? field jazz.Method)
+       (%%neq? (%%get-method-dispatch-type field) 'final)))
 
 
 (define (jazz.locate-method-owner category method-name)
@@ -1691,12 +1670,8 @@
 ;;;
 
 
-(jazz.define-class jazz.Final-Method jazz.Method (name) jazz.Object-Class
-  (implementation))
-
-
 (define (jazz.new-final-method name implementation)
-  (jazz.allocate-final-method jazz.Final-Method name implementation))
+  (jazz.allocate-method jazz.Method name 'final implementation #f #f #f))
 
 
 (define (jazz.add-final-method class method-name method-implementation)
@@ -1709,21 +1684,18 @@
            (jazz.error "Cannot redefine virtual method: {a}" method-implementation)))))
 
 
-(define (jazz.update-final-method class method-name method-implementation)
-  (let ((field (%%get-category-field class method-name)))
-    (if (%%is? field jazz.Final-Method)
-        (%%set-final-method-implementation field method-implementation)
-      (jazz.error "Cannot change method propagation to final: {a}" method-implementation))
-    field))
-
-
 (define (jazz.create-final-method class method-name method-implementation)
   (let ((method (jazz.new-final-method method-name method-implementation)))
     (jazz.add-field class method)
     method))
 
 
-(jazz.encapsulate-class jazz.Final-Method)
+(define (jazz.update-final-method class method-name method-implementation)
+  (let ((field (%%get-category-field class method-name)))
+    (if (jazz.final-method? field)
+        (%%set-method-implementation field method-implementation)
+      (jazz.error "Cannot change method propagation to final: {a}" method-implementation))
+    field))
 
 
 ;;;
@@ -1731,15 +1703,8 @@
 ;;;
 
 
-(jazz.define-class jazz.Virtual-Method jazz.Method (name) jazz.Object-Class
-  (implementation-tree
-   dispatch-type
-   category-rank
-   implementation-rank))
-
-
-(define (jazz.new-virtual-method name implementation-tree dispatch-type category-rank implementation-rank)
-  (jazz.allocate-virtual-method jazz.Virtual-Method name implementation-tree dispatch-type category-rank implementation-rank))
+(define (jazz.new-virtual-method name dispatch-type implementation-tree category-rank implementation-rank)
+  (jazz.allocate-method jazz.Method name dispatch-type #f implementation-tree category-rank implementation-rank))
 
 
 (define (jazz.add-virtual-method category method-name method-implementation)
@@ -1752,32 +1717,32 @@
            (jazz.error "Cannot rebase virtual method: {a}" method-implementation)))))
 
 
-(define (jazz.update-virtual-method category method-name method-implementation)
-  (let ((field (%%get-category-field category method-name)))
-    (if (%%is? field jazz.Virtual-Method)
-        (let ((node (%%get-virtual-method-implementation-tree field)))
-          (%%set-method-node-implementation node method-implementation))
-      (jazz.error "Cannot virtualize final method: {a}" method-implementation))
-    field))
-
-
 (define (jazz.create-virtual-method category method-name method-implementation)
   (let* ((dispatch-type (if (%%is? category jazz.Class) 'class 'interface))
          (node (jazz.new-method-node category method-implementation #f '()))
-         (method (jazz.new-virtual-method method-name node dispatch-type #f #f)))
+         (method (jazz.new-virtual-method method-name dispatch-type node #f #f))
+         (virtual-size (%%get-category-virtual-size category)))
+    (%%set-method-implementation-rank method virtual-size)
+    (%%set-category-virtual-size category (+ virtual-size 1))
     (jazz.add-field category method)
-    method))
+    virtual-size))
 
 
-(jazz.encapsulate-class jazz.Virtual-Method)
+(define (jazz.update-virtual-method category method-name method-implementation)
+  (let ((field (%%get-category-field category method-name)))
+    (if (jazz.virtual-method? field)
+        (let ((node (%%get-method-implementation-tree field)))
+          (%%set-method-node-implementation node method-implementation))
+      (jazz.error "Cannot virtualize final method: {a}" method-implementation))
+    (%%get-method-implementation-rank field)))
 
 
 ;;;
-;;;; Method - Dispatch
+;;;; Method Dispatch
 ;;;
 
 
-(define (jazz.add-dispatch-method class method-name method-implementation)
+(define (jazz.add-method-node class method-name method-implementation)
   (let ((owner (jazz.locate-method-owner class method-name)))
     (cond ((not owner)
            (jazz.error "Cannot locate root method: {a}" method-implementation))
@@ -1785,38 +1750,33 @@
            (jazz.error "Cannot remove root method: {a}" method-implementation))
           (else
            (let ((field (%%get-category-field owner method-name)))
-             (cond ((%%is? field jazz.Virtual-Method)
-                    (let ((root-node (%%get-virtual-method-implementation-tree field)))
-                      (receive (start-node end-nodes) (jazz.create/update-dispatch-method root-node class method-implementation)
-                        (let ((category-rank (%%get-virtual-method-category-rank field))
-                              (implementation-rank (%%get-virtual-method-implementation-rank field)))
+             (cond ((jazz.virtual-method? field)
+                    (let ((root-node (%%get-method-implementation-tree field)))
+                      (receive (start-node end-nodes) (jazz.create/update-method-node root-node class method-implementation)
+                        (let ((category-rank (%%get-method-category-rank field))
+                              (implementation-rank (%%get-method-implementation-rank field)))
                           (jazz.update-method-tree (lambda (class)
-                                                     (let* ((dispatch-table (case (%%get-virtual-method-dispatch-type field)
+                                                     (let* ((dispatch-table (case (%%get-method-dispatch-type field)
                                                                               ((class)     (%%get-class-class-table class))
                                                                               ((interface) (%%get-class-interface-table class))))
                                                             (method-table (%%vector-ref dispatch-table category-rank)))
                                                        (%%vector-set! method-table implementation-rank method-implementation)))
                                                    start-node end-nodes)
                           start-node))))
-                   ((%%is? field jazz.Final-Method)
+                   ((jazz.final-method? field)
                     (jazz.error "Cannot remove final method: {a}" method-implementation))
                    (else
-                    (error "Method jazz.add-dispatch-method unimplemented for Interface"))))))))
+                    (error "Method jazz.add-method-node unimplemented for Interface"))))))))
 
 
-(define (jazz.create/update-dispatch-method root-node class method-implementation)
+(define (jazz.create/update-method-node root-node class method-implementation)
   (let ((node (jazz.locate-most-specific-method-node root-node class)))
     (if (%%eq? class (%%get-method-node-category node))
-        (jazz.update-dispatch-method node class method-implementation)
-      (jazz.create-dispatch-method node class method-implementation))))
+        (jazz.update-method-node node class method-implementation)
+      (jazz.create-method-node node class method-implementation))))
 
 
-(define (jazz.update-dispatch-method node class method-implementation)
-  (%%set-method-node-implementation node method-implementation)
-  (values node (%%get-method-node-children node)))
-
-
-(define (jazz.create-dispatch-method node class method-implementation)
+(define (jazz.create-method-node node class method-implementation)
   (let* ((partition (jazz.partition (%%get-method-node-children node)
                                     (lambda (child)
                                       (let ((child-class (%%get-method-node-category child)))
@@ -1830,6 +1790,11 @@
               new-children)
     (%%set-method-node-children node (%%cons new-node old-children))
     (values new-node new-children)))
+
+
+(define (jazz.update-method-node node class method-implementation)
+  (%%set-method-node-implementation node method-implementation)
+  (values node (%%get-method-node-children node)))
 
 
 ;;;

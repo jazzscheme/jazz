@@ -38,6 +38,10 @@
 (library test jazz
 
 
+(import (test.a (cond AAA))
+        (test.b (cond BBB)))
+
+
 @w
 (import (dev)
         (jazz.git)
@@ -55,7 +59,13 @@
         (test.a))
 
 
-(definition (f x <Object+>)
+;;;
+;;;; Types
+;;;
+
+
+@w
+(definition (f x <Object+> y <fx> z <fl>)
   (set! x 2))
 
 
@@ -103,109 +113,6 @@
         (+ after before)
         (+ a a)
         (+ b b)))))
-
-
-@w
-(class Axis metaclass Axis-Class extends Sequence
-  
-  
-  (definition MIN_SIZE 8)
-  (definition GOLDEN_RATIO 1.6)
-  
-  
-  (slot size    <fx>     accessors generate)
-  (slot content <vector> accessors generate)
-  
-  
-  (method (initialize (s 0))
-    (set! size s)
-    (set! content (make-vector s {})))
-  
-  
-  (method (print output detail)
-    (print-unreadable self output
-      (function (output)
-        (format output "{s} {s}" size content))))
-  
-  
-  (method (sequence-element n)
-    (vector-ref content n))
-  
-  
-  (method (sequence-set-element! n obj)
-    (vector-set! content n obj))
-  
-  
-  (method (sequence-length)
-    size)
-  
-  
-  (method (sequence-tail n)
-    (let ((new-axis (new Axis n))
-          (offset (- (length self) n)))
-      (let (iterate (i 0))
-        (if (>= i n)
-            new-axis
-          (set-element! new-axis i (element self (+ i offset)))
-          (iterate (+ i 1))))))
-  
-  
-  (method (sequence-last)
-    (element self (- (length self) 1)))
-  
-  
-  (method (sequence-replace-subseq! start <fx> end <fx> replacement)
-    (let* ((before (- end start))
-           (after (length replacement))
-           (delta (- after before))
-           (old-size size)
-           (new-size (+ old-size delta)))
-      (cond ((< after before)
-             (let (iterate (n (- old-size end))
-                           (src end)
-                           (dst (+ end delta)))
-               (when (> n 0)
-                 (set-element! self dst (element self src))
-                 (set-element! self src {})
-                 (iterate (- n 1) (+ src 1) (+ dst 1))))
-             (grow new-size))     
-            ((> after before)
-             (grow new-size)
-             (let (iterate (n (- old-size end))
-                           (src (- old-size 1))
-                           (dst (+ (- old-size 1) delta)))
-               (when (> n 0)
-                 (set-element! self dst (element self src))
-                 (iterate (- n 1) (- src 1) (- dst 1))))))
-      (let (iterate (n 0) (dst start))
-        (when (< n after)
-          (set-element! self dst (element replacement n))
-          (iterate (+ n 1) (+ dst 1))))
-      self))
-  
-  
-  (method public (add obj)
-    (let ((n size))
-      (grow (+ n 1))
-      (set-element! content n obj)))
-  
-  
-  (method public (grow n <fx>)
-    (cond ((<= n (length content))
-           (set-size n))
-          ((= size 0)
-           (set-size n)
-           (set! content (make-vector MIN_SIZE {})))
-          (else
-           (let ((old-real-size (length content))
-                 (old-content content))
-             (set-size n)
-             (set! content (make-vector (inexact->exact (round (* n GOLDEN_RATIO))) {}))
-             (let (iterate (i 0))
-               (when (< i old-real-size)
-                 (begin
-                   (set-element! content i (element old-content i))
-                   (iterate (+ i 1))))))))))
 
 
 ;;;
@@ -316,103 +223,6 @@
 (definition (hoo)
   (receive (a <fx>) (values 2)
     a)))
-
-
-;;;
-;;;; NEO
-;;;
-
-
-@neo-direct-field-access (
-(class X extends Object
-  
-  (neomethod virtual (f)
-    (list 'X))
-  
-  ;; here's da boubou
-  (neomethod (g)
-    (f)))
-
-
-(class Y extends X
-  
-  (neomethod (f)
-    (cons 'Y (nextmethod))))
-
-
-(debug (f$ (new Y)) (g$ (new Y))))
-
-
-@w (
-(class X extends Object
-  
-  (slot s)
-  
-  (definition (d)
-    2)
-  
-  (method (f)
-    (set! s~self #f)
-    3)
-  
-  (method virtual (g)
-    5)
-  
-  (neomethod (f2 a . rest)
-    (list 'xf2 a rest))
-  
-  (neomethod virtual (g2)
-    'xg2)
-  
-  (method (foo)
-    (d)
-    (f)
-    (g)))
-
-
-;; see jazz.walk-dispatch
-(let ((x (new X)))
-  (debug (f2$ x 1))
-  (debug (g2$ x)))
-
-
-(interface I
-  
-  (neomethod virtual abstract (h2 a)))
-
-
-(class Y extends X implements I
-  
-  (slot t)
-  
-  (method (g)
-    7)
-  
-  (neomethod (g2)
-    (nextmethod)
-    (set! s #f)
-    (set! s~self #f)
-    (set! t #f)
-    (set! t~self #f)
-    (cons 'yg2 (nextmethod)))
-  
-  (neomethod (h2 a)
-    'yh2))
-
-(let ((x (new X)))
-  (debug (f~ x)))
-
-
-;; see jazz.walk-dispatch
-(let ((x (new X)))
-  (debug (f2$ x 1))
-  (debug (g2$ x)))
-
-
-(let ((y (new Y)))
-  (debug (f2$ y 1))
-  (debug (g2$ y))
-  (debug (h2$ y 1))))
 
 
 ;;;

@@ -55,33 +55,10 @@
     new-declaration))
 
 
-;; temp patch to support final methods expanding into definitions
-(define (jazz.is-method-definition? declaration)
-  (let ((signature (%%get-definition-declaration-signature declaration)))
-    (if (%%not signature)
-        #f
-      (let ((positional (%%get-signature-positional signature)))
-        (and (%%pair? positional)
-             (let ((parameter (%%car positional)))
-               (%%eq? (%%get-lexical-binding-name parameter) 'self)))))))
-
-
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Definition-Declaration declaration) walker resume source-declaration operator arguments)
   (let ((signature (%%get-definition-declaration-signature declaration)))
     (if signature
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
-
-
-(jazz.define-method (jazz.emit-binding-call (jazz.Definition-Declaration declaration) arguments environment)
-  (let ((self (jazz.lookup-self)))
-    (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-        (let ((type (%%get-lexical-binding-type declaration)))
-          (jazz.new-code
-            `(,(%%get-declaration-locator declaration)
-              self
-              ,@(jazz.codes-forms arguments))
-            (jazz.call-return-type type)))
-      (nextmethod declaration arguments environment))))
 
 
 (jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments environment)
@@ -110,13 +87,9 @@
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) environment)
-  (let ((locator (%%get-declaration-locator declaration))
-        (self (jazz.lookup-self)))
-    (jazz.new-code
-      (if (and self (jazz.is-method-definition? declaration) (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-          `(lambda rest (apply ,locator self rest))
-        locator)
-      jazz.Any)))
+  (jazz.new-code
+    (%%get-declaration-locator declaration)
+    jazz.Any))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Definition-Declaration declaration))
@@ -237,6 +210,11 @@
 
 (jazz.define-class jazz.Category-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups body) jazz.Object-Class
   (metaclass))
+
+
+(jazz.define-method (jazz.of-subtype? (jazz.Category-Declaration type) subtype)
+  ;; quicky to fill later on
+  #f)
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration) environment)
@@ -582,14 +560,61 @@
     new-declaration))
 
 
+;; first draft to probably simplify by storing a dispatch-type in the declaration
+(define (jazz.get-method-info declaration)
+  (let ((category-declaration (%%get-declaration-parent declaration))
+        (root-method-declaration (%%get-method-declaration-root declaration)))
+    (let ((method-declaration (or root-method-declaration declaration)))
+      (cond ((%%is? category-declaration jazz.Class-Declaration)
+             (case (%%get-method-declaration-propagation declaration)
+               ((final inherited) (values 'final method-declaration))
+               ((virtual chained) (values 'class method-declaration))))
+            ((%%is? category-declaration jazz.Interface-Declaration)
+             (values 'interface method-declaration))))))
+
+
+(define (jazz.neodispatcher name object . rest)
+  (let* ((class (jazz.class-of object))
+         (category (jazz.locate-method-owner class name)))
+    (if (%%not category)
+        (jazz.error "Unable to find method {s}" name)
+      (let ((field (%%get-category-field category name)))
+        (let ((category-table (case (%%get-method-dispatch-type field)
+                                ((final)
+                                 #f)
+                                ((class)
+                                 (%%get-class-class-table class))
+                                ((interface)
+                                 (%%get-class-interface-table class)))))
+          (if category-table
+              (let* ((category-rank (%%get-method-category-rank field))
+                     (implementation-table (%%vector-ref category-table category-rank))
+                     (implementation-rank (%%get-method-implementation-rank field))
+                     (implementation (%%vector-ref implementation-table implementation-rank)))
+                implementation)
+            (%%get-method-implementation field)))))))
+
+
+(define (jazz.neodispatch name object . rest)
+  (apply (jazz.neodispatcher name object) object rest))
+
+
+(define (jazz.with-operator/arguments declaration arguments proc)
+  (let ((self (jazz.lookup-self)))
+    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
+        (proc self arguments)
+      (proc (%%get-code-form (%%car arguments)) (%%cdr arguments)))))
+
+
 (jazz.define-method (jazz.emit-binding-reference (jazz.Method-Declaration declaration) environment)
-  (let ((locator (%%get-declaration-locator declaration))
-        (self (jazz.lookup-self)))
-    (jazz.new-code
-      (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-          `(lambda rest (apply ,locator self rest))
-        locator)
-      jazz.Any)))
+  (let ((self (jazz.lookup-self)))
+    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
+        (let ((name (%%get-lexical-binding-name declaration)))
+          (jazz.new-code
+            `(lambda rest
+               (apply jazz.neodispatch ',name self rest))
+            jazz.Any))
+      (jazz.error "Methods cannot be called directly for now"))))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Method-Declaration declaration) walker resume source-declaration operator arguments)
@@ -601,15 +626,15 @@
 
 
 (jazz.define-method (jazz.emit-binding-call (jazz.Method-Declaration declaration) arguments environment)
-  (let ((self (jazz.lookup-self)))
-    (if (and self (jazz.is? (%%get-declaration-parent declaration) jazz.Category-Declaration))
-        (let ((type (%%get-lexical-binding-type declaration)))
-          (jazz.new-code
-            `(,(%%get-declaration-locator declaration)
-              self
-              ,@(jazz.codes-forms arguments))
-            (jazz.call-return-type type)))
-      (nextmethod declaration arguments environment))))
+  (jazz.with-operator/arguments declaration arguments
+    (lambda (operator rest)
+      (let ((type (%%get-lexical-binding-type declaration))
+            (name (%%get-lexical-binding-name declaration)))
+        (jazz.new-code
+          `(jazz.neodispatch ',name
+            ,operator
+            ,@(jazz.codes-forms rest))
+          (jazz.call-return-type type))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Method-Declaration declaration) environment)
@@ -623,30 +648,39 @@
                                         (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
            (class-locator (%%get-declaration-locator category-declaration))
            (method-locator (%%get-declaration-locator declaration))
+           (method-rank-locator (jazz.compose-helper method-locator 'rank))
            (method-node-locator (jazz.compose-helper method-locator 'node))
-           (method-call (cond (root-category-declaration                                                'jazz.add-dispatch-method) ; must be inherited
+           (method-call (cond (root-category-declaration                                                'jazz.add-method-node) ; must be inherited
                               ((%%is? category-declaration jazz.Class-Declaration) (case propagation
                                                                                      ((final inherited) 'jazz.add-final-method)
                                                                                      ((virtual chained) 'jazz.add-virtual-method)))
-                              ((%%is? category-declaration jazz.Interface-Declaration)                  'jazz.add-virtual-method))))  ; must be virtual
+                              ((%%is? category-declaration jazz.Interface-Declaration)                  'jazz.add-virtual-method)))) ; must be virtual
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
           (let ((augmented-environment (cons frame environment)))
-            (cond (root-category-declaration
-                    (let ((node (jazz.generate-symbol "node")))
-                      `(begin
-                         (define (,method-locator self ,@(jazz.emit-signature signature augmented-environment))
-                           (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                             ,(%%get-code-form (jazz.emit-expression body augmented-environment))))
-                         (define ,method-node-locator
-                           (,method-call ,class-locator ',name ,method-locator)))))
-                  ((%%eq? abstraction 'concrete)
-                   `(begin
-                      (define (,method-locator self ,@(jazz.emit-signature signature augmented-environment))
-                        ,(%%get-code-form (jazz.emit-expression body augmented-environment)))
-                      (,method-call ,class-locator ',name ,method-locator)))
-                  ((%%eq? abstraction 'abstract)
-                   `(,method-call ,class-locator ',name jazz.call-into-abstract)))))))))
+            (case method-call
+              ((jazz.add-method-node)
+               (let ((node (jazz.generate-symbol "node")))
+                 `(begin
+                    (define (,method-locator self ,@(jazz.emit-signature signature augmented-environment))
+                      (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
+                        ,(%%get-code-form (jazz.emit-expression body augmented-environment))))
+                    (define ,method-node-locator
+                      (,method-call ,class-locator ',name ,method-locator)))))
+              ((jazz.add-virtual-method)
+               (if (%%eq? abstraction 'abstract)
+                    `(define ,method-rank-locator
+                       (,method-call ,class-locator ',name jazz.call-into-abstract))
+                 `(begin
+                    (define (,method-locator self ,@(jazz.emit-signature signature augmented-environment))
+                      ,(%%get-code-form (jazz.emit-expression body augmented-environment)))
+                    (define ,method-rank-locator
+                      (,method-call ,class-locator ',name ,method-locator)))))
+              ((jazz.add-final-method)
+               `(begin
+                  (define (,method-locator self ,@(jazz.emit-signature signature augmented-environment))
+                    ,(%%get-code-form (jazz.emit-expression body augmented-environment)))
+                  (,method-call ,class-locator ',name ,method-locator))))))))))
 
 
 (jazz.encapsulate-class jazz.Method-Declaration)
@@ -698,8 +732,6 @@
 ;;;
 
 
-(cond-expand
-  (neo
 (define (jazz.jazz-bindings)
   (%%list
     (jazz.new-macro-form 'definition      jazz.expand-definition)   (jazz.new-special-form '%definition   jazz.walk-%definition)
@@ -733,43 +765,7 @@
     (jazz.new-special-form 'parameterize  jazz.walk-parameterize)
     (jazz.new-special-form 'with-slots    jazz.walk-with-slots)
     (jazz.new-special-form 'with-self     jazz.walk-with-self)
-    (jazz.new-special-form 'time          jazz.walk-time))))
-  (else
-(define (jazz.jazz-bindings)
-  (%%list
-    (jazz.new-macro-form 'definition      jazz.expand-definition)   (jazz.new-special-form '%definition   jazz.walk-%definition)
-    (jazz.new-macro-form 'neomethod       jazz.expand-neomethod)    (jazz.new-special-form '%neomethod    jazz.walk-%neomethod)
-    (jazz.new-macro-form 'generic         jazz.expand-generic)      (jazz.new-special-form '%generic      jazz.walk-%generic)
-    (jazz.new-macro-form 'specific        jazz.expand-specific)     (jazz.new-special-form '%specific     jazz.walk-%specific)
-    (jazz.new-macro-form 'class           jazz.expand-class)        (jazz.new-special-form '%class        jazz.walk-%class)
-    (jazz.new-macro-form 'interface       jazz.expand-interface)    (jazz.new-special-form '%interface    jazz.walk-%interface)
-    (jazz.new-macro-form 'slot            jazz.expand-slot)         (jazz.new-special-form '%slot         jazz.walk-%slot)
-    (jazz.new-macro-form 'property        jazz.expand-property)     (jazz.new-special-form '%property     jazz.walk-%slot)
-    (jazz.new-macro-form 'c-type          jazz.expand-c-type)       (jazz.new-special-form '%c-type       jazz.walk-%c-type)
-    (jazz.new-macro-form 'c-definition    jazz.expand-c-definition) (jazz.new-special-form '%c-definition jazz.walk-%c-definition)
-    
-    (jazz.new-macro-form 'optimize        jazz.expand-optimize)
-    (jazz.new-macro-form 'method          jazz.expand-method)
-    (jazz.new-macro-form 'remote-proxy    jazz.expand-remote-proxy)
-    (jazz.new-macro-form 'coclass         jazz.expand-coclass)
-    (jazz.new-macro-form 'cointerface     jazz.expand-cointerface)
-    (jazz.new-macro-form 'assert          jazz.expand-assert)
-    (jazz.new-macro-form 'c-structure     jazz.expand-c-structure)
-    (jazz.new-macro-form 'c-union         jazz.expand-c-union)
-    (jazz.new-macro-form 'c-external      jazz.expand-c-external)
-    (jazz.new-macro-form 'c-external-so   jazz.expand-c-external-so)
-    (jazz.new-macro-form 'form            jazz.expand-form)
-
-    (jazz.new-special-form 'atomic-region jazz.walk-atomic-region)
-    (jazz.new-special-form 'c-include     jazz.walk-c-include)
-    (jazz.new-special-form 'c-declare     jazz.walk-c-declare)
-    (jazz.new-special-form 'c-initialize  jazz.walk-c-initialize)
-    (jazz.new-special-form 'c-function    jazz.walk-c-function)
-    (jazz.new-special-form 'function      jazz.walk-function)
-    (jazz.new-special-form 'parameterize  jazz.walk-parameterize)
-    (jazz.new-special-form 'with-slots    jazz.walk-with-slots)
-    (jazz.new-special-form 'with-self     jazz.walk-with-self)
-    (jazz.new-special-form 'time          jazz.walk-time)))))
+    (jazz.new-special-form 'time          jazz.walk-time)))
 
 
 (define jazz.jazz-environment
@@ -897,15 +893,9 @@
 
 (jazz.define-method (jazz.walk-form (jazz.Jazz-Walker walker) resume declaration environment form)
   (let ((procedure-expr (%%car form)))
-(if jazz.neo?
     (if (jazz.dispatch? procedure-expr)
         (jazz.walk-neodispatch walker resume declaration environment form)
-      (nextmethod walker resume declaration environment form))
-    (if (jazz.neodispatch? procedure-expr)
-        (jazz.walk-neodispatch walker resume declaration environment form)
-      (if (jazz.dispatch? procedure-expr)
-          (jazz.walk-dispatch walker resume declaration environment form)
-        (nextmethod walker resume declaration environment form))))))
+      (nextmethod walker resume declaration environment form))))
 
 
 ;;;
@@ -940,49 +930,6 @@
 
 
 ;;;
-;;;; Dispatch
-;;;
-
-
-(jazz.define-class jazz.Dispatch jazz.Expression (type) jazz.Object-Class
-  (name
-   arguments))
-
-
-(define (jazz.new-dispatch name arguments)
-  (jazz.allocate-dispatch jazz.Dispatch #f name arguments))
-
-
-(jazz.define-method (jazz.emit-expression (jazz.Dispatch expression) environment)
-  (let ((name (%%get-dispatch-name expression))
-        (arguments (%%get-dispatch-arguments expression)))
-    (jazz.new-code
-      (jazz.with-expression-value (%%get-code-form (jazz.emit-expression (%%car arguments) environment))
-        (lambda (object)
-          `((jazz.dispatch ',name ,object)
-            ,object
-            ,@(jazz.codes-forms (jazz.emit-expressions (%%cdr arguments) environment)))))
-      jazz.Any)))
-
-
-(jazz.define-method (jazz.fold-expression (jazz.Dispatch expression) f k s)
-  (f expression
-     (k (%%get-dispatch-name expression)
-        (jazz.fold-expressions (%%get-dispatch-arguments expression) f k s s))))
-
-
-(jazz.encapsulate-class jazz.Dispatch)
-
-
-(define (jazz.walk-dispatch walker resume declaration environment form)
-  (let ((name (jazz.dispatch->symbol (%%car form)))
-        (arguments (%%cdr form)))
-    (%%assertion (%%not (%%null? arguments)) (jazz.format "Dispatch call must contain at least one argument: {s}" form)
-      (jazz.new-dispatch name
-        (jazz.walk-list walker resume declaration environment arguments)))))
-
-
-;;;
 ;;;; NeoDispatch
 ;;;
 
@@ -998,38 +945,12 @@
 
 (jazz.define-method (jazz.emit-expression (jazz.NeoDispatch expression) environment)
   (let ((name (%%get-neodispatch-name expression))
-        (arguments (%%get-neodispatch-arguments expression))
-        (object (jazz.generate-symbol "object"))
-        (class (jazz.generate-symbol "class"))
-        (category (jazz.generate-symbol "category"))
-        (field (jazz.generate-symbol "field"))
-        (category-table (jazz.generate-symbol "category-table"))
-        (category-rank (jazz.generate-symbol "category-rank"))
-        (implementation-table (jazz.generate-symbol "implementation-table"))
-        (implementation-rank (jazz.generate-symbol "implementation-rank"))
-        (implementation (jazz.generate-symbol "implementation")))
+        (arguments (%%get-neodispatch-arguments expression)))
     (let ((arguments-output (jazz.codes-forms (jazz.emit-expressions (%%cdr arguments) environment))))
       (jazz.new-code
-        `(begin
-           ;; todo - optimize field with local cache binding
-           (let* ((,object ,(%%get-code-form (jazz.emit-expression (%%car arguments) environment)))
-                  (,class (jazz.class-of ,object))
-                  (,category (jazz.locate-method-owner ,class ',name))
-                  (,field (%%get-category-field ,category ',name)))
-             (if (%%is? ,field jazz.Final-Method)
-                 ((%%get-final-method-implementation ,field) ,object ,@arguments-output)
-               (if (%%is? ,field jazz.Virtual-Method)
-                   (let* ((,category-table (case (%%get-virtual-method-dispatch-type ,field)
-                                             ((class)
-                                              (%%get-class-class-table ,class))
-                                             ((interface)
-                                              (%%get-class-interface-table ,class))))
-                          (,category-rank (%%get-virtual-method-category-rank ,field))
-                          (,implementation-table (%%vector-ref ,category-table ,category-rank))
-                          (,implementation-rank (%%get-virtual-method-implementation-rank ,field))
-                          (,implementation (%%vector-ref ,implementation-table ,implementation-rank)))
-                     (,implementation ,object ,@arguments-output))
-                 (error "Cannot dispatch method {a} on class {a}" ',name (%%get-category-name ,class))))))
+        (jazz.with-expression-value (%%get-code-form (jazz.emit-expression (%%car arguments) environment))
+          (lambda (object)
+            `(jazz.neodispatch ',name ,object ,@arguments-output)))
         jazz.Any))))
 
 
@@ -1534,66 +1455,6 @@
                  (%%set-method-declaration-signature new-declaration signature)
                  (%%set-method-declaration-body new-declaration body-expression)
                  new-declaration)))))))
-
-
-;;;
-;;;; Method
-;;;
-
-
-(define jazz.method-modifiers
-  '(((private protected public) . protected)
-    ((deprecated uptodate) . uptodate)
-    ((virtual chained inherited) . inherited)
-    ((abstract concrete) . concrete)
-    ((inline onsite) . onsite)
-    ;; quicky
-    ((remote notremote) . notremote)
-    ((synchronized notsynchronized) . notsynchronized)))
-
-
-(define (jazz.parse-method walker resume declaration rest)
-  (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz.parse-modifiers walker resume declaration jazz.method-modifiers rest)
-    (%%assertion (and (%%pair? rest) (%%pair? (%%car rest))) (jazz.format "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method rest))
-      (let ((signature (%%car rest)))
-        (jazz.parse-specifier (%%cdr rest)
-          (lambda (specifier body)
-            (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body))
-                  (name (%%car signature))
-                  (parameters (%%cdr signature)))
-              (values name specifier access compatibility propagation abstraction expansion parameters effective-body))))))))
-
-
-(define (jazz.expand-method walker resume declaration environment . rest)
-  (receive (name specifier access compatibility propagation abstraction expansion parameters body) (jazz.parse-method walker resume declaration rest)
-    (if (%%is? declaration jazz.Category-Declaration)
-        (let* ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
-               (found-declaration (jazz.lookup-declaration declaration name #f))
-               (category-declaration declaration)
-               (category-name (%%get-lexical-binding-name category-declaration))
-               (parameters (jazz.wrap-parameters parameters))
-               (generic-parameters (%%cons (%%list (jazz.name->specifier category-name) 'self) parameters))
-               (specifier-list (if type (%%list specifier) '())))
-          (case propagation
-            ((inherited)
-             (if (and found-declaration (%%is? found-declaration jazz.Generic-Declaration))
-                 `(%specific ,name ,generic-parameters #t (with-self ,@body))
-               (jazz.expand-final-method category-name specifier-list access expansion name parameters body)))
-            (else
-             (if (%%eq? abstraction 'abstract)
-                 `(generic ,access ,(%%cons name generic-parameters) ,@specifier-list)
-               `(begin
-                  (generic ,access ,(%%cons name generic-parameters) ,@specifier-list)
-                  (%specific ,name ,generic-parameters #t (with-self ,@body)))))))
-      (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name))))
-
-
-(define (jazz.expand-final-method category-name specifier-list access expansion method-name parameters body)
-  `(begin
-     (definition ,access ,expansion ,(%%cons method-name (%%cons 'self parameters)) ,@specifier-list
-       (with-self
-         ,@body))
-     (update-dispatch-table ,category-name ',method-name ,method-name)))
 
 
 ;; quick not elegant solution to wrap with-self around parameter code

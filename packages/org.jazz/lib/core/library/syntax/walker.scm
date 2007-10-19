@@ -99,6 +99,10 @@
   ())
 
 
+(jazz.define-method (jazz.emit-type (jazz.Walk-Binding type) environment)
+  (%%get-code-form (jazz.emit-binding-reference type environment)))
+
+
 (jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding) environment))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
@@ -472,12 +476,7 @@
            (for-each (lambda (spec)
                        (jazz.parse-require spec
                          (lambda (module-name feature-requirement load phase)
-                           (jazz.enqueue queue
-                                         (if (%%not feature-requirement)
-                                             `(jazz.load-module ',module-name)
-                                           `(cond-expand
-                                              (,feature-requirement (jazz.load-module ',module-name))
-                                              (else)))))))
+                           (jazz.enqueue queue `(jazz.load-module ',module-name)))))
                      (%%get-library-declaration-requires declaration))
            (for-each (lambda (library-invoice)
                        (let ((only (%%get-library-invoice-only library-invoice))
@@ -617,6 +616,11 @@
     new-declaration))
 
 
+(jazz.define-method (jazz.of-subtype? (jazz.Autoload-Declaration type) subtype)
+  ;; quicky to fill later on
+  #f)
+
+
 (jazz.define-method (jazz.resolve-declaration (jazz.Autoload-Declaration declaration))
   (or (%%get-autoload-declaration-declaration declaration)
       (let* ((exported-library (jazz.resolve-reference (%%get-autoload-declaration-exported-library declaration) (%%get-autoload-declaration-library declaration)))
@@ -643,41 +647,11 @@
 
 
 ;;;
-;;;; Type
-;;;
-
-
-;; This is really not nice. We need a clean solution. Problem is that it is very hard
-;; to make a Category-Declaration into a Type because of single inheritance needs of
-;; this class. We can also keep two independant hierarchies of types and of declarations
-;; but as it will be possible to extend a core class like Sequence into user class this
-;; model also doesn't work very well
-(define (jazz.subwalktype? target type)
-  ;; quicky until all is working
-  (if (%%eq? type jazz.Any)
-      #t
-  (if (%%is? type jazz.Walk-Binding)
-      (jazz.declaration-subtype? target type)
-    (if (%%is? target jazz.Walk-Binding)
-        #f
-      (%%subtype? target type)))))
-
-
-;; quicky to test with not too much impact as primitive type are more important to start
-(define (jazz.declaration-subtype? target type)
-  #f)
-
-
-(define (jazz.type-error value type)
-  (jazz.error "{s} expected: {s}" type value))
-
-
-;;;
 ;;;; Void
 ;;;
 
 
-(jazz.define-class jazz.Void-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Void-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -793,7 +767,7 @@
 
 (jazz.define-method (jazz.of-subtype? (jazz.Nillable-Type type) subtype)
   (or (jazz.of-subtype? jazz.Boolean subtype)
-      (jazz.subwalktype? (%%get-nillable-type-type type) subtype)))
+      (jazz.of-subtype? (%%get-nillable-type-type type) subtype)))
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Nillable-Type type))
@@ -814,7 +788,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Any-Class jazz.Class (name fields ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Any-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -841,26 +815,15 @@
 
 
 ;;;
-;;;; Emit
-;;;
-
-
-(define (jazz.emit-extended-type type environment)
-  (if (%%is? type jazz.Walk-Binding)
-      (%%get-code-form (jazz.emit-binding-reference type environment))
-    (jazz.emit-type type)))
-
-
-;;;
 ;;;; Expect
 ;;;
 
 
-;; No conversion beeing necessary between any types, expect is thus only a type check returning the same object
+;; No conversion beeing necessary between any types, expect is only a type check returning the same object
 
 
 (define (jazz.emit-type-expect code type environment)
-  (if (or (%%not type) (jazz.subwalktype? (%%get-code-type code) type))
+  (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
       (%%get-code-form code)
     (let ((value (jazz.generate-symbol "val")))
       `(let ((,value ,(%%get-code-form code)))
@@ -874,14 +837,10 @@
 
 
 (define (jazz.emit-type-check code type environment force-check?)
-  (if (or (%%not type) (%%eq? type jazz.Any) (and (%%not force-check?) (jazz.subwalktype? (%%get-code-type code) type)))
+  (if (or (%%not type) (%%eq? type jazz.Any) (and (%%not force-check?) (%%subtype? (%%get-code-type code) type)))
       #f
     (let ((value (%%get-code-form code)))
-      (if (%%is? type jazz.Walk-Binding)
-          (let ((locator (jazz.emit-extended-type type environment)))
-            `(if (%%not (%%is? ,value ,locator))
-                 (jazz.type-error ,value ,locator)))
-        (jazz.emit-check type value environment)))))
+      (jazz.emit-check type value environment))))
 
 
 ;;;
@@ -889,9 +848,25 @@
 ;;;
 
 
-;; todo
-(define (jazz.emit-cast)
-  #f)
+(define (jazz.emit-parameter-cast code type environment)
+  (jazz.emit-type-check code type environment #t))
+
+
+#; ;; todo
+(define (jazz.emit-type-cast code type environment)
+  (let ((value (jazz.generate-symbol "val")))
+    `(let ((,value ,(%%get-code-form code)))
+       ,(jazz.emit-cast type value)
+       ,value)))
+
+
+;;;
+;;;; Error
+;;;
+
+
+(define (jazz.type-error value type)
+  (jazz.error "{s} expected: {s}" type value))
 
 
 ;;;
@@ -1012,10 +987,7 @@
 
 
 (define (jazz.type->specifier type)
-  (let ((symbol
-          (if (%%is? type jazz.Walk-Binding)
-              (jazz.unimplemented 'todo)
-            (jazz.emit-specifier type))))
+  (let ((symbol (jazz.emit-specifier type)))
     (if (jazz.specifier? symbol)
         symbol
       (jazz.name->specifier symbol))))
@@ -1872,11 +1844,11 @@
     ;; this should not happen as variables are always created initialized
     (if (%%eq? actual-type jazz.Void)
         (%%set-annotated-variable-type variable new-type)
-      (%%when (%%not (jazz.subwalktype? new-type actual-type))
+      (%%when (%%not (%%subtype? new-type actual-type))
         ;; should probably just call jazz.type-union but it currently
         ;; bugs recursively on unioning function types together...
         (let ((extended-type
-                (if (jazz.subwalktype? actual-type new-type)
+                (if (%%subtype? actual-type new-type)
                     new-type
                   ;; should find the most specific common supertype
                   jazz.Any)))
@@ -1889,9 +1861,9 @@
 (define (jazz.type-union type1 type2)
   (cond ((or (%%not type1) (%%not type2))
          jazz.Any)
-        ((jazz.subwalktype? type1 type2)
+        ((%%subtype? type1 type2)
          type2)
-        ((jazz.subwalktype? type2 type1)
+        ((%%subtype? type2 type1)
          type1)
         (else
          ;; should find the most specific common supertype
@@ -2005,9 +1977,11 @@
 (define (jazz.parse-module-declaration partial-form)
   (let ((name (%%car partial-form))
         (rest (%%cdr partial-form)))
-    (jazz.parse-module rest
-      (lambda (requires body)
-        (jazz.new-module-declaration name #f requires)))))
+    (if (%%neq? name (jazz.requested-module-name))
+        (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+      (jazz.parse-module rest
+        (lambda (requires body)
+          (jazz.new-module-declaration name #f requires))))))
 
 
 ;;;
@@ -2090,8 +2064,10 @@
 
 (define (jazz.parse-library-declaration partial-form)
   (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
-    (let ((walker (jazz.dialect-walker (jazz.load-dialect dialect-name))))
-      (jazz.walk-library-declaration walker name dialect-name requires exports imports body))))
+    (if (%%neq? name (jazz.requested-module-name))
+        (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
+      (let ((walker (jazz.dialect-walker (jazz.load-dialect dialect-name))))
+        (jazz.walk-library-declaration walker name dialect-name requires exports imports body)))))
 
 
 (define (jazz.walk-library-declaration walker name dialect-name requires exports imports body)
@@ -2166,15 +2142,17 @@
 
 (define (jazz.walk-library partial-form)
   (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
-    (let* ((dialect (jazz.load-dialect dialect-name))
-           (walker (jazz.dialect-walker dialect))
-           (resume #f)
-           (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
-           (environment (%%cons declaration (jazz.walker-environment walker)))
-           (body (jazz.walk-toplevel walker resume declaration environment body)))
-      (jazz.validate-walk-problems walker)
-      (%%set-namespace-declaration-body declaration body)
-      declaration)))
+    (if (%%neq? name (jazz.requested-module-name))
+        (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
+      (let* ((dialect (jazz.load-dialect dialect-name))
+             (walker (jazz.dialect-walker dialect))
+             (resume #f)
+             (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
+             (environment (%%cons declaration (jazz.walker-environment walker)))
+             (body (jazz.walk-toplevel walker resume declaration environment body)))
+        (jazz.validate-walk-problems walker)
+        (%%set-namespace-declaration-body declaration body)
+        declaration))))
 
 
 (define (jazz.cond-expand form)
@@ -2607,7 +2585,7 @@
             (let ((body-code (jazz.emit-expression body augmented-environment)))
               (jazz.new-code
                 `(lambda ,signature-output
-                   ,@(jazz.emit-signature-checks signature augmented-environment)
+                   ,@(jazz.emit-signature-casts signature augmented-environment)
                    ,(jazz.simplify-begin (jazz.emit-type-expect (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type environment)))
                 (jazz.new-function-type '() (%%get-code-type body-code))))))))))
 
@@ -3037,7 +3015,7 @@
                   #f
                 (jazz.bind (inline-type inline-name inline-result) (%%car scan)
                   (if (jazz.every? (lambda (type)
-                                     (and type (jazz.subwalktype? type inline-type)))
+                                     (and type (%%subtype? type inline-type)))
                                    types)
                       (jazz.new-code
                         `(,inline-name ,@(jazz.codes-forms arguments))
@@ -3627,13 +3605,7 @@
       (cond ((%%pair? literal)
              `(cons ',(car literal) ',(cdr literal)))
             (else
-             (jazz.dialect.language.Object.fold-literal literal))))))
-
-
-(define jazz.dialect.language.Object.fold-literal
-  #f)
-
-(set! jazz.dialect.language.Object.fold-literal #f)
+             (jazz.neodispatch 'fold-literal literal))))))
 
 
 (define (jazz.make-symbolic-chars alist)
@@ -4123,19 +4095,19 @@
         signature))))
 
 
-(define (jazz.emit-signature-checks signature environment)
+(define (jazz.emit-signature-casts signature environment)
   (let ((queue #f))
     (define (process parameter)
       (let ((type (%%get-lexical-binding-type parameter)))
         ;; simple optimisation
         (if (and type (%%neq? type jazz.Any))
-            (let ((check (jazz.emit-type-check (jazz.emit-binding-reference parameter environment) type environment #t)))
-              (if check
+            (let ((cast (jazz.emit-parameter-cast (jazz.emit-binding-reference parameter environment) type environment)))
+              (if cast
                   (begin
                     ;; optimize the by far more frequent case of signatures having no types
                     (if (not queue)
                         (set! queue (jazz.new-queue)))
-                    (jazz.enqueue queue check)))))))
+                    (jazz.enqueue queue cast)))))))
     
     (for-each process (%%get-signature-positional signature))
     (for-each process (%%get-signature-optional signature))
@@ -4233,11 +4205,12 @@
   (let ((filename (jazz.require-module-source (jazz.determine-module-filename module-name))))
     (define (load-declaration)
       (let ((form (jazz.read-toplevel-form filename)))
-        (case (%%car form)
-          ((module)
-           (jazz.parse-module-declaration (%%cdr form)))
-          ((library)
-           (jazz.parse-library-declaration (%%cdr form))))))
+        (parameterize ((jazz.requested-module-name module-name))
+          (case (%%car form)
+            ((module)
+             (jazz.parse-module-declaration (%%cdr form)))
+            ((library)
+             (jazz.parse-library-declaration (%%cdr form)))))))
     
     (jazz.with-verbose jazz.parse-verbose? "parsing" filename
       (lambda ()

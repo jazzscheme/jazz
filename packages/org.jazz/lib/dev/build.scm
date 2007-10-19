@@ -143,17 +143,13 @@
              (phase #f))
     (let ((declaration (jazz.locate-toplevel-declaration module-name)))
       (proc module-name declaration load phase)
-      (cond ((eq? (%%get-lexical-binding-name declaration) module-name)
-             (if (jazz.is? declaration jazz.Module-Declaration)
-                 (for-each (lambda (require)
-                             (jazz.parse-require require iter))
-                           (%%get-module-declaration-requires declaration))
-               (for-each (lambda (require)
-                           (jazz.parse-require require iter))
-                         (%%get-library-declaration-requires declaration))))
-            (else
-             (jazz.set-catalog-entry module-name #f)
-             (error "Inconsistant module name in" module-name))))))
+      (if (jazz.is? declaration jazz.Module-Declaration)
+          (for-each (lambda (require)
+                      (jazz.parse-require require iter))
+                    (%%get-module-declaration-requires declaration))
+        (for-each (lambda (require)
+                    (jazz.parse-require require iter))
+                  (%%get-library-declaration-requires declaration))))))
 
 
 ;;;

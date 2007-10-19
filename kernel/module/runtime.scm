@@ -225,6 +225,15 @@
 
 
 ;;;
+;;;; Request
+;;;
+
+
+(define jazz.requested-module-name
+  (make-parameter #f))
+
+
+;;;
 ;;;; States
 ;;;
 
@@ -272,7 +281,8 @@
              (lambda ()
                (jazz.set-environment-module module-name jazz.Loading-State))
              (lambda ()
-               (jazz.load-source-file (jazz.determine-module-filename module-name)))
+               (parameterize ((jazz.requested-module-name module-name))
+                 (jazz.load-source-file (jazz.determine-module-filename module-name))))
              (lambda ()
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State)))))

@@ -44,8 +44,11 @@
 (define jazz.category-fields
   (%%fx+ jazz.category-name 1))
 
-(define jazz.category-ancestors
+(define jazz.category-virtual-size
   (%%fx+ jazz.category-fields 1))
+
+(define jazz.category-ancestors
+  (%%fx+ jazz.category-virtual-size 1))
 
 (define jazz.category-descendants
   (%%fx+ jazz.category-ancestors 1))
@@ -101,6 +104,14 @@
 
 (jazz.define-macro (%%set-category-fields category fields)
   `(%%object-set! ,category ,jazz.category-fields ,fields))
+
+
+(jazz.define-macro (%%get-category-virtual-size category)
+  `(%%object-ref ,category ,jazz.category-virtual-size))
+
+
+(jazz.define-macro (%%set-category-virtual-size category virtual-size)
+  `(%%object-set! ,category ,jazz.category-virtual-size ,virtual-size))
 
 
 (jazz.define-macro (%%get-category-ancestors category)

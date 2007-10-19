@@ -49,7 +49,9 @@
     (let ((form (%%source-code src)))
       (let ((name (%%source-code (%%cadr form)))
             (rest (%%cddr form)))
-        (jazz.expand-module name rest)))))
+        (if (%%neq? name (jazz.requested-module-name))
+            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+          (jazz.expand-module name rest))))))
 
 
 (define (jazz.expand-module name rest)

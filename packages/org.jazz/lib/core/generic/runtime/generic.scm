@@ -188,8 +188,7 @@
 
 
 (define (jazz.dispatch name object)
-  (or (%%class-dispatch (%%class-of object) name)
-      (jazz.error "Unable to find specific for {s} on {s}" name object)))
+  (jazz.neodispatcher name object))
 
 
 (define (jazz.class-dispatch-safe class name)

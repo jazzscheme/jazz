@@ -92,7 +92,7 @@
         ((jazz.primitive? value)
          (jazz.print value output detail))
         ((and jazz.use-print? jazz.dialect.language.Object.print)
-         (jazz.dialect.language.Object.print value output detail))
+         (jazz.neodispatch 'print value output detail))
         (else
          (jazz.write-jazz output value))))
 
@@ -137,7 +137,7 @@
     (set! jazz.write-jazz
       (lambda (port obj)
         (if (and jazz.use-print? jazz.dialect.language.Object.print)
-            (jazz.dialect.language.Object.print obj port ':reader)
+             (jazz.neodispatch 'print obj port ':reader)
           (let ((class-name (%%get-category-name (%%get-object-class obj)))
                 (serial-number (object->serial-number obj)))
             (display "#<jazz " port)

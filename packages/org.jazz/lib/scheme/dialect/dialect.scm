@@ -237,7 +237,7 @@
 
 (define (jazz.walk-%define-declaration walker resume declaration environment form)
   (jazz.bind (name specifier value parameters) (%%cdr form)
-    (%%assert (%%is? declaration jazz.Namespace-Declaration)
+    (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
             (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #f #f))))
         (let ((new-declaration (jazz.new-define-declaration name type declaration signature)))

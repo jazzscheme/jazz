@@ -126,8 +126,8 @@
   `(%%object-ref ,category ,jazz.category-descendants))
 
 
-(jazz.define-macro (%%set-category-descendants category ancestors)
-  `(%%object-set! ,category ,jazz.category-descendants ,ancestors))
+(jazz.define-macro (%%set-category-descendants category descendants)
+  `(%%object-set! ,category ,jazz.category-descendants ,descendants))
 
 
 (jazz.define-macro (%%get-class-ascendant class)

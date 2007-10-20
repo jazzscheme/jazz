@@ -207,12 +207,31 @@
 ;;;
 
 
+(define (jazz.vector-for-each proc vector)
+  (let ((len (%%vector-length vector)))
+    (let iter ((n 0))
+      (if (%%fx< n len)
+          (begin
+            (proc (%%vector-ref vector n))
+            (iter (%%fx+ n 1)))))))
+
+
+(define (jazz.vector-memq? obj vector)
+  (let ((len (%%vector-length vector)))
+    (let iter ((n 0))
+      (if (%%fx< n len)
+          (if (%%eq? (%%vector-ref vector n) obj)
+              #t
+            (iter (%%fx+ n 1)))
+        #f))))
+
+
 (define (jazz.resize-vector vector size)
   (let ((new-vector (%%make-vector size #f)))
     (let iter ((offset (- (min size (%%vector-length vector)) 1)))
-         (%%when (>= offset 0)
-           (%%vector-set! new-vector offset (%%vector-ref vector offset))
-           (iter (- offset 1))))
+      (%%when (>= offset 0)
+        (%%vector-set! new-vector offset (%%vector-ref vector offset))
+        (iter (- offset 1))))
     new-vector))
 
 

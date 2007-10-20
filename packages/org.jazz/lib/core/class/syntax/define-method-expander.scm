@@ -46,7 +46,7 @@
          (extra-parameters (%%cdr parameters))
          (implementation-name (jazz.method-implementation-name class-name name))
          (rank-name (jazz.method-rank-name implementation-name))
-         (is-test (if bootstrap-type? 'jazz.bootstrap-type? '%%is?)))
+         (is-test (if bootstrap-type? 'jazz.bootstrap-type? '%%class-is?)))
     `(define-macro (,name ,object-parameter ,@extra-parameters)
        (if (%%symbol? ,object-parameter)
            (%%list '%%core-assertion (list ',is-test ,object-parameter ',class-name) (jazz.format "{s} expected in calling {s}: {s}" ',class-name ',name ,object-parameter)

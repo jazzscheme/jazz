@@ -70,11 +70,11 @@
 
 
 (jazz.define-macro (%%subcategory? target category)
-  `(%%memq ,category (%%get-category-ancestors ,target)))
+  `(jazz.vector-memq? ,category (%%get-category-ancestors ,target)))
 
 
 (jazz.define-macro (%%subclass? target class)
-  `(%%memq ,class (%%get-category-ancestors ,target)))
+  `(jazz.vector-memq? ,class (%%get-category-ancestors ,target)))
 
 
 (jazz.define-macro (%%is? object type)
@@ -120,6 +120,20 @@
    (core-vtable        () ())
    (class-table        () ())
    (interface-table    () ())))
+
+
+(jazz.define-macro (%%class-subtype? target class)
+  (jazz.with-expression-value target
+    (lambda (trg)
+      (jazz.with-expression-value class
+        (lambda (cls)
+          `(let ((class-level (%%get-class-level ,cls)))
+             (and (%%fx>= (%%get-class-level ,trg) class-level)
+                  (%%eq? (%%vector-ref (%%get-category-ancestors ,trg) class-level) ,cls))))))))
+
+
+(jazz.define-macro (%%class-is? object class)
+  `(%%class-subtype? (%%class-of ,object) ,class))
 
 
 ;;;

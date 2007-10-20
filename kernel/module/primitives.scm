@@ -445,7 +445,12 @@
     (define-macro (%%reverse lst)
       (if jazz.debug-core?
           `(reverse ,lst)
-        `(##reverse ,lst))))
+        `(##reverse ,lst)))
+    
+    (define-macro (%%list->vector lst)
+      (if jazz.debug-core?
+          `(list->vector ,lst)
+        `(##list->vector ,lst))))
   
   (else
    (define-macro (%%memq obj lst)
@@ -652,7 +657,12 @@
    (define-macro (%%vector-copy vector . rest)
      (if jazz.debug-core?
          `(vector-copy ,vector ,@rest)
-       `(##vector-copy ,vector ,@rest))))
+       `(##vector-copy ,vector ,@rest)))
+   
+   (define-macro (%%vector->list vector)
+     (if jazz.debug-core?
+         `(vector->list ,vector)
+       `(##vector->list ,vector))))
 
   (else
    (define-macro (%%vector? obj)

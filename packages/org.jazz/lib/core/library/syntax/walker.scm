@@ -3006,9 +3006,9 @@
 
 (define (jazz.emit-inlined-primitive operator arguments environment)
   (define (operator-locator)
-    (if (%%is? operator jazz.Reference)
+    (if (%%class-is? operator jazz.Reference)
         (let ((binding (%%get-reference-binding operator)))
-          (if (%%is? binding jazz.Declaration)
+          (if (%%class-is? binding jazz.Declaration)
               (%%get-declaration-locator binding)
             #f))
       #f))
@@ -3037,7 +3037,7 @@
 
 
 (define (jazz.emit-inlined-call operator arguments environment)
-  (if (%%is? operator jazz.Reference)
+  (if (%%class-is? operator jazz.Reference)
       (let ((binding (%%get-reference-binding operator)))
         (jazz.emit-inlined-binding-call binding arguments environment))
     #f))
@@ -3342,7 +3342,7 @@
 
 (define (jazz.emit-statements statements declaration environment)
   (map (lambda (statement)
-         (if (%%is? statement jazz.Declaration)
+         (if (%%class-is? statement jazz.Declaration)
              (jazz.emit-declaration statement environment)
            (%%get-code-form (jazz.emit-expression statement declaration environment))))
        statements))
@@ -3352,7 +3352,7 @@
   (let ((last-type #f))
     (let ((emited
             (map (lambda (statement)
-                   (if (%%is? statement jazz.Declaration)
+                   (if (%%class-is? statement jazz.Declaration)
                        (jazz.emit-declaration statement environment)
                      (let ((code (jazz.emit-expression statement declaration environment)))
                        (set! last-type (%%get-code-type code))
@@ -3362,7 +3362,7 @@
 
 
 (define (jazz.fold-statement statement f k s)
-  (if (%%is? statement jazz.Declaration)
+  (if (%%class-is? statement jazz.Declaration)
       (jazz.fold-declaration statement f k s)
     (jazz.fold-expression statement f k s)))
 
@@ -3388,9 +3388,9 @@
     (%%get-lexical-binding-name sta))
   
   (define (present-expression sta)
-    (cond ((%%is? sta jazz.Constant)
+    (cond ((%%class-is? sta jazz.Constant)
            (%%get-constant-expansion sta))
-          ((%%is? sta jazz.Reference)
+          ((%%class-is? sta jazz.Reference)
            (%%get-lexical-binding-name (%%get-reference-binding sta)))
           (else
            (jazz.identifier-name (%%get-category-name (%%class-of sta))))))
@@ -3398,9 +3398,9 @@
   (pp
     (jazz.fold-statement (if (integer? statement) (jazz.serial-number->object statement) statement)
       (lambda (sta s)
-        (let ((info (cond ((%%is? sta jazz.Declaration)
+        (let ((info (cond ((%%class-is? sta jazz.Declaration)
                            (present-declaration sta))
-                          ((%%is? sta jazz.Expression)
+                          ((%%class-is? sta jazz.Expression)
                            (present-expression sta))
                           (else
                            sta))))
@@ -3746,11 +3746,11 @@
 
 (define (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)
   (let ((referenced-declaration (jazz.lookup-symbol walker environment symbol)))
-    (if (and referenced-declaration (%%is? referenced-declaration jazz.Declaration))
+    (if (and referenced-declaration (%%class-is? referenced-declaration jazz.Declaration))
         (begin
           (jazz.validate-access walker resume declaration referenced-declaration)
           (jazz.validate-compatibility walker declaration referenced-declaration)))
-    (if (%%is? referenced-declaration jazz.Autoload-Declaration)
+    (if (%%class-is? referenced-declaration jazz.Autoload-Declaration)
         (let ((library (%%get-declaration-toplevel declaration)))
           (jazz.register-autoload-declaration library referenced-declaration)))
     referenced-declaration))
@@ -4189,7 +4189,7 @@
 
 (define (jazz.locate-library-declaration module-name #!optional (error? #t))
   (let ((declaration (jazz.locate-toplevel-declaration module-name error?)))
-    (%%assert (%%is? declaration jazz.Library-Declaration)
+    (%%assert (%%class-is? declaration jazz.Library-Declaration)
       declaration)))
 
 

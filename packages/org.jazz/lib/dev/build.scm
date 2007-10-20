@@ -58,7 +58,8 @@
 
 (define (jazz.compile-library-with-flags library-name #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f))
   (let ((filename (jazz.determine-module-filename library-name)))
-    (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?)))
+    (parameterize ((jazz.requested-module-name library-name))
+      (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?))))
 
 
 (define (jazz.compile-filename-with-flags filename #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f) (source? #f))
@@ -133,7 +134,8 @@
         (let* ((filename (jazz.determine-module-filename module-name))
                (directory (jazz.split-filename filename (lambda (dir file) dir))))
           (jazz.build-bin-dir directory)
-          (jazz.compile-filename-with-flags filename))))))
+          (parameterize ((jazz.requested-module-name module-name))
+            (jazz.compile-filename-with-flags filename)))))))
 
 
 (define (jazz.for-each-submodule module-name proc)

@@ -89,43 +89,15 @@
          (error "Ill-formed type in catch, {t}" type))))
 
 
-(syntax (assign! variable value)
-  (let ((val (generate-symbol "val")))
-    `(let ((,val ,value))
-       (set! ,variable ,val)
-       ,val)))
-
-
 (syntax (~ name object)
-  (let ((obj (generate-symbol "obj")))
-    `(let ((,obj ,object))
-       (lambda rest
-         (apply (dispatch ',name ,obj) ,obj rest)))))
+  (with-expression-value object
+    (lambda (obj)
+      `(lambda rest
+         (apply (dispatcher ',name ,obj) ,obj rest)))))
 
 
 (macro (form>> form)
   `(jml->form ',form))
-
-
-#; ;; is-now-a-special-form
-(macro (form form)
-  `(begin
-     (method (get-class-forms)
-        (cons (form>> ,form) (nextmethod)))))
-
-
-#; ;; unimplemented
-(macro (jml>> form)
-  (expand-jml>>~ Form-Expander form))
-
-
-#; ;; unimplemented
-(define (expand-try expr clauses)
-  (if (null? clauses)
-      expr
-    (if (null? (cdr clauses))
-        `(catch ,(car clauses) ,expr)
-      (expand-try (expand-try expr (cdr clauses)) (list (car clauses))))))
 
 
 ;; @macro (push! x (f)) @expansion (set! x (cons x (f)))

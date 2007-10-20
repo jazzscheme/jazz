@@ -178,10 +178,10 @@
 
 
 ;;;
-;;;; NeoDispatch
+;;;; Dispatch
 ;;;
 
 
-(jazz.define-class-syntax jazz.NeoDispatch jazz.Expression (type) jazz.Object-Class jazz.allocate-neodispatch
-  ((name      %%get-neodispatch-name      ())
-   (arguments %%get-neodispatch-arguments ()))))
+(jazz.define-class-syntax jazz.Dispatch jazz.Expression (type) jazz.Object-Class jazz.allocate-dispatch
+  ((name      %%get-dispatch-name      ())
+   (arguments %%get-dispatch-arguments ()))))

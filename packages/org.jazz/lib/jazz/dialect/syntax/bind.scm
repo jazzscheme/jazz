@@ -55,9 +55,10 @@
 
 
 (define-macro (bind bindings tree . body)
-  (let ((tree-symbol (generate-symbol "tree")))
-    `(let ((,tree-symbol ,tree))
-       ,@(expand-bind-car bindings tree-symbol body))))
+  (with-expression-value tree
+    (lambda (tree-value)
+      `(begin
+         ,@(expand-bind-car bindings tree-value body)))))
 
 
 (define (expand-bind-car bindings tree body)

@@ -49,4 +49,5 @@
       (error "Not enough arguments for essay")
     (let ((tests (butlast expressions))
           (expr (last expressions)))
-      (list 'when (cons 'and tests) expr)))))
+      `(when (and ,@tests)
+         ,expr)))))

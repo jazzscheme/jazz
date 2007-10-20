@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; ECase Expansion
+;;;; Syntax Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,34 +35,24 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax.ecase scheme
+(module core.base.syntax.runtime
 
 
-(import (jazz.dialect.kernel))
+(define jazz.generate-symbol
+  (let ((unique 0))
+    (lambda rest
+      (let ((prefix (if (%%null? rest) "sym" (%%car rest)))
+            (port (open-output-string)))
+        (display "__" port)
+        (display prefix port)
+        (display unique port)
+        (set! unique (%%fx+ unique 1))
+        (%%string->symbol (get-output-string port))))))
 
 
-;; @macro (ecase target ((a) 1) ((b c) 2) (else 3))
-;; @expansion (let ((sym8 target))
-;;             (cond ((eqv? sym8 a) 1)
-;;               ((or (eqv? sym8 b) (eqv? sym8 c)) 2)
-;;               (else 3)))
-
-
-(syntax (ecase target . clauses)
-  (with-expression-value target
-    (lambda (symbol)
-      `(cond ,@(map (lambda (clause)
-                      (let ((value (car clause))
-                            (body (cdr clause)))
-                        (cond ((eq? value 'else)
-                               (cons 'else body))
-                          ((pair? value)
-                           (cons (cons 'or (map (lambda (value)
-                                                  (list 'eqv? symbol value))
-                                                value))
-                                 body))
-                          ((integer? value)
-                           (cons (list '= symbol value) body))
-                          (else
-                           (cons (list 'eqv? symbol value) body)))))
-                    clauses))))))
+(define (jazz.with-expression-value expr proc)
+  (if (symbol? expr)
+      (proc expr)
+    (let ((value (jazz.generate-symbol "val")))
+      `(let ((,value ,expr))
+         ,(proc value))))))

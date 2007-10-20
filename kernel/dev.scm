@@ -186,9 +186,10 @@
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((kind (car form))
             (rest (cdr form)))
-        (pretty-print (case kind
-                        ((module) (jazz.expand-module (car rest) (cdr rest)))
-                        ((library) (jazz.expand-library rest)))
+        (pretty-print (parameterize ((jazz.requested-module-name library-name))
+                        (case kind
+                          ((module) (jazz.expand-module (car rest) (cdr rest)))
+                          ((library) (jazz.expand-library rest))))
                       port)))))
 
 

@@ -43,7 +43,7 @@
 
 (syntax (increase! location . rest)
   (let ((increment (if (null? rest) 1 (car rest))))
-    (list 'set! location (list '+ location increment))))
+    `(set! ,location (+ ,location ,increment))))
 
 
 ;; @macro (decrease! x) @expansion (set! x (- x 1))
@@ -51,4 +51,4 @@
 
 (syntax (decrease! location . rest)
   (let ((increment (if (null? rest) 1 (car rest))))
-    (list 'set! location (list '- location increment)))))
+    `(set! ,location (- ,location ,increment)))))

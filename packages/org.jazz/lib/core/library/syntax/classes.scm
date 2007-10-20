@@ -54,7 +54,7 @@
 (jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
-(jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value environment))
+(jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 (jazz.define-virtual-syntax (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
@@ -444,7 +444,7 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.emit-parameter (jazz.Parameter parameter) environment))
+(jazz.define-virtual-syntax (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
 
 
 ;;;
@@ -579,8 +579,8 @@
   ((type %%get-expression-type ())))
 
 
-(jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression) environment))
-(jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments environment))
+(jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression) declaration environment))
+(jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments declaration environment))
 (jazz.define-virtual-syntax (jazz.fold-expression (jazz.Expression expression) f k s))
 
 

@@ -65,7 +65,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-type-expect (jazz.emit-expression value environment) (%%get-lexical-binding-type declaration) environment))))
+       ,(jazz.emit-type-expect (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) environment))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) environment)
@@ -78,10 +78,10 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value environment)
+(jazz.define-method (jazz.emit-binding-assignment (jazz.Define-Declaration declaration) value source-declaration environment)
   (let ((locator (%%get-declaration-locator declaration)))
     (jazz.new-code
-      `(set! ,locator ,(%%get-code-form (jazz.emit-expression value environment)))
+      `(set! ,locator ,(%%get-code-form (jazz.emit-expression value source-declaration environment)))
       jazz.Any)))
 
 
@@ -125,8 +125,8 @@
     (jazz.with-annotated-frame (jazz.annotate-signature signature)
       (lambda (frame)
         (let ((augmented-environment (cons frame environment)))
-          `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature augmented-environment))
-             ,@(%%get-code-form (jazz.emit-expression body augmented-environment))))))))
+          `(jazz.define-macro ,(%%cons locator (jazz.emit-signature signature declaration augmented-environment))
+             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.encapsulate-class jazz.Define-Macro-Declaration)

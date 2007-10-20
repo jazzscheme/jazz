@@ -50,25 +50,18 @@
 
 
 (define-macro (typecase target . clauses)
-  (cond ((symbol? target)
-         (expand-typecase-clauses target clauses))
-        (else
-         (let ((symbol (generate-symbol "value")))
-           (list 'let (list (list symbol target))
-                 (expand-typecase-clauses symbol clauses))))))
-  
-
-(define (expand-typecase-clauses variable clauses)
-  (cons 'cond (map (lambda (clause)
-                     (let ((value (car clause))
-                           (body (cdr clause)))
-                       (cond ((eq? value 'else)
-                              (cons 'else body))
-                             ((pair? value)
-                              (cons (cons 'or (map (lambda (value)
-                                                     (list 'is? variable value))
-                                                   value))
-                                    body))
-                             (else
-                              (cons (list 'is? variable value) body)))))
-                   clauses))))
+  (with-expression-value target
+    (lambda (variable)
+      `(cond ,@(map (lambda (clause)
+                      (let ((value (car clause))
+                            (body (cdr clause)))
+                        (cond ((eq? value 'else)
+                               `(else ,@body))
+                              ((pair? value)
+                               `((or ,@(map (lambda (value)
+                                              `(is? ,variable ,value))
+                                            value))
+                                 ,@body))
+                              (else
+                               `((is? ,variable ,value) ,@body)))))
+                    clauses))))))

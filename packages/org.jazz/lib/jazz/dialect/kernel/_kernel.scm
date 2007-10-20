@@ -389,7 +389,7 @@
 (native jazz.expand-toplevel-form)
 (native jazz.get-object-slot)
 (native jazz.update-dispatch-table)
-(native jazz.dispatch)
+(native jazz.dispatcher)
 
 
 ;;;
@@ -433,6 +433,7 @@
 
 
 (native jazz.generate-symbol)
+(native jazz.with-expression-value)
 
 
 ;;;

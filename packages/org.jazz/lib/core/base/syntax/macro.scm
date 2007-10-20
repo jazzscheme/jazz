@@ -76,24 +76,4 @@
      #;
      (jazz.register-macro ',(%%car signature)
        (lambda ,(%%cdr signature)
-         ,@body))))
-
-
-(define (jazz.with-expression-value expr proc)
-  (if (symbol? expr)
-      (proc expr)
-    (let ((value (jazz.generate-symbol "val")))
-      `(let ((,value ,expr))
-         ,(proc value)))))
-
-
-(define jazz.generate-symbol
-  (let ((unique 0))
-    (lambda rest
-      (let ((prefix (if (%%null? rest) "sym" (%%car rest)))
-            (port (open-output-string)))
-        (display "__" port)
-        (display prefix port)
-        (display unique port)
-        (set! unique (%%fx+ unique 1))
-        (%%string->symbol (get-output-string port)))))))
+         ,@body)))))

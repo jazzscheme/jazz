@@ -187,10 +187,6 @@
            previous-found))))
 
 
-(define (jazz.dispatch name object)
-  (jazz.neodispatcher name object))
-
-
 (define (jazz.class-dispatch-safe class name)
   (let ((dispatch-table (%%get-class-dispatch-table class)))
     (and dispatch-table

@@ -628,22 +628,13 @@
       (%%set-object-class object class)
       (jazz.initialize-slots object)
       ;; todo optimize initialize call and at the same time enable Object.initialize to take variable arguments
-      ;; (%%when (%%not (%%null? (%%get-generic-pending-specifics jazz.dialect.language.Object.initialize!generic)))
-      ;;  (jazz.update-generic jazz.dialect.language.Object.initialize!generic))
-      ;; (apply (%%hashtable-ref (%%get-class-dispatch-table class) 'initialize) object rest)
       (jazz.initialize-object object rest)
       object)))
 
 
 ;; the rank of initialize is known to be 0 as it is the first method of Object
 (define (jazz.initialize-object object rest)
-  (apply (%%vector-ref (%%vector-ref (%%get-class-class-table (%%get-object-class object)) 0) 0) object rest))
-
-
-(define jazz.dialect.language.Object.initialize
-  #f)
-
-(set! jazz.dialect.language.Object.initialize #f)
+  (apply (%%class-dispatch object 0 0) object rest))
 
 
 (define (jazz.iterate-descendants-tree class proc)
@@ -1374,8 +1365,6 @@
     (%%vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
     (%%vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Rational)
     (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Complex)
-    ;; super quicky untill we add structure dispatch to %%c-class-of
-    (%%vector-set! jazz.subtypes (macro-subtype-structure) jazz.Port)
     (%%vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
     (%%vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
     (%%vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)

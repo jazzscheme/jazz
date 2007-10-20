@@ -438,6 +438,13 @@
   (for-each cj JML))
 
 
+(define (btest)
+  (la)
+  (ball)
+  (blang)
+  (bexpl))
+
+
 ;;;
 ;;;; Clean
 ;;;

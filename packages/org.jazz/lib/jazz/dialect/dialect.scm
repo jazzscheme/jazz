@@ -274,26 +274,29 @@
         (ascendant-declaration (%%get-class-declaration-ascendant declaration))
         (interface-declarations (%%get-class-declaration-interfaces declaration))
         (body (%%get-namespace-declaration-body declaration)))
-    `(begin
-       ,@(if (jazz.core-class? name)
-             (let ((core-class (jazz.get-core-class name)))
-               (jazz.validate-core-class/class core-class declaration)
-               (let ((ascendant-access (if (%%not ascendant-declaration) #f (%%get-code-form (jazz.emit-binding-reference ascendant-declaration environment)))))
-                 `((define ,locator ,(%%get-category-name core-class))
-                   (begin
-                     ,@(if ascendant-access (%%list ascendant-access) '())
-                     (jazz.remove-slots ,locator)))))
-           (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
-             (let ((metaclass-access (if (%%not metaclass-declaration) 'jazz.Object-Class (%%get-code-form (jazz.emit-binding-reference metaclass-declaration environment))))
-                   (ascendant-access (if (%%not ascendant-declaration) #f (%%get-code-form (jazz.emit-binding-reference ascendant-declaration environment))))
-                   (interface-accesses (map (lambda (declaration) (%%get-code-form (jazz.emit-binding-reference declaration environment))) interface-declarations)))
-               `((define ,locator
-                   ;; this is a quicky that needs to be well tought out
-                   (if (jazz.global-variable? ',locator)
-                       (jazz.global-value ',locator)
-                     (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))))))
-       ,@(jazz.emit-statements body declaration environment)
-       (jazz.update-class ,locator))))
+    (let ((level-locator (jazz.compose-helper locator 'level)))
+      `(begin
+         ,@(if (jazz.core-class? name)
+               (let ((core-class (jazz.get-core-class name)))
+                 (jazz.validate-core-class/class core-class declaration)
+                 (let ((ascendant-access (if (%%not ascendant-declaration) #f (%%get-code-form (jazz.emit-binding-reference ascendant-declaration environment)))))
+                   `((define ,locator ,(%%get-category-name core-class))
+                     (define ,level-locator (%%get-class-level ,locator))
+                     (begin
+                       ,@(if ascendant-access (%%list ascendant-access) '())
+                       (jazz.remove-slots ,locator)))))
+             (let ((metaclass-declaration (%%get-category-declaration-metaclass declaration)))
+               (let ((metaclass-access (if (%%not metaclass-declaration) 'jazz.Object-Class (%%get-code-form (jazz.emit-binding-reference metaclass-declaration environment))))
+                     (ascendant-access (if (%%not ascendant-declaration) #f (%%get-code-form (jazz.emit-binding-reference ascendant-declaration environment))))
+                     (interface-accesses (map (lambda (declaration) (%%get-code-form (jazz.emit-binding-reference declaration environment))) interface-declarations)))
+                 `((define ,locator
+                     ;; this is a quicky that needs to be well tought out
+                     (if (jazz.global-variable? ',locator)
+                         (jazz.global-value ',locator)
+                       (jazz.new-class ,metaclass-access ',locator ,ascendant-access (%%list ,@interface-accesses))))
+                   (define ,level-locator (%%get-class-level ,locator))))))
+         ,@(jazz.emit-statements body declaration environment)
+         (jazz.update-class ,locator)))))
 
 
 (jazz.encapsulate-class jazz.Class-Declaration)
@@ -391,6 +394,7 @@
 (jazz.define-method (jazz.emit-declaration (jazz.Interface-Declaration declaration) environment)
   (let* ((name (%%get-lexical-binding-name declaration))
          (locator (%%get-declaration-locator declaration))
+         (rank-locator (jazz.compose-helper locator 'rank))
          (ascendant-declarations (%%get-interface-declaration-ascendants declaration))
          (metaclass-declaration (%%get-category-declaration-metaclass declaration))
          (metaclass-access (if (%%not metaclass-declaration) 'jazz.Interface (%%get-code-form (jazz.emit-binding-reference metaclass-declaration environment))))
@@ -399,6 +403,8 @@
     `(begin
        (define ,locator
          (jazz.new-interface ,metaclass-access ',locator (%%list ,@ascendant-accesses)))
+       (define ,rank-locator
+         (%%get-interface-rank ,locator))
        ,@(jazz.emit-statements body declaration environment)
        (jazz.update-interface ,locator))))
 
@@ -547,56 +553,6 @@
     new-declaration))
 
 
-(define (jazz.cache-dispatch object name setter)
-  (let ((class (%%class-of object)))
-    (let ((category (jazz.locate-method-owner class name)))
-      (%%assertion category (jazz.error "Unable to find method {s}" name)
-        (let ((field (%%get-category-field category name)))
-          (define (dispatch proc)
-            (case (%%get-method-dispatch-type field)
-              ((final)
-               (proc jazz.final-dispatch (%%get-method-implementation field) #f))
-              ((class)
-               (proc jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
-              ((interface)
-               (proc jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))
-          (dispatch
-            (lambda (d p q)
-              (setter d p q)
-              (d object p q))))))))
-
-
-(define (jazz.final-dispatch object implementation ignore)
-  implementation)
-
-
-(define (jazz.class-dispatch object class-level implementation-rank)
-  (%%vector-ref (%%vector-ref (%%get-class-class-table (%%class-of object)) class-level) implementation-rank))
-
-
-(define (jazz.interface-dispatch object interface-rank implementation-rank)
-  (%%vector-ref (%%vector-ref (%%get-class-interface-table (%%class-of object)) interface-rank) implementation-rank))
-
-
-(define (jazz.dispatcher name object)
-  (let ((class (%%class-of object)))
-    (let ((category (jazz.locate-method-owner class name)))
-      (%%assertion category (jazz.error "Unable to find method {s}" name)
-        (let ((field (%%get-category-field category name)))
-          (case (%%get-method-dispatch-type field)
-            ((final)
-             (%%get-method-implementation field))
-            ((class)
-             (%%vector-ref (%%vector-ref (%%get-class-class-table class) (%%get-method-category-rank field)) (%%get-method-implementation-rank field)))
-            ((interface)
-             (%%vector-ref (%%vector-ref (%%get-class-interface-table class) (%%get-method-category-rank field)) (%%get-method-implementation-rank field)))))))))
-
-
-(set! jazz.dispatch
-      (lambda (name object . rest)
-        (apply (jazz.dispatcher name object) object rest)))
-
-
 (define (jazz.method-dispatch-info declaration)
   (let ((root (%%get-method-declaration-root declaration))
         (propagation (%%get-method-declaration-propagation declaration)))
@@ -619,18 +575,19 @@
             (jazz.new-code
               (case dispatch-type
                 ((final)
-                 `(lambda rest
-                    (apply ,(%%get-declaration-locator method-declaration) ,self rest)))
+                 (let ((implementation-locator (%%get-declaration-locator method-declaration)))
+                   `(lambda rest
+                      (apply (%%final-dispatch ,self ,implementation-locator) ,self rest))))
                 ((class)
-                 (let ((class-locator (%%get-declaration-locator (%%get-declaration-parent method-declaration)))
+                 (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'level))
                        (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                    `(lambda rest
-                      (apply (%%vector-ref (%%vector-ref (%%get-class-class-table (%%class-of ,self)) (%%get-class-level ,class-locator)) ,method-rank-locator) ,self rest))))
+                      (apply (%%class-dispatch ,self ,class-level-locator ,method-rank-locator) ,self rest))))
                 ((interface)
-                 (let ((interface-locator (%%get-declaration-locator (%%get-declaration-parent method-declaration)))
+                 (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'rank))
                        (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
                    `(lambda rest
-                      (apply (%%vector-ref (%%vector-ref (%%get-class-interface-table (%%class-of ,self)) (%%get-interface-rank ,interface-locator)) ,method-rank-locator) ,self rest)))))
+                      (apply (%%interface-dispatch ,self ,interface-rank-locator ,method-rank-locator) ,self rest)))))
               jazz.Any)))
       (jazz.error "Methods can only be called directly from inside methods"))))
 
@@ -651,19 +608,20 @@
             (jazz.new-code
               (case dispatch-type
                 ((final)
-                 `(,(%%get-declaration-locator method-declaration)
-                   ,self
-                   ,@arguments))
+                 (let ((implementation-locator (%%get-declaration-locator method-declaration)))
+                   `((%%final-dispatch ,self ,implementation-locator)
+                     ,self
+                     ,@arguments)))
                 ((class)
-                 (let ((class-locator (%%get-declaration-locator (%%get-declaration-parent method-declaration)))
+                 (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'level))
                        (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-                   `((%%vector-ref (%%vector-ref (%%get-class-class-table (%%class-of ,self)) (%%get-class-level ,class-locator)) ,method-rank-locator)
+                   `((%%class-dispatch ,self ,class-level-locator ,method-rank-locator)
                      ,self
                      ,@arguments)))
                 ((interface)
-                 (let ((interface-locator (%%get-declaration-locator (%%get-declaration-parent method-declaration)))
+                 (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'rank))
                        (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-                   `((%%vector-ref (%%vector-ref (%%get-class-interface-table (%%class-of ,self)) (%%get-interface-rank ,interface-locator)) ,method-rank-locator)
+                   `((%%interface-dispatch ,self ,interface-rank-locator ,method-rank-locator)
                      ,self
                      ,@arguments))))
               (jazz.call-return-type type))))
@@ -967,6 +925,70 @@
 ;;;
 
 
+(define (jazz.cache-dispatch-interpreted object name setter)
+  (let ((class (%%class-of object)))
+    (let ((category (jazz.locate-method-owner class name)))
+      (%%assertion category (jazz.error "Unable to find method {s}" name)
+        (let ((field (%%get-category-field category name)))
+          (define (dispatch proc)
+            (case (%%get-method-dispatch-type field)
+              ((final)
+               (proc jazz.final-dispatch (%%get-method-implementation field) #f))
+              ((class)
+               (proc jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
+              ((interface)
+               (proc jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))
+          (dispatch
+            (lambda (d p q)
+              (setter d p q)
+              (d object p q))))))))
+
+
+(define (jazz.cache-dispatch-compiled object name setter)
+  (let ((class (%%class-of object)))
+    (let ((category (jazz.locate-method-owner class name)))
+      (%%assertion category (jazz.error "Unable to find method {s}" name)
+        (let ((field (%%get-category-field category name)))
+          (define (dispatch proc)
+            (case (%%get-method-dispatch-type field)
+              ((final)
+               (proc 0 jazz.final-dispatch (%%get-method-implementation field) #f))
+              ((class)
+               (proc 1 jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
+              ((interface)
+               (proc 2 jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))
+          (dispatch
+            (lambda (n d p q)
+              (setter n p q)
+              (d object p q))))))))
+
+
+(define (jazz.final-dispatch object implementation ignore)
+  (%%final-dispatch object implementation))
+
+
+(define (jazz.class-dispatch object class-level implementation-rank)
+  (%%class-dispatch object class-level implementation-rank))
+
+
+(define (jazz.interface-dispatch object interface-rank implementation-rank)
+  (%%interface-dispatch object interface-rank implementation-rank))
+
+
+(define (jazz.dispatch name object)
+  (let ((class (%%class-of object)))
+    (let ((category (jazz.locate-method-owner class name)))
+      (%%assertion category (jazz.error "Unable to find method {s}" name)
+        (let ((field (%%get-category-field category name)))
+          (case (%%get-method-dispatch-type field)
+            ((final)
+             (%%final-dispatch object (%%get-method-implementation field)))
+            ((class)
+             (%%class-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
+            ((interface)
+             (%%interface-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))))))
+
+
 (jazz.define-class jazz.Dispatch jazz.Expression (type) jazz.Object-Class
   (name
    arguments))
@@ -980,14 +1002,18 @@
   (let ((name (%%get-dispatch-name expression))
         (arguments (%%get-dispatch-arguments expression)))
     (let ((arguments-output (jazz.codes-forms (jazz.emit-expressions (%%cdr arguments) declaration environment))))
-      (let ((dv (jazz.register-variable declaration "d" 'jazz.cache-dispatch))
+      (let ((dv (jazz.register-variable declaration "d" (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
             (pv (jazz.register-variable declaration "p" `',name))
             (qv (jazz.register-variable declaration "q" #f)))
         (let ((d (%%car dv))
               (p (%%car pv))
               (q (%%car qv)))
           (%%set-cdr! qv `(lambda (d p q)
-                            (set! ,d d)
+                            (set! ,d ,(case (jazz.walk-for)
+                                        ((compile)
+                                         `(%%vector-ref dispatchers$$$ d))
+                                        (else
+                                         `d)))
                             (set! ,p p)
                             (set! ,q q)))
           (jazz.new-code

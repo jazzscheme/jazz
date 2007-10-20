@@ -502,6 +502,18 @@
                            (jazz.enqueue queue `(jazz.load-module ',(%%get-lexical-binding-name library-declaration))))))
                      (%%get-library-declaration-imports declaration))
            (jazz.queue-list queue))
+       ,@(case (jazz.walk-for)
+           ((compile)
+            `((define (final-dispatch$$$ object implementation ignore)
+                (%%final-dispatch object implementation))
+              (define (class-dispatch$$$ object class-level implementation-rank)
+                (%%class-dispatch object class-level implementation-rank))
+              (define (interface-dispatch$$$ object interface-rank implementation-rank)
+                (%%interface-dispatch object interface-rank implementation-rank))
+              (define dispatchers$$$
+                (%%vector final-dispatch$$$ class-dispatch$$$ interface-dispatch$$$))))
+           (else
+            '()))
        ,@references-expansion
        ,@literals-expansion
        ,@variables-expansion
@@ -3600,7 +3612,8 @@
       (cond ((%%pair? literal)
              `(cons ',(car literal) ',(cdr literal)))
             (else
-             (jazz.dispatch 'fold-literal literal))))))
+             ;; the rank of fold-literal is known to be 3 as it is the fourth method of Object
+             ((%%class-dispatch literal 0 3) literal))))))
 
 
 (define (jazz.make-symbolic-chars alist)

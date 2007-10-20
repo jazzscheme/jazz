@@ -93,7 +93,7 @@
   (with-expression-value object
     (lambda (obj)
       `(lambda rest
-         (apply (dispatcher ',name ,obj) ,obj rest)))))
+         (apply (dispatch ',name ,obj) ,obj rest)))))
 
 
 (macro (form>> form)

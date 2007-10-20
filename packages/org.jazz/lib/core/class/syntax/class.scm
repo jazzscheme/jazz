@@ -226,6 +226,18 @@
   `(%%object-set! ,object ,jazz.object-class ,class))
 
 
+(jazz.define-macro (%%final-dispatch object implementation)
+  implementation)
+
+
+(jazz.define-macro (%%class-dispatch object class-level implementation-rank)
+  `(%%vector-ref (%%vector-ref (%%get-class-class-table (%%class-of ,object)) ,class-level) ,implementation-rank))
+
+
+(jazz.define-macro (%%interface-dispatch object interface-rank implementation-rank)
+  `(%%vector-ref (%%vector-ref (%%get-class-interface-table (%%class-of ,object)) ,interface-rank) ,implementation-rank))
+
+
 (cond-expand
   (gambit
     (define-macro (%%c-class-of obj)

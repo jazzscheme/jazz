@@ -59,7 +59,7 @@
 
 (syntax (with-closed bindings . body)
   `(let (,@(map (lambda (binding)
-                  `(,(car binding) #f))
+                  `(,(car binding) <Object> #f))
                 bindings))
      ,@(map (lambda (binding)
               `(set! ,(car binding) ,(cadr binding)))

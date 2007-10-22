@@ -44,14 +44,17 @@
         (jazz.literals))
 
 
+(proclaim (optimize))
+
+
 (class Paragraph extends Outline-Row
 
 
-  (slot protected format initialize {} accessors generate)
-  (slot protected string <string>      accessors generate)
-  (slot protected runs                 accessors generate)
-  (slot protected lines                accessors generate)
-  (slot protected walk-state           accessors generate) ;; for SLC experiments on syntax coloring
+  (slot protected format <Format> initialize {} accessors generate)
+  (slot protected string <string>               accessors generate)
+  (slot protected runs                          accessors generate)
+  (slot protected lines                         accessors generate)
+  (slot protected walk-state                    accessors generate) ;; for SLC experiments on syntax coloring
   
   
   (method (print printer readably)
@@ -90,7 +93,7 @@
   
   (method public (compute-width)
     (let ((width (either (get-left-margin~ format) 0)))
-      (for-each (function dynamic (run)
+      (for-each (function dynamic (run <Run>)
                   (increase! width (compute-width~ run)))
                 runs)
       width))
@@ -114,7 +117,7 @@
                (new Region rect: (acquire-delta dh dv sc rect))))
             ;; end of the last line
             ((and (= rs re) (not end))
-             (let* ((line (last lines))
+             (let* ((line <Line> (last lines))
                     (beginning (get-h~ (col->view~ line re false)))
                     (right (+ left-padding (- width left))))
                (with ((rect (new Rect beginning (get-top~ line) right (get-bottom~ line)))
@@ -127,7 +130,7 @@
                    (w (+ left-padding (- width left)))
                    (region (new Region)))
                (for-each-range s e 0
-                 (function dynamic (line beginning limit)
+                 (function dynamic (line <Line> beginning limit)
                    (with-closed ((sub (range-region~ line left top w beginning (if (not end) {} limit) self dh dv sc)))
                      (combine!~ region sub 'or))))
                region)))))
@@ -249,7 +252,7 @@
   (method protected (set-text-alignment start end alignment)
     (modify-style start end
       (function dynamic (style)
-        (let ((style (extend~ style)))
+        (let ((style <Text-Style> (extend~ style)))
           (set-alignment~ style alignment)
           style))))
   
@@ -257,7 +260,7 @@
   (method protected (set-text-font start end font)
     (modify-style start end
       (function dynamic (style)
-        (let ((style (extend~ style)))
+        (let ((style <Text-Style> (extend~ style)))
           (set-font~ style font)
           style))))
   
@@ -265,7 +268,7 @@
   (method protected (set-text-color start end color)
     (modify-style start end
       (function dynamic (style)
-        (let ((style (extend~ style)))
+        (let ((style <Text-Style> (extend~ style)))
           (set-color~ style color)
           style))))
   
@@ -273,7 +276,7 @@
   (method protected (set-highlight-color start end color)
     (modify-style start end
       (function dynamic (style)
-        (let ((style (extend~ style)))
+        (let ((style <Text-Style> (extend~ style)))
           (set-highlight~ style color)
           style))))
   
@@ -282,7 +285,7 @@
     (modify-style start end
       (function dynamic (style)
         (when (supports?~ style font:)
-          (let* ((style (extend~ style))
+          (let* ((style <Text-Style> (extend~ style))
                  (font (extend-font-name~ (get-font~ style) name)))
             (set-font~ style font)
             style)))))
@@ -292,7 +295,7 @@
     (modify-style start end
       (function dynamic (style)
         (when (supports?~ style font:)
-          (let* ((style (extend~ style))
+          (let* ((style <Text-Style> (extend~ style))
                  (font (extend-point-size~ (get-font~ style) size)))
             (set-font~ style font)
             style)))))
@@ -301,7 +304,7 @@
   (method protected (toggle-bold start end)
     (modify-style start end
       (function dynamic (style)
-        (let* ((style (extend~ style))
+        (let* ((style <Text-Style> (extend~ style))
                (font (toggle-bold~ (get-font~ style))))
           (set-font~ style font)
           style))))
@@ -310,7 +313,7 @@
   (method protected (toggle-italic start end)
     (modify-style start end
       (function dynamic (style)
-        (let* ((style (extend~ style))
+        (let* ((style <Text-Style> (extend~ style))
                (font (toggle-italic~ (get-font~ style))))
           (set-font~ style font)
           style))))
@@ -319,7 +322,7 @@
   (method protected (toggle-underline start end)
     (modify-style start end
       (function dynamic (style)
-        (let* ((style (extend~ style))
+        (let* ((style <Text-Style> (extend~ style))
                (font (toggle-underline~ (get-font~ style))))
           (set-font~ style font)
           style))))
@@ -554,7 +557,7 @@
   ;;;
   
   
-  (method protected (view->col view <Point>)
+  (method protected (view->col view <Point>) <fx>
     (let ((view (new Point (- (get-h~ view) (either (get-left-margin~ format) 0)) (get-v~ view))))
       (call/ec
         (lambda (return)
@@ -566,7 +569,7 @@
           (get-length)))))
   
   
-  (method protected (col->view col)
+  (method protected (col->view col) <Point>
     (let ((last (last lines)))
       (call/ec
         (lambda (return)
@@ -578,7 +581,7 @@
                     lines)))))
   
   
-  (method protected (col->text col)
+  (method protected (col->text col) <Cell>
     (let ((last {}))
       (call/ec
         (lambda (return)
@@ -596,10 +599,10 @@
   
   
   ;; could be optimized...
-  (method protected (view->text view)
+  (method protected (view->text view) <Cell>
     (col->text (view->col view)))
   
   
   ;; could be optimized...
-  (method protected (text->view text)
+  (method protected (text->view text) <Point>
     (col->view (text->col text)))))

@@ -60,9 +60,9 @@
 (jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) subtype) #t)
 (jazz.define-virtual-syntax (jazz.category-type? (jazz.Type type)) #t)
 (jazz.define-virtual-syntax (jazz.emit-specifier (jazz.Type type)) #t)
-(jazz.define-virtual-syntax (jazz.emit-type (jazz.Type type) environment) #t)
-(jazz.define-virtual-syntax (jazz.emit-test (jazz.Type type) value environment) #t)
-(jazz.define-virtual-syntax (jazz.emit-check (jazz.Type type) value environment) #t)
+(jazz.define-virtual-syntax (jazz.emit-type (jazz.Type type) source-declaration environment) #t)
+(jazz.define-virtual-syntax (jazz.emit-test (jazz.Type type) value source-declaration environment) #t)
+(jazz.define-virtual-syntax (jazz.emit-check (jazz.Type type) value source-declaration environment) #t)
 
 
 (jazz.define-macro (%%subtype? target type)
@@ -136,6 +136,10 @@
   `(%%class-subtype? (%%class-of ,object) ,class))
 
 
+(jazz.define-macro (%%object-class? object)
+  `(%%eq? ,object jazz.Object))
+
+
 ;;;
 ;;;; Object-Class
 ;;;
@@ -196,6 +200,7 @@
 (jazz.define-class-syntax jazz.Symbol    jazz.Object   () jazz.Symbol-Class    () ())
 (jazz.define-class-syntax jazz.Keyword   jazz.Object   () jazz.Keyword-Class   () ())
 (jazz.define-class-syntax jazz.Hashtable jazz.Object   () jazz.Hashtable-Class () ())
+(jazz.define-class-syntax jazz.Promise   jazz.Object   () jazz.Promise-Class   () ())
 
 
 ;;;
@@ -269,15 +274,6 @@
    (next-node           %%get-method-node-next-node           %%set-method-node-next-node)
    (next-implementation %%get-method-node-next-implementation %%set-method-node-next-implementation)
    (children            %%get-method-node-children            %%set-method-node-children)))
-
-
-;;;
-;;;; Nil
-;;;
-
-
-(jazz.define-class-syntax jazz.Nil jazz.Object () jazz.Object-Class jazz.allocate-nil
-  ())
 
 
 ;;;

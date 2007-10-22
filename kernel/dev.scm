@@ -48,7 +48,7 @@
   (jazz.type->specifier (jazz.walk-specifier #f #f #f '() specifier)))
 
 
-(define (sbug)
+(define (sbuggy)
   (s '<fx<fx/<fx^fx:fx>/fx>^fx:fx>))
 
 

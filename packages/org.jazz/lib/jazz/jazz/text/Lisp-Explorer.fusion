@@ -45,6 +45,9 @@
         (jazz.utilities))
 
 
+(proclaim (optimize))
+
+
 ;; KINDS
 ;; - number
 ;; - boolean
@@ -104,7 +107,7 @@
   
   
   (method public (current-expr)
-    (when (and (backward-expr) (= kind 'symbol))
+    (when (and (backward-expr) (eq? kind 'symbol))
       (get-marked)))
 
   
@@ -117,8 +120,8 @@
         (when quotation?
           (forward)
           (let ((next (char-forward 0)))
-            (when (or (and (= c #\comma) (= next #\at))
-                      (and (= c #\quote) (= next #\comma)))
+            (when (or (and (eqv? c #\comma) (eqv? next #\at))
+                      (and (eqv? c #\quote) (eqv? next #\comma)))
               (forward))))
         (let ((found (if quotation?
                          (forward-expr)
@@ -134,9 +137,9 @@
     (let ((c0 (char-backward 0))
           (c1 (char-backward 1))
           (c2 (char-backward 2)))
-      (if (and (= c1 #\|) (= c0 #\sharp))
+      (if (and (eqv? c1 #\|) (eqv? c0 #\sharp))
           (backward-delimited-string)
-        (if (and (= c2 #\#) (= c1 #\\))
+        (if (and (eqv? c2 #\#) (eqv? c1 #\\))
             (backward-scheme-char)
           (let ((found (backward-simple-expr)))
             (when found
@@ -148,7 +151,7 @@
                   ((#\comma)
                    (backward)
                    (let ((prev (char-backward 0)))
-                     (when (= prev #\quote)
+                     (when (eqv? prev #\quote)
                        (backward)))
                    found)
                   ((#\at)
@@ -165,26 +168,26 @@
   (method private (forward-simple-expr)
     (let ((c (char-forward 0)))
       (when c
-        (cond ((= c #\sharp)            (forward-sharp))
-              ((string-delimiter? c)    (forward-string))
-              ((= c #\| c)              (forward-escaped-symbol))
-              ((jazz-constituent? c)    (forward-constituent))
-              ((= c #\at)               (forward-expr-comment))
-              ((= c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
-              ((= c #\open-bracket)     (forward-composite 'reference #\close-bracket))
-              ((= c #\open-brace)       (forward-composite 'literal   #\close-brace))
+        (cond ((eqv? c #\sharp)            (forward-sharp))
+              ((string-delimiter? c)       (forward-string))
+              ((eqv? c #\|)                (forward-escaped-symbol))
+              ((jazz-constituent? c)       (forward-constituent))
+              ((eqv? c #\at)               (forward-expr-comment))
+              ((eqv? c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
+              ((eqv? c #\open-bracket)     (forward-composite 'reference #\close-bracket))
+              ((eqv? c #\open-brace)       (forward-composite 'literal   #\close-brace))
               (else false)))))
 
   
   (method private (backward-simple-expr)
     (let ((c (char-backward 0)))
       (when c
-        (cond ((string-delimiter? c)     (backward-string))
-              ((= c #\|)                 (backward-escaped-symbol))
-              ((jazz-constituent? c)     (backward-constituent))
-              ((= c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
-              ((= c #\close-bracket)     (backward-composite 'reference #\open-bracket))
-              ((= c #\close-brace)       (backward-composite 'literal   #\open-brace))
+        (cond ((string-delimiter? c)        (backward-string))
+              ((eqv? c #\|)                 (backward-escaped-symbol))
+              ((jazz-constituent? c)        (backward-constituent))
+              ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
+              ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
+              ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
               (else false)))))
 
   
@@ -203,17 +206,17 @@
 
   
   (method private (forward-constituent)
-    (let ((keyword? (= (char-forward 0) #\colon))
+    (let ((keyword? (eqv? (char-forward 0) #\colon))
           (last {}))
       (call/ec
         (lambda (return)
           (while true
             (let ((c (char-forward 0)))
-              (cond ((= c #\backslash)
+              (cond ((eqv? c #\backslash)
                      (forward)
                      (forward))
                     ((or (not c) (not (jazz-constituent? c)))
-                     (set! kind (if (or keyword? (and last (= last #\colon))) 'keyword 'symbol))
+                     (set! kind (if (or keyword? (and last (eqv? last #\colon))) 'keyword 'symbol))
                      (return kind))
                     (else
                      (forward)))
@@ -222,17 +225,17 @@
 
   
   (method private (backward-constituent)
-    (let ((keyword? (= (char-backward 0) #\colon))
+    (let ((keyword? (eqv? (char-backward 0) #\colon))
           (last (unspecified)))
       (call/ec
         (lambda (return)
           (while true
             (let ((c (char-backward 0)))
-              (cond ((= (char-backward 1) #\backslash)
+              (cond ((eqv? (char-backward 1) #\backslash)
                      (backward)
                      (backward))
                     ((or (not c) (not (jazz-constituent? c)))
-                     (set! kind (if (or keyword? (= last #\colon)) 'keyword 'symbol))
+                     (set! kind (if (or keyword? (eqv? last #\colon)) 'keyword 'symbol))
                      (return kind))
                     (else
                      (backward)))
@@ -248,10 +251,10 @@
           (let ((c (char-backward 0)))
             (if (not c)
                 (return false)
-              (cond ((= (char-backward 1) #\backslash)
+              (cond ((eqv? (char-backward 1) #\backslash)
                      (backward)
                      (backward))
-                    ((= c #\|)
+                    ((eqv? c #\|)
                      (backward)
                      (set! kind 'symbol)
                      (return kind))
@@ -290,13 +293,13 @@
              (forward)
              (set! kind 'boolean)
              kind)
-            ((= c0 #\|)
+            ((eqv? c0 #\|)
              (forward-delimited-string))
-            ((and (= c0 #\<) (= c1 #\<))
+            ((and (eqv? c0 #\<) (eqv? c1 #\<))
              (forward-named-string))
-            ((= c0 #\\)
+            ((eqv? c0 #\\)
              (forward-scheme-char))
-            ((= c0 #\;)
+            ((eqv? c0 #\;)
              (forward-scheme-comment))
             (else
              (forward-constituent)))))
@@ -310,10 +313,10 @@
           (let ((c (char-forward 0)))
             (if (not c)
                 (return false)
-              (cond ((= c #\\)
+              (cond ((eqv? c #\\)
                      (forward)
                      (forward))
-                    ((= c #\|)
+                    ((eqv? c #\|)
                      (forward)
                      (return 'symbol))
                     (else
@@ -330,7 +333,7 @@
                 (c1 (char-forward 1)))
             (cond ((or (not c0) (not c1))
                    (return false))
-                  ((and (= c0 #\|) (= c1 #\sharp))
+                  ((and (eqv? c0 #\|) (eqv? c1 #\sharp))
                    (forward)
                    (forward)
                    (set! kind 'delimited-string)
@@ -369,7 +372,7 @@
           (lambda (return)
             (while true
               (let ((c (char-forward 0)))
-                (cond ((= c #\eof)
+                (cond ((eqv? c #\eof)
                        (return false))
                       ((not (jazz-constituent? c))
                        (set! kind 'char)
@@ -387,7 +390,7 @@
           (let ((c (char-forward 0)))
             (cond ((not c)
                    (return false))
-                  ((= c #\backslash)
+                  ((eqv? c #\backslash)
                    (forward)
                    (forward))
                   ((string-delimiter? c)
@@ -409,7 +412,7 @@
                 (c1 (char-backward 1)))
             (cond ((or (not c0) (not c1))
                    (return false))
-                  ((and (= c0 #\|) (= c1 #\sharp))
+                  ((and (eqv? c0 #\|) (eqv? c1 #\sharp))
                    (backward)
                    (backward)
                    (set! kind 'delimited-string)
@@ -427,7 +430,7 @@
           (let ((c (char-backward 0)))
             (cond ((not c)
                    (return false))
-                  ((= (char-backward 1) #\backslash)
+                  ((eqv? (char-backward 1) #\backslash)
                    (backward)
                    (backward))
                   ((string-delimiter? c)
@@ -468,7 +471,7 @@
   
   (method public (enter-list)
     (forward-whites)
-    (when (= (char-forward 0) #\open-parenthesis)
+    (when (eqv? (char-forward 0) #\open-parenthesis)
       (forward)
       true))
   
@@ -476,7 +479,7 @@
   (method public (exit-list)
     (forward-all-expr)
     (forward-whites)
-    (when (= (char-forward 0) #\close-parenthesis)
+    (when (eqv? (char-forward 0) #\close-parenthesis)
       (forward)
       true))
   
@@ -487,32 +490,32 @@
       (forward-whites)
       (let ((c0 (char-forward 0))
             (c1 (char-forward 1)))
-        (cond ((and (= c0 #\comma) (= c1 #\at))
+        (cond ((and (eqv? c0 #\comma) (eqv? c1 #\at))
                (forward)
                (forward)
                (set! kind 'unquote-splicing)
                true)
-              ((= c0 #\comma)
+              ((eqv? c0 #\comma)
                (forward)
                (set! kind 'unquote)
                true)
-              ((= c0 #\quote)
+              ((eqv? c0 #\quote)
                (forward)
                (set! kind 'quote)
                true)
-              ((= c0 #\backquote)
+              ((eqv? c0 #\backquote)
                (forward)
                (set! kind 'quasiquote)
                true)
-              ((= c0 #\open-parenthesis)
+              ((eqv? c0 #\open-parenthesis)
                (forward)
                (set! kind 'list)
                true)
-              ((= c0 #\open-bracket)
+              ((eqv? c0 #\open-bracket)
                (forward)
                (set! kind 'reference)
                true)
-              ((= c0 #\open-brace)
+              ((eqv? c0 #\open-brace)
                (forward)
                (set! kind 'literal)
                true)
@@ -529,11 +532,11 @@
       true))
   
   
-  (method public (skip-forward name <Object>)
+  (method public (skip-forward name <string>)
     (and (forward-expr) (= (get-marked) name)))
   
   
-  (method public (skip-backward name <Object>)
+  (method public (skip-backward name <string>)
     (and (backward-expr) (= (get-marked) name)))
   
   
@@ -542,11 +545,11 @@
           (meta? false)
           (symbol {}))
       (let (iterate)
-        (when (and (forward-expr) (= kind 'symbol))
+        (when (and (forward-expr) (eq? kind 'symbol))
            (set! symbol (find-marked-symbol))
            (when (memq? symbol (get-modifiers))
              (set! old (copy end))
-             (when (= symbol 'meta)
+             (when (eq? symbol 'meta)
                (set! meta? true))
              (iterate))))
       (set! end old)
@@ -567,8 +570,8 @@
         (let ((done? false))
           (while (not done?)
             (let ((c (char-forward 0)))
-              (if (and c (or (whitespace? c) (= c #\semi-colon)))
-                  (if (= c #\semi-colon)
+              (if (and c (or (whitespace? c) (eqv? c #\semi-colon)))
+                  (if (eqv? c #\semi-colon)
                       (forward-comments)
                     (when (not (forward))
                       (return)))
@@ -608,18 +611,18 @@
                 (when (and (= (get-row~ end) start-row) (< (get-col~ end) start-col))
                   (let ((c0 (char-forward 0))
                         (c1 (char-forward 1)))
-                    (cond ((= c0 #\")
+                    (cond ((eqv? c0 #\")
                            (forward-string)
                            (iterate))
-                          ((and (= c0 #\#) (= c1 #\|))
+                          ((and (eqv? c0 #\#) (eqv? c1 #\|))
                            (forward)
                            (forward-delimited-string)
                            (iterate))
-                          ((and (= c0 #\#) (= c1 #\\))
+                          ((and (eqv? c0 #\#) (eqv? c1 #\\))
                            (forward)
                            (forward-scheme-char)
                            (iterate))
-                          ((= c0 #\;)
+                          ((eqv? c0 #\;)
                            (get-col~ end))
                           (else
                            (forward)
@@ -657,8 +660,8 @@
 
 
   (method (outer-expr (composite?: composite? true) (outer-composite?: outer-composite? true))
-    (let ((s (copy start))
-          (e (copy end))
+    (let ((s <Cell> (copy start))
+          (e <Cell> (copy end))
           (prv (previous-char start 0))
           (nxt (next-char end 0)))
       (cond ((and composite? prv (= s e) (or (close-composite? prv) (and (string-delimiter? prv) (or (not nxt) (not (jazz-constituent? nxt))))))
@@ -676,12 +679,12 @@
                          @see-further-comment
                          (e (get-char e)))
                     (or (jazz-constituent? s)
-                        (and (= prv #\comma) (= s #\at))
-                        (and (= prv #\quote) (= s #\comma))
+                        (and (eqv? prv #\comma) (eqv? s #\at))
+                        (and (eqv? prv #\quote) (eqv? s #\comma))
                         (and (open-composite? s) @why-did-i-do-this-buggy-test? (close-composite? e)))))
              (set-start (previous-pos start 1))
              true)
-            ((and composite? (= prv #\double-quote) (= nxt #\double-quote))
+            ((and composite? (eqv? prv #\double-quote) (eqv? nxt #\double-quote))
              (set-start (previous-pos start 1))
              (set-end (next-pos end 1))
              true)
@@ -705,7 +708,7 @@
                           (let ((pc (previous-char start 0))
                                 (nc (next-char end 0)))
                             (when (and (open-composite? pc)
-                                       (= nc (cdr (assq pc Composites))))
+                                       (eqv? nc (cdr (assq pc Composites))))
                               (backward)
                               (forward)
                               skipped)))))))))))
@@ -716,10 +719,10 @@
           (e (copy end)))
       (set-end start)
       (prog1
-          (when (= (next-char end 0) #\open-parenthesis)
+          (when (eqv? (next-char end 0) #\open-parenthesis)
             (enter-list)
             (forward-expr)
-            (when (= kind 'symbol)
+            (when (eq? kind 'symbol)
               (find-marked-symbol)))
         (set-start s)
         (set-end e))))
@@ -765,7 +768,7 @@
       (enter-list)
       (forward-expr)
       (let* ((type (find-marked-symbol))
-             (package? (= type 'package))
+             (package? (eq? type 'package))
              (meta? (forward-modifiers)))
         (cond ((memq? type '(external winexternal intrinsic))
                (forward-expr)
@@ -773,7 +776,7 @@
               ((memq? type '(generic specific coexternal comethod javaexternal javamethod))
                (forward-expr)))
         (forward-whites)
-        (if (= (char-forward 0) #\open-parenthesis)
+        (if (eqv? (char-forward 0) #\open-parenthesis)
             (begin
               (enter-list)
               (forward-expr))
@@ -799,7 +802,7 @@
     ;; to detect that a later set! should change the type
     ;; from the implicitly deduced List to Object.
     (let ((previous-row {}))
-      (for-each (function dynamic (pos)
+      (for-each (function dynamic (pos <Cell>)
                   (let ((row (get-row~ pos))
                         (col (get-col~ pos)))
                     (when (or (not previous-row) (/= row previous-row))
@@ -858,11 +861,11 @@
   (method (for-each-expression proc mode)
     (proc mode)
     (when (enter-composite)
-      (cond ((= kind 'list)
+      (cond ((eq? kind 'list)
              (for-each-forms proc mode)
              (exit-list))
             ((composite-kind? kind)
-             (let ((mode (if (= kind 'literal) 'quotation mode)))
+             (let ((mode (if (eq? kind 'literal) 'quotation mode)))
                (for-each-expressions proc mode))
              (exit-composite))
             (else
@@ -878,10 +881,10 @@
   (method (for-each-forms proc mode)
     (forward-expr)
     (when kind
-      (let ((mode (if (and (= kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
+      (let ((mode (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) Quotation-Forms)
                            ;; a patch until the explorer has better code understanding
                            (or (/= (intern-marked-symbol) 'form)
-                               (= (char-forward 0) #\newline)))
+                               (eqv? (char-forward 0) #\newline)))
                       'quotation
                     mode)))
         (for-each-expression proc mode)
@@ -896,7 +899,7 @@
   
   (method (walk-expression context expression mode first?)
     (expression context start end mode
-      (if (and (= kind 'symbol) (specifier-marked?))
+      (if (and (eq? kind 'symbol) (specifier-marked?))
           (if first?
               'tag
             'specifier)
@@ -912,9 +915,9 @@
   
   
   (method (specifier-marked?)
-    (and (= kind 'symbol)
-         (= (get-char start) #\<)
-         (= (get-char (- end 1)) #\>)))
+    (and (eq? kind 'symbol)
+         (eqv? (get-char start) #\<)
+         (eqv? (get-char (- end 1)) #\>)))
   
 
   ;;;
@@ -998,7 +1001,7 @@
   
   (method (pattern-variable? expression)
     (and (symbol? expression)
-         (= #\? (element (symbol->string expression) 0))))
+         (eqv? #\? (element (symbol->string expression) 0))))
   
   
   (method (parse-pattern-variable variable)
@@ -1027,6 +1030,6 @@
 
 
   (method (composites-match? start end)
-    (or (and (= start #\open-parenthesis) (= end #\close-parenthesis))
-        (and (= start #\open-bracket)     (= end #\close-bracket))
-        (and (= start #\open-brace)       (= end #\close-brace))))))
+    (or (and (eqv? start #\open-parenthesis) (eqv? end #\close-parenthesis))
+        (and (eqv? start #\open-bracket)     (eqv? end #\close-bracket))
+        (and (eqv? start #\open-brace)       (eqv? end #\close-brace))))))

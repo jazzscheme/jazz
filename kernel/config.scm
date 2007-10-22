@@ -61,7 +61,7 @@
 
 
 (define jazz.warnings?
-  #t)
+  #f)
 
 
 ;;;
@@ -71,7 +71,7 @@
 
 ;; Print Jazz objects by calling their print method?
 (define jazz.use-print?
-  #f)
+  #t)
 
 ;; Usefull to debug a recursive error occuring inside a print method
 (define jazz.debug-print?
@@ -86,7 +86,9 @@
 (cond-expand
   (core
     (define jazz.compile-options
-      '(debug)))
+      ;; a try to speed up compile times
+      ;; '(debug)
+      '()))
   (debug
     (define jazz.compile-options
       '(debug)))

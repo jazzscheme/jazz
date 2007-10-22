@@ -38,21 +38,14 @@
 (library jazz.dialect.language jazz.dialect
 
 
+(proclaim (optimize))
+
+
 (definition false
   #f)
 
 (definition true
   #t)
-
-
-@w (
-
-
-(class Object metaclass Object-Class
-  
-  
-  (method chained (initialize . rest)
-    )))
 
 
 ;;;
@@ -218,23 +211,23 @@
     (error "{t} is not an alphabetic type" self)))
 
 
-(definition public (compare a b)
+(definition public (compare a <Object> b <Object>)
   (if (eqv? a b)
       :equal
     (compare-object~ a b)))
 
 
-(definition public (ci-compare a b)
+(definition public (ci-compare a <Object> b <Object>)
   (if (eqv? a b)
       :equal
     (ci-compare-object~ a b)))
 
 
-(definition public (copy obj (deep? false))
+(definition public (copy obj <Object> (deep? false))
   (copy-object~ obj deep?))
 
 
-(definition public (subcopy obj deep?)
+(definition public (subcopy obj <Object> deep? <bool>)
   (if deep?
       (copy obj deep?)
     obj))
@@ -244,7 +237,7 @@
   (error "Scheme primitives must be used to create {a}" name))
 
 
-(definition (=-hash obj)
+(definition (=-hash obj <Object>)
   (hash-object~ obj))
 
 
@@ -277,7 +270,7 @@
   #f)
 
 
-(definition (call-destroy obj)
+(definition (call-destroy obj <Object>)
   (destroy~ obj)
   (set-was-destroyed obj))
 
@@ -348,7 +341,7 @@
   (is? obj Class))
 
 
-(definition public inline (coerce object class)
+(definition public inline (coerce object <Object> class <Class>)
   (coerce-object~ class object))
 
 
@@ -958,18 +951,6 @@
 
 
 ;;;
-;;;; Nil
-;;;
-
-
-(class Nil extends Object
-  
-  
-  (method (print output detail)
-    (display "{}" output)))
-
-
-;;;
 ;;;; Port
 ;;;
 
@@ -1276,17 +1257,18 @@
     (- x)))
 
 
-(definition public (generic-add n rest)
+(definition public (generic-add n <Numeric> rest)
   (let (iterate (result n) (rest rest))
     (if (null? rest)
         result
       (iterate (add~ result (car rest)) (cdr rest)))))
 
 
-(definition public (generic-substract n rest)
+(definition public (generic-substract n <Numeric> rest)
   (if (null? rest)
       (negate~ n)
-    (+ n (negate~ (apply + rest)))))
+    (let ((r <Numeric> (apply + rest)))
+      (+ n (negate~ r)))))
 
 
 (definition public (+ . rest)
@@ -1350,7 +1332,7 @@
   (and (>= n lower) (< n upper)))
 
 
-(definition public (norm x)
+(definition public (norm x <Numeric>)
   (norm~ x))
 
 
@@ -1576,7 +1558,7 @@
     ))
 
 
-(definition public inline (iterate obj)
+(definition public inline (iterate obj <Object>) <Iterator>
   (iterate-object~ obj))
 
 
@@ -1725,7 +1707,7 @@
   (method (coerce-object seq)
     ;; add List optimisation
     (let ((len (length seq)))
-      (let ((new-sequence (allocate-sequence~ self len)))
+      (let ((new-sequence (allocate-sequence len)))
         (loop (for n from 0 below len)
               (set-element! new-sequence n (element seq n)))
         new-sequence)))
@@ -1895,7 +1877,8 @@
 
 (definition (subseq seq start (end {}) (type {}))
   (let* ((len (- (either end (length seq)) start))
-         (sub (allocate-sequence~ (either type (class-of seq)) len))
+         (cls <Sequence-Class> (either type (class-of seq)))
+         (sub (allocate-sequence~ cls len))
          (i 0)
          (j start))
     (while (< i len)
@@ -2074,7 +2057,7 @@
       (find-list target seq key test (either start 0) return)
     (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
         (find-string target seq)
-      (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
+      (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
         (when start
           (set-position~ iter start))
         (call/ec
@@ -2091,7 +2074,7 @@
 
 
 (definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? false) (return: return 'item))
-  (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq)))
+  (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq)))
         (count 0))
     (when start
       (set-position~ iter start))
@@ -2124,7 +2107,7 @@
       (find-if-list predicate seq key (either start 0) return)
     (call/ec
       (lambda (exit)
-        (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
+        (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
           (when start
             (set-position~ iter start))
           (with ((proc <procedure>
@@ -2145,7 +2128,7 @@
         (find-string target seq)
       (call/ec
         (lambda (exit)
-          (let ((iter (if reversed? (explore seq direction: 'backward) (iterate seq))))
+          (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
             (when start
               (set-position~ iter start))
             (with ((proc <procedure>
@@ -3551,27 +3534,6 @@
 
 
 ;;;
-;;;; Pathname
-;;;
-
-
-(definition public (pathname= x y)
-  (compare-pathname~ x y))
-
-
-(definition public (pathname-exists? pathname)
-  (file-exists? (parse~ pathname)))
-
-
-(definition public (pathname-delete pathname)
-  (file-delete (parse~ pathname)))
-
-
-(definition public (pathname-last-modification-time pathname)
-  (file-last-modification-time (parse~ pathname)))
-
-
-;;;
 ;;;; Process
 ;;;
 
@@ -3953,7 +3915,7 @@
     (make-string len))
   
   
-  (method (coerce-object obj)
+  (method (coerce-object obj <Object>)
     (if (sequence? obj)
         (nextmethod obj)
       (coerce-string~ obj))))
@@ -4652,11 +4614,11 @@
 (class Format-Processor extends Object
   
   
-  (slot out)
-  (slot control-string)
-  (slot control-reader)
-  (slot arguments)
-  (slot arguments-iterator)
+  (slot out                <Printer>)
+  (slot control-string     <string>)
+  (slot control-reader     <String-Reader>)
+  (slot arguments          <list>)
+  (slot arguments-iterator <List-Iterator>)
   (slot formatter)
   
   
@@ -4763,7 +4725,7 @@
           (done? false))
       (while (not done?)
         (let ((c (require-char reader)))
-          (if (and (= c #\~) (= (peek-char reader) #\}))
+          (if (and (eqv? c #\~) (= (peek-char reader) #\}))
               (begin
                 (read-char reader)
                 (set! done? true))

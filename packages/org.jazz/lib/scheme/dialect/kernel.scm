@@ -53,9 +53,9 @@
 ;;;
 
 
-(native eq? <any^any:bool>)
-(native eqv? <any^any:bool>)
-(native equal? <any^any:bool>)
+(native eq? <object^object:bool>)
+(native eqv? <object^object:bool>)
+(native equal? <object^object:bool>)
 
 
 ;;;
@@ -68,60 +68,60 @@
 ;;;
 
 
-(native number? <any:bool>)
-(native complex? <any:bool>)
-(native real? <any:bool>)
-(native rational? <any:bool>)
-(native integer? <any:bool>)
-(native exact? <any:bool>)
-(native inexact? <any:bool>)
-(native = <:bool>)
-(native < <:bool>)
-(native > <:bool>)
-(native <= <:bool>)
-(native >= <:bool>)
-(native zero? <any:bool>)
-(native positive? <any:bool>)
-(native negative? <any:bool>)
-(native odd? <any:bool>)
-(native even? <any:bool>)
-(native max <:number>)
-(native min <:number>)
-(native + <:number>)
-(native * <:number>)
-(native - <:number>)
-(native / <:number>)
-(native abs <:number>)
-(native quotient <:number>)
-(native remainder <:number>)
-(native modulo <:number>)
-(native gcd <:number>)
-(native lcm <:number>)
-(native numerator <:number>)
-(native denominator <:number>)
-(native floor <:number>)
-(native ceiling <:number>)
-(native truncate <:number>)
-(native round <:number>)
-(native rationalize <:number>)
-(native exp <:number>)
-(native log <:number>)
-(native sin <:number>)
-(native cos <:number>)
-(native tan <:number>)
-(native asin <:number>)
-(native acos <:number>)
-(native atan <:number>)
-(native sqrt <:number>)
-(native expt <:number>)
-(native make-rectangular <:number>)
-(native make-polar <:number>)
-(native real-part <:number>)
-(native imag-part <:number>)
-(native magnitude <:number>)
-(native angle <:number>)
-(native exact->inexact <:number>)
-(native inexact->exact <:number>)
+(native number? <object:bool>)
+(native complex? <object:bool>)
+(native real? <object:bool>)
+(native rational? <object:bool>)
+(native integer? <object:bool>)
+(native exact? <object:bool>)
+(native inexact? <object:bool>)
+(native = <number*:bool>)
+(native < <number*:bool>)
+(native > <number*:bool>)
+(native <= <number*:bool>)
+(native >= <number*:bool>)
+(native zero? <object:bool>)
+(native positive? <object:bool>)
+(native negative? <object:bool>)
+(native odd? <object:bool>)
+(native even? <object:bool>)
+(native max <number*:number>)
+(native min <number*:number>)
+(native + <number*:number>)
+(native * <number*:number>)
+(native - <number*:number>)
+(native / <number*:number>)
+(native abs <number:number>)
+(native quotient <number^number:number>)
+(native remainder <number^number:number>)
+(native modulo <number^number:number>)
+(native gcd <number*:number>)
+(native lcm <number*:number>)
+(native numerator <rational:number>)
+(native denominator <rational:number>)
+(native floor <number:number>)
+(native ceiling <number:number>)
+(native truncate <number:number>)
+(native round <number:number>)
+(native rationalize <number^number:number>)
+(native exp <number:number>)
+(native log <number:number>)
+(native sin <number:number>)
+(native cos <number:number>)
+(native tan <number:number>)
+(native asin <number:number>)
+(native acos <number:number>)
+(native atan <number^opt<number>:number>)
+(native sqrt <number:number>)
+(native expt <number^number:number>)
+(native make-rectangular <number^number:number>)
+(native make-polar <number^number:number>)
+(native real-part <number:number>)
+(native imag-part <number:number>)
+(native magnitude <number:number>)
+(native angle <number:number>)
+(native exact->inexact <number:number>)
+(native inexact->exact <number:number>)
 
 
 ;;;
@@ -143,8 +143,8 @@
 ;;;
 
 
-(native not <any:bool>)
-(native boolean? <any:bool>)
+(native not <object:bool>)
+(native boolean? <object:bool>)
 
 
 ;;;
@@ -152,48 +152,48 @@
 ;;;
 
 
-(native pair? <any:bool>)
-(native cons <any^any:pair>)
-(native car <pair:any>)
-(native cdr <pair:any>)
+(native pair? <object:bool>)
+(native cons <object^object:pair>)
+(native car <pair:object>)
+(native cdr <pair:object>)
 (native set-car! <pair:void>)
 (native set-cdr! <pair:void>)
-(native caar <pair:any>)
-(native cadr <pair:any>)
-(native cdar <pair:any>)
-(native cddr <pair:any>)
-(native caaar <pair:any>)
-(native caadr <pair:any>)
-(native cadar <pair:any>)
-(native caddr <pair:any>)
-(native cdaar <pair:any>)
-(native cdadr <pair:any>)
-(native cddar <pair:any>)
-(native cdddr <pair:any>)
-(native caaaar <pair:any>)
-(native caaadr <pair:any>)
-(native caadar <pair:any>)
-(native caaddr <pair:any>)
-(native cadaar <pair:any>)
-(native cadadr <pair:any>)
-(native caddar <pair:any>)
-(native cadddr <pair:any>)
-(native cdaaar <pair:any>)
-(native cdaadr <pair:any>)
-(native cdadar <pair:any>)
-(native cdaddr <pair:any>)
-(native cddaar <pair:any>)
-(native cddadr <pair:any>)
-(native cdddar <pair:any>)
-(native cddddr <pair:any>)
-(native null? <any:bool>)
-(native list? <any:bool>)
-(native list <:list>)
+(native caar <pair:object>)
+(native cadr <pair:object>)
+(native cdar <pair:object>)
+(native cddr <pair:object>)
+(native caaar <pair:object>)
+(native caadr <pair:object>)
+(native cadar <pair:object>)
+(native caddr <pair:object>)
+(native cdaar <pair:object>)
+(native cdadr <pair:object>)
+(native cddar <pair:object>)
+(native cdddr <pair:object>)
+(native caaaar <pair:object>)
+(native caaadr <pair:object>)
+(native caadar <pair:object>)
+(native caaddr <pair:object>)
+(native cadaar <pair:object>)
+(native cadadr <pair:object>)
+(native caddar <pair:object>)
+(native cadddr <pair:object>)
+(native cdaaar <pair:object>)
+(native cdaadr <pair:object>)
+(native cdadar <pair:object>)
+(native cdaddr <pair:object>)
+(native cddaar <pair:object>)
+(native cddadr <pair:object>)
+(native cdddar <pair:object>)
+(native cddddr <pair:object>)
+(native null? <object:bool>)
+(native list? <object:bool>)
+(native list <object*:list>)
 (native length <list:int>)
-(native append <:list>)
+(native append <list*:list>)
 (native reverse <list:list>)
 (native list-tail <list:list>)
-(native list-ref <list:any>)
+(native list-ref <list:object>)
 (native memq <list:list+>)
 (native memv <list:list+>)
 (native member <list:list+>)
@@ -207,7 +207,7 @@
 ;;;
 
 
-(native symbol? <any:bool>)
+(native symbol? <object:bool>)
 (native symbol->string <symbol:string>)
 (native string->symbol <string:symbol>)
 
@@ -217,7 +217,7 @@
 ;;;
 
 
-(native char? <any:bool>)
+(native char? <object:bool>)
 (native char=? <char^char:bool>)
 (native char<? <char^char:bool>)
 (native char>? <char^char:bool>)
@@ -244,9 +244,9 @@
 ;;;
 
 
-(native string? <any:bool>)
-(native make-string <:string>)
-(native string <:string>)
+(native string? <object:bool>)
+(native make-string <int^opt<char>:string>)
+(native string <char*:string>)
 (native string-length <string:int>)
 (native string-ref <string^int:char>)
 (native string-set! <string^int^char:void>)
@@ -261,7 +261,7 @@
 (native string-ci<=? <string^string:bool>)
 (native string-ci>=? <string^string:bool>)
 (native substring <string^int^int:string>)
-(native string-append <:string>)
+(native string-append <string*:string>)
 (native string->list <string:list>)
 (native list->string <list:string>)
 (native string-copy <string:string>)
@@ -273,15 +273,15 @@
 ;;;
 
 
-(native vector? <any:bool>)
-(native make-vector <:vector>)
-(native vector <:vector>)
+(native vector? <object:bool>)
+(native make-vector <int^opt<object>:vector>)
+(native vector <object*:vector>)
 (native vector-length <vector:int>)
-(native vector-ref <vector^int:any>)
-(native vector-set! <vector^int^any:void>)
+(native vector-ref <vector^int:object>)
+(native vector-set! <vector^int^object:void>)
 (native vector->list <vector:list>)
 (native list->vector <list:vector>)
-(native vector-fill! <vector^any:void>)
+(native vector-fill! <vector^object:void>)
 
 
 ;;;
@@ -289,16 +289,16 @@
 ;;;
 
 
-(native procedure? <any:bool>)
-(native apply <:any>)
-(native map <:list>)
-(native for-each <:void>)
-(native force <:any>)
-(native call-with-current-continuation <:any>)
-(native call/cc <:any>)
-(native values <:any>)
-(native call-with-values <:any>)
-(native dynamic-wind <:any>)
+(native procedure? <object:bool>)
+(native apply <procedure^object*:object>)
+(native map <list^list*:list>)
+(native for-each <list^list*:void>)
+(native force <promise:object>)
+(native call-with-current-continuation <procedure:object>)
+(native call/cc <procedure:object>)
+(native values <object*:object>)
+(native call-with-values <procedure^procedure:object>)
+(native dynamic-wind <procedure^procedure^procedure:object>)
 
 
 ;;;
@@ -306,10 +306,10 @@
 ;;;
 
 
-(native eval <:any>)
-(native scheme-replace-report-environment <:any>)
-(native null-environment <:any>)
-(native interaction-environment <:any>)
+(native eval <object^object:object>)
+(native scheme-replace-report-environment <object:object>)
+(native null-environment <object:object>)
+(native interaction-environment <:object>)
 
 
 ;;;
@@ -322,18 +322,18 @@
 ;;;
 
 
-(native call-with-input-file <:any>)
-(native call-with-output-file <:any>)
-(native input-port? <:bool>)
-(native output-port? <:bool>)
+(native call-with-input-file <string^procedure:object>)
+(native call-with-output-file <string^procedure:object>)
+(native input-port? <object:bool>)
+(native output-port? <object:bool>)
 (native current-input-port <:port>)
 (native current-output-port <:port>)
-(native with-input-from-file <:any>)
-(native with-output-to-file <:any>)
-(native open-input-file <:port>)
-(native open-output-file <:port>)
-(native close-input-port <:void>)
-(native close-output-port <:void>)
+(native with-input-from-file <string^procedure:object>)
+(native with-output-to-file <string^procedure:object>)
+(native open-input-file <string:port>)
+(native open-output-file <string:port>)
+(native close-input-port <port:void>)
+(native close-output-port <port:void>)
 
 
 ;;;
@@ -341,11 +341,11 @@
 ;;;
 
 
-(native read <:any>)
-(native read-char <:any>)
-(native peek-char <:any>)
-(native eof-object? <:bool>)
-(native char-ready? <:bool>)
+(native read <opt<port>:object>)
+(native read-char <opt<port>:object>)
+(native peek-char <opt<port>:object>)
+(native eof-object? <object:bool>)
+(native char-ready? <opt<port>:bool>)
 
 
 ;;;
@@ -353,10 +353,10 @@
 ;;;
 
 
-(native write <:void>)
-(native display <:void>)
-(native newline <:void>)
-(native write-char <:void>)
-(native load <:void>)
-(native transcript-on <:void>)
+(native write <object^opt<port>:void>)
+(native display <object^opt<port>:void>)
+(native newline <opt<port>:void>)
+(native write-char <char^opt<port>:void>)
+(native load <string:void>)
+(native transcript-on <string:void>)
 (native transcript-off <:void>))

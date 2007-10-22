@@ -48,9 +48,9 @@
 
 
 (jazz.define-virtual-syntax (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
-(jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding) environment))
+(jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
-(jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments environment))
+(jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
@@ -167,6 +167,7 @@
    (requires   %%get-library-declaration-requires   ())
    (exports    %%get-library-declaration-exports    ())
    (imports    %%get-library-declaration-imports    ())
+   (declares   %%get-library-declaration-declares   %%set-library-declaration-declares)
    (literals   %%get-library-declaration-literals   %%set-library-declaration-literals)
    (variables  %%get-library-declaration-variables  %%set-library-declaration-variables)
    (references %%get-library-declaration-references %%set-library-declaration-references)
@@ -260,13 +261,51 @@
 
 
 ;;;
+;;;; Opt
+;;;
+
+
+(jazz.define-class-syntax jazz.Opt-Type jazz.Type () jazz.Class jazz.allocate-opt-type
+  ((type %%get-opt-type-type ())))
+
+
+;;;
+;;;; Key
+;;;
+
+
+(jazz.define-class-syntax jazz.Key-Type jazz.Type () jazz.Class jazz.allocate-key-type
+  ((key  %%get-key-type-key  ())
+   (type %%get-key-type-type ())))
+
+
+;;;
+;;;; Rest
+;;;
+
+
+(jazz.define-class-syntax jazz.Rest-Type jazz.Type () jazz.Class jazz.allocate-rest-type
+  ((type %%get-rest-type-type ())))
+
+
+;;;
 ;;;; Function
 ;;;
 
 
 (jazz.define-class-syntax jazz.Function-Type jazz.Type () jazz.Class jazz.allocate-function-type
-  ((parameters %%get-function-type-parameters ())
+  ((positional %%get-function-type-positional ())
+   (rest       %%get-function-type-rest       ())
    (result     %%get-function-type-result     ())))
+
+
+;;;
+;;;; Values
+;;;
+
+
+(jazz.define-class-syntax jazz.Values-Type jazz.Type () jazz.Class jazz.allocate-values-type
+  ((types %%get-values-type-types ())))
 
 
 ;;;
@@ -535,8 +574,9 @@
 
 
 (jazz.define-class-syntax jazz.Annotated-Variable jazz.Object () jazz.Object-Class jazz.allocate-annotated-variable
-  ((variable %%get-annotated-variable-variable ())
-   (type     %%get-annotated-variable-type     %%set-annotated-variable-type)))
+  ((variable      %%get-annotated-variable-variable      ())
+   (declared-type %%get-annotated-variable-declared-type ())
+   (type          %%get-annotated-variable-type          %%set-annotated-variable-type)))
 
 
 ;;;
@@ -582,6 +622,15 @@
 (jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression) declaration environment))
 (jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments declaration environment))
 (jazz.define-virtual-syntax (jazz.fold-expression (jazz.Expression expression) f k s))
+
+
+;;;
+;;;; Proclaim
+;;;
+
+
+(jazz.define-class-syntax jazz.Proclaim jazz.Expression (type) jazz.Object-Class jazz.allocate-proclaim
+  ((optimize? %%get-proclaim-optimize? ())))
 
 
 ;;;

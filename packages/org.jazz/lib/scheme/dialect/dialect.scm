@@ -65,10 +65,10 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-define-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-type-expect (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) environment))))
+       ,(jazz.emit-type-expect (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))))
 
 
-(jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) environment)
+(jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) source-declaration environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
     jazz.Any))

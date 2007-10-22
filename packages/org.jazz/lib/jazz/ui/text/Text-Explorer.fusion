@@ -43,6 +43,9 @@
         (jazz.utilities))
 
 
+(proclaim (optimize))
+
+
 (class Text-Explorer extends Explorer
 
 
@@ -139,26 +142,26 @@
   ;;;
 
 
-  (method public (get-kind)
+  (method public (get-kind) <symbol>
     kind)
 
 
-  (method protected (set-kind knd <Object>)
+  (method protected (set-kind knd <symbol>) <void>
     (set! kind knd))
 
 
-  (method public (get-range-string start <Cell> end <Cell>)
+  (method public (get-range-string start <Cell> end <Cell>) <string>
     (get-string~ text (new Range start end)))
   
   
-  (method public (get-marked)
+  (method public (get-marked) <string>
     (get-range-string start end))
   
   
   ;; a quicky for now: will skip the quote in front of a symbol
   ;; the right thing would probably for backward-expr not to include the quote
-  (method public (get-symbol-string)
-    (if (= (get-char start) #\quote)
+  (method public (get-symbol-string) <string>
+    (if (eqv? (get-char start) #\quote)
         (get-range-string (+ start 1) end)
       (get-marked)))
   
@@ -184,7 +187,7 @@
   ;;;
 
 
-  (method (next! pos <Cell>)
+  (method (next! pos <Cell>) <bool>
     (cond ((< (get-col~ pos) (paragraph-length (get-row~ pos)))
            (increase-col~ pos)
            true)
@@ -196,7 +199,7 @@
            false)))
 
 
-  (method (previous! pos <Cell>)
+  (method (previous! pos <Cell>) <bool>
     (cond ((> (get-col~ pos) 0)
            (increase-col~ pos -1)
            true)
@@ -218,11 +221,11 @@
       pos))
   
 
-  (method (next-pos pos <Cell> offset <fx>)
+  (method (next-pos pos <Cell> offset <fx>) <Cell>
     (next~ text pos offset))
 
 
-  (method (previous-pos pos <Cell> offset <fx>)
+  (method (previous-pos pos <Cell> offset <fx>) <Cell>
     (previous~ text pos offset))
 
   
@@ -255,14 +258,14 @@
   
   
   (method (in-text? pos <Cell>) <bool>
-    (let ((row <fx> (get-row~ pos))
-          (col <fx> (get-col~ pos)))
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
       (and (>= row 0) (>= col 0) (or (< row limit) (and (= row limit) (<= col (paragraph-length row)))))))
   
   
   (method (next-in-text? pos <Cell>)
-    (let ((row <fx> (get-row~ pos))
-          (col <fx> (get-col~ pos)))
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
       (if (< row limit)
           (in-text? pos)
         (and (= row limit) (< col (paragraph-length row))))))
@@ -322,11 +325,11 @@
   
   
   (method public (forward-to char)
-    (forward-until (function dynamic (c) (= c char))))
+    (forward-until (function dynamic (c) (eqv? c char))))
   
   
   (method public (backward-to char)
-    (backward-until (function dynamic (c) (= c char))))
+    (backward-until (function dynamic (c) (eqv? c char))))
   
   
   (method public (forward-whitespaces)
@@ -419,4 +422,4 @@
   
   
   (method public (paragraph-column)
-    (forward-while (function dynamic (c) (= c #\space))))))
+    (forward-while (function dynamic (c) (eqv? c #\space))))))

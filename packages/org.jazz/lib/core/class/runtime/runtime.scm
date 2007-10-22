@@ -427,27 +427,27 @@
   (jazz.error "Unable to emit specifier for: {s}" type))
 
 
-(jazz.define-virtual (jazz.emit-type (jazz.Type type) environment))
+(jazz.define-virtual (jazz.emit-type (jazz.Type type) source-declaration environment))
 
 
-(jazz.define-method (jazz.emit-type (jazz.Type type) environment)
+(jazz.define-method (jazz.emit-type (jazz.Type type) source-declaration environment)
   (jazz.error "Unable to emit type for: {s}" type))
 
 
-(jazz.define-virtual (jazz.emit-test (jazz.Type type) value environment))
+(jazz.define-virtual (jazz.emit-test (jazz.Type type) value source-declaration environment))
 
 
-(jazz.define-method (jazz.emit-test (jazz.Type type) value environment)
-  (let ((locator (jazz.emit-type type environment)))
+(jazz.define-method (jazz.emit-test (jazz.Type type) value source-declaration environment)
+  (let ((locator (jazz.emit-type type source-declaration environment)))
     `(%%is? ,value ,locator)))
 
 
-(jazz.define-virtual (jazz.emit-check (jazz.Type type) value environment))
+(jazz.define-virtual (jazz.emit-check (jazz.Type type) value source-declaration environment))
 
 
-(jazz.define-method (jazz.emit-check (jazz.Type type) value environment)
-  (let ((locator (jazz.emit-type type environment)))
-    `(if (%%not ,(jazz.emit-test type value environment))
+(jazz.define-method (jazz.emit-check (jazz.Type type) value source-declaration environment)
+  (let ((locator (jazz.emit-type type source-declaration environment)))
+    `(if (%%not ,(jazz.emit-test type value source-declaration environment))
          (jazz.type-error ,value ,locator))))
 
 
@@ -490,7 +490,7 @@
   #t)
 
 
-(jazz.define-method (jazz.emit-type (jazz.Category type) environment)
+(jazz.define-method (jazz.emit-type (jazz.Category type) source-declaration environment)
   (%%get-category-name type))
 
 
@@ -637,6 +637,18 @@
       object)))
 
 
+;; a quick try that should evolve into a %%new macro
+(define (jazz.new0 class)
+  (%%assert (jazz.class? class)
+    (let* ((base jazz.object-size)
+           (size (%%get-class-instance-size class))
+           (object (%%make-object (%%fx+ base size))))
+      (%%set-object-class object class)
+      (jazz.initialize-slots object)
+      ((%%class-dispatch object 0 0) object)
+      object)))
+
+
 ;; the rank of initialize is known to be 0 as it is the first method of Object
 (define (jazz.initialize-object object rest)
   (apply (%%class-dispatch object 0 0) object rest))
@@ -658,6 +670,12 @@
 
 (jazz.define-class jazz.Object-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) ()
   ())
+
+
+(jazz.define-method (jazz.of-subtype? (jazz.Object-Class class) subtype)
+  (if (%%object-class? class)
+      #t
+    (nextmethod class subtype)))
 
 
 (jazz.encapsulate-class jazz.Object-Class)
@@ -692,7 +710,7 @@
   'bool)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Boolean-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Boolean-Class type) value source-declaration environment)
   `(%%boolean? ,value))
 
 
@@ -723,7 +741,7 @@
   'char)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Char-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Char-Class type) value source-declaration environment)
   `(%%char? ,value))
 
 
@@ -777,7 +795,7 @@
   'number)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Number-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Number-Class type) value source-declaration environment)
   `(%%number? ,value))
 
 
@@ -808,7 +826,7 @@
   'complex)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Complex-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Complex-Class type) value source-declaration environment)
   `(%%complex? ,value))
 
 
@@ -839,7 +857,7 @@
   'real)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Real-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Real-Class type) value source-declaration environment)
   `(%%real? ,value))
 
 
@@ -870,7 +888,7 @@
   'rational)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Rational-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Rational-Class type) value source-declaration environment)
   `(%%rational? ,value))
 
 
@@ -901,7 +919,7 @@
   'int)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Integer-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Integer-Class type) value source-declaration environment)
   `(%%integer? ,value))
 
 
@@ -932,7 +950,7 @@
   'fx)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Fixnum-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Fixnum-Class type) value source-declaration environment)
   `(%%fixnum? ,value))
 
 
@@ -963,7 +981,7 @@
   'fl)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Flonum-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Flonum-Class type) value source-declaration environment)
   `(%%flonum? ,value))
 
 
@@ -1013,7 +1031,7 @@
   'list)
 
 
-(jazz.define-method (jazz.emit-test (jazz.List-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.List-Class type) value source-declaration environment)
   `(or (%%null? ,value) (%%pair? ,value)))
 
 
@@ -1044,7 +1062,7 @@
   'null)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Null-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Null-Class type) value source-declaration environment)
   `(%%null? ,value))
 
 
@@ -1075,7 +1093,7 @@
   'pair)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Pair-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Pair-Class type) value source-declaration environment)
   `(%%pair? ,value))
 
 
@@ -1106,7 +1124,7 @@
   'string)
 
 
-(jazz.define-method (jazz.emit-test (jazz.String-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.String-Class type) value source-declaration environment)
   `(%%string? ,value))
 
 
@@ -1137,7 +1155,7 @@
   'vector)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Vector-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Vector-Class type) value source-declaration environment)
   `(%%vector? ,value))
 
 
@@ -1168,7 +1186,7 @@
   'port)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Port-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Port-Class type) value source-declaration environment)
   `(%%port? ,value))
 
 
@@ -1205,7 +1223,7 @@
   'procedure)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Procedure-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Procedure-Class type) value source-declaration environment)
   `(%%procedure? ,value))
 
 
@@ -1236,7 +1254,7 @@
   'foreign)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Foreign-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Foreign-Class type) value source-declaration environment)
   `(%%foreign? ,value))
 
 
@@ -1267,7 +1285,7 @@
   'symbol)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Symbol-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Symbol-Class type) value source-declaration environment)
   `(%%symbol? ,value))
 
 
@@ -1298,7 +1316,7 @@
   'keyword)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Keyword-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Keyword-Class type) value source-declaration environment)
   `(%%keyword? ,value))
 
 
@@ -1329,7 +1347,7 @@
   'hashtable)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Hashtable-Class type) value environment)
+(jazz.define-method (jazz.emit-test (jazz.Hashtable-Class type) value source-declaration environment)
   `(%%hashtable? ,value))
 
 
@@ -1341,6 +1359,29 @@
 
 
 (jazz.encapsulate-class jazz.Hashtable)
+
+
+;;;
+;;;; Promise
+;;;
+
+
+(jazz.define-class jazz.Promise-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Promise-Class class))
+  'promise)
+
+
+(jazz.encapsulate-class jazz.Promise-Class)
+
+
+(jazz.define-class jazz.Promise jazz.Object () jazz.Promise-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Promise)
 
 
 ;;;

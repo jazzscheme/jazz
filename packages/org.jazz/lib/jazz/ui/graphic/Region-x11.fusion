@@ -35,62 +35,47 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.graphic.Region jazz
+(library jazz.ui.graphic.Region-x11 jazz
 
 
 (import (jazz.library)
-        (jazz.platform)
-        (jazz.platform.windows)
         (jazz.utilities))
 
 
-(class Region extends Object implements Handle-Container
+(class Region extends Object
   
   
-  (slot public handle     getter generate)
   (slot public rectangles getter generate)
     
     
-  (method (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
+  (method (initialize (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
     (nextmethod)
-    (cond (handle
-            (set! handle~self handle))
-          (rect
-            (set! handle~self (with ((rect (rect->RECT rect))) (CreateRectRgnIndirect rect)))
+    (cond (rect
             (set! rectangles (list rect)))
           (left
-            (set! handle~self (CreateRectRgn left top right bottom))
             (set! rectangles (list (new Rect left top right bottom))))
           (else
-           (set! handle~self (CreateRectRgn 0 0 0 0))
            (set! rectangles (list (new Rect 0 0 0 0)))))
     (destroy-mandatory))
 
   
   (method (destroy)
-    (DeleteObject handle)
     (nextmethod))
   
   
   (method public (offset! h v)
-    (OffsetRgn handle (inexact->exact h) (inexact->exact v)))
+    (set! rectangles (map (lambda (rect)
+                            (new Rect 
+                              (+ (get-left~ rect) h)
+                              (+ (get-top~ rect) v)
+                              (+ (get-right~ rect) h)
+                              (+ (get-bottom~ rect) v)))
+                          rectangles)))
 
 
   (method public (combine! region mode)
-    (CombineRgn handle handle (get-handle~ region) (get-combine-mode mode))
     (set! rectangles (append rectangles (get-rectangles~ region))))
-  
-  
-  (method (get-combine-mode mode)
-    (case mode
-      ((and)  RGN_AND)
-      ((or)   RGN_OR)
-      ((xor)  RGN_XOR)
-      ((diff) RGN_DIFF)
-      (else (error "Unknown combine mode: {t}" mode))))
 
 
   (method public (get-box)
-    (with ((rect (RECT-make)))
-      (GetRgnBox handle rect)
-      (RECT->rect rect)))))
+    (unimplemented 'get-box))))

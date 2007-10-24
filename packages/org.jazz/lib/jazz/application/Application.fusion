@@ -39,12 +39,11 @@
 
 
 (import (jazz.literals)
-        (jazz.platform)
-        (jazz.platform.windows)
         (jazz.application)
         (jazz.console)
         (jazz.debugger)
         (jazz.designer)
+        (jazz.io)
         (jazz.jazz)
         (jazz.jazz.debuggee)
         (jazz.jml)
@@ -53,6 +52,7 @@
         (jazz.library.component)
         (jazz.process)
         (jazz.sql)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.look)
         (jazz.ui.clipboard)
@@ -371,7 +371,7 @@
     (let* ((user-arg (command-argument "user"))
            (user (cond (user-arg (standard-user user-arg))
                        ((use-user-logging?) (login-user))
-                       (else (windows-user)))))
+                       (else (system-user)))))
       (setup-user-file user)
       (setup-user-alias user)))
   
@@ -383,8 +383,8 @@
            (new File (list 'Users username (format "{a}.jazz" username))))))
   
   
-  (method (windows-user)
-    (standard-user (get-windows-user-name)))
+  (method (system-user)
+    (standard-user (get-system-user-name)))
 
   
   (method (login-user)
@@ -543,12 +543,12 @@
   
   (method (show-splash-screen (duration: duration {}))
     (set! Splash-Screen (show-splash))
-    (set! Splash-End (essay duration (+ (clock) duration))))
+    (set! Splash-End (essay duration (+ (time->seconds (current-time)) duration))))
   
   
   (method (remove-splash-screen)
     (when Splash-Screen
-      (let ((time (clock)))
+      (let ((time (time->seconds (current-time))))
         (when (and Splash-End (> Splash-End time))
           (sleep (- Splash-End time)))
         (remove-splash Splash-Screen))))
@@ -581,11 +581,11 @@
       (message-box
         (append!
          (list
-          (list (list font: {Font font-name: "Times New Roman" point-size: 12 bold?: #t italic?: #f underline?: #f monospace?: #f} color: {Color name: Dark-Blue} (format "{a} v{a}" name version)))
+          (list (list font: @old {Font font-name: "Times New Roman" point-size: 12 bold?: #t italic?: #f underline?: #f monospace?: #f} {Font name: Plain} color: {Color name: Dark-Blue} (format "{a} v{a}" name version)))
           (list))
          (when owner
            (list
-            (list (list font: {Font font-name: "Times New Roman" point-size: 10 bold?: #f italic?: #t underline?: #f monospace?: #f} (format "Copyright {a}{a}" (if copyright (format "{a} " copyright) "") owner)))
+            (list (list font: @old {Font font-name: "Times New Roman" point-size: 10 bold?: #f italic?: #t underline?: #f monospace?: #f} {Font name: Plain} (format "Copyright {a}{a}" (if copyright (format "{a} " copyright) "") owner)))
             (list)))
          (when licensee
            (list
@@ -980,11 +980,16 @@
   ;;;; Accelerators
   ;;;
   
-  
-  (method (setup-accelerators)
-    (set! accelerators-table (all-accelerators-table))
-    (set! accelerators-handle (get-handle~ accelerators-table))
-    (set! accelerators-dispatch (new-hashtable = =-hash)))
+  (cond-expand
+    (windows
+      (method (setup-accelerators)
+        (set! accelerators-table (all-accelerators-table))
+        (set! accelerators-handle (get-handle~ accelerators-table))
+        (set! accelerators-dispatch (new-hashtable = =-hash))))
+    (else
+     (method (setup-accelerators)
+       #f)))
+      
   
   
   (method (register-actions-shortcuts old-actions new-actions)
@@ -1156,22 +1161,11 @@
 
   
   (method (process-messages)
-    (let ((msg (MSG-make))
-          (hwnd (get-handle~ (get-toplevel))))
-      ;; process messages from all windows
-      (while (GetMessage msg NULL 0 0)
-        (when (= (TranslateAccelerator hwnd accelerators-handle msg) 0)
-          (TranslateMessage msg)
-          (DispatchMessage msg)))))
+    (platform-process-messages accelerators-handle))
   
   
   (method (process-one-message (window (get-toplevel)))
-    (with ((msg (MSG-make)))
-      (let ((hwnd (get-handle~ window)))
-        (when (GetMessage msg hwnd 0 0)
-          (when (= (TranslateAccelerator hwnd accelerators-handle msg) 0)
-            (TranslateMessage msg)
-            (DispatchMessage msg))))))
+    (platform-process-one-message window accelerators-handle))
 
   
   ;;;
@@ -1524,7 +1518,7 @@
   (method (display-boot-time launch-time)
     @convert/wait
     (user-message "Boot Time: {s} seconds"
-                  (/ (- (clock) launch-time) (clocks/second))))
+                  (- (time->seconds (current-time)) launch-time)))
 
   
   (method (user-feedback message)
@@ -2268,7 +2262,7 @@
     (let ((frame (first-window~ stage)))
       (when frame
         (validate-focus)
-        (send-message~ frame WM_CLOSE 0 0))))
+        (close-window frame))))
 
   
   (method public virtual (on-close-all evt)

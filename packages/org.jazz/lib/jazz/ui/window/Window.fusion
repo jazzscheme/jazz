@@ -43,7 +43,6 @@
         (jazz.ui)
         (jazz.ui.window)
         (jazz.utilities)
-        (jazz.platform.cairo.cairo-win32)
         (jazz.literals))
 
 
@@ -62,55 +61,7 @@
   Orphanage)
 
 
-(class Window-Class extends Figure-Class
-  
-  
-  (definition registered?
-    false)
-  
-  
-  (method (initialize)
-    (nextmethod)
-    (unless registered?
-      (register-class)
-      (set! registered? true)))
-  
-  
-  @convert
-  (method protected virtual (window-class)
-    "JWindow")
-
-
-  @convert
-  (method protected virtual (class-style)
-    (bit-or CS_OWNDC CS_DBLCLKS))
-
-
-  @convert
-  (method protected virtual (class-background)
-    COLOR_BTNFACE)
-  
-
-  (method public (register-class (class: class (window-class)) (icon: icon {}))
-    @wait
-    (let ((instance (current-instance))
-          (background (class-background))
-          (wc (make-WNDCLASS)))
-      (WNDCLASS-style-set! wc          (class-style))
-      (WNDCLASS-lpfnWndProc-set! wc    call-process-handle-message)
-      (WNDCLASS-cbClsExtra-set! wc     0)
-      (WNDCLASS-cbWndExtra-set! wc     0)
-      (WNDCLASS-hInstance-set! wc      instance)
-      (WNDCLASS-hIcon-set! wc          NULL) ;; specific windows (if icon (load-image~ Image 'icon icon width: 16 height: 16) NULL)
-      (WNDCLASS-hCursor-set! wc        NULL)
-      ;; To-Fix Remettre le handle brush
-      (WNDCLASS-hbrBackground-set! wc  background)
-      (WNDCLASS-lpszMenuName-set! wc   NULL)
-      (WNDCLASS-lpszClassName-set! wc  "JWindow" @w class)
-      (set! CLASS_ATOM (RegisterClass wc)))))
-
-
-(class Window metaclass Window-Class extends Figure @w implements @w Message-Consumer
+(class Window metaclass Figure-Class extends Figure @w implements @w Message-Consumer
  
 
   (property title         initialize {} getter get-title setter set-title)
@@ -233,14 +184,18 @@
   ;;;
 
 
-  (method protected virtual (erase-background hdc)
-    (if (not (class-background))
-        processed
-      unprocessed))
+  (method protected virtual (erase-background handle)
+    (platform-erase-background handle))
   
 
-  (method protected virtual (paint)
-    (paint-window self))
+  (method protected virtual (paint region)
+    (paint-window))
+  
+  
+  (method protected (paint-window)
+    (with-platform-painting self
+      (lambda (dc) 
+        (draw dc))))
   
   
   (definition *colors*
@@ -260,12 +215,10 @@
 
   (method (draw-placeholder dc)
     (set-color~ dc {Color name: White})
-    (paint~ dc)
-    (fill-rect~ dc (get-bounds) (element *colors* *current-color*))
-    (set! *current-color* (modulo (+ *current-color* 1) *nb-colors*)))
+    (paint~ dc))
   
 
-  (method protected virtual (draw dc ps)
+  (method protected virtual (draw dc)
     )
 
 
@@ -552,15 +505,6 @@
   
   
   ;;;
-  ;;;; Settings
-  ;;;
-  
-  
-  (method protected virtual (setting-change wparam)
-    )
-  
-  
-  ;;;
   ;;;; Timers
   ;;;
   
@@ -645,7 +589,7 @@
     handle)
 
 
-  (method public (set-handle hw <foreign+>)
+  (method public (set-handle hw <any>)
     (set! handle hw))
 
 
@@ -693,7 +637,7 @@
   
 
   (method public (get-window-title)
-    (get-hwnd-title handle))
+    (get-window-handle-title handle))
   
 
   (method public (acquire window shape)

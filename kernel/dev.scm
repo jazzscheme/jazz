@@ -238,9 +238,6 @@
   (cflag 'jazz.platform.x11 "" "-lX11"))
 
 
-(define (ccw)
-  (cflag 'jazz.platform.cairo.cairo-win32 "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
-
 (define (cf)
   (cflag 'jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))
 
@@ -300,8 +297,36 @@
   (cflag 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows"))
 
 
-(define (bcairo)
-  (ccw))
+(define (bcairo-windows-freetype)
+  (cflag 'jazz.platform.freetype "-IC:/jazz/dev/jazz/include/freetype2" "-LC:/jazz/dev/jazz/lib/freetype -lfreetype")
+  (cflag 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cflag 'jazz.platform.cairo.cairo-freetype "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cflag 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+
+
+(define (bcairo-windows-logfont)
+  (cflag 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cflag 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cflag 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+  
+  
+(define (bwin/freetype)
+  (bwin)
+  (bcairo-windows-freetype))
+
+
+(define (bwin/logfont)
+  (bwin)
+  (bcairo-windows-logfont))
+
+
+(define (bx)
+  (ld) 
+  (cflag 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
+  (cflag 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
+  (cflag 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")
+  (cflag 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lcairo")
+  (cflag 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
 
 
 (define (bffi)
@@ -312,12 +337,12 @@
 
 (define (ball)
   (bjazz)
-  (bui))
+  (bwin/logfont))
 
 
-(define (bui)
-  (bwin)
-  (ccw))
+(define (ballx)
+  (bjazz)
+  (bx))
 
 
 (define (cj module-name)
@@ -356,7 +381,7 @@
     jazz.ui.view.Scrollbar
     jazz.ui.window.Window
     jazz.ui.window.View-Player
-    jazz.ui.graphic.Cairo-Win32-Surface
+    jazz.ui.graphic.Surface
     jazz.ui.image.Image
     jazz.ui.image.Portfolio
     jazz.platform))
@@ -560,3 +585,14 @@
   (if (not (null? rest))
       (rl (car rest)))
   (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))
+
+
+;;;
+;;;; Tests
+;;;
+
+
+(define (tx)
+  (lj)
+  (l 'jazz.platform.literals)
+  (l 'test.window))

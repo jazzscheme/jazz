@@ -35,13 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.graphic.Font jazz
+(library jazz.ui.graphic.font.Font jazz
 
 
 (import (jazz.library)
         (jazz.literals)
-        (jazz.platform.windows)
-        (jazz.platform.cairo.cairo-win32))
+        (jazz.ui.graphic.font)
+        (jazz.platform.cairo))
 
 
 (class Font extends Object
@@ -73,7 +73,9 @@
                       (underline?: underline? false)
                       (monospace?: monospace? false))
     (nextmethod)
-    (set! name~self name)
+    
+    
+    @old-shit
     (cond (stock
             (set! handle (GetStockObject stock))
             (set! source 'stock)
@@ -94,7 +96,18 @@
            (set! handle (CreateFont (calculate-height point-size) 0 0 0 (if bold? FW_BOLD FW_NORMAL) (if italic? 1 0) (if underline? 1 0) 0 ANSI_CHARSET OUT_DEFAULT_PRECIS CLIP_DEFAULT_PRECIS DEFAULT_QUALITY DEFAULT_PITCH font-name))
            (set! source 'direct)
            (destroy-mandatory)))
-    (set! cairo-font~self (cairo_win32_font_face_create_for_logfontw (get-logfont))))
+    
+    
+    (set! name~self name)
+    (set! font-name~self font-name)
+    (set! point-size~self point-size)
+    (set! color~self color)
+    (set! bold?~self bold?)
+    (set! italic?~self italic?)
+    (set! underline?~self underline?)
+    (set! monospace?~self monospace?)
+    (set! handle~self (create-font-handle height: (calculate-height point-size) bold?: bold? italic?: italic? underline?: underline? font-name: font-name))
+    (set! cairo-font~self (create-cairo-font-handle handle~self)))
   
   
   (method (calculate-height point-size)
@@ -104,20 +117,10 @@
   (method (calculate-point-size height)
     (round (/ (* height 72) 96)))
 
-  
-  (method (fill-info logfont)
-    (set! font-name (LOGFONTW-lfFaceName-ref logfont))
-    (set! point-size (calculate-point-size (LOGFONTW-lfHeight-ref logfont)))
-    (set! bold? (>= (LOGFONTW-lfWeight-ref logfont) FW_BOLD))
-    (set! italic? (/= (LOGFONTW-lfItalic-ref logfont) 0))
-    (set! underline? (/= (LOGFONTW-lfUnderline-ref logfont) 0))
-    (set! monospace? false))
-
 
   (method (destroy)
-    (when (neq? source 'stock)
-      (DeleteObject handle)
-      (cairo_font_face_destroy cairo-font))
+    (destroy-cairo-font-handle cairo-font)
+    (destroy-font-handle handle)
     (nextmethod))
 
 
@@ -217,12 +220,6 @@
 
   (method (get-handle)
     handle)
-  
-  
-  (method public (get-logfont)
-    (let ((info (LOGFONTW-make)))
-      (GetObject handle (size-of-LOGFONTW) (LOGFONTW*->PVOID info))
-      info))
   
   
   ;;;

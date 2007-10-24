@@ -43,16 +43,10 @@
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities)
-        (jazz.platform)
-        (jazz.platform.windows)
-        (jazz.platform.cairo.cairo-win32)
         (jazz.literals))
-
-
-(class View-Player-Class extends Window-Class)
   
 
-(class View-Player metaclass View-Player-Class extends Window
+(class View-Player metaclass Figure-Class extends Window
 
 
   ;; This property supports a scheme to delay insertion into the parent
@@ -228,13 +222,27 @@
   ;;;
   
   
+  (method (paint region)
+    (with-platform-painting self
+      (lambda (dc)
+        (let ((origin (new Point 0 0))
+              (clipper (get-client-rect)))
+          (setup-clipper~ dc clipper)             
+          (if in-error?
+              (paint-in-error dc clipper)
+            (set! in-error? true)
+            (paint~ root dc '() region 0 0 0 0 1.0 false)
+            (set! in-error? false))))))
+      
+  
+  @old
   (method (paint)
     (with-closed ((region (get-update-region)))
       (with ((ps (PAINTSTRUCT-make)))
         (let ((hdc (BeginPaint handle ps)))
           (let ((origin (new Point 0 0))
                 (clipper (get-client-rect))
-                (dc (new Cairo-Win32-Surface (cairo_win32_surface_create hdc))))
+                (dc (new Surface (cairo_win32_surface_create hdc))))
             (unwind-protect
                 (begin
                   (setup-clipper~ dc clipper)             

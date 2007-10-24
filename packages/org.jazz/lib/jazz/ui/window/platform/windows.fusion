@@ -36,19 +36,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.window.windows jazz
+(library jazz.ui.window.platform.windows jazz
 
 
 (import (jazz.utilities)
         (jazz.library)
-        (jazz.platform)
+        (jazz.io)
         (jazz.platform.windows)
-        (jazz.platform.cairo.cairo-win32)
+        (jazz.platform.cairo)
         (jazz.ui))
 
 
 (definition public processed '(processed))
 (definition public unprocessed '(unprocessed))
+
+
+;;;
+;;;;  Window
+;;;
+
+
+(definition public Windows-Table
+  (new-hashtable eqv?))
+
+
+(definition public inline (get-window hwnd)
+  (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
+    (hash-ref Windows-Table hwnd)))
+
+
+(definition public inline (set-window hwnd window)
+  (hash-set! Windows-Table (foreign-address hwnd) window))
 
 
 ;; So that the window<->hwnd association can be made on the very first windows message
@@ -71,12 +89,19 @@
   "JWindow")
 
 
+;;tofix : Transient CS_SAVEBITS
 (definition (class-style)
   (bit-or CS_OWNDC CS_DBLCLKS))
 
 
 (definition (class-background)
   (GetSysColorBrush COLOR_BTNFACE))
+
+
+(definition (platform-erase-background handle)
+  (if (not (class-background))
+        processed
+      unprocessed))
 
 
 (definition (register-window-class)
@@ -200,6 +225,10 @@
   (ShowWindow handle SW_MINIMIZE))
 
 
+(definition (close-window window)
+  (send-message~ window WM_CLOSE 0 0))
+
+
 (definition (destroy-window handle)
   (DestroyWindow handle))
 
@@ -218,7 +247,8 @@
 (definition (process-window-message window msg <int> wparam <int> lparam <int>)
   (ecase msg
     ((WM_ERASEBKGND)      (erase-background~ window wparam))
-    ((WM_PAINT)           (paint~ window))
+    ((WM_PAINT)           (let ((region (platform-get-update-region (get-handle~ window))))
+                            (paint~ window region)))
     ((WM_SETCURSOR)       (cursor-update~ window (= (loword lparam) HTCLIENT)))
     ((WM_MOUSEMOVE)       (mouse-move~ window (loword lparam) (hiword lparam)))
     ((WM_MOUSEHOVER)      (mouse-hover~ window (loword lparam) (hiword lparam)))
@@ -256,7 +286,10 @@
     ((WM_SETFOCUS)        (call-focus-gain~ window))
     ((WM_KILLFOCUS)       (call-focus-lose~ window wparam))
     ((WM_DROPFILES)       (drop-files~ window wparam))
-    ((WM_SETTINGCHANGE)   (setting-change~ window wparam))
+    ((WM_SETTINGCHANGE)  (ecase wparam
+                                            ((SPI_SETWORKAREA)
+                                             (when (is? window Toplevel)
+                                               (set-fullscreen~ window #t)))))
     ((WM_TIMER)           (on-timer~ window wparam))
     (else                 unprocessed)))
 
@@ -268,15 +301,35 @@
 (definition (unset-capture)
   (ReleaseCapture))
 
-(definition (paint-window window)
+
+(definition (with-platform-painting window proc)
+  (let ((handle (get-handle~ window)))
     (with ((ps (PAINTSTRUCT-make)))
-      (let ((hdc (BeginPaint (get-handle~ window) ps)))
-        (with ((dc (new Cairo-Win32-Surface (cairo_win32_surface_create hdc))))
-          ;;(draw-placeholder dc)
-          (draw~ window dc ps)
-          (close~ dc)
-          (EndPaint (get-handle~ window) ps))))
-    processed)
+      (let ((hdc (BeginPaint handle ps)))
+        (with ((dc (new Surface (cairo_win32_surface_create hdc))))
+          (unwind-protect
+              (proc dc) 
+            (close~ dc) 
+            (EndPaint handle ps))))))
+  processed)
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+(set! process-hwnd-message
+      (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
+        (let ((window (get-window hwnd)))
+          (when (and (not window) (get-in-creation))
+            (set! window (get-in-creation))
+            (set-handle~ window hwnd)
+            (set-window hwnd window)
+            (set-in-creation {}))
+          (if (not window)
+              (DefWindowProc hwnd msg wparam lparam)
+            (call-dispatch-message~ window msg wparam lparam)))))
 
 
   ;;;
@@ -360,6 +413,18 @@
   
 (definition (get-window-owner-handle handle)
   (GetWindow handle GW_OWNER))
+
+
+(definition (platform-get-window-child-handle handle)
+  (GetWindow handle GW_CHILD))
+
+
+(definition (platform-get-next-window-handle handle)
+  (GetWindow handle GW_HWNDNEXT))
+
+
+(definition (platform-is-window-visible? handle)
+  (IsWindowVisible handle))
 
 
 (definition (get-top-window-handle handle)
@@ -538,6 +603,21 @@
   (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bit-or SWP_NOMOVE SWP_NOSIZE)))
 
 
+(definition (platform-select-foreground-window handle)
+  (SetForegroundWindow handle))
+
+
+(definition (platform-get-window-handle-title handle)
+  (let* ((size (GetWindowTextLength handle))
+         (string (make-string size #\space)))
+    (receive (ret str) (GetWindowText handle string (+ size 1))
+      str)))
+
+
+(definition (platform-lock-window-update handle)
+  (LockWindowUpdate handle))
+
+
 ;;;
 ;;;; Focus
 ;;;
@@ -569,4 +649,95 @@
       (combine!~ region t 'or)
       (combine!~ region r 'or)
       (combine!~ region b 'or)
-      region))))
+      region)))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+;;; We need a platform ind interface for this.
+
+(definition public Current-Cursor
+  {})
+
+
+;; tofix Cursor-Resources were literals
+(definition public Cursors
+  (list
+    (list :arrow               IDC_ARROW)
+    (list :wait                IDC_WAIT)
+    (list :ibeam               IDC_IBEAM)
+    (list :cross               IDC_CROSS)
+    (list :finger              IDC_HAND)
+    (list :all                 IDC_SIZEALL)
+    (list :west-east           IDC_SIZEWE)
+    (list :no                  IDC_NO)
+    (list :move                (new Cursor-Resource "Move"))
+    (list :opened-hand         (new Cursor-Resource "OpenedHand"))
+    (list :closed-hand         (new Cursor-Resource "ClosedHand"))
+    (list :zoom                (new Cursor-Resource "Zoom"))
+    (list :zoom-in             (new Cursor-Resource "ZoomIn"))
+    (list :zoom-out            (new Cursor-Resource "ZoomOut"))
+    (list :spy                 (new Cursor-Resource "Spy"))
+    (list :left-arrow          (new Cursor-Resource "LeftArrow"))
+    (list :vertical-splitter   (new Cursor-Resource "VerticalSplitter"))
+    (list :horizontal-splitter (new Cursor-Resource "HorizontalSplitter"))))
+
+
+(definition public (find-cursor-file object)
+  (new File (list 'Native "C:" "Jazz" "dev" "jazz" "packages" "org.jazz" "lib" "jazz" "Resources" "Cursors" (string-append (get-name~ object) ".cur"))))
+
+
+(definition (load-cursor cursor)
+  (if (number? cursor)
+      (LoadCursorInt cursor)
+    (let* ((cursor  (if (file? cursor) cursor (find-cursor-file cursor)))
+           (ident   (parse~ cursor)))
+      (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
+
+(definition (get-named-cursor name)
+  (let ((info (assq name Cursors)))
+    (if (not info)
+        (error "Unknown cursor: {t}" name)
+      (cadr info))))
+
+
+(definition public (get-cursor)
+  Current-Cursor)
+
+
+(definition public (set-cursor cursor)
+  (unless false @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
+          (set! Current-Cursor cursor)
+          (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
+            (SetCursor (load-cursor cursor)))))
+
+
+(definition public (hide-cursor)
+  (while (>= (ShowCursor false) 0)
+    ))
+
+
+(definition public (show-cursor)
+  (while (< (ShowCursor true) 0)
+    ))
+
+
+;;;
+;;;; Redraw View Only : this is probably temporary
+;;;
+
+
+(definition (platform-redraw-view-only view hwnd)         
+  (with ((hrgn (CreateRectRgn 0 0 0 0)))
+    (GetUpdateRgn hwnd hrgn false)
+    (ValidateRect hwnd NULL)
+    (redraw-view~ view)
+    (InvalidateRgn hwnd hrgn false)
+    (DeleteObject hrgn)))
+
+
+(definition (platform-get-desktop)
+  (GetDesktopWindow)))

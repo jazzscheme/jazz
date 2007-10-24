@@ -38,31 +38,19 @@
 (library jazz.ui.window jazz
 
 
-(export (jazz.ui.window.windows))
+(export (jazz.ui.window.platform.x11     (cond x11))
+        (jazz.ui.window.platform.windows (cond windows)))
 
 
 (import (jazz.ui)
-        (jazz.platform)
-        (jazz.platform.windows)
-        (jazz.ui.window.windows))
+        (jazz.library)
+        (jazz.ui.window.platform.x11     (cond x11))
+        (jazz.ui.window.platform.windows (cond windows)))
 
 
 ;;;
 ;;;; Window
 ;;;
-
-
-(definition public Windows-Table
-  (new-hashtable eqv?))
-
-
-(definition public inline (get-window hwnd)
-  (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
-    (hash-ref Windows-Table hwnd)))
-
-
-(definition public inline (set-window hwnd window)
-  (hash-set! Windows-Table (foreign-address hwnd) window))
 
 
 (definition public (get-toplevel)
@@ -97,64 +85,16 @@
 
 
 ;;;
-;;;; Process
-;;;
-
-
-(definition public (get-thread/process-id hwnd)
-  (unimplemented 'get-thread)
-  @convert
-  (GetWindowThreadProcessId hwnd NULL))
-
-
-;;;
-;;;; Class
-;;;
-
-
-(definition public (get-class-name hwnd)
-  (unimplemented 'get-class-name)
-  @unimp
-  (let* ((size 256)
-         (name (make-string size)))
-    (if (= (GetClassName hwnd name size) 0)
-        {}
-      (adjust-string name)
-      name)))
-
-
-;;;
 ;;;; Management
 ;;;
 
 
-(definition public (select-foreground-hwnd hwnd)
-  (SetForegroundWindow hwnd))
+(definition public (select-foreground-window handle)
+  (platform-select-foreground-window handle))
 
 
-(definition public (get-hwnd-title hwnd)
-  (let* ((size (GetWindowTextLength hwnd))
-         (string (make-string size #\space)))
-    (receive (ret str) (GetWindowText hwnd string (+ size 1))
-      str)))
-
-
-;;;
-;;;; Dispatch
-;;;
-
-
-(set! process-hwnd-message
-      (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
-        (let ((window (get-window hwnd)))
-          (when (and (not window) (get-in-creation))
-            (set! window (get-in-creation))
-            (set-handle~ window hwnd)
-            (set-window hwnd window)
-            (set-in-creation {}))
-          (if (not window)
-              (DefWindowProc hwnd msg wparam lparam)
-            (call-dispatch-message~ window msg wparam lparam)))))
+(definition public (get-window-handle-title handle)
+  (platform-get-window-handle-title handle))
 
 
 ;;;
@@ -195,11 +135,11 @@
     (let ((toplevel (get-toplevel)))
       (unwind-protect
           (begin
-            (LockWindowUpdate (get-handle~ toplevel))
+            (platform-lock-window-update (get-handle~ toplevel))
             (set! locked-update? true)
             (proc))
         (when locked-update?
-          (LockWindowUpdate NULL)
+          (platform-lock-window-update #f)
           (set! locked-update? false)
           (update-window~ toplevel))))))
 
@@ -251,11 +191,11 @@
 (definition (get-front-frame)
   (let ((stage (get-stage)))
     (when stage
-      (let ((hwnd (GetWindow (get-handle~ stage) GW_CHILD)))
-        (while (and hwnd (not (IsWindowVisible hwnd)))
-          (set! hwnd (GetWindow hwnd GW_HWNDNEXT)))
-        (when hwnd
-          (get-window hwnd))))))
+      (let ((handle (platform-get-window-child-handle (get-handle~ stage))))
+        (while (and handle (not (platform-is-window-visible? handle)))
+          (set! handle (platform-get-next-window-handle handle)))
+        (when handle
+          (get-window handle))))))
 
 
 (definition (activate-front (force?: force? false))
@@ -308,4 +248,16 @@
 
 
 (definition (set-window-focus window) 
-  (platform-set-focus (if window (get-handle~ window) NULL))))
+  (platform-set-focus (if window (get-handle~ window) #f)))
+
+
+;;;
+;;;; Temporary
+;;;
+
+(definition public (get-work-area)
+  (new Rect 0 0 1280 994)
+  @platform-dependant
+  (with ((area (new RECT)))
+    (SystemParametersInfo SPI_GETWORKAREA NULL area 0)
+    (adjust-work-area-with-taskbar (RECT->rect area)))))

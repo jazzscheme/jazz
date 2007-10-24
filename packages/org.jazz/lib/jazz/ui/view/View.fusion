@@ -48,8 +48,7 @@
         (jazz.ui.workspace)
         (jazz.utilities)
         (jazz.platform)
-        ;; temp for timers
-        (jazz.platform.windows)
+        (jazz.system)
         (jazz.literals))
 
 
@@ -1233,7 +1232,7 @@
                   (dv (- v (get-v~ pos))))
               (scroll-invalidate dh dv)
               ;; temp for testing...
-              (if #t ;; scaled?
+              (if scaled?
                   ;; convert to-fix scroll-view bugs when used from thumb-track
                   (invalidate-view~ scroller)
                 (with ((rect (get-bounds~ display))
@@ -1689,12 +1688,18 @@
   ;;;
   
   
+  ;; tofix : reimplement with gambit thread
   (method public (register-pulse period)
+    #f
+    @unimplemented
     (let ((player (get-player)))
       (SetTimer (get-handle~ player) (object->serial-number self) period NULL)))
   
   
+  ;; tofix : reimplement with gambit thread
   (method public (unregister-pulse identifier)
+    #f
+    @unimplemented
     (let ((player (get-player)))
       (KillTimer (get-handle~ player) identifier)))
 
@@ -2268,8 +2273,8 @@
   ;;;
   
   
-  ;; tofix : HOVER_DEFAULT is windows specific
-  (method public (track-hovering (time: time HOVER_DEFAULT))
+  ;; tofix : time was HOVE_DEFAULT
+  (method public (track-hovering (time: time 0))
     @windows-specific
     (let ((player (get-player)))
       (when player
@@ -2303,8 +2308,8 @@
     (when (get-tooltip?)
       (let ((player (get-player)))
         (when player
-          (if (and Last-Tooltip-Time (< (- (clock) Last-Tooltip-Time) 500))
-              (track-hovering :time 100)
+          (if (and Last-Tooltip-Time (< (- (time->seconds (current-time)) Last-Tooltip-Time) 0.5))
+              (track-hovering :time 0.1)
             (track-hovering))))))
   
   
@@ -2380,7 +2385,7 @@
     (when Current-Tooltip-Context
       (close-popup~ View-Player (get-tooltip~ Current-Tooltip-Context))
       (set! Current-Tooltip-Context {})
-      (set! Last-Tooltip-Time (clock))))
+      (set! Last-Tooltip-Time (time->seconds (current-time)))))
   
   
   (method (get-cursor-height)
@@ -3307,12 +3312,7 @@
     (let ((player (get-player)))
       (when player
         (let ((hwnd (get-handle~ player)))
-          (with ((hrgn (CreateRectRgn 0 0 0 0)))
-            (GetUpdateRgn hwnd hrgn false)
-            (ValidateRect hwnd NULL)
-            (redraw-view)
-            (InvalidateRgn hwnd hrgn false)
-            (DeleteObject hrgn))))))
+          (platform-redraw-view-only self hwnd)))))
   
   
   (method public (update-view (effect: effect {}))

@@ -165,6 +165,7 @@
 ;;;
 
 
+(native jazz.hashtable?)
 (native jazz.make-hashtable)
 (native jazz.hashtable-ref)
 (native jazz.hashtable-set!)

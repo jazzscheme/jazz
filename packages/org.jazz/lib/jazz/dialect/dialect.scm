@@ -1341,7 +1341,7 @@
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-class-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
-          (jazz.walk-declarations walker resume new-declaration new-environment body #f)
+          (jazz.walk-declarations walker resume new-declaration new-environment body)
           new-declaration)))))
 
 
@@ -1354,7 +1354,7 @@
           (jazz.error "Class {s} does not specify an ascendant" name)
         (begin
           (%%set-namespace-declaration-body new-declaration
-            (jazz.walk-list walker resume new-declaration new-environment body))
+            (jazz.walk-namespace walker resume new-declaration new-environment body))
           new-declaration)))))
 
 
@@ -1399,7 +1399,7 @@
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-interface-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
-          (jazz.walk-declarations walker resume new-declaration new-environment body #f)
+          (jazz.walk-declarations walker resume new-declaration new-environment body)
           new-declaration)))))
 
 
@@ -1408,7 +1408,7 @@
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (new-environment (%%cons new-declaration environment)))
       (%%set-namespace-declaration-body new-declaration
-        (jazz.walk-list walker resume new-declaration new-environment body))
+        (jazz.walk-namespace walker resume new-declaration new-environment body))
       new-declaration)))
 
 

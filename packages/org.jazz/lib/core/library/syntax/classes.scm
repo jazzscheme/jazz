@@ -309,6 +309,34 @@
 
 
 ;;;
+;;;; Restriction
+;;;
+
+
+(jazz.define-class-syntax jazz.Restriction-Type jazz.Type () jazz.Class jazz.allocate-restriction-type
+  ((base %%get-restriction-type-base ())
+   (type %%get-restriction-type-type ())))
+
+
+;;;
+;;;; Complement
+;;;
+
+
+(jazz.define-class-syntax jazz.Complement-Type jazz.Restriction-Type () jazz.Class jazz.allocate-complement-type
+  ((type %%get-complement-type-type ())))
+
+
+;;;
+;;;; Union
+;;;
+
+
+(jazz.define-class-syntax jazz.Union-Type jazz.Type () jazz.Class jazz.allocate-union-type
+  ((types %%get-union-type-types ())))
+
+
+;;;
 ;;;; Template
 ;;;
 
@@ -577,6 +605,16 @@
   ((variable      %%get-annotated-variable-variable      ())
    (declared-type %%get-annotated-variable-declared-type ())
    (type          %%get-annotated-variable-type          %%set-annotated-variable-type)))
+
+
+;;;
+;;;; Restricted Variable
+;;;
+
+
+(jazz.define-class-syntax jazz.Restricted-Variable jazz.Object () jazz.Object-Class jazz.allocate-restricted-variable
+  ((variable %%get-restricted-variable-variable ())
+   (type     %%get-restricted-variable-type     ())))
 
 
 ;;;

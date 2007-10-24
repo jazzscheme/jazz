@@ -818,8 +818,7 @@
 
 
 (jazz.define-class jazz.Values-Type jazz.Type () jazz.Class
-  (class
-   types))
+  (types))
 
 
 (define (jazz.new-values-type types)
@@ -842,6 +841,55 @@
 
 
 (jazz.encapsulate-class jazz.Values-Type)
+
+
+;;;
+;;;; Restriction
+;;;
+
+
+(jazz.define-class jazz.Restriction-Type jazz.Type () jazz.Class
+  (base
+   type))
+
+
+(define (jazz.new-restriction-type base type)
+  (jazz.allocate-restriction-type jazz.Restriction-Type base type))
+
+
+(jazz.encapsulate-class jazz.Restriction-Type)
+
+
+;;;
+;;;; Complement
+;;;
+
+
+(jazz.define-class jazz.Complement-Type jazz.Type () jazz.Class
+  (type))
+
+
+(define (jazz.new-complement-type type)
+  (jazz.allocate-complement-type jazz.Complement-Type type))
+
+
+(jazz.encapsulate-class jazz.Complement-Type)
+
+
+;;;
+;;;; Union
+;;;
+
+
+(jazz.define-class jazz.Union-Type jazz.Type () jazz.Class
+  (types))
+
+
+(define (jazz.new-union-type types)
+  (jazz.allocate-union-type jazz.Union-Type types))
+
+
+(jazz.encapsulate-class jazz.Union-Type)
 
 
 ;;;
@@ -1643,7 +1691,7 @@
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Variable binding) value source-declaration environment)
   (let ((value-code (jazz.emit-expression value source-declaration environment)))
-    (receive (annotated-frame annotated-variable) (jazz.find-annotated binding environment)
+    (receive (annotated-frame annotated-variable annotated-type) (jazz.find-annotated binding environment)
       (jazz.extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code)))
     (jazz.new-code
       `(set! ,(%%get-lexical-binding-name binding) ,(%%get-code-form value-code))
@@ -1934,6 +1982,23 @@
 
 
 ;;;
+;;;; Restricted Variable
+;;;
+
+
+(jazz.define-class jazz.Restricted-Variable jazz.Object () jazz.Object-Class
+  (variable
+   type))
+
+
+(define (jazz.new-restricted-variable variable type)
+  (jazz.allocate-restricted-variable jazz.Restricted-Variable variable type))
+
+
+(jazz.encapsulate-class jazz.Restricted-Variable)
+
+
+;;;
 ;;;; Annotated Frame
 ;;;
 
@@ -2038,23 +2103,30 @@
 
 
 (define (jazz.find-annotated variable environment)
-  (let iter-frames ((frames environment))
-    (if (%%null? frames)
-        #f
-      (let ((annotated-frame (%%car frames)))
-        (or (let iter-variables ((variables (%%get-annotated-frame-variables annotated-frame)))
-              (if (%%null? variables)
-                  #f
-                (let ((annotated-variable (%%car variables)))
-                  (if (%%eq? (%%get-annotated-variable-variable annotated-variable) variable)
-                      (values annotated-frame annotated-variable)
-                    (iter-variables (%%cdr variables))))))
-            (iter-frames (%%cdr frames)))))))
+  (let ((type #f))
+    (let iter-frames ((frames environment))
+      (if (%%null? frames)
+          #f
+        (let ((annotated-frame (%%car frames)))
+          (or (let iter-variables ((variables (%%get-annotated-frame-variables annotated-frame)))
+                (if (%%null? variables)
+                    #f
+                  (let ((annotated-variable (%%car variables)))
+                    (if (%%class-is? annotated-variable jazz.Restricted-Variable)
+                        (begin
+                          ;; keep outermost type
+                          (if (%%not type)
+                              (set! type (%%get-restricted-variable-type annotated-variable)))
+                          (iter-variables (%%cdr variables)))
+                      (if (%%eq? (%%get-annotated-variable-variable annotated-variable) variable)
+                          (values annotated-frame annotated-variable (or type (%%get-annotated-variable-type annotated-variable)))
+                        (iter-variables (%%cdr variables)))))))
+              (iter-frames (%%cdr frames))))))))
 
 
 (define (jazz.find-annotated-type variable environment)
-  (receive (frame variable) (jazz.find-annotated variable environment)
-    (%%get-annotated-variable-type variable)))
+  (receive (frame variable type) (jazz.find-annotated variable environment)
+    type))
 
 
 (define (jazz.extend-annotated-type frame variable new-type)
@@ -2067,7 +2139,7 @@
       (if (%%eq? actual-type jazz.Void)
           (%%set-annotated-variable-type variable new-type)
         (%%when (%%not (%%subtype? new-type actual-type))
-          ;; should probably just call jazz.type-union but it currently
+          ;; should probably just call jazz.extend-type but it currently
           ;; bugs recursively on unioning function types together...
           (let ((extended-type
                   (if (%%subtype? actual-type new-type)
@@ -2080,7 +2152,7 @@
               (reset #f))))))))
 
 
-(define (jazz.type-union type1 type2)
+(define (jazz.extend-type type1 type2)
   (cond ((or (%%not type1) (%%not type2))
          jazz.Any)
         ((%%subtype? type1 type2)
@@ -2090,6 +2162,14 @@
         (else
          ;; should find the most specific common supertype
          jazz.Any)))
+
+
+(define (jazz.type-union types)
+  (jazz.new-union-type types))
+
+
+(define (jazz.type-difference type1 type2)
+  #f)
 
 
 ;;;
@@ -2298,7 +2378,7 @@
     (let ((declaration (jazz.new-library-declaration name #f dialect-name requires exports imports)))
       (jazz.load-library-syntax declaration)
       (jazz.setup-library-lookups declaration)
-      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body #t)
+      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
       (jazz.validate-walk-problems walker)
       declaration)))
 
@@ -2371,7 +2451,7 @@
              (resume #f)
              (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
              (environment (%%cons declaration (jazz.walker-environment walker)))
-             (body (jazz.walk-toplevel walker resume declaration environment body)))
+             (body (jazz.walk-namespace walker resume declaration environment body)))
         (jazz.validate-walk-problems walker)
         (%%set-namespace-declaration-body declaration body)
         declaration))))
@@ -2395,7 +2475,7 @@
     form))
 
 
-(define (jazz.walk-toplevel walker resume declaration environment form-list)
+(define (jazz.walk-namespace walker resume declaration environment form-list)
   (let ((queue (jazz.new-queue)))
     (for-each (lambda (form)
                 (call/cc
@@ -2564,12 +2644,12 @@
     #f))
 
 
-(define (jazz.walk-declarations walker resume declaration environment forms toplevel?)
+(define (jazz.walk-declarations walker resume declaration environment forms)
   (define (walk forms)
     (for-each (lambda (form)
                 (call/cc
                   (lambda (resume)
-                    (let ((expansion (jazz.expand-macros walker resume declaration environment (if toplevel? (jazz.cond-expand form) form))))
+                    (let ((expansion (jazz.expand-macros walker resume declaration environment (jazz.cond-expand form))))
                       (if (jazz.begin-form? expansion)
                           (walk (%%cdr expansion))
                         (jazz.walk-declaration walker resume declaration environment expansion))))))
@@ -3367,15 +3447,174 @@
   (jazz.allocate-if jazz.If #f test yes no))
 
 
+(define jazz.type-tests
+  (%%make-hashtable eq?))
+
+
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.complex?     jazz.Complex)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.real?        jazz.Real)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.rational?    jazz.Rational)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.integer?     jazz.Integer)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.boolean?     jazz.Boolean)
+;; not 100% correct because of Scheme's semantic for list?
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.list?        jazz.List)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.null?        jazz.Null)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.pair?        jazz.Pair)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.symbol?      jazz.Symbol)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.char?        jazz.Char)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.string?      jazz.String)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.vector?      jazz.Vector)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.procedure?   jazz.Procedure)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.input-port?  jazz.Port)
+(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.output-port? jazz.Port)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.fixnum?        jazz.Fixnum)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.flonum?        jazz.Flonum)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.keyword?       jazz.Keyword)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.object?        jazz.Object)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.category?      jazz.Category)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.class?         jazz.Class)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.interface?     jazz.Interface)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.field?         jazz.Field)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.slot?          jazz.Slot)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.method?        jazz.Method)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.hashtable?     jazz.Hashtable)
+(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.foreign?       jazz.Foreign)
+
+
+(define jazz.not-type-tests
+  (%%make-hashtable eq?))
+
+
+(%%hashtable-set! jazz.not-type-tests 'jazz.dialect.kernel.not-null? jazz.Null)
+
+
+(define (jazz.restrict-type base type)
+  (jazz.new-restriction-type base type))
+
+
+(define (jazz.restriction-of? type class)
+  (and (%%class-is? type jazz.Restriction-Type)
+       (%%class-is? (%%get-restriction-type-type type) class)))
+
+
+(define (jazz.complement-type base type)
+  (if (and (jazz.restriction-of? type jazz.Complement-Type)
+           (%%eq? (%%get-restriction-type-base type) base))
+      (%%get-complement-type-type (%%get-restriction-type-type type))
+    (jazz.new-restriction-type base (jazz.new-complement-type type))))
+
+
+(define (jazz.branch-types test environment)
+  (define (process-not expr env)
+    (revenv (process-expr expr env)))
+  
+  (define (process-and expr-list env)
+    env)
+  
+  (define (process-or expr-list env)
+    env)
+  
+  (define (process-is expr type-expr env)
+    (if (%%class-is? expr jazz.Reference)
+        (let ((variable (%%get-reference-binding expr)))
+          (if (%%class-is? variable jazz.Variable)
+              ;; all this needs bigtime cleanup
+              (receive (frame actual-variable actual-type) (jazz.find-annotated variable (%%car env))
+                (let ((origin (%%get-annotated-variable-variable actual-variable))
+                      (yes-type (cond ((jazz.type? type-expr)
+                                       type-expr)
+                                      ((%%class-is? type-expr jazz.Reference)
+                                       (let ((binding (%%get-reference-binding type-expr)))
+                                         (cond ((%%class-is? binding jazz.Category-Declaration)
+                                                binding)
+                                               ((%%class-is? binding jazz.Autoload-Declaration)
+                                                (jazz.resolve-declaration binding))
+                                               (else
+                                                #f))))
+                                      (else
+                                       #f))))
+                  ;; quick try for fun
+                  (let ((no-type
+                          (if (%%eq? actual-type jazz.List)
+                              (cond ((%%eq? yes-type jazz.Null)
+                                     jazz.Pair)
+                                    ((%%eq? yes-type jazz.Pair)
+                                     jazz.Null)
+                                    (else
+                                     #f))
+                            #f)))
+                    (let ((yes
+                            (if yes-type
+                                (cons (jazz.new-annotated-frame (list (jazz.new-restricted-variable origin yes-type)) #f) (%%car env))
+                              (%%car env)))
+                          (no
+                            (if no-type
+                                (cons (jazz.new-annotated-frame (list (jazz.new-restricted-variable origin no-type)) #f) (%%cdr env))
+                              (%%cdr env))))
+                      (%%cons yes no)))))
+            env))
+      env))
+  
+  (define (revenv env)
+    (%%cons (%%cdr env) (%%car env)))
+  
+  (define (process-expr expr env)
+    (cond ((%%class-is? expr jazz.And)
+           (process-and (%%get-and-expressions expr) env))
+          ((%%class-is? expr jazz.Or)
+           (process-or (%%get-or-expressions expr) env))
+          ((%%class-is? expr jazz.Call)
+           (let ((operator (%%get-call-operator expr)))
+             (if (%%class-is? operator jazz.Reference)
+                 (let ((operator-binding (%%get-reference-binding operator)))
+                   (if (%%class-is? operator-binding jazz.Export-Declaration)
+                       (let ((operator-locator (%%get-declaration-locator operator-binding))
+                             (arguments (%%get-call-arguments expr)))
+                         (let ((count (%%length arguments)))
+                           (case operator-locator
+                             ((scheme.dialect.kernel.not)
+                              (if (%%fx= count 1)
+                                  (process-not (%%car arguments) env)
+                                env))
+                             ((jazz.dialect.kernel.is?)
+                              (if (%%fx= count 2)
+                                  (process-is (%%car arguments) (%%cadr arguments) env)
+                                env))
+                             ((jazz.dialect.kernel.is-not?)
+                              (if (%%fx= count 2)
+                                  (revenv (process-is (%%car arguments) (%%cadr arguments)))
+                                env))
+                             (else
+                              (if (%%fx= count 1)
+                                  (let ((class (%%hashtable-ref jazz.type-tests operator-locator #f)))
+                                    (if class
+                                        (process-is (%%car arguments) class env)
+                                      (let ((class (%%hashtable-ref jazz.not-type-tests operator-locator #f)))
+                                        (if class
+                                            (revenv (process-is (%%car arguments) class env))
+                                          env))))
+                                env)))))
+                     env))
+               env)))
+          (else
+           env)))
+  
+  (process-expr test (cons environment environment)))
+
+
 (jazz.define-method (jazz.emit-expression (jazz.If expression) declaration environment)
-  (let ((test (jazz.emit-expression (%%get-if-test expression) declaration environment))
-        (yes (jazz.emit-expression (%%get-if-yes expression) declaration environment))
-        (no (jazz.emit-expression (%%get-if-no expression) declaration environment)))
-    (jazz.new-code
-      `(if ,(%%get-code-form test)
-           ,(%%get-code-form yes)
-         ,(jazz.simplify-begin (%%get-code-form no)))
-      (jazz.type-union (%%get-code-type yes) (%%get-code-type no)))))
+  (let ((test (%%get-if-test expression)))
+    (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
+      (let ((test (jazz.emit-expression test declaration environment))
+            (yes (jazz.emit-expression (%%get-if-yes expression) declaration yes-environment))
+            (no (jazz.emit-expression (%%get-if-no expression) declaration no-environment)))
+        (jazz.new-code
+          `(if ,(%%get-code-form test)
+               ,(%%get-code-form yes)
+             ,(jazz.simplify-begin (%%get-code-form no)))
+          (jazz.extend-type (%%get-code-type yes) (%%get-code-type no)))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.If expression) f k s)
@@ -3401,15 +3640,40 @@
   (jazz.allocate-cond jazz.Cond #f clauses))
 
 
+(define (k x)
+  (cond ((not (list? x))
+         #f)
+        ((null? x)
+         #f)
+        (else
+         (car x))))
+
+
 (jazz.define-method (jazz.emit-expression (jazz.Cond expression) declaration environment)
   (jazz.new-code
     `(cond ,@(map (lambda (clause)
                     (let ((test (%%car clause))
                           (body (%%cdr clause)))
-                      `(,(if (%%not test)
-                             'else
-                           (%%get-code-form (jazz.emit-expression test declaration environment)))
-                        ,@(jazz.codes-forms (jazz.emit-expressions body declaration environment)))))
+                      (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
+                        #;(let ((present
+                                (lambda (environment)
+                                  (map (lambda (frame)
+                                         (map (lambda (variable)
+                                                (if (%%class-is? variable jazz.Restricted-Variable)
+                                                    (list 'restricted (%%get-lexical-binding-name (%%get-restricted-variable-variable variable)) (%%get-restricted-variable-type variable))
+                                                  (list 'variable (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable))))
+                                              (%%get-annotated-frame-variables frame)))
+                                       yes-environment))))
+                          (jazz.debug test)
+                          (jazz.debug 'yes (present yes-environment))
+                          (jazz.debug 'no (present no-environment)))
+                        (let ((output
+                                `(,(if (%%not test)
+                                       'else
+                                     (%%get-code-form (jazz.emit-expression test declaration environment)))
+                                  ,@(jazz.codes-forms (jazz.emit-expressions body declaration yes-environment)))))
+                          (set! environment no-environment)
+                          output))))
                   (%%get-cond-clauses expression)))
     jazz.Any))
 

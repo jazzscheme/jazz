@@ -40,11 +40,15 @@
 
 (cond-expand
   (gambit
-    (define (jazz.object->serial-number obj . rest)
-      (apply object->serial-number obj rest))
+    (define (jazz.object->serial-number obj)
+      (object->serial-number obj))
     
     (define (jazz.serial-number->object number)
-      (serial-number->object number)))
+      (serial-number->object number))
+    
+    ;; for debugging
+    (define (jazz.object->serial-symbol obj)
+      (string->symbol (string-append "#" (number->string (jazz.object->serial-number obj))))))
   
   (else
    ;; Incorrect implementation that will not let the serialized objects be

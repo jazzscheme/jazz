@@ -542,8 +542,12 @@
   (table->list jazz.Environment))
 
 
-(define (oc obj)
+(define (d obj)
   (jazz.object-content (if (integer? obj) (jazz.serial-number->object obj) obj)))
+
+
+(define (denv env)
+  (jazz.debug-annotated-environment env))
 
 
 ;;;

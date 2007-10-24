@@ -2015,6 +2015,25 @@
 (jazz.encapsulate-class jazz.Annotated-Frame)
 
 
+(cond-expand
+  ((core debug)
+   (define (jazz.debug-annotated-variable variable)
+     (let ((serial (jazz.object->serial-symbol variable)))
+       (if (%%class-is? variable jazz.Restricted-Variable)
+           (list restricted: (%%get-lexical-binding-name (%%get-restricted-variable-variable variable)) (%%get-restricted-variable-type variable) serial)
+         (list variable: (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable) serial))))
+   
+   
+   (define (jazz.debug-annotated-frame frame)
+     (cons frame: (map jazz.debug-annotated-variable (%%get-annotated-frame-variables frame))))
+   
+   
+   (define (jazz.debug-annotated-environment environment)
+     (cons environment: (map jazz.debug-annotated-frame environment))))
+  
+  (else))
+
+
 ;;;
 ;;;; Code
 ;;;
@@ -2115,7 +2134,7 @@
                     (if (%%class-is? annotated-variable jazz.Restricted-Variable)
                         (begin
                           ;; keep outermost type
-                          (if (%%not type)
+                          (if (and (%%not type) (%%eq? (%%get-restricted-variable-variable annotated-variable) variable))
                               (set! type (%%get-restricted-variable-type annotated-variable)))
                           (iter-variables (%%cdr variables)))
                       (if (%%eq? (%%get-annotated-variable-variable annotated-variable) variable)
@@ -3511,7 +3530,12 @@
     (revenv (process-expr expr env)))
   
   (define (process-and expr-list env)
-    env)
+    (let iter ((scan expr-list) (augmented env))
+      (if (%%null? scan)
+          augmented
+        (let ((expr (%%car scan)))
+          (let ((newenv (process-expr expr augmented)))
+            (iter (%%cdr scan) (%%cons (%%car newenv) (%%cdr env))))))))
   
   (define (process-or expr-list env)
     env)
@@ -3655,18 +3679,6 @@
                     (let ((test (%%car clause))
                           (body (%%cdr clause)))
                       (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
-                        #;(let ((present
-                                (lambda (environment)
-                                  (map (lambda (frame)
-                                         (map (lambda (variable)
-                                                (if (%%class-is? variable jazz.Restricted-Variable)
-                                                    (list 'restricted (%%get-lexical-binding-name (%%get-restricted-variable-variable variable)) (%%get-restricted-variable-type variable))
-                                                  (list 'variable (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable))))
-                                              (%%get-annotated-frame-variables frame)))
-                                       yes-environment))))
-                          (jazz.debug test)
-                          (jazz.debug 'yes (present yes-environment))
-                          (jazz.debug 'no (present no-environment)))
                         (let ((output
                                 `(,(if (%%not test)
                                        'else
@@ -4637,7 +4649,7 @@
       (cond ((%%null? scan))
             ;; rest parameter
             ((%%symbol? scan)
-             (let ((parameter-expression (jazz.new-rest-parameter scan jazz.Any)))
+             (let ((parameter-expression (jazz.new-rest-parameter scan jazz.List)))
                (set! rest parameter-expression)
                (%%when walk?
                  (set! augmented-environment (%%cons parameter-expression augmented-environment)))))
@@ -4720,9 +4732,6 @@
     (for-each process (%%get-signature-positional signature))
     (for-each process (%%get-signature-optional signature))
     (for-each process (%%get-signature-named signature))
-    (let ((rest (%%get-signature-rest signature)))
-      (if rest
-          (process rest)))
     (if (%%not queue)
         '()
       (jazz.queue-list queue))))

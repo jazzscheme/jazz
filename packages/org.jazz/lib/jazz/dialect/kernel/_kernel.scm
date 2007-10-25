@@ -467,6 +467,7 @@
 (native jazz.running-time)
 (native current-time)
 (native time->seconds)
+(native seconds->time)
 
 
 ;;;

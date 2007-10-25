@@ -766,12 +766,12 @@
     (jazz.new-macro-form 'form             jazz.expand-form)
 
     (jazz.new-special-form 'atomic-region  jazz.walk-atomic-region)
-    (jazz.new-special-form 'specialization jazz.walk-specialization)
     (jazz.new-special-form 'c-include      jazz.walk-c-include)
     (jazz.new-special-form 'c-declare      jazz.walk-c-declare)
     (jazz.new-special-form 'c-initialize   jazz.walk-c-initialize)
     (jazz.new-special-form 'c-function     jazz.walk-c-function)
     (jazz.new-special-form 'function       jazz.walk-function)
+    (jazz.new-special-form 'specialize     jazz.walk-specialize)
     (jazz.new-special-form 'parameterize   jazz.walk-parameterize)
     (jazz.new-special-form 'with-slots     jazz.walk-with-slots)
     (jazz.new-special-form 'with-self      jazz.walk-with-self)
@@ -1702,16 +1702,16 @@
 
 
 ;;;
-;;;; Specialization
+;;;; Specialize
 ;;;
 
 
-(define (jazz.parse-specialization form)
+(define (jazz.parse-specialize form)
   (values (%%car form) (%%cadr form)))
 
 
-(define (jazz.walk-specialization walker resume declaration environment form)
-  (receive (specialized specialization) (jazz.parse-specialization (%%cdr form))
+(define (jazz.walk-specialize walker resume declaration environment form)
+  (receive (specialized specialization) (jazz.parse-specialize (%%cdr form))
     (let ((specialized-declaration (jazz.lookup-reference walker resume declaration environment specialized))
           (specialization-declaration (jazz.lookup-reference walker resume declaration environment specialization)))
       (let ((operator (%%get-declaration-locator specialized-declaration))

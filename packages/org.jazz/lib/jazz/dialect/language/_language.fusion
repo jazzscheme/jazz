@@ -1285,13 +1285,13 @@
     (generic-add (car rest) (cdr rest))))
 
 
-(definition public (- n . rest)
+(definition public (- n <Numeric> . rest)
   (generic-substract n rest))
 
 
 ;; waiting optimizing compiler to put back as min
-(definition public (generic-min n . rest)
-  (for-each (function dynamic (object)
+(definition public (generic-min n <Numeric> . rest)
+  (for-each (function dynamic (object <Numeric>)
               (when (< object n)
                 (set! n object)))
             rest)
@@ -1299,15 +1299,15 @@
 
 
 ;; waiting optimizing compiler to put back as max
-(definition public (generic-max n . rest)
-  (for-each (function dynamic (object)
+(definition public (generic-max n <Numeric> . rest)
+  (for-each (function dynamic (object <Numeric>)
               (when (> object n)
                 (set! n object)))
             rest)
   n)
 
 
-(definition public (minimum lst (key: key {}) (compare: compare compare))
+(definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
   (let ((min (car lst)))
     (for-each (function dynamic (object)
                 (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
@@ -1316,7 +1316,7 @@
     min))
 
 
-(definition public (maximum lst (key: key {}) (compare: compare compare))
+(definition public (maximum lst <pair> (key: key {}) (compare: compare compare))
   (let ((max (car lst)))
     (for-each (function dynamic (object)
                 (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
@@ -1344,12 +1344,12 @@
   (norm~ x))
 
 
-(definition public (near? x y distance)
+(definition public (near? x y distance) <bool>
   (<= (norm (- x y)) distance))
 
 
 (definition public (contiguous-range lst)
-  (when lst
+  (when (not-null? lst)
     (call/ec
       (lambda (return)
         (let* ((first (car lst))
@@ -1362,82 +1362,82 @@
           (cons first second))))))
 
 
-(definition public (naturals lower <int> upper <int>)
+(definition public (naturals lower <int> upper <int>) <list>
   (loop (for n from lower below upper)
         (collect n)))
 
 
-(definition public (lobyte short)
+(definition public (lobyte short <int>) <int>
   (- (bitwise-and (+ short #x80) #xFF) #x80))
 
-(definition public (hibyte short)
+(definition public (hibyte short <int>) <int>
   (shift-right (bit-and short #xFF00) -8))
 
 
-(definition public (make-word lo hi)
+(definition public (make-word lo <int> hi <int>) <int>
   (bitwise-ior (arithmetic-shift hi 8) lo))
 
-(definition public (lochar word)
+(definition public (lochar word <int>) <int>
   (bit-and #xFF word))
 
-(definition public (hichar word)
+(definition public (hichar word <int>) <int>
   (arithmetic-shift (bitwise-and (bitwise-not #xFF) word) -8))
 
 
-(definition public (make-int lo hi)
+(definition public (make-int lo <int> hi <int>) <int>
   (bitwise-ior (arithmetic-shift hi 16) lo))
 
-(definition public (loword int)
+(definition public (loword int <int>) <int>
   (- (bitwise-and (+ int #x8000) #xFFFF) #x8000))
 
-(definition public (hiword int)
+(definition public (hiword int <int>) <int>
    (sign-word (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16)))
 
-(definition public (sign-word word)
+(definition public (sign-word word <int>) <int>
   (if (bit-set? 15 word)
       (- word #x10000)
     word))
 
 
-(definition (separate int1 int2)
+(definition (separate int1 <int> int2 <int>)
   (let* ((q (quotient int1 int2))
          (r (- int1 (* q int2))))
     (values q r)))
 
 
-(definition (randomize int1 int2)
+(definition (randomize int1 <int> int2 <int>)
   (random-source-pseudo-randomize! default-random-source int1 int2))
 
 (definition random random-integer)
 
 
-(definition bit-not bitwise-not)
-(definition bit-and bitwise-and)
-(definition bit-or  bitwise-ior)
-(definition bit-xor bitwise-xor)
+(definition bit-not <int:int> bitwise-not)
+(definition bit-and <int*:int> bitwise-and)
+(definition bit-or  <int*:int> bitwise-ior)
+(definition bit-xor <int*:int> bitwise-xor)
 
 
-(definition (bit-set num pos bit)
+(definition (bit-set num <int> pos <int> bit <bool>) <int>
   (let ((msk (shift-left 1 pos)))
     (if bit
         (bit-or num msk)
       (bit-and num (bit-not msk)))))
 
 
-(definition (mask-bit-set num msk bit)
+(definition (mask-bit-set num <int> msk <int> bit <bool>) <int>
   (if bit
       (bit-or num msk)
     (bit-and num (bit-not msk))))
 
 
-(definition (mask-bit-set? num msk)
+(definition (mask-bit-set? num <int> msk <int>) <bool>
   (not (= (bit-and num msk) 0)))
 
 
-(definition shift-left arithmetic-shift)
+(definition shift-left <int:int> arithmetic-shift)
 
 
-(definition (shift-right num pos)
+(definition (shift-right num <int> pos <int>) <int>
   (arithmetic-shift num (- pos)))
 
 
@@ -1709,7 +1709,7 @@
 (class Sequence-Class extends Class
   
   
-  (method public virtual abstract (allocate-sequence len))
+  (method public virtual abstract (allocate-sequence len <int>))
   
   
   (method (coerce-object seq)
@@ -3508,6 +3508,156 @@
 
 
 ;;;
+;;;; Cell
+;;;
+
+
+(class Cell extends Numeric
+  
+  
+  (slot public row <fx> accessors generate)
+  (slot public col <fx> accessors generate)
+    
+    
+  (method (initialize r c)
+    (nextmethod)
+    (set! row r)
+    (set! col c))
+  
+  
+  (method (copy-object deep?)
+    (new Cell row col))
+
+
+  (method (compare-object target)
+    (if (is-not? target Cell)
+        :incompatible
+      (let ((compared (compare row (get-row~ target))))
+        (if (/= compared :equal)
+            compared
+          (compare col (get-col~ target))))))
+  
+  
+  (method (fold-literal)
+    `(new Cell ',row ',col))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a}}"
+            (identifier-name (type-name (class-of self)))
+            row
+            col))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (increase-row (delta <fx> 1))
+    (set! row (+ row delta)))
+  
+  
+  (method public (increase-col (delta <fx> 1))
+    (set! col (+ col delta)))
+
+
+  ;;;
+  ;;;; Numeric
+  ;;;
+
+
+  (method (negate)
+    (new Cell (- row) (- col)))
+
+
+  (method (add n)
+    (cond ((is? n Cell) (new Cell (+ row (get-row~ n)) (+ col (get-col~ n))))
+          ((integer? n) (new Cell row (+ col n)))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (inverse)
+    (error "Cannot inverse {t}" self))
+
+
+  (method (multiply n)
+    (if (integer? n)
+        (new Cell (* row n) (* col n))
+      (error "Cannot multiply {t} to {t}" n self))))
+
+
+(definition =CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (and (= (get-row~ c1) (get-row~ c2))
+         (= (get-col~ c1) (get-col~ c2)))))
+
+
+(definition <CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (< r1 r2)
+          (and (= r1 r2)
+               (< (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition <=CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (< r1 r2)
+          (and (= r1 r2)
+               (<= (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition >CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (> r1 r2)
+          (and (= r1 r2)
+               (> (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition >=CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (> r1 r2)
+          (and (= r1 r2)
+               (>= (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition +CellFixnum <Cell^fx:Cell>
+  (lambda (c <Cell> n <fx>) <Cell>
+    (new Cell
+      (get-row~ c)
+      (+ (get-col~ c) n))))
+
+
+(definition +CellCell <Cell^Cell:Cell>
+  (lambda (c1 <Cell> c2 <Cell>) <Cell>
+    (new Cell
+      (+ (get-row~ c1) (get-row~ c2))
+      (+ (get-col~ c1) (get-col~ c2)))))
+
+
+(definition -CellFixnum <Cell^fx:Cell>
+  (lambda (c <Cell> n <fx>) <Cell>
+    (new Cell
+      (get-row~ c)
+      (- (get-col~ c) n))))
+
+
+(definition -CellCell <Cell^Cell:Cell>
+  (lambda (c1 <Cell> c2 <Cell>) <Cell>
+    (new Cell
+      (- (get-row~ c1) (get-row~ c2))
+      (- (get-col~ c1) (get-col~ c2)))))
+
+
+;;;
 ;;;; Input
 ;;;
 
@@ -4349,6 +4499,11 @@
   (let ((size (length axis)))
     (grow~ axis (+ size 1))
     (set-element! axis size obj)))
+
+
+(definition elementAxis <Axis^fx:object>
+  (lambda (axis <Axis> n <fx>) <object>
+    (vector-ref (get-content~ axis) n)))
 
 
 ;;;

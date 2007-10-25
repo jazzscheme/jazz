@@ -54,9 +54,6 @@
         (jazz.literals))
 
 
-(proclaim (optimize))
-
-
 ;;;
 ;;;; Lexicon
 ;;;
@@ -81,25 +78,25 @@
   
   
   ;; a user friendly textual input format that is saved as is
-  (property protected text                      initialize {}                      getter get-text                      setter set-text)
+  (property protected text                           initialize {}                      getter get-text                      setter set-text)
   ;; the text content automaticaly saved in a canonical form when the text is visually edited
-  (property protected text-content              initialize {}                      getter get-text-content              setter set-text-content)
-  (property protected editable?                 initialize true                     getter get-editable?                 setter set-editable?)
-  (property protected selectable?               initialize true                     getter get-selectable?               setter set-selectable?)
-  (property protected wrap?                     initialize false                    getter get-wrap?                     setter set-wrap?)
-  (property protected default-format            initialize (new-default-format)     getter get-default-format            setter set-default-format)
-  (property protected default-style             initialize (new-default-style)      getter get-default-style             setter set-default-style)
-  (property protected paragraph-spacing         initialize {}                       getter get-paragraph-spacing         setter set-paragraph-spacing)
-  (property protected accepts-returns?          initialize true                     getter get-accepts-returns?          setter set-accepts-returns?)
-  (property protected focus-selects-all?        initialize false                    getter get-focus-selects-all?        setter set-focus-selects-all?)
-  (property protected show-unfocused-selection? initialize true                     getter get-show-unfocused-selection? setter set-show-unfocused-selection?)
-  (property protected active-selection-color    initialize Active-Selection-Color   getter get-active-selection-color    setter set-active-selection-color)
-  (property protected inactive-selection-color  initialize Inactive-Selection-Color getter get-inactive-selection-color  setter set-inactive-selection-color)
-  (property protected caret-pen                 initialize Caret-Pen                getter get-caret-pen                 setter set-caret-pen)
-  (property protected platform                  initialize {}                       getter get-platform                  setter set-platform)
+  (property protected text-content                   initialize {}                      getter get-text-content              setter set-text-content)
+  (property protected editable?                      initialize true                     getter get-editable?                 setter set-editable?)
+  (property protected selectable?                    initialize true                     getter get-selectable?               setter set-selectable?)
+  (property protected wrap?                          initialize false                    getter get-wrap?                     setter set-wrap?)
+  (property protected default-format                 initialize (new-default-format)     getter get-default-format            setter set-default-format)
+  (property protected default-style                  initialize (new-default-style)      getter get-default-style             setter set-default-style)
+  (property protected paragraph-spacing         <fx> initialize 0                        getter get-paragraph-spacing         setter set-paragraph-spacing)
+  (property protected accepts-returns?               initialize true                     getter get-accepts-returns?          setter set-accepts-returns?)
+  (property protected focus-selects-all?             initialize false                    getter get-focus-selects-all?        setter set-focus-selects-all?)
+  (property protected show-unfocused-selection?      initialize true                     getter get-show-unfocused-selection? setter set-show-unfocused-selection?)
+  (property protected active-selection-color         initialize Active-Selection-Color   getter get-active-selection-color    setter set-active-selection-color)
+  (property protected inactive-selection-color       initialize Inactive-Selection-Color getter get-inactive-selection-color  setter set-inactive-selection-color)
+  (property protected caret-pen                      initialize Caret-Pen                getter get-caret-pen                 setter set-caret-pen)
+  (property protected platform                       initialize {}                       getter get-platform                  setter set-platform)
   ;; this property is a temp optimisation because the lisp explorer does its job by creating a jazz text-view
   ;; and colorizing a hidden text is kinda braindead!!!
-  (property protected colorize?                 initialize true                     getter get-colorize?                 setter set-colorize?)
+  (property protected colorize?                      initialize true                     getter get-colorize?                 setter set-colorize?)
   
   
   (slot protected syntax                initialize {})
@@ -273,7 +270,7 @@
     (set! colorize? value))
   
   
-  (method protected (get-paragraphs)
+  (method protected (get-paragraphs) <Axis>
     (get-sons~ root-row))
   
   
@@ -1607,6 +1604,9 @@
   ;;;
   
   
+  (proclaim (optimize))
+  
+  
   (method (empty-selection) <Range>
     (new Range (text-beginning) (text-beginning)))
   
@@ -1780,7 +1780,7 @@
     (join (range-strings range) (cn)))
   
   
-  (method public (next! pos <Cell>)
+  (method public (next! pos <Cell>) <bool>
     (cond ((/= (get-col~ pos) (paragraph-length (get-row~ pos)))
            (increase-col~ pos)
            true)
@@ -1792,7 +1792,7 @@
            false)))
   
   
-  (method public (previous! pos <Cell>)
+  (method public (previous! pos <Cell>) <bool>
     (cond ((/= (get-col~ pos) 0)
            (increase-col~ pos -1)
            true)
@@ -1804,13 +1804,13 @@
            false)))
   
   
-  (method public (next-cell pos <Cell>)
+  (method public (next-cell pos <Cell>) <Cell+>
     (let ((cell (copy pos)))
       (when (next! cell)
         cell)))
   
   
-  (method public (previous-cell pos <Cell>)
+  (method public (previous-cell pos <Cell>) <Cell+>
     (let ((cell (copy pos)))
       (when (previous! cell)
         cell)))
@@ -1820,12 +1820,12 @@
     (range-strings selection))
   
   
-  (method public (get-selected-string)
+  (method public (get-selected-string) <string+>
     (when (has-selection?)
       (get-string (get-selection))))
   
   
-  (method public (next pos <Cell> offset <fx>)
+  (method public (next pos <Cell> offset <fx>) <Cell+>
     (let ((ok? true)
           (pos (copy pos)))
       (while (and ok? (> offset 0))
@@ -1835,7 +1835,7 @@
         pos)))
   
   
-  (method public (previous pos <Cell> offset <fx>)
+  (method public (previous pos <Cell> offset <fx>) <Cell+>
     (let ((ok? true)
           (pos (copy pos)))
       (while (and ok? (> offset 0))
@@ -1845,7 +1845,7 @@
         pos)))
   
   
-  (method public (get-column row <fx>)
+  (method public (get-column row <fx>) <fx>
     (let ((pos (new Cell row 0)))
       (while (memq? (get-char pos) '(#\space #\tab))
         (increase! pos))
@@ -1881,6 +1881,9 @@
   
   (method (removed-update-selection rank count)
     false)
+  
+  
+  (proclaim (not optimize))
   
   
   ;;;
@@ -2941,7 +2944,7 @@
   
   
   (method (get-paragraph-width paragraph)
-    (max 40 (- (if wrap-width (- wrap-width wrap-patch) (get-display-width)) left-padding (either (get-left-margin~ (get-format~ paragraph)) 0))))
+    (max 40 (- (if wrap-width (- wrap-width wrap-patch) (get-display-width)) left-padding (get-left-margin~ (get-format~ paragraph)))))
   
   
   (method (range-paragraphs range <Range>)
@@ -3081,7 +3084,7 @@
   (method public (toggle-bulleted row)
     (modify-format (get-paragraph row)
                    (function dynamic (format)
-                     (let ((left-margin (either (get-left-margin~ format) 0))
+                     (let ((left-margin (get-left-margin~ format))
                            (bulleted? (get-bulleted?~ format)))
                        (set-bulleted?~ format (not bulleted?))
                        (set-left-margin~ format (+ left-margin (if bulleted? -16 16)))))))
@@ -3090,7 +3093,7 @@
   (method public (indent-paragraph row paragraph delta)
     (modify-format paragraph
                    (function dynamic (format)
-                     (let ((left (either (get-left-margin~ format) 0)))
+                     (let ((left (get-left-margin~ format)))
                        (set-left-margin~ format (+ left delta))))))
   
   

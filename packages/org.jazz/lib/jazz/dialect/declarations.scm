@@ -155,6 +155,15 @@
 
 
 ;;;
+;;;; Specialization
+;;;
+
+
+(jazz.define-class-syntax jazz.Specialization jazz.Expression (type) jazz.Object-Class jazz.allocate-specialization
+  ())
+
+
+;;;
 ;;;; Slot Reference
 ;;;
 

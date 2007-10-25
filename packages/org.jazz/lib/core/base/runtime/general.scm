@@ -257,10 +257,6 @@
     (jazz.reverse! lst)))
 
 
-(define (jazz.bit-or . rest)
-  (%%apply bitwise-ior rest))
-
-
 ;;;
 ;;;; Hashtable
 ;;;

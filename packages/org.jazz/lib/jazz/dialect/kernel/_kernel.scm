@@ -194,15 +194,14 @@
 ;;;
 
 
-(native jazz.bit-or)
-(native bitwise-not)
-(native bitwise-and)
-(native bitwise-ior)
-(native bitwise-xor)
-(native arithmetic-shift)
-(native bit-set?)
-(native fixnum?)
-(native flonum?)
+(native bitwise-not <int:int>)
+(native bitwise-and <int*:int>)
+(native bitwise-ior <int*:int>)
+(native bitwise-xor <int*:int>)
+(native arithmetic-shift <int:int>)
+(native bit-set? <int^int:bool>)
+(native fixnum? <object:bool>)
+(native flonum? <object:bool>)
 
 
 ;;;
@@ -282,7 +281,7 @@
 ;;;
 
 
-(native jazz.field?)
+(native jazz.field? <object:bool>)
 (native jazz.field-name)
 (native jazz.find-field)
 
@@ -292,7 +291,7 @@
 ;;;
 
 
-(native jazz.slot?)
+(native jazz.slot? <object:bool>)
 (native jazz.slot-value)
 (native jazz.set-slot-value)
 
@@ -481,12 +480,14 @@
 
 
 ;;;
-;;;; Walk
+;;;; Walker
 ;;;
 
 
 (native jazz.new-walk-context)
 (native jazz.register-literal-constructor)
+(native jazz.parse-specifier)
+(native jazz.add-specialization)
 
 
 ;;;

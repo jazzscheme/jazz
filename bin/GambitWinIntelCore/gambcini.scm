@@ -52,6 +52,14 @@
 
 
 ;;;
+;;;; Font
+;;;
+
+
+(jazz.define-feature logfont)
+
+
+;;;
 ;;;; Boot
 ;;;
 

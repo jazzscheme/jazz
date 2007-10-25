@@ -608,13 +608,13 @@
 
 
 ;;;
-;;;; Restricted Variable
+;;;; Restricted Binding
 ;;;
 
 
-(jazz.define-class-syntax jazz.Restricted-Variable jazz.Object () jazz.Object-Class jazz.allocate-restricted-variable
-  ((variable %%get-restricted-variable-variable ())
-   (type     %%get-restricted-variable-type     ())))
+(jazz.define-class-syntax jazz.Restricted-Binding jazz.Object () jazz.Object-Class jazz.allocate-restricted-binding
+  ((binding %%get-restricted-binding-binding ())
+   (type    %%get-restricted-binding-type    ())))
 
 
 ;;;

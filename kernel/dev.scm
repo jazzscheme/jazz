@@ -99,6 +99,30 @@
   (rl 'test))
 
 
+;; jazz.dialect.language
+;; jazz.library.utility.Cell
+;; jazz.ui.text.Paragraph
+;; jazz.ui.text.Text-View
+;; jazz.ui.text.Text-Explorer
+;; jazz.ui.text.Code-Explorer
+;; jazz.jazz.text.Lisp-Explorer
+;; jazz.jazz.text.Jazz-Explorer
+(define (rll)
+  (rl 'jazz.dialect.language))
+
+(define (rlp)
+  (rl 'jazz.ui.text.Paragraph))
+
+(define (rlt)
+  (rl 'jazz.ui.text.Text-View))
+
+(define (rlte)
+  (rl 'jazz.ui.text.Text-Explorer))
+
+(define (rlle)
+  (rl 'jazz.jazz.text.Lisp-Explorer))
+
+
 (define (lex module-name)
   (ef module-name)
   (load "x"))

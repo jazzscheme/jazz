@@ -52,8 +52,8 @@
 
   (slot protected format <Format> initialize {} accessors generate)
   (slot protected string <string>               accessors generate)
-  (slot protected runs                          accessors generate)
-  (slot protected lines                         accessors generate)
+  (slot protected runs   <list>                 accessors generate)
+  (slot protected lines  <list>                 accessors generate)
   (slot protected walk-state                    accessors generate) ;; for SLC experiments on syntax coloring
   
   
@@ -74,15 +74,15 @@
   ;;;
   
   
-  (method public (get-length)
+  (method public (get-length) <fx>
     (length string))
   
   
-  (method public (paragraph-left)
-    (+ (get-h~ position) (either (get-left-margin~ format) 0)))
+  (method public (paragraph-left) <fx>
+    (+ (get-h~ position) (get-left-margin~ format)))
 
 
-  (method public (paragraph-top)
+  (method public (paragraph-top) <fx>
     (get-v~ position))
   
   
@@ -91,8 +91,8 @@
   ;;;
   
   
-  (method public (compute-width)
-    (let ((width (either (get-left-margin~ format) 0)))
+  (method public (compute-width) <fx>
+    (let ((width (get-left-margin~ format)))
       (for-each (function dynamic (run <Run>)
                   (increase! width (compute-width~ run)))
                 runs)
@@ -105,7 +105,7 @@
 
 
   ;; All these special cases need major cleanup!
-  (method protected (range-region left-padding start end dh dv sc)
+  (method protected (range-region left-padding <fx> start end dh dv sc)
     (let ((rs <fx> (either start 0))
           (re <fx> (either end (length string)))
           (left <fx> (paragraph-left))
@@ -155,11 +155,11 @@
   ;;;
   
   
-  (method public (get-line n <fx>)
+  (method public (get-line n <fx>) <Line>
     (element lines n))
   
   
-  (method public (get-line-at col)
+  (method public (get-line-at col <fx>) <Line>
     (get-line (get-row~ (col->text col))))
 
 
@@ -168,25 +168,27 @@
   ;;;
   
   
-  (method public (get-run col <fx>)
+  (method public (get-run col <fx>) <Run+>
     (call/ec
       (lambda (return)
         (for-each-run runs
-          (function dynamic (run offset limit)
+          (function dynamic (run <Run> offset <fx> limit <fx>)
             (when (and (> col offset) (<= col limit))
               (return run))))
         {})))
   
   
-  (method public (first-run)
-    (car runs))
+  (method public (first-run) <Run+>
+    (if (null? runs)
+        #f
+      (car runs)))
   
   
-  (method protected (range-runs start end)
+  (method protected (range-runs start <fx> end <fx>)
     (let ((end (either end (length string)))
           (fact (new List-Factory))
           (make
-           (function dynamic (run s e)
+           (function dynamic (run <Run> s <fx> e <fx>)
              (new Run (subseq! string s e) (get-style~ run)))))
       (for-each-range-run start end
         (function dynamic (where run offset limit)
@@ -202,9 +204,9 @@
       (get-output~ fact)))
 
   
-  (method (for-each-run runs proc)
+  (method (for-each-run runs <list> proc)
     (let ((offset 0))
-      (for-each (function dynamic (run)
+      (for-each (function dynamic (run <Run>)
                   (let* ((len (get-length~ run))
                          (limit (+ offset len)))
                     (proc run offset limit)
@@ -220,9 +222,9 @@
   ;;      o     l                      -> left
   ;;              o      l             -> right
   ;;
-  (method (for-each-range-run start end proc)
+  (method (for-each-range-run start <fx> end <fx> proc)
     (for-each-run runs
-      (function dynamic (run offset limit)
+      (function dynamic (run <Run> offset <fx> limit <fx>)
         (proc (cond ((or (<= limit start) (>= offset end))
                      'outside)
                     ((and (>= offset start) (<= limit end))
@@ -243,47 +245,47 @@
   ;;;
   
   
-  (method protected (set-style start end style)
+  (method protected (set-style start <fx> end <fx> style)
     (modify-style start end
       (function dynamic (s)
         style)))
   
   
-  (method protected (set-text-alignment start end alignment)
+  (method protected (set-text-alignment start <fx> end <fx> alignment)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-alignment~ style alignment)
           style))))
   
   
-  (method protected (set-text-font start end font)
+  (method protected (set-text-font start <fx> end <fx> font)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-font~ style font)
           style))))
   
   
-  (method protected (set-text-color start end color)
+  (method protected (set-text-color start <fx> end <fx> color)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-color~ style color)
           style))))
   
   
-  (method protected (set-highlight-color start end color)
+  (method protected (set-highlight-color start <fx> end <fx> color)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let ((style <Text-Style> (extend~ style)))
           (set-highlight~ style color)
           style))))
   
   
-  (method protected (set-font-name start end name)
+  (method protected (set-font-name start <fx> end <fx> name)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (when (supports?~ style font:)
           (let* ((style <Text-Style> (extend~ style))
                  (font (extend-font-name~ (get-font~ style) name)))
@@ -291,9 +293,9 @@
             style)))))
   
   
-  (method protected (set-point-size start end size)
+  (method protected (set-point-size start <fx> end <fx> size)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (when (supports?~ style font:)
           (let* ((style <Text-Style> (extend~ style))
                  (font (extend-point-size~ (get-font~ style) size)))
@@ -301,43 +303,43 @@
             style)))))
   
   
-  (method protected (toggle-bold start end)
+  (method protected (toggle-bold start <fx> end <fx>)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-bold~ (get-font~ style))))
           (set-font~ style font)
           style))))
   
   
-  (method protected (toggle-italic start end)
+  (method protected (toggle-italic start <fx> end <fx>)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-italic~ (get-font~ style))))
           (set-font~ style font)
           style))))
   
   
-  (method protected (toggle-underline start end)
+  (method protected (toggle-underline start <fx> end <fx>)
     (modify-style start end
-      (function dynamic (style)
+      (function dynamic (style <Style>)
         (let* ((style <Text-Style> (extend~ style))
                (font (toggle-underline~ (get-font~ style))))
           (set-font~ style font)
           style))))
   
   
-  (method (modify-style start end proc)
-    (let* ((text parent)
+  (method (modify-style start <fx> end <fx> proc)
+    (let* ((text <Text-View> parent)
            (start (either start 0))
            (end (either end (length string)))
            (fact (new List-Factory))
            (split
-            (function dynamic (run s e)
+            (function dynamic (run <Run> s <fx> e <fx>)
               (new Run (subseq! string s e) (get-style~ run))))
            (make
-            (function dynamic (run s e)
+            (function dynamic (run <Run> s <fx> e <fx>)
               (let* ((style (get-style~ run))
                      (new-style (either (proc style) style)))
                 (new Run (subseq! string s e) (intern-style~ text new-style))))))
@@ -361,10 +363,10 @@
       (set! runs (coalesce-runs (get-output~ fact)))))
 
 
-  (method protected (remove-coloring default-style)
-    (let ((text parent)
+  (method protected (remove-coloring default-style <Style>)
+    (let ((text <Text-View> parent)
           (modified? false))
-      (for-each (function dynamic (run)
+      (for-each (function dynamic (run <Run>)
                   (let ((style (get-style~ run)))
                     (when (and (is? style Text-Style) (get-color~ style))
                       (set-style~ run default-style)
@@ -373,7 +375,7 @@
       modified?))
   
   
-  (method (coalesce-runs runs)
+  (method (coalesce-runs runs <list>) <list>
     (if (null? runs)
         '()
       (let ((previous runs)
@@ -393,19 +395,19 @@
   ;;;
   
   
-  (method protected (flatten)
+  (method protected (flatten) <void>
     (let ((line (new Line parent runs 0 0 0 0 0)))
       (set! lines (list line))
       (set! row-height (get-height~ line))))
   
   
-  (method protected (wrap context width)
-    (let* ((text parent)
+  (method protected (wrap context width <fx>) <void>
+    (let* ((text <Text-View> parent)
            (rank 0)
            (offset 0)
            (justification (get-justification~ format))
-           (margin (either (get-left-margin~ format) 0))
-           (spacing (either (get-paragraph-spacing~ text) 0))
+           (margin (get-left-margin~ format))
+           (spacing (get-paragraph-spacing~ text))
            (left margin)
            (top 0)
            (tabs (get-tab-stops~ text))
@@ -419,7 +421,7 @@
                      (line-left (case justification ((() left) 0) ((centered) (center right width)) ((right) (justify right width 'tail))))
                      (line (new Line text runs rank offset line-left top right))
                      (height (get-height~ line)))
-                (for-each (function dynamic (run) (height-update~ run height)) runs)
+                (for-each (function dynamic (run <Run>) (height-update~ run height)) runs)
                 (put~ lines line)
                 (reset~ lruns)
                 (set! left margin)
@@ -427,7 +429,7 @@
                 (increase! rank)
                 (increase! offset (get-length~ line))
                 top))))
-      (for-each (function dynamic (run)
+      (for-each (function dynamic (run <Run>)
                   (set! left (wrap~ run context margin left top width tabs place break-line)))
                 runs)
       (break-line left)
@@ -448,20 +450,20 @@
 
   
   (method (draw dc context update lh lv)
-    (let* ((text parent)
+    (let* ((text <Text-View> parent)
            (tab-stops (get-tab-stops~ text))
-           (left (either (get-left-margin~ format) 0))
+           (left (get-left-margin~ format))
            (h left)
            (v 0))
       (when (get-bulleted?~ format)
         (draw-bullet dc h v left))
-      (for-each (function dynamic (line)
+      (for-each (function dynamic (line <Line>)
                   (draw-line~ line dc context h v tab-stops left)
                   (increase! v (get-height~ line)))
                 lines)))
   
   
-  (method (draw-bullet dc h v left)
+  (method (draw-bullet dc <Surface> h <fx> v <fx> left <fx>) <void>
     (let* ((height (get-height~ (car lines)))
            (size (round (percent 40 height)))
            (outside (either (get-bullet-outside~ format) Bullet-Outside))
@@ -478,10 +480,10 @@
   ;;;
   
   
-  (method protected (replace-range start end str)
-    (let* ((text parent)
+  (method protected (replace-range start <fx> end str <string>) <void>
+    (let* ((text <Text-View> parent)
            (inserted (length str))
-           (end (either end (length string)))
+           (end <fx> (either end (length string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
@@ -491,42 +493,42 @@
       (let* ((replacement (new Run (subseq! string start new-end) style))
              (replacement-list (if (> (get-length~ replacement) 0) (list replacement) '())))
         (for-each-run before
-          (function dynamic (run offset limit)
+          (function dynamic (run <Run> offset <fx> limit <fx>)
             (set-string~ run (subseq! string offset limit))))
         (for-each-run after
-          (function dynamic (run offset limit)
+          (function dynamic (run <Run> offset <fx> limit <fx>)
             (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
         (set! runs (coalesce-runs (append! before replacement-list after))))))
   
   
-  (method protected (replace-runs start end replacement)
+  (method protected (replace-runs start <fx> end replacement)
     (let* ((str (runs->str replacement))
            (inserted (length str))
-           (end (either end (length string)))
+           (end <fx> (either end (length string)))
            (new-end (+ start inserted))
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
            (after (range-runs end (get-length))))
       (set! string (replace-subseq! string start end str))
       (for-each-run before
-        (function dynamic (run offset limit)
+        (function dynamic (run <Run> offset <fx> limit <fx>)
           (set-string~ run (subseq! string offset limit))))
       (for-each-run replacement
-        (function dynamic (run offset limit)
+        (function dynamic (run <Run> offset <fx> limit <fx>)
           (let ((style (get-style~ run)))
             (when (is? style View-Style)
               (set-parent~ (get-view~ style) self)))
           (set-string~ run (subseq! string (+ start offset) (+ start limit)))))
       (for-each-run after
-        (function dynamic (run offset limit)
+        (function dynamic (run <Run> offset <fx> limit <fx>)
           (set-string~ run (subseq! string (+ new-end offset) (+ new-end limit)))))
       (set! runs (coalesce-runs (append! before replacement after)))))
   
   
-  (method (find-propagatable-style runs)
+  (method (find-propagatable-style runs <list>)
     (call/ec
       (lambda (return)
-        (for-each-reversed (function dynamic (run)
+        (for-each-reversed (function dynamic (run <Run>)
                              (let ((style (get-style~ run)))
                                (when (propagate?~ style)
                                  (return style))))
@@ -534,18 +536,18 @@
         (get-default-style~ parent))))
   
   
-  (method protected (replace-beginning runs)
+  (method protected (replace-beginning runs <list>) <void>
     (replace-runs 0 0 runs))
   
   
-  (method protected (replace-ending runs)
+  (method protected (replace-ending runs <list>) <void>
     (let ((len (length string)))
       (replace-runs len len runs)))
   
   
-  (method (runs->str runs)
+  (method (runs->str runs <list>) <string>
     (let ((printer (new String-Printer)))
-      (for-each (function dynamic (run)
+      (for-each (function dynamic (run <Run>)
                   (display (get-string~ run) printer))
                 runs)
       (get-output~ printer)))
@@ -558,10 +560,10 @@
   
   
   (method protected (view->col view <Point>) <fx>
-    (let ((view (new Point (- (get-h~ view) (either (get-left-margin~ format) 0)) (get-v~ view))))
+    (let ((view (new Point (- (get-h~ view) (get-left-margin~ format)) (get-v~ view))))
       (call/ec
         (lambda (return)
-          (for-each (function dynamic (line)
+          (for-each (function dynamic (line <Line>)
                       (let ((col (view->col~ line view)))
                         (when col
                           (return (+ (get-offset~ line) col)))))
@@ -569,11 +571,11 @@
           (get-length)))))
   
   
-  (method protected (col->view col) <Point>
+  (method protected (col->view col <fx>) <Point>
     (let ((last (last lines)))
       (call/ec
         (lambda (return)
-          (for-each (function dynamic (line)
+          (for-each (function dynamic (line <Line>)
                       (let* ((strict? (neq? line last))
                              (view (col->view~ line (- col (get-offset~ line)) strict?)))
                         (when view
@@ -581,11 +583,11 @@
                     lines)))))
   
   
-  (method protected (col->text col) <Cell>
+  (method protected (col->text col <fx>) <Cell>
     (let ((last {}))
       (call/ec
         (lambda (return)
-          (for-each (function dynamic (line)
+          (for-each (function dynamic (line <Line>)
                       (let ((text (col->text~ line col)))
                         (when text
                           (return text)))

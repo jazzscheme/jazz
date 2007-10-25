@@ -648,7 +648,7 @@
   (let ((referenced-declaration (jazz.resolve-declaration declaration)))
     (jazz.new-code
       `(,(jazz.autoload-locator referenced-declaration))
-      jazz.Any)))
+      (jazz.resolve-declaration declaration))))
 
 
 (define (jazz.autoload-locator referenced-declaration)
@@ -1982,20 +1982,20 @@
 
 
 ;;;
-;;;; Restricted Variable
+;;;; Restricted Binding
 ;;;
 
 
-(jazz.define-class jazz.Restricted-Variable jazz.Object () jazz.Object-Class
-  (variable
+(jazz.define-class jazz.Restricted-Binding jazz.Object () jazz.Object-Class
+  (binding
    type))
 
 
-(define (jazz.new-restricted-variable variable type)
-  (jazz.allocate-restricted-variable jazz.Restricted-Variable variable type))
+(define (jazz.new-restricted-binding binding type)
+  (jazz.allocate-restricted-binding jazz.Restricted-Binding binding type))
 
 
-(jazz.encapsulate-class jazz.Restricted-Variable)
+(jazz.encapsulate-class jazz.Restricted-Binding)
 
 
 ;;;
@@ -2015,23 +2015,20 @@
 (jazz.encapsulate-class jazz.Annotated-Frame)
 
 
-(cond-expand
-  ((core debug)
-   (define (jazz.debug-annotated-variable variable)
-     (let ((serial (jazz.object->serial-symbol variable)))
-       (if (%%class-is? variable jazz.Restricted-Variable)
-           (list restricted: (%%get-lexical-binding-name (%%get-restricted-variable-variable variable)) (%%get-restricted-variable-type variable) serial)
-         (list variable: (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable) serial))))
-   
-   
-   (define (jazz.debug-annotated-frame frame)
-     (cons frame: (map jazz.debug-annotated-variable (%%get-annotated-frame-variables frame))))
-   
-   
-   (define (jazz.debug-annotated-environment environment)
-     (cons environment: (map jazz.debug-annotated-frame environment))))
-  
-  (else))
+;; put those in a cond-expand when cond-expand supports multiple features
+(define (jazz.debug-annotated-variable variable)
+  (let ((serial (jazz.object->serial-symbol variable)))
+    (if (%%class-is? variable jazz.Restricted-Binding)
+        (list restricted: (%%get-lexical-binding-name (%%get-restricted-binding-binding variable)) (%%get-restricted-binding-type variable) serial)
+      (list variable: (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable) serial))))
+
+
+(define (jazz.debug-annotated-frame frame)
+  (cons frame: (map jazz.debug-annotated-variable (%%get-annotated-frame-variables frame))))
+
+
+(define (jazz.debug-annotated-environment environment)
+  (cons environment: (map jazz.debug-annotated-frame environment)))
 
 
 ;;;
@@ -2131,12 +2128,16 @@
                 (if (%%null? variables)
                     #f
                   (let ((annotated-variable (%%car variables)))
-                    (if (%%class-is? annotated-variable jazz.Restricted-Variable)
-                        (begin
-                          ;; keep outermost type
-                          (if (and (%%not type) (%%eq? (%%get-restricted-variable-variable annotated-variable) variable))
-                              (set! type (%%get-restricted-variable-type annotated-variable)))
-                          (iter-variables (%%cdr variables)))
+                    (if (%%class-is? annotated-variable jazz.Restricted-Binding)
+                        (let ((binding (%%get-restricted-binding-binding annotated-variable)))
+                          ;; this is really for slots so i need to think about this
+                          (if (%%class-is? binding jazz.Declaration)
+                              (values #f annotated-variable (%%get-restricted-binding-type annotated-variable))
+                            (begin
+                              ;; keep outermost type
+                              (if (and (%%not type) (%%eq? binding variable))
+                                  (set! type (%%get-restricted-binding-type annotated-variable)))
+                              (iter-variables (%%cdr variables)))))
                       (if (%%eq? (%%get-annotated-variable-variable annotated-variable) variable)
                           (values annotated-frame annotated-variable (or type (%%get-annotated-variable-type annotated-variable)))
                         (iter-variables (%%cdr variables)))))))
@@ -2144,8 +2145,16 @@
 
 
 (define (jazz.find-annotated-type variable environment)
-  (receive (frame variable type) (jazz.find-annotated variable environment)
-    type))
+  ;; big time kludge to test it out
+  (if (%%class-is? variable jazz.Variable)
+      (receive (frame variable type) (jazz.find-annotated variable environment)
+        type)
+    ;; here it is a slot declaration
+    (let ((info (jazz.find-annotated variable environment)))
+      (if info
+          (receive (frame variable type) (jazz.find-annotated variable environment)
+            type)
+        (%%get-lexical-binding-type variable)))))
 
 
 (define (jazz.extend-annotated-type frame variable new-type)
@@ -3285,7 +3294,7 @@
 (jazz.define-method (jazz.emit-expression (jazz.Call expression) declaration environment)
   (let ((operator (%%get-call-operator expression))
         (arguments (jazz.emit-expressions (%%get-call-arguments expression) declaration environment)))
-    (or (jazz.emit-inlined-primitive operator arguments declaration environment)
+    (or (jazz.emit-specialized-call operator arguments declaration environment)
         (jazz.emit-inlined-call operator arguments declaration environment)
         (jazz.emit-call operator arguments declaration environment))))
 
@@ -3306,7 +3315,7 @@
 
 
 ;;;
-;;;; Inlined Primitive
+;;;; Specialized Call
 ;;;
 
 
@@ -3315,63 +3324,70 @@
 ;; in Jazz code, the + would get captured as we have no way of safely saying scheme.+ in Scheme...
 
 
-;; To make this alot more clean would necessitate moving the inline into the walk phase so that the
-;; result of inlining can be Jazz code. With this we could inline for instance (##length x) and ##length
+;; To make this alot more clean would necessitate moving the specialization into the walk phase so that the
+;; result of inlining can be Jazz code. With this we could specialize for instance (##length x) and ##length
 ;; would simply be an external typed as <list:int> which would do all type propagation automatically.
 ;; This is really difficult to achieve because as inlining can impact type inference it also needs
-;; to be done at emit phase... Even better, all those should be inline definitions in Jazz with support
-;; for overloading based on static types...
+;; to be done at emit phase... Even better, all those should be specialized definitions in Jazz with support
+;; for specializing based on static types...
 
 
-(define jazz.inline-patterns
+(define jazz.specialized-patterns
   (%%make-hashtable eq?))
 
-(define jazz.inline-patterns-initialized?
+(define jazz.specialized-patterns-initialized?
   #f)
 
 
-(define (jazz.initialize-inline-patterns)
-  (%%iterate-hashtable jazz.inline-patterns
+(define (jazz.initialize-specialized-patterns)
+  (%%iterate-hashtable jazz.specialized-patterns
     (lambda (key patterns)
-      (%%hashtable-set! jazz.inline-patterns key
+      (%%hashtable-set! jazz.specialized-patterns key
         (map (lambda (pattern)
                (let ((name (%%car pattern))
                      (specifier (%%cadr pattern)))
                  (list name (jazz.walk-specifier #f #f #f '() specifier))))
              patterns))))
-  (set! jazz.inline-patterns-initialized? #t))
+  (set! jazz.specialized-patterns-initialized? #t))
 
 
-(define (jazz.add-inline-patterns operator patterns)
-  (set! jazz.inline-patterns-initialized? #f)
-  (%%hashtable-set! jazz.inline-patterns operator patterns))
+(define (jazz.add-specialized-patterns operator patterns)
+  (set! jazz.specialized-patterns-initialized? #f)
+  (%%hashtable-set! jazz.specialized-patterns operator patterns))
 
 
-(define (jazz.get-inline-patterns locator)
-  (if (%%not jazz.inline-patterns-initialized?)
-      (jazz.initialize-inline-patterns))
-  (%%hashtable-ref jazz.inline-patterns locator '()))
+(define (jazz.add-specialization operator name type)
+  (%%hashtable-set! jazz.specialized-patterns operator
+    (append
+      (%%hashtable-ref jazz.specialized-patterns operator '())
+      (list (list name type)))))
 
 
-(jazz.add-inline-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>) (##fl=  <fl*:bool>) (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>) (##fl<  <fl*:bool>) (<   <number*:bool>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>) (##fl<= <fl*:bool>) (<=  <number*:bool>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>) (##fl>  <fl*:bool>) (>   <number*:bool>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>) (##fl>= <fl*:bool>) (>=  <number*:bool>)))
-
-(jazz.add-inline-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)   (##fl+  <fl*:fl>)   (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.-            '((##fx-  <fx*:fx>)   (##fl-  <fl*:fl>)   (##- <number^number:number>) (- <number*:number>)))
-(jazz.add-inline-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)   (##fl*  <fl*:fl>)   (##* <number^number:number>) (* <number*:number>)))
-(jazz.add-inline-patterns 'scheme.dialect.kernel./            '(                    (##fl/  <fl*:fl>)   (##/ <number^number:number>) (/ <number*:number>)))
-
-(jazz.add-inline-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
-(jazz.add-inline-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
-(jazz.add-inline-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
+(define (jazz.get-specialized-patterns locator)
+  (if (%%not jazz.specialized-patterns-initialized?)
+      (jazz.initialize-specialized-patterns))
+  (%%hashtable-ref jazz.specialized-patterns locator '()))
 
 
-(define (jazz.emit-inlined-primitive operator arguments declaration environment)
+(jazz.add-specialized-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>) (##fl=  <fl*:bool>) (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>) (##fl<  <fl*:bool>) (<   <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>) (##fl<= <fl*:bool>) (<=  <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>) (##fl>  <fl*:bool>) (>   <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>) (##fl>= <fl*:bool>) (>=  <number*:bool>)))
+
+(jazz.add-specialized-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)   (##fl+  <fl*:fl>)   (##+ <number^number:number>) (+ <number*:number>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.-            '((##fx-  <fx*:fx>)   (##fl-  <fl*:fl>)   (##- <number^number:number>) (- <number*:number>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)   (##fl*  <fl*:fl>)   (##* <number^number:number>) (* <number*:number>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel./            '(                    (##fl/  <fl*:fl>)   (##/ <number^number:number>) (/ <number*:number>)))
+
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
+
+
+(define (jazz.emit-specialized-call operator arguments declaration environment)
   (define (operator-locator)
     (if (%%class-is? operator jazz.Reference)
         (let ((binding (%%get-reference-binding operator)))
@@ -3383,14 +3399,14 @@
   (let ((locator (operator-locator)))
     (if (%%not locator)
         #f
-      (or (jazz.emit-inlined-locator locator arguments environment)
-          (let ((patterns (jazz.get-inline-patterns locator)))
+      (or (jazz.emit-specialized-locator locator arguments environment)
+          (let ((patterns (jazz.get-specialized-patterns locator)))
             (let ((types (jazz.codes-types arguments)))
               (let iter ((scan patterns))
                 (if (%%null? scan)
                     (begin
                       (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
-                        (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'inline 'call 'to (jazz.identifier-name locator)))
+                        (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (jazz.identifier-name locator)))
                       #f)
                   (jazz.bind (name function-type) (%%car scan)
                     (if (jazz.match-signature? types function-type)
@@ -3401,9 +3417,9 @@
 
 
 ;; quicky because new and class-of concepts are not yet defined
-(define jazz.emit-inlined-locator #f)
+(define jazz.emit-specialized-locator #f)
 
-(set! jazz.emit-inlined-locator
+(set! jazz.emit-specialized-locator
       (lambda (locator arguments environment)
         #f))
 
@@ -3542,43 +3558,51 @@
   
   (define (process-is expr type-expr env)
     (if (%%class-is? expr jazz.Reference)
-        (let ((variable (%%get-reference-binding expr)))
-          (if (%%class-is? variable jazz.Variable)
-              ;; all this needs bigtime cleanup
-              (receive (frame actual-variable actual-type) (jazz.find-annotated variable (%%car env))
-                (let ((origin (%%get-annotated-variable-variable actual-variable))
-                      (yes-type (cond ((jazz.type? type-expr)
-                                       type-expr)
-                                      ((%%class-is? type-expr jazz.Reference)
-                                       (let ((binding (%%get-reference-binding type-expr)))
-                                         (cond ((%%class-is? binding jazz.Category-Declaration)
-                                                binding)
-                                               ((%%class-is? binding jazz.Autoload-Declaration)
-                                                (jazz.resolve-declaration binding))
-                                               (else
-                                                #f))))
-                                      (else
-                                       #f))))
-                  ;; quick try for fun
-                  (let ((no-type
-                          (if (%%eq? actual-type jazz.List)
-                              (cond ((%%eq? yes-type jazz.Null)
-                                     jazz.Pair)
-                                    ((%%eq? yes-type jazz.Pair)
-                                     jazz.Null)
-                                    (else
-                                     #f))
-                            #f)))
-                    (let ((yes
-                            (if yes-type
-                                (cons (jazz.new-annotated-frame (list (jazz.new-restricted-variable origin yes-type)) #f) (%%car env))
-                              (%%car env)))
-                          (no
-                            (if no-type
-                                (cons (jazz.new-annotated-frame (list (jazz.new-restricted-variable origin no-type)) #f) (%%cdr env))
-                              (%%cdr env))))
-                      (%%cons yes no)))))
-            env))
+        (let ((binding (%%get-reference-binding expr)))
+          ;; all this needs bigtime cleanup
+          (let ((extract-binding
+                  (lambda ()
+                    (cond ((%%class-is? binding jazz.Variable)
+                           (receive (frame actual-variable actual-type) (jazz.find-annotated binding (%%car env))
+                             (let ((origin (%%get-annotated-variable-variable actual-variable)))
+                               (values origin actual-type))))
+                          ;; this is really for slots so i need to think about this
+                          ((%%class-is? binding jazz.Declaration)
+                           (values binding (%%get-lexical-binding-type binding)))
+                          (else
+                           #f)))))
+            (let ((info (extract-binding)))
+              (if info
+                  (receive (origin actual-type) info
+                    (let ((yes-type (cond ((jazz.type? type-expr)
+                                           type-expr)
+                                          ((%%class-is? type-expr jazz.Reference)
+                                           (let ((binding (%%get-reference-binding type-expr)))
+                                             (if (%%class-is? binding jazz.Declaration)
+                                                 (jazz.resolve-declaration binding)
+                                               #f)))
+                                          (else
+                                           #f))))
+                      ;; quick try for fun
+                      (let ((no-type
+                              (if (%%eq? actual-type jazz.List)
+                                  (cond ((%%eq? yes-type jazz.Null)
+                                         jazz.Pair)
+                                        ((%%eq? yes-type jazz.Pair)
+                                         jazz.Null)
+                                        (else
+                                         #f))
+                                #f)))
+                        (let ((yes
+                                (if yes-type
+                                    (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin yes-type)) #f) (%%car env))
+                                  (%%car env)))
+                              (no
+                                (if no-type
+                                    (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin no-type)) #f) (%%cdr env))
+                                  (%%cdr env))))
+                          (%%cons yes no)))))
+                env))))
       env))
   
   (define (revenv env)
@@ -3593,7 +3617,7 @@
            (let ((operator (%%get-call-operator expr)))
              (if (%%class-is? operator jazz.Reference)
                  (let ((operator-binding (%%get-reference-binding operator)))
-                   (if (%%class-is? operator-binding jazz.Export-Declaration)
+                   (if (%%class-is? operator-binding jazz.Declaration)
                        (let ((operator-locator (%%get-declaration-locator operator-binding))
                              (arguments (%%get-call-arguments expr)))
                          (let ((count (%%length arguments)))
@@ -3606,9 +3630,9 @@
                               (if (%%fx= count 2)
                                   (process-is (%%car arguments) (%%cadr arguments) env)
                                 env))
-                             ((jazz.dialect.kernel.is-not?)
+                             ((jazz.dialect.language.is-not?)
                               (if (%%fx= count 2)
-                                  (revenv (process-is (%%car arguments) (%%cadr arguments)))
+                                  (revenv (process-is (%%car arguments) (%%cadr arguments) env))
                                 env))
                              (else
                               (if (%%fx= count 1)
@@ -4683,24 +4707,30 @@
                                 ;; named parameter
                                 ((%%keyword? (%%car parameter))
                                  (let ((keyword (%%car parameter))
-                                       (variable (%%cadr parameter))
-                                       (default (%%car (%%cddr parameter))))
-                                   (set! section 'named)
-                                   (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
-                                       (let ((named-parameter (jazz.new-named-parameter variable jazz.Any (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
-                                         (jazz.enqueue named named-parameter)
-                                         (%%when walk?
-                                           (set! augmented-environment (%%cons named-parameter augmented-environment))))
-                                     (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" parameter))))
+                                       (variable (%%cadr parameter)))
+                                   (jazz.parse-specifier (%%cdr parameter)
+                                     (lambda (specifier rest)
+                                       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
+                                             (default (%%car (%%cddr parameter))))
+                                         (set! section 'named)
+                                         (if (%%eq? (%%string->symbol (%%keyword->string keyword)) variable)
+                                             (let ((named-parameter (jazz.new-named-parameter variable type (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
+                                               (jazz.enqueue named named-parameter)
+                                               (%%when walk?
+                                                 (set! augmented-environment (%%cons named-parameter augmented-environment))))
+                                           (jazz.walk-error walker resume declaration "Keyword parameter key and name must match: {s}" parameter)))))))
                                 ;; optional parameter
                                 (else
-                                 (let ((variable (%%car parameter))
-                                       (default (%%cadr parameter)))
-                                   (set! section 'optional)
-                                   (let ((optional-parameter (jazz.new-optional-parameter variable jazz.Any (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
-                                     (jazz.enqueue optional optional-parameter)
-                                     (%%when walk?
-                                       (set! augmented-environment (%%cons optional-parameter augmented-environment))))))))
+                                 (let ((variable (%%car parameter)))
+                                   (jazz.parse-specifier (%%cdr parameter)
+                                     (lambda (specifier rest)
+                                       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
+                                             (default (%%car rest)))
+                                         (set! section 'optional)
+                                         (let ((optional-parameter (jazz.new-optional-parameter variable type (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
+                                           (jazz.enqueue optional optional-parameter)
+                                           (%%when walk?
+                                             (set! augmented-environment (%%cons optional-parameter augmented-environment)))))))))))
                          (else
                           (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter)))
                    (iter rest)))))))

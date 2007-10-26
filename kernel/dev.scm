@@ -39,6 +39,10 @@
 (display-environment-set! #t)
 
 
+(define (block-tail-call)
+  #f)
+
+
 ;;;
 ;;;; Test
 ;;;
@@ -100,12 +104,12 @@
 
 
 ;; jazz.dialect.language
-;; jazz.library.utility.Cell
 ;; jazz.ui.text.Paragraph
 ;; jazz.ui.text.Text-View
 ;; jazz.ui.text.Text-Explorer
 ;; jazz.ui.text.Code-Explorer
 ;; jazz.jazz.text.Lisp-Explorer
+;; jazz.jazz.text.Scheme-Explorer
 ;; jazz.jazz.text.Jazz-Explorer
 (define (rll)
   (rl 'jazz.dialect.language))
@@ -119,8 +123,17 @@
 (define (rlte)
   (rl 'jazz.ui.text.Text-Explorer))
 
+(define (rlce)
+  (rl 'jazz.ui.text.Code-Explorer))
+
 (define (rlle)
   (rl 'jazz.jazz.text.Lisp-Explorer))
+
+(define (rlse)
+  (rl 'jazz.jazz.text.Scheme-Explorer))
+
+(define (rlje)
+  (rl 'jazz.jazz.text.Jazz-Explorer))
 
 
 (define (lex module-name)
@@ -344,6 +357,15 @@
   (bcairo-windows-logfont))
 
 
+(cond-expand
+  (freetype
+    (define (bui)
+      (bwin/freetype)))
+  (logfont
+    (define (bui)
+      (bwin/logfont))))
+
+
 (define (bx)
   (ld) 
   (cflag 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
@@ -411,16 +433,16 @@
     jazz.platform))
 
 (define Expl
-  '(jazz.library.utility.Cell
-    jazz.ui.text.Paragraph
+  '(jazz.ui.text.Paragraph
     jazz.ui.text.Text-View
     jazz.ui.text.Text-Explorer
     jazz.ui.text.Code-Explorer
     jazz.jazz.text.Lisp-Explorer
+    jazz.jazz.text.Scheme-Explorer
     jazz.jazz.text.Jazz-Explorer))
 
 (define Text
-  '(jazz.ui.graphic.Font
+  '(jazz.ui.graphic.font.Font
     jazz.ui.graphic.Font-Metrics
     jazz.library.element.Node
     jazz.library.exemplar.Exemplar
@@ -453,9 +475,10 @@
 
 
 (define (bjz)
+  (la)
   (blang)
   (butil)
-  (bui)
+  (bview)
   (bexpl)
   (btext)
   (btree)

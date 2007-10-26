@@ -48,12 +48,12 @@
 
 
 (jazz.define-virtual-syntax (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
+(jazz.define-virtual-syntax (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment))
+(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual-syntax (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
 (jazz.define-virtual-syntax (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-syntax (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
@@ -490,7 +490,7 @@
 
 
 (jazz.define-class-syntax jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class jazz.allocate-variable
-  ((setters %%get-variable-setters %%set-variable-setters)))
+  ((reference-count %%get-variable-reference-count %%set-variable-reference-count)))
 
 
 ;;;
@@ -498,7 +498,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.NextMethod-Variable jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-nextmethod-variable
+(jazz.define-class-syntax jazz.NextMethod-Variable jazz.Variable (name type reference-count) jazz.Object-Class jazz.allocate-nextmethod-variable
   ())
 
 
@@ -507,7 +507,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Parameter jazz.Variable (name type setters) jazz.Object-Class jazz.allocate-parameter
+(jazz.define-class-syntax jazz.Parameter jazz.Variable (name type reference-count) jazz.Object-Class jazz.allocate-parameter
   ())
 
 
@@ -519,7 +519,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Dynamic-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-dynamic-parameter
+(jazz.define-class-syntax jazz.Dynamic-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-dynamic-parameter
   ((class %%get-dynamic-parameter-class ())))
 
 
@@ -528,7 +528,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Optional-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-optional-parameter
+(jazz.define-class-syntax jazz.Optional-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-optional-parameter
   ((default %%get-optional-parameter-default %%set-optional-parameter-default)))
 
 
@@ -537,7 +537,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Named-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-named-parameter
+(jazz.define-class-syntax jazz.Named-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-named-parameter
   ((default %%get-named-parameter-default %%set-named-parameter-default)))
 
 
@@ -546,7 +546,7 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Rest-Parameter jazz.Parameter (name type setters) jazz.Object-Class jazz.allocate-rest-parameter
+(jazz.define-class-syntax jazz.Rest-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class jazz.allocate-rest-parameter
   ())
 
 

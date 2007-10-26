@@ -124,12 +124,14 @@
 
 
 (define (jazz.stop-statprof)
+  (jazz.load-statprof)
   (profile-stop!))
 
 
 (define jazz.report-statprof
   (let ((n 0))
     (lambda ()
+      (jazz.load-statprof)
       (let ((port (open-output-string)))
         (display "STATPROF_REPORT_" port)
         (display n port)

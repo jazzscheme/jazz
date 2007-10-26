@@ -61,17 +61,28 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments source-declaration environment)
   (if (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
       (let ((value (%%get-definition-declaration-value declaration)))
         (if (%%class-is? value jazz.Lambda)
-            (let ((signature (%%get-lambda-signature value)))
+            (let ((signature (%%get-lambda-signature value))
+                  (body (%%get-lambda-body value)))
               (if (jazz.only-positional? signature)
-                  (begin
-                    (if (%%eq? (%%get-lexical-binding-name declaration) 'nneq?)
-                        (step))
-                    #f)
-                (jazz.error "Only positional parameters are supported for now in inlining: {s}" (%%get-lexical-binding-name declaration))))
+                  (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
+                      (jazz.with-annotated-frame (jazz.annotate-signature signature)
+                        (lambda (frame)
+                          (let ((augmented-environment (cons frame environment)))
+                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
+                              (jazz.new-code
+                                `(let ,(map (lambda (parameter argument)
+                                              `(,(%%get-lexical-binding-name parameter)
+                                                ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                            (%%get-signature-positional signature)
+                                            arguments)
+                                   ,@(%%get-code-form body-code))
+                                (jazz.call-return-type (%%get-lexical-binding-type declaration)))))))
+                    (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
+                (jazz.error "Only positional parameters are supported in inlining: {s}" (%%get-lexical-binding-name declaration))))
           #f
           #; ;; not correct as the value is always #f when looking up external declarations!
              ;; we need to walk the value even at parse time for inline declarations
@@ -586,7 +597,7 @@
                    (values 'interface method-declaration)))))))))
 
 
-(define (jazz.emit-method-dispatch object declaration environment)
+(define (jazz.emit-method-dispatch object declaration)
   (let ((name (%%get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
       (case dispatch-type
@@ -608,7 +619,7 @@
     (if self
         (jazz.new-code
           `(lambda rest
-             (apply ,(jazz.emit-method-dispatch self declaration environment) ,(%%get-code-form self) rest))
+             (apply ,(jazz.emit-method-dispatch self declaration) ,(%%get-code-form self) rest))
           jazz.Any)
       (jazz.error "Methods can only be called directly from inside methods"))))
 
@@ -619,31 +630,47 @@
         (jazz.validate-arguments walker resume source-declaration declaration signature arguments))))
 
 
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Method-Declaration declaration) arguments source-declaration environment)
+  ;; mostly copy/pasted and adapted from definition declaration. need to unify the code
+  (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
+      (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
+        (case dispatch-type
+          ((final)
+           (let ((signature (%%get-method-declaration-signature declaration))
+                 (body (%%get-method-declaration-body declaration)))
+             (if (jazz.only-positional? signature)
+                 (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
+                     (jazz.with-annotated-frame (jazz.annotate-signature signature)
+                       (lambda (frame)
+                         (let ((augmented-environment (cons frame environment)))
+                           (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
+                             ;;(jazz.debug 'In (%%get-declaration-locator source-declaration) 'inlining (%%get-declaration-locator declaration))
+                             (jazz.new-code
+                               `(let ,(map (lambda (parameter argument)
+                                             `(,(%%get-lexical-binding-name parameter)
+                                               ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                           (%%get-signature-positional signature)
+                                           arguments)
+                                  ,(%%get-code-form body-code))
+                               (jazz.call-return-type (%%get-lexical-binding-type declaration)))))))
+                   (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
+               (jazz.error "Only positional parameters are supported in inlining: {s}" (%%get-lexical-binding-name declaration)))))
+          (else
+           #f)))
+    #f))
+
+
 (jazz.define-method (jazz.emit-binding-call (jazz.Method-Declaration declaration) arguments source-declaration environment)
   (let ((self (jazz.*self*)))
     (if self
         (let ((type (%%get-lexical-binding-type declaration))
               (arguments (jazz.codes-forms arguments)))
             (jazz.new-code
-              `(,(jazz.emit-method-dispatch self declaration environment)
+              `(,(jazz.emit-method-dispatch self declaration)
                 ,(%%get-code-form self)
                 ,@arguments)
               (jazz.call-return-type type)))
       (jazz.error "Methods can only be called directly from inside methods"))))
-
-
-#; ;; wait
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Method-Declaration declaration) arguments environment)
-  (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
-      (let ((signature (%%get-method-declaration-signature value))
-            (body (%%get-method-declaration-body declaration)))
-        (if (jazz.only-positional? signature)
-            (begin
-              (if (%%eq? (%%get-lexical-binding-name declaration) 'nneq?)
-                  (step))
-              #f)
-          (jazz.error "Only positional parameters are supported for now in inlining: {s}" (%%get-lexical-binding-name declaration))))
-    #f))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Method-Declaration declaration) environment)
@@ -659,7 +686,7 @@
            (method-locator (%%get-declaration-locator declaration))
            (method-rank-locator (jazz.compose-helper method-locator 'rank))
            (method-node-locator (jazz.compose-helper method-locator 'node))
-           (method-call (cond (root-category-declaration                                                'jazz.add-method-node) ; must be inherited
+           (method-call (cond (root-category-declaration                                                      'jazz.add-method-node) ; must be inherited
                               ((%%class-is? category-declaration jazz.Class-Declaration) (case propagation
                                                                                            ((final inherited) 'jazz.add-final-method)
                                                                                            ((virtual chained) 'jazz.add-virtual-method)))
@@ -1109,16 +1136,17 @@
     (let ((object-argument (%%car arguments))
           (rest-arguments (%%cdr arguments)))
       (let ((object-code (jazz.emit-expression object-argument declaration environment))
-            (rest-output (jazz.codes-forms (jazz.emit-expressions rest-arguments declaration environment))))
+            (rest-codes (jazz.emit-expressions rest-arguments declaration environment)))
         (let ((method-declaration (lookup-method/warn object-code)))
           (if method-declaration
-              (jazz.new-code
-                (jazz.with-code-value object-code
-                  (lambda (code)
-                    `(,(jazz.emit-method-dispatch code method-declaration environment)
-                      ,(%%get-code-form code)
-                      ,@rest-output)))
-                (jazz.call-return-type (%%get-lexical-binding-type method-declaration)))
+              (or (jazz.emit-inlined-final-dispatch method-declaration object-code rest-codes declaration environment)
+                  (jazz.new-code
+                    (jazz.with-code-value object-code
+                      (lambda (code)
+                        `(,(jazz.emit-method-dispatch code method-declaration)
+                          ,(%%get-code-form code)
+                          ,@(jazz.codes-forms rest-codes))))
+                    (jazz.call-return-type (%%get-lexical-binding-type method-declaration))))
             (let ((dv (jazz.register-variable declaration "d" (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
                   (pv (jazz.register-variable declaration "p" `',name))
                   (qv (jazz.register-variable declaration "q" #f)))
@@ -1136,8 +1164,39 @@
                 (jazz.new-code
                   (jazz.with-expression-value (%%get-code-form object-code)
                     (lambda (object)
-                      `((,d ,object ,p ,q) ,object ,@rest-output)))
+                      `((,d ,object ,p ,q) ,object ,@(jazz.codes-forms rest-codes))))
                   jazz.Any)))))))))
+
+
+(define (jazz.emit-inlined-final-dispatch declaration object arguments source-declaration environment)
+  ;; mostly copy/pasted and adapted from method declaration. need to unify the code
+  (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
+      (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
+        (case dispatch-type
+          ((final)
+           (let ((signature (%%get-method-declaration-signature declaration))
+                 (body (%%get-method-declaration-body declaration)))
+             (if (jazz.only-positional? signature)
+                 (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
+                     (jazz.with-annotated-frame (jazz.annotate-signature signature)
+                       (lambda (frame)
+                         (let ((augmented-environment (cons frame environment)))
+                           (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
+                             ;;(jazz.debug 'In (%%get-declaration-locator source-declaration) 'inlining 'final 'dispatch (%%get-declaration-locator declaration))
+                             (jazz.new-code
+                               `(let ,(cons `(self ,(%%get-code-form object))
+                                            (map (lambda (parameter argument)
+                                                   `(,(%%get-lexical-binding-name parameter)
+                                                     ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                                 (%%get-signature-positional signature)
+                                                 arguments))
+                                  ,(%%get-code-form body-code))
+                               (jazz.call-return-type (%%get-lexical-binding-type declaration)))))))
+                   (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
+               (jazz.error "Only positional parameters are supported in inlining: {s}" (%%get-lexical-binding-name declaration)))))
+          (else
+           #f)))
+    #f))
 
 
 (define (jazz.with-code-value code proc)
@@ -1630,12 +1689,23 @@
 (define (jazz.walk-%method-declaration walker resume declaration environment form)
   (jazz.bind (name specifier access compatibility propagation abstraction expansion remote synchronized parameters . body) (%%cdr form)
     (let ((type (if specifier (jazz.new-function-type '() (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
-          (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
-      (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
-             (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration)))
-             (new-declaration (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
+          (inline? (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))))
+      (receive (signature augmented-environment)
+          ;; yuck. to clean
+          (if inline?
+              (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+            (values
+              (jazz.walk-parameters walker resume declaration environment parameters #t #f)
+              (jazz.unspecified)))
+        (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
+               (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration)))
+               (new-declaration (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature)))
+          (jazz.add-declaration-child walker resume declaration new-declaration)
+          (%%when (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))
+            (%%set-method-declaration-body new-declaration
+              (jazz.walk walker resume new-declaration augmented-environment
+                `(with-self ,@body))))
+          new-declaration)))))
 
 
 (define (jazz.walk-%method walker resume declaration environment form)
@@ -1659,8 +1729,9 @@
                               (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
                              (else
                               #f))))
-                 (%%set-method-declaration-signature new-declaration signature)
-                 (%%set-method-declaration-body new-declaration body-expression)
+                 (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
+                   (%%set-method-declaration-signature new-declaration signature)
+                   (%%set-method-declaration-body new-declaration body-expression))
                  new-declaration)))))))
 
 

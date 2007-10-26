@@ -104,12 +104,12 @@
 
 
 (jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
+(jazz.define-virtual (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment))
+(jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment))
 (jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
@@ -119,6 +119,10 @@
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol)
   #f)
+
+
+(jazz.define-method (jazz.walk-binding-referenced (jazz.Walk-Binding binding))
+  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment)
@@ -137,16 +141,12 @@
       (jazz.call-return-type type))))
 
 
-(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments environment)
+(jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment)
   #f)
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Walk-Binding binding))
   #f)
-
-
-(jazz.define-method (jazz.walk-binding-assigned (jazz.Walk-Binding binding) assignment)
-  (jazz.unspecified))
 
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment)
@@ -1668,11 +1668,15 @@
 
 
 (jazz.define-class jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class
-  (setters))
+  (reference-count))
 
 
 (define (jazz.new-variable name type)
-  (jazz.allocate-variable jazz.Variable name type '()))
+  (jazz.allocate-variable jazz.Variable name type 0))
+
+
+(jazz.define-method (jazz.walk-binding-referenced (jazz.Variable binding))
+  (%%set-variable-reference-count binding (%%fx+ (%%get-variable-reference-count binding) 1)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Variable binding) source-declaration environment)
@@ -1683,10 +1687,6 @@
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Variable declaration))
   #t)
-
-
-(jazz.define-method (jazz.walk-binding-assigned (jazz.Variable binding) assignment)
-  (%%set-variable-setters binding (cons assignment (%%get-variable-setters binding))))
 
 
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Variable binding) value source-declaration environment)
@@ -1706,12 +1706,12 @@
 ;;;
 
 
-(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type setters) jazz.Object-Class
+(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type reference-count) jazz.Object-Class
   ())
 
 
 (define (jazz.new-nextmethod-variable name type)
-  (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type '()))
+  (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.NextMethod-Variable binding) source-declaration environment)
@@ -1732,12 +1732,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Parameter jazz.Variable (name type setters) jazz.Object-Class
+(jazz.define-class jazz.Parameter jazz.Variable (name type reference-count) jazz.Object-Class
   ())
 
 
 (define (jazz.new-parameter name type)
-  (jazz.allocate-parameter jazz.Parameter name type '()))
+  (jazz.allocate-parameter jazz.Parameter name type 0))
 
 
 (jazz.define-virtual (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
@@ -1755,12 +1755,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type setters) jazz.Object-Class
+(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
   (class))
 
 
 (define (jazz.new-dynamic-parameter name type class)
-  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type '() class))
+  (jazz.allocate-dynamic-parameter jazz.Dynamic-Parameter name type 0 class))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Dynamic-Parameter parameter) declaration environment)
@@ -1776,12 +1776,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type setters) jazz.Object-Class
+(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
   (default))
 
 
 (define (jazz.new-optional-parameter name type default)
-  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type '() default))
+  (jazz.allocate-optional-parameter jazz.Optional-Parameter name type 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Optional-Parameter parameter) declaration environment)
@@ -1797,12 +1797,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type setters) jazz.Object-Class
+(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
   (default))
 
 
 (define (jazz.new-named-parameter name type default)
-  (jazz.allocate-named-parameter jazz.Named-Parameter name type '() default))
+  (jazz.allocate-named-parameter jazz.Named-Parameter name type 0 default))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Named-Parameter parameter) declaration environment)
@@ -1818,12 +1818,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type setters) jazz.Object-Class
+(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
   ())
 
 
 (define (jazz.new-rest-parameter name type)
-  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type '()))
+  (jazz.allocate-rest-parameter jazz.Rest-Parameter name type 0))
 
 
 (jazz.define-method (jazz.emit-parameter (jazz.Rest-Parameter parameter) declaration environment)
@@ -3463,7 +3463,7 @@
 (define (jazz.emit-inlined-call operator arguments declaration environment)
   (if (%%class-is? operator jazz.Reference)
       (let ((binding (%%get-reference-binding operator)))
-        (jazz.emit-inlined-binding-call binding arguments environment))
+        (jazz.emit-inlined-binding-call binding arguments declaration environment))
     #f))
 
 
@@ -4413,9 +4413,7 @@
   (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
     (if binding
         (if (jazz.walk-binding-assignable? binding)
-            (let ((assignment (jazz.new-assignment binding (jazz.walk walker resume declaration environment value))))
-              (jazz.walk-binding-assigned binding assignment)
-              assignment)
+            (jazz.new-assignment binding (jazz.walk walker resume declaration environment value))
           (jazz.walk-error walker resume declaration "Illegal assignment to: {s}" binding))
       (jazz.walk-free-assignment walker resume declaration symbol))))
 

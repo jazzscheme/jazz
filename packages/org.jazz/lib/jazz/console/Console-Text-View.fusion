@@ -51,7 +51,7 @@
 (class Console-Text-View extends IDE-Text-View
 
 
-  (slot evaluating?    initialize false)
+  (slot evaluating?    initialize #f)
   (slot last-inserted  initialize {})
   (slot inserted-where initialize {})
   (slot prompt         initialize "> ")
@@ -68,11 +68,11 @@
 
 
   (method (default-tool?)
-    true)
+    #t)
 
 
   (method (default-console?)
-    true)
+    #t)
   
   
   (method (install rest)
@@ -129,11 +129,11 @@
   
   
   (method (on-fresh-prompt evt)
-    (fresh-prompt force?: true))
+    (fresh-prompt force?: #t))
   
   
   (method (on-evaluate evt)
-    (set! completion-active? false)
+    (set! completion-active? #f)
     (console-evaluate))
   
   
@@ -155,7 +155,7 @@
 
   
   (method (return-press key)
-    (set! completion-active? false)
+    (set! completion-active? #f)
     (let* ((pos (get-start))
            (prompt (previous-prompt pos)))
       (if (not prompt)
@@ -222,9 +222,9 @@
   (method (console-evaluate)
     (unwind-protect
         (begin
-          (set! evaluating? true)
+          (set! evaluating? #t)
           (eval-from-prompt))
-      (set! evaluating? false)
+      (set! evaluating? #f)
       (fresh-prompt)))
 
   
@@ -235,7 +235,7 @@
           (set-caret (text-ending))
           (insert-string (cn))
           (unless (empty-string? command)
-            (display-evaluation (eval-command range {} command true) true))))))
+            (display-evaluation (eval-command range {} command #t) #t))))))
   
   
   (method public virtual (eval-command range name command console?)
@@ -259,7 +259,7 @@
   
   (method public virtual (print-evaluation result console-printer)
     (unless (not result)
-      (put-line~ console-printer (->string result) true)
+      (put-line~ console-printer (->string result) #t)
       @convert-console-printer
       (display result console-printer)))
   
@@ -285,7 +285,7 @@
 
 
   (method (get-modified?)
-    false)
+    #f)
   
   
   (method (get-tooltip-context pos)
@@ -337,7 +337,7 @@
     (set! prompt value))
 
 
-  (method public (fresh-prompt (force?: force? false))
+  (method public (fresh-prompt (force?: force? #f))
     (when (or force? (not evaluating?))
       (prompt-at-end)
       (set-caret (text-ending))
@@ -380,7 +380,7 @@
 
 
   (method (previous-prompt pos)
-    (let* ((found? false)
+    (let* ((found? #f)
            (expl (new Jazz-Explorer self start: pos end: pos))
            (prompt (current-prompt))
            (len (length prompt)))
@@ -391,13 +391,13 @@
           (if (and (eqv? c0 #\space)
                    (eqv? c1 #\>)
                    (or (not cr) (eqv? cr #\newline)))
-              (set! found? true)
+              (set! found? #t)
             (backward~ expl))))
       (essay found? (get-start~ expl))))
   
   
   (method (next-prompt pos)
-    (let* ((found? false)
+    (let* ((found? #f)
            (expl (new Jazz-Explorer self start: pos end: pos))
            (prompt (current-prompt))
            (len (length prompt)))
@@ -408,7 +408,7 @@
           (if (and (eqv? cr #\newline)
                    (eqv? c1 #\>)
                    (eqv? c2 #\space))
-              (set! found? true)
+              (set! found? #t)
             (forward~ expl))))
       (when found?
         (let ((prompt (next~ expl (get-end~ expl) (+ len 1))))
@@ -455,10 +455,10 @@
 
   
   (method (insert-previous-expression)
-    (let ((done? false))
+    (let ((done? #f))
       (while (not done?)
         (if (not (backward-prompt))
-            (set! done? true)
+            (set! done? #t)
           (let ((command (prompt-command last-inserted)))
             (unless (empty-string? command)
               (when inserted-where
@@ -466,14 +466,14 @@
               (let ((start (get-start)))
                 (insert-string command)
                 (set! inserted-where (new Range start (get-start))))
-              (set! done? true)))))))
+              (set! done? #t)))))))
 
   
   (method (insert-next-expression)
-    (let ((done? false))
+    (let ((done? #f))
       (while (not done?)
         (if (not (forward-prompt))
-            (set! done? true)
+            (set! done? #t)
           (let ((command (prompt-command last-inserted)))
             (unless (empty-string? command)
               (when inserted-where
@@ -481,7 +481,7 @@
               (let ((start (get-start)))
                 (insert-string command)
                 (set! inserted-where (new Range start (get-start))))
-              (set! done? true))))))))
+              (set! done? #t))))))))
 
 
 ;;;

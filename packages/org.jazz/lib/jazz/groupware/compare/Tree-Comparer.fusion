@@ -47,8 +47,8 @@
 (class Tree-Comparer extends Object
   
   
-  (method public (compare-nodes parent left-node right-node (left-content: left-content true) (right-content: right-content true) (ignored-nodes: ignored-nodes '()) (ignored-leaves: ignored-leaves '()) (ignored-extensions: ignored-extensions '()) (check-algorithm: check-algorithm {}) (feedback: feedback {}))
-    (let* ((has-differences? (list false))
+  (method public (compare-nodes parent left-node right-node (left-content: left-content #t) (right-content: right-content #t) (ignored-nodes: ignored-nodes '()) (ignored-leaves: ignored-leaves '()) (ignored-extensions: ignored-extensions '()) (check-algorithm: check-algorithm {}) (feedback: feedback {}))
+    (let* ((has-differences? (list #f))
            (entry (compare-node-contents parent (create-item left-node) left-content (create-item right-node) right-content ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
       (values entry (car has-differences?) (scanned-values))))
   
@@ -62,7 +62,7 @@
            (leaves1 (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'leaves))
            (leaves2 (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'leaves))
            (n       (function dynamic () (compare-items entry 'node nodes1 content1 nodes2 content2 ignored-nodes ignored-leaves ignored-extensions compare-node-contents check-algorithm feedback fact has-differences?)))
-           (l       (function dynamic () (compare-items entry 'leaf leaves1 true leaves2 true ignored-nodes ignored-leaves ignored-extensions compare-leaf-values check-algorithm feedback fact has-differences?))))
+           (l       (function dynamic () (compare-items entry 'leaf leaves1 #t leaves2 #t ignored-nodes ignored-leaves ignored-extensions compare-leaf-values check-algorithm feedback fact has-differences?))))
       (compare-nodes/leaves n l)
       (set-children~ entry (get-output~ fact))
       entry))
@@ -78,7 +78,7 @@
     (let ((value1 (get-value~ leaf1))
           (value2 (get-value~ leaf2)))
       (when (and leaf1 leaf2 (different? leaf1 leaf2 check-algorithm))
-        (set-car! has-differences? true)
+        (set-car! has-differences? #t)
         (new-entry parent 'leaf leaf1 value1 leaf2 value2))))
   
   
@@ -86,8 +86,8 @@
     (merge-ordered (function dynamic (what key left right)
                      (when (or left right)
                        (case what
-                         ((:left)  (set-car! has-differences? true) (put~ fact (new-entry parent kind left (when (= kind 'leaf) (get-value~ left)) {} {})))
-                         ((:right) (set-car! has-differences? true) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) (get-value~ right)))))
+                         ((:left)  (set-car! has-differences? #t) (put~ fact (new-entry parent kind left (when (= kind 'leaf) (get-value~ left)) {} {})))
+                         ((:right) (set-car! has-differences? #t) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) (get-value~ right)))))
                          ((:same)  (let ((result (proc parent left (content-find left content1) right (content-find right content2) ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
                                    (when result
                                      (put~ fact result)))))))
@@ -96,8 +96,8 @@
   
   
   (method (content-find item content)
-    (if (eq? content true)
-        true
+    (if (eq? content #t)
+        #t
       (cdr (find (item-name item) content key: item-name test: equal?))))
   
   
@@ -167,9 +167,9 @@
     (let* ((name (item-name item))
            (type (get-item-type item))
            (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else '()))))
-      (and (or (and (eq? content true)
+      (and (or (and (eq? content #t)
                     (not (member? name ignored)))
-               (and (neq? content true)
+               (and (neq? content #t)
                     (member? name content key: item-name)))
            (or (/= type 'leaf)
                (null? ignored-extensions)
@@ -178,4 +178,4 @@
   
   
   (method protected virtual (scanned-values)
-    true)))
+    #t)))

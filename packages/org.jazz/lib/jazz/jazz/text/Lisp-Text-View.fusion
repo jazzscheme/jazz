@@ -125,7 +125,7 @@
                       (rs (range-strings right)))
                   (replace right ls)
                   (replace left rs)))))
-          (set-modified? true)))))
+          (set-modified? #t)))))
 
 
   ;;;
@@ -143,8 +143,8 @@
   ;;;
   
   
-  (method (colorize-syntax (recoloring?: recoloring? false))
-    (nextmethod entries?: false)
+  (method (colorize-syntax (recoloring?: recoloring? #f))
+    (nextmethod entries?: #f)
     (with-safe-explore
       (function dynamic ()
         (colorize-declarations recoloring?)
@@ -175,14 +175,14 @@
   
   
   (method (compute-syntax-automata)
-    (build-search-automata (syntax-targets) true false self jazz-constituent?))
+    (build-search-automata (syntax-targets) #t #f self jazz-constituent?))
   
   
   (method (colorize-type found type start end colorizer recolorize?)
     )
 
   
-  (method (colorize-declarations (recoloring? false))
+  (method (colorize-declarations (recoloring? #f))
     (let ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (walk-declarations~ expl
@@ -228,7 +228,7 @@
             ((feature)
              (apply-coloring colorizer start end 'Feature))))
         (get-documentation-cataloguer~ (get-application))
-        true)
+        #t)
       (when colorizer
         (finish-current~ colorizer))))
   
@@ -245,7 +245,7 @@
     )
   
   
-  (method (colorize-comments (recoloring? false))
+  (method (colorize-comments (recoloring? #f))
     (let ((expl (new (explorer-class) self end: (text-beginning)))
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (for-each-comment~ expl
@@ -308,18 +308,18 @@
                    (apply-style 'Expr-Comment start end))))
               (get-documentation-cataloguer~ (get-application))
               row
-              false))))))
+              #f))))))
   
   
   (method (recolorize-expr-comments row)
     (let* ((line (paragraph-string row))
            (len (length line))
            (col 0)
-           (done? false))
+           (done? #f))
       (while (not done?)
         (let ((comment (search "@" line start: col)))
           (if (not comment)
-              (set! done? true)
+              (set! done? #t)
             (unless (and (> comment 0) (= (element line (- comment 1)) #\,))
               (let* ((pos (new Cell row (+ comment 1)))
                      (expl (new (explorer-class) self start: pos end: pos))
@@ -348,11 +348,11 @@
     (let* ((str (paragraph-string row))
            (len (length str))
            (col 0)
-           (done? false))
+           (done? #f))
       (while (not done?)
         (let ((found (multisearch-string~ str '("#t" "#f") position: col)))
           (if (not found)
-              (set! done? true)
+              (set! done? #t)
             (bind (pos . target) found
               (let ((end (+ pos (length target))))
                 (unless (commented? (new Cell row pos))
@@ -364,11 +364,11 @@
     (let* ((str (paragraph-string row))
            (len (length str))
            (col 0)
-           (done? false))
+           (done? #f))
       (while (not done?)
         (let ((col (search "#\\" str start: col)))
           (if (not col)
-              (set! done? true)
+              (set! done? #t)
             (if (not (alphanumeric? (get-char (new Cell row (+ col 2)))))
                 (let ((end (+ col 3)))
                   (unless (commented? (new Cell row col))
@@ -386,13 +386,13 @@
     (let* ((str (paragraph-string row))
            (len (length str))
            (col 0)
-           (done? false))
+           (done? #f))
       (call/ec
         (lambda (return)
           (while (not done?)
             (let ((col (search "<" str start: col)))
               (if (not col)
-                  (set! done? true)
+                  (set! done? #t)
                 (let ((end (find-specifier-end (new Cell row col))))
                   (if (not end)
                       (return)
@@ -406,11 +406,11 @@
     (let* ((str (paragraph-string row))
            (len (length str))
            (col 0)
-           (done? false))
+           (done? #f))
       (while (not done?)
         (let ((col (search "\"" str start: col)))
           (if (not col)
-              (set! done? true)
+              (set! done? #t)
             (let ((end (search "\"" str start: (+ col 1))))
               (if (not end)
                   (begin
@@ -425,11 +425,11 @@
     (let* ((str (paragraph-string row))
            (len (length str))
            (col 0)
-           (done? false))
+           (done? #f))
       (while (not done?)
         (let ((col (search "#\"" str start: col)))
           (if (not col)
-              (set! done? true)
+              (set! done? #t)
             (let ((end (search "\"#" str start: (+ col 2))))
               (if (not end)
                   (begin
@@ -526,23 +526,23 @@
               (receive (modified? last-delta) (tabulate-lines (get-row~ start) (get-row~ end))
                 (set-caret (+ end last-delta))
                 (when modified?
-                  (set-modified? true))))
+                  (set-modified? #t))))
             action: 'ignore)))))
   
   
   (method (tabulate-lines start end)
-    (let ((modified? false)
+    (let ((modified? #f)
           (last-delta {}))
       (loop (for row from start to end)
             (with delta (tabulate-line row))
             (when (/= delta 0)
-              (set! modified? true))
+              (set! modified? #t))
             (set! last-delta delta))
       (values modified? last-delta)))
   
   
   (method (remove-specifiers lst)
-    (loop (for first? first true then false)
+    (loop (for first? first #t then #f)
           (for mark in lst)
           (when (or first?
                     (let ((range (get-range~ mark)))
@@ -619,12 +619,12 @@
   
   (method (count-modifiers expressions)
     (let ((total 0)
-          (done? false))
+          (done? #f))
       (while (and (not-null? expressions) (not done?))
         (let ((symbol (find-symbol (get-string (get-range~ (car expressions))))))
           ;; the (new (explorer-class)) is temporary
           (if (or (not symbol) (not (memq? symbol (get-modifiers~ (new (explorer-class) self)))))
-              (set! done? true)
+              (set! done? #t)
             (increase! total)
             (set! expressions (cdr expressions)))))
       total))
@@ -729,21 +729,21 @@
   (method public (definition-range pos)
     (let ((expl (new (explorer-class) self start: pos end: pos))
           (range {})
-          (definition? false)
-          (done? false))
+          (definition? #f)
+          (done? #f))
       (while (not done?)
         (if (not (outer-expr~ expl))
-            (set! done? true)
+            (set! done? #t)
           (set! range (get-range~ expl))
           (when (definition-expr?~ expl)
-            (set! definition? true)
-            (set! done? true))))
+            (set! definition? #t)
+            (set! done? #t))))
       (when (and range (or definition? (not (need-definition?))))
         range)))
   
   
   (method protected virtual (need-definition?)
-    true)
+    #t)
 
   
   ;;;

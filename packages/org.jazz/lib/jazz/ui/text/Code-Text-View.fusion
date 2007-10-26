@@ -60,7 +60,7 @@
   (property completion-color initialize Completion-Color getter get-completion-color setter set-completion-color)
   
   
-  (slot completion-active?   initialize false)
+  (slot completion-active?   initialize #f)
   (slot mouse-copy-selection initialize {})
   
   
@@ -109,12 +109,12 @@
           (tabulate)))))
 
   
-  (method (backspace-press key (word?: word? false))
+  (method (backspace-press key (word?: word? #f))
     (let ((previous (previous-cell (get-start))))
       (if (not completion-active?)
           (insert-char/backspace #\backspace word?: word?)
         (when previous
-          (complete-current #\backspace previous {} true false)))))
+          (complete-current #\backspace previous {} #t #f)))))
 
 
   (method (char-press key translated)
@@ -259,7 +259,7 @@
   
   
   (method public virtual (get-context)
-    true)
+    #t)
   
   
   (method (header-string? form)
@@ -313,7 +313,7 @@
     
   
   (method protected virtual (edit-symbol-class symbol)
-    false)
+    #f)
 
 
   (method protected (edit-definition pos)
@@ -394,7 +394,7 @@
       (when catalog
         (update-file~ catalog (get-moniker))
         (user-message "Done")
-        true)))
+        #t)))
   
   
   (method (require-catalog)
@@ -418,7 +418,7 @@
   
   (method public (recolorize-syntax)
     (uncolorize-all)
-    (colorize-syntax recoloring?: true))
+    (colorize-syntax recoloring?: #t))
 
 
   (method (uncolorize-all)
@@ -442,10 +442,10 @@
   
   
   (method protected virtual (compute-syntax-automata)
-    (build-search-automata (syntax-targets) true false self cpp/java-constituent?))
+    (build-search-automata (syntax-targets) #t #f self cpp/java-constituent?))
   
   
-  (method (colorize-syntax (recoloring?: recoloring? false) (entries?: entries? true))
+  (method (colorize-syntax (recoloring?: recoloring? #f) (entries?: entries? #t))
     (colorize-syntax-from (text-beginning) recoloring?)
     (when entries?
       (colorize-entries)))
@@ -461,7 +461,7 @@
           (bind ((target type) row col) info
             (let ((start (new Cell row col))
                   (end (new Cell row (+ col (length target)))))
-              (set! found (colorize-type found type start end colorizer false))))))
+              (set! found (colorize-type found type start end colorizer #f))))))
       (when colorizer
         (finish-current~ colorizer))))
   
@@ -492,7 +492,7 @@
   
   (method protected (colorize-balanced-comment-backward found start end colorizer style recolorize? (open: open "/*") (close: close "*/"))
     (when recolorize?
-      (let ((found (multisearch-string (list (list close 'close) (open 'open)) position: start :extended? true :reverse? true)))
+      (let ((found (multisearch-string (list (list close 'close) (open 'open)) position: start :extended? #t :reverse? #t)))
         (when found
           (bind (pos . (target type)) found
             (when (= type 'open)
@@ -535,7 +535,7 @@
           (targets (syntax-targets)))
       @commented-for-slow-machines-until-optimized
       (when targets
-        (let ((opening (multisearch-string '(("/*" open) ("*/" close)) position: start :extended? true :reverse? true)))
+        (let ((opening (multisearch-string '(("/*" open) ("*/" close)) position: start :extended? #t :reverse? #t)))
           (when opening
             (bind (start . (target type)) opening
               (when (= type 'open)
@@ -550,7 +550,7 @@
             (bind ((target type) row col) info
               (let ((start (new Cell row col))
                     (end (new Cell row (+ col (length target)))))
-                (set! found (colorize-type found type start end colorizer false))))))
+                (set! found (colorize-type found type start end colorizer #f))))))
         (finish-current~ colorizer))))
   
   
@@ -594,7 +594,7 @@
     (let ((entries (get-parsed-entries)))
       (when entries
         (uncolorize-all)
-        (colorize-syntax entries?: false)
+        (colorize-syntax entries?: #f)
         (for-each colorize-entry entries))))
 
   
@@ -620,7 +620,7 @@
   ;;;
   
   
-  (method (read-text-forms range (string: string {}) (console?: console? false))
+  (method (read-text-forms range (string: string {}) (console?: console? #f))
     (let ((string (either string (get-string range))))
       (with-closed ((reader (new String-Reader string)))
         (read-until eof-object? reader))))
@@ -784,7 +784,7 @@
            (last (essay (> (get-col~ end) 0) (get-char (- end 1))))
            (class (class-of self)))
       (if (not (auto-complete-char?~ syntax key last))
-          (complete-current key (get-start) (coerce key String) false true)
+          (complete-current key (get-start) (coerce key String) #f #t)
         (let* ((completion-string (join (selection-lines) (cn)))
                (offset (essay completion-string (find key completion-string return: 'position)))
                (replacement-string (essay offset (subseq completion-string 0 offset))))
@@ -792,7 +792,7 @@
               (replace-selection (list replacement-string)))
           (end-completion)
           (insert-char/backspace key)
-          (complete-current {} (get-start) {} false false)))))
+          (complete-current {} (get-start) {} #f #f)))))
   
 
   (method (complete-current key pos postfix back? inserted?)
@@ -814,19 +814,19 @@
 
 
   (method (set-completion range)
-    (set! completion-active? true)
+    (set! completion-active? #t)
     (set-selection range))
 
 
   (method (remove-completion)
     (when completion-active?
       (replace-selection (list ""))
-      (set! completion-active? false)))
+      (set! completion-active? #f)))
 
 
   (method protected (end-completion)
     (when completion-active?
-      (set! completion-active? false)
+      (set! completion-active? #f)
       (set-caret (get-end))))
   
   
@@ -835,10 +835,10 @@
       (let ((start (get-start))
             (end (get-end)))
         (end-completion)
-        (set-selection (new Range start end) set-anchor?: false))))
+        (set-selection (new Range start end) set-anchor?: #f))))
 
 
-  (method (insert-char/backspace c (word?: word? false))
+  (method (insert-char/backspace c (word?: word? #f))
     (when c
       (if (/= c #\backspace)
           (insert-char c)
@@ -879,7 +879,7 @@
         (let ((copy (get-string range)))
           (when range
             (mouse-insert~ destination copy))))
-      true))
+      #t))
   
   
   (method protected virtual (expr-range pos)
@@ -944,7 +944,7 @@
   
   
   (method protected virtual (flash-character? char)
-    false)
+    #f)
 
 
   (method protected (flash-matching-character)
@@ -970,7 +970,7 @@
             (update-view))
         (let* ((pos (text->view end))
                @w(tran (acquire~ (get-desktop) self pos))
-               @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: false))
+               @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: #f))
                (expl (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
           (user-message "{l detail: :human}" (map (function dynamic (mark)
                                                     (get-string (get-range~ mark)))
@@ -1017,7 +1017,7 @@
       (save)
       (close~ frame)
       (create-directories~ patched)
-      (copy-file~ file patched :overwrite-read-only? true)
+      (copy-file~ file patched :overwrite-read-only? #t)
       (map-set! patches name (list :source patched))
       (edit-document~ appl patched)
       (user-message "File {a} patched" filename)))

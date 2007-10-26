@@ -47,9 +47,9 @@
 
 
   (slot file      initialize {})
-  (slot active?   initialize false)
-  (slot loaded?   initialize false)
-  (slot modified? initialize false)
+  (slot active?   initialize #f)
+  (slot loaded?   initialize #f)
+  (slot modified? initialize #f)
 
 
   (method (initialize name file active?)
@@ -111,8 +111,8 @@
   ;;;
   
   
-  (method public virtual (update (report?: report? true))
-    (set-active? true)
+  (method public virtual (update (report?: report? #t))
+    (set-active? #t)
     (when report?
       (user-message "Updating {a}..." (present)))
     (scan)
@@ -147,14 +147,14 @@
     )
   
   
-  (method protected (scan-directory directory (recursive?: recursive? true))
+  (method protected (scan-directory directory (recursive?: recursive? #t))
     (let ((processed 0))
       (iterate-directory~ directory
         (function dynamic (file)
           (when (process-file file)
             (increase! processed)))
-        files?: true
-        directories?: false
+        files?: #t
+        directories?: #f
         recursive?: recursive?)
       processed))
 
@@ -169,14 +169,14 @@
                (definition (get-unmodified-file-entry name file time)))
           (if definition
               (begin
-                (set-marked?~ definition true)
-                false)
-            (set-modified? true)
+                (set-marked?~ definition #t)
+                #f)
+            (set-modified? #t)
             (let ((entry (scan-file file time)))
-              (set-marked?~ entry true)
+              (set-marked?~ entry #t)
               (update-entry entry)
               (add-entry name entry))
-            true)))))
+            #t)))))
   
   
   (method (get-unmodified-file-entry name file time)
@@ -186,7 +186,7 @@
 
   
   (method protected virtual (scan-file? file)
-    false)
+    #f)
 
   
   (method protected virtual (scan-file file time)
@@ -229,7 +229,7 @@
                                    (set! previous list)
                                    (set! list (cdr list)))
                                (when reset?
-                                 (set-marked?~ definition false))
+                                 (set-marked?~ definition #f))
                                (set-cdr! previous (cddr previous))
                                (set! list (cdr previous))))))
                        (when (not (marked? (car definitions)))
@@ -246,7 +246,7 @@
     (when modified?
       (user-message "Saving {a} {a}..." name (present))
       (save-content)
-      (set-modified? false)
+      (set-modified? #f)
       (user-message "Done")))
 
 
@@ -254,19 +254,19 @@
   (method protected virtual (save-content)
     (let* ((all (gather-definitions))
            (sorted (sort < all key: car))
-           (first? true))
+           (first? #t))
       (with-closed ((printer (new File-Printer file)))
         (for-each (function dynamic (info)
                     (if (not first?)
                         (format printer "{%}")
-                      (set! first? false))
+                      (set! first? #f))
                     (bind (name . definitions) info
                       (format printer "{s}{%}" name)
                       (format printer " (")
-                      (let ((first? true))
+                      (let ((first? #t))
                         (for-each (function dynamic (definition)
                                     (print-catalog~ definition first? printer)
-                                    (set! first? false))
+                                    (set! first? #f))
                                   definitions))
                       (format printer "){%}")))
                   sorted))))

@@ -51,10 +51,10 @@
 (class Descendants-Tree extends Components-Tree
 
 
-  (property group?            initialize false getter get-group?            setter set-group?)
-  (property editable?         initialize true  getter get-editable?         setter set-editable?)
-  (property highlight-edited? initialize true  getter get-highlight-edited? setter set-highlight-edited?)
-  (property show-branches?    initialize false getter get-show-branches?    setter set-show-branches?)
+  (property group?            initialize #f getter get-group?            setter set-group?)
+  (property editable?         initialize #t  getter get-editable?         setter set-editable?)
+  (property highlight-edited? initialize #t  getter get-highlight-edited? setter set-highlight-edited?)
+  (property show-branches?    initialize #f getter get-show-branches?    setter set-show-branches?)
   
 
   (form
@@ -136,7 +136,7 @@
     (unless (or group? (not origin) (eq? self origin) (is? origin Details-Tree))
       (let ((rows (remove-nils (map component-row (if group? (groupify-selection selection) selection)))))
         (for-each ensure-expanded rows)
-        (set-selection (map row-rank rows) generate-event?: false))))
+        (set-selection (map row-rank rows) generate-event?: #f))))
   
   
   (method (groupify-selection selection)
@@ -162,11 +162,11 @@
   
   
   (method protected virtual (insert-toplevel rights)
-    (insert-component {} client rights true 0))
+    (insert-component {} client rights #t 0))
   
   
   (method protected virtual (insert-component? component)
-    true)
+    #t)
   
   
   (method protected virtual (insert-component row component rights update? level (image: image {}) (state: state {}))
@@ -234,7 +234,7 @@
             (let ((state (get-state~ row))
                   (level (+ (get-level~ row) 1)))
               (remove-every-son~ row)
-              (insert-components row component {} true level)
+              (insert-components row component {} #t level)
               (when (= state 'expanded)
                 (expand row))))))))
   
@@ -252,10 +252,10 @@
   
   (method (access-rights rights child)
     (if (null? rights)
-        (values true '())
+        (values #t '())
       (let ((child-rights (find-child-rights~ rights child)))
         (if (null? child-rights)
-            (values false '())
+            (values #f '())
           (values (can-access?~ child-rights) child-rights)))))
   
   
@@ -265,21 +265,21 @@
   
   
   (method public (highlight-component component)
-    (set-component-highlighted? component true))
+    (set-component-highlighted? component #t))
   
   
   (method public (unhighlight-component component)
-    (set-component-highlighted? component false))
+    (set-component-highlighted? component #f))
   
   
   (method (highlight-edited component)
     (when highlight-edited?
-      (set-component-highlighted? component true)))
+      (set-component-highlighted? component #t)))
   
   
   (method (unhighlight-edited component)
     (when highlight-edited?
-      (set-component-highlighted? component false)))
+      (set-component-highlighted? component #f)))
   
   
   (method (set-component-highlighted? component flag)
@@ -335,7 +335,7 @@
              (state (if (not descendant?) 'expanded 'collapsed)))
         (with-update-locked
           (function dynamic ()
-            (insert-component row child {} false level state: state)
+            (insert-component row child {} #f level state: state)
             (when (not descendant?)
               (reorder-component child)
               (expand row)))))))
@@ -382,7 +382,7 @@
   (method (draw-cell dc context row cell width height)
     (nextmethod dc context row cell width height)
     (when (and (is? cell Component-Node) (get-highlighted?~ cell))
-      (frame-rect~ dc (text-rect row cell width height false) highlight-color))))
+      (frame-rect~ dc (text-rect row cell width height #f) highlight-color))))
 
 
 (register-autoclass 'Component-Column Component-Column)
@@ -413,4 +413,4 @@
 (class Component-Node extends Tree-Node
   
   
-  (slot protected highlighted? initialize false getter generate)))
+  (slot protected highlighted? initialize #f getter generate)))

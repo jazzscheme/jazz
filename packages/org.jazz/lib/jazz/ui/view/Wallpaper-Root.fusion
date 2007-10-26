@@ -56,15 +56,15 @@
   (slot previous      initialize {})
   (slot wallpapers    initialize '())
   (slot mode          initialize {})
-  (slot random?       initialize false)
-  (slot browse?       initialize false)
+  (slot random?       initialize #f)
+  (slot browse?       initialize #f)
   (slot configuration initialize {})
   (slot choices       initialize '())
   (slot locator       initialize (new Wallpaper-Locator max-delay: 1.0))
   (slot changer       initialize {})
   (slot threads       initialize '())
-  (slot paused?       initialize false)
-  (slot done?         initialize false)
+  (slot paused?       initialize #f)
+  (slot done?         initialize #f)
   
   
   (form
@@ -72,7 +72,7 @@
   
   
   (method (preferences)
-    (get-preferences 'wallpaper error?: false))
+    (get-preferences 'wallpaper error?: #f))
 
 
   (method (install-wallpaper)
@@ -83,7 +83,7 @@
             (install-configuration (child~ pref active)))))))
   
   
-  (method (install-configuration config (brws? false))
+  (method (install-configuration config (brws? #f))
     (when (/= config configuration)
       (set! browse? brws?)
       (set! configuration config)
@@ -92,7 +92,7 @@
             (set! image {})
             (set! wallpapers '())
             (invalidate-view))
-        (set! image (new Image :cache? true))
+        (set! image (new Image :cache? #t))
         (set-mode (get-mode~ config))
         (set-random? (get-random?~ config))
         (set-view-size~ image (get-size))
@@ -456,7 +456,7 @@
   
   (method public (on-configure evt)
     (let ((configuration (get-property~ evt :configuration)))
-      (if (eq? configuration true)
+      (if (eq? configuration #t)
           (browse-configuration)
         (install-configuration configuration))))
   
@@ -467,7 +467,7 @@
         directory: (get-modal BrowseFolder-Dialog)
         period: (essay configuration (get-period~ configuration))
         mode: (essay configuration (get-mode~ configuration)))
-      true)))
+      #t)))
 
 
 ;;;
@@ -524,18 +524,18 @@
   (method (finish rest)
     (nextmethod rest)
     (when mode
-      (set-selected?~ (locate mode) true))
+      (set-selected?~ (locate mode) #t))
     (let ((source (get-source)))
       (if (not source)
           (begin
-            (set-visible?~ (locate 'random-separator) false)
-            (set-visible?~ (locate 'random) false)
-            (set-visible?~ (locate 'slide-separator) false)
-            (set-visible?~ (locate 'paused) false)
-            (set-visible?~ (locate 'change) false)
-            (set-visible?~ (locate 'previous) false)
-            (set-visible?~ (locate 'manage-separator) false)
-            (set-visible?~ (locate 'manage) false))
+            (set-visible?~ (locate 'random-separator) #f)
+            (set-visible?~ (locate 'random) #f)
+            (set-visible?~ (locate 'slide-separator) #f)
+            (set-visible?~ (locate 'paused) #f)
+            (set-visible?~ (locate 'change) #f)
+            (set-visible?~ (locate 'previous) #f)
+            (set-visible?~ (locate 'manage-separator) #f)
+            (set-visible?~ (locate 'manage) #f))
         (set-checked?~ (locate 'random) random?)
         (set-checked?~ (locate 'paused) paused?)
         (set-visible?~ (locate 'previous) (or (not random?) previous))
@@ -558,16 +558,16 @@
   
   @convert
   (method public (update-menu)
-    (insert-item "None" {Bitmap-Resource "Empty"} {} false)
+    (insert-item "None" {Bitmap-Resource "Empty"} {} #f)
     (let ((children (get-children~ (preferences))))
       (when children
         (new Separator-Item parent: self)
         (for-each (function dynamic (config)
                     (when (get-active?~ config)
-                      (insert-item (get-presentation~ config) {} config false)))
+                      (insert-item (get-presentation~ config) {} config #f)))
                   children)))
     (new Separator-Item parent: self)
-    (insert-item "Browse..." {Bitmap-Resource "Open"} true true))
+    (insert-item "Browse..." {Bitmap-Resource "Open"} #t #t))
   
   
   @convert
@@ -575,7 +575,7 @@
     (let ((selected? (if browse-item?
                          browse?
                        (eq? config configuration))))
-      (new Radio-Item parent: self title: title :selected? selected? icon: icon action-handler: (new Event-Handler target-name: :wallpaper method-name: 'on-configure properties: (list :configuration config))))))
+      (new Radio-Item parent: self title: title selected?: selected? icon: icon action-handler: (new Event-Handler target-name: :wallpaper method-name: 'on-configure properties: (list :configuration config))))))
 
 
 ;;;

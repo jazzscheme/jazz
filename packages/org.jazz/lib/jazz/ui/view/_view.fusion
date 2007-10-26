@@ -50,8 +50,8 @@
 
 
 (definition mouse-in          {})
-(definition mouse-down?       false)
-(definition mouse-right-down? false)
+(definition mouse-down?       #f)
+(definition mouse-right-down? #f)
 (definition mouse-down-view   {})
 (definition mouse-down-point  {})
 
@@ -81,7 +81,7 @@
 ;; a modal dialog. In this case, Windows will not generate the
 ;; mouse-up event, hence this bizarre code...
 (definition public (toplevel-deactivate)
-  (set! mouse-down? false)
+  (set! mouse-down? #f)
   (set! mouse-down-view {})
   (set! mouse-down-point {}))
 
@@ -153,15 +153,15 @@
 (definition public (get-modal guest-class . rest)
   (receive-primary
     (function dynamic ()
-      (receive (process? dialog/result) (apply new-dialog guest-class host-visible?: false rest)
+      (receive (process? dialog/result) (apply new-dialog guest-class host-visible?: #f rest)
         (if (not process?)
             dialog/result
           (process-modal~ dialog/result))))))
 
 
 (definition public (new-dialog guest-class . rest)
-  (bind-keywords ((host-title (dialog-title)) (host-sizable? (dialog-sizable?)) (host-closable? (dialog-closable?)) (host-visible? true) (guest {}) (initialize {}) . others) rest
-    (let* ((host (new (dialog-class) in-parent?: false sizable?: host-sizable? closable?: host-closable? visible?: false))
+  (bind-keywords ((host-title (dialog-title)) (host-sizable? (dialog-sizable?)) (host-closable? (dialog-closable?)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
+    (let* ((host (new (dialog-class) in-parent?: #f sizable?: host-sizable? closable?: host-closable? visible?: #f))
            (guest (either guest (new-guest guest-class others)))
            (size (either (dialog-size) (get-size~ guest)))
            (pos (either (dialog-position) (center-dialog size))))
@@ -178,10 +178,10 @@
       ;; some errors should occur.
       (parent-add-child~ host)
       (if (has-dialog-result?~ guest)
-          (values false (get-modal-result~ host))
+          (values #f (get-modal-result~ host))
         (when host-visible?
-          (set-visible?~ host true))
-        (values true host)))))
+          (set-visible?~ host #t))
+        (values #t host)))))
 
 
 ;;;
@@ -203,8 +203,8 @@
 
 
 (definition public (new-frame guest-class . rest)
-  (bind-keywords ((host-title (frame-title)) (host-position (frame-position)) (host-size (frame-size)) (host-workspace {}) (host-visible? true) (host-focus? true) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (frame-class) in-parent?: false visible?: false)))
+  (bind-keywords ((host-title (frame-title)) (host-position (frame-position)) (host-size (frame-size)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
+    (let ((host (new (frame-class) in-parent?: #f visible?: #f)))
       (when host-title
         (set-title~ host host-title))
       (when host-position
@@ -227,7 +227,7 @@
         (ensure-displayed~ host)
         (when host-visible?
           (bring-to-front~ host)
-          (set-visible?~ host true)
+          (set-visible?~ host #t)
           (when host-focus?
             (acquire-focus~ host)))
         host))))
@@ -263,18 +263,18 @@
 
 
 (definition public (singleton-palette guest-class name . rest)
-  (new-palette guest-class host-visible?: false)
+  (new-palette guest-class host-visible?: #f)
   @convert
   (let ((ref (either name (type-name self))))
     (either (hash-ref Palettes ref)
-            (let ((palette (new-palette guest-class host-visible?: false)))
+            (let ((palette (new-palette guest-class host-visible?: #f)))
               (hash-set! Palettes ref palette)
               palette))))
 
 
 (definition public (new-palette guest-class . rest)
-  (bind-keywords ((host-title (palette-title)) (host-position (palette-position)) (host-size (palette-size)) (host-visible? true) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (palette-class) in-parent?: false visible?: false)))
+  (bind-keywords ((host-title (palette-title)) (host-position (palette-position)) (host-size (palette-size)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
+    (let ((host (new (palette-class) in-parent?: #f visible?: #f)))
       (when host-title
         (set-title~ host host-title))
       (when host-position
@@ -352,7 +352,7 @@
 
 (definition public (new-docked guest-class . rest)
   (bind-keywords ((host-title (palette-title)) (host-location {}) . others) rest
-    (let ((host (new (docked-class) visible?: false)))
+    (let ((host (new (docked-class) visible?: #f)))
       (when host-title
         (set-title~ host host-title))
       (when host-location
@@ -400,7 +400,7 @@
 
 (definition public (new-toolbar guest-class . rest)
   (bind-keywords ((host-title (palette-title)) (host-location {}) . others) rest
-    (let ((host (new (toolbar-class) visible?: false)))
+    (let ((host (new (toolbar-class) visible?: #f)))
       (when host-title
         (set-title~ host host-title))
       (when host-location
@@ -435,11 +435,11 @@
 
 
 (definition public (dialog-sizable?)
-  false)
+  #f)
 
 
 (definition public (dialog-closable?)
-  true)
+  #t)
 
 
 (definition public (center-dialog inner)
@@ -453,7 +453,7 @@
 ;;;
 
 
-(definition (with-progress proc (threaded?: threaded? true) (name: name {}) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? true) (abnormal-cleanup: abnormal-cleanup {}))
+(definition (with-progress proc (threaded?: threaded? #t) (name: name {}) (progress-reporter: progress-reporter Progress-Reporter) (cancelable?: cancelable? #t) (abnormal-cleanup: abnormal-cleanup {}))
   (unimplemented 'with-progress)
   @Thread
   (if (not threaded?)
@@ -494,10 +494,10 @@
 ;;;
 
 
-(definition public (ui-message-box text (class: class {}) (type: type 'message) (title: title {}) (icon: icon {}) (content: content {}) (sound: sound 'default) (selection: selection {}) (yes: yes {}) (no: no {}) (cancel: cancel {}) (actions: actions '()) (default-button: default-button {}) (process-keys?: process-keys? true) (sizable?: sizable? false))
+(definition public (ui-message-box text (class: class {}) (type: type 'message) (title: title {}) (icon: icon {}) (content: content {}) (sound: sound 'default) (selection: selection {}) (yes: yes {}) (no: no {}) (cancel: cancel {}) (actions: actions '()) (default-button: default-button {}) (process-keys?: process-keys? #t) (sizable?: sizable? #f))
   (receive-primary
     (function dynamic ()
-      (receive (process? dialog) (new-dialog (either class Message-Box) host-visible?: false host-sizable?: sizable?)
+      (receive (process? dialog) (new-dialog (either class Message-Box) host-visible?: #f host-sizable?: sizable?)
         (let ((guest (get-guest~ dialog)))
           (process-box~ guest text
             type: type
@@ -522,7 +522,7 @@
 ;; These should really be hooks to modify the dialog at creation time...
 
 
-(definition public (request-string (class: class String-Request) (title: title {}) (prefix: prefix {}) (initial-value: initial-value {}) (accepts-empty?: accepts-empty? true) (unicity-domain: unicity-domain {}) (validator: validator {}))
+(definition public (request-string (class: class String-Request) (title: title {}) (prefix: prefix {}) (initial-value: initial-value {}) (accepts-empty?: accepts-empty? #t) (unicity-domain: unicity-domain {}) (validator: validator {}))
   (unimplemented 'request-string)
   @Locale
   (receive (process? dialog) (new-dialog class)
@@ -692,7 +692,7 @@
               (find-palette~ (get-workspace-splitter) class)))))
 
 
-(definition public (select-palette class (name: name {}) (workspace: workspace 'home) (focus?: focus? false))
+(definition public (select-palette class (name: name {}) (workspace: workspace 'home) (focus?: focus? #f))
   (let ((guest (find-palette class))
         (proc
           (function dynamic (view)
@@ -765,7 +765,7 @@
 (definition public (cleanup-mouse-processing)
   (release-captured-view)
   (complete-drag-and-drop)
-  (complete-drag-up false))
+  (complete-drag-up #f))
 
 
 (definition (complete-drag-and-drop)

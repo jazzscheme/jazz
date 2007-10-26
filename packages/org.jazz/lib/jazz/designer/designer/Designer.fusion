@@ -54,7 +54,7 @@
   (slot form      initialize {})
   (slot reference initialize {})
   (slot listeners initialize '())
-  (slot modified? initialize false)
+  (slot modified? initialize #f)
 
   
   ;;;
@@ -70,7 +70,7 @@
   
   (method (setup-form frm)
     (if (not frm)
-        (set! form (new Form textual?: false origin: (class-of reference) action: 'new model-name: 'install))
+        (set! form (new Form textual?: #f origin: (class-of reference) action: 'new model-name: 'install))
       (let ((origin (get-origin~ frm)))
         (if (file? origin)
             (setup-file-form frm)
@@ -141,7 +141,7 @@
         (save-as)
       (set-origin~ form file)
       (save-to-file file)
-      (set-modified? false)))
+      (set-modified? #f)))
   
   
   (definition Default-Extension
@@ -161,7 +161,7 @@
       (if (file? origin)
           (save-to-file origin)
         (save-to-class origin)))
-    (set-modified? false))
+    (set-modified? #f))
   
   
   (method (save-to-class class)
@@ -173,7 +173,7 @@
                (code-location (new Jazz-Code-Location location))
                (code-source (find-source~ code-location))
                (being-edited? (find-document~ appl code-source))
-               (output (saved-form true 2)))
+               (output (saved-form #t 2)))
           ;; Invoking the Interpreter is the simplest way of creating
           ;; the new definition that did not already exist in the class...
           @convert
@@ -193,7 +193,7 @@
                   (begin
                     (save~ text)
                     (close~ frame))
-                (set-visible?~ frame true)
+                (set-visible?~ frame #t)
                 (bring-to-front~ frame)
                 (acquire-focus~ frame))))))))
   
@@ -202,19 +202,19 @@
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Sorry, unable to save to read-only file: {s}" file))
       (with-closed ((printer (new File-Printer file)))
-        (set-printer-use-utf8? printer true)
+        (set-printer-use-utf8? printer #t)
         (output-header (get-model-name~ form) printer)
         (format printer "{%}{%}")
-        (print-to false 0 printer))))
+        (print-to #f 0 printer))))
 
 
-  (method public (saved-form class-form? level (space-properties?: space-properties? true) (align-name?: align-name? true))
+  (method public (saved-form class-form? level (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (let ((printer (new String-Printer)))
       (print-to class-form? level printer space-properties?: space-properties? align-name?: align-name?)
       (get-output~ printer)))
   
   
-  (method public (print-to class-form? level printer (space-properties?: space-properties? true) (align-name?: align-name? true))
+  (method public (print-to class-form? level printer (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (when class-form?
       (format printer "(form{%}"))
     (let ((node (form->node form))
@@ -234,7 +234,7 @@
   ;;;
   
   
-  (method public virtual (set-name component name (branch: branch true) (design-events?: design-events? true) (undoable?: undoable? true))
+  (method public virtual (set-name component name (branch: branch #t) (design-events?: design-events? #t) (undoable?: undoable? #t))
     (let* ((branch (target-branch branch))
            (form (find-form component branch))
            (old-name (get-name~ component))
@@ -255,16 +255,16 @@
           (fire-presentation-change component presentation old-presentation undoable?))
         (let ((property (property-field component 'name-info)))
           (fire-property-change branch component property name undoable?)))
-      (set-modified? true)))
+      (set-modified? #t)))
   
   
   (method public (set-tag-source component tag-source)
     (let ((form (find-form component {})))
       (set-tag-source~ form tag-source)
-      (set-modified? true)))
+      (set-modified? #t)))
   
   
-  (method public virtual (set-property component/path property value (branch: branch true) (design-events?: design-events? true) (undoable?: undoable? false))
+  (method public virtual (set-property component/path property value (branch: branch #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
     (let ((branch (target-branch branch)))
       ;; Quick fix for the special case of setting a property of the active branch
       (if (eq? component/path branch)
@@ -283,7 +283,7 @@
                   ;; This test is not 100% correct as the creator-branch can be any parent branch of branch
                   (when (and creator-branch (neq? branch (get-creator-branch~ component)))
                     (error "Unable to modify an explicit branch using a component having a different branch creator"))))
-              (receive (form restore) (find-form component branch :restore? true)
+              (receive (form restore) (find-form component branch :restore? #t)
                 (receive (next-form next-restore) (find-next-branch branch component property)
                   (set-property~ form property value)
                   (when installed?
@@ -302,18 +302,18 @@
                       (when (and restore (not (has-property?~ restore property)))
                         (set-property~ restore property (get-property~ next-restore property)))
                       (set-property~ next-restore property value)))))))
-          (set-modified? true)))))
+          (set-modified? #t)))))
   
   
   ;; This works well really only with branches because else we don't have restore information
-  (method public virtual (remove-property component/path property default-value (branch: branch true) (design-events?: design-events? true) (undoable?: undoable? false))
+  (method public virtual (remove-property component/path property default-value (branch: branch #t) (design-events?: design-events? #t) (undoable?: undoable? #f))
     (let* ((branch (target-branch branch))
            (installed? (or (not branch) (installed?~ branch)))
            (path? (is? component/path Path))
            (component (if path? (follow-component~ component/path reference) component/path))
            (property (property-field component property)))
       (assert property)
-      (receive (form restore) (find-form component branch :restore? true)
+      (receive (form restore) (find-form component branch :restore? #t)
         (receive (next-form next-restore) (find-next-branch branch component property)
           (when (has-property?~ form property)
             (let ((value (if (not restore) default-value (get-property~ restore property))))
@@ -327,20 +327,20 @@
             (remove-property~ form property)
             (when restore
               (remove-property~ restore property))
-            (set-modified? true))))))
+            (set-modified? #t))))))
   
   
-  (method public virtual (add-child child parent (branch: branch true) (name: name {}) (properties: properties '()) (design-events?: design-events? true) (descendant?: descendant? false))
+  (method public virtual (add-child child parent (branch: branch #t) (name: name {}) (properties: properties '()) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let ((branch (target-branch branch)))
       (set-parent~ child parent)
-      (receive (form restore) (find-form parent branch :restore? true)
-        (let ((child-form (new Form textual?: false context: (get-context~ form) action: 'new model-name: (type-name (class-of child)))))
+      (receive (form restore) (find-form parent branch :restore? #t)
+        (let ((child-form (new Form textual?: #f context: (get-context~ form) action: 'new model-name: (type-name (class-of child)))))
           (set-form~ child child-form)
           (add-form~ parent form child-form))
         (when restore
           (remember-creation~ restore self child))
         (when name
-          (set-name child name branch: branch design-events?: false))
+          (set-name child name branch: branch design-events?: #f))
         (set-creator~ child reference)
         (add-to-index~ reference (get-name~ child) child)
         (when properties
@@ -352,11 +352,11 @@
         ;; break the MetaModeler who calls this at 3 places)
         (when design-events?
           (fire-child-add child parent descendant?))
-        (set-modified? true)))
+        (set-modified? #t)))
     child)
 
   
-  (method public virtual (remove-child child (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (remove-child child (branch: branch #t) (design-events?: design-events? #t))
     (let ((branch (target-branch branch)))
       (if (eq? child reference)
           (error "The reference component cannot be removed")
@@ -386,10 +386,10 @@
               (remove-child~ parent-form form)
               (when design-events?
                 (fire-child-remove child parent))
-              (set-modified? true)))))))
+              (set-modified? #t)))))))
   
   
-  (method public (remove-children parent (branch: branch true) (design-events?: design-events? true))
+  (method public (remove-children parent (branch: branch #t) (design-events?: design-events? #t))
     (for-each (function dynamic (child)
                 (remove-child child branch: branch design-events?: design-events?))
               (get-children~ parent)))
@@ -397,25 +397,25 @@
   
   ;; This is not a 100% complete solution as this for instance will
   ;; not restore the correct property values as remove-property would...
-  (method public virtual (purge-branch component (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (purge-branch component (branch: branch #t) (design-events?: design-events? #t))
     (let* ((branch (target-branch branch))
            (parent (get-parent~ component))
            (parent-form (find-form parent branch)))
-      (receive (form restore-form) (find-form component branch :restore? true)
+      (receive (form restore-form) (find-form component branch :restore? #t)
         (install-form~ component restore-form component {} {})
         (remove-child~ parent-form form))))
   
   
-  (method public virtual (move-components components destination (branch: branch true))
+  (method public virtual (move-components components destination (branch: branch #t))
     (let* ((components (remove-redundant-descendants components))
            (parcels (package-components components))
            (name-resolution (verify-name-conflicts parcels destination)))
       (delete-components components branch: branch)
-      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: true descendant?: false)
-        (set-modified? true))))
+      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: #t descendant?: #f)
+        (set-modified? #t))))
   
   
-  (method public virtual (send-before child target (branch: branch true))
+  (method public virtual (send-before child target (branch: branch #t))
     (let* ((branch (target-branch branch))
            (parent (get-parent~ child))
            (parent-form (find-form parent branch))
@@ -424,14 +424,14 @@
       (send-before~ child target)
       (send-child-before~ parent-form child-form target-form)
       (fire-send-before child parent target)
-      (set-modified? true)))
+      (set-modified? #t)))
   
   
-  (method public (send-to-back child (branch: branch true))
+  (method public (send-to-back child (branch: branch #t))
     (send-before child (first-child~ (get-parent~ child)) branch: branch))
   
   
-  (method public (bring-to-front child (branch: branch true))
+  (method public (bring-to-front child (branch: branch #t))
     (send-before child {} branch: branch))
   
   
@@ -472,41 +472,41 @@
       (get-output~ output)))
   
   
-  (method public virtual (paste-clipboard parent (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (paste-clipboard parent (branch: branch #t) (design-events?: design-events? #t))
     (let ((parcels (get-jazz-parcels)))
       (paste-parcels parcels parent branch: branch design-events?: design-events?)))
   
   
-  (method public virtual (paste-parcels parcels parent (branch: branch true) (design-events?: design-events? true) (reporter: reporter {}))
+  (method public virtual (paste-parcels parcels parent (branch: branch #t) (design-events?: design-events? #t) (reporter: reporter {}))
     (let* ((parent (determine-paster~ parent))
            (name-resolution (verify-name-conflicts parcels parent)))
-      (prog1 (instantiate-parcels parcels parent branch: branch :name-resolution name-resolution design-events?: design-events? descendant?: false reporter: reporter)
-        (set-modified? true))))
+      (prog1 (instantiate-parcels parcels parent branch: branch :name-resolution name-resolution design-events?: design-events? descendant?: #f reporter: reporter)
+        (set-modified? #t))))
   
   
-  (method public virtual (paste-properties components (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (paste-properties components (branch: branch #t) (design-events?: design-events? #t))
     (let ((parcel (car (get-jazz-parcels))))
       (paste-parcel-properties parcel components branch: branch design-events?: design-events?)))
   
   
-  (method public (paste-parcel-properties parcel components (branch: branch true) (design-events?: design-events? true))
+  (method public (paste-parcel-properties parcel components (branch: branch #t) (design-events?: design-events? #t))
     (let ((forms (get-content~ parcel)))
       (for-each (function dynamic (component)
                   (for-each (function dynamic (form)
                               (instantiate-properties component (get-properties~ form) branch design-events?))
                             forms))
                 components)
-      (set-modified? true)))
+      (set-modified? #t)))
   
   
-  (method public virtual (delete-components components (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (delete-components components (branch: branch #t) (design-events?: design-events? #t))
     (let ((components (remove-redundant-descendants components)))
       (for-each (function dynamic (component)
                   (delete-component component branch: branch design-events?: design-events?))
                 components)))
   
   
-  (method public virtual (delete-component component (branch: branch true) (design-events?: design-events? true))
+  (method public virtual (delete-component component (branch: branch #t) (design-events?: design-events? #t))
     (remove-child component branch: branch design-events?: design-events?))
   
   
@@ -556,7 +556,7 @@
   ;;;
   
   
-  (method public virtual (instantiate-parcels parcels parent (branch: branch true) (name-resolution: name-resolution {}) (design-events?: design-events? true) (descendant?: descendant? false) (reporter: reporter {}))
+  (method public virtual (instantiate-parcels parcels parent (branch: branch #t) (name-resolution: name-resolution {}) (design-events?: design-events? #t) (descendant?: descendant? #f) (reporter: reporter {}))
     (map (function dynamic (parcel)
            (when reporter
              (user-message~ reporter "Pasting {a}..." (get-master-name~ parcel)))
@@ -566,7 +566,7 @@
          parcels))
   
   
-  (method public virtual (instantiate-parcel parcel parent (branch: branch true) (name-resolution: name-resolution {}) (design-events?: design-events? true) (descendant?: descendant? false))
+  (method public virtual (instantiate-parcel parcel parent (branch: branch #t) (name-resolution: name-resolution {}) (design-events?: design-events? #t) (descendant?: descendant? #f))
     (let* ((forms (get-content~ parcel))
            (master (car forms))
            (name (get-name~ master)))
@@ -613,13 +613,13 @@
   
   (method public virtual (instantiate-properties component properties branch design-events?)
     (for-each-property (function dynamic (property value)
-                         (set-property component property value branch: branch design-events?: design-events? :undoable? false))
+                         (set-property component property value branch: branch design-events?: design-events? :undoable? #f))
                        properties))
 
   
   (method public virtual (instantiate-children component children branch design-events?)
     (for-each (function dynamic (form)
-                (instantiate-form (get-name~ form) {} form component branch design-events? true))
+                (instantiate-form (get-name~ form) {} form component branch design-events? #t))
               children))
   
   
@@ -700,7 +700,7 @@
   
   ;; This special support for views is not clean, but it is better
   ;; than having it directly inside add-child where it was before!
-  (method public virtual (add-view child parent (position: position {}) (centered?: centered? false) (visible?: visible? true) . others)
+  (method public virtual (add-view child parent (position: position {}) (centered?: centered? #f) (visible?: visible? #t) . others)
     (apply add-child child parent others)
     (when position
       (set-property child 'position position))
@@ -708,8 +708,8 @@
       (let ((size (get-size~ child)))
         (move-figure~ child (- (quotient (get-width~ size) 2)) (- (quotient (get-height~ size) 2)))))
     (when visible?
-      (set-visible?~ child true))
-    (set-modified? true))
+      (set-visible?~ child #t))
+    (set-modified? #t))
   
   
   ;;;
@@ -717,7 +717,7 @@
   ;;;
   
   
-  (method (find-form component branch (restore?: restore? false) (error?: error? true))
+  (method (find-form component branch (restore?: restore? #f) (error?: error? #t))
     (let* ((ancestry (component-ancestry component))
            (branch-form (if branch (get-client-form~ branch) form))
            (restore-form (essay restore? branch (get-restore-form~ branch)))
@@ -735,7 +735,7 @@
                 (let ((children (get-children~ form))
                       (cpn-form (get-form~ cpn)))
                   (if (not cpn-form)
-                      (embed-new-form form {} false)
+                      (embed-new-form form {} #f)
                     (if (memq? cpn-form children)
                         (set! form cpn-form)
                       (let ((restore-form (find cpn children key: (function dynamic (form) (essay (is? form Restore-Form) (get-component~ form))))))
@@ -759,7 +759,7 @@
   
   
   (method (target-branch branch)
-    (cond ((eq? branch true) (get-active-branch~ reference))
+    (cond ((eq? branch #t) (get-active-branch~ reference))
           ((is? branch Path) (follow-component~ branch reference))
           (else branch)))
   
@@ -842,13 +842,13 @@
   ;; - the branch must be the owner of the property (i.e. have set it)
   
   
-  (method public (get-name path (branch: branch true))
+  (method public (get-name path (branch: branch #t))
     (let* ((branch (target-branch branch))
            (form (if branch (get-client-form~ branch) form)))
       (get-name~ (follow-form~ path form))))
   
   
-  (method public (get-property path property (branch: branch true))
+  (method public (get-property path property (branch: branch #t))
     (let* ((branch (target-branch branch))
            (form (if branch (get-client-form~ branch) form)))
       (get-property~ (follow-form~ path form) property)))

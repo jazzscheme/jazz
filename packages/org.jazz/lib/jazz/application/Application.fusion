@@ -81,7 +81,7 @@
   (slot event-consumer                  initialize self)
   (slot history-manager                 initialize (new History-Manager self))
   (slot repositories-preferences        initialize {})
-  (slot active?                         initialize false)
+  (slot active?                         initialize #f)
   (slot application-actions             initialize '())
   (slot user-actions                    initialize '())
   (slot guest-actions                   initialize '())
@@ -154,7 +154,7 @@
     (setup-jvm classpath: Java-Classpath)
     (c-test)
     (let* ((loader (getSystemClassLoader~ java.lang.ClassLoader))
-           (class (forName~ java.lang.Class "yo" true loader)))
+           (class (forName~ java.lang.Class "yo" #t loader)))
       (message-box (format "{a}" class))))
 
 
@@ -189,7 +189,7 @@
     (nextmethod rest)
     (set-cursor :arrow)
     (splash-screen)
-    (let ((pref (get-preferences {} error?: false)))
+    (let ((pref (get-preferences {} error?: #f)))
       (set-state~ (get-root~ toplevel) (if pref (get-toplevel-state~ pref) 'restored)))
     (when stage
       (install-wallpaper~ stage)))
@@ -218,7 +218,7 @@
   (method (conclude-environment rest)
     (nextmethod rest)
     (update-windowing-actions)
-    (set-visible?~ toplevel true)
+    (set-visible?~ toplevel #t)
     (when user
       (with-safe-execution "finalizing the user"
         (function dynamic ()
@@ -356,15 +356,15 @@
   
   
   (method protected virtual (use-user?)
-    true)
+    #t)
   
   
   (method protected virtual (use-user-logging?)
-    false)
+    #f)
   
   
   (method protected virtual (use-user-class?)
-    false)
+    #f)
   
   
   (method (log-user)
@@ -433,7 +433,7 @@
       (copy-directory~ settings (new-directory~ directory "Settings")
         :copier (function dynamic (src dst)
                   (copy-template src dst expander associations))
-        :touch-files? true)))
+        :touch-files? #t)))
   
   
   (method (copy-user file expander associations)
@@ -631,12 +631,12 @@
   
   (method public virtual (deactivate)
     (close-popups~ toplevel)
-    (set! active? false)
+    (set! active? #f)
     (invalidate-caption~ (get-root~ toplevel)))
   
   
   (method public virtual (activate)
-    (set! active? true)
+    (set! active? #t)
     (when toplevel
       (invalidate-caption~ (get-root~ toplevel)))
     ;; Necessary because verify-reloads can pop a dialog
@@ -654,7 +654,7 @@
                     (let ((guest (get-guest~ window)))
                       (when (is? guest Document)
                         (verify-reload~ (get-controller~ guest))))))
-                (get-windows~ stage include-invisibles?: true))))
+                (get-windows~ stage include-invisibles?: #t))))
   
   
   (method public (verify-reload moniker)
@@ -733,11 +733,11 @@
   
   
   (method public virtual (display-aliases?)
-    true)
+    #t)
   
   
   (method public virtual (display-protocol?)
-    true)
+    #t)
   
   
   (method public virtual (application-anchors)
@@ -811,7 +811,7 @@
     selected-owner)
   
   
-  (method public (set-selected owner sel (force?: force? false))
+  (method public (set-selected owner sel (force?: force? #f))
     (let ((new-owner? (neq? owner selected-owner)))
       (when (or force? new-owner? (/= sel selected))
         (process-selected-change owner selected sel force?))))
@@ -820,7 +820,7 @@
   (method public (close-selected owner)
     (when (eq? owner selected-owner)
       (set! selected-owner {})
-      (process-selected-change {} selected {} false)))
+      (process-selected-change {} selected {} #f)))
 
   
   (method (process-selected-change owner old-selected new-selected force?)
@@ -1023,7 +1023,7 @@
       (let ((action-items (get-bound-actions shortcut)))
         (when (not-null? action-items)
           (invoke~ (car action-items) self {})
-          true))))
+          #t))))
   
   
   (method public (get-bound-actions shortcut)
@@ -1291,7 +1291,7 @@
                   (radio (locate-component~ toolbar name)))
              (if (not radio)
                  (unselect-elements~ toolbar class: Radio-Tool :group 'workspace)
-               (set-selected?~ radio true))))))))
+               (set-selected?~ radio #t))))))))
 
   
   (method public (select-workspace name)
@@ -1324,7 +1324,7 @@
   (method public (on-zoom-horizontally evt)
     (with-locked-update
       (function dynamic ()
-        (let ((started? false))
+        (let ((started? #f))
           (call/ec
             (function (return)
               (for-each-splitter (get-stage-border)
@@ -1337,13 +1337,13 @@
                             (zoom~ splitter window)
                           (return))
                       (unzoom~ splitter))
-                    (set! started? true))))))))))
+                    (set! started? #t))))))))))
   
   
   (method public (on-zoom-vertically evt)
     (with-locked-update
       (function dynamic ()
-        (let ((started? false)
+        (let ((started? #f)
               (border (get-stage-border)))
           (call/ec
             (function (return)
@@ -1355,7 +1355,7 @@
                     (if (= (get-state~ splitter) 'split)
                         (zoom~ splitter window)
                       (unzoom~ splitter))
-                    (set! started? true))
+                    (set! started? #t))
                   (when (eq? window border)
                     (return))))))))))
   
@@ -1371,7 +1371,7 @@
     (let ((pref (get-preferences {})))
       (when (not (get-fullscreen-warned?~ pref))
         (message-box "Warning: There is currently only one way of exiting the fullscreen mode which is by using the Alt-Shift Backspace shortcut for Full Screen toggle")
-        (set-property~ preferences-designer pref :fullscreen-warned? true)))
+        (set-property~ preferences-designer pref :fullscreen-warned? #t)))
     (let ((fullscreen? (not (get-fullscreen?~ (get-toplevel)))))
       (set-fullscreen?~ (selected-workspace) fullscreen?)
       (full-screen-stage fullscreen?)))
@@ -1543,7 +1543,7 @@
 
 
   (method public virtual (record-event? event)
-    true)
+    #t)
 
 
   ;;;
@@ -1551,7 +1551,7 @@
   ;;;
 
 
-  (method public (fresh-prompt (text: text {}) (force?: force? false))
+  (method public (fresh-prompt (text: text {}) (force?: force? #f))
     (let ((text (either text (get-console-text))))
       (when text
         (fresh-prompt~ text force?: force?)
@@ -1562,14 +1562,14 @@
     (let ((had-focus? (is? (get-focus) Console-Text-View)))
       (show-console)
       (when had-focus?
-        (fresh-prompt force?: true))))
+        (fresh-prompt force?: #t))))
   
   
   (method public (on-debugger evt)
     (let ((had-focus? (is? (get-focus) Debugger-Console-Text-View)))
       (show-console class: Debugger-Console-Manager)
       (when had-focus?
-        (fresh-prompt text: (get-debugger-console-text) force?: true))))
+        (fresh-prompt text: (get-debugger-console-text) force?: #t))))
   
   
   @waiting
@@ -1577,7 +1577,7 @@
     (let ((had-focus? (is? (get-focus) Dialect-Console-Text-View)))
       (show-console class: Dialect-Console-Manager)
       (when had-focus?
-        (fresh-prompt text: (get-dialect-console-text) force?: true))))
+        (fresh-prompt text: (get-dialect-console-text) force?: #t))))
   
   
   (method public (on-sql-console evt)
@@ -1586,12 +1586,12 @@
     (let ((had-focus? (is? (get-focus) SQL-Console-Text-View)))
       (show-console class: SQL-Console-Manager workspace: 'sql)
       (when had-focus?
-        (fresh-prompt text: (get-sql-console-text) force?: true))))
+        (fresh-prompt text: (get-sql-console-text) force?: #t))))
   
   
   (method public (show-console (class: class Jazz-Console-Manager)
                                (workspace: workspace 'home)
-                               (focus?: focus? true))
+                               (focus?: focus? #t))
     (let ((console (select-palette class workspace: workspace)))
       (when (and console focus?)
         (acquire-focus~ (get-text~ console)))))
@@ -1600,19 +1600,19 @@
   (method (on-sql-connections evt)
     (unimplemented 'on-sql-connections)
     @convert-waiting
-    (select-palette SQL-Connections-Manager workspace: 'sql focus?: true))
+    (select-palette SQL-Connections-Manager workspace: 'sql focus?: #t))
   
   
   (method (on-sql-inventory evt)
     (unimplemented 'on-sql-inventory)
     @convert-waiting
-    (select-palette Inventory-Browser workspace: 'sql focus?: true))
+    (select-palette Inventory-Browser workspace: 'sql focus?: #t))
   
   
   (method (on-sql-tree-output evt)
     (unimplemented 'on-sql-tree-output)
     @convert-waiting
-    (select-palette SQL-Tree-Output 'sql focus?: true))
+    (select-palette SQL-Tree-Output 'sql focus?: #t))
   
 
   ;;;
@@ -1778,7 +1778,7 @@
             (let ((text (get-guest~ frame)))
               (set-selection~ text range)
               (bring-to-front~ frame)
-              (set-visible?~ frame true)
+              (set-visible?~ frame #t)
               (acquire-focus~ text)))))))
   
   
@@ -1815,7 +1815,7 @@
                                          ((fatal) 'Walk-Fatal))))
                             (apply-style~ text style (get-start~ range) (get-end~ range)))
                           (bring-to-front~ frame)
-                          (set-visible?~ frame true)
+                          (set-visible?~ frame #t)
                           (acquire-focus~ text))))))
                 problems)
       (when first-row
@@ -1927,7 +1927,7 @@
     (let ((search (get-search~ manager)))
       (set-search-domain~ search domain)
       (bring-to-front~ palette)
-      (set-visible?~ palette true)))
+      (set-visible?~ palette #t)))
 
 
   (method public (on-edit-next evt)
@@ -2119,7 +2119,7 @@
   
   
   (method public (open-files (directory: directory {}))
-    (let ((files (get-modal OpenFile-Dialog directory: directory extensions: (open-extensions) multiple-selection?: true)))
+    (let ((files (get-modal OpenFile-Dialog directory: directory extensions: (open-extensions) multiple-selection?: #t)))
       (for-each edit-file
                 (sort > files key: (function dynamic (file) (get-name~ file))))))
   
@@ -2165,11 +2165,11 @@
                                 (class: class {})
                                 (workspace: workspace {})
                                 (selection: selection {})
-                                (wrap?: wrap? false)
-                                (force-new?: force-new? false)
-                                (activate-focus?: activate-focus? true)
-                                (visible?: visible? true)
-                                (return-new?: return-new? false))
+                                (wrap?: wrap? #f)
+                                (force-new?: force-new? #f)
+                                (activate-focus?: activate-focus? #t)
+                                (visible?: visible? #t)
+                                (return-new?: return-new? #f))
     (when moniker
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
@@ -2195,25 +2195,25 @@
                                                          (when (typed? self 'IDE)
                                                            (report-duration~ timer)))
                                                        (when wrap?
-                                                         (set-wrap?~ document true))
+                                                         (set-wrap?~ document #t))
                                                        (when selection
                                                          (set-selection~ document selection))))
-                              true))))
+                              #t))))
               (when selection
                 (set-selection~ (get-guest~ frame) selection))
               (when visible?
                 (bring-to-front~ frame)
-                (set-visible?~ frame true)
+                (set-visible?~ frame #t)
                 (when activate-focus?
                   (acquire-focus~ frame)))
               (verify-reload~ (get-controller~ (get-guest~ frame)))
-              (result frame false)))))))
+              (result frame #f)))))))
   
   
   (method public (edit-help-document moniker)
     (let* ((frame (edit-document moniker))
            (text (get-guest~ frame)))
-      (set-editable?~ text false)))
+      (set-editable?~ text #f)))
   
   
   (method public (edit-filename filename)
@@ -2233,16 +2233,16 @@
   (method public (browse-url url)
     (let ((frame (find-explorer-frame url)))
       (if (not frame)
-          (let* ((frame (new-frame (get-explorer-class) host-visible?: false))
+          (let* ((frame (new-frame (get-explorer-class) host-visible?: #f))
                  (explorer (get-guest~ frame)))
             (set-url~ explorer url)
             (bring-to-front~ frame)
-            (set-visible?~ frame true)
+            (set-visible?~ frame #t)
             frame)
         (let ((explorer (get-guest~ frame)))
           (refresh~ explorer)
           (bring-to-front~ frame)
-          (set-visible?~ frame true)
+          (set-visible?~ frame #t)
           frame))))
 
 
@@ -2298,7 +2298,7 @@
     (exit-process))
   
   
-  (method public (save-all (class: class Document) (save-unanchored?: save-unanchored? true))
+  (method public (save-all (class: class Document) (save-unanchored?: save-unanchored? #t))
     (let ((save-documents
             (function dynamic (main-documents?)
               (for-each (function dynamic (window)
@@ -2311,10 +2311,10 @@
                                              (xor main-documents? (dependent-document?~ controller))
                                              (get-modified?~ (get-controller~ guest)))
                                     (save~ guest)))))))
-                        (get-windows~ stage include-invisibles?: true)))))
+                        (get-windows~ stage include-invisibles?: #t)))))
       ;; saving dependent documents will make their main document modified
-      (save-documents false)
-      (save-documents true)))
+      (save-documents #f)
+      (save-documents #t)))
 
 
   ;;;
@@ -2343,12 +2343,12 @@
   
   
   (method (modify-catalogs)
-    (let ((pref (get-preferences 'catalogs error?: false)))
+    (let ((pref (get-preferences 'catalogs error?: #f)))
       (when pref
         (let ((cataloguer (get-cataloguer)))
           (for-each (function dynamic (config)
                       (let* ((name (get-name~ config))
-                             (catalog (get-catalog~ cataloguer name error?: false)))
+                             (catalog (get-catalog~ cataloguer name error?: #f)))
                         (when catalog
                           (set-active?~ catalog (get-active?~ config)))))
                     (get-children~ pref))))))
@@ -2357,7 +2357,7 @@
   (method (modify-user)
     (when user
       (close~ user))
-    (let ((pref (get-preferences {} error?: false)))
+    (let ((pref (get-preferences {} error?: #f)))
       (when pref
         (let ((class (either (get-user-class~ pref) User)))
           (when class
@@ -2445,7 +2445,7 @@
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
-          (scale-view view (- scaling 0.25) true)))))
+          (scale-view view (- scaling 0.25) #t)))))
   
   
   (method (on-zoom-in evt)
@@ -2453,14 +2453,14 @@
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
-          (scale-view view (+ scaling 0.25) true)))))
+          (scale-view view (+ scaling 0.25) #t)))))
   
   
   (method (on-unzoom evt)
     (let ((view (scaled-view (get-property~ evt :what))))
       (if (not view)
           (bell)
-        (scale-view view 1.0 false))))
+        (scale-view view 1.0 #f))))
   
   
   (method (scaled-view what)
@@ -2489,11 +2489,11 @@
             (let ((guest (get-guest~ view)))
               (when guest
                 (export-picture~ guest))))))
-      draw-overlays?: true
-      feedback: true
-      feedback-figure?: false
-      report-figure?: false
-      tooltips?: false))
+      draw-overlays?: #t
+      feedback: #t
+      feedback-figure?: #f
+      report-figure?: #f
+      tooltips?: #f))
   
   
   (method (on-capture-root evt)
@@ -2501,11 +2501,11 @@
       (function dynamic (window position view pos)
         (let ((root (get-root~ view)))
           (export-picture~ root)))
-      draw-overlays?: true
-      feedback: true
-      feedback-figure?: false
-      report-figure?: false
-      tooltips?: false))
+      draw-overlays?: #t
+      feedback: #t
+      feedback-figure?: #f
+      report-figure?: #f
+      tooltips?: #f))
 
 
   ;;;
@@ -2596,7 +2596,7 @@
            (project (get-product~ project-file)))
       (if (is-not? project (autoload 'Project))
           (bell)
-        (let* ((c++ (get-source-file~ project (get-name~ project-file) false))
+        (let* ((c++ (get-source-file~ project (get-name~ project-file) #f))
                (frame (edit-document c++))
                (text (get-guest~ frame)))
           (verify-reload~ (get-controller~ text))))))

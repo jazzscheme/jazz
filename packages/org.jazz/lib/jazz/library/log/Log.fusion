@@ -49,12 +49,12 @@
   (slot name           initialize {})
   (slot file           initialize {})
   (slot last-mark      initialize {})
-  (slot read-error?    initialize false)
+  (slot read-error?    initialize #f)
   (slot current-node   initialize {})
   (slot toplevel-nodes initialize '())
   
   
-  (method (initialize (name: name {}) (file: file {}) (load?: load? false))
+  (method (initialize (name: name {}) (file: file {}) (load?: load? #f))
     (nextmethod)
     (set! name~self name)
     (set! file~self file)
@@ -116,14 +116,14 @@
                (line (+ 1 (get-mark-line current-mark)))
                (column (+ 1 (get-mark-column current-mark))))
           (message-box (format "Cannot process log file {a}{%}at line {a}, column {a}" file-path line column)))
-      (set! read-error? true)))
+      (set! read-error? #t)))
   
   
   (method (load-toplevel-nodes)
     (with-closed ((reader (new File-Reader file :sharing 'read/write)))
       (when last-mark
         (set-reader-file-mark reader last-mark))
-      (let ((done? false)
+      (let ((done? #f)
             (current-mark last-mark))
         (catch (Error err
                       (handle-read-error current-mark))
@@ -131,10 +131,10 @@
             (set! current-mark (reader-file-mark reader))
             (let ((expr (read reader)))
               (if (eof-object? expr)
-                  (set! done? true)
+                  (set! done? #t)
                 (let ((node (parse-jml expr)))
                   (put~ toplevel-nodes node)))))
-          (set! read-error? false))
+          (set! read-error? #f))
         (set! last-mark current-mark))))
   
   

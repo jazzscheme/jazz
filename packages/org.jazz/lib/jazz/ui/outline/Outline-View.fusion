@@ -75,8 +75,8 @@
   (slot protected selection              initialize '())
   (slot protected line-size              initialize 16)
   (slot protected page-size              initialize 320)
-  (slot protected hscrollbar?            initialize false)
-  (slot protected vscrollbar?            initialize false)
+  (slot protected hscrollbar?            initialize #f)
+  (slot protected vscrollbar?            initialize #f)
   
 
   ;;;
@@ -175,7 +175,7 @@
   ;;;
   
   
-  (method public (get-expand-state (include-invisibles?: include-invisibles? false))
+  (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
     (when root-row
       (letrec ((proc
                  (function dynamic (row)
@@ -369,12 +369,12 @@
   ;; this memory optimisation should work because as drawing always
   ;; occurs in the primary thread, it is implicitly synchronized...
   (definition optimized-context
-    (list :selected? {} :row-rank 0))
+    (list selected?: {} row-rank: 0))
   
   
   (method (optimize-context selected? rank context)
     (if context
-        (cons :selected? (cons selected? (cons :row-rank (cons rank context))))
+        (cons selected?: (cons selected? (cons row-rank: (cons rank context))))
       (set-second! optimized-context selected?)
       (set-fourth! optimized-context rank)
       optimized-context))
@@ -446,7 +446,7 @@
                 (layout-scrollee)
                 (when (< top display-height)
                   (invalidate-rect (row-rect rank))
-                  (scroll-view~ display 0 height (new Rect 0 (+ top height) display-width display-height) erase?: false))))))
+                  (scroll-view~ display 0 height (new Rect 0 (+ top height) display-width display-height) erase?: #f))))))
         (update-father-control father)
         row)))
   
@@ -480,7 +480,7 @@
                  (display-height (get-height~ display-size)))
             (layout-scrollee)
             (when (and top (< top display-height))
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height) erase?: false))))
+              (scroll-view~ display 0 (- height) (new Rect 0 (+ top height) display-width display-height) erase?: #f))))
         (detach-descendants~ row)
         (update-father-control father))))
   
@@ -509,8 +509,8 @@
     (when scroller
       (set-position {Point 0 0})
       (set-size {Dimension 0 0})
-      (set-scroll-pos 'vert 0 false)
-      (set-scroll-pos 'horz 0 false))
+      (set-scroll-pos 'vert 0 #f)
+      (set-scroll-pos 'horz 0 #f))
     (unless update-locked?
       (update-displayed)
       (layout-scrollee)
@@ -681,10 +681,10 @@
   
   
   (method public virtual (set-selection sel
-                                        (force?: force? false)
-                                        (ensure-displayed?: ensure-displayed? true)
-                                        (generate-event?: generate-event? true)
-                                        (user-origin?: user-origin? false))
+                                        (force?: force? #f)
+                                        (ensure-displayed?: ensure-displayed? #t)
+                                        (generate-event?: generate-event? #t)
+                                        (user-origin?: user-origin? #f))
     (when (or force? (/= sel selection))
       (let ((old selection))
         (set! selection sel)
@@ -704,7 +704,7 @@
         (let ((root (get-root)))
           (receive (dh dv sc) (get-delta~ root self)
             (with-closed ((region (selection-region sel dh dv sc)))
-              (invalidate-region~ player region true)))))))
+              (invalidate-region~ player region #t)))))))
   
   
   (method protected virtual (selection-region sel dh dv sc)
@@ -728,12 +728,12 @@
   ;; update slots that are rank based
   (method protected virtual (removed-update-selection rank count)
     (when (not-null? selection)
-      (let ((selected? false))
+      (let ((selected? #f))
         (when (>= selection rank)
           (if (>= selection (+ rank count))
               (decrease! selection count)
             (set! selection '())
-            (set! selected? true)))
+            (set! selected? #t)))
         selected?)))
   
   
@@ -757,7 +757,7 @@
       (recurse root-row (row-visible?~ root-row))))
   
   
-  (method public (for-each-visible-row proc (start: start {}) (end: end {}) (wrap?: wrap? false))
+  (method public (for-each-visible-row proc (start: start {}) (end: end {}) (wrap?: wrap? #f))
     (let ((row (either start (get-next~ root-row)))
           (rank (if start (row-rank start) 0)))
       (when rank
@@ -848,14 +848,14 @@
     )
   
   
-  (method public (expand row (dynamic? false))
+  (method public (expand row (dynamic? #f))
     (when (/= (get-state~ row) 'expanded)
       (set-state~ row 'expanded)
       (let ((first (first-descendant~ row))
             (last (last-visible-descendant~ row))
             (previous row)
             (next (get-next~ row))
-            (in-expand? true))
+            (in-expand? #t))
         (when first
           (show-rows first last previous next (row-visible?~ row) in-expand? dynamic?)))))
   
@@ -875,7 +875,7 @@
   (method public (collapse row)
     (when (/= (get-state~ row) 'collapsed)
       (let ((first (first-descendant~ row))
-            (in-collapse? true))
+            (in-collapse? #t))
         (if (not first)
             (set-state~ row 'collapsed)
           (let ((rank (row-rank row))
@@ -949,7 +949,7 @@
     (link-rows previous first)
     (link-rows last next)
     (when (and (not update-locked?) visible?)
-      (receive (count height width) (count-visible-size first last true)
+      (receive (count height width) (count-visible-size first last #t)
         (increase! visible-count count)
         (increase! visible-height height)
         (update-visible-width-incremental (get-level~ previous) width)
@@ -966,7 +966,7 @@
           (when (< (+ top (get-scrolled-v)) display-height)
             (when in-expand?
               (invalidate-expand previous top dynamic?))
-            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height) erase?: false))
+            (scroll-view~ display 0 height (new Rect 0 opens display-width display-height) erase?: #f))
           (layout-scrollee)
           (when (> count 0)
             (ensure-row-range-displayed (+ rank 1) (+ rank count)))))))
@@ -996,7 +996,7 @@
               (collapse-selection rank removed))
             (when (< top display-height)
               (invalidate-collapse rank first top removed)
-              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)) erase?: false)))
+              (scroll-view~ display 0 (- height) (new Rect 0 (+ opens height) display-width (+ display-height height)) erase?: #f)))
           (layout-scrollee)))))
   
   
@@ -1044,7 +1044,7 @@
           (increase! first-displayed-rank)
           (decrease! v remaining)
           (set! first-displayed-offset 0))))
-    true)
+    #t)
   
   
   (method (follow-backward v)
@@ -1057,11 +1057,11 @@
                 (set! v 0))
             (set! first-displayed (get-previous~ first-displayed))
             (if (not first-displayed)
-                (return false)
+                (return #f)
               (decrease! first-displayed-rank)
               (decrease! v (+ first-displayed-offset 1))
               (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
-        true)))
+        #t)))
 
 
   (method public virtual (ensure-displayed . rest)

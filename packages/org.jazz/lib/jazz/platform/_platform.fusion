@@ -120,7 +120,7 @@
 ;;;
 
 
-(definition public (play-sound sound (asynchronous?: asynchronous? true))
+(definition public (play-sound sound (asynchronous?: asynchronous? #t))
   @platform-dependant
   (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
     (if (file? sound)
@@ -264,7 +264,7 @@
 
 ;; All this state manipulation is necessary because I dont
 ;; know any Windows API that returns the running state of a thread...
-(definition public (wait-for object/objects (timeout: timeout {}) (error?: error? true))
+(definition public (wait-for object/objects (timeout: timeout {}) (error?: error? #t))
   (unimplemented 'wait-for)
   @unimp
   (let* ((get-handle
@@ -289,15 +289,15 @@
          (state (get-state~ thread)))
     ;; Can happen for instance if the thread has already terminated...
     (if (not handle/array)
-        true
+        #t
       (unwind-protect
           (begin
             (set-state~ thread (+ state 1))
             (let ((result (if single?
                               (WaitForSingleObject handle/array timeout)
-                            (WaitForMultipleObjects (array-length handle/array) handle/array true timeout))))
+                            (WaitForMultipleObjects (array-length handle/array) handle/array #t timeout))))
               (if (= result WAIT_OBJECT_0)
-                  true
+                  #t
                 (when (and (= result WAIT_TIMEOUT) error?)
                   (error "Wait for {t} timed out" object/objects)))))
         (set-state~ thread state)))))
@@ -334,7 +334,7 @@
         (for-each (function dynamic (id)
                     (if (= id process-id)
                         (return count)
-                      (let ((handle (OpenProcess (bit-or PROCESS_QUERY_INFORMATION PROCESS_VM_READ) false id)))
+                      (let ((handle (OpenProcess (bit-or PROCESS_QUERY_INFORMATION PROCESS_VM_READ) #f id)))
                         (let ((name (make-string MAX_PATH)))
                           (when (GetModuleBaseName handle NULL name MAX_PATH)
                             (adjust-string name)
@@ -583,7 +583,7 @@
 @windows-specific
 (definition (get-base-dir)
   (let ((boot-dir (get-boot-dir))
-        (uses-bin-directory? (get-boolean-setting (coerce "UsesBinDirectory" Ansi-String) false)))
+        (uses-bin-directory? (get-boolean-setting (coerce "UsesBinDirectory" Ansi-String) #f)))
     (if uses-bin-directory?
         (butlast boot-dir)
       boot-dir)))
@@ -640,7 +640,7 @@
 
 
 (definition (initialize-home-aliases)
-  (new-alias 'Native true)
+  (new-alias 'Native #t)
   (new-alias 'Network "\\")
   ;; hardcoded for now
   (new-alias 'Root '(Native ".." ".."))
@@ -875,7 +875,7 @@
 
 
 (definition public (dump-stack . rest)
-  (bind-keywords ((file {}) (user-feedback? false) . others) rest
+  (bind-keywords ((file {}) (user-feedback? #f) . others) rest
     (unimplemented 'dump-stack)
     @windows-specific
     ;; this is really not nice but will do for now as sometimes a stack
@@ -1000,7 +1000,7 @@
   (toplevel-hwnds))
 
 ;;tofix
-(definition public (process-windows (include-invisibles?: include-invisibles? false))
+(definition public (process-windows (include-invisibles?: include-invisibles? #f))
   (unimplemented 'process-windows)
   @integrate
   (collect (function dynamic (hwnd)

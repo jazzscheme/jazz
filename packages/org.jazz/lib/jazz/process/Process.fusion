@@ -51,19 +51,19 @@
 
 
 (definition public Critical-Error?
-  false)
+  #f)
 
 (definition public Critical-Debugger-Error?
-  false)
+  #f)
 
 (definition public Paint-Error?
-  false)
+  #f)
 
 (definition public Focus-Error?
-  false)
+  #f)
 
 (definition Debugging?
-  false)
+  #f)
 
 
 (definition (restore-debugger)
@@ -80,8 +80,8 @@
 
 
   (slot loop                        initialize {})
-  (slot loop-running?               initialize false)
-  (slot loop-exit                   initialize false)
+  (slot loop-running?               initialize #f)
+  (slot loop-exit                   initialize #f)
   (slot stub-listener               initialize {})
   (slot proxy-dispatcher            initialize {})
   (slot local-process-server        initialize {})
@@ -507,11 +507,11 @@
   
   
   (method public virtual (persist-usernames?)
-    false)
+    #f)
   
   
   (method public virtual (persist-passwords?)
-    false)
+    #f)
   
   
   ;;;
@@ -530,7 +530,7 @@
   
   @windows-specific
   (method protected (signal-readyness name)
-    (let ((handle (OpenEvent EVENT_MODIFY_STATE false name)))
+    (let ((handle (OpenEvent EVENT_MODIFY_STATE #f name)))
       (when handle
         (SetEvent handle))))
 
@@ -552,12 +552,12 @@
   
   
   (method public (call-start-loop)
-    (set-loop-running? true)
+    (set-loop-running? #t)
     (start-loop))
 
 
   (method public virtual (start-loop)
-    (while true
+    (while #t
       (process-messages)))
   
   
@@ -643,7 +643,7 @@
   
   
   (method public virtual (prepare-user-aliases)
-    (let ((pref (get-preferences 'aliases error?: false)))
+    (let ((pref (get-preferences 'aliases error?: #f)))
       (when pref
         (let ((aliases (get-children~ pref)))
           (for-each (function dynamic (pref)
@@ -696,7 +696,7 @@
   ;; For some users, starting the stub listener can trigger a firewall that will
   ;; pop a dialog asking for user confirmation (even when listening to localhost!).
   (method protected virtual (start-stub-listener?)
-    false)
+    #f)
   
   
   (method protected virtual (start-servers)
@@ -729,7 +729,7 @@
   (method protected (start-stub-listener)
     (unless stub-listener
       (set! stub-listener (new Stub-Listener))
-      (unless (wait-started~ stub-listener error?: false)
+      (unless (wait-started~ stub-listener error?: #f)
         (error "Unable to start stub listener"))))
   
   
@@ -814,12 +814,12 @@
   (method (locate-router-server)
     (let ((server (unmarshal~ {IOR {Host name: "localhost"} router-stub-listener Router-Server-Remotable ()})))
       (when (not (live?~ server))
-        (unless (launch-router-server :interpreted? true)
+        (unless (launch-router-server :interpreted? #t)
           (error "Unable to launch router process")))
       server))
   
   
-  (method (launch-router-server (interpreted?: interpreted? false))
+  (method (launch-router-server (interpreted?: interpreted? #f))
     (if (not interpreted?)
         (unimplemented 'launch-router-server)
       (launch-process :app "Router" :homedir "Products\\org.jazz.opt\\Projects\\Router\\Distribution" :wait-ready "JAZZ.ROUTER")))
@@ -852,7 +852,7 @@
 
   
   (method public (attach-to-controller ct)
-    (detach-from-controller :reattach-local? false)
+    (detach-from-controller :reattach-local? #f)
     (set! controller-process-server ct)
     (set! controller-directory-server (get-directory-server~ controller-process-server))
     (set! controller-debugger-server (find-object~ controller-directory-server 'debugger))
@@ -866,7 +866,7 @@
       (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee self)))))
   
   
-  (method public (detach-from-controller (reattach-local?: reattach-local? true))
+  (method public (detach-from-controller (reattach-local?: reattach-local? #t))
     (when controller-process-server
       (detach-from-debugger)
       (set! controller-process-server {})
@@ -919,7 +919,7 @@
                                  (user: user {})
                                  (command-action: command-action {})
                                  (command-arguments: command-arguments '())
-                                 (debug?: debug? false)
+                                 (debug?: debug? #f)
                                  (wait-ready: wait-ready {})
                                  (wait-ready-timeout: wait-ready-timeout 5000))
     (let* ((root          (parse~ {Directory Root}))
@@ -931,7 +931,7 @@
            (action-arg    (if command-action (format " {a}" command-action) ""))
            (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
            (command       (format "\"{a}\"{a}{a}{a}{a}{a}{a}" launcher action-arg homedir-arg rootdir-arg app-arg user-arg arguments-arg)))
-      (create-process command :wait-ready wait-ready :wait-ready-timeout wait-ready-timeout :wait? false)))
+      (create-process command :wait-ready wait-ready :wait-ready-timeout wait-ready-timeout :wait? #f)))
 
 
   ;;;
@@ -1028,7 +1028,7 @@
     (let ((preserved Debugging?))
       (unwind-protect
           (begin
-            (set! Debugging? true)
+            (set! Debugging? #t)
             (process-exception exception frame accountable))
         (set! Debugging? preserved))))
   
@@ -1043,7 +1043,7 @@
           (else
            ;; so that the debugger problem is the one that gets critical errored!
            (when Critical-Debugger-Error?
-             (set! Critical-Error? true))
+             (set! Critical-Error? #t))
            (when Paint-Error?
              (select-debugger))
            (log-exception exception)
@@ -1129,7 +1129,7 @@
     )
 
 
-  (method (present-exception exception (type: type 'error) (prefix?: prefix? true))
+  (method (present-exception exception (type: type 'error) (prefix?: prefix? #t))
     (if (and (get-execution-context)
              ;; a quick patch for now
              (typed? self 'Application))

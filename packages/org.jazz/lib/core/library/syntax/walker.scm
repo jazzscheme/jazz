@@ -4313,12 +4313,6 @@
 (jazz.define-method (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol)
   (cond ((jazz.enumerator? symbol)
          (jazz.walk-enumerator walker symbol))
-        ;; inline false (until compiler support for constants)
-        ((%%eq? symbol 'false)
-         (jazz.new-constant #f jazz.Boolean))
-        ;; inline true (until compiler support for constants)
-        ((%%eq? symbol 'true)
-         (jazz.new-constant #t jazz.Boolean))
         (else
          (jazz.walk-symbol-reference walker resume declaration environment symbol))))
 

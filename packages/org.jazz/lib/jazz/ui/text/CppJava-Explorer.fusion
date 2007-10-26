@@ -98,7 +98,7 @@
               ((eqv? c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
               ((eqv? c #\open-bracket)     (forward-composite 'reference #\close-bracket))
               ((eqv? c #\open-brace)       (forward-composite 'literal   #\close-brace))
-              (else false)))))
+              (else #f)))))
 
   
   (method private (backward-simple-expr)
@@ -109,7 +109,7 @@
               ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
               ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
               ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
-              (else false)))))
+              (else #f)))))
 
   
   (method public (forward-all-expr)
@@ -129,80 +129,80 @@
   (method private (forward-constituent)
     (call/ec
       (lambda (return)
-        (while true
+        (while #t
           (let ((c (char-forward 0)))
             (cond ((eqv? c #\backslash)
                    (forward)
                    (forward))
                   ((or (null? c) (not (cpp/java-constituent? c)))
                    (set! kind 'symbol)
-                   (return true))
+                   (return #t))
                   (else
                    (forward)))))
-        false)))
+        #f)))
 
   
   (method private (backward-constituent)
     (call/ec
       (lambda (return)
-        (while true
+        (while #t
           (let ((c (char-backward 0)))
             (cond ((= (char-backward 1) #\backslash)
                    (backward)
                    (backward))
                   ((or (null? c) (not (cpp/java-constituent? c)))
                    (set! kind 'symbol)
-                   (return true))
+                   (return #t))
                   (else
                    (backward)))))
-        false)))
+        #f)))
   
   
   (method private (forward-expr-comment)
     (forward)
     (forward-expr)
     (set! kind 'expr-comment)
-    true)
+    #t)
   
   
   (method private (forward-string)
     (call/ec
       (lambda (return)
         (forward)
-        (while true
+        (while #t
           (let ((c (char-forward 0)))
             (cond ((null? c)
-                   (return false))
+                   (return #f))
                   ((eqv? c #\backslash)
                    (forward)
                    (forward))
                   ((string-delimiter? c)
                    (forward)
                    (set! kind 'string)
-                   (return true))
+                   (return #t))
                   (else
                    (forward)))))
-        false)))
+        #f)))
   
   
   (method private (backward-string)
     (call/ec
       (lambda (return)
         (backward)
-        (while true
+        (while #t
           (let ((c (char-backward 0)))
             (cond ((null? c)
-                   (return false))
+                   (return #f))
                   ((= (char-backward 1) #\backslash)
                    (backward)
                    (backward))
                   ((string-delimiter? c)
                    (backward)
                    (set! kind 'string)
-                   (return true))
+                   (return #t))
                   (else
                    (backward)))))
-        false)))
+        #f)))
   
   
   (method private (forward-composite knd delimiter)
@@ -213,7 +213,7 @@
     (when (= (char-forward 0) delimiter)
       (forward)
       (set! kind knd)
-      true))
+      #t))
   
   
   (method private (backward-composite knd delimiter)
@@ -225,7 +225,7 @@
         (backward)
         (set! end initial-start)
         (set! kind knd)
-        true)))
+        #t)))
   
   
   (method public (skip-forward name <string>)
@@ -245,14 +245,14 @@
 
   
   (method public (forward-whites)
-    (let ((done? false))
+    (let ((done? #f))
       (while (not done?)
         (let ((c (char-forward 0)))
           (if (and c (or (whitespace? c) (eqv? c #\semi-colon)))
               (if (whitespace? c)
                   (forward)
                 (forward-comments))
-            (set! done? true))))))
+            (set! done? #t))))))
 
   
   (method (backward-whites)
@@ -269,7 +269,7 @@
   ;;;
 
 
-  (method public (outer-expr (outer-composite?: outer-composite? true))
+  (method public (outer-expr (outer-composite?: outer-composite? #t))
     (let ((s (copy start))
           (e (copy end))
           (prv (previous-char start 0))

@@ -171,7 +171,7 @@
   
   (method (install rest)
     (nextmethod rest)
-    (set-shown?~ (locate-component '(descendants header)) false)
+    (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
     (add-exit-listener~ (get-application) self)
     (setup-active-policy)
@@ -274,7 +274,7 @@
            (file (with-import-directory default-directory? parent
                    (function dynamic (directory)
                      (get-modal OpenFile-Dialog extensions: '(("Jazz Files (*.jazz)" . "*.jazz")) directory: directory)))))
-      (install-product file parent false)))
+      (install-product file parent #f)))
   
   
   (method (on-import-files evt)
@@ -389,7 +389,7 @@
     (let ((parent (either (selected-object) (get-workbench))))
       (when (or (is? parent Product-Group)
                 (is? parent Product))
-        (let ((default-directory (either (default-import-directory parent :must-exist? false) {Directory User})))
+        (let ((default-directory (either (default-import-directory parent :must-exist? #f) {Directory User})))
           (when (or (exists?~ default-directory)
                     (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
             (create-directories~ default-directory)
@@ -404,7 +404,7 @@
                      (destination (new-file~ directory (format "{a}.{a}" name extension))))
                 (with-closed ((printer (new File-Printer destination)))
                   (expand~ expander template associations printer))
-                (select-component~ (get-tree) (import-pathname (ascendant-product parent) destination parent false)))))))))
+                (select-component~ (get-tree) (import-pathname (ascendant-product parent) destination parent #f)))))))))
   
   
   (method protected (add-group)
@@ -468,7 +468,7 @@
            (count (count-files~ directory :filter (function dynamic (file) (import-filter? product file)) :max-count MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames product (list directory))
-          (let ((component (import-pathname product directory parent false)))
+          (let ((component (import-pathname product directory parent #f)))
             (process-refresh~ designer component 'descendants))
           (user-message "{a} imported"
                         (parse~ directory))))))
@@ -479,14 +479,14 @@
            (product (ascendant-product parent))
            (files (with-import-directory default-directory? parent
                     (function dynamic (directory)
-                      (get-modal OpenFile-Dialog multiple-selection?: true directory: directory)))))
+                      (get-modal OpenFile-Dialog multiple-selection?: #t directory: directory)))))
       (import-pathnames product files parent)))
   
   
   (method protected (import-pathnames product pathnames parent)
     (when (validate-pathnames product pathnames)
       (for-each (function dynamic (pathname)
-                  (import-pathname product pathname parent false))
+                  (import-pathname product pathname parent #f))
                 (sort < pathnames key: (function dynamic (pathname) (get-name~ pathname))))
       (let ((count (length pathnames)))
         (user-message "{a} file{a} imported"
@@ -500,17 +500,17 @@
         ((Directory)
          (let ((product-file (new-file~ pathname (format "{a}.jazz" name))))
            (if (and (exists?~ product-file) (determine-product-file? product-file))
-               (install-product product-file parent true)
+               (install-product product-file parent #t)
              (let ((subgroup (new Product-Group name: name)))
                (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
                (set-name~ designer subgroup name design-events?: (not descendant?))
                (iterate-directory~ pathname
                  (function dynamic (pathname)
-                   (import-pathname product pathname subgroup true))
-                 files?: true
-                 directories?: true
-                 sort?: true
-                 recursive?: false)
+                   (import-pathname product pathname subgroup #t))
+                 files?: #t
+                 directories?: #t
+                 sort?: #t
+                 recursive?: #f)
                subgroup))))
         ((File)
          (when (import-filter? product pathname)
@@ -544,7 +544,7 @@
                 (subtype? (autoload extends) Product))))))))
   
   
-  (method (default-import-directory object (must-exist?: must-exist? true))
+  (method (default-import-directory object (must-exist?: must-exist? #t))
     (unimplemented 'default-import-directory)
     @convert
     (letrec ((default
@@ -605,7 +605,7 @@
     @convert
     (let* ((object (selected-object))
            (product (ascendant-product object))
-           (directory (default-import-directory object :must-exist? false)))
+           (directory (default-import-directory object :must-exist? #f)))
       (if (not (exists?~ directory))
           (error "Directory {s} not found" directory)
         (let ((fact (new List-Factory))
@@ -635,7 +635,7 @@
                                        (sort ci< content key: pathname-name)
                                        :left-key component-name
                                        :right-key pathname-name
-                                       :case-insensitive? true)))))
+                                       :case-insensitive? #t)))))
             (fold object directory '())
             (let ((out-of-synch (get-output~ fact)))
               (if (null? out-of-synch)
@@ -667,10 +667,10 @@
                     (typecase pathname
                       ((Directory)
                        (iterate-directory~ pathname iterate
-                         files?: true
-                         directories?: true
-                         sort?: true
-                         recursive?: false))
+                         files?: #t
+                         directories?: #t
+                         sort?: #t
+                         recursive?: #f))
                       ((File)
                        (when (import-filter? product pathname)
                          (let ((model (extension-model (get-extension~ pathname))))
@@ -690,7 +690,7 @@
           (put~ already-defined jazz-file)))
       (let ((already-defined (get-output~ already-defined)))
         (if (null? already-defined)
-            true
+            #t
           (let* ((count (length already-defined))
                  (max-displayed 10)
                  (too-many? (> count max-displayed))
@@ -718,7 +718,7 @@
                     ,@(when too-many?
                         (list (list :bulleted "..."))))))
             (message-box text)
-            false)))))
+            #f)))))
   
   
   ;;;
@@ -744,7 +744,7 @@
           (unhighlight-component~ tree active-project))
         (set! active-project project)
         (when active-project
-          (let ((row (user-data-row~ tree active-project visible?: false)))
+          (let ((row (user-data-row~ tree active-project visible?: #f)))
             (when row
               (ensure-expanded~ tree row)))
           (highlight-component~ tree active-project)))
@@ -848,7 +848,7 @@
                  (clear-results~ output)
                  (select-results~ output)
                  (select-palette Output-Log)
-                 (build~ project-file project {} {} output force?: true)
+                 (build~ project-file project {} {} output force?: #t)
                  (user-message "Done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})
       @w
@@ -889,7 +889,7 @@
                  (clear-results~ output)
                  (select-results~ output)
                  (select-palette Output-Log)
-                 (preprocess~ file project {} {} output force?: true)
+                 (preprocess~ file project {} {} output force?: #t)
                  (user-message "Preprocessing done in {a}" (get-duration-in-seconds~ timer)))))))
       (proc {})))
   
@@ -917,8 +917,8 @@
     @obsolete-Project!?
     (if (is-not? project Project)
         (bell)
-      (let ((log? true @wait (get-selected?~ (locate 'log?)))
-            (force-link? false @wait (get-selected?~ (locate 'force-link?))))
+      (let ((log? #t @wait (get-selected?~ (locate 'log?)))
+            (force-link? #f @wait (get-selected?~ (locate 'force-link?))))
         (build~ project :log? log? :force-link? force-link?))))
     
   
@@ -990,7 +990,7 @@
           (file (log-file~ project)))
       (if (not file)
           (bell)
-        (edit-document~ appl file :wrap? true))))
+        (edit-document~ appl file :wrap? #t))))
 
   
   ;;;
@@ -1022,12 +1022,12 @@
            (ignored-dirs (list "Debug" "Release" "Work"))
            (files        (list "vssver.scc"))
            (extensions   (list))
-           (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: false)))
+           (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: #f)))
       (with-cursor :wait
         (function dynamic ()
           (compare-trees~ (get-guest~ frame))
           (bring-to-front~ frame)
-          (set-visible?~ frame true)))))
+          (set-visible?~ frame #t)))))
   
   
   ;;;
@@ -1100,7 +1100,7 @@
   (method (new-product-menu object)
     (let ((menu (new Product-Menu client: (get-tree))))
       (when (is? object Workbench)
-        (set-visible?~ (locate~ menu 'synchronize-content) false))
+        (set-visible?~ (locate~ menu 'synchronize-content) #f))
       (update-group/product-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1115,9 +1115,9 @@
   (method (update-group/product-menu menu)
     (let ((tree (get-tree)))
       (when (> (length (get-selection~ tree)) 1)
-        (set-visible?~ (locate~ menu 'install-product) false)
-        (set-visible?~ (locate~ menu 'import-files) false)
-        (set-visible?~ (locate~ menu 'import-directory) false))))
+        (set-visible?~ (locate~ menu 'install-product) #f)
+        (set-visible?~ (locate~ menu 'import-files) #f)
+        (set-visible?~ (locate~ menu 'import-directory) #f))))
   
   
   (method (install-policy policy)

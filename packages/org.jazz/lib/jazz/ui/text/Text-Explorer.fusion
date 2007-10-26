@@ -50,13 +50,13 @@
 
 
   (slot text       <Text-View>)
-  (slot paragraphs <Sequence>)
+  (slot paragraphs <Axis>)
   (slot limit      <fx>)
   (slot beginning  <Cell>)
   (slot ending     <Cell>)
-  (slot start      <Cell>)
-  (slot end        <Cell>)
-  (slot kind       <Object>)
+  (slot start      <Cell>    initialize (new Cell 0 0))
+  (slot end        <Cell>    initialize (new Cell 0 0))
+  (slot kind       <symbol+> initialize {})
   
   
   (method (initialize txt (direction: direction 'forward) (start: start {}) (end: end {}) (range: range {}))
@@ -67,10 +67,10 @@
     (set! beginning (text-beginning~ text))
     (set! ending (text-ending~ text))
     (set-direction direction)
-    (set-start start)
-    (set-end end)
-    (set-range range)
-    (set-kind {}))
+    (if range
+        (set-range range)
+      (set-start (or start end))
+      (set-end (or end start))))
   
   
   (method protected virtual (get-syntax)
@@ -82,57 +82,50 @@
   ;;;
 
 
-  (method (goto-beginning)
+  (method (goto-beginning) <void>
     (set-start beginning))
 
 
-  (method (goto-ending)
+  (method (goto-ending) <void>
     (set-end ending))
 
 
-  (method public (at-beginning?)
+  (method public (at-beginning?) <bool>
     (<= start beginning))
 
 
-  (method public (at-ending?)
+  (method public (at-ending?) <bool>
     (>= end ending))
 
 
-  (method public (get-start)
+  (method public (get-start) <Cell>
     (copy start))
 
 
-  (method public (set-start pos <Cell+>)
-    (when pos
-      (if (not start)
-          (set! start (copy pos))
-        (set-row~ start (get-row~ pos))
-        (set-col~ start (get-col~ pos)))))
+  (method public (set-start pos <Cell>) <void>
+    (set-row~ start (get-row~ pos))
+    (set-col~ start (get-col~ pos)))
 
 
-  (method public (get-end)
+  (method public (get-end) <Cell>
     (copy end))
 
 
-  (method public (set-end pos <Cell+>)
-    (when pos
-      (if (not end)
-          (set! end (copy pos))
-        (set-row~ end (get-row~ pos))
-        (set-col~ end (get-col~ pos)))))
+  (method public (set-end pos <Cell>) <void>
+    (set-row~ end (get-row~ pos))
+    (set-col~ end (get-col~ pos)))
 
 
-  (method public (get-range)
+  (method public (get-range) <Range>
     (new Range (copy start) (copy end)))
 
 
-  (method public (set-range range <Range+>)
-    (when range
-      (set-start (get-start~ range))
-      (set-end (get-end~ range))))
+  (method public (set-range range <Range>) <void>
+    (set-start (get-start~ range))
+    (set-end (get-end~ range)))
   
   
-  (method public (set-pos pos <Cell+>)
+  (method public (set-pos pos <Cell+>) <void>
     (set-start pos)
     (set-end pos))
 
@@ -146,8 +139,31 @@
     kind)
 
 
-  (method protected inline (set-kind knd <symbol>) <void>
+  (method protected inline (set-kind knd <symbol+>) <void>
     (set! kind knd))
+  
+
+  (method inline (get-paragraph n <fx>) <Paragraph>
+    (element paragraphs n))
+
+
+  (method inline (paragraph-string n <fx>) <string>
+    (get-string~ (get-paragraph n)))
+
+
+  (method inline (paragraph-length n <fx>) <fx>
+    (length (paragraph-string n)))
+
+  
+  (method inline (get-inside-char pos <Cell>) <char>
+    (if (< (get-col~ pos) (paragraph-length (get-row~ pos)))
+        (get-char~ text pos)
+      #\newline))
+  
+  
+  (method (get-char pos <Cell>) <char+>
+    (when (in-text? pos)
+      (get-inside-char pos)))
 
 
   (method public (get-range-string start <Cell> end <Cell>) <string>
@@ -161,20 +177,20 @@
   ;; a quicky for now: will skip the quote in front of a symbol
   ;; the right thing would probably for backward-expr not to include the quote
   (method public (get-symbol-string) <string>
-    (if (eqv? (get-char start) #\quote)
+    (if (eqv? (get-inside-char start) #\quote)
         (get-range-string (+ start 1) end)
       (get-marked)))
   
   
-  (method public (find-marked-symbol)
+  (method public (find-marked-symbol) <symbol+>
     (find-symbol (get-marked)))
   
   
-  (method public (intern-marked-symbol)
+  (method public (intern-marked-symbol) <symbol>
     (string->symbol (get-marked)))
 
 
-  (method public (get-range-symbol start end)
+  (method public (get-range-symbol start end) <symbol+>
     (find-symbol (get-range-string start end)))
   
   
@@ -190,25 +206,25 @@
   (method (next! pos <Cell>) <bool>
     (cond ((< (get-col~ pos) (paragraph-length (get-row~ pos)))
            (increase-col~ pos)
-           true)
+           #t)
           ((< (get-row~ pos) limit)
            (increase-row~ pos)
            (set-col~ pos 0)
-           true)
+           #t)
           (else
-           false)))
+           #f)))
 
 
   (method (previous! pos <Cell>) <bool>
     (cond ((> (get-col~ pos) 0)
            (increase-col~ pos -1)
-           true)
+           #t)
           ((> (get-row~ pos) 0)
            (increase-row~ pos -1)
            (set-col~ pos (paragraph-length (get-row~ pos)))
-           true)
+           #t)
           (else
-           false)))
+           #f)))
 
 
   (method (next-cell! pos <Cell>)
@@ -244,17 +260,17 @@
   (method public (next-char pos <Cell> offset <fx>) <char+>
     (let ((pos (next-pos pos offset)))
       (when (and pos (next-in-text? pos))
-        (get-char pos))))
+        (get-inside-char pos))))
   
   
   (method public (char-backward offset <fx>) <char+>
     (previous-char start offset))
   
 
-  (method public (previous-char pos <Cell> offset <fx>)
+  (method public (previous-char pos <Cell> offset <fx>) <char+>
     (let ((pos (previous-pos pos (+ offset 1))))
       (when pos
-        (get-char pos))))
+        (get-inside-char pos))))
   
   
   (method (in-text? pos <Cell>) <bool>
@@ -263,7 +279,7 @@
       (and (>= row 0) (>= col 0) (or (< row limit) (and (= row limit) (<= col (paragraph-length row)))))))
   
   
-  (method (next-in-text? pos <Cell>)
+  (method (next-in-text? pos <Cell>) <bool>
     (let ((row (get-row~ pos))
           (col (get-col~ pos)))
       (if (< row limit)
@@ -271,49 +287,28 @@
         (and (= row limit) (< col (paragraph-length row))))))
   
   
-  (method (get-char pos <Cell>)
-    (when (in-text? pos)
-      (if (< (get-col~ pos) (paragraph-length (get-row~ pos)))
-          (get-char~ text pos)
-        #\newline)))
-
-
-  (method (get-paragraph n <fx>) <Paragraph>
-    (element paragraphs n))
-
-
-  (method (paragraph-string n <fx>) <string>
-    (get-string~ (get-paragraph n)))
-
-
-  (method (paragraph-length n <fx>) <fx>
-    (length (paragraph-string n)))
-  
-  
   (method public (forward-while predicate <procedure>)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-forward 0)))
-            (if (not c)
-                (return false)
-              (if (predicate c)
-                  (unless (forward)
-                    (return false))
-                (return true))))))))
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (if (not c)
+            #f
+          (if (predicate c)
+              (if (forward)
+                  (iterate)
+                #f)
+            #t)))))
   
   
   (method public (backward-while predicate <procedure>)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-backward 0)))
-            (if (not c)
-                (return false)
-              (if (predicate c)
-                  (unless (backward)
-                    (return false))
-                (return true))))))))
+    (let (iterate)
+      (let ((c (char-backward 0)))
+        (if (not c)
+            #f
+          (if (predicate c)
+              (if (backward)
+                  (iterate)
+                #f)
+            #t)))))
   
   
   (method public (forward-until predicate <procedure>)
@@ -346,51 +341,39 @@
   
   
   (method public (forward-word)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-forward 0)))
-            (cond ((or (not c) (not (word-constituent? c)))
-                   (return true))
-                  (else
-                   (forward)))))
-        false)))
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (if (or (not c) (not (word-constituent? c)))
+            #t
+          (forward)
+          (iterate)))))
   
   
   (method public (forward-non-word)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-forward 0)))
-            (cond ((or (not c) (word-constituent? c))
-                   (return true))
-                  (else
-                   (forward)))))
-        false)))
+    (let (iterate)
+      (let ((c (char-forward 0)))
+        (if (or (not c) (word-constituent? c))
+            #t
+          (forward)
+          (iterate)))))
   
   
   (method public (backward-word)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-backward 0)))
-            (cond ((or (not c) (not (word-constituent? c)))
-                   (return true))
-                  (else
-                   (backward)))))
-        false)))
+    (let (iterate)
+      (let ((c (char-backward 0)))
+        (if (or (not c) (not (word-constituent? c)))
+            #t
+          (backward)
+          (iterate)))))
   
   
   (method public (backward-non-word)
-    (call/ec
-      (lambda (return)
-        (while true
-          (let ((c (char-backward 0)))
-            (cond ((or (not c) (word-constituent? c))
-                   (return true))
-                  (else
-                   (backward)))))
-        false)))
+    (let (iterate)
+      (let ((c (char-backward 0)))
+        (if (or (not c) (word-constituent? c))
+            #t
+          (backward)
+          (iterate)))))
 
 
   (method public virtual (outer-expr . rest)

@@ -492,8 +492,8 @@
   
   
   (slot previous-context)
-  (slot continuable?     initialize false)
-  (slot auto-continue?   initialize false)
+  (slot continuable?     initialize #f)
+  (slot auto-continue?   initialize #f)
   
   
   (definition (initialize . rest)
@@ -540,7 +540,7 @@
       (let ((preserved (get-continuable?~ context)))
         (unwind-protect
             (begin
-              (set-continuable?~ context true)
+              (set-continuable?~ context #t)
               (catch Continue
                 (proc)))
           (set-continuable?~ context preserved))))))
@@ -565,7 +565,7 @@
 
 
 (definition public Restartable?
-  false)
+  #f)
 
 
 (definition public (with-restart proc (cleanup {}))
@@ -574,8 +574,8 @@
   (let ((preserved Restartable?))
     (unwind-protect
         (begin
-          (set! Restartable? true)
-          (while true
+          (set! Restartable? #t)
+          (while #t
             (catch Restart
               (proc)
               (return))
@@ -801,10 +801,10 @@
   (unimplemented 'log-properties)
   @String-Printer
   (let ((printer (new String-Printer))
-        (first? true))
+        (first? #t))
     (for-each-property (function dynamic (property value)
                          (if first?
-                             (set! first? false)
+                             (set! first? #f)
                            (format printer ", "))
                          (format printer "{a}: {a}" (keyword->symbol property) value))
       properties)
@@ -927,7 +927,7 @@
 
 
 (definition public Optimized?
-  true)
+  #t)
 
 
 ;; wait inline
@@ -977,7 +977,7 @@
   Active-Locale)
 
 
-(definition public (set-locale loc (update?: update? true))
+(definition public (set-locale loc (update?: update? #t))
   (when (/= loc Active-Locale)
     (set! Active-Locale loc)
     (select-locale loc)
@@ -1069,12 +1069,12 @@
       (let* ((appl (get-application))
              (pref (get-repositories-preferences~ appl))
              (repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
-             (status (essay repository (get-file-status~ repository file error?: false)))
+             (status (essay repository (get-file-status~ repository file error?: #f)))
              (code (cond ((not status)
                           (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
                                              title: "File Status"
                                              type: 'question
-                                             process-keys?: false)
+                                             process-keys?: #f)
                             ((yes) 'set-read/write)
                             ((no) 'cancel)))
                          ((or (= status 'checked-out-me) (get-auto-checkout?~ pref))
@@ -1086,7 +1086,7 @@
                                              yes: "Check Out"
                                              no: "Set Read/Write"
                                              cancel: (case cancel-action (throw "Cancel") (ignore "Ignore"))
-                                             process-keys?: false)
+                                             process-keys?: #f)
                             ((yes) 'checkout)
                             ((no) 'set-read/write)
                             ((cancel) 'cancel))))))
@@ -1159,7 +1159,7 @@
         (function dynamic (err)
           (dump-stack :exception err)
           (let ((invite (format "The following error occured while {a}:" title))
-                (message (present-message~ err :active-content? false))
+                (message (present-message~ err :active-content? #f))
                 (message-box? (message-box?)))
             (let ((text
                     (if (not message-box?)
@@ -1248,11 +1248,11 @@
 (definition public (monitor section proc)
   (unimplemented 'monitor)
   @unwind-protect
-  (let ((entered? false))
+  (let ((entered? #f))
     (unwind-protect
         (begin
           (enter~ section)
-          (set! entered? true)
+          (set! entered? #t)
           (proc))
       (when entered?
         (leave~ section)))))
@@ -1692,7 +1692,7 @@
 ;;;
 
 
-(definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? true))
+(definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? #t))
   (with-printer printer
     (function dynamic (printer)
       (let* ((system (either system (system-title~ (get-process))))
@@ -1848,7 +1848,7 @@
 ;;;
 
 
-(definition public (get-preferences name (error?: error? true))
+(definition public (get-preferences name (error?: error? #t))
   (let* ((process (get-process))
          (root (get-preferences-root~ process)))
     (if (not root)
@@ -1867,7 +1867,7 @@
 
 
 (definition public (sort-case-sensitive?)
-  (let ((pref (get-preferences '(interface tree) error?: false)))
+  (let ((pref (get-preferences '(interface tree) error?: #f)))
     (and pref (get-sort-case-sensitive?~ pref))))
 
 
@@ -1903,13 +1903,13 @@
   @unwind-protect
   (let ((temp (clone-file~ file "tmp"))
         (back (backup-file file))
-        (completed? false))
+        (completed? #f))
     (unwind-protect
         (begin
           (proc temp)
-          (set! completed? true))
+          (set! completed? #t))
       (cond ((not completed?)
-             (delete-file~ temp error?: false))
+             (delete-file~ temp error?: #f))
             ((exists?~ file)
              (move-pathname~ file back)
              (move-pathname~ temp file)
@@ -1927,11 +1927,11 @@
   (with-closed ((reader (new File-Reader file)))
     (let ((tab (coerce (list #\tab) String))
           (fact (new List-Factory))
-          (done? false))
+          (done? #f))
       (while (not done?)
         (let ((line (read-line reader)))
           (if (not line)
-              (set! done? true)
+              (set! done? #t)
             (let ((values (split line tab)))
               (put~ fact (map patch-for-excel values))))))
       (get-output~ fact))))
@@ -1954,7 +1954,7 @@
          (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
     (with-closed ((printer (new File-Printer output)))
-      (set-printer-use-utf8? printer true)
+      (set-printer-use-utf8? printer #t)
       (pretty-print~ jml printer))
     (user-message "{a} converted to {a}" (get-name~ input) (get-name~ output))
     (let ((appl (get-application)))
@@ -1966,10 +1966,10 @@
   @File-Printer
   (with-closed ((printer (new File-Printer file)))
     (for-each (function dynamic (line)
-                (let ((first? true))
+                (let ((first? #t))
                   (for-each (function dynamic (text)
                               (if first?
-                                  (set! first? false)
+                                  (set! first? #f)
                                 (format printer "{&}"))
                               (format printer "{a}" text))
                             line))
@@ -2198,7 +2198,7 @@
 
 @convert-and-relocate
 (definition public (request-data-source (provider: provider {}))
-  (receive (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) host-visible?: false)
+  (receive (process? dialog) (new-dialog (autoload 'Data-Source-Chooser) host-visible?: #f)
     (let ((manager (get-guest~ dialog)))
       (when provider
         (set-provider~ manager (external-name~ provider)))

@@ -72,7 +72,7 @@
       @convert (get-manifest-source name)))
 
 
-(definition public (get-alias name (error?: error? true))
+(definition public (get-alias name (error?: error? #t))
   (either (find-alias name)
           (when error?
             (error "Unknown alias: {t}" name))))
@@ -127,14 +127,14 @@
 
 
 (definition public (extract-base filename)
-  (let ((pos (find #\period filename reversed?: true return: 'position)))
+  (let ((pos (find #\period filename reversed?: #t return: 'position)))
     (if (not pos)
         filename
       (subseq filename 0 pos))))
 
 
 (definition public (extract-extension filename)
-  (let ((pos (find #\period filename reversed?: true return: 'position)))
+  (let ((pos (find #\period filename reversed?: #t return: 'position)))
     (when pos
       (subseq filename (+ pos 1)))))
 
@@ -184,7 +184,7 @@
   
   
   (method public virtual (compare-pathname object)
-    false)
+    #f)
   
   
   ;;;
@@ -226,11 +226,11 @@
   
   
   (method public (set-read-only)
-    (set-writable? false))
+    (set-writable? #f))
   
   
   (method public (set-read/write)
-    (set-writable? true))
+    (set-writable? #t))
   
   
   (method public virtual (get-writable?)
@@ -336,15 +336,15 @@
   
   (method public (parse (separator: separator system-separator))
     (let ((printer (new String-Printer))
-          (first? true)
+          (first? #t)
           (aliases '()))
       (letrec ((parse
                  (function dynamic (path)
                    (cond ((null? path))
-                         ((eq? path true))
+                         ((eq? path #t))
                          ((string? path)
                           (if first?
-                              (set! first? false)
+                              (set! first? #f)
                             (display separator printer))
                           (display path printer))
                          ((symbol? path)
@@ -376,7 +376,7 @@
     (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
 
 
-  (method public (move-pathname dst (error?: error? true))
+  (method public (move-pathname dst (error?: error? #t))
     (rename-file (parse) (parse~ dst))
     @windows-specific
     (let ((ok? (MoveFile (parse) (parse~ dst))))
@@ -401,7 +401,7 @@
   (method public (valid-aliases?)
     (letrec ((valid?
               (function dynamic (list)
-                (or (eq? list true)
+                (or (eq? list #t)
                     (every? (function dynamic (item)
                               (or (not (symbol? item))
                                   (and (is-alias? item)
@@ -414,7 +414,7 @@
     (let ((fact (new List-Factory)))
       (letrec ((expand
                 (function dynamic (object)
-                  (cond ((eq? object true))
+                  (cond ((eq? object #t))
                         ((string? object) (put~ fact object))
                         ((symbol? object) (expand (get-alias object)))
                         ((pair? object)
@@ -473,7 +473,7 @@
     )
   
   
-  (method public (get-attributes (error?: error? true))
+  (method public (get-attributes (error?: error? #t))
     (unimplemented 'get-attributes)
     @windows-specific
     (let ((attributes (GetFileAttributes (parse))))
@@ -526,7 +526,7 @@
   ;;;
   
   
-  (method public (anchor-to anchor (error?: error? true))
+  (method public (anchor-to anchor (error?: error? #t))
     (let* ((base-list (get-list~ anchor))
            (base-expd (expand~ anchor))
            (base-length (length base-expd))
@@ -548,7 +548,7 @@
   
   (method public (anchorize (anchors: anchors {}))
     (let* ((anchors (if (not anchors) (default-anchors) anchors))
-           (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: false))) anchors))
+           (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: #f))) anchors))
            (sorted (sort < anchored key: (function dynamic (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
@@ -657,16 +657,16 @@
     (get-parent))
 
 
-  (method public (copy-file dst (overwrite-read-only?: overwrite-read-only? false))
+  (method public (copy-file dst (overwrite-read-only?: overwrite-read-only? #f))
     (_copy-file (parse) (parse~ dst))
     @windows-specific (
     (overwrite-read-only~ dst overwrite-read-only?)
-    (let ((ok? (CopyFile (parse) (parse~ dst) false)))
+    (let ((ok? (CopyFile (parse) (parse~ dst) #f)))
       (when (not ok?)
         (error "Unable to copy file {t} to {t}" self dst)))))
   
   
-  (method public (delete-file (overwrite-read-only?: overwrite-read-only? false) (error?: error? true))
+  (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
     (file-delete (parse))
     @windows-specific (
     (overwrite-read-only overwrite-read-only?)
@@ -686,7 +686,7 @@
   (method public (get-size)
     (unimplemented 'get-size)
     @windows-specific
-    (with-closed ((reader (new File-Reader self :readable? false)))
+    (with-closed ((reader (new File-Reader self :readable? #f)))
       (get-size~ reader)))
 
 
@@ -696,7 +696,7 @@
     (if (not (exists?))
         (error "Unable to get modification time of non-existant file: {t}" self)
       (let ((time (new FILETIME)))
-        (with-closed ((reader (new File-Reader self :readable? false)))
+        (with-closed ((reader (new File-Reader self :readable? #f)))
           (GetFileTime (get-handle~ reader) NULL NULL time))
         (from-filetime time))))
 
@@ -736,9 +736,9 @@
     @windows-specific
     (let ((handle (CreateFile (parse) GENERIC_WRITE 0 NULL OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL)))
       (if (= handle INVALID_HANDLE_VALUE)
-          false
+          #f
         (CloseHandle handle)
-        true)))
+        #t)))
   
   
   (method public (clone-file extension)
@@ -755,7 +755,7 @@
       (read-lines reader)))
 
 
-  (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? false))
+  (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? #f))
     (with-closed ((printer (new File-Printer self)))
       ;; the 2 is really Win32. need to fix this
       (write-lines printer lines (either platform 2) use-utf8?))))
@@ -852,7 +852,7 @@
           file))))
 
 
-  (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? false) (copy?: copy? true))
+  (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? #f) (copy?: copy? #t))
     (unimplemented 'copy-directory)
     @windows-specific (
     (when feedback
@@ -863,7 +863,7 @@
               (append (get-list~ dst) (list (get-name~ path))))))
       (iterate-directory
         (function dynamic (path)
-          (when (or (eq? copy? true) (copy? path))
+          (when (or (eq? copy? #t) (copy? path))
             (if (is? path File)
                 (let ((dest (new File (destination path))))
                   (if copier
@@ -872,12 +872,12 @@
                   (when touch-files?
                     (touch~ dest)))
               (copy-directory~ path (new Directory (destination path)) feedback: feedback :touch-files? touch-files? :copy? copy?))))
-        files?: true
-        directories?: true
-        recursive?: false))))
+        files?: #t
+        directories?: #t
+        recursive?: #f))))
   
   
-  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? false) (feedback: feedback {}))
+  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
     (unimplemented 'delete-directory)
     @windows-specific (
     (when feedback
@@ -886,7 +886,7 @@
     (remove-directory)))
   
   
-  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? false) (feedback: feedback {}))
+  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
     (unimplemented 'empty-directory)
     @windows-specific
     (iterate-directory
@@ -894,9 +894,9 @@
         (if (is? path File)
             (delete-file~ path :overwrite-read-only? overwrite-read-only?)
           (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
-      files?: true
-      directories?: true
-      recursive?: false))
+      files?: #t
+      directories?: #t
+      recursive?: #f))
   
   
   (method public (remove-directory)
@@ -906,7 +906,7 @@
   
   
   (method (foldable?)
-    true)
+    #t)
 
 
   (method (fold-object compiler)
@@ -916,7 +916,7 @@
     (output~ compiler ")"))
   
   
-  (method public (get-content (nodes?: nodes? true) (leaves?: leaves? true))
+  (method public (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
     (let ((fact (new List-Factory)))
       (when nodes? (collect-nodes fact))
       (when leaves? (collect-leaves fact))
@@ -927,18 +927,18 @@
     (iterate-directory
       (function dynamic (item)
         (put~ fact item))
-      files?: false
-      directories?: true
-      recursive?: false))
+      files?: #f
+      directories?: #t
+      recursive?: #f))
   
   
   (method (collect-leaves fact)
     (iterate-directory
       (function dynamic (item)
         (put~ fact item))
-      files?: true
-      directories?: false
-      recursive?: false))
+      files?: #t
+      directories?: #f
+      recursive?: #f))
      
    
   ;;;
@@ -961,7 +961,7 @@
         (function dynamic (file)
           (when (predicate file)
             (put~ fact file)))
-        recursive?: false)
+        recursive?: #f)
       (get-output~ fact)))
   
   
@@ -970,7 +970,7 @@
   ;;;
   
   
-  (method public virtual (iterate-directory proc (full?: full? true) (files?: files? true) (directories?: directories? false) (sort?: sort? false) (recursive?: recursive? true) (ignored-directories: ignored-directories '()))
+  (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #f) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
     (let ((directory (if full? (get-list) {})))
       (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
         (function dynamic (list kind)
@@ -1027,7 +1027,7 @@
         (FindClose handle))))
   
   
-  (method public (count-files (filter: filter {}) (max-count: max-count false))
+  (method public (count-files (filter: filter {}) (max-count: max-count #f))
     (let ((count 0))
       (call/ec
         (lambda (return)
@@ -1036,7 +1036,7 @@
               (when (or (not filter) (filter file))
                 (increase! count)
                 (when (and max-count (> count max-count))
-                  (return false)))))
+                  (return #f)))))
           count)))))
 
 

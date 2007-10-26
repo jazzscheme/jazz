@@ -84,10 +84,10 @@
   
   
   (method (setup-status)
-    (let ((pref (get-preferences '(tools repository-manager) error?: false)))
+    (let ((pref (get-preferences '(tools repository-manager) error?: #f)))
       (when (and pref (get-check-status?~ pref))
         (let ((checkbox (locate 'check-status)))
-          (set-checked?~ checkbox true)))))
+          (set-checked?~ checkbox #t)))))
   
   
   ;;;
@@ -134,11 +134,11 @@
   
   
   (method (on-checkin evt)
-    (checkin-files false))
+    (checkin-files #f))
   
   
   (method (on-checkpoint evt)
-    (checkin-files true))
+    (checkin-files #t))
   
   
   (method (on-reintegrate evt)
@@ -230,7 +230,7 @@
   
   
   (method (file-status file)
-    (get-file-status~ repository file error?: false))
+    (get-file-status~ repository file error?: #f))
   
   
   (method (status-image status)
@@ -276,8 +276,8 @@
                        (not (member? ext Ignored-Extensions))
                        (not (read-only?~ pathname)))
               (put~ fact pathname))))
-        files?: true
-        directories?: false
+        files?: #t
+        directories?: #f
         ignored-directories: Ignored-Nodes)
       (get-output~ fact)))
 
@@ -291,7 +291,7 @@
     #x8004D73C)
   
   
-  (method (checkin-files keep-checked-out? (report?: report? true))
+  (method (checkin-files keep-checked-out? (report?: report? #t))
     (let* ((tree (locate 'files))
            (rows (get-selected-rows~ tree))
            (ccnt 0)
@@ -321,10 +321,10 @@
   (method (checkin-file file keep-checked-out?)
     (catch (CoError err
              (ecase (get-hresult~ err)
-               ((NotCheckedOut-Err) false)
+               ((NotCheckedOut-Err) #f)
                (else (signal err))))
       (checkin-file~ repository file :keep-checked-out? keep-checked-out?)
-      true))
+      #t))
 
 
   ;;;
@@ -339,7 +339,7 @@
       (for-each (function dynamic (row)
                   (let ((file (get-user-data~ row)))
                     (with-closed ((item (get-item~ repository file)))
-                      (checkout~ item file :get? false)
+                      (checkout~ item file :get? #f)
                       (checkin~ item file))
                     (increase! ccnt)
                     (remove-row~ tree row)))

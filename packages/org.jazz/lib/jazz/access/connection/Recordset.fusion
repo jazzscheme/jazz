@@ -132,19 +132,19 @@
              (naturals 0 count)))))
   
   
-  (method public virtual (get-rows table (max-load: max-load true) (data-class: data-class {}))
+  (method public virtual (get-rows table (max-load: max-load #t) (data-class: data-class {}))
     (with-closed ((metadata (new-recordset-metadata))
                   (fields (get-fields~ metadata)))
       (let ((fact (new List-Factory))
             (count 0)
-            (has-more? false))
+            (has-more? #f))
         (iterate-records
           (function dynamic ()
-            (when (or (eq? max-load true) (<= count max-load))
-              (if (and (neq? max-load true) (= count max-load))
+            (when (or (eq? max-load #t) (<= count max-load))
+              (if (and (neq? max-load #t) (= count max-load))
                   (begin
-                    (set! has-more? true)
-                    false)
+                    (set! has-more? #t)
+                    #f)
                 (let ((values (map (function dynamic (field)
                                      (safe-field-value metadata field))
                                    fields)))
@@ -152,7 +152,7 @@
                                  (new Data-Row table values)
                                (apply new data-class table values)))
                   (increase! count)
-                  true)))))
+                  #t)))))
         (let ((rows (get-output~ fact))
               (missing? has-more?))
           (values rows missing?)))))
@@ -195,7 +195,7 @@
     (iterate-records
       (function dynamic ()
         (proc)
-        true)))
+        #t)))
   
   
   ;;;
@@ -203,13 +203,13 @@
   ;;;
   
   
-  (method public (create-table (name: name {}) (max-load: max-load true))
+  (method public (create-table (name: name {}) (max-load: max-load #t))
     (let ((table (new Data-Table name: name)))
       (load-table table :max-load max-load)
       table))
   
   
-  (method protected (load-table table (max-load: max-load true) (data-class: data-class {}))
+  (method protected (load-table table (max-load: max-load #t) (data-class: data-class {}))
     (let ((columns (get-columns)))
       (receive (rows missing?) (get-rows table :max-load max-load :data-class data-class)
         (set-columns~ table columns)

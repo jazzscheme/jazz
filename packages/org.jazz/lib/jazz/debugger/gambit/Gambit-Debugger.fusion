@@ -76,7 +76,7 @@
     (add-exit-listener~ (get-application) self)
     (let* ((command "gsc -:dar-")
            (directory {Directory jazz})
-           (process (create-process command directory: directory :capture-input? true :capture-output? true :capture-error? true console?: false :debug-console? false :wait? false visible?: false)))
+           (process (create-process command directory: directory :capture-input? #t :capture-output? #t :capture-error? #t console?: #f :debug-console? #f :wait? #f visible?: #f)))
       (set! process~self (new Gambit-Debugger-Process process))
       (set! standard-input~self (get-standard-input~ process))
       (set! standard-output~self (get-standard-output~ process))
@@ -89,17 +89,17 @@
   (method (process-wait)
     ;; skip banner
     (sleep 50)
-    (let ((done? false)
+    (let ((done? #f)
           (count 0))
       (while (not done?)
         (if (output-available?)
             (begin
               (read-content~ standard-output)
-              (set! done? true))
+              (set! done? #t))
           (sleep 100)
           (increase! count)
           (when (>= count 30)
-            (set! done? true))))))
+            (set! done? #t))))))
   
   
   (method (output-available?)
@@ -118,7 +118,7 @@
   (method public (stop-gambit)
     (unregister-debugger)
     (stop-listener)
-    (process-command {} ",q" :output? false)
+    (process-command {} ",q" :output? #f)
     (set-prompt~ console-text "> ")
     (close~ process)
     (remove-exit-listener~ (get-application) self))
@@ -199,7 +199,7 @@
     (fresh-prompt~ console-text))
   
   
-  (method (process-command name command (console?: console? false) (output?: output? true))
+  (method (process-command name command (console?: console? #f) (output?: output? #t))
     ;; this is a workaround for the annoying fact that in gambit
     ;; definitions can only be evaluated when at error level 0
     (write-line~ standard-input (if console? command (format ",t {a}" command)))
@@ -215,8 +215,8 @@
   
   
   (method (gambit-output (name: name {}))
-    (let ((done? false)
-          (some-output? false)
+    (let ((done? #f)
+          (some-output? #f)
           (count 0)
           (prmpt {}))
       (sleep 25)
@@ -227,7 +227,7 @@
                 (begin
                   (increase! count)
                   (when (> count 400)
-                    (set! done? true)))
+                    (set! done? #t)))
               (receive (output prompt) (parse-gambit-output)
                 (display-output~ console-text output)
                 (when name
@@ -241,11 +241,11 @@
                   (set! name {}))
                 (if some-output?
                     (update-view~ console-text)
-                  (set! some-output? true))
+                  (set! some-output? #t))
                 (if prompt
                     (begin
                       (set! prmpt prompt)
-                      (set! done? true))
+                      (set! done? #t))
                   (set! count 0))))
             (sleep 25))))
       (when prmpt
@@ -258,13 +258,13 @@
   
   
   (method (start-listener)
-    (set! listener-done? false)
+    (set! listener-done? #f)
     @w
     (set! listener-thread (new-listener-thread)))
   
   
   (method (stop-listener)
-    (set! listener-done? true)
+    (set! listener-done? #t)
     @w
     (wait-for listener-thread))
   

@@ -123,7 +123,7 @@
            (controller (get-controller))
            (moniker (get-moniker~ controller)))
       (when (or (not moniker) (read/write?~ moniker))
-        (set-visible?~ (locate~ menu 'set-read/write) false))
+        (set-visible?~ (locate~ menu 'set-read/write) #f))
       (layout-menu~ menu)
       menu))
     
@@ -145,7 +145,7 @@
             (if frame
                 (begin
                   (bring-to-front~ frame)
-                  (set-visible?~ frame true))
+                  (set-visible?~ frame #t))
               (let* ((component (new class))
                      (editor-class (if (is? component View) View-Editor Manager-View)))
                 (new-frame editor-class client: component)))))))
@@ -168,7 +168,7 @@
             (if frame
                 (begin
                   (bring-to-front~ frame)
-                  (set-visible?~ frame true))
+                  (set-visible?~ frame #t))
               (let* ((component (new class))
                      (editor-class (if (is? component View) View-Editor Manager-View)))
                 (new-frame editor-class client: component))))))))
@@ -228,7 +228,7 @@
       (let* ((pos (view->text view))
              (expl (new Jazz-Explorer self start: pos end: pos)))
         (catch (Explore-Error err {})
-          (when (outer-expr~ expl :composite? false :outer-composite? false)
+          (when (outer-expr~ expl :composite? #f :outer-composite? #f)
             (let ((kind (get-kind~ expl)))
               (when (= kind 'symbol)
                 (let* ((range (get-range~ expl))
@@ -379,7 +379,7 @@
                             forms)))
           ;; do nothing with results for now. only side effect
           #f)
-        (display-evaluation~ console-text names false)
+        (display-evaluation~ console-text names #f)
         (user-message "Evaluated: {l}"
                       (map (function dynamic (name)
                              (either name '<expr>))
@@ -428,7 +428,7 @@
                             (receive (in category-info) info
                               (bind (category kind meta? name keywords) category-info
                                 (let ((appl (get-application))
-                                      (class (location-class classes :load? true))
+                                      (class (location-class classes :load? #t))
                                       (imports (getf keywords 'uses)))
                                   (expand-macro-evaluations category forms)
                                   (evaluate-forms range forms class (if (pair? imports) imports (list imports)))))))))))))))))))
@@ -441,7 +441,7 @@
       (let ((console (get-console-text)))
         (when console
           (evaluation-break~ console)
-          (display-evaluation~ console names false)
+          (display-evaluation~ console names #f)
           (fresh-prompt~ console)))))
 
 
@@ -573,23 +573,23 @@
   
   (method (position->location pos)
     (let ((expl (new Jazz-Explorer self start: pos end: pos)))
-      (when (outer-expr~ expl :outer-composite? false)
+      (when (outer-expr~ expl :outer-composite? #f)
         (let ((range (get-range~ expl)))
           (range-location range)))))
   
   
-  (method (location-class loc (load?: load? false))
+  (method (location-class loc (load?: load? #f))
     @convert
     (let* ((class-name (car loc))
            (class (global-value~ class-name load?)))
       (if (not class)
           (error "Unable to find class: {t}" class-name)
-        (let ((meta? false))
+        (let ((meta? #f))
           (for-each (function dynamic (name)
                       (if (eq? name 'meta)
-                          (set! meta? true)
+                          (set! meta? #t)
                         (set! class (definition-value (category-field (if meta? (class-of class) class) name)))
-                        (set! meta? false)))
+                        (set! meta? #f)))
                     (cdr loc)))
         class)))
   
@@ -607,13 +607,13 @@
     (unimplemented 'definition-name-info)
     @convert
     (cond ((category? object)
-           (values 1 false))
+           (values 1 #f))
           ((slot? object)
-           (values (+ 1 (field-modifiers-count object)) false))
+           (values (+ 1 (field-modifiers-count object)) #f))
           ((field? object)
            (let ((value (definition-value object)))
-             (cond ((closure? value) (values (+ 1 (field-modifiers-count object)) true))
-                   ((external? value) (values (+ 2 (field-modifiers-count object) 1) true))
+             (cond ((closure? value) (values (+ 1 (field-modifiers-count object)) #t))
+                   ((external? value) (values (+ 2 (field-modifiers-count object) 1) #t))
                    (else {}))))
           (else
            {})))
@@ -630,12 +630,12 @@
   (method (range-location range)
     (let ((expl (new Jazz-Explorer self start: (get-start~ range) end: (get-end~ range)))
           (location {})
-          (previous-def? false)
-          (done? false))
+          (previous-def? #f)
+          (done? #f))
       (while (not done?)
         (let ((rank (outer-expr~ expl)))
           (if (not rank)
-              (set! done? true)
+              (set! done? #t)
             (let ((def? (definition-expr?~ expl)))
               (if def?
                   (receive (package? meta? name) (definition-name~ expl)
@@ -719,7 +719,7 @@
              (doc (get-documentation~ appl symbol)))
         (if (not doc)
             (let ((classname (symbol->string symbol)))
-              (if false @wait (class-exists?~ JVM classname)
+              (if #f @wait (class-exists?~ JVM classname)
                   (open-java-documentation classname)
                 (bell)))
           (let ((jml (present-text~ doc)))
@@ -934,7 +934,7 @@
     @convert
     (when (in-manifest? symbol)
       (edit-class~ (get-application) symbol)
-      true))
+      #t))
     
   
   ;;;

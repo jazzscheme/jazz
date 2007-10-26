@@ -48,9 +48,9 @@
   (slot client         initialize {})
   (slot undo-list      initialize '())
   (slot redo-list      initialize '())
-  (slot undoing?       initialize false)
-  (slot redoing?       initialize false)
-  (slot atomic?        initialize false)
+  (slot undoing?       initialize #f)
+  (slot redoing?       initialize #f)
+  (slot atomic?        initialize #f)
   (slot atomic-actions initialize '())
   (slot save-depth     initialize 0)
   
@@ -80,9 +80,9 @@
   (method public (reset)
     (set! undo-list      '())
     (set! redo-list      '())
-    (set! undoing?       false)
-    (set! redoing?       false)
-    (set! atomic?        false)
+    (set! undoing?       #f)
+    (set! redoing?       #f)
+    (set! atomic?        #f)
     (set! atomic-actions '()))
 
 
@@ -103,7 +103,7 @@
            (unless redoing?
              (set! redo-list '()))))
     (when (and (= 0 save-depth) (not atomic?))
-      (set-modified?~ (get-controller~ client) false)))
+      (set-modified?~ (get-controller~ client) #f)))
   
   
   (method (register-atomic-actions actions)
@@ -131,7 +131,7 @@
             (action (car undo-list)))
         (unwind-protect
             (begin
-              (set! undoing? true)
+              (set! undoing? #t)
               (play-action action)
               (set! undo-list (cdr undo-list)))
           (set! undoing? old)))))
@@ -143,7 +143,7 @@
             (action (car redo-list)))
         (unwind-protect
             (begin
-              (set! redoing? true)
+              (set! redoing? #t)
               (play-action action)
               (set! redo-list (cdr redo-list)))
           (set! redoing? old)))))
@@ -165,13 +165,13 @@
   
   (method public (with-atomic-undo proc)
     (let ((preserved atomic?)
-          (completed? false))
+          (completed? #f))
       (unwind-protect
           (begin
-            (set! atomic? true)
+            (set! atomic? #t)
             (set! atomic-actions '())
             (proc)
-            (set! completed? true))
+            (set! completed? #t))
         (let ((actions atomic-actions))
           (set! atomic? preserved)
           (set! atomic-actions '())

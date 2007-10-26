@@ -60,7 +60,7 @@
   (slot waiting)
 
 
-  (method (initialize (library: library {}) (name: name (default-name library)) (coclasses?: coclasses? false) (pure-dispatch?: pure-dispatch? false))
+  (method (initialize (library: library {}) (name: name (default-name library)) (coclasses?: coclasses? #f) (pure-dispatch?: pure-dispatch? #f))
     (nextmethod)
     (set! library~self library)
     (set! name~self name)
@@ -208,7 +208,7 @@
            (ascendant (car interfaces)))
       (emit-section-header name printer)
       (format printer "  (interface public {a} extends {a}{%}{%}{%}" name (get-name~ ascendant))
-      (format printer "    (properties{a} guid: {s})" (if pure-dispatch? " :pure-dispatch? true" "") guid)
+      (format printer "    (properties{a} guid: {s})" (if pure-dispatch? " :pure-dispatch? #t" "") guid)
       (when (or variables functions)
         (format printer "{%}{%}"))
       (for-each (function dynamic (desc)
@@ -218,7 +218,7 @@
                          (pointer? (= type VT_PTR))
                          (ptr-typedesc (essay pointer? (coerce (get typedesc 'desc) TYPEDESC)))
                          (final-typedesc (either ptr-typedesc typedesc))
-                         (type-name (intern-type info final-typedesc false)))
+                         (type-name (intern-type info final-typedesc #f)))
                     (format printer "{%}")
                     (format printer "    (coexternal public virtual abstract {a} (get-{a}))" type-name name)))
                 variables)
@@ -241,7 +241,7 @@
         ((1) (format printer " implements {a}" (car interface-names)))
         (else (format printer " implements {a}" interface-names)))
       (format printer "{%}{%}{%}")
-      (format printer "    (properties guid: {s}{a})" guid (if coclasses? "" " :external? true"))
+      (format printer "    (properties guid: {s}{a})" guid (if coclasses? "" " :external? #t"))
       (if (and coclasses? interfaces)
           (begin
             (format printer "{%}{%}")
@@ -408,7 +408,7 @@
            (typedesc (get desc '(elemdescVar tdesc)))
            (basetype (get typedesc 'vt))
            (value (get desc 'lpvarValue))
-           (variable-type-name (intern-type info typedesc false)))
+           (variable-type-name (intern-type info typedesc #f)))
       (format printer "{%}")
       (ecase kind
         ((TKIND_ENUM)   (format printer "    ({a} {a})" name (read-variant value)))
@@ -429,7 +429,7 @@
   
 
   (method (intern-type info desc pointer?)
-    (let ((debug? true)
+    (let ((debug? #t)
           (type (get desc 'vt)))
       (if (= type VT_USERDEFINED)
           (let ((referenced (get-referenced-type~ info (get desc 'desc))))

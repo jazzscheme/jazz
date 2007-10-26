@@ -155,7 +155,7 @@
     '())
   
   
-  (method public virtual (add-entity factory (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? true))
+  (method public virtual (add-entity factory (parent: parent {}) (presentation: presentation {}) (properties: properties '()) (select?: select? #t))
     (let* ((class (get-class~ factory))
            (selected (selected-entity))
            (parent (either parent (relocation-parent selected class) selected client))
@@ -310,7 +310,7 @@
   
   
   (method (get-draggable?)
-    false
+    #f
     @to-convert
     (let ((entity (selected-entity)))
       (and entity (can-move-entity?~ entity))))
@@ -366,10 +366,10 @@
   (method (receive-model window target)
     (let* ((model (eval-symbol (get-model~ window) self))
            (parent (get-user-data~ (get-row~ target)))
-           (child (new model visible?: false)))
+           (child (new model visible?: #f)))
       (with-update-locked
         (function dynamic ()
-          (add-view~ (get-controller) child parent position: {Point 0 0} :centered? false)
+          (add-view~ (get-controller) child parent position: {Point 0 0} :centered? #f)
           (rename-entity child)))))
 
   
@@ -392,11 +392,11 @@
   
   
   (method (can-undo?)
-    false)
+    #f)
   
   
   (method (can-redo?)
-    false)
+    #f)
   
   
   (method (can-cut?)
@@ -440,7 +440,7 @@
   
   
   (method (can-select-all?)
-    true)
+    #t)
   
   
   (method (cut-selection)
@@ -495,8 +495,8 @@
   (method (confirm-action text)
     (let ((code (message-box (localize text) type: 'confirmation)))
       (case code
-        ((yes) true)
-        ((no) false)
+        ((yes) #t)
+        ((no) #f)
         ((cancel) (throw-cancel)))))
   
   
@@ -605,41 +605,41 @@
            (can-delete? (get-action-enabled? {Action view delete}))
            (can-rename? (get-action-enabled? {Action entities-tree rename}))
            (can-properties? (and entity (can-view-properties?~ entity) (get-categorized-properties~ entity)))
-           (empty-add? false))
+           (empty-add? #f))
       (let ((add-menu (locate~ menu 'add-menu))
             (add-item (locate~ menu 'add-item)))
         (if (and (= count 1) (add-entities~ add-menu self))
             (let ((children (get-children~ add-menu)))
               (when (= (length children) 1)
-                (set-visible?~ add-item false)
+                (set-visible?~ add-item #f)
                 (let ((unique (car children)))
                   (set-icon~ unique (get-icon~ add-item))
                   (set-title~ unique (format "{a} {a}" (localize "Add") (get-title~ unique)))
                   (set-parent~ unique menu)
                   (set-before~ unique 'end-add-group))))
-          (set-visible?~ add-item false)
-          (set! empty-add? true)))
+          (set-visible?~ add-item #f)
+          (set! empty-add? #t)))
       (when (not can-cut?)
-        (set-visible?~ (locate~ menu 'cut) false))
+        (set-visible?~ (locate~ menu 'cut) #f))
       (when (not can-copy?)
-        (set-visible?~ (locate~ menu 'copy) false))
+        (set-visible?~ (locate~ menu 'copy) #f))
       (when (not can-paste?)
-        (set-visible?~ (locate~ menu 'paste) false))
+        (set-visible?~ (locate~ menu 'paste) #f))
       (when (not can-delete?)
-        (set-visible?~ (locate~ menu 'delete-selection) false))
+        (set-visible?~ (locate~ menu 'delete-selection) #f))
       (when (not can-rename?)
-        (set-visible?~ (locate~ menu 'rename-selection) false))
+        (set-visible?~ (locate~ menu 'rename-selection) #f))
       (when (not can-properties?)
-        (set-visible?~ (locate~ menu 'properties) false))
+        (set-visible?~ (locate~ menu 'properties) #f))
       (let ((empty-edit? (and (not can-cut?) (not can-copy?) (not can-paste?)))
              (empty-entity? (and (not (get-visible?~ (locate~ menu 'delete-selection))) (not (get-visible?~ (locate~ menu 'rename-selection)))))
              (empty-properties? (not can-properties?)))
         (when (or empty-add? empty-edit?)
-          (set-visible?~ (locate~ menu 'end-add-group) false))
+          (set-visible?~ (locate~ menu 'end-add-group) #f))
         (when (or empty-edit? empty-entity?)
-          (set-visible?~ (locate~ menu 'end-edit-group) false))
+          (set-visible?~ (locate~ menu 'end-edit-group) #f))
         (when (or (and empty-add? empty-entity?) empty-properties?)
-          (set-visible?~ (locate~ menu 'before-properties) false)))))
+          (set-visible?~ (locate~ menu 'before-properties) #f)))))
   
   
   ;;;
@@ -648,4 +648,4 @@
   
   
   (method public (show-properties)
-    (select-palette Properties-Manager workspace: {} focus?: true))))
+    (select-palette Properties-Manager workspace: {} focus?: #t))))

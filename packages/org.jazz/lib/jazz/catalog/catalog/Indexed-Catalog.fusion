@@ -56,7 +56,7 @@
   (slot references-index)
 
 
-  (method (initialize name file directories extensions recursive? active? references? (report?: report? true))
+  (method (initialize name file directories extensions recursive? active? references? (report?: report? #t))
     (nextmethod name file active?)
     (set! directories~self directories)
     (set! extensions~self extensions)
@@ -151,7 +151,7 @@
       
   
   (method (activate)
-    (load-content report?: true))
+    (load-content report?: #t))
       
   
   (method (deactivate)
@@ -163,13 +163,13 @@
   ;;;
 
 
-  (method public (load-content (report?: report? false))
+  (method public (load-content (report?: report? #f))
     (when (and (not loaded?) (get-active?) (exists?~ file))
       (when report?
         (user-message "Loading Catalog..."))
-      (load-hashtable content file true)
+      (load-hashtable content file #t)
       (update-catalog-indexes report?)
-      (set! loaded? true)
+      (set! loaded? #t)
       (when report?
         (user-message "Done"))))
 
@@ -194,7 +194,7 @@
     (when modified?
       (user-message "Saving {a} Catalog..." name)
       (save-content)
-      (set-modified? false)
+      (set-modified? #f)
       (user-message "Done")))
 
 
@@ -207,10 +207,10 @@
                       (when definitions
                         (format printer "{s}{%}" name)
                         (format printer " (")
-                        (let ((first? true))
+                        (let ((first? #t))
                           (for-each (function dynamic (definition)
                                       (print-catalog~ definition first? printer)
-                                      (set! first? false))
+                                      (set! first? #f))
                                     definitions))
                         (format printer "){%}"))))
                   sorted))))
@@ -221,8 +221,8 @@
   ;;;
   
   
-  (method (update (report?: report? true))
-    (set-active? true)
+  (method (update (report?: report? #t))
+    (set-active? #t)
     (when report?
       (user-message "Updating Catalog..."))
     (let ((processed (scan)))
@@ -235,25 +235,25 @@
   
   
   (method public (update-file file)
-    (set-active? true)
+    (set-active? #t)
     (let* ((entry (get-file-entry file))
            (marked? (and entry (get-marked?~ entry))))
       (catch (Parse-Error err
                (user-message "Error at line {s}" (get-row~ (get-start~ err)))
                (when entry
                  (set-marked?~ entry marked?))
-               false)
+               #f)
         (when entry
-          (set-marked?~ entry false))
+          (set-marked?~ entry #f))
         (process-file file)
         (sweep)
-        true)))
+        #t)))
   
   
   (method (reset-marks)
     (for-each-hash (function dynamic (class-name definitions)
                      (for-each (function dynamic (file-definition)
-                                 (set-marked?~ file-definition false))
+                                 (set-marked?~ file-definition #f))
                                definitions))
                    content))
   
@@ -342,9 +342,9 @@
   
   
   (method (sweep)
-    (sweep-hashtable content marked? true)
-    (sweep-hashtable definitions-index marked? false)
-    (sweep-hashtable references-index marked? false))
+    (sweep-hashtable content marked? #t)
+    (sweep-hashtable definitions-index marked? #f)
+    (sweep-hashtable references-index marked? #f))
   
   
   (method (marked? definition)
@@ -363,11 +363,11 @@
                                    (set! previous list)
                                    (set! list (cdr list)))
                                (when reset?
-                                 (set-marked?~ definition false))
+                                 (set-marked?~ definition #f))
                                (set-cdr! previous (cddr previous))
                                (set! list (cdr previous))))))
                        (when (not (marked? (car definitions)))
-                         (set-modified? true)
+                         (set-modified? #t)
                          (hash-set! hashtable class-name (cdr definitions)))))
                    hashtable))
 

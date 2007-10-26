@@ -72,7 +72,7 @@
   
   
   (method public virtual (install-designer? component)
-    false)
+    #f)
   
   
   (method public virtual (get-designer-class)
@@ -125,13 +125,13 @@
   
   
   (method (set-name component name . rest)
-    (bind-keywords ((use-owner? true) . others) rest
+    (bind-keywords ((use-owner? #t) . others) rest
       (let ((designer (find-modification-designer component)))
         (apply (~ set-name designer) component name others))))
   
   
   (method (set-property component property value . rest)
-    (bind-keywords ((use-owner? true) . others) rest
+    (bind-keywords ((use-owner? #t) . others) rest
       (let ((owner (find-modification-owner component)))
         (if (or (not use-owner?) (eq? owner reference))
             (apply nextmethod component property value others)
@@ -140,7 +140,7 @@
   
   
   (method (add-child child parent . rest)
-    (bind-keywords ((use-owner? true) . others) rest
+    (bind-keywords ((use-owner? #t) . others) rest
       (let ((owner (find-modification-owner parent)))
         (if (or (not use-owner?) (eq? owner reference))
             (apply nextmethod child parent others)
@@ -167,12 +167,12 @@
   
   
   @old
-  (method (move-components components destination (branch: branch true))
+  (method (move-components components destination (branch: branch #t))
     (let ((owner (uniform components key: (function dynamic (component) (find-modification-owner (get-parent~ component)))))
           (destination-owner (find-modification-owner destination)))
       (delete-components components branch: branch)
-      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: true descendant?: false)
-        (set-modified? true))
+      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: #t descendant?: #f)
+        (set-modified? #t))
       (let* ((parcels (package-components components))
              (name-resolution (verify-name-conflicts parcels destination)))
         (if (eq? owner reference)
@@ -183,12 +183,12 @@
   
   ;; The Designer version is for moving components installed in the same designer...
   @old
-  (method (move-components components destination (branch: branch true))
+  (method (move-components components destination (branch: branch #t))
     (let* ((parcels (package-components components))
            (name-resolution (verify-name-conflicts parcels destination)))
       (delete-components components branch: branch)
-      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: true descendant?: false)
-        (set-modified? true))))
+      (prog1 (instantiate-parcels parcels destination branch: branch :name-resolution name-resolution design-events?: #t descendant?: #f)
+        (set-modified? #t))))
   
   
   ;;;
@@ -260,13 +260,13 @@
   
   
   (method protected (save-designer)
-    (let ((some-modified? false))
+    (let ((some-modified? #f))
       (when (get-modified?)
-        (set! some-modified? true)
+        (set! some-modified? #t)
         (save))
       (for-each-designer
         (function dynamic (product designer)
           (when (get-modified?~ designer)
-            (set! some-modified? true)
+            (set! some-modified? #t)
             (save~ designer))))
       some-modified?))))

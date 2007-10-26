@@ -54,15 +54,15 @@
   (slot document               initialize {})
   (slot newname                initialize {})
   (slot moniker                initialize {})
-  (slot tool?                  initialize false)
-  (slot console?               initialize false)
-  (slot modified?              initialize false)
-  (slot read-only?             initialize false)
+  (slot tool?                  initialize #f)
+  (slot console?               initialize #f)
+  (slot modified?              initialize #f)
+  (slot read-only?             initialize #f)
   (slot moniker-time           initialize {})
   (slot last-repository-status initialize {})
 
 
-  (method (initialize document (tool?: tool? false) (console?: console? false))
+  (method (initialize document (tool?: tool? #f) (console?: console? #f))
     (nextmethod)
     (set! document~self document)
     (set! tool?~self tool?)
@@ -99,7 +99,7 @@
   
   (method protected (install-scroller)
     (let* ((root (get-root~ document))
-           (scroller (new Scroller-View parent: (get-content~ root) vscroll?: true hscroll?: true)))
+           (scroller (new Scroller-View parent: (get-content~ root) vscroll?: #t hscroll?: #t)))
       (set-parent~ document (get-content~ scroller))
       (set-client~ scroller document)))
 
@@ -223,7 +223,7 @@
 
   (method public virtual (get-modified?)
     (if console?
-        false
+        #f
       modified?))
 
 
@@ -239,7 +239,7 @@
   
   
   (method public virtual (dependent-document?)
-    false)
+    #f)
 
 
   ;;;
@@ -263,7 +263,7 @@
   ;;;
 
 
-  (method public virtual (update-status (refresh-repository-status?: refresh-repository-status? true))
+  (method public virtual (update-status (refresh-repository-status?: refresh-repository-status? #t))
     (when refresh-repository-status?
       (set! last-repository-status {}))
     (update-state)
@@ -335,7 +335,7 @@
       (let ((moniker (find-moniker~ Repository moniker)))
         (when moniker
           (values (get-repository~ moniker)
-                  (get-repository-item~ moniker error?: false))))))
+                  (get-repository-item~ moniker error?: #f))))))
   
   
   (method (repository-detached-status repository)
@@ -368,10 +368,10 @@
   
   (method public (update-state)
     (if (or (not moniker) (not (exists?~ moniker)))
-        (set! read-only? false)
+        (set! read-only? #f)
       ;; ultra quick and dirty patch for in zip source edition
       (if (is? moniker Zipped)
-          (set! read-only? false)
+          (set! read-only? #f)
         (set! read-only? (read-only?~ moniker)))))
   
   
@@ -379,7 +379,7 @@
     (set! moniker-time (get-modification-time~ moniker)))
   
   
-  (method public (verify-reload (propose-reload?: propose-reload? true) (cancel-edition?: cancel-edition? false))
+  (method public (verify-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (when (needs-reload?)
       (propose-reload :propose-reload? propose-reload? :cancel-edition? cancel-edition?)))
   
@@ -396,7 +396,7 @@
          (is-not? moniker Zipped)))
 
   
-  (method public (propose-reload (propose-reload?: propose-reload? true) (cancel-edition?: cancel-edition? false))
+  (method public (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
     (let ((code (if (not propose-reload?)
                     'yes
                   (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
@@ -432,10 +432,10 @@
   (method (in-write-allowed? moniker)
     (let ((code (ensure-read/write moniker)))
       (case code
-        ((checkout) true)
-        ((read/write) (update-status) true)
-        ((read-only) false)
-        ((no-action) true))))
+        ((checkout) #t)
+        ((read/write) (update-status) #t)
+        ((read-only) #f)
+        ((no-action) #t))))
   
   
   (method (out-write-allowed? moniker)
@@ -447,7 +447,7 @@
         ((yes)
          (set-read/write~ moniker)
          (update-status)
-         true)
+         #t)
         ((no))
         ((cancel)
          (throw-cancel)))))
@@ -477,9 +477,9 @@
                   type: 'confirmation)))
       (case code
         ((yes)
-         true)
+         #t)
         ((no)
-         false)
+         #f)
         ((cancel)
          (throw-cancel)))))
 
@@ -608,8 +608,8 @@
        (checkin-save))
       ((:item-status)
        (when (pathname= mnk moniker)
-         (update-status :refresh-repository-status? true)
-         (verify-reload :cancel-edition? true)))))
+         (update-status :refresh-repository-status? #t)
+         (verify-reload :cancel-edition? #t)))))
   
   
   (method (checkin-save)

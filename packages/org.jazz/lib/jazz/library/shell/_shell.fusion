@@ -68,7 +68,7 @@
         (process (new PROCESSENTRY32)))
     (set process 'dwSize (size-of PROCESSENTRY32))
     (when (Process32First snapshot process)
-      (let ((continue? true))
+      (let ((continue? #t))
         (while continue?
           (let ((name (get-string process 'szExeFile))
                 (id (get process 'th32ProcessID))
@@ -95,7 +95,7 @@
 ;;;
 
 
-(definition public (create-process command (directory: directory {}) (prefix-directory?: prefix-directory? false) (capture-input?: capture-input? false) (capture-output?: capture-output? false) (capture-error?: capture-error? false) (pipe-size: pipe-size 65536) (size: size {}) (visible?: visible? true) (console?: console? true) (debug-console?: debug-console? false) (wait-ready: wait-ready {}) (wait-ready-timeout: wait-ready-timeout 5000) (wait?: wait? true) (timeout: timeout {}))
+(definition public (create-process command (directory: directory {}) (prefix-directory?: prefix-directory? #f) (capture-input?: capture-input? #f) (capture-output?: capture-output? #f) (capture-error?: capture-error? #f) (pipe-size: pipe-size 65536) (size: size {}) (visible?: visible? #t) (console?: console? #t) (debug-console?: debug-console? #f) (wait-ready: wait-ready {}) (wait-ready-timeout: wait-ready-timeout 5000) (wait?: wait? #t) (timeout: timeout {}))
   (unimplemented 'create-process)
   @windows-specific
   (if (and directory (not (exists?~ directory)))
@@ -105,7 +105,7 @@
           (sa (new SECURITY_ATTRIBUTES))
           (cmd (if prefix-directory? (format "{a}\\{a}" (parse~ directory) command) command)))
       (set sa 'nLength (size-of SECURITY_ATTRIBUTES))
-      (set sa 'bInheritHandle true)
+      (set sa 'bInheritHandle #t)
       (let ((input-pipe  (new Pipe :security-attributes sa size: pipe-size))
             (output-pipe (new Pipe :security-attributes sa size: pipe-size))
             (error-pipe  (new Pipe :security-attributes sa size: pipe-size)))
@@ -130,7 +130,7 @@
                    cmd
                    NULL
                    NULL
-                   ;; If anybody ever wants to put that bInheritHandles back to true, they better
+                   ;; If anybody ever wants to put that bInheritHandles back to #t, they better
                    ;; think carefully about it, as this was the cause of an unbelievably tough to debug
                    ;; bug, where sockets didn't have the same behavior when used between two processes
                    ;; if they where started independently or if one created the other...
@@ -149,7 +149,7 @@
           (let ((process-handle (get pi 'hProcess))
                 (process-id (get pi 'dwProcessId)))
             (cond (wait-ready
-                    (let ((wait-event (CreateEvent NULL false false wait-ready)))
+                    (let ((wait-event (CreateEvent NULL #f #f wait-ready)))
                       (ecase (WaitForSingleObject wait-event wait-ready-timeout)
                         ((WAIT_TIMEOUT) {})
                         (else (new Child-Process process-handle process-id input-pipe output-pipe error-pipe)))))

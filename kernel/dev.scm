@@ -416,9 +416,11 @@
 (define Util
   '(jazz.utilities))
 
+(define Comp
+  '(jazz.library.component.Component))
+
 (define View
-  '(jazz.library.component.Component
-    jazz.ui.dialog
+  '(jazz.ui.dialog
     jazz.ui.view
     jazz.ui.window
     jazz.ui.layout.Figure
@@ -433,9 +435,7 @@
     jazz.platform))
 
 (define Expl
-  '(jazz.ui.text.Paragraph
-    jazz.ui.text.Text-View
-    jazz.ui.text.Text-Explorer
+  '(jazz.ui.text.Text-Explorer
     jazz.ui.text.Code-Explorer
     jazz.jazz.text.Lisp-Explorer
     jazz.jazz.text.Scheme-Explorer
@@ -474,22 +474,14 @@
     jazz.jml.parser.JML-Parser))
 
 
-(define (bjz)
-  (la)
-  (blang)
-  (butil)
-  (bview)
-  (bexpl)
-  (btext)
-  (btree)
-  (bappl)
-  (bjml))
-
 (define (blang)
   (for-each cj Lang))
 
 (define (butil)
   (for-each cj Util))
+
+(define (bcomp)
+  (for-each cj Comp))
 
 (define (bview)
   (for-each cj View))
@@ -514,7 +506,23 @@
   (la)
   (ball)
   (blang)
-  (bexpl))
+  (bcomp)
+  (bexpl)
+  (btext))
+
+
+(define (bjd)
+  (la)
+  (ball)
+  (blang)
+  (butil)
+  (bcomp)
+  (bview)
+  (bexpl)
+  (btext)
+  (btree)
+  (bappl)
+  (bjml))
 
 
 ;;;

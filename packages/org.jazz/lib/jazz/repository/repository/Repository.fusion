@@ -124,12 +124,12 @@
   
   (method meta public (reload-preferences pref)
     (let ((name (get-name~ pref)))
-      (remove-repository name error?: false)))
+      (remove-repository name error?: #f)))
   
   
   (method meta public (remove-preferences pref)
     (let ((name (get-name~ pref)))
-      (remove-repository name error?: false)))
+      (remove-repository name error?: #f)))
   
   
   ;;;
@@ -145,7 +145,7 @@
         (hash-set! Repositories name repository))))
   
   
-  (method meta (remove-repository name (error?: error? true))
+  (method meta (remove-repository name (error?: error? #t))
     (if (not (get-repository name))
         (when error?
           (error "Unable to find repository {a}" name))
@@ -299,7 +299,7 @@
       file/path))
   
   
-  (method public (file->path file (error?: error? true))
+  (method public (file->path file (error?: error? #t))
     (let* ((base (get-base-directory))
            (anchored (anchor-to~ file base error?: error?)))
       (when anchored
@@ -354,11 +354,11 @@
   
   
   (method protected virtual (add-default-extension)
-    true)
+    #t)
   
   
   (method (collect-actual project)
-    (with-closed ((items (get-content~ project nodes?: false leaves?: true)))
+    (with-closed ((items (get-content~ project nodes?: #f leaves?: #t)))
       (map (function dynamic (item)
              (get-pathname~ item))
            items)))
@@ -368,10 +368,10 @@
     (let ((fact (new List-Factory)))
       (iterate-directory~ directory
         (function dynamic (file)
-          (when (and (or (eq? extension true) (ci= (get-extension~ file) extension))
+          (when (and (or (eq? extension #t) (ci= (get-extension~ file) extension))
                      (not (member? (get-name~ file) '("vssver.scc") test: ci=)))
             (put~ fact file)))
-        recursive?: false)
+        recursive?: #f)
       (sort ci< (get-output~ fact) key: (function dynamic (file) (get-name~ file)))))
   
   
@@ -385,7 +385,7 @@
   
   
   (method (collect-subprojects project)
-    (with-closed ((items (get-content~ project nodes?: true leaves?: false)))
+    (with-closed ((items (get-content~ project nodes?: #t leaves?: #f)))
       (map (function dynamic (item)
              (get-name~ item))
            items)))
@@ -432,7 +432,7 @@
         (unimplemented 'propose-rename)
       (let* ((name (if path (last path) (last base-project)))
              (unicity-domain (remove name (collect-names path) test: equal?))
-             (new-name (request-string title: "Enter New Name" initial-value: name :accepts-empty? false :unicity-domain unicity-domain)))
+             (new-name (request-string title: "Enter New Name" initial-value: name :accepts-empty? #f :unicity-domain unicity-domain)))
         (rename-item path new-name))))
   
   
@@ -440,7 +440,7 @@
     (when path
       (let ((parent-path (butlast path)))
         (with-closed ((parent-item (get-item parent-path))
-                      (items (get-content~ parent-item nodes?: true leaves?: true)))
+                      (items (get-content~ parent-item nodes?: #t leaves?: #t)))
           (map (function dynamic (item)
                  (remote->local (get-name~ item)))
                items)))))
@@ -495,7 +495,7 @@
          base: pathname))))
 
   
-  (method public (get-latest-file item (make-writable?: make-writable? false) (feedback?: feedback? true))
+  (method public (get-latest-file item (make-writable?: make-writable? #f) (feedback?: feedback? #t))
     (case (determine-operation item file {unspecified})
       ((get)
        (get-latest-action file :make-writable? make-writable?)
@@ -544,7 +544,7 @@
   
   
   (method public virtual (supports-detaching? file)
-    false)
+    #f)
   
   
   (method public virtual abstract (detach-file file . rest)
@@ -555,7 +555,7 @@
     )
   
   
-  (method public (checkin-file file (keep-checked-out?: keep-checked-out? false) (feedback?: feedback? true))
+  (method public (checkin-file file (keep-checked-out?: keep-checked-out? #f) (feedback?: feedback? #t))
     (call-repository-event :checkin self file)
     (checkin-action file :keep-checked-out? keep-checked-out?)
     (unless keep-checked-out?
@@ -569,7 +569,7 @@
     )
   
   
-  (method public (checkout-file file (get?: get? {unspecified}) (feedback?: feedback? true))
+  (method public (checkout-file file (get?: get? {unspecified}) (feedback?: feedback? #t))
     (let ((operation (with-closed ((item (get-item file)))
                        (determine-operation item file get?)))
           (output (get-output-log)))
@@ -588,7 +588,7 @@
     )
   
   
-  (method public (undo-checkout-file file (get?: get? true) (feedback?: feedback? true))
+  (method public (undo-checkout-file file (get?: get? #t) (feedback?: feedback? #t))
     (let ((code (message-box
                   (format "Undo checkout and revert to repository version?")
                   title: "Undo checkout"
@@ -627,7 +627,7 @@
   
   
   (method public (get-detached-status file)
-    (with-closed ((item (get-item file error?: false)))
+    (with-closed ((item (get-item file error?: #f)))
       (cond
        ((not (exists?~ file))
         'not-present)
@@ -659,7 +659,7 @@
   (method public virtual (show-changes file)
     (with-cursor :wait
       (function dynamic ()
-        (let* ((frame (new-frame Compare-Files host-visible?: false host-workspace: 'text))
+        (let* ((frame (new-frame Compare-Files host-visible?: #f host-workspace: 'text))
                (left file)
                (right (new Repository-Moniker self (file->path file)))
                (has-differences? (compare-monikers~ (get-guest~ frame) left right)))
@@ -668,7 +668,7 @@
                 (close~ frame)
                 (message-box "No changes"))
             (bring-to-front~ frame)
-            (set-visible?~ frame true)
+            (set-visible?~ frame #t)
             (acquire-focus~ (locate~ (get-guest~ frame) 'text)))))))
 
   
@@ -729,7 +729,7 @@
       (if (not remote?)
           (for-each
            (function dynamic (item)
-             (set-visible?~ (locate~ menu item) false))
+             (set-visible?~ (locate~ menu item) #f))
            '(get-latest detach checkout checkin reintegrate undo-checkout show-changes show-history))
         (let ((detaching? (supports-detaching?~ repository file))
               (status (with-closed ((item (get-item~ repository file)))

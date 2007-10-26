@@ -54,14 +54,14 @@
   ;; quick fix. should not be necessary to add a _ suffix
   (property property_      initialize {}    getter get-property       setter set-property)
   (property value          initialize {}    getter get-value          setter set-value)
-  (property nullable?      initialize false getter get-nullable?      setter set-nullable?)
-  (property modified?      initialize false getter get-modified?      setter set-modified?)
-  (property limit-to-list? initialize true  getter get-limit-to-list? setter set-limit-to-list?)
+  (property nullable?      initialize #f getter get-nullable?      setter set-nullable?)
+  (property modified?      initialize #f getter get-modified?      setter set-modified?)
+  (property limit-to-list? initialize #t  getter get-limit-to-list? setter set-limit-to-list?)
     
   
   (slot domain  initialize {})
   (slot editor  initialize {})
-  (slot edited? initialize false)
+  (slot edited? initialize #f)
 
 
   ;;;
@@ -70,7 +70,7 @@
 
 
   (method (initialize . rest)
-    (bind-keywords ((property {}) (value {}) (nullable? false) (limit-to-list? true) . others) rest
+    (bind-keywords ((property {}) (value {}) (nullable? #f) (limit-to-list? #t) . others) rest
       (apply nextmethod others)
       (set! property_~self property)
       (set! value~self value)
@@ -171,7 +171,7 @@
   
   
   (method (auto-inplace?)
-    true)
+    #t)
 
   
   (method (auto-expand)
@@ -204,7 +204,7 @@
   
   (method public virtual (enter-value v)
     (set! value v)
-    (set-modified? true)
+    (set-modified? #t)
     (if (null? property_)
         (update value)
       (enter-value~ (get-card~ (get-tree)) property_ value)))
@@ -255,28 +255,28 @@
   
   
   (method public (validate-value)
-    true
+    #t
     @convert
     (catch (Parse-Error err
              (case (message-box (get-message~ err) type: 'question yes: "Change It" no: "Revert")
                ((yes)
                 (focus-editor start: (get-start~ err) end: (get-end~ err))
-                false)
+                #f)
                ((no)
                 (revert-property)
-                false)))
+                #f)))
       (get-edited-value)
-      true))
+      #t))
   
   
   (method public (edit-row)
     (edit)
-    (set! edited? true))
+    (set! edited? #t))
   
   
   (method public (end-row-edition)
     (end-edition)
-    (set! edited? false))
+    (set! edited? #f))
   
   
   (method public virtual (in-edition?)
@@ -295,7 +295,7 @@
   (method public virtual (save-edition)
     (when (get-edited-modified?)
       (enter-edited-value)
-      (set-edited-modified? false)))
+      (set-edited-modified? #f)))
   
   
   (method public virtual (close-editor)
@@ -303,7 +303,7 @@
   
   
   (method public virtual (close-editor?)
-    true)
+    #t)
   
   
   (method public virtual (select-editor)
@@ -344,7 +344,7 @@
     (show-cursor)
     (with-cursor :wait
       (function dynamic ()
-        (set-edited-modified? true)
+        (set-edited-modified? #t)
         (save-edition))
       :duration 150))
   
@@ -353,14 +353,14 @@
     (if limit-to-list?
         (if (get-edited-modified?)
             (validate-value)
-          true)
-      true))
+          #t)
+      #t))
   
   
   (method public (editor-focus-delegate)
     (when (and (auto-inplace?) (not (in-edition?)))
       (auto-expand/collapse~ (get-tree) self))
-    (focus-editor :select-all? false)
+    (focus-editor :select-all? #f)
     (invalidate-drawing))
   
   
@@ -381,14 +381,14 @@
     (let* ((tree (get-tree))
            (cell (new Cell (row-rank~ tree self) 1))
            (border (new Border-View border-type: 'solid border-color: {Color name: Dark-Red}))
-           (scroller (new Scroller-View parent: border vscroll?: false hscroll?: false))
+           (scroller (new Scroller-View parent: border vscroll?: #f hscroll?: #f))
            (content (get-content~ scroller)))
       (set-layout-type~ content 'fill)
       (unless editor
         (set! editor (new-editor)))
       (set-parent~ editor content)
       (set-edited-value value)
-      (edit-cell~ tree cell :editor border :close-editor? (close-editor?))
+      (edit-cell~ tree cell editor: border :close-editor? (close-editor?))
       ;; the focusing has to be done after the edit-cell that will install the editor in a player
       (focus-editor)
       (set-client~ scroller editor)))
@@ -401,7 +401,7 @@
       (set! editor {})))
   
   
-  (method public virtual (focus-editor (start: start {}) (end: end {}) (select-all?: select-all? true))
+  (method public virtual (focus-editor (start: start {}) (end: end {}) (select-all?: select-all? #t))
     (let ((editor (focused-editor)))
       (when editor
         (acquire-focus~ editor)
@@ -423,7 +423,7 @@
     (let* ((tree (get-tree))
            (subrow (add-row~ tree class: Editor-Row father: self :row-height (editor-height)))
            (border (new Border-View parent: subrow border-type: 'solid border-color: {Color name: Dark-Red}))
-           (scroller (new Scroller-View parent: border vscroll?: true hscroll?: false)))
+           (scroller (new Scroller-View parent: border vscroll?: #t hscroll?: #f)))
       (unless editor
         (set! editor (new-editor)))
       (set-parent~ editor (get-content~ scroller))
@@ -552,10 +552,10 @@
            (editor   (get-cell-editor~ tree))
            (data     (if editor (get-preserved-data~ editor) (get-cell-data~ tree cell))))
       (set-value value)
-      (set-property-modified? true)
+      (set-property-modified? #t)
       (set-title~ data title)
       (if edited?
-          (set-edited-modified? true)
+          (set-edited-modified? #t)
         (invalidate-cell~ tree cell))))
   
   
@@ -636,9 +636,9 @@
   
   (method public (revert-property)
     (set-edited-value value)
-    (set-edited-modified? false)
-    (set-property-modified? false)
-    (set-modified? false)
+    (set-edited-modified? #f)
+    (set-property-modified? #f)
+    (set-modified? #f)
     (focus-editor))
   
   

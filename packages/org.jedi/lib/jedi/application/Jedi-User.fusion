@@ -89,9 +89,9 @@
   (method synchronized (load-catalog-synchronized name)
     (let* ((appl (get-application))
            (cataloguer (get-cataloguer~ appl))
-           (catalog (get-catalog~ cataloguer name error?: false)))
+           (catalog (get-catalog~ cataloguer name error?: #f)))
       (when catalog
-        (set-active?~ catalog true))))
+        (set-active?~ catalog #t))))
 
   
   ;;;
@@ -104,8 +104,8 @@
       ;; Documentation
       ((:doc) (edit-documentation (car arguments)))
       ;; SourceSafe
-      ((:checkout) (checkout arguments) true)
-      ((:checkin) (checkin arguments) true)
+      ((:checkout) (checkout arguments) #t)
+      ((:checkin) (checkin arguments) #t)
       ;; Macro
       ((:expand) (expand (car arguments)))
       ((:expand-scheme) (expand-scheme (car arguments)))
@@ -115,7 +115,7 @@
       ((:touch-descendants) (touch-descendants arguments))
       ((:compile) (compile arguments))
       ((:edit) (edit arguments))
-      ((:exit) (exit) true)
+      ((:exit) (exit) #t)
       (else (nextmethod command arguments))))
   
   
@@ -147,12 +147,12 @@
         (if (null? definition)
             (begin
               (debug form)
-              true)
+              #t)
           (let ((macro (definition-value definition)))
             (cond ((syntax-macro? macro) (debug (apply macro arguments)))
                   ((macro? macro) (debug (macro arguments)))
                   (else (debug (apply macro arguments))))
-            true)))))
+            #t)))))
   
   
   (method (expand-scheme form)
@@ -161,15 +161,15 @@
              (macro (definition-value (either (try Kernel)))))
         (cond ((syntax-macro? macro) (debug (apply macro arguments)))
               ((macro? macro) (debug (macro arguments))))
-        true)))
+        #t)))
   
   
   (method (touch classes)
-    (touch-classes false classes))
+    (touch-classes #f classes))
   
   
   (method (touch-descendants classes)
-    (touch-classes true classes))
+    (touch-classes #t classes))
 
 
   (method (touch-classes descendants? classes)
@@ -274,7 +274,7 @@
   (method (gambit (expr: expr {}) (maximum-heapsize: maximum-heapsize 102400) (exception-handler: exception-handler :repl))
     (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
            (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
-      (create-process command directory: {Directory jazz} :capture-input? false :capture-output? false :capture-error? false :wait? false size: {Dimension 900 500} visible?: true)))
+      (create-process command directory: {Directory jazz} :capture-input? #f :capture-output? #f :capture-error? #f :wait? #f size: {Dimension 900 500} visible?: #t)))
   
   
   ;;;
@@ -677,7 +677,7 @@
                   (messages (new Mapi-Messages session)))
       (let ((attachment {File Jazz "Documentation" "Images" "SmallJazz.png"}))
         (send-email~ messages
-         :prompt? true
+         :prompt? #t
          :recipient "gcartier@jazzscheme.org"
          :subject "Un test"
          :body (format "Tel que convenu...{%}{%}{%}{%}lors de notre...")
@@ -734,7 +734,7 @@
         (let ((command (subseq request 0 pos)))
           (when (= command "DESC")
             (let ((name (subseq request (+ pos 1)))
-                  (browser (select-palette Inventory-Browser workspace: {} focus?: false)))
+                  (browser (select-palette Inventory-Browser workspace: {} focus?: #f)))
               (describe-connection-table~ browser connection name)))))))
   
   
@@ -800,11 +800,11 @@
   (class Error-Tester extends View
     
     
-    (slot processing? initialize false)
+    (slot processing? initialize #f)
     
     
     (method (mouse-down pos)
-      (set! processing? true))
+      (set! processing? #t))
     
     
     (method (drag-move pos)
@@ -814,7 +814,7 @@
     
     (method (drag-up pos . rest)
       (debug 'up)
-      (set! processing? false)))
+      (set! processing? #f)))
   
   
   @wait
@@ -856,7 +856,7 @@
                    (car 1)
                    (set-event~ impulse)
                    (debug 'thread-done)))
-      (wait-for impulse :timeout 10 error?: false)
+      (wait-for impulse :timeout 10 error?: #f)
       (debug 'done)))
   
   
@@ -870,7 +870,7 @@
                  context: self
                  execute: (function (thread)
                             (sleep 2000)))))
-      (debug (wait-for (list t1 t2) :timeout 3000 error?: false))))
+      (debug (wait-for (list t1 t2) :timeout 3000 error?: #f))))
 
   
   ;;;
@@ -894,7 +894,7 @@
                             (foo n))))
                       (naturals 0 10))
             (car 'a))
-          threaded?: false
+          threaded?: #f
           context: self))
       title: "test"))
   
@@ -1055,7 +1055,7 @@
   (method (test-file-printer)
     (with-profile
       (function dynamic (node)
-        (new File-Printer :temporary? true))
+        (new File-Printer :temporary? #t))
       name: "File-Printer"))
   
   
@@ -1242,11 +1242,11 @@
       (set-syntax~ readtable #\comma TWhitespace)
       (set-readtable~ reader readtable)
       (let ((lines (new List-Factory))
-            (done? false))
+            (done? #f))
         (while (not done?)
           (let ((line (read-process-monitor-stack-line reader)))
             (if (eof-object? line)
-                (set! done? true)
+                (set! done? #t)
               (put~ lines line))))
         (get-output~ lines))))
   
@@ -1293,7 +1293,7 @@
   
   @wait
   (method (foo x)
-    (profile (:on? true name: foo)
+    (profile (:on? #t name: foo)
     (list (bar x)
           (baz (+ x x)))))
   
@@ -1342,7 +1342,7 @@
   
   @wait
   (definition Ping-Running?
-    false)
+    #f)
   
   
   @wait
@@ -1352,7 +1352,7 @@
              (workbench (get-workbench))
              (project (find-project~ workbench 'Ping-Project)))
         (launch~ appl project)
-        (set! Ping-Running? true)
+        (set! Ping-Running? #t)
         (user-message "Ping server started"))))
   
   
@@ -1362,7 +1362,7 @@
       (with-closed ((socket (new Socket)))
         (connect~ socket Ping-Host Ping-Port)
         (send-object~ socket 'quit))
-      (set! Ping-Running? false)
+      (set! Ping-Running? #f)
       (user-message "Ping server stopped")))
   
   
@@ -1409,7 +1409,7 @@
       
       
       (definition flag
-        true)
+        #t)
       
       
       (method (draw dc context update lh lv)
@@ -1516,7 +1516,7 @@
   ;;;
   
   
-  (method (reprint-toplevel-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+  (method (reprint-toplevel-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (let* ((text (get-focus))
            (range (toplevel-expr~ text (get-end~ text)))
            (string (get-string~ text range))
@@ -1524,14 +1524,14 @@
       (if (is-not? form Form)
           (bell)
         (let* ((designer (new Designer form: form))
-               (output (saved-form~ designer false 0 space-properties?: space-properties? align-name?: align-name?)))
+               (output (saved-form~ designer #f 0 space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
             (function dynamic ()
               (set-selection~ text range)
               (insert-string~ text output)))))))
   
   
-  (method (reprint-current-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+  (method (reprint-current-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (let* ((text (get-focus))
            (classes (current-classes~ text (get-selection~ text)))
            (range (definition-range~ text (get-end~ text)))
@@ -1540,14 +1540,14 @@
       (if (is-not? form Form)
           (bell)
         (let* ((designer (new Designer form: form))
-               (output (saved-form~ designer true (+ 1 (length classes)) space-properties?: space-properties? align-name?: align-name?)))
+               (output (saved-form~ designer #t (+ 1 (length classes)) space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
             (function dynamic ()
               (set-selection~ text range)
               (insert-string~ text output)))))))
   
   
-  (method (reprint-selected-form (space-properties?: space-properties? true) (align-name?: align-name? true))
+  (method (reprint-selected-form (space-properties?: space-properties? #t) (align-name?: align-name? #t))
     (let* ((text (get-focus))
            (range (get-selection~ text))
            (string (get-string~ text range))
@@ -1555,7 +1555,7 @@
       (if (is-not? form Form)
           (bell)
         (let* ((designer (new Designer form: form))
-               (output (saved-form~ designer false 0 space-properties?: space-properties? align-name?: align-name?)))
+               (output (saved-form~ designer #f 0 space-properties?: space-properties? align-name?: align-name?)))
           (with-update-locked~ text
             (function dynamic ()
               (set-selection~ text range)
@@ -1601,8 +1601,8 @@
                             (break)
                             (message-box n)))))
                   (if flag p (holder))))))
-        (set! holder (proc 5 true))
-        (proc 7 false)))
+        (set! holder (proc 5 #t))
+        (proc 7 #f)))
     
     
     (method (baz)
@@ -1666,11 +1666,11 @@
     (let ((document (new XML-Document))
           (file {File Native "C:" "Books.xml"}))
       (load~ document file)
-      (let* ((frame (new-frame XML-Viewer host-visible?: false))
+      (let* ((frame (new-frame XML-Viewer host-visible?: #f))
              (viewer (get-guest~ frame)))
         (set-document~ viewer document)
         (bring-to-front~ frame)
-        (set-visible?~ frame true))))
+        (set-visible?~ frame #t))))
 
   
   @wait
@@ -1747,7 +1747,7 @@
   
   @wait
   (method (test0)
-    (let ((f (new XML-Formatter :pretty true indentation: 2)))
+    (let ((f (new XML-Formatter :pretty #t indentation: 2)))
       (begin-element~ f "body")
       (begin-element~ f "h1")
         (add-attribute~ f "align" "center")
@@ -1760,7 +1760,7 @@
 
   @test  
   (method (test1)
-    (let ((processor (new XML-Formatter :pretty false))
+    (let ((processor (new XML-Formatter :pretty #f))
           (converter process-sxml))
        (converter
         '(body 
@@ -1851,7 +1851,7 @@
   
   @wait
   (method (test-analyser)
-    (let ((analyser (new Reference-Analyser :include-path? true)))
+    (let ((analyser (new Reference-Analyser :include-path? #t)))
       (receive (references resources) (find-references~ analyser '(Jedi) {})
         (set-% references)
         (message-box "Done"))))
@@ -1910,7 +1910,7 @@
                      (user-message~ activity "Test {s} : Done" no)
                      (set-done~ activity)
                      (sleep 500))))
-      :unregister? true))
+      :unregister? #t))
 
 
   @wait
@@ -1928,27 +1928,27 @@
              (data (LockResource res))
              (size (SizeofResource inst info)))
         (message-box (->string (list res data size)))
-        (let ((handle (BeginUpdateResource "C:\\Jedi\\Products\\org.jazz\\Projects\\Jazz\\Bin\\Bbb.exe" false))
+        (let ((handle (BeginUpdateResource "C:\\Jedi\\Products\\org.jazz\\Projects\\Jazz\\Bin\\Bbb.exe" #f))
               (type RT_ICON)
               (name "YUYIYOYOYO"))
           (message-box (->string handle))
           @w
           (UpdateResource handle (int-resource type) (int-resource name) English-US data size)
-          (EndUpdateResource handle false)
+          (EndUpdateResource handle #f)
           (message-box "Done")))))
   
   
   @windows-bug
   (method (test-resources2)
     (let* ((filename "C:\\Jedi\\Products\\org.jazz\\Projects\\Jazz\\Bin\\JazzStandaloneDebug.exe")
-           (handle (BeginUpdateResource filename false))
+           (handle (BeginUpdateResource filename #f))
            (type "YO" @w RT_RCDATA)
            (name "YUYIYOYOYO")
            (data (new Heap-Block size: 1000000))
            (size (length data)))
       (message-box (->string handle))
       (message-box (->string (UpdateResource handle (int-resource type) (int-resource name) English-US (get-handle~ data) size)))
-      (EndUpdateResource handle false)
+      (EndUpdateResource handle #f)
       (message-box "Done")))
   
   
@@ -1985,7 +1985,7 @@
 
 
   @wait
-  (method (test-ast (describe? true))
+  (method (test-ast (describe? #t))
     (let ((file {File org.jazz "Jazz" "Samples" "Java" "org" "jazz" "project" "Z.java"}))
       (let ((ast (parse-java file Java-AST)))
         (when describe?

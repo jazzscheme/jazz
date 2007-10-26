@@ -88,7 +88,7 @@
             @convert
             (when (or (not name) (not (in-manifest? name)))
               (signal (new Explore-Error message: (format "Unable to find category {a} in manifest" (get-marked)) start: (get-start) end: (get-end))))
-            (let ((category (essay name (symbol-bound? name false) (global-value~ name false))))
+            (let ((category (essay name (symbol-bound? name #f) (global-value~ name #f))))
               (list category kind meta? name (collect-categories-keywords))))))))
   
   
@@ -151,7 +151,7 @@
                    (forward-expr)
                    (set! scan (cdr scan)))
                   ((not (enter-composite))
-                   (signal (new Location-Error :kind 'bad :location (either toplevel-location location))))
+                   (signal (new Location-Error kind: 'bad location: (either toplevel-location location))))
                   (else
                    (unless (eq? ref 'meta)
                      (cond ((eq? ref :new-form)
@@ -173,20 +173,20 @@
   (method (forward-form (toplevel-location: toplevel-location {}))
     (while (not (form-expr? '(form)))
       (when (not (forward-valid-expr))
-        (signal (new Location-Error :kind 'unknown :location (either toplevel-location 'form))))))
+        (signal (new Location-Error kind: 'unknown location: (either toplevel-location 'form))))))
   
   
   (method (forward-definition name <Object> (toplevel-location: toplevel-location {}))
     (while (or (not (definition-expr?))
                (/= (definition-only-name) name))
       (when (not (forward-valid-expr))
-        (signal (new Location-Error :kind 'unknown :location (either toplevel-location name))))))
+        (signal (new Location-Error kind: 'unknown location: (either toplevel-location name))))))
   
   
   (method (forward-numeric n <fx> (toplevel-location: toplevel-location {}))
     (while (>= n 0)
       (when (not (forward-valid-expr))
-        (signal (new Location-Error :kind 'unknown :location (either toplevel-location n))))
+        (signal (new Location-Error kind: 'unknown location: (either toplevel-location n))))
       (decrease! n)))
   
   
@@ -342,7 +342,7 @@
                   (keyword context start end)
                 (when (or (not line) (= (get-row~ end) line))
                   (expression context start end 'code kind)))
-              true)
+              #t)
           (when (and (forward-expr) (eq? kind 'symbol))
             (let ((symbol (find-marked-symbol)))
               (case symbol
@@ -400,7 +400,7 @@
                  (either (walk-macro-declaration symbol self context declaration keyword expression doc line walk-expressions?)
                          (walk-unknown context declaration keyword expression doc line walk-expressions?))))))
           (exit-list)
-          true))))
+          #t))))
   
   
   (method (walk-modifiers context declaration keyword expression doc line)
@@ -522,7 +522,7 @@
       (walk-parameters entry declaration keyword expression doc line)
       (exit-list)
       (when walk-expressions?
-        (walk-expressions entry expression 'code false))
+        (walk-expressions entry expression 'code #f))
       entry))
   
   
@@ -535,7 +535,7 @@
         (while (forward-expr)
           (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) '(initialize accessors generate)))
               (keyword entry start end)
-            (walk-expression entry expression 'code false))))
+            (walk-expression entry expression 'code #f))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -550,7 +550,7 @@
         (while (forward-expr)
           (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) '(initialize type getter setter default)))
               (keyword entry start end)
-            (walk-expression entry expression 'code false))))
+            (walk-expression entry expression 'code #f))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))
@@ -796,7 +796,7 @@
   
   (method (walk-unknown context declaration keyword expression doc line walk-expressions?)
     (when walk-expressions?
-      (walk-expression context expression 'code true)
+      (walk-expression context expression 'code #t)
       (walk-expressions context expression)))
   
   
@@ -817,4 +817,4 @@
   (method public (highlight-range)
     (set-selection~ text (get-range))
     (update-view~ text)
-    (break :edit? false))))
+    (break :edit? #f))))

@@ -156,7 +156,6 @@
                     #f)))))
         (or (try "scm")
             (try "jazz")
-            (try "fusion")
             (try "jscm"))))
     
     

@@ -160,7 +160,7 @@
 
 (define (jazz.load-kernel)
   (jazz.load-module-system)
-  (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz" "fusion")))
+  (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz")))
 
 
 (define jazz.boot-kernel

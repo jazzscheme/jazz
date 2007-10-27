@@ -1,0 +1,167 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Processes Inspector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.debuggee.Processes-Inspector jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.shell)
+        (jazz.utilities))
+
+
+(class Processes-Inspector extends Layout-View uses (Utilities System WinNT WinKernel)
+  
+  
+  (slot hierarchical? initialize #t)
+
+
+  (form
+    (<install>                                            title: "Processes Inspector" layout-type: border
+      (<Layout-View>                   name: toolbar      size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                 name: hierarchical size: {Dimension 22 22} selected?: #t tooltip?: #t tooltip-text: "Hierarchical Display" portfolio: :icons image-name: {Bitmap-Resource "Tree"} action-handler: {Event-Handler form: on-hierarchical})
+        (<Separator>)
+        (<Push-Tool>                   name: terminate    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Terminate Process" image-name: {Bitmap-Resource "Cancel"} portfolio: :icons action-handler: {Event-Handler form: on-terminate}))
+      (<Border-View>                   name: border       size: {Dimension 223 486} location: center border-type: edge style: entry
+        (<Scroller-View>                                  style: document vscroll?: #t
+          (<!>                         name: content      layout-type: fill
+            (<Tree-Header>                                style: document
+              (<!>                     name: content
+                (<Tree-View>           name: tree         portfolio: :icons
+                  (<Tree-Node-Column>  name: name         title: "Name" width: 300)
+                  (<Tree-Label-Column> name: id           title: "Id" width: 200)
+                  (<Tree-Label-Column> name: parent-id    title: "Parent Id" width: 200)))))))))
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (refresh))
+  
+  
+  (method (client-activate)
+    (refresh))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Process"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Processes Inspector")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 150 150})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Point 1015 500})
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'border) dh dv))
+
+
+  (method (on-hierarchical evt)
+    (set! hierarchical? (not hierarchical?))
+    (refresh))
+  
+  
+  (method (on-terminate evt)
+    (let* ((tree (locate 'tree))
+           (selection (get-single-selection~ tree)))
+      (if (not selection)
+          (bell)
+        (let* ((info (get-user-data~ (get-row~ tree selection)))
+               (id (get-id~ info))
+               (handle (OpenProcess PROCESS_ALL_ACCESS #f id)))
+          (TerminateProcess handle 0)
+          (sleep 100)
+          (refresh)))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (refresh)
+    (let ((info (root-process-info))
+          (tree (locate 'tree)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (insert-processes tree {} (get-children~ info))))))
+  
+  
+  (method (insert-processes tree father infos)
+    (for-each (function dynamic (info)
+                (insert-process tree father info))
+              (sort ci< infos key: (function dynamic (info)
+                                     (get-name~ info)))))
+
+
+  (method (insert-process tree father info)
+    (let* ((name (get-name~ info))
+           (id (get-id~ info))
+           (parent-id (get-parent-id~ info))
+           (row (add-row~ tree father: father
+                          state: 'expanded
+                          children: (list (new Tree-Node title: name image: {Bitmap-Resource "Process"})
+                                          (new Tree-Label title: (->string id))
+                                          (new Tree-Label title: (->string parent-id)))
+                          user-data: info)))
+      (insert-processes tree (if hierarchical? row father) (get-children~ info))))))

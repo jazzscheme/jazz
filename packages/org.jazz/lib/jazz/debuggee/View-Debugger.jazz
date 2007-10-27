@@ -1,0 +1,172 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; View Debugger
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debuggee.View-Debugger jazz
+
+
+(import (jazz.debuggee)
+        (jazz.jazz)
+        (jazz.jazz.debuggee)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(definition public (debug-view)
+  (unimplemented)
+  @convert
+  (pick-figure debug-view-action
+    menu: new-debug-view-menu
+    draw-overlays?: #f
+    feedback: #t))
+
+
+(definition public (explore-views)
+  (unimplemented)
+  @convert
+  (pick-figure debug-view-action
+    menu: new-debug-view-menu
+    draw-overlays?: #t
+    feedback: #t))
+
+
+(definition (new-debug-view-menu window position view pos)
+  (let* ((menu (new Debug-View-Menu))
+         (player (get-player~ view))
+         (guest (essay (is? player View-Host) (get-guest~ player)))
+         (user-data (essay (is? view Tree-View) (get-tree-user-data view pos)))
+         (action (get-action~ view))
+         (action-handler (essay (get-action-handler~ view) (get-method-name~ (get-action-handler~ view)))))
+    (new Separator-Item parent: menu)
+    (new Label-Item parent: menu title: "Edit Player" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit object: player)))
+    (when guest
+      (new Label-Item parent: menu title: "Edit Guest" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit object: guest))))
+    (new Label-Item parent: menu title: "Edit View" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit object: view)))
+    (when user-data
+      (new Label-Item parent: menu title: "Edit Row Data" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit object: user-data))))
+    (when action
+      (new Label-Item parent: menu title: "Edit Action" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit-action object: action))))
+    (when action-handler
+      (new Label-Item parent: menu title: "Edit Action Handler" action-handler: (new Event-Handler target: self method-name: 'on-debug-action properties: (list action: 'edit :symbol action-handler))))
+    (layout-menu~ menu)
+    menu))
+
+
+(definition (get-tree-user-data tree pos)
+  (let ((cell (view->tree~ tree pos)))
+    (when cell
+      (let* ((row (get-row~ tree (get-row~ cell)))
+             (user-data (get-user-data~ row)))
+        user-data))))
+
+
+(definition (debug-view-action window position view pos)
+  (debug-view~ view pos))
+
+
+(definition (describe-view-action window position view pos)
+  (let ((appl (get-application)))
+    (show-console~ appl)
+    (display-description (describe-view~ view pos))
+    (fresh-prompt~ appl)))
+
+
+(definition (describe-state-action window position view pos)
+  (let ((appl (get-application))
+        (player (get-player~ view)))
+    (when (is? player View-Host)
+      (let ((guest (get-guest~ player)))
+        (show-console~ appl)
+        (privileged-execute
+          (list 'describe-state pos)
+          guest
+          {}
+          {}
+          {})
+        (fresh-prompt~ appl)))))
+
+
+(definition (display-description description)
+  (let ((max (apply generic-max (map length (map car description)))))
+    (format :console "{%}")
+    (for-each (function dynamic (info)
+                (bind (name value) info
+                  (format :console "{a}:{_ :v} {s}{%}"
+                    name
+                    (- max (length name))
+                    value)))
+              description)))
+
+
+;;;
+;;;; Menu
+;;;
+
+
+(definition public (on-debug-action evt)
+  (let ((appl (get-application))
+        (action (get-property~ evt :action))
+        (window (get-property~ evt :window))
+        (position (get-property~ evt position:))
+        (view (get-property~ evt view:))
+        (pos (get-property~ evt :pos)))
+    (case action
+      ((debug)          (debug-view-action window position view pos))
+      ((describe)       (describe-view-action window position view pos))
+      ((describe-state) (describe-state-action window position view pos))
+      ((edit-action)    (let* ((action (get-property~ evt object:))
+                               (action-item (require-action-item action))
+                               (action-handler (get-action-handler~ action-item)))
+                          (edit-definition~ appl (get-method-name~ action-handler))))
+      ((edit)           (let ((object (get-property~ evt object:))
+                              (symbol (get-property~ evt :symbol)))
+                          (edit-definition~ appl (either symbol (type-name (class-of object)))))))))
+
+
+(class View-Debugger extends Object)
+
+
+(class Debug-View-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     title: "Debug" default?: #t action-handler: {Event-Handler :view-debugger on-debug-action action: debug})
+      (<Separator-Item>)
+      (<Label-Item>     title: "Describe" icon: {Bitmap-Resource "Script"} action-handler: {Event-Handler :view-debugger on-debug-action action: describe})
+      (<Label-Item>     title: "Describe State" action-handler: {Event-Handler :view-debugger on-debug-action action: describe-state})))))

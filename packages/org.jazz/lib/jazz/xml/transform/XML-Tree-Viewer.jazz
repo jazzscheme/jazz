@@ -1,0 +1,161 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Log Viewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.xml.transform.XML-Tree-Viewer jazz
+
+
+(import (jazz.jml)
+        (jazz.xml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class XML-Tree-Viewer extends View
+
+
+  (slot log-tree)
+  (slot viewer   initialize {})
+
+
+  (form
+    (<install>                                       title: "Log Viewer" position: {Point 80 50} size: {Dimension 793 519}
+      (<Push-Tool>                    name: clear    position: {Point 550 5} size: {Dimension 22 22} portfolio: :icons image-name: {Bitmap-Resource "Clear"} action-handler: {Event-Handler form: on-clear})
+      (<Push-Tool>                    name: refresh  position: {Point 574 5} size: {Dimension 22 22} portfolio: :icons image-name: {Bitmap-Resource "Refresh"} action-handler: {Event-Handler form: on-refresh})
+      (<Toggle-Tool>                  name: on/off   position: {Point 767 5} size: {Dimension 22 22} portfolio: :icons image-name: {Bitmap-Resource "Log"} selected?: #t action-handler: {Event-Handler form: on-on/off})
+      (<Border-View>                                 position: {Point 0 33} size: {Dimension 223 486} border-type: edge style: entry
+        (<Scroller-View>                             style: document vscroll?: #t
+          (<!>                        name: content  layout-type: fill
+            (<Tree-Header>                           style: document
+              (<!>                    name: content
+                (<Tree-View>          name: log-tree portfolio: :icons selection-handler: {Event-Handler parent: on-selection-change}
+                  (<Tree-Node-Column>                title: "Entries" width: 219)))))))
+      (<Border-View>                                 position: {Point 239 33} size: {Dimension 554 204} border-type: edge style: entry
+        (<Text>                       name: notes))
+      (<Tab-View>                     name: entries  position: {Point 239 240} size: {Dimension 554 279} selection-handler: {Event-Handler parent: on-selection-change})))
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (set! log-tree (locate 'log-tree))
+    (refresh))
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'clear) dh 0)
+    (move-figure~ (locate 'refresh) dh 0)
+    (move-figure~ (locate 'on/off) dh 0)
+    (size-figure~ (locate 'log-tree) 0 dv)
+    (size-figure~ (locate 'notes) dh 0)
+    (size-figure~ (locate 'entries) dh dv))
+
+
+  (method public (on-refresh evt)
+    (refresh))
+
+
+  (method (delete-selection)
+    (on-refresh {}))
+  
+  
+  (method public (refresh)
+    (view-log (root-node~ Log)))
+
+
+  (method (view-log log)
+    (with-update-locked~ log-tree
+      (function dynamic ()
+        (remove-every-row~ log-tree)
+        (for-each (function dynamic (sub)
+                    (insert-log sub {}))
+                  (get-children~ log)))))
+
+
+  (method (insert-log log father)
+    (let* ((title (->string (either (present~ log) "Untitled")))
+           (subfather (add-row~ log-tree father: father children: (list (new Tree-Node title: title image: {Bitmap-Resource "OpenedFolder"})) user-data: log)))
+      (for-each (function dynamic (sub)
+                  (insert-log sub father))
+                (get-children~ log))))
+
+
+  (method (describe-log log)
+    (let ((text (locate 'notes))
+          (tab (locate 'entries)))
+      (set-content~ text (get-notes~ log))
+      (invalidate-view~ text)
+      (remove-every-header~ tab)
+      (close-viewer)
+      (let ((entries (get-entries~ log)))
+        (when entries
+          (for-each (function dynamic (entry)
+                      (add-header~ tab (get-title~ entry) user-data: entry))
+                    entries)
+          (call-selection-handler~ tab '() '() #f #t)))))
+
+
+  (method (view-entry entry)
+    (close-viewer)
+    (let ((class (get-viewer-class~ entry)))
+      (when class
+        (set! viewer
+              (new class
+                container: entry
+                parent: (locate 'entries))))))
+
+
+  (method (close-viewer)
+    (when viewer
+      (close~ viewer)
+      (set! viewer {})))
+
+
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((log-tree)
+          (let ((selection (get-single-selection~ sender)))
+            (when selection
+              (let ((log (get-user-data~ (get-row~ sender selection))))
+                (when log
+                  (describe-log log))))))
+        ((entries)
+          (let ((selection (get-selection~ sender)))
+            (when selection
+              (view-entry (get-user-data~ sender selection))))))))))

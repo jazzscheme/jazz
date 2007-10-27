@@ -1,0 +1,158 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Toolbox Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.toolbox.Toolbox-Manager jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Toolbox-Manager extends Editor-View
+
+
+  (form
+    (<install>                            layout-type: border
+      (<Layout-View>    name: tools
+        (<Push-Tool>    name: new         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler form: on-new}))
+      (<Toolbox-Editor> name: descendants location: center
+        (<!>            name: scroller    flat?: #t)
+        (<!>            name: tree        highlight-edited?: #f auto-expand/collapse?: #t
+          (<!>          name: descendant  title: "Model" width: 291)))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'toolbox-manager)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Toolbox"})
+  
+
+  @convert-guest
+  (method meta (palette-title)
+    "Toolbox")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (locate '(descendants tree))))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Reading
+  ;;;
+  
+  
+  (method meta (read-toolbox)
+    (with-safe-execution "loading the toolbox"
+      (function dynamic ()
+        (let ((file {File User "Settings" "Toolbox.jml"}))
+          (when (exists?~ file)
+            (let ((process (get-process))
+                  (toolbox (instantiate~ (read-from-file file))))
+              (install-context~ process toolbox)
+              toolbox))))
+      continue-handler:
+      (function dynamic (err)
+        )))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (set-shown?~ (locate-component '(descendants header)) #f)
+    (set-editor~ (locate 'descendants) self)
+    (set-client (read-toolbox)))
+  
+  
+  ;;;
+  ;;;; Document
+  ;;;
+    
+  
+  (method (document-status)
+    "Toolbox")
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-new evt)
+    (let ((name (request-name class: Symbol-Request)))
+      (if (or (not name) (not (in-manifest? name)))
+          (error "Unknown class: {t}" name)
+        (let ((class (autoload name)))
+          (if (not (subtype? class Component))
+              (error "{t} is not a Component class" name)
+            (let* ((editor (current-document))
+                   (selection (get-selection~ editor))
+                   (client (if (= 1 (length selection)) (car selection) {})))
+              (add-new~ (get-surrogate~ client) class {Point 0 0} :centered? #f)))))))))

@@ -1,0 +1,225 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Color Row
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.row.Color-Row jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Color-Row extends Value-Row
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method (present color)
+    (if (null? color)
+        "{}"
+      ;; temp patch for brushes...
+      (if (is-not? color Color)
+          (format "{a}" (get-name~ color))
+        (present~ color))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method public (update-color)
+    (set-background~ (locate~ editor 'color) (get-edited-value)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw-cell dc context value column row cell width height)
+    (draw-at~ column dc context row cell 15 0 width height)
+    (with ((outer (new Rect 2 3 13 (- height 3)))
+           (inner (inflate-rect outer -1 -1)))
+      (frame-rect~ dc outer {Color name: Black})
+      (if value
+          (fill-rect~ dc inner value)
+        (set-pen~ dc {Pen name: Black})
+        (line~ dc (- (get-right~ outer) 1) (get-top~ outer) (- (get-left~ outer) 1) (get-bottom~ outer)))))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (new-editor)
+    (new (editor-class)
+      value-row: self))
+  
+  
+  (method (editor-class)
+    Color-Row-Editor)
+  
+  
+  (method (get-edited-value)
+    (let ((content (get-string-content~ (locate~ editor 'body))))
+      (parse-string~ Color content)))
+  
+  
+  (method (set-edited-value value)
+    (set-string-content~ (locate~ editor 'body) (present value))
+    (set-background~ (locate~ editor 'color) value))
+  
+  
+  (method (get-edited-modified?)
+    (get-modified?~ (get-controller~ (locate~ editor 'body))))
+  
+  
+  (method (set-edited-modified? flag)
+    (set-modified?~ (get-controller~ (locate~ editor 'body)) flag))
+  
+  
+  (method (show-cursor)
+    (show-text-cursor~ (locate~ editor 'body)))
+  
+  
+  (method (focused-editor)
+    (locate~ editor 'body)))
+
+
+;;;
+;;;; Editor
+;;;
+
+
+(class Color-Row-Editor extends Color-Combo
+  
+  
+  (form
+    (<install>
+      (<!>     name: color-contour size: {Dimension 14 15} layout-insets: {Rect 1 2 2 2})))
+  
+  
+  (property value-row initialize {} getter get-value-row setter set-value-row)
+  
+  
+  (method (form-model form)
+    (case (get-name~ form)
+      ((body) Color-Value-Text-View)
+      (else (nextmethod form))))
+  
+  
+  (method public (get-value-row)
+    value-row)
+  
+  
+  (method public (set-value-row value)
+    (set! value-row value)
+    (set-value-row~ (locate 'body) value-row))
+  
+  
+  (method (content-change origin)
+    (case origin
+      ((return) (editor-return~ value-row))
+      ((popup) (enter-edited-value~ value-row)))
+    (nextmethod origin)))
+
+
+;;;
+;;;; Color-Value-Text-View
+;;;
+
+
+(class Color-Value-Text-View extends Color-Text-View
+  
+  
+  (property value-row initialize {} getter get-value-row setter set-value-row)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-value-row)
+    value-row)
+  
+  
+  (method public (set-value-row value)
+    (set! value-row value))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (up-arrow-press modifiers)
+    (editor-up-arrow~ value-row modifiers))
+  
+  
+  (method (down-arrow-press modifiers)
+    (editor-down-arrow~ value-row modifiers))
+  
+  
+  (method (document-menu)
+    {})
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-validate view)
+    (editor-focus-validate~ value-row view))
+  
+  
+  (method (focus-lose window view)
+    (nextmethod window view)
+    (editor-focus-lose~ value-row window view))
+  
+  
+  (method (focus-master)
+    (get-tree~ value-row))))

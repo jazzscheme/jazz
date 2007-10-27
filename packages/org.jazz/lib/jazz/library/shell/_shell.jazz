@@ -1,0 +1,170 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows Shell
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.shell jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+;;;
+;;;; Info
+;;;
+
+
+(definition public (root-process-info)
+  (unimplemented 'root-process-info)
+  @windows-specific
+  (let ((info-table (collect-info-table))
+        (root-info (new Process-Info {} {} {})))
+    (for-each-hash (function dynamic (id info)
+                     (let ((parent (either (hash-ref info-table (get-parent-id~ info)) root-info)))
+                       (set-parent~ info parent)
+                       (set-children~ parent (cons info (get-children~ parent)))))
+                   info-table)
+    root-info))
+
+
+(definition (collect-info-table)
+  (unimplemented 'collect-info-table)
+  @windows-specific
+  (let ((info-table (new-hashtable eqv?))
+        (snapshot (CreateToolhelp32Snapshot TH32CS_SNAPPROCESS NULL))
+        (process (new PROCESSENTRY32)))
+    (set process 'dwSize (size-of PROCESSENTRY32))
+    (when (Process32First snapshot process)
+      (let ((continue? #t))
+        (while continue?
+          (let ((name (get-string process 'szExeFile))
+                (id (get process 'th32ProcessID))
+                (parent-id (get process 'th32ParentProcessID)))
+            (hash-set! info-table id (new Process-Info name id parent-id)))
+          (set! continue? (Process32Next snapshot process)))))
+    (CloseHandle snapshot)
+    info-table))
+
+
+;;;
+;;;; Execute
+;;;
+
+
+(definition public (shell-execute file)
+  (unimplemented 'shell-execute)
+  @windows-specific
+  (ShellExecute NULL "Open" (if (string? file) file (parse~ file)) NULL NULL SW_SHOWDEFAULT))
+
+
+;;;
+;;;; Create
+;;;
+
+
+(definition public (create-process command (directory: directory {}) (prefix-directory?: prefix-directory? #f) (capture-input?: capture-input? #f) (capture-output?: capture-output? #f) (capture-error?: capture-error? #f) (pipe-size: pipe-size 65536) (size: size {}) (visible?: visible? #t) (console?: console? #t) (debug-console?: debug-console? #f) (wait-ready: wait-ready {}) (wait-ready-timeout: wait-ready-timeout 5000) (wait?: wait? #t) (timeout: timeout {}))
+  (unimplemented 'create-process)
+  @windows-specific
+  (if (and directory (not (exists?~ directory)))
+      (error "Unable to create process into inexistant directory: {s}" directory)
+    (let ((si (new STARTUPINFO))
+          (pi (new PROCESS_INFORMATION))
+          (sa (new SECURITY_ATTRIBUTES))
+          (cmd (if prefix-directory? (format "{a}\\{a}" (parse~ directory) command) command)))
+      (set sa 'nLength (size-of SECURITY_ATTRIBUTES))
+      (set sa 'bInheritHandle #t)
+      (let ((input-pipe  (new Pipe :security-attributes sa size: pipe-size))
+            (output-pipe (new Pipe :security-attributes sa size: pipe-size))
+            (error-pipe  (new Pipe :security-attributes sa size: pipe-size)))
+        (set si 'cb (size-of STARTUPINFO))
+        (let ((flags (if (or capture-input? capture-output? capture-error?) STARTF_USESTDHANDLES 0)))
+          (when size
+            (set si 'dwXSize (get-width~ size))
+            (set si 'dwYSize (get-height~ size))
+            (set! flags (bit-or flags STARTF_USESIZE)))
+          (when (not visible?)
+            (set! flags (bit-or flags STARTF_USESHOWWINDOW))
+            (set si 'wShowWindow SW_HIDE))
+          (set si 'dwFlags flags))
+        (when capture-input?
+          (set si 'hStdInput (get-read-handle~ input-pipe)))
+        (when capture-output?
+          (set si 'hStdOutput (get-write-handle~ output-pipe)))
+        (when capture-error?
+          (set si 'hStdError (get-write-handle~ error-pipe)))
+        (if (not (CreateProcess
+                   NULL
+                   cmd
+                   NULL
+                   NULL
+                   ;; If anybody ever wants to put that bInheritHandles back to #t, they better
+                   ;; think carefully about it, as this was the cause of an unbelievably tough to debug
+                   ;; bug, where sockets didn't have the same behavior when used between two processes
+                   ;; if they where started independently or if one created the other...
+                   ;; old code : (and (not wait-ready) wait?)
+                   (or capture-input? capture-output? capture-error?)
+                   (bit-or (if console? CREATE_NEW_CONSOLE 0))
+                   NULL
+                   (if directory (parse~ directory) NULL)
+                   si
+                   pi))
+            (error "Could not create process {t} (error {t})"
+                   cmd
+                   (winerror))
+          (when debug-console?
+            (sleep 5000))
+          (let ((process-handle (get pi 'hProcess))
+                (process-id (get pi 'dwProcessId)))
+            (cond (wait-ready
+                    (let ((wait-event (CreateEvent NULL #f #f wait-ready)))
+                      (ecase (WaitForSingleObject wait-event wait-ready-timeout)
+                        ((WAIT_TIMEOUT) {})
+                        (else (new Child-Process process-handle process-id input-pipe output-pipe error-pipe)))))
+                  ((not wait?)
+                   (new Child-Process process-handle process-id input-pipe output-pipe error-pipe))
+                  (else
+                   (wait-for process-handle :timeout timeout)
+                   (let* ((output-content (essay capture-output? (read-content~ (get-reader~ output-pipe))))
+                          (output-lines (essay capture-output? output-content (split output-content (cn))))
+                          (error-content (essay capture-error? (read-content~ (get-reader~ error-pipe))))
+                          (error-lines (essay capture-error? error-content (split error-content (cn)))))
+                     (receive (ok? code) (GetExitCodeProcess process-handle)
+                       (CloseHandle (get pi 'hProcess))
+                       (CloseHandle (get pi 'hThread))
+                       (close~ input-pipe)
+                       (close~ output-pipe)
+                       (close~ error-pipe)
+                       (values code output-lines error-lines))))))))))))

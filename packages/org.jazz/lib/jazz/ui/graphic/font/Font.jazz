@@ -1,0 +1,343 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Font
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.graphic.font.Font jazz
+
+
+(import (jazz.library)
+        (jazz.literals)
+        (jazz.ui.graphic.font)
+        (jazz.platform.cairo))
+
+
+(class Font extends Object
+  
+  
+  (slot name       initialize {})
+  (slot font-name  initialize {})
+  (slot point-size initialize {})
+  (slot color      initialize {})
+  (slot bold?      initialize #f)
+  (slot italic?    initialize #f)
+  (slot underline? initialize #f)
+  (slot monospace? initialize #f)
+  (slot handle     initialize {})
+  (slot source     initialize {})
+  (slot metrics    initialize {})
+  (slot all-widths initialize {})
+  (slot cairo-font initialize {})
+  
+  
+  (method (initialize (name: name {})
+                      (stock: stock {})
+                      (logfont: logfont {})
+                      (font-name: font-name {})
+                      (point-size: point-size {})
+                      (color: color {})
+                      (bold?: bold? #f)
+                      (italic?: italic? #f)
+                      (underline?: underline? #f)
+                      (monospace?: monospace? #f))
+    (nextmethod)
+    
+    
+    @old-shit
+    (cond (stock
+            (set! handle (GetStockObject stock))
+            (set! source 'stock)
+            (fill-info (get-logfont)))
+          (logfont
+            (set! handle (CreateFontIndirect logfont))
+            (set! source 'indirect)
+            (fill-info logfont)
+            (destroy-mandatory))
+          (else
+           (set! font-name~self font-name)
+           (set! point-size~self point-size)
+           (set! color~self color)
+           (set! bold?~self bold?)
+           (set! italic?~self italic?)
+           (set! underline?~self underline?)
+           (set! monospace?~self monospace?)
+           (set! handle (CreateFont (calculate-height point-size) 0 0 0 (if bold? FW_BOLD FW_NORMAL) (if italic? 1 0) (if underline? 1 0) 0 ANSI_CHARSET OUT_DEFAULT_PRECIS CLIP_DEFAULT_PRECIS DEFAULT_QUALITY DEFAULT_PITCH font-name))
+           (set! source 'direct)
+           (destroy-mandatory)))
+    
+    
+    (set! name~self name)
+    (set! font-name~self font-name)
+    (set! point-size~self point-size)
+    (set! color~self color)
+    (set! bold?~self bold?)
+    (set! italic?~self italic?)
+    (set! underline?~self underline?)
+    (set! monospace?~self monospace?)
+    (set! handle~self (create-font-handle height: (calculate-height point-size) bold?: bold? italic?: italic? underline?: underline? font-name: font-name))
+    (set! cairo-font~self (create-cairo-font-handle handle~self)))
+  
+  
+  (method (calculate-height point-size)
+    (round (/ (* point-size 96) 72)))
+  
+  
+  (method (calculate-point-size height)
+    (round (/ (* height 72) 96)))
+
+
+  (method (destroy)
+    (destroy-cairo-font-handle cairo-font)
+    (destroy-font-handle handle)
+    (nextmethod))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Font)
+           :incompatible)
+          ((and name (= name (get-name~ target)))
+           :equal)
+          ((and (= source 'direct)
+                (= font-name (get-font-name~ target))
+                (= point-size (get-point-size~ target))
+                (= color (get-color~ target))
+                (= bold? (get-bold?~ target))
+                (= italic? (get-italic?~ target))
+                (= underline? (get-underline?~ target)))
+           :equal)
+          ((= handle (get-handle~ target))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    (if name
+        `(registered-font ',name)
+      `(new Font
+         font-name: ',font-name
+         point-size: ',point-size
+         color: ',color
+         bold?: ',bold?
+         italic?: ',italic?
+         underline?: ',underline?
+         monospace?: ',monospace?)))
+  
+  
+  (method (print printer readably)
+    (cond (name
+           (format printer "~{{a} name: {s}}"
+                   (identifier-name (type-name (class-of self)))
+                   name))
+          (font-name
+           (format printer "~{{a} font-name: {s} point-size: {s} color: {s} bold?: {s} italic?: {s} underline?: {s} monospace?: {s}}"
+                   (identifier-name (type-name (class-of self)))
+                   font-name
+                   point-size
+                   color
+                   bold?
+                   italic?
+                   underline?
+                   monospace?))
+          (else
+           (print-unreadable self printer
+             (function dynamic (printer)
+               )))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (get-font-name)
+    font-name)
+  
+  
+  (method public (get-point-size)
+    point-size)
+  
+  
+  (method public (get-color)
+    color)
+  
+  
+  (method public (get-bold?)
+    bold?)
+  
+  
+  (method public (get-italic?)
+    italic?)
+  
+  
+  (method public (get-underline?)
+    underline?)
+  
+  
+  (method public (get-monospace?)
+    monospace?)
+  
+
+  (method public (get-cairo-font)
+    cairo-font)
+  
+
+  (method (get-handle)
+    handle)
+  
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (definition Work-DC
+    {})
+  
+  
+  (definition (work-dc)
+    (unless Work-DC
+      (set! Work-DC (new Cairo-Memory-Surface {})))
+    Work-DC)
+
+  
+  (method public (text-extent text)
+    (set-font~ (work-dc) self)
+    (get-text-extent~ (work-dc) text))
+
+  
+  (method public (text-width text)
+    (set-font~ (work-dc) self)
+    (get-text-width~ (work-dc) text))
+  
+
+  (method public (font-height)
+    (set-font~ (work-dc) self)
+    (get-font-height~ (work-dc)))
+  
+
+  ;;;
+  ;;;; Metrics
+  ;;;
+  
+  
+  (method public (get-metrics)
+    (unless metrics
+      (set! metrics
+            (begin
+              (set-font~ (work-dc) self)
+              (new Font-Metrics (get-text-metrics~ (work-dc))))))
+    metrics)
+
+  
+  (method public (get-all-widths)
+    (unless all-widths
+      (set! all-widths 
+            (begin
+              (set-font~ (work-dc) self)
+              (get-char-widths~ (work-dc)))))
+    all-widths)
+  
+  
+  (method public (get-widths . rest)
+    (set-font~ (work-dc) self)
+    (get-char-widths~ (work-dc)))
+  
+  
+  (method public (get-char-width c)
+    (let ((n (char->integer c)))
+      (if (< n 256)
+          (int-array-ref (get-all-widths) n)
+        (set-font~ (work-dc) self)
+        (int-array-ref (get-char-widths~ (work-dc) :first n :last n) 0))))
+  
+  
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method public (extend-font-name name)
+    (new Font
+      font-name: name
+      point-size: point-size
+      bold?: bold?
+      italic?: italic?
+      underline?: underline?
+      monospace?: monospace?))
+  
+  
+  (method public (extend-point-size point-size)
+    (new Font
+      font-name: font-name
+      point-size: point-size
+      bold?: bold?
+      italic?: italic?
+      underline?: underline?
+      monospace?: monospace?))
+  
+  
+  (method public (toggle-bold)
+    (new Font
+      font-name: font-name
+      point-size: point-size
+      bold?: (not bold?)
+      italic?: italic?
+      underline?: underline?
+      monospace?: monospace?))
+  
+  
+  (method public (toggle-italic)
+    (new Font
+      font-name: font-name
+      point-size: point-size
+      bold?: bold?
+      italic?: (not italic?)
+      underline?: underline?
+      monospace?: monospace?))
+  
+  
+  (method public (toggle-underline)
+    (new Font
+      font-name: font-name
+      point-size: point-size
+      bold?: bold?
+      italic?: italic?
+      underline?: (not underline?)
+      monospace?: monospace?))))

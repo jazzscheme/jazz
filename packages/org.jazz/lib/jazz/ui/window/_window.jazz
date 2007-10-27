@@ -1,0 +1,263 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Window Definitions
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window jazz
+
+
+(export (jazz.ui.window.platform.x11     (cond x11))
+        (jazz.ui.window.platform.windows (cond windows)))
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.ui.window.platform.x11     (cond x11))
+        (jazz.ui.window.platform.windows (cond windows)))
+
+
+;;;
+;;;; Window
+;;;
+
+
+(definition public (get-toplevel)
+  (get-toplevel~ (get-application)))
+
+
+(definition public (get-stage)
+  (get-stage~ (get-application)))
+
+
+;;;
+;;;; Desktop
+;;;
+
+
+(definition desktop {})
+
+
+(definition Desktop-DC {})
+  
+
+(definition public (desktop-dc)
+  (unless Desktop-DC
+    (set! Desktop-DC (new Cairo-Memory-Surface {})))
+  Desktop-DC)
+
+
+(definition public (get-desktop)
+  (unless desktop
+    (set! desktop (new Desktop)))
+  desktop)
+
+
+;;;
+;;;; Management
+;;;
+
+
+(definition public (select-foreground-window handle)
+  (platform-select-foreground-window handle))
+
+
+(definition public (get-window-handle-title handle)
+  (platform-get-window-handle-title handle))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+(definition Inhibit-View-Cursor?
+  #f)
+
+
+(definition public (inhibit-view-cursor flag)
+  (set! Inhibit-View-Cursor? flag))
+
+
+(definition (view-update-cursor)
+  @convert
+  (unless Inhibit-View-Cursor?
+    (update-cursor)))
+
+
+;;;
+;;;; Update
+;;;
+
+
+(definition locked-update?
+  #f)
+
+@new-with-locked-update
+(definition locked-rect
+  {})
+
+
+(definition public (with-locked-update proc)
+  (if locked-update?
+      (proc)
+    (let ((toplevel (get-toplevel)))
+      (unwind-protect
+          (begin
+            (platform-lock-window-update (get-handle~ toplevel))
+            (set! locked-update? #t)
+            (proc))
+        (when locked-update?
+          (platform-lock-window-update #f)
+          (set! locked-update? #f)
+          (update-window~ toplevel))))))
+
+
+@new-with-locked-update
+(definition public (with-locked-update proc)
+  (if locked-update?
+      (proc)
+    (let ((toplevel (get-toplevel)))
+      (unwind-protect
+          (begin
+            (set! locked-rect (new Rect 0 0 0 0))
+            (set! locked-update? #t)
+            (proc))
+        (when locked-update?
+          (let ((rect locked-rect)
+                (rect (get-rect~ toplevel)))
+            (set! locked-update? #f)
+            (set! locked-rect {})
+            (redraw-window~ toplevel rect: rect flags: (bit-or RDW_INVALIDATE RDW_ERASE RDW_UPDATENOW RDW_ALLCHILDREN))))))))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+
+(definition Escape-Handler
+  {})
+
+
+(definition public (get-escape-handler)
+  Escape-Handler)
+
+
+(definition public (set-escape-handler handler)
+  (set! Escape-Handler handler))
+
+
+;;;
+;;;; Frame
+;;;
+
+
+(definition Active-Frame
+  {})
+
+
+(definition (get-front-frame)
+  (let ((stage (get-stage)))
+    (when stage
+      (let ((handle (platform-get-window-child-handle (get-handle~ stage))))
+        (while (and handle (not (platform-is-window-visible? handle)))
+          (set! handle (platform-get-next-window-handle handle)))
+        (when handle
+          (get-window handle))))))
+
+
+(definition (activate-front (force?: force? #f))
+  (let ((front (get-front-frame))
+        (active Active-Frame))
+    (when (or force? (/= front active))
+      (when active
+        (deactivate-frame~ active))
+      (when front
+        (activate-frame~ front)))))
+
+
+(definition public (reactivate-active)
+  (let ((front (get-front-frame)))
+    (when front
+      (activate-frame~ front force?: #t))))
+
+
+;;;
+;;;; Popups
+;;;
+
+
+(definition public Passing-Through?
+  #f)
+
+
+(definition popups
+  '())
+
+
+(definition public (close-all-popups)
+  (for-each close-popup popups))
+
+
+(definition public (close-popup popup)
+  (close~ popup)
+  (set! popups (remove! popup popups)))
+
+
+;;;
+;;;; Window Focus
+;;;
+
+
+(definition (get-window-focus) 
+  (let ((focus (platform-get-focus)))
+    (when focus
+      (get-window focus))))
+
+
+(definition (set-window-focus window) 
+  (platform-set-focus (if window (get-handle~ window) #f)))
+
+
+;;;
+;;;; Temporary
+;;;
+
+(definition public (get-work-area)
+  (new Rect 0 0 1280 994)
+  @platform-dependant
+  (with ((area (new RECT)))
+    (SystemParametersInfo SPI_GETWORKAREA NULL area 0)
+    (adjust-work-area-with-taskbar (RECT->rect area)))))

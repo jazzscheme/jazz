@@ -1,0 +1,382 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Toplevel Windows
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.Toplevel jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Toplevel extends Overlapped
+
+  
+  (property fullscreen?  initialize #f getter get-fullscreen?  setter set-fullscreen?)
+  (property caption?     initialize #t  getter get-caption?     setter set-caption?)
+  (property caption-base initialize {}    getter get-caption-base setter set-caption-base)
+  (property caption      initialize {}    getter get-caption      setter set-caption)
+
+
+  (slot maximized?         initialize #f)
+  (slot workspace-splitter initialize {})
+  (slot site               initialize {})
+
+
+  (form
+    (<install> visible?: #f))
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  @windows-specific
+  (method meta protected (register-toplevel (icon: icon {}))
+    (let ((instance (current-instance))
+          (wc (new WNDCLASS)))
+      (set wc 'style         (class-style))
+      (set wc 'lpfnWndProc   (get-window-proc))
+      (set wc 'cbClsExtra    0)
+      (set wc 'cbWndExtra    0)
+      (set wc 'hInstance     instance)
+      (set wc 'hIcon         (load-image~ Image 'icon icon width: 16 height: 16))
+      (set wc 'hCursor       NULL)
+      (set wc 'hbrBackground NULL)
+      (set wc 'lpszMenuName  NULL)
+      (set wc 'lpszClassName (window-class))
+      (RegisterClass wc)))
+  
+  
+  @moved-in-jazz.ui.window.windows
+  (method (window-style rest)
+    (bit-or WS_CLIPSIBLINGS
+            WS_CLIPCHILDREN
+            WS_POPUP
+            WS_OVERLAPPED
+            WS_MINIMIZEBOX
+            WS_SYSMENU))
+  
+
+  @moved-in-jazz.ui.window.windows  
+  (method (window-ex-style rest)
+    WS_EX_APPWINDOW)
+
+
+  (method (default-parent)
+    {})
+
+
+  (method (window-parent)
+    #f)
+
+
+  (method (install rest)
+    (setup-workspace-splitter)
+    (nextmethod rest))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (size-change size)
+    (nextmethod size)
+    (when workspace-splitter
+      (let ((border (if (get-maximized?~ root) 0 4))
+            (height 22))
+        (set-position~ workspace-splitter (new Point border (+ border height)))
+        (set-size~ workspace-splitter (new Dimension (- (get-width~ size) border border) (- (get-height~ size) height border border))))))
+
+
+  (method (on-activate kind)
+    (when (eq? kind 'inactive)
+      (toplevel-deactivate))
+    (nextmethod kind))
+
+  
+  ;;;
+  ;;;; Workspace
+  ;;;
+
+
+  (method (setup-workspace-splitter)
+    (set! workspace-splitter (new-workspace-splitter)))
+  
+  
+  (method protected virtual (new-workspace-splitter)
+    (new Workspace-Splitter parent: self state: 'zoom))
+
+  
+  ;;;
+  ;;;; Stage
+  ;;;
+
+
+  (method public virtual (stage-window)
+    (when workspace-splitter
+      (get-stage~ workspace-splitter)))
+
+
+  (method public virtual (stage-border-class)
+    Stage-Border)
+
+
+  (method public virtual (stage-class)
+    Stage)
+
+  
+  ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method (new-root)
+    (new Toplevel-Root))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-workspace-splitter)
+    workspace-splitter)
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  ;; This gets called when the application is reactivated after switching to another app
+  ;; or after a modal dialog. Note that after a modal dialog, the application doesn't receive
+  ;; an activate message so it could not be used to restore the focus to what it was.
+  (method (focus-gain)
+    (reactivate-focus)
+    processed)
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-close evt)
+    ;; should probably call close
+    ;; (close)
+    (stop-loop~ (get-process))
+    @wait
+    (exit-process~ (get-process))
+    processed)
+  
+  
+  (method (on-activate-app status)
+    (catch Cancel-Signal
+      (let ((appl (get-application)))
+        (if (= status 0)
+            (deactivate~ appl)
+          (restore-minimized~ root)
+          (activate~ appl))))
+    processed)
+
+
+  (method (show)
+    (set-visible-flag #t)
+    (let ((appl (get-application))
+          (pref (get-preferences 'workspaces error?: #f)))
+      (when pref
+        (let ((active (get-active~ pref)))
+          (apply-preferences~ (child~ pref active))))
+      (nextmethod)
+      (show-undisplayed-message~ appl)
+      (workspace-installed~ appl))
+    (update-window))
+    
+  
+  ;;;
+  ;;;; Fullscreen
+  ;;;
+
+
+  (method public (get-fullscreen?)
+    fullscreen?)
+
+
+  (method public (set-fullscreen? value)
+    (when (/= value fullscreen?)
+      (set! fullscreen? value)
+      (update-bounds)))
+  
+  
+  (method public (update-bounds)
+    (with-locked-update
+      (function dynamic ()
+        (let ((splitter (get-workspace-splitter))
+              (maximized? (get-maximized?~ root))
+              (caption-height 22))
+          (cond ((or fullscreen? (not caption?))
+                 (let* ((desktop (get-desktop))
+                        (size (get-size~ desktop)))
+                   (when fullscreen?
+                     (set-position {Point 0 0})
+                     (set-size size))
+                   (when splitter
+                     (set-position~ splitter {Point 0 0})
+                     (set-size~ splitter size))))
+                (maximized?
+                  (let* ((rect (get-work-area))
+                         (size (rect-size rect)))
+                    (when maximized?
+                      (set-position (rect-position rect))
+                      (set-size size))
+                    (when splitter
+                      (set-position~ splitter (new Point 0 caption-height))
+                      (set-size~ splitter (- size (new Point 0 caption-height))))))
+                (else
+                 (let ((size (get-size)))
+                   (when splitter
+                     (set-position~ splitter (new Point 4 (+ caption-height 4)))
+                     (set-size~ splitter (- size (new Point 8 (+ caption-height 8))))))))))))
+
+  
+  ;;;
+  ;;;; Base
+  ;;;
+  
+  
+  (method public (get-caption-base)
+    caption-base)
+  
+
+  (method public (set-caption-base value)
+    (set! caption-base value)
+    (invalidate-title))
+    
+  
+  ;;;
+  ;;;; Caption
+  ;;;
+
+
+  (method public (get-caption?)
+    caption?)
+
+
+  (method public (set-caption? value)
+    (when (/= value caption?)
+      (set! caption? value)
+      (update-bounds)))
+  
+  
+  (method public (get-caption)
+    caption)
+  
+  
+  (method public (set-caption value)
+    (set! caption value)
+    (invalidate-title))
+  
+  
+  (method public (refresh-caption)
+    (let ((frame (current-frame)))
+      (set! caption (if frame (get-window-title~ frame) {}))
+      (invalidate-title)))
+    
+  
+  ;;;
+  ;;;; Title
+  ;;;
+  
+  
+  (method (invalidate-title)
+    (let ((title (effective-title)))
+      (set-title title)
+      (set-title~ root title)
+      (invalidate-caption~ root)))
+  
+  
+  (method protected virtual (effective-title)
+    (if (or (not caption) (not maximized?))
+        caption-base
+      (format "{a} - {a}" (localize caption-base) caption)))
+    
+  
+  ;;;
+  ;;;; Maximize
+  ;;;
+  
+  
+  (method public (maximize)
+    (set! maximized? #t)
+    (invalidate-title))
+  
+  
+  (method public (restore)
+    (set! maximized? #f)
+    (invalidate-title))
+  
+  
+  ;;;
+  ;;;; Palettes
+  ;;;
+  
+  
+  (method public (get-palettes)
+    (collect-if (function dynamic (window)
+                  (and (is? window Palette)
+                       (get-visible?~ window)))
+                children))
+  
+  
+  ;;;
+  ;;;; Site
+  ;;;
+  
+  
+  (method public (insert-menus menu menu-widths)
+    )
+  
+  
+  (method public (set-status-text text)
+    @waiting-for-a-way-to-patch-this-fucking-global-status-for-every-site-chit
+    (user-message "{a}" text))))

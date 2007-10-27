@@ -1,0 +1,135 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; dBase Inventory Column
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.dbase.dBase-Inventory-Column jazz
+
+
+(import (jazz.access))
+
+
+(class dBase-Inventory-Column extends Inventory-Column uses (Utilities System COM DAO)
+  
+  
+  (slot handle)
+  (slot internal-type initialize {})
+  (slot scale         initialize 0)
+  (slot precision     initialize 0)
+  
+  
+  (method (initialize inventory parent index-column? internal-type scale precision handle)
+    (nextmethod inventory parent index-column?)
+    (set! internal-type~self internal-type)
+    (set! scale~self scale)
+    (set! precision~self precision)
+    (set! handle~self handle)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (corelease handle)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method public (get-handle)
+    handle)
+  
+  
+  (method (get-datatype)
+    (new-datatype~ dBase-Datatype (get-type) (get-size) {} {}))
+  
+  
+  (method (get-type)
+    (cond
+      ((= internal-type "N") "Number")
+      ((= internal-type "F") "Float")
+      ((null? internal-type) (subseq (symbol->string (value->name~ DAO.DataTypeEnum (get-Type~ handle))) 2))
+      (else (error "mauvais type dBase"))))
+  
+  
+  (method (get-size)
+    (get-Size~ handle))
+  
+  
+  (method (set-datatype datatype (scale 0) (precision 0))
+    (let* ((name (get-name~ datatype))
+           (size (get-size~ datatype))
+           (internal-type
+             (cond
+               ((= name "Memo") "M")
+               ((= name "Number") "N")
+               ((= name "Float") "F")
+               (else {}))))
+      (if internal-type
+          (let ((arbitrary-text-size 7))
+            (add-pending-column~ parent (get-title) internal-type scale precision)
+            (set! internal-type~self internal-type)
+            (set! scale~self scale)
+            (set! precision~self precision)
+            (put-Type~ handle (value->name~ DAO.DataTypeEnum (string->symbol (append "dbText"))))
+            (put-Size~ handle arbitrary-text-size))
+        (put-Type~ handle (value->name~ DAO.DataTypeEnum (string->symbol (append "db" name))))
+        (when size
+          (put-Size~ handle size)))))
+  
+  
+  (method (set-size size)
+    )
+  
+
+  (method (get-scale)
+    scale)
+  
+  
+  (method (get-precision)
+    precision)
+ 
+  
+  (method (get-ordinal-position)
+    (get-OrdinalPosition~ handle))
+  
+  
+  (method (get-title)
+    (get-Name~ handle))
+  
+  
+  (method (get-indexes)
+    (get-Indexes~ handle))))

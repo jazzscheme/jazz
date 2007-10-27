@@ -1,0 +1,222 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTTP Messages
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.http.HTTP-Message jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class HTTP-Message extends Object)
+
+
+@convert
+
+
+(class HTTP-Message extends Object
+  
+  
+  (slot headers initialize (new-hashtable equal?))
+  (slot cookies initialize (new-hashtable equal?))
+  
+  
+  ;;;
+  ;;;; Parsing
+  ;;;
+  
+  
+  (definition Header-End
+    (coerce (list #\return #\line-feed #\return #\line-feed) Ansi-String))
+    
+  
+  (definition Line-Separator
+    (coerce (list #\return #\line-feed) Ansi-String))
+
+  
+  (method (split-message message)
+    (let ((end (search message Header-End)))
+      (if (null? end)
+          (values message {})
+        (values (subseq message 0 end)
+                (subseq message (+ end (length Header-End)))))))
+  
+  
+  ;; First approximation not taking into account
+  ;; that a header can be broken down over multiple lines
+  (method (split-head head)
+    (split head Line-Separator))
+  
+  
+  (method (parse-headers headers)
+    (for-each (function dynamic (header)
+                (unless (empty-string? header)
+                  (let* ((pos (find #\colon header return: 'position))
+                         (name (subseq header 0 pos))
+                         (value (subseq header (+ pos 2))))
+                    (add-header name value))))
+              headers))
+  
+  
+  (method (parse-cookies header)
+    (for-each parse-cookie (get-list-header header error?: #f)))
+  
+  
+  (method (parse-cookie cookie-value)
+    (let* ((pos (find #\= cookie-value return: 'position))
+           (semi (find #\; cookie-value return: 'position))
+           (name (subseq cookie-value 0 pos))
+           (value (subseq cookie-value (+ pos 1) semi)))
+      (add-cookie (new HTTP-Cookie name value))))
+  
+  
+  ;; I think this is generic for both request and response
+  (method (receive-body socket body)
+    (let ((content-length (get-header "Content-Length" error?: #f)))
+      (if (null? content-length)
+          body
+        (let ((content-length (parse-integer content-length))
+              (body-length (length body)))
+          (if (= content-length body-length)
+              body
+            (let ((printer (new String-Printer))
+                  (total body-length))
+              (format printer "{a}" body)
+              (while (< total content-length)
+                (let* ((block (receive-raw~ socket))
+                       (string (coerce block String)))
+                  (format printer "{a}" string)
+                  (increase! total (length string))))
+              (get-output~ printer)))))))
+  
+  
+  ;;;
+  ;;;; Headers
+  ;;;
+  
+  
+  (method public (get-headers)
+    headers)
+  
+  
+  (method public (get-header name (error?: error? #t))
+    (either (hash-ref headers name)
+            (when error?
+              (error "Unknown header: {s}" name))))
+  
+  
+  (method public (get-list-header name . rest)
+    (let ((value (apply get-header name rest)))
+      (if (string? value)
+          (list value)
+        value)))
+  
+  
+  (method public (add-header name value)
+    (let* ((actual (hash-ref headers name))
+           (new-value
+            (cond ((null? actual) value)
+                  ((pair? actual) (append actual (list value)))
+                  (else (list actual value)))))
+      (hash-set! headers name new-value)))
+  
+  
+  ;;;
+  ;;;; Cookies
+  ;;;
+
+
+  (method public (get-cookies)
+    cookies)
+  
+  
+  (method public (get-cookie name)
+    (hash-ref cookies name))
+  
+  
+  (method public (get-cookie-value name)
+    (let ((cookie (get-cookie name)))
+      (when cookie
+        (get-value~ cookie))))
+  
+  
+  (method public (add-cookie cookie)
+    (let ((name (get-name~ cookie)))
+      (hash-set! cookies name cookie)))
+  
+  
+  (method public (for-each-cookie proc)
+    (for-each-hash proc cookies))
+  
+  
+  ;;;
+  ;;;; Send
+  ;;;
+  
+  
+  (method public virtual (send-message socket)
+    (unimplemented 'send-message)
+    @windows-specific
+    (let* ((string (message-string))
+           (block (coerce string Heap-Block)))
+      (send-raw~ socket block)))
+  
+  
+  (method protected virtual (message-string)
+    )
+  
+  
+  ;;;
+  ;;;; Output
+  ;;;
+  
+  
+  (method (output-headers printer)
+    (for-each-hash (function dynamic (name value)
+                     (output-header name value printer))
+                   headers))
+  
+  
+  (method (output-header name value printer)
+    (format printer "{%}{a}: {a}" name value))
+  
+  
+  (method (output-cookies header printer)
+    (for-each-cookie
+      (function dynamic (name cookie)
+        (let ((value (get-value~ cookie)))
+          (output-header header (format "{a}={a}; Path=/" name value) printer)))))))

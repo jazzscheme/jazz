@@ -1,0 +1,175 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Domain Chooser 
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.choosers.Domain-Chooser jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Domain-Chooser extends View
+  
+
+  (property names    initialize '() getter get-names    setter set-names)
+  (property selected initialize {}  getter get-selected setter set-selected)
+
+  
+  (form
+    (<install>                                       size: {Dimension 222 388}
+      (<Label-View>                                  title: "Select the details that will be displayed" position: {Point 10 9} size: {Dimension 201 16} font: {Font name: Default-GUI})
+      (<Border-View>              name: names-border position: {Point 9 33} size: {Dimension 201 304} border-type: edge
+        (<Scroller-View>                             hscroll?: #t vscroll?: #t
+          (<!>                    name: content      layout-type: fill
+            (<Tree-View>          name: names-tree   filled-column: detail top-padding: 2 portfolio: :icons return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press}
+              (<Tree-Node-Column> name: detail       toplevel-controls?: #f display-images?: #f width: 200)))))
+      (<Push-Button>              name: ok           title: "OK" position: {Point 30 351} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>              name: cancel       title: "Cancel" position: {Point 114 351} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((tree (get-tree)))
+      (setup-names tree)
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-names)
+    names)
+
+
+  (method public (set-names value)
+    (set! names value))
+
+
+  (method public (get-selected)
+    selected)
+
+
+  (method public (set-selected value)
+    (set! selected value))
+  
+  
+  (method (get-tree)
+    (locate 'names-tree))
+  
+  
+  (method (get-text)
+    (locate '(column-size text)))
+
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Domain-Chooser-Dialog)
+  
+
+  @convert-dialog
+  (class meta Domain-Chooser-Dialog extends Host-Dialog
+    
+    
+    (form
+      (<install> title: "Choose Values" position: {Point 450 300} size: {Dimension 252 120})))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+
+  
+  (method (setup-names tree)
+    (with-update-locked~ tree
+      (function dynamic ()
+        (remove-every-row~ tree)
+        (for-each (function dynamic (info)
+                    (let* ((border 0)
+                           (layout (new Layout-View :layout-type 'fill :layout-insets (new Rect 4 border border border)))
+                           (color {Color name: Black})
+                           (font (if (eq? size 'filled) {Font name: Ansi-Bold} {Font name: Ansi-Var}))
+                           (name (if (string? info) info (car info)))
+                           (title (if (string? info) info (localize (cadr info))))
+                           (checked? (member? name selected))
+                           (checkbox (new Check-Box font: font parent: layout title: title checked?: checked? color: color user-data: name)))
+                      (add-row~ tree children: (list layout) user-data: checkbox)))
+                  names))))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (let ((tree (get-tree))
+          (fact (new List-Factory)))
+      (for-each-row~ tree
+        (function dynamic (row rank)
+          (let ((checkbox (get-user-data~ row)))
+            (when (and (is? checkbox Check-Box) (get-checked?~ checkbox))
+              (let ((name (get-user-data~ checkbox)))
+                (put~ fact name))))))
+      (get-output~ fact)))))

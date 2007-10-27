@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Clipboard
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.clipboard jazz
+
+
+(definition *super-quicky-clipboard*
+  "")
+
+
+(definition public (get-clipboard (type: type 'text))
+  *super-quicky-clipboard*
+  @platform-dependant
+  (case type
+    ((metafile)
+     (with-opened-clipboard
+       (function dynamic ()
+         (get-clipboard-metafile))))
+    ((text)
+     (with-opened-clipboard
+       (function dynamic ()
+         ;; Because I do not store unicode characters in saved files,
+         ;; lets get only ansi text from the clipboard...
+         (get-clipboard-text :format CF_TEXT :unicode? #f))))))
+
+
+(definition public (set-clipboard object (type: type {}) (empty?: empty? #t))
+  (set! *super-quicky-clipboard* object)
+  @platform-dependant
+  (typecase object
+    ((String)
+     (with-opened-clipboard
+       (function dynamic ()
+         (set-clipboard-text object))
+       :empty? empty?))
+    (else
+     (case type
+       ((metafile)
+        (with-opened-clipboard
+          (function dynamic ()
+            (set-clipboard-metafile object))
+          :empty? empty?))
+       (else
+        (unimplemented 'set-clipboard))))))
+
+
+(definition public (get-clipboard-formats)
+  (unimplemented 'get-clipboard-formats)
+  @platform-dependant
+  (let ((formats (new List-Factory))
+        (fmt 0))
+    (while (/= (set! fmt (EnumClipboardFormats fmt)) 0)
+      (put~ formats fmt))
+    (get-output~ formats)))
+
+
+(definition public (with-opened-clipboard proc (empty?: empty? #f))
+  (unimplemented 'with-opened-clipboard)
+  @platform-dependant
+  (let ((opened? #f))
+    (unwind-protect
+        (begin
+          (OpenClipboard NULL)
+          (set! opened? #t)
+          (when empty?
+            (EmptyClipboard))
+          (proc))
+      (when opened?
+        (CloseClipboard)))))
+
+
+(definition public (clipboard-format-available? format)
+  (unimplemented 'format-available?)
+  @platform-dependant
+  (with-opened-clipboard
+    (function dynamic ()
+      (let ((format (get-format format))
+            (formats (get-clipboard-formats)))
+        (member? format formats)))))
+
+
+;;;
+;;;; Jazz
+;;;
+
+
+(definition formatted-text
+  "FORMATTED_TEXT")
+
+(definition jazz-parcels
+  "JAZZ_PARCELS")
+
+
+(definition (prefixed-format format)
+  (unimplemented 'prefixed-format)
+  @platform-dependant
+  (append (clipboard-prefix~ (get-application)) format))
+
+
+(definition public (register-jazz-clipboard-formats)
+  (unimplemented 'register-jazz-clipboard-formats)
+  @platform-dependant
+  (register-clipboard-format :formatted-text (prefixed-format formatted-text))
+  (register-clipboard-format :jazz-parcels (prefixed-format jazz-parcels)))
+
+
+(definition public (get-jazz-clipboard format)
+  (unimplemented 'get-jazz-clipboard)
+  @platform-dependant
+  (with-opened-clipboard
+    (function dynamic ()
+      (get-clipboard-text :format format))))
+
+
+(definition public (set-jazz-clipboard format text)
+  (unimplemented 'set-jazz-clipboard)
+  @platform-dependant
+  (with-opened-clipboard
+    (function dynamic ()
+      (set-clipboard-text text :format format))
+    :empty? #t))
+
+
+(definition public (get-jazz-parcels)
+  (unimplemented 'get-jazz-parcels)
+  @platform-dependant
+  (when (clipboard-format-available? :jazz-parcels))
+  (read-string-element (get-jazz-clipboard :jazz-parcels)))
+
+
+;;;
+;;;; Low Level
+;;;
+
+
+;; format CF_UNICODETEXT
+(definition public (get-clipboard-text (format: format #f) (unicode?: unicode? #t))
+  (unimplemented 'get-clipboard-text)
+  @platform-dependant
+  (JzGetClipboardText (get-format format) unicode?))
+
+
+;; format CF_UNICODETEXT
+(definition public (set-clipboard-text text (format: format #f) (unicode?: unicode? #t))
+  (unimplemented 'set-clipboard-text)
+  @platform-dependant
+  (JzSetClipboardText text (get-format format) unicode?))
+
+
+(definition public (set-clipboard-metafile metafile)
+  (unimplemented 'set-clipboard-metafile)
+  @platform-dependant
+  (SetClipboardData CF_ENHMETAFILE metafile))
+
+
+(definition public (get-clipboard-metafile)
+  (unimplemented 'get-clipboard-metafile)
+  @platform-dependant
+  (GetClipboardData CF_ENHMETAFILE))
+
+
+(definition public (get-clipboard-data type)
+  (unimplemented 'get-clipboard-data)
+  @platform-dependant
+  (JzGetClipboardData type))
+
+
+(definition public (set-clipboard-data type data)
+  (unimplemented 'set-clipboard-data)
+  @platform-dependant
+  (JzSetClipboardData type data))
+
+
+;;;
+;;;; Formats
+;;;
+
+
+(definition Formats
+  '())
+
+
+(definition public (register-clipboard-format name format)
+  (unimplemented 'register-clipboard-format)
+  @platform-dependant
+  (let ((id (RegisterClipboardFormat format)))
+    (set! Formats (cons (cons name id) Formats))))
+
+
+(definition public (get-clipboard-format format)
+  (unimplemented 'get-format)
+  @platform-dependant
+  (if (integer? format)
+      format
+    (let ((info (assoc format Formats)))
+      (if info
+          (cdr info)
+        (error "Unknown clipboard format: {t}" format)))))
+
+
+;;;
+;;;; System
+;;;
+
+
+(definition (JzGetClipboardData i) (unimplemented 'JzGetClipboardData))
+(definition (JzSetClipboardData i o) (unimplemented 'JzSetClipboardData))
+(definition (JzGetClipboardText i b) (unimplemented 'JzGetClipboardText))
+(definition (JzSetClipboardText o i b) (unimplemented 'JzSetClipboardText))
+
+
+;;;
+;;;; Clipboard-Parcel
+;;;
+
+
+(class Clipboard-Parcel extends Object
+  
+  
+  (slot process-id)
+  (slot object-id)
+  (slot content)
+  
+  
+  @convert-literal
+  (method meta (construct-literal context process-id object-id content)
+    (new self process-id object-id content))
+  
+  
+  (method (initialize process-id object-id content)
+    (nextmethod)
+    (set! process-id~self process-id)
+    (set! object-id~self object-id)
+    (set! content~self content))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-process-id)
+    process-id)
+  
+  
+  (method public (get-object-id)
+    object-id)
+  
+  
+  (method public (get-content)
+    content)))

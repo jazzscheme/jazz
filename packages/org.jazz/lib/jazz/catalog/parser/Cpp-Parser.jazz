@@ -1,0 +1,260 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; C++ Parser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.catalog.parser.Cpp-Parser jazz
+
+
+(import (jazz.catalog)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Cpp-Parser extends File-Parser
+  
+  
+  (method (parse file time)
+    (new Cpp-File-Entry catalog file time (parse-definitions file)))
+  
+  
+  (method (parse-definitions file)
+    (let ((lines (load-lines~ file))
+          (fact (new List-Factory)))
+      (when (member? (get-extension~ file) '("c" "cpp"))
+        (put~ fact (new Cpp-Category-Entry (get-base~ file))))
+      (for-each (function dynamic (line n)
+                  (let ((define (find-define line n)))
+                    (when define
+                      (put~ fact define)))
+                  (let ((include (find-include line n)))
+                    (when include
+                      (put~ fact include)))
+                  (let ((static (find-static line n)))
+                    (when static
+                      (put~ fact static)))
+                  (let ((extern (find-extern line n)))
+                    (when extern
+                      (put~ fact extern)))
+                  (let ((method (find-method line n)))
+                    (when method
+                      (put~ fact method)))
+                  (let ((export (find-export line n)))
+                    (when export
+                      (put~ fact export))))
+                lines
+                (naturals 0 (length lines)))
+      (get-output~ fact)))
+  
+
+  ;;;
+  ;;;; Define
+  ;;;
+  
+  
+  (constant define
+    "#define")
+  
+  
+  (method (find-define line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line define start: col)
+        (let* ((start (+ col (length define)))
+               (col (skip-whitespace line start: start)))
+          (when (and (> col start) (< col len))
+            (let* ((start col)
+                   (col (skip (function dynamic (c) (or (cpp/java-constituent? c))) line start: start)))
+              (when (and (> col start) (<= col len))
+                (new Cpp-Define-Entry (subseq line start col) n start))))))))
+  
+
+  ;;;
+  ;;;; Include
+  ;;;
+  
+  
+  (constant include
+    "#include")
+  
+  
+  (method (find-include line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line include start: col)
+        (let* ((start (+ col (length include)))
+               (col (skip-whitespace line start: start)))
+          (when (and (> col start) (< col len) (= (element line col) #\double-quote))
+            (let* ((start (+ col 1))
+                   (col (skip (function dynamic (c) (or (cpp/java-constituent? c) (eqv? c #\period))) line start: start)))
+              (when (and (> col start) (< col len) (= (element line col) #\double-quote))
+                (new Cpp-Include-Entry (subseq line start col) n start))))))))
+  
+
+  ;;;
+  ;;;; Static
+  ;;;
+  
+  
+  (constant Static
+    "STATIC")
+  
+  
+  (method (find-static line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line Static start: col)
+        (let* ((start (+ col (length Static)))
+               (col (skip-whitespace line start: start)))
+          (when (> col start)
+            (let* ((start col)
+                   (col (skip cpp/java-constituent? line start: start)))
+              (when (> col start)
+                (let* ((start col)
+                       (col (skip-whitespace line start: start)))
+                  (when (> col start)
+                    (let* ((start col)
+                           (col (skip cpp/java-constituent? line start: start)))
+                      (when (> col start)
+                        (new Cpp-Static-Entry (subseq line start col) n start))))))))))))
+  
+
+  ;;;
+  ;;;; Extern
+  ;;;
+  
+  
+  (constant Extern
+    "EXTERN")
+  
+  
+  (method (find-extern line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line Extern start: col)
+        (let* ((start (+ col (length Extern)))
+               (col (skip-whitespace line start: start)))
+          (when (> col start)
+            (let* ((start col)
+                   (col (skip cpp/java-constituent? line start: start)))
+              (when (> col start)
+                (let* ((start col)
+                       (col (skip-whitespace line start: start)))
+                  (when (> col start)
+                    (let* ((start col)
+                           (col (skip cpp/java-constituent? line start: start)))
+                      (when (> col start)
+                        (new Cpp-Extern-Entry (subseq line start col) n start))))))))))))
+    
+
+  ;;;
+  ;;;; Method
+  ;;;
+  
+  
+  (constant Method
+    "METHOD")
+  
+  
+  (method (find-method line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line Method start: col)
+        (let* ((start (+ col (length Method)))
+               (col (skip-whitespace line start: start)))
+          (when (> col start)
+            (let* ((start col)
+                   (col (skip cpp/java-constituent? line start: start)))
+              (when (> col start)
+                (let* ((start col)
+                       (col (skip-whitespace line start: start)))
+                  (when (> col start)
+                    (let* ((start col)
+                           (col (skip cpp/java-constituent? line start: start)))
+                      (when (> col start)
+                        (let* ((class (subseq line start col))
+                               (start col)
+                               (col (skip (function dynamic (c) (eqv? c #\colon)) line start: start)))
+                          (when (> col start)
+                            (let* ((start col)
+                                   (col (skip cpp/java-constituent? line start: start)))
+                              (new Cpp-Method-Entry class (subseq line start col) n start)))))))))))))))
+
+
+  ;;;
+  ;;;; Export
+  ;;;
+  
+  
+  ;; JAZZAPI jObject JAZZCALL JzGetProcess()
+  ;; JAZZAPI tBOOL JAZZCALL JzNot(tBOOL b)
+  ;; JAZZAPI void JAZZCALL JzSetupType(jType type, jObject name, jType ascendant)
+  
+  
+  (constant Export
+    "JAZZAPI")
+  
+  
+  (method (find-export line n)
+    (let ((len (length line))
+          (col (skip-whitespace line)))
+      (when (search line Export start: col)
+        (let* ((start (+ col (length Export)))
+               (col (skip-whitespace line start: start)))
+          (when (> col start)
+            ;; skip type
+            (let* ((start col)
+                   (col (skip cpp/java-constituent? line start: start)))
+              (when (> col start)
+                (let* ((start col)
+                       (col (skip-whitespace line start: start)))
+                  (when (> col start)
+                    ;; skip JAZZCALL
+                    (let* ((start col)
+                           (col (skip cpp/java-constituent? line start: start)))
+                      (when (> col start)
+                        (let* ((start col)
+                               (col (skip-whitespace line start: start)))
+                          (when (> col start)
+                            (let* ((start col)
+                                   (col (skip cpp/java-constituent? line start: start)))
+                              (when (> col start)
+                                (let* ((name (subseq line start col))
+                                       (col (skip cpp/java-constituent? line start: col))
+                                       (parameters (subseq line (+ col 1) (- len 1)))
+                                       (nb-parameters (if (whitespace? parameters)
+                                                          0
+                                                        (length (split parameters ",")))))
+                                  (new Cpp-Export-Entry name nb-parameters n start)))))))))))))))))))

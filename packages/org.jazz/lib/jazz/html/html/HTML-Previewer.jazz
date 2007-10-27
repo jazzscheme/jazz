@@ -1,0 +1,276 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTML Previewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.html.html.HTML-Previewer jazz
+
+
+(import (jazz.html)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class HTML-Previewer extends Layout-View uses (Utilities System COM WinDef WinUser WinOLE SHDocVw)
+
+
+  (property client initialize {} getter get-client setter set-client)
+  
+  
+  (slot current-url      initialize {})
+  (slot rendering-file   initialize {})
+  (slot rendering-thread initialize {})
+  (slot rendering-done?  initialize #f)
+  (slot next-rendering   initialize {})
+    
+  
+  (form
+    (<install>                      title: "HTML Preview" layout-type: border
+      (<Layout-View>  name: tools   size: {Dimension 100 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>  name: edit    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-edit})
+        (<Separator>                size: {Dimension 4 0})
+        (<Push-Tool>  name: refresh size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler form: on-refresh}))
+      (<Browser-View> name: browser location: center navigate-complete-handler: {Event-Handler form: on-navigate-complete})))
+
+  
+  (definition about-blank
+    "about:blank")
+ 
+  
+  (definition rendering-quantum
+    0.1)
+  
+  (definition rendering-delay
+    0.25)
+               
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'html-previewer)
+
+
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Explore"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "HTML Preview")
+  
+  
+  (method (client-activate)
+    (let ((view (current-document)))
+      (if (is? view HTML-Text-View)
+          (set-client view)
+        (set-client {}))))
+  
+  
+  (method (client-deactivate)
+    (set-client {}))
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (setup~ (get-browser))
+    (set-visible?~ (get-window~ (get-browser)) #t)
+    (start-rendering-thread)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (stop-rendering-thread)
+    (delete-rendering-file)
+    (set! rendering-done? #t)
+    (nextmethod))
+    
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client value)
+    (when (/= value client)
+      (delete-rendering-file)
+      (set! client value)
+      (if (null? client)
+          (navigate~ (get-site) "about:blank")
+        (setup-main-renderer))))
+  
+  
+  (method (get-browser)
+    (locate 'browser))
+  
+  
+  (method (get-site)
+    (get-site~ (get-browser)))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-navigate-complete evt)
+    (set! current-url (get-property~ evt :url)))
+  
+  
+  (method (on-edit evt)
+    (when (and current-url (/= current-url about-blank))
+      (let* ((file (new File (tokenise current-url)))
+             (ext (get-extension~ file)))
+        (if (= ext "tmp")
+            (bell)
+          (edit-document~ (get-application) file)))))
+  
+  
+  (method (on-refresh evt)
+    (if (null? client)
+        (bell)
+      (render-html)))
+    
+  
+  ;;;
+  ;;;; Rendering
+  ;;;
+  
+  
+  (method (start-rendering-thread)
+    @wait
+    (set! rendering-thread (new-rendering-thread)))
+  
+  
+  (method (new-rendering-thread)
+    (new Thread
+      name: "HTML Renderer"
+      context: self
+      execute: (function (thread)
+                 (while (not rendering-done?)
+                   (when client
+                     (maybe-render))
+                   (sleep rendering-quantum))
+                 (set! rendering-thread {}))))
+  
+  
+  (method (stop-rendering-thread)
+    (set! rendering-done? #t)
+    (wait-until (function dynamic () (null? rendering-thread))))
+      
+  
+  (method public (setup-main-renderer)
+    (setup-rendering-file)
+    (save-to~ client rendering-file)
+    (navigate~ (get-site) rendering-file)
+    (set! next-rendering (+ (time->seconds (current-time)) rendering-delay)))
+
+  
+  (method (maybe-render)
+    (when (and next-rendering (> (time->seconds (current-time)) next-rendering) rendering-file)
+      (set! next-rendering {})
+      (render-html)
+      (set! next-rendering (+ (time->seconds (current-time)) rendering-delay))))
+
+  
+  (method (render-html)
+    (save-to~ client rendering-file)
+    (refresh~ (get-site)))
+    
+  
+  ;;;
+  ;;;; Scratch
+  ;;;
+  
+  
+  (definition meta Scratch-Files
+    '())
+  
+  
+  (method meta (get-scratch-info file)
+    (assoc file Scratch-Files))
+  
+  
+  (method meta (get-scratch-client file)
+    (cdr (get-scratch-info file)))
+  
+  
+  (method (setup-rendering-file)
+    (when (null? rendering-file)
+      (let* ((moniker (get-moniker~ (get-controller~ client)))
+             (directory (essay moniker (get-directory~ moniker)))
+             (file (create-temporary-file directory: directory)))
+        (set! Scratch-Files (cons (cons file client) Scratch-Files))
+        (set! rendering-file file))))
+  
+  
+  (method (delete-rendering-file)
+    (when rendering-file
+      (let ((info (get-scratch-info rendering-file)))
+        (set! Scratch-Files (remove! info Scratch-Files)))
+      (delete-file~ rendering-file)
+      (set! rendering-file {})))))

@@ -1,0 +1,181 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Trees
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Alain Marcotte.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Tree-Comparer jazz
+
+
+(import (jazz.groupware)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Tree-Comparer extends Object
+  
+  
+  (method public (compare-nodes parent left-node right-node (left-content: left-content #t) (right-content: right-content #t) (ignored-nodes: ignored-nodes '()) (ignored-leaves: ignored-leaves '()) (ignored-extensions: ignored-extensions '()) (check-algorithm: check-algorithm {}) (feedback: feedback {}))
+    (let* ((has-differences? (list #f))
+           (entry (compare-node-contents parent (create-item left-node) left-content (create-item right-node) right-content ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
+      (values entry (car has-differences?) (scanned-values))))
+  
+  
+  (method (compare-node-contents parent node1 content1 node2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
+    (node-feedback node1 node2 feedback)
+    (let* ((fact    (new List-Factory))
+           (entry   (new-entry parent 'node node1 {} node2 {}))
+           (nodes1  (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'nodes))
+           (nodes2  (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'nodes))
+           (leaves1 (collect-items node1 content1 ignored-nodes ignored-leaves ignored-extensions 'leaves))
+           (leaves2 (collect-items node2 content2 ignored-nodes ignored-leaves ignored-extensions 'leaves))
+           (n       (function dynamic () (compare-items entry 'node nodes1 content1 nodes2 content2 ignored-nodes ignored-leaves ignored-extensions compare-node-contents check-algorithm feedback fact has-differences?)))
+           (l       (function dynamic () (compare-items entry 'leaf leaves1 #t leaves2 #t ignored-nodes ignored-leaves ignored-extensions compare-leaf-values check-algorithm feedback fact has-differences?))))
+      (compare-nodes/leaves n l)
+      (set-children~ entry (get-output~ fact))
+      entry))
+  
+  
+  (method protected virtual (compare-nodes/leaves nodes leaves)
+    (nodes)
+    (leaves))
+  
+  
+  (method protected virtual (compare-leaf-values parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
+    (leaf-feedback leaf1 leaf2 feedback)
+    (let ((value1 (get-value~ leaf1))
+          (value2 (get-value~ leaf2)))
+      (when (and leaf1 leaf2 (different? leaf1 leaf2 check-algorithm))
+        (set-car! has-differences? #t)
+        (new-entry parent 'leaf leaf1 value1 leaf2 value2))))
+  
+  
+  (method (compare-items parent kind items1 content1 items2 content2 ignored-nodes ignored-leaves ignored-extensions proc check-algorithm feedback fact has-differences?)
+    (merge-ordered (function dynamic (what key left right)
+                     (when (or left right)
+                       (case what
+                         ((:left)  (set-car! has-differences? #t) (put~ fact (new-entry parent kind left (when (= kind 'leaf) (get-value~ left)) {} {})))
+                         ((:right) (set-car! has-differences? #t) (put~ fact (new-entry parent kind {} {} right (when (= kind 'leaf) (get-value~ right)))))
+                         ((:same)  (let ((result (proc parent left (content-find left content1) right (content-find right content2) ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)))
+                                   (when result
+                                     (put~ fact result)))))))
+                   items1 items2
+                   key: item-name))
+  
+  
+  (method (content-find item content)
+    (if (eq? content #t)
+        #t
+      (cdr (find (item-name item) content key: item-name test: equal?))))
+  
+  
+  ;;;
+  ;;;; Feedback
+  ;;;
+  
+  
+  (method protected virtual (node-feedback node1 node2 feedback)
+    (feedback (get-moniker~ node1) (get-moniker~ node2)))
+  
+  
+  (method protected virtual (leaf-feedback leaf1 leaf2 feedback)
+    )
+  
+  
+  ;;;
+  ;;;; Item
+  ;;;
+  
+  
+  (method (make-item moniker name value)
+    (new Compare-Item moniker name value))
+  
+  
+  (method (item-name item)
+    (get-name~ item))
+  
+  
+  (method protected virtual (create-item moniker)
+    )
+  
+  
+  (method protected virtual (get-item-type item)
+    )
+  
+  
+  (method protected virtual (get-item-content item kind)
+    )
+  
+  
+  (method protected virtual (different? leaf1 leaf2 check-algorithm)
+    )
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  ;; a quicky until I add more functionality to the settings (maybe regexprs!?)
+  (definition Not-Ignored-Leaves
+    '("Interpreter.exe" "Launcher.exe" "Jedi.exe" "MetaModeler.exe" "MetaModelerBatch.exe"))
+  
+  
+  (method protected virtual (new-entry parent kind left left-value right right-value)
+    (new Compare-Entry parent kind (essay left (get-moniker~ left)) left-value (essay right (get-moniker~ right)) right-value))
+  
+  
+  (method (collect-items node content ignored-nodes ignored-leaves ignored-extensions kind)
+    (collect-if (function dynamic (item)
+                  (collect-item? item content ignored-nodes ignored-leaves ignored-extensions))
+                (sort < (get-item-content node kind) key: item-name)))
+  
+  
+  (method protected virtual (collect-item? item content ignored-nodes ignored-leaves ignored-extensions)
+    (let* ((name (item-name item))
+           (type (get-item-type item))
+           (ignored (case type ((node) ignored-nodes) ((leaf) ignored-leaves) (else '()))))
+      (and (or (and (eq? content #t)
+                    (not (member? name ignored)))
+               (and (neq? content #t)
+                    (member? name content key: item-name)))
+           (or (/= type 'leaf)
+               (null? ignored-extensions)
+               (member? name Not-Ignored-Leaves)
+               (not (member? (get-extension~ (get-moniker~ item)) ignored-extensions))))))
+  
+  
+  (method protected virtual (scanned-values)
+    #t)))

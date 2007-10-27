@@ -1,0 +1,1009 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Platform Access
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform jazz
+
+
+(import (jazz.platform.windows (cond windows))
+        (jazz.io)
+        (jazz.library)
+        (jazz.ui))
+
+
+;;; Windows logging specific
+;;; Not needed right now.
+(definition public (make-event-id . rest) ;; CONVERT code (severity: severity SEVERITY_SUCCESS) (facility: facility FACILITY_NULL))
+  (unimplemented 'make-event-id)
+  @Platform-Specific
+  (+ severity facility code))
+
+
+;;;
+;;;; Messages
+;;;
+
+
+;;; Messaging for threads. Mailboxes in Gambit-C
+
+;;; This is NOT GOOD VALUE
+(definition WM_APP 0)
+
+;;; This was CONSTANT
+(definition JZ_POST     (+ WM_APP 4))
+(definition JZ_SEND     (+ WM_APP 5))
+(definition JZ_RECEIVE  (+ WM_APP 6))
+(definition JZ_TASKICON (+ WM_APP 7))
+
+
+(definition public Messenger
+  {})
+
+(definition public (setup-messaging)
+  (set! Messenger (new Message-Window)))
+
+
+;; Note that a thread that sends or receives code to the primary thread that generates
+;; an error will maybe generate an error of its own when receiving the unexpected {}
+;; sent by ReplyMessage. Currently this will crash the application simply because thread
+;; debugging is not really functionnal (the break-loop and the stop throw are not done
+;; in the debugged thread!)
+(definition public (restore-messaging)
+  (unimplemented 'restore-messaging)
+  @unimp
+  (when (InSendMessage)
+    (ReplyMessage (object-address {}))))
+
+
+;;;
+;;;; EventLog
+;;;
+
+
+(definition public (log-event type event-id message)
+  (unimplemented 'log-event)
+  @unimplemented
+  (let* ((name (process-event-source~ (get-process)))
+         (handle (RegisterEventSource {} name))
+         (strings (new-array string 1)))
+    (array-set! strings 0 message)
+    (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
+
+
+(definition public (log-error-event message . rest) ;; CONVERT (event-id: event-id (make-event-id 1 :severity SEVERITY_ERROR)))
+  (unimplemented 'log-error-event)
+  @unimp
+  (log-event EVENTLOG_ERROR_TYPE event-id message))
+
+
+(definition public (log-success-event message (event-id: event-id (make-event-id 1)))
+  (unimplemented 'log-success-event)
+  @unimp
+  (log-event EVENTLOG_SUCCESS event-id message))
+
+
+;;;
+;;;; System
+;;;
+
+
+(definition public (play-sound sound (asynchronous?: asynchronous? #t))
+  @platform-dependant
+  (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
+    (if (file? sound)
+        (PlaySound (parse~ sound) NULL (bit-or SND_FILENAME async-bit))
+      (PlaySound sound NULL async-bit))))
+
+
+(definition public (with-preserved-current-directory proc)
+  (proc)
+  @unwind-protect
+  (let ((preserved (get-current-directory)))
+    (unwind-protect
+        (proc)
+      (set-current-directory preserved))))
+
+
+;; Because fucking Window's SPI_GETWORKAREA doesn't take autohide into account!
+(definition (adjust-work-area-with-taskbar rect)
+  (unimplemented 'adjust-work-area-with-taskbar)
+  @platform-dependant
+  (let ((state (get-taskbar-state))
+        (edge (get-taskbar-edge)))
+    (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
+        (ecase edge
+          ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
+          ((ABE_TOP)    (expand-rect rect  0  1  0  0))
+          ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
+          ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
+      rect)))
+
+
+(definition public (get-taskbar-state)
+  (unimplemented 'get-taskbar-state)
+  @platform
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETSTATE data)))
+
+
+(definition public (get-taskbar-edge)
+  (unimplemented 'get-taskbar-edge)
+  @platform
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETTASKBARPOS data)
+    (get data 'uEdge)))
+
+
+;;;
+;;;; Message
+;;;
+
+;;; This is now gambit IO.
+
+@could-be-removed
+(definition public (format-system-message id)
+  (let* ((size 128)
+         (msg (make-string (- size 1))))
+    (when (/= (FormatMessage FORMAT_MESSAGE_FROM_SYSTEM 0 id 0 msg size NULL) 0)
+      msg)))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+;;; I think this needs to become platform independent.
+;;; Or atleast be compile time but it must hide the
+;;; OS details...
+
+
+
+
+;;;
+;;;; Dialog
+;;;
+
+;; Returns NULL used by file dialogs. Windows specific.
+;; We will need a platform independent dialog.
+(definition public (extensions-filter extensions)
+  (unimplemented 'extensions-filter)
+  @returns-NULL
+  (if (null? extensions)
+      NULL
+    (let ((dst (new List-Factory))
+          (separator (make-string 1 #\nul)))
+      (for-each (function dynamic (ext)
+                  (put~ dst (car ext))
+                  (put~ dst (cdr ext)))
+                extensions)
+      (put~ dst separator)
+      (join (get-output~ dst) separator))))
+
+
+;;;
+;;;; Threads
+;;;
+
+;;; Adapt to Gambit-C threads.
+
+;;;
+;;;; Message Post
+;;;
+
+
+(definition public Pending-Posts
+  '())
+
+@unimplemented
+(definition public Post-Primary-Lock
+  (new Lock))
+
+
+(definition public (post-primary proc)
+  (proc)
+  @calls-synchronize (
+  (if (primary-thread?)
+      (proc)
+    (synchronize Post-Primary-Lock
+      (set! Pending-Posts (cons proc Pending-Posts))
+      (post-message~ Messenger JZ_POST (object-address proc) NULL)))
+  {}))
+
+
+(definition public (queue-primary proc)
+  (unimplemented 'queue-primary)
+  @calls-synchronize
+  (synchronize Post-Primary-Lock
+    (set! Pending-Posts (cons proc Pending-Posts))
+    (post-message~ Messenger JZ_POST (object-address proc) NULL))
+  {})
+
+
+(definition public (receive-post wparam)
+  (unimplemented 'receive-post)
+  @address-object-unsafe
+  (let ((proc (address-object-unsafe wparam)))
+    (set! Pending-Posts (remove! proc Pending-Posts))
+    (proc)
+    0))
+
+;; All this state manipulation is necessary because I dont
+;; know any Windows API that returns the running state of a thread...
+(definition public (wait-for object/objects (timeout: timeout {}) (error?: error? #t))
+  (unimplemented 'wait-for)
+  @unimp
+  (let* ((get-handle
+           (function dynamic (object)
+             (if (integer? object)
+                 object
+               (get-handle~ object))))
+         (timeout (either timeout INFINITE))
+         (single? (not (pair? object/objects)))
+         (handle/array
+           (if single?
+               (get-handle object/objects)
+             (let ((handles (remove-nils (map get-handle object/objects))))
+               (when handles
+                 (let* ((count (length object/objects))
+                        (array (new-array int count)))
+                   (loop (for object in object/objects)
+                         (for n from 0)
+                         (do (array-set! array n (get-handle object))))
+                   array)))))
+         (thread (active-thread))
+         (state (get-state~ thread)))
+    ;; Can happen for instance if the thread has already terminated...
+    (if (not handle/array)
+        #t
+      (unwind-protect
+          (begin
+            (set-state~ thread (+ state 1))
+            (let ((result (if single?
+                              (WaitForSingleObject handle/array timeout)
+                            (WaitForMultipleObjects (array-length handle/array) handle/array #t timeout))))
+              (if (= result WAIT_OBJECT_0)
+                  #t
+                (when (and (= result WAIT_TIMEOUT) error?)
+                  (error "Wait for {t} timed out" object/objects)))))
+        (set-state~ thread state)))))
+
+
+;;;
+;;;; Processes
+;;;
+
+
+(definition public (guess-process-instance)
+  (unimplemented 'guess-process-instance)
+  @gambit-threads
+  (let ((process-id (GetCurrentProcessId))
+        (process-base (module-base))
+        (count 0))
+    (call/ec
+      (lambda (return)
+        (for-each (function dynamic (id)
+                    (if (= id process-id)
+                        (return count)
+                      (let ((handle (OpenProcess (bit-or PROCESS_QUERY_INFORMATION PROCESS_VM_READ) #f id)))
+                        (let ((name (make-string MAX_PATH)))
+                          (when (GetModuleBaseName handle NULL name MAX_PATH)
+                            (adjust-string name)
+                            (let ((base (extract-base name)))
+                              (when (= base process-base)
+                                (increase! count)))))
+                        (CloseHandle handle))))
+                  (collect-processes-id))))))
+
+
+(definition public (collect-processes-id)
+  (unimplemented 'collect-processes-id)
+  @gambit-threads
+  (let* ((count 512)
+         (processes (new-array int count)))
+    (receive (success? received) (EnumProcesses processes count)
+      (let ((fact (new List-Factory)))
+        (for-each (function dynamic (n)
+                    (let ((id (array-ref processes n)))
+                      (when (/= id 0)
+                        (put~ fact id))))
+                  (naturals 0 (array-length processes)))
+        (get-output~ fact)))))
+
+
+;;;
+;;;; Crash
+;;;
+
+
+(definition public (snapshot-process)
+  (unimplemented 'snapshot-process)
+  @threads
+  (new Thread
+    name: "Process Snapshot"
+    context: self
+    execute: (function (thread)
+               (snapshot-process-content))))
+
+
+(definition public (dump-memory)
+  (unimplemented 'dump-memory)
+  @threads
+  (new Thread
+    name: "Memory Dump"
+    context: self
+    execute: (function (thread)
+               (dump-memory-content))))
+
+
+(definition public Crash-Info
+  {})
+
+
+(definition public (register-crash-info name context info)
+  (unimplemented 'register-crash-info)
+  @threads
+  (let ((pair (assq name Crash-Info))
+        (value (cons context info)))
+    (if (not pair)
+        (set! Crash-Info (append! Crash-Info (list (cons name value))))
+      (set-cdr! pair value)))
+  (update-crash-info))
+
+
+(definition (update-crash-info)
+  (unimplemented 'update-crash-info)
+  @threads
+  (let ((printer (new String-Printer)))
+    (for-each (function dynamic (pair)
+                (bind (name . (context . info)) pair
+                  (format printer "{%}   {a}{a} {a}"
+                    name
+                    (if context (format " {a}" context) "")
+                    info)))
+              Crash-Info)
+    (let ((info (get-output~ printer)))
+      (set-crash-info info))))
+
+
+;;;
+;;;; Compression
+;;;
+
+
+;;(external Jazz int             (zip-open                                ansistring)                                                                                       "JzZipOpen")
+;;(external Jazz void            (zip-open-new-file-in-zip                int ansistring)                                                                                   "JzZipOpenNewFileInZip")
+;;(external Jazz void            (zip-write-in-file-in-zip                int Object)                                                                                       "JzZipWriteInFileInZip")
+;;(external Jazz void            (zip-close-file-in-zip                   int)                                                                                              "JzZipCloseFileInZip")
+;;(external Jazz void            (zip-close                               int)                                                                                              "JzZipClose")
+;;(external Jazz int             (unzip-open                              ansistring)                                                                                       "JzUnzipOpen")
+;;(external Jazz void            (unzip-go-to-first-file                  int)                                                                                              "JzUnzipGoToFirstFile")
+;;(external Jazz bool            (unzip-go-to-next-file                   int)                                                                                              "JzUnzipGoToNextFile")
+;;(external Jazz bool            (unzip-locate-file                       int ansistring)                                                                                   "JzUnzipLocateFile")
+;;(external Jazz Object          (unzip-get-current-file-info             int)                                                                                              "JzUnzipGetCurrentFileInfo")
+;;(external Jazz void            (unzip-open-current-file                 int)                                                                                              "JzUnzipOpenCurrentFile")
+;;(external Jazz void            (unzip-read-current-file                 int Object int)                                                                                   "JzUnzipReadCurrentFile")
+;;(external Jazz void            (unzip-close-current-file                int)                                                                                              "JzUnzipCloseCurrentFile")
+;;(external Jazz void            (unzip-close                             int)                                                                                              "JzUnzipClose")
+
+
+;;;
+;;;; Crash
+;;;
+
+
+;;(external Jazz bool            (get-use-default-crash-handler?)                                                                                                            "JzGetUseDefaultCrashHandler")
+;;(external Jazz void            (set-use-default-crash-handler?          bool)                                                                                              "JzSetUseDefaultCrashHandler")
+;;(external Jazz void            (snapshot-process-content)                                                                                                                  "JzSnapshotProcessContent")
+;;(external Jazz void            (dump-memory-content)                                                                                                                       "JzDumpMemoryContent")
+;;(external Jazz void            (crash-process                           . rest)                                                                                            "JzCrashProcess")
+;;(external Jazz Object          (get-crash-email)                                                                                                                           "JzGetCrashEmail")
+;;(external Jazz void            (set-crash-email                         string)                                                                                            "JzSetCrashEmail")
+;;(external Jazz Object          (get-crash-info)                                                                                                                            "JzGetCrashInfo")
+;;(external Jazz void            (set-crash-info                          string)                                                                                            "JzSetCrashInfo")
+
+
+;;;
+;;;; Database
+;;;
+
+
+;;(external Jazz Object          (read-table                              File Object)                                                                                       "JzReadTable")
+
+
+;;;
+;;;; GUID
+;;;
+
+
+;;(external Jazz Object          (create-guid)                                                                                                                               "JzCreateGUID")
+
+
+;;;
+;;;; HeapBlock
+;;;
+
+
+;;(external Jazz void            (heap-validate)                                                                                                                             "JzHeapValidate")
+
+
+;;;
+;;;; Java
+;;;
+
+
+;;(external Jazz Object          (parse-java                              Object class . rest)                                                                               "JzParseJava")
+;;(external Jazz Object          (java-definitions                        Object . rest)                                                                                     "JzJavaDefinitions")
+
+
+;;;
+;;;; NetworkTime
+;;;
+
+
+;;(external Jazz int             (network-time                            string int)                                                                                        "JzNetworkTime")
+
+
+;;;
+;;;; Platform
+;;;
+
+
+(definition public Mac
+  0)
+
+(definition public Unix
+  1)
+
+(definition public Win32
+  2)
+
+
+;;;
+;;;; Line Ending
+;;;
+
+
+(definition public Mac-Ending
+  0)
+
+(definition public Unix-Ending
+  1)
+
+(definition public Windows-Ending
+  2)
+
+
+(definition public inline (directory? object)
+  (is? object Directory))
+
+
+;; A bit of a temporary patch to enable early use
+;; of Windows functions to get system dirs information
+(definition Libraries
+  '((AdvAPI    . "advapi32.dll")
+    (Comctl    . "comctl32.dll")
+    (Comdlg    . "comdlg32.dll")
+    (GDI       . "gdi32.dll")
+    (Kernel    . "kernel32.dll")
+    (MSImg     . "msimg32.dll")
+    (OLE       . "ole32.dll")
+    (OLEAut    . "oleaut32.dll")
+    (Shell     . "shell32.dll")
+    (Shlw      . "shlwapi.dll")
+    (Socket    . "ws2_32.dll")
+    (User      . "user32.dll")
+    (UserEnv   . "userenv.dll")
+    (WinInet   . "wininet.dll")
+    (WinMM     . "winmm.dll")
+    (Help      . "hhctrl.ocx")
+    (PDH       . "pdh.dll")
+    (PSAPI     . "psapi.dll")
+    (ImgSource . "imaging.dll")
+    (Cairo     . "libcairo-2.dll")))
+
+
+(definition public (initialize-libraries libraries)
+  (for-each (function dynamic (pair)
+              (bind (name . value) pair
+                (hash-set! libraries name value)))
+            Libraries))
+
+
+@windows-specific
+(definition (get-windows-dir)
+  (let ((dirname (make-string MAX_PATH)))
+    (GetWindowsDirectory dirname MAX_PATH)
+    (adjust-string dirname)
+    (tokenise dirname)))
+
+
+@windows-specific
+(definition (get-system-dir)
+  (let ((dirname (make-string MAX_PATH)))
+    (GetSystemDirectory dirname MAX_PATH)
+    (adjust-string dirname)
+    (tokenise dirname)))
+
+
+@windows-specific
+(definition (get-boot-dir)
+  (module-dir))
+
+
+@windows-specific
+(definition (get-base-dir)
+  (let ((boot-dir (get-boot-dir))
+        (uses-bin-directory? (get-boolean-setting (coerce "UsesBinDirectory" Ansi-String) #f)))
+    (if uses-bin-directory?
+        (butlast boot-dir)
+      boot-dir)))
+
+
+@convert
+(definition (get-home-dir)
+  (let ((dir (command-argument "homedir")))
+    (if dir
+        (pathname-argument dir)
+      (if (not (get-compiled-property 'Application))
+          ;; kind of a heuristic for enabling non-applications to boot
+          ;; by double-clicking the exe without having to create a shortcut
+          (append (butlast (get-base-dir)) (list "Products" "org.jedi" "Projects" "Jedi" "Distribution"))
+        (list 'Base)))))
+
+
+@convert
+(definition (get-users-dir)
+  (let ((dir (command-argument "usersdir")))
+    (if dir
+        (pathname-argument dir)
+      (if (and (not (command-argument "homedir"))
+               (not (get-compiled-property 'Application)))
+          ;; kind of a heuristic for enabling non-applications to boot
+          ;; by double-clicking the exe without having to create a shortcut
+          (append (butlast (get-base-dir)) (list "Users"))
+        (list 'Home "Users")))))
+
+
+(definition (pathname-argument arg)
+  (tokenise
+    (if (= (element arg 0) #\double-quote)
+        (subseq arg 1 (- (length arg) 1))
+      arg)))
+
+
+(definition (validate-alias name)
+  (let* ((path (get-alias name))
+         (dir (new Directory path)))
+    (unless (exists?~ dir)
+      (error "Unable to set alias {t} to inexistant directory: {t}" name path))))
+
+
+(definition public (initialize-aliases)
+  (initialize-system-aliases)
+  (initialize-home-aliases))
+
+
+(definition (initialize-system-aliases)
+  @convert(
+  (new-alias 'Windows (get-windows-dir))
+  (new-alias 'System (get-system-dir))))
+
+
+(definition (initialize-home-aliases)
+  (new-alias 'Native #t)
+  (new-alias 'Network "\\")
+  ;; hardcoded for now
+  (new-alias 'Root '(Native ".." ".."))
+  (new-alias 'org.jazz '(Root "packages" "org.jazz"))
+  (new-alias 'org.jedi '(Root "packages" "org.jedi"))
+  (new-alias 'Home '(Native "C:" "Jazz" "dev" "jazz" "packages" "org.jedi" "projects" "jedi" "distribution"))
+  (new-alias 'Users '(Native ".." ".." ".." "jazz.dev" "Users"))
+  (new-alias 'User '(Users "Guillaume"))
+  @convert(
+  (new-alias 'Boot (get-boot-dir))
+  (new-alias 'Base (get-base-dir))
+  (new-alias 'Home (get-home-dir))
+  (validate-alias 'Base)
+  (validate-alias 'Home)
+  (new-alias 'Bin           '(Home "Bin"))
+  (new-alias 'Defaults      '(Home "Defaults"))
+  (new-alias 'Documentation '(Home "Documentation"))
+  (new-alias 'Users         (get-users-dir))
+  (let ((dir (command-argument "rootdir")))
+    (when dir
+      (new-alias 'Root (pathname-argument dir))))
+  ;; Root will get defined later...
+  (new-alias 'Products '(Root "Products"))))
+
+
+(initialize-aliases)
+
+
+@convert
+(definition public (timestamped-file directory base ext)
+  (let* ((dir (parse~ directory))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+(definition public (timestamped-filename dir base ext)
+  (unimplemented 'timestamped-filename))
+
+
+;;;
+;;;; Protection
+;;;
+
+
+;;(external Jazz bool            (guest-login?)                                                                                                                              "JzIsGuestLogin")
+
+
+;;;
+;;;; Runtime
+;;;
+
+
+;;(external Jazz int             (winerror)                                                                                                                                  "JzWinError")
+
+
+;;;
+;;;; Service
+;;;
+
+
+;;(external Jazz int             (start-service-dispatcher)                                                                                                                  "JzStartServiceDispatcher")
+;;(external Jazz int             (get-service-handle)                                                                                                                        "JzGetServiceHandle")
+;;(external Jazz int             (get-service-error)                                                                                                                         "JzGetServiceError")
+;;(external Jazz int             (get-service-state)                                                                                                                         "JzGetServiceState")
+;;(external Jazz void            (set-service-state int)                                                                                                                     "JzSetServiceState")
+
+
+;;;
+;;;; System
+;;;
+
+
+;;(external Jazz Object          (debugger                                Object)                                                                                            "JzDebugger")
+;;(external Jazz Object          (debug-print                             Object)                                                                                            "JzDebugPrint")
+;;(external Jazz Object          (enter-debugger                          Object)                                                                                            "JzEnterDebugger")
+;;(external Jazz Object          (c-test                                  . rest)                                                                                            "JzCTest")
+;;(external Jazz int             (get-browse-callback)                                                                                                                       "JzGetBrowseCallback")
+;;(external Jazz Object          (get-current-directory)                                                                                                                     "JzGetCurrentDirectory")
+;;(external Jazz void            (set-current-directory                   Object)                                                                                            "JzSetCurrentDirectory")
+;;(external Jazz Object          (tokenise-choose-file-string             string)                                                                                            "JzTokeniseChooseFileString")
+;;(external Jazz void            (system-call)                                                                                                                               "JzSystemCall")
+;;(external Jazz int             (heap-alloc                              int)                                                                                               "JzHeapAlloc")
+;;(external Jazz void            (heap-free                               int)                                                                                               "JzHeapFree")
+
+
+;;;
+;;;; TypeLib
+;;;
+
+
+;;(external Jazz int             (load-type-lib                           File)                                                                                              "JzLoadTypeLib")
+;;(external Jazz int             (load-reg-type-lib                       guid& int int int)                                                                                 "JzLoadRegTypeLib")
+;;(external Jazz void            (register-type-lib                       int File)                                                                                          "JzRegisterTypeLib")
+;;(external Jazz void            (release-type-lib                        int)                                                                                               "JzReleaseTypeLib")
+;;(external Jazz int             (get-lib-attr                            int)                                                                                               "JzGetLibAttr")
+;;(external Jazz void            (release-lib-attr                        int int)                                                                                           "JzReleaseLibAttr")
+;;(external Jazz Object          (get-type-lib-name                       int)                                                                                               "JzGetTypeLibName")
+;;(external Jazz Object          (get-type-lib-doc                        int)                                                                                               "JzGetTypeLibDoc")
+;;(external Jazz int             (get-type-info-count                     int)                                                                                               "JzGetTypeInfoCount")
+;;(external Jazz int             (get-type-info                           int int)                                                                                           "JzGetTypeInfo")
+;;(external Jazz void            (release-type-info                       int)                                                                                               "JzReleaseTypeInfo")
+;;(external Jazz int             (get-type-attr                           int)                                                                                               "JzGetTypeAttr")
+;;(external Jazz void            (release-type-attr                       int int)                                                                                           "JzReleaseTypeAttr")
+;;(external Jazz Object          (get-type-info-name                      int int)                                                                                           "JzGetTypeInfoName")
+;;(external Jazz Object          (get-type-info-doc                       int int)                                                                                           "JzGetTypeInfoDoc")
+;;(external Jazz int             (get-type-info-func-desc                 int int)                                                                                           "JzGetTypeInfoFuncDesc")
+;;(external Jazz int             (get-type-info-var-desc                  int int)                                                                                           "JzGetTypeInfoVarDesc")
+;;(external Jazz int             (get-type-info-referenced-type           int int)                                                                                           "JzGetTypeInfoReferencedType")
+;;(external Jazz int             (get-type-info-implemented-type          int int)                                                                                           "JzGetTypeInfoImplementedType")
+;;(external Jazz void            (release-func-desc                       int int)                                                                                           "JzReleaseFuncDesc")
+;;(external Jazz void            (release-var-desc                        int int)                                                                                           "JzReleaseVarDesc")
+
+
+;;;
+;;;; Window
+;;;
+
+
+;;(external Jazz int             (get-window-proc)                                                                                                                           "JzGetWindowProc")
+;;(external Jazz void            (set-window-callback                     Object)                                                                                            "JzSetWindowCallback")
+;;(external Jazz int             (get-dialog-proc)                                                                                                                           "JzGetDialogProc")
+;;(external Jazz int             (get-dde-callback)                                                                                                                          "JzGetDdeCallback")
+;;(external Jazz Object          (toplevel-hwnds)                                                                                                                            "JzToplevelHwnds")
+;;(external Jazz Object          (process-hwnds)                                                                                                                             "JzProcessHwnds")
+;;(external Jazz Object          (all-child-hwnds                         int)                                                                                               "JzAllChildHwnds")
+
+
+;;;
+;;;; WinMain
+;;;
+
+
+;;(external Jazz int             (current-show)                                                                                                                              "JzCurrentShow")
+;;(external Jazz Object          (command-line)                                                                                                                              "JzCommandLine")
+;;(external Jazz Object          (command-action)                                                                                                                            "JzCommandAction")
+;;(external Jazz Object          (command-arguments)  
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(definition public (pathnames= x y)
+  (unimplemented 'pathnames=)
+  @windows-specific
+  (equal? (get-list~ x) (get-list~ y)))
+
+
+(definition public (module-path)
+  (unimplemented 'module-path)
+  @windows-specific
+  (let ((filename (make-string MAX_PATH)))
+    (GetModuleFileName NULL filename MAX_PATH)
+    (adjust-string filename)
+    (tokenise filename)))
+
+
+(definition public (module-pathname)
+  (unimplemented 'module-pathname)
+  @windows-specific
+  (new File (module-path)))
+
+
+(definition public (module-base)
+  (unimplemented 'module-base)
+  @windows-specific
+  (get-base~ (module-pathname)))
+
+
+(definition public (module-dir)
+  (unimplemented 'module-dir)
+  @windows-specific
+  (butlast (module-path)))
+
+
+(definition public (module-directory)
+  (unimplemented 'module-directory)
+  @windows-specific
+  (let ((module (module-pathname)))
+    (get-parent~ module)))
+
+
+(definition public (module-file filename)
+  (unimplemented 'module-file)
+  @windows-specific
+  (let ((module (module-pathname)))
+    (new-file~ (get-parent~ module) filename)))
+
+
+(definition public (module-timestamped-file base ext)
+  (unimplemented 'module-timestamped-file)
+  @windows-specific
+  (let* ((dir (join (cdr (module-dir)) "\\"))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+;;;
+;;;; Marshalling
+;;;
+
+
+(definition public (marshal-object object)
+  (marshal~ object))
+
+
+(definition public (unmarshal-object object)
+  (unmarshal~ object))
+
+
+;;;
+;;;; Execution
+;;;
+
+
+(definition (bootsafe-get-execution-stack)
+  (unimplemented 'bootsafe-get-execution-stack)
+  @windows-specific
+  (if (process-active?)
+      (get-execution-stack)
+    {}))
+
+
+;;;
+;;;; Stack
+;;;
+
+
+;;(constant VK_CONTROL #x11)
+;;(constant VK_MENU    #x12)
+
+
+(definition public (dump-stack . rest)
+  (bind-keywords ((file {}) (user-feedback? #f) . others) rest
+    (unimplemented 'dump-stack)
+    @windows-specific
+    ;; this is really not nice but will do for now as sometimes a stack
+    ;; just won't do if the problem is entirelly in the C code...
+    (if (and (/= (hibyte (GetAsyncKeyState VK_CONTROL)) 0)
+             (/= (hibyte (GetAsyncKeyState VK_MENU)) 0))
+        (crash-process)
+      (let ((file (either file (module-timestamped-file "Stack" "stack"))))
+        (with-closed ((printer (new File-Printer file)))
+          (apply print-stack printer others))
+        (when user-feedback?
+          (message-box (format "Stack dumped to {t}" file)))
+        file))))
+
+
+(definition public (report-stack)
+  (unimplemented 'report-stack)
+  @windows-specific
+  (if (and (kernel-initialized?) (in-manifest? 'Stack-Presenter))
+      (report-stack~ (autoload 'Stack-Presenter))
+    (let ((process (snapshot-stack))
+          (printer (new String-Printer)))
+      (for-each (function dynamic (thread)
+                  (format printer "{a}{%}" (get-label~ thread))
+                  (for-each (function dynamic (frame)
+                              (format printer "  {a}{%}" (car frame)))
+                            (get-call-stack~ thread)))
+                (get-threads~ process))
+      (message-box (get-output~ printer)))))
+
+
+(definition public (snapshot-stack)
+  (unimplemented 'snapshot-stack)
+  @windows-specific
+  (read-string-element (print-stack :string)))
+
+
+(definition public (print-stack destination . rest)
+  (unimplemented 'print-stack)
+  @windows-specific
+  (if (= destination :string)
+      (let ((printer (new String-Printer)))
+        (apply print-stack-to printer rest)
+        (get-output~ printer))
+    (apply print-stack-to destination rest)))
+
+
+(definition (print-stack-to printer . rest) ;; CONVERT (thread: thread (active-thread)) (execution-stack: execution-stack (bootsafe-get-execution-stack)) (exception: exception {}))
+  (unimplemented 'print-stack-to)
+  @windows-specific (
+  (format printer "~{Process-Snapshot{%}{%}")
+  (format printer "  ;;;{%}")
+  (format printer "  ;;;; PROCESS{%}")
+  (format printer "  ;;;{%}{%}")
+  (format printer "  :process {s}{%}" (parse~ (module-pathname)))
+  (format printer "  :application {s}{%}" (command-argument "app"))
+  (format printer "  date: \"")
+  (print-date printer)
+  (format printer "\"{%}")
+  (when exception
+    (format printer "{%}")
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; EXCEPTION{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  :exception{%}")
+    (format printer "  ~{Exception-Snapshot{%}")
+    (format printer "   :description {s}}{%}" (get-message~ exception)))
+  (format printer "{%}")
+  ;; todo
+  (when execution-stack
+    )
+  (format printer "  ;;;{%}")
+  (format printer "  ;;;; THREADS{%}")
+  (format printer "  ;;;{%}{%}")
+  (format printer "  :threads{%}")
+  (format printer "  (~{Thread-Snapshot{%}")
+  (format printer "    :model {a}{%}" (type-name (class-of thread)))
+  (format printer "    :label {s}{%}" (get-name~ thread))
+  (format printer "    state: {a}{%}" (get-state~ thread))
+  (format printer "    :call-stack{%}")
+  (format printer "    (")
+  (print-stack-content thread printer)
+  (format printer ")})}{%}")))
+
+
+;; Temp copied from Date class because I don't want to make Date a core class
+(definition (print-date printer)
+  (unimplemented 'print-date)
+  @windows-specific
+  (let ((st (new SYSTEMTIME)))
+    (GetLocalTime st)
+    (let ((date-separator "/")
+          (time-separator ":")
+          (year   (get st 'wYear))
+          (month  (get st 'wMonth))
+          (day    (get st 'wDay))
+          (hour   (get st 'wHour))
+          (minute (get st 'wMinute))
+          (second (get st 'wSecond)))
+      (format printer "{a width: 4 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0} {a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}"
+        (subseq (->string year) 0 4)
+        date-separator
+        month
+        date-separator
+        day
+        hour
+        time-separator
+        minute
+        time-separator
+        second))))
+
+
+;;;
+;;;; Window
+;;;
+
+
+;;tofix
+(definition public (toplevel-windows)
+  (unimplemented 'toplevel-windows)
+  @integrate
+  (toplevel-hwnds))
+
+;;tofix
+(definition public (process-windows (include-invisibles?: include-invisibles? #f))
+  (unimplemented 'process-windows)
+  @integrate
+  (collect (function dynamic (hwnd)
+             (let ((window (get-window hwnd)))
+               (when (and window (or include-invisibles? (get-visible?~ window)))
+                 window)))
+           (process-hwnds)))
+
+
+(definition public (all-child-windows hwnd)
+  (unimplemented 'all-child-windows)
+  @integrate
+  (all-child-hwnds hwnd))
+
+
+(definition public (child-windows hwnd)
+  (unimplemented 'child-windows)
+  @integrate
+  (collect-if (function dynamic (child)
+                (= (GetParent child) hwnd))
+              (all-child-windows hwnd))))

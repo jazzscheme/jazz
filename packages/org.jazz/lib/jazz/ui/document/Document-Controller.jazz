@@ -1,0 +1,617 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Document Controller
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.document.Document-Controller jazz
+
+
+(import (jazz.library)
+        (jazz.io)
+        (jazz.platform)
+        (jazz.repository)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Document-Controller extends Object
+  
+
+  (slot document               initialize {})
+  (slot newname                initialize {})
+  (slot moniker                initialize {})
+  (slot tool?                  initialize #f)
+  (slot console?               initialize #f)
+  (slot modified?              initialize #f)
+  (slot read-only?             initialize #f)
+  (slot moniker-time           initialize {})
+  (slot last-repository-status initialize {})
+
+
+  (method (initialize document (tool?: tool? #f) (console?: console? #f))
+    (nextmethod)
+    (set! document~self document)
+    (set! tool?~self tool?)
+    (set! console?~self console?)
+    @waiting-see-repository-event-comment
+    (when (repository-register?)
+      (add-repository-listener self)
+      (destroy-mandatory)))
+  
+  
+  (method (destroy)
+    @waiting-see-repository-event-comment
+    (remove-repository-listener self)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method public (install-in-host host)
+    (install-container)
+    (position-host host)
+    (update-status)
+    (when (get-visible?~ host)
+      (focus-document~ document)))
+  
+  
+  (method protected virtual (install-container)
+    (when (install-scroller?~ document)
+      (install-scroller)))
+  
+  
+  (method protected (install-scroller)
+    (let* ((root (get-root~ document))
+           (scroller (new Scroller-View parent: (get-content~ root) vscroll?: #t hscroll?: #t)))
+      (set-parent~ document (get-content~ scroller))
+      (set-client~ scroller document)))
+
+  
+  (method (position-host host)
+    (let* ((parent-size (get-size~ (get-parent~ host)))
+           (width (get-default-width~ (get-preferences 'documents)))
+           (position (new Point (- (get-width~ parent-size) width 5) 5))
+           (size (new Dimension width (- (get-height~ parent-size) 10))))
+      (set-position~ host position)
+      (set-size~ host size)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+    
+  
+  (method public virtual (confirm-close)
+    (when (get-modified?)
+      (let ((code (message-box (format "Save changes to {a}?" (name-status))
+                               type: 'confirmation)))
+        (case code
+          ((yes) (save-all))
+          ((no))
+          ((cancel) (throw-cancel))))))
+  
+  
+  (method public (close-on-close-all?)
+    (not (get-tool?)))
+
+
+  ;;;
+  ;;;; Input/Output
+  ;;;
+  
+  
+  (method public (get-newname)
+    newname)
+  
+  
+  (method public (set-newname value)
+    (set! newname value))
+  
+  
+  (method (effective-newname)
+    (either newname (localize "New")))
+  
+  
+  (method public (get-moniker)
+    moniker)
+
+
+  (method public (set-moniker mnk)
+    (when (/= mnk moniker)
+      (when (is-not? mnk Moniker)
+        (car 1))
+      (set! moniker mnk)
+      (load-content~ document moniker)))
+  
+  
+  (method public (change-moniker mnk)
+      (when (is-not? mnk Moniker)
+        (car 1))
+    (set! moniker mnk))
+  
+  
+  (method public virtual (save)
+    (if (not moniker)
+        (save-as)
+      (when (and (write-allowed?) (safe-zipped?))
+        (save-content moniker))))
+  
+  
+  (method public virtual (save-as)
+    (let* ((extension (default-extension~ document))
+           (extensions (extensions~ document))
+           (moniker (get-modal SaveFile-Dialog :initial-filename (if (not moniker) (effective-newname) (get-name~ moniker)) :default-extension extension extensions: extensions)))
+      (when (and (exists?~ moniker) (read-only?~ moniker))
+        (set-read/write~ moniker))
+      (save-to moniker)))
+  
+  
+  (method public (save-to mnk)
+      (when (is-not? mnk Moniker)
+        (car 1))
+    (save-content mnk)
+    (set! moniker mnk)
+    (update-status))
+  
+  
+  (method public (save-all)
+    (save))
+  
+  
+  (method (save-content moniker)
+    (save-content~ document moniker))
+  
+  
+  (method public (revert-saved)
+    (if (not moniker)
+        (bell)
+      (let ((code (message-box "Resert to saved and lose changes?"
+                               type: 'confirmation)))
+        (case code
+          ((yes) (reload-moniker~ document moniker))
+          ((no))
+          ((cancel) (throw-cancel))))))
+  
+  
+  (method public (compare-saved)
+    (if (not moniker)
+        (bell)
+      (compare-moniker~ document moniker)))
+
+
+  ;;;
+  ;;;; Modified State
+  ;;;
+
+
+  (method public virtual (get-modified?)
+    (if console?
+        #f
+      modified?))
+
+
+  (method public virtual (set-modified? state)
+    (when (/= state modified?)
+      (set! modified? state)
+      (update-status)))
+
+
+  ;;;
+  ;;;; Document
+  ;;;
+  
+  
+  (method public virtual (dependent-document?)
+    #f)
+
+
+  ;;;
+  ;;;; Caption
+  ;;;
+  
+  
+  (method public (set-caption title)
+    (let ((root (get-root~ document))
+	      (host (get-host~ document)))
+      (set-title~ host title)
+      (when (get-visible?~ host)
+        (if (and (is? root Frame-Root) (get-maximized?~ root))
+            (when (front-window?~ host)
+              (set-caption~ (get-toplevel) title))
+          (invalidate-caption~ (get-root~ host))))))
+
+
+  ;;;
+  ;;;; Status
+  ;;;
+
+
+  (method public virtual (update-status (refresh-repository-status?: refresh-repository-status? #t))
+    (when refresh-repository-status?
+      (set! last-repository-status {}))
+    (update-state)
+    (let ((host (get-host~ document)))
+      (when (and (is? host View-Host) (eq? (get-guest~ host) document))
+        (set-caption (document-status)))))
+  
+  
+  (method public virtual (document-status)
+    (format "{a}{a}{a}{a}{a}"
+            (name-status)
+            (modified-status)
+            (directory-status)
+            (either last-repository-status
+                    (begin
+                      (set! last-repository-status (repository-status))
+                      last-repository-status))
+            (read/write-status)))
+  
+  
+  (method public virtual (name-status)
+    (if (not moniker)
+        (effective-newname)
+      (if tool?
+          (get-base~ moniker)
+        (get-name~ moniker))))
+    
+  
+  (method (modified-status)
+    (if (get-modified?)
+        " *"
+      ""))
+  
+  
+  (method (directory-status)
+    (if (or (not moniker) tool?)
+        ""
+      (format " ~{{a}}" (present-location~ moniker))))
+  
+  
+  (method protected virtual (repository-status)
+    (let ((info (repository-info)))
+      (if (not info)
+          ""
+        (receive (repository item) info
+          (if (supports-detaching?~ repository moniker)
+              (repository-detached-status repository)
+            (if (null? item)
+                (repository-status-aux {} {} {})
+              (with-closed ((item item))
+                (let ((status (get-status~ item)))
+                  (repository-status-aux repository item status)))))))))
+  
+  
+  (method (repository-status-aux repository item status)
+    (cond ((null? item)
+           "")
+          ((= status 'checked-in)
+           (format " [Checked in]"))
+          (else
+           (format " [Checked out by {a}]" (present-usernames~ repository (get-checkouts-usernames~ item))))))
+  
+  
+  (method (repository-info)
+    #f
+    ;; convert
+    @wait
+    (when (and (in-manifest? 'Repository) moniker (not tool?))
+      (let ((moniker (find-moniker~ Repository moniker)))
+        (when moniker
+          (values (get-repository~ moniker)
+                  (get-repository-item~ moniker error?: #f))))))
+  
+  
+  (method (repository-detached-status repository)
+    (case (get-detached-status~ repository moniker)
+      ((not-edited)  " [Not Edited]")
+      ((detached)    " [Detached]")
+      ((checked-out) " [Checked Out]")))
+
+  
+  (method (read/write-status)
+    (if (or (not moniker) tool?)
+        ""
+      (if read-only?
+          " [Read-Only]"
+        " [Read/Write]")))
+
+
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public (get-read-only?)
+    read-only?)
+  
+  
+  (method public (get-moniker-time)
+    moniker-time)
+  
+  
+  (method public (update-state)
+    (if (or (not moniker) (not (exists?~ moniker)))
+        (set! read-only? #f)
+      ;; ultra quick and dirty patch for in zip source edition
+      (if (is? moniker Zipped)
+          (set! read-only? #f)
+        (set! read-only? (read-only?~ moniker)))))
+  
+  
+  (method public virtual (update-moniker-time moniker)
+    (set! moniker-time (get-modification-time~ moniker)))
+  
+  
+  (method public (verify-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+    (when (needs-reload?)
+      (propose-reload :propose-reload? propose-reload? :cancel-edition? cancel-edition?)))
+  
+  
+  (method public (needs-reload?)
+    #f
+    @convert-this-always-returns-true
+    (and moniker moniker-time
+         (exists?~ moniker)
+         (/= (get-modification-time~ moniker) moniker-time)
+         ;; temporary patch until I find a clean solution to the annoying
+         ;; fact that if I am editing lets say A and B from a zip file and
+         ;; I save A and then go to B, Jazz will propose to reload the file!
+         (is-not? moniker Zipped)))
+
+  
+  (method public (propose-reload (propose-reload?: propose-reload? #t) (cancel-edition?: cancel-edition? #f))
+    (let ((code (if (not propose-reload?)
+                    'yes
+                  (message-box (format "File {s} has been modified. Do you want to reload it?" (get-moniker))
+                               title: "File Status"
+                               type: 'confirmation))))
+      (case code
+        ((yes)
+         (reload-moniker~ document moniker)
+         (when cancel-edition?
+           (throw-cancel)))
+        ((no)
+         (update-moniker-time moniker)
+         (update-status))
+        ((cancel)
+         (throw-cancel)))))
+  
+
+  ;;;
+  ;;;; Read-Only
+  ;;;
+  
+  
+  (method public (write-allowed?)
+    (or (not (get-read-only?))
+        @wait
+        (let* ((repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
+               (in? (and repository (in-repository?~ repository (get-file~ moniker)))))
+          (if in?
+              (in-write-allowed? moniker)
+            (out-write-allowed? moniker)))))
+  
+  
+  (method (in-write-allowed? moniker)
+    (let ((code (ensure-read/write moniker)))
+      (case code
+        ((checkout) #t)
+        ((read/write) (update-status) #t)
+        ((read-only) #f)
+        ((no-action) #t))))
+  
+  
+  (method (out-write-allowed? moniker)
+    (let ((code (message-box
+                  (format "File {s} is read-only. Overwrite read-only status?" (get-name~ moniker))
+                  title: "File Status"
+                  type: 'confirmation)))
+      (case code
+        ((yes)
+         (set-read/write~ moniker)
+         (update-status)
+         #t)
+        ((no))
+        ((cancel)
+         (throw-cancel)))))
+  
+
+  ;;;
+  ;;;; Zipped
+  ;;;
+  
+  
+  (definition Safe-Zipped
+    64)
+  
+  
+  (method public (safe-zipped?)
+    (or (is-not? moniker Zipped)
+        (let* ((file (get-file~ moniker))
+               (size (quotient (get-size~ file) 1024)))
+          (or (<= size Safe-Zipped)
+              (safe-zipped-confirmed? file size)))))
+  
+  
+  (method (safe-zipped-confirmed? file size)
+    (let ((code (message-box
+                  (format "Save to large zip file {a} ({a}K)?" (get-name~ file) size)
+                  title: "Zip Confirmation"
+                  type: 'confirmation)))
+      (case code
+        ((yes)
+         #t)
+        ((no)
+         #f)
+        ((cancel)
+         (throw-cancel)))))
+
+  
+  ;;;
+  ;;;; Tool
+  ;;;
+
+
+  (method public (get-tool?)
+    tool?)
+
+
+  (method public (set-tool? flag)
+    (when (/= flag tool?)
+      (set! tool? flag)
+      (tool-update~ document tool?)))
+
+
+  (method public (get-console?)
+    console?)
+
+
+  (method public (set-console? flag)
+    (when (/= flag console?)
+      (set! console? flag)
+      (console-update~ document console?)))
+  
+  
+  ;;;
+  ;;;; Expr
+  ;;;
+  
+  
+  (method public virtual (select-next strings . rest)
+    )
+  
+  
+  (method public virtual (select-previous strings . rest)
+    )
+
+
+  (method public virtual (select-expr targets)
+    )
+
+
+  (method public virtual (select-expr-backward targets)
+    )
+
+  
+  ;;;
+  ;;;; Repository
+  ;;;
+  
+  
+  (method public (add-to-repository)
+    (unimplemented 'add-to-repository)
+    @wait
+    (add-file-to-repository~ (find-repository~ Repository moniker) moniker))
+
+  
+  (method public (get-latest)
+    (unimplemented 'get-latest)
+    @wait
+    (get-latest~ (find-repository~ Repository moniker) moniker))
+  
+  
+  (method public (detach)
+    (unimplemented 'detach)
+    @wait
+    (detach-file~ (find-repository~ Repository moniker) moniker))
+
+  
+  (method public (checkout)
+    (unimplemented 'checkout)
+    @wait
+    (checkout-file~ (find-repository~ Repository moniker) moniker))
+  
+  
+  (method public (checkin)
+    (unimplemented 'checkin)
+    @wait (
+    (save)
+    (checkin-file~ (find-repository~ Repository moniker) moniker)))
+  
+  
+  (method public (reintegrate)
+    (unimplemented 'reintegrate)
+    @wait (
+    (save)
+    (reintegrate-file~ (find-repository~ Repository moniker) moniker)))
+  
+  
+  (method public (undo-checkout)
+    (unimplemented 'undo-checkout)
+    @wait
+    (undo-checkout-file~ (find-repository~ Repository moniker) moniker))
+  
+  
+  (method public (show-history)
+    (unimplemented 'show-history)
+    @wait
+    (show-history~ (find-repository~ Repository moniker) moniker))
+  
+  
+  (method public (show-changes)
+    (unimplemented 'show-changes)
+    @wait
+    (show-changes~ (find-repository~ Repository moniker) moniker))
+
+  
+  ;;;
+  ;;;; Repository Events
+  ;;;
+  
+  
+  (method (repository-register?)
+    (frame-guest?~ document))
+  
+  
+  ;; This was from Repository-Listener but it is not correct to implement such a specific
+  ;; interface here and force all applications to include the Repository module...
+  (method (repository-event what repository mnk)
+    (case what
+      ((:checkin)
+       (checkin-save))
+      ((:item-status)
+       (when (pathname= mnk moniker)
+         (update-status :refresh-repository-status? #t)
+         (verify-reload :cancel-edition? #t)))))
+  
+  
+  (method (checkin-save)
+    (when (get-modified?)
+      (save)))))

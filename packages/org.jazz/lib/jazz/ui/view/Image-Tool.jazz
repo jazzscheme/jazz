@@ -1,0 +1,119 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Image Tools
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Image-Tool jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Image-Tool extends Tool-Button
+
+
+  (property portfolio           initialize {} getter get-portfolio           setter set-portfolio)
+  (property image-name          initialize {} getter get-image-name          setter set-image-name)
+  (property disabled-image-name initialize {} getter get-disabled-image-name setter set-disabled-image-name)
+  
+  
+  (slot image          initialize (new Image view-position: {Point 2 2}))
+  (slot disabled-image initialize (new Image view-position: {Point 2 2}))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-portfolio)
+    (get-portfolio~ image))
+
+
+  (method public (set-portfolio portfolio)
+    (let ((portfolio (if (is? portfolio Portfolio) portfolio (child portfolio))))
+      (set-portfolio~ image portfolio)
+      (set-portfolio~ disabled-image portfolio))
+    (invalidate-view))
+
+
+  (method public (get-image-name)
+    (get-image-name~ image))
+
+
+  (method public (set-image-name name)
+    (set-image-name~ image name)
+    (invalidate-view))
+
+
+  (method public (get-disabled-image-name)
+    (get-image-name~ disabled-image))
+
+
+  (method public (set-disabled-image-name name)
+    (set-image-name~ disabled-image name)
+    (invalidate-view))
+  
+  
+  (method public (preload-images)
+    (preload-image~ image)
+    (preload-image~ disabled-image))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method (draw-tool dc context)
+    (let ((offset (if (= (get-state) 'pushed) 2 1))
+          (enabled? (get-enabled?)))
+      (if (and (not enabled?) (get-disabled-image-name))
+          (draw~ disabled-image dc context offset offset)
+        (draw~ image dc context offset offset enabled?: enabled?))))
+
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+
+
+  (method (describe-view pos)
+    (append (nextmethod pos)
+            (list
+             (list "Image Name" (get-image-name))
+             (list "Disabled Image Name" (get-disabled-image-name)))))))

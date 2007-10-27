@@ -1,0 +1,245 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; MySQL Database Inventory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Marcel Cote
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.providers.inventory.mysql.MySQL-Inventory jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class MySQL-Inventory extends Inventory
+  
+  
+  (slot database initialize {})
+  
+  
+  (method (initialize connection pathname password (read-only?: read-only? #f))
+    (nextmethod connection)
+    (set! database (get-database~ (get-data-source~ connection)))
+    (destroy-mandatory))
+
+  
+  (method (destroy)
+    (nextmethod))
+  
+  
+  (method public (get-database)
+    database)
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+  
+  
+  (method (get-version)
+    @w(let ((string (get-Version~ database)))
+      (bind (major minor) (map parse-integer (split string "."))
+        (new Version major minor 0))))
+    
+  
+  (method public (get-DAO-version)
+    @w(let ((string (get-Version~ engine)))
+      (bind (major minor) (map parse-integer (split string "."))
+        (new Version major minor 0))))
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method (type-connection-string)
+    "")
+  
+  ;;;
+  ;;;; Tables or Views
+  ;;;
+  
+  (method (get-tables-views type MySQL-inventory-table-view)
+    (let* ((cmd (tie "SELECT table_name, table_comment FROM information_schema.tables WHERE table_Schema = '{database}' AND table_Type = '{type}'"))
+           (table-view-rows (load-rows~ connection cmd)))
+      (map (function (row)
+             (let ((table-name (get~ row "table_name"))
+                    (table-comment (get~ row "table_comment")))
+               (new MySQL-inventory-table-view self self table-name table-comment)))
+           table-view-rows)))
+ 
+  
+  ;;;
+  ;;;; Tables
+  ;;;
+  
+
+  (method (get-tables)
+    (get-tables-views "Base Table" MySQL-Inventory-Table))
+  
+  
+  (method (get-table name)
+    @w(with-closed ((tables (get-TableDefs~ database)))
+      (let ((table (get-Item~ tables name)))
+        (if (not (mask-bit-set? (get-Attributes~ table) DAO.dbSystemObject))
+            (new MySQL-Inventory-Table self self table)
+          (corelease table)
+          {}))))
+  
+  
+  (method (create-table name)
+    @w(new MySQL-Inventory-Table self self (CreateTableDef~ database name {} {} {})))
+  
+  
+  (method (append-table table)
+    @w(with-closed ((tabledefs (get-TableDefs~ database)))
+      (Append~ tabledefs (get-handle~ table))))
+ 
+  
+  (method (remove-table name)
+    @w(with-closed ((tabledefs (get-TableDefs~ database)))
+      (Delete~ tabledefs name)))
+  
+  
+  ;; Needs much work. Maybe a two dimensional array of supported properties!?
+  (method (column-supports-property? object property)
+    @w(case property
+      ((allow-zero-length?) (let ((datatype (third (get-datatype~ object))))
+                            (member? (get-name~ datatype) '("Text" "Memo") test: equal?)))
+      (else #t)))
+  
+  
+  ;;;
+  ;;;; Views
+  ;;;
+  
+  
+  (method (get-views)
+    (get-tables-views "View" MySQL-Inventory-View))
+  
+  
+  (method (get-view name . rest)
+    {})
+  
+  
+  (method (create-view name)
+    (views-unsupported))
+  
+  
+  (method (append-view view)
+    (views-unsupported))
+  
+  
+  (method (remove-view name)
+    (views-unsupported))
+  
+  
+  (method (views-unsupported)
+    (error "MySQL doesn't support views"))
+  
+  
+  ;;;
+  ;;;; Relations
+  ;;;
+  
+  
+  (method (get-relations)
+    '()
+    @w(with-closed ((relations (get-Relations~ database)))
+      (loop (for n from 0 below (get-Count~ relations))
+            (collect (new MySQL-Inventory-Relation self self (get-Item~ relations n))))))
+
+  
+  (method (get-relation name)
+    @w(with-closed ((relations (get-Relations~ database)))
+      (new MySQL-Inventory-Relation self self (get-Item~ relations name))))
+  
+
+  (method (create-relation name)
+    @w(new MySQL-Inventory-Relation self self (CreateRelation~ database name {} {} {})))
+  
+  
+  (method (append-relation relation)
+    @w(with-closed ((relations (get-Relations~ database)))
+      (Append~ relations (get-handle~ relation))))
+
+
+  (method (remove-relation name)
+    @w(with-closed ((relations (get-Relations~ database)))
+      (Delete~ relations name)))
+  
+  
+  ;;;
+  ;;;; Procedures
+  ;;;
+  
+  
+  (method (get-procedures)
+    '()
+    @w(with-closed ((procedures (get-QueryDefs~ database)))
+      (loop (for n from 0 below (get-Count~ procedures))
+            (collect (new MySQL-Inventory-Procedure self self (get-Item~ procedures n))))))
+  
+  
+   (constant Procedure-Not-Existant
+    #x800A0CC1)
+  
+  
+  (method (get-procedure name (error?: error? #t))
+    @w(with-closed ((procedures (get-QueryDefs~ database)))
+        (let* ((action
+                 (function dynamic ()
+                   (get-Item~ procedures name)))
+               (procedure
+                 (if error?
+                     (action)
+                   (cotry (action) (Procedure-Not-Existant {})))))
+          (when procedure
+            (new MySQL-Inventory-Procedure self self procedure)))))
+
+  
+  (method (create-procedure name)
+    @w(new MySQL-Inventory-Procedure self self (CreateQueryDef~ database name {})))
+  
+  
+  (method (append-procedure procedure)
+    ;; Nothing to do
+    )
+
+  
+  (method (remove-procedure name)
+    @w(DeleteQueryDef~ database name))))

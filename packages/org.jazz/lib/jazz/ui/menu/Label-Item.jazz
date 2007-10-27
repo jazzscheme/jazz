@@ -1,0 +1,404 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Label Items
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.menu.Label-Item jazz
+
+
+(import (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Label-Item extends Item
+  
+  
+  (property icon          initialize {}    getter get-icon          setter set-icon)
+  (property disabled-icon initialize {}    getter get-disabled-icon setter set-disabled-icon)
+  (property accelerator   initialize {}    getter get-accelerator   setter set-accelerator)
+  (property default?      initialize #f getter get-default?      setter set-default?)
+  
+  
+  (slot content initialize {})
+  
+  
+  (method (mouse-activate?)
+    #f)
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (component-alias name)
+    (case name
+      ((content) content)
+      (else (nextmethod name))))
+
+  
+  ;;;
+  ;;;; Actionable
+  ;;;
+  
+  
+  (method (shortcut-update action-item)
+    (set-accelerator (get-shortcut~ action-item)))
+
+  
+  ;;;
+  ;;;; Content
+  ;;;
+
+
+  (method (add-child child)
+    (set! content child))
+
+
+  (method public (get-content)
+    content)
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-title)
+    (either title
+            (when content
+              (get-title~ content))))
+
+
+  (method public (get-icon)
+    icon)
+
+
+  (method public (set-icon icn)
+    (set! icon icn)
+    (layout-menu))
+
+
+  (method public (get-disabled-icon)
+    disabled-icon)
+
+
+  (method public (set-disabled-icon icn)
+    (set! disabled-icon icn)
+    (layout-menu))
+
+
+  (method public (get-accelerator)
+    accelerator)
+
+
+  (method public (set-accelerator acc)
+    (set! accelerator acc)
+    (layout-menu))
+
+
+  (method public (get-default?)
+    default?)
+
+
+  (method public (set-default? value)
+    (set! default? value))
+
+  
+  ;;;
+  ;;;; Presented
+  ;;;
+  
+  
+  (method (title-string title)
+    (remove #\ampersand title))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (preferred-icon-width)
+    (let ((left 4))
+      (if icon (+ left 16 left) 0)))
+  
+  
+  (method (preferred-body-width)
+    (let* ((font (effective-font))
+           (title (localize (get-title)))
+           (extent (text-extent~ font (title-string title)))
+           (left (if (menubar-label?) 6 10)))
+      (+ left (get-width~ extent) left)))
+  
+  
+  (method (preferred-accelerator-width)
+    (if (not accelerator)
+        0
+      (let* ((font (effective-font))
+             (extent (text-extent~ font (present-shortcut~ accelerator)))
+             (left 6)
+             (right 12))
+        (+ left (get-width~ extent) right))))
+  
+  
+  (method (preferred-arrow-width)
+    (if (and content (not (menubar-label?)))
+        10
+      0))
+  
+  
+  (method (preferred-height)
+    (let* ((font (effective-font))
+           (title (localize (get-title)))
+           (height (font-height~ font)))
+      (+ height 4)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Label-Font
+    {Font name: Default-GUI})
+  
+  (definition Default-Label-Font
+    {})
+  
+  
+  (method (get-label-font)
+    Label-Font)
+  
+  (method (get-default-label-font)
+    (unless Default-Label-Font
+      (set! Default-Label-Font (toggle-bold~ Label-Font)))
+    Default-Label-Font)
+  
+  
+  (method (effective-font)
+    (if default? (get-default-label-font) (get-label-font)))
+  
+  
+  (method (draw dc context update lh lv)
+    (draw-highlight dc)
+    (draw-prefix dc context)
+    (draw-icon dc context)
+    (draw-body dc)
+    (draw-accelerator dc)
+    (draw-arrow dc))
+  
+  
+  (method (draw-highlight dc)
+    (when (item-selected?)
+      (with ((bounds (get-bounds)))
+        (if (menubar-label?)
+            (draw-edge~ dc bounds inner: (if (highlight-flag) {} 'raised) outer: (if (highlight-flag) 'sunken {}) edges: 'rectangle)
+          (fill-rect~ dc bounds {Color name: Focused-Selection})))))
+  
+  
+  (method protected virtual (draw-prefix dc context)
+    )
+  
+  
+  (method (draw-icon dc context)
+    (when icon
+      (let* ((appl (get-application))
+             (left (+ prefix-width 9))
+             (portfolio (get-icons-cache~ appl)))
+        (if (and (not enabled?) disabled-icon)
+            (draw-image~ portfolio dc context disabled-icon left 0)
+          (draw-image~ portfolio dc context icon left 0 enabled?: enabled?)))))
+  
+  
+  (method (draw-body dc)
+    (let* ((title (localize (get-title)))
+           (text (title-string title))
+           (height (get-font-height~ dc))
+           (left (if (menubar-label?) 6 10))
+           (top (if (menubar-label?) 0 1))
+           (h (+ prefix-width icon-width left))
+           (v (- (quotient (- (get-height) height) 2) top)))
+      (set-text-color~ dc (text-color))
+      (set-font~ dc (effective-font))
+      (draw-text~ dc h v text (text-enabled?))))
+  
+  
+  (method (draw-accelerator dc)
+    (when accelerator
+      (let* ((text (present-shortcut~ accelerator))
+             (height (get-font-height~ dc))
+             (left 6)
+             (top 1)
+             (h (+ prefix-width icon-width body-width left))
+             (v (- (quotient (- (get-height) height) 2) top)))
+        (draw-text~ dc h v text (text-enabled?)))))
+  
+  
+  (method (draw-arrow dc)
+    (when (and content (not (menubar-label?)))
+      (let ((width (get-width)))
+        (set-pen~ dc (tip-pen))
+        (draw-arrow-tip~ dc (- width 10) 5 4 'right))))
+  
+  
+  (method (item-selected?)
+    (and (not surrogate)
+         (let ((poped (get-poped~ parent))
+               (view (mouse-view)))
+           (or in?
+               (and poped
+                    (= (popup-initiator~ poped) self)
+                    (or (= view self)
+                        (and view (owned?~ view (get-player~ poped)))))))))
+  
+  
+  (method (menubar-label?)
+    (is? parent Menubar))
+  
+  
+  (method (in-menubar?)
+    (is-not? parent Context-Menu))
+  
+  
+  (method (highlight-flag)
+    (and content (= (get-poped~ parent) content)))
+  
+  
+  (method (tip-pen)
+    (if (item-selected?) {Pen name: White} {Pen name: Black}))
+  
+  
+  (method (text-enabled?)
+    (or enabled? (item-selected?)))
+  
+  
+  (method (text-color)
+    (cond ((not enabled?) {Color name: Dark})
+          ((and (item-selected?) (not (menubar-label?))) {Color name: White})
+          (else {Color name: Black})))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-enter)
+    (when (and (get-enabled?) (or (not (menubar-label?)) (not mouse-down?) (is? mouse-down-view Label-Item)))
+      (nextmethod)
+      (unless (menubar-label?)
+        (let ((poped (get-poped~ parent)))
+          (when poped
+            (track-hovering)
+            (invalidate-view~ (popup-initiator~ poped)))))
+      (when content
+        (if (menubar-label?)
+            (when (get-poped~ parent)
+              (close-other-popups)
+              (unless (poped?)
+                (popup-content)))
+          (track-hovering)))))
+  
+  
+  (method (mouse-leave)
+    (nextmethod)
+    (when (not (menubar-label?))
+      (cancel-hovering)))
+  
+  
+  (method (mouse-hover pos)
+    (close-other-popups)
+    (when (and content (not surrogate))
+      (popup-content)))
+  
+  
+  (method (mouse-down pos)
+    (when content
+      (if (get-poped~ parent)
+          (close-popups)
+        (popup-content))))
+  
+  
+  (method (mouse-up pos)
+    (unless content
+      (close-popups~ player all?: #t)
+      (when enabled?
+        (process-action self))))
+  
+  
+  ;;;
+  ;;;; Popup
+  ;;;
+  
+  
+  (method (popup-content)
+    (let ((content (get-content)))
+      (update~ content)
+      (when (get-children~ content)
+        (let* ((size (get-size))
+               (position (if (menubar-label?) (new Point 0 (get-height)) (new Point (- (get-width~ size) 3) -2))))
+          (set-poped~ parent content)
+          (invalidate-view)
+          (popup-menu content position)))))
+  
+  
+  (method (popup-menu menu position)
+    (let ((border {} @waiting (new Border-View name: 'border border-type: 'solid border-color: {Color name: Dark})))
+      (popup menu position class: Menu-Transient border: border fade-speed: 3.0 close-root?: #f alternate-position: (new Point 2 -2))))
+  
+  
+  (method (close-popups (event: event {}) (all?: all? #f) (exclude: exclude '()))
+    (unless (memq? event '(mouse-down double-click))
+      (nextmethod event: event all?: all? exclude: exclude)
+      (invalidate-view)))
+  
+  
+  (method (popup-destroy popup)
+    (set-poped~ parent {}))
+
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+
+
+  (method (describe-view pos)
+    (append (nextmethod pos)
+            (list
+             (list "Icon" icon))))))

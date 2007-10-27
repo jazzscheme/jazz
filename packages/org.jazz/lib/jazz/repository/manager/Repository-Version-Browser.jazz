@@ -1,0 +1,248 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Repository Version Browser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.repository.manager.Repository-Version-Browser jazz
+
+
+(import (jazz.jml)
+        (jazz.repository)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Repository-Version-Browser extends View
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'repository-version-browser)
+
+
+  (property file initialize {} getter get-file setter set-file)
+  
+
+  (form
+    (<install>                                                size: {Dimension 753 314}
+      (<Push-Tool>                     name: view-versions    position: {Point 2 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "View" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-view-versions})
+      (<Push-Tool>                     name: show-differences position: {Point 30 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Differences" image-name: {Bitmap-Resource "CompareFiles"} portfolio: :icons action-handler: {Event-Handler form: on-show-differences})
+      (<Border-View>                   name: versions-border  position: {Point 2 35} size: {Dimension 749 277} border-type: edge
+        (<Scroller-View>                                      vscroll?: #t
+          (<!>                         name: content          layout-type: fill
+            (<Tree-Header>
+              (<!>                     name: content
+                (<Tree-View>           name: versions         filled-column: action selection-handler: {Event-Handler form: on-selection-change} double-click-handler: {Event-Handler form: on-double-click} multiple-selection?: #t selection-mode: row
+                  (<Tree-Node-Column>  name: version          title: "Version" width: 75 toplevel-controls?: #f display-images?: #f)
+                  (<Tree-Label-Column> name: username         title: "Username" width: 125)
+                  (<Tree-Label-Column> name: date             title: "Date" width: 150)
+                  (<Tree-Label-Column> name: action           title: "Action" width: 253)))))))))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+  
+  (method (finish initargs)
+    (nextmethod initargs)
+    (update-versions)
+    (update-buttons))
+    
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method meta (dialog-title)
+    "Version Browser")
+  
+  
+  (method meta (dialog-position)
+    {Point 290 270})
+  
+  
+  (method meta (dialog-size)
+    {Dimension 853 450})
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-file)
+    file)
+
+
+  (method public (set-file value)
+    (set! file value))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'versions-border) dh dv))
+  
+  
+  (method (on-view-versions evt)
+    (view-versions))
+
+
+  (method (on-show-differences evt)
+    (show-differences))
+  
+  
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((versions)
+          (update-buttons)))))
+  
+  
+  (method (on-double-click evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((versions)
+          (view-versions)))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method (update-versions)
+    (let ((tree (locate 'versions)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (when file
+            (let ((repository (find-repository~ Repository file))
+                  (file-version (file-version)))
+              (with-closed ((item (get-item~ repository file))
+                            (versions (get-versions~ item)))
+                (for-each (function dynamic (version)
+                            (let* ((no (get-version-number~ version))
+                                   (current? (and file-version (= no file-version)))
+                                   (c0 (new Tree-Node  title: no font: (if current? {Font name: Ansi-Bold} {})))
+                                   (c1 (new Tree-Label title: (get-username~ version)))
+                                   (c2 (new Tree-Label title: (get-date~ version)))
+                                   (c3 (new Tree-Label title: (get-action~ version))))
+                              (add-row~ tree children: (list c0 c1 c2 c3) user-data: no)))
+                          versions))))))))
+
+
+  (method (update-buttons)
+    (let* ((versions (selected-versions))
+           (count (length versions)))
+      (set-enabled?~ (locate 'view-versions) (>= count 1))
+      (set-enabled?~ (locate 'show-differences) (or (= count 1) (= count 2)))))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+
+
+  (method protected virtual (file-version)
+    {})
+  
+  
+  ;;;
+  ;;;; Versions
+  ;;;
+  
+  
+  (method (view-versions)
+    (for-each view-version (get-locals))
+    (close-modal-dialog))
+  
+  
+  (method protected virtual (view-version local)
+    (let ((appl (get-application)))
+      (edit-document~ appl local)))
+  
+  
+  (method (show-differences)
+    (let* ((locals (get-locals))
+           (left/nil (cadr locals))
+           (right (car locals)))
+      (with-cursor :wait
+        (function dynamic ()
+          (compare-versions left/nil right))))
+    (close-modal-dialog))
+  
+  
+  (method protected virtual (compare-versions left/nil right)
+    (let ((frame (new-frame Compare-Files host-visible?: #f host-workspace: 'text)))
+      (compare-monikers~ (get-guest~ frame) (either left/nil file) right)
+      (bring-to-front~ frame)
+      (set-visible?~ frame #t)
+      (acquire-focus~ (locate~ (get-guest~ frame) 'text))))
+  
+  
+  ;; versions are ordered from oldest to newest
+  (method protected virtual (get-locals)
+    (let ((versions (selected-versions)))
+      (map (function dynamic (no)
+             (let ((repository (find-repository~ Repository file)))
+               (with-closed ((item (get-item~ repository file))
+                             (version-item (get-version~ item no)))
+                 (let* ((appl (get-application))
+                        (filename (format "Version {a} - {a}" no (get-name~ file)))
+                        (local (new File (list 'User "Work" "Repository" filename))))
+                   (get-local~ version-item local)
+                   local))))
+           versions)))
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method (selected-versions)
+    (let ((tree (locate 'versions)))
+      (sort < (get-selected-data~ tree))))))

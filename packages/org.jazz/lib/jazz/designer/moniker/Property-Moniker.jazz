@@ -1,0 +1,213 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Property Moniker
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.moniker.Property-Moniker jazz
+
+
+(import (jazz.designer)
+        (jazz.platform)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Property-Moniker extends Moniker
+  
+  
+  ;; Keeping the reference is a simple solution to the problem of search results surviving a document
+  ;; that gets closed after a search was done on it. The best solution would be to keep a moniker on
+  ;; either the pathname of the document or the window if it unsaved. But the unsaved case is not nice
+  ;; if the user then double-clicks on one of these results, so for now a simple solution will do...
+  
+  
+  (slot protected designer)
+  (slot protected reference)
+  (slot protected branch)
+  (slot protected class)
+  (slot protected path)
+  (slot protected property)
+  (slot protected image)
+  (slot protected presented)
+  (slot protected location)
+  (slot protected extension)
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a} {a}" path property))))
+  
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((and (eq? designer (get-designer~ target))
+                (eq? branch (get-branch~ target))
+                (= path (get-path~ target))
+                (= property (get-property~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (compare-pathname object)
+    (eq? (compare-object object) :equal))
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (initialize designer reference branch class path property image presented location extension)
+    (nextmethod)
+    (set! designer~self designer)
+    (set! reference~self reference)
+    (set! branch~self branch)
+    (set! class~self class)
+    (set! path~self path)
+    (set! property~self property)
+    (set! image~self image)
+    (set! presented~self presented)
+    (set! location~self location)
+    (set! extension~self extension))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-designer)
+    designer)
+  
+  
+  (method public (get-reference)
+    reference)
+  
+  
+  (method public (get-branch)
+    branch)
+  
+  
+  (method public (get-class)
+    class)
+  
+  
+  (method public (get-path)
+    path)
+  
+  
+  (method public (set-path value)
+    (set! path value))
+  
+  
+  (method public (get-image)
+    image)
+  
+  
+  (method public (get-location)
+    location)
+  
+  
+  ;;;
+  ;;;; Property
+  ;;;
+  
+  
+  (method public (get-component-name)
+    (get-name~ designer path branch: branch))
+  
+  
+  (method public (get-component-property property)
+    (get-property~ designer path property branch: branch))
+  
+  
+  (method public (set-component-property property value)
+    (set-property~ designer path property value branch: branch))
+  
+  
+  ;;;
+  ;;;; Moniker
+  ;;;
+  
+  
+  (method (get-writable?)
+    #t)
+  
+  
+  (method (exists?)
+    #t)
+  
+  
+  (method (get-base)
+    presented)
+
+
+  (method (get-file)
+    {})
+  
+  
+  (method (get-name)
+    presented)
+  
+  
+  (method (get-extension)
+    extension)
+  
+  
+  (method (get-modification-time)
+    {})
+  
+  
+  (method (present)
+    (format "{a} {a}" path property))
+  
+  
+  (method (present-base)
+    presented)
+  
+  
+  (method (present-location)
+    (join location " "))
+  
+  
+  (method (load-lines)
+    (JzLoadLines (get-component-property property)))
+
+
+  (method (save-lines lines)
+    (set-component-property property (join lines (cn))))))

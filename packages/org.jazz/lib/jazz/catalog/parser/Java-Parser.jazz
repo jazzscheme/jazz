@@ -1,0 +1,177 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Java Parser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.catalog.parser.Java-Parser jazz
+
+
+(import (jazz.catalog)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Java-Parser extends File-Parser
+  
+  
+  (method (parse file time)
+    (let ((ast (parse-java file Java-AST file)))
+      (new Java-File-Entry catalog file time (java-definitions ast :include-references? references?))))
+  
+  
+  (method (parse-zipped zipped)
+    (let ((ast (parse-java (read-content~ zipped) Java-AST zipped)))
+      (new Zipped-Entry zipped (java-definitions ast :include-references? references?))))
+  
+
+  ;;;
+  ;;;; Sweep
+  ;;;
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (sweep)
+    (nextmethod)
+    (let ((file-entries (apply append (gather-values~ content))))
+      (for-each (function dynamic (file-entry)
+                  (qualify-categories file-entry))
+                file-entries)
+      (for-each (function dynamic (file-entry)
+                  (qualify-origins file-entry))
+                file-entries)))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (qualify-categories file-entry)
+    (let* ((definitions (get-definitions~ file-entry))
+           (package-entries (collect-type Package-Entry definitions))
+           (package-path (essay package-entries (get-qualified~ (first package-entries)))))
+      (when package-path
+        (for-each (function dynamic (category-entry)
+                    (let* ((name (get-name~ category-entry))
+                           (qualified-path (append package-path (list name))))
+                      (set-qualified~ category-entry qualified-path)))
+                  (collect-type Category-Entry definitions)))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (qualify-origins file-entry)
+    (let* ((definitions (get-definitions~ file-entry))
+           (package-entries (collect-type Package-Entry definitions))
+           (import-entries (collect-type Import-Entry definitions))
+           (star-import? (some? (function dynamic (import)
+                                  (equal? (get-name~ import) "*"))
+                                import-entries)))
+      (for-each (function dynamic (category-entry)
+                  (let* ((extends (get-extends~ category-entry))
+                         (implements (when (is? category-entry Class-Entry)
+                                       (get-implements~ category-entry)))
+                         (best-extends (best-qualify extends import-entries package-entries star-import?))
+                         (best-implements (best-qualify implements import-entries package-entries star-import?)))
+                    (when best-extends
+                      (set-extends~ category-entry best-extends))
+                    (when best-implements
+                      (set-implements~ category-entry best-implements))
+                    (qualify-return-types category-entry import-entries package-entries star-import?)))
+                (collect-type Category-Entry definitions))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (qualify-return-types category-entry imports packages star-import?)
+    (for-each (function dynamic (method-entry)
+                (let* ((return-type (get-type~ method-entry))
+                       (best-type (best-qualify-type return-type imports packages star-import?)))
+                  (when best-type
+                    (set-type~ method-entry best-type))))
+              (collect-type Method-Entry (get-definitions~ category-entry))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (best-qualify name-list imports packages star-import?)
+    (when (some? (function dynamic (item)
+                   (= 1 (length item)))
+                 name-list)
+      (map (function dynamic (item)
+             (let ((indexed (category-from-index (last item)))
+                   (imported (category-from-import (last item) imports))
+                   (packaged (category-from-package (last item) packages)))
+               (case (length imported)
+                 ((1) (first imported))
+                 ((0) (if (not star-import?)
+                        packaged
+                      @w (debug 'best-qualify (length imported) item packages)
+                      item))
+                 (else @w (debug 'best-qualify (length imported) item (get-parent~ (first imports)))
+                       item))))
+          name-list)))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (best-qualify-type name imports packages star-import?)
+    (when (and (is? name String)
+               (object-upper-case?~ (first name)))
+      (let ((indexed (category-from-index name))
+            (imported (category-from-import name imports))
+            (packaged (category-from-package name packages)))
+        (case (length imported)
+          ((1) (first imported))
+          ((0) (if (not star-import?)
+                 packaged
+               name))
+          (else name)))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (category-from-index name)
+    (map (function dynamic (entry)
+           (get-qualified~ entry))
+         (collect-type Class-Entry (get-definitions name))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (category-from-import name imports)
+    (remove-duplicates
+     (collect-if (function dynamic (import-path)
+                   (equal? name (last import-path)))
+                 (map (function dynamic (import)
+                        (get-qualified~ import))
+                      imports))))
+  
+  
+  @to-slc:why-was-this-done-on-sweep?
+  (method (category-from-package name packages)
+    (when packages
+      (let ((qualified (get-qualified~ (first packages))))
+        (essay qualified (append qualified (list name))))))))

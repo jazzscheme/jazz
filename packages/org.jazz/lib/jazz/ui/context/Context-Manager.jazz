@@ -1,0 +1,129 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Context Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.context.Context-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Context-Manager extends Layout-View
+  
+
+  (form
+    (<install> background: {Color red: 123 green: 174 blue: 251}))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'context-manager)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "All"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Context")
+  
+  
+  (method (client-activate)
+    (install-context (current-document)))
+  
+  
+  (method (client-deactivate)
+    (install-context {}))
+  
+  
+  (method (workspace-minimisable?)
+    #f)
+
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((top 10))
+      (for-each (function dynamic (view)
+                  (let ((width (get-width))
+                        (height (get-height))
+                        (view-height (get-height~ view)))
+                    (set-position~ view (new Point 10 top))
+                    (set-size~ view (new Dimension (- width 20) view-height))
+                    (increase! top (+ view-height 10))))
+                children)))
+
+  
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  (method (install-context guest)
+    (close-children)
+    (install-text (get-application))
+    (install-text guest)
+    (layout-view))
+  
+  
+  (method (install-text provider)
+    (when provider
+      (for-each (function dynamic (info)
+                  (bind (title text-view) info
+                    (let ((view (new Context-View parent: self @not-sure icon: @not-sure {Bitmap-Resource "Document"} title: title)))
+                      (set-text~ view text-view)
+                      (set-size~ view (new Dimension (get-width~ view) (+ (get-height~ text-view) 24 12))))))
+                (get-context-text~ provider))))))

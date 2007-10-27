@@ -1,0 +1,152 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Documentation Entry
+;;;
+;;;  Filename: Doc.jazz
+;;;  Copyright: Guillaume Cartier
+;;;
+
+
+(library jazz.doc.doc.Doc jazz
+
+
+(import (jazz.doc)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Doc extends Component
+  
+  
+  (property title       initialize {} accessors generate)
+  (property description initialize {} accessors generate)
+
+  
+  (method meta (construct-literal context . rest)
+    (apply new self rest))
+  
+  
+  (method (install-child form creator creator-branch restore-form)
+    (case (get-model-name~ form)
+      ((description) (set-description form))
+      (else (nextmethod form creator creator-branch restore-form))))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public virtual (get-catalog)
+    (get-catalog~ parent))
+  
+  
+  (method public virtual (set-catalog cat)
+    )
+
+
+  ;;;
+  ;;;; Title
+  ;;;
+  
+  
+  (method public (get-effective-title)
+    (either title (->string name)))
+
+
+  ;;;
+  ;;;; Catalog
+  ;;;
+  
+  
+  (method public virtual (update-indexes definitions-index references-index)
+    (when (not-null? name)
+      (hash-add definitions-index name self)))
+  
+  
+  (method public virtual (print-catalog level printer)
+    (format printer "{%}{_ :v}~{{s} {s} {s}}"
+            (* level 2)
+            (identifier-name (type-name (class-of self)))
+            name description))
+
+
+  ;;;
+  ;;;; Documentation
+  ;;;
+  
+  
+  (method public (get-documentation symbol)
+    (let ((catalog (get-catalog)))
+      (find-if (function dynamic (doc)
+                 (eq? (get-parent~ doc) self))
+               (get-definitions~ catalog symbol))))
+
+
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public virtual (present)
+    description)
+  
+  
+  (method public virtual (present-text)
+    (when description
+      (bind (tag . paragraphs) (->jml~ (form->node description))
+        `(<text>
+           ,@paragraphs))))
+
+
+  ;;;
+  ;;;; HTML
+  ;;;
+  
+  
+  (constant Red-Ball
+    "images/red-ball.gif")
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((description) "Description")
+      (else (nextmethod property))))
+
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((title) (new String-Row))
+      ((description) (new Doc-Text-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (display-property? property)
+    (not (memq? (field-name property) '(name-info before children visible?))))
+  
+  
+  (method (get-categorized-properties)
+    '(title description))
+  
+  
+  (method (get-addable-classes)
+    (list
+      Section-Doc
+      {}
+      Concept-Doc
+      {}
+      Package-Doc
+      Class-Doc
+      Interface-Doc
+      {}
+      Constant-Doc
+      Syntax-Doc
+      Method-Doc))))

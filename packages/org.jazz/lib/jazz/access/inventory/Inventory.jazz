@@ -1,0 +1,232 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Database Inventory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.inventory.Inventory jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Inventory extends Object
+  
+  
+  (slot connection)
+  
+  
+  (method (initialize conn)
+    (nextmethod)
+    (set! connection conn)
+    (destroy-mandatory))
+  
+  
+  (method (destroy)
+    (close~ connection)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Version
+  ;;;
+  
+  
+  (method public virtual (get-version)
+    )
+  
+  
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method public virtual (type-connection-string)
+    )
+  
+  
+  ;;;
+  ;;;; Connection
+  ;;;
+  
+  
+  (method public (get-connection)
+    connection)
+  
+  
+  ;;;
+  ;;;; Tables
+  ;;;
+  
+  
+  (method public virtual (get-tables)
+    '())
+  
+  
+  (method public virtual (get-table name)
+    {})
+  
+  
+  (method public virtual (create-table name)
+    )
+  
+  
+  (method public virtual (append-table table)
+    )
+  
+  
+  (method public virtual (remove-table name)
+    )
+  
+  
+  (method public virtual (columns-ordinal-position-consecutive?)
+    #t)
+  
+  
+  (method public virtual (column-supports-property? object property)
+    #t)
+  
+  
+  ;;;
+  ;;;; Views
+  ;;;
+  
+  
+  (method public virtual (create-or-modify-view name text)
+    (with-closed ((view (get-view name error?: #f)))
+      (when view
+        (remove-view name))  
+      (with-closed ((new-view (create-view name)))
+        (set-text~ new-view text)
+        (append-view new-view))))
+  
+  
+  (method public virtual (get-views)
+    '())
+  
+  
+  (method public virtual (get-view name . rest)
+    {})
+  
+  
+  (method public virtual (create-view name)
+    )
+  
+  
+  (method public virtual (append-view view)
+    )
+  
+  
+  (method public virtual (remove-view name)
+    )
+  
+  
+  ;;;
+  ;;;; Relations
+  ;;;
+  
+  
+  (method public virtual (get-relations)
+    '())
+  
+  
+  (method public virtual (get-relation name)
+    {})
+  
+  
+  (method public virtual (create-relation name)
+    )
+  
+  
+  (method public virtual (create-relation-complete name primary-table primary-fields foreign-table foreign-fields)
+    )
+  
+  
+  (method public virtual (append-relation new-relation)
+    )
+  
+  
+  (method public virtual (remove-relation relation-name)
+    )
+  
+  
+  ;;;
+  ;;;; Procedures
+  ;;;
+  
+  
+  (method public virtual (create-or-modify-procedure name text)
+    (with-closed ((procedure (get-procedure name error?: #f)))
+      (when procedure
+        (remove-procedure name))  
+      (with-closed ((new-procedure (create-procedure name)))
+        (set-text~ new-procedure text)
+        (append-procedure new-procedure))))
+  
+  
+  (method public virtual (get-procedures)
+    '())
+  
+  
+  (method public virtual (get-procedure name . rest)
+    {})
+  
+  
+  (method public virtual (create-procedure name)
+    )
+  
+  
+  (method public virtual (append-procedure procedure)
+    )
+  
+  
+  (method public virtual (remove-procedure name)
+    )
+  
+  
+  ;;;
+  ;;;; Misc
+  ;;;
+  
+  
+  (method public virtual (create-or-modify-trigger table-name trigger-name text)
+    (let ((table (get-table table-name)))
+      (create-or-modify-trigger~ table trigger-name text)))
+  
+  
+  (method public virtual (create-or-modify-constraint table-name constraint-name text checked? exclude-replication?)
+    (let ((table (get-table table-name)))
+      (create-or-modify-constraint~ table constraint-name text checked? exclude-replication?)))))

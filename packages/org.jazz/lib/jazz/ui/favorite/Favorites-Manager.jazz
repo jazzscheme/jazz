@@ -1,0 +1,305 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Favorites Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.favorite.Favorites-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.designer)
+        (jazz.process)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+;;;
+;;;; Reading
+;;;
+
+
+(definition (read-favorites)
+  (with-safe-execution "loading the favorites"
+    (function dynamic ()
+      (let ((file {File User "Settings" "Favorites.jml"}))
+        (when (exists?~ file)
+          (let ((process (get-process))
+                (favorites (instantiate~ (read-from-file file))))
+            (install-context~ process favorites)
+            favorites))))
+    continue-handler:
+    (function dynamic (err)
+      )))
+
+
+(class Favorites-Manager extends Editor-View implements Exit-Listener
+
+
+  (form
+    (<install>                              size: {Dimension 650 400} layout-type: border
+      (<Layout-View>      name: tools)
+      (<Favorites-Editor> name: descendants location: center
+        (<!>              name: scroller    flat?: #t)
+        (<!>              name: tree        show-header?: #f highlight-edited?: #f
+          (<!>            name: descendant  title: "Favorite" width: 291)))))
+      
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'favorites-manager)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Favorites"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Favorites")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (get-tree)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate '(descendants tree)))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  @convert
+  (class Favorites-Manager-Controller extends Editor-View-Controller
+    
+    
+    (method (document-status)
+      "Favorites"))
+
+
+  @convert
+  (method (new-controller)
+    (new Favorites-Manager-Controller self))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set-shown?~ (locate-component '(descendants header)) #f)
+    (set-editor~ (locate 'descendants) self)
+    (add-exit-listener~ (get-application) self)
+    (set-client (read-favorites)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (resize-center dh dv)
+    (size-figure~ (locate 'descendants) dh dv))
+
+  
+  (method public (on-launch evt)
+    (launch-selection))
+  
+  
+  (method (prepare-exit)
+    (when (get-modified?)
+      (save)))
+  
+  
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method public (launch-selection)
+    (let* ((tree (get-tree))
+           (favorite (selected-component~ tree)))
+      (if (null? favorite)
+          (bell)
+        (launch~ favorite))))
+  
+  
+  ;;;
+  ;;;; Add
+  ;;;
+  
+  
+  (method public (add-to-favorites class title initargs)
+    (receive (title parent) (get-modal Favorites-Adder :default-title title :default-root client)
+      (when parent
+        (let ((favorite (apply new class title: title initargs)))
+          (add-child~ designer favorite parent)
+          (set-property~ designer favorite title: title)
+          (for-each-property (function dynamic (property value)
+                               (set-property~ designer favorite property value))
+                             initargs)))))
+  
+  
+  ;;;
+  ;;;; Import
+  ;;;
+  
+  
+  (method (import-favorites)
+    (letrec ((tree (get-tree))
+             (component (selected-component~ tree))
+             (directory (get-modal BrowseFolder-Dialog title: "Choose favorites folder"))
+             (bad '())
+             (proc
+              (function dynamic (component directory)
+                (iterate-directory~ directory
+                  (function dynamic (pathname)
+                    (user-message "Importing {a}..." (get-base~ pathname))
+                    (let ((title (get-base~ pathname)))
+                      (if (directory? pathname)
+                          (let ((set (new Group title: title visible?: #f)))
+                            (add-child~ designer set component)
+                            (set-property~ designer set title: title)
+                            (proc set pathname))
+                        (when (and (file? pathname) (= (get-extension~ pathname) "url"))
+                          (let ((url (extract-url pathname)))
+                            (if (null? url)
+                                (set! bad (cons pathname bad))
+                              (let ((favorite (new Favorite-URL title: title visible?: #f)))
+                                (add-child~ designer favorite component)
+                                (set-property~ designer favorite title: title)
+                                (set-property~ designer favorite :url (new URL (list url))))))))))
+                  directories?: #t
+                  recursive?: #f))))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (proc component directory)))
+      (user-message "Done")))
+  
+  
+  (method (extract-url file)
+    (let ((lines (load-lines~ file))
+          (found {}))
+      (while (and (not-null? lines) (not found))
+        (let ((line (car lines)))
+          (when (and (>= (length line) 4) (= (subseq line 0 4) "URL="))
+            (set! found (subseq line 4)))
+          (set! lines (cdr lines))))
+      found))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method public (new-favorites-menu)
+    (unimplemented 'new-favorites-menu)
+    @convert-manifest-stuff
+    (let* ((menu (new Favorites-Menu client: (get-tree)))
+           (tree (get-tree~ (locate 'descendants)))
+           (components (selected-components~ tree)))
+      (when (or (/= (length components) 1) (is-not? (car components) Favorite))
+        (set-visible?~ (locate~ menu 'open) #f)
+        (set-visible?~ (locate~ menu 'end-open-group) #f))
+      (when (not (in-manifest? 'Browser-View))
+        (set-visible?~ (locate~ menu 'import-separator) #f)
+        (set-visible?~ (locate~ menu 'import-favorites) #f))
+      (layout-menu~ menu)
+      menu)))
+
+
+;;;
+;;;; Favorites-Menu
+;;;
+
+
+(class Favorites-Menu extends Component-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: open           title: "&Open" before: add-item default?: #t action-handler: {Event-Handler form: on-launch})
+      (<Separator-Item> name: end-open-group before: add-item)))
+  
+  
+  (method (on-launch evt)
+    @convert
+    (launch-selection))
+  
+  
+  (method (on-import-favorites evt)
+    @convert
+    (import-favorites))
+  
+  
+  (method (on-properties evt)
+    @convert
+    (show-properties))))

@@ -1,0 +1,276 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Toolbar Root
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Toolbar-Root jazz
+
+
+(import (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Toolbar-Root extends Root-View
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (invalidate-top)
+    (invalidate-border insets: {Rect 2 2 2 2}))
+  
+  
+  (method (on-close evt)
+    (let* ((host player)
+           (parent (get-parent~ host))
+           (grand (get-parent~ parent)))
+      (with-locked-update
+        (function dynamic ()
+          (set-visible?~ host #f)
+          (set-parent~ host (get-toplevel))
+          (cond ((is? parent Splitter-Window)
+                 (let ((other (first-window~ parent)))
+                   (when other
+                     (if (is? parent Workspace-Splitter)
+                         (begin
+                           (set-mode~ parent 'zoom)
+                           (layout-window~ parent))
+                       (set-location~ other (get-location~ parent))
+                       (set-parent~ other grand)
+                       (close~ parent)
+                       (layout-window~ grand)))))
+                ((is? parent Pad-Window)
+                 (close)
+                 (let ((other (first-child~ parent)))
+                   (set-location~ other 'selection)
+                   (layout-window~ parent))))))))
+
+  
+  ;;;
+  ;;;; Activation
+  ;;;
+  
+  
+  (method (mouse-activate)
+    (acquire-focus~ (get-player)))
+  
+  
+  (method (root-activate)
+    (invalidate-caption))
+  
+  
+  (method (root-deactivate)
+    (invalidate-caption))
+  
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((width (get-width))
+          (height (get-height)))
+      (let ((content (get-content)))
+        (set-position~ content {Point 0 0})
+        (set-size~ content (new Dimension width height)))))
+
+
+  ;;;
+  ;;;; Rects
+  ;;;
+  
+  
+  (method (menu-rect)
+    (new Rect 1 1 25 25))
+  
+  
+  (method (caption-rect)
+    (new Rect 1 1 (- (get-width) 2) 24))
+  
+  
+  (method (top-rect)
+    (new Rect 1 1 (- (get-width) 2) 25))
+
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (invalidate-top)
+    (invalidate-rect (top-rect)))
+  
+  
+  (method (invalidate-caption)
+    (invalidate-rect (caption-rect)))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Active-Colors
+    (list {Color red: 0 green: 84 blue: 227} {Color red: 61 green: 149 blue: 255}))
+  
+  
+  (definition Frame-Dark-Color
+    {Color red: 128 green: 128 blue: 128})
+  
+  (definition Frame-Medium-Pen
+    (new Pen color: {Color red: 142 green: 142 blue: 142}))
+  
+  (definition Frame-Light-Pen
+    (new Pen color: {Color red: 160 green: 160 blue: 160}))
+
+  
+  @w
+  (method (draw dc context update lh lv)
+    (with ((bounds (get-bounds))
+           (caption (new Rect 2 2 (get-h~ (get-position~ (locate 'tools))) 24)))
+      (let* ((host player)
+             (guest (get-guest~ host))
+             (parent (get-parent~ host))
+             (icon (palette-icon~ (class-of guest)))
+             (title (get-title~ host))
+             (width (get-width))
+             (height (get-height))
+             (focused? (eq? self (get-focused-root))))
+        (frame-rect~ dc (new Rect (get-left~ bounds) (get-top~ bounds) (- (get-right~ bounds) 2) (- (get-bottom~ bounds) 2)) Frame-Dark-Color)
+        (set-pen~ dc {Pen name: Light})
+        (line~ dc 1 1 (- width 3) 1)
+        (line~ dc 1 1 1 24)
+        (if focused?
+            (gradient-fill~ dc caption (first Active-Colors) (second Active-Colors))
+          (fill-rect~ dc caption {Color name: Medium}))
+        (draw-image~ (get-icons-cache~ (get-application)) dc context icon 4 5)
+        (set-font~ dc {Font name: Default-GUI})
+        (set-text-color~ dc (if focused? {Color name: White} {Color name: Black}))
+        (draw-text~ dc 22 7 title)
+        (set-pen~ dc (if focused? {Pen name: White} {Pen name: Black}))
+        (set-pen~ dc {Pen name: Dark})
+        (line~ dc 1 24 (- width 3) 24)
+        (set-pen~ dc Frame-Medium-Pen)
+        (line~ dc (- width 2) 1 (- width 2) height)
+        (line~ dc 1 (- height 2) width (- height 2))
+        (set-pen~ dc Frame-Light-Pen)
+        (line~ dc (- width 1) 2 (- width 1) (- height 1))
+        (line~ dc 2 (- height 1) (- width 1) (- height 1)))))
+  
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+  
+  (method (mouse-down pos)
+    (cond ((in-rect? pos (menu-rect))
+           (select-menu))
+          ((in-rect? pos (caption-rect))
+           (toggle-docked pos))))
+  
+  
+  (method (toggle-docked pos)
+    (let* ((host player)
+           (parent (get-parent~ host)))
+      (when (is? parent Pad-Window)
+        (let* ((title (get-title~ host))
+               (font {Font name: Default-GUI})
+               (h (+ 28 (text-width~ font title))))
+          (when (< (get-h~ pos) h)
+            (with-locked-update
+              (function dynamic ()
+                (select-next~ parent))))))))
+  
+  
+  (method (double-click pos)
+    (let* ((host (get-host))
+           (parent (get-parent~ host))
+           (target (if (is? parent Pad-Window) parent host))
+           (splitter (if (is? parent Pad-Window) (get-parent~ parent) parent)))
+      (when (is? splitter Splitter-Window)
+        (with-locked-update
+          (function dynamic ()
+            (if (= (get-state~ splitter) 'split)
+                (zoom~ splitter target)
+              (unzoom~ splitter)))))))
+  
+
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (select-menu)
+    (let* ((host player)
+           (others (collect-others host)))
+      (when others
+        (let ((menu (new Context-Menu)))
+          (for-each (function dynamic (docked)
+                      (let* ((guest (get-guest~ docked))
+                             (title (get-title~ docked))
+                             (icon (palette-icon~ (class-of guest))))
+                        (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-select properties: (list :host docked)))))
+                    others)
+          (layout-menu~ menu)
+          (track-popup-menu menu {Point 2 25})))))
+  
+  
+  (method (collect-others host)
+    (let ((pad (get-parent~ player)))
+      (when (is? pad Pad-Window)
+        (collect-if (function dynamic (hst)
+                      (/= hst host))
+                    (get-children~ pad)))))
+  
+  
+  (method (on-select evt)
+    (let ((parent (get-parent~ player))
+          (host (get-property~ evt :host)))
+      (with-locked-update
+        (function dynamic ()
+          (set-selection~ parent host)
+          (acquire-focus~ host)))))))

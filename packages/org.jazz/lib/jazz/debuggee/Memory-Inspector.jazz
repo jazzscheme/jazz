@@ -1,0 +1,315 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Memory Inspector
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debuggee.Memory-Inspector jazz
+
+
+(import (jazz.debuggee)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Memory-Inspector extends View implements Runtime-Listener uses (Utilities System WinDef WinKernel WinUser)
+
+
+  (form
+    (<install>                                               size: {Dimension 907 441}
+      (<Push-Button>                   name: update          title: "Update" position: {Point 781 7} size: {Dimension 120 22} action-handler: {Event-Handler form: on-update} default?: #t)
+      (<Border-View>                   name: zones-border    position: {Point 5 35} size: {Dimension 897 270} border-type: edge style: entry
+        (<Scroller-View>                                     style: document flat?: #t
+          (<!>                         name: content         layout-type: fill
+            (<Tree-Header>                                   style: document flat?: #t
+              (<!>                     name: content
+                (<Tree-View>           name: zones           selection-mode: row filled-column: size
+                  (<Tree-Node-Column>  name: size            title: "Size" width: 60)
+                  (<Tree-Label-Column>                       title: "Nb-Bags" width: 60 justification: tail)
+                  (<Tree-Label-Column>                       title: "Committed" width: 90 justification: tail)
+                  (<Tree-Label-Column>                       title: "Allocated" width: 80 justification: tail)
+                  (<Tree-Label-Column>                       title: "Free" width: 80 justification: tail)
+                  (<Tree-Label-Column>                       title: "Bytes Committed" width: 90 justification: tail)
+                  (<Tree-Label-Column>                       title: "Bytes Allocated" width: 90 justification: tail)
+                  (<Tree-Label-Column>                       title: "Bytes Free" width: 90 justification: tail)
+                  (<Tree-Label-Column>                       title: "Usage" width: 70 justification: tail)
+                  (<Tree-Label-Column>                       title: "GC Triggers" width: 70 justification: tail)
+                  (<Tree-Label-Column>                       title: "Lifetime" width: 100 justification: tail)))))))
+      (<Group-Box>                     name: memory          title: "Memory" position: {Point 5 311} size: {Dimension 897 124} flat?: #t style: entry
+        (<Label-View>                  name: symbols         title: "Symbols:" position: {Point 20 24} size: {Dimension 300 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: system-stack    title: "System Stack:" position: {Point 20 46} size: {Dimension 300 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: data-stack      title: "Data Stack:" position: {Point 20 68} size: {Dimension 300 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: collector-stack title: "Collector Stack:" position: {Point 20 90} size: {Dimension 300 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: gc-phase        title: "GC Phase:" position: {Point 330 24} size: {Dimension 220 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: gc-marked       title: "GC Marked:" position: {Point 330 46} size: {Dimension 220 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: gc-undestroyed  title: "GC Undestroyed:" position: {Point 330 68} size: {Dimension 220 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: gc-triggers     title: "GC Triggers:" position: {Point 330 90} size: {Dimension 420 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: string-space    title: "String Space:" position: {Point 600 24} size: {Dimension 150 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: virtual-space   title: "Virtual Space:" position: {Point 600 46} size: {Dimension 150 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: gdi-objects     title: "GDI Objects:" position: {Point 600 68} size: {Dimension 150 16} font: {Font name: Default-GUI})
+        (<Label-View>                  name: user-objects    title: "User Objects:" position: {Point 600 90} size: {Dimension 150 16} font: {Font name: Default-GUI}))))
+    
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Memory")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 80 50})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 961 441})
+  
+  
+  (method (client-activate)
+    (update-memory))
+  
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (add-runtime-listener~ (get-runtime~ Runtime) self)
+    (destroy-mandatory)
+    (update-memory))
+  
+  
+  (method (destroy)
+    (remove-runtime-listener~ (get-runtime~ Runtime) self)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'update) dh 0)
+    (size-figure~ (locate 'zones-border) dh dv)
+    (move-figure~ (locate 'memory) 0 dv)
+    (size-figure~ (locate 'memory) dh 0))
+
+
+  (method (on-update evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (when (get-shift?~ evt)
+          (let ((debuggee (selected-debuggee)))
+            (if (null? debuggee)
+                (gc)
+              (trigger-gc~ debuggee))))
+        (update-memory))))
+  
+  
+  (method (on-thread-added evt)
+    )
+  
+  
+  (method (on-thread-removed evt)
+    )
+  
+  
+  (method (on-gc-marking evt)
+    (update-collector))
+  
+  
+  (method (on-gc-sweeping evt)
+    (update-collector))
+  
+  
+  (method (on-gc-completed evt)
+    (update-collector))
+  
+  
+  (method (on-zone-expanded evt)
+    )
+  
+  
+  (method (on-zone-shrinked evt)
+    (write 'shrinking))
+  
+  
+  ;;;
+  ;;;; Debuggee
+  ;;;
+  
+  
+  (method (selected-debuggee)
+    (let* ((appl (get-application))
+           (debugger (get-local-debugger-server~ appl)))
+      (when debugger
+        (get-selected-debuggee~ debugger))))
+  
+  
+  ;;;
+  ;;;; Memory
+  ;;;
+  
+  
+  (method synchronized (update-memory (only-allocated-in-gc?: only-allocated-in-gc? #f))
+    (let* ((debuggee (selected-debuggee))
+           (statistics (if (null? debuggee) (statistics) (memory-statistics~ debuggee))))
+      (bind (symbols zones heap) statistics
+        (view-zones zones only-allocated-in-gc?)
+        (unless only-allocated-in-gc?
+          (view-heap heap)
+          (view-extra)))))
+
+
+  (method (view-zones zones only-allocated-in-gc?)
+    (let ((tree (locate 'zones)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (unless only-allocated-in-gc?
+            (remove-every-row~ tree))
+          (let ((zones (objects-info~ Performance zones)))
+            (for-each (function dynamic (info)
+                        (bind (size nb-bags committed allocated free bytes-committed bytes-allocated bytes-free usage trigger-count lifetime) info
+                          (when (not only-allocated-in-gc?)
+                            (let ((children (list
+                                             (new Tree-Node title: size)
+                                             (new Tree-Label title: nb-bags)
+                                             (new Tree-Label title: committed)
+                                             (new Tree-Label title: allocated)
+                                             (new Tree-Label title: free)
+                                             (new Tree-Label title: bytes-committed)
+                                             (new Tree-Label title: bytes-allocated)
+                                             (new Tree-Label title: bytes-free)
+                                             (new Tree-Label title: (format "{a}%" usage))
+                                             (new Tree-Label title: (->string trigger-count))
+                                             (new Tree-Label title: lifetime)
+                                             (new Tree-Label title: ""))))
+                              (add-row~ tree children: children)))))
+                      zones))))))
+  
+  
+  (method (view-heap heap)
+    (bind ({} {} string vector hashtable map virtual object collector) heap
+      (set-title~ (locate 'string-space) (format "String Space: {s}" string))
+      (set-title~ (locate 'virtual-space) (format "Virtual Space: {s}" virtual))))
+  
+  
+  (method (view-extra)
+    (set-title~ (locate 'symbols) (view-symbols))
+    (set-title~ (locate 'system-stack) (view-system-stack))
+    (set-title~ (locate 'data-stack) (view-data-stack))
+    (set-title~ (locate 'collector-stack) (view-collector-stack))
+    (set-title~ (locate 'gc-phase) (view-gc-phase))
+    @to-convert
+    (set-title~ (locate 'gc-marked) (view-gc-marked))
+    (set-title~ (locate 'gc-undestroyed) (view-gc-undestroyed))
+    (set-title~ (locate 'gc-triggers) (view-gc-triggers))
+    (set-title~ (locate 'gdi-objects) (view-gdi-objects))
+    (set-title~ (locate 'user-objects) (view-user-objects)))
+  
+  
+  (method (view-symbols)
+    (bind (allocated free) (symbols-statistics)
+      (format "Symbols: Allocated {a}, Used {a}, Free {a}"
+              allocated
+              (- allocated free)
+              free)))
+  
+  
+  (method (view-system-stack)
+    (format "System Stack: {a}" (system-stack-info)))
+  
+  
+  (method (view-data-stack)
+    (format "Data Stack: {a}" (data-stack-info)))
+  
+  
+  (method (view-collector-stack)
+    (bind (size roots) (gc-statistics)
+      (format "Collector Stack: {a}"
+              size)))
+  
+  
+  (constant GC-Phases
+    '((0 "Idle")
+      (1 "Mark")
+      (2 "Sweep")))
+  
+  
+  (method (view-gc-phase)
+    (bind (phase) (gc-info)
+      (format "GC Phase: {a}" (cadr (assq phase GC-Phases)))))
+  
+  
+  (method (view-gc-undestroyed)
+    (let ((undestroyed (gc-undestroyed-count)))
+      (format "GC Undestroyed: {a}" undestroyed)))
+  
+  
+  (method (view-gc-triggers)
+    (let ((triggers (gc-triggers)))
+      (format "GC Triggers: {l detail: :human separator: \", \"}" triggers)))
+  
+  
+  (method (view-gdi-objects)
+    (format "GDI Objects: {a}" (if (>= (get-windows-version) {Version 5 0 0}) (GetGuiResources (GetCurrentProcess) GR_GDIOBJECTS) "N/A")))
+  
+  
+  (method (view-user-objects)
+    (format "User Objects: {a}" (if (>= (get-windows-version) {Version 5 0 0}) (GetGuiResources (GetCurrentProcess) GR_USEROBJECTS) "N/A")))
+  
+  
+  ;;;
+  ;;;; Collector
+  ;;;
+  
+  
+  (method (update-collector)
+    (bind (phase) (gc-info)
+      (when (= phase 0)
+        (update-memory :only-allocated-in-gc? #t))
+      (set-title~ (locate 'gc-phase) (view-gc-phase))))))

@@ -1,0 +1,191 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Check Boxes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Check-Box jazz
+
+
+(import (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
+        (jazz.system)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Check-Box extends View
+  
+  
+  (definition box-size
+    13)
+  
+  
+  (property checked? initialize #f               getter get-checked? setter set-checked?)
+  (property color    initialize {Color name: Black} getter get-color    setter set-color)
+  
+  
+  (slot tracking? initialize #f)
+  (slot inside?   initialize #f)
+  
+  
+  (method (default-size)
+    {Dimension 100 16})
+  
+  
+  (method (get-sort-value)
+    (localize title))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-checked?)
+    checked?)
+  
+
+  (method public (set-checked? flag)
+    (set! checked? flag)
+    (call-content-change {})
+    (invalidate-view))
+
+
+  (method public (get-color)
+    color)
+
+
+  (method public (set-color value)
+    (set! color value)
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method protected virtual (change-state reverse?)
+    (set-checked? (not checked?)))
+  
+  
+  ;;;
+  ;;;; Regions
+  ;;;
+  
+  
+  (method (text-extent)
+    (let ((title (localize title)))
+      (if (not title)
+          {Dimension 50 13}
+        (text-extent~ font title))))
+  
+  
+  (method (box-rect)
+    (let* ((extent (text-extent))
+           (v (quotient (- (get-height) (get-height~ extent)) 2)))
+      (new Rect 0 v box-size (+ v box-size))))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw dc context update lh lv)
+    (let* ((title (localize title))
+           (extent (text-extent))
+           (height (get-height~ extent))
+           (h 18)
+           (v (quotient (- (get-height) height) 2))
+           (rect (box-rect))
+           (grayed? (or (not enabled?) (and tracking? inside?))))
+      (draw-edge~ dc rect inner: 'sunken outer: 'sunken edges: 'rectangle)
+      (fill-rect~ dc (inflate-rect rect -2 -2) (if grayed? {Color name: Medium} {Color name: White}))
+      (draw-check dc 3 (+ v 3) grayed?)
+      (when title
+        (let ((selected? (getf context selected?:)))
+          (when selected?
+            (let ((rect
+                   (if (and (is? outline Tree-View) (memq? (get-selection-mode~ outline) '(row cell)))
+                       (new Rect (- h 3) (- v 2) (get-width) (+ v (get-height~ extent) 2))
+                     (new Rect (- h 3) (- v 2) (+ h (get-width~ extent) 3) (+ v (get-height~ extent) 2)))))
+              (fill-rect~ dc rect {Color name: Focused-Selection})))
+          (set-font~ dc font)
+          (set-text-color~ dc (either (determine-color~ color enabled? selected?)
+                                      {Color name: White}))
+          (draw-text~ dc h v title (or enabled? selected?))))))
+  
+  
+  (method protected virtual (draw-check dc h v grayed?)
+    (when checked?
+      (set-pen~ dc (if grayed? {Pen name: Dark} {Pen name: Black}))
+      (draw-check~ dc h v)))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-down pos)
+    (if (and outline (not (in-rect? pos (box-rect))))
+        (outline-select focus?: #t)
+      (when enabled?
+        (set! tracking? #t)
+        (set! inside? #t)
+        (acquire-capture)
+        (invalidate-view))))
+  
+  
+  (method (drag-move pos)
+    (when tracking?
+      (let ((over? (over-view? pos)))
+        (when (neq? over? inside?)
+          (set! inside? over?)
+          (invalidate-view)))))
+  
+  
+  (method (drag-up pos . rest)
+    (when tracking?
+      (release-capture)
+      (set! tracking? #f)
+      (when inside?
+        (change-state (shift-down?))
+        (set-modified? #t)
+        (if (not outline)
+            (process-action self)
+          (process-action~ outline self)))))))

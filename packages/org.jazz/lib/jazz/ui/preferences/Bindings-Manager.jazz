@@ -1,0 +1,256 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Bindings Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.preferences.Bindings-Manager jazz
+
+
+(import (jazz.platform)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities)
+        (jazz.literals))
+
+
+(class Bindings-Manager extends Layout-View
+  
+  
+  (slot categorized? initialize #f)
+
+
+  (form
+    (<install>                                               size: {Dimension 420 639} layout-type: border
+      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>                 name: categorize      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Categorize / Flatten" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler form: on-categorize})
+        (<Separator>                                         size: {Dimension 32 0})
+        (<Push-Tool>                   name: unbind-key      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Key Unbound" image-name: {Bitmap-Resource "Cancel"} portfolio: :icons action-handler: {Event-Handler form: on-unbind-key})
+        (<Separator>                                         size: {Dimension 2 0})
+        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "TypeConflicts"} portfolio: :icons action-handler: {Event-Handler form: on-restore-key})
+        (<Separator>                                         size: {Dimension 24 0})
+        (<Push-Tool>                   name: edit-action     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Action" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-edit-action})
+        (<Push-Button>                 name: bind-key        location: tail title: "Bind" size: {Dimension 100 22} action-handler: {Event-Handler form: on-bind-key} default?: #t))
+      (<Border-View>                   name: bindings-border location: center border-type: edge style: entry
+        (<Scroller-View>                                     style: document hscroll?: #t vscroll?: #t
+          (<content!>                                        layout-type: fill
+            (<Tree-Header>                                   style: document
+              (<content!>
+                (<Bindings-Tree>       name: bindings        double-click-handler: {Event-Handler form: on-double-click} return-press-handler: {Event-Handler form: on-return-press}))))))))
+
+
+  (method (conclude initargs)
+    (nextmethod initargs)
+    (view-bindings))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+    
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "EditLink"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Bindings Manager")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 28 14})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 416 635})
+  
+  
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'bindings))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-categorize evt)
+    (set! categorized? (not categorized?))
+    (set-toplevel-controls?~ (locate '(bindings name)) categorized?)
+    (view-bindings))
+  
+  
+  (method (on-show-all evt)
+    )
+  
+  
+  (method (on-double-click evt)
+    (bind-key))
+  
+  
+  (method (on-return-press evt)
+    (bind-key))
+  
+  
+  (method (on-unbind-key evt)
+    (unbind-key))
+  
+  
+  (method (on-restore-key evt)
+    (restore-key))
+  
+  
+  (method (on-bind-key evt)
+    (bind-key))
+  
+  
+  (method (on-edit-action evt)
+    (edit-action))
+  
+  
+  ;;;
+  ;;;; Binding
+  ;;;
+  
+  
+  (method (unbind-key)
+    (let ((appl (get-application))
+          (tree (get-tree))
+          (info (selected-action-item)))
+      (if (null? info)
+          (bell)
+        (receive (action-item rank) info
+          (let ((designer (get-bindings-designer~ appl))
+                (old (get-shortcut~ action-item)))
+            (set-property~ designer action-item 'shortcut {})
+            (update-accelerator~ appl action-item old (get-shortcut~ action-item))
+            (update-action-item tree designer action-item rank))))))
+  
+  
+  (method (restore-key)
+    (let ((appl (get-application))
+          (tree (get-tree))
+          (info (selected-action-item)))
+      (if (null? info)
+          (bell)
+        (receive (action-item rank) info
+          (let ((designer (get-bindings-designer~ appl))
+                (old (get-shortcut~ action-item)))
+            (remove-property~ designer action-item 'shortcut {})
+            (update-accelerator~ appl action-item old (get-shortcut~ action-item))
+            (update-action-item tree designer action-item rank))))))
+  
+  
+  (method (bind-key)
+    (let ((appl (get-application))
+          (tree (get-tree))
+          (info (selected-action-item)))
+      (if (null? info)
+          (bell)
+        (receive (action-item rank) info
+          (let ((designer (get-bindings-designer~ appl))
+                (old (get-shortcut~ action-item)))
+            (set-property~ designer action-item 'shortcut (get-modal Shortcut-Chooser))
+            (update-accelerator~ appl action-item old (get-shortcut~ action-item))
+            (update-action-item tree designer action-item rank))))))
+  
+  
+  (method (update-action-item tree designer action-item rank)
+    (let ((key-cell (new Cell rank 1))
+          (owner-cell (new Cell rank 2)))
+      (set-cell-data~ tree key-cell (new Tree-Label title: (present-shortcut~ tree (get-shortcut~ action-item))))
+      (set-cell-data~ tree owner-cell (new Tree-Image image: (owner-image~ tree designer action-item 'shortcut)))
+      (invalidate-cell~ tree key-cell)
+      (invalidate-cell~ tree owner-cell)))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (edit-action)
+    (let ((appl (get-application))
+          (info (selected-action-item)))
+      (if (null? info)
+          (bell)
+        (receive (action-item rank) info
+          (let ((action-handler (get-action-handler~ action-item)))
+            (if (null? action-handler)
+                (bell)
+              (edit-definition~ appl (get-method-name~ action-handler))))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-action-item)
+    (let* ((tree (get-tree))
+           (rank (get-single-selection~ tree)))
+      (when rank
+        (let* ((row (get-row~ tree rank))
+               (data (get-user-data~ row)))
+          (when (is? data Action-Item)
+            (values data rank))))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (view-bindings)
+    (let ((appl (get-application)))
+      (let ((designer (get-bindings-designer~ appl))
+            (bindings (get-bindings~ appl))
+            (kind (if categorized? 'categorized 'flat))
+            (tree (get-tree)))
+        (view-bindings~ tree designer bindings kind))))))

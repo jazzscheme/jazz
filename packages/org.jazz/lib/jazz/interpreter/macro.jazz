@@ -1,0 +1,194 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Macro
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.interpreter.macro jazz
+
+
+(import (jazz.jml)
+        (jazz.library))
+
+
+(definition public (get-macro-toplevels)
+  '(parser transformation))
+
+
+(definition public (get-macro-definitions)
+  '(parser transformation pattern))
+
+
+(definition public (expand-macro form)
+  (bind (head . body) form
+    (case head
+      ((parser) (parser body))
+      ((transformation) (transformation body)))))
+
+
+;;;
+;;;; Class
+;;;
+
+
+(definition (parse-class scan)
+  (bind (name . scan) scan
+    (let ((extends {})
+          (implements {})
+          (uses {})
+          (body (unspecified))
+          (done? #f))
+      (while (not done?)
+        (let ((form (car scan)))
+          (case form
+            ((extends) (set! extends (cadr scan)) (set! scan (cddr scan)))
+            ((implements) (set! implements (cadr scan)) (set! scan (cddr scan)))
+            ((uses) (set! uses (cadr scan)) (set! scan (cddr scan)))
+            (else (set! body scan) (set! done? #t)))))
+      (values name extends implements uses body))))
+
+
+(definition (collect-patterns body)
+  (collect (function dynamic (form)
+             (when (and (pair? form)
+                        (eq? (car form) 'pattern))
+               (car (cadr form))))
+           body))
+
+
+(definition (expand-patterns body)
+  (map (function dynamic (form)
+         (if (and (pair? form)
+                  (eq? (car form) 'pattern))
+             (pattern (cdr form))
+           form))
+       body))
+
+
+(definition (generate-initialize patterns)
+  (list 'method 'meta (list 'initialize)
+    (list (list 'super 'initialize))
+    (list 'set! 'patterns (list 'quote patterns))))
+
+
+;;;
+;;;; Parser
+;;;
+
+
+;; Having to use a toplevel macro like this is really a patch for a shortcoming
+;; in Jazz for not having initialize special form at the class toplevel. With it
+;; all the initialization could be done simply and reusably by the pattern macro.
+
+
+(definition (parser body)
+  (receive (name extends implements uses body) (parse-class body)
+    (let* ((patterns (collect-patterns body))
+           (initialize (generate-initialize patterns))
+           (body (expand-patterns body)))
+      `(class ,name extends ,extends implements ,implements uses ,uses
+         ,initialize
+         ,@body))))
+
+
+;;;
+;;;; Transformation
+;;;
+
+
+;; Having to use a toplevel macro like this is really a patch for a shortcoming
+;; in Jazz for not having initialize special form at the class toplevel. With it
+;; all the initialization could be done simply and reusably by the pattern macro.
+
+
+(definition (transformation body)
+  (receive (name extends implements uses body) (parse-class body)
+    (let* ((patterns (collect-patterns body))
+           (initialize (generate-initialize patterns))
+           (body (expand-patterns body)))
+      `(class ,name extends ,extends implements ,implements uses ,uses
+         ,initialize
+         ,@body))))
+
+
+;;;
+;;;; Pattern
+;;;
+
+
+(definition (pattern rest)
+  `(method ,@rest))
+
+
+;;;
+;;;; Text
+;;;
+
+
+(definition public (get-macro-tabulation symbol)
+  (case symbol
+    ((transformation) '(0 #t))
+    ((pattern)        '(1 #f))
+    (else           {})))
+
+
+;; This integration is one of the most complex ones
+;; in the new macro system, so for now it's patch time...
+(definition public (expand-macro-evaluations category forms)
+  (let ((scan forms))
+    (while (not-null? scan)
+      (let ((form (car scan)))
+        (when (and (pair? form)
+                   (eq? (car form) 'pattern))
+          (set-car! scan (pattern (cdr form)))
+          (cond ((subtype? category JML-Parser)
+                 (add-pattern~ category (car (cadr form))))
+                ((subtype? category JML-Transformation)
+                 (add-pattern~ category (car (cadr form))))))
+        (set! scan (cdr scan))))))
+
+
+(definition public (walk-macro-declaration symbol explorer context declaration keyword expression doc line walk-expressions?)
+  (case symbol
+    ((parser)
+     (walk-category~ explorer context declaration keyword expression doc line walk-expressions?)
+     #t)
+    ((transformation)
+     (walk-category~ explorer context declaration keyword expression doc line walk-expressions?)
+     #t)
+    ((pattern)
+     (walk-method~ explorer context declaration keyword expression doc line walk-expressions?)
+     #t)
+    (else
+     #f))))

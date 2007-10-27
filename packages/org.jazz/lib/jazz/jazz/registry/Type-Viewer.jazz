@@ -1,0 +1,340 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Type Viewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.registry.Type-Viewer jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Type-Viewer extends Layout-View uses (Utilities Development System COM WinIDL)
+
+
+  (slot library initialize {})
+
+
+  (form
+    (<install>                                               size: {Dimension 693 739} layout-type: border
+      (<Layout-View>                    name: toolbar        size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 1 6 0 0}
+        (<Push-Tool>                    name: generate       size: {Dimension 22 22} image-name: {Bitmap-Resource "GenerateLibrary"} portfolio: :icons tooltip?: #t tooltip-text: "Generate Library" action-handler: {Event-Handler form: on-generate})
+        (<Push-Button>                  name: browse         title: "Browse..." size: {Dimension 100 22} location: tail action-handler: {Event-Handler form: on-browse}))
+      (<Splitter-View>                  name: splitter       location: center state: split orientation: horz mode: relative division: 30
+        (<Border-View>                  name: library-border location: first border-type: edge style: entry
+          (<Scroller-View>                                   style: document vscroll?: #t
+            (<!>                        name: content        layout-type: fill
+              (<Tree-Header>                                 style: document
+                (<!>                    name: content
+                  (<Type-Tree>          name: library        sons-class: Axis selection-handler: {Event-Handler form: on-selection-change} portfolio: :icons
+                    (<Tree-Node-Column>                      title: "Types" width: 269)))))))
+        (<Border-View>                  name: descr-border   location: second border-type: edge style: entry
+          (<Text-View>                  name: descr          default-style: {Text-Style name: Default font: {Font name: Code}})))))
+
+  
+  @convert
+  (method meta public (singleton)
+    (either (find-host~ (get-stage) Type-Viewer)
+            (new-frame)))
+  
+  
+  (method (destroy)
+    (set! library {})
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Browser"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Type Viewer")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 503 14})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 557 635})
+  
+  
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (on-generate evt)
+    (if (null? library)
+        (bell)
+      (let* ((name (get-name~ library))
+             (file (get-modal SaveFile-Dialog :initial-filename name :default-extension "jazz" extensions: '(("Jazz Text (*.jazz)" . "*.jazz"))))
+             (pure-dispatch? (shift-down?)) ;; a big patch for now (I do not see how to get the info...)
+             (extractor (new Type-Extractor :library library :pure-dispatch? pure-dispatch?)))
+        (extract~ extractor file))))
+ 
+ 
+  (method (on-browse evt)
+    (view-file (get-modal OpenFile-Dialog extensions: '(("Type Libraries (*.tlb)" . "*.tlb")))))
+
+
+  (method (on-selection-change evt)
+    (let* ((sender (get-sender~ evt))
+           (selection (get-single-selection~ sender)))
+      (if (null? selection)
+          (describe-item library)
+        (describe-item (get-user-data~ (get-row~ sender selection))))))
+
+
+  (method public (view-file file)
+    (view-library (new Type-Lib file: file)))
+
+
+  (method public (view-registered-library g ma mi li)
+    (view-library (new Type-Lib guid: g :major-version ma :minor-version mi :language-id li)))
+
+
+  (method public (view-library lib)
+    (with-cursor :wait
+      (function dynamic ()
+        (set! library lib)
+        (let ((tree (locate 'library)))
+          (with-update-locked~ tree
+            (function dynamic ()
+              (remove-every-row~ tree)
+              (insert-library tree))))
+        (describe-item library))))
+
+
+  ;;;
+  ;;;; Insert
+  ;;;
+
+
+  (method (insert-library tree)
+    (let* ((title (get-name~ library))
+           (node (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "TypeLib"})) user-data: library)))
+      (for-each (function dynamic (info)
+                  (insert-info info tree node))
+                (get-types~ library))))
+
+
+  (method (insert-info info tree node)
+    (let* ((name (get-name~ info))
+           (doc  (get-doc~ info))
+           (kind (get-kind~ info))
+           (icon (ecase kind
+                   ((TKIND_ENUM)      {Bitmap-Resource "TypeEnum"})
+                   ((TKIND_RECORD)    {Bitmap-Resource "TypeRecord"})
+                   ((TKIND_COCLASS)   {Bitmap-Resource "TypeClass"})
+                   ((TKIND_INTERFACE) {Bitmap-Resource "TypeInterface"})
+                   ((TKIND_DISPATCH)  {Bitmap-Resource "TypeDispatch"})
+                   ((TKIND_ALIAS)     {Bitmap-Resource "TypeAlias"})
+                   ((TKIND_UNION)     {Bitmap-Resource "TypeUnion"})
+                   (else            {Bitmap-Resource "TypeOther"}))))
+      (add-row~ tree father: node state: 'dynamic children: (list (new Tree-Node title: name image: icon)) user-data: info)))
+  
+  
+  (method (update-info-row row)
+    (let ((tree (get-parent~ row))
+          (info (get-user-data~ row)))
+      (for-each (function dynamic (desc)
+                  (insert-function info desc tree row))
+                (get-functions~ info))
+      (for-each (function dynamic (desc)
+                  (insert-variable info desc tree row))
+                (get-variables~ info))))
+
+
+  (method (insert-function info desc tree node)
+    (let ((name (get-member-name~ info desc))
+          (icon (ecase (get desc 'invkind)
+                  ((INVOKE_FUNC) {Bitmap-Resource "Function"})
+                  ((INVOKE_PROPERTYGET) {Bitmap-Resource "PropertyGet"})
+                  ((INVOKE_PROPERTYPUT) {Bitmap-Resource "PropertyPut"})
+                  ((INVOKE_PROPERTYPUTREF) {Bitmap-Resource "PropertyPutRef"})
+                  (else "TypeOther"))))
+      (add-row~ tree father: node state: 'expanded children: (list (new Tree-Node title: name image: icon)) user-data: (cons info desc))))
+
+
+  (method (insert-variable info desc tree node)
+    (let ((name (get-member-name~ info desc)))
+      (add-row~ tree father: node state: 'expanded children: (list (new Tree-Node title: name image: {Bitmap-Resource "Variable"})) user-data: (cons info desc))))
+
+
+  ;;;
+  ;;;; Describe
+  ;;;
+
+
+  (method (describe-item item)
+    (when item
+      (let ((text (locate 'descr))
+            (fact (new List-Factory)))
+        (typecase item
+          ((Type-Lib)  (describe-lib    item fact))
+          ((Type-Info) (describe-info   item fact))
+          (else      (describe-member item fact)))
+        (set-content~ text (get-output~ fact)))))
+
+
+  (method (describe-lib item fact)
+    (put~ fact (format "{a}" (get-name~ item)))
+    (put~ fact (format "{a}" (get-doc~ item)))
+    (put~ fact "")
+    (put~ fact (format "GUID: {a}" (get-lib-guid~ item)))
+    (put~ fact (format "File: {a}" (get-lib-file~ item))))
+
+
+  (method (describe-info item fact)
+    (put~ fact (format "Name: {a}" (get-name~ item)))
+    (put~ fact (format "Doc:  {a}" (get-doc~ item)))
+    (put~ fact (format "Kind: {a}" (value->name~ TYPEKIND (get-kind~ item))))
+    (put~ fact (format "GUID: {a}" (get-guid~ item)))
+    (put~ fact (format "Refs: {a}" (map (function dynamic (info) (get-name~ info)) (get-implemented-types~ item)))))
+
+
+  (method (describe-member item fact)
+    (bind (info . desc) item
+      (typecase desc
+        ((FUNCDESC) (describe-function info desc fact))
+        ((VARDESC)  (describe-variable info desc fact)))))
+
+
+  (method (describe-function info desc fact)
+    (put~ fact (format "Kind:            {a}" (value->name~ FUNCKIND (get desc 'funckind))))
+    (put~ fact (format "Invocation:      {a}" (value->name~ INVOKEKIND (get desc 'invkind))))
+    (put~ fact (format "Call Convention: {a}" (value->name~ CALLCONV (get desc 'callconv))))
+    (put~ fact (format "Virtual Offset:  {a}" (get desc 'oVft)))
+    (put~ fact (format "Required:        {a}" (get desc 'cParams)))
+    (put~ fact (format "Optionals:       {a}" (get desc 'cParamsOpt)))
+    (put~ fact (format "Return Type:     {a}" (describe-type info (get desc '(elemdescFunc tdesc)))))
+    (put~ fact "")
+    (let ((params (get-function-parameters~ info desc)))
+      (for-each (function dynamic (n)
+                  (let* ((param (array-ref params n))
+                         (typedesc (get param 'tdesc))
+                         (type (get typedesc 'vt))
+                         (direction (parameter-direction param))
+                         (pointer? (= type VT_PTR))
+                         (user? (= type VT_USERDEFINED))
+                         (ptr-typedesc (essay pointer? (coerce (get typedesc 'desc) TYPEDESC)))
+                         (ptr-type (essay pointer? (get ptr-typedesc 'vt)))
+                         (param-type-name (describe-type info typedesc))
+                         (padding (max 1 (- 10 (length param-type-name)))))
+                    (put~ fact (format "Type: {a},{a}Direction: {a}" param-type-name (make-string padding #\space) direction))
+                    (when pointer?
+                      (put~ fact (format "Pointer Type: {a}" (describe-type info ptr-typedesc)))
+                      (when (= ptr-type VT_PTR)
+                        (let* ((ptr-ptr-typedesc (coerce (get ptr-typedesc 'desc) TYPEDESC))
+                               (ptr-ptr-type (get ptr-ptr-typedesc 'vt)))
+                          (put~ fact (format "Pointer Pointer Type: {a}" (describe-type info ptr-ptr-typedesc))))))
+                    (when user?
+                      (let ((referenced (get-referenced-type~ info (get typedesc 'desc))))
+                        (put~ fact (format "User Type: {a}" (get-name~ referenced)))))))
+                (naturals 0 (get desc 'cParams)))))
+
+
+  (method (describe-type info desc)
+    (let ((type (get desc 'vt)))
+      (if (= type VT_USERDEFINED)
+          (let ((referenced (get-referenced-type~ info (get desc 'desc))))
+            (get-name~ referenced))
+        (value->name~ VARENUM type))))
+  
+  
+  (method (parameter-direction param)
+    (let* ((flags (get param '(idldesc wIDLFlags)))
+           (in?   (mask-bit-set? flags IDLFLAG_FIN))
+           (out?  (mask-bit-set? flags IDLFLAG_FOUT))
+           (unspecified? (and (not in?) (not out?))))
+      (cond ((and in? out?) '<in-out>)
+            ((or in? unspecified?) '<in>)
+            (out? '<out>)
+            (else (error "Bad parameter direction")))))
+  
+  
+  (method (describe-variable info desc fact)
+    (let* ((kind (get-kind~ info))
+           (typedesc (get desc '(elemdescVar tdesc)))
+           (type (describe-type info typedesc))
+           (value (get desc 'lpvarValue)))
+      (ecase kind
+        ((TKIND_ENUM)
+          (put~ fact (format "Type: {a}, Value: {a}" type (read-variant value))))
+        ((TKIND_RECORD)
+          (case type
+            (VT_CARRAY
+              (let ((arraydesc (coerce (get typedesc 'desc) ARRAYDESC)))
+                (put~ fact (format "Type: {a}, Offset: {a}" type value))
+                (put~ fact (format "Subtype: {a}, Count: {a}"
+                                   (describe-type info (get arraydesc 'tdescElem))
+                                   (get arraydesc '(rgbounds cElements))))))
+            (else
+             (put~ fact (format "Type: {a}, Offset: {a}" type value)))))
+        ((TKIND_UNION)
+          (put~ fact (format "Type: {a}, Value: {a}" type value)))))))
+
+
+;;;
+;;;; Type-Tree
+;;;
+
+
+(class Type-Tree extends Tree-View
+  
+  
+  (method (update-row row)
+    (update-info-row row))))

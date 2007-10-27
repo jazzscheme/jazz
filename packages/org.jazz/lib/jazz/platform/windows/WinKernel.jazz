@@ -1,0 +1,173 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows Kernel
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform.windows.WinKernel jazz
+
+
+(import (jazz.platform.windows.WinTypes)
+        (jazz.platform.windows.WinBase)
+        (jazz.library))
+
+  
+(c-include "<Tlhelp32.h>")
+
+
+;;;
+;;;; Constants
+;;;
+
+
+
+(constant TH32CS_SNAPHEAPLIST #x00000001)
+(constant TH32CS_SNAPPROCESS  #x00000002)
+(constant TH32CS_SNAPTHREAD   #x00000004)
+(constant TH32CS_SNAPMODULE   #x00000008)
+(constant TH32CS_SNAPMODULE32 #x00000010)
+(constant TH32CS_SNAPALL      (bit-or TH32CS_SNAPHEAPLIST TH32CS_SNAPPROCESS TH32CS_SNAPTHREAD TH32CS_SNAPMODULE))
+(constant TH32CS_INHERIT      #x80000000)
+
+
+;;;
+;;;; Structures
+;;;
+
+
+(c-structure PROCESSENTRY32
+  (DWORD dwSize)
+  (DWORD cntUsage)
+  (DWORD th32ProcessID)
+  (DWORD th32DefaultHeapID)
+  (DWORD th32ModuleID)
+  (DWORD cntThreads)
+  (DWORD th32ParentProcessID)
+  (LONG pcPriClassBase)
+  (DWORD dwFlags)
+  (WCHAR szExeFile 260))
+
+
+;;;
+;;;; Externals
+;;;
+
+
+(c-external DWORD           (GetLastError))
+(c-external BOOL            (GetVersionEx                            OSVERSIONINFO*)                                                                                                "GetVersionExW")
+(c-external DWORD           (GlobalSize                              HANDLE))
+(c-external VOID*           (GlobalLock                              HANDLE))
+(c-external BOOL            (GlobalUnlock                            HANDLE))
+(c-external DWORD           (FormatMessage                           DWORD VOID* DWORD DWORD WCHAR* DWORD VOID*)                                                                     "FormatMessageW")
+(c-external VOID            (Sleep                                   DWORD))
+(c-external VOID            (GetStartupInfo                          STARTUPINFO*)                                                                                                  "GetStartupInfoW")
+(c-external DWORD           (GetCurrentThreadId))
+(c-external HANDLE          (GetCurrentProcess))
+(c-external DWORD           (GetCurrentProcessId))
+(c-external BOOL            (GetProcessWorkingSetSize                HANDLE PSIZE_T PSIZE_T))
+(c-external BOOL            (CreateProcess                           CWSTR CWSTR SECURITY_ATTRIBUTES* SECURITY_ATTRIBUTES* BOOL DWORD VOID* CWSTR STARTUPINFO* PROCESS_INFORMATION*)"CreateProcessW")
+(c-external BOOL            (GetExitCodeProcess                      HANDLE PDWORD))
+(c-external DWORD           (SuspendThread                           HANDLE))
+(c-external DWORD           (ResumeThread                            HANDLE))
+(c-external BOOL            (CreatePipe                              HANDLE* HANDLE* SECURITY_ATTRIBUTES* DWORD))
+;; tofix PeekNamedPipe -> WinBase
+(c-external BOOL            (PeekNamedPipe                           HANDLE PVOID DWORD PDWORD PDWORD PDWORD))
+(c-external HANDLE          (CreateEvent                             SECURITY_ATTRIBUTES* BOOL BOOL CWSTR)                                                                          "CreateEventW")
+(c-external HANDLE          (CreateSemaphore                         SECURITY_ATTRIBUTES* LONG LONG CWSTR)                                                                          "CreateSemaphoreW")
+(c-external BOOL            (ReleaseSemaphore                        HANDLE LONG LONG*))
+(c-external HANDLE          (CreateMutex                             SECURITY_ATTRIBUTES* BOOL CWSTR)                                                                               "CreateMutexW")
+(c-external BOOL            (ReleaseMutex                            HANDLE))
+(c-external DWORD           (WaitForSingleObject                     HANDLE DWORD))
+(c-external DWORD           (WaitForMultipleObjects                  DWORD HANDLE* BOOL DWORD))
+(c-external BOOL            (SetEvent                                HANDLE))
+(c-external BOOL            (ResetEvent                              HANDLE))
+(c-external BOOL            (PulseEvent                              HANDLE))
+(c-external HANDLE          (GetStdHandle                            DWORD))
+(c-external BOOL            (AllocConsole))
+(c-external BOOL            (FreeConsole))
+(c-external BOOL            (SetConsoleTitle                         CWSTR)                                                                                                         "SetConsoleTitleW")
+(c-external BOOL            (FlushFileBuffers                        HANDLE))
+(c-external HINSTANCE       (LoadLibrary                             CWSTR)                                                                                                         "LoadLibraryW")
+(c-external BOOL            (FreeLibrary                             HINSTANCE))
+(c-external DWORD           (GetModuleFileName                       HINSTANCE CWSTR DWORD)                                                                                         "GetModuleFileNameW")
+(c-external HMODULE         (GetModuleHandle                         CWSTR)                                                                                                         "GetModuleHandleW")
+(c-external VOID*           (GetProcAddress                          HINSTANCE STR))
+;; tofix GetComputerName -> WinBase
+(c-external BOOL            (GetComputerName                         LPWSTR PDWORD)                                                                                                  "GetComputerNameW")
+(c-external DWORD           (GetTempPath                             DWORD WCHAR*)                                                                                                   "GetTempPathW")
+(c-external UINT            (GetTempFileName                         CWSTR CWSTR UINT WCHAR*)                                                                                      "GetTempFileNameW")
+(c-external BOOL            (FileTimeToSystemTime                    FILETIME* SYSTEMTIME*))
+(c-external BOOL            (FileTimeToLocalFileTime                 FILETIME* FILETIME*))
+(c-external BOOL            (LocalFileTimeToFileTime                 FILETIME* FILETIME*))
+(c-external BOOL            (SystemTimeToFileTime                    SYSTEMTIME* FILETIME*))
+(c-external INT             (GetDateFormat                           LCID DWORD SYSTEMTIME* CWSTR WCHAR* INT)                                                                        "GetDateFormatW")
+(c-external VOID            (GetLocalTime                            SYSTEMTIME*))
+(c-external VOID            (GetSystemTime                           SYSTEMTIME*))
+(c-external DWORD           (GetCurrentDirectory                     DWORD WCHAR*)                                                                                                   "GetCurrentDirectoryW")
+(c-external BOOL            (SetCurrentDirectory                     CWSTR)                                                                                                         "SetCurrentDirectoryW")
+(c-external UINT            (GetWindowsDirectory                     CWSTR UINT)                                                                                                    "GetWindowsDirectoryW")
+(c-external UINT            (GetSystemDirectory                      CWSTR UINT)                                                                                                    "GetSystemDirectoryW")
+(c-external HANDLE          (CreateFile                              CWSTR DWORD DWORD SECURITY_ATTRIBUTES* DWORD DWORD HANDLE)                                                     "CreateFileW")
+;; tofix WinBase
+(c-external DWORD           (GetFileSize                             HANDLE PDWORD))
+(c-external BOOL            (GetFileTime                             HANDLE FILETIME* FILETIME* FILETIME*))
+(c-external DWORD           (GetFileAttributes                       CWSTR)                                                                                                         "GetFileAttributesW")
+(c-external BOOL            (GetFileAttributesEx                     CWSTR GET_FILEEX_INFO_LEVELS VOID*)                                                                            "GetFileAttributesExW")
+(c-external BOOL            (SetFileTime                             HANDLE FILETIME* FILETIME* FILETIME*))
+(c-external BOOL            (SetFileAttributes                       CWSTR DWORD)                                                                                                   "SetFileAttributesW")
+;; tofix -> WinBase (HANDLE,PVOID,DWORD,PDWORD,LPOVERLAPPED)
+(c-external BOOL            (ReadFile                                HANDLE PVOID DWORD PDWORD LPOVERLAPPED))
+(c-external BOOL            (WriteFile                               HANDLE PVOID DWORD PDWORD LPOVERLAPPED))
+(c-external BOOL            (MoveFile                                CWSTR CWSTR)                                                                                                   "MoveFileW")
+(c-external BOOL            (CopyFile                                CWSTR CWSTR BOOL)                                                                                              "CopyFileW")
+(c-external BOOL            (DeleteFile                              CWSTR)                                                                                                         "DeleteFileW")
+(c-external BOOL            (RemoveDirectory                         CWSTR)                                                                                                         "RemoveDirectoryW")
+(c-external DWORD           (SetFilePointer                          HANDLE LONG LONG& DWORD))
+(c-external BOOL            (SetEndOfFile                            HANDLE))
+(c-external BOOL            (CreateDirectory                         CWSTR SECURITY_ATTRIBUTES*)                                                                                    "CreateDirectoryW")
+(c-external BOOL            (CloseHandle                             HANDLE))
+(c-external HRSRC           (FindResource                            HINSTANCE CWSTR CWSTR)                                                                                         "FindResourceW")
+(c-external HRSRC           (FindResourceEx                          HINSTANCE CWSTR CWSTR WORD)                                                                                    "FindResourceExW")
+(c-external DWORD           (SizeofResource                          HINSTANCE HRSRC))
+(c-external HGLOBAL         (LoadResource                            HINSTANCE HRSRC))
+(c-external VOID*           (LockResource                            HRSRC))
+(c-external HANDLE          (BeginUpdateResource                     CWSTR BOOL)                                                                                                    "BeginUpdateResourceW")
+(c-external BOOL            (UpdateResource                          HANDLE CWSTR CWSTR WORD VOID* DWORD)                                                                           "UpdateResourceW")
+(c-external BOOL            (EndUpdateResource                       CWSTR BOOL)                                                                                                    "EndUpdateResourceW")
+(c-external HANDLE          (FindFirstFile                           CWSTR WIN32_FIND_DATA*)                                                                                        "FindFirstFileW")
+(c-external BOOL            (FindNextFile                            HANDLE WIN32_FIND_DATA*)                                                                                       "FindNextFileW")
+(c-external BOOL            (FindClose                               HANDLE))
+(c-external INT             (MulDiv                                  INT INT INT))
+(c-external HANDLE          (CreateToolhelp32Snapshot                DWORD DWORD))
+(c-external BOOL            (Process32First                          HANDLE PROCESSENTRY32*)))

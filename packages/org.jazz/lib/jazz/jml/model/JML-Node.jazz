@@ -1,0 +1,219 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JML Nodes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jml.model.JML-Node jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class JML-Node extends Object
+  
+  
+  (slot parent)
+  
+  
+  (method (initialize parent)
+    (nextmethod)
+    (set! parent~self parent)
+    (when parent
+      (add-child~ parent self)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-parent)
+    parent)
+
+
+  (method public (set-parent value)
+    (set! parent value)
+    (when parent
+      (add-child~ parent self)))
+  
+  
+  (method public (set-parent-value value)
+    (set! parent value))
+  
+  
+  ;;;
+  ;;;; Parent
+  ;;;
+  
+  
+  (method public (get-toplevel)
+    (if (not parent)
+        self
+      (get-toplevel~ parent)))
+  
+  
+  ;;;
+  ;;;; Location
+  ;;;
+  
+  
+  (method public (get-location)
+    (if (not parent)
+        {}
+      (append (get-location~ parent)
+              (get-child-location~ parent self))))
+  
+  
+  (method public virtual (get-child-location child)
+    )
+  
+  
+  ;;;
+  ;;;; JML
+  ;;;
+  
+  
+  (method public virtual abstract (->jml)
+    )
+  
+  
+  ;;;
+  ;;;; Pretty Print
+  ;;;
+  
+  
+  (method public (pretty-print printer
+                               (form?: form? #f)
+                               (indent-first?: indent-first? #t)
+                               (base: base 0)
+                               (space-properties?: space-properties? #t)
+                               (align-name?: align-name? #f)
+                               (align-properties?: align-properties? #f)
+                               (readably: readably :reader))
+    (with-printer printer
+      (function dynamic (printer)
+        (let ((first? #t))
+          (receive (max-tag max-name maxes) (compute-maxes self base align-properties?)
+            (letrec ((iterate
+                       (function dynamic (node path level)
+                         (when (not first?)
+                           (format printer "{%}"))
+                         (when (or indent-first? (not first?))
+                           (format printer "{_ :v}" (* level 2)))
+                         (set! first? #f)
+                         (if (is? node JML-Text)
+                             (let ((text (get-text~ node)))
+                               (if (single-line?~ node)
+                                   (format printer "{s}" text)
+                                 (format printer "#\"{a}\"#" text)))
+                           (let* ((tag (get-tag~ node))
+                                  (name (symbol->string tag))
+                                  (path (cons tag path))
+                                  (properties (get-properties~ node)))
+                             (case readably
+                               ((:human) (format printer "{a}" tag))
+                               ((:reader) (format printer "(<{a}>" tag)))
+                             (when (and space-properties? (not-null? properties))
+                               (let ((pad (- max-tag (length name) (* level 2))))
+                                 (format printer "{_ :v}" pad)))
+                             (when (and align-name? max-name (not-null? properties))
+                               (if (not (has-property?~ node 'name))
+                                   (format printer "{_ :v}" (+ 7 max-name))
+                                 (let* ((value (get-property~ node 'name))
+                                        (pres (format "{p}" value readably)))
+                                   (format printer " name: {a}" pres)
+                                   (when (> (length properties) 2)
+                                     (format printer "{_ :v}" (- max-name (length pres)))))))
+                             (let ((pad {}))
+                               (for-each-property (function dynamic (property value)
+                                                    (when (or (not align-name?) (neq? property 'name))
+                                                      (let ((pres (format "{p}" value readably)))
+                                                        (when (and align-properties? pad)
+                                                          (format printer "{_ :v}" pad))
+                                                        (format printer " {a}: {a}" property pres)
+                                                        (when align-properties?
+                                                          (let* ((path (cons property path))
+                                                                 (max (hash-ref maxes path)))
+                                                            (set! pad (- max (length pres))))))))
+                                 properties))
+                             (let ((children (get-children~ node)))
+                               (if (and (= 1 (length children))
+                                        (null? properties)
+                                        (let ((node (car children)))
+                                          (and (is? node JML-Text)
+                                               (single-line?~ node))))
+                                   (let* ((node (car children))
+                                          (text (get-text~ node)))
+                                     (format printer " {s}" text))
+                                 (for-each (function dynamic (child)
+                                             (iterate child path (+ level 1)))
+                                           children)))
+                             (case readably
+                               ((:reader)
+                                (format printer ")"))))))))
+              (iterate self '() base)))))))
+  
+  
+  (method (compute-maxes node base align-properties?)
+    (let ((max-tag {})
+          (max-name {})
+          (maxes (essay align-properties? (new-hashtable equal?))))
+      (letrec ((iterate
+                 (function dynamic (node path level)
+                   (when (is? node JML-Element)
+                    (let* ((tag (get-tag~ node))
+                           (name (symbol->string tag))
+                           (path (cons tag path)))
+                      (let ((width (+ (length name) (* level 2))))
+                        (when (or (not max-tag) (> width max-tag))
+                          (set! max-tag width)))
+                      (for-each-property (function dynamic (property value)
+                                           (let ((width (length (format "{s}" value))))
+                                             (when (eq? property 'name)
+                                               (when (or (not max-name) (> width max-name))
+                                                 (set! max-name width)))
+                                             (when align-properties?
+                                               (let* ((path (cons property path))
+                                                      (max (hash-ref maxes path)))
+                                                 (when (or (not max) (> width max))
+                                                   (hash-set! maxes path width))))))
+                                         (get-properties~ node))
+                      (for-each (function dynamic (child)
+                                  (iterate child path (+ level 1)))
+                                (get-children~ node)))))))
+        (iterate node '() base))
+      (values max-tag max-name maxes)))))

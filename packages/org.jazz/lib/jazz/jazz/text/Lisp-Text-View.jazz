@@ -1,0 +1,788 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Lisp Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.text.Lisp-Text-View jazz
+
+
+(import (jazz.jazz)
+        (jazz.interpreter.macro)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.system)
+        (jazz.utilities))
+
+
+(constant Auto-Complete-Characters
+  '(#\minus #\question-mark #\exclamation-mark #\period #\colon #\tilde #\>))
+
+
+(class Lisp-Text-View extends Code-Text-View
+    
+  
+  (method (new-syntax)
+    (new Lisp-Syntax))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Script"})
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (focus-actions)
+    (cons (find-actions 'lisp-text)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (context-menu pos)
+    (receive (shift? control? alt?) (modifiers-down)
+      (let ((move-caret
+              (cond ((and (not control?) (not shift?) (not alt?)) 'outside-selection)
+                    ((and (not control?) shift? (not alt?)) 'never)
+                    ((and control? shift? (not alt?)) 'never)
+                    (else 'always))))
+        (context-menu-click pos move-caret: move-caret))
+      (cond ((and (not control?) shift? (not alt?)) (edit-definition pos))
+            ((and control? shift? (not alt?)) (edit-references pos))
+            (else (track-popup-menu (get-context-menu) pos)))))
+
+
+  (method (tab-press key modifiers)
+    (if (not accepts-returns?)
+        (navigate-view (shift-key? modifiers))
+      (if (shift-key? modifiers)
+          (insert-char #\tab)
+        (with-atomic-undo~ undoer
+          (function dynamic ()
+            (tabulate))))))
+  
+  
+  (method (on-toggle-expr evt)
+    (if (has-selection?)
+        (bell)
+      (with-atomic-undo~ undoer
+        (function dynamic ()
+          (let ((left-expl (new (explorer-class) self))
+                (right-expl (new (explorer-class) self)))
+            (set-pos~ left-expl (get-start))
+            (backward-expr~ left-expl)
+            (set-pos~ right-expl (get-end))
+            (forward-expr~ right-expl)
+            (let ((left (get-range~ left-expl))
+                  (right (get-range~ right-expl)))
+              (if (or (not left) (not right))
+                  (bell)
+                (let ((ls (range-strings left))
+                      (rs (range-strings right)))
+                  (replace right ls)
+                  (replace left rs)))))
+          (set-modified? #t)))))
+
+
+  ;;;
+  ;;;; Constituents
+  ;;;
+
+  
+  @convert
+  (method meta (get-constituent-test)
+    jazz-constituent?)
+  
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method (colorize-syntax (recoloring?: recoloring? #f))
+    (nextmethod entries?: #f)
+    (with-safe-explore
+      (function dynamic ()
+        (colorize-declarations recoloring?)
+        (colorize-comments recoloring?))))
+  
+  
+  (definition Syntax-Targets
+    {})
+  
+  (definition Syntax-Automata
+    {})
+  
+  
+  (method (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method (compute-syntax-targets)
+    Syntax-Targets)
+  
+  
+  (method (compute-syntax-automata)
+    (build-search-automata (syntax-targets) #t #f self jazz-constituent?))
+  
+  
+  (method (colorize-type found type start end colorizer recolorize?)
+    )
+
+  
+  (method (colorize-declarations (recoloring? #f))
+    (let ((expl (new (explorer-class) self start: (text-beginning) end: (text-beginning)))
+          (colorizer (essay (not recoloring?) (new-colorizer self))))
+      (walk-declarations~ expl
+        {}
+        (function dynamic (context start end marked documented?)
+          (when marked
+            (apply-coloring colorizer start end (declaration-style documented?))))
+        (function dynamic (context start end)
+          (apply-coloring colorizer start end 'Declaration-Keyword))
+        (function dynamic (context start end mode kind)
+          (case kind
+            ((symbol)
+             @wait-no-easy-way-to-recolorize-when-on-multiple-lines
+             (when (memq? mode '(quote quasiquote))
+               (apply-coloring {} start end 'Quotation)))
+            ((keyword)
+             ;; This test doesn't work because of our use of a Colorizer
+             @wait-fix
+             (when (eq? (get-name~ (get-style-at start)) 'Default)
+               (apply-coloring colorizer start end 'Keyword)))
+            ((tag)
+             (colorize-tag colorizer start end))
+            ((specifier)
+             (colorize-specifier colorizer start end))
+            ((char)
+             (apply-coloring colorizer start end 'Char))
+            ((number)
+             @wait-this-is-too-much
+             (apply-coloring colorizer start end 'Number))
+            ((boolean)
+             (apply-coloring colorizer start end 'Boolean))
+            ((string)
+             (apply-coloring colorizer start end 'String))
+            ((delimited-string)
+             (apply-coloring colorizer start end 'Delimited-String))
+            ((named-string)
+             (apply-coloring colorizer start end 'Named-String))
+            ((expr-comment)
+             (apply-coloring colorizer start end 'Expr-Comment))
+            ((literal)
+             @wait-buggy-because-of-coloring-within-coloring
+             (apply-coloring colorizer start end 'Literal))
+            ((feature)
+             (apply-coloring colorizer start end 'Feature))))
+        (get-documentation-cataloguer~ (get-application))
+        #t)
+      (when colorizer
+        (finish-current~ colorizer))))
+  
+  
+  (method protected virtual (colorize-tag colorizer start end)
+    )
+  
+  
+  (method protected virtual (colorize-specifier colorizer start end)
+    )
+  
+  
+  (method protected virtual (declaration-style documented?)
+    )
+  
+  
+  (method (colorize-comments (recoloring? #f))
+    (let ((expl (new (explorer-class) self end: (text-beginning)))
+          (colorizer (essay (not recoloring?) (new-colorizer self))))
+      (for-each-comment~ expl
+        (function dynamic (start end title?)
+          (let* ((row (get-row~ start))
+                 (len (paragraph-length row))
+                 (end (new Cell row len)))
+            (if (not title?)
+                (apply-coloring colorizer start end 'Comment)
+              (apply-coloring colorizer start (+ start 4) 'Comment)
+              (apply-coloring colorizer (+ start 4) end 'Title)))))
+      (when colorizer
+        (finish-current~ colorizer))))
+
+  
+  (method (recolorize-text start end-row)
+    (nextmethod start end-row)
+    (loop (for row from (get-row~ start) to end-row)
+          (recolorize-row row)))
+
+  
+  (method (recolorize-row row)
+    (recolorize-declarations row)
+    (recolorize-expr-comments row)
+    (recolorize-comments row)
+    (recolorize-booleans row)
+    (recolorize-chars row)
+    (recolorize-specifiers row)
+    (recolorize-strings row)
+    (recolorize-delimited-strings row))
+  
+  
+  (definition Max-Declaration-Col
+    4)
+  
+  
+  (method (recolorize-declarations row)
+    (catch Explore-Error
+      (let* ((line (paragraph-string row))
+             (col (skip-whitespace line)))
+        (when (and (< col (length line)) (<= col Max-Declaration-Col) (= (element line col) #\open-parenthesis))
+          (let* ((pos (new Cell row col))
+                 (expl (new (explorer-class) self start: pos end: pos)))
+            (walk-declaration~ expl
+              {}
+              (function dynamic (context start end marked documented?)
+                (when marked
+                  (apply-style (declaration-style documented?) start end)))
+              (function dynamic (context start end)
+                (apply-style 'Declaration-Keyword start end))
+              (function dynamic (context start end mode kind)
+                (case kind
+                  ((tag)
+                   (apply-style 'Tag start end))
+                  ((specifier)
+                   (apply-style 'Specifier start end))
+                  ((string)
+                   (apply-style 'String start end))
+                  ((expr-comment)
+                   (apply-style 'Expr-Comment start end))))
+              (get-documentation-cataloguer~ (get-application))
+              row
+              #f))))))
+  
+  
+  (method (recolorize-expr-comments row)
+    (let* ((line (paragraph-string row))
+           (len (length line))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((comment (search line "@" start: col)))
+          (if (not comment)
+              (set! done? #t)
+            (unless (and (> comment 0) (= (element line (- comment 1)) #\,))
+              (let* ((pos (new Cell row (+ comment 1)))
+                     (expl (new (explorer-class) self start: pos end: pos))
+                     (kind (forward-expr~ expl))
+                     (end (get-end~ expl)))
+                (when (and (= kind 'symbol) (= (get-row~ end) row))
+                  (apply-style 'Expr-Comment (- (get-start~ expl) 1) (get-end~ expl)))))
+            (set! col (+ comment 1)))))))
+  
+  
+  (method (recolorize-comments row)
+    (let* ((line (paragraph-string row))
+           (len (length line))
+           (comment (search line (comment-string~ syntax))))
+      (when (and comment (not (textual-style? (get-style-at (new Cell row comment)))))
+        (let ((title-end (+ comment 4)))
+          (if (and (< title-end len) (= (subseq line comment title-end) (title-comment-string~ syntax)))
+              (begin
+                (apply-style 'Comment (new Cell row comment) (new Cell row title-end))
+                (apply-style 'Title (new Cell row title-end)))
+            (apply-style 'Comment (new Cell row comment)))))))
+  
+  
+  (method (recolorize-booleans row)
+    @convert-multisearch-string
+    (let* ((str (paragraph-string row))
+           (len (length str))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((found (multisearch str '("#t" "#f") start: col)))
+          (if (not found)
+              (set! done? #t)
+            (bind (pos . target) found
+              (let ((end (+ pos (length target))))
+                (unless (commented? (new Cell row pos))
+                  (apply-style 'Boolean (new Cell row pos) (new Cell row end)))
+                (set! col end))))))))
+  
+  
+  (method (recolorize-chars row)
+    (let* ((str (paragraph-string row))
+           (len (length str))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((col (search str "#\\" start: col)))
+          (if (not col)
+              (set! done? #t)
+            (if (not (alphanumeric? (get-char (new Cell row (+ col 2)))))
+                (let ((end (+ col 3)))
+                  (unless (commented? (new Cell row col))
+                    (apply-style 'Char (new Cell row col) (new Cell row end)))
+                  (set! col end))
+              (let ((end (+ col 3)))
+                (while (and (< end len) (jazz-constituent? (get-char (new Cell row end))))
+                  (increase! end))
+                (unless (commented? (new Cell row col))
+                  (apply-style 'Char (new Cell row col) (new Cell row end)))
+                (set! col end))))))))
+  
+  
+  (method (recolorize-specifiers row)
+    (let* ((str (paragraph-string row))
+           (len (length str))
+           (col 0)
+           (done? #f))
+      (call/ec
+        (lambda (return)
+          (while (not done?)
+            (let ((col (search str "<" start: col)))
+              (if (not col)
+                  (set! done? #t)
+                (let ((end (find-specifier-end (new Cell row col))))
+                  (if (not end)
+                      (return)
+                    (let ((before (essay (> col 0) (get-char (new Cell row (- col 1))))))
+                      (apply-style (if (= before #\open-parenthesis) 'Tag 'Specifier) (new Cell row col) end))
+                    (set! col (+ (get-col~ end) 1)))))))))))
+  
+  
+  (method (recolorize-strings row)
+    @convert-this-infinite-loops
+    (let* ((str (paragraph-string row))
+           (len (length str))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((col (search str "\"" start: col)))
+          (if (not col)
+              (set! done? #t)
+            (let ((end (search str "\"" start: (+ col 1))))
+              (if (not end)
+                  (begin
+                    (apply-style 'String (new Cell row col))
+                    (set! col len))
+                (unless (commented? (new Cell row col))
+                  (apply-style 'String (new Cell row col) (new Cell row (+ end 1))))
+                (set! col (+ end 1)))))))))
+  
+  
+  (method (recolorize-delimited-strings row)
+    (let* ((str (paragraph-string row))
+           (len (length str))
+           (col 0)
+           (done? #f))
+      (while (not done?)
+        (let ((col (search str "#\"" start: col)))
+          (if (not col)
+              (set! done? #t)
+            (let ((end (search str "\"#" start: (+ col 2))))
+              (if (not end)
+                  (begin
+                    (apply-style 'Delimited-String (new Cell row col))
+                    (set! col len))
+                (unless (commented? (new Cell row col))
+                  (apply-style 'Delimited-String (new Cell row col) (new Cell row (+ end 2))))
+                (set! col (+ end 2)))))))))
+  
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+  
+  
+  (definition Comment-Styles
+    '(Title Comment))
+  
+  (definition String-Styles
+    '(String Delimited-String Named-String))
+  
+  
+  (method (commented? pos)
+    (comment-style? (get-style-at pos)))
+  
+  
+  (method (comment-style? style)
+    (some? (function dynamic (style-name)
+             (inherits?~ style style-name))
+           Comment-Styles))
+  
+  
+  (method (string-style? style)
+    (some? (function dynamic (style-name)
+             (inherits?~ style style-name))
+           String-Styles))
+  
+  
+  (method (textual-style? style)
+    (or (comment-style? style)
+        (string-style? style)))
+
+
+  (method (favorite-completions)
+    (get-completions~ (preferences)))
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+  
+  
+  @cases
+  (comment
+  
+  (method public virtual (foo)
+    a)
+  
+  (foo
+    a
+    b)
+  
+  (for-each (function (x)
+              x)
+            list)
+  
+  (cond (foo
+         a)))
+  
+  
+  ;; Rules
+  ;; - 
+  
+  
+  (method protected virtual (get-specials)
+    )
+
+
+  (method (return-press key)
+    (with-atomic-undo~ undoer
+      (function dynamic ()
+        (nextmethod key)
+        (tabulate))))
+
+
+  (method (tabulate)
+    (let ((start (get-start))
+          (end (get-end)))
+      (with-update-locked
+        (function dynamic ()
+          (with-safe-explore
+            (function dynamic ()
+              (set-caret (get-start))
+              (receive (modified? last-delta) (tabulate-lines (get-row~ start) (get-row~ end))
+                (set-caret (+ end last-delta))
+                (when modified?
+                  (set-modified? #t))))
+            action: 'ignore)))))
+  
+  
+  (method (tabulate-lines start end)
+    (let ((modified? #f)
+          (last-delta {}))
+      (loop (for row from start to end)
+            (with delta (tabulate-line row))
+            (when (/= delta 0)
+              (set! modified? #t))
+            (set! last-delta delta))
+      (values modified? last-delta)))
+  
+  
+  (method (remove-specifiers lst)
+    (loop (for first? first #t then #f)
+          (for mark in lst)
+          (when (or first?
+                    (let ((range (get-range~ mark)))
+                      (/= (get-char (get-start~ range)) #\<)
+                      (/= (get-char (- (get-end~ range) 1)) #\>)))
+            (collect mark))))
+  
+  
+  (method (effective-symbol string)
+    (if (ends-with? string "~")
+        (string->symbol (subseq string 0 (- (length string) 1)))
+      (string->symbol string)))
+  
+  
+  (method (tabulate-line row)
+    (let ((delta (tabulate-delta row)))
+      (tabulate-column row delta)
+      delta))
+  
+  
+  (method public (tabulate-delta row)
+    (let* ((pos (new Cell row 0))
+           (expl (new (explorer-class) self start: pos))
+           (expressions (remove-specifiers (collect-backward-exprs~ expl)))
+           (opening (- (get-start~ expl) 1))
+           (count (length expressions))
+           (rank (- count 1))
+           (col {}))
+      (if (null? expressions)
+          (set! col (+ (get-col~ opening) 1))
+        (let* ((first (car expressions))
+               (first-string (get-string (get-range~ first)))
+               (first-symbol (essay (= (get-kind~ first) 'symbol) (effective-symbol first-string)))
+               (first-tag? (tag? first-symbol))
+               (first-with? (and first-symbol (starts-with? first-string "with-")))
+               (first-without? (and first-symbol (starts-with? first-string "without-")))
+               (first-dispatch? (and first-symbol (ends-with? first-string "~")))
+               (first-indent (if (or first-tag? first-with? first-without?) 1 0)))
+          (if (or (not first-symbol) first-tag?)
+              (set! col (+ (get-col~ (get-start~ (get-range~ first))) first-indent))
+            (let* ((special-info (assq first-symbol (get-specials)))
+                   (info (either (essay special-info (cdr special-info)) (get-macro-tabulation first-symbol))))
+              (if (not info)
+                  (let ((first-last (first-on-last-line expressions count))
+                        (first-row (get-row~ (get-start~ (get-range~ first)))))
+                    (if (and (= (get-row~ (get-start~ (get-range~ first-last))) first-row) (or first-with? first-without? first-dispatch? (/= count 2)) (neq? first-symbol 'else))
+                        (set! col (+ (get-col~ opening) 2))
+                      (let ((proposed-col (+ (get-col~ (get-start~ (get-range~ first-last))) (if (= count 1) first-indent 0)))
+                            (threshold (+ (get-col~ opening) 2 4))
+                            (default-col (+ (get-col~ opening) 2)))
+                        (if (and (> proposed-col threshold)
+                                 (upper-case? (element first-string 0)))
+                            (set! col default-col)
+                          (set! col proposed-col)))))
+                (bind (modifiers? specials) info
+                  (when modifiers?
+                    (decrease! rank (count-modifiers (cdr expressions))))
+                  (if (= specials -1)
+                      (set! col (get-col~ opening))
+                    (if (= specials 0)
+                        (set! col (+ (get-col~ opening) 2))
+                      (if (> rank specials)
+                          (set! col (get-col~ (get-start~ (get-range~ (first-on-last-line expressions count)))))
+                        (set! col (+ (get-col~ opening) (* (+ (- specials rank) 1) 2))))))))))))
+      (- col (get-column row))))
+  
+  
+  (method (tabulate-column row delta)
+    (when (/= delta 0)
+      (let ((actual (get-column row)))
+        (replace-text (new Range (new Cell row 0) (new Cell row actual))
+                      (list (make-string (+ actual delta) #\space))))))
+  
+  
+  (method (count-modifiers expressions)
+    (let ((total 0)
+          (done? #f))
+      (while (and (not-null? expressions) (not done?))
+        (let ((symbol (find-symbol (get-string (get-range~ (car expressions))))))
+          ;; the (new (explorer-class)) is temporary
+          (if (or (not symbol) (not (memq? symbol (get-modifiers~ (new (explorer-class) self)))))
+              (set! done? #t)
+            (increase! total)
+            (set! expressions (cdr expressions)))))
+      total))
+  
+  
+  (method (first-on-last-line expressions count)
+    (let* ((reversed (if (> count 1) (reverse (cdr expressions)) (reverse expressions)))
+           (first (car reversed))
+           (line (get-row~ (get-start~ (get-range~ first)))))
+      (while (and (not-null? reversed) (= (get-row~ (get-start~ (get-range~ (car reversed)))) line))
+        (set! first (car reversed))
+        (set! reversed (cdr reversed)))
+      first))
+  
+  
+  ;;;
+  ;;;; Expr
+  ;;;
+
+
+  (method (current-name)
+    (let ((range (current-expr-range)))
+      (when range
+        (get-string range))))
+
+
+  (method (current-expr)
+    (let ((range (current-expr-range)))
+      (when range
+        (read-string-element (get-string range)))))
+  
+  
+  (method (current-expr-range)
+    (if (and (not completion-active?) (has-selection?))
+        (get-selection)
+      (expr-range (get-end))))
+  
+  
+  (method (expr-range pos)
+    (let ((expl (new (explorer-class) self start: pos end: pos)))
+      (outer-expr~ expl)
+      (get-range~ expl)))
+  
+  
+  (method (current-symbol)
+    (let ((expr (current-expr)))
+      (when (symbol? expr)
+        expr)))
+  
+  
+  (method (expr-at pos)
+    (let ((string (get-string (expr-range pos))))
+      (if (ends-with? string "&")
+          (read-string-element (butlast string))
+        (read-string-element string))))
+  
+
+  ;;;
+  ;;;; Match
+  ;;;
+  
+  
+  (method (flash-character? char)
+    (memq? char '(#\close-parenthesis #\close-bracket #\close-brace)))
+
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (constant headers
+    (list
+      (append (make-string 4 #\semi-colon) " ")))
+  
+  
+  (method (get-headers)
+    headers)
+  
+  
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (method (get-context)
+    '(jazz))
+
+
+  (method (current-definition)
+    (let ((range (current-definition-range)))
+      (when range
+        (read-string-element (get-string range)))))
+  
+  
+  (method (current-definition-range)
+    (if (and (not completion-active?) (has-selection?))
+        (get-selection)
+      (definition-range (get-end))))
+  
+  
+  (method public (definition-range pos)
+    (let ((expl (new (explorer-class) self start: pos end: pos))
+          (range {})
+          (definition? #f)
+          (done? #f))
+      (while (not done?)
+        (if (not (outer-expr~ expl))
+            (set! done? #t)
+          (set! range (get-range~ expl))
+          (when (definition-expr?~ expl)
+            (set! definition? #t)
+            (set! done? #t))))
+      (when (and range (or definition? (not (need-definition?))))
+        range)))
+  
+  
+  (method protected virtual (need-definition?)
+    #t)
+
+  
+  ;;;
+  ;;;; Highlights
+  ;;;
+  
+  
+  (method (on-highlight-selection evt)
+    (let ((range (definition-range (get-start)))
+          (symbol (current-expr)))
+      (if (or (not range) (not (symbol? symbol)))
+          (bell)
+        (remove-highlights range)
+        (highlight-expression range symbol))))
+  
+  
+  (method (on-remove-highlights evt)
+    (let ((range (definition-range (get-start))))
+      (if (not range)
+          (bell)
+        (remove-highlights range))))
+  
+  
+  (method public (highlight-expression range symbol)
+    (let ((expl (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
+      (iterate-expression~ expl
+        (function dynamic (mode)
+          (when (and (= (get-kind~ expl) 'symbol) (eq? (find-marked-symbol~ expl) symbol))
+            (apply-style 'Reference (get-start~ expl) (get-end~ expl)))))))
+  
+  
+  (method public (remove-highlights range)
+    (for-each-paragraph (function dynamic (row paragraph)
+                          (for-each (function dynamic (run)
+                                      (let* ((style (get-style~ run))
+                                             (style-name (get-name~ (get-style~ run))))
+                                        (when (memq? style-name '(Reference Walk-Warning Walk-Fatal Break))
+                                          (set-style~ run default-style)
+                                          (invalidate-paragraph paragraph))))
+                                    (get-runs~ paragraph)))
+                        start: (get-row~ (get-start~ range))
+                        end: (+ (get-row~ (get-end~ range)) 1)))))

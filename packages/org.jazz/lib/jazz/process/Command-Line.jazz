@@ -1,0 +1,134 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Command Line
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.process.Command-Line jazz
+
+
+(import (jazz.process)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Command-Line extends Object
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method meta public (for-each-action proc actions)
+    (for-each (function dynamic (info)
+                (bind (action action-help . sections) info
+                  (proc 'action (list action action-help))
+                  (for-each (function dynamic (info)
+                              (bind (section . arguments) info
+                                (proc 'section (list section))
+                                (for-each (function dynamic (info)
+                                            (bind (argument argument-help . rest) info
+                                              (bind-optionals ((argument-example {})) rest
+                                                (proc 'argument (list argument argument-help argument-example)))))
+                                          arguments)))
+                            sections)))
+              actions))
+  
+  
+  ;;;
+  ;;;; Help
+  ;;;
+    
+  
+  (method meta (present-version name version)
+    (format "{a} v{a}"
+            name
+            (present~ version)))
+  
+  
+  (method meta (present-syntax name)
+    (format "Syntax: {a}.exe action ~{arguments}"
+            name))
+  
+  
+  (method meta (present-help actions)
+    (let ((printer (new String-Printer)))
+      (for-each-action
+        (function dynamic (type info)
+          (case type
+            ((action)
+             (bind (action action-help) info
+               (format printer "{%}    {a} : {a}{%}" action action-help)))
+            ((section)
+             (bind (section) info
+               (format printer "        {a}{%}" section)))
+            ((argument)
+             (bind (argument argument-help . rest) info
+               (bind-optionals ((argument-example {})) rest
+                 (format printer "            /{a} : {a}{%}" argument argument-help))))))
+       actions)
+      (get-output~ printer)))
+  
+  
+  (method meta (present-examples actions)
+    (let ((printer (new String-Printer)))
+      (for-each-action
+        (function dynamic (type info)
+          (case type
+            ((action)
+             (bind (action action-help) info
+               (format printer "{%}    {a}{%}        {a}{%}" (get-name~ (module-pathname)) action)))
+            ((argument)
+             (bind (argument argument-help . rest) info
+               (bind-optionals ((argument-example {})) rest
+                 (when argument-example
+                   (format printer "            /{a} {a}{%}" argument (present-argument-value argument-example))))))))
+       actions)
+      (get-output~ printer)))
+  
+  
+  (method meta (present-argument-value value)
+    (if (string? value)
+        (format "\"{a}\"" value)
+      value))
+  
+  
+  (method meta public (command-help name version actions)
+    (message-box (format "{a}{%}{%}{a}{%}{%}Actions:{a}{%}Examples:{a}"
+                         (present-version name version)
+                         (present-syntax name)
+                         (present-help actions)
+                         (present-examples actions))
+                 title: "Help"))))

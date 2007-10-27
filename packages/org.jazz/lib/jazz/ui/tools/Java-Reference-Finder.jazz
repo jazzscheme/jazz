@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Java Reference Finder
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.tools.Java-Reference-Finder jazz
+
+
+(import (jazz.jml)
+        (jazz.platform)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Java-Reference-Finder extends View uses (Utilities System WinDef WinUser WinIDL)
+
+  
+  (slot references   initialize '())
+  (slot sorted-names initialize '())
+
+
+  (form
+    (<install>                                                 title: "Java References" position: {Point 63 58} size: {Dimension 937 492}
+      (<Label-View>                                            title: "Roots:" position: {Point 170 11} size: {Dimension 40 16} font: {Font name: Default-GUI})
+      (<Jazz-Text-View>                name: roots             position: {Point 210 7} size: {Dimension 184 17} accepts-returns?: #f left-padding: 2 top-padding: 2)
+      (<Label-View>                                            title: "Roots Dir:" position: {Point 450 11} size: {Dimension 50 16} font: {Font name: Default-GUI})
+      (<Jazz-Text-View>                name: roots-dir         position: {Point 507 7} size: {Dimension 119 17} accepts-returns?: #f left-padding: 2 top-padding: 2)
+      (<Label-View>                    name: live-count        title: "Live:" position: {Point 680 11} size: {Dimension 75 16} font: {Font name: Default-GUI})
+      (<Label-View>                    name: dead-count        title: "Dead:" position: {Point 755 11} size: {Dimension 75 16} font: {Font name: Default-GUI})
+      (<Radio-Tool>                    name: all               position: {Point 4 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "AllReferences"} tooltip?: #t tooltip-text: "Show All Names" action-handler: {Event-Handler form: on-update} portfolio: :icons)
+      (<Radio-Tool>                    name: live              position: {Point 28 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "LiveReferences"} tooltip?: #t tooltip-text: "Show Live Names" action-handler: {Event-Handler form: on-update} portfolio: :icons)
+      (<Radio-Tool>                    name: dead              position: {Point 52 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "DeadReferences"} tooltip?: #t tooltip-text: "Show Dead Names" action-handler: {Event-Handler form: on-update} portfolio: :icons selected?: #t)
+      (<Toggle-Tool>                   name: category-only     position: {Point 111 6} size: {Dimension 22 22} image-name: {Bitmap-Resource "Class"} tooltip?: #t tooltip-text: "Show Only Categories" action-handler: {Event-Handler form: on-update} portfolio: :icons selected?: #t)
+      (<Push-Button>                   name: find              title: "Find" position: {Point 833 7} size: {Dimension 100 22} action-handler: {Event-Handler form: on-find} default?: #t)
+      (<Border-View>                   name: references-border position: {Point 2 33} size: {Dimension 296 465} border-type: edge
+        (<Scroller-View>                                       vscroll?: #t
+          (<!>                         name: content           layout-type: fill
+            (<Tree-Header>
+              (<!>                     name: content
+                (<References-List>     name: references        position: {Point 5 35} size: {Dimension 911 448} double-click-handler: {Event-Handler form: on-double-click} vscroll?: #t multiple-selection?: #t selection-mode: row portfolio: :icons
+                  (<Tree-Node-Column>                          title: "Name" width: 230 toplevel-controls?: #f)
+                  (<Tree-Label-Column>                         title: "Reference Path" width: 481)
+                  (<Tree-Label-Column>                         title: "Class" width: 200)))))))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'reference-analyser)
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (set-string-content~ (locate 'roots) "Application")
+    (set-string-content~ (locate 'roots-dir) ""))
+  
+  
+  (method (show)
+    (nextmethod)
+    (select-all~ (locate 'roots))
+    (acquire-focus~ (locate 'roots)))
+  
+  
+  (method (destroy)
+    (remove-exit-listener~ (get-application) self)
+    (nextmethod))
+
+
+  @to-convert
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'find) dh 0)
+    (size-figure~ (locate 'references-border) dh dv))
+    
+    
+  (method (on-return-press evt)
+    (on-find evt))
+
+
+  (method public (on-find evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (let* ((roots (collect-roots))
+               (appl (get-application))
+               (catalog (get-main-catalog~ (get-cataloguer~ appl)))
+               (analyser (new Java-Reference-Analyser :catalog catalog)))
+          (set! references (walk-roots~ analyser roots))
+          (user-message "Sorting...")
+          (set! sorted-names (sort < (hashtable-names (get-definitions-index~ catalog))))
+          (update-list)))))
+  
+  
+  (method (collect-roots)
+    (let ((roots (new List-Factory))
+           (roots-names (get-string-content~ (locate 'roots)))
+           (roots-dir (get-string-content~ (locate 'roots-dir))))
+      (put-sequence~ roots (map ->string (read-string-content roots-names)))
+      (let ((dir-list (read-string-content roots-dir)))
+        (when dir-list
+          (let ((directory (new Directory dir-list)))
+            (iterate-directory~ directory
+              (function dynamic (file)
+                (let ((ext (get-extension~ file)))
+                  (when (= ext "txt")
+                    (with-closed ((reader (new File-Reader file)))
+                      (let* ((content (read-content-string reader))
+                             (list (read-string-content content)))
+                        (for-each (function dynamic (symbol)
+                                    (put~ roots (->string symbol)))
+                                  list))))))))))
+      (get-output~ roots)))
+  
+  
+  (method (update-list)
+    (user-message "Displaying Results...")
+    (let ((tree (locate 'references))
+           (catalog (get-main-catalog~ (get-cataloguer~ (get-application))))
+           (all? (get-selected?~ (locate 'all)))
+           (live? (get-selected?~ (locate 'live)))
+           (dead? (get-selected?~ (locate 'dead)))
+           (category-only? (get-selected?~ (locate 'category-only)))
+           (live-count 0)
+           (dead-count 0))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (when references
+            (for-each (function dynamic (name)
+                        (when (or (not category-only?) (defines-category? name))
+                          (let ((reference (hash-ref references name)))
+                            (if (null? reference)
+                                (increase! dead-count)
+                              (increase! live-count))
+                            (when (or all? (and live? reference) (and dead? (not reference)))
+                              (let ((c0 (new Tree-Node title: name image: (if reference {Bitmap-Resource "LiveReferences"} {Bitmap-Resource "DeadReferences"})))
+                                    (c1 (new Tree-Label title: (if (null? reference)
+                                                                   ""
+                                                                 (if (= reference :root)
+                                                                     "<root>"
+                                                                   (present~ reference 'references)))))
+                                    (c2 (new Tree-Label title: (let* ((definition (car (get-definitions~ catalog name)))
+                                                                      (category-name (get-category-name~ definition)))
+                                                                 category-name))))
+                                (add-row~ tree children: (list c0 c1 c2) user-data: name))))))
+                      sorted-names))))
+      (set-title~ (locate 'live-count) (format "Live: {s}" live-count))
+      (set-title~ (locate 'dead-count) (format "Dead: {s}" dead-count))
+      (user-message "Done")))
+  
+  
+  (method (defines-category? name)
+    (find-if (function dynamic (entry) (is? entry Category-Entry))
+             (get-definitions~ (get-main-catalog~ (get-cataloguer~ (get-application))) name)))
+  
+  
+  (method (on-update evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (update-list))))
+    
+    
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (acquire sender (get-position~ evt))))
+      (track-popup-menu (new Analyser-Menu) pos)))
+    
+    
+  (method (copy-selection)
+    (set-clipboard
+      (let ((tree (locate 'references)))
+        (format (format "~{l detail: :human separator: {s}}" (cn))
+          (map (function dynamic (n)
+                 (get-user-data~ (get-row~ tree n)))
+               (get-selection~ tree))))))
+  
+  
+  (method (on-double-click evt)
+    (let ((sender (get-sender~ evt))
+          (alt? (get-alt?~ evt)))
+      (case (get-name~ sender)
+        ((references)
+          (edit-selection alt?)))))
+  
+  
+  (method (edit-selection alt?)
+    (let* ((tree (locate 'references))
+           (selection (get-selection~ tree)))
+      (for-each (function dynamic (n)
+                  (let ((name (get-user-data~ (get-row~ tree n)))
+                        (appl (get-application)))
+                    (if (not alt?)
+                        (edit-definition~ appl name context: 'cpp/java)
+                      (let ((reference (hash-ref references name)))
+                        (if (or (null? reference) (= reference :root))
+                            (bell)
+                          (set-search-targets~ appl (list (list name "")))
+                          (edit~ reference))))))
+                selection)))
+      
+
+  ;;;
+  ;;;; Sorting
+  ;;;
+
+    
+  (method public (column-click n)
+    )
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method (confirm-close . rest)
+    (save-session))
+  
+  
+  (method (save-session)
+    @to-convert
+    (let ((info
+           (list (external-name)
+                 position: (get-position)
+                 size:     (get-size))))
+      (push-property~ properties 'Opened-Windows info))))
+
+
+;;;
+;;;; References-List
+;;;
+
+
+(class References-List extends Tree-View
+  
+  
+  (method (column-click n)
+    (column-click~ (get-frame) n)))
+
+
+;;;
+;;;; Analyser-Menu
+;;;
+
+
+(class Analyser-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: copy title: "&Copy" action: {Action view copy})))))

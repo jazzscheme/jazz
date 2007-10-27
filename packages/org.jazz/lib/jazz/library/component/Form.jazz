@@ -1,0 +1,379 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Component Forms
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.component.Form jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.utilities))
+
+
+;;;
+;;;; Header Formats
+;;;
+
+
+;; (new    model-name)       -> create a new unnamed instance of model-name
+;; (new    model-name name)  -> create a new instance of model-name named name
+;; (modify            name)  -> modify existing instance named name
+;; (modify model-name name)  -> modify existing instance named name and override its class (work in progress)
+;; (remove            name)  -> remove existing instance named name (used internally by branches)
+
+
+;;;
+;;;; Class Definition
+;;;
+
+
+(class Form extends JML-Element
+
+
+  (slot origin)
+  (slot context)
+  (slot action)
+  (slot model-name)
+  (slot name)
+  (slot tag-symbolic?)
+  (slot tag-source)
+  
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (initialize (textual?: textual? #t)
+                      (origin: origin {})
+                      (context: context {})
+                      (action: action {})
+                      (model-name: model-name {})
+                      (name: name {})
+                      (tag-symbolic?: tag-symbolic? #f)
+                      (tag-source: tag-source {})
+                      (properties: properties '())
+                      (children: children '()))
+    (nextmethod {} {})
+    (set! origin~self origin)
+    (set! context~self context)
+    (set! action~self action)
+    (set! model-name~self model-name)
+    (set! name~self name)
+    (set! tag-symbolic?~self tag-symbolic?)
+    (set! tag-source~self tag-source)
+    (set! properties~self properties)
+    (set! children~self children)
+    (when textual?
+      (canonicalize-properties properties)))
+  
+  
+  (method (copy-object deep?)
+    (new Form textual?: #f origin: origin context: context action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-source: tag-source properties: (copy properties) children: (copy children deep?)))
+
+
+  ;; simplified for easy testing
+  @comment
+  (method (print printer readably)
+    (format printer "~{{a} ({a}{a}{a}) {a}}"
+            (identifier-name (type-name (class-of self)))
+            action
+            (if model-name (format " {s}" model-name) "")
+            (if name (format " {s}" name) "")
+            (if children (format "[{a}]" (length children)) "()")))
+
+
+  ;;@good-version
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "({a}{a}{a}) {a} {a}"
+                action
+                (if model-name (format " {s}" model-name) "")
+                (if name (format " {s}" name) "")
+                (if properties (format "{s}" (keywordize-properties properties)) "()")
+                @for-development
+                (if children "..." "()")
+                (format "{s}" children)))))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+
+
+  (method public (setup-toplevel-context ctx)
+    (set! origin ctx)
+    (setup-context ctx 0))
+  
+  
+  (method (setup-context ctx level)
+    ;; jazz doesnt support inner classes
+    ;; (set! context ctx)
+    (with ((proc <procedure>
+            (function dynamic (name value)
+              (cond
+                ((is? value Handler) (set-form-level~ value level))
+                ((is? value Form) (setup-toplevel-context~ value ctx))))))
+      (for-each-property proc properties))
+    (with ((proc <procedure>
+            (function dynamic (child)
+              (when (is? child Form)
+                (setup-context~ child ctx (+ level 1))))))
+      (for-each proc children)))
+  
+  
+  (method (canonicalize-properties lst)
+    (while (not-null? lst)
+      (set-car! lst (keyword->symbol (car lst)))
+      (set! lst (cddr lst))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+    
+  (method public (get-origin)
+    origin)
+  
+  
+  (method public (set-origin o)
+    (set! origin o))
+  
+    
+  (method public (get-context)
+    context)
+  
+  
+  (method public (set-context ctx)
+    (set! context ctx))
+  
+  
+  (method public (get-action)
+    action)
+  
+  
+  (method public (get-model-name)
+    model-name)
+  
+  
+  (method public (set-model-name value)
+    (set! model-name value))
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (set-name value)
+    (set! name value))
+  
+  
+  (method public (get-tag-symbolic?)
+    tag-symbolic?)
+  
+  
+  (method public (set-tag-symbolic? value)
+    (set! tag-symbolic? value))
+  
+  
+  (method public (get-tag-source)
+    tag-source)
+  
+  
+  (method public (set-tag-source value)
+    (set! tag-source value))
+  
+  
+  (method public (get-model)
+    (if (not context)
+        (either (get-autoclass model-name)
+                (autoload model-name))
+      (slot-value context model-name)))
+
+  
+  ;;;
+  ;;;; Children
+  ;;;
+  
+  
+  (method public (child name)
+    (either (find-child name)
+            (error "Could not find child {t}" name)))
+
+
+  (method public (find-child name)
+    (with ((proc <procedure>
+                 (function dynamic (child)
+                   (= (get-name~ child) name))))
+      (find-by proc)))
+  
+  
+  (method (find-name name)
+    (find-child name))
+  
+  
+  (method public (find-type type)
+    (find-by
+      (function dynamic (child)
+        (= (get-model-name~ child) type))))
+  
+  
+  (method public (add-child child)
+    (set! children (cons child children)))
+    
+  
+  (method public (add-child-at child rank)
+    (set! children (insert! child children rank)))
+  
+  
+  (method public (append-child child)
+    (set! children (append! children (list child))))
+
+  
+  (method public (remove-child child)
+    (set! children (remove! child children)))
+  
+  
+  (method public (send-child-before child target)
+    (let* ((removed (remove! child children))
+           (rank (essay target (either (find target removed return: 'position) (error "Unable to find: {t}" target)))))
+      (set! children (insert! child removed rank))))
+  
+  
+  (method public (sort-children test (key: key (function dynamic (child) (get-name~ child))))
+    (set! children (sort test children key: key)))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+
+  
+  ;; This is a bit of a heuristic...
+  (method public (get-presentation)
+    (either (get-property 'title)
+            (get-class-presentation~ (get-model))))
+
+  
+  ;;;
+  ;;;; Remember
+  ;;;
+  
+
+  (method public (remember-creation unused component)
+    (set! children (cons (new Restore-Form context: self action: 'remove component: component properties: '() children: '()) children)))
+
+
+  (method public (remember-reference unused name)
+    (let ((form (new Restore-Form context: self action: 'modify model-name: {} name: name properties: '() children: '())))
+      (set! children (cons form children))
+      form))
+
+
+  (method public (remember-property component property)
+    (let ((actual-value (read-property component property)))
+      (set-property property actual-value)))
+
+  
+  ;;;
+  ;;;; Open
+  ;;;
+  
+  
+  (method public (instantiate . rest)
+    (let ((model (if context (eval-symbol model-name context) (autoload model-name))))
+      (apply new-in context model form: self creator: #t name: name rest)))
+  
+  
+  (method public (instantiate-component . rest)
+    (let ((model (if context (eval-symbol model-name context) (autoload model-name))))
+      (apply new-in context model creator: #t name: name rest)))
+
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (get-parts)
+    (values
+      (get-action)
+      (get-model-name)
+      (get-name)
+      (keywordize-properties (get-properties))
+      (get-children)))
+  
+  
+  ;;;
+  ;;;; Location
+  ;;;
+  
+  
+  (method (get-child-location child)
+    (list (+ 1
+             (if name 2 0)
+             (if tag-symbolic? 2 0)
+             (if tag-source 2 0)
+             (length properties)
+             (get-rank child children))))
+
+  
+  ;;;
+  ;;;; Compiler
+  ;;;
+  
+  
+  @convert-fold
+  (method (foldable?)
+    #t)
+
+
+  @convert-fold
+  (method (fold-object compiler)
+    (output~ compiler "new_form(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler action)
+    (fold-more~ compiler model-name)
+    (fold-more~ compiler name)
+    (fold-more~ compiler tag-symbolic?)
+    (fold-more~ compiler tag-source)
+    (fold-more~ compiler (symbolize-properties properties))
+    (output~ compiler "{%}")
+    (fold-more~ compiler children)
+    (output~ compiler ")"))))

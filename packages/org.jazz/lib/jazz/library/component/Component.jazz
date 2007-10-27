@@ -1,0 +1,1622 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Component
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.component.Component jazz
+
+
+(import (jazz.library)
+        (jazz.designer)
+        (jazz.utilities))
+
+
+(class Component-Class extends Class
+  
+  
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+  @Unimp
+  (definition meta protected virtual class-descriptor
+    {})
+
+  @Unimp
+  (method meta public virtual (get-class-descriptor)
+    class-descriptor)
+  
+  
+  (method public virtual (presentation->name presentation)
+    (if (or (empty-string? presentation) (= presentation "{}"))
+        {}
+      (string->symbol presentation)))
+  
+  
+  (method public virtual (name->presentation name)
+    (->string name))
+  
+  
+  (method public (get-descriptor)
+    (unimplemented 'get-descriptor))
+  
+  
+  @not-used
+  (method public virtual (get-class-form)
+    class-form)
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (get-class-presentation)
+    (let ((descriptor (get-descriptor self)))
+      (if descriptor
+          (get-title~ descriptor)
+        (->string (type-name self)))))
+  
+  
+  (method public virtual (get-class-image)
+    (let ((descriptor (get-descriptor self)))
+      (if descriptor
+          (get-image~ descriptor)
+        {Bitmap-Resource "Component"})))
+  
+  
+  (method public virtual (get-name-prohibited?)
+    (let ((descriptor (get-descriptor self)))
+      (if descriptor
+          (get-name-prohibited?~ descriptor)
+        #f)))
+  
+  
+  (method public virtual (get-name-mandatory?)
+    (let ((descriptor (get-descriptor self)))
+      (if descriptor
+          (get-name-mandatory?~ descriptor)
+        #f)))
+  
+  
+  (method public virtual (get-name-unicity?)
+    (let ((descriptor (get-descriptor self)))
+      (if descriptor
+          (get-name-unicity?~ descriptor)
+        #f)))
+  
+  
+  (method public virtual (property-presentation property)
+    (unimplemented 'property-presentation)
+    @Locales
+    (let ((name (field-name property)))
+      (case name
+        ((class-info) "class")
+        ((name-info) "name")
+        ((presentation-info) "label")
+        ((before) "Before")
+        ((children) "Children")
+        ((visible?) "Visible")
+        (else (let ((descriptor (get-property-descriptor self name)))
+                (if descriptor
+                    (get-title~ descriptor)
+                  (->string name)))))))
+  
+  
+  (method public virtual (detail-presentation property)
+    (unimplemented 'detail-presentation)
+    @Locales
+    (case (field-name property)
+      ((class-info) "Class")
+      ((name-info) "Name")
+      ((presentation-info) "Name")
+      (else (property-presentation property))))
+  
+  
+  (method public virtual (persist-property? property)
+    #t))
+
+  
+(class Component extends Object
+  
+  
+  ;; prepare      -> before the form gets installed
+  ;; install      -> installs the class form
+  ;;   installed? -> #t
+  ;; finish       -> before form structure from a containing form gets installed
+  ;;   finished?  -> #t
+  ;; conclude     -> after all initialization done, but before calling show
+  
+  
+  (definition Installed-Flag    #x00000001)
+  (definition Finished-Flag     #x00000002)
+  (definition Visible-Flag      #x00000004)
+  (definition Layout-Valid-Flag #x00000100)
+  
+  
+  (slot name                     initialize {})
+  (slot parent                   initialize {})
+  (slot branch                   initialize {})   ;; the immediatly installed branch
+  (slot creation-form            initialize {})   ;; the form that created the component
+  (slot creator                  initialize {})   ;; the root component of the class form (used for indexing and as inner class instantiation context)
+  (slot creator-branch           initialize {})   ;; the branch that created the component ({} if none)
+  ;; Should initialize to self
+  (slot event-consumer           initialize {})
+  (slot designers                initialize '())
+  (slot surrogate                initialize {})
+  (slot index                    initialize {})
+  (slot flags          <fx>      initialize Visible-Flag)
+  
+ 
+  (property before                      initialize {}  getter get-before     setter set-before)
+  (property children                    initialize '() getter get-children   setter set-children)
+  (property visible?          <void>                   getter get-visible?   setter set-visible?)
+  (property class-info        <void>                   getter get-class-info)
+  (property name-info         <void>                   getter get-name-info)
+  (property presentation-info <void>                   getter get-presentation-info)
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public inline (get-name)
+    name)
+  
+  
+  (method public inline (set-name value)
+    (set! name value))
+  
+  
+  (method public inline (get-parent)
+    parent)
+  
+  
+  (method public virtual (set-parent value)
+    (when parent
+      (remove-child~ parent self))
+    (set! parent value)
+    (when parent
+      (install-in-parent)))
+
+
+  (method public inline (get-before)
+    before)
+
+
+  (method public (set-before value)
+    (set! before value)
+    (when (get-finished?)
+      (send-child-before~ parent self (child~ parent before))))
+  
+  
+  (method public inline (get-children)
+    children)
+  
+  
+  (method public virtual (set-children lst <Sequence>)
+    (set! children '())
+    (when lst
+      (loop (for child in lst)
+            (do (set-parent~ child self)))))
+  
+  
+  (method public inline (get-branch)
+    branch)
+  
+  
+  (method public inline (set-branch value)
+    (set! branch value))
+
+
+  (method public inline (get-form)
+    creation-form)
+  
+  
+  (method public inline (set-form value)
+    (set! creation-form value))
+
+
+  (method public inline (get-creator)
+    creator)
+  
+  
+  (method public inline (set-creator value)
+    (set! creator value))
+
+
+  (method public inline (get-creator-branch)
+    creator-branch)
+  
+  
+  (method public inline (set-creator-branch value)
+    (set! creator-branch value))
+  
+  
+  (method (get-class-info)
+    (get-class-presentation~ (class-of self)))
+
+
+  ;; Not ideal but will do for now
+  (method (get-class-form)
+    (let ((forms (get-class-forms)))
+      (if (not-null? forms)
+          (car forms)
+        #f)))
+  
+  
+  (method virtual (get-class-forms)
+    '())
+  
+  
+  (method (get-name-info)
+    name)
+  
+  
+  (method (get-presentation-info)
+    (get-presentation))
+
+
+  ;;;
+  ;;;; Flags
+  ;;;
+  
+  
+  (method protected (get-installed?)
+    (mask-bit-set? flags Installed-Flag))
+  
+  
+  (method protected (set-installed? flag <bool>)
+    (set! flags (mask-bit-set flags Installed-Flag flag)))
+  
+  
+  (method protected (get-finished?)
+    (mask-bit-set? flags Finished-Flag))
+  
+  
+  (method (set-finished? flag <bool>)
+    (set! flags (mask-bit-set flags Finished-Flag flag)))
+
+
+  ;;;
+  ;;;; Print
+  ;;;
+
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a}" name)
+        @dangerous
+        (format printer "{a}{a}"
+                (if (not name)
+                    ""
+                  (get-presentation))
+                (if (not branch)
+                    ""
+                  (format " {a}" (map (function dynamic (component)
+                                                (get-presentation~ component))
+                                              (get-installed-branches))))))))
+
+
+  ;;;
+  ;;;; Initialization
+  ;;;
+
+
+  (method (initialize . rest)
+    (nextmethod)
+    (let ((form (get-class-form)))
+      (when (and form (not (get-origin~ form)))
+        (setup-toplevel-context~ form (class-of self))))
+    (initialize-component rest))
+  
+  
+  (method protected virtual (initialize-component rest)
+    (prepare rest)
+    (install rest)
+    (set-installed? #t)
+    (finish rest)
+    (install-in-parent)
+    (set-finished? #t)
+    (conclude rest)
+    (let ((visible? (get-visible?)))
+      (when (neq? visible? (initially-visible?))
+        (if visible?
+            (show)
+          (hide)))))
+
+
+  (method protected virtual (default-name)
+    {})
+
+
+  (method protected virtual (default-parent)
+    {})
+
+
+  (method protected chained (prepare initargs <Object>)
+    (prepare-parent initargs)
+    (prepare-component initargs))
+
+
+  (method (prepare-parent initargs <Object>)
+    (let ((arg (getf initargs parent: not-found: {})))
+      (set! parent (if (not arg) (default-parent) arg))))
+
+
+  (method (prepare-component initargs <Object>)
+    (set-name (either (getf initargs name:) (default-name)))
+    (set-form (either (getf initargs form:) (get-class-form)))
+    (set-creator (getf initargs creator:))
+    (set-creator-branch (getf initargs creator-branch:)))
+
+
+  (method protected chained (install initargs <Object>)
+    (install-component initargs))
+
+
+  (method (install-component initargs <Object>)
+    (install-inherited (get-class-forms)))
+  
+  
+  (method (install-inherited forms)
+    (when (not-null? forms)
+      (install-inherited (cdr forms))
+      (install-form (car forms) self {} {})))
+  
+  
+  (method public (install-form form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+    (when form
+      (install-properties (get-properties~ form) restore-form)
+      (install-children (get-children~ form) creator creator-branch restore-form)))
+  
+  
+  (method protected virtual (install-children children <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+    (loop (for child in children)
+          (do (install-child child creator creator-branch restore-form))))
+  
+  
+  (method public virtual (install-child form <Object> creator <Object> creator-branch <Object> restore-form <Object>)
+    (let ((action (get-action~ form))
+          (name (get-name~ form)))
+      (case action
+        ((new)
+         (let* ((source (get-tag-source~ form))
+                (model (if source (load-source (get-model-name~ form) source) (require-form-model~ (either creator self) form)))
+                (component (new-in creator model parent: self name: name form: form creator: creator creator-branch: creator-branch)))
+           (when creator
+             (add-to-index~ creator (get-name~ component) component))
+           (when restore-form
+             (remember-creation~ restore-form self component))))
+        ((modify locate)
+         (when restore-form
+           (set! restore-form (remember-reference~ restore-form self name)))
+         (install-form~ (find-to-modify name equal?) form creator creator-branch restore-form))
+        ((remove)
+         (let ((child (get-component~ form)))
+           (close~ child)))
+        (else
+         (error "Unknown form action: {t} in {t}" action form)))))
+  
+
+  (method (install-properties properties <Object> restore-form <Object>)
+    (while (not-null? properties)
+      (let ((expr (car properties))
+            (value (cadr properties)))
+        (when (symbol? expr)
+          (set! expr (component-property (class-of self) expr))
+          (set-car! properties expr))
+        (when restore-form
+          (remember-property~ restore-form self expr))
+        (write-property-to self expr value))
+      (set! properties (cddr properties))))
+  
+  
+  (method public virtual (find-to-modify name <Object> test <procedure>)
+    (either (find-component-with name test)
+            (locate name)))
+  
+  
+  ;; This is the place to override, if a creator wants to have
+  ;; a specific behavior in case the model could not be loaded.
+  (method protected virtual (require-form-model form <Form>)
+    (form-model form))
+  
+  
+  ;; This is a very poor version of automatically beeing able to override subform classes.
+  ;; For now, it will have to do because a clean efficient solution completely eludes me!
+  (method public virtual (form-model form <Form>)
+    (get-model~ form))
+
+
+  (method protected chained (finish initargs <Object>)
+    (bind-keywords ((form {}) (creator {}) . others) initargs
+      (when form
+        ;; setting the creator to #t is a service for Form instantiate
+        (if (neq? creator #t)
+            (install-form form creator {} {})
+          (install-form form self {} {})
+          (set! creator~self self)))
+      (write-properties initargs)))
+  
+  
+  (method public (write-properties properties <Object>)
+    (loop (for (property value) in-properties properties)
+          (do (write-initarg-to self property value))))
+  
+  
+  ;; Only done after the component is fully initialized so as not to install
+  ;; an invalid component should an error occur during the initialization phase.
+  (method protected virtual (install-in-parent)
+    (when parent
+      (let ((designers (get-designers~ parent)))
+        (when designers
+          (set-designers designers)))
+      (let ((surrogate (get-surrogate~ parent)))
+        (when surrogate
+          (install-surrogate (get-editor~ surrogate)))))
+    (parent-add-child))
+  
+  
+  (method public (parent-add-child)
+    (when parent
+      (add-child~ parent self)))
+
+
+  (method protected chained (conclude initargs <Object>)
+    )
+
+
+  ;;;
+  ;;;; Destruction
+  ;;;
+
+
+  (method (close)
+    (unless (destroyed?)
+      (destroy-component)))
+
+
+  (method chained (destroy-component)
+    (set-active-branch {})
+    (loop (for child in children)
+          (when (is? child Component)
+            (destroy-component~ child)))
+    (call-destroy self))
+  
+  
+  (method (destroy)
+    (when parent
+      (remove-child~ parent self))
+    (when creator
+      (remove-from-index~ creator name self))
+    (nextmethod))
+  
+  
+  (method public (close-children)
+    (loop (for child in children)
+          (do (close~ child))))
+  
+  
+  (method public virtual (confirm-close . rest)
+    #t)
+
+
+  ;;;
+  ;;;; Visibility
+  ;;;
+
+
+  (method public virtual (initially-visible?)
+    #t)
+
+
+  (method public virtual (get-visible?)
+    (get-visible-flag))
+  
+  
+  (method public virtual (set-visible? flag <bool>)
+    (if (not (get-finished?))
+        (set-visible-flag flag)
+      (when (/= (get-visible-flag) flag)
+        (if flag
+            (show)
+          (hide)))))
+  
+  
+  (method public virtual (show)
+    (set-visible-flag #t))
+  
+  
+  (method public virtual (hide)
+    (set-visible-flag #f))
+  
+  
+  (method public (get-visible-flag)
+    (mask-bit-set? flags Visible-Flag))
+  
+  
+  (method public (set-visible-flag flag <bool>)
+    (set! flags (mask-bit-set flags Visible-Flag flag)))
+
+
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  @convert
+  (method meta public (get-properties)
+    (collect-if (function dynamic (property)
+                  (and (property? property)
+                       (property-getter property)))
+                (all-fields self)))
+  
+  
+  (method (component-property category <Object> name <Object>)
+    (let ((field (category-field category name)))
+      (if (or (property? field) (initer-property? name))
+          field
+        (error "Unknown property: {t}" name))))
+  
+  
+  (method chained (initer-property? name)
+    (memq? name '(name parent form creator creator-branch)))
+
+
+  (method (write-property-to object <Object> property <Object> value <Object>)
+    (when (property? property)
+      (let ((setter (property-setter property)))
+        (setter object value))))
+  
+  
+  (method (write-initarg-to object <Object> property <Object> value <Object>)
+    (write-property-to object (component-property (class-of object) (keyword->symbol property)) value))
+  
+  
+  (method public (get-filtered-properties (filter: filter 'categorized))
+    (if (= filter 'categorized)
+        (let ((properties (get-categorized-properties)))
+          (if (eq? properties #t)
+              (get-all-properties filter)
+            (let ((class (class-of self)))
+              (letrec ((standardize
+                         (function dynamic (object)
+                           (cond ((string? object)
+                                  object)
+                                 ((symbol? object)
+                                  (either (category-field class object)
+                                          (error "Field {t} is undefined in {t}" object class)))
+                                 (else
+                                  (map standardize object))))))
+                (standardize properties)))))
+      (get-all-properties filter)))
+  
+  
+  (method (get-all-properties filter)
+    (sort (function dynamic (x y)
+            (if (memq? filter '(all categorized))
+                (let ((xr (get-filter-rank~ (get-row-class x)))
+                       (yr (get-filter-rank~ (get-row-class y))))
+                  (or (< xr yr)
+                      (and (= xr yr)
+                           (< (field-name x) (field-name y)))))
+              (< (field-name x) (field-name y))))
+          (collect-if (function dynamic (property)
+                        (display-filtered-property? property filter))
+                      (all-fields (class-of self)))))
+  
+  
+  (method (display-filtered-property? property filter)
+    (and (property? property)
+         (property-getter property)
+         (or (memq? filter '(all categorized))
+             (let ((class (get-row-class property)))
+               (= (get-filter-name~ class) filter)))
+         (display-property? property)))
+
+
+  ;;;
+  ;;;; Children
+  ;;;
+
+
+  (method public (name? object <Object>)
+    (or (symbol? object)
+        (integer? object)
+        (null? object)
+        (pair? object)))
+
+
+  (method public virtual (add-child child <Object>)
+    (let ((before (essay (is? child Component) (get-before~ child))))
+      (if (not before)
+          (set! children (append! children (list child)))
+        (send-child-before child (find-component before)))))
+  
+  
+  (method public (add-child-at child <Object> rank <Integer+>)
+    (set! children (insert! child children rank)))
+  
+  
+  (method public (append-child child <Object>)
+    (set! children (append! children (list child))))
+
+
+  (method public virtual (remove-child child <Object>)
+    (set! children (remove! child children)))
+    
+  
+  (method public virtual (replace-child rank <fx> replacement <Object>)
+    (let ((child (element children rank)))
+      (set-parent~ child {})
+      (set-parent~ replacement self)
+      (set! children (insert! replacement (remove! replacement children) rank))))
+
+
+  (method public virtual (send-child-to-front child <Object>)
+    (set! children (move-to-head! child children)))
+
+
+  (method public virtual (send-child-to-back child <Object>)
+    (set! children (move-to-tail! child children)))
+  
+  
+  (method public (send-child-before child <Object> target)
+    (let* ((removed (remove! child children))
+           (rank (essay target (either (find target removed return: 'position) (error "Unable to find: {t}" target)))))
+      (set! children (insert! child removed rank))))
+  
+  
+  (method public (child name <Object>)
+    (either (find-component name)
+            (error "Could not find child {t}" name)))
+  
+  
+  (method public (find-component name <Object>)
+    (find-component-with name equal?))
+  
+  
+  (method public (find-component-with name <Object> test <procedure>)
+    ;; to-convert super patch for the time being
+    (if #f ;; (and (is? self Root-View) (= name 1))
+        (get-player~ self)
+    (cond ((null? name)
+           (error "Invalid location: {t}" name))
+          ((integer? name)
+           (if (= name 0)
+               self
+             (find-component~ parent (- name 1))))
+          ((pair? name)
+           (let ((sub (find-component (car name))))
+             (when sub
+               (let ((next (cdr name)))
+                 (if (null? next)
+                     sub
+                   (find-component~ sub next))))))
+          (else
+           (either (component-alias name)
+                   (find-child-with name test))))))
+  
+  
+  (method public (brother name <Object>)
+    (child~ parent name))
+  
+  
+  (method public (child-ranked rank <fx>)
+    (element children rank))
+  
+  
+  (method public virtual (component-alias name <Object>)
+    (case name
+      ((:self) self)
+      ((:parent) parent)
+      ((:creator) creator)
+      (else (process-alias~ (get-process) name))))
+
+
+  (method public (find-child name <Object>)
+    (with ((proc <procedure>
+            (function dynamic (child)
+              (equal? (get-name~ child) name))))
+      (find-if proc children)))
+
+
+  (method public (find-child-with name <Object> test <procedure>)
+    (with ((proc <procedure>
+                 (function dynamic (child)
+                   (test (get-name~ child) name))))
+      (find-if proc children)))
+
+
+  (method public (find-type type)
+    (with ((proc <procedure>
+            (function dynamic (child)
+              (is? child type))))
+      (find-if proc children)))
+  
+  
+  (method public (find-key key value)
+    (find-if (function dynamic (child)
+               (= (key child) value))
+             children))
+  
+  
+  (method public (find-ascendant type)
+    (let ((parent (get-parent)))
+      (while (and parent (is-not? parent type))
+        (set! parent (get-parent~ parent)))
+      parent))
+  
+  
+  (method public (collect-ascendants (type {}))
+    (let ((ascendants '())
+          (parent (get-parent)))
+      (while (and parent (or (not type) (is-not? parent type)))
+        (set! ascendants (cons parent ascendants))
+        (set! parent (get-parent~ parent)))
+      (if (or (not parent) (and type (is? parent type)))
+          ascendants
+        (cons parent ascendants))))
+  
+  
+  (method public (child-rank child <Object>)
+    (find child children return: 'position))
+
+
+  (method public virtual (get-frame)
+    {})
+  
+  
+  (method public (get-brothers)
+    (when parent
+      (remove self (get-children~ parent))))
+  
+  
+  (method public (has-parent? component <Component>)
+    (and parent (or (eq? parent component) (has-parent?~ parent component))))
+  
+  
+  (method public (get-root-parent)
+    (if (not parent)
+        self
+      (get-root-parent~ parent)))
+  
+  
+  (method public (get-visible-children)
+    (collect-if (function dynamic (child)
+                  (get-visible?~ child))
+                children))
+  
+  
+  (method public (get-ancestry root)
+    (let ((ancestry '())
+          (scan self))
+      (while (neq? scan root)
+        (set! ancestry (cons scan ancestry))
+        (set! scan (get-parent~ scan))
+        (when (null? scan)
+          (error "{t} is not a descendant of the root component {t}" self root)))
+      ancestry))
+  
+  
+  ;;;
+  ;;;; Form
+  ;;;
+  
+  @Unimp
+  (method meta public (get-self-form)
+    (let* ((metaclass (class-of self))
+           (definition (category-field metaclass 'class-form))
+           (creator (field-creator definition)))
+      (when (eq? creator metaclass)
+        (definition-value definition))))
+  
+  
+  (method public virtual (add-form parent-form <Form> child-form <Form>)
+    (append-child~ parent-form child-form))
+
+
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method public virtual (add-to-index name <Object> component <Component>)
+    (when name
+      (when (not index)
+        (set! index (new-index)))
+      (if (hash-ref index name)
+          (hash-set! index name #t)
+        (hash-set! index name component))))
+  
+  
+  (method public virtual (remove-from-index name <Object> component <Component>)
+    (when (and name index)
+      (hash-clear index name)))
+  
+  
+  (method protected virtual (new-index)
+    (new-hashtable eq?))
+  
+  
+  (method public virtual (locate name <Object>)
+    (let ((component (locate-component name)))
+      (cond ((not component) (error "Unable to locate {t}" name))
+            ((eq? #t component) (error "Ambigious name: {t}" name))
+            (else component))))
+  
+  
+  (method public (locate-component name <Object>)
+    (cond ((pair? name)
+           (let ((sub (locate-component (car name))))
+             (when sub
+               (let ((next (cdr name)))
+                 (if (null? next)
+                     sub
+                   (locate-component~ sub next))))))
+          (else
+           (essay index (hash-ref index name)))))
+
+
+  ;;;
+  ;;;; Database
+  ;;;
+  
+  
+  (method public (get-database-component)
+    (get-root-parent))
+
+
+  ;;;
+  ;;;; Consumer
+  ;;;
+  
+
+  (method (get-event-consumer)
+    event-consumer)
+  
+  
+  (method (set-event-consumer consumer <Event-Consumer>)
+    (set! event-consumer consumer))
+
+
+  (method (deliver-event handler target proc event)
+    (proc target event))
+
+
+  ;;;
+  ;;;; Layering
+  ;;;
+  
+  
+  (method public (first-child)
+    (if (null? children)
+        #f
+      (car children)))
+  
+  
+  (method public (last-child)
+    (last children))
+  
+  
+  (method public virtual (bring-to-front)
+    (when parent
+      (send-child-to-front~ parent self)))
+  
+  
+  (method public virtual (send-to-back)
+    (when parent
+      (send-child-to-back~ parent self)))
+  
+  
+  (method public virtual (send-before target)
+    (when parent
+      (send-child-before~ parent self target)))
+
+
+  ;;;
+  ;;;; Branches
+  ;;;
+  
+  
+  (method public (get-branches)
+    (with ((proc <procedure>
+            (function dynamic (child)
+              (is? child Branch))))
+      (collect-if proc children)))
+  
+  
+  (method public (branch-installed?)
+    branch)
+  
+  
+  (method public (get-active-branch)
+    (if (not branch)
+        (essay (is? self Branch) self)
+      (get-active-branch~ branch)))
+  
+  
+  (method public (get-active-branch-name)
+    (let ((branch (get-active-branch)))
+      (when branch
+        (get-name~ branch))))
+  
+  
+  (method public (get-active-branch-presentation)
+    (let ((branch (get-active-branch)))
+      (if (not branch)
+          (get-presentation)
+        (get-presentation~ branch))))
+  
+  
+  (method public (set-active-branch active-branch)
+    (if (or (not active-branch) (eq? active-branch self))
+        (when branch
+          (restore-client~ branch))
+      (let ((branch (if (is? active-branch Branch) active-branch (locate active-branch))))
+        (install-branch~ branch {}))))
+  
+  
+  (method protected virtual (install-branch br)
+    (when (neq? br branch)
+      (when branch
+        (restore-client~ branch))
+      (when br
+        (configure-client~ br))))
+  
+  
+  (method public (for-each-branch proc)
+    (for-each (function dynamic (branch)
+                (proc branch)
+                (for-each-branch~ branch proc))
+              (get-branches)))
+  
+  
+  (method public (with-each-branch proc)
+    (let ((active-branch (get-branch)))
+      (for-each-branch
+        (function dynamic (branch)
+          (set-active-branch branch)
+          (proc)))
+      (set-active-branch active-branch)))
+  
+  
+  (method public (get-installed-branches)
+    (if (not branch)
+        '()
+      (cons branch (get-installed-branches~ branch))))
+  
+  
+  (method public (iterate-branch-spine proc (branch: branch {}))
+    (let ((branch (either branch (get-active-branch))))
+      (while (is? branch Branch)
+        (proc branch (get-client-form~ branch))
+        (set! branch (get-parent~ branch)))
+      (proc self (creator-effective-form))))
+  
+  
+  ;; For a creator that was install in another creator, it is
+  ;; very tricky because it's form is pointing to the form that
+  ;; created it inside the other creator but sometimes we need
+  ;; the install form that defines its own structure...
+  (method public (creator-effective-form)
+    (get-class-form)
+    @convert!?!?
+    (if (eq? self creator)
+        form
+      (get-class-form~ (class-of self))))
+  
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method public virtual (save-session)
+    )
+
+
+  ;;;
+  ;;;; Descriptor
+  ;;;
+  
+  
+
+
+  ;;;
+  ;;;; Integrity
+  ;;;
+  
+  
+  (method public virtual (get-integrity-manager)
+    {})
+  
+  
+  (method public virtual (validate-component root client context manager)
+    (for-each (function dynamic (symbol)
+                (let ((property (property-field self symbol)))
+                  (validate-property property root client context manager)))
+              (get-categorized-properties)))
+  
+  
+  (method public virtual (validate-property property root client context manager)
+    (let ((domain (property-domain property))
+          (value (read-property self property)))
+      (validate~ domain property value self root client context manager)))
+
+
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method public virtual (search-component target <Object>)
+    (let ((name (getf target name:))
+          (type (getf target type:)))
+      (and (or (not name) (search-name name))
+           (or (not type) (search-type type)))))
+  
+  
+  (method protected (search-name name)
+    (let ((presentation (localize (get-presentation))))
+      (search presentation name ignore-case?: #t)))
+  
+  
+  (method protected (search-type type)
+    (is? self type))
+  
+  
+  (method protected (search-text text <Object> target <Object>)
+    (unimplemented 'search-text)
+    @Unimplemented
+    (typecase text
+      ((Formatted-Text)
+       (search-formatted-text text target))
+      ((Text)
+       (search-plain-text text target))
+      (else
+       #f)))
+  
+  
+  (method (search-plain-text text <Object> target <Object>)
+    (some? (function dynamic (line)
+             (search line target ignore-case?: #t))
+           (get-paragraphs~ text)))
+  
+  
+  (method (search-formatted-text text <Object> target <Object>)
+    (some? (function dynamic (info)
+             (bind (format . runs) info
+               (some? (function dynamic (run)
+                        (let ((string (car run)))
+                          (search string target ignore-case?: #t)))
+                      runs)))
+           (get-paragraphs~ text)))
+  
+  
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method public virtual (launch)
+    )
+  
+  
+  ;;;
+  ;;;; Path
+  ;;;
+  
+  
+  (method public virtual (component-path (root creator))
+    (let ((path '())
+          (scan self))
+      (while (neq? scan root)
+        (let ((name (get-name~ scan)))
+          (if (not name)
+              (error "Component {t} must be named to be part of a path" scan)
+            (set! path (cons name path))
+            (set! scan (get-parent-component~ scan))
+            (when (null? scan)
+              (error "{t} is not a descendant of the root component {t}" self root)))))
+      (new Path path)))
+  
+  
+  (method public virtual (present-path root)
+    (let ((path '())
+          (pres {})
+          (scan self))
+      (while (neq? scan root)
+        (let ((name (get-name~ scan)))
+          (if (not name)
+              (error "Component {t} must be named to be part of a path" scan)
+            (when (present-in-path?~ scan)
+              (set! pres (cons name pres)))
+            (set! path (cons name path))
+            (set! scan (get-parent-component~ scan))
+            (when (null? scan)
+              (error "{t} is not a descendant of the root component {t}" self root)))))
+      (values (new Path path) pres)))
+  
+  
+  (method public virtual (present-in-path?)
+    #t)
+
+  
+  ;;;
+  ;;;; Unfold
+  ;;;
+  
+  
+  (method public (unfold-branches (branches: branches #t) (properties: properties '()) (include-root?: include-root? #t))
+    (let* ((form (get-form~ (get-creator)))
+           (active-branch (get-branch))
+           (active-branch-name (essay active-branch (get-name~ active-branch)))
+           (all-branch-names (map (function dynamic (branch) (get-name~ branch)) (get-branches)))
+           (instantiate
+             (function dynamic (branch-name)
+               (if (= branch-name active-branch-name)
+                   self
+                 (let ((client (apply (~ instantiate form) properties)))
+                   (when branch-name
+                     (let ((branch (child~ client branch-name)))
+                       (set-restoreable?~ branch #f)
+                       (set-active-branch~ client branch)))
+                   client)))))
+      (if (eq? branches #t)
+          (if include-root?
+              (cons (instantiate {}) (map instantiate all-branch-names))
+            (map instantiate all-branch-names))
+        (map instantiate branches))))
+
+
+  ;;;
+  ;;;; Domain
+  ;;;
+  
+  @Unimp
+  (method meta public virtual (get-domain property)
+    (case (field-name property)
+      ((name-info) (new Name-Domain))
+      ((presentation-info) (new Presentation-Domain))
+      ((visible?) (new Boolean-Domain))
+      (else (new Value-Domain))))
+  
+  
+  (method public virtual (property-domain property)
+    (unimplemented 'property-domain)
+    @descriptor-domain
+    (let* ((descriptor (get-property-descriptor~ (class-of (class-of self) (field-name property)))
+           (descriptor-domain (essay descriptor (get-domain~ descriptor)))))
+      (either descriptor-domain
+              (get-property-domain property)
+              (let* ((class (field-creator property))
+                     (domain (get-domain~ class property)))
+                (set-property-domain property domain)
+                domain))))
+
+
+  ;;;
+  ;;;; Foreign
+  ;;;
+  
+  
+  (method public virtual (search-descendants criteria)
+    (if (not criteria)
+        (get-children)
+      (unimplemented 'search-descendants)))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public virtual (presentation-property? property)
+    #f)
+  
+  
+  (method public virtual (get-presentation)
+    (unimplemented 'get-presentation)
+    @name->presentation
+    (name->presentation name))
+  
+  
+  (method public virtual (set-presentation designer presentation)
+    (unimplemented 'set-presentation)
+    @presentation->name
+    (set-name~ designer self (presentation->name presentation)))
+  
+  
+  (method protected (get-string-presentation)
+    (either (get-name) ""))
+  
+  
+  (method protected (set-string-presentation designer presentation)
+    (if (empty-string? presentation)
+        (set-name~ designer self {})
+      (set-name~ designer self presentation)))
+  
+  
+  (method public virtual (present-property property value)
+    (let ((domain (property-domain property)))
+      (present~ domain value)))
+  
+  
+  (method public virtual (get-parent-component)
+    (get-parent))
+  
+  
+  (method public virtual (get-components)
+    (get-children))
+  
+  
+  (method public virtual (get-component-image)
+    #f
+    @convert
+    (get-class-image~ (class-of self)))
+  
+  
+  (method public virtual (can-cut-component?)
+    (can-delete-component?))
+  
+  
+  (method public virtual (can-copy-component?)
+    #t)
+  
+  
+  (method public virtual (can-paste-component?)
+    #t)
+  
+  
+  (method public virtual (can-rename-component?)
+    (unimplemented 'can-rename-component?)
+    @get-name-prohibited?
+    (not (get-name-prohibited?)))
+  
+  
+  (method public virtual (can-delete-component?)
+    #t)
+  
+  
+  (method public virtual (can-move-component?)
+    #t)
+  
+  
+  (method public virtual (can-view-properties?)
+    #t)
+  
+  
+  (method public (determine-can-paste (try-parent? #t))
+    (boolean (determine-paster try-parent?)))
+  
+  
+  (method public (determine-paster (try-parent? #t))
+    (unimplemented 'determine-paster)
+    @unimplemented
+    (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
+      (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
+             (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
+        (cond ((memq? {} models)
+               {})
+              ((every? addable-class? models)
+               self)
+              (else
+               (when (and try-parent? parent)
+                 (determine-paster~ parent #f)))))))
+  
+  
+  (method public virtual (can-send-before? types father before)
+    (and (every? addable-class? types)
+         (not (sort-components?))))
+  
+  
+  (method public virtual (sort-components?)
+    #f)
+  
+  
+  (method public virtual (sort-components components)
+    (unimplemented 'sort-components)
+    @sort-predicate
+    (sort (sort-predicate 'smaller) components key: (function dynamic (component) (get-presentation~ component))))
+  
+  
+  (method public virtual (indexable?)
+    #t)
+  
+  
+  (method public (get-surrogate)
+    surrogate)
+  
+  
+  (method public virtual (component-surrogate)
+    (unimplemented 'component-surrogate)
+    @Component-Surrogate
+    Component-Surrogate)
+
+
+  (method public virtual (install-surrogate editor)
+    (set! surrogate (new (component-surrogate) client: self editor: editor))
+    (install-handlers~ surrogate)
+    (install-children-surrogates editor))
+  
+  
+  (method public virtual (install-children-surrogates editor)
+    (for-each (function dynamic (component)
+                (install-surrogate~ component editor))
+              (get-components)))
+
+
+  (method public (remove-surrogate)
+    (remove-component-surrogate))
+
+
+  (method public (remove-component-surrogate)
+    (for-each (function dynamic (component)
+                (remove-component-surrogate~ component))
+              (get-components))
+    (when surrogate
+      (remove-handlers~ surrogate)
+      (set! surrogate {})))
+  
+  
+  (method public virtual (get-default-property)
+    {})
+  
+  
+  (method public virtual (get-categorized-properties)
+    #t)
+  
+  
+  (method public virtual (display-property? property)
+    (neq? (field-name property) 'children))
+  
+  
+  (method public virtual (get-row-class property)
+    (case (field-name property)
+      ((class-info) Info-Row)
+      ((name-info) Info-Row)
+      ((presentation-info) Info-Row)
+      (else Value-Row)))
+  
+  
+  (method public virtual (get-row-instance property)
+    (case (field-name property)
+      ((visible?) (new Boolean-Row))
+      (else {})))
+  
+  
+  (method public virtual (update-property-row row)
+    )
+  
+  
+  (method public virtual (get-addable-default)
+    {})
+  
+  
+  (method public virtual (get-addable-classes)
+    '())
+  
+  
+  (method public virtual (addable-class? class)
+    (some? (function dynamic (addable-class)
+             (and addable-class (subtype? class addable-class)))
+           (get-addable-classes)))
+  
+  
+  (method public virtual (get-component-classes)
+    '())
+  
+  
+  (method public virtual (get-addable-branches)
+    #t)
+  
+  
+  (method public virtual (get-addable-default-branch)
+    Branch)
+  
+  
+  (method public virtual (get-addable-base)
+    (let ((classes (get-addable-classes)))
+      (when classes
+        (if (= 1 (length classes))
+            (car classes)
+          Component))))
+  
+  
+  (method public virtual (get-addable-details)
+    (let ((base (get-addable-base)))
+      (when base
+        '((name-info 100 #t)))))
+  
+  
+  (method public virtual (get-recursive-details?)
+    #f)
+  
+  
+  (method public virtual (get-class-searchable-classes)
+    '())
+  
+  
+  (method public virtual (get-custom-details)
+    '())
+  
+  
+  (method public virtual (get-custom-card)
+    {})
+  
+  
+  (method public virtual (save-component-properties designer)
+    )
+
+
+  ;;;
+  ;;;; Designers
+  ;;;
+  
+  
+  (method public (get-designers)
+    designers)
+  
+  
+  (method public (set-designers lst)
+    (set! designers lst)
+    (for-each (function dynamic (child)
+                (set-designers~ child lst))
+              children))
+  
+  
+  (method public (install-designer designer)
+    (set! designers (cons designer designers))
+    (for-each (function dynamic (child)
+                (install-designer~ child designer))
+              (get-components)))
+  
+  
+  (method public (uninstall-designer designer)
+    (set! designers (remove! designer designers))
+    (for-each (function dynamic (child)
+                (uninstall-designer~ child designer))
+              (get-components)))
+
+
+  ;;;
+  ;;;; Export
+  ;;;
+  
+  
+  (method public virtual (generate-html printer)
+    (let ((formatter (new-html-formatter)))
+      (print-html formatter printer)))
+  
+  
+  (method protected virtual (new-html-formatter)
+    (unimplemented 'new-html-formatter)
+    @Formatter
+    (new Formatter))
+  
+  
+  (method public virtual (print-html formatter printer)
+    )
+  
+  
+  (method public (print-component formatter printer)
+    (unimplemented 'print-component)
+    @Component-HTML-Printer
+    (let ((printer (new Component-HTML-Printer self formatter printer)))
+      (print-html~ printer)
+      printer))
+  
+  
+  (method public (export-text)
+    (unimplemented 'export-text)
+    @String-Printer
+    (let ((printer (new String-Printer)))
+      (generate-text printer)
+      (set-clipboard (get-output~ printer))))
+  
+  
+  (method public virtual (generate-text printer)
+    (let ((formatter (new-text-formatter)))
+      (print-text formatter printer)))
+  
+  
+  (method protected virtual (new-text-formatter)
+    (unimplemented 'new-text-formatter)
+    @Formatter
+    (new Formatter))
+  
+  
+  (method public virtual (print-text formatter printer)
+    )
+  
+  
+  (method public virtual (output-component text)
+    )
+  
+  
+  (method public virtual (output-properties text)
+    (unimplemented 'output-properties)
+    @get-properties
+    (for-each (function dynamic (property)
+                (let ((title (localize (property-presentation~ (class-of self) property)))
+                      (value (->string (read-property self property))))
+                  (insert-bulleted-line~ text (format "{a} : {a}" title value))))
+              (get-properties)))
+
+
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method public (for-each-parent proc <procedure>)
+    (when parent
+      (proc parent)
+      (for-each-parent~ parent proc)))
+  
+  
+  (method public (for-each-ascendant proc <procedure>)
+    (proc self)
+    (for-each-parent proc))
+  
+  
+  (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t))
+    (letrec ((iterate
+               (function dynamic (component include? level)
+                 (when include?
+                   (proc component level))
+                 (loop (for child in (get-children~ component))
+                       (do (iterate child #t (+ level 1)))))))
+      (iterate self include-self? 0)))
+  
+  
+  (method public (for-each-sibling proc <procedure>)
+    (loop (for child in (get-children~ parent))
+          (when (/= child self)
+            (proc child))))
+
+
+  (method public (collect-family)
+    (let ((factory (new List-Factory)))
+      (with ((proc <procedure>
+              (function dynamic (child . rest)
+                (put~ factory child))))
+        (for-each-descendant proc))
+      (get-output~ factory)))))

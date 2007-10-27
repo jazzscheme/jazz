@@ -1,0 +1,445 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Literals
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.literals jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.io)
+        (jazz.schema)
+        (jazz.ui))
+
+
+;; putting this here is a quick and dirty way of trying out the specialization concept
+
+
+(specialize = =CellCell)
+(specialize < <CellCell)
+(specialize <= <=CellCell)
+(specialize > >CellCell)
+(specialize >= >=CellCell)
+(specialize + +CellCell)
+(specialize + +CellFixnum)
+(specialize - -CellCell)
+(specialize - -CellFixnum)
+(specialize element elementAxis)
+
+
+;;;
+;;;; Point
+;;;
+
+
+(register-literal-constructor 'Point
+  (lambda (h v)
+    (new Point h v)))
+
+
+;;;
+;;;; Dimension
+;;;
+
+
+(register-literal-constructor 'Dimension
+  (lambda (width height)
+    (new Dimension width height)))
+
+
+;;;
+;;;; Cell
+;;;
+
+
+(register-literal-constructor 'Cell
+  (lambda (row col)
+    (new Cell row col)))
+
+
+;;;
+;;;; Rect
+;;;
+
+
+(register-literal-constructor 'Rect
+   (lambda (left top right bottom)
+     (new Rect left top right bottom)))
+
+
+;;;
+;;;; Range
+;;;
+
+
+(register-literal-constructor 'Range
+   (lambda (start end)
+     (new Range start end)))
+
+
+;;;
+;;;; Action
+;;;
+
+
+(register-literal-constructor 'Action
+  (lambda (action-context action-name . properties)
+    (new Action action-context action-name properties)))
+
+
+;;;
+;;;; Box
+;;;
+
+
+(register-literal-constructor 'Box
+  (lambda rest
+    (if (null? rest)
+        (new Box)
+      (new Box (car rest)))))
+
+
+;;;
+;;;; Shortcut
+;;;
+
+
+(register-literal-constructor 'Shortcut
+  (lambda rest
+    (new Shortcut (butlast rest) (last rest))))
+
+
+;;;
+;;;; Locales
+;;;
+
+
+(register-literal-constructor 'Locales
+  (lambda rest
+    (apply new Locales rest)))
+
+
+;;;
+;;;; Color
+;;;
+
+
+(definition Colors
+  (new-hashtable eq?))
+
+
+(definition (register-color name color)
+  (hashtable-set! Colors name color))
+
+
+(definition (registered-color name)
+  (either (hashtable-ref Colors name #f)
+          (error "Unknown color: {s}" name)))
+
+
+(register-literal-constructor 'Color
+  (lambda rest
+    (bind-keywords ((name {}) . others) rest
+      (if name
+          (registered-color name)
+        (apply new Color rest)))))
+
+
+;;;
+;;;; Font
+;;;
+
+
+(definition Fonts
+  (new-hashtable eq?))
+
+
+(definition (register-font name font)
+  (hashtable-set! Fonts name font))
+
+
+(definition (registered-font name)
+  (either (hashtable-ref Fonts name #f)
+          (error "Unknown font: {s}" name)))
+
+
+(register-literal-constructor 'Font
+  (lambda rest
+    (bind-keywords ((name {}) . others) rest
+      (if name
+          (registered-font name)
+        (apply new Font rest)))))
+
+
+;;;
+;;;; Pen
+;;;
+
+
+(definition Pens
+  (new-hashtable eq?))
+
+
+(definition (register-pen name pen)
+  (hashtable-set! Pens name pen))
+
+
+(definition (registered-pen name)
+  (either (hashtable-ref Pens name #f)
+          (error "Unknown pen: {s}" name)))
+
+
+(register-literal-constructor 'Pen
+  (lambda ((name: name {}))
+    (registered-pen name)))
+
+
+;;;
+;;;; File
+;;;
+
+
+(register-literal-constructor 'File
+  (lambda rest
+    (new File rest)))
+
+
+;;;
+;;;; Directory
+;;;
+
+
+(register-literal-constructor 'Directory
+  (lambda rest
+    (new Directory rest)))
+
+
+;;;
+;;;; Directory-Group
+;;;
+
+
+(register-literal-constructor 'Directory-Group
+  (lambda rest
+    (new Directory-Group rest)))
+
+
+;;;
+;;;; Host
+;;;
+
+
+(register-literal-constructor 'Host
+  (lambda rest
+    (apply new Host rest)))
+
+
+;;;
+;;;; Datatype
+;;;
+
+
+@WAIT
+(register-literal-constructor 'Datatype
+  (lambda rest
+    (new Datatype)))
+
+
+;;;
+;;;; Systype
+;;;
+
+
+@WAIT
+(register-literal-constructor 'Systype
+  (lambda (name size precision scale default-value)
+    (new Systype name size precision scale default-value)))
+
+
+;;;
+;;;; IOR
+;;;
+
+
+(register-literal-constructor 'IOR
+  (lambda (host port remotable reference)
+    (new IOR host port remotable reference)))
+
+
+;;;
+;;;; GUID
+;;;
+
+
+;; convert
+
+
+(register-literal-constructor 'GUID
+  (lambda rest
+    (new GUID)))
+
+
+;;;
+;;;; Format
+;;;
+
+
+(register-literal-constructor 'Format
+  (lambda rest
+    (apply new Format rest)))
+
+
+;;;
+;;;; Text-Style
+;;;
+
+
+(register-literal-constructor 'Text-Style
+  (lambda rest
+    (apply new Text-Style rest)))
+
+
+;;;
+;;;; Hyperlink-Style
+;;;
+
+
+(register-literal-constructor 'Hyperlink-Style
+  (lambda rest
+    (apply new Hyperlink-Style rest)))
+
+
+;;;
+;;;; Bitmap-Resource
+;;;
+
+
+(register-literal-constructor 'Bitmap-Resource
+  (lambda (name)
+    (new Bitmap-Resource name)))
+
+
+;;;
+;;;; Icon-Resource
+;;;
+
+
+(register-literal-constructor 'Icon-Resource
+  (lambda (name)
+    (new Icon-Resource name)))
+
+
+;;;
+;;;; Cursor-Resource
+;;;
+
+
+(register-literal-constructor 'Cursor-Resource
+  (lambda (name)
+    (new Cursor-Resource name)))
+
+
+;;;
+;;;; Event
+;;;
+
+
+(register-literal-constructor 'Event
+  (lambda (kind . properties)
+    (new Event kind {} properties)))
+
+
+;;;
+;;;; Event-Handler
+;;;
+
+
+(register-literal-constructor 'Event-Handler
+  (lambda (target-name method-name . properties)
+    (new Event-Handler target-name: target-name method-name: method-name properties: properties)))
+
+
+;;;
+;;;; Selection-Handler
+;;;
+
+
+(register-literal-constructor 'Selection-Handler
+  (lambda (target-name method-name force? . properties)
+    (new Selection-Handler target-name: target-name method-name: method-name force?: force? properties: properties)))
+
+
+;;;
+;;;; Version
+;;;
+
+
+(register-literal-constructor 'Version
+  (lambda (major minor . rest)
+    (receive (stage release revision) (parse-stage rest)
+      (new Version major minor stage release revision))))
+
+
+(definition (parse-stage rest)
+  (let ((next
+          (function dynamic ()
+            (if (null? rest)
+                0
+              (prog1 (car rest)
+                (set! rest (cdr rest)))))))
+    (if (or (null? rest) (integer? (car rest)))
+        (values {} (next) (next))
+      (values (next) (next) (next)))))
+
+
+;;;
+;;;; Lisp-File-Entry
+;;;
+
+
+(register-literal-constructor 'Lisp-File-Entry
+  (lambda (file time . definitions)
+    (new Lisp-File-Entry {} file (seconds->time time) definitions)))
+
+
+;;;
+;;;; Lisp-Entry
+;;;
+
+
+(register-literal-constructor 'Lisp-Entry
+  (lambda (name signature line column references . definitions)
+    (new Lisp-Entry name signature line column definitions references))))

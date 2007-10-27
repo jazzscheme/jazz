@@ -1,0 +1,152 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Convertion Utilities
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library Convertion jazz
+
+
+(import (jazz.library.component))
+
+
+@WAIT (
+  
+  
+  ;;;
+  ;;;; Convert Form
+  ;;;
+  
+  
+  (method (convert-form proc (extensions: extensions '()))
+    (let ((file (get-modal OpenFile-Dialog extensions: extensions)))
+      (with-cursor :wait
+        (function dynamic ()
+          (let ((form (file-form file)))
+            (letrec ((convert
+                       (function dynamic (form)
+                         (proc form)
+                         (for-each convert (get-children~ form)))))
+              (convert form))
+            (ensure-read/write file)
+            (save~ (new Designer form: form))
+            (edit-document~ (get-application) file)
+            (user-message "{a} converted" (parse~ file)))))))
+  
+  
+  (method (file-form file)
+    (let ((base (string->symbol (get-base~ file))))
+      (if (and (in-manifest? base)
+               (pathname= (get-manifest-source base) file))
+          (get-class-form~ (autoload base))
+        (read-from-file file))))
+  
+  
+  ;;;
+  ;;;; Convert Book
+  ;;;
+  
+  
+  (method (convert-book from to proc (file: file {}) (backup?: backup? #t) (check-version?: check-version? #t) (extensions: extensions '()) (literal-hook: literal-hook {}) (section-proc: section-proc {}) (property-proc: property-proc {}) (feedback?: feedback? #t))
+    (let ((file (either file (get-modal OpenFile-Dialog extensions: extensions))))
+      (ensure-read/write file)
+      (let ((back (essay backup? (backup-file file))))
+        (with-cursor :wait
+          (function dynamic ()
+            (let ((book (load-book file literal-hook))
+                  (fact (new List-Factory)))
+              (for-each-property (function dynamic (keyword section)
+                                   (let ((section-name (if (null? section-proc) keyword (section-proc keyword))))
+                                     (put~ fact section-name)
+                                     (case keyword
+                                       ((:version) (if (and check-version? (/= section from))
+                                                       (error "Converter expected version {a} and received version {a}"
+                                                              (present~ from)
+                                                              (present~ section))
+                                                     (put~ fact to)))
+                                       ((properties:)
+                                        (if (null? property-proc)
+                                            (put~ fact section)
+                                          (let ((f (new List-Factory)))
+                                            (for-each-property (function dynamic (property value)
+                                                                 (receive (property value) (property-proc property value)
+                                                                   (put~ f property)
+                                                                   (put~ f value)))
+                                              section)
+                                            (put~ fact (get-output~ f)))))
+                                       (else
+                                        (letrec ((convert
+                                                   (function dynamic (parent-form form)
+                                                     (proc section-name parent-form form)
+                                                     (for-each (function dynamic (subform)
+                                                                 (convert form subform))
+                                                               (get-children~ form))
+                                                     (let ((client-form (get-property~ form 'client-form)))
+                                                       (when client-form
+                                                         (convert {} client-form))))))
+                                          (convert {} section))
+                                        (put~ fact section)))))
+                book)
+              (when backup?
+                (copy-file~ file back))
+              (save-book (get-output~ fact) file)
+              (when feedback?
+                (message-box
+                  (append (list
+                            (list (format "{a} converted" (get-name~ file))))
+                          (when backup?
+                            (list
+                              (list)
+                              (list (format "A backup of the old file has been saved to {a}" (get-name~ back))))))))))))))
+  
+  
+  (method (load-book file literal-hook)
+    (with-closed ((reader (new File-Reader file :literal-hook literal-hook)))
+      (read-until eof-object? reader)))
+  
+  
+  (method (save-book book file)
+    (when (in-manifest? 'Repository)
+      (ensure-read/write file))
+    (with-closed ((printer (new File-Printer file)))
+      (set-printer-use-utf8? printer #t)
+      (output-header (get-base~ file) printer)
+      (for-each-property (function dynamic (keyword section)
+                           (case keyword
+                             ((:version properties:) (format printer "{%}{%}{s}{%}{%}{s}{%}" keyword section))
+                             (else (format printer "{%}{%}{s}{%}{%}" keyword)
+                                   (let ((designer (new Designer form: section)))
+                                     (print-to~ designer #f 0 printer)))))
+                         book))))
+)

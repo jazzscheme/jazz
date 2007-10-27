@@ -1,0 +1,593 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Wallpaper Root
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Wallpaper-Root jazz
+
+
+(import (jazz.jml)
+        (jazz.io)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.ui.view)
+        (jazz.system)
+        (jazz.utilities))
+
+
+(class Wallpaper-Root extends Stage-Root
+  
+  
+  (slot image         initialize {})
+  (slot previous      initialize {})
+  (slot wallpapers    initialize '())
+  (slot mode          initialize {})
+  (slot random?       initialize #f)
+  (slot browse?       initialize #f)
+  (slot configuration initialize {})
+  (slot choices       initialize '())
+  (slot locator       initialize (new Wallpaper-Locator max-delay: 1.0))
+  (slot changer       initialize {})
+  (slot threads       initialize '())
+  (slot paused?       initialize #f)
+  (slot done?         initialize #f)
+  
+  
+  (form
+    (<install> tooltip?: #t))
+  
+  
+  (method (preferences)
+    (get-preferences 'wallpaper error?: #f))
+
+
+  (method (install-wallpaper)
+    (let ((pref (preferences)))
+      (when pref
+        (let ((active (get-active~ pref)))
+          (when active
+            (install-configuration (child~ pref active)))))))
+  
+  
+  (method (install-configuration config (brws? #f))
+    (when (/= config configuration)
+      (set! browse? brws?)
+      (set! configuration config)
+      (if (not config)
+          (begin
+            (set! image {})
+            (set! wallpapers '())
+            (invalidate-view))
+        (set! image (new Image :cache? #t))
+        (set-mode (get-mode~ config))
+        (set-random? (get-random?~ config))
+        (set-view-size~ image (get-size))
+        (let ((wallpaper (get-directory~ config)))
+          (when wallpaper
+            (let ((dir? (is? wallpaper Directory)))
+              (when dir?
+                (setup-wallpapers wallpaper (get-recursive?~ config))
+                (setup-favorites wallpaper (get-favorites~ config)))
+              (set-source (startup-file dir? wallpaper (get-startup~ config)))
+              (when (and dir? (not changer))
+                (setup-changer (get-period~ config)))))))))
+  
+  
+  (method (destroy)
+    (show-cursor)
+    (nextmethod))
+
+
+  (method (context-menu pos)
+    (if (null? (get-children~ (preferences)))
+        (nextmethod pos)
+      (acquire-focus)
+      (show-cursor)
+      (track-popup-menu (new-stage-menu) pos)))
+  
+  
+  (method (new-stage-menu)
+    (let* ((menu (new Stage-Menu))
+           (manage-menu (get-content~ (locate~ menu 'manage)))
+           (source (get-source)))
+      (set-visible?~ (locate~ manage-menu 'favorite) source)
+      (set-visible?~ (locate~ manage-menu 'favorite-separator) source)
+      (when (and source configuration)
+        (let* ((name (get-name~ source))
+               (favorites (get-favorites~ configuration))
+               (favorite? (member? name favorites)))
+          (set-title~ (locate~ manage-menu 'favorite) (if favorite? "Remove from Favorites" "Add to Favorites"))))
+      (layout-menu~ manage-menu)
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (on-change evt)
+    (change-wallpaper))
+  
+  
+  (method (on-previous evt)
+    (show-previous))
+  
+  
+  (method (on-add-to-favorite evt)
+    (let ((source (get-source)))
+      (if (or (not source) (not configuration))
+          (bell)
+        (let* ((name (get-name~ source))
+               (favorites (get-favorites~ configuration))
+               (favorite? (member? name favorites))
+               (new-favorites (if favorite? (remove! name favorites) (cons name favorites))))
+          (set-preference configuration 'favorites new-favorites)
+          (flash-message (format "{a} {a} favorites" name (if favorite? "removed from" "added to")))))))
+  
+  
+  (method (on-delete-file evt)
+    (when image
+      (let ((source (get-source)))
+        (when source
+          (delete-file~ source)
+          (flash-message (format "{a} deleted" (get-name~ source)))
+          (set! wallpapers (remove! source wallpapers test: =))
+          (set! choices (remove! source choices test: =))
+          (change-wallpaper)))))
+  
+  
+  (method (on-change-mode evt)
+    (set-mode (get-property~ evt mode:)))
+
+
+  (method (size-change size)
+    (nextmethod size)
+    (when image
+      (set-view-size~ image size)
+      (update-image)))
+
+
+  (method (update-image)
+    (update-image~ image)
+    (invalidate-view))
+  
+  
+  (method (get-tooltip-text)
+    (when (and image (control-down?) (alt-down?))
+      (let ((source (get-source)))
+        (when source
+          (let ((image-size (get-size~ image)))
+            (list
+              (format "File: {s}" source)
+              (format "Size: {a}x{a}, Mode: {a}"
+                    (get-width~ image-size)
+                    (get-height~ image-size)
+                    (get-mode~ image))))))))
+  
+  
+  (method (get-source)
+    (when image
+      (get-source~ image)))
+  
+  
+  (method (set-source file)
+    (set! previous (get-source))
+    (cond ((not file)
+           (set-source~ image {}))
+          ((exists?~ file)
+           (hide-cursor)
+           (set-source~ image file))
+          (else
+           (set-source~ image {})
+           (message-box (format "Wallpaper file {s} not found" file))))
+    (invalidate-view)
+    (update-view))
+  
+  
+  (method (set-mode mode)
+    (set! mode~self mode)
+    (when image
+      (set-mode~ image mode)
+      (invalidate-view)))
+  
+  
+  (method (set-random? flag)
+    (set! random? flag))
+  
+  
+  (method (setup-wallpapers dir recursive?)
+    (let ((files '()))
+      (iterate-directory~ dir
+        (function dynamic (file)
+          (when (image-file? file)
+            (set! files (cons file files))))
+        recursive?: recursive?)
+      (set! wallpapers (sort ci< files key: (function dynamic (file) (get-name~ file))))))
+  
+  
+  (method (image-file? file)
+    (member? (get-extension~ file) '("bmp" "jpg" "jpeg" "png")
+             test: ci=))
+  
+  
+  (method (setup-favorites dir favorites)
+    (set! choices (map (function dynamic (favorite)
+                         (wallpaper-file dir favorite))
+                       favorites)))
+  
+  
+  (method (startup-file dir? dir startup)
+    (cond ((not dir?) background)
+          (startup (if (= startup :empty) {} (wallpaper-file dir startup)))
+          (else (next-wallpaper))))
+
+
+  (method (setup-changer period)
+    ;;@threads-commented-for-simpler-c++-threading-debugging
+    (set! changer
+          (new Thread
+            name: "Wallpaper Changer"
+            context: self
+            execute: (function (thread)
+                       (while (not done?)
+                         (sleep period)
+                         (unless paused?
+                           (change-wallpaper)))))))
+  
+  
+  (method (wallpaper-file dir name)
+    (new-file~ dir name))
+
+
+  (method public (change-wallpaper)
+    (when configuration
+      (set-source (next-wallpaper))))
+  
+  
+  (method (show-first)
+    (unless random?
+      (when wallpapers
+        (set-source (car wallpapers)))))
+  
+  
+  (method (show-last)
+    (unless random?
+      (when wallpapers
+        (set-source (last wallpapers)))))
+  
+  
+  (method (show-previous)
+    (let ((wallpaper (previous-wallpaper)))
+      (when wallpaper
+        (set-source wallpaper)
+        (set! previous {}))))
+
+
+  (method (next-wallpaper)
+    (if (not random?)
+        (let ((source (get-source)))
+          (if (not source)
+              (car wallpapers)
+            (element wallpapers (modulo (+ (wallpaper-rank source) 1) (length wallpapers)))))
+      (when (null? choices)
+        (set! choices (copy wallpapers)))
+      (when choices
+        (let ((wallpaper (random-element choices)))
+          (set! choices (remove! wallpaper choices))
+          wallpaper))))
+  
+  
+  (method (previous-wallpaper)
+    (if (not random?)
+        (let ((source (get-source)))
+          (if (not source)
+              (essay wallpapers (last wallpapers))
+            (let ((count (length wallpapers))
+                  (rank (wallpaper-rank source)))
+              (if (= rank 0)
+                  (element wallpapers (- count 1))
+                (element wallpapers (- rank 1))))))
+      previous))
+  
+  
+  (method (wallpaper-rank wallpaper)
+    (find wallpaper wallpapers test: = return: 'position))
+  
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (focus-actions)
+    (cons (find-actions 'wallpaper)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-empty evt)
+    (install-configuration {}))
+  
+  
+  (method (on-home evt)
+    (show-first))
+  
+  
+  (method (on-end evt)
+    (show-last))
+  
+  
+  (method (on-prior evt)
+    (show-previous))
+  
+  
+  (method (on-next evt)
+    (change-wallpaper))
+  
+  
+  (method (on-random evt)
+    (set! random? (not random?))
+    (when random?
+      (change-wallpaper))
+    (flash-message (if random? "Random" "Linear")))
+  
+  
+  (method (on-paused evt)
+    (set! paused? (not paused?))
+    (flash-message (if paused? "Paused" "Running")))
+  
+  
+  (method (on-display-info evt)
+    (let ((source (get-source)))
+      (flash-message
+        (if (not source)
+            {Bitmap-Resource "Empty"}
+          (let* ((name (get-name~ source))
+                 (favorites (get-favorites~ configuration))
+                 (favorite? (member? name favorites)))
+            (format "{a}{a}" name (if favorite? " (favorite)" ""))))
+        delay: 2.0)))
+  
+  
+  (method (flash-message message (delay: delay 1.0))
+    @convert
+    (new Thread
+      name: "Message Flasher"
+      context: self
+      execute: (function synchronized (thread)
+                 (user-message message)
+                 (sleep delay)
+                 (clear-user-message))))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-gain)
+    (hide-cursor))
+  
+  
+  (method (focus-lose window view)
+    (show-cursor))
+  
+  
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method (cursor-update view)
+    (nextmethod view)
+    (show-cursor))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+
+
+  (method (mouse-leave)
+    (show-cursor))
+  
+  
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (key-press key)
+    (when (and (alphanumeric? key) wallpapers)
+      (enter~ locator key)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method (draw dc context update lh lv)
+    (nextmethod dc context update lh lv)
+    (let ((size (get-size)))
+      (when image
+        (draw~ image dc context 0 0 size: size))))
+
+  
+  ;;;
+  ;;;; Configure
+  ;;;
+  
+  
+  (method public (on-configure evt)
+    (let ((configuration (get-property~ evt :configuration)))
+      (if (eq? configuration #t)
+          (browse-configuration)
+        (install-configuration configuration))))
+  
+  
+  (method (browse-configuration)
+    (install-configuration
+      (new Wallpaper-Configuration
+        directory: (get-modal BrowseFolder-Dialog)
+        period: (essay configuration (get-period~ configuration))
+        mode: (essay configuration (get-mode~ configuration)))
+      #t)))
+
+
+;;;
+;;;; Configure
+;;;
+
+
+(class Wallpaper-Locator extends Locator
+  
+  
+  @convert
+  (method (iterate proc)
+    (for-each (function dynamic (wallpaper rank)
+                (let ((title (get-name~ wallpaper)))
+                  (proc title rank)))
+              wallpapers
+              (naturals 0 (length wallpapers))))
+  
+  
+  @convert
+  (method (select rank)
+    (set-source (element wallpapers rank))))
+
+
+;;;
+;;;; Stage-Menu
+;;;
+
+
+(class Stage-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>       name: configure        title: "&Configure" icon: {Bitmap-Resource "All"}
+        (<Configure-Menu>))
+      (<Separator-Item>)
+      (<Radio-Item>       name: centered         title: "&Center" icon: {Bitmap-Resource "Center"} action: {Action wallpaper centered-mode})
+      (<Radio-Item>       name: tiled            title: "&Tile" icon: {Bitmap-Resource "Tile"} action: {Action wallpaper tiled-mode})
+      (<Radio-Item>       name: filled           title: "&Fill" icon: {Bitmap-Resource "Fill"} action: {Action wallpaper filled-mode})
+      (<Radio-Item>       name: stretched        title: "&Stretch" icon: {Bitmap-Resource "Stretch"} action: {Action wallpaper stretched-mode})
+      (<Separator-Item>   name: random-separator)
+      (<Check-Item>       name: random           title: "&Random" icon: {Bitmap-Resource "Refresh"} action: {Action wallpaper random})
+      (<Separator-Item>   name: slide-separator)
+      (<Check-Item>       name: paused           title: "&Paused" icon: {Bitmap-Resource "Pause"} action: {Action wallpaper paused})
+      (<Check-Item>       name: change           title: "&Change" icon: {Bitmap-Resource "Next"} action: {Action wallpaper change})
+      (<Check-Item>       name: previous         title: "&Previous" icon: {Bitmap-Resource "Previous"} action: {Action wallpaper previous})
+      (<Separator-Item>   name: manage-separator)
+      (<Label-Item>       name: manage           title: "&Manage" icon: {Bitmap-Resource "Document"}
+        (<Manage-Menu>))))
+  
+  
+  @convert
+  (method (finish rest)
+    (nextmethod rest)
+    (when mode
+      (set-selected?~ (locate mode) #t))
+    (let ((source (get-source)))
+      (if (not source)
+          (begin
+            (set-visible?~ (locate 'random-separator) #f)
+            (set-visible?~ (locate 'random) #f)
+            (set-visible?~ (locate 'slide-separator) #f)
+            (set-visible?~ (locate 'paused) #f)
+            (set-visible?~ (locate 'change) #f)
+            (set-visible?~ (locate 'previous) #f)
+            (set-visible?~ (locate 'manage-separator) #f)
+            (set-visible?~ (locate 'manage) #f))
+        (set-checked?~ (locate 'random) random?)
+        (set-checked?~ (locate 'paused) paused?)
+        (set-visible?~ (locate 'previous) (or (not random?) previous))
+        (set-title~ (locate 'manage) (get-name~ source))))))
+
+
+;;;
+;;;; Configure-Menu
+;;;
+
+
+(class Configure-Menu extends Context-Menu
+  
+  
+  @convert
+  (method (finish rest)
+    (nextmethod rest)
+    (update-menu))
+  
+  
+  @convert
+  (method public (update-menu)
+    (insert-item "None" {Bitmap-Resource "Empty"} {} #f)
+    (let ((children (get-children~ (preferences))))
+      (when children
+        (new Separator-Item parent: self)
+        (for-each (function dynamic (config)
+                    (when (get-active?~ config)
+                      (insert-item (get-presentation~ config) {} config #f)))
+                  children)))
+    (new Separator-Item parent: self)
+    (insert-item "Browse..." {Bitmap-Resource "Open"} #t #t))
+  
+  
+  @convert
+  (method (insert-item title icon config browse-item?)
+    (let ((selected? (if browse-item?
+                         browse?
+                       (eq? config configuration))))
+      (new Radio-Item parent: self title: title selected?: selected? icon: icon action-handler: (new Event-Handler target-name: :wallpaper method-name: 'on-configure properties: (list :configuration config))))))
+
+
+;;;
+;;;; Manage-Menu
+;;;
+
+
+(class Manage-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: favorite           icon: {Bitmap-Resource "Favorites"} action: {Action wallpaper add-to-favorite})
+      (<Separator-Item> name: favorite-separator)
+      (<Label-Item>     name: delete-file        title: "&Delete" icon: {Bitmap-Resource "Remove"} action: {Action wallpaper delete-file})))))

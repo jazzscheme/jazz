@@ -1,0 +1,197 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Event Spy
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.spy.Event-Spy jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+;;;
+;;;; Constants
+;;;
+
+
+(constant Event-Categories
+  '((general   . {Bitmap-Resource "MsgGeneral"})
+    (component . {Bitmap-Resource "MsgComponent"})
+    (window    . {Bitmap-Resource "MsgWindow"})
+    (paint     . {Bitmap-Resource "MsgPaint"})
+    (action    . {Bitmap-Resource "MsgAction"})
+    (mouse     . {Bitmap-Resource "MsgMouse"})
+    (keyboard  . {Bitmap-Resource "MsgKeyboard"})
+    (clipboard . {Bitmap-Resource "MsgClipboard"})
+    (focus     . {Bitmap-Resource "MsgFocus"})
+    (menu      . {Bitmap-Resource "MsgMenu"})
+    (unknown   . {Bitmap-Resource "MsgUnknown"})))
+
+
+(constant Event-Classes
+  '((Action-Event     component)
+    (Break-Event      general)
+    (Component-Event  component)
+    (Cursor-Event     window)
+    (Draw-Event       paint)
+    (Edition-Event    focus)
+    (Focus-Event      focus)
+    (Keyboard-Event   focus)
+    (Mouse-Event      mouse)
+    (Paint-Event      paint)
+    (Print-Event      paint)
+    (Selection-Event  window)))
+
+
+;;;
+;;;; Event-Spy
+;;;
+
+
+(class Event-Spy extends Spy-View
+
+
+  (form
+    (<install>
+      (<!>                             name: tree-border
+        (<!>                           name: tree-scroller
+          (<!>                         name: content
+            (<!>                       name: tree-header
+              (<!>                     name: content
+                (<!>                   name: tree
+                  (<Tree-Node-Column>                      title: "Event" width: 140 toplevel-controls?: #f)
+                  (<Tree-Label-Column>                     title: "Kind" width: 140)
+                  (<Tree-Label-Column>                     title: "Content" width: 226)
+                  (<Tree-Label-Column>                     title: "Component" width: 213)))))))))
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Event Spy")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 154 152})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 736 339})
+
+  
+  ;;;
+  ;;;; Spy
+  ;;;
+  
+  
+  (method (spy-domain)
+    'views)
+
+
+  (method (spy client)
+    (when (is? client Event-Consumer)
+      (set! old-consumer (get-event-consumer~ client))
+      (set-event-consumer~ client (new Spyer self client))))
+
+
+  (method (unspy client)
+    (when (is? client Event-Consumer)
+      (set-event-consumer~ client old-consumer)))
+
+
+  (method (incoming-event level window client evt)
+    (let* ((type (type-name (class-of evt)))
+           (info (find type Event-Classes key: car))
+           (cat  (if info (second info) 'unknown)))
+      (when (or (eq? category 'all) (eq? category cat))
+        (let* ((tree (get-tree))
+               (image (cdr (assq cat Event-Categories)))
+               (parameters "")
+               (c0 (new Tree-Node  title: type image: image))
+               (c1 (new Tree-Label title: (get-kind~ evt)))
+               (c2 (new Tree-Label title: parameters))
+               (c3 (new Tree-Label title: (format "{a}{s}" (make-string (* level 5) #\space) window)))
+               (item (get-visible-count~ tree)))
+          (add-row~ tree children: (list c0 c1 c2 c3))
+          (ensure-at-end~ tree)
+          (update-view)
+          (when slowdown?
+            (sleep slowdown-quantum))
+          item))))
+
+
+  (method (incoming-result level item result)
+    ))
+
+
+;;;
+;;;; Spyer
+;;;
+
+
+(class Spyer extends Object implements Event-Consumer
+  
+  
+  (slot level initialize 0)
+  (slot spy-window)
+  (slot client)
+  
+  
+  (method (get-event-consumer));;abstract
+  (method (set-event-consumer consumer));;abstract
+  
+  
+  (method (initialize wnd clt)
+    (nextmethod)
+    (set! spy-window wnd)
+    (set! client clt))
+  
+  
+  (method (deliver-event handler target proc evt)
+    (incoming-event~ spy-window level client target evt)
+    (increase! level)
+    (proc~ target evt)
+    (decrease! level))))

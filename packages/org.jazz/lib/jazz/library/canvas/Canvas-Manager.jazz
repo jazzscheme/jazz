@@ -1,0 +1,396 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Canvas Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.canvas.Canvas-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.designer)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.utilities))
+
+
+(class Canvas-Manager extends Editor-View
+
+
+  (form
+    (<install>                                                         size: {Dimension 650 400} layout-type: border layout-insets: {Rect 0 2 0 0}
+      (<Layout-View>                          name: toolbar            size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 7 0 0} location: north
+        (<Push-Tool>                          name: new                size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler form: on-new}))
+      (<Splitter-View>                        name: splitter           size: {Dimension 650 367} location: center state: split orientation: horz division: 250
+        (<Border-View>                        name: descendants-border position: {Point 2 4} size: {Dimension 278 338} location: first border-type: edge style: entry
+          (<Descendants-Editor>               name: descendants
+            (<!>                              name: scroller
+              (<!>                            name: content
+                (<!>                          name: header
+                  (<!>                        name: content
+                    (<!>                      name: tree               highlight-edited?: #f tab-press-handler: {Event-Handler form: on-tab-press}
+                      (<!>                    name: descendant         title: "Subject"))))))))
+        (<Layout-View>                        name: right              location: second layout-type: fill
+          (<Splitter-View>                    name: editor-splitter    position: {Point 289 0} size: {Dimension 360 366} state: split orientation: vert mode: relative division: 60
+            (<Layout-View>                    name: details-pane       location: first layout-type: fill
+              (<Border-View>                  name: details-border     size: {Dimension 100 300} border-type: edge style: entry
+                (<Scroller-View>                                       style: document hscroll?: #t vscroll?: #t
+                  (<!>                        name: content            layout-type: fill
+                    (<Tree-Header>                                     style: document
+                      (<!>                    name: content
+                        (<Details-Tree>       name: details
+                          (<Tree-Node-Column> name: element            title: "Name" toplevel-controls?: #f))))))))
+            (<Layout-View>                    name: bottom-right       location: second layout-type: fill
+              (<Border-View>                  name: card-border        border-type: edge style: entry)))))))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+    
+
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Doc"})
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {})
+  
+  
+  @convert-guest
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; New
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (new-event . rest)
+    (let* ((frame (apply new-frame host-visible?: #f rest))
+           (manager (get-guest~ frame))
+           (newbase (localize "New"))
+           (newname (unique-domain-name newbase (collect-names manager)))
+           (controller (get-controller~ manager)))
+      (set-newname~ controller newname)
+      (update-status~ controller)
+      (let* ((form (new Form textual?: #t action: 'new model-name: 'Canvas-Base name: newname))
+             (client (instantiate~ form)))
+        (set-client~ manager client))
+      (bring-to-front~ frame)
+      (set-visible?~ frame #t)
+      frame))
+  
+  
+  @convert-guest
+  (method meta (collect-names base)
+    (let ((model (class-of base))
+          (stage (get-stage)))
+      (collect (function dynamic (frame)
+                 (when (is? frame Host-Frame)
+                   (let ((guest (get-guest~ frame)))
+                     (when (and guest (neq? guest base) (is? guest model))
+                       (get-name~ (get-client~ guest))))))
+               (get-children~ stage))))
+  
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  @convert
+  (class Canvas-Manager-Controller extends Editor-View-Controller
+    
+    
+    (method (document-status)
+      (format "{a}{a}"
+            (name-status)
+            (modified-status))))
+
+
+  @convert
+  (method (new-controller)
+    (new Canvas-Manager-Controller self))
+
+  
+  ;;;
+  ;;;; Preferences
+  ;;;
+  
+  
+  (method (tool-preferences)
+    (get-preferences '(tools canvas-manager)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'descendants) self)
+    (set-editor~ (locate 'details) self))
+
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (let ((pref (tool-preferences)))
+      (when pref
+        (set-position~ host (cascade-position))
+        (set-size~ host (get-size~ pref)))))
+
+  
+  (method (focus-document)
+    (acquire-focus~ (locate '(descendants tree))))
+
+
+  ;;;
+  ;;;; Selection
+  ;;;
+    
+  
+  (method (selection-changed old new origin force-parent? focus?)
+    (nextmethod old new origin force-parent? focus?)
+    (update-new))
+  
+  
+  (method (update-new)
+    (let* ((tree (locate 'details))
+           (client (get-client~ tree))
+           (classes (essay client (get-addable-classes~ client)))
+           (tool (locate 'new)))
+      (if (/= (length classes) 1)
+          (begin
+            (set-enabled?~ tool #f)
+            (set-tooltip-text~ tool "New"))
+        (set-enabled?~ tool #t)
+        (let* ((class (car classes))
+               (pres (get-class-presentation~ class)))
+          (set-tooltip-text~ tool (new Locales
+                                    english: (format "New {a}" (localize-to pres :english))
+                                    french: (format "Nouveau {a}" (localize-to pres :french))))))))
+
+
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method (on-editor evt)
+    (nextmethod evt)
+    (case (get-kind~ evt)
+      ((:selection-changing)
+       (let ((component (car (get-selection~ evt))))
+         (setup-details component)
+         (setup-card component)))
+      ((:saving)
+       (let ((current (get-card)))
+         (when (is? current Custom-Card)
+           (save-client~ current))))))
+  
+
+  ;;;
+  ;;;; Details
+  ;;;
+  
+  
+  (method (setup-details component)
+    @w
+    (let ((current (get-details)))
+      (if (null? component)
+          (when current
+            (close~ current))
+        (let ((details-class (either (get-custom-details~ component) Details-Card)))
+          (when (or (null? current) (neq? details-class (class-of current)))
+            (when current
+              (close~ current))
+            (let ((card (new details-class name: 'details parent: (locate 'details-border))))
+              @w
+              (set-editor~ card (locate 'details) self)
+              @w
+              (begin
+              (set-editor~ card self)
+              (set-designer~ card designer)
+              (when (is? card Details-Card)
+                (set-filter~ (get-tree~ card) 'categorized))
+              (card-update card))))))))
+  
+  
+  (method (get-details)
+    (find-component~ (locate 'details-border) 'details))
+  
+
+  ;;;
+  ;;;; Card
+  ;;;
+  
+  
+  (method (get-card)
+    (find-component~ (locate 'card-border) 'properties))
+  
+  
+  (method (setup-card component)
+    (let ((current (get-card)))
+      (when (is? current Custom-Card)
+        (save-client~ current))
+      (if (null? component)
+          (when current
+            (close~ current))
+        (let ((card-class (either (get-custom-card~ component) Properties-Card)))
+          (when (or (null? current) (neq? card-class (class-of current)))
+            (when current
+              (close~ current))
+            (let ((card (new card-class name: 'properties parent: (locate 'card-border))))
+              (set-editor~ card self)
+              (set-designer~ card designer)
+              (when (is? card Properties-Card)
+                (set-filter~ (get-tree~ card) 'categorized))
+              (card-update card)))))))
+  
+  
+  (method public virtual (card-update card)
+    )
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((log)
+         (let ((selection (get-single-selection~ sender)))
+           (when selection
+             (let* ((row (get-row~ sender selection))
+                    (component (get-user-data~ row)))
+               (when component
+                 (set-selection (list component) origin: sender force-parent?: #t focus?: #f)))))))))
+  
+  
+  (method public (on-new evt)
+    (let* ((details (locate 'details))
+           (client (get-client~ details))
+           (class (car (get-addable-classes~ client)))
+           (component (add-component-class~ (locate '(descendants tree)) class select?: #f)))
+      (set-selection (list component) origin: details)
+      (let* ((row (component-row~ details component))
+             (rank (row-rank~ details row)))
+        (set-single-selection~ details rank generate-event?: #f)
+        (acquire-focus~ details))))
+  
+  
+  (method public (on-tab-press evt)
+    (let ((tree (get-tree~ (locate 'card))))
+      (acquire-focus~ tree)
+      (let ((rank (get-single-selection~ tree)))
+        (when rank
+          (auto-select~ (get-row~ tree rank))))))
+  
+  
+  ;;;
+  ;;;; Integrity
+  ;;;
+  
+  
+  @convert
+  (class Validation-Reporter extends Progress-Reporter
+  
+  
+    (form
+      (<install>              title: "Validation Progress"
+        (<!>     name: invite title: "Please wait while the integrity validation completes")))
+    
+    
+    (method meta (dialog-title)
+      "Validation Progress"))
+  
+  
+  @convert
+  (method (on-validate-integrity evt)
+    (let ((client (get-client))
+          (designer (get-designer)))
+      (with-progress
+        (function dynamic (reporter)
+          (validate-integrity~ client reporter: reporter)
+          (user-message~ reporter "Done")
+          (set-done~ reporter))
+        threaded?: (not (typed? (get-application) 'Jedi))
+        name: "Validate Integrity"
+        context: self
+        progress-reporter: Validation-Reporter
+        cancelable?: #t)))
+  
+  
+  ;;;
+  ;;;; Cascade
+  ;;;
+
+  
+  (definition Cascade-Position
+    {Point 25 25})
+    
+  (definition Cascade-Step
+    {Dimension 22 22})
+  
+  
+  (method (cascade-position)
+    (let ((frames (collect-managers))
+          (pos Cascade-Position))
+      (call/ec
+        (lambda (return)
+          (while #t
+            (if (member? pos frames key: (function dynamic (frame) (get-position~ frame)))
+                (increase! pos Cascade-Step)
+              (return pos)))))))
+  
+  
+  (method (collect-managers)
+    (collect-if (function dynamic (frame)
+                  (and (is? frame Host-Frame)
+                       (is? (get-guest~ frame) Canvas-Manager)))
+                (get-children~ (get-stage))))))

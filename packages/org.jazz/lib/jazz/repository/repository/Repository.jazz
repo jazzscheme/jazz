@@ -1,0 +1,743 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Source Control Repository
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+;; - Checkout without get when same version
+;; - Save over read-only -> cannot delete *.back.dsg
+;;
+;; - Should check for the existence of the toplevel item in the repositories manager and
+;;   in the repository editor in case it was externaly removed.
+;; - Remove the restriction that the toplevel project cannot be used as base project.
+;; - To be independant of VSS it will take the ability to set the local directory of a repository.
+;; - In complete generality, the preferences of the concrete repository should be a child of the
+;;   preferences of the virtual repository.
+;; - Should probably set the working folder from Jazz
+;; - Operations
+;;     new-repository
+;;     edit-repository
+;;     edit-file
+;;     add-files
+;;     add-project
+;;     delete
+;;     rename
+;;     get-latest
+;;     detach
+;;     checkout
+;;     checkin
+;;     reintegrate
+;;     undo-checkout
+;;     show-history
+;;     show-changes
+;;     refresh
+;; - BUGS
+;;   - If I do a checkout from the palette, the icon doesnt update anymore
+;;     cannot rename root
+;;     ambiguous find-repository for files shared by 2 repositories
+;;     Unicity Domain should exclude current name?
+;;     ui logic: repository row should "be" the base project
+
+
+(library jazz.repository.repository.Repository jazz
+
+
+(import (jazz.repository)
+        (jazz.process)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Repository extends Object)
+
+
+(definition Repositories
+  (new-hashtable equal?))
+
+
+@WAIT
+
+
+(class abstract Repository extends Object implements Exit-Listener
+
+  
+  (slot name)
+  (slot base-project)
+  (slot base-directory)
+  
+  
+  (method public virtual (get-concrete)
+    self)
+
+  
+  ;;;
+  ;;;; Preferences
+  ;;;
+  
+  
+  (method meta public virtual (preferences-class)
+    )
+  
+  
+  (method meta (preferences)
+    (let ((appl (get-application)))
+      (get-repositories-preferences~ appl)))
+  
+  
+  (method meta (repository-preferences name (pref (preferences)))
+    (when pref
+      (find-component~ pref name)))
+  
+  
+  (method meta public (reload-preferences pref)
+    (let ((name (get-name~ pref)))
+      (remove-repository name error?: #f)))
+  
+  
+  (method meta public (remove-preferences pref)
+    (let ((name (get-name~ pref)))
+      (remove-repository name error?: #f)))
+  
+  
+  ;;;
+  ;;;; Repositories
+  ;;;
+  
+  
+  (method meta (add-repository pref)
+    (let ((name (get-name~ pref)))
+      (when (get-repository name)
+        (remove-repository name))
+      (let ((repository (instantiate-preferences pref)))
+        (hash-set! Repositories name repository))))
+  
+  
+  (method meta (remove-repository name (error?: error? #t))
+    (if (not (get-repository name))
+        (when error?
+          (error "Unable to find repository {a}" name))
+      (hash-clear Repositories name)))
+  
+  
+  ;;;
+  ;;;; Active Repository
+  ;;;
+  
+  
+  (method meta public (require-repository (name {}))
+    (either (get-repository name)
+            (if (null? name)
+                (error "No repository is currently active")
+              (error "Unable to find repository: {t}" name))))
+  
+  
+  (method meta public (get-repository (name {}))
+    (let* ((pref (preferences))
+           (name (either name (essay pref (get-active~ pref)))))
+      (when name
+        (either (hash-ref Repositories name)
+                (let ((pref (repository-preferences name pref)))
+                  (when (and pref (get-active?~ pref))
+                    (let ((repository (instantiate-preferences pref)))
+                      (hash-set! Repositories name repository))))))))
+  
+  
+  ;;;
+  ;;;; New Repository
+  ;;;
+  
+  
+  (method meta public (instantiate-preferences pref)
+    (let ((appl (get-application))
+          (class (repository-class~ pref))
+          (name (get-name~ pref)))
+      (new-repository~ class pref name)))
+  
+  
+  (method meta public virtual (new-repository pref name)
+    (new self name: name))
+  
+  
+  ;;;
+  ;;;; Repositories
+  ;;;
+  
+  
+  (method meta public (for-each-repository-preferences proc)
+    (let ((pref (preferences)))
+      (when pref
+        (for-each proc (get-children~ pref)))))
+  
+  
+  (method meta public (find-repository pathname)
+    (call/ec
+      (lambda (return)
+        (for-each-repository-preferences
+          (function dynamic (pref)
+            (when (in-repository?~ pref pathname)
+              (return (get-repository (get-name~ pref))))))
+        {})))
+  
+  
+  (method meta public (find-moniker pathname)
+    (let ((repository (find-repository pathname)))
+      (essay repository
+             (new Repository-Moniker repository (file->path~ repository pathname)))))
+
+  
+  ;;;
+  ;;;; Initialisation
+  ;;;
+  
+  
+  (method (initialize (name: name {}) (base-project: base-project {}) (base-directory: base-directory {}))
+    (nextmethod)
+    (set! name~self name)
+    (set! base-project~self base-project)
+    (set! base-directory~self base-directory))
+  
+  
+  (method protected virtual (install-initargs initargs)
+    (set! base-project (getf initargs :base-project))
+    (set! base-directory (getf initargs :base-directory)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{s}" name))))
+  
+  
+  (method public virtual abstract (connected?)
+    )
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (set-name value)
+    (set! name value))
+
+  
+  ;;;
+  ;;;; Base
+  ;;;
+  
+  
+  (method public virtual (get-base-project)
+    (error "illegal operation"))
+  
+  
+  (method protected virtual (set-base-project value)
+    (error "illegal operation"))
+  
+  
+  (method public virtual (get-base-directory)
+    (error "illegal operation"))
+  
+  
+  (method protected virtual (set-base-directory value)
+    (error "illegal operation"))
+
+  
+  ;;;
+  ;;;; Exit
+  ;;;
+  
+  
+  (method (prepare-exit)
+    (close))
+  
+  
+  ;;;
+  ;;;; Path
+  ;;;
+  
+  
+  (method public (file/path->path file/path)
+    (if (pathname? file/path)
+        (file->path file/path)
+      file/path))
+  
+  
+  (method public (file->path file (error?: error? #t))
+    (let* ((base (get-base-directory))
+           (anchored (anchor-to~ file base error?: error?)))
+      (when anchored
+        (tail (get-list~ anchored) (length (get-list~ base))))))
+  
+  
+  (method public (path->file path)
+    (new File (append (get-list~ (get-base-directory)) path)))
+  
+  
+  (method public (path->directory path)
+    (new Directory (append (get-list~ (get-base-directory)) path)))
+  
+  
+  (method public virtual (local->remote file)
+    file)
+  
+  
+  (method public virtual (remote->local file)
+    file)
+  
+  
+  ;;;
+  ;;;; Add
+  ;;;
+  
+  
+  (method public (add-file-to-repository file)
+    (let ((parent-directory (get-parent~ file)))
+      (with-closed ((parent-item (get-item parent-directory))
+                    (added-item (add-file~ parent-item file))))
+      (call-repository-event :item-status self file)
+      (message-box (format "{a} added to repository {a}" (get-name~ file) (get-name)))))
+  
+  
+  (method public (add-files-to-project path (extension: extension (add-default-extension)))
+    (with-closed ((project (get-item path)))
+      (let* ((directory (path->directory path))
+             (chooser (add-chooser-class))
+             (actual (collect-actual project))
+             (all (collect-files directory extension))
+             (effective (difference all actual test: pathname=))
+             (files (get-modal~ chooser :files effective)))
+        (for-each (function dynamic (file)
+                    (with-closed ((item (add-file~ project file)))
+                      ))
+                  files))))
+  
+  
+  (method protected virtual (add-chooser-class)
+    Repository-Add-Chooser)
+  
+  
+  (method protected virtual (add-default-extension)
+    #t)
+  
+  
+  (method (collect-actual project)
+    (with-closed ((items (get-content~ project nodes?: #f leaves?: #t)))
+      (map (function dynamic (item)
+             (get-pathname~ item))
+           items)))
+  
+  
+  (method (collect-files directory extension)
+    (let ((fact (new List-Factory)))
+      (iterate-directory~ directory
+        (function dynamic (file)
+          (when (and (or (eq? extension #t) (ci= (get-extension~ file) extension))
+                     (not (member? (get-name~ file) '("vssver.scc") test: ci=)))
+            (put~ fact file)))
+        recursive?: #f)
+      (sort ci< (get-output~ fact) key: (function dynamic (file) (get-name~ file)))))
+  
+  
+  (method protected (create-project-in-project path)
+    (with-closed ((project (get-item path)))
+      (let ((directory (path->directory path))
+            (actual (collect-subprojects project))
+            (name (request-string)))
+        (with-closed ((item (add-project~ project name)))
+          ))))
+  
+  
+  (method (collect-subprojects project)
+    (with-closed ((items (get-content~ project nodes?: #t leaves?: #f)))
+      (map (function dynamic (item)
+             (get-name~ item))
+           items)))
+  
+  
+  ;;;
+  ;;;; Delete
+  ;;;
+  
+  
+  ;; root: also need to delete parent row (correct?)
+  (method public (propose-delete path)
+    (if (null? path)
+        (unimplemented 'propose-delete)
+      (let* ((border (new Layout-View :layout-type 'fill :layout-insets {Rect 2 0 0 2} size: {Dimension 150 20}))
+             (checkbox (new Check-Box parent: border title: "Destroy permanently"))
+             (name (if path (last path) (last (get-base-project)))))
+        (layout-view~ border)
+        (let ((code (message-box (format "Delete {a} from repository?" name) type: 'question title: "Delete" content: border)))
+          (when (= code 'yes)
+            (if (get-checked?~ checkbox)
+                (destroy-item path)
+              (delete-item path)))))))
+    
+  
+  (method public (delete-item path)
+    (with-closed ((item (get-item path)))
+      (delete-item~ item)))
+  
+  
+  (method public (destroy-item path)
+    (with-closed ((item (get-item path)))
+      (destroy-item~ item)))
+  
+  
+  ;;;
+  ;;;; Rename
+  ;;;
+  
+  
+  ;; root: also need to rename repository base-project (correct?)
+  (method public (propose-rename path)
+    (if (null? path)
+        (unimplemented 'propose-rename)
+      (let* ((name (if path (last path) (last base-project)))
+             (unicity-domain (remove name (collect-names path) test: equal?))
+             (new-name (request-string title: "Enter New Name" initial-value: name :accepts-empty? #f :unicity-domain unicity-domain)))
+        (rename-item path new-name))))
+  
+  
+  (method (collect-names path)
+    (when path
+      (let ((parent-path (butlast path)))
+        (with-closed ((parent-item (get-item parent-path))
+                      (items (get-content~ parent-item nodes?: #t leaves?: #t)))
+          (map (function dynamic (item)
+                 (remote->local (get-name~ item)))
+               items)))))
+  
+  
+  (method public (rename-item path new-name)
+    (if path
+        (with-closed ((item (get-item path)))
+          (rename-item~ item new-name)
+          (append (butlast path) (list new-name)))
+      (set-base-project (append (butlast (get-base-project)) (list new-name)))
+      {}))
+  
+  
+  ;;;
+  ;;;; Item
+  ;;;
+  
+  
+  (method public virtual abstract (get-item file/path . rest)
+    )
+  
+  
+  (method public virtual abstract (in-repository? file)
+    )
+  
+  
+  ;;;
+  ;;;; Get Latest
+  ;;;
+  
+  
+  (method public (get-latest pathname)
+    (with-cursor :wait
+      (function dynamic ()
+        (get-latest-pathname pathname)))
+    (call-repository-event :item-status self pathname))
+  
+  
+  (method (get-latest-pathname pathname)
+    (let ((output (get-output-log)))
+      (when output
+        (clear-results~ output)
+        (select-results~ output)
+        (select-palette Output-Log))
+      (with-closed ((item (get-item pathname)))
+        (iterate-item~ item
+         (function dynamic (item pathname)
+           (if (file? pathname)
+               (get-latest-file item pathname output)
+             (get-latest-directory item pathname output)))
+         base: pathname))))
+
+  
+  (method public (get-latest-file item (make-writable?: make-writable? #f) (feedback?: feedback? #t))
+    (case (determine-operation item file {unspecified})
+      ((get)
+       (get-latest-action file :make-writable? make-writable?)
+       (log-line output (format "{a} fetched from repository" (get-name~ file)) image: {Bitmap-Resource "Document"}))
+      ((skip)
+       (log-line output (format "{a} was skipped" (get-name~ file)) image: {Bitmap-Resource "Info"}))
+      ((same)
+       (log-line output (format "{a} has not changed" (get-name~ file)) image: {Bitmap-Resource "Info"})))
+    (if make-writable?
+        (set-read/write~ file)
+      (set-read-only~ file)))
+  
+  
+  (method (determine-operation item file overwrite)
+    (if (not (exists?~ file))
+        'get
+      (let ((read-only? (read-only?~ file))
+            (different? (is-different?~ item file)))
+        (if read-only?
+            (if different? 'get 'same)
+          (let ((ask (if (unspecified? overwrite)
+                         (message-box "File is writeable, do you wish to replace it?" type: 'question)
+                       (if overwrite 'yes 'no))))
+            (if (= ask 'yes) 'get 'same))))))
+  
+  
+  (method protected virtual abstract (get-latest-action file . rest)
+    )
+  
+  
+  (method (get-latest-directory item directory output)
+    (unless (exists?~ directory)
+      (log-line output (format "{a} created" (get-name~ directory)) image: {Bitmap-Resource "OpenedFolder"})
+      (create~ directory)))
+  
+  
+  (method (log-line output line . rest)
+    (user-message "{a}" line)
+    (when output
+      (apply (~ log-line output) line rest)))
+  
+  
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method public virtual (supports-detaching? file)
+    #f)
+  
+  
+  (method public virtual abstract (detach-file file . rest)
+    )
+  
+  
+  (method public virtual abstract (reattach-file file . rest)
+    )
+  
+  
+  (method public (checkin-file file (keep-checked-out?: keep-checked-out? #f) (feedback?: feedback? #t))
+    (call-repository-event :checkin self file)
+    (checkin-action file :keep-checked-out? keep-checked-out?)
+    (unless keep-checked-out?
+      (set-read-only~ file))
+    (call-repository-event :item-status self file)
+    (when feedback?
+      (user-message "{a} checked in" (get-name~ file))))
+
+  
+  (method protected virtual abstract (checkin-action file . rest)
+    )
+  
+  
+  (method public (checkout-file file (get?: get? {unspecified}) (feedback?: feedback? #t))
+    (let ((operation (with-closed ((item (get-item file)))
+                       (determine-operation item file get?)))
+          (output (get-output-log)))
+      (checkout-action file :get? (= operation 'get))
+      (set-read/write~ file)
+      (call-repository-event :item-status self file)
+      (when feedback?
+        (let ((action (case operation
+                        ((get) "fetched")
+                        ((skip) "skipped")
+                        ((same) "no change"))))
+          (user-message "{a} checked out ({a})" (get-name~ file) action)))))
+  
+  
+  (method protected virtual abstract (checkout-action file . rest)
+    )
+  
+  
+  (method public (undo-checkout-file file (get?: get? #t) (feedback?: feedback? #t))
+    (let ((code (message-box
+                  (format "Undo checkout and revert to repository version?")
+                  title: "Undo checkout"
+                  type: 'confirmation)))
+      (case code
+        ((yes)
+         (with-cursor :wait
+           (function dynamic ()
+             (undo-checkout-action file :get? get?)
+             (when get?
+               (set-read-only~ file))
+             (call-repository-event :item-status self file)
+             (when feedback?
+               (user-message "{a} checkout undone" (get-name~ file))))))
+        ((no))
+        ((cancel)
+         (throw-cancel)))))
+    
+  
+  (method public virtual abstract (undo-checkout-action file . rest)
+    )
+  
+  
+  ;;;
+  ;;;; Indirect Control
+  ;;;
+  
+  
+  (method public virtual abstract (reintegrate-file file . rest)
+    )
+
+  
+  ;;;
+  ;;;; Status
+  ;;;
+  
+  
+  (method public (get-detached-status file)
+    (with-closed ((item (get-item file error?: #f)))
+      (cond
+       ((not (exists?~ file))
+        'not-present)
+       ((and item (= (get-status~ item) 'checked-out-me))
+        'checked-out)
+       ((read-only?~ file)
+        'not-edited)
+       (else
+        'detached))))
+  
+  
+  (method public virtual abstract (get-file-status file . rest)
+    )
+  
+  
+  (method public virtual abstract (get-file-checkouts-usernames file)
+    )
+
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method public virtual (show-history file)
+    (get-modal Repository-Version-Browser file: file))
+  
+  
+  (method public virtual (show-changes file)
+    (with-cursor :wait
+      (function dynamic ()
+        (let* ((frame (new-frame Compare-Files host-visible?: #f host-workspace: 'text))
+               (left file)
+               (right (new Repository-Moniker self (file->path file)))
+               (has-differences? (compare-monikers~ (get-guest~ frame) left right)))
+          (if (not has-differences?)
+              (begin
+                (close~ frame)
+                (message-box "No changes"))
+            (bring-to-front~ frame)
+            (set-visible?~ frame #t)
+            (acquire-focus~ (locate~ (get-guest~ frame) 'text)))))))
+
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method public (present-checkouts-usernames file)
+    (present-usernames (get-checkouts-usernames file)))
+  
+  
+  (method public (present-usernames usernames)
+    (format "{l separator: \", \" last-separator: \" and \" detail: :human}" usernames))
+  
+  
+  (method (get-checkouts-usernames file)
+    (with-closed ((item (get-item file))
+                  (checkouts (get-checkouts~ item)))
+      (map (function dynamic (checkout)
+             (get-username~ checkout))
+           checkouts)))
+
+  
+  ;;;
+  ;;;; Listeners
+  ;;;
+  
+  
+  (definition meta repository-listeners
+    '())
+  
+  
+  (method meta public (add-repository-listener listener)
+    (set! repository-listeners (cons listener repository-listeners)))
+  
+  
+  (method meta public (remove-repository-listener listener)
+    (set! repository-listeners (remove! listener repository-listeners)))
+
+  
+  (method meta (call-repository-event what repository moniker)
+    (when repository-listeners
+      (for-each (function dynamic (listener)
+                  (repository-event~ listener what repository moniker))
+                repository-listeners)))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method meta public (update-item-menu menu file)
+    (let* ((repository (essay file (find-repository file)))
+           (remote? (and repository (in-repository?~ repository file)))
+           (local-exists? (and file (exists?~ file))))
+      (if (not remote?)
+          (for-each
+           (function dynamic (item)
+             (set-visible?~ (locate~ menu item) #f))
+           '(get-latest detach checkout checkin reintegrate undo-checkout show-changes show-history))
+        (let ((detaching? (supports-detaching?~ repository file))
+              (status (with-closed ((item (get-item~ repository file)))
+                        (get-status~ item))))
+          (set-visible?~ (locate~ menu 'detach) (and local-exists? detaching? (read-only?~ file)))
+          (set-visible?~ (locate~ menu 'reintegrate) (and local-exists? detaching? (read/write?~ file) (/= status 'checked-out-me)))
+          (set-visible?~ (locate~ menu 'checkout) (= status 'checked-in))
+          (set-visible?~ (locate~ menu 'checkin) (and local-exists? (= status 'checked-out-me)))
+          (set-visible?~ (locate~ menu 'undo-checkout) (and local-exists? (= status 'checked-out-me)))
+          (set-visible?~ (locate~ menu 'show-changes) local-exists?)))
+      (cleanup-separators~ menu)))))

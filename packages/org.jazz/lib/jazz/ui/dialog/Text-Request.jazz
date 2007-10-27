@@ -1,0 +1,87 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Request
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.dialog.Text-Request jazz
+
+
+(import (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Text-Request extends View
+
+
+  (form
+    (<install>                               size: {Dimension 402 180}
+      (<Border-View>                         position: {Point 6 7} size: {Dimension 390 121} border-type: edge
+        (<Scroller-View>                     hscroll?: #f vscroll?: #t
+          (<!>                 name: content layout-type: fill
+            (<Entry-Text-View> name: text    left-padding: 2 top-padding: 2 wrap?: #t return-press-handler: {Event-Handler :host on-return} escape-press-handler: {Event-Handler :host on-cancel}))))
+      (<Push-Button>           name: ok      title: "OK" position: {Point 122 143} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} default?: #t)
+      (<Push-Button>           name: cancel  title: "Cancel" position: {Point 209 143} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+  
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Text-Request-Dialog)
+  
+
+  @convert-dialog
+  (class meta Text-Request-Dialog extends Host-Dialog
+
+
+    (method (focus-gain)
+      (nextmethod)
+      (acquire-focus~ (locate~ guest 'text)))
+    
+    
+    (method (on-return evt)
+      (if (get-shift?~ evt)
+          (insert-newline~ (locate~ guest 'text))
+        (end-modal (get-modal-result))))
+  
+  
+    (method (get-modal-result)
+      (get-string-content~ (locate~ guest 'text))))))

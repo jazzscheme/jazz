@@ -1,0 +1,119 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Threeway Check Boxes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+;; the code for this threeway checkbox was taken from the metamodeler
+;; and should be converted to a generic threeway checkbox...
+
+
+(library jazz.ui.view.Threeway-Checkbox jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Threeway-Checkbox extends Check-Box
+  
+  
+  (property type     initialize {}    getter get-type     setter set-type)
+  (property property initialize {}    getter get-property setter set-property)
+  (property state    initialize 'none getter get-state    setter set-state)
+  
+  
+  (method (get-type)
+    type)
+  
+  
+  (method (set-type value)
+    (set! type value))
+  
+  
+  (method (get-property)
+    property)
+  
+  
+  (method (set-property value)
+    (set! property value))
+  
+  
+  (method (get-state)
+    state)
+  
+  
+  (method (set-state value)
+    (set! state value)
+    (invalidate-view))
+  
+  
+  (method (change-state reverse?)
+    (set! state (if reverse? (previous-state state) (next-state state)))
+    (invalidate-view))
+  
+  
+  (method (previous-state state)
+    (case state
+      ((none) 'validated)
+      ((validated) 'displayed)
+      ((displayed) 'none)))
+  
+  
+  (method (next-state state)
+    (case state
+      ((none) 'displayed)
+      ((displayed) 'validated)
+      ((validated) 'none)))
+  
+  
+  (definition Validated-Pen
+    (new Pen color: {Color name: Dark-Red}))
+  
+  (definition Validated-Pen-Grayed
+    (new Pen color: {Color red: 154 green: 101 blue: 101}))
+  
+  
+  (method (draw-check dc h v grayed?)
+    (unless (eq? state 'none)
+      (set-pen~ dc (state-pen grayed?))
+      (draw-check~ dc h v)))
+  
+  
+  (method (state-pen grayed?)
+    (case state
+      ((displayed) (if grayed? {Pen name: Dark} {Pen name: Black}))
+      ((validated) (if grayed? Validated-Pen-Grayed Validated-Pen))))))

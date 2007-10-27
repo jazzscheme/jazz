@@ -1,0 +1,247 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Workbench Designer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.builder.workbench.Workbench-Designer jazz
+
+
+(import (jazz.builder)
+        (jazz.designer)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Workbench-Designer extends Designer
+  
+  
+  (slot product-designers initialize '())
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (initialize . rest)
+    (apply nextmethod rest)
+    (install-products-designers))
+  
+  
+  (method (install-products-designers)
+    (for-each-product~ reference
+      add-designer))
+  
+  
+  (method (cleanup-product-designers)
+    (let ((fact (new List-Factory)))
+      (for-each-designer
+        (function dynamic (product designer)
+          (if (find-product~ reference (type-name (class-of product)))
+              (put~ fact (cons product designer))
+            (when (get-modified?~ designer)
+              (save~ designer)))))
+      (set! product-designers (get-output~ fact))))
+
+  
+  ;;;
+  ;;;; Design
+  ;;;
+  
+  
+  (method (set-name component name . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner component)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod component name others)
+          (let ((designer (get-product-designer owner)))
+            (apply (~ set-name designer) component name others))))))
+  
+  
+  (method (set-property component property value . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner component)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod component property value others)
+          (let ((designer (get-product-designer owner)))
+            (apply (~ set-property designer) component property value others))))))
+  
+  
+  (method (add-child child parent . rest)
+    (bind-keywords ((use-owner? #t) . others) rest
+      (let ((owner (find-modification-owner parent)))
+        (if (or (not use-owner?) (eq? owner reference))
+            (apply nextmethod child parent others)
+          (let ((designer (get-product-designer owner)))
+            (apply (~ add-child designer) child parent others))))))
+  
+  
+  (method (remove-child child . rest)
+    (let* ((parent (get-parent~ child))
+           (owner (find-modification-owner parent)))
+      (if (eq? owner reference)
+          (apply nextmethod child rest)
+        (let ((designer (get-product-designer owner)))
+          (apply (~ remove-child designer) child rest)))))
+  
+  
+  (method (move-components components destination . rest)
+    (unimplemented 'move-components))
+  
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method (cut-components components)
+    (let* ((parents (get-parents components))
+           (owner (find-modification-owner parents)))
+      (if (eq? owner reference)
+          (nextmethod components)
+        (let ((designer (get-product-designer owner)))
+          (cut-components~ designer components)))))
+  
+  
+  (method (copy-components components)
+    (let* ((parents (get-parents components))
+           (owner (find-modification-owner parents)))
+      (if (eq? owner reference)
+          (nextmethod components)
+        (let ((designer (get-product-designer owner)))
+          (copy-components~ designer components)))))
+  
+  
+  (method (paste-clipboard parent . rest)
+    (let ((owner (find-modification-owner parent)))
+      (if (eq? owner reference)
+          (apply nextmethod parent rest)
+        (let ((designer (get-product-designer owner)))
+          (apply (~ paste-clipboard designer) parent rest)))))
+  
+  
+  (method (get-parents components)
+    (map (function dynamic (component)
+           (get-parent~ component))
+         components))
+
+  
+  ;;;
+  ;;;; Owner
+  ;;;
+  
+  
+  (method (find-modification-owner components)
+    (let ((owner (find-components-owner components)))
+      (if (not (get-effective-editable?~ owner))
+          (error "Product {a} is not editable"  (get-presentation~ owner))
+        owner)))
+  
+  
+  (method (find-components-owner components)
+    (letrec ((find-owner-product
+              (function dynamic (component)
+                (if (or (eq? component reference) (is? component Product))
+                    component
+                  (find-owner-product (get-parent~ component))))))
+      (if (pair? components)
+          (let ((owners (remove-duplicates (map find-owner-product components))))
+            (if (> (length owners) 1)
+                (error "Sorry, this operation is not yet supported accross multiple products")
+              (car owners)))
+        (find-owner-product components))))
+
+  
+  ;;;
+  ;;;; Designers
+  ;;;
+  
+  
+  (method (add-designer product)
+    (let* ((class (class-of product))
+           (form (get-self-form~ class))
+           (designer (new Product-Designer form: form reference: product)))
+      (add-product-designer product designer)))
+  
+  
+  (method (add-product-designer product designer)
+    (set! product-designers (cons (cons product designer) product-designers)))
+  
+  
+  (method (remove-designer product)
+    (set! product-designers (remove! (assq product product-designers) product-designers)))
+  
+  
+  (method protected (get-product-designer product)
+    (cdr (assq product product-designers)))
+  
+  
+  (method (for-each-designer proc)
+    (for-each (function dynamic (pair)
+                (bind (product . designer) pair
+                  (proc product designer)))
+              product-designers))
+  
+  
+  (method protected (product-add product)
+    (for-each-descendant~ product
+      (function dynamic (descendant level)
+        (when (is? descendant Product)
+          (add-designer descendant)))))
+  
+  
+  (method protected (product-remove product)
+    ;; This a bit strange way of doing is necessary because when we get notified,
+    ;; the descendants of product have already been removed and so we cannot know
+    ;; which designers to remove
+    (cleanup-product-designers))
+
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method protected (save-designer)
+    (let ((some-modified? #f))
+      (when (get-modified?)
+        (set! some-modified? #t)
+        (save))
+      (for-each-designer
+        (function dynamic (product designer)
+          (when (get-modified?~ designer)
+            (set! some-modified? #t)
+            (save~ designer))))
+      some-modified?))))

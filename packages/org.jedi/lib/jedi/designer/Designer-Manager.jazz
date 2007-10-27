@@ -1,0 +1,148 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Designer Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.designer.Designer-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui.view)
+        (jedi))
+
+
+(class Designer-Manager extends View
+
+
+  (property client initialize {} getter get-client setter set-client)
+    
+  
+  (slot flow-layout)
+
+
+  (form
+    (<install>
+      (<Radio-Tool> name: mode-select size: {Dimension 22 22} image-name: {Bitmap-Resource "ModeSelect"} portfolio: :icons selected?: #t tooltip?: #t tooltip-text: "Select" action-handler: {Event-Handler form: on-mode mode: select})
+      (<Separator>                    size: {Dimension 2 0})
+      (<Radio-Tool> name: mode-edit   size: {Dimension 22 22} image-name: {Bitmap-Resource "Font"} portfolio: :icons tooltip?: #t tooltip-text: "Edit" action-handler: {Event-Handler form: on-mode mode: edit})
+      (<Separator>)
+      (<Radio-Tool> name: mode-rect   size: {Dimension 22 22} image-name: {Bitmap-Resource "ModeRect"} portfolio: :icons tooltip?: #t tooltip-text: "Rectangle" action-handler: {Event-Handler form: on-mode mode: rect})))
+              
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'designer-manager)
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  (method meta (palette-class)
+    Tool-Palette)
+  
+  
+  (method meta (palette-icon)
+    {Bitmap-Resource "Designer"})
+  
+
+  (method meta (palette-title)
+    "Design")
+  
+  
+  (method (client-activate)
+    (let ((guest (current-document)))
+      (when (is? guest View-Editor)
+        (set-client (get-client~ guest)))))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (set! flow-layout (new Flow-Layout insets: {Rect 4 5 0 0}))
+    (layout-view))
+  
+  
+  (method (layout)
+    (layout~ flow-layout children (get-width) (get-height)))
+  
+  
+  (method (on-editor evt)
+    (case (get-kind~ evt)
+      ((:designer-change) (set-designer (get-property~ evt designer:)))))
+  
+  
+  ;;;
+  ;;;; Mode
+  ;;;
+  
+  
+  (method (on-mode evt)
+    (let ((mode (get-property~ evt mode:))
+          (editor (current-document)))
+      (set-mode~ editor mode)))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client clt)
+    (when (/= clt client)
+      (set! client clt)))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+    
+  
+  (method (set-designer designer)
+    (if (not designer)
+        (set-title "Design")
+      (let ((reference (get-reference~ designer)))
+        (set-title (format "Design : {a}" (type-name (class-of reference)))))))))

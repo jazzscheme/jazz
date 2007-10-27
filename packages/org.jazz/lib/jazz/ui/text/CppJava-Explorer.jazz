@@ -1,0 +1,311 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exploring C++/Java Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.text.CppJava-Explorer jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class CppJava-Explorer extends Code-Explorer
+    
+  
+  (constant Composites
+    '(#\open-parenthesis
+      #\open-bracket
+      #\open-brace))
+  
+  
+  (method (get-syntax)
+    'cpp/java)
+
+  
+  (method public (current-expr)
+    (when (and (backward-expr) (= kind 'symbol))
+      (get-marked)))
+
+  
+  (method public (forward-expr)
+    (forward-whites)
+    (let ((start (copy end)))
+      (when (= (char-forward 0) #\quote)
+        (forward))
+      (let ((found (forward-simple-expr)))
+        (when found
+          (set-start start)
+          found))))
+
+  
+  (method public (backward-expr)
+    (backward-whites)
+    (set-end start)
+    (let ((found (backward-simple-expr)))
+      (when found
+        (let ((prev (char-backward 0)))
+          (case prev
+            ((#\at)
+             (backward)
+             'expr-comment)
+            ((#\quote)
+             (backward)
+             found)
+            (else
+             found))))))
+
+
+  (method private (forward-simple-expr)
+    (let ((c (char-forward 0)))
+      (when c
+        (cond ((string-delimiter? c)       (forward-string))
+              ((cpp/java-constituent? c)   (forward-constituent))
+              ((eqv? c #\at)               (forward-expr-comment))
+              ((eqv? c #\open-parenthesis) (forward-composite 'list      #\close-parenthesis))
+              ((eqv? c #\open-bracket)     (forward-composite 'reference #\close-bracket))
+              ((eqv? c #\open-brace)       (forward-composite 'literal   #\close-brace))
+              (else #f)))))
+
+  
+  (method private (backward-simple-expr)
+    (let ((c (char-backward 0)))
+      (when c
+        (cond ((string-delimiter? c)        (backward-string))
+              ((cpp/java-constituent? c)    (backward-constituent))
+              ((eqv? c #\close-parenthesis) (backward-composite 'list      #\open-parenthesis))
+              ((eqv? c #\close-bracket)     (backward-composite 'reference #\open-bracket))
+              ((eqv? c #\close-brace)       (backward-composite 'literal   #\open-brace))
+              (else #f)))))
+
+  
+  (method public (forward-all-expr)
+    (let ((initial-end (copy end)))
+      (while (forward-expr)
+        )
+      (set! start initial-end)))
+
+  
+  (method public (backward-all-expr)
+    (let ((initial-start (copy start)))
+      (while (backward-expr)
+        )
+      (set! end initial-start)))
+
+  
+  (method private (forward-constituent)
+    (call/ec
+      (lambda (return)
+        (while #t
+          (let ((c (char-forward 0)))
+            (cond ((eqv? c #\backslash)
+                   (forward)
+                   (forward))
+                  ((or (null? c) (not (cpp/java-constituent? c)))
+                   (set! kind 'symbol)
+                   (return #t))
+                  (else
+                   (forward)))))
+        #f)))
+
+  
+  (method private (backward-constituent)
+    (call/ec
+      (lambda (return)
+        (while #t
+          (let ((c (char-backward 0)))
+            (cond ((= (char-backward 1) #\backslash)
+                   (backward)
+                   (backward))
+                  ((or (null? c) (not (cpp/java-constituent? c)))
+                   (set! kind 'symbol)
+                   (return #t))
+                  (else
+                   (backward)))))
+        #f)))
+  
+  
+  (method private (forward-expr-comment)
+    (forward)
+    (forward-expr)
+    (set! kind 'expr-comment)
+    #t)
+  
+  
+  (method private (forward-string)
+    (call/ec
+      (lambda (return)
+        (forward)
+        (while #t
+          (let ((c (char-forward 0)))
+            (cond ((null? c)
+                   (return #f))
+                  ((eqv? c #\backslash)
+                   (forward)
+                   (forward))
+                  ((string-delimiter? c)
+                   (forward)
+                   (set! kind 'string)
+                   (return #t))
+                  (else
+                   (forward)))))
+        #f)))
+  
+  
+  (method private (backward-string)
+    (call/ec
+      (lambda (return)
+        (backward)
+        (while #t
+          (let ((c (char-backward 0)))
+            (cond ((null? c)
+                   (return #f))
+                  ((= (char-backward 1) #\backslash)
+                   (backward)
+                   (backward))
+                  ((string-delimiter? c)
+                   (backward)
+                   (set! kind 'string)
+                   (return #t))
+                  (else
+                   (backward)))))
+        #f)))
+  
+  
+  (method private (forward-composite knd delimiter)
+    (set-start end)
+    (forward)
+    (forward-all-expr)
+    (forward-whites)
+    (when (= (char-forward 0) delimiter)
+      (forward)
+      (set! kind knd)
+      #t))
+  
+  
+  (method private (backward-composite knd delimiter)
+    (let ((initial-start (copy start)))
+      (backward)
+      (backward-all-expr)
+      (backward-whites)
+      (when (= (char-backward 0) delimiter)
+        (backward)
+        (set! end initial-start)
+        (set! kind knd)
+        #t)))
+  
+  
+  (method public (skip-forward name <string>)
+    (and (forward-expr) (= (get-marked) name)))
+  
+  
+  (method public (skip-backward name <string>)
+    (and (backward-expr) (= (get-marked) name)))
+  
+  
+  (method (forward-comments)
+    (next-paragraph))
+  
+  
+  (method (backward-comments)
+    )
+
+  
+  (method public (forward-whites)
+    (let ((done? #f))
+      (while (not done?)
+        (let ((c (char-forward 0)))
+          (if (and c (or (whitespace? c) (eqv? c #\semi-colon)))
+              (if (whitespace? c)
+                  (forward)
+                (forward-comments))
+            (set! done? #t))))))
+
+  
+  (method (backward-whites)
+    (unimplemented 'backward-whites)
+    @implement
+    (receive (valid? row col) (JzTextBackwardWhites (get-syntax) paragraphs limit (get-row~ start) (get-col~ start))
+      (set-row~ start row)
+      (set-col~ start col)
+      valid?))
+
+
+  ;;;
+  ;;;; Level
+  ;;;
+
+
+  (method public (outer-expr (outer-composite?: outer-composite? #t))
+    (let ((s (copy start))
+          (e (copy end))
+          (prv (previous-char start 0))
+          (nxt (next-char end 0)))
+      (cond ((and prv (= s e) (or (close-composite? prv) (string-delimiter? prv)))
+             (backward-expr))
+            ((and prv (= s e) (cpp/java-constituent? prv))
+             (forward-constituent)
+             (backward-constituent))
+            ((and nxt (= s e) (or (open-composite? nxt) (string-delimiter? nxt)))
+             (forward-expr))
+            ((and nxt (cpp/java-constituent? nxt))
+             (forward-constituent)
+             (backward-constituent))
+            (else
+             (when outer-composite?
+               (forward-all-expr)
+               (set! e (copy end))
+               (set-start s)
+               (let ((skipped (backward-all-expr)))
+                 (set-end e)
+                 (when (and (open-composite? (previous-char start 0))
+                            (close-composite? (next-char end 0)))
+                   (backward)
+                   (forward)
+                   skipped)))))))
+
+
+  ;;;
+  ;;;; Utilities
+  ;;;
+
+
+  (method (open-composite? char)
+    (memq? char '(#\open-parenthesis #\open-bracket #\open-brace)))
+
+
+  (method (close-composite? char)
+    (memq? char '(#\close-parenthesis #\close-bracket #\close-brace)))))

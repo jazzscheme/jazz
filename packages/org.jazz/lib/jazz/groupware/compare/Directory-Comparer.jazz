@@ -1,0 +1,110 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Directories
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Alain Marcotte.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Directory-Comparer jazz
+
+
+(import (jazz.groupware)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Directory-Comparer extends Tree-Comparer
+  
+  
+  (slot scanned-date initialize {})
+  
+  
+  ;;;
+  ;;;; Item
+  ;;;
+  
+  
+  (method (create-item moniker)
+    (make-item moniker (get-name~ moniker) (get-modification-time~ moniker)))
+  
+  
+  (method (get-item-type item)
+    (typecase (get-moniker~ item)
+      ((Directory) 'node)
+      ((File) 'leaf)))
+  
+  
+  (method (get-item-content item kind)
+    (let* ((parent (get-moniker~ item))
+           (content (get-content~ parent nodes?: (= kind 'nodes) leaves?: (= kind 'leaves))))
+      (if (is? parent Directory-Group)
+          (map (function dynamic (moniker index)
+                 (make-item moniker (append (->string kind) " " (->string index)) (get-modification-time~ moniker)))
+               content
+               (naturals 0 (length content)))
+        (map create-item content))))
+  
+  
+  (method (compare-leaf-values parent leaf1 content1 leaf2 content2 ignored-nodes ignored-leaves ignored-extensions check-algorithm feedback has-differences?)
+    (leaf-feedback leaf1 leaf2 feedback)
+    (let ((value1 (get-value~ leaf1))
+          (value2 (get-value~ leaf2)))
+      (when (and leaf1 leaf2)
+        (cond ((different? leaf1 leaf2 check-algorithm)
+               (set-car! has-differences? #t)
+               (new-entry parent 'leaf leaf1 value1 leaf2 value2))
+              ((and (not (different? leaf1 leaf2 'timestamp))
+                    (or (null? scanned-date)
+                        (> (get-elapse~ (get-value~ leaf1)) (get-elapse~ scanned-date))))
+               (set! scanned-date (get-value~ leaf1))
+               {})
+              (else
+               {})))))
+    
+  
+  (method (different? leaf1 leaf2 check-algorithm)
+    (case (either check-algorithm 'timestamp)
+      ((timestamp) (different-times? (get-value~ leaf1) (get-value~ leaf2)))
+      ;; Have to think if this is the right approach to first check the timestamp and just then
+      ;; check the content (using this approach it is possible to use 'content on large directories...)
+      ((content) (and ;; need this for git and mercurial that don't keep the dates
+                      ;; (different-times? (get-value~ leaf1) (get-value~ leaf2))
+                   (different-file-content? (get-moniker~ leaf1) (get-moniker~ leaf2))))
+      @w
+      ((whitespace) (and (different-times? (get-value~ leaf1) (get-value~ leaf2))
+                    (different-file-content-no-whitespace? (get-moniker~ leaf1) (get-moniker~ leaf2))))))
+  
+  
+  (method (scanned-values)
+    scanned-date)))

@@ -1,0 +1,365 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Image Views
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.image.Image-View jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Image-View extends View implements Document
+
+
+  (property icon          initialize {}          getter get-icon          setter set-icon)
+  (property portfolio     initialize {}          getter get-portfolio     setter set-portfolio)
+  (property image-name    initialize {}          getter get-image-name    setter set-image-name)
+  (property moniker       initialize {}          getter get-moniker       setter set-moniker)
+  (property view-position initialize {Point 0 0} getter get-view-position setter set-view-position)
+  (property view-size     initialize {}          getter get-view-size     setter set-view-size)
+  (property mode          initialize {}          getter get-mode          setter set-mode)
+
+
+  (slot image         initialize (new Image))
+  (slot dragging?     initialize #f)
+  (slot base-position initialize {})
+  (slot controller    initialize {})
+  
+  
+  (method (save-content moniker));;abstract
+  (method (default-extension));;abstract
+  (method (extensions));;abstract
+  (method (focus-document));;abstract
+  (method (current-history-item));;abstract
+  (method (compare-moniker moniker));;abstract
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'image-view)
+  
+  
+  (method (destroy)
+    (when controller
+      (close~ controller))
+    (close~ image)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (let ((size (get-size~ host)))
+      (set-size size)
+      (set-view-size size)
+      (set-mode 'centered)))
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (set-view-size size)
+    (update-image))
+  
+  
+  (method (frame-workspaces)
+    '(image))
+
+
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  (method (get-controller)
+    (unless controller
+      (set! controller (new-controller)))
+    controller)
+
+
+  (method (new-controller)
+    (new Document-Controller self))
+  
+  
+  (method (install-scroller?)
+    #t)
+  
+  
+  (method (get-moniker)
+    (get-moniker~ (get-controller)))
+  
+  
+  (method (set-moniker moniker)
+    (set-moniker~ image moniker)
+    (set-moniker~ (get-controller) moniker))
+
+
+  (method (load-content moniker)
+    (set-moniker~ image moniker)
+    (invalidate-view))
+  
+  
+  (method (verify-reload)
+    )
+  
+  
+  (method (reload-moniker moniker)
+    )
+
+
+  (method (get-modified?)
+    (get-modified?~ (get-controller)))
+
+
+  (method (set-modified? state)
+    (set-modified?~ (get-controller) state))
+  
+  
+  (method (update-status)
+    (update-status~ (get-controller)))
+  
+  
+  (method (update-moniker-time moniker)
+    (update-moniker-time~ (get-controller) moniker))
+
+
+  (method (tool-update tool?)
+    )
+
+
+  (method (console-update console?)
+    )
+
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (scrollee-size)
+    (get-size~ image error?: #f))
+
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+
+  (method (draw dc context update lh lv)
+    (draw-at dc context 0 0))
+  
+  
+  (method protected virtual (draw-at dc context h v (size: size (get-size)))
+    (draw-image dc context h v size: size))
+
+
+  (method (draw-image dc context h v (size: size (get-size)) (enabled?: enabled? #t))
+    (draw~ image dc context h v size: size enabled?: enabled?))
+    
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+
+  (method (mouse-down pos)
+    (when scroller
+      (set! dragging? #t)
+      (set! base-position pos)
+      (acquire-capture)))
+  
+  
+  (method (drag-move pos)
+    (when dragging?
+      (let ((delta (- pos base-position)))
+        (move-figure (get-h~ delta) (get-v~ delta)))))
+  
+  
+  (method (drag-up pos . rest)
+    (when dragging?
+      (release-capture)
+      (set! dragging? #f)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-icon)
+    (get-icon~ image))
+
+
+  (method public (set-icon icn)
+    (set-icon~ image icn)
+    (invalidate-view))
+
+
+  (method public (get-portfolio)
+    (get-portfolio~ image))
+
+
+  (method public (set-portfolio pf)
+    (set-portfolio~ image (if (is? pf Portfolio) pf (child pf)))
+    (invalidate-view))
+
+
+  (method public (get-image-name)
+    (get-image-name~ image))
+
+
+  (method public (set-image-name name)
+    (set-image-name~ image name)
+    (invalidate-view))
+
+
+  (method public (get-view-position)
+    (get-view-position~ image))
+
+
+  (method public (set-view-position pos)
+    (set-view-position~ image pos)
+    (invalidate-view))
+
+
+  (method public (get-view-size)
+    (get-view-size~ image))
+
+
+  (method public (set-view-size s)
+    (set-view-size~ image s)
+    (invalidate-view))
+
+
+  (method public (get-mode)
+    mode)
+
+
+  (method public (set-mode md)
+    (set-mode~ image md)
+    (update-image))
+  
+  
+  (method public (set-handle handle)
+    (set-handle~ image handle)
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (cursor-update pos)
+    (set-cursor (if scroller :finger :arrow)))
+
+  
+  (method (get-context-menu)
+    (new Image-Menu))
+  
+  
+  (method (on-change-mode evt)
+    (set-mode~ image (get-name~ (get-sender~ evt)))
+    (update-image))
+  
+  
+  (method public (update-image)
+    (update-image~ image)
+    (invalidate-view))
+    
+    
+    ;;;
+    ;;;; Session
+    ;;;
+    
+    
+  (method (save-session)
+    @to-convert
+    (let* ((host (get-host))
+           (info
+            (list (external-name)
+                  moniker:  (get-moniker)
+                  position: (get-position~ host)
+                  size:     (get-size~ host))))
+      (push-property~ properties 'Opened-Windows info)))
+  
+  
+  ;;;
+  ;;;; Preload
+  ;;;
+  
+  
+  (method public (preload-image)
+    (preload-image~ image))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((image-name) (new String-Row))
+      (else (nextmethod property)))))
+
+
+;;;
+;;;; Image-Menu
+;;;
+
+
+(class Image-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: centered  title: "&Center" action-handler: {Event-Handler :focus on-change-mode})
+      (<Label-Item>     name: tiled     title: "&Tile" action-handler: {Event-Handler :focus on-change-mode})
+      (<Label-Item>     name: filled    title: "&Fill" action-handler: {Event-Handler :focus on-change-mode})
+      (<Label-Item>     name: stretched title: "&Stretch" action-handler: {Event-Handler :focus on-change-mode})
+      (<Separator-Item>)
+      (<Label-Item>     name: checkout  title: "Check &Out" icon: {Bitmap-Resource "Checkout"} action-handler: {Event-Handler :focus on-checkout})
+      (<Label-Item>     name: checkin   title: "Check &In" icon: {Bitmap-Resource "Checkin"} action-handler: {Event-Handler :focus on-checkin})))))

@@ -1,0 +1,403 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Texts
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Alain Marcotte
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Compare-Texts jazz
+
+
+(import (jazz.groupware)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Compare-Texts extends View
+    
+  
+  (constant Green-Color {Color red: 0 green: 140 blue: 0})
+  (constant Blue-Color  {Color red: 0 green: 0 blue: 220})
+
+  
+  (slot green)
+  (slot blue)
+  (slot compare-directory)
+  (slot compare-directory-cookie)
+  
+  
+  (form
+    (<install>                                       size: {Dimension 795 499}
+      (<Push-Tool>               name: next-diff     position: {Point 2 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Next Diff (F9)" image-name: {Bitmap-Resource "NextDiff"} portfolio: :icons action-handler: {Event-Handler form: on-next-diff})
+      (<Push-Tool>               name: previous-diff position: {Point 24 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Previous Diff (Shift+F9)" image-name: {Bitmap-Resource "PreviousDiff"} portfolio: :icons action-handler: {Event-Handler form: on-previous-diff})
+      (<Push-Tool>               name: keep-green    position: {Point 60 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Green (F10)" image-name: {Bitmap-Resource "KeepGreen"} portfolio: :icons action-handler: {Event-Handler form: on-keep-green})
+      (<Push-Tool>               name: keep-blue     position: {Point 82 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Blue (F11)" image-name: {Bitmap-Resource "KeepBlue"} portfolio: :icons action-handler: {Event-Handler form: on-keep-blue})
+      (<Push-Tool>               name: keep-both     position: {Point 104 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Keep Both (F12)" image-name: {Bitmap-Resource "KeepBoth"} portfolio: :icons action-handler: {Event-Handler form: on-keep-both})
+      (<Label-View>              name: green-label   title: "Green:" position: {Point 150 11} size: {Dimension 35 16} font: {Font name: Default-GUI})
+      (<Border-View>             name: green-border  position: {Point 190 9} size: {Dimension 250 19} border-type: edge style: entry
+        (<Moniker-Browser>       name: green         protocol: file return-press-handler: {Event-Handler form: on-return-press}))
+      (<Label-View>              name: blue-label    title: "Blue:" position: {Point 460 11} size: {Dimension 30 16} font: {Font name: Default-GUI})
+      (<Border-View>             name: blue-border   position: {Point 493 9} size: {Dimension 250 19} border-type: edge style: entry
+        (<Moniker-Browser>       name: blue          protocol: file return-press-handler: {Event-Handler form: on-return-press}))
+      (<Push-Tool>               name: compare       position: {Point 770 7} size: {Dimension 22 22} tooltip?: #t tooltip-text: "Compare Files" image-name: {Bitmap-Resource "Compare"} portfolio: :icons action-handler: {Event-Handler form: on-compare})
+      (<Border-View>                                 position: {Point 2 35} size: {Dimension 791 462} border-type: edge
+        (<Scroller-View>                             hscroll?: #t vscroll?: #t
+          (<!>                   name: content
+            (<Compare-Text-View> name: text          left-padding: 12))))))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+    
+
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "CompareFiles"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Compare Files")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 90 80})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 795 500})
+  
+  
+  (method (frame-workspaces)
+    '(groupware))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'compare) dh 0)
+    (size-figure~ (child~ (locate 'text) 3) dh dv)
+    (bind (first-dh second-dh) (resize-parts (get-width) dh 2)
+      (size-figure~ (locate 'green-border) first-dh 0)
+      (move-figure~ (locate 'blue-label) first-dh 0)
+      (move-figure~ (locate 'blue-border) first-dh 0)
+      (size-figure~ (locate 'blue-border) second-dh 0)))
+  
+  
+  (method (on-compare evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (compare-monikers (require-green) (require-blue))
+        (acquire-focus~ (locate 'text)))))
+  
+  
+  (method (on-return-press evt)
+    (on-compare evt))
+  
+  
+  (method (on-next-diff evt)
+    (goto-next-diff~ (locate 'text))
+    (acquire-focus~ (locate 'text)))
+  
+  
+  (method (on-previous-diff evt)
+    (goto-previous-diff~ (locate 'text))
+    (acquire-focus~ (locate 'text)))
+  
+  
+  (method (on-compare-next evt)
+    (compare-next))
+  
+  
+  (method (on-compare-previous evt)
+    (compare-previous))
+  
+  
+  (method (on-keep-green-file evt)
+    (keep-green-file))
+  
+  
+  (method (on-keep-blue-file evt)
+    (keep-blue-file))
+  
+  
+  (method (on-keep-green evt)
+    (keep-green~ (locate 'text))
+    (when (get-property~ evt :next?)
+      (goto-next-diff~ (locate 'text))))
+  
+  
+  (method (on-keep-blue evt)
+    (keep-blue~ (locate 'text))
+    (when (get-property~ evt :next?)
+      (goto-next-diff~ (locate 'text))))
+  
+  
+  (method (on-keep-both evt)
+    (keep-both~ (locate 'text)))
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method protected virtual (compare-next)
+    (close~ (get-player))
+    (let ((guest (current-guest)))
+      (if (is-not? guest Compare-Trees)
+          (bell)
+        (compare-next~ guest))))
+  
+  
+  (method protected virtual (compare-previous)
+    (close~ (get-player))
+    (let ((guest (current-guest)))
+      (if (is-not? guest Compare-Trees)
+          (bell)
+        (compare-previous~ guest))))
+  
+  
+  (method protected virtual (keep-green-file)
+    (close~ (get-player))
+    (let ((guest (current-guest)))
+      (if (is-not? guest Compare-Trees)
+          (bell)
+        (copy-right~ guest)
+        (if (not (goto-next-comparable~ guest))
+            (bell)
+          (merge-leaves~ guest)))))
+  
+  
+  (method protected virtual (keep-blue-file)
+    (close~ (get-player))
+    (let ((guest (current-guest)))
+      (if (is-not? guest Compare-Trees)
+          (bell)
+        (copy-left~ guest)
+        (if (not (goto-next-comparable~ guest))
+            (bell)
+          (merge-leaves~ guest)))))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method (get-tab-stops)
+    (list
+      (get-text~ (locate 'green))
+      (get-text~ (locate 'blue))))
+  
+  
+  ;;;
+  ;;;; Compare
+  ;;;
+
+  
+  (method public (compare-monikers green-moniker blue-moniker (compare-directory: compare-directory {}) (compare-directory-cookie: compare-directory-cookie {}))
+    (set! compare-directory~self compare-directory)
+    (set! compare-directory-cookie~self compare-directory-cookie)
+    (let* ((player (get-player))
+           (green (get-name~ green-moniker))
+           (blue (get-name~ blue-moniker))
+           (title (format "{a} - {a}" (frame-title) (if (= green blue) green (format "{a} / {a}" green blue)))))
+      (set-title~ player title))
+    (let ((compare (new-comparer))
+          (text (locate 'text)))
+      (install-monikers green-moniker blue-moniker)
+      (clear-all~ text)
+      ;; tmp for benchmark
+      (if #f @w (typed? (get-application) 'Comparer-Application)
+          (begin
+            (compare-monikers~ compare green-moniker blue-moniker)
+            (bell)
+            @w
+            (message-box (->string (gc-triggers)))
+            #f)
+          (let* ((output (compare-monikers~ compare green-moniker blue-moniker))
+                 (has-differences? (colorize-output output text)))
+            (layout-scrollee~ text)
+            (when has-differences?
+              (goto-first-diff~ text))
+            has-differences?))))
+  
+  
+  (method protected virtual (new-comparer)
+    (new Text-Comparer))
+  
+  
+  (method (require-green)
+    (either (get-green)
+            (error "Unable to get green moniker")))
+  
+  
+  (method (require-blue)
+    (either (get-blue)
+            (error "Unable to get blue moniker")))
+  
+  
+  (method (get-green)
+    (let ((browser (locate 'green)))
+      (if (get-read-only?~ browser)
+          green
+        (get-moniker~ browser))))
+  
+  
+  (method (get-blue)
+    (let ((browser (locate 'blue)))
+      (if (get-read-only?~ browser)
+          blue
+        (get-moniker~ browser))))
+  
+  
+  (method protected virtual (install-monikers green-moniker blue-moniker)
+    (set-moniker~ (locate 'green) green-moniker)
+    (set-moniker~ (locate 'blue) blue-moniker)
+    (set! green green-moniker)
+    (set! blue blue-moniker))
+  
+  
+  (method (colorize-output output text)
+    (let* ((formats (list (get-format~ text 'Default)))
+           (font {Font name: Code})
+           (plain (intern-style~ text (new Text-Style base: 'Default font: font)))
+           (green (intern-style~ text (new Text-Style base: 'Default font: font color: Green-Color)))
+           (blue (intern-style~ text (new Text-Style base: 'Default font: font color: Blue-Color)))
+           (styles (list plain green blue))
+           (has-differences? #f)
+           (paragraphs (map (function dynamic (info)
+                              (bind (rank1 rank2 line color) info
+                                (let ((style (case color ((green) 1) ((blue) 2) (else 0))))
+                                  (when (/= style 0)
+                                    (set! has-differences? #t))
+                                  (list 0 (list (get-string~ line) style)))))
+                            output)))
+      (set-formatted-content~ text (new Formatted-Text formats: formats styles: styles paragraphs: paragraphs))
+      has-differences?))
+  
+  
+  ;;;
+  ;;;; Open
+  ;;;
+  
+  
+  (method (on-open-green evt)
+    (open-item green))
+  
+  
+  (method (on-open-blue evt)
+    (open-item blue))
+  
+  
+  (method (open-item item)
+    (let ((appl (get-application)))
+      (if (is? item Moniker)
+          (edit-document~ appl item workspace: 'groupware)
+        (edit-document~ appl (get-source~ item) workspace: 'groupware))))
+    
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method (on-save-to-green evt)
+    (save-to-green))
+  
+  
+  (method (on-save-to-blue evt)
+    (save-to-blue))
+  
+  
+  (method (on-save-to-both evt)
+    (save-to-both))
+    
+  
+  (method (save)
+    (save-to-both)
+    (when compare-directory
+      (merge-done~ compare-directory compare-directory-cookie))
+    (close~ (get-host)))
+
+  
+  (method (save-as)
+    (save-as~ (locate 'text)))
+  
+  
+  (method (save-to-green)
+    (save-to green))
+  
+  
+  (method (save-to-blue)
+    (save-to blue))
+  
+  
+  (method (save-to-both)
+    (save-to green)
+    (save-to blue)
+    (when (and (is? green File) (is? blue File))
+      (set-modification-time~ blue (get-modification-time~ green))))
+  
+  
+  (method (save-to item)
+    (ensure-read/write item)
+    (let ((text (locate 'text)))
+      (save-lines~ item (get-content~ text))))
+
+    
+  ;;;
+  ;;;; Diff (temp global until full compiler support for inner classes)
+  ;;;
+    
+    
+  ;;;
+  ;;;; Run (temp global until full compiler support for inner classes)
+  ;;;
+  
+  
+  ))

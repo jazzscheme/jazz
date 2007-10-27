@@ -1,0 +1,123 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tree Label Columns
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.tree.Tree-Label-Column jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Tree-Label-Column extends Tree-Column
+  
+  
+  (property protected padding initialize 0 getter get-padding setter set-padding)
+  
+  
+  ;;;
+  ;;;; Cells
+  ;;;
+  
+  
+  (method (new-empty-cell)
+    (new Tree-Label title: ""))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-padding)
+    padding)
+
+
+  (method public (set-padding value)
+    (set! padding value)
+    (invalidate-view~ parent))
+  
+
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method (get-cell-tooltip cell)
+    (when (is? cell Tree-Label)
+      (get-title~ cell)))
+
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (definition Default-Color
+    {Color name: Black})
+  
+  
+  (method (draw-at dc context row cell h v width height)
+    (nextmethod dc context row cell h v width height)
+    (draw-title dc context row cell h v width height))
+  
+  
+  (method protected virtual (draw-title dc context row cell h v width height)
+    (let ((title (localize (either (get-title~ cell) "")))
+          (font  (get-font~ cell))
+          (color (get-color~ cell)))
+      (set-text-color~ dc (cell-color color context))
+      (when font
+        (set-font~ dc font))
+      (draw-text~ dc (+ h (title-h dc width title) (case justification ((head) (+ 1 padding)) ((tail) (- -1 padding)) (else 0))) title-vertical-offset title)))
+  
+  
+  (method protected virtual (title-h dc width title)
+    (justify-title dc width title justification))
+  
+  
+  (method protected (cell-color color context)
+    (let ((enabled? #t)
+          (selected? (and (getf context selected?:)
+                          (cell-selected? context))))
+      (either (when color (determine-color~ color enabled? selected?))
+              (if selected? (selected-text-color~ parent) Default-Color))))
+  
+  
+  (method (text-h level)
+    1)))

@@ -1,0 +1,211 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Dispatcher
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Stephane Le Cornec.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+;; TODO 
+;; - insert nodes correctly for multiple inheritance
+;;   mecanism fails for datatypes because they have multiple inheritance
+;;   for ex: (f <int>) can call either (f <javaint>) or (f <double>)
+;;   insert order yields different result
+;;   - <javaint> <double> <int> -> (find-generics <int>) returns <int>
+;;   - <javaint> <int> <double> -> (find-generics <int>) returns (<int>,<double>)
+;;     because <double> cannot traverse <javaint> to connect to <int>
+
+
+(class Dispatcher extends Object
+  
+  
+  (property dag-root accessors generate)
+  
+  
+  (definition Root-Signature
+    'root-signature)
+  
+  
+  (method (initialize)
+    (nextmethod)
+    (set! dag-root (new Dispatch-Node {} Root-Signature '())))
+  
+  
+  (method public (insert-signature symbol procedure signature category)
+    (let ((signature (standardize-signature signature)))
+      (cond ((locate-node signature)
+             (error "Redefining {a} in {a}" symbol (type-name category)))
+            ((not (proper-list? signature))
+             (error "Generic functions do not support variable length signatures"))
+            (else
+             (insert-node procedure signature)))))
+  
+  
+  ;; This was done real quick to make it work for the JDBC interface
+  ;; I am absolutly not sure that it is correct...
+  (method (standardize-signature signature)
+    (map-to List
+            (function dynamic (parameter)
+              (let ((typeref (get-typeref~ parameter)))
+                (essay typeref (get-type~ typeref))))
+            signature))
+  
+  
+  (method public (insert-node procedure signature)
+    (let* ((generics (gather-generics signature))
+           (node (new Dispatch-Node procedure signature generics)))
+      (for-each (function dynamic (generic)
+                  (for-each (function dynamic (specific)
+                              (when (and (neq? specific node)
+                                         (can-call-with?~ node (get-signature~ specific)))
+                                (remove-generic-node~ specific generic)
+                                (add-generic-node~ specific node)
+                                (remove-specific-node~ generic specific)
+                                (add-specific-node~ node specific)))
+                            (get-specific-nodes~ generic))
+                  (add-specific-node~ generic node))
+                generics)
+      node))
+  
+  
+  (method public (remove-node node)
+    (for-each (function dynamic (generic)
+                ;; repair connections
+                (for-each (function dynamic (specific)
+                            (add-specific-node~ generic specific)
+                            (add-generic-node~ specific generic))
+                          (get-specific-nodes~ node))
+                ;; disconnect node
+                (remove-specific-node~ generic node))
+              (get-generic-nodes~ node))
+    (for-each (function dynamic (specific)
+                (remove-generic-node~ specific node))
+              (get-specific-nodes~ node)))
+  
+  
+  (method public (locate-node signature)
+    (let ((matching (gather-generics signature)))
+      (if (and (= 1 (length matching))
+               (equal? (get-signature~ (first matching)) signature))
+          (first matching)
+        {})))
+  
+  
+  (method public (gather-generics parameter-types)
+    (let ((generics '()))
+      (letrec ((iterate
+                (function dynamic (walk-node)
+                  (let ((no-match? #t))
+                    (for-each (function dynamic (child-node)
+                                (when (can-call-with?~ child-node parameter-types)
+                                  (set! no-match? #f)
+                                  (iterate child-node)))
+                              (get-specific-nodes~ walk-node))
+                    (when (and no-match? (not (memq? walk-node generics)))
+                      (set! generics (cons walk-node generics)))))))
+      (iterate dag-root)
+      generics)))
+  
+  
+  (method public (find-generics parameter-types)
+    (let ((generics (gather-generics parameter-types)))
+      (if (eq? (car generics) dag-root)
+          '()
+        generics)))
+  
+  
+  (method public (get-node-procedure node)
+    (get-procedure~ node)))
+
+
+;;;
+;;;; Dispatch-Node
+;;;
+
+
+(class Dispatch-Node extends Object
+  
+  
+  (property procedure      initialize {}  accessors generate)
+  (property signature      initialize {}  accessors generate)
+  (property generic-nodes  initialize '() accessors generate)
+  (property specific-nodes initialize '() accessors generate)
+  
+  
+  (method (initialize proc sig gen)
+    (nextmethod)
+    (set! procedure proc)
+    (set! signature sig)
+    (set! generic-nodes gen))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (if (eq? signature Root-Signature)
+            (format printer ":root")
+          (format printer "{a}" (map type-name signature))))))
+  
+  
+  (method (can-call-with? sig)
+    (if (eq? signature Root-Signature)
+        #t
+      (loop (for data-type in sig remainder r1)
+            (for parameter-type in signature remainder r2)
+            (when (and parameter-type
+                       (not (can-cast-into?~ Java data-type parameter-type)))
+              (return #f))
+            (finally (and (null? r1) (null? r2))))))
+  
+  
+  (method (add-generic-node node)
+    (let ((sig (get-signature~ node)))
+      (unless (find (function dynamic (generic)
+                      (equal? (get-signature~ generic) sig))
+                    generic-nodes)
+        (set-generic-nodes (cons node generic-nodes)))))
+  
+  
+  (method (add-specific-node node)
+    (let ((sig (get-signature~ node)))
+      (unless (find (function dynamic (specific)
+                      (equal? (get-signature~ specific) sig))
+                    specific-nodes)
+        (set-specific-nodes (cons node specific-nodes)))))
+  
+  
+  (method (remove-generic-node generic)
+    (set-generic-nodes (remove generic generic-nodes)))
+  
+  
+  (method (remove-specific-node specific)
+    (set-specific-nodes (remove specific specific-nodes))))

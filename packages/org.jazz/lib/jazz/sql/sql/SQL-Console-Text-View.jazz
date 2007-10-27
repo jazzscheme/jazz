@@ -1,0 +1,398 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQL Console Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sql.sql.SQL-Console-Text-View jazz
+
+
+(import (jazz.development)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.sql)
+        (jazz.console)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class SQL-Console-Text-View extends Console-Text-View
+  
+  
+  (slot current-request initialize {})
+  (slot current-table   initialize {})
+  (slot current-tables  initialize '())
+  
+  
+  (form
+    (<install> context: sql))
+
+  
+  (method (preferences)
+    (get-preferences '(tools sql)))
+  
+  
+  (method (get-context)
+    '(sql))
+    
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-current-request)
+    current-request)
+    
+
+  ;;;
+  ;;;; Banner
+  ;;;
+
+  
+  (method (display-banner)
+    @convert
+    (let ((start (get-start)))
+      (insert-string (format "SQL Console{%}{%}"))
+      (colorize Banner-Color start)
+      (display-prompt)))
+
+
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (definition Header-Font
+    (new Font font-name: "Courier" point-size: 10 bold?: #t monospace?: #t))
+  
+  (definition Header-Font-Plain
+    (new Font font-name: "Courier" point-size: 10 monospace?: #t))
+  
+  (definition Header-Color
+    {Color name: Dark-Blue})
+  
+  (definition Header-Style
+    (new Text-Style font: Header-Font color: Header-Color))
+  
+  (definition Header-Style-Plain
+    (new Text-Style font: Header-Font-Plain color: Header-Color))
+  
+  (definition Overflow-Style
+    {Text-Style font: {Font name: Code} color: {Color name: Dark-Red}})
+  
+  
+  (method public (evaluate command console?)
+    (let ((tables (eval-command {} {} command console?)))
+      (display-evaluation tables console?)))
+  
+  
+  (method public (evaluate-statements statements console?)
+    (let ((length (length statements)))
+      (case length
+        ((0) (bell))
+        ((1) (evaluate (car statements) console?))
+        (else
+         (with-cursor :wait
+           (function dynamic ()
+             (let ((connection (get-connection))
+                   (affected 0))
+               (with-transaction~ connection
+                 (function dynamic ()
+                   (for-each (function dynamic (statement)
+                               (let ((table (load-request~ connection statement)))
+                                 (when table
+                                   (increase! affected (get-count~ table)))))
+                             statements)))
+               (clear-table)
+               (when console?
+                 (evaluation-break))
+               (display-result (format "{a} row{a} affected ({a} statements)" affected (format-plural affected) length) console?)
+               (when console?
+                 (fresh-prompt)))))))))
+  
+  
+  (method (eval-command range name command console?)
+    (with-cursor :wait
+      (function dynamic ()
+        (let ((connection (get-connection)))
+          (set! current-request command)
+          (if (and console? (not (shift-down?)))
+              (process-sql connection command)
+            (load-sql connection command))))))
+  
+  
+  (method (get-connection)
+    (either (get-active-connection~ SQL-Connections-Manager)
+            (error "No active connection")))
+  
+  
+  (method (process-sql connection command)
+    (let* ((appl (get-application))
+           (user (get-user~ appl))
+           (table (process-sql~ user connection command)))
+      (if table
+          (list table)
+        (load-sql connection command))))
+  
+  
+  (method (load-sql connection command)
+    (let* ((pref (preferences))
+           (max-load (get-max-load~ pref))
+           (sql (expand-sql command))
+           (cmd (parse-sql-command command)))
+      (load-multirequest~ connection sql :max-load max-load)))
+  
+  
+  (method (expand-sql command)
+    (let* ((appl (get-application))
+           (user (get-user~ appl)))
+      (expand-sql~ user command)))
+  
+  
+  (method (get-max-display)
+    (let ((pref (preferences)))
+      (get-max-display~ pref)))
+  
+  
+  (method (display-evaluation tables console?)
+    (when console?
+      (evaluation-break))
+    (cond ((null? tables)
+           (clear-table)
+           (display-result "0 rows affected" console?))
+          ((integer? tables)
+           (display-result (format "{a} row{a} affected" tables (format-plural tables)) console?))
+          (else
+           (let* ((max-display (get-max-display))
+                  (first-table (car tables))
+                  (count (get-count~ first-table))
+                  (missing? (get-missing?~ first-table))
+                  (displayed (min count max-display))
+                  (not-displayed (- count displayed)))
+             (display-tables tables max-display not-displayed)
+             (display-affected count missing? not-displayed console?))))
+    (when console?
+      (fresh-prompt)))
+  
+  
+  (method (display-affected count missing? not-displayed console?)
+    (display-result (format "{a} row{a} retrieved{a}{a}"
+                            count
+                            (format-plural count)
+                            (if (not missing?)
+                                ""
+                              (format " with some missing"))
+                            (if (= not-displayed 0)
+                                ""
+                              (format ", {a} not displayed" not-displayed)))
+                    console?))
+  
+  
+  (method (display-result string console?)
+    (if (not console?)
+        (user-message "{a}" string)
+      (clear-user-message)
+      (let ((start (get-start)))
+        (insert-line string)
+        (colorize Eval-Color start))))
+  
+  
+  (method (present-value value)
+    (if (null? value)
+        "NULL"
+      (->string value)))
+  
+  
+  (method public (clear-table)
+    (let ((text (get-sql-output-text))
+          (tree (get-sql-output-tree)))
+      (clear-all~ text)
+      (remove-columns~ tree)
+      (clear-tables)))
+  
+  
+  (method public (output-tables tables (name {}))
+    (set! current-request name)
+    (display-tables tables (get-max-display) 0)
+    tables)
+  
+  
+  (method public (clear-output)
+    (clear-all~ (get-sql-output-text))
+    (remove-columns~ (get-sql-output-tree))
+    (clear-tables))
+  
+  
+  (method public (previous-table)
+    (decrease! current-table)
+    (display-current-table (get-max-display) 0))
+  
+  
+  (method public (next-table)
+    (increase! current-table)
+    (display-current-table (get-max-display) 0))
+  
+  
+  (method (clear-tables)
+    (set! current-table 0)
+    (set! current-tables '())
+    (let ((output (get-sql-tree-output)))
+      (recordsets-update~ output current-table current-tables '())))
+  
+  
+  (method (display-tables tables max-display not-displayed)
+    (set! current-table 0)
+    (set! current-tables tables)
+    (display-current-table max-display not-displayed))
+  
+  
+  (method (display-current-table max-display not-displayed)
+    (display-table (element current-tables current-table) max-display not-displayed)
+    (let ((output (get-sql-tree-output)))
+      (recordsets-update~ output current-table current-tables not-displayed)))
+  
+  
+  (method (display-table table max-display not-displayed)
+    (let* ((columns (get-columns~ table))
+           (rows (get-rows~ table))
+           (affected (length rows))
+           (text-max-char (get-max-char-width~ (get-metrics~ {Font name: Code})))
+           (text-widths (compute-widths columns Header-Font text-max-char))
+           (tree (get-sql-output-tree))
+           (tree-font (get-font~ tree))
+           (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
+           (tree-widths (compute-widths columns tree-font tree-max-char)))
+      (set! ?t table)
+      (set! ?c columns)
+      (set! ?r rows)
+      (display-text columns rows affected max-display not-displayed text-widths)
+      (display-tree columns rows affected max-display not-displayed tree-widths)))
+  
+  
+  (method (compute-widths columns font max-char)
+    (map (function dynamic (column)
+           (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
+         columns))
+  
+  
+  (method (display-text columns rows affected max-display not-displayed widths)
+    (let* ((pref (preferences))
+           (tabulate? (get-tabulate-text?~ pref))
+           (output (get-sql-output-text))
+           (style (intern-style (if tabulate? Header-Style Header-Style-Plain)))
+           (stop 0))
+      (clear-all~ output)
+      (cond (tabulate?
+             (let ((stops (map (function dynamic (width)
+                                 (increase! stop width)
+                                 stop)
+                               widths)))
+               (set-tab-stops~ output (append! stops (make-tab-stops-from stop 32 256))))
+             (insert-styled~ output (join (map (function dynamic (column) (get-name~ column)) columns) (coerce #\tab String)) style)
+             (insert-line~ output "")
+             (insert-line~ output "")
+             (for-each (function dynamic (row)
+                         (insert-line~ output (join (map present-value (get-values~ row)) (coerce #\tab String))))
+                       (if (> affected max-display) (subseq rows 0 max-display) rows)))
+            (else
+             (let* ((headers (map (function dynamic (column) (get-name~ column)) columns))
+                    (data (map (function dynamic (row) (map present-value (get-values~ row))) rows))
+                    (max-list (determine-max-list headers data)))
+               (insert-styled~ output (join-data headers max-list) style)
+               (insert-line~ output "")
+               (insert-line~ output "")
+               (for-each (function dynamic (row)
+                           (insert-line~ output (join-data row max-list)))
+                         (if (> affected max-display) (subseq data 0 max-display) data)))))
+      (when (> not-displayed 0)
+        (insert-line~ output "")
+        (insert-styled~ output (format "{a} row{a} not displayed" not-displayed (format-plural not-displayed)) (intern-style Overflow-Style))
+        (insert-line~ output ""))
+      (scroll-to~ output {Point 0 0})))
+  
+  
+  (method (determine-max-list headers data)
+    (map (function dynamic (n)
+           (let ((max (length (element headers n))))
+             (for-each (function dynamic (row)
+                         (let* ((data (element row n))
+                                (count (length data)))
+                           (when (> count max)
+                             (set! max count))))
+                       data)
+             max))
+         (naturals 0 (length headers))))
+  
+  
+  (definition Spacing
+    3)
+  
+  
+  (method (join-data row max-list)
+    (let ((printer (new String-Printer)))
+      (while row
+        (let ((data (car row))
+              (max (+ (car max-list) Spacing))
+              (last? (null? (cdr row))))
+          (format printer "{a}" data)
+          (unless last?
+            (format printer "{_ :v}" (- max (length data))))
+          (set! row (cdr row))
+          (set! max-list (cdr max-list))))
+      (get-output~ printer)))
+  
+  
+  (method (display-tree columns rows affected max-display not-displayed widths)
+    (let ((output (get-sql-output-tree)))
+      (remove-columns~ output)
+      (let ((first-column (car columns)))
+        (for-each (function dynamic (column width)
+                    (let* ((node? (eq? column first-column))
+                           (column (if node?
+                                       (add-column~ output class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
+                                     (add-column~ output class: Tree-Label-Column title: (get-name~ column) width: width))))
+                      (when node?
+                        (set-display-images?~ column #f))))
+                  columns
+                  widths))
+      (for-each (function dynamic (row)
+                  (let* ((values (get-values~ row))
+                         (first (car values))
+                         (rest (cdr values)))
+                    (add-row~ output children: (cons (new Tree-Node title: (present-value first)) (map (function dynamic (value) (new Tree-Label title: (present-value value))) rest)))))
+                (if (> affected max-display) (subseq rows 0 max-display) rows))))))

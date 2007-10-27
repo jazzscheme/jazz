@@ -1,0 +1,336 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Logs Viewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jazz.log.Logs-Viewer jazz
+
+
+(import (jazz.jazz)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Logs-Viewer extends Layout-View
+
+
+  (slot logs-directory initialize {})
+  (slot data-viewer    initialize {})
+
+
+  (form
+    (<install>                                                   title: "Log Viewer" layout-type: border layout-insets: {Rect 2 2 2 2}
+      (<Layout-View>                       name: tools           size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 2 6 2 0}
+        (<Push-Tool>                       name: memory-logs     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Browse Memory Logs" image-name: {Bitmap-Resource "Branch"} portfolio: :icons action-handler: {Event-Handler form: on-memory-logs})
+        (<Separator>)
+        (<Push-Tool>                       name: directory-logs  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Browse Directory Logs..." image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-directory-logs})
+        (<Separator>)
+        (<Push-Tool>                       name: refresh-logs    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Refresh Logs" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler form: on-refresh-logs})
+        (<Push-Tool>                       name: open            size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Open..." image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-open})
+        (<Separator>                                             size: {Dimension 10 0} location: tail)
+        (<Push-Tool>                       name: clear           size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler form: on-clear})
+        (<Separator>                                             size: {Dimension 6 0} location: tail)
+        (<Push-Tool>                       name: refresh         size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler form: on-refresh}))
+      (<Splitter-View>                     name: vertical        location: center state: split orientation: vert mode: relative division: 50
+        (<Splitter-View>                   name: horizontal      location: first state: split orientation: horz mode: relative division: 20
+          (<Border-View>                   name: logs-border     location: first border-type: edge style: entry
+            (<Scroller-View>                                     style: document vscroll?: #t
+              (<!>                         name: content         layout-type: fill
+                (<Tree-Header>                                   style: document
+                  (<!>                     name: content
+                    (<Tree-View>           name: logs-tree       filled-column: log portfolio: :icons selection-handler: {Event-Handler form: on-selection-change} double-click-handler: {Event-Handler form: on-double-click} return-press-handler: {Event-Handler form: on-return-press}
+                      (<Tree-Node-Column>  name: log             title: "Log" toplevel-controls?: #f width: 200)))))))
+          (<Border-View>                   name: log-border      location: second border-type: edge style: entry
+            (<Log-View>                    name: log-view
+              (<!>                         name: scroller
+                (<!>                       name: content
+                  (<!>                     name: header
+                    (<!>                   name: content
+                      (<!>                 name: log-tree        selection-handler: {Event-Handler form: on-selection-change} double-click-handler: {Event-Handler form: on-double-click} return-press-handler: {Event-Handler form: on-return-press}))))))))
+        (<Layout-View>                     name: data-container  location: second layout-type: fill
+          (<No-Data-Viewer>)))))
+
+
+  (method (finish initargs)
+    (nextmethod initargs)
+    (refresh-logs))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "Log"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Logs Viewer")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 50 50})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Point 850 500})
+  
+  
+  (method (client-activate)
+    (perserving-refresh-logs))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'logs-tree))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (definition Logs-Directory
+    {Directory Base "Logs"})
+  
+  
+  (method (with-directory default? proc)
+    (if (and default? (exists?~ Logs-Directory))
+        (with-preserved-current-directory
+         (function dynamic ()
+           (proc Logs-Directory)))
+      (proc {})))
+  
+  
+  (method (on-memory-logs evt)
+    (set! logs-directory {})
+    (refresh-logs))
+  
+  
+  (method (on-directory-logs evt)
+    (with-directory (get-shift?~ evt)
+      (function dynamic (dir)
+        (let ((directory (get-modal BrowseFolder-Dialog directory: dir)))
+          (set! logs-directory directory)
+          (refresh-logs)))))
+  
+  
+  (method (on-refresh-logs evt)
+    (refresh-logs))
+  
+  
+  (method (perserving-refresh-logs)
+    (let ((tree (get-tree)))
+      (with-preserved-selection~ tree
+        (function dynamic ()
+          (refresh-logs))
+        :use 'data
+        generate-event?: #t)))
+  
+  
+  (method public (refresh-logs)
+    (close-data-viewer)
+    (view-logs))
+  
+  
+  (method (on-open evt)
+    (with-directory (get-shift?~ evt)
+      (function dynamic (dir)
+        (let* ((tree (get-tree))
+               (file (get-modal OpenFile-Dialog extensions: '(("Log Files (*.jml)" . "*.jml")) directory: dir))
+               (log (new Log file: file :load? #t))
+               (log-view (locate 'log-view)))
+          (set-selection~ tree '())
+          (view-log~ log-view log)))))
+
+
+  (method (on-clear evt)
+    (unimplemented 'on-clear)
+    (on-refresh evt))
+
+
+  (method public (on-refresh evt)
+    (let ((log-view (locate 'log-view)))
+      (update~ log-view)))
+
+
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((logs-tree)
+          (let ((selection (get-single-selection~ sender)))
+            (when selection
+              (let ((log-view (locate 'log-view))
+                    (log (get-user-data~ (get-row~ sender selection))))
+                (close-data-viewer)
+                (when (get-file~ log)
+                  (reload~ log))
+                (view-log~ log-view log)))))
+        ((log-tree)
+          (let ((selection (get-single-selection~ sender)))
+            (when selection
+              (let ((node (get-user-data~ (get-row~ sender selection))))
+                (view-data node))))))))
+
+
+  (method (on-double-click evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((log-tree)
+          (let ((selection (get-single-selection~ sender)))
+            (when selection
+              (let ((node (get-user-data~ (get-row~ sender selection))))
+                (edit-data node))))))))
+  
+  
+  (method (on-return-press evt)
+    (on-double-click evt))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+
+
+  (method (view-logs)
+    (let ((tree (get-tree)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (if (null? logs-directory)
+              (for-each (function dynamic (log)
+                          (insert-log tree log))
+                        (get-logs))
+            (iterate-directory~ logs-directory
+              (function dynamic (file)
+                (let ((extension (get-extension~ file)))
+                  (when (ci= extension "jml")
+                    (insert-file tree file))))))))))
+  
+  
+  (method (insert-log tree log)
+    (let ((name (->string (get-name~ log))))
+      (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Script"})) user-data: log)))
+  
+  
+  (method (insert-file tree file)
+    (let ((name (get-base~ file)))
+      (add-row~ tree children: (list (new Tree-Node title: name image: {Bitmap-Resource "Document"})) user-data: (new Log file: file))))
+  
+  
+  ;;;
+  ;;;; Viewer
+  ;;;
+
+
+  (method protected virtual (view-data node)
+    (close-data-viewer)
+    (when (is? node JML-Node)
+      (let* ((data (get-property~ node 'data))
+             (class (data-viewer-class data))
+             (container (locate 'data-container)))
+        (set! data-viewer
+              (new class
+                client: data
+                parent: container))
+        (layout-view~ container))))
+  
+  
+  (method (data-viewer-class data)
+    (if (and data (is? data Viewable))
+        (either (get-viewer-class~ data) No-Data-Viewer)
+      No-Data-Viewer))
+  
+  
+  (method (close-data-viewer)
+    (when data-viewer
+      (close~ data-viewer)
+      (set! data-viewer {})))
+
+  
+  ;;;
+  ;;;; Edit
+  ;;;
+  
+  
+  (method protected virtual (edit-data node)
+    ))
+
+
+;;;
+;;;; No-Data
+;;;
+
+
+(class No-Data-Viewer extends Border-View
+  
+  
+  (property client accessors generate)
+  
+  
+  (form
+    (<install> border-type: edge style: entry))
+  
+  
+  (definition Background-Font
+    {Font font-name: "Arial" point-size: 18})
+  
+  
+  (method (draw dc context update lh lv)
+    (nextmethod dc context update lh lv)
+    (draw-no-data dc))
+  
+  
+  (method (draw-no-data dc)
+    (set-font~ dc Background-Font)
+    (let* ((title (localize "No Data"))
+           (extent (get-text-extent~ dc title))
+           (pos (center extent (get-display-size))))
+      ;; text
+      (set-text-color~ dc {Color name: Dark-Gray})
+      (draw-text~ dc (get-h~ pos) (get-v~ pos) title #t)))))

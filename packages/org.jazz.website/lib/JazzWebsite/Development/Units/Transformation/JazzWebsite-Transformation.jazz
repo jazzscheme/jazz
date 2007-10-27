@@ -1,0 +1,609 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Website Transformation
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(in guillaume)
+
+
+(transformation JazzWebsite-Transformation extends DocToHTML-Transformation
+  
+  
+  (definition Generate-Manual?
+    #f)
+  
+  
+  (slot anchors      initialize (new-hashtable eq?))
+  (slot anchor-names initialize (new-hashtable eq?))
+  (slot next-section initialize 1)
+  
+  
+  ;;;
+  ;;;; Patterns
+  ;;;
+  
+  
+  (pattern (website node)
+    (user-message "Generating website...")
+    (process-website node))
+  
+  
+  (pattern (screenshot node)
+    (let ((label (get-property~ node 'label))
+          (preview (get-property~ node 'preview))
+          (image (get-property~ node 'image)))
+      `(<div>
+         (<a> href: ,image
+           (<img> src: ,preview))
+         (<div> class: "screenshot" align: "center" ,label))))
+  
+  
+  ;;;
+  ;;;; Website
+  ;;;
+  
+  
+  (method (process-website website)
+    (let ((pages (new List-Factory))
+          (sections (collect-sections website)))
+      (process-sections sections pages)
+      (validate-anchor-names)
+      (user-message "Parsing website...")
+      `(<website>
+         ,@(get-output~ pages))))
+  
+  
+  (method (collect-sections website)
+    (map (function dynamic (section)
+           (cons section (collect-if (function dynamic (node)
+                                       (= (get-tag~ node) 'section))
+                                     (get-children~ section))))
+         (get-children~ website)))
+  
+  
+  (method (validate-anchor-names)
+    (let ((fact (new List-Factory)))
+      (for-each-hash (function dynamic (name lst)
+                       (when (> (length lst) 1)
+                         (put~ fact name)))
+                     anchor-names)
+      (let ((ambiguities (get-output~ fact)))
+        (when ambiguities
+          (let ((message
+                 (cons "The following anchors are multiply defined:"
+                       (map (function dynamic (name)
+                              (list :bulleted (->string name)))
+                            ambiguities))))
+            (message-box message))))))
+  
+  
+  ;;;
+  ;;;; Sections
+  ;;;
+  
+  
+  (method (process-sections sections pages)
+    (for-each (function dynamic (info)
+                (bind (section . subsections) info
+                  (process-section section sections pages)
+                  (for-each (function dynamic (subsection)
+                              (process-section subsection sections pages))
+                            subsections)))
+              sections))
+  
+  
+  (method (process-section section sections pages)
+    (user-message "Generating {a}..." (get-property~ section 'name))
+    (let ((html (section-output section sections)))
+      (when (or Generate-Manual? (neq? (get-property~ section 'name) 'manual))
+        (put~ pages `(<page> path: ,(format "{a}" (section-path section))
+                                   ,html)))))
+  
+  
+  (method (section-path section)
+    (let ((name (get-property~ section 'name)))
+      (if (eq? name 'home)
+          'index
+        name)))
+  
+  
+  (method (section-output section sections)
+    (let ((title (get-property~ section 'title)))
+      `(<html>
+         (<head>
+           (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
+           (<title> ,(format "JazzScheme {a}" title)))
+         (<body>
+          (<div> id: "page"
+            (<h1> id: "title" "JazzScheme")
+            (<div> id: "sectionnav" ,@(navigation-output section sections))
+            (<div> id: "content"
+              ,@(if (eq? (get-property~ section 'name) 'manual)
+                    (manual-output section)
+                  (section-content-output section))
+              (<div> id: "footer"
+                (<p> "Copyright &copy; 1996-2007 Guillaume Cartier"))))))))
+  
+  
+  (method (section-content-output section)
+    (let ((output (new List-Factory)))
+      (for-each (function dynamic (node)
+                  (if (is? node JML-Element)
+                      (case (get-tag~ node)
+                        ((section))
+                        ((articles) (output-articles node output))
+                        (else (put~ output node)))
+                    (put~ output node)))
+                (get-children~ section))
+      (get-output~ output)))
+  
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+  
+  (method (navigation-output section sections)
+    (let ((output (new List-Factory)))
+      (for-each (function dynamic (info)
+                  (bind (sec . subsecs) info
+                    (let ((name (get-property~ sec 'name))
+                          (path (format "{a}.htm" (section-path sec)))
+                          (title (get-property~ sec 'title))
+                          (selected? (eq? sec section)))
+                      (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
+                      (when (or (eq? sec section) (memq? section subsecs))
+                        (for-each (function dynamic (subsec)
+                                    (let ((name (get-property~ subsec 'name))
+                                          (path (format "{a}.htm" (section-path subsec)))
+                                          (title (get-property~ subsec 'title))
+                                          (selected? (eq? subsec section)))
+                                      (put~ output `(<a> class: "subsection" href: ,path ,(if selected? `(<b> ,title) title)))))
+                                  subsecs)))))
+                sections)
+      (get-output~ output)))
+  
+  
+  ;;;
+  ;;;; Manual
+  ;;;
+  
+  
+  (method (manual-output section)
+    (let* ((paths (get-property~ section 'products))
+           (products (apply append (map find-docs paths)))
+           (toc-anchors (new-hashtable eq?))
+           (content (manual-content-output products))
+           (index (index-output))
+           (toc (toc-output products toc-anchors))
+           (summary (summary-output products toc-anchors)))
+      (append summary
+              toc
+              index
+              content)))
+  
+  
+  (method (manual-content-output products)
+    (let ((output (new List-Factory)))
+      (for-each (function dynamic (product)
+                  (output-manual-doc product output))
+                products)
+      (get-output~ output)))
+  
+  
+  (method (output-manual-doc doc output)
+    (typecase doc
+      ((Product-Doc)   (output-manual-product   doc output))
+      ((Section-Doc)   (output-manual-section   doc output))
+      ((Concept-Doc)   (output-manual-concept   doc output))
+      ((Package-Doc)   (output-manual-package   doc output))
+      ((Interface-Doc) (output-manual-interface doc output))
+      ((Class-Doc)     (output-manual-class     doc output))
+      ((Form-Doc)      (output-manual-form      doc output))
+      ((Syntax-Doc)    (output-manual-syntax    doc output))
+      ((Primitive-Doc) (output-manual-primitive doc output))
+      ((Constant-Doc)  (output-manual-constant  doc output))
+      ((Slot-Doc)      (output-manual-slot      doc output))
+      ((Property-Doc)  (output-manual-property  doc output))
+      ((Method-Doc)    (output-manual-method    doc output)))
+    (output-manual-doc-children doc output))
+  
+  
+  (method (output-manual-product doc output)
+    (output-anchor doc output)
+    (put~ output `(<h3> ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-section doc output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "section" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-concept doc output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "concept" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-package doc output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "package" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-interface doc output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "interface" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-class doc output)
+    (output-anchor doc output)
+    (put~ output `(<h4> class: "class" ,(get-effective-title~ doc)))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-form doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-syntax doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-primitive doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-constant doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-slot doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-property doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output))
+  
+  
+  (method (output-manual-method doc output)
+    (output-anchor doc output)
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p>))
+    (output-doc-description doc output)
+    (output-doc-examples doc output))
+  
+  
+  (method (output-doc-description doc output)
+    (let ((description (get-description~ doc)))
+      (when description
+        (bind (tag . paragraphs) (->jml~ (form->node description))
+          (put-sequence~ output paragraphs)))))
+  
+  
+  (method (output-doc-examples doc output)
+    (let ((examples (get-examples~ doc)))
+      (when examples
+        (put~ output `(<p>))
+        (put~ output `(<p> "Examples"))
+        (put~ output `(<node>
+                       ,@(map (function dynamic (example)
+                                (bind (tag . rest) (->jml~ (form->node example))
+                                  `(<span> ,@rest)))
+                              (get-children~ examples)))))))
+  
+  
+  (method (output-manual-doc-children doc output)
+    (let* ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
+           (children (effective-manual-doc-children doc))
+           (sorted (if sort?
+                       (sort < children key: (function dynamic (child) (get-name~ child)))
+                     children)))
+      (output-manual-docs sorted output)))
+  
+  
+  (method (output-manual-docs docs output)
+    (for-each (function dynamic (doc)
+                (output-manual-doc doc output))
+              docs))
+  
+  
+  (method (effective-manual-doc-children doc)
+    (let ((fact (new List-Factory)))
+      (for-each (function dynamic (child)
+                  (if (is? child Doc-Insert)
+                      (let* ((path (get-path~ child))
+                             (docs (find-docs path)))
+                        (put-sequence~ fact docs))
+                    (put~ fact child)))
+                (get-children~ doc))
+      (get-output~ fact)))
+  
+  
+  (method (find-docs path)
+    (let* ((appl (get-application))
+           (cataloguer (get-documentation-cataloguer~ appl))
+           (docs (new List-Factory)))
+      (bind (name . rest) (if (symbol? path) (list path) path)
+        (let ((catalog (find-catalog~ cataloguer name)))
+          (cond ((null? rest)
+                 (put~ docs (get-client~ catalog)))
+                ((equal? rest '(*))
+                 (let ((parent (get-product~ catalog)))
+                   (for-each (function dynamic (catalog)
+                               (when (eq? (get-parent-product~ (get-product~ catalog)) parent)
+                                 (put~ docs (get-client~ catalog))))
+                             (get-catalogs~ cataloguer))))
+                (else
+                 (unimplemented 'find-docs)))))
+      (get-output~ docs)))
+  
+  
+  (method (output-anchor doc output)
+    (let ((name (get-name~ doc))
+          (anchor (register-anchor doc (get-name~ doc) anchors)))
+      (put~ output `(<a> name: ,anchor))
+      (when name
+        (hash-add anchor-names name doc))))
+  
+  
+  (method (register-anchor object name anchors)
+    (let ((anchor (if name (->string name) (prog1 (format "SEC{a}" next-section) (increase! next-section)))))
+      (hash-set! anchors object anchor)
+      anchor))
+  
+  
+  ;;;
+  ;;;; Summary
+  ;;;
+  
+  
+  (method (summary-output products toc-anchors)
+    (user-message "Generating Summary...")
+    `((<div> style: "margin-top: 22;"
+        (<b> "Note that this manual is absolutely not complete and even contains obsolete or even wrong information. It is a work in progress. Consult at your own risk!!!"))
+      (<h3> "Summary")
+      (<div> class: "summary_toc" (<a> href: "#TOC" "Table of Contents"))
+      (<div> class: "summary_index" (<a> href: "#INDEX" "Index"))
+      ,@(map (function dynamic (product rank)
+               (doc-summary-output toc-anchors product 1 (list (+ rank 1))))
+             products
+             (naturals 0 (length products)))))
+  
+  
+  (method (doc-summary-output toc-anchors doc level path)
+    (let* ((title (present-doc-title doc))
+           (text (format "{a}. {a}" (present-toc-path path) title))
+           (anchor (format "#{a}" (hash-ref toc-anchors doc)))
+           (children (collect-summary-children doc)))
+      `(<div>
+         (<div> class: ,(format "summary{a}" level) (<a> href: ,anchor ,text))
+         ,@(if (null? children)
+               {}
+             `((<div>
+                 ,@(map (function dynamic (child rank)
+                          (doc-summary-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
+                        children
+                        (naturals 0 (length children)))))))))
+  
+  
+  (method (collect-summary-children doc)
+    (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
+          (children (effective-manual-doc-children doc)))
+      (collect-if has-product-descendant?
+                  (if sort?
+                      (sort < children key: (function dynamic (child) (get-name~ child)))
+                    children))))
+  
+  
+  (method (has-product-descendant? doc)
+    (let ((has? #f))
+      (letrec ((iter
+                (function dynamic (doc)
+                  (typecase doc
+                    ((Product-Doc) (set! has? #t))
+                    ((Section-Doc) (for-each iter (effective-manual-doc-children doc)))))))
+       (iter doc))
+      has?))
+  
+  
+  ;;;
+  ;;;; ToC
+  ;;;
+  
+  
+  (method (toc-output products toc-anchors)
+    (user-message "Generating Table of Contents...")
+    `((<a> name: "TOC" (<h3> "Table of Contents"))
+      ,@(map (function dynamic (product rank)
+               (doc-toc-output toc-anchors product 1 (list (+ rank 1))))
+             products
+             (naturals 0 (length products)))))
+  
+  
+  (method (doc-toc-output toc-anchors doc level path)
+    (let* ((title (present-doc-title doc))
+           (text (format "{a}. {a}" (present-toc-path path) title))
+           (anchor (format "#{a}" (hash-ref anchors doc)))
+           (children (collect-toc-children doc))
+           (rank (car path))
+           (toc-prefix (if (and (= rank 1) (<= level 3)) "toc_first" "toc"))
+           (toc-anchor (register-anchor doc {} toc-anchors)))
+      `(<div>
+         (<div> class: ,(format "{a}{a}" toc-prefix level) (<a> name: ,toc-anchor href: ,anchor ,text))
+         ,@(if (null? children)
+               {}
+             `((<div>
+                 ,@(map (function dynamic (child rank)
+                          (doc-toc-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
+                        children
+                        (naturals 0 (length children)))))))))
+  
+  
+  (method (present-doc-title doc)
+    (get-effective-title~ doc))
+  
+  
+  (method (present-toc-path path)
+    (join (map ->string (reverse path)) "."))
+  
+  
+  (method (collect-toc-children doc)
+    (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
+          (children (effective-manual-doc-children doc)))
+      (collect-if (function dynamic (child)
+                    (or (is? child Product-Doc)
+                        (is? child Section-Doc)
+                        (is? child Concept-Doc)
+                        (is? child Package-Doc)
+                        (is? child Category-Doc)
+                        (is? child Form-Doc)))
+                  (if sort?
+                      (sort < children key: (function dynamic (child) (get-name~ child)))
+                    children))))
+  
+  
+  ;;;
+  ;;;; Index
+  ;;;
+  
+  
+  (method (index-output)
+    (user-message "Generating Index...")
+    (let ((letters (sort < (letters-partition) key: car))
+           (letter-anchors (new-hashtable eq?))
+           (output (new List-Factory)))
+      (for-each (function dynamic (letter)
+                  (output-letter letter letter-anchors output))
+                letters)
+      `((<a> name: "INDEX" (<h3> "Index"))
+        ,@(index-navigator letters letter-anchors)
+        (<table> width: "100%"
+          ,@(get-output~ output)))))
+  
+  
+  (method (output-letter letter letter-anchors output)
+    (bind (char . infos) letter
+      (let ((anchor (register-anchor letter {} letter-anchors)))
+        (put~ output `(<tr> (<td> colspan: "2" (<div> class: "index-letter" (<a> name: ,anchor ,(coerce char String)))))))
+      (for-each (function dynamic (info)
+                  (bind (doc anchor title) info
+                    (let ((anchor (format "#{a}" anchor)))
+                      (put~ output `(<tr>
+                                     (<td>)
+                                     (<td> (<a> href: ,anchor (<code> ,title))))))))
+                infos)))
+  
+  
+  (method (letters-partition)
+    (partition (gather-anchors) key: (function (info) (upcase (first (third info))))))
+  
+  
+  (method (gather-anchors)
+    (let ((lst '()))
+      (for-each-hash (function dynamic (doc anchor)
+                       (when (get-name~ doc)
+                         (let ((title (get-effective-title~ doc)))
+                           (set! lst (cons (list doc anchor title) lst)))))
+                     anchors)
+      (sort < lst key: third)))
+  
+  
+  (method (index-navigator letters letter-anchors)
+    (let* ((partition (alphabetic-partition letters))
+           (non-alpha (cdr (assv #f partition)))
+           (alpha (cdr (assv #t partition)))
+           (output (new List-Factory))
+           (process-letter-set
+            (function dynamic (letter-set)
+              (for-each (function dynamic (letter)
+                          (let ((char (car letter))
+                                (anchor (format "#{a}" (hash-ref letter-anchors letter))))
+                            (put~ output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(coerce char String))))
+                            (put~ output "&nbsp;")))
+                        letter-set))))
+      (process-letter-set non-alpha)
+      (put~ output `(<br>))
+      (process-letter-set alpha)
+      (get-output~ output)))
+  
+  
+  (method (alphabetic-partition letters)
+    (partition letters key: (function dynamic (letter)
+                              (let ((char (car letter)))
+                                (alphabetic? char)))))
+  
+  
+  ;;;
+  ;;;; Article
+  ;;;
+  
+  
+  (method (output-articles articles output)
+    (for-each (function dynamic (article)
+                (output-article article output))
+             (get-children~ articles)))
+  
+  
+  (method (output-article article output)
+    (put~ output
+          `(<div>
+            ,@(let ((name (get-property~ article 'name)))
+                (if (null? name)
+                    '()
+                  `((<a> name: ,(->string name)))))
+            (<h3> ,(get-property~ article 'title))
+            ,@(children->jml~ article)))))

@@ -1,0 +1,315 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; VSS Repository Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.repository.providers.vss.VSS-Repository-Editor jazz
+
+
+(import (jazz.jml)
+        (jazz.repository)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class VSS-Repository-Editor extends View
+  
+
+  (property preferences initialize {} getter get-preferences setter set-preferences)
+  
+  
+  (slot repository      initialize {})
+  (slot repository-base initialize {})
+
+  
+  (form
+    (<install>                                          size: {Dimension 482 400}
+      (<Label-View>                                     title: "Repository" position: {Point 9 15} size: {Dimension 53 16})
+      (<Horizontal-Line>                                position: {Point 69 23} size: {Dimension 400 8})
+      (<Label-View>                                     title: "Ini File:" position: {Point 44 39} size: {Dimension 40 16})
+      (<IniFile-Widget>           name: ini-file        position: {Point 91 34} size: {Dimension 361 24} protocol: file parameters: (extensions: (("SourceSafe Databases (srcsafe.ini)" . "srcsafe.ini"))) return-press-handler: {Event-Handler form: on-return-press})
+      (<Label-View>                                     title: "Project" position: {Point 9 80} size: {Dimension 40 16})
+      (<Horizontal-Line>                                position: {Point 52 88} size: {Dimension 417 8})
+      (<Border-View>              name: projects-border position: {Point 91 101} size: {Dimension 337 200} border-type: edge
+        (<Scroller-View>                                hscroll?: #t vscroll?: #t
+          (<!>                    name: content         layout-type: fill
+            (<Projects-Tree>      name: projects-tree   filled-column: projects top-padding: 2 portfolio: :icons selection-handler: {Event-Handler form: on-selection-change} return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press}
+              (<Tree-Node-Column> name: projects        width: 200)))))
+      (<Label-View>                                     title: "Local:" position: {Point 92 306} size: {Dimension 32 16})
+      (<Label-View>               name: local           title: "<none>" position: {Point 125 306} size: {Dimension 290 16})
+      (<Horizontal-Line>                                position: {Point 6 348} size: {Dimension 470 8})
+      (<Push-Button>              name: ok              title: "OK" position: {Point 309 363} size: {Dimension 80 24} action-handler: {Event-Handler :host on-ok} enabled?: #f default?: #t)
+      (<Push-Button>              name: cancel          title: "Cancel" position: {Point 393 363} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})))
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-repository)
+    (setup-project))
+  
+  
+  (method (destroy)
+    (close-repository)
+    (nextmethod))
+  
+  
+  (method (close-repository)
+    (set-repository {}))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-preferences)
+    preferences)
+
+
+  (method public (set-preferences value)
+    (set! preferences value))
+  
+  
+  (method (get-tree)
+    (locate 'projects-tree))
+
+  
+  ;;;
+  ;;;; Repository
+  ;;;
+  
+  
+  (method (set-repository value)
+    (when repository
+      (close~ repository)
+      (set! repository {}))
+    (set! repository value)
+    (set! repository-base (essay repository (get-base-project~ repository))))
+  
+  
+  (method virtual (set-concrete-repository value)
+    (set-repository value))
+
+  
+  ;;;
+  ;;;; Dialog
+  ;;;
+  
+  
+  @convert-dialog
+  (method meta (dialog-class)
+    Editor-Dialog)
+  
+
+  @convert-dialog
+  (class meta Editor-Dialog extends Host-Dialog
+    
+    
+    (form
+      (<install> title: "VSS Repository" position: {Point 450 300} size: {Dimension 302 120})))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-selection-change evt)
+    (let ((tree (get-sender~ evt)))
+      (set-title~ (locate 'local) (selected-local tree)))
+    (update-buttons))
+  
+  
+  (method (selected-moniker tree)
+    (let ((selection (get-single-selection~ tree)))
+      (when selection
+        (let* ((row (get-row~ tree selection))
+               (data (get-user-data~ row)))
+          (when (is? data Repository-Moniker)
+            data)))))
+  
+  
+  (method (selected-path tree)
+    (let ((moniker (selected-moniker tree)))
+      (when moniker
+        (get-path~ moniker))))
+  
+  
+  (method (selected-local tree)
+    (let ((base-project (selected-path tree)))
+      (if (null? base-project)
+          "<none>"
+        (with-closed ((item (get-item~ repository base-project)))
+          (let ((directory (get-pathname~ item)))
+            (parse~ directory))))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (let ((dialog (get-host)))
+      (end-modal~ dialog (get-modal-result~ dialog))))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+
+  
+  (method virtual (setup-repository)
+    (when preferences
+      (set! repository (instantiate-preferences~ Repository preferences))
+      (set! repository-base (get-base-project~ repository))
+      ;; so we start at the root even if there was a base-project
+      (set-base-project~ repository {})
+      (let ((ini-file (get-ini-file~ (get-concrete~ repository))))
+        (set-moniker~ (locate 'ini-file) ini-file generate-event?: #f))))
+  
+  
+  (method (setup-project)
+    (let ((tree (get-tree)))
+      (remove-every-row~ tree)
+      (when repository
+        (let* ((root (new Repository-Moniker repository {}))
+               (root-row (insert-project root tree {})))
+          (if (null? repository-base)
+              (expand/collapse~ tree root-row)
+            (synchronize-base-project repository-base tree root-row))))))
+  
+  
+  (method (synchronize-base-project base-project tree root-row)
+    (let* ((tree (get-tree))
+           (moniker (new Repository-Moniker repository base-project))
+           (spine (cons "$" (get-list~ moniker)))
+           (row (expand-spine~ tree spine)))
+      (if (null? row)
+          (expand/collapse~ tree root-row)
+        (set-single-selection~ tree (row-rank~ tree row))
+        (ensure-displayed~ tree))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-tree-row tree row)
+    (insert-projects (get-user-data~ row) tree row))
+  
+  
+  (method (insert-projects moniker tree row)
+    (let ((projects (get-content~ moniker nodes?: #t leaves?: #f)))
+      (for-each (function dynamic (project)
+                  (insert-project project tree row))
+                projects)))
+  
+  
+  (method (insert-project project tree row)
+    (let* ((title (get-name~ project))
+           (effective-title (if (empty-string? title) "$" title)))
+      (add-row~ tree state: 'dynamic father: row children: (list (new Tree-Node image: {Bitmap-Resource "OpenedFolder"} title: effective-title)) user-data: project)))
+
+
+  (method (update-buttons)
+    (let ((ini-file (get-moniker~ (locate 'ini-file)))
+           (path (selected-path (get-tree))))
+      ;; $ root is not a valid selection
+      (set-enabled?~ (locate 'ok) (and (not-null? ini-file) (not-null? path)))))
+  
+  
+  (method (ini-file-update)
+    (let* ((ini-file (get-moniker~ (locate 'ini-file)))
+           (repository (new VSS-Repository :ini-file ini-file)))
+      (set-name~ repository (get-database-name~ repository))
+      (set-concrete-repository repository)
+      (setup-project)))
+  
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (let* ((tree (get-tree))
+           (ini-file (get-moniker~ (locate 'ini-file)))
+           (name (get-name~ (get-parent~ ini-file)))
+           (moniker (selected-moniker tree))
+           (base-project (get-absolute-path~ moniker))
+           (base-directory (get-pathname~ moniker)))
+      (list
+        name: name
+        :ini-file ini-file
+        :base-project base-project
+        :base-directory base-directory)))
+  
+  
+  (method meta public virtual (set-properties designer preferences initargs)
+    (set-property~ designer preferences 'base-project (getf initargs :base-project))
+    (set-property~ designer preferences 'base-directory (getf initargs :base-directory))
+    (set-property~ designer preferences 'ini-file (getf initargs :ini-file))
+    (set-property~ designer preferences 'username (getf initargs username:))
+    (set-property~ designer preferences 'password (getf initargs password:)))
+  
+  
+  ;;;
+  ;;;; IniFile-Widget
+  ;;;
+  
+  
+  (class IniFile-Widget extends Moniker-Widget
+    
+    
+    (method (moniker-update)
+      (ini-file-update)))
+  
+  
+  ;;;
+  ;;;; Projects-Tree
+  ;;;
+  
+  
+  (class Projects-Tree extends Tree-View
+  
+  
+    (method (update-row row)
+      (update-tree-row self row)))))

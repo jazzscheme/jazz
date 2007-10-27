@@ -1,0 +1,175 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Debuggee
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debuggee.Debuggee jazz
+
+
+(import (jazz.debugger)
+        (jazz.platform)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Debuggee extends Object)
+
+
+@convert
+
+
+(class Debuggee extends Object
+  
+  
+  (slot process)
+  
+  
+  (method (initialize process)
+    (nextmethod)
+    (set! process~self process))
+  
+  
+  (method public remote (get-name)
+    (process-name~ process))
+  
+  
+  (method public remote (get-icon)
+    (process-icon~ process))
+  
+  
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method public remote (detach-from-controller)
+    (detach-from-controller~ process)
+    {})
+  
+  
+  (method public remote (exit)
+    (new Thread
+      name: "Process Exiter"
+      context: self
+      execute: (function (thread)
+                 (exit-process~ process)))
+    {})
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public remote (get-process-server)
+    (get-local-process-server~ process))
+  
+  
+  (method public remote (get-toplevel-hwnd)
+    (get-handle~ (get-toplevel)))
+  
+  
+  ;;;
+  ;;;; Threads
+  ;;;
+  
+  
+  (method public remote (get-process-threads)
+    (map new-thread (get-threads)))
+  
+  
+  (method public remote (get-main-thread)
+    (new-thread (primary-thread)))
+  
+  
+  (method (new-thread thread)
+    (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread (new Debuggee-Local-Proxy self) thread)))
+  
+  
+  ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (method public remote (execute command object package-names variables frame)
+    (let* ((form (read-string-element command))
+           (packages (filter-packages package-names))
+           (object (either object process)) ;; until remote implementation completed
+           (result (execute-command form object packages variables frame)))
+      (if (not result)
+          {}
+        (set-?~ Development result)
+        (->string result :describe))))
+  
+  
+  (method (filter-packages package-names)
+    (unimplemented 'filter-packages)
+    @convert-manifest-stuff
+    (let ((fact (new List-Factory)))
+      (for-each (function dynamic (package-name)
+                  (when (in-manifest? package-name)
+                    (put~ fact (autoload package-name))))
+                package-names)
+      (get-output~ fact)))
+  
+  
+  (method (execute-command form process packages variables frame)
+    (if (is? process Application)
+        (privileged-execute form process packages variables frame)
+      (privileged-execute form process packages {} @to-convert variables {} @to-convert frame)))
+  
+  
+  ;;;
+  ;;;; Inspector
+  ;;;
+  
+  
+  (method public remote (inspect address kind)
+    (let ((object (address-object address)))
+      (inspect-value~ Inspector object)))
+  
+  
+  ;;;
+  ;;;; Memory
+  ;;;
+  
+  
+  (method public remote (memory-statistics)
+    (statistics))
+  
+  
+  (method public remote (trigger-gc)
+    (gc)
+    {})))

@@ -1,0 +1,181 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Integrity Violations Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.integrity.Violations-Manager jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Violations-Manager extends Navigable-Results
+  
+  
+  (slot editor initialize {})
+
+
+  (form
+    (<install>
+      (<!>                           name: scroller
+        (<!>                         name: content
+          (<!>                       name: header
+            (<!>                     name: content
+              (<!>                   name: results
+                (<Tree-Node-Column>  name: violation title: "Violation" width: 300 toplevel-controls?: #f)
+                (<Tree-Label-Column> name: location  title: "Location" width: 337))))))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'violations-manager)
+
+
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-icon)
+    {Bitmap-Resource "IntegrityViolations"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Integrity Violations")
+  
+  
+  (method (client-activate)
+    (let* ((guest (current-document))
+           (editor (essay guest (get-editor-view~ guest))))
+      (if (and editor (is? (get-client~ editor) Canvas))
+          (set-editor editor)
+        (set-editor {}))))
+  
+  
+  (method (client-deactivate)
+    (set-editor {}))
+  
+  
+  ;;;
+  ;;;; Manager
+  ;;;
+  
+  
+  (method public virtual (get-client)
+    (when editor
+      (get-client~ editor)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public virtual (get-editor)
+    editor)
+  
+  
+  (method public virtual (set-editor value)
+    ;; Removing this test is the simple way for now of solving a tough bug that if I open a design
+    ;; with violations and clear them and switch workspace then: if I switch back to the modeling
+    ;; workspace every is fine but if I do so by reopening the same file, then the violations list
+    ;; remains empty because the test below fails...
+    (when #t @w (neq? value editor)
+      (set! editor value)
+      (update)))
+  
+  
+  (method public (update)
+    (let ((tree (get-tree))
+          (client (get-client)))
+      (with-update-locked~ tree
+        (function dynamic ()
+          (remove-every-row~ tree)
+          (when client
+            (for-each add-violation (get-violations~ client)))))))
+  
+  
+  ;;;
+  ;;;; Interface
+  ;;;
+
+  
+  (method (add-violation violation)
+    (let ((tree (get-tree))
+          (title (present-message~ violation))
+          (location (present-location~ violation))
+          (image (get-image~ violation)))
+      (add-row~ tree children: (list (new Tree-Node title: title image: image) (new Tree-Label title: location)) user-data: violation)))
+
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+
+  (method (edit-selection forward?)
+    (let* ((tree (get-tree))
+           (selection (get-single-selection~ tree)))
+      (when selection
+        (let* ((violation (get-user-data~ (get-row~ tree selection)))
+               (branch-name (get-branch~ violation))
+               (branch-presentation (get-branch-presentation~ violation))
+               (property (get-property~ violation))
+               (editor (get-editor))
+               (client (get-client))
+               (active (get-active-branch-name~ client)))
+          (if (null? branch-name)
+              ;; maybe some violations whant to switch to the root
+              ;; but others just whant the current branch to stay the same
+              #f
+              @w
+              (when active
+                (set-active-branch~ client {})
+                (process-branch-changed~ editor client))
+            (when (or (null? active) (/= branch-name active))
+              (let ((effective (find-component~ client branch-name)))
+                (if (null? effective)
+                    (error "Unable to find component {a}" branch-presentation)
+                  (set-active-branch~ client effective)
+                  (process-branch-changed~ editor effective)))))
+          (let ((component (follow-component~ (get-path~ violation) client)))
+            (user-message (get-message~ violation))
+            (set-selection~ editor (list component) origin: self)
+            (select-property~ editor property))))))))

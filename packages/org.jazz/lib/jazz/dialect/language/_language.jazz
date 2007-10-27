@@ -1,0 +1,5521 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Language
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.dialect.language jazz.dialect
+
+
+(proclaim (optimize))
+
+
+;;;
+;;;; Object
+;;;
+
+
+(class Object metaclass Object-Class
+  
+  
+  (method chained (initialize . rest)
+    )
+
+
+  (method chained (destroy)
+    )
+  
+  
+  (method public virtual (print output detail)
+    (print-unreadable self output
+      (function (output)
+        )))
+  
+  
+  (method public virtual (fold-literal)
+    (error "Unable to fold literal: {t}" self))
+  
+
+  @convert
+  (method meta public virtual (new-iterator object)
+    (error "{t} is not an iterable type" self))
+
+
+  @convert
+  (method meta public virtual abstract (new-explorer object rest)
+    )
+  
+  
+  @convert
+  (method meta public virtual (external-name (error?: error? #t))
+    (when error?
+      (error "Component class {t} does not define an external name" (type-name self))))
+  
+  
+  (method public virtual (class-actions)
+    '())
+  
+  
+  (method public virtual (focus-actions)
+    '())
+  
+  
+  (method public virtual (guest-actions)
+    '())
+
+
+  (method public (initialized?)
+    (object-initialized? self))
+  
+  
+  (method public virtual (hash-object)
+    (error "No hashing defined for {t}" self))
+  
+  
+  (method protected virtual (copy-object deep?)
+    (error "Unable to copy {t}" self))
+
+
+  (method public virtual (compare-object object)
+    :incompatible)
+
+
+  (method public virtual (ci-compare-object object)
+    :incompatible)
+  
+  
+  (method public virtual (marshal)
+    self)
+  
+  
+  (method public virtual (unmarshal)
+    self)
+
+
+  (method protected virtual (describe-object printer)
+    (print printer #t))
+  
+  
+  (method public virtual (release)
+    )
+
+
+  (method public virtual (close)
+    (call-destroy self))
+
+
+  (method protected (destroy-mandatory)
+    (set-must-destroy self))
+
+
+  (method public (destroyed?)
+    (object-destroyed? self))
+  
+  
+  (method public virtual (get-sort-value)
+    '())
+  
+  
+  (method public virtual (redirect-handler handler sender)
+    self)
+  
+  
+  (method public virtual (coerce-string)
+    (error "{t} cannot be coerced into a string" self))
+  
+  
+  (method public virtual (iterate-object)
+    (error "{t} is not an iterable type" self))
+
+
+  ;;;
+  ;;;; Compare
+  ;;;
+
+
+  (method public virtual (object-similar? object)
+    (eq? self object))
+
+
+  (method public virtual (object-alphabetic?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-numeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-alphanumeric?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-whitespace?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-upper-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-lower-case?)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-upcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-downcase)
+    (error "{t} is not an alphabetic type" self))
+
+
+  (method public virtual (object-capitalize)
+    (error "{t} is not an alphabetic type" self)))
+
+
+(definition public inline (compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (compare-object~ a b)))
+
+
+(definition public inline (ci-compare a <Object> b <Object>)
+  (if (eqv? a b)
+      :equal
+    (ci-compare-object~ a b)))
+
+
+(definition public (copy obj <Object> (deep? #f))
+  (copy-object~ obj deep?))
+
+
+(definition public (subcopy obj <Object> deep? <bool>)
+  (if deep?
+      (copy obj deep?)
+    obj))
+
+
+(definition (native-class name)
+  (error "Scheme primitives must be used to create {a}" name))
+
+
+(definition (=-hash obj <Object>)
+  (hash-object~ obj))
+
+
+(definition (object-initialized? obj)
+  ;; todo
+  #t)
+
+
+(definition (get-must-destroy obj)
+  ;; todo
+  #f)
+
+(definition (set-must-destroy obj)
+  ;; todo
+  )
+
+
+(definition (set-was-destroyed obj)
+  ;; todo
+  )
+
+
+(definition (object-destroyed? obj)
+  ;; todo
+  #f)
+
+
+(definition public (destroy-mandatory)
+  ;; to redo
+  #f)
+
+
+(definition (call-destroy obj <Object>)
+  (destroy~ obj)
+  (set-was-destroyed obj))
+
+
+;;;
+;;;; Type
+;;;
+
+
+(class Type extends Object)
+
+
+;;;
+;;;; Category
+;;;
+
+
+(class Category extends Type
+  
+  
+  (slot name         accessors generate)
+  (slot fields       accessors generate)
+  (slot virtual-size accessors generate)
+  (slot ancestors    accessors generate) ;; all the ancestors up to the root
+  (slot descendants  accessors generate) ;; only the direct descendants
+  
+  
+  (method (print output detail)
+    (print-unreadable self output
+      (function (output)
+        (format output "{s}" (get-name))))))
+
+
+(definition (load-source a b)
+  (unimplemented 'load-source))
+
+
+;;;
+;;;; Class
+;;;
+
+
+(class Class extends Category
+  
+  
+  (slot ascendant          accessors generate)
+  (slot interfaces         accessors generate)
+  (slot slots              accessors generate)
+  (slot instance-size      accessors generate)
+  (slot level              accessors generate)
+  (slot dispatch-table     accessors generate)
+  (slot core-method-alist  accessors generate)
+  (slot core-virtual-alist accessors generate)
+  (slot core-virtual-names accessors generate)
+  (slot core-vtable        accessors generate)
+  (slot class-table        accessors generate)
+  (slot interface-table    accessors generate)
+  
+  
+  (method public virtual (coerce-object obj)
+    (error "Unable to coerce {t} into a {t}" obj (type-name self))))
+
+
+(class Object-Class metaclass Class extends Class)
+
+
+(definition public inline (class? obj)
+  (is? obj Class))
+
+
+(definition public inline (coerce object <Object> class <Class>)
+  (coerce-object~ class object))
+
+
+;;;
+;;;; Interface
+;;;
+
+
+(class Interface extends Category
+  
+  
+  (slot ascendants accessors generate)
+  (slot rank       accessors generate))
+
+
+;;;
+;;;; Field
+;;;
+
+
+(class Field extends Object
+  
+  
+  (slot name accessors generate))
+
+
+(definition public (category-field category field-name)
+  (find-field category field-name))
+
+
+(definition public (all-fields model)
+  (unimplemented 'all-fields)
+  @unimplemented
+  (if (not model)
+      {}
+    (append! (gather (category-fields model)) (all-fields (type-ascendant model)))))
+
+
+(definition public (all-slots model)
+  (unimplemented 'all-slots)
+  @unimplemented
+  (let ((fact (new List-Factory)))
+    (letrec ((add (function dynamic (model)
+                    (when model
+                      (put-sequence~ fact (class-slots model))
+                      (add (type-ascendant model))))))
+      (add model)
+      (get-output~ fact))))
+
+
+(definition public inline (field? obj)
+  (is? obj Field))
+
+
+;;;
+;;;; Method
+;;;
+
+
+(class Method extends Field
+  
+  
+  (slot dispatch-type       accessors generate)
+  (slot implementation      accessors generate)
+  (slot implementation-tree accessors generate)
+  (slot category-rank       accessors generate)
+  (slot implementation-rank accessors generate))
+
+
+;;;
+;;;; Generic
+;;;
+
+
+(class Generic extends Object
+  
+  
+  (slot locator              accessors generate)
+  (slot name                 accessors generate)
+  (slot mandatory-parameters accessors generate)
+  (slot root-specific        accessors generate)
+  (slot pending-specifics    accessors generate))
+
+
+(class Specific extends Object
+  
+  
+  (slot mandatory-parameters accessors generate)
+  (slot signature            accessors generate)
+  (slot implementation       accessors generate)
+  (slot next-implementation  accessors generate)
+  (slot next-specific        accessors generate)
+  (slot previous-specifics   accessors generate))
+
+
+;;;
+;;;; Boolean
+;;;
+
+
+(class Boolean-Class extends Class)
+
+
+(class Boolean metaclass Boolean-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "booleans"))
+  
+  
+  (method (print output detail)
+    (write self output)))
+
+
+(definition public inline (neq? x y)
+  (not (eq? x y)))
+
+
+(definition public inline (boolean? object <Object>)
+  (or (eq? object #f)
+      (eq? object #t)))
+
+
+(definition public (xor x y)
+  (/= (not x) (not y)))
+
+
+(definition public (= n m . rest)
+  (and (eq? (compare n m) :equal)
+       (let ((first m))
+         (let (iterate (scan rest))
+           (cond ((null? scan)
+                  #t)
+                 ((neq? (compare (car scan) first) :equal)
+                  #f)
+                 (else
+                  (iterate (cdr scan))))))))
+
+
+(definition public (/= n m . rest)
+  (if (null? rest)
+      (neq? (compare n m) :equal)
+    (not (apply = n m rest))))
+
+
+(definition public (< n m . rest)
+  (and (case (compare n m)
+         ((:less) #t)
+         ((:greater :equal) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (max m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less) (iterate (cdr scan) value))
+               ((:greater :equal) #f)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
+
+
+(definition public (<= n m . rest)
+  (and (case (compare n m)
+         ((:less :equal) #t)
+         ((:greater) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (max m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less :equal) (iterate (cdr scan) value))
+               ((:greater) #f)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
+
+
+(definition public (> n m . rest)
+  (and (case (compare n m)
+         ((:greater) #t)
+         ((:less :equal) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (min m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater) (iterate (cdr scan) value))
+               ((:less :equal) #f)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
+
+
+(definition public (>= n m . rest)
+  (and (case (compare n m)
+         ((:greater :equal) #t)
+         ((:less) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (min m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater :equal) (iterate (cdr scan) value))
+               ((:less) #f)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
+
+
+(definition public (ci= . rest)
+  (if (null? rest)
+      #t
+    (let ((first (car rest)))
+      (loop (for object in (cdr rest))
+            (when (neq? (ci-compare object first) :equal)
+              (return #f))
+            (finally #t)))))
+
+
+(definition public (ci/= . rest)
+  (not (apply ci= rest)))
+
+
+(definition public (ci< n . rest)
+  (let (iterate (scan rest) (max n))
+    (if (null? scan)
+        #t
+      (let ((value (car scan)))
+        (case (ci-compare max value)
+          ((:less) (iterate (cdr scan) value))
+          ((:greater :equal) #f)
+          (else (error "Cannot ci-compare {t} and {t}" max value)))))))
+
+
+(definition public (ci<= n . rest)
+  (let (iterate (scan rest) (max n))
+    (if (null? scan)
+        #t
+      (let ((value (car scan)))
+        (case (ci-compare max value)
+          ((:less :equal) (iterate (cdr scan) value))
+          ((:greater) #f)
+          (else (error "Cannot ci-compare {t} and {t}" max value)))))))
+
+
+(definition public (ci> n . rest)
+  (let (iterate (scan rest) (min n))
+    (if (null? scan)
+        #t
+      (let ((value (car scan)))
+        (case (ci-compare min value)
+          ((:greater) (iterate (cdr scan) value))
+          ((:less :equal) #f)
+          (else (error "Cannot ci-compare {t} and {t}" min value)))))))
+
+
+(definition public (ci>= n . rest)
+  (let (iterate (scan rest) (min n))
+    (if (null? scan)
+        #t
+      (let ((value (car scan)))
+        (case (ci-compare min value)
+          ((:greater :equal) (iterate (cdr scan) value))
+          ((:less) #f)
+          (else (error "Cannot ci-compare {t} and {t}" min value)))))))
+
+
+(definition public inline (boolean->integer bool)
+  (if bool 1 0))
+
+
+(definition public inline (integer->boolean n <int>)
+  (/= n 0))
+
+
+;;;
+;;;; Char
+;;;
+
+
+(definition Whitespace-Chars
+  '(#\space #\tab #\return #\newline))
+
+(definition Lowercase-Chars
+  '(#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z))
+
+(definition Uppercase-Chars
+  '(#\A #\B #\C #\D #\E #\F #\G #\H #\I #\J #\K #\L #\M #\N #\O #\P #\Q #\R #\S #\T #\U #\V #\W #\X #\Y #\Z))
+
+(definition Alphabetic-Chars
+  (scheme.append Lowercase-Chars Uppercase-Chars))
+
+(definition Numeric-Chars
+  '(#\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9 #\0))
+
+
+(class Char-Class extends Class)
+
+
+(class Char metaclass Char-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "chars"))
+  
+  
+  (method (coerce-string)
+    (let ((port (open-output-string)))
+      (write-char self port)
+      (get-output-string port)))
+  
+  
+  (method (compare-object c)
+    (if (is? c Char)
+        (let ((v1 (char->integer self))
+              (v2 (char->integer c)))
+          (cond ((= v1 v2) :equal)
+                ((> v1 v2) :greater)
+                (else      :less)))
+      :incompatible))
+  
+  
+  (method (ci-compare-object c)
+    (compare (downcase self)
+             (downcase c)))
+             
+
+  (method (object-similar? object)
+    (unimplemented 'object-similar?)
+    @convert
+    (and (char? object)
+         (char-similar? self object)))
+
+
+  (method (object-alphabetic?)
+    (memv? self Alphabetic-Chars))
+
+
+  (method (object-numeric?)
+    (memv? self Numeric-Chars))
+
+
+  (method (object-alphanumeric?)
+    (or (object-alphabetic?)
+        (object-numeric?)))
+
+
+  (method (object-whitespace?)
+    (memv? self Whitespace-Chars))
+
+
+  (method (object-upper-case?)
+    (memv? self Uppercase-Chars))
+
+
+  (method (object-lower-case?)
+    (memv? self Lowercase-Chars))
+
+
+  (method (object-upcase)
+    (if (lower-case? self)
+        (integer->char (- (char->integer self) 32))
+      self))
+
+
+  (method (object-downcase)
+    (if (upper-case? self)
+        (integer->char (+ (char->integer self) 32))
+      self))
+
+
+  (method (object-capitalize)
+    (object-upcase)))
+
+
+(definition whitechar?
+  char-whitespace?)
+
+
+(definition public (char-presentation char)
+  (or (char-symbol char)
+      (string char)))
+
+
+(definition public inline (alphabetic? object <Object>)
+  (object-alphabetic?~ object))
+
+
+(definition public inline (numeric? object <Object>)
+  (object-numeric?~ object))
+
+
+(definition public inline (alphanumeric? object <Object>)
+  (object-alphanumeric?~ object))
+
+
+(definition public inline (whitespace? object <Object>)
+  (object-whitespace?~ object))
+
+
+(definition public inline (upper-case? object <Object>)
+  (object-upper-case?~ object))
+
+
+(definition public inline (lower-case? object <Object>)
+  (object-lower-case?~ object))
+
+
+(definition public inline (upcase object <Object>)
+  (object-upcase~ object))
+
+
+(definition public inline (downcase object <Object>)
+  (object-downcase~ object))
+
+
+(definition public inline (capitalize object <Object>)
+  (object-capitalize~ object))
+
+
+(definition public (vowel? c)
+  (memv? (downcase c) '(#\a #\e #\i #\o #\u #\y)))
+
+
+(definition character-types
+  #(invalid       invalid       invalid       invalid       invalid       invalid       invalid       invalid    
+    invalid       whitespace    whitespace    invalid       invalid       whitespace    invalid       invalid    
+    invalid       invalid       invalid       invalid       invalid       invalid       invalid       invalid    
+    invalid       invalid       invalid       invalid       invalid       invalid       invalid       invalid    
+    whitespace    constituent   string        sharp         constituent   constituent   constituent   quote    
+    list          terminator    constituent   constituent   unquote       constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   comment       constituent   constituent   constituent   constituent    
+    exprcomment   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   reference     backslash     terminator    constituent   constituent    
+    quasiquote    constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   literal       symbol        terminator    constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent    
+    constituent   constituent   constituent   constituent   constituent   constituent   constituent   constituent))
+
+
+(definition public (character-type ascii-c <char>) <symbol>
+  (vector-ref character-types (char->integer ascii-c)))
+
+
+(definition (jazz-constituent? c <char>) <bool>
+  (or (alphanumeric? c)
+      (eq? (character-type c) 'constituent)
+      (eqv? c #\#)))
+
+
+(definition (cpp/java-constituent? c <char>) <bool>
+  (or (alphanumeric? c)
+      (eqv? c #\_)))
+
+
+(definition (sql-constituent? c <char>) <bool>
+  (or (alphanumeric? c)
+      (eqv? c #\_)
+      (eqv? c #\@)
+      (eqv? c #\[)
+      (eqv? c #\])))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(definition exceptions-catched (make-parameter '()))
+
+
+(class Exception extends Object
+  
+  
+  (method public virtual (get-message)
+    {})
+  
+  
+  (method public virtual (present-message . rest)
+    (list (get-message))))
+
+
+(class Continue extends Exception)
+
+
+(class Error extends Exception @implements Loggable
+  
+  
+  (slot message accessors generate)
+  
+  
+  (method (initialize (message: message {}))
+    (nextmethod)
+    (set-message message))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a}" (get-message)))))
+  
+  
+  @convert
+  (method (present-message (prefix?: prefix? #t) (active-content?: active-content? #t))
+    (present-error~ (process-class) self prefix? active-content?))
+  
+  
+  @convert
+  (method (log-info output)
+    (log-error~ (process-class) self output))
+  
+  
+  @convert
+  (method (edit)
+    (edit-error~ (process-class) self))
+  
+  
+  @convert
+  (method (edit-child info)
+    (edit-error-child~ (process-class) self info)))
+
+
+(class Read-Error extends Error)
+
+
+(class Convertion-Error extends Error)
+
+
+(class Signal extends Exception)
+
+
+(class Toplevel-Signal extends Signal)
+
+
+(class Cancel-Signal extends Signal)
+
+
+(class Stop-Signal extends Signal)
+
+
+(definition (call-with-catch type handler thunk)
+  (call/ec
+    (lambda (cont)
+      (parameterize ((exceptions-catched (cons (cons type (cons handler cont)) (exceptions-catched))))
+        (thunk)))))
+
+
+(definition public (find-catch exception)
+  (assoc exception (exceptions-catched)
+    test: is?))
+
+
+(definition public inline (catched? exception)
+  (boolean (find-catch exception)))
+
+
+;;;
+;;;; Control
+;;;
+
+
+(definition public (throw exception)
+  (let ((catch (find-catch exception)))
+    (if catch
+        (let ((handler (cadr catch))
+              (cont (cddr catch)))
+          (cont (handler exception)))
+      (error "No catch found for {s}" exception))))
+
+
+(definition public inline (throw-toplevel)
+  (throw (new Toplevel-Signal)))
+
+
+(definition public inline (throw-cancel)
+  (throw (new Cancel-Signal)))
+
+
+(definition public inline (throw-stop)
+  (throw (new Stop-Signal)))
+
+
+(definition signal throw)
+
+
+(definition public inline (call/ec proc)
+  (call/cc proc))
+
+
+(definition (exit (code 0))
+  (system-exit code))
+
+
+;;;
+;;;; Port
+;;;
+
+
+(class Port-Class extends Class)
+
+
+(class Port metaclass Port-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "ports")))
+
+
+;;;
+;;;; Symbol
+;;;
+
+
+(class Symbol-Class extends Class)
+
+
+(class Symbol metaclass Symbol-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "symbols"))
+  
+  
+  (method (print output detail)
+    (write self output))
+  
+  
+  (method (coerce-string)
+    (symbol->string self))
+  
+  
+  (method (compare-object obj)
+    (if (symbol? obj)
+        (compare (symbol->string self) (symbol->string obj))
+      :incompatible))
+  
+  
+  (method (ci-compare-object obj)
+    (if (symbol? obj)
+        (ci-compare (symbol->string self) (symbol->string obj))
+      :incompatible)))
+
+
+(definition public (generated-symbol? symbol)
+  (starts-with? (symbol->string symbol) "__"))
+
+
+(definition public inline (symbol->keyword symbol)
+  (string->keyword (symbol->string symbol)))
+
+
+(definition public inline (keyword->symbol keyword)
+  (string->symbol (keyword->string keyword)))
+
+
+(definition (find-symbol str)
+  ;; convert : this is not really correct
+  (string->symbol str))
+
+
+(definition (symbol-bound? name . rest)
+  ;; convert : this is not really correct
+  #t)
+(definition (symbol-unbound? name . rest)
+  ;; convert : this is not really correct
+  #f)
+
+
+;;;
+;;;; Keyword
+;;;
+
+
+(class Keyword-Class extends Class)
+
+
+(class Keyword metaclass Keyword-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "keywords"))
+  
+  
+  (method (print output detail)
+    (write self output)))
+
+
+(definition public (find-keyword keyword box default)
+  (let ((before box)
+        (scan (unbox-list box))
+        (found (unspecified)))
+    (while (and (unspecified? found) (not-null? scan))
+      (let ((elem (if (keyword? (car scan))
+                      (car scan)
+                    (error "Bad keyword list: {s}" (unbox-list box)))))
+        (if (eq? keyword elem)
+            (begin
+              (set! found (cadr scan))
+              (set-cdr! before (cddr scan)))
+          (begin
+            (set! before (cdr scan))
+            (if (null? (cdr scan))
+                (error "Bad keyword list: {s}" (unbox-list box))
+              (set! scan (cddr scan)))))))
+    (if (specified? found)
+        found
+      (default))))
+
+
+;;;
+;;;; Procedure
+;;;
+
+
+(class Procedure-Class extends Class)
+
+
+(class Procedure metaclass Procedure-Class extends Object)
+
+
+(definition public inline (procedure? obj)
+  (is? obj Procedure))
+
+
+;;;
+;;;; Foreign
+;;;
+
+
+(class Foreign-Class extends Class)
+
+
+(class Foreign metaclass Foreign-Class extends Object)
+
+
+;;;
+;;;; Numeric
+;;;
+
+
+(class Numeric-Class extends Class)
+
+
+(class Numeric metaclass Numeric-Class extends Object
+
+
+  (method public virtual abstract (norm))
+  (method public virtual abstract (inverse))
+  (method public virtual abstract (multiply n))
+  (method public virtual abstract (add obj))
+  (method public virtual abstract (negate)))
+
+
+@wait-because-conflicting-naming
+(definition public inline (numeric? obj)
+  (is? obj Numeric))
+
+
+;;;
+;;;; Number
+;;;
+
+
+(class Number-Class extends Numeric-Class)
+
+
+(class Number metaclass Number-Class extends Numeric
+  
+  
+  (method (initialize . rest)
+    (native-class "numbers"))
+  
+  
+  (method (print output detail)
+    (display self output))
+  
+  
+  (method (compare-object obj)
+    (cond ((scheme.= self obj) :equal)
+          ((scheme.< self obj) :less)
+          (else :greater)))
+  
+  
+  (method (norm)
+    (scheme.abs self))
+  
+  
+  (method (add obj)
+    (if (scheme.number? obj)
+        (scheme.+ self obj)
+      (error "Unsupported number addition : {t} {t}" self obj)))
+  
+  
+  (method (negate)
+    (scheme.- self)))
+
+
+;;;
+;;;; Complex
+;;;
+
+
+(class Complex-Class extends Number-Class)
+
+
+(class Complex metaclass Complex-Class extends Number)
+
+
+;;;
+;;;; Real
+;;;
+
+
+(class Real-Class extends Complex-Class)
+
+
+(class Real metaclass Real-Class extends Complex)
+
+
+;;;
+;;;; Rational
+;;;
+
+
+(class Rational-Class extends Real-Class)
+
+
+(class Rational metaclass Rational-Class extends Real)
+
+
+;;;
+;;;; Integer
+;;;
+
+
+(class Integer-Class extends Rational-Class)
+
+
+(class Integer metaclass Integer-Class extends Rational)
+
+
+;;;
+;;;; Fixnum
+;;;
+
+
+(class Fixnum-Class extends Integer-Class)
+
+
+(class Fixnum metaclass Fixnum-Class extends Integer)
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+(class Flonum-Class extends Real-Class)
+
+
+(class Flonum metaclass Flonum-Class extends Real)
+
+
+;;;
+;;;; Numbers
+;;;
+
+
+(definition public inline (number? obj)
+  (is? obj Number))
+
+
+(definition public inline (zero? n)
+  (= n 0))
+
+
+(definition public inline (positive? n)
+  (> n 0))
+
+
+(definition public inline (negative? n)
+  (< n 0))
+
+
+(definition public (relate x y)
+  (cond ((< x y) -1)
+        ((> x y)  1)
+        (else     0)))
+
+
+(definition public (sign n)
+  (relate n 0))
+
+
+(definition public (abs x)
+  (if (>= x 0)
+      x
+    (- x)))
+
+
+(definition public (generic-add n <Numeric> rest <list>)
+  (let (iterate (result <Numeric> n) (rest rest))
+    (if (null? rest)
+        result
+      (iterate (add~ result (car rest)) (cdr rest)))))
+
+
+(definition public (generic-substract n <Numeric> rest <list>)
+  (if (null? rest)
+      (negate~ n)
+    (let ((r <Numeric> (apply + rest)))
+      (+ n (negate~ r)))))
+
+
+(definition public (+ . rest)
+  (if (null? rest)
+      0
+    (generic-add (car rest) (cdr rest))))
+
+
+(definition public (- n <Numeric> . rest)
+  (generic-substract n rest))
+
+
+;; waiting optimizing compiler to put back as min
+(definition public (generic-min n <Numeric> . rest)
+  (for-each (function dynamic (object <Numeric>)
+              (when (< object n)
+                (set! n object)))
+            rest)
+  n)
+
+
+;; waiting optimizing compiler to put back as max
+(definition public (generic-max n <Numeric> . rest)
+  (for-each (function dynamic (object <Numeric>)
+              (when (> object n)
+                (set! n object)))
+            rest)
+  n)
+
+
+(definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
+  (let ((min (car lst)))
+    (for-each (function dynamic (object)
+                (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
+                  (set! min object)))
+              (cdr lst))
+    min))
+
+
+(definition public (maximum lst <pair> (key: key {}) (compare: compare compare))
+  (let ((max (car lst)))
+    (for-each (function dynamic (object)
+                (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
+                  (set! max object)))
+              (cdr lst))
+    max))
+
+
+(definition public (between? n lower upper)
+  (and (or (not lower) (>= n lower))
+       (or (not upper) (<= n upper))))
+
+
+(definition public (between lower n upper)
+  (cond ((< n lower) lower)
+        ((> n upper) upper)
+        (else n)))
+
+
+(definition public (in-interval? n lower upper)
+  (and (>= n lower) (< n upper)))
+
+
+(definition public inline (norm x <Numeric>)
+  (norm~ x))
+
+
+(definition public (near? x y distance) <bool>
+  (<= (norm (- x y)) distance))
+
+
+(definition public (contiguous-range lst)
+  (when (not-null? lst)
+    (call/ec
+      (lambda (return)
+        (let* ((first (car lst))
+               (second first))
+          (for-each (function dynamic (n)
+                      (if (= n (+ second 1))
+                          (set! second n)
+                        (return {})))
+                    (cdr lst))
+          (cons first second))))))
+
+
+(definition public (naturals lower <int> upper <int>) <list>
+  (loop (for n from lower below upper)
+        (collect n)))
+
+
+(definition public (lobyte short <int>) <int>
+  (- (bitwise-and (+ short #x80) #xFF) #x80))
+
+
+(definition public (hibyte short <int>) <int>
+  (shift-right (bit-and short #xFF00) -8))
+
+
+(definition public (make-word lo <int> hi <int>) <int>
+  (bitwise-ior (arithmetic-shift hi 8) lo))
+
+
+(definition public (lochar word <int>) <int>
+  (bit-and #xFF word))
+
+
+(definition public (hichar word <int>) <int>
+  (arithmetic-shift (bitwise-and (bitwise-not #xFF) word) -8))
+
+
+(definition public (make-int lo <int> hi <int>) <int>
+  (bitwise-ior (arithmetic-shift hi 16) lo))
+
+
+(definition public (loword int <int>) <int>
+  (- (bitwise-and (+ int #x8000) #xFFFF) #x8000))
+
+
+(definition public (hiword int <int>) <int>
+   (sign-word (arithmetic-shift (bitwise-and (bitwise-not #xFFFF) int) -16)))
+
+
+(definition public (sign-word word <int>) <int>
+  (if (bit-set? 15 word)
+      (- word #x10000)
+    word))
+
+
+(definition (separate int1 <int> int2 <int>)
+  (let* ((q (quotient int1 int2))
+         (r (- int1 (* q int2))))
+    (values q r)))
+
+
+(definition (randomize int1 <int> int2 <int>)
+  (random-source-pseudo-randomize! default-random-source int1 int2))
+
+(definition random random-integer)
+
+
+(definition bit-not <int:int> bitwise-not)
+(definition bit-and <int*:int> bitwise-and)
+(definition bit-or  <int*:int> bitwise-ior)
+(definition bit-xor <int*:int> bitwise-xor)
+
+
+(definition (bit-set num <int> pos <int> bit <bool>) <int>
+  (let ((msk (shift-left 1 pos)))
+    (if bit
+        (bit-or num msk)
+      (bit-and num (bit-not msk)))))
+
+
+(definition (mask-bit-set num <int> msk <int> bit <bool>) <int>
+  (if bit
+      (bit-or num msk)
+    (bit-and num (bit-not msk))))
+
+
+(definition (mask-bit-set? num <int> msk <int>) <bool>
+  (not (= (bit-and num msk) 0)))
+
+
+(definition shift-left <int:int> arithmetic-shift)
+
+
+(definition (shift-right num <int> pos <int>) <int>
+  (arithmetic-shift num (- pos)))
+
+
+(definition public (bit-mask hi <int> lo <int>)
+  (- (shift-left 1 hi) (shift-left 1 lo)))
+
+
+(definition public (random-seed)
+  (randomize)
+  (random 10000)
+  (random 10000))
+
+
+(definition public inline (sqr num)
+  (expt num 2))
+
+
+(definition public inline (percentage part <real> total <real>) <real>
+  (* (/ part total) 100))
+
+
+(definition public inline (percent percent <real> n <real>) <real>
+  (/ (* n percent) 100))
+
+
+;; All these return exact to implement the same behavior as the old Jazz. To be rethought out
+(definition public inline (floor r)
+  (inexact->exact (scheme.floor r)))
+(definition public inline (ceil r)
+  (inexact->exact (scheme.ceiling r)))
+(definition public inline (truncate r)
+  (inexact->exact (scheme.truncate r)))
+(definition public inline (round r)
+  (inexact->exact (scheme.round r)))
+
+
+;;;
+;;;; Queue
+;;;
+
+
+(class Queue extends Object
+  
+  
+  (slot list        initialize '() accessors (generate private))
+  (slot last-list   initialize '() accessors (generate private))
+  (slot last-anchor initialize '() accessors (generate private))
+  (slot current     initialize '() accessors (generate private))
+  
+  
+  (method public (put object)
+    (enqueue self object)))
+
+
+;;;
+;;;; Iterator
+;;;
+
+
+(class Iterator extends Object
+
+
+  (definition Empty
+    '(empty))
+
+
+  (slot peeked initialize Empty)
+  
+  
+  (method (iterate-object)
+    self)
+
+
+  (method public virtual (get-next)
+    (prog1 (peek)
+      (next)))
+
+
+  (method public virtual (peek)
+    (when (eq? peeked Empty)
+      (set! peeked (next)))
+    peeked)
+  
+  
+  (method public virtual (unget object)
+    (if (eq? peeked Empty)
+        (set! peeked object)
+      (error "Unable to unget {t}" object)))
+
+
+  (method public virtual (next)
+    (cond ((eof-object? peeked)
+           peeked)
+          ((neq? peeked Empty)
+           (prog1 peeked
+             (set! peeked Empty)))
+          (else
+           (get-next!))))
+
+
+  (method public virtual (done?) <bool>
+    (eof-object? (peek)))
+
+
+  (method public virtual (get-next!)
+    )
+
+
+  (method public virtual (put object)
+    (error "This iterator cannot put"))
+
+
+  (method public virtual (get-position)
+    (error "This iterator cannot get position: {t}" self))
+
+
+  (method public virtual (set-position pos)
+    (error "This iterator cannot set position: {t}" self))
+
+
+  (method public virtual (get-state)
+    {})
+
+
+  (method public virtual (reset-state old)
+    ))
+
+
+(definition public inline (iterate obj <Object>) <Iterator>
+  (iterate-object~ obj))
+
+
+;;;
+;;;; Explorer
+;;;
+
+
+(class Explorer extends Iterator
+
+
+  (slot direction initialize 'forward)
+
+
+  (method protected virtual (peek-forward)
+    (error "You need to implement peek-forward"))
+
+
+  (method protected virtual (peek-backward)
+    (error "You need to implement peek-backward"))
+
+
+  (method (peek)
+    (if (done?)
+        (eof-object)
+      (case direction
+        ((forward)  (peek-forward))
+        ((backward) (peek-backward)))))
+
+
+  (method public virtual (goto-beginning)
+    (error "You need to implement goto-beginning"))
+
+
+  (method public virtual (goto-end)
+    (error "You need to implement goto-end"))
+
+
+  (method public virtual (forward)
+    (error "You need to implement forward"))
+
+
+  (method public virtual (backward)
+    (error "You need to implement backward"))
+
+
+  (method (next)
+    (when (not (done?))
+      (case direction
+        ((forward)  (forward))
+        ((backward) (backward)))))
+
+
+  (method protected virtual (done-forward?)
+    (error "You need to implement done-forward?"))
+
+
+  (method protected virtual (done-backward?)
+    (error "You need to implement done-backward?"))
+
+
+  (method (done?)
+    (case direction
+      ((forward)  (done-forward?))
+      ((backward) (done-backward?))))
+
+
+  (method protected virtual (put-forward object)
+    (error "This iterator cannot put forward"))
+
+
+  (method protected virtual (put-backward object)
+    (error "This iterator cannot put backward"))
+
+
+  (method (put object)
+    (case direction
+      ((forward)  (put-forward object))
+      ((backward) (put-backward object))))
+
+
+  (method public (set-direction dir)
+    (set! direction dir)))
+
+
+(definition public (explore object <Object> . rest) <Explorer>
+  (new-explorer~ (class-of object) object rest))
+
+
+;;;
+;;;; Factory
+;;;
+
+
+(class Factory extends Object
+
+
+  (method public virtual (put object)
+    (error "Cannot put into factory {t}" self))
+
+
+  (method public virtual (put-unique object . rest)
+    (error "Cannot put into factory {t}" self))
+
+
+  (method public virtual (put-sequence seq)
+    (for-each put seq))
+
+
+  (method public virtual (put-sequence! seq)
+    (for-each put seq))
+
+
+  (method public virtual (get-output)
+    (error "Cannot get factory output for {t}" self)))
+
+
+;; temporary patches until we can virtually dispatch
+;; on types...
+
+
+(definition public (can-grow? object <Object>)
+  (typecase object
+    ((List)     #t)
+    ((Sequence) #f)))
+
+
+(definition public (new-factory object <Object> size)
+  (typecase object
+    ((List)   (new List-Factory))
+    ((String) (new Sequence-Factory (make-string size)))
+    ((Vector) (new Sequence-Factory (make-vector size)))))
+
+
+;;;
+;;;; Sequence
+;;;
+
+
+(class Sequence-Class extends Class
+  
+  
+  (method public virtual abstract (allocate-sequence len <int>))
+  
+  
+  (method (coerce-object seq)
+    ;; add List optimisation
+    (let ((len (length seq)))
+      (let ((new-sequence (allocate-sequence len)))
+        (loop (for n from 0 below len)
+              (set-element! new-sequence n (element seq n)))
+        new-sequence)))
+
+
+  (method (new-explorer object rest)
+    (apply new Sequence-Explorer object rest)))
+
+
+(class Sequence metaclass Sequence-Class extends Object
+
+  
+  (method (compare-object seq)
+    (if (is? seq Sequence)
+        (let ((l1 (length self))
+              (l2 (length seq)))
+          (let (iterate (i <fx> 0))
+            (if (or (>= i l1) (>= i l2))
+                (cond ((= l1 l2) :equal)
+                      ((> l1 l2) :greater)
+                      (else      :less))
+              (let ((cmp (compare (element self i) (element seq i))))
+                (if (neq? cmp :equal)
+                    cmp
+                  (iterate (+ i 1)))))))
+      :incompatible))
+  
+  
+  (method (copy-object deep? <bool>)
+    (let* ((subcopy (if deep? (lambda (x) (copy x deep?)) (lambda (x) x)))
+           (len (length self))
+           (new-seq (allocate-sequence~ (class-of self) len)))
+      (let (iterate (i <fx> 0))
+        (if (= i length)
+            new-seq
+          (begin
+            (set-element! new-seq i (subcopy (element self i)))
+            (iterate (+ i 1)))))))
+  
+  
+  (method (iterate-object)
+    (new Sequence-Explorer self))
+  
+
+  @convert
+  (method meta (new-explorer object rest)
+    (apply new Sequence-Explorer object rest))
+
+
+  @convert
+  (method meta public virtual abstract (new-factory))
+
+
+  (method (object-alphabetic?)
+    (every? alphabetic? self))
+
+
+  (method (object-numeric?)
+    (every? numeric? self))
+
+
+  (method (object-alphanumeric?)
+    (every? alphanumeric? self))
+
+
+  (method (object-whitespace?)
+    (every? whitespace? self))
+
+
+  (method (object-upper-case?)
+    (every? upper-case? self))
+
+
+  (method (object-lower-case?)
+    (every? lower-case? self))
+
+
+  (method (object-upcase)
+    (map upcase self))
+
+
+  (method (object-downcase)
+    (map downcase self))
+
+
+  (method (object-capitalize)
+    (let ((break? #t))
+      (map (function dynamic (object)
+             (if (alphanumeric? object)
+                 (if (not break?)
+                     object
+                   (set! break? #f)
+                   (upcase object))
+               (set! break? #t)
+               object))
+           self)))
+  
+  
+  (method public virtual abstract (sequence-element n <fx>))
+  
+  
+  (method public virtual abstract (sequence-set-element! n <fx> obj))
+  
+  
+  (method public virtual abstract (sequence-length))
+  
+  
+  (method public virtual abstract (sequence-tail start))
+  
+  
+  (method public virtual abstract (sequence-last))
+  
+  
+  (method public virtual abstract (sequence-butlast))
+  
+  
+  (method public virtual (sequence-subseq! start <fx> end <fx>)
+    (if (and (= start 0) (= end -1))
+        self
+      (new Subseq self start (- (if (= end -1) (length self) end) start))))
+
+
+  (method public virtual (sequence-replace-subseq! start <fx> end <fx> replacement)
+    (append! (subseq self 0 start)
+             replacement
+             (subseq self end (length self)))))
+
+
+(definition public inline (sequence? seq)
+  (is? seq Sequence))
+
+
+(definition public inline (element seq <Sequence> n <int>)
+  (sequence-element~ seq n))
+
+
+(definition public inline (set-element! seq <Sequence> n <int> obj)
+  (sequence-set-element!~ seq n obj))
+
+
+(definition public inline (length seq <Sequence>) <int>
+  (sequence-length~ seq))
+
+
+(definition public inline (empty? seq)
+  (= 0 (length seq)))
+
+
+(definition public inline (tail seq <Sequence> start)
+  (sequence-tail~ seq start))
+
+
+(definition public inline (last seq <Sequence>)
+  (sequence-last~ seq))
+
+
+(definition public inline (butlast seq <Sequence>)
+  (sequence-butlast~ seq))
+
+
+(definition public (skip-whitespace seq <Sequence>)
+  (let (iterate (i <fx> 0))
+    (cond ((= i (length seq)) i)
+          ((eq? (element seq i) #\space) (iterate (+ i 1)))
+          (else i))))
+
+
+(definition public (subseq seq start (end {}) (type {}))
+  (let* ((len (- (either end (length seq)) start))
+         (cls <Sequence-Class> (either type (class-of seq)))
+         (sub (allocate-sequence~ cls len))
+         (i 0)
+         (j start))
+    (while (< i len)
+      (set-element! sub i (element seq j))
+      (set! i (+ i 1))
+      (set! j (+ j 1)))
+    sub))
+
+
+(definition public inline (replace-subseq! seq <Sequence> start end replacement)
+  (sequence-replace-subseq!~ seq start end replacement))
+
+
+(definition public (subseq! seq <Sequence> start (end (length seq)))
+  (sequence-subseq!~ seq start end))
+
+
+(definition public (sort test seq (key: key {}))
+  (define (sort-list l smaller key)
+    (define (merge-sort l)
+      (define (merge l1 l2)
+        (cond ((null? l1) l2)
+              ((null? l2) l1)
+              (else
+               (let ((e1 (car l1)) (e2 (car l2)))
+                 (if (smaller (apply-key key e1) (apply-key key e2))
+                     (cons e1 (merge (cdr l1) l2))
+                   (cons e2 (merge l1 (cdr l2))))))))
+      
+      (define (split l)
+        (if (or (null? l) (null? (cdr l)))
+            l
+          (cons (car l) (split (cddr l)))))
+      
+      (if (or (null? l) (null? (cdr l)))
+          l
+        (let* ((l1 (merge-sort (split l)))
+               (l2 (merge-sort (split (cdr l)))))
+          (merge l1 l2))))
+    
+    (merge-sort l))
+  
+  (if (or (null? seq) (pair? seq))
+      (sort-list seq test key)
+    (unimplemented 'sort)))
+
+
+(definition public inline (first   seq) (element seq 0))
+(definition public inline (second  seq) (element seq 1))
+(definition public inline (third   seq) (element seq 2))
+(definition public inline (fourth  seq) (element seq 3))
+(definition public inline (fifth   seq) (element seq 4))
+(definition public inline (sixth   seq) (element seq 5))
+(definition public inline (seventh seq) (element seq 6))
+(definition public inline (eighth  seq) (element seq 7))
+(definition public inline (ninth   seq) (element seq 8))
+(definition public inline (tenth   seq) (element seq 9))
+
+(definition public inline (set-first!   seq value) (set-element! seq 0 value))
+(definition public inline (set-second!  seq value) (set-element! seq 1 value))
+(definition public inline (set-third!   seq value) (set-element! seq 2 value))
+(definition public inline (set-fourth!  seq value) (set-element! seq 3 value))
+(definition public inline (set-fifth!   seq value) (set-element! seq 4 value))
+(definition public inline (set-sixth!   seq value) (set-element! seq 5 value))
+(definition public inline (set-seventh! seq value) (set-element! seq 6 value))
+(definition public inline (set-eighth!  seq value) (set-element! seq 7 value))
+(definition public inline (set-ninth!   seq value) (set-element! seq 8 value))
+(definition public inline (set-tenth!   seq value) (set-element! seq 9 value))
+
+
+(definition public inline (element-reversed seq n)
+  (element seq (- (length seq) n 1)))
+
+
+(definition public (for-each proc <procedure> seq . rest)
+  (if (or (null? seq) (pair? seq))
+      (apply scheme.for-each proc seq rest)
+    (loop (for obj iterate seq)
+          (proc obj))))
+
+
+(definition public (map proc <procedure> seq . rest)
+  (if (or (null? seq) (pair? seq))
+      (apply scheme.map proc seq rest)
+    (loop (for obj iterate seq)
+          (collect (proc obj)))))
+
+
+(definition public (map-to type proc <procedure> seq <Object> . rest)
+  (coerce (apply map proc seq rest) type))
+
+
+(definition private inline (apply-key key <Object> object <Object>)
+  (if (not key)
+      object
+    (key object)))
+
+
+(definition private inline (apply-test test <Object> x <Object> y <Object>)
+  (if (not test)
+      (eqv? x y)
+    (test x y)))
+
+
+(definition public (gather iterable <Object> (type: type List))
+  (coerce (loop (for obj iterate iterable)
+                (collect obj))
+          type))
+
+
+(definition public (collect proc <procedure> seq <Object> (key: key {}))
+  (coerce (loop (for obj iterate seq)
+                (with val (proc (apply-key key obj)))
+                (when val
+                  (collect val)))
+          (class-of seq)))
+
+
+(definition public (collect-if predicate <procedure> seq <Object> (key: key {}))
+  (coerce (loop (for obj iterate seq)
+                (when (predicate (apply-key key obj))
+                  (collect obj)))
+          (class-of seq)))
+
+
+(definition public (collect-type type seq <Object> (key: key {}))
+  (coerce (loop (for obj iterate seq)
+                (when (is? (apply-key key obj) type)
+                  (collect obj)))
+          (class-of seq)))
+
+
+(definition public (collect-sections lst (separator: separator {}) (test: test {}))
+  (let ((sections (new List-Factory))
+        (section (new List-Factory)))
+    (for-each (function dynamic (value)
+                (if (apply-test test separator value)
+                    (begin
+                      (put~ sections (get-output~ section))
+                      (reset~ section))
+                  (put~ section value)))
+              lst)
+    (put~ sections (get-output~ section))
+    (get-output~ sections)))
+
+
+(definition public (count target <Object> seq <Object> (key: key {}) (test: test {}))
+  (let ((total 0))
+    (loop (for object iterate seq)
+          (when (apply-test test target (apply-key key object))
+            (increase! total)))
+    total))
+
+
+(definition public (count-if predicate <procedure> seq (key: key {}))
+  (let ((total 0))
+    (loop (for object iterate seq)
+          (when (predicate (apply-key key object))
+            (increase! total)))
+    total))
+
+
+(definition public (count-type type seq <Object> (key: key {}))
+  (let ((total 0))
+    (loop (for object iterate seq)
+          (when (is? (apply-key key object) type)
+            (increase! total)))
+    total))
+
+
+(definition public (find target seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
+      (find-list target seq key test (either start 0) return)
+    (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
+        (find-string target seq)
+      (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
+        (when start
+          (set-position~ iter start))
+        (call/ec
+          (lambda (exit)
+            (with ((proc <procedure>
+                     (function dynamic (object)
+                       (when (apply-test test target (apply-key key object))
+                         (case return
+                           ((item) (exit object))
+                           ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                           (else (error "Unknown return type: {t}" return)))))))
+              (for-each proc iter))
+            {}))))))
+
+
+(definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+  (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq)))
+        (count 0))
+    (when start
+      (set-position~ iter start))
+    (call/ec
+      (lambda (exit)
+        (with ((proc <procedure>
+                 (function dynamic (object)
+                   (cond ((apply-test test open (apply-key key object))
+                          (increase! count))
+                         ((apply-test test close (apply-key key object))
+                          (decrease! count)
+                          (when (< count 0)
+                            (case return
+                              ((item) (exit object))
+                              ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                              (else (error "Unknown return type: {t}" return)))))))))
+          (for-each proc iter))
+        {}))))
+
+
+(definition (find-string target <Object> seq <Object>)
+  (loop (for n from 0 below (length seq))
+        (when (= (element seq n) target)
+          (return n))
+        (finally {})))
+
+
+(definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
+      (find-if-list predicate seq key (either start 0) return)
+    (call/ec
+      (lambda (exit)
+        (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
+          (when start
+            (set-position~ iter start))
+          (with ((proc <procedure>
+                   (function dynamic (object)
+                     (when (predicate (apply-key key object))
+                       (case return
+                         ((item) (exit object))
+                         ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                         (else (error "Unknown return type: {t}" return)))))))
+            (for-each proc iter)))
+        {}))))
+
+
+(definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
+      (find-list target seq key test (either start 0) 'position)
+    (if (and (string? seq) (not start) (not reversed?))
+        (find-string target seq)
+      (call/ec
+        (lambda (exit)
+          (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
+            (when start
+              (set-position~ iter start))
+            (with ((proc <procedure>
+                     (function dynamic (object)
+                       (when (apply-test test target (apply-key key object))
+                         (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
+              (for-each proc iter))
+            {}))))))
+
+
+(definition public (skip predicate <procedure> seq <Object> (key: key {}) (start: start 0))
+  (call/ec
+    (lambda (return)
+      (let ((iter (iterate seq)))
+        (set-position~ iter start)
+        (with ((proc <procedure>
+                 (function dynamic (object)
+                   (when (not (predicate (apply-key key object)))
+                     (return (- (get-position~ iter) 1))))))
+          (for-each proc iter))
+        (get-position~ iter)))))
+
+
+(definition public (some? predicate <procedure> seq <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (when (predicate (apply-key key object))
+                   (return #t)))))
+        (for-each proc (iterate seq)))
+      #f)))
+
+
+(definition public (every? predicate <procedure> seq <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (when (not (predicate (apply-key key object)))
+                   (return #f)))))
+        (for-each proc (iterate seq)))
+      #t)))
+
+
+(definition public (append . rest)
+  (if (null? rest)
+      '()
+    (with ((fact (new List-Factory))
+           (proc
+             (function dynamic (sequence)
+               (put-sequence~ fact sequence))))
+      (let* ((first (car rest))
+             (list? (or (null? first) (pair? first))))
+        (set-pure-list?~ fact list?)
+        (for-each proc rest)
+        (let ((output (get-output~ fact)))
+          (if (not list?)
+              (coerce output (class-of first))
+            output))))))
+
+
+(definition public (subset? set1 set2)
+  (or (null? set1)
+      (every? (function dynamic (element)
+                (memv? element set2))
+              set1)))
+
+
+(definition public (union . rest)
+  (apply-union rest))
+
+
+(definition public (apply-union lst (test: test {}))
+  (if (null? lst)
+      '()
+    (let ((first (car lst))
+          (dst (new List-Factory)))
+      (put-sequence~ dst first)
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (when (not (member? object (get-output~ dst) test: test))
+                   (put~ dst object)))))
+        (for-each (function dynamic (set)
+                    (for-each proc (iterate set)))
+                  (cdr lst)))
+      (coerce (get-output~ dst) (class-of first)))))
+
+
+(definition public (intersection first . rest)
+  (apply-intersection (cons first rest)))
+
+
+(definition public (apply-intersection lst (test: test {}))
+  (when lst
+    (let ((first (car lst))
+          (lst (cdr lst))
+          (dst (new List-Factory)))
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (when (every? (function dynamic (set)
+                                 (member? object set test: test))
+                               lst)
+                   (put~ dst object)))))
+        (for-each proc (iterate first)))
+      (coerce (get-output~ dst) (class-of first)))))
+
+
+(definition public (difference x <Object> y <Object> (test: test eqv?))
+  (if (not y)
+      x
+    (let ((dst (new List-Factory)))
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (when (not (member? object y test: test))
+                   (put~ dst object)))))
+        (for-each proc (iterate x)))
+      (coerce (get-output~ dst) (class-of x)))))
+
+
+(definition public (set-xor x <Object> y <Object> (test: test eqv?))
+  (union (difference x y test: test)
+         (difference y x test: test)))
+
+
+(definition public (remove target <Object> seq <Object> (test: test eqv?))
+  (let ((dst (new List-Factory)))
+    (with ((proc <procedure>
+             (function dynamic (object)
+               (when (not (apply-test test object target))
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
+
+
+(definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
+  (let ((result '())
+        (trailing? #t))
+    (with ((proc <procedure>
+             (function dynamic (element)
+               (unless (and trailing? (apply-test test target element))
+                 (set! result (cons element result))
+                 (set! trailing? #f)))))
+      (for-each proc (reverse list)))
+    result))
+
+
+(definition public (remove-enclosing target <Object> seq <Object> (test: test eqv?))
+  (let* ((start 0)
+         (end (length seq))
+         (head start)
+         (tail end))
+    (while (and (< head end) (apply-test test (element seq head) target))
+      (increase! head))
+    (while (and (> tail head) (apply-test test (element seq (- tail 1)) target))
+      (decrease! tail))
+    (subseq seq head tail)))
+
+
+(definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
+  (let ((dst (new List-Factory)))
+    (with ((proc <procedure>
+             (function dynamic (object)
+               (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
+                 (put~ dst object)))))
+      (for-each proc (iterate seq)))
+    (coerce (get-output~ dst) (class-of seq))))
+
+
+(definition public (remove-nils seq <Object>)
+  (collect-if identity seq))
+
+
+(definition public (trim-spaces seq)
+  (remove-enclosing #\space seq))
+
+
+(definition public (trim-whitespace seq)
+  (remove-enclosing {} seq
+    test: (function (c ignore)
+            (whitespace? c))))
+
+
+(definition public (mismatch target <Object> seq <Object> (test: test =))
+  (call/ec
+    (lambda (return)
+      (let ((srce (iterate seq))
+            (targ (iterate target))
+            (pos 0))
+        (while (not (done?~ srce))
+          (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
+            (return pos))
+          (increase! pos))
+        (if (done?~ targ)
+            {}
+          pos)))))
+
+
+(definition public (prefix sequences <Object>)
+  (if (null? sequences)
+      '()
+    (let ((ref (car sequences))
+          (min <Object> {}))
+      (with ((proc <procedure>
+               (function dynamic (object)
+                 (let ((n (mismatch object ref)))
+                   (when (and n (or (not min) (< n min)))
+                     (set! min n))))))
+        (for-each proc (cdr sequences)))
+      (if (not min)
+          ref
+        (subseq ref 0 min)))))
+
+
+(definition public (prefix? target <Object> seq <Object>)
+  (call/ec
+    (lambda (return)
+      (let ((targ (iterate target))
+            (iter (iterate seq)))
+        (while (and (not (done?~ targ)) (not (done?~ iter)))
+          (when (/= (get-next~ targ) (get-next~ iter))
+            (return #f)))
+        (done?~ targ)))))
+
+
+(definition public (search seq <Sequence> target <Object> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?))
+  (let ((len (length seq))
+        (size (length target))
+        (test (if ignore-case? ci= =)))
+    (define (match-case? pos <fx>) <bool>
+      (let ((to (- size 1)))
+        (let (iterate (i <fx> pos) (j <fx> 0))
+          (cond ((>= i len)
+                 #f)
+                ((not (test (element seq i) (element target j)))
+                 #f)
+                ((>= j to)
+                 #t)
+                (else
+                 (iterate (+ i 1) (+ j 1)))))))
+    
+    (define (match? pos <fx>) <bool>
+      (and (>= pos 0)
+           (match-case? pos)
+           (or (not whole-words?)
+               (let ((before (- pos 1))
+                     (after (+ pos size)))
+                 (if (and (>= before 0)
+                          (constituent-test (element seq before)))
+                     #f
+                   (if (< after len)
+                       (let ((c (element seq after)))
+                         ;; The explicit test for ~ is a kind of patch for the new ~ syntax
+                         (or (eqv? c #\~)
+                             (not (constituent-test (element seq after)))))
+                     #t))))))
+    
+    (define (find-backward pos <fx>) <fx+>
+      (let (iterate (pos <fx> pos))
+        (cond ((match? (- pos size))
+               (- pos size))
+              ((<= pos 0)
+               {})
+              (else
+               (iterate (- pos 1))))))
+    
+    (define (find-forward pos <fx>) <fx+>
+      (let ((last (- len size)))
+        (let (iterate (pos <fx> pos))
+          (cond ((match? pos)
+                 pos)
+                ((>= pos last)
+                 {})
+                (else
+                 (iterate (+ pos 1)))))))
+    
+    (let ((pos (either start (if reverse? len 0)))
+          (find (if reverse? find-backward find-forward))
+          (move (if reverse? - +)))
+      (if (not all?)
+          (find pos)
+        (let ((queue (new-queue)))
+          (let (iterate (pos <fx> pos))
+            (let ((found (find pos)))
+              (if found
+                  (begin
+                    (enqueue queue found)
+                    (iterate (move found size)))
+                (queue-list queue)))))))))
+
+
+(definition public (multisearch seq <Sequence> targets <list> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (extended?: extended? #f) (constituent-test: constituent-test word-constituent?))
+  (if (> (length targets) 1)
+      (error "Multisearch is not yet implemented for more than one target")
+    (if extended?
+        (error "Extended multisearch is not yet implemented")
+      (let ((found (search seq (car targets) start: start reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? all?: all? constituent-test: constituent-test)))
+        (if found
+            (cons found (car targets))
+          #f)))))
+
+
+(definition public (split seq <Object> separator <Object>)
+  (cond ((zero? (length seq))
+         (list seq))
+        ((closure? separator)
+         (let ((previous 0)
+               (result (new List-Factory))
+               (done? #f))
+           (while (not done?)
+             (let ((pos (find-if separator seq start: previous return: 'position)))
+               (if (not pos)
+                   (set! done? #t)
+                 (put~ result (subseq seq previous pos))
+                 (set! previous (+ pos 1)))))
+           (put~ result (subseq seq previous))
+           (get-output~ result)))
+        (else
+         (let ((previous 0)
+               (incr (length separator))
+               (result (new List-Factory)))
+           (let (iterate)
+             (let ((pos (search seq separator start: previous)))
+               (when pos
+                 (put~ result (subseq seq previous pos))
+                 (set! previous (+ pos incr))
+                 (iterate))))
+           (put~ result (subseq seq previous))
+           (get-output~ result)))))
+
+
+(definition public (split-justified seq <Object> width separators <Object> (column: column 0))
+  (let ((pos 0)
+        (size (length seq))
+        (result (new List-Factory))
+        (done? #f))
+    (while (not done?)
+      (let ((effective-width (- width column)))
+        (if (<= (- size pos) effective-width)
+            (begin
+              (put~ result (subseq seq pos))
+              (set! done? #t))
+          (put~ result (subseq seq pos (+ pos effective-width)))
+          (set! column 0)
+          (increase! pos effective-width))))
+    (get-output~ result)))
+
+
+(definition public (join sequences <Object> separator <Object>)
+  (cond ((null? sequences)
+         '())
+        ((null? (cdr sequences))
+         (car sequences))
+        (else
+         (let ((dst (new List-Factory)))
+           (put~ dst (car sequences))
+           (with ((proc <procedure>
+                    (function dynamic (seq)
+                      (put~ dst separator)
+                      (put~ dst seq))))
+             (for-each proc (cdr sequences)))
+           (apply append (get-output~ dst))))))
+
+
+(definition public (inject sequence inserted)
+  (let ((fact (new List-Factory))
+        (first? #t))
+    (for-each (function dynamic (element)
+                (if first?
+                    (set! first? #f)
+                  (put-sequence~ fact inserted))
+                (put~ fact element))
+              sequence)
+    (get-output~ fact)))
+
+
+(definition public (substitute old-value <Object> new-value <Object> seq <Object> (key: key {}) (test: test {}) (sequence?: sequence? #f))
+  (let ((src (iterate seq))
+        (dst (new List-Factory)))
+    (while (not (done?~ src))
+      (let ((object (get-next~ src)))
+        (if (apply-test test old-value (apply-key key object))
+            (if (not sequence?)
+                (put~ dst new-value)
+              (put-sequence~ dst new-value))
+          (put~ dst object))))
+    (coerce (get-output~ dst) (class-of seq))))
+
+
+(definition public (substitute-alist replacements <Object> seq <Object> (key: key {}) (test: test {}))
+  (let ((src (iterate seq))
+        (dst (new List-Factory)))
+    (while (not (done?~ src))
+      (let ((object (get-next~ src))
+            (found? #f))
+        (for-each (function dynamic (replacement)
+                    (unless found?
+                      (bind (old . new) replacement
+                        (when (apply-test test old (apply-key key object))
+                          (put-sequence~ dst new)
+                          (set! found? #t)))))
+                  replacements)
+        (unless found?
+          (put~ dst object))))
+    (coerce (get-output~ dst) (class-of seq))))
+
+
+(definition public (fill! seq object (start: start {}))
+  (let ((src (iterate seq)))
+    (when start
+      (set-position~ src start))
+    (while (not (done?~ src))
+      (put~ src object)
+      (next~ src)))
+  seq)
+
+
+(definition public (replace! seq replacement (start: start {}))
+  (let ((src (iterate seq))
+        (rep (iterate replacement)))
+    (when start
+      (set-position~ src start))
+    (while (and (not (done?~ src)) (not (done?~ rep)))
+      (put~ src (get-next~ rep))
+      (next~ src)))
+  seq)
+
+
+(definition public (ordered-position object seq (key: key {}) (test: test <=))
+  (find object seq key: key test: test return: 'position))
+
+
+(definition public (insert-ordered! object seq (key: key {}) (test: test <=))
+  (let ((n (ordered-position object seq key: key test: test)))
+    (insert! object seq (either n (length seq)))))
+
+
+(definition public (merge-ordered proc x y (key: key {}) (left-key: left-key key) (right-key: right-key key) (test: test {}) (case-insensitive?: case-insensitive? #f))
+  (let ((ix (iterate x))
+        (iy (iterate y))
+        (compare-proc (either test (if case-insensitive? ci-compare compare))))
+    (while (and (not (done?~ ix)) (not (done?~ iy)))
+      (let* ((ex (peek~ ix))
+             (ey (peek~ iy))
+             (kx (apply-key left-key ex))
+             (ky (apply-key right-key ey)))
+        (case (compare-proc kx ky)
+          ((:equal)   (proc :same kx ex ey)
+           (next~ ix)
+           (next~ iy))
+          ((:less)    (proc :left kx ex {})
+           (next~ ix))
+          ((:greater) (proc :right ky {} ey)
+           (next~ iy))
+          (else       (error "Unable to compare {t} and {t}" kx ky)))))
+    (while (not (done?~ ix))
+      (let ((expr (get-next~ ix)))
+        (proc :left (apply-key left-key expr) expr {})))
+    (while (not (done?~ iy))
+      (let ((expr (get-next~ iy)))
+        (proc :right (apply-key right-key expr) {} expr)))))
+
+
+(definition public (merge proc lists (key: key {}) (compare: compare compare))
+  (let ((scan (copy lists)))
+    (while (some? identity scan)
+      (let* ((min (minimum (map car (remove-nils scan)) key: key :compare compare))
+             (min-key (apply-key key min))
+             (res (new List-Factory)))
+        (for-each-pair (function dynamic (pair)
+                         (let* ((list (car pair))
+                                (object (car list)))
+                           (if (or (not object)
+                                   (neq? (compare (apply-key key object) min-key) :equal))
+                               (put~ res {})
+                             (put~ res object)
+                             (set-car! pair (cdr list)))))
+                       scan)
+        (proc min-key (get-output~ res))))))
+
+
+(definition public (random-element seq)
+  (element seq (random (length seq))))
+
+
+(definition public (partition sequence (key: key identity) (test: test {}))
+  (let ((result '()))
+    (with ((proc <procedure>
+             (function dynamic (element)
+               (let* ((category (key element))
+                      (pair (assoc category result test: test)))
+                 (if (not pair)
+                     (set! result (cons (cons category (list element)) result))
+                   (set-cdr! pair (cons element (cdr pair))))))))
+      (for-each proc sequence))
+    (reverse! (map (function dynamic (partition)
+                     (bind (key . elements) partition
+                       (cons key (reverse! elements))))
+                   result))))
+
+
+(definition public (partition-binary lst predicate)
+  (let ((yes '())
+        (no '()))
+    (for-each (function dynamic (elem)
+                (if (predicate elem)
+                    (set! yes (cons elem yes))
+                  (set! no (cons elem no))))
+              lst)
+    (values yes no)))
+
+
+(definition (starts-with? string target (test: test equal?))
+  (let ((str (length string))
+        (trg (length target)))
+    (and (>= str trg)
+         (test (subseq string 0 trg) target))))
+
+
+(definition (ends-with? string target (test: test =))
+  (let ((str (length string))
+        (trg (length target)))
+    (and (>= str trg)
+         (test (subseq! string (- str trg)) target))))
+
+
+;; pickpick impl.
+(definition (for-each-reversed proc lst)
+  (for-each proc (reverse lst)))
+
+
+(definition (find-list target list key test start returned)
+  (let ((key (if (not key) (lambda (x) x) key))
+        (test (if (not test) eqv? test)))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
+       (cond ((null? rest) {})
+             ((test target (key (car rest)))
+              (cond ((eq? returned 'position) rank)
+                    ((eq? returned 'item) (car rest))
+                    (else (error "Unknown return type {t}" returned))))
+             (else
+              (iterate (cdr rest) (+ rank 1)))))))
+         
+       
+(definition (find-if-list predicate list key start returned)
+  (let ((key (if (not key) (lambda (x) x) key)))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
+       (cond ((null? rest) {})
+             ((predicate (key (car rest)))
+              (cond ((eq? returned 'position) rank)
+                    ((eq? returned 'item) (car rest))
+                    (else (error "Unknown return type {t}" returned))))
+             (else
+              (iterate (cdr rest) (+ rank 1)))))))
+
+
+(definition public inline (insert-sequence! sequence seq pos)
+  (replace-subseq! sequence pos pos seq))
+
+
+;;;
+;;;; Sequence-Explorer
+;;;
+
+
+(class Sequence-Explorer extends Explorer
+
+
+  (slot sequence <Sequence>)
+  (slot sequence-length <fx>)
+  (slot current <fx>)
+
+
+  (method (initialize seq (direction: direction 'forward) (start: start {}))
+    (nextmethod)
+    (set! sequence seq)
+    (set! sequence-length (length sequence))
+    (set-direction direction)
+    (if (not start)
+        (case direction
+          ((forward)  (goto-beginning))
+          ((backward) (goto-end)))
+      (set! current start)))
+
+
+  (method (peek-forward)
+    (element sequence current))
+
+
+  (method (peek-backward)
+    (element sequence (- current 1)))
+
+
+  (method (goto-beginning)
+    (set! current 0))
+
+
+  (method (goto-end)
+    (set! current sequence-length))
+
+
+  (method (forward)
+    (increase! current 1))
+
+
+  (method (backward)
+    (decrease! current 1))
+
+
+  (method (done-forward?)
+    (>= current sequence-length))
+
+
+  (method (done-backward?)
+    (= current 0))
+
+
+  (method (put-forward object <Object>)
+    (set-element! sequence current object))
+
+
+  (method (put-backward object <Object>)
+    (set-element! sequence (- current 1) object))
+
+
+  (method (get-position)
+    current)
+
+
+  (method (set-position pos <fx>)
+    (set! current (between 0 pos sequence-length)))
+
+
+  (method (get-state)
+    current)
+
+
+  (method (reset-state state <fx>)
+    (set! current state)))
+
+
+;;;
+;;;; Sequence-Factory
+;;;
+
+
+(class Sequence-Factory extends Factory
+
+
+  (slot sequence)
+  (slot sequence-length)
+  (slot current)
+
+
+  (method (initialize seq)
+    (nextmethod)
+    (set! sequence seq)
+    (set! sequence-length (length seq))
+    (set! current 0))
+
+
+  (method (put value)
+    (set-element! sequence current value)
+    (set! current (+ current 1)))
+
+
+  (method (get-output)
+    sequence))
+
+
+;;;
+;;;; List
+;;;
+
+
+(class List-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (make-list len)))
+
+
+(class List metaclass List-Class extends Sequence
+  
+  
+  (method (initialize . rest)
+    (native-class "lists"))
+  
+  
+  (method (print output detail)
+    (write self output))
+
+
+  (method (compare-object obj)
+    (if (equal? self obj)
+        :equal
+      :not-equal))
+  
+  
+  (method (copy-object deep?)
+    (map (lambda (x)
+           (if deep?
+               (copy x deep?)
+             x))
+         self))
+  
+  
+  (method (iterate-object)
+    (new List-Iterator self))
+  
+  
+  (method (sequence-element n)
+    (list-ref self n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (list-set! self n obj))
+  
+  
+  (method (sequence-length)
+    (scheme.length self))
+  
+  
+  (method (sequence-tail n)
+    (if (or (null? self) (= n 0))
+        self
+      (tail (cdr self) (- n 1))))
+  
+  
+  (method (sequence-last)
+    (if (null? (cdr self))
+        (car self)
+      (last (cdr self))))
+  
+  
+  (method (sequence-butlast)
+    (if (or (null? self) (null? (cdr self)))
+        '()
+      (cons (car self) (butlast (cdr self)))))
+  
+  
+  (method (sequence-subseq! start end)
+    (if (or (= start 0) (= end -1))
+        self
+      (subseq self start end)))
+  
+  
+  (method (replace-subseq! start end seq)
+    (if (= start 0)
+        (begin
+          (set-cdr! (last-tail seq) (tail self end))
+          seq)
+      (let* ((before (tail self (- start 1)))
+             (after  (tail before (+ (- end start) 1))))
+        (set-cdr! before seq)
+        (set-cdr! (last-tail before) after)
+        self))))
+
+
+(class Null-Class extends List-Class)
+
+
+(class Null metaclass Null-Class extends List)
+
+
+(class Pair-Class extends List-Class)
+
+
+(class Pair metaclass Pair-Class extends List
+  
+  
+  (method (marshal)
+    (cons (marshal~ (car self))
+          (marshal~ (cdr self))))
+  
+  
+  (method (unmarshal)
+    (cons (unmarshal~ (car self))
+          (unmarshal~ (cdr self)))))
+
+
+(definition public inline (insert! obj seq pos)
+  (insert-sequence! seq (list obj) pos))
+
+
+@old-definition
+(definition (insert! obj lst pos)
+  (if (= 0 pos)
+      (cons obj lst)
+    (let (iterate (i 1) (prev lst) (rst (cdr lst)))
+      (cond ((null? rst) lst)
+            ((= i pos)
+             (set-cdr! prev (cons obj rst))
+             lst)
+            (else
+             (iterate (+ i 1) rst (cdr rst)))))))
+
+
+(definition public (last-tail lst)
+  (if (null? lst)
+      lst
+    (let (iterate (cur lst))
+      (if (pair? (cdr cur))
+          (iterate (cdr cur))
+        cur))))
+
+
+(definition public (make-list n . rest)
+  (let ((fill (if (null? rest) #f (car rest)))
+        (list '()))
+    (while (> n 0)
+      (set! list (cons fill list))
+      (set! n (- n 1)))
+    list))
+
+
+(definition public inline (list-set! list n value)
+  (set-car! (list-tail list n) value))
+
+
+(definition public inline (set-cadr! pair value)
+  (set-car! (cdr pair) value))
+
+
+(definition public (append! . rest)
+  (if (or (null? (car rest)) (pair? (car rest)))
+      (let ((queue (new-queue)))
+        (for-each (function (lst)
+                    (enqueue-list queue lst))
+                  rest)
+        (queue-list queue))
+    (apply append rest)))
+
+
+(definition public (position element lst)
+  (letrec ((position
+             (function (lst pos)
+               (cond ((null? lst)
+                      #f)
+                     ((eqv? (car lst) element)
+                      pos)
+                     (else
+                      (position (cdr lst) (+ pos 1)))))))
+    (position lst 0)))
+
+
+(definition public (copy-tree tree)
+  (if (pair? tree)
+      (cons (copy-tree (car tree))
+            (copy-tree (cdr tree)))
+    tree))
+
+
+(definition public (position-of obj lst)
+  (let (iterate (rst lst) (i <fx> 0))
+    (if (null? rst)
+        {}
+      (if (eq? obj (car rst))
+          i
+        (iterate (cdr rst) (+ i 1))))))
+
+           
+(definition (proper-list? lst)
+  (cond ((null? lst) #t)
+        ((not (pair? lst)) #f)
+        (else (proper-list? (cdr lst)))))
+
+
+(definition (last-cdr lst)
+  (if (pair? lst)
+      (last-cdr (cdr lst))
+    lst))
+
+
+(definition (but-last-cdr lst)
+  (if (pair? lst)
+      (cons (car lst) (but-last-cdr (cdr lst)))
+    '()))
+
+
+(definition (move-to-head! target lst)
+  (if (or (null? lst) (eq? target (car lst)))
+      lst
+    (let (iterate (previous lst) (scan (cdr lst)))
+      (cond ((null? scan) lst)
+            ((eq? (car scan) target)
+             (set-cdr! previous (cdr scan))
+             (cons target lst))
+            (else (iterate scan (cdr scan)))))))
+
+      
+(definition (move-to-tail! target lst)
+  (cond ((null? lst) lst)
+        ((eq? (car lst) target)
+         (set-cdr! (last-tail lst) (cons target '()))
+         (cdr lst))
+        (else
+         (let (iterate (previous lst) (scan (cdr lst)))
+           (cond ((null? scan) lst)
+                 ((eq? (car scan) target)
+                  (if (null? (cdr scan))
+                      lst
+                    (begin
+                      (set-cdr! previous (cdr scan))
+                      (set-cdr! (last-tail scan) (cons target '()))
+                      lst)))
+                 (else
+                  (iterate scan (cdr scan))))))))
+
+
+(definition public (augment . rest)
+  (let ((fact (new List-Factory))
+        (scan rest))
+    (while (not-null? scan)
+      (if (null? (cdr scan))
+          (put-sequence~ fact (car scan))
+        (put~ fact (car scan)))
+      (set! scan (cdr scan)))
+    (get-output~ fact)))
+
+
+(definition public inline (memq? target <Object> list <Object>)
+  (boolean (memq target list)))
+
+
+(definition public inline (memv? target <Object> list <Object>)
+  (boolean (memv target list)))
+
+
+(definition public (member? target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (cond ((null? scan)
+           #f)
+          ((apply-test test target (apply-key key (car scan)))
+           #t)
+          (else
+           (iterate (cdr scan))))))
+
+
+(definition public (assoc target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (if (null? scan)
+        #f
+      (let ((pair (car scan)))
+        (if (apply-test test target (apply-key key (car pair)))
+            pair
+          (iterate (cdr scan)))))))
+
+
+(definition public (rassoc target <Object> list <Object> (key: key {}) (test: test equal?))
+  (let (iterate (scan list))
+    (if (null? scan)
+        #f
+      (let ((pair (car scan)))
+        (if (apply-test test target (apply-key key (cdr pair)))
+            pair
+          (iterate (cdr scan)))))))
+
+
+(definition public (find-pair target <Object> list <Object>)
+  (let (iterate (scan list))
+    (cond ((null? scan)
+           #f)
+          ((eq? target (car scan))
+           scan)
+          (else
+           (iterate (cdr scan))))))
+
+
+(definition public (reverse! list <Object>)
+  (let ((res <Object> '())
+        (ptr <Object> '()))
+    (while (not-null? list)
+      (set! ptr (cdr list))
+      (set-cdr! list res)
+      (set! res list)
+      (set! list ptr))
+    res))
+
+
+(definition public (remove! target <Object> list <Object> (key: key {}) (test: test eqv?))
+  (while (and (not-null? list) (test target (apply-key key (car list))))
+    (set! list (cdr list)))
+  (if (null? list)
+      '()
+    (let ((previous list)
+          (scan (cdr list)))
+      (while (not-null? scan)
+        (if (test target (apply-key key (car scan)))
+            (begin
+              (set! scan (cdr scan))
+              (set-cdr! previous scan))
+          (set! previous scan)
+          (set! scan (cdr scan)))))
+    list))
+
+
+(definition public (getprop plist <Object> target <Object> (key: key {}))
+  (call/ec
+    (lambda (return)
+      (let ((scan plist))
+        (while (not-null? scan)
+          (when (eqv? (apply-key key (car scan)) target)
+            (return scan))
+          (set! scan (cdr scan))
+          (when (not (pair? scan))
+            (error "Badly structured property list: {t}" plist))
+          (set! scan (cdr scan))))
+      #f)))
+
+
+(definition public (getf plist <Object> target <Object> (key: key {}) (not-found: not-found {}))
+  (let ((pair (getprop plist target key: key)))
+    (if (not pair)
+        not-found
+      (cadr pair))))
+
+
+(definition public (setf plist <Object> target <Object> value <Object>)
+  (set-second! (getprop plist target) value))
+
+
+(definition public (addf plist <Object> target <Object> value <Object>)
+  (let ((pair (getprop plist target)))
+    (if (not pair)
+        (append! plist (list target value))
+      (set-second! pair value)
+      plist)))
+
+
+(definition public (for-each-pair proc lst)
+  (while (not-null? lst)
+    (proc lst)
+    (set! lst (cdr lst))))
+
+
+(definition public (for-each-property proc lst)
+  (while (not-null? lst)
+    (proc (car lst) (cadr lst))
+    (set! lst (cddr lst))))
+
+
+(definition public (map-property proc lst)
+  (let ((queue (new-queue)))
+    (for-each-property (function (property value)
+                         (enqueue queue (proc property value)))
+                       lst)
+    (queue-list queue)))
+
+
+(definition public (flatten llist)
+  (apply append llist))
+
+
+(definition public (uniform lst (key: key {}) (test: test {}))
+  (when lst
+    (call/ec
+      (lambda (return)
+        (let ((first (apply-key key (car lst))))
+          (for-each (function dynamic (object)
+                      (let ((value (apply-key key object)))
+                        (unless (apply-test test first value)
+                          (return {}))))
+                    (cdr lst))
+          first)))))
+
+
+(definition public (sort-property-list prop-list <Object>)
+  (let* ((factory (new List-Factory))
+         (proc    (function dynamic (property value)
+                    (put~ factory (list property value))))
+         (alist   (begin
+                    (for-each-property proc prop-list)
+                    (get-output~ factory)))
+         (sorted  (sort < alist key: car)))
+    (apply append sorted)))
+
+
+;;;
+;;;; List-Iterator
+;;;
+
+
+(class List-Iterator extends Iterator
+
+
+  (slot current)
+  (slot position)
+
+
+  (method (initialize list)
+    (nextmethod)
+    (set! current list)
+    (set! position 0))
+
+
+  (method (get-next!)
+    (if (null? current)
+        (eof-object)
+      (prog1 (car current)
+        (set! current (cdr current))
+        (set! position (+ position 1)))))
+
+
+  (method (done?)
+    (and (null? current) (eq? peeked Empty)))
+
+
+  (method (put object)
+    (set-car! current object))
+
+
+  (method (get-position)
+    position)
+
+
+  (method (set-position pos)
+    (let ((delta (- pos position)))
+      (cond ((< delta 0) (error "List iterators cannot move backward"))
+            ((> delta 0)
+             (set! position pos)
+             (set! current (tail current delta))))))
+
+
+  (method (get-state)
+    (cons current position))
+
+
+  (method (reset-state state)
+    (set! current (car state))
+    (set! position (cdr state)))
+  
+  
+  (method public (get-list)
+    current))
+
+
+;;;
+;;;; List-Factory
+;;;
+
+
+(class List-Factory extends Factory
+
+
+  (slot list              initialize '())
+  (slot last-list         initialize {})
+  (slot last-anchor       initialize {})
+  (slot current           initialize '())
+  (slot size       <fx>   initialize 0)
+  (slot pure-list? <bool> initialize #f)
+
+
+  (method (put object <Object>)
+    (cond ((null? current)
+           (set! current (cons object current))
+           (set! list current))
+          (else
+           (when last-list
+             (copy-last-list))
+           (set-cdr! current (cons object '()))
+           (set! current (cdr current))))
+    (prog1 size
+      (increase! size)))
+
+
+  (method (put-unique object (test: test eqv?))
+    (unless (member? object list test: test)
+      (put object)))
+
+
+  (method (put-sequence seq <Object>)
+    (when seq
+      (if (not (pair? seq))
+          (nextmethod seq)
+        (cond ((null? current)
+               (set! current seq)
+               (set! last-list seq)
+               (set! list seq))
+              (else
+               (when last-list
+                 (copy-last-list))
+               (set! last-list seq)
+               (set! last-anchor current)
+               (set-cdr! current seq))))
+      (prog1 size
+        (increase! size (length seq)))))
+
+
+  (method (put-sequence! seq <Object>)
+    (put-sequence seq))
+  
+  
+  (method public (is-empty?)
+    (null? current))
+  
+  
+  (method public (get-size)
+    size)
+
+
+  (method public (get-list)
+    list)
+  
+  
+  (method public (get-last-element)
+    (car current))
+
+
+  (method public (get-pure-list?)
+    pure-list?)
+
+
+  (method public (set-pure-list? value)
+    (set! pure-list? value))
+
+
+  (method (get-output)
+    list)
+
+
+  (method public (reset)
+    (set! list '())
+    (set! last-list {})
+    (set! last-anchor {})
+    (set! current '())
+    (set! size 0))
+
+
+  (method private (copy-last-list)
+    (cond ((not last-anchor)
+           (set! list (copy last-list))
+           (set! current (last-tail list)))
+          (else
+           (set-cdr! last-anchor (copy last-list))
+           (set! current (last-tail last-anchor))))
+    (set! last-list {})
+    (set! last-anchor {})))
+
+
+;;;
+;;;; Hashtable
+;;;
+
+
+(class Hashtable-Class extends Class)
+
+
+(class Hashtable metaclass Hashtable-Class extends Object
+  
+  
+  (method (initialize . rest)
+    (native-class "hashtables"))
+
+
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function dynamic (printer)
+        (format printer "{a} entries"
+                (hashtable-length self)))))
+  
+  
+  (method (iterate-object)
+    (unimplemented 'iterate-object))
+  
+  
+  (method public (gather-keys)
+    (let ((list '()))
+      (for-each-hash (function dynamic (key value)
+                       (set! list (cons key list)))
+                     self)
+      list))
+  
+  
+  (method public (gather-values)
+    (let ((list '()))
+      (for-each-hash (function dynamic (key value)
+                       (set! list (cons value list)))
+                     self)
+      list))
+  
+  
+  (method public (gather-keys/values)
+    (let ((list '()))
+      (for-each-hash (function dynamic (key value)
+                       (set! list (cons (cons key value) list)))
+                     self)
+      list)))
+
+
+(definition public (new-hashtable test (hash {}))
+  (make-hashtable test (either hash #f)))
+
+
+(definition public (hash-ref hashtable key (default {}))
+  (hashtable-ref hashtable key default))
+
+
+(definition public (hash-set! hashtable key value)
+  (hashtable-set! hashtable key value))
+
+
+(definition public (hash-add hashtable key value)
+  (hash-set! hashtable key (cons value (hash-ref hashtable key '()))))
+
+
+(definition public (hash-remove! hashtable <Hashtable> name <Object> value <Object>)
+  (hash-set! hashtable name (remove! value (hash-ref hashtable name))))
+
+
+(definition public (for-each-hash proc <procedure> hashtable <Hashtable>)
+  (iterate-hashtable hashtable proc))
+
+
+(definition hash-clear hashtable-clear)
+
+
+(definition (empty-hashtable hashtable)
+  (unimplemented 'empty-hashtable))
+
+
+(definition public (load-hashtable hashtable file error-on-duplicates?)
+  (with-closed ((reader (new File-Reader file)))
+    (let (iterate)
+      (let ((name (read reader))
+            (object (read reader)))
+        (when (and (not (eof-object? name))
+                   (not (eof-object? object)))
+          (if (and error-on-duplicates? (hashtable-ref hashtable name #f))
+              (error "Duplicated hashtable entries for {t}" name)
+            (hashtable-set! hashtable name object))
+          (iterate))))))
+
+
+;;;
+;;;; Map
+;;;
+
+
+(class Map extends Object
+  
+  
+  (method (iterate-object)
+    (iterate-hashtable self))
+  
+  
+  @convert
+  (method public (gather-keys)
+    (let ((list '()))
+      (for-each-map (function dynamic (key value)
+                      (set! list (cons key list)))
+                    self)
+      list))
+  
+  
+  @convert
+  (method public (gather-keys/values)
+    (let ((list '()))
+      (for-each-map (function dynamic (key value)
+                      (set! list (cons (cons key value) list)))
+                    self)
+      list)))
+
+
+(definition new-map new-hashtable)
+(definition map-ref hashtable-ref)
+(definition map-set! hashtable-set!)
+(definition (map-clear map sym)
+  (map-set! map sym))
+
+(definition map-length hashtable-length)
+       
+(definition (empty-map map)
+  (let ((keys (hashtable-keys map)))
+    (for-each (lambda (k) (map-set! map k)) keys)))
+
+(definition (load-map map)
+  (unimplemented 'load-map))
+
+
+(definition public (for-each-map proc <procedure> map <Map>)
+  (for-each-hash proc map))
+
+
+;;;
+;;;; Cell
+;;;
+
+
+(class Cell extends Numeric
+  
+  
+  (slot public row <fx> accessors generate)
+  (slot public col <fx> accessors generate)
+    
+    
+  (method (initialize r c)
+    (nextmethod)
+    (set! row r)
+    (set! col c))
+  
+  
+  (method (copy-object deep?)
+    (new Cell row col))
+
+
+  (method (compare-object target)
+    (if (is-not? target Cell)
+        :incompatible
+      (let ((compared (compare row (get-row~ target))))
+        (if (/= compared :equal)
+            compared
+          (compare col (get-col~ target))))))
+  
+  
+  (method (fold-literal)
+    `(new Cell ',row ',col))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a}}"
+            (identifier-name (type-name (class-of self)))
+            row
+            col))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (increase-row (delta <fx> 1))
+    (set! row (+ row delta)))
+  
+  
+  (method public (increase-col (delta <fx> 1))
+    (set! col (+ col delta)))
+
+
+  ;;;
+  ;;;; Numeric
+  ;;;
+
+
+  (method (negate)
+    (new Cell (- row) (- col)))
+
+
+  (method (add n)
+    (cond ((is? n Cell) (new Cell (+ row (get-row~ n)) (+ col (get-col~ n))))
+          ((integer? n) (new Cell row (+ col n)))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (inverse)
+    (error "Cannot inverse {t}" self))
+
+
+  (method (multiply n)
+    (if (integer? n)
+        (new Cell (* row n) (* col n))
+      (error "Cannot multiply {t} to {t}" n self))))
+
+
+(definition =CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (and (= (get-row~ c1) (get-row~ c2))
+         (= (get-col~ c1) (get-col~ c2)))))
+
+
+(definition <CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (< r1 r2)
+          (and (= r1 r2)
+               (< (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition <=CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (< r1 r2)
+          (and (= r1 r2)
+               (<= (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition >CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (> r1 r2)
+          (and (= r1 r2)
+               (> (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition >=CellCell <Cell^Cell:bool>
+  (lambda (c1 <Cell> c2 <Cell>) <bool>
+    (let ((r1 (get-row~ c1))
+          (r2 (get-row~ c2)))
+      (or (> r1 r2)
+          (and (= r1 r2)
+               (>= (get-col~ c1) (get-col~ c2)))))))
+
+
+(definition +CellFixnum <Cell^fx:Cell>
+  (lambda (c <Cell> n <fx>) <Cell>
+    (new Cell
+      (get-row~ c)
+      (+ (get-col~ c) n))))
+
+
+(definition +CellCell <Cell^Cell:Cell>
+  (lambda (c1 <Cell> c2 <Cell>) <Cell>
+    (new Cell
+      (+ (get-row~ c1) (get-row~ c2))
+      (+ (get-col~ c1) (get-col~ c2)))))
+
+
+(definition -CellFixnum <Cell^fx:Cell>
+  (lambda (c <Cell> n <fx>) <Cell>
+    (new Cell
+      (get-row~ c)
+      (- (get-col~ c) n))))
+
+
+(definition -CellCell <Cell^Cell:Cell>
+  (lambda (c1 <Cell> c2 <Cell>) <Cell>
+    (new Cell
+      (- (get-row~ c1) (get-row~ c2))
+      (- (get-col~ c1) (get-col~ c2)))))
+
+
+;;;
+;;;; Input
+;;;
+
+
+(definition (input-port obj)
+  (if (is? obj Reader)
+      (get-port~ obj)
+    obj))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(definition (output-port obj)
+  (if (not obj)
+      (current-output-port)
+    (if (is? obj Printer)
+        (get-port~ obj)
+      obj)))
+
+
+(definition public (print-unreadable object output proc)
+  (let* ((class-name (identifier-name (get-name~ (class-of object))))
+         (string (let ((output (open-output-string)))
+                   (proc output)
+                   (get-output-string output)))
+         (spacer (if (empty-string? string) "" " "))
+         (number (object->serial-number object)))
+    (format output "~{@{a}{a}{a} #{a}}" class-name spacer string number)))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition Active-Process
+  {})
+
+(definition Process-Active?
+  #f)
+
+
+(definition public (get-process)
+  Active-Process)
+
+
+(definition public (get-application)
+  Active-Process)
+
+
+(definition (set-process process)
+  (set! Active-Process process))
+
+
+(definition (set-application application)
+  (set! Active-Process application))
+
+
+(definition (activate-process)
+  (set! Process-Active? #f))
+
+
+(definition (process-active?)
+  Process-Active?)
+
+
+(definition Active-Workbench
+  {})
+
+
+(definition (get-workbench)
+  Active-Workbench)
+
+
+(definition (set-workbench workbench)
+  (set! Active-Workbench workbench))
+
+
+;;;
+;;;; Slot
+;;;
+
+
+(class Slot extends Field
+  
+  
+  (slot rank       accessors generate)
+  (slot initialize accessors generate))
+
+
+;;;
+;;;; Property
+;;;
+
+
+(class Property extends Slot
+  
+  
+  (slot getter accessors generate)
+  (slot setter accessors generate))
+
+
+(definition public inline (property? obj)
+  (is? obj Property))
+
+
+(definition public (symbolize-property property <Object>)
+  (cond ((field? property) (get-name~ property))
+        ((keyword? property) (keyword->symbol property))
+        (else property)))
+
+
+(definition public (symbolize-properties properties <Object>)
+  (let ((fact (new List-Factory)))
+    (with ((proc <procedure>
+             (function dynamic (property value)
+               (put~ fact (symbolize-property property))
+               (put~ fact value))))
+      (for-each-property proc properties))
+    (get-output~ fact)))
+
+
+(definition public (keywordize-property property <Object>)
+  (cond ((field? property) (symbol->keyword (field-name property)))
+        ((keyword? property) property)
+        (else (symbol->keyword property))))
+
+
+(definition public (keywordize-properties properties <Object>)
+  (let ((fact (new List-Factory)))
+    (with ((proc <procedure>
+             (function dynamic (property value)
+               (put~ fact (keywordize-property property))
+               (put~ fact value))))
+      (for-each-property proc properties))
+    (get-output~ fact)))
+
+
+(definition public (read-property object <Object> expr <Object>)
+  (let ((getter (property-getter (property-field object expr))))
+    (getter object)))
+
+
+(definition public (write-property object <Object> expr <Object> value <Object>)
+  (let ((setter (property-setter (property-field object expr))))
+    (setter object value)))
+
+
+(definition public (property-field object <Object> expr <Object>)
+  (if (property? expr)
+      expr
+    (let ((field (category-field (class-of object) (if (keyword? expr) (keyword->symbol expr) expr))))
+      (if (property? field)
+          field
+        (error "Unknown property: {t}" expr)))))
+
+
+;;;
+;;;; Reader
+;;;
+
+
+(class Reader extends Object
+  
+  
+  (slot port getter generate))
+
+
+(definition public (read . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.read (input-port port))))
+
+
+(definition public (read-char . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.read-char (input-port port))))
+
+
+(definition public (peek-char . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.peek-char (input-port port))))
+
+
+(definition public (read-until test reader)
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (let ((expr (read reader)))
+        (if (test expr)
+            (queue-list queue)
+          (enqueue queue expr)
+          (iterate))))))
+
+
+(definition public (read-string-element string)
+  (with-closed ((reader (new String-Reader string)))
+    (read reader)))
+
+
+(definition public (read-string-content string)
+  (with-closed ((reader (new String-Reader string)))
+    (read-until eof-object? reader)))
+
+
+(definition public (read-delimited-string string char)
+  (with-closed ((reader (new String-Reader string)))
+    (let ((fact (new List-Factory)))
+      (let (iterate)
+        (let ((lst (read-delimited reader "delimited" char #t)))
+          (put~ fact lst)
+          (skip-whites reader)
+          (if (eof-object? (peek-char reader))
+              (get-output~ fact)
+            (iterate)))))))
+
+
+(definition public (parse-integer string)
+  (if (and (not (empty-string? string)) (numeric? string))
+      (read-string-element string)
+    (signal (new Convertion-Error object: string type: "integer"))))
+
+
+(definition public (parse-hexadecimal string)
+  (read-string-element (format "#x{a}" string)))
+
+
+(definition public (parse-boolean string)
+  (cond ((ci= string "#t") #t)
+        ((ci= string "#f") #f)
+        (else (signal (new Convertion-Error object: string type: "boolean")))))
+
+
+(definition public (parse-strings string (separator: separator ","))
+  (if (or (empty-string? string) (= string "{}"))
+      {}
+    (map (function dynamic (string)
+           (trim-spaces string))
+         (split string separator))))
+
+
+(definition public (parse-delimited-string string (separator: separator ","))
+  (map (function dynamic (string)
+         (parse-strings string separator: " "))
+       (parse-strings string separator: separator)))
+
+
+(definition public (require-char reader)
+  (let ((c (read-char reader)))
+    (if (eof-object? c)
+        (error "Unexpected end of stream reached while reading")
+      c)))
+
+
+(definition public (skip-line reader)
+  (let (iterate)
+    (let ((c (read-char reader)))
+      (if (and (not (eof-object? c))
+               (not (eqv? c #\newline))
+               (not (eqv? c #\return)))
+          (iterate)
+        (if (eqv? c #\return)
+            (read-char reader))))))
+
+
+(definition public (skip-whites reader)
+  (let (iterate)
+    (let ((c (peek-char reader)))
+      (unless (eof-object? c)
+        (if (eqv? c #\;)
+            (skip-line reader)
+          (when (whitespace? c)
+            (read-char reader)
+            (iterate)))))))
+
+
+(definition public (read-delimited reader kind delimiter (allow-eof? #f))
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (skip-whites reader)
+      (let ((c (peek-char reader)))
+        (cond ((eof-object? c)
+               (if allow-eof?
+                   (queue-list queue)
+                 (error "Unexpected end of stream reached while reading {a}" kind)))
+              ((eqv? c delimiter)
+               (read-char reader)
+               (queue-list queue))
+              ((eqv? c #\.)
+               (enqueue-list queue (read reader))
+               (iterate))
+              (else
+               (enqueue queue (read reader))
+               (iterate)))))))
+
+
+(definition public inline (string-delimiter? c)
+  (eqv? c #\double-quote))
+
+
+(definition EOF-Object
+  (list 'eof-object))
+
+(definition public inline (eof-object)
+  EOF-Object)
+
+(definition public inline (eof-object? obj)
+  (or (scheme.eof-object? obj)
+      (eq? obj EOF-Object)))
+
+
+(definition public (read-line reader)
+  (let ((port (open-output-string)))
+    (let (iterate (empty? #t))
+      (let ((c (read-char reader)))
+        (if (eof-object? c)
+            (if empty?
+                {}
+              (get-output-string port))
+          (case c
+            ((#\linefeed)
+             (get-output-string port))
+            ((#\return)
+             (let ((c (read-char reader)))
+               (get-output-string port)))
+            (else
+             (write-char c port)
+             (iterate #f))))))))
+
+
+(definition (read-line-proper reader)
+  (let ((port (open-output-string)))
+    (let (iterate (empty? #t))
+      (let ((c (read-char reader)))
+        (if (eof-object? c)
+            (if empty?
+                (values {} #f)
+              (values (get-output-string port) #f))
+          (case c
+            ((#\linefeed)
+             (values (get-output-string port) #t))
+            ((#\return)
+             (let ((c (read-char reader)))
+               (values (get-output-string port) #t)))
+            (else
+             (write-char c port)
+             (iterate #f))))))))
+
+
+(definition (read-lines reader)
+  (let ((queue (new-queue))
+        (last-proper? #f))
+    (let (iterate)
+      (receive (line proper?) (read-line-proper reader)
+        (if line
+            (begin
+              (enqueue queue line)
+              (set! last-proper? proper?)
+              (iterate))
+          (when last-proper?
+            (enqueue queue ""))
+          (queue-list queue))))))
+
+
+(definition public (read-content-string reader)
+  (let ((output (open-output-string)))
+    (pipe reader output)
+    (get-output-string output)))
+
+
+(definition public (pipe input output)
+  (let (iterate)
+    (let ((c (read-char input)))
+      (if (not (eof-object? c))
+          (begin
+            (write-char c output)
+            (iterate))))))
+
+
+;; (definition (get-encoding Object))
+;; (definition (reader-file-mark                        Object))
+;; (definition (set-reader-file-mark                    Object Object))
+
+
+;;;
+;;;; String-Reader
+;;;
+
+
+(class String-Reader extends Reader
+  
+  
+  (method (initialize str)
+    (nextmethod)
+    (set! port (open-input-string str)))
+  
+  
+  (method (destroy)
+    (close-input-port port)
+    (nextmethod)))
+
+
+;;;
+;;;; File-Reader
+;;;
+
+
+(class File-Reader extends Reader
+  
+  
+  (method (initialize file)
+    (nextmethod)
+    (set! port (open-input-file (parse~ file))))
+  
+  
+  (method (destroy)
+    (close-input-port port)
+    (nextmethod)))
+
+
+;;;
+;;;; String
+;;;
+
+
+(class String-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (make-string len))
+  
+  
+  (method (coerce-object obj <Object>)
+    (if (sequence? obj)
+        (nextmethod obj)
+      (coerce-string~ obj))))
+
+
+(class String metaclass String-Class extends Sequence
+  
+  
+  (method (initialize . rest)
+    (native-class "strings"))
+  
+  
+  (method (print output detail)
+    (if (eq? detail :human)
+        (display self output)
+      (write self output)))
+
+
+  (method (compare-object obj)
+    (if (string? obj)
+        ;; kinda annoying to have to potentialy scan the list twice
+        (cond ((string=? self obj)
+               :equal)
+              ((string<? self obj)
+               :less)
+              (else
+               :greater))
+      :incompatible))
+  
+  
+  (method (ci-compare-object obj)
+    (if (string? obj)
+        ;; kinda annoying to have to potentialy scan the list twice
+        (cond ((string-ci=? self obj)
+               :equal)
+              ((string-ci<? self obj)
+               :less)
+              (else
+               :greater))
+      :incompatible))
+  
+  
+  (method (sequence-element n)
+    (string-ref self n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (string-set! self n obj))
+  
+  
+  (method (sequence-length)
+    (scheme.string-length self))
+  
+  
+  (method (sequence-tail n)
+    (let ((lgt (length self)))
+      (if (>= n lgt)
+          ""
+        (substring self n (length self)))))
+  
+  
+  (method (sequence-last)
+    (element self (- (length self) 1)))
+  
+  
+  (method (sequence-butlast)
+    (substring self 0 (- (length self) 1))))
+
+
+(definition public inline (empty-string? object)
+  (and (string? object)
+       (zero? (string-length object))))
+
+
+(definition public (->string expr (detail ':human))
+  (let ((output (open-output-string)))
+    (print expr output detail)
+    (get-output-string output)))
+
+
+(definition public (remove-trailing-newline string)
+  (let ((len (length string)))
+    (if (eqv? (element string (- len 1)) #\newline)
+        (subseq string 0 (- len 1))
+      string)))
+
+
+(definition public (value-string? object <Object>)
+  (and (string? object)
+       (not (empty-string? object))))
+
+
+(definition public (wi= s1 <Object> s2 <Object>)
+  (call/ec
+    (lambda (return)
+      (let* ((n1 <fx> 0)
+             (n2 <fx> 0)
+             (l1 <fx> (length s1))
+             (l2 <fx> (length s2))
+             (s? <bool> #t)
+             (w1? <bool> #f)
+             (w2? <bool> #f)
+             (d1? <bool> (= l1 0))
+             (d2? <bool> (= l2 0)))
+        (while (or (not d1?) (not d2?))
+          (set! w1? #f)
+          (while (and (not d1?) (whitechar? (element s1 n1)))
+            (set! w1? #t)
+            (increase! n1)
+            (set! d1? (>= n1 l1)))
+          (set! w2? #f)
+          (while (and (not d2?) (whitechar? (element s2 n2)))
+            (set! w2? #t)
+            (increase! n2)
+            (set! d2? (>= n2 l2)))
+          (when (and w1? (or s? d2?))
+            (set! w1? #f))
+          (when (and w2? (or s? d1?))
+            (set! w2? #f))
+          (set! s? #f)
+          (cond ((and d1? d2?)
+                 (return #t))
+                ((and (eq? w1? w2?) (not d1?) (not d2?) (eqv? (element s1 n1) (element s2 n2)))
+                 (increase! n1)
+                 (increase! n2)
+                 (set! d1? (>= n1 l1))
+                 (set! d2? (>= n2 l2)))
+                (else
+                 (return #f))))
+        (and d1? d2?)))))
+
+
+(definition public (unique-domain-name name domain (separator: separator {}))
+  (if (not (member? name domain))
+      name
+    (let* ((common-prefix (if (not separator) name (append name separator)))
+           (common-length (length common-prefix))
+           (suffixes (collect (function dynamic (string)
+                                (when (starts-with? string common-prefix)
+                                  (subseq string common-length)))
+                              domain))
+           (n 1)
+           (suffix {}))
+      ;; not 100% sure about the while converted code
+      (let (iterate)
+        (set! suffix (->string n))
+        (when (member? suffix suffixes)
+          (increase! n)
+          (iterate)))
+      (append common-prefix suffix))))
+
+
+(definition public (remove-numeric-suffix string)
+  (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string reversed?: #t return: 'position)))
+    (if (not pos)
+        ""
+      (subseq string 0 (+ pos 1)))))
+
+
+(definition (compare-n x y max)
+  (let ((xlen (string-length x))
+        (ylen (string-length y)))
+    (let (iterate (n 0))
+      (if (>= n max)
+          #t
+        (if (or (>= n xlen) (>= n ylen) (not (eqv? (string-ref x n) (string-ref y n))))
+            #f
+          (iterate (+ n 1)))))))
+
+
+(definition (string-checksum str)
+  (let ((sum 0)
+        (len (string-length str)))
+    (let (iterate (n 0))
+      (when (< n len)
+        (increase! sum (char->integer (string-ref str n)))
+        (iterate (+ n 1))))
+    sum))
+
+
+;;;
+;;;; Thread
+;;;
+
+
+(definition public (new-thread class (name: name #f) (execute: execute #f) (start?: start? #t))
+  (unimplemented 'new-thread)
+  @convert
+  (let* ((thread (new class name))
+         (scheme-thread (make-scheme-thread thread execute)))
+    (set-scheme-thread thread scheme-thread)
+    (thread-specific-set! scheme-thread thread)
+    (if start?
+        (scheme-thread-start! scheme-thread))
+    thread))
+
+
+(definition primary-thread-object
+  #f)
+
+
+(definition public (primary-thread)
+  primary-thread-object)
+
+
+(definition public (primary-thread?)
+  #t
+  @unimplemented
+  (eq? (active-thread) (primary-thread)))
+
+
+;;;
+;;;; Time
+;;;
+
+
+(definition public (time> t1 t2)
+  (> (time->seconds t1) (time->seconds t2)))
+
+
+(definition (wait delay)
+  (unimplemented 'wait))
+
+
+;;;
+;;;; Type
+;;;
+
+
+(definition public inline (is-not? object type)
+  (not (is? object type)))
+
+
+(definition public inline (type-name cl)
+  (get-category-name cl))
+
+
+(definition public inline (type-ascendant obj)
+  (get-class-ascendant obj))
+
+
+;; Patch temporaire.
+(definition (new-in obj . rest)
+  (apply new rest))
+
+
+(definition (typed? obj classname)
+  ;; not correct quicky
+  (is? obj (autoload classname)))
+
+
+;;;
+;;;; Vector
+;;;
+
+
+(class Vector-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (make-vector len)))
+
+
+(class Vector metaclass Vector-Class extends Sequence
+  
+  
+  (method (initialize . rest)
+    (native-class "vectors"))
+  
+  
+  @convert
+  (method (print printer readably)
+    (format printer "~{{a}" (type-name (class-of self)))
+    (loop (for n from 0 below (length self))
+          (do (let ((element (element self n)))
+                (format printer " ")
+                (print-object element readably printer))))
+    (format printer "}"))
+
+
+  @convert
+  (method (object-similar? object)
+    (and (vector? object)
+         (zero? (length self))
+         (zero? (length object))))
+  
+  
+  (method (sequence-element n)
+    (vector-ref self n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (vector-set! self n obj))
+  
+  
+  (method (sequence-length)
+    (vector-length self))
+  
+  
+  (method (sequence-tail n)
+    (list->vector (tail (vector->list self) n)))
+  
+  
+  (method (sequence-last)
+    (element self (- (length self) 1)))
+  
+  
+  (method (sequence-butlast)
+    (list->vector (butlast (vector->list self)))))
+
+
+;;;
+;;;; Axis
+;;;
+
+
+(class Axis-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (new Axis len)))
+
+
+(class Axis metaclass Axis-Class extends Sequence
+  
+  
+  (definition MIN_SIZE 8)
+  (definition GOLDEN_RATIO 1.6)
+  
+  
+  (slot size    <fx>     accessors generate)
+  (slot content <vector> accessors generate)
+  
+  
+  (method (initialize (s 0))
+    (set! size s)
+    (set! content (make-vector s {})))
+  
+  
+  (method (print output detail)
+    (print-unreadable self output
+      (function (output)
+        (format output "{s} {s}" size content))))
+  
+  
+  (method (sequence-element n)
+    (vector-ref content n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (vector-set! content n obj))
+  
+  
+  (method (sequence-length)
+    size)
+  
+  
+  (method (sequence-tail n)
+    (let ((new-axis (new Axis n))
+          (offset (- size n)))
+      (let (iterate (i 0))
+        (if (>= i n)
+            new-axis
+          (set-element! new-axis i (element self (+ i offset)))
+          (iterate (+ i 1))))))
+  
+  
+  (method (sequence-last)
+    (element self (- size 1)))
+  
+  
+  (method (sequence-replace-subseq! start <fx> end <fx> replacement)
+    (let* ((before (- end start))
+           (after (length replacement))
+           (delta (- after before))
+           (old-size size)
+           (new-size (+ old-size delta)))
+      (cond ((< after before)
+             (let (iterate (n (- old-size end))
+                           (src end)
+                           (dst (+ end delta)))
+               (when (> n 0)
+                 (set-element! self dst (element self src))
+                 (set-element! self src {})
+                 (iterate (- n 1) (+ src 1) (+ dst 1))))
+             (grow new-size))     
+            ((> after before)
+             (grow new-size)
+             (let (iterate (n (- old-size end))
+                           (src (- old-size 1))
+                           (dst (+ (- old-size 1) delta)))
+               (when (> n 0)
+                 (set-element! self dst (element self src))
+                 (iterate (- n 1) (- src 1) (- dst 1))))))
+      (let (iterate (n 0) (dst start))
+        (when (< n after)
+          (set-element! self dst (element replacement n))
+          (iterate (+ n 1) (+ dst 1))))
+      self))
+  
+  
+  (method public (add obj)
+    (let ((n size))
+      (grow (+ n 1))
+      (set-element! content n obj)))
+  
+  
+  (method public (grow n <fx>)
+    (cond ((<= n (length content))
+           (set-size n))
+          ((= size 0)
+           (set-size n)
+           (set! content (make-vector MIN_SIZE {})))
+          (else
+           (let ((old-real-size (length content))
+                 (old-content content))
+             (set-size n)
+             (set! content (make-vector (inexact->exact (round (* n GOLDEN_RATIO))) {}))
+             (let (iterate (i 0))
+               (when (< i old-real-size)
+                 (begin
+                   (set-element! content i (element old-content i))
+                   (iterate (+ i 1))))))))))
+
+
+(definition (axis-add axis <Axis> obj)
+  (let ((size (length axis)))
+    (grow~ axis (+ size 1))
+    (set-element! axis size obj)))
+
+
+(definition elementAxis <Axis^fx:object>
+  (lambda (axis <Axis> n <fx>) <object>
+    (vector-ref (get-content~ axis) n)))
+
+
+;;;
+;;;; Box
+;;;
+
+
+(definition public (box-list lst)
+  (cons '() lst))
+
+
+(definition public (unbox-list box)
+  (cdr box))
+
+
+;;;
+;;;; Closure
+;;;
+
+
+(definition public inline (closure? object <Object>)
+  (procedure? object))
+
+
+;;;
+;;;; Enumeration
+;;;
+
+
+@convert
+(class Enumeration extends Type
+  
+  
+  (slot name)
+  (slot entries)
+  
+  
+  @convert-literal
+  (method meta (construct-literal context name entries)
+    (new self name entries))
+  
+  
+  (method (initialize name entries)
+    (nextmethod name Enumeration)
+    (set! name~self name)
+    (set! entries~self entries))
+  
+  
+  @convert-fold
+  (method (foldable?)
+    #t)
+
+
+  @convert-fold
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler name)
+    (fold-more~ compiler entries)
+    (output~ compiler ")"))
+
+
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a}}"
+            (type-name (class-of self))
+            name
+            entries))
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (get-entries)
+    entries)
+  
+  
+  (method public (set-value name value)
+    (set-car! (cdr (entry-from-name name)) value))
+
+
+  (method (get-size)
+    (size-of int))
+
+
+  (method (read-content address <fx>)
+    (%read-int address))
+
+
+  (method (write-content address <fx> object <Object>)
+    (%write-int address object))
+
+
+  (method (entry-from-name name)
+    (either (find name entries key: first test: eq?)
+            (error "Unknown enumeration name: {t} in {t}" name self)))
+
+
+  (method (entry-from-value value)
+    (either (find value entries key: second test: eqv?)
+            (error "Unknown enumeration value: {t} in {t}" value self)))
+
+
+  (method public (value->name value)
+    (car (entry-from-value value)))
+
+
+  (method public (name->value name)
+    (cadr (entry-from-name name)))
+  
+  
+  (method public (get-rank target)
+    (if (= target name)
+        0
+      (+ 1 (find target entries key: first test: eq? return: 'position)))))
+
+
+(definition public inline (enumeration? object <Object>)
+  (unimplemented 'enumeration?))
+
+
+(definition public (set-enumeration! enumeration name value)
+  (unimplemented 'set-enumeration!)
+  @unimplemented
+  (set-value~ enumeration name value))
+
+
+;;;
+;;;; Printer
+;;;
+
+
+(class Printer extends Object
+  
+  
+  (slot port getter generate)
+  
+  
+  (method (initialize port)
+    (nextmethod)
+    (set! port~self port))
+
+
+  (method (destroy)
+    @convert
+    (call-destroying-output self)
+    (nextmethod))
+
+
+  (method public virtual (put c)
+    (write-char port c))
+
+
+  (method public virtual (put-buffer buffer size)
+    (unimplemented 'put-buffer))
+
+
+  (method public virtual (force-output)
+    )
+
+
+  ;; force-output && flush-output should probably be just one
+  ;; but at the moment force-output gets called too many times
+  (method public virtual (flush-output)
+    )
+  
+  
+  (method public virtual (get-position)
+    )
+  
+  
+  (method public virtual (set-position pos)
+    )
+  
+  
+  (method public virtual (fresh-line?)
+    #f
+    @convert
+    (at-fresh-line? self)))
+
+
+(definition public (display obj . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.display obj (output-port port))))
+
+
+(definition public (write obj . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.write obj (output-port port))))
+
+
+(definition public (write-char c . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.write-char c (output-port port))))
+
+
+(definition public (write-line line . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (display line port)
+    (newline port)))
+
+
+(definition public (write-lines printer lines platform use-utf8?)
+  ;; first draft
+  (loop (for line in lines remainder remain)
+        (do (unless (null? remain)
+              (write-line line printer)))))
+
+
+(definition public (newline . rest)
+  (let ((port (if (null? rest) #f (car rest))))
+    (scheme.newline (output-port port))))
+
+
+;;;
+;;;; String-Printer
+;;;
+
+
+(class String-Printer extends Printer
+  
+  
+  (method (initialize)
+    (nextmethod (open-output-string)))
+  
+  
+  (method (destroy)
+    (close-output-port port)
+    (nextmethod))
+
+
+  (method public (get-output)
+    (get-output-string port)))
+
+
+;;;
+;;;; File-Printer
+;;;
+
+
+(class File-Printer extends Printer
+  
+  
+  (method (initialize file)
+    (nextmethod (open-output-file (parse~ file))))
+  
+  
+  (method (destroy)
+    (close-output-port port)
+    (nextmethod)))
+
+
+;;;
+;;;; Format-Processor
+;;;
+
+
+;;;
+;;;; Lexicon
+;;;
+
+
+;; (format "{a width: 10 justify: :right} {l}" 5 lst)
+
+;; In the preceding format :
+;;   directives -> {a} and {l}
+;;   parameters -> width: 10 justify: :right
+;;   arguments  -> 5 and lst
+
+
+(class Format-Processor extends Object
+  
+  
+  (slot out                <Printer>)
+  (slot control-string     <string>)
+  (slot control-reader     <String-Reader>)
+  (slot arguments          <list>)
+  (slot arguments-iterator <List-Iterator>)
+  (slot formatter)
+  
+  
+  (method (initialize control-string arguments)
+    (nextmethod)
+    (set! control-string~self control-string)
+    (set! control-reader~self (new String-Reader control-string))
+    (set! arguments~self arguments)
+    (set! arguments-iterator~self (new List-Iterator arguments))
+    (set! formatter~self {}))
+  
+  
+  ;;;
+  ;;;; Format
+  ;;;
+  
+  
+  (method (process-format destination)
+    (with-printer destination
+      (function dynamic (printer)
+        (set! out printer)
+        (process control-reader))))
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method (process reader (output? #t))
+    (let ((done? #f))
+      (while (not done?)
+        (let ((c (read-char reader)))
+          (if (eof-object? c)
+              (set! done? #t)
+            (case c
+              ((#\~)
+               (let ((c (require-char reader)))
+                 (when output?
+                   (print-char c out))))
+              ((#\{)
+               (let ((c (peek-char reader)))
+                 (case c
+                   ((#\?)
+                    (if (not output?)
+                        (error "Recursive conditional directive not yet supported")
+                      (read-char reader)
+                      (conditional-directive reader)))
+                   (else
+                    (let ((directive (read reader))
+                          (parameters (read-parameters reader)))
+                      (case directive
+                        ((a) (ascii-directive parameters output?))
+                        ((s) (sexpr-directive parameters output?))
+                        ((t) (text-directive parameters output?))
+                        ((p) (print-directive parameters output?))
+                        ((c) (char-directive parameters output?))
+                        ((u) (unsigned-directive parameters output?))
+                        ((x) (hexadecimal-directive parameters output?))
+                        ((b) (binary-directive parameters output?))
+                        ((r) (real-directive parameters output?))
+                        ((l) (list-directive parameters output?))
+                        ((k) (properties-directive parameters output?))
+                        ((_) (column-directive parameters output?))
+                        ((&) (tab-directive parameters output?))
+                        ((%) (newline-directive parameters output?))
+                        (($) (freshline-directive parameters output?))
+                        ((z) (localize-directive parameters output?))
+                        (else (error "Unknown format directive ~{{t}}" directive))))))))
+              (else
+               (when output?
+                 (print-char c out))))))))
+    (when (and (toplevel? reader) (not (arguments-empty?)))
+      (error "Too many format arguments")))
+  
+  
+  (method (read-parameters reader)
+    (read-delimited reader "format parameter" #\}))
+  
+  
+  (method (toplevel? reader)
+    (eq? reader control-reader))
+  
+  
+  (method (arguments-empty?)
+    (done?~ arguments-iterator))
+  
+  
+  ;;;
+  ;;;; Conditional
+  ;;;
+  
+  
+  (method (conditional-directive reader)
+    (cond ((= (peek-char reader) #\:)
+           (read-char reader)
+           (process-conditional reader #t))
+          (else
+           (process-conditional reader #f))))
+  
+  
+  (method (read-control-string reader)
+    (let ((printer (new String-Printer))
+          (done? #f))
+      (while (not done?)
+        (let ((c (require-char reader)))
+          (if (and (eqv? c #\~) (= (peek-char reader) #\}))
+              (begin
+                (read-char reader)
+                (set! done? #t))
+            (print-char c printer))))
+      (get-output~ printer)))
+  
+  
+  (method (process-conditional reader explicit?)
+    (let ((subreader (new String-Reader (read-control-string reader)))
+          (output? (or (and explicit? (next-argument)) (and (not explicit?) (peek-argument)))))
+      (process subreader output?)))
+  
+  
+  ;;;
+  ;;;; Directives
+  ;;;
+  
+  
+  (method (ascii-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (display argument printer))))))
+  
+  
+  (method (sexpr-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (write argument printer))))))
+  
+  
+  (method (text-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (textual argument printer))))))
+  
+  
+  (method (print-directive parameters output?)
+    (let ((argument (next-argument))
+          (detail (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-expr argument detail printer))))))
+  
+  
+  (method (char-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-char argument printer))))))
+  
+  
+  (method (unsigned-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-unsigned argument printer))))))
+  
+  
+  (method (hexadecimal-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-hexadecimal argument printer))))))
+  
+  
+  (method (binary-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-binary argument printer))))))
+  
+  
+  (method (real-directive parameters output?)
+    (let ((argument (next-argument))
+          (precision (get-precision parameters)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-real argument precision printer))))))
+  
+  
+  (method (list-directive parameters output?)
+    (let* ((argument (next-argument))
+           (separator (get-separator parameters))
+           (last-separator (get-last-separator parameters separator))
+           (before (get-before parameters))
+           (after (get-after parameters))
+           (detail (get-detail parameters)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (print-list argument separator last-separator before after detail printer))))))
+
+  
+  (method (properties-directive parameters output?)
+    (let ((argument (next-argument))
+          (properties (get-properties parameters))
+          (empty-value (get-empty-value parameters))
+          (detail (get-detail parameters)))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (let ((scan argument))
+              (while (not-null? scan)
+                (let ((key (car scan))
+                      (value (cadr scan)))
+                  (when (and (or (null? properties) (memq? key properties))
+                             (or (not empty-value) (neq? value empty-value)))
+                    (print-char #\space printer)
+                    (print-expr key detail printer)
+                    (print-char #\space printer)
+                    (print-expr value detail printer)))
+                (set! scan (cddr scan)))))))))
+  
+  
+  (method (column-directive parameters output?)
+    (when output?
+      (let ((count (optional-parameter parameters 1)))
+        (loop (repeat count)
+              (do (print-char #\space out))))))
+  
+  
+  (method (tab-directive parameters output?)
+    (when output?
+      (let ((count (optional-parameter parameters 1)))
+        (loop (repeat count)
+              (do (print-char #\tab out))))))
+  
+  
+  (method (newline-directive parameters output?)
+    (when output?
+      (let ((count (optional-parameter parameters 1)))
+        (loop (repeat count)
+              (do (newline out))))))
+  
+  
+  (method (freshline-directive parameters output?)
+    (when output?
+      (let ((count (optional-parameter parameters 1)))
+        (fresh-line out)
+        (loop (repeat (- count 1))
+              (do (newline out))))))
+  
+  
+  (method (localize-directive parameters output?)
+    (unimplemented 'localize-directive)
+    @unimpl
+    (let ((argument (localize (next-argument))))
+      (when output?
+        (with-justification parameters
+          (function dynamic (printer)
+            (display argument printer))))))
+  
+  
+  ;;;
+  ;;;; Justification
+  ;;;
+  
+  
+  (method (with-justification parameters proc)
+    (let ((width (get-width parameters)))
+      (if (not width)
+          (proc out)
+        (let ((justification (get-justify parameters))
+              (padding (get-padding parameters))
+              (printer (new String-Printer)))
+          (proc printer)
+          (let ((buffer (get-output~ printer)))
+            (justify buffer width justification padding))))))
+  
+  
+  (method (justify buffer width justification padding)
+    (let ((size (length buffer)))
+      (if (>= size width)
+          (display buffer out)
+        (let ((n (- width size)))
+          (case justification
+            ((:left)
+             (display buffer out)
+             (loop (repeat n)
+                   (do (print-char padding out))))
+            ((:right)
+             (loop (repeat n)
+                   (do (print-char padding out)))
+             (display buffer out)))))))
+  
+  
+  ;;;
+  ;;;; Parameters
+  ;;;
+  
+  
+  (method (optional-parameter parameters default)
+    (if (null? parameters)
+        default
+      (let ((param (car parameters)))
+        (if (eq? param :v)
+            (next-argument)
+          param))))
+  
+  
+  (method (keyword-parameter parameters keyword default)
+    (let ((param (getf parameters keyword not-found: default)))
+      (if (eq? param :v)
+          (next-argument)
+        param)))
+  
+  
+  (method (get-list? parameters)
+    (keyword-parameter parameters list?: #f))
+  
+  
+  (method (get-width parameters)
+    (keyword-parameter parameters width: {}))
+  
+  
+  (method (get-justify parameters)
+    (let ((param (keyword-parameter parameters justify: :left)))
+      (if (not (memq? param '(:left :right)))
+          (error "Unknown justification {t}" param)
+        param)))
+  
+  
+  (method (get-padding parameters)
+    (keyword-parameter parameters padding: #\space))
+  
+  
+  (method (get-separator parameters)
+    (keyword-parameter parameters separator: " "))
+  
+  
+  (method (get-last-separator parameters separator)
+    (keyword-parameter parameters last-separator: separator))
+  
+  
+  (method (get-before parameters)
+    (keyword-parameter parameters before: {}))
+  
+  
+  (method (get-after parameters)
+    (keyword-parameter parameters after: {}))
+  
+  
+  (method (get-precision parameters)
+    (keyword-parameter parameters precision: 3))
+  
+  
+  (method (get-properties parameters)
+    (keyword-parameter parameters properties: '()))
+  
+  
+  (method (get-empty-value parameters)
+    (keyword-parameter parameters empty-value: {}))
+  
+  
+  (method (get-detail parameters)
+    (keyword-parameter parameters detail: :reader))
+  
+  
+  ;;;
+  ;;;; Arguments
+  ;;;
+  
+  
+  (method (peek-argument)
+    (if (done?~ arguments-iterator)
+        (error "Not enough format arguments for {t}" control-string)
+      (peek~ arguments-iterator)))
+  
+  
+  (method (next-argument)
+    (if (done?~ arguments-iterator)
+        (error "Not enough format arguments for {t}" control-string)
+      (get-next~ arguments-iterator))))
+
+
+;;;
+;;;; Formatting
+;;;
+
+
+(class Formatting extends Reader
+  
+  
+  (method public (read-string)
+    @to-convert
+    (formatting-read-string self))
+  
+  
+  (method public (read-parameters)
+    @to-convert
+    (formatting-read-parameters self)))
+
+
+;;;
+;;;; Format
+;;;
+
+
+(definition (parse-format rest proc)
+  (if (string? (car rest))
+      (proc ':string (car rest) (cdr rest))
+    (proc (car rest) (cadr rest) (cddr rest))))
+
+
+(definition public (format . rest)
+  (jazz.parse-format rest
+    (lambda (destination control-string arguments)
+      (let ((processor (new Format-Processor control-string arguments)))
+        (process-format~ processor destination)))))
+
+
+;;;
+;;;; Function
+;;;
+
+
+(definition public inline (compose f g)
+  (function (x)
+    (f (g x))))
+
+
+;;;
+;;;; Eval
+;;;
+
+
+(definition (eval-symbol symbol obj)
+  ;; quicky solution as eval-symbol should most probably be removed for the language
+  (dispatch symbol obj))
+
+
+(definition public inline (identity x)
+  x)
+
+
+;;;
+;;;; Interpreter
+;;;
+
+
+(definition (interpreter-present?)
+  ;; for now
+  #t)
+
+
+(definition (break . rest)
+  (unimplemented 'break))
+
+
+;;;
+;;;; Localize
+;;;
+
+
+;; quicky as it is also defined in jazz.utilities
+(definition (localize obj)
+  obj)
+
+
+;;;
+;;;; Printer
+;;;
+
+
+(definition *output-printer*
+  (new Printer (current-output-port)))
+
+
+(definition *error-printer*
+  (new Printer (current-output-port)))
+
+
+(definition *console-printer*
+  (new Printer (current-output-port)))
+
+
+(definition (resolve-printer obj)
+  (case obj
+    ((:output) *output-printer*)
+    ((:error) *error-printer*)
+    ((:console) *console-printer*)
+    (else obj)))
+
+
+(definition public (with-printer printer proc)
+  (if (eq? printer :string)
+      (let ((printer (new String-Printer)))
+        (proc printer)
+        (get-output~ printer))
+    (proc (resolve-printer printer))))
+
+
+(definition (get-printer-use-utf8? printer)
+  ;; convert
+  #f)
+
+(definition (set-printer-use-utf8? printer flag)
+  ;; convert
+  )
+
+
+(definition (textual expr (printer :output))
+  (print~ expr (resolve-printer printer) :text))
+
+
+(definition (describe expr (printer :output))
+  (print~ expr (resolve-printer printer) :describe))
+
+
+(definition (print-expr expr detail (printer :output))
+  (print~ expr (resolve-printer printer) detail))
+
+
+(definition (print-char c (printer :output))
+  (write-char c (output-port printer)))
+
+
+(definition (print-unsigned n (printer :output))
+  ;; quick fix
+  (write n (output-port printer)))
+
+
+(definition (print-hexadecimal n (printer :output))
+  ;; quick fix
+  (write n (output-port printer)))
+
+
+(definition (print-binary b (printer :output))
+  ;; quick fix
+  (write b (output-port printer)))
+
+
+(definition (print-real r precision (printer :output))
+  ;; quick fix
+  (write r (output-port printer)))
+
+
+(definition (print-list list separator last-separator before after detail (printer :output))
+  (when (not-null? list)
+    (when before
+      (display before printer))
+    (let (iterate (scan list))
+      (let ((expr (car scan)))
+        (print~ expr printer detail)
+        (let ((next (cdr scan)))
+          (when (not-null? next)
+            (if (pair? next)
+                (display (if (null? (cdr next)) last-separator separator) printer)
+              (display " . " printer)
+              (print~ next printer detail))
+            (iterate (cdr scan))))))
+    (when after
+      (display after printer))))
+
+
+(definition (fresh-line (printer :output))
+  (unless (at-fresh-line? printer)
+    (newline printer)))
+
+
+(definition (at-fresh-line? (printer :output))
+  ;; todo
+  #f)
+
+
+;;;
+;;;; Profiler
+;;;
+
+
+(syntax public (profile . expressions)
+  (let ((control (car expressions))
+        (body (cdr expressions)))
+    (let ((on? (getf control :on? key: unwrap-syntax not-found: #t))
+          (name (getf control name: key: unwrap-syntax))
+          (condition (getf control :condition key: unwrap-syntax)))
+      (if (not on?)
+          `(begin ,@body)
+        `(%profile ,name ,condition
+           ,@body)))))
+
+
+;;;
+;;;; Search
+;;;
+
+
+(definition (build-search-automata targets whole-words? ignore-case? object constituent-test)
+  (unimplemented 'build-search-automata))
+
+
+(definition (automata-statistics automata)
+  (unimplemented 'automata-statistics))
+
+
+(definition (automata-search automata paragraphs limit row col)
+  (unimplemented 'automata-search))
+
+
+;;;
+;;;; Subseq
+;;;
+
+
+(class Subseq-Class extends Sequence-Class)
+
+
+(class Subseq metaclass Subseq-Class extends Sequence
+  
+  
+  (slot sequence      getter    generate)
+  (slot start    <fx> accessors generate)
+  (slot size     <fx> accessors generate)
+  
+  
+  (method (initialize sequence start <fx> size <fx>)
+    (nextmethod)
+    (set! sequence~self sequence)
+    (set! start~self start)
+    (set! size~self size))
+  
+  
+  (method (print output detail)
+    (if (string? sequence)
+        ;; should take detail into account
+        (loop (for n from start below (+ start size))
+              (do (print-char (string-ref sequence n) output)))
+      (print-unreadable self output
+        (function (output)
+          (format output "{s} {s} {s}" sequence start size)))))
+  
+  
+  (method (coerce-string)
+    (if (string? sequence)
+        (substring sequence start (+ start size))
+      (error "Cannot coerce sequence to string")))
+  
+  
+  (method (sequence-element n <fx>) <any>
+    (element sequence (+ start n)))
+  
+  
+  (method (sequence-set-element! n <fx> obj) <void>
+    (set-element! sequence (+ start n) obj))
+  
+  
+  (method (sequence-length) <int>
+    size)
+  
+  
+  (method (sequence-subseq! s <fx> e <fx>)
+    (if (or (= s 0) (= e -1))
+        self
+      (new Subseq sequence (+ start s) (- (if (= e -1) (length self) e) s)))))
+
+
+(definition (offset-subseq! subseq <Subseq> offset <fx>) <void>
+  (set-start~ subseq (+ (get-start~ subseq) offset)))
+
+
+(definition (grow-subseq! subseq <Subseq> n <fx>) <void>
+  (set-size~ subseq (+ (get-size~ subseq) n)))
+
+
+;;;
+;;;; Syntax
+;;;
+
+
+(definition public inline (syntax? expr)
+  (unimplemented 'syntax?))
+
+
+(definition public (unwrap-syntax expr)
+  (unimplemented 'unwrap-syntax)
+  @unimplemented
+  (if (syntax? expr)
+      (syntax-expression expr)
+    expr))
+
+
+;; (definition (new-syntax                              Object))
+;; (definition (syntax-expression                       Object))
+
+
+;;;
+;;;; Text
+;;;
+
+
+(definition public (word-constituent? c <char>) <bool>
+  (or (alphabetic? c)
+      (numeric? c)
+      (memq? c '(#\- #\@)))))

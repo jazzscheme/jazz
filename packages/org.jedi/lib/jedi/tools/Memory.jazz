@@ -1,0 +1,130 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Memory
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.tools.Memory jazz
+
+
+(import (jazz.library)
+        (jedi))
+
+
+(class Memory extends Object
+
+
+  (method meta public (report-timing proc)
+    (bind (result . (time c8 c12 c16 c32 c64 c128)) (time proc)
+      (format :console "{s}{%}" (list :time time :object8 c8 :object12 c12 :object16 c16 :object32 c32 :object64 c64 :object128 c128))
+      result))
+  
+  
+  (method meta (describe-symbols info printer)
+    @waiting
+    (format printer "Symbols{%}"))
+  
+  
+  (method meta (describe-objects info printer)
+    (bind (zones) info
+      (let ((bags-total        0)
+             (alloc-total       0)
+             (used-total        0)
+             (free-total        0)
+             (bytes-alloc-total 0)
+             (bytes-used-total  0)
+             (bytes-free-total  0))
+        (format printer "{%}Objects{%}")
+        (format printer "   Size   Nb-Bags Allocated      Used      Free B-Allocated    B-Used    B-Free   Usage{%}" )
+        (for-each (function dynamic (info)
+                    (bind (nb-bags size alloc free) info
+                      (let* ((used        (- alloc free))
+                             (bytes-alloc (* size alloc))
+                             (bytes-used  (* size used))
+                             (bytes-free  (* size free)))
+                      (increase! bags-total        nb-bags)
+                      (increase! alloc-total       alloc)
+                      (increase! used-total        used)
+                      (increase! free-total        free)
+                      (increase! bytes-alloc-total bytes-alloc)
+                      (increase! bytes-used-total  bytes-used)
+                      (increase! bytes-free-total  bytes-free)
+                      (format printer "  {s width: 5 justify: :right}   {s width: 5 justify: :right}  {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 9 justify: :right}   {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 6 justify: :right}%{%}"
+                              size
+                              nb-bags
+                              alloc
+                              used
+                              free
+                              bytes-alloc
+                              bytes-used
+                              bytes-free
+                              (percentage used alloc)))))
+                  zones)
+        (format printer "  total:  {s width: 5 justify: :right}  {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 9 justify: :right}   {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 6 justify: :right}%{%}"
+                bags-total
+                alloc-total
+                used-total
+                free-total
+                bytes-alloc-total
+                bytes-used-total
+                bytes-free-total
+                (percentage bytes-used-total bytes-alloc-total)))))
+ 
+  
+  (method meta (describe-heap info printer)
+    @waiting
+    (bind (alloc free string vector hashtable map virtual object collector) info
+      (let ((used (- alloc free)))
+        (format printer "{%}Heap{%}")
+        (format printer "   Kind   Allocated      Used      Free   Usage{%}")
+        (format printer "   string           {s width: 9 justify: :right}{%}" string)
+        (format printer "   vector           {s width: 9 justify: :right}{%}" vector)
+        (format printer "   hashtable        {s width: 9 justify: :right}{%}" hashtable)
+        (format printer "   map              {s width: 9 justify: :right}{%}" map)
+        (format printer "   virtual          {s width: 9 justify: :right}{%}" virtual)
+        (format printer "   object           {s width: 9 justify: :right}{%}" object)
+        (format printer "   collector        {s width: 9 justify: :right}{%}" collector)
+        (format printer "   partial          {s width: 9 justify: :right}{%}" (+ string vector hashtable map virtual object collector))
+        (format printer "   total: {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 9 justify: :right} {s width: 6 justify: :right}%{%}"
+                alloc
+                used
+                free
+                (percentagepercentage used alloc)))))
+
+
+  (method meta public (describe-memory (printer :console))
+    (bind (symbols objects heap) (statistics)
+      (describe-symbols symbols printer)
+      (describe-objects objects printer)
+      (describe-heap heap printer)))))

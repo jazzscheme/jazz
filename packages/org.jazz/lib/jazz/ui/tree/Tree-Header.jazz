@@ -1,0 +1,362 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Tree Header
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.tree.Tree-Header jazz
+
+
+(import (jazz.ui)
+        (jazz.ui.window)
+        (jazz.platform)
+        (jazz.library)
+        (jazz.utilities)
+        (jazz.literals))
+
+
+;; One thing to be carefull is that even though the tree header can reside in a scroller
+;; it will not be scrolled. It will be the tree that is scrolled, so that the header
+;; has to explicitly consult the tree's scrolled position for it's operations...
+
+
+(class Tree-Header extends Header-View
+    
+  
+  (slot protected resizing?               initialize #f)
+  (slot protected resize-last-h           initialize {})
+  (slot protected resized-column          initialize {})
+  (slot protected resized-column-ref      initialize 0)
+
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (invalidate-layout)
+    (let ((content (child 'content)))
+      (set! client (get-scroll-client~ content))))
+
+
+  ;;;
+  ;;;; Columns
+  ;;;
+    
+  
+  (method public (get-column n)
+    (element (get-columns) n))
+  
+  
+  (method public (column-rank column)
+    (find column (get-columns) return: 'position))
+
+
+  ;;;
+  ;;;; Borders
+  ;;;
+  
+  
+  (method (borders-left borders)
+    (car borders))
+  
+  
+  (method (borders-right borders)
+    (cdr borders))
+  
+  
+  (method public (get-borders col)
+    (element (get-columns-borders) col))
+  
+  
+  (method public (column-width col)
+    (bind (left . right) (get-borders col)
+      (- right left)))
+  
+  
+  ;;;
+  ;;;; Header
+  ;;;
+  
+  
+  (method (get-columns)
+    (get-columns~ client))
+  
+  
+  (method (get-columns-count)
+    (get-columns-count~ client))
+  
+  
+  (method (get-columns-borders)
+    (get-columns-borders~ client))
+
+  
+  (method (invalidate-columns)
+    (invalidate-columns~ client))
+
+  
+  (method (invalidate-borders)
+    (invalidate-borders~ client))
+
+  
+  (method (layout-column column)
+    (layout-column~ client column))
+  
+  
+  (method (end-resizing)
+    (when client
+      (layout-scrollee~ client)
+      (invalidate-view~ client)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (when client
+      (layout-scrollee~ client)))
+  
+
+  ;;;
+  ;;;; Scroll
+  ;;;
+  
+  
+  (method (set-scroller view)
+    (set-scroller~ client view))
+  
+  
+  (method (get-scroll-client)
+    (get-scroll-client~ client))
+  
+  
+  (method (get-hscroll-amount)
+    (either (essay client (get-h~ (get-position~ client))) 0))
+
+
+  ;; most probably not called as it was missing the orientation parameter in the old jazz!
+  (method (on-vscroll code thumb-pos orientation)
+    (when client
+      (on-vscroll~ client code thumb-pos orientation)))
+
+
+  ;; most probably not called as it was missing the orientation parameter in the old jazz!
+  (method (on-hscroll code thumb-pos orientation)
+    (when client
+      (on-hscroll~ client code thumb-pos orientation)))
+
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method (draw dc context update lh lv)
+    (with ((update-rect (get-update-rect dc update lh lv)))
+      (let ((height (get-header-height)))
+        (when (or (not update-rect) (< (get-top~ update-rect) height))
+          (fill-rect~ dc update-rect {Color name: Dark})
+          (let* ((h (get-hscroll-amount))
+                 (cs (get-column-spacing~ client))
+                 (sorted-column (get-sorted-column~ client))
+                 (sort-ascending? (get-sort-ascending?~ client))
+                 (spaced? (/= cs 0))
+                 (flat? (flat-look?))
+                 (rank 0))
+            (for-each (function dynamic (column)
+                        (let ((width (get-width~ column))
+                              (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {})))
+                          (draw-header~ column dc context h 0 width height sorted spaced? flat?)
+                          (increase! h (+ width cs))
+                          (increase! rank)))
+                      (get-columns)))))))
+
+
+  ;;;
+  ;;;; Cursor
+  ;;;
+
+
+  (method (cursor-update pos)
+    (if (or resizing? (resized-col (- (get-h~ pos) (get-hscroll-amount))))
+        (set-cursor :west-east)
+      (set-cursor :arrow)))
+  
+
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method (get-tooltip-context client)
+    (let* ((hscrolled (get-hscroll-amount))
+           (h (- (get-h~ client) hscrolled))
+           (col (h->col h)))
+      (when col
+        (let ((column (get-column col)))
+          (let ((text (get-header-tooltip~ column)))
+            (when text
+              (let ((rect (offset-rect (header-rect column) hscrolled 0)))
+                (new Tooltip-Context
+                  view: self
+                  text: text
+                  bounds: rect))))))))
+
+
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-down client)
+    (acquire-capture)
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
+      (let ((col (resized-col h)))
+        (if (not col)
+            (let ((col (h->col h)))
+              (when col
+                (let ((column (get-column col)))
+                  (header-down~ column (header-coordinates col client)))))
+          (set! resizing? #t)
+          (set! resize-last-h h)
+          (set! resized-column (get-column col))
+          (set! resized-column-ref col)))))
+  
+  
+  (method (drag-move client)
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
+      (if (not resizing?)
+          (let ((col (h->col h)))
+            (when col
+              (let ((column (get-column col)))
+                (header-move~ column (header-coordinates col client)))))
+        (let ((delta (- h resize-last-h))
+              (left (+ (borders-right (get-borders resized-column-ref)) (get-hscroll-amount))))
+          (when (/= delta 0)
+            (set! resize-last-h h)
+            (let ((new-width (+ (get-width~ resized-column) delta)))
+              (when (>= new-width 0)
+                (set-width~ resized-column (+ (get-width~ resized-column) delta))
+                (invalidate-columns)
+                (invalidate-borders)
+                (layout-column resized-column)
+                (scroll-view delta 0 (new Rect (- left 2) 0 (get-width) (get-height)) erase?: #f)
+                (update-view))))))))
+  
+  
+  (method (drag-up client . rest)
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
+      (if (not resizing?)
+          (let ((col (h->col h)))
+            (when col
+              (let ((column (get-column col)))
+                (header-up~ column (header-coordinates col client)))))
+        (set! resizing? #f)
+        (set! resized-column {})
+        (set-filled-column~ (get-client) #f)
+        (end-resizing))
+      (release-capture)))
+  
+  
+  (method (double-click client)
+    (let ((h (- (get-h~ client) (get-hscroll-amount)))
+          (v (get-v~ client)))
+      (let ((col (h->col h)))
+        (when col
+          (let ((column (get-column col)))
+            (header-double-click~ column (header-coordinates col client)))))))
+  
+  
+  (method (header-coordinates col pos)
+    (- pos (header-position col)))
+  
+  
+  (method (resized-col h)
+    (call/ec
+      (lambda (return)
+        (loop (for borders in (get-columns-borders))
+              (for col from 0 below (get-columns-count))
+              (bind (left . right) borders
+                (when (near? h right 4)
+                  (return col))))
+        {})))
+    
+  
+  ;;;
+  ;;;; Headers
+  ;;;
+  
+  
+  (method public (invalidate-column-header column)
+    (when (get-finished?)
+      (let ((rect (header-rect column)))
+        (invalidate-rect rect))))
+  
+  
+  (method public (header-rect column)
+    (bind (left . right) (get-borders (column-rank column))
+      (new Rect left 0 right (get-height))))
+  
+
+  ;;;
+  ;;;; Coordinates
+  ;;;
+  
+  
+  (method (header-position col)
+    (new Point (borders-left (get-borders col)) 0))
+  
+
+  (method (h->col h)
+    (call/ec
+      (lambda (return)
+        (loop (for borders in (get-columns-borders))
+              (for n from 0 below (get-columns-count))
+              (bind (left . right) borders
+                (when (and (>= h left) (<= h right))
+                  (return n))))
+        {})))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "MsgMenu"})))

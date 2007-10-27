@@ -1,0 +1,103 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; DC Snapshots
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.graphic.DC-Snapshot jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class DC-Snapshot extends Object implements Viewable
+
+
+  (constant Snapshot-Size
+    {Dimension 200 200})
+
+
+  (slot memory-dc)
+
+
+  (method (initialize dc size)
+    (nextmethod)
+    (set! memory-dc (new Cairo-Memory-Surface dc size: size))
+    (bit-blit~ dc memory-dc size: size :destination-size Snapshot-Size))
+
+
+  (method (get-title)
+    "Image")
+
+
+  (method (get-viewer-class)
+    DC-Viewer)
+
+
+  (method public (get-memory-dc)
+    memory-dc))
+
+
+;;;
+;;;; Viewer
+;;;
+
+
+(class DC-Viewer extends Layout-View
+  
+  
+  (form
+    (<install>         layout-type: center
+      (<Border-View>   size: {Dimension 202 202} border-type: edge style: entry
+        (<DC-Renderer>))))
+  
+  
+  (property client accessors generate))
+
+
+;;;
+;;;; Renderer
+;;;
+
+
+(class DC-Renderer extends View
+  
+  
+  (method (draw dc context update lh lv)
+    (let ((size Snapshot-Size)
+          (memory-dc (get-memory-dc~ client)))
+      (bit-blit~ memory-dc dc size: size :destination-size (get-size))))))

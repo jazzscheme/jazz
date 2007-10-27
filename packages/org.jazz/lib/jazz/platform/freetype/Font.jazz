@@ -1,0 +1,65 @@
+(library jazz.platform.freetype.Font jazz
+
+(import (jazz.platform.freetype)
+	(jazz.platform.Color)
+	(jazz.platform.cairo)
+        (jazz.library)
+        (jazz.utilities))
+
+(class Font extends Object
+
+  (slot name           accessors generate)
+  (slot path           accessors generate)
+  (slot point-size     accessors generate)
+  (slot color          accessors generate)
+  (slot bold?          accessors generate)
+  (slot italic?        accessors generate)
+  (slot underline?     accessors generate)
+  (slot monospace?     accessors generate)
+  (slot ft-handle      accessors generate)
+  (slot cairo-handle   accessors generate)
+
+  (method (initialize self
+                      (name: name "")
+                      (path: path #f)
+                      (point-size: point-size 8)
+                      (color: color (new Color red: 1.000 green: 1.000 blue: 1.000))
+                      (bold?: bold? #f)
+                      (italic?: italic? #f)
+                      (underline?: underline? #f)
+                      (monospace?: monospace? #f))
+    
+    (if path
+        (set-path self path)
+      (error "Path to truetype font needed"))
+    
+    (set-name self name)
+    (set-point-size self point-size)
+    (set-color self color)
+    (set-bold? self bold?)
+    (set-italic? self italic?)
+    (set-underline? self underline?)
+    (set-monospace? self monospace?)
+    
+    (set-ft-handle self (make-ft-handle self))
+    (set-cairo-handle self (make-cairo-handle self)))
+
+
+(method (destroy self)
+  (cairo_font_face_destroy (get-cairo-handle self))
+  (FT_Done_Face (get-ft-handle self)))
+     
+     
+(method (make-ft-handle self)
+  (let ((face (make-FT_Face)))
+    (FT_New_Face ft-library (get-path self) 0 face)
+    face))
+
+(method (make-cairo-handle self)
+  (cairo_ft_font_face_create_for_ft_face (get-ft-handle self) 0))
+
+(method public (get-size self)
+  (calculate-size self (get-point-size self)))
+
+(method (calculate-size self point-size)
+  (/ (* point-size 96.0) 72))))

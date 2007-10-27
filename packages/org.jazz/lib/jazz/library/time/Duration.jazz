@@ -1,0 +1,262 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Duration
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.time.Duration jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Duration extends Object
+  
+  
+  (slot years)
+  (slot months)
+  (slot weeks)
+  (slot days)
+  (slot hours)
+  (slot minutes)
+  (slot seconds)
+
+  
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (definition meta Accepted-Units
+    '((year    . years)
+      (years   . years)
+      (month   . months)
+      (months  . months)
+      (week    . weeks)
+      (weeks   . weeks)
+      (day     . days)
+      (days    . days)
+      (hour    . hours)
+      (hours   . hours)
+      (minute  . minutes)
+      (minutes . minutes)
+      (second  . seconds)
+      (seconds . seconds)))
+  
+  
+  (method meta public (parse-string string)
+    (let ((years {})
+          (months {})
+          (weeks {})
+          (days {})
+          (hours {})
+          (minutes {})
+          (seconds {})
+          (parts (read-delimited-string string #\comma))
+          (error (function dynamic () (error "Unable to parse {t} into a Duration" string))))
+      (for-each (function dynamic (part)
+                  (if (and (pair? part) (= (length part) 2))
+                      (let ((amount (first part))
+                            (units (cdr (assq (second part) Accepted-Units))))
+                        (if (and (number? amount) (positive? amount) units)
+                            (case units
+                              ((years) (set! years amount))
+                              ((months) (set! months amount))
+                              ((weeks) (set! weeks amount))
+                              ((days) (set! days amount))
+                              ((hours) (set! hours amount))
+                              ((minutes) (set! minutes amount))
+                              ((seconds) (set! seconds amount)))
+                          (error)))
+                    (error)))
+                parts)
+      (new self
+        :years years
+        :months months
+        :weeks weeks
+        :days days
+        :hours hours
+        :minutes minutes
+        :seconds seconds)))
+  
+  
+  ;;;
+  ;;;; Duration
+  ;;;
+    
+  
+  (method meta (construct-literal context . rest)
+    (apply new self rest))
+
+  
+  (method (initialize (years: years {}) (months: months {}) (weeks: weeks {}) (days: days {}) (hours: hours {}) (minutes: minutes {}) (seconds: seconds {}))
+    (nextmethod)
+    (set! years~self years)
+    (set! months~self months)
+    (set! weeks~self weeks)
+    (set! days~self days)
+    (set! hours~self hours)
+    (set! minutes~self minutes)
+    (set! seconds~self seconds))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Duration)
+           :incompatible)
+          ((and (= years (get-years~ target))
+                (= months (get-months~ target))
+                (= weeks (get-weeks~ target))
+                (= days (get-days~ target))
+                (= hours (get-hours~ target))
+                (= minutes (get-minutes~ target))
+                (= seconds (get-seconds~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  @convert-fold
+  (method (foldable?)
+    #t)
+
+
+  @convert-fold
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-key-pair~ compiler :years years)
+    (fold-key-pair~ compiler :months months)
+    (fold-key-pair~ compiler :weeks weeks)
+    (fold-key-pair~ compiler :days days)
+    (fold-key-pair~ compiler :hours hours)
+    (fold-key-pair~ compiler :minutes minutes)
+    (fold-key-pair~ compiler :seconds seconds)
+    (output~ compiler ")"))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a}{k empty-value: {}}}"
+            (identifier-name (type-name (class-of self)))
+            (list
+             :years years
+             :months months
+             :weeks weeks
+             :days days
+             :hours hours
+             :minutes minutes
+             :seconds seconds)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-amount units)
+    (case units
+      ((years) years)
+      ((months) months)
+      ((weeks) weeks)
+      ((days) days)
+      ((hours) hours)
+      ((minutes) minutes)
+      ((seconds) seconds)))
+  
+  
+  (method public (get-amounts)
+    (values years months weeks days hours minutes seconds))
+  
+  
+  (method public (get-units)
+    '(years
+      months
+      weeks
+      days
+      hours
+      minutes
+      seconds))
+  
+  
+  ;;;
+  ;;;; Arithmetic
+  ;;;
+  
+  
+  (method public (get-sign)
+    (call/ec
+      (lambda (return)
+        (for-each (function dynamic (units)
+                    (let ((amount (get-amount units)))
+                      (when (and amount (/= amount 0))
+                        (return (sign amount)))))
+                  (get-units))
+        0)))
+  
+  
+  ;;;
+  ;;;; Present
+  ;;;
+  
+  
+  (definition Units
+    '((years   . year)
+      (months  . month)
+      (weeks   . week)
+      (days    . day)
+      (hours   . hour)
+      (minutes . minute)
+      (seconds . second)))
+  
+  
+  (method public (present)
+    (join (remove-nils
+            (list
+              (present-amount 'years)
+              (present-amount 'months)
+              (present-amount 'weeks)
+              (present-amount 'days)
+              (present-amount 'hours)
+              (present-amount 'minutes)
+              (present-amount 'seconds)))
+          ", "))
+  
+  
+  (method (present-amount units)
+    (let ((amount (get-amount units)))
+      (when (and amount (/= amount 0))
+        (format "{a} {a}{a}"
+                amount
+                (cdr (assq units Units))
+                (format-plural amount)))))))

@@ -1,0 +1,66 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; The Jad Java Decompiler
+;;;
+
+
+(library jazz.library.external.Jad jazz
+
+
+(import (jazz.library)
+        (jazz.library.shell)
+        (jazz.utilities))
+
+
+(class Jad extends Object
+  
+  
+  ;;;
+  ;;;; Decompile
+  ;;;
+  
+  
+  (method public (decompile pathname output)
+    (typecase pathname
+      ((File) (decompile-file pathname output))
+      ((Directory) (decompile-directory pathname output))
+      (else (error "Decompile only works with files and directories: {t}" pathname))))
+  
+  
+  (method (decompile-file file output)
+    (user-message "Decompiling {a}..." (parse~ file))
+    (create-directories~ output)
+    (let ((command (build-command file)))
+      (create-process command
+       directory: output
+       visible?: #f)))
+    
+  
+  (method (decompile-directory dir out)
+    (let ((base (length (get-list~ dir)))
+          (list (get-list~ out)))
+      (iterate-directory~ dir
+        (function dynamic (file)
+          (let ((ext (get-extension~ file)))
+            (when (ci= ext "class")
+              (let* ((trimed (trim (get-directory~ file) base))
+                     (output (new Directory (append list trimed))))
+                (decompile-file file output)))))
+        files?: #t
+        directories?: #f
+        recursive?: #t)))
+  
+  
+  (method (trim dir base)
+    (tail (get-list~ dir) base))
+
+  
+  ;;;
+  ;;;; Command
+  ;;;
+  
+  
+  (method (build-command file)
+    (format "Jad -noinner -o -s java -t \"{a}\"" (parse~ file)))))

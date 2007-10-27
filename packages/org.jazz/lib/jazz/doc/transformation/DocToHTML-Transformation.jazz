@@ -1,0 +1,117 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Doc to HTML Transformation
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(transformation DocToHTML-Transformation extends JML-Transformation
+  
+  
+  (pattern (parameter node)
+    (let ((text (get-child-text~ node)))
+      `(<i> ,text)))
+  
+  
+  (pattern (code node)
+    (let ((text (get-child-text~ node)))
+      `(<code> ,text)))
+  
+  
+  (pattern (reference node)
+    (let* ((href (get-property~ node 'href))
+           (name (format "manual.htm#{a}" href))
+           (child (first-child~ node))
+           (text (if child (get-text~ child) (->string href))))
+      `(<a> href: ,name ,text)))
+  
+  
+  (pattern (header node)
+    (let ((text (get-child-text~ node)))
+      `(<i> ,text)))
+  
+  
+  (pattern (node node)
+    (expand-node node))
+  
+  
+  (method (expand-node node)
+    (if (and (is? node JML-Element)
+             (eq? (get-tag~ node) 'node))
+        `(<ul> ,@(map expand-node (get-children~ node)))
+      `(<li> ,(->jml~ node))))
+  
+  
+  (pattern (definition node)
+    (let ((title (either (get-property~ node 'title) (->string (get-property~ node 'name)))))
+      `(<div>
+         (<p> class: "definition" (<b> ,title))
+         ,@(children->jml~ node))))
+  
+  
+  (pattern (properties node)
+    `(<table> class: "properties"
+       ,@(map (function dynamic (prop)
+                (bind (property value) (get-children~ prop)
+                  `(<tr>
+                     (<td> ,(get-text~ property))
+                     (<td> ,(get-text~ value)))))
+              (get-children~ node))))
+  
+  
+  (pattern (terminology node)
+    `(<table> class: "terminology"
+       (<caption> "Terminology")
+       ,@(map (function dynamic (definition)
+                (bind (term text) (get-children~ definition)
+                  `(<tr>
+                     (<td> ,(get-text~ term))
+                     (<td> ,(get-text~ text)))))
+              (get-children~ node))))
+  
+  
+  (pattern (format-directives node)
+    `(<table> class: "format-directives"
+       ,@(map (function dynamic (directive)
+                (bind (name char text) (get-children~ directive)
+                  `(<tr>
+                     (<td> ,(get-text~ name))
+                     (<td> ,(get-text~ char))
+                     (<td> ,(get-text~ text)))))
+              (get-children~ node))))
+  
+  
+  (pattern (styled-table node)
+    (let ((style (format "border-style: {a}; border-width: {a}; border-color: {a};" 'solid 1 'red)))
+      `(<table> style: ,style ,@(properties->jml~ node)
+         ,@(children->jml~ node)))))

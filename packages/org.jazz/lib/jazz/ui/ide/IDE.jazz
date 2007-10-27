@@ -1,0 +1,908 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Integrated Development Environment
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.ide.IDE jazz
+
+
+(import (jazz.jazz)
+        (jazz.io)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.utilities))
+
+
+(class IDE extends Application
+
+
+  (slot local-debugger-server initialize {})
+  (slot cataloguer            initialize {})
+  (slot catalog-context       initialize {})
+  (slot catalog-file          initialize {})
+  (slot search                initialize {})
+  (slot recorder              initialize (new Macro-Recorder))
+  
+  
+  (method (start-process rest)
+    (nextmethod rest)
+    (set-caption-base~ toplevel (process-title))
+    (setup-debugger-server))
+
+
+  (method (prepare-workbench)
+    (nextmethod)
+    (load-workbench))
+  
+  
+  (method (process-title)
+    (either (get-toplevel-title~ (get-preferences {}))
+            "Application"))
+  
+  
+  (method (workspace-installed)
+    (nextmethod)
+    (update-catalog-context)
+    @convert-this-happens-too-soon
+    (let ((text (get-text~ (locate-component~ (find-palette~ (get-workspace-splitter~ toplevel) IDE-Toolbar) 'quick-find))))
+      (when text
+        (acquire-focus~ text))))
+
+
+  (method (close-environment)
+    (detach-debugger-processes)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-backward-history)
+    (get-backward-history~ history-manager))
+  
+  
+  (method public (get-forward-history)
+    (get-forward-history~ history-manager))
+
+
+  ;;;
+  ;;;; Recording
+  ;;;
+  
+  
+  (method (get-recorder)
+    recorder)
+
+
+  ;;;
+  ;;;; User
+  ;;;
+  
+  
+  (method (use-user-logging?)
+    #t)
+  
+  
+  (method (use-user-class?)
+    #t)
+
+  
+  ;;;
+  ;;;; Frames
+  ;;;
+
+
+  (method (base-frame-class)
+    Text-View)
+
+
+  (method (default-frame-class)
+    Plain-Text-View)
+
+
+  (method (known-extension-frame-class ext)
+    (cond ((member? ext '("txt" "text") test: ci=) Plain-Text-View)
+          ((member? ext '("ftx") test: ci=) Plain-Formatted-Text-View)
+          ((member? ext '("bat") test: ci=) Shell-Text-View)
+          ((member? ext '("dbs") test: ci=) Database-Manager)
+          @wait
+          ((member? ext '("jdy") test: ci=) Diary-Manager)
+          ((member? ext '("prop") test: ci=) Prop-Text-View)
+          ((member? ext '("java") test: ci=) Java-Text-View)
+          ((member? ext '("c" "cp" "cpp" "cxx" "h" "hpp" "rc" "i") test: ci=) Cpp-Text-View)
+          ((member? ext '("cs") test: ci=) CSharp-Text-View)
+          @wait
+          ((member? ext '("html" "htm")) HTML-Text-View)
+          ((member? ext '("xml")) Plain-Text-View @w XML-Text-View)
+          ((member? ext '("sql")) SQL-Text-View)
+          ((member? ext '("jsp")) JSP-Text-View)
+          ((member? ext '("css")) CSS-Text-View)
+          ((member? ext '("properties")) Properties-Text-View)
+          ((member? ext '("js")) JavaScript-Text-View)
+          ((member? ext '("lua")) Lua-Text-View)
+          ((member? ext '("py")) Python-Text-View)
+          ((member? ext '("bmp" "wmf" "emf" "jpg" "jpeg" "png" "tif" "tiff") test: ci=) Image-View)
+          @wait
+          ((member? ext '("jsc")) JSC-Book)
+          @wait
+          ((member? ext '("dsg")) Design-Book-View)
+          @wait
+          ((member? ext '("arv")) Archive-Manager)
+          (else (nextmethod ext))))
+  
+  
+  (method (unknown-extension-frame-class)
+    Plain-Text-View)
+  
+  
+  ;;;
+  ;;;; Catalog
+  ;;;
+
+
+  (method (get-cataloguer)
+    (unless cataloguer
+      (set! cataloguer (new Cataloguer))
+      (create-package-catalogs cataloguer)
+      (load-package-catalogs cataloguer)
+      (load-catalogs~ (get-workbench)))
+    cataloguer)
+
+
+  (method (get-catalog-context)
+    catalog-context)
+        
+  
+  (method public (update-catalog-context)
+    (set-catalog-context (get-catalog-context)))
+        
+  
+  (method public (set-catalog-context context)
+    (when context
+      (let ((title (case context ((jazz) "Jazz") ((cpp/java) "C++/Java")))
+            (icon (case context ((jazz) {Bitmap-Resource "Script"}) ((cpp/java) {Bitmap-Resource "Java"})))
+            (status (find-palette~ (get-workspace-splitter~ toplevel) IDE-Status)))
+        (when status
+          (let ((mode (find-component~ status 'mode)))
+            (when mode
+              (set-icon~ mode icon)
+              (set-title~ mode title))))
+        (set! catalog-context context))))
+  
+  
+  (method (create-package-catalogs cataloguer)
+    (let ((extensions '("scm" "jazz")))
+      (define (create-catalog name directory)
+        (let ((output (new-file~ directory (format "{a}.jcat" name)))
+              ;; ??? directories seems to be only the dir
+              (directories directory))
+          (let ((catalog (new Package-Catalog name output directories extensions #t #t #t)))
+            (add-catalog~ cataloguer catalog))))
+      
+      (create-catalog 'org.jazz {Directory Root "packages" "org.jazz"})
+      (create-catalog 'org.jedi {Directory Root "packages" "org.jedi"})))
+  
+  
+  (method (load-package-catalogs cataloguer)
+    (load-content~ (get-catalog~ cataloguer 'org.jazz))
+    (load-content~ (get-catalog~ cataloguer 'org.jedi)))
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+
+
+  (method (get-search-manager)
+    search)
+
+
+  (method public (get-history-manager)
+    history-manager)
+
+  
+  (method (user-feedback message)
+    (user-message message))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (class-actions)
+    (cons (find-actions 'ide)
+          (nextmethod)))
+
+
+  ;;;
+  ;;;; Environment
+  ;;;
+  
+  
+  (method (save-environment)
+    (nextmethod)
+    (when cataloguer
+      (save-catalogs~ cataloguer)))
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+
+  
+  @convert-to-session
+  (method (load-session)
+    (let ((dir (get-current-directory~ (get-preferences '(application session)))))
+      (when dir
+        (set-current-directory dir))))
+  
+  
+  @convert-to-session
+  (method (reload-opened-windows)
+    @convert-to-session
+    (for-each (function dynamic (info)
+                (bind (class . properties) info
+                  (bind-keywords ((file {}) . others) properties
+                    (when (or (not file) (exists?~ file))
+                      (reload-component class properties)))))
+              (get-opened-windows~ (get-preferences '(application session)))))
+    
+  
+  (method (reload-component class properties)
+    @to-convert
+    (case class
+      ((plain-text)          (apply new Plain-Text-Frame          properties))
+      ((cpp-text)            (apply new Cpp-Text-Frame            properties))
+      ((java-text)           (apply new Java-Text-Frame           properties))
+      ((prop-text)           (apply new Prop-Text-Frame           properties))
+      ((html-text)           (apply new HTML-Text-Frame           properties))
+      ((java-palette)        (apply new Java-Text-Palette         properties))
+      ((image-frame)         (apply new Image-Frame               properties))
+      ((browser-frame)       (apply new Browser-Frame             properties))
+      ((directory-browser)   (apply new Directory-Browser         properties))
+      ((repository-browser)  (apply new Repository-Browser        :repository (get-repository~ Repository) properties))
+      ((repository-manager)  (apply new Repository-Manager        properties))
+      ((reference-analyser)  (apply new Java-Reference-Finder     properties))
+      ((catalogs-manager)    (apply new Catalogs-Manager          properties))
+      @to-convert
+      ((compare-directories) (apply new Compare-Directories-Frame properties))
+      @to-convert
+      ((compare-files)       (apply new Compare-Files-Frame       properties))
+      (else                (nextmethod class properties))))
+    
+  
+  ;;;
+  ;;;; Workbench
+  ;;;
+  
+  
+  (method public (load-workbench)
+    (with-safe-execution "loading the workbench"
+      (function dynamic ()
+        (let ((file {File User "Settings" "Workbench.jml"}))
+          (if (not (exists?~ file))
+              (set-workbench {})
+            (with-execution-context
+              (function dynamic ()
+                (set-workbench (instantiate~ (read-from-file file))))
+              title: "Load Workbench")
+            @this-is-very-dangerous-as-it-makes-the-loading-process-very-fragile-against-any-outside-manipulation
+            (empty-map (get-manifest)))))
+      continue-handler:
+      (function dynamic (err)
+        )))
+  
+  
+  ;;;
+  ;;;; Log
+  ;;;
+  
+  
+  (method (get-output-log)
+    (get-guest~ (singleton-docked Output-Log {})))
+  
+  
+  ;;;
+  ;;;; Process Server
+  ;;;
+  
+  
+  (method public (present-debuggee debuggee)
+    (let ((jedi (get-local-process-server))
+          (name (get-name~ debuggee)))
+      (if (= (get-process-server~ debuggee) jedi)
+          name
+        (let ((host (get-host~ (get-ior~ debuggee))))
+          (if (= host (listening-host~ stub-listener))
+              (format "{a} on localhost" name)
+            (format "{a} at {a}" name (present~ host)))))))
+  
+  
+  ;;;
+  ;;;; Directory Server
+  ;;;
+  
+  
+  (method (register-base-objects)
+    (nextmethod)
+    @convert/wait
+    (register-object~ (get-local-directory-server) 'debugger local-debugger-server))
+
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+  
+  (method (setup-controller)
+    (if (command-argument "controllerhost")
+        (nextmethod)
+      (attach-to-controller (get-local-process-server))))
+  
+  
+  (method (reattach-local-controller)
+    (attach-to-controller (get-local-process-server)))
+
+  
+  ;;;
+  ;;;; Debugger Server
+  ;;;
+    
+  
+  (method (get-local-debugger-server)
+    local-debugger-server)
+
+  
+  (method (setup-debugger-server)
+    @convert
+    (set! local-debugger-server (new Debugger-Server-Local-Proxy (new Debugger-Server))))
+  
+  
+  (method (detach-debugger-processes)
+    @convert
+    (when local-debugger-server
+      (detach-debuggees~ local-debugger-server)))
+  
+  
+  (method (present-thread-stack file)
+    ;; still not as good as a real live debug of the thread stack but still a lot better than what we had before!
+    (post-primary
+      (function ()
+        (edit-file file))))
+  
+  
+  (method (select-debugger)
+    (apply-preferences~ (get-preferences '(workspaces debugger))))
+
+
+  ;;;
+  ;;;; Alias
+  ;;;
+  
+  
+  (method (process-alias name)
+    (case name
+      ((:debugger) Debugger)
+      ((:view-debugger) View-Debugger)
+      ((:recorder) recorder)
+      (else (nextmethod name))))
+    
+
+  ;;;
+  ;;;; Favorites
+  ;;;
+
+  
+  (method (on-open-favorite evt)
+    (let* ((char (get-property~ evt :char))
+           (favorite (find-favorite char)))
+      (if (not favorite)
+          (error "No favorite defined for {t}" char)
+        (edit-document (get-file~ favorite)))))
+  
+  
+  (method (find-favorite char)
+    (let ((pref (get-preferences 'favorites error?: #f)))
+      (when pref
+        (let ((favorites (get-children~ pref)))
+          (find-if (function dynamic (favorite)
+                     (ci= (get-shortcut~ favorite) char))
+                   favorites)))))
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+
+  
+  (method (edit-definition object (class: class {}) (context: context catalog-context) (workspace: workspace {}) (history-item: history-item {}))
+    (let ((definitions (filter-entries (get-coalesced-definitions~ (get-cataloguer) object context: context) class)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit~ (car definitions) workspace: workspace))
+          (else (edit-definitions~ (get-guest~ (get-search-manager)) object definitions))))))
+
+  
+  (method (edit-references object (context: context catalog-context) (history-item: history-item {}))
+    (let ((definitions (get-references~ (get-cataloguer) object context: context)))
+      (if (null? definitions)
+          (bell)
+        (add-history history-item)
+        (case (length definitions)
+          ((1) (edit-reference~ (car definitions) object))
+          (else (edit-references~ (get-guest~ (get-search-manager)) object definitions context))))))
+  
+  
+  (method (filter-entries entries class)
+    entries
+    @convert/wait
+    (if (not class)
+        entries
+      (collect-if (function dynamic (entry)
+                    (and (typed? entry 'Jazz-Field-Entry)
+                         (subtype? (field-creator (get-field~ entry)) class)))
+                  entries)))
+
+
+  ;;;
+  ;;;; Documentation
+  ;;;
+  
+  
+  (method public (get-documentation symbol)
+    (when symbol
+      (let ((cataloguer (get-documentation-cataloguer)))
+        (when cataloguer
+          (get-definition~ cataloguer symbol)))))
+  
+  
+  (method public (edit-documentation symbol)
+    (let ((doc (get-documentation symbol)))
+      (if (not doc)
+          (bell)
+        (let* ((form (get-form~ doc))
+               (moniker (get-origin~ (get-toplevel~ form)))
+               (frame (edit-document moniker visible?: #f))
+               (text (get-guest~ frame))
+               (location (append (get-location~ form) (list 0)))
+               (range (location-range~ text location)))
+          (set-selection~ text range)
+          (bring-to-front~ frame)
+          (set-visible?~ frame #t)
+          (acquire-focus~ frame)))))
+
+
+  @old-doc-editor
+  (method public (edit-documentation location object text text-location)
+    (let* ((class Doc-Editor)
+           (editor (find-guest~ stage class))
+           (info (list location object text text-location)))
+      (if (not editor)
+          (new-frame class client: (get-documentation-catalog) :entry info)
+        (set-entry~ editor info)
+        (bring-to-front~ (get-host~ editor)))))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method public (on-open evt)
+    (cond ((get-alt?~ evt)
+           (on-open-text evt))
+          ((get-shift?~ evt)
+           (on-open-jazz-text evt))
+          (else
+           (nextmethod evt))))
+    
+
+  (method public (on-open-text evt)
+    (let ((files (get-modal OpenFile-Dialog multiple-selection?: #t)))
+      (for-each (function dynamic (file)
+                  (edit-document file class: Jazz-Plain-Text-View))
+                (sort > files key: (function dynamic (file) (get-name~ file))))))
+    
+
+  (method public (on-open-jazz-text evt)
+    (let ((files (get-modal OpenFile-Dialog multiple-selection?: #t)))
+      (for-each (function dynamic (file)
+                  (edit-document file class: Jazz-Text-View))
+                (sort > files key: (function dynamic (file) (get-name~ file))))))
+  
+  
+  (method public (on-call-test evt)
+    (cond ((get-shift?~ evt) (on-test-shift evt))
+          (else (on-test evt))))
+
+
+  (method public virtual (on-test evt)
+    (let ((user (get-user)))
+      (test~ user)
+      @convert/wait
+      (if (not (privileged-test?~ user))
+          (test~ user)
+        (privileged-execute
+          (list 'test)
+          user
+          (list
+            Language
+            Utilities
+            Development
+            System)
+          {}
+          {}))))
+
+
+  (method public virtual (on-test-shift evt)
+    (let ((user (get-user)))
+      (test-shift~ user)
+      @convert/wait
+      (if (not (privileged-test?~ user))
+          (test-shift~ user)
+        (privileged-execute
+          (list 'test-shift)
+          user
+          (list
+            Language
+            Utilities
+            Development
+            System)
+          {}
+          {}))))
+
+
+  (method (on-test-no evt)
+    (let ((user (get-user)))
+      (case (get-property~ evt no:)
+        ((0) (test0~ user))
+        ((1) (test1~ user))
+        ((2) (test2~ user))
+        ((3) (test3~ user))
+        ((4) (test4~ user))
+        ((5) (test5~ user))
+        ((6) (test6~ user))
+        ((7) (test7~ user))
+        ((8) (test8~ user))
+        ((9) (test9~ user)))
+      @convert/wait
+      (if (not (privileged-test?~ user))
+          (case (get-property~ evt no:)
+            ((0) (test0~ user))
+            ((1) (test1~ user))
+            ((2) (test2~ user))
+            ((3) (test3~ user))
+            ((4) (test4~ user))
+            ((5) (test5~ user))
+            ((6) (test6~ user))
+            ((7) (test7~ user))
+            ((8) (test8~ user))
+            ((9) (test9~ user)))
+        (privileged-execute
+          (list (string->symbol (append "test" (->string (get-property~ evt no:)))))
+          user
+          (list
+            Language
+            Utilities
+            Development
+            System)
+          {}
+          {}))))
+  
+
+  (method public (on-debug-view evt)
+    (debug-view~ View-Debugger))
+  
+  
+  (method public (on-explore-views evt)
+    (explore-views~ View-Debugger))
+  
+  
+  (method (on-threads-manager evt)
+    (show-palette Threads-Manager))
+  
+  
+  (method (on-memory-inspector evt)
+    (show-palette Memory-Inspector))
+  
+  
+  (method (on-resources-monitor evt)
+    (show-palette Resources-Monitor))
+  
+  
+  (method (on-processes-inspector evt)
+    (show-palette Processes-Inspector))
+  
+  
+  (method (on-windows-inspector evt)
+    (show-palette Windows-Inspector))
+
+
+  (method public (on-logs-viewer evt)
+    (show-palette Logs-Viewer))
+  
+  
+  (method (on-class-browser evt)
+    (let* ((focus (get-focus))
+           (text (if (is? focus Text-View) (get-selected-string~ focus) {})))
+      (show-palette Class-Browser initialize: (function dynamic (palette browser)
+                                                (set-text~ browser text)))))
+
+  
+  (method public (on-reference-analyser evt)
+    @convert/wait
+    (new Java-Reference-Finder))
+  
+  
+  (method public (on-edit-clipboard evt)
+    (let ((clipboard (get-clipboard)))
+      (if (string? clipboard)
+          (edit-definition clipboard)
+        (bell))))
+  
+  
+  (method public (get-workbench-manager)
+    (get-guest~ (singleton-docked Workbench-Manager {})))
+  
+  
+  (method public (on-edit-project evt)
+    @convert/wait
+    (edit-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-compile-file evt)
+    @convert/wait
+    (compile-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-preprocess-file evt)
+    @convert/wait
+    (preprocess-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-build-project evt)
+    @convert/wait
+    (build-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-clean-project evt)
+    @convert/wait
+    (clean-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-options-project evt)
+    @convert/wait
+    (options-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-references-project evt)
+    @convert/wait
+    (references-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-view-project-log evt)
+    @convert/wait
+    (view-log~ (get-workbench-manager)))
+  
+  
+  (method public (on-launch-project evt)
+    @convert/wait
+    (launch-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-execute-project evt)
+    @convert/wait
+    (execute-current~ (get-workbench-manager)))
+  
+  
+  (method public (on-distribute-project evt)
+    @convert/wait
+    (distribute-current~ (get-workbench-manager)))
+
+
+  ;;;
+  ;;;; Tools-Menu
+  ;;;
+  
+  
+  (method public (on-properties evt)
+    (select-palette Properties-Manager focus?: #t))
+
+  
+  (method public (on-search-results evt)
+    (select-palette Search-Results focus?: #t))
+  
+  
+  (method public (on-web-servers evt)
+    (select-palette Web-Servers-Manager focus?: #t))
+
+  
+  (method public (on-output-log evt)
+    (select-palette Output-Log focus?: #t))
+
+  
+  (method public (on-user-log evt)
+    (let ((user-log (select-palette User-Log focus?: #t)))
+      (refresh~ user-log)))
+
+  
+  (method public (on-activities evt)
+    (select-palette Activities-Manager focus?: #t))
+
+  
+  (method public (on-workbench evt)
+    (select-palette Workbench-Manager focus?: #t))
+
+  
+  (method public (on-favorites evt)
+    (select-palette Favorites-Manager focus?: #t))
+
+  
+  (method public (on-repositories evt)
+    @convert/wait
+    (select-palette Repositories-Manager focus?: #t))
+
+  
+  (method public (on-contacts evt)
+    @convert/wait
+    (select-palette Contacts-Manager focus?: #t))
+
+  
+  (method public (on-chapters evt)
+    (select-palette Chapters-Browser workspace: 'text focus?: #t))
+
+  
+  (method public (on-hierarchy evt)
+    (select-palette Hierarchy-Browser workspace: 'text focus?: #t))
+  
+  
+  (method public (on-bindings evt)
+    (new-frame Bindings-Manager))
+  
+  
+  (method public (on-preferences evt)
+    (new-frame Preferences-Manager))
+
+
+  (method public (on-toggle-catalog-context evt)
+    @convert/wait
+    (case catalog-context
+      ((jazz) (set-catalog-context 'cpp/java))
+      ((cpp/java) (set-catalog-context 'jazz))))
+
+
+  (method public (on-refresh-window evt)
+    @convert/wait
+    (let ((window (first-window~ stage)))
+      (if (not window)
+          (redraw-window~ stage)
+        (redraw-window~ window))))
+  
+  
+  (method public (on-save-workspace evt)
+    @convert/wait
+    (with-cursor :wait
+      (function dynamic ()
+        (user-message "Saving workspace...")
+        (call-save-environment-listeners)
+        (call-exit-listeners)
+        (user-message "Done"))))
+  
+  
+  (method public (on-exit-without-save evt)
+    (when (eq? (message-box "Are you sure you want to exit without saving?" type: 'question) 'yes)
+      (exit)))
+  
+  
+  (method public (on-compare-directories evt)
+    (if (get-shift?~ evt)
+        (let ((default (get-active-configuration~ (get-preferences '(tools compare-directories)))))
+          (if (not default)
+              (new-frame Compare-Directories)
+            (let ((frame (new-frame Compare-Directories host-visible?: #f)))
+              (with-cursor :wait
+                (function dynamic ()
+                  (configure~ (get-guest~ frame) default)
+                  (compare-trees~ (get-guest~ frame))
+                  (bring-to-front~ frame)
+                  (set-visible?~ frame #t)
+                  (acquire-focus~ frame))))))
+      (new-frame Compare-Directories)))
+  
+  
+  (method public (on-compare-files evt)
+    (new-frame Compare-Files))
+
+  
+  (method public (on-compare-databases evt)
+    @convert/wait
+    (new-frame Compare-Databases))
+  
+  
+  (method public (on-integrate-clearcase evt)
+    @convert/wait
+    (new-frame Integrate-ClearCase))
+
+
+  ;;;
+  ;;;; External
+  ;;;
+
+  
+  (method (on-msdn evt)
+    @convert/wait
+    (bring-to-front~ MSDN))
+
+  
+  (method (on-repository-manager evt)
+    @convert/wait
+    (if (guest-login?)
+        (message-box "Sorry, unavailable functionality")
+      (let ((manager (find-host~ stage Repository-Manager)))
+        (if manager
+            (bring-to-front~ manager)
+          (new-frame Repository-Manager :repository (require-repository~ Repository))))))
+  
+  
+  (method (on-update-text evt)
+    @convert/wait
+    (let ((text (get-focus)))
+      (when (is? text CppJava-Text-View)
+        (recolorize-entries~ text))))
+    
+  
+  (method (on-update-catalog evt)
+    (if (not (get-main~ (get-preferences 'catalogs)))
+        (message-box "No main catalog defined in your Catalogs preferences")
+      (with-cursor :wait
+        (function dynamic ()
+          (update~ (get-main-catalog~ (get-cataloguer)))))))
+
+  
+  (method (on-catalogs-manager evt)
+    (let ((manager (find-host~ stage Catalogs-Manager)))
+      (if manager
+          (bring-to-front~ manager)
+        (new-frame Catalogs-Manager))))))

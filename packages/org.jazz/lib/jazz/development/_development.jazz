@@ -1,0 +1,537 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Development
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.development jazz
+
+
+(import (jazz.library)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.view)
+        (jazz.ui.workspace)
+        (jazz.utilities)
+        (jazz.literals))
+
+
+(definition public ? {})
+(definition public % {})
+(definition public $ {})
+
+
+;;;
+;;;; Walk
+;;;
+
+
+(definition public %free {})
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition public Interactive-Object
+  {})
+
+
+(definition public (in (object {}))
+  (set! Interactive-Object object))
+
+
+(definition public (hex n)
+  (format "#x{x}" n))
+
+
+;;;
+;;;; Inspect
+;;;
+
+
+(definition public (inspect object (kind :value))
+  (let ((appl (get-application))
+        (title (format "Inspector - {a}" object)))
+    (new-frame Inspector-View host-title: title :debuggee (get-local-debuggee~ appl) client: (cons object kind))))
+
+
+(definition public (inspect-form form/component)
+  @need-to-convert
+  (with-text-inspector
+    (function dynamic (output)
+      (let ((form (if (is? form/component Form) form/component (get-form~ form/component)))
+            (printer (new Form-Printer)))
+        (print-form~ printer form 0 output)))))
+
+
+(definition public (inspect-branches component)
+  @need-to-convert
+  (with-text-inspector
+    (function dynamic (output)
+      (let ((first? #t))
+        (for-each-branch~ component
+          (function dynamic (branch)
+            (if first?
+                (set! first? #f)
+              (format output "{%}{%}"))
+            (format output "{a}{%}" (get-name~ branch))
+            (let ((form (get-restore-form~ branch)))
+              (if (not form)
+                  (format output " {}{%}")
+                (let ((printer (new Form-Printer)))
+                  (print-form~ printer form 0 output))))))))))
+
+
+(definition (with-text-inspector proc)
+  (let ((file (create-temporary-file)))
+    (with-closed ((output (new File-Printer file)))
+      (proc output))
+    (let* ((workspace (get-name~ (selected-workspace)))
+           (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
+           (text (get-guest~ frame)))
+      (set-moniker~ (get-controller~ text) file)
+      (set-caret~ text (text-beginning~ text))
+      (set-modified?~ text #f)
+      (bring-to-front~ frame)
+      (set-visible?~ frame #t))))
+
+
+@wait-to-slow
+(definition (with-text-inspector proc)
+  (let* ((workspace (get-name~ (selected-workspace)))
+         (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
+         (text (get-guest~ frame))
+         (output (new Text-Printer text)))
+    (proc output)
+    (set-caret~ text (text-beginning~ text))
+    (set-modified?~ text #f)
+    (bring-to-front~ frame)
+    (set-visible?~ frame #t)))
+
+
+;;;
+;;;; Edition
+;;;
+
+
+(definition public (edit-component class/component)
+  (let ((component (if (class? class/component) (new class/component) class/component)))
+    (new-frame (autoload 'Manager-View) client: component)))
+
+
+(definition public (edit-view class/view)
+  (let ((view (if (class? class/view) (new class/view :background {Color name: Medium}) class/view)))
+    (new-frame (autoload 'View-Editor) client: view)))
+
+
+;;;
+;;;; Reset
+;;;
+
+
+(definition public (rsw name)
+  )
+
+
+(definition public (rsp name)
+  (hash-set! Palettes name {}))
+
+
+;;;
+;;;; Choose
+;;;
+
+
+(definition public (cc (color-or-name {}))
+  (let ((color (if (or (not color-or-name) (is? color-or-name Color)) color-or-name (eval-symbol color-or-name Color))))
+    (get-modal ChooseColor-Dialog :initial-color color)))
+
+
+(definition public (cf)
+  (get-modal OpenFile-Dialog))
+
+
+(definition public (cmf)
+  (get-modal OpenFile-Dialog multiple-selection?: #t))
+
+
+(definition public (csf)
+  (get-modal SaveFile-Dialog))
+
+
+(definition public (cd)
+  (get-modal BrowseFolder-Dialog))
+
+
+(definition public (cp)
+  (let ((path (format "{l}" (get-list~ (cd)))))
+    (set-clipboard path)
+    (user-message "Clipboard set to {a}" path)
+    {}))
+
+
+(definition public (md class)
+  (get-modal~ class))
+
+
+;;;
+;;;; Projects
+;;;
+
+
+(definition public (touch-launcher (base: base {}))
+  (unimplemented 'touch-launcher)
+  @convert
+  (let* ((workbench (get-workbench))
+         (launcher (find-project~ workbench 'Launcher-Project))
+         (class-names Critical-Categories))
+    (touch-classes class-names
+                   :filter (function dynamic (class-name)
+                             (or (not base)
+                                 (subtype? (autoload class-name) base))))))
+
+
+(definition public (touch-classes class-names (filter: filter {}))
+  (unimplemented 'touch-classes)
+  @convert
+  (let ((touched 0))
+    (for-each (function dynamic (class-name)
+                (when (or (null? filter) (filter class-name))
+                  (let ((file (get-manifest-source class-name)))
+                    (touch~ file)
+                    (increase! touched))))
+              class-names)
+    (message-box (format "{a} file{a} touched"
+                         touched
+                         (format-plural touched)))))
+
+
+(definition public (compile-classes class-names . rest)
+  (unimplemented 'compile-classes)
+  @convert
+  (let* ((compiled 0)
+         (appl (get-application))
+         (workbench-manager (get-workbench-manager~ appl)))
+    (for-each (function dynamic (class-name)
+                (let ((file (get-manifest-source class-name)))
+                  (compile-moniker~ workbench-manager file)
+                  (increase! compiled)))
+              class-names)
+    (message-box (format "{a} file{a} compiled"
+                   compiled
+                   (format-plural compiled)))))
+
+
+;;;
+;;;; Files
+;;;
+
+
+(definition public (find-files pattern directory)
+  (let ((regexp (new Regular-Expression pattern)))
+    (iterate-directory~ directory
+      (function dynamic (file)
+        (let ((name (get-name~ file)))
+          (when (match~ regexp name)
+            (debug file)))))))
+
+
+(definition public (rename-files find replacement)
+  (let ((directory (get-modal BrowseFolder-Dialog title: "Rename"))
+        (find-regexp (new Regular-Expression find))
+        (replacement-regexp (new Regular-Expression replacement))
+        (succeeded 0)
+        (failed (new List-Factory)))
+    (iterate-directory~ directory
+      (function dynamic (file)
+        (let* ((name (get-name~ file))
+               (match (match~ find-regexp name)))
+          (if (null? match)
+              (put~ failed file)
+            (let* ((new-name (replace~ replacement-regexp match))
+                   (new-file (new-file~ (get-directory~ file) new-name)))
+              (move-pathname~ file new-file)
+              (increase! succeeded)))))
+      :files? true
+      :directories? false)
+    (let ((failed (get-output~ failed)))
+      (message-box
+        (cons (format "{a} file{a} renamed" succeeded (format-plural succeeded))
+              (when failed
+                (augment '() "Could not rename the following:"
+                  (map (function dynamic (file)
+                         (list :bulleted (format "{a}" file)))
+                       failed))))))))
+
+
+;;;
+;;;; Receive Files
+;;;
+
+
+(class Receiver-View extends View
+  
+  
+  (property invite   initialize {} getter get-invite setter set-invite)
+  (property receiver initialize {} accessors generate)
+  
+  
+  (form
+    (<install> background: {Color name: Dark}))
+  
+  
+  (method public (get-invite)
+    invite)
+  
+  
+  (method public (set-invite value)
+    (set! invite value)
+    (invalidate-view))
+  
+  
+  (method (receive-files pos files)
+    (receiver pos files self))
+  
+  
+  (definition Background-Font
+    {Font font-name: "Arial" point-size: 18})
+  
+  
+  (method (draw dc context update lh lv)
+    (set-font~ dc Background-Font)
+    (let* ((title (localize (either invite "Drop Files Here")))
+           (extent (get-text-extent~ dc title))
+           (pos (center extent (get-display-size))))
+      ;; shadow
+      (set-text-color~ dc {Color name: Black})
+      (draw-text~ dc (+ (get-h~ pos) 2) (+ (get-v~ pos) 2) title)
+      ;; text
+      (set-text-color~ dc {Color name: Gray})
+      (draw-text~ dc (get-h~ pos) (get-v~ pos) title #t))))
+
+
+(definition (setup-receiver receiver (title: title {}) (position: position {}) (size: size {}) (invite: invite {}))
+  (new-palette Receiver-View
+               host-title: (either title "Receive Files")
+               host-position: (either position {Point 219 169})
+               host-size: (either size {Dimension 434 224})
+               ;; convert :guest-context self
+               :invite invite
+               :receiver receiver))
+
+
+;;;
+;;;; Regular Expressions
+;;;
+
+
+(definition public (rer from to string)
+  (replace~ (new Regular-Expression to) (match~ (new Regular-Expression from) string)))
+
+
+;;;
+;;;; Allocations
+;;;
+
+
+@convert
+(definition public (class-instances class)
+  (list :all (class-all-instances class) :live (class-live-instances class)))
+
+
+@convert
+(definition public (reporting-allocations zone result-proc proc (return: return 'name))
+  (let* ((classes (map car (zone-statistics zone)))
+         (before (map class-all-instances classes)))
+    (proc)
+    (let* ((after (map class-all-instances classes))
+           (all (map list (map (case return ((name) type-name) ((class) identity)) classes) (map - after before))))
+      (result-proc
+        (collect-if (function dynamic (info)
+                      (bind (class all) info
+                        (/= all 0)))
+                    all)))))
+
+
+;;;
+;;;; Frames
+;;;
+
+
+@convert
+(definition public (icf frame)
+  (let* ((thread (get-thread~ frame))
+         (address (get-address~ frame))
+         (last-eval (binder-last-eval address))
+         (last-call (binder-last-call address))
+         (last-break (binder-last-break address))
+         (object (either last-call last-break))
+         (closure (frame-procedure address))
+         (function (closure-function closure))
+         (container (function-container function))
+         (toplevel (tlf function))
+         (location (object-location object toplevel)))
+    (list last-eval: last-eval last-call: last-call last-break: last-break location: location)))
+
+
+@convert
+(definition (tlf function)
+  (let ((container (function-container function)))
+    (if (null? container)
+        function
+      (tlf container))))
+
+
+;;;
+;;;; Data
+;;;
+
+
+@convert
+(definition public (debug-table table (name: name {}) (max-display: max-display 250))
+  (let ((text (get-sql-console-text)))
+    (set-current-request~ text name)
+    (display-table~ text table max-display 0)
+    table))
+
+
+;;;
+;;;; ? and %
+;;;
+
+
+(definition public (get-%)
+  %)
+
+
+(definition public (set-% value)
+  (set! % value)
+  (user-message "% set to {s}" %)
+  value)
+
+
+(definition public ?a {})
+(definition public ?b {})
+(definition public ?c {})
+(definition public ?d {})
+(definition public ?e {})
+(definition public ?f {})
+(definition public ?g {})
+(definition public ?h {})
+(definition public ?i {})
+(definition public ?j {})
+(definition public ?k {})
+(definition public ?l {})
+(definition public ?m {})
+(definition public ?n {})
+(definition public ?o {})
+(definition public ?p {})
+(definition public ?q {})
+(definition public ?r {})
+(definition public ?s {})
+(definition public ?t {})
+(definition public ?u {})
+(definition public ?v {})
+(definition public ?w {})
+(definition public ?x {})
+(definition public ?y {})
+(definition public ?z {})
+
+
+(definition public %a {})
+(definition public %b {})
+(definition public %c {})
+(definition public %d {})
+(definition public %e {})
+(definition public %f {})
+(definition public %g {})
+(definition public %h {})
+(definition public %i {})
+(definition public %j {})
+(definition public %k {})
+(definition public %l {})
+(definition public %m {})
+(definition public %n {})
+(definition public %o {})
+(definition public %p {})
+(definition public %q {})
+(definition public %r {})
+(definition public %s {})
+(definition public %t {})
+(definition public %u {})
+(definition public %v {})
+(definition public %w {})
+(definition public %x {})
+(definition public %y {})
+(definition public %z {})
+
+
+;;;
+;;;; External
+;;;
+
+
+@convert
+(definition Previous-All
+  {})
+
+@convert
+(definition Previous-Heap
+  {})
+
+
+@convert
+(definition public (report-allocations (delta?: delta? #f))
+  (let* ((all (all-allocations))
+         (heap (all-heap-allocations))
+         (stack (- all heap))
+         (percentage (percentage stack all)))
+    (if (or (not delta?) (null? Previous-All))
+        (user-message (tie "all {all}, heap {heap}, stack {percentage}%"))
+      (let* ((delta-all (- all Previous-All))
+             (delta-heap (- heap Previous-Heap))
+             (delta-stack (- delta-all delta-heap))
+             (percentage (percentage delta-stack delta-all)))
+        (user-message (tie "all {delta-all}, heap {delta-heap}, stack {percentage}%"))))
+    (set! Previous-All all)
+    (set! Previous-Heap heap)))
+
+
+@convert
+(definition public (gather-instances class)
+  (gather-instances-internal class (last (class-sizes class)))))

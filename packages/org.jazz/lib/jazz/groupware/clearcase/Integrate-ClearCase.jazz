@@ -1,0 +1,191 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Integrating ClearCase
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.clearcase.Integrate-ClearCase jazz
+
+
+(import (jazz.groupware)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Integrate-ClearCase extends Compare-Directories
+  
+
+  (form
+    (<install>
+      (<!>     name: trees         title: "Directories"
+        (<!>   name: green-border
+          (<!> name: green         protocol: group))
+        (<!>   name: blue-border
+          (<!> name: blue          protocol: group)))
+      (<!>     name: build-updater tooltip-text: "Generate Cleartool Script..." image-name: {Bitmap-Resource "Script"})))
+
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'integrate-clearcase)
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "ActionGroup"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Integrate ClearCase")
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (overwrite-read-only?)
+    #f)
+  
+  
+  (method (delete-item item)
+    ;; do nothing as clearcase will delete the file itself
+    )
+  
+  
+  ;;;
+  ;;;; Updater
+  ;;;
+  
+  
+  (definition Script-Filename
+    "Integrate.bat")
+  
+  
+  (method (choose-updater)
+    (let ((view-directory (get-view-directory~ installed-configuration)))
+      (get-modal SaveFile-Dialog directory: view-directory :initial-filename Script-Filename extensions: '(("Batch Files (*.bat)" . "*.bat")))))
+  
+  
+  (method (updater-built file)
+    (message-box (format "{a} saved to {a}"
+                         (get-name~ file)
+                         (parse~ (get-parent~ file)))))
+  
+  
+  (method (build-updater file)
+    (build-script file))
+  
+  
+  (method (build-script file)
+    (let ((view-name (get-view-name~ installed-configuration))
+           (view-directory (get-view-directory~ installed-configuration))
+           (activity (request-string title: "ClearCase Script" :prefix "Activity:" initial-value: (get-activity~ installed-configuration))))
+      (with-closed ((printer (new File-Printer file)))
+        (insert-header view-name activity printer)
+        (cc-setup-activity activity printer)
+        (process-entry root-entry printer))))
+  
+  
+  (method (insert-header view-name activity printer)
+    (format printer "rem --- Generated ClearCase Script - {a}{%}" (present~ (local-date) :seconds? #f))
+    (format printer "rem ---{%}")
+    (format printer "rem --- View name: {a}{%}" view-name)
+    (format printer "rem --- Activity:  {a}{%}{%}" activity))
+  
+  
+  (method (process-entry entry printer)
+    (case (get-action~ entry)
+      ((copy-right)
+        (let ((left (get-left~ entry))
+              (right (get-right~ entry)))
+          (if (or (file? left) (file? right))
+              (if right
+                  (if left
+                      (cc-checkout right printer)
+                    (cc-remove right printer))
+                (let ((new-right (make-item left right-root (get-right~ (get-parent~ entry)))))
+                  (set-right~ entry new-right)
+                  (cc-add new-right printer)))
+            (error "Directory operations must be done manually")))))
+    (process-children entry printer))
+  
+  
+  (method (process-children entry printer)
+    (for-each (function dynamic (subentry)
+                (process-entry subentry printer))
+              (get-children~ entry)))
+  
+  
+  ;;;
+  ;;;; ClearCase
+  ;;;
+  
+  
+  (method (cc-setup-activity activity printer)
+    (format printer "{%}rem setup activity{%}")
+    (format printer "cleartool mkact -f -headline {s}{%}" activity)
+    (format printer "cleartool setact {s}{%}{%}" activity))
+  
+  
+  (method (cc-add file printer)
+    (format printer "{%}rem add {a}{%}" (get-name~ file))
+    (format printer "cleartool co -nc {a}{%}" (parse~ (get-parent~ file)))
+    (format printer "cleartool mkelem -nc {a}{%}" (parse~ file))
+    (format printer "cleartool ci -nc {a}{%}" (parse~ (get-parent~ file))))
+  
+  
+  (method (cc-checkout file printer)
+    (format printer "{%}rem checkout {a}{%}" (get-name~ file))
+    (format printer "cleartool co -nc {a}{%}" (parse~ file)))
+  
+  
+  (method (cc-checkin file printer)
+    (format printer "{%}rem checkin {a}{%}" (get-name~ file))
+    (format printer "cleartool ci -nc {a}{%}" (parse~ file)))
+  
+  
+  (method (cc-remove file printer)
+    (format printer "{%}rem remove {a}{%}" (get-name~ file))
+    (format printer "cleartool co -nc {a}{%}" (parse~ (get-parent~ file)))
+    (format printer "cleartool rmname -nc {a}{%}" (parse~ file))
+    (format printer "cleartool ci -nc {a}{%}" (parse~ (get-parent~ file))))))

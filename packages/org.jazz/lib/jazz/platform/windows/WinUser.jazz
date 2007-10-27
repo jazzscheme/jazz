@@ -1,0 +1,874 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows User
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform.windows.WinUser jazz
+
+
+(import (jazz.platform.windows.WinTypes)
+        (jazz.platform.windows.WinBase)
+        (jazz.platform.windows.WinDef)
+        (jazz.library))
+
+
+(c-declare "WINUSERAPI BOOL WINAPI SetLayeredWindowAttributes(HWND,COLORREF,BYTE,DWORD);")
+
+
+;;;
+;;;; Constants
+;;;
+
+
+(constant LWA_COLORKEY	                #x01)
+(constant LWA_ALPHA	                    #x02)
+(constant ULW_COLORKEY	                #x01)
+(constant ULW_ALPHA	                    #x02)
+(constant ULW_OPAQUE	                #x04)
+
+(constant GWL_EXSTYLE                   -20)
+(constant GWL_STYLE                     -16)
+
+(constant IMAGE_BITMAP                  0)
+(constant IMAGE_ICON                    1)
+(constant IMAGE_CURSOR                  2)
+(constant IMAGE_ENHMETAFILE             3)
+
+(constant LR_DEFAULTCOLOR               #x0000)
+(constant LR_MONOCHROME                 #x0001)
+(constant LR_COLOR                      #x0002)
+(constant LR_COPYRETURNORG              #x0004)
+(constant LR_COPYDELETEORG              #x0008)
+(constant LR_LOADFROMFILE               #x0010)
+(constant LR_LOADTRANSPARENT            #x0020)
+(constant LR_DEFAULTSIZE                #x0040)
+(constant LR_VGACOLOR                   #x0080)
+(constant LR_LOADMAP3DCOLORS            #x1000)
+(constant LR_CREATEDIBSECTION           #x2000)
+(constant LR_COPYFROMRESOURCE           #x4000)
+(constant LR_SHARED                     #x8000)
+
+
+(constant CS_VREDRAW                    #x0001)
+(constant CS_HREDRAW                    #x0002)
+(constant CS_KEYCVTWINDOW               #x0004)
+(constant CS_DBLCLKS                    #x0008)
+(constant CS_OWNDC                      #x0020)
+(constant CS_CLASSDC                    #x0040)
+(constant CS_PARENTDC                   #x0080)
+(constant CS_NOKEYCVT                   #x0100)
+(constant CS_NOCLOSE                    #x0200)
+(constant CS_SAVEBITS                   #x0800)
+(constant CS_BYTEALIGNCLIENT            #x1000)
+(constant CS_BYTEALIGNWINDOW            #x2000)
+(constant CS_GLOBALCLASS                #x4000)
+
+
+(constant COLOR_SCROLLBAR                0)
+(constant COLOR_BACKGROUND               1)
+(constant COLOR_ACTIVECAPTION            2)
+(constant COLOR_INACTIVECAPTION          3)
+(constant COLOR_MENU                     4)
+(constant COLOR_WINDOW                   5)
+(constant COLOR_WINDOWFRAME              6)
+(constant COLOR_MENUTEXT                 7)
+(constant COLOR_WINDOWTEXT               8)
+(constant COLOR_CAPTIONTEXT              9)
+(constant COLOR_ACTIVEBORDER            10)
+(constant COLOR_INACTIVEBORDER          11)
+(constant COLOR_APPWORKSPACE            12)
+(constant COLOR_HIGHLIGHT               13)
+(constant COLOR_HIGHLIGHTTEXT           14)
+(constant COLOR_BTNFACE                 15)
+(constant COLOR_BTNSHADOW               16)
+(constant COLOR_GRAYTEXT                17)
+(constant COLOR_BTNTEXT                 18)
+(constant COLOR_INACTIVECAPTIONTEXT     19)
+(constant COLOR_BTNHIGHLIGHT            20)
+(constant COLOR_3DDKSHADOW              21)
+(constant COLOR_3DLIGHT                 22)
+(constant COLOR_INFOTEXT                23)
+(constant COLOR_INFOBK                  24)
+(constant COLOR_HOTLIGHT                26)
+(constant COLOR_GRADIENTACTIVECAPTION   27)
+(constant COLOR_GRADIENTINACTIVECAPTION 28)
+(constant COLOR_DESKTOP                 COLOR_BACKGROUND)
+(constant COLOR_3DFACE                  COLOR_BTNFACE)
+(constant COLOR_3DSHADOW                COLOR_BTNSHADOW)
+(constant COLOR_3DHIGHLIGHT             COLOR_BTNHIGHLIGHT)
+(constant COLOR_3DHILIGHT               COLOR_BTNHIGHLIGHT)
+(constant COLOR_BTNHILIGHT              COLOR_BTNHIGHLIGHT)
+
+
+(constant CWP_ALL                       0)
+(constant CWP_SKIPINVISIBLE	            1)
+(constant CWP_SKIPDISABLED	            2)
+(constant CWP_SKIPTRANSPARENT	        4)
+
+(constant IDC_ARROW                     32512)
+(constant IDC_IBEAM                     32513)
+(constant IDC_WAIT                      32514)
+(constant IDC_CROSS                     32515)
+
+(constant IDC_UPARROW                   32516)
+(constant IDC_SIZENWSE                  32642)
+(constant IDC_SIZENESW                  32643)
+(constant IDC_SIZEWE                    32644)
+(constant IDC_SIZENS                    32645)
+(constant IDC_SIZEALL                   32646)
+(constant IDC_NO                        32648)
+(constant IDC_HAND                      32649)
+(constant IDC_APPSTARTING               32650)
+(constant IDC_HELP                      32651)
+
+(constant GCL_HBRBACKGROUND -10)
+
+
+(definition HWND_BOTTOM ((c-function () HWND "___result_voidstar = ((HWND)1);")))
+(definition HWND_TOP ((c-function () HWND "___result_voidstar = ((HWND)0);")))
+
+
+(constant RDW_ERASE 4)
+(constant RDW_FRAME 1024)
+(constant RDW_INTERNALPAINT 2)
+(constant RDW_INVALIDATE 1)
+(constant RDW_NOERASE 32)
+(constant RDW_NOFRAME 2048)
+(constant RDW_NOINTERNALPAINT 16)
+(constant RDW_VALIDATE 8)
+(constant RDW_ERASENOW 512)
+(constant RDW_UPDATENOW 256)
+(constant RDW_ALLCHILDREN 128)
+(constant RDW_NOCHILDREN 64)
+
+(constant GW_HWNDFIRST                  0)
+(constant GW_HWNDLAST                   1)
+(constant GW_HWNDNEXT                   2)
+(constant GW_HWNDPREV                   3)
+(constant GW_OWNER                      4)
+(constant GW_CHILD                      5)
+(constant GW_ENABLEDPOPUP               6)
+(constant GW_MAX                        6)
+
+(constant HOVER_DEFAULT	                #xFFFFFFFF)
+
+(constant SPI_SETWORKAREA               #x002F)
+
+(constant GW_OWNER 4)
+
+(constant SW_SCROLLCHILDREN             1)
+(constant SW_INVALIDATE                 2)
+(constant SW_ERASE                      4)
+
+
+(constant SW_HIDE                       0)
+(constant SW_SHOWNORMAL                 1)
+(constant SW_NORMAL                     1)
+(constant SW_SHOWMINIMIZED              2)
+(constant SW_SHOWMAXIMIZED              3)
+(constant SW_MAXIMIZE                   3)
+(constant SW_SHOWNOACTIVATE             4)
+(constant SW_SHOW                       5)
+(constant SW_MINIMIZE                   6)
+(constant SW_SHOWMINNOACTIVE            7)
+(constant SW_SHOWNA                     8)
+(constant SW_RESTORE                    9)
+(constant SW_SHOWDEFAULT                10)
+(constant SW_MAX                        10)
+
+(constant IDI_APPLICATION               32512)
+(constant IDI_HAND                      32513)
+(constant IDI_QUESTION                  32514)
+(constant IDI_EXCLAMATION               32515)
+(constant IDI_ASTERISK                  32516)
+(constant IDI_WINLOGO                   32517)
+(constant IDI_WARNING                   IDI_EXCLAMATION)
+(constant IDI_ERROR                     IDI_HAND)
+(constant IDI_INFORMATION               IDI_ASTERISK)
+
+
+(constant SWP_DRAWFRAME                 #x0020)
+(constant SWP_FRAMECHANGED              #x0020)
+(constant SWP_HIDEWINDOW                #x0080)
+(constant SWP_NOACTIVATE                #x0010)
+(constant SWP_NOCOPYBITS                #x0100)
+(constant SWP_NOMOVE                    #x0002)
+(constant SWP_NOSIZE                    #x0001)
+(constant SWP_NOREDRAW                  #x0008)
+(constant SWP_NOZORDER                  #x0004)
+(constant SWP_SHOWWINDOW                #x0040)
+(constant SWP_NOOWNERZORDER             #x0200)
+(constant SWP_NOREPOSITION              SWP_NOOWNERZORDER)
+(constant SWP_NOSENDCHANGING            #x0400)
+(constant SWP_DEFERERASE                #x2000)
+(constant SWP_ASYNCWINDOWPOS            #x4000)
+
+
+(constant FVIRTKEY                      TRUE)
+(constant FNOINVERT                     #x02)
+(constant FSHIFT                        #x04)
+(constant FCONTROL                      #x08)
+(constant FALT                          #x10)
+
+(constant MB_ICONHAND                   #x00000010)
+(constant MB_ICONQUESTION               #x00000020)
+(constant MB_ICONEXCLAMATION            #x00000030)
+(constant MB_ICONASTERISK               #x00000040)
+(constant MB_APPLMODAL                  #x00000000)
+(constant MB_SYSTEMMODAL                #x00001000)
+(constant MB_TASKMODAL                  #x00002000)
+
+(constant WA_INACTIVE                   0)
+(constant WA_ACTIVE                     1)
+(constant WA_CLICKACTIVE                2)
+
+(constant WM_NULL                       #x0000)
+(constant WM_CREATE                     #x0001)
+(constant WM_DESTROY                    #x0002)
+(constant WM_MOVE                       #x0003)
+(constant WM_SIZE                       #x0005)
+(constant WM_ACTIVATE                   #x0006)
+(constant WM_SETFOCUS                   #x0007)
+(constant WM_KILLFOCUS                  #x0008)
+(constant WM_ENABLE                     #x000A)
+(constant WM_SETREDRAW                  #x000B)
+(constant WM_SETTEXT                    #x000C)
+(constant WM_GETTEXT                    #x000D)
+(constant WM_GETTEXTLENGTH              #x000E)
+(constant WM_PAINT                      #x000F)
+(constant WM_CLOSE                      #x0010)
+(constant WM_QUERYENDSESSION            #x0011)
+(constant WM_QUIT                       #x0012)
+(constant WM_QUERYOPEN                  #x0013)
+(constant WM_ERASEBKGND                 #x0014)
+(constant WM_SYSCOLORCHANGE             #x0015)
+(constant WM_ENDSESSION                 #x0016)
+(constant WM_SHOWWINDOW                 #x0018)
+(constant WM_WININICHANGE               #x001A)
+(constant WM_SETTINGCHANGE              WM_WININICHANGE)
+
+(constant WM_DEVMODECHANGE              #x001B)
+(constant WM_ACTIVATEAPP                #x001C)
+(constant WM_FONTCHANGE                 #x001D)
+(constant WM_TIMECHANGE                 #x001E)
+(constant WM_CANCELMODE                 #x001F)
+(constant WM_SETCURSOR                  #x0020)
+(constant WM_MOUSEACTIVATE              #x0021)
+(constant WM_CHILDACTIVATE              #x0022)
+(constant WM_QUEUESYNC                  #x0023)
+(constant WM_GETMINMAXINFO              #x0024)
+
+(constant WM_PAINTICON                  #x0026)
+(constant WM_ICONERASEBKGND             #x0027)
+(constant WM_NEXTDLGCTL                 #x0028)
+(constant WM_SPOOLERSTATUS              #x002A)
+(constant WM_DRAWITEM                   #x002B)
+(constant WM_MEASUREITEM                #x002C)
+(constant WM_DELETEITEM                 #x002D)
+(constant WM_VKEYTOITEM                 #x002E)
+(constant WM_CHARTOITEM                 #x002F)
+(constant WM_SETFONT                    #x0030)
+(constant WM_GETFONT                    #x0031)
+(constant WM_SETHOTKEY                  #x0032)
+(constant WM_GETHOTKEY                  #x0033)
+(constant WM_QUERYDRAGICON              #x0037)
+(constant WM_COMPAREITEM                #x0039)
+(constant WM_GETOBJECT                  #x003D)
+(constant WM_COMPACTING                 #x0041)
+(constant WM_COMMNOTIFY                 #x0044)
+(constant WM_WINDOWPOSCHANGING          #x0046)
+(constant WM_WINDOWPOSCHANGED           #x0047)
+(constant WM_POWER                      #x0048)
+(constant WM_COPYDATA                   #x004A)
+(constant WM_CANCELJOURNAL              #x004B)
+
+(constant WM_NOTIFY                     #x004E)
+(constant WM_INPUTLANGCHANGEREQUEST     #x0050)
+(constant WM_INPUTLANGCHANGE            #x0051)
+(constant WM_TCARD                      #x0052)
+(constant WM_HELP                       #x0053)
+(constant WM_USERCHANGED                #x0054)
+(constant WM_NOTIFYFORMAT               #x0055)
+
+(constant WM_CONTEXTMENU                #x007B)
+(constant WM_STYLECHANGING              #x007C)
+(constant WM_STYLECHANGED               #x007D)
+(constant WM_DISPLAYCHANGE              #x007E)
+(constant WM_GETICON                    #x007F)
+(constant WM_SETICON                    #x0080)
+
+(constant WM_NCCREATE                   #x0081)
+(constant WM_NCDESTROY                  #x0082)
+(constant WM_NCCALCSIZE                 #x0083)
+(constant WM_NCHITTEST                  #x0084)
+(constant WM_NCPAINT                    #x0085)
+(constant WM_NCACTIVATE                 #x0086)
+(constant WM_GETDLGCODE                 #x0087)
+(constant WM_SYNCPAINT                  #x0088)
+(constant WM_NCMOUSEMOVE                #x00A0)
+(constant WM_NCLBUTTONDOWN              #x00A1)
+(constant WM_NCLBUTTONUP                #x00A2)
+(constant WM_NCLBUTTONDBLCLK            #x00A3)
+(constant WM_NCRBUTTONDOWN              #x00A4)
+(constant WM_NCRBUTTONUP                #x00A5)
+(constant WM_NCRBUTTONDBLCLK            #x00A6)
+(constant WM_NCMBUTTONDOWN              #x00A7)
+(constant WM_NCMBUTTONUP                #x00A8)
+(constant WM_NCMBUTTONDBLCLK            #x00A9)
+
+(constant WM_KEYFIRST                   #x0100)
+(constant WM_KEYDOWN                    #x0100)
+(constant WM_KEYUP                      #x0101)
+(constant WM_CHAR                       #x0102)
+(constant WM_DEADCHAR                   #x0103)
+(constant WM_SYSKEYDOWN                 #x0104)
+(constant WM_SYSKEYUP                   #x0105)
+(constant WM_SYSCHAR                    #x0106)
+(constant WM_SYSDEADCHAR                #x0107)
+(constant WM_KEYLAST                    #x0108)
+(constant WM_IME_STARTCOMPOSITION       #x010D)
+(constant WM_IME_ENDCOMPOSITION         #x010E)
+(constant WM_IME_COMPOSITION            #x010F)
+(constant WM_IME_KEYLAST                #x010F)
+
+(constant WM_INITDIALOG                 #x0110)
+(constant WM_COMMAND                    #x0111)
+(constant WM_SYSCOMMAND                 #x0112)
+(constant WM_TIMER                      #x0113)
+(constant WM_HSCROLL                    #x0114)
+(constant WM_VSCROLL                    #x0115)
+(constant WM_INITMENU                   #x0116)
+(constant WM_INITMENUPOPUP              #x0117)
+(constant WM_MENUSELECT                 #x011F)
+(constant WM_MENUCHAR                   #x0120)
+(constant WM_ENTERIDLE                  #x0121)
+(constant WM_CTLCOLORMSGBOX             #x0132)
+(constant WM_CTLCOLOREDIT               #x0133)
+(constant WM_CTLCOLORLISTBOX            #x0134)
+(constant WM_CTLCOLORBTN                #x0135)
+(constant WM_CTLCOLORDLG                #x0136)
+(constant WM_CTLCOLORSCROLLBAR          #x0137)
+(constant WM_CTLCOLORSTATIC             #x0138)
+
+(constant WM_MOUSEFIRST                 #x0200)
+(constant WM_MOUSEMOVE                  #x0200)
+(constant WM_LBUTTONDOWN                #x0201)
+(constant WM_LBUTTONUP                  #x0202)
+(constant WM_LBUTTONDBLCLK              #x0203)
+(constant WM_RBUTTONDOWN                #x0204)
+(constant WM_RBUTTONUP                  #x0205)
+(constant WM_RBUTTONDBLCLK              #x0206)
+(constant WM_MBUTTONDOWN                #x0207)
+(constant WM_MBUTTONUP                  #x0208)
+(constant WM_MBUTTONDBLCLK              #x0209)
+(constant WM_MOUSEWHEEL                 #x020A)
+(constant WM_MOUSELAST                  #x020A)
+(constant WM_PARENTNOTIFY               #x0210)
+(constant WM_ENTERMENULOOP              #x0211)
+(constant WM_EXITMENULOOP               #x0212)
+(constant WM_NEXTMENU                   #x0213)
+(constant WM_SIZING                     #x0214)
+(constant WM_CAPTURECHANGED             #x0215)
+(constant WM_MOVING                     #x0216)
+(constant WM_POWERBROADCAST             #x0218)
+(constant WM_DEVICECHANGE               #x0219)
+
+(constant WM_MDICREATE                  #x0220)
+(constant WM_MDIDESTROY                 #x0221)
+(constant WM_MDIACTIVATE                #x0222)
+(constant WM_MDIRESTORE                 #x0223)
+(constant WM_MDINEXT                    #x0224)
+(constant WM_MDIMAXIMIZE                #x0225)
+(constant WM_MDITILE                    #x0226)
+(constant WM_MDICASCADE                 #x0227)
+(constant WM_MDIICONARRANGE             #x0228)
+(constant WM_MDIGETACTIVE               #x0229)
+(constant WM_MDISETMENU                 #x0230)
+(constant WM_ENTERSIZEMOVE              #x0231)
+(constant WM_EXITSIZEMOVE               #x0232)
+(constant WM_DROPFILES                  #x0233)
+(constant WM_MDIREFRESHMENU             #x0234)
+
+(constant WM_IME_SETCONTEXT             #x0281)
+(constant WM_IME_NOTIFY                 #x0282)
+(constant WM_IME_CONTROL                #x0283)
+(constant WM_IME_COMPOSITIONFULL        #x0284)
+(constant WM_IME_SELECT                 #x0285)
+(constant WM_IME_CHAR                   #x0286)
+(constant WM_IME_KEYDOWN                #x0290)
+(constant WM_IME_KEYUP                  #x0291)
+(constant WM_MOUSEHOVER                 #x02A1)
+(constant WM_MOUSELEAVE                 #x02A3)
+
+(constant WM_CUT                        #x0300)
+(constant WM_COPY                       #x0301)
+(constant WM_PASTE                      #x0302)
+(constant WM_CLEAR                      #x0303)
+(constant WM_UNDO                       #x0304)
+(constant WM_RENDERFORMAT               #x0305)
+(constant WM_RENDERALLFORMATS           #x0306)
+(constant WM_DESTROYCLIPBOARD           #x0307)
+(constant WM_DRAWCLIPBOARD              #x0308)
+(constant WM_PAINTCLIPBOARD             #x0309)
+(constant WM_VSCROLLCLIPBOARD           #x030A)
+(constant WM_SIZECLIPBOARD              #x030B)
+(constant WM_ASKCBFORMATNAME            #x030C)
+(constant WM_CHANGECBCHAIN              #x030D)
+(constant WM_HSCROLLCLIPBOARD           #x030E)
+(constant WM_QUERYNEWPALETTE            #x030F)
+(constant WM_PALETTEISCHANGING          #x0310)
+(constant WM_PALETTECHANGED             #x0311)
+(constant WM_HOTKEY                     #x0312)
+
+(constant WM_PRINT                      #x0317)
+(constant WM_PRINTCLIENT                #x0318)
+
+(constant WM_HANDHELDFIRST              #x0358)
+(constant WM_HANDHELDLAST               #x035F)
+
+(constant WM_AFXFIRST                   #x0360)
+(constant WM_AFXLAST                    #x037F)
+
+(constant WM_PENWINFIRST                #x0380)
+(constant WM_PENWINLAST                 #x038F)
+
+(constant WM_USER                       #x0400)
+(constant WM_APP                        #x8000)
+
+
+(constant HTERROR                       -2)
+(constant HTTRANSPARENT                 -1)
+(constant HTNOWHERE                     0)
+(constant HTCLIENT                      1)
+(constant HTCAPTION                     2)
+(constant HTSYSMENU                     3)
+(constant HTGROWBOX                     4)
+(constant HTSIZE                        HTGROWBOX)
+(constant HTMENU                        5)
+(constant HTHSCROLL                     6)
+(constant HTVSCROLL                     7)
+(constant HTMINBUTTON                   8)
+(constant HTMAXBUTTON                   9)
+(constant HTLEFT                        10)
+(constant HTRIGHT                       11)
+(constant HTTOP                         12)
+(constant HTTOPLEFT                     13)
+(constant HTTOPRIGHT                    14)
+(constant HTBOTTOM                      15)
+(constant HTBOTTOMLEFT                  16)
+(constant HTBOTTOMRIGHT                 17)
+(constant HTBORDER                      18)
+(constant HTREDUCE                      HTMINBUTTON)
+(constant HTZOOM                        HTMAXBUTTON)
+(constant HTSIZEFIRST                   HTLEFT)
+(constant HTSIZELAST                    HTBOTTOMRIGHT)
+(constant HTOBJECT                      19)
+(constant HTCLOSE                       20)
+(constant HTHELP                        21)
+
+(constant MA_ACTIVATE                   1)
+(constant MA_ACTIVATEANDEAT             2)
+(constant MA_NOACTIVATE                 3)
+(constant MA_NOACTIVATEANDEAT           4)
+
+
+;;;
+;;;; Enumerations
+;;;
+
+
+(enumeration CLIPBOARD_FORMAT
+  (CF_TEXT                       1)
+  (CF_BITMAP                     2)
+  (CF_METAFILEPICT               3)
+  (CF_SYLK                       4)
+  (CF_DIF                        5)
+  (CF_TIFF                       6)
+  (CF_OEMTEXT                    7)
+  (CF_DIB                        8)
+  (CF_PALETTE                    9)
+  (CF_PENDATA                    10)
+  (CF_RIFF                       11)
+  (CF_WAVE                       12)
+  (CF_UNICODETEXT                13)
+  (CF_ENHMETAFILE                14)
+  (CF_HDROP                      15)
+  (CF_LOCALE                     16)
+  (CF_MAX                        17))
+
+
+(enumeration VIRTUAL_KEYS
+  (VK_LBUTTON                    #x01)
+  (VK_RBUTTON                    #x02)
+  (VK_CANCEL                     #x03)
+  (VK_MBUTTON                    #x04)
+  
+  (VK_BACK                       #x08)
+  (VK_TAB                        #x09)
+  
+  (VK_CLEAR                      #x0C)
+  (VK_RETURN                     #x0D)
+  
+  (VK_SHIFT                      #x10)
+  (VK_CONTROL                    #x11)
+  (VK_MENU                       #x12)
+  (VK_PAUSE                      #x13)
+  (VK_CAPITAL                    #x14)
+  
+  (VK_ESCAPE                     #x1B)
+  
+  (VK_SPACE                      #x20)
+  (VK_PRIOR                      #x21)
+  (VK_NEXT                       #x22)
+  (VK_END                        #x23)
+  (VK_HOME                       #x24)
+  (VK_LEFT                       #x25)
+  (VK_UP                         #x26)
+  (VK_RIGHT                      #x27)
+  (VK_DOWN                       #x28)
+  (VK_SELECT                     #x29)
+  (VK_PRINT                      #x2A)
+  (VK_EXECUTE                    #x2B)
+  (VK_SNAPSHOT                   #x2C)
+  (VK_INSERT                     #x2D)
+  (VK_DELETE                     #x2E)
+  (VK_HELP                       #x2F)
+  
+  (VK_LWIN                       #x5B)
+  (VK_RWIN                       #x5C)
+  (VK_APPS                       #x5D)
+  
+  (VK_NUMPAD0                    #x60)
+  (VK_NUMPAD1                    #x61)
+  (VK_NUMPAD2                    #x62)
+  (VK_NUMPAD3                    #x63)
+  (VK_NUMPAD4                    #x64)
+  (VK_NUMPAD5                    #x65)
+  (VK_NUMPAD6                    #x66)
+  (VK_NUMPAD7                    #x67)
+  (VK_NUMPAD8                    #x68)
+  (VK_NUMPAD9                    #x69)
+  (VK_MULTIPLY                   #x6A)
+  (VK_ADD                        #x6B)
+  (VK_SEPARATOR                  #x6C)
+  (VK_SUBTRACT                   #x6D)
+  (VK_DECIMAL                    #x6E)
+  (VK_DIVIDE                     #x6F)
+  (VK_F1                         #x70)
+  (VK_F2                         #x71)
+  (VK_F3                         #x72)
+  (VK_F4                         #x73)
+  (VK_F5                         #x74)
+  (VK_F6                         #x75)
+  (VK_F7                         #x76)
+  (VK_F8                         #x77)
+  (VK_F9                         #x78)
+  (VK_F10                        #x79)
+  (VK_F11                        #x7A)
+  (VK_F12                        #x7B)
+  (VK_F13                        #x7C)
+  (VK_F14                        #x7D)
+  (VK_F15                        #x7E)
+  (VK_F16                        #x7F)
+  (VK_F17                        #x80)
+  (VK_F18                        #x81)
+  (VK_F19                        #x82)
+  (VK_F20                        #x83)
+  (VK_F21                        #x84)
+  (VK_F22                        #x85)
+  (VK_F23                        #x86)
+  (VK_F24                        #x87)
+  
+  (VK_NUMLOCK                    #x90)
+  (VK_SCROLL                     #x91)
+  (VK_OEM_NEC_EQUAL              #x92)
+  
+  (VK_LSHIFT                     #xA0)
+  (VK_RSHIFT                     #xA1)
+  (VK_LCONTROL                   #xA2)
+  (VK_RCONTROL                   #xA3)
+  (VK_LMENU                      #xA4)
+  (VK_RMENU                      #xA5)
+  (VK_BROWSER_BACK               #xA6)
+  (VK_BROWSER_FORWARD            #xA7)
+  (VK_BROWSER_REFRESH            #xA8)
+  (VK_BROWSER_STOP               #xA9)
+  (VK_BROWSER_SEARCH             #xAA)
+  (VK_BROWSER_FAVORITES          #xAB)
+  (VK_BROWSER_HOME               #xAC)
+  (VK_VOLUME_MUTE                #xAD)
+  (VK_VOLUME_DOWN                #xAE)
+  (VK_VOLUME_UP                  #xAF)
+  (VK_MEDIA_NEXT_TRACK           #xB0)
+  (VK_MEDIA_PREV_TRACK           #xB1)
+  (VK_MEDIA_STOP                 #xB2)
+  (VK_MEDIA_PLAY_PAUSE           #xB3)
+  (VK_LAUNCH_MAIL                #xB4)
+  (VK_LAUNCH_MEDIA_SELECT        #xB5)
+  (VK_LAUNCH_APP1                #xB6)
+  (VK_LAUNCH_APP2                #xB7)
+  
+  (VK_OEM_1                      #xBA)
+  (VK_OEM_PLUS                   #xBB)
+  (VK_OEM_COMMA                  #xBC)
+  (VK_OEM_MINUS                  #xBD)
+  (VK_OEM_PERIOD                 #xBE)
+  (VK_OEM_2                      #xBF)
+  (VK_OEM_3                      #xC0)
+  
+  (VK_OEM_4                      #xDB)
+  (VK_OEM_5                      #xDC)
+  (VK_OEM_6                      #xDD)
+  (VK_OEM_7                      #xDE)
+  (VK_OEM_8                      #xDF))
+
+
+(enumeration WINSTYLE
+  (WS_OVERLAPPED                 #x00000000)
+  (WS_POPUP                      #x80000000)
+  (WS_CHILD                      #x40000000)
+  (WS_MINIMIZE                   #x20000000)
+  (WS_VISIBLE                    #x10000000)
+  (WS_DISABLED                   #x08000000)
+  (WS_CLIPSIBLINGS               #x04000000)
+  (WS_CLIPCHILDREN               #x02000000)
+  (WS_MAXIMIZE                   #x01000000)
+  (WS_CAPTION                    #x00C00000)
+  (WS_BORDER                     #x00800000)
+  (WS_DLGFRAME                   #x00400000)
+  (WS_VSCROLL                    #x00200000)
+  (WS_HSCROLL                    #x00100000)
+  (WS_SYSMENU                    #x00080000)
+  (WS_THICKFRAME                 #x00040000)
+  (WS_GROUP                      #x00020000)
+  (WS_TABSTOP                    #x00010000))
+
+
+(enumeration WINEXSTYLE
+  (WS_EX_DLGMODALFRAME           #x00000001)
+  (WS_EX_NOPARENTNOTIFY          #x00000004)
+  (WS_EX_TOPMOST                 #x00000008)
+  (WS_EX_ACCEPTFILES             #x00000010)
+  (WS_EX_TRANSPARENT             #x00000020)
+  (WS_EX_MDICHILD                #x00000040)
+  (WS_EX_TOOLWINDOW              #x00000080)
+  (WS_EX_WINDOWEDGE              #x00000100)
+  (WS_EX_CLIENTEDGE              #x00000200)
+  (WS_EX_CONTEXTHELP             #x00000400)
+  (WS_EX_RIGHT                   #x00001000)
+  (WS_EX_LEFT                    #x00000000)
+  (WS_EX_RTLREADING              #x00002000)
+  (WS_EX_LTRREADING              #x00000000)
+  (WS_EX_LEFTSCROLLBAR           #x00004000)
+  (WS_EX_RIGHTSCROLLBAR          #x00000000)
+  (WS_EX_CONTROLPARENT           #x00010000)
+  (WS_EX_STATICEDGE              #x00020000)
+  (WS_EX_APPWINDOW               #x00040000)
+  (WS_EX_LAYERED                 #x00080000))
+
+
+(constant WS_MINIMIZEBOX                #x00020000)
+(constant WS_MAXIMIZEBOX                #x00010000)
+
+(constant WS_OVERLAPPEDWINDOW
+  (bit-or WS_CAPTION
+          WS_SYSMENU
+          WS_THICKFRAME
+          WS_MINIMIZEBOX
+          WS_MAXIMIZEBOX))
+
+(constant WS_POPUPWINDOW
+  (bit-or WS_POPUP
+          WS_BORDER
+          WS_SYSMENU))
+
+(constant WS_TILED                      WS_OVERLAPPED)
+(constant WS_ICONIC                     WS_MINIMIZE)
+(constant WS_SIZEBOX                    WS_THICKFRAME)
+(constant WS_TILEDWINDOW                WS_OVERLAPPEDWINDOW)
+
+(constant WS_EX_OVERLAPPEDWINDOW        (bit-or WS_EX_WINDOWEDGE WS_EX_CLIENTEDGE))
+(constant WS_EX_PALETTEWINDOW           (bit-or WS_EX_WINDOWEDGE WS_EX_TOOLWINDOW WS_EX_TOPMOST))
+
+
+(c-structure ACCEL
+  (BYTE fVirt)
+  (WORD key)
+  (WORD cmd))
+
+(c-type LPACCEL ACCEL*)
+
+(definition make-ACCEL-array (c-function (INT) ACCEL* "___result_voidstar = calloc(___arg1,sizeof(ACCEL));"))
+(definition ACCEL-array-ref  (c-function (ACCEL* INT) ACCEL* "___result_voidstar = (___arg1 + ___arg2);"))
+
+(c-structure TRACKMOUSEEVENT
+  (DWORD cbSize)
+  (DWORD dwFlags)
+  (HWND  hwndTrack pointer)
+  (DWORD dwHoverTime))
+
+
+(c-type LPTRACKMOUSEEVENT TRACKMOUSEEVENT*)
+
+
+(definition size-of-TRACKMOUSEEVENT (c-function () INT "___result = sizeof(TRACKMOUSEEVENT);"))
+
+
+(c-structure MSG
+  (HWND hwnd pointer)
+  (UINT message)
+  (WPARAM wParam)
+  (LPARAM lParam)
+  (DWORD time))
+
+
+(c-type LPMSG MSG*)
+
+
+(c-structure PAINTSTRUCT
+    (HDC  hdc pointer)
+    (BOOL fErase)
+    (RECT rcPaint embed)
+    (BOOL fRestore)
+    (BOOL fIncUpdate)
+    (BYTE rgbReserved 32))
+
+
+;; WCHAR* were CWSTR*
+(c-structure (WNDCLASS "WNDCLASSW" WNDCLASSW)
+  (UINT style)
+  (WNDPROC lpfnWndProc pointer) ;; Warning.  Incompatible pointer. Qualificatif CALLBACK -> __stdcall
+  (INT cbClsExtra)
+  (INT cbWndExtra)
+  (INT hInstance)
+  (HICON hIcon)
+  (HCURSOR hCursor)
+  (HBRUSH hbrBackground)
+  (LPCTSTR lpszMenuName) ;; Warning. Discard qualifier. Qualificatif const
+  (LPCTSTR lpszClassName)) ;; Warning. Discard qualifier. Qualificatif const
+
+
+(definition make-WNDCLASS (c-function () WNDCLASS* "___result_voidstar = calloc(1, sizeof(WNDCLASS));"))
+
+
+(c-external ATOM    (RegisterClass WNDCLASS*)                                                      "RegisterClassW")
+;; WCHAR* were CWSTR*
+(c-external HWND    (CreateWindowEx DWORD INT CWSTR DWORD INT INT INT INT HWND HMENU INT LPVOID)   "CreateWindowExW")
+(c-external LRESULT (DefWindowProc HWND UINT WPARAM LPARAM)                                        "DefWindowProcW")
+(c-external BOOL    (GetMessage MSG* HWND UINT UINT)                                               "GetMessageW")
+(c-external VOID    (TranslateMessage MSG*))
+(c-external VOID    (DispatchMessage MSG*)                                                         "DispatchMessageW")
+(c-external BOOL    (LockWindowUpdate HWND))
+(c-external BOOL    (DestroyWindow HWND))
+(c-external HDC     (BeginPaint HWND PAINTSTRUCT*))
+(c-external BOOL    (EndPaint HWND PAINTSTRUCT*))
+(c-external HWND    (SetCapture HWND))
+(c-external BOOL    (ReleaseCapture))
+(c-external BOOL    (ShowWindow HWND INT))
+(c-external DWORD   (GetLastError))
+(c-external HANDLE  (LoadImage HINSTANCE LPCWSTR UINT INT INT UINT) "LoadImageW")
+(c-external INT     (MapWindowPoints HWND HWND LPPOINT UINT))
+(c-external BOOL    (GetWindowRect HWND LPRECT))
+(c-external BOOL    (GetClientRect HWND LPRECT))
+(c-external BOOL    (ValidateRect HWND LPCRECT))
+(c-external BOOL    (InvalidateRect HWND LPCRECT BOOL))
+(c-external BOOL    (InvalidateRgn HWND HRGN BOOL))
+(c-external BOOL    (BringWindowToTop HWND))
+(c-external BOOL    (SetWindowPos HWND HWND INT INT INT INT UINT))
+(c-external HWND    (SetFocus HWND))
+(c-external BOOL    (MoveWindow HWND INT INT INT INT BOOL))
+(c-external BOOL    (IsWindowEnabled HWND))
+(c-external HWND    (GetFocus))
+(c-external BOOL    (EnableWindow HWND BOOL))
+(c-external INT     (ScrollWindowEx HWND INT INT LPCRECT LPCRECT HRGN LPRECT UINT))
+(c-external BOOL    (SetForegroundWindow HWND))
+(c-external LONG    (GetWindowLong HWND INT))
+(c-external LONG    (SetWindowLong HWND INT LONG))
+(c-external BOOL    (RedrawWindow HWND LPCRECT HRGN UINT))
+(c-external LRESULT (SendMessage HWND UINT WPARAM LPARAM))
+(c-external BOOL    (PostMessage HWND UINT WPARAM LPARAM))
+(c-external HWND    (SetParent HWND HWND))
+(c-external HWND    (GetWindow HWND UINT))
+(c-external HWND    (GetTopWindow HWND))
+(c-external BOOL    (IsWindowVisible HWND))
+(c-external BOOL    (SetWindowText HWND LPCWSTR))
+(c-external BOOL    (GetCursorPos LPPOINT))
+(c-external HWND    (WindowFromPoint POINT))
+(c-external HWND    (ChildWindowFromPointEx HWND POINT UINT))
+(c-external BOOL    (GetUpdateRect HWND LPRECT BOOL))
+(c-external INT     (GetUpdateRgn HWND HRGN BOOL))
+(c-external DWORD   (GetClassLong HWND INT))
+(c-external BOOL    (UpdateWindow HWND))
+(c-external BOOL    (TrackMouseEvent LPTRACKMOUSEEVENT))
+(c-external HWND    (GetDesktopWindow))
+(c-external HBRUSH  (GetSysColorBrush INT))
+(c-external BOOL    (DestroyAcceleratorTable HACCEL))
+(c-external HACCEL  (CreateAcceleratorTable LPACCEL INT))
+(c-external INT     (TranslateAccelerator HWND HACCEL LPMSG))
+(c-external SHORT   (GetAsyncKeyState INT))
+(c-external BOOL    (SetLayeredWindowAttributes HWND COLORREF BYTE DWORD))
+(c-external INT     (GetWindowTextLength HWND))
+(c-external-so INT 1 (GetWindowText HWND WCHAR* INT))
+(c-external UINT    (SetTimer                   HWND UINT UINT TIMERPROC))
+(c-external BOOL    (KillTimer                  HWND UINT))
+(c-external HCURSOR (SetCursor                  HCURSOR))
+(c-external INT     (ShowCursor                 BOOL))
+(c-external BOOL    (MessageBeep INT))
+(c-external INT     (MessageBox HWND LPCWSTR LPCWSTR INT))
+(c-external BOOL    (EmptyClipboard))
+(c-external BOOL    (OpenClipboard INT))
+(c-external BOOL    (CloseClipboard))
+
+
+(definition public LoadCursorInt 
+  (c-function (WORD) HCURSOR
+    "___result_voidstar = LoadImage(NULL,MAKEINTRESOURCE(___arg1),IMAGE_CURSOR,0,0,LR_SHARED);"))
+
+
+;;;
+;;;; Windows
+;;;
+
+
+(definition convert-HINSTANCE (c-function (UINT) HINSTANCE "___result_voidstar = (void*)___arg1;"))
+
+
+(definition process-hwnd-message
+  #f)
+
+(set! process-hwnd-message #f)
+
+(c-definition (call-process-hwnd-message hWnd uMsg wParam lParam) (HWND UINT WPARAM LPARAM) LRESULT "windowproc" "static"
+  (process-hwnd-message hWnd uMsg wParam lParam)))

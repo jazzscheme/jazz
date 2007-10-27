@@ -1,0 +1,144 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Data Relations
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.schema.data.Data-Relation jazz
+
+
+(import (jazz.schema)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Data-Relation extends Data-Entity
+
+
+  (slot primary-table   initialize {})
+  (slot primary-columns initialize '())
+  (slot foreign-table   initialize {})
+  (slot foreign-columns initialize '())
+  
+  
+  @convert-literal
+  (method meta (construct-literal context name properties)
+    (new self name: name :properties properties))
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((name null) (parent null) (properties null)) rest
+      (bind-keywords ((primary-table null) (primary-columns null) (foreign-table null) (foreign-columns null) . others) properties
+        (nextmethod)
+        (set! name~self name)
+        (set! parent~self parent)
+        (set! primary-table~self primary-table)
+        (set! primary-columns~self primary-columns)
+        (set! foreign-table~self foreign-table)
+        (set! foreign-columns~self foreign-columns)
+        (set! properties~self others))))
+  
+  
+  ;;;
+  ;;;; Print
+  ;;;
+  
+  
+  (method protected (print-schema printer)
+    (format printer "~{{s} {s} (primary-table: {s} primary-columns: {s} foreign-table: {s} foreign-columns: {s} {l detail: :reader})}"
+            (identifier-name (type-name (class-of self)))
+            name
+            primary-table
+            primary-columns
+            foreign-table
+            foreign-columns
+            properties))
+  
+  
+  ;;;
+  ;;;; Object
+  ;;;
+  
+  
+  (method (get-kind)
+    'relation)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-primary-table)
+    primary-table)
+
+
+  (method public (get-primary-columns)
+    primary-columns)
+
+
+  (method public (get-foreign-table)
+    foreign-table)
+
+
+  (method public (get-foreign-columns)
+    foreign-columns)
+  
+  
+  (method (property-names)
+    '(primary-table primary-columns foreign-table foreign-columns unique? update-cascade? delete-cascade? left? right? checked? exclude-replication?))
+  
+  
+  (method (present-property property value)
+    (case property
+      ((primary-columns foreign-columns) (format "{l detail: :human separator: \", \"}" value))
+      (else (nextmethod property value))))
+  
+  
+  (method (get-property keyword . rest)
+    (case keyword
+      ((primary-table:) primary-table)
+      ((primary-columns:) primary-columns)
+      ((foreign-table:) foreign-table)
+      ((foreign-columns:) foreign-columns)
+      (else (apply nextmethod keyword rest))))
+  
+  
+  (method (set-property keyword value)
+    (case keyword
+      ((primary-table:) (set! primary-table value))
+      ((primary-columns:) (set! primary-columns value))
+      ((foreign-table:) (set! foreign-table value))
+      ((foreign-columns:) (set! foreign-columns value))
+      (else (nextmethod keyword value))))))

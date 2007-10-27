@@ -1,0 +1,376 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Books View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.book.Book-View jazz
+
+
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Book-View extends Layout-View implements Document
+  
+
+  (slot sections    initialize (new-hashtable eq?))
+  (slot book        initialize {})
+  (slot controller  initialize {})
+  
+  
+  (method (default-extension));;abstract
+  (method (extensions));;abstract
+  (method (focus-document));;abstract
+  (method (current-history-item));;abstract
+  (method (compare-moniker moniker));;abstract
+  
+  
+  (method (destroy)
+    (close~ controller)
+    (nextmethod))
+  
+  
+  (method public (get-book)
+    book)
+  
+  
+  (method public (set-book value)
+    (set! book value))
+
+  
+  ;;;
+  ;;;; Book-View
+  ;;;
+  
+  
+  (method public (get-version)
+    (get-version~ book))
+  
+  
+  (method public (get-properties)
+    (get-properties~ book))
+  
+  
+  (method public (get-description)
+    (get-description~ book))
+  
+  
+  (method public (get-book-name)
+    (get-book-name~ book))
+
+  
+  ;;;
+  ;;;; Sections
+  ;;;
+  
+  
+  (method public (add-section name section)
+    (when (get-client~ book name)
+      (hash-set! sections name section)))
+  
+  
+  (method public (remove-section name)
+    (when (get-client~ book name)
+      (hash-set! sections name {})))
+  
+  
+  (method public (get-section name)
+    (either (hash-ref sections name)
+            (error "Unable to find section: {t}" name)))
+  
+  
+  (method public (get-client name)
+    (get-client~ (get-section name)))
+  
+  
+  (method public (get-designer name)
+    (get-designer~ (get-section name)))
+  
+  
+  (method public (get-editor name)
+    (get-editor~ (get-section name)))
+  
+  
+  (method public (for-each-section proc)
+    (for-each (function dynamic (name)
+                (proc name (get-section name)))
+              (get-names~ book)))
+
+  
+  ;;;
+  ;;;; Client Forms
+  ;;;
+  
+  
+  (method public (set-client-from-forms client-forms)
+    (for-each-property (function dynamic (name form)
+                         (let ((client (instantiate~ form book: book)))
+                           (set-client~ book name client)))
+                       client-forms)
+    (clients-update))
+ 
+  
+  (method public virtual (clients-update)
+    (for-each-client~ book
+      (function dynamic (name client)
+        (let ((section (get-section name)))
+          (set-client~ section client)))))
+  
+  
+  (method (update-names book-name)
+    (for-each-section
+      (function dynamic (name section)
+        (let ((client (get-client~ section))
+              (designer (get-designer~ section)))
+          (set-name~ designer client book-name branch: {})))))
+
+  
+  ;;;
+  ;;;; New
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (new-event (host-visible?: host-visible? #t))
+    (let* ((frame (apply new-frame host-visible?: #f rest))
+           (book-view (get-guest~ frame))
+           (book-name (unique-domain-name "New" (collect-names book-view)))
+           (controller (get-controller~ book-view))
+           (fact (new List-Factory)))
+      (set-newname~ controller book-name)
+      (update-status~ controller)
+      (clients-update~ book-view)
+      (update-names~ book-view book-name)
+      (bring-to-front~ frame)
+      (set-visible?~ frame host-visible?)
+      frame))
+  
+  
+  @convert-guest
+  (method meta (collect-names book)
+    (let ((model (class-of book))
+          (stage (get-stage)))
+      (collect (function dynamic (frame)
+                 (when (is? frame Host-Frame)
+                   (let ((guest (get-guest~ frame)))
+                     (when (and guest (neq? guest book) (is? guest model))
+                       (get-book-name~ guest)))))
+               (get-children~ stage))))
+
+  
+  ;;;
+  ;;;; Empty
+  ;;;
+  
+  @not-used?
+  (method public (empty-sections sections)
+    (for-each (function dynamic (name)
+                (let* ((section (get-section name))
+                       (old-client (get-client~ section))
+                       (old-name (get-name~ old-client))
+                       (form (new Form textual?: #t action: 'new model-name: (get-model-name~ section)))
+                       (client (instantiate~ form book: self)))
+                  (set-client~ section client)
+                  (let ((designer (get-designer~ section)))
+                    (set-name~ designer client old-name)
+                    (clients-update))))
+              sections))
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (install-in-host~ (get-controller) host))
+
+  
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  (method (get-controller)
+    (unless controller
+      (set! controller (new-controller)))
+    controller)
+
+
+  (method (new-controller)
+    (new Book-Controller self))
+  
+  
+  (method (save)
+    (save~ (get-controller)))
+  
+  
+  (method (save-as)
+    (save-as~ (get-controller)))
+  
+  
+  (method (save-to moniker)
+    (save-to~ (get-controller) moniker))
+  
+  
+  (method public virtual (save-all)
+    (save-all~ (get-controller)))
+  
+  
+  (method (install-scroller?)
+    #f)
+
+
+  (method (get-moniker)
+    (get-moniker~ (get-controller)))
+
+
+  (method (set-moniker moniker)
+    (set-moniker~ (get-controller) moniker))
+  
+  
+  (method (verify-reload)
+    )
+  
+  
+  (method (reload-moniker moniker)
+    (when moniker
+      (with-locked-update
+        (function dynamic ()
+          (reload-content moniker)
+          (update-moniker-time moniker)))))
+  
+  
+  (method (reload-content moniker)
+    (empty-content)
+    (load-content moniker)
+    (set-modified? #f)
+    (update-status))
+  
+  
+  (method protected virtual (empty-content)
+    )
+
+
+  (method (get-modified?)
+    (get-modified?~ (get-controller)))
+
+
+  (method (set-modified? state)
+    (set-modified?~ (get-controller) state))
+  
+  
+  (method (update-status)
+    (update-status~ (get-controller)))
+  
+  
+  (method (update-moniker-time moniker)
+    (update-moniker-time~ (get-controller) moniker))
+  
+  
+  (method (confirm-close . rest)
+    (confirm-close~ (get-controller)))
+
+
+  (method (tool-update tool?)
+    )
+
+
+  (method (console-update console?)
+    )
+
+  
+  ;;;
+  ;;;; Load
+  ;;;
+
+
+  (method (load-content moniker)
+    (load-content~ book moniker)
+    (clients-update)
+    (update-status))
+
+  
+  ;;;
+  ;;;; Save
+  ;;;
+  
+  
+  (method (save-content moniker)
+    (with-cursor :wait
+      (function dynamic ()
+        (let ((base (get-base~ moniker)))
+          (for-each-section
+            (function dynamic (name section)
+              (let ((designer (get-designer~ section)))
+                (set-origin~ (get-form~ designer) moniker)
+                (set-name~ designer (get-client~ section) base branch: {})
+                (process-saving~ (get-editor~ section)))))
+          (with-closed ((printer (new File-Printer moniker)))
+            (set-printer-use-utf8? printer #t)
+            (let ((first? #t))
+              (for-each-section
+                (function dynamic (name section)
+                  (let ((designer (get-designer~ section)))
+                    (when first?
+                      (output-header (get-description) printer)
+                      (output-version printer)
+                      (output-properties printer)
+                      (set! first? #f))
+                    (output-section (get-title~ section) printer)
+                    (format printer "{a}{%}{%}" name)
+                    (print-to~ designer #f -1 printer)))))))
+        (update-moniker-time moniker)
+        (set-modified? #f)
+        (update-status)
+        (for-each-section
+          (function dynamic (name section)
+            (process-saved~ (get-editor~ section)))))))
+  
+  
+  (method (output-version printer)
+    (format printer "{%}{%}:version {s}{%}" (get-version)))
+  
+  
+  (method (output-properties printer)
+    (let ((properties (get-properties)))
+      (format printer "{%}{%}properties: {a}{%}"
+              (if (null? properties)
+                  "()"
+                (format "{s}" properties)))))))

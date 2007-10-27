@@ -1,0 +1,175 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; System platform-dependant definitions (windows)
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.system.platform.windows jazz
+
+
+(import (jazz.platform.windows)
+        (jazz.library))
+
+
+(definition public (get-computer-name)
+  "YO"
+  @platform
+  (let* ((size (+ MAX_COMPUTERNAME_LENGTH 1))
+         (name (make-string size)))
+    (GetComputerName name size)
+    (adjust-string name)
+    name))
+
+
+(definition public (get-system-user-name)
+  "YO"
+  @Platform
+  (let ((username (make-string MAX_PATH)))
+    (GetUserName username MAX_PATH)
+    (adjust-string username)
+    username))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+
+(definition Shift-Bit
+  1)
+
+
+(definition Control-Bit
+  2)
+
+
+(definition Alt-Bit
+  4)
+
+
+(definition public NoModifiers
+  0)
+
+
+(definition public (modifiers-keys)
+  (mask-bit-set (mask-bit-set (mask-bit-set 0 Shift-Bit (shift-down?)) Control-Bit (control-down?)) Alt-Bit (alt-down?)))
+
+
+(definition public (shift-key? modifier)
+  (mask-bit-set? modifier Shift-Bit))
+
+
+(definition public (control-key? modifier)
+  (mask-bit-set? modifier Control-Bit))
+
+
+(definition public (alt-key? modifier)
+  (mask-bit-set? modifier Alt-Bit))
+
+
+(definition public (key-down? key)
+  (/= (hibyte (GetAsyncKeyState key)) 0))
+
+
+(definition public (shift-down?)
+  (key-down? VK_SHIFT))
+
+
+(definition public (control-down?)
+  (key-down? VK_CONTROL))
+
+
+(definition public (alt-down?)
+  (key-down? VK_MENU))
+
+
+(definition public (modifiers-down)
+  (values (shift-down?)
+          (control-down?)
+          (alt-down?)))
+
+
+(definition public (mouse-clicked?)
+  (key-down? VK_LBUTTON))
+
+
+;;;
+;;;; Version
+;;;
+
+
+(definition public Version-Info
+  {})
+
+
+(definition (version-info)
+  (unless Version-Info
+    (set! Version-Info
+          (let ((info (OSVERSIONINFOEX-make)))
+            (OSVERSIONINFOEX-dwOSVersionInfoSize-set! info sizeof-OSVERSIONINFOEX)
+            (GetVersionEx info)
+            info)))
+  Version-Info)
+
+
+(definition public Windows-Version
+  {})
+
+
+(definition public (get-windows-version)
+  (unless Windows-Version
+    (set! Windows-Version
+          (let ((info (version-info)))
+            (new Version 
+              (OSVERSIONINFOEX-dwMajorVersion-ref info) 
+              (OSVERSIONINFOEX-dwMinorVersion-ref info) 
+              0))))
+  Windows-Version)
+
+
+(definition public (validate-version title what context version (register: register {}) (cleanup: cleanup {}))
+  (unimplemented 'validate-version)
+  @unimp
+  (when register
+    (register-crash-info register context (present~ version)))
+  (let* ((process (get-process))
+         (mandatory (mandatory-version~ process what)))
+    (when (and mandatory (< version mandatory))
+      (when cleanup
+        (cleanup))
+      (error "{a}{a} has version {a} and must be at least {a}"
+             title
+             (if context (format " {a}" context) "")
+             (present~ version)
+             (present~ mandatory))))))

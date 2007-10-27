@@ -1,0 +1,256 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Repositories Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.repository.manager.Repositories-Tree jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.repository)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Repositories-Tree extends Descendants-Tree
+    
+  
+  (form
+    (<install> multiple-selection?: #f))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-manager)
+    (get-guest~ player))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (insert-components row component rights update? level)
+    (unless (is? component Repository-Preferences)
+      (nextmethod row component rights update? level)))
+  
+  
+  (method (component-state component)
+    (when (is? component Repository-Preferences)
+      'dynamic))
+  
+  
+  (method (update-row row)
+    (update-tree-row~ (get-manager) self row))
+  
+  
+  (method (row-state component update? level)
+    (if update?
+        (if (<= level 1) 'expanded 'collapsed)
+      'collapsed))
+
+  
+  ;;;
+  ;;;; Add
+  ;;;
+  
+  
+  (method (add-component-request class parent)
+    (let* ((editor (editor-class~ class))
+           (initargs (get-modal~ editor))
+           (presentation (component-presentation-request class (get-children~ parent) initial-value: (getf initargs name:))))
+      (values presentation initargs)))
+  
+  
+  (method (install-new-properties designer child initargs extra-properties)
+    (install-preferences~ child designer initargs)
+    (add-properties child extra-properties))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (let* ((data (selected-component))
+           (class (class-of data)))
+      (if (is? data Repository-Moniker)
+          (if (get-file?~ data)
+              (new-item-menu data)
+            (new-project-menu data))
+        (nextmethod))))
+  
+  
+  (method (new-project-menu data)
+    (new Project-Menu))
+  
+  
+  (method (new-item-menu data)
+    (let ((menu (new Item-Menu))
+          (file (get-pathname~ data)))
+      (update-item-menu~ Repository menu file)
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (update-selection expand-state selected-components)
+    )
+  
+  
+  (method (double-click pos)
+    (nextmethod pos)
+    (edit-selection~ (get-manager)))
+
+
+  (method (key-press key)
+    (case key
+      ((#\return) (edit-selection~ (get-manager)))
+      (else (nextmethod key))))
+  
+  
+  (method (on-add-files evt)
+    (add-files-to-selection~ (get-manager)))
+  
+  
+  (method (on-create-project evt)
+    (create-project-in-selection~ (get-manager)))
+  
+  
+  (method (on-refresh evt)
+    (refresh-selection~ (get-manager)))
+  
+  
+  (method (on-edit evt)
+    (edit-selection~ (get-manager)))
+  
+  
+  (method (on-get-latest evt)
+    (get-selection-latest~ (get-manager)))
+  
+  
+  (method (on-detach evt)
+    (detach-selection~ (get-manager)))
+  
+  
+  (method (on-checkout evt)
+    (checkout-selection~ (get-manager)))
+  
+  
+  (method (on-checkin evt)
+    (checkin-selection~ (get-manager)))
+  
+  
+  (method (on-reintegrate evt)
+    (reintegrate-selection~ (get-manager)))
+  
+  
+  (method (on-undo-checkout evt)
+    (undo-selection-checkout~ (get-manager)))
+  
+  
+  (method (on-show-history evt)
+    (show-selection-history~ (get-manager)))
+  
+  
+  (method (on-show-changes evt)
+    (show-selection-changes~ (get-manager)))
+  
+  
+  (method (on-delete-item evt)
+    (delete-selected-item~ (get-manager)))
+  
+  
+  (method (on-rename-item evt)
+    (rename-selected-item~ (get-manager)))
+  
+  
+  ;;;
+  ;;;; Properties
+  ;;;
+  
+  
+  (method (show-properties)
+    (edit-repository-properties~ (get-manager)))
+  
+  
+  ;;;
+  ;;;; Project-Menu
+  ;;;
+  
+  
+  (class Project-Menu extends Context-Menu
+    
+    
+    (form
+      (<install>
+        (<Label-Item>     name: add-files         title: "&Add Files..." icon: {Bitmap-Resource "Add"} action-handler: {Event-Handler :focus on-add-files})
+        (<Label-Item>     name: create-project    title: "&Create Project..." action-handler: {Event-Handler :focus on-create-project})
+        (<Separator-Item> name: delete-separator)
+        (<Label-Item>     name: delete-item       title: "&Delete..." icon: {Bitmap-Resource "Remove"} action-handler: {Event-Handler :focus on-delete-item})
+        (<Label-Item>     name: rename-item       title: "&Rename" action-handler: {Event-Handler :focus on-rename-item})
+        (<Separator-Item> name: refresh-separator)
+        (<Label-Item>     name: refresh           title: "&Refresh" icon: {Bitmap-Resource "Refresh"} action-handler: {Event-Handler :focus on-refresh}))))
+
+  
+  ;;;
+  ;;;; Item-Menu
+  ;;;
+  
+  
+  (class Item-Menu extends Context-Menu
+    
+    
+    (form
+      (<install>
+        (<Label-Item>     name: edit-item         title: "&Edit" default?: #t action-handler: {Event-Handler :focus on-edit})
+        (<Separator-Item> name: checkin-separator)
+        (<Label-Item>     name: get-latest        title: "Get &Latest" icon: {Bitmap-Resource "GetLatest"} action-handler: {Event-Handler :focus on-get-latest})
+        (<Label-Item>     name: detach            title: "&Detach" icon: {Bitmap-Resource "Checkout"} action-handler: {Event-Handler :focus on-detach})
+        (<Label-Item>     name: checkout          title: "Check &Out" icon: {Bitmap-Resource "Checkout"} action-handler: {Event-Handler :focus on-checkout})
+        (<Label-Item>     name: checkin           title: "Check &In" icon: {Bitmap-Resource "Checkin"} action-handler: {Event-Handler :focus on-checkin})
+        (<Label-Item>     name: reintegrate       title: "&Reintegrate" icon: {Bitmap-Resource "Checkin"} action-handler: {Event-Handler :focus on-reintegrate})
+        (<Label-Item>     name: undo-checkout     title: "&Undo Checkout" icon: {Bitmap-Resource "UndoCheckout"} action-handler: {Event-Handler :focus on-undo-checkout})
+        (<Separator-Item> name: history-separator)
+        (<Label-Item>     name: show-history      title: "Show &History" icon: {Bitmap-Resource "ShowHistory"} action-handler: {Event-Handler :focus on-show-history})
+        (<Label-Item>     name: show-changes      title: "Show &Changes" icon: {Bitmap-Resource "ShowChanges"} action-handler: {Event-Handler :focus on-show-changes})
+        (<Separator-Item> name: delete-separator)
+        (<Label-Item>     name: delete-item       title: "&Delete..." icon: {Bitmap-Resource "Remove"} action-handler: {Event-Handler :focus on-delete-item})
+        (<Label-Item>     name: rename-item       title: "&Rename" action-handler: {Event-Handler :focus on-rename-item}))))))

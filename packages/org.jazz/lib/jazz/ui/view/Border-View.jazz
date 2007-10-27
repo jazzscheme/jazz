@@ -1,0 +1,214 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Border Views
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Border-View jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.look)
+        (jazz.utilities))
+
+
+(class Border-View extends Layout-View
+
+  
+  ;; none edge raised palette shadow solid
+  (property border-type   initialize 'solid              getter get-border-type   setter set-border-type)
+  (property border-color  initialize {Color name: Black} getter get-border-color  setter set-border-color)
+  (property border-insets initialize {Rect 1 1 1 1}      getter get-border-insets setter set-border-insets)
+  (property style         initialize {}                  getter get-style         setter set-style)
+
+
+  (form
+    (<install> layout-type: fill))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-border-type)
+    border-type)
+  
+  
+  (method public (set-border-type type)
+    (set! border-type type)
+    (recalculate-border-insets)
+    (invalidate-borders))
+  
+  
+  (method public (get-border-color)
+    border-color)
+  
+  
+  (method public (set-border-color color)
+    (set! border-color color)
+    (invalidate-borders))
+  
+  
+  (method public (get-border-insets)
+    border-insets)
+  
+  
+  (method public (set-border-insets insets)
+    (set! border-insets insets)
+    (layout-view))
+
+
+  (method public (get-style)
+    style)
+
+
+  (method public (set-style value)
+    (set! style value)
+    (recalculate-border-insets))
+  
+  
+  (method (recalculate-border-insets)
+    (case border-type
+      ((none) (set-border-insets {Rect 0 0 0 0}))
+      ((edge raised palette) (set-border-insets (case style ((entry) {Rect 1 1 1 1}) (else {Rect 2 2 2 2}))))
+      ((shadow) (set-border-insets {Rect 1 1 3 3}))))
+
+  
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method (add-child child)
+    (nextmethod child)
+    (when (is? child View)
+      (layout-view)))
+  
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (fill-position)
+    (+ (nextmethod)
+       (new Point (get-left~ border-insets) (get-top~ border-insets))))
+  
+  
+  (method (fill-size)
+    (- (nextmethod)
+       (new Dimension
+         (+ (get-left~ border-insets) (get-right~ border-insets))
+         (+ (get-top~ border-insets) (get-bottom~ border-insets)))))
+  
+  
+  ;;;
+  ;;;; Outer
+  ;;;
+  
+  
+  (method (inner? view)
+    (memq? view children))
+  
+  
+  ;;;
+  ;;;; Invalidate
+  ;;;
+  
+  
+  (method (invalidate-borders)
+    (invalidate-border insets: border-insets))
+  
+
+  ;;;
+  ;;;; Drawing
+  ;;;
+
+  
+  (method (draw dc context update lh lv)
+    (with ((bounds (get-bounds)))
+      (case border-type
+        ((none)
+         (unspecified))
+        ((solid)
+         (when border-color
+           (frame-rect~ dc bounds border-color)))
+        ((edge)
+         (let ((look (get-look)))
+           (cond ((and (= style 'entry) (get-element~ look 'entry/edge/flat?))
+                  (frame-rect~ dc bounds {Color name: Entry-Border}))
+                 ((and (= style 'outline) (get-element~ look 'outline/edge/flat?))
+                  (with ((inner (inflate-rect bounds -1 -1)))
+                    (frame-rect~ dc inner {Color name: Outline-Border})))
+                 (else
+                  (draw-edge~ dc bounds outer: 'sunken inner: (case (get-left~ border-insets) ((1) {}) ((2) 'sunken)) edges: 'rectangle)))))
+        ((raised)
+         (draw-edge~ dc bounds inner: 'raised outer: 'raised edges: 'rectangle))
+        ((shadow)
+         (with ((inner (expand-rect bounds 0 0 (- 1 (get-right~ border-insets)) (- 1 (get-bottom~ border-insets)))))
+           (frame-rect~ dc inner border-color)
+           (set-pen~ dc {Pen name: Black})
+           (line~ dc (get-right~ inner) 2 (get-right~ inner) (get-bottom~ bounds))
+           (line~ dc (+ (get-right~ inner) 1) 2 (+ (get-right~ inner) 1) (get-bottom~ bounds))
+           (line~ dc 2 (get-bottom~ inner) (get-right~ bounds) (get-bottom~ inner))
+           (line~ dc 2 (+ (get-bottom~ inner) 1) (get-right~ bounds) (+ (get-bottom~ inner) 1)))))))
+  
+  
+  (method (draw-children dc context update lh lv sh sv sc sc?)
+    (nextmethod dc context update lh lv sh sv sc sc?)
+    (case border-type
+      ((palette)
+        (with ((bounds (get-bounds)))
+          (draw-edge~ dc bounds outer: 'sunken inner: 'raised edges: '(top))))))
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-image)
+    {Bitmap-Resource "PageSetup"})
+
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((border-color) (new Color-Row))
+      (else (nextmethod property))))))

@@ -1,0 +1,310 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Calendar
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.calendar.Calendar-View jazz
+
+
+(import (jazz.platform)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Calendar-View extends View
+
+
+  (property date                initialize {}    getter get-date                setter set-date)
+  (property spacing             initialize 1     getter get-spacing             setter set-spacing)
+  (property multiple-selection? initialize #f getter get-multiple-selection? setter set-multiple-selection?)
+  
+  
+  (slot selection initialize {})
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (set-date {})
+    (install-days)
+    (set-selection (find-calendar-day date)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-date)
+    date)
+
+
+  (method public (set-date value)
+    (set! date (either value (day-date~ (local-date))))
+    (when (get-finished?)
+      (date-update)))
+  
+  
+  (method protected virtual (date-update)
+    (update-days)
+    (invalidate-view))
+
+
+  (method public (get-spacing)
+    spacing)
+
+
+  (method public (set-spacing value)
+    (set! spacing value))
+
+
+  (method public (get-multiple-selection?)
+    multiple-selection?)
+
+
+  (method public (set-multiple-selection? value)
+    (set! multiple-selection? value))
+  
+  
+  (method public virtual (get-manager)
+    (find-ascendant Calendar-Dialog))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (guest-actions)
+    (cons (find-actions 'calendar)
+          (nextmethod)))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-prior evt)
+    (prior-press))
+  
+  
+  (method (on-next evt)
+    (next-press))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-gain)
+    (when selection
+      (invalidate-view~ selection)))
+  
+  
+  (method (focus-lose window view)
+    (when selection
+      (invalidate-view~ selection)))
+
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (left-arrow-press modifiers)
+    (move-selection -1 0))
+  
+  
+  (method (up-arrow-press modifiers)
+    (move-selection 0 -1))
+  
+  
+  (method (right-arrow-press modifiers)
+    (move-selection 1 0))
+  
+  
+  (method (down-arrow-press modifiers)
+    (move-selection 0 1))
+  
+  
+  (method public virtual (prior-press)
+    (goto-previous-month))
+  
+  
+  (method public virtual (next-press)
+    (goto-next-month))
+  
+  
+  (method (move-selection dx dy)
+    (if (null? selection)
+        (bell)
+      (let ((nx (max 0 (min 6 (+ (get-day~ selection) dx))))
+            (ny (max 0 (min 4 (+ (get-week~ selection) dy)))))
+        (set-selection (find-calendar-cell nx ny)))))
+  
+  
+  ;;;
+  ;;;; Install
+  ;;;
+  
+  
+  (method (install-days)
+    (when date
+      (let ((date (calendar-base)))
+        (for-each (function dynamic (week)
+                    (for-each (function dynamic (day)
+                                (install-day week day date)
+                                (set! date (add~ date 'day 1)))
+                              (naturals 0 7)))
+                  (naturals 0 6)))))
+  
+  
+  (method (install-day week day date)
+    (new (calendar-day-class) parent: self week: week day: day date: date))
+  
+  
+  (method protected virtual (calendar-day-class)
+    Calendar-Day)
+  
+  
+  (method (calendar-base)
+    (first-day-of-week~ (first-day-of-month~ date)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update-days)
+    (let ((date (calendar-base))
+          (scan children))
+      (for-each (function dynamic (week)
+                  (for-each (function dynamic (day)
+                              (let ((calendar-day (car scan)))
+                                (set-date~ calendar-day date)
+                                (set! date (add~ date 'day 1))
+                                (set! scan (cdr scan))))
+                            (naturals 0 7)))
+                (naturals 0 6))))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let ((width (floor (/ (get-width) 7)))
+          (height (floor (/ (get-height) 6))))
+      (for-each (function dynamic (view)
+                  (when (is? view Calendar-Day)
+                    (let ((row (get-week~ view))
+                          (col (get-day~ view)))
+                      (set-position~ view (new Point (+ 1 (* col (+ width spacing))) (* row (+ height spacing))))
+                      (set-size~ view (new Dimension width height)))))
+                children)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method public virtual (day-color day)
+    {})
+  
+  
+  ;;;
+  ;;;; Days
+  ;;;
+  
+  
+  (method public (find-calendar-day date)
+    (find-if (function dynamic (view)
+               (and (is? view Calendar-Day)
+                    (= date (get-date~ view))))
+             children))
+  
+  
+  (method public (find-calendar-cell x y)
+    (find-if (function dynamic (view)
+               (and (is? view Calendar-Day)
+                    (= x (get-day~ view))
+                    (= y (get-week~ view))))
+             children))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+
+
+  (method public (get-selection)
+    selection)
+
+
+  (method public (set-selection day)
+    (when (neq? selection day)
+      (when selection
+        (set-selected?~ selection #f))
+      (set! selection day)
+      (when selection
+        (set-selected?~ selection #t))
+      (selection-update)))
+  
+  
+  (method protected virtual (selection-update)
+    )
+  
+  
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+  
+  (method public (goto-previous-month)
+    (goto-month (previous-month~ date)))
+  
+  
+  (method public (goto-next-month)
+    (goto-month (next-month~ date)))
+  
+  
+  (method (goto-month month)
+    (set-date month)
+    (set-selection (find-calendar-day month)))))

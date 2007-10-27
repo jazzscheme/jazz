@@ -1,0 +1,136 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Type Libraries
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.registry.Type-Lib jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Type-Lib extends Object uses (Utilities System WinNT WinKernel WinIDL)
+
+
+  (slot file          initialize {})
+  (slot guid          initialize {})
+  (slot major-version initialize {})
+  (slot minor-version initialize {})
+  (slot language-id   initialize {})
+  (slot handle        initialize {})
+  (slot attr          initialize {})
+
+
+  (method (initialize (file: file {}) (guid: guid {}) (major-version: major-version {}) (minor-version: minor-version {}) (language-id: language-id {}))
+    (nextmethod)
+    (cond (file (set-file file))
+          (guid (set-guid guid major-version minor-version language-id)))
+    (destroy-mandatory))
+
+
+  (method (destroy)
+    (when attr
+      (release-lib-attr handle (record-address attr))
+      (set! attr {}))
+    (when handle
+      (release-type-lib handle)
+      (set! handle {}))
+    (nextmethod))
+  
+  
+  (method public (register)
+    (if (null? file)
+        (error "Unable to register typelib")
+      (register-type-lib handle file)))
+  
+  
+  (method public (get-file)
+    file)
+  
+  
+  (method public (set-file f)
+    (set! file f)
+    (set! handle (load-type-lib file))
+    (set! attr (coerce (get-lib-attr handle) TLIBATTR)))
+  
+  
+  (method public (get-guid)
+    guid)
+  
+  
+  (method public (set-guid g ma mi li)
+    (set! guid g)
+    (set! major-version ma)
+    (set! minor-version mi)
+    (set! language-id   li)
+    (set! handle (load-reg-type-lib guid major-version minor-version language-id))
+    (set! attr (coerce (get-lib-attr handle) TLIBATTR)))
+
+
+  (method public (get-handle)
+    handle)
+
+
+  (method public (get-attr)
+    attr)
+
+
+  (method public (get-name)
+    (get-type-lib-name handle))
+
+
+  (method public (get-doc)
+    (get-type-lib-doc handle))
+
+
+  (method public (get-lib-guid)
+    (new GUID (record-address (get attr 'guid))))
+
+
+  (method public (get-lib-file)
+    (either file (error "Unable to get library file")))
+
+
+  (method public (get-types)
+    (let ((fact (new List-Factory)))
+      (for-each (function dynamic (n)
+                  (let ((info (new Type-Info (get-type-info handle n))))
+                    (when (not (member? (get-name~ info) '("IUnknown" "_GUID")))
+                      (if (= (get-kind~ info) TKIND_DISPATCH)
+                          (put~ fact (either (get-implemented-type~ info -1) info))
+                        (put~ fact info)))))
+                (naturals 0 (get-type-info-count handle)))
+      (get-output~ fact)))))

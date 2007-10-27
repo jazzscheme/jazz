@@ -1,0 +1,267 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stack Snapshot
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.snapshot.Stack-Snapshot jazz
+
+
+(import (jazz.debugger)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Stack-Snapshot extends Object implements Viewable
+
+
+  (slot stack)
+
+
+  (method (initialize)
+    (nextmethod)
+    (set! stack (present-stack (remove-frames (collect-presented (runtime-stack))))))
+
+
+  (method (get-title)
+    "Stack")
+
+
+  (method (get-viewer-class)
+    Stack-Viewer)
+
+
+  (method public (get-stack)
+    stack)
+
+
+  (method (collect-presented stack)
+    (collect-if (function dynamic (frame)
+                  (memq? (frame-type frame) '(closure external compiled-procedure)))
+                stack))
+  
+  
+  (method (remove-frames stack)
+    ;; remove the (new Stack-Snapshot) and (initialize) frames
+    (tail stack 2))
+
+
+  (method (present-stack stack)
+    (map (function dynamic (frame)
+           (cons (present-frame frame)
+                 (present-variables frame)))
+         stack))
+
+
+  (method (present-frame frame)
+    (case (frame-type frame)
+      ((lexical)            (present-lexical-frame            frame))
+      ((closure)            (present-closure-frame            frame))
+      ((external)           (present-external-frame           frame))
+      ((compiled-procedure) (present-compiled-procedure-frame frame))
+      (else               (present-unknown-frame            frame))))
+
+
+  (method (present-frame-info frame image class name info)
+    (list image class name info))
+
+
+  (method (present-lexical-frame frame)
+    {}
+    @to-convert
+    (present-frame-info frame {Bitmap-Resource "FrameLexical"} {} {}
+      (let ((forward (lexicon-forward-lexicon frame)))
+        (if forward
+            (format "Lexical frame -> #x{x}" forward)
+          "Lexical frame"))))
+
+
+  (method (present-closure-frame frame)
+    @convert
+    (let* ((procedure (frame-procedure frame))
+           (method? (function-method?~ Interpreter (closure-function~ Interpreter procedure))))
+      (receive (class name info)
+          (if method?
+              (present-method procedure)
+            (present-function (function-method procedure)))
+        (present-frame-info frame {Bitmap-Resource "FrameClosure"} class name info))))
+      
+  
+  (method (present-compiled-procedure-frame frame)
+    (present-frame-info frame {Bitmap-Resource "FrameCompiledProcedure"} {} {} (frame-name frame)))
+
+    
+  (method (present-method method)
+    (let* ((definer (object-definer method))
+           (class (essay definer (type-name (field-creator definer))))
+           (name (object-name method)))
+      (values (essay class (in-manifest? class) class)
+              name
+              (format "{s}.{s}"
+                      (either class "<nil>")
+                      name))))
+    
+    
+  (method (present-function method)
+    (values {} {} (format "<function>")))
+    
+  
+  (method (function-method procedure)
+    {})
+
+
+  (method (present-external-frame frame)
+    (present-frame-info frame {Bitmap-Resource "FrameExternal"} {} {} (frame-name frame)))
+
+
+  (method (present-unknown-frame frame)
+    (case (frame-type frame)
+      ((stack)   (present-frame-info frame {Bitmap-Resource "FrameUnknown"} {} {} "Stack frame"))
+      ((binding) (present-frame-info frame {Bitmap-Resource "FrameUnknown"} {} {} "Binding frame"))
+      ((catch)   (present-frame-info frame {Bitmap-Resource "FrameUnknown"} {} {} "Catch frame"))
+      (else      (present-frame-info frame {Bitmap-Resource "FrameUnknown"} {} {} "Unknown frame"))))
+
+
+  (method (present-variables frame)
+    (cons (cons 'self (frame-context frame)) (local-variables frame)))
+  
+  
+  (method (local-variables frame)
+    @convert
+    (map (function dynamic (variable)
+           (cons variable (variable-value~ Interpreter variable frame)))
+         (frame-variables frame)))
+
+
+  ;;;
+  ;;;; Viewer
+  ;;;
+
+
+  (class Stack-Viewer extends Layout-View
+
+
+    (form
+      (<install>                                           size: {Dimension 600 400} layout-type: fill
+        (<Splitter-View>                                   state: split orientation: horz mode: relative division: 40
+          (<Border-View>                                   location: first border-type: edge style: entry
+            (<Scroller-View>               name: scroller  location: center vscroll?: #t flat?: #t
+              (<!>                         name: content   layout-type: fill
+                (<Tree-Header>             name: header    shown?: #f
+                  (<!>                     name: content
+                    (<Stack-View>          name: stack     portfolio: :icons selection-handler: {Event-Handler form: on-select-stack} double-click-handler: {Event-Handler form: on-double-click}
+                      (<Tree-Node-Column>                  title: "Method" width: 258)))))))
+          (<Border-View>                                   location: second border-type: edge style: entry
+            (<Scroller-View>               name: scroller  vscroll?: #t hscroll?: #t flat?: #t
+              (<!>                         name: content   layout-type: fill
+                (<Tree-Header>                             flat?: #t
+                  (<!>                     name: content
+                    (<Variables-View>      name: variables portfolio: :icons selection-mode: row
+                      (<Tree-Node-Column>                  title: "Variable" width: 100 toplevel-controls?: #f display-images?: #f)
+                      (<Tree-Label-Column>                 title: "Value" width: 163))))))))))
+
+
+    (property client getter get-client setter set-client)
+    
+    
+    ;; to reverse and/or reduce stack
+    (method (effective-stack)
+      @w
+      (tail (reverse (get-stack~ client)) 26)
+      (get-stack~ client))
+
+
+    (method public (get-client)
+      client)
+
+
+    (method public (set-client clt)
+      (set! client clt)
+      (insert-stack~ (locate 'stack) (effective-stack)))
+
+
+    (method (on-select-stack evt)
+      (let* ((tree      (locate 'stack))
+             (selection (get-single-selection~ tree))
+             (frame     (element (effective-stack) selection))
+             (variables (locate 'variables)))
+        (present-frame~ variables frame)))
+    
+    
+    (method (on-double-click evt)
+      (let* ((tree (locate 'stack))
+             (selection (get-single-selection~ tree)))
+        (when selection
+          (let* ((row (get-row~ tree selection))
+                 (data (get-user-data~ row)))
+            (when data
+              (bind (class . name) data
+                (if (null? class)
+                    (edit-definition~ (get-application) data)
+                  (edit~ (new Jazz-Code-Location (list class name))))))))))
+
+
+    ;;;
+    ;;;; Stack
+    ;;;
+
+
+    (class Stack-View extends Tree-View
+
+
+      (method public (insert-stack stack)
+        (remove-every-row)
+        (for-each (function dynamic (frame)
+                    (bind ((image class name info) . variables) frame
+                      (add-row children: (list (new Tree-Node title: info image: image)) user-data: (cons class name))))
+                  stack)))
+
+
+    ;;;
+    ;;;; Variables
+    ;;;
+
+
+    (class Variables-View extends Tree-View
+  
+  
+      (method public (present-frame frame)
+        (bind ((image class name info) . variables) frame
+          (remove-every-row)
+          (for-each (function dynamic (couple)
+                      (bind (variable . value) couple
+                        (add-row children: (list (new Tree-Node title: variable) (new Tree-Label title: (->string (cdr couple) :reader))))))
+                    variables)))))))

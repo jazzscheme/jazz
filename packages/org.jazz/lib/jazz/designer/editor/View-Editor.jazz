@@ -1,0 +1,518 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; View Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.editor.View-Editor jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.platform.windows)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.utilities))
+
+
+(class View-Editor extends Editor-View
+
+
+  (property mode initialize 'select getter get-mode setter set-mode)
+  
+  
+  (slot protected showed-property  initialize {})
+  (slot protected rubber-band?     initialize #f)
+  (slot protected base-view        initialize #f)
+  (slot protected base-position    initialize {})
+  (slot protected old-position     initialize {})
+  (slot protected overlay          initialize {})
+  (slot protected preserved-client initialize {})
+  
+
+  (form
+    (<install>                            layout-type: border
+      (<Layout-View>     name: toolbar    size: {Dimension 300 33} layout-type: flow layout-insets: {Rect 0 6 0 0} location: north
+        (<Push-Tool>     name: new        size: {Dimension 22 22} tooltip?: #t tooltip-text: "New" image-name: {Bitmap-Resource "New"} portfolio: :icons action-handler: {Event-Handler form: on-new})
+        (<Push-Tool>     name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler form: on-open})
+        (<Push-Tool>     name: save       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Save" image-name: {Bitmap-Resource "Save"} portfolio: :icons action-handler: {Event-Handler form: on-save})
+        (<Separator>     name: separator1 size: {Dimension 12 0})
+        (<Toggle-Tool>   name: frames     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Frames?" image-name: {Bitmap-Resource "Fill"} portfolio: :icons selected?: #t action-handler: {Event-Handler form: on-toggle-frames})
+        (<Toggle-Tool>   name: content    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Show Content?" image-name: {Bitmap-Resource "View"} portfolio: :icons selected?: #t action-handler: {Event-Handler form: on-toggle-content})
+        (<Separator>     name: separator2 size: {Dimension 12 0})
+        (<Toggle-Tool>   name: try-out    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Try Out" image-name: {Bitmap-Resource "Branch"} portfolio: :icons action-handler: {Event-Handler form: on-toggle-try-out})
+        (<Separator>     name: separator3 size: {Dimension 12 0})
+        (<Push-Tool>     name: edit-form  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Form" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler form: on-edit-form}))
+      (<Border-View>     name: center     location: center layout-type: fill border-type: edge
+        (<Scroller-View> name: scroller   hscroll?: #t vscroll?: #t))))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 227 117})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 708 472})
+  
+  
+  (method (frame-workspaces)
+    '(designer))
+
+
+  ;;;
+  ;;;; Controller
+  ;;;
+
+
+  @convert
+  (method (new-controller)
+    (new View-Editor-Controller self))
+  
+  
+  @convert
+  (class View-Editor-Controller extends Editor-View-Controller
+    
+    
+    ;; temp patch to make saving in the view designer work
+    (method (save)
+      (save-content-patch~ document {})))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (guest-actions)
+    (cons (find-actions 'view-editor)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+
+  (method public (get-mode)
+    mode)
+
+
+  (method public (set-mode value)
+    (set! mode value))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (let ((toolbar (locate 'toolbar)))
+      (set-size~ toolbar (new Dimension (get-width~ size) (get-height~ toolbar)))))
+  
+  
+  (method (on-new evt)
+    )
+  
+  
+  (method (on-open evt)
+    (set-client (instantiate~ (open-form))))
+  
+  
+  (method (on-edit-form evt)
+    (edit-form))
+  
+  
+  (method (on-toggle-frames evt)
+    (let ((reference (get-reference)))
+      (when reference
+        (invalidate-view~ reference))))
+  
+  
+  (method (on-toggle-content evt)
+    (let ((reference (get-reference)))
+      (when reference
+        (invalidate-view~ reference))))
+  
+  
+  (method (on-toggle-try-out evt)
+    (cond ((null? preserved-client)
+           (set! preserved-client client)
+           (set-selection '())
+           (set-client {}))
+          (else
+           (set-client preserved-client)
+           (set-selection (list preserved-client))
+           (set! preserved-client {}))))
+  
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method (client-update)
+    (nextmethod)
+    (install-client)
+    (when client
+      (set-visible?~ client #t)))
+  
+  
+  (method (install-client-surrogate)
+    (when client
+      (install-surrogate~ client self)))
+  
+  
+  (method protected virtual (install-client)
+    (let* ((scroller (locate 'scroller))
+           (content (get-content~ scroller)))
+      (when client
+        (set-parent~ client content))
+      (set-client~ scroller client)))
+    
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (install-current-designer component form)
+    (nextmethod component form)
+    @w
+    (redraw-border~ (get-surrogate~ component)))
+
+  
+  ;;;
+  ;;;; Property
+  ;;;
+  
+  
+  (method protected (get-showed-property)
+    showed-property)
+  
+  
+  (method protected (set-showed-property property)
+    (set! showed-property property)
+    (invalidate-view~ client))
+
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+  
+  
+  (method protected (show-frames?)
+    (get-selected?~ (locate 'frames)))
+  
+  
+  (method protected (show-content?)
+    (get-selected?~ (locate 'content)))
+
+
+  ;;;
+  ;;;; Rendering
+  ;;;
+  
+  
+  (method (render dc context update lh lv sh sv sc sc?)
+    (nextmethod dc context update lh lv sh sv sc sc?)
+    (for-each (function dynamic (view rank)
+                (when (is? view View)
+                  (let* ((surrogate (get-surrogate~ view))
+                         (outer (outer-client~ surrogate)))
+                    (draw-selected~ (get-surrogate~ outer) dc rank))))
+              selection
+              (naturals 0 (length selection))))
+
+
+  ;;;
+  ;;;; RubberBand
+  ;;;
+  
+  
+  ;; Live is not 100% completed. Because the overlay doesn't draw the rubber band, the invalidation
+  ;; that results from setting the selection will erase parts of the rubber band making it look bad
+  (definition Live?
+    #f)
+  
+  
+  (definition RubberBand-Pen
+    (new Pen style: 'alternate color: {Color name: White}))
+  
+  
+  (method protected virtual (rubber-band-base)
+    (car selection))
+  
+  
+  (method protected (start-rubber-band pos)
+    (set! rubber-band? #t)
+    (set! base-view (rubber-band-base))
+    (set! base-position pos)
+    (set! old-position {})
+    (acquire-capture~ base-view)
+    (setup-overlay))
+  
+  
+  (method protected (process-rubber-band pos)
+    (when rubber-band?
+      (with-closed ((dc (new View-DC overlay)))
+        (set-rop~ dc R2_XORPEN)
+        (when old-position
+          (with ((rect (corners->rect base-position old-position)))
+            (rectangle~ dc rect RubberBand-Pen {})))
+        (with ((rect (corners->rect base-position pos)))
+          (rectangle~ dc rect RubberBand-Pen {})
+          (when Live?
+            (select-rubber-banded rect)))
+        (set-rop~ dc R2_COPYPEN)
+        (set! old-position pos))))
+  
+  
+  (method (select-rubber-banded rect)
+    (when rubber-band?
+      (let* ((r (normalize-rect rect))
+             (p (rect-position r))
+             (s (rect-size r))
+             (selection (new List-Factory)))
+        (for-each-view~ base-view
+          (function dynamic (view)
+            (when (neq? view overlay)
+              (with ((b (get-bounds~ view))
+                     (r (acquire~ client view b)))
+                (when (rects-intersect? r p s)
+                  (put~ selection view))))))
+        (let ((lst (get-output~ selection)))
+          (set-selection lst)))))
+  
+  
+  (method protected (end-rubber-band pos)
+    (when (not Live?)
+      (select-rubber-banded (corners->rect base-position pos)))
+    (remove-overlay)
+    (release-capture~ base-view)
+    (set! rubber-band? #f))
+
+
+  ;;;
+  ;;;; Overlay
+  ;;;
+  
+  
+  (method (setup-overlay)
+    (set! overlay (new View parent: client position: {Point 0 0} size: (get-size~ client))))
+  
+  
+  (method (remove-overlay)
+    (close~ overlay)
+    (set! overlay {}))
+
+
+  ;;;
+  ;;;; Alignment
+  ;;;
+  
+  
+  (method public (align-left)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (h (lie-left reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view)))
+                      (set-view-lie view (new Point h (get-v~ lie)))))
+                  (cdr selection)))))
+  
+  
+  (method public (align-top)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (v (lie-top reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view)))
+                      (set-view-lie view (new Point (get-h~ lie) v))))
+                  (cdr selection)))))
+  
+  
+  (method public (align-right)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (h (lie-right reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view))
+                           (h (- h (get-width~ view))))
+                      (set-view-lie view (new Point h (get-v~ lie)))))
+                  (cdr selection)))))
+  
+  
+  (method public (align-bottom)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (v (lie-bottom reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view))
+                           (v (- v (get-height~ view))))
+                      (set-view-lie view (new Point (get-h~ lie) v))))
+                  (cdr selection)))))
+  
+  
+  (method public (center-horizontally)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (h (lie-left reference))
+             (width (get-width~ reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view))
+                           (h (+ h (round (/ (- width (get-width~ view)) 2)))))
+                      (set-view-lie view (new Point h (get-v~ lie)))))
+                  (cdr selection)))))
+  
+  
+  (method public (center-vertically)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (v (lie-top reference))
+             (height (get-height~ reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view))
+                           (v (+ v (round (/ (- height (get-height~ view)) 2)))))
+                      (set-view-lie view (new Point (get-h~ lie) v))))
+                  (cdr selection)))))
+  
+  
+  (method public (space-horizontally)
+    (if (< (length selection) 3)
+        (bell)
+      (let* ((first (outer-client~ (get-surrogate~ (first selection))))
+             (second (outer-client~ (get-surrogate~ (second selection))))
+             (dh (- (lie-left second) (lie-right first)))
+             (h (+ (lie-right second) dh)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view)))
+                      (set-view-lie view (new Point h (get-v~ lie))))
+                    (increase! h (+ (get-width~ view) dh)))
+                  (cddr selection)))))
+  
+  
+  (method public (space-vertically)
+    (if (< (length selection) 3)
+        (bell)
+      (let* ((first (outer-client~ (get-surrogate~ (first selection))))
+             (second (outer-client~ (get-surrogate~ (second selection))))
+             (dv (- (lie-top second) (lie-bottom first)))
+             (v (+ (lie-bottom second) dv)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (lie (get-lie~ view)))
+                      (set-view-lie view (new Point (get-h~ lie) v)))
+                    (increase! v (+ (get-height~ view) dv)))
+                  (cddr selection)))))
+  
+  
+  (method public (resize-width)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (width (get-width~ reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (size (get-size~ view)))
+                      (set-property~ designer view 'size (new Dimension width (get-height~ size)))))
+                  (cdr selection)))))
+  
+  
+  (method public (resize-height)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (height (get-height~ reference)))
+        (for-each (function dynamic (view)
+                    (let* ((view (outer-client~ (get-surrogate~ view)))
+                           (size (get-size~ view)))
+                      (set-property~ designer view 'size (new Dimension (get-width~ size) height))))
+                  (cdr selection)))))
+  
+  
+  (method public (resize-both)
+    (if (< (length selection) 2)
+        (bell)
+      (let* ((reference (outer-client~ (get-surrogate~ (car selection))))
+             (size (get-size~ reference)))
+        (for-each (function dynamic (view)
+                    (let ((view (outer-client~ (get-surrogate~ view))))
+                      (set-property~ designer view 'size size)))
+                  (cdr selection)))))
+  
+  
+  (method (lie-left view)
+    (get-h~ (get-lie~ view)))
+  
+  
+  (method (lie-top view)
+    (get-v~ (get-lie~ view)))
+  
+  
+  (method (lie-right view)
+    (+ (get-h~ (get-lie~ view)) (get-width~ view)))
+  
+  
+  (method (lie-bottom view)
+    (+ (get-v~ (get-lie~ view)) (get-height~ view)))
+  
+  
+  (method (set-view-lie view lie)
+    (set-lie~ view lie)
+    (set-property~ designer view 'position (get-position~ view)))))

@@ -1,0 +1,144 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Frame Buttons
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.view.Frame-Button jazz
+
+
+(import (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Frame-Button extends View
+  
+  
+  (property type initialize {} getter get-type setter set-type)
+  
+  
+  (slot state initialize 'inactive)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-type)
+    type)
+  
+  
+  (method public (set-type value)
+    (set! type value)
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method public (get-state)
+    state)
+  
+  
+  (method public (set-state value)
+    (set! state value)
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-activate?)
+    #f)
+
+
+  (method (mouse-enter)
+    (when (and (get-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
+      (case (get-state)
+        ((inactive) (set-state 'highlighted))
+        ((out-pushed) (set-state 'pushed)))))
+
+
+  (method (mouse-leave)
+    (when (and (get-enabled?) (or (not mouse-down?) (eq? mouse-down-view self)))
+      (case (get-state)
+        ((highlighted) (set-state 'inactive))
+        ((pushed) (set-state 'out-pushed)))))
+  
+  
+  (method (mouse-down pos)
+    (when enabled?
+      (set-state 'pushed)))
+  
+  
+  (method (drag-up pos . rest)
+    (when (get-enabled?)
+      (unwind-protect
+          (up)
+        (case (get-state)
+          ((pushed) (set-state 'highlighted))
+          ((out-pushed) (set-state 'inactive))))))
+
+
+  (method (up)
+    (when (= (get-state) 'pushed)
+      (process-action self)))
+  
+  
+  ;;;
+  ;;;; Drawing
+  ;;;
+      
+  
+  (method (type-icon type)
+    (case type
+      ((minimize) {Bitmap-Resource "Minimize"})
+      ((maximize) {Bitmap-Resource "Maximize"})
+      ((restore)  {Bitmap-Resource "Restore"})
+      ((close)    {Bitmap-Resource "Close"})))
+  
+  
+  (method (draw dc context update lh lv)
+    (let ((top (center 14 (get-height))))
+      @comment-not-that-these-icons-are-currently-16x16
+      (draw-image~ (get-small-icons-cache~ (get-application)) dc context (type-icon type) 0 top)
+      (with ((rect (new Rect 0 top 16 (+ top 14))))
+        (draw-caption~ dc rect type (if (eq? state 'pushed) #t #f)))))))

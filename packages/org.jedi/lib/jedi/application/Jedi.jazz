@@ -1,0 +1,674 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; The Jedi Application
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jedi.application.Jedi jazz
+
+
+(import (jedi)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.io)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Jedi extends IDE
+  
+  
+  (slot documentation-cataloguer initialize {})
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'jedi)
+
+  
+  (method (process-name)
+    "Jedi")
+  
+  
+  (method (process-owner)
+    "JazzScheme")
+  
+  
+  (method (process-copyright)
+    "1996-2007")
+  
+  
+  (method (process-icon)
+    {Bitmap-Resource "Jazz"})
+
+
+  (method (process-version)
+    {Version 1 0 beta 6})
+
+
+  (method (process-email)
+    "gcartier@jazzscheme.org")
+
+
+  (method (new-toplevel)
+    (new Jedi-Toplevel))
+
+
+  (method (prepare-process rest)
+    (nextmethod rest)
+    @wait-until-completed
+    (launch-supervisor-thread))
+  
+  
+  (method (start-process rest)
+    (nextmethod rest)
+    (set-catalog-context 'jazz))
+  
+  
+  (method (finalize-process rest)
+    (nextmethod rest)
+    @convert/wait
+    (preload-catalogs~ (get-cataloguer))
+    @convert/wait
+    (when (in-manifest? 'Provider)
+      (register-provider~ Provider (new Access-Provider))
+      (register-provider~ Provider (new dBase-Provider))
+      @waiting
+      (register-provider~ Provider (new Informix-Provider))
+      @waiting
+      (register-provider~ Provider (new Oracle-Provider))
+      (register-provider~ Provider (new SQLServer-Provider))
+      @waiting
+      (register-provider~ Provider (new Sybase-Provider))
+      (register-provider~ Provider (new JDBC-Provider)))
+    (add-application-listener 'workspace (new Event-Handler target: self method-name: 'on-workspace))
+    (let ((listener (new Event-Handler target: self method-name: 'on-level-change)))
+      (add-level-change-listener~ loop listener)))
+  
+  
+  (method (on-level-change evt)
+    (let* ((loop (get-sender~ evt))
+           (level (get-level~ loop))
+           (enabled? (/= level 0)))
+      @wait-step-actions-completed
+      (
+      (set-action-enabled? {Action debugger step-over} enabled?)
+      (set-action-enabled? {Action debugger step-into} enabled?)
+      (set-action-enabled? {Action debugger step-into-function} enabled?)
+      (set-action-enabled? {Action debugger step-out} enabled?)
+      (set-action-enabled? {Action debugger step-outside-function} enabled?)
+      (set-action-enabled? {Action debugger run-to-cursor} enabled?)
+      (set-action-enabled? {Action debugger run-to-result} enabled?)
+      (set-action-enabled? {Action debugger call-step-over} enabled?)
+      (set-action-enabled? {Action debugger call-step-into} enabled?)
+      (set-action-enabled? {Action debugger call-step-out} enabled?)
+      (set-action-enabled? {Action debugger call-run-to} enabled?)
+      )
+      (set-action-enabled? {Action debugger stop}     enabled?)
+      (set-action-enabled? {Action debugger toplevel} enabled?)
+      (set-action-enabled? {Action debugger continue} enabled?)))
+  
+  
+  (method (finish-process rest)
+    (let ((launch-time (getf rest launch-time:)))
+      (nextmethod rest)
+      @convert/wait
+      (display-boot-time launch-time)))
+
+  
+  ;;;
+  ;;;; Search
+  ;;;
+
+
+  (method (get-search-manager)
+    (singleton-palette Jedi-Search {}))
+  
+  
+  ;;;
+  ;;;; Versions
+  ;;;
+  
+
+  (method (mandatory-version what)
+    (case what
+      ((sqlserver) {Version 8 0 0})
+      ((dao) {Version 3 6 0})
+      ((access-database) {Version 4 0 0})
+      (else (nextmethod what))))
+  
+  
+  ;;;
+  ;;;; Frames
+  ;;;
+
+
+  (method (base-frame-class)
+    Text-View)
+
+
+  (method (default-frame-class)
+    Jazz-Text-View)
+
+
+  (method (known-extension-frame-class ext)
+    (cond ((member? ext '("txt" "text") test: ci=) Jazz-Plain-Text-View)
+          ((member? ext '("tpl") test: ci=) Java-Text-View)
+          ((member? ext Scheme-Extensions test: ci=) Scheme-Text-View)
+          ((member? ext CommonLisp-Extensions test: ci=) CommonLisp-Text-View)
+          ((member? ext Jazz-Extensions test: ci=) Jazz-Text-View)
+          (else (nextmethod ext))))
+
+
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  @convert/wait
+  (method (edit-file file)
+    (let ((ext (get-extension~ file)))
+      (cond ((ci= ext "stack") (edit-stack file))
+            ((ci= ext "crash") (edit-snapshot file))
+            ((ci= ext "class") (browse-java-classfile file))
+            ((ci= ext "jar") (browse-java-jarfile file))
+            (else (nextmethod file)))))
+  
+  
+  (method (edit-category name)
+    (let ((location (new Jazz-Code-Location (list name 1))))
+      (edit~ location)))
+  
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method (get-text-class)
+    Jazz-Text-View)
+  
+  
+  ;;;
+  ;;;; Stack
+  ;;;
+  
+  
+  @convert/wait
+  (method (edit-stack file)
+    (open-snapshot~ (get-debuggers-view) file)
+    (select-workspace 'debugger))
+  
+  
+  ;;;
+  ;;;; Snapshot
+  ;;;
+  
+  
+  @convert/wait
+  (method (edit-snapshot file)
+    (open-snapshot~ (get-debuggers-view) file)
+    (select-workspace 'debugger))
+  
+  
+  ;;;
+  ;;;; Java
+  ;;;
+  
+  
+  @convert/wait
+  (method (browse-java-classfile file)
+    (let* ((host (new-frame Java-Manager))
+           (manager (get-guest~ host)))
+      (browse-classfile~ manager file)))
+  
+  
+  @convert/wait
+  (method (browse-java-jarfile file)
+    (let* ((host (new-frame Java-Manager))
+           (manager (get-guest~ host)))
+      (browse-jarfile~ manager file)))
+
+  
+  ;;;
+  ;;;; Repository
+  ;;;
+  
+  
+  @convert/wait
+  (method (get-repository-classes)
+    (list
+      VSS-Repository))
+  
+  
+  ;;;
+  ;;;; Persistence
+  ;;;
+  
+  
+  (method (persist-usernames?)
+    #t)
+  
+  
+  (method (persist-passwords?)
+    #t)
+
+
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  (method (get-context-text)
+    {})
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  ;; temporary...
+  @convert-to-session
+  (method (reload-opened-windows)
+    )
+    
+  
+  @convert-to-session
+  (method (reload-component class properties)
+    (case class
+      ((search)    (apply (~ new-frame Jedi-Search) properties))
+      ((jazz-text) (apply (~ new-frame Jazz-Text-View) properties))
+      (else (nextmethod class properties))))
+
+  
+  ;;;
+  ;;;; Launch
+  ;;;
+
+
+  (method public (launch project (configuration: configuration {}) (jazz-directory: jazz-directory {}) (home-directory: home-directory (project-home~ project)) (user: user (either (essay configuration (get-user~ configuration)) (project-user~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c++?: debug-c++? (either (essay configuration (get-debug-c++?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
+    @convert/wait
+    (let ((app-class (project-application~ project)))
+      (if (not app-class)
+          (error "{a} is not a launchable project" (get-name~ project))
+        (export-manifest~ project)
+        (when debug?
+          (start-stub-listener)
+          (start-proxy-dispatcher))
+        (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c++? {File Base "InterpreterDebug.exe"} {File Base "Interpreter.exe"})) ((launcher) (if debug-c++? {File Base "LauncherDebug.exe"} {File Base "Launcher.exe"})))))
+               (app-arg            (format " /app {a}" app-class))
+               (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
+               (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Root})))
+               (user-arg           (if user (format " /user {a}" user) ""))
+               (debug-arg          (if debug? (format " /debug #t") ""))
+               (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ stub-listener))) ""))
+               (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ stub-listener)) ""))
+               (action-arg         (if command-action (format " {a}" command-action) ""))
+               (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
+               (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg user-arg arguments-arg)))
+          (save-all)
+          @w
+          (debug-string command)
+          (create-process command directory: home-directory :wait? wait?)))))
+
+  
+  ;;;
+  ;;;; Execute
+  ;;;
+  
+  
+  (method public (execute project (user: user (project-user~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? #f))
+    @convert/wait
+    (let ((app-class (project-application~ project)))
+      (if (not app-class)
+          (error "{a} is not an executable project" (get-presentation~ project))
+        (let* ((file          (outputed-file~ project))
+               (filename      (parse~ file))
+               (user-arg      (if user (format " /user {a}" user) ""))
+               (action-arg    (if command-action (format " {a}" command-action) ""))
+               (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
+               (command       (format "\"{a}\"{a}{a}{a}" filename action-arg user-arg arguments-arg)))
+          @w
+          (debug-string command)
+          (create-process command :wait? wait?)))))
+
+
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method (log-exception exception)
+    (let ((output (get-output-log)))
+      @w
+      (clear-results~ output)
+      (if (is? exception Error)
+          (log-info~ exception output)
+        (log-line~ output (get-message~ exception) image: {Bitmap-Resource "Exception"}))))
+  
+  
+  (method (select-output-log)
+    (let ((output (get-output-log)))
+      (select-results~ output)
+      (select-first~ output)
+      (select-palette Output-Log)))
+
+  
+  ;;;
+  ;;;; Documentation
+  ;;;
+  
+  
+  @convert/wait
+  (method (get-documentation-cataloguer)
+    (unless documentation-cataloguer
+      (when (get-documented?~ (get-preferences {}))
+        (set! documentation-cataloguer (new-documentation-cataloguer))))
+    documentation-cataloguer)
+  
+  
+  @convert/wait
+  (method (new-documentation-cataloguer)
+    (let ((cataloguer (new Cataloguer))
+          (workbench (get-workbench)))
+      (for-each-product~ workbench
+        (function dynamic (descendant)
+          (let ((file (get-documentation~ descendant)))
+            (when file
+              (let* ((doc (instantiate~ (read-from-file file)))
+                     (name (get-name~ doc))
+                     (catalog (new Doc-Catalog name doc descendant)))
+                (add-catalog~ cataloguer catalog))))))
+      cataloguer))
+  
+  
+  @convert/wait
+  (method public (reload-documentation)
+    (set! documentation-cataloguer {})
+    (get-documentation-cataloguer))
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (class-actions)
+    (cons (find-actions 'debugger)
+          (cons (find-actions 'jedi)
+                (nextmethod))))
+  
+  
+  ;;;
+  ;;;; Projects
+  ;;;
+  
+  
+  ;; quicky for now
+  (method public (update-project-titles)
+    @convert/wait
+    (when menubar
+      (let* ((project (get-active-project~ Workbench-Manager))
+             (title (if (not project) "Edit" (format "Edit {a}" (get-presentation~ project)))))
+        (set-title~ (locate~ (get-content~ (child~ menubar 'project)) 'edit) title))))
+  
+  
+  (method public (update-project-actions)
+    @convert/wait
+    (let ((project (get-active-project~ Workbench-Manager))
+          (product-file (let ((guest (current-document)))
+                          (when (and guest (is? guest Document))
+                            (let ((moniker (get-moniker~ (get-controller~ guest))))
+                              (when moniker
+                                (let ((workbench (get-workbench)))
+                                  (find-source~ workbench moniker))))))))
+      (set-action-enabled? {Action jedi edit-project} project)
+      (set-action-enabled? {Action jedi compile-file} (and project product-file))
+      (set-action-enabled? {Action jedi build-project} project)
+      (set-action-enabled? {Action jedi view-project-log} project)
+      (set-action-enabled? {Action jedi analyse-project-references} project)
+      (set-action-enabled? {Action jedi export-project-manifest} project)
+      (set-action-enabled? {Action jedi execute-project} project)
+      (set-action-enabled? {Action jedi launch-project} project)))
+
+
+  ;;;
+  ;;;; Windows
+  ;;;
+  
+  
+  (method (update-windowing-actions)
+    (update-history-actions)
+    (update-search-actions)
+    (update-project-actions)
+    (update-window-actions)
+    (update-menubar-buttons))
+  
+  
+  ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method (navigable-results)
+    (list
+      (get-guest~ (singleton-docked Search-Results {}))
+      (get-guest~ (singleton-docked Output-Log {}))
+      (get-guest~ (singleton-docked Violations-Manager {}))))
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-java-reference-finder evt)
+    @convert/wait
+    (new Java-Reference-Finder))
+  
+  
+  (method (on-message-spy evt)
+    @convert/wait
+    (new-palette Message-Spy))
+  
+  
+  (method (on-event-spy evt)
+    @convert/wait
+    (new-palette Event-Spy))
+  
+  
+  (method (on-registry-viewer evt)
+    @convert/wait
+    (new-frame Registry-Viewer))
+  
+  
+  (method (on-type-viewer evt)
+    @convert/wait
+    (new-frame Type-Viewer))
+  
+  
+  (method (on-java-manager evt)
+    @convert/wait
+    (new-frame Java-Manager))
+  
+  
+  (method (on-showcase evt)
+    @convert/wait
+    (new-frame Showcase))
+  
+  
+  (method (on-gc-triggers evt)
+    @convert/wait
+    (user-message "{s}" (gc-triggers)))
+  
+  
+  (method (on-profiler-manager evt)
+    @convert/wait
+    (show-palette Profiler-Manager))
+  
+  
+  (method (on-documentation-editor evt)
+    @convert/wait
+    (let* ((cataloguer (get-documentation-cataloguer))
+           (catalog (car (get-catalogs~ cataloguer))))
+      (new-frame Doc-Editor client: (get-client~ catalog))))
+  
+  
+  (method (on-reload-libraries evt)
+    @convert/wait
+    (reload-libraries)
+    (user-message "Libraries reloaded"))
+  
+  
+  (method (on-run-smoker evt)
+    @convert/wait
+    (build/run~ (new Smoker-Builder)))
+  
+  
+  (method (on-find-dead-code evt)
+    @convert/wait
+    (go~ Dead-Code-Analyser))
+  
+  
+  (method (on-update-remotable-code evt)
+    @convert/wait
+    (update~ (new Remotable-Updater) force?: (get-shift?~ evt)))
+  
+  
+  (method (on-toolbox evt)
+    @convert/wait
+    (select-palette Toolbox-Manager workspace: 'designer focus?: #t))
+  
+  
+  (method (on-descendants evt)
+    @convert/wait
+    (select-palette Descendants-Editor workspace: 'designer focus?: #t))
+  
+  
+  (method (on-branches evt)
+    @convert/wait
+    (select-palette Branches-Editor workspace: 'designer focus?: #t))
+
+
+  (method public (on-spy-events evt)
+    @convert/wait
+    (show-palette Event-Spy))
+
+
+  (method public (on-spy-messages evt)
+    @convert/wait
+    (show-palette Message-Spy))
+
+
+  (method (record-event? event)
+    #t)
+
+
+  ;;;
+  ;;;; JSC
+  ;;;
+  
+  
+  (method (on-import-jsc-database evt)
+    @convert/wait
+    (let ((importer (new JSC-Repository-Importer)))
+      (import-repository~ importer)))
+  
+  
+  (method (on-import-jsc-directory evt)
+    @convert/wait
+    (let ((directory (get-modal BrowseFolder-Dialog))
+          (name (request-string title: "Enter initial branch name" :prefix "Name" initial-value: "InitialImport"))
+          (depot {Directory Native "C:" "JSC" "TestA" "Depot"} @w (get-modal BrowseFolder-Dialog))
+          (importer (new JSC-Directory-Importer))
+          (user (->string (type-name (get-user~ (get-application))))))
+      (import-base-directory~ importer directory name depot user)))
+  
+  
+  (method (on-create-jsc-workspace evt)
+    @convert/wait
+    (let ((importer (new JSC-Repository-Importer)))
+      (import-repository~ importer)))
+
+
+  ;;;
+  ;;;; Roaming
+  ;;;
+
+  
+  (method (on-create-snapshot evt)
+    @convert/wait
+    (create-snapshot~ (new JSC-Roaming) :central? (get-shift?~ evt)))
+
+  
+  (method (on-install-roamer evt)
+    @convert/wait
+    (install-roamer~ (new JSC-Roaming)))
+
+  
+  (method (on-gather-changes evt)
+    @convert/wait
+    (gather-changes~ (new JSC-Roaming)))
+
+  
+  (method (on-integrate-latest evt)
+    @convert/wait
+    (integrate-latest~ (new JSC-Roaming)))
+
+  
+  (method (on-submit evt)
+    @convert/wait
+    (submit~ (new JSC-Roaming)))
+
+  
+  (method (on-fetch evt)
+    @convert/wait
+    (fetch~ (new JSC-Roaming)))
+
+  
+  (method (on-merge-changes evt)
+    @convert/wait
+    (merge-changes~ (new JSC-Roaming)))
+
+
+  ;;;
+  ;;;; Help
+  ;;;
+  
+  
+  (method public (on-readme evt)
+    (edit-document {File Root "Readme.txt"}))))

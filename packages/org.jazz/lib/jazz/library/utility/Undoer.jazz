@@ -1,0 +1,181 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Undo/Redo Management
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.utility.Undoer jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Undoer extends Object
+  
+  
+  (slot client         initialize {})
+  (slot undo-list      initialize '())
+  (slot redo-list      initialize '())
+  (slot undoing?       initialize #f)
+  (slot redoing?       initialize #f)
+  (slot atomic?        initialize #f)
+  (slot atomic-actions initialize '())
+  (slot save-depth     initialize 0)
+  
+  
+  (method (initialize clt)
+    (nextmethod)
+    (set! client clt))
+
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-client)
+    client)
+  
+  
+  (method public (get-undo-list)
+    undo-list)
+  
+  
+  (method public (reset-save-depth)
+    (set! save-depth 0))
+  
+  
+  (method public (reset)
+    (set! undo-list      '())
+    (set! redo-list      '())
+    (set! undoing?       #f)
+    (set! redoing?       #f)
+    (set! atomic?        #f)
+    (set! atomic-actions '()))
+
+
+  ;;;
+  ;;;; Undo/Redo
+  ;;;
+
+
+  (method public (register-undo action)
+    (cond (atomic?
+           (set! atomic-actions (cons action atomic-actions)))
+          (undoing?
+           (set! redo-list (cons action redo-list))
+           (decrease! save-depth))
+          (else 
+           (set! undo-list (cons action undo-list))
+           (increase! save-depth)
+           (unless redoing?
+             (set! redo-list '()))))
+    (when (and (= 0 save-depth) (not atomic?))
+      (set-modified?~ (get-controller~ client) #f)))
+  
+  
+  (method (register-atomic-actions actions)
+    (when actions
+      (register-undo
+        (function ()
+          (with-atomic-undo
+            (function dynamic ()
+              (for-each (function dynamic (action)
+                          (play-action action))
+                        actions)))))))
+  
+  
+  (method public (can-undo?)
+    undo-list)
+  
+  
+  (method public (can-redo?)
+    redo-list)
+
+
+  (method public (undo)
+    (when undo-list
+      (let ((old undoing?)
+            (action (car undo-list)))
+        (unwind-protect
+            (begin
+              (set! undoing? #t)
+              (play-action action)
+              (set! undo-list (cdr undo-list)))
+          (set! undoing? old)))))
+
+
+  (method public (redo)
+    (when redo-list
+      (let ((old redoing?)
+            (action (car redo-list)))
+        (unwind-protect
+            (begin
+              (set! redoing? #t)
+              (play-action action)
+              (set! redo-list (cdr redo-list)))
+          (set! redoing? old)))))
+
+
+  ;;;
+  ;;;; Action
+  ;;;
+  
+  
+  (method public virtual (play-action action)
+    (action))
+
+
+  ;;;
+  ;;;; Atomic
+  ;;;
+  
+  
+  (method public (with-atomic-undo proc)
+    (let ((preserved atomic?)
+          (completed? #f))
+      (unwind-protect
+          (begin
+            (set! atomic? #t)
+            (set! atomic-actions '())
+            (proc)
+            (set! completed? #t))
+        (let ((actions atomic-actions))
+          (set! atomic? preserved)
+          (set! atomic-actions '())
+          (when (and completed? (not atomic?))
+            (register-atomic-actions actions)
+            (let ((appl (get-application)))
+              (update-focus-actions~ appl)))))))))

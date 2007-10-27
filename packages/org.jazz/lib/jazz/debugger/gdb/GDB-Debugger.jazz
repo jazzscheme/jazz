@@ -1,0 +1,204 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; GDB Debugger
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.gdb.GDB-Debugger jazz
+
+
+(import (jazz.debugger)
+        (jazz.process)
+        (jazz.library)
+        (jazz.library.shell)
+        (jazz.utilities))
+
+
+(class GDB-Debugger extends Debugger implements Exit-Listener
+  
+  
+  (slot process          initialize {})
+  (slot attached-process initialize {})
+  (slot standard-input)
+  (slot standard-output)
+  (slot standard-error)
+  (slot banner)
+  (slot listener-thread)
+  (slot listener-done?)
+  
+  
+  ;;;
+  ;;;; Start
+  ;;;
+  
+  
+  (method public (start-gdb)
+    (add-exit-listener~ (get-application) self)
+    (let* ((command "gdb -interpreter=mi")
+           (directory {Directory Base "Bin"})
+           (process (create-process command directory: directory :capture-input? #t :capture-output? #t :capture-error? #t :wait? #f visible?: #f)))
+      (set! process~self process)
+      (set! standard-input~self (get-standard-input~ process))
+      (set! standard-output~self (get-standard-output~ process))
+      (set! standard-error~self (get-standard-error~ process))
+      (process-wait)
+      (setup-banner)
+      (start-listener)
+      (register-debugger)))
+  
+  
+  (method (process-wait)
+    (sleep 250)
+    (while (not (output-available?))
+      (sleep 10)))
+  
+  
+  (method (output-available?)
+    (bytes-available?~ standard-output))
+  
+  
+  (definition GDB-Invite
+    "(gdb) ")
+  
+  
+  (method (read-output)
+    (let ((content (read-content~ standard-output)))
+      (if (ends-with? content GDB-Invite)
+          (subseq content 0 (- (length content) (length GDB-Invite)))
+        content)))
+  
+  
+  (method (setup-banner)
+    (set! banner (read-output)))
+  
+  
+  (method (register-debugger)
+    (register-debugger self))
+
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method public (stop-gdb)
+    (unregister-debugger)
+    (stop-listener)
+    (process-stop)
+    (remove-exit-listener~ (get-application) self))
+  
+  
+  (method (unregister-debugger)
+    (unregister-debugger self))
+  
+  
+  (method (process-stop)
+    (gdb-command "kill")
+    (gdb-command "quit")
+    (close~ process))
+    
+
+  
+  ;;;
+  ;;;; Exit
+  ;;;
+  
+  
+  (method (prepare-exit)
+    (when process
+      (stop-gdb)))
+
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method (get-process)
+    attached-process)
+
+  
+  ;;;
+  ;;;; Attach
+  ;;;
+  
+  
+  (method public (attach-to process)
+    (let* ((id (get-process-id~ process))
+           (command (format "attach {a}" id)))
+      (gdb-command command)
+      (set! attached-process (new GDB-Debugger-Process id))))
+
+  
+  ;;;
+  ;;;; Command
+  ;;;
+  
+  
+  (method public (gdb-command command)
+    (write-string~ standard-input (format "{a}{%}" command)))
+
+  
+  ;;;
+  ;;;; Parser
+  ;;;
+  
+  
+  (method (start-listener)
+    (set! listener-done? #f)
+    (set! listener-thread (new-listener-thread)))
+  
+  
+  (method (stop-listener)
+    (set! listener-done? #t)
+    (wait-for listener-thread))
+  
+  
+  (method (new-listener-thread)
+    (new Thread
+      name: "GDB Listener"
+      context: self
+      execute: (function (thread)
+                 (parse-gdb))))
+  
+  
+  (method (parse-gdb)
+    (while (not listener-done?)
+      (if (output-available?)
+          (process-output (parse-gdb-output))
+        (sleep 100))))
+  
+  
+  (method (parse-gdb-output)
+    (read-content~ standard-output))))

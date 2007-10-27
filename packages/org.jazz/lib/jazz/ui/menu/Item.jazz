@@ -1,0 +1,164 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Items
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.menu.Item jazz
+
+
+(import (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Item extends View
+  
+  
+  (slot prefix-width      initialize 0)
+  (slot icon-width        initialize 0)
+  (slot body-width        initialize 0)
+  (slot accelerator-width initialize 0)
+  (slot arrow-width       initialize 0)
+  (slot in?               initialize #f)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (set-prefix-width width)
+    (set! prefix-width width))
+  
+  
+  (method public (set-icon-width width)
+    (set! icon-width width))
+  
+  
+  (method public (set-body-width width)
+    (set! body-width width))
+  
+  
+  (method public (set-accelerator-width width)
+    (set! accelerator-width width))
+  
+  
+  (method public (set-arrow-width width)
+    (set! arrow-width width))
+  
+  
+  ;;;
+  ;;;; Menubar
+  ;;;
+  
+
+  (method (get-menubar)
+    (find-ascendant Menubar))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method public virtual (preferred-prefix-width)
+    0)
+  
+  
+  (method public virtual (preferred-icon-width)
+    0)
+  
+  
+  (method public virtual (preferred-body-width)
+    0)
+  
+  
+  (method public virtual (preferred-accelerator-width)
+    0)
+  
+  
+  (method public virtual (preferred-arrow-width)
+    0)
+  
+  
+  (method public virtual (preferred-height)
+    (get-height~ (preferred-size)))
+  
+  
+  (method protected (layout-menu)
+    (when (is? parent Menu)
+      (layout-menu~ parent)))
+  
+  
+  ;;;
+  ;;;; Mouse
+  ;;;
+  
+  
+  (method (mouse-enter)
+    (set! in? #t)
+    (invalidate-view)
+    (update-view)
+    (let ((initiator (popup-initiator)))
+      (when initiator
+        (invalidate-view~ initiator))))
+  
+  
+  (method (mouse-leave)
+    (set! in? #f)
+    (invalidate-view)
+    (update-view))
+  
+  
+  ;;;
+  ;;;; Popup
+  ;;;
+  
+  
+  (method protected (poped?)
+    (let ((poped (get-poped~ parent)))
+      (and poped (= (popup-initiator~ poped) self))))
+  
+  
+  (method protected (poped-tool)
+    (let ((poped (get-poped~ parent)))
+      (when (and poped (= (popup-initiator~ poped) self))
+        (get-player~ poped))))
+  
+  
+  (method protected (close-other-popups)
+    (if (poped?)
+        (close-popups exclude: (list (poped-tool)))
+      (close-popups)))))

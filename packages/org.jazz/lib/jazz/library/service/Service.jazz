@@ -1,0 +1,442 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Services
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Stephane Le Cornec
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.library.service.Service jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class Service extends Process uses (Utilities System COM WinAdv WinError WinKernel WinDef WinShell WinUser Windows)
+    
+  
+  (slot mode)
+  (slot cached-state  initialize {})
+  (slot taskicon-hwnd initialize {})
+  
+  
+  (method (prepare-process rest)
+    (nextmethod rest)
+    (let ((action (command-action)))
+      (cond ((or (null? action) (ci= action "?") (ci= action "help"))
+             (command-help~ Command-Line (process-name) (process-version) (process-actions))
+             (exit-process EXIT_SUCCESS))
+            ((ci= action "register")
+             (register-service)
+             (exit-process EXIT_SUCCESS))
+            ((ci= action "unregister")
+             (unregister-service)
+             (exit-process EXIT_SUCCESS))
+            ((ci= action "run")
+             (set! mode 'run))
+            ((ci= action "debug")
+             (set! mode 'debug))
+            (else
+             (error "Unknown action: {a}" action)))))
+  
+  
+  (method (finalize-process rest)
+    (nextmethod rest)
+    (when (eq? mode 'debug)
+      (register-taskicon-class)
+      (set-window-callback process-taskbar-message)
+      (add-taskicon)))
+  
+  
+  (method (close-environment)
+    (when (and (eq? mode 'debug) taskicon-hwnd)
+      (remove-taskicon))
+    (nextmethod))
+  
+  
+  (method (process-event-source)
+    (either (argument/property "event-source" 'EventSource)
+            (service-presentation)))
+  
+  
+  (method protected virtual (service-name)
+    )
+  
+  
+  (method protected virtual (service-presentation)
+    )
+  
+  
+  (method protected virtual (service-description)
+    {})
+  
+  
+  (method protected virtual (service-messages)
+    '())
+  
+  
+  (method protected virtual (service-icon)
+    )
+
+
+  ;;;
+  ;;;; Manager
+  ;;;
+  
+  
+  (method (register-service)
+    (let ((name (service-name)))
+      ;; service description
+      (let ((description (service-description)))
+        (when description
+          (let ((local-machine-key [Local-Machine Registry])
+                (service-path (format "SYSTEM\\CurrentControlSet\\Services\\{a}" name)))
+            (with-closed ((service-key (create-key~ local-machine-key service-path)))
+              (set-value~ service-key "Description" description)))))
+      ;; event log message file
+      (let ((messages (service-messages)))
+        (when messages
+          (let* ((presentation (service-presentation))
+                 (local-machine-key [Local-Machine Registry])
+                 (application-path (format "SYSTEM\\CurrentControlSet\\Services\\Eventlog\\Application\\{a}" presentation))
+                 (message-file (module-file messages)))
+            (with-closed ((application-key (create-key~ local-machine-key application-path)))
+              (set-value~ application-key "EventMessageFile" (parse~ message-file))))))
+      ;; create service - must come last because the windows service manager is not releasing registry keys
+      (with-closed ((manager (new Service-Manager)))
+        (let* ((presentation (service-presentation))
+               (module (module-pathname))
+               (path (format "{a} run" (parse~ module))))
+          (with-closed ((handle (create-service~ manager name path :presentation presentation)))
+            )))))
+  
+  
+  (method (unregister-service)
+    (with-closed ((manager (new Service-Manager)))
+      (let ((name (service-name)))
+        (with-closed ((handle (open-service~ manager name)))
+          (delete-service~ handle)))))
+
+
+  ;;;
+  ;;;; Control
+  ;;;
+  
+  
+  (method public (set-state state)
+    (set! cached-state state)
+    (set-service-state (case state
+                         ((start-pending)    SERVICE_START_PENDING)
+                         ((continue-pending) SERVICE_CONTINUE_PENDING)
+                         ((running)          SERVICE_RUNNING)
+                         ((pause-pending)    SERVICE_PAUSE_PENDING)
+                         ((paused)           SERVICE_PAUSED)
+                         ((stop-pending)     SERVICE_STOP_PENDING)
+                         ((stopped)          SERVICE_STOPPED)
+                         (else
+                          (error "Unknown service state symbol ({a})" state)))))
+  
+  
+  (method public (get-state)
+    (ecase (get-service-state)
+      ((SERVICE_START_PENDING)    'start-pending)
+      ((SERVICE_CONTINUE_PENDING) 'continue-pending)
+      ((SERVICE_RUNNING)          'running)
+      ((SERVICE_PAUSE_PENDING)    'pause-pending)
+      ((SERVICE_PAUSED)           'paused)
+      ((SERVICE_STOP_PENDING)     'stop-pending)
+      ((SERVICE_STOPPED)          'stopped)
+      (else
+       (error "Unknown service state constant ({a})" (get-service-state)))))
+  
+  
+  (method public (process-service-control)
+    (let ((updated-state (get-state)))
+      (when (/= updated-state cached-state)
+        (case updated-state
+          ((start-pending)    (start-service))
+          ((continue-pending) (continue-service))
+          ((running))
+          ((pause-pending)    (pause-service))
+          ((paused))
+          ((stop-pending)     (stop-service))
+          ((stopped))))))
+  
+  
+  (method protected virtual (start-service)
+    (log-success-event "Service starting")
+    (set-state 'running))
+  
+  
+  (method protected virtual (pause-service)
+    (log-success-event "Service pausing")
+    (set-state 'paused))
+  
+  
+  (method protected virtual (continue-service)
+    (log-success-event "Service continuing")
+    (set-state 'running))
+  
+  
+  (method protected virtual (stop-service)
+    (log-success-event "Service stopping")
+    (set-state 'stopped))
+
+
+  ;;;
+  ;;;; Service
+  ;;;
+  
+  
+  (method (run-loop)
+    (case mode
+      ((debug) (nextmethod))
+      ((run) (let ((err (start-service-dispatcher)))
+             (when (/= 0 err)
+               (error "Unable to start service dispatcher ({a})" err))))))
+  
+  
+  (method (service-main)
+    (coinitialize)
+    (let ((handle (get-service-handle))
+          (err (get-service-error)))
+      (if (or (= 0 handle) (/= 0 err))
+          (error "Unable to register service ({a})" err)
+        (run-service))))
+  
+  
+  (method protected virtual (setup-service)
+    )
+  
+  
+  (method protected virtual (process-service)
+    (while (/= cached-state 'stopped)
+      (sleep 1000)
+      (process-service-control)))
+  
+  
+  (method (run-service)
+    (setup-service)
+    (process-service))
+  
+
+  ;;;
+  ;;;; Debug
+  ;;;
+
+
+  (method (start-loop)
+    (launch-service-thread)
+    (process-messages)
+    (exit-process EXIT_SUCCESS))
+  
+  
+  (method (launch-service-thread)
+    (new Thread
+      name: "Service"
+      context: self
+      execute: (function (thread)
+                 (run-service)
+                 (PostMessage taskicon-hwnd WM_QUIT NULL NULL))))
+
+  
+  ;;;
+  ;;;; Messages
+  ;;;
+
+  
+  (method (process-messages)
+    (let ((msg (new MSG)))
+      (while (GetMessage msg NULL 0 0)
+        (TranslateMessage msg)
+        (DispatchMessage msg))))
+
+  
+  (method (process-taskbar-message hwnd msg wparam lparam)
+    (ecase msg
+      ((JZ_TASKICON)
+       (taskbar-event wparam lparam)
+       0)
+      (else
+       (DefWindowProc hwnd msg wparam lparam))))
+
+
+  ;;;
+  ;;;; Debugger
+  ;;;
+
+  
+  (method (debug-exception exception frame accountable)
+    (log-error-event (get-message~ exception))
+    (let ((file (module-timestamped-file "Stack" "stack")))
+      (when (and file (not (distribution-build?)))
+        (dump-stack file: file :exception exception))
+      (exit-process EXIT_FAILURE)))
+
+
+  ;;;
+  ;;;; Alias
+  ;;;
+  
+  
+  (method (process-alias name)
+    (case name
+      ((:service) self)
+      (else (nextmethod name))))
+
+  
+  ;;;
+  ;;;; Taskbar
+  ;;;
+  
+  
+  (method public (taskbar-event wparam lparam)
+    (ecase lparam
+      ((WM_LBUTTONDOWN)   (taskbar-mouse-down) 0)
+      ((WM_LBUTTONDBLCLK) (taskbar-double-click) 0)
+      ((WM_RBUTTONDOWN)   (taskbar-context-menu) 0)
+      (else 0)))
+  
+  
+  (method public virtual (taskbar-mouse-down)
+    )
+  
+  
+  (method public virtual (taskbar-double-click)
+    )
+  
+  
+  (method public virtual (taskbar-context-menu)
+    )
+
+  
+  ;;;
+  ;;;; Taskicon
+  ;;;
+  
+  
+  (method (taskicon-class)
+    "JTaskIcon")
+  
+  
+  (method (register-taskicon-class)
+    (let ((class (taskicon-class))
+          (instance (current-instance))
+          (wc (new WNDCLASS)))
+      (set wc 'style         CS_DBLCLKS)
+      (set wc 'lpfnWndProc   (get-window-proc))
+      (set wc 'cbClsExtra    0)
+      (set wc 'cbWndExtra    0)
+      (set wc 'hInstance     instance)
+      (set wc 'hIcon         NULL)
+      (set wc 'hCursor       NULL)
+      (set wc 'hbrBackground NULL)
+      (set wc 'lpszMenuName  NULL)
+      (set wc 'lpszClassName class)
+      (RegisterClass wc)))
+  
+  
+  (method (create-taskicon-hwnd)
+    (CreateWindowEx
+      0
+      (taskicon-class)
+      ""
+      0
+      0 0 100 100
+      NULL
+      NULL
+      (current-instance)
+      NULL))
+  
+  
+  (method (add-taskicon)
+    (set! taskicon-hwnd (create-taskicon-hwnd))
+    (let* ((record (new NOTIFYICONDATA))
+           (instance (current-instance))
+           (resource (service-icon))
+           (icon (LoadImage instance (int-resource resource) IMAGE_ICON 16 16 LR_SHARED)))
+      (set record 'cbSize (size-of NOTIFYICONDATA))
+      (set record 'hWnd taskicon-hwnd)
+      (set record 'uID 10)
+      (set record 'uFlags (bit-or NIF_MESSAGE NIF_ICON))
+      (set record 'uCallbackMessage JZ_TASKICON)
+      (set record 'hIcon icon)
+      (Shell_NotifyIcon NIM_ADD record)))
+  
+  
+  (method (remove-taskicon)
+    (let ((record (new NOTIFYICONDATA)))
+      (set record 'cbSize (size-of NOTIFYICONDATA))
+      (set record 'hWnd taskicon-hwnd)
+      (set record 'uID 10)
+      (Shell_NotifyIcon NIM_DELETE record)))
+
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (track-menu config)
+    (with ((point (new POINT)))
+      (GetCursorPos point)
+      (let ((menu (CreatePopupMenu))
+            (id 1))
+        (for-each (function dynamic (config)
+                    (bind-keywords ((title {}) (separator? #f) (default? #f) . others) config
+                      (insert-item menu title: title separator?: separator? default?: default? id: id)
+                      (increase! id)))
+                  config)
+        (SetForegroundWindow taskicon-hwnd)
+        (let ((id (TrackPopupMenu menu (bit-or TPM_RIGHTALIGN TPM_RETURNCMD) (get point 'x) (get point 'y) 0 taskicon-hwnd NULL)))
+          (when (/= id 0)
+            (let* ((config (element config (- id 1)))
+                   (action-handler (getf config action-handler:))
+                   (sender self)
+                   (properties (get-properties~ action-handler))
+                   (evt (apply new Event :action sender properties)))
+              (invoke~ action-handler self evt))))
+        (DestroyMenu menu))))
+  
+  
+  (method (insert-item menu (title: title {}) (separator?: separator? #f) (default?: default? #f) (id: id {}))
+    (with ((info (new MENUITEMINFO)))
+      (set info 'cbSize (size-of MENUITEMINFO))
+      (set info 'fMask (bit-or MIIM_TYPE MIIM_STATE MIIM_ID))
+      (set info 'fType (if separator? MFT_SEPARATOR MFT_STRING))
+      (set info 'fState (if default? MFS_DEFAULT 0))
+      (set info 'wID id)
+      (set info 'dwTypeData title)
+      (set info 'cch (length title))
+      (InsertMenuItem menu (if separator? MF_SEPARATOR 0) #f info)))))

@@ -1,0 +1,176 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Providers
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.access.provider.Provider jazz
+
+
+(import (jazz.access)
+        (jazz.library)
+        (jazz.utilities))
+
+
+;;;
+;;;; Providers
+;;;
+
+
+(definition Providers
+  (new-hashtable eq?))
+
+
+(definition public (register-provider provider)
+  (let ((name (external-name~ provider)))
+    (hash-set! Providers name provider)))
+
+
+(definition public (get-provider name)
+  (either (hash-ref Providers name)
+          (error "Unknown provider: {a}" name)))
+
+
+(definition public (get-providers)
+  (gather Providers))
+
+
+;;;
+;;;; Datatypes
+;;;
+
+
+(definition Datatypes
+  '(Access-Datatype dBase-Datatype Oracle-Datatype SQLServer-Datatype Sybase-Datatype))
+
+(definition Datatype-Classes
+  '())
+
+
+(definition public (get-datatypes)
+  (unless Datatype-Classes
+    (set! Datatype-Classes (map load Datatypes)))
+  Datatype-Classes)
+
+
+;;;
+;;;; Provider
+;;;
+
+
+(class Provider extends Object
+  
+  
+  (method public virtual (external-name)
+    )
+  
+  
+  ;;;
+  ;;;; Datatype
+  ;;;
+  
+  
+  (method public virtual (get-datatype)
+    )
+  
+  
+  ;;;
+  ;;;; Features
+  ;;;
+  
+  
+  (method public virtual (supports-multirequests?)
+    #f)
+  
+  
+  ;;;
+  ;;;; Format
+  ;;;
+  
+  
+  (method public virtual (format-value value)
+    (cond ((symbol? value) (format-variable value))
+          ((string? value) (format-string value))
+          ((boolean? value) (format-boolean value))
+          ((is? value Date) (format-datetime value))
+          (else (->string value))))
+  
+  
+  (method protected virtual (format-variable variable)
+    (->string variable))
+  
+  
+  (method (format-string string)
+    (if (find #\quote string)
+        (error "SQL strings with quotes are not yet supported: {a}" string)
+      (format "'{a}'" string)))
+  
+  
+  (method (format-boolean value)
+    (if value "1" "0"))
+  
+  
+  (method public virtual (format-date date)
+    (present-date~ date :date-separator "-"))
+  
+  
+  (method public virtual (format-datetime date)
+    (present~ date :date-separator "-"))
+  
+  
+  ;;;
+  ;;;; Presentation
+  ;;;
+  
+  
+  (method public virtual (present)
+    )
+  
+  
+  ;;;
+  ;;;; Browser
+  ;;;
+  
+  
+  (method public virtual (browser-class)
+    )
+  
+  
+  ;;;
+  ;;;; Updater
+  ;;;
+  
+  
+  (method public virtual (new-updater connection)
+    (new Inventory-Updater connection))))

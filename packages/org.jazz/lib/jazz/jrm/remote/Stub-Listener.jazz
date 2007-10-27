@@ -1,0 +1,174 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stub Listener
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.jrm.remote.Stub-Listener jazz
+
+
+(import (jazz.jrm)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Stub-Listener extends Socket-Listener)
+
+
+@WAIT
+
+
+(class Stub-Listener extends Socket-Listener
+  
+  
+  (slot stub-alist         initialize '())
+  (slot connection-threads initialize '())
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+    
+  
+  (method (run)
+    (set-name "Stub Listener")
+    (let* ((process (get-process))
+           (host (either (stub-listener-host~ process) {Host name: "localhost"}))
+           (port (either (stub-listener-port~ process) 'any)))
+      (start-listener :host host :port port)))
+  
+  
+  ;;;
+  ;;;; Server
+  ;;;
+  
+  
+  (definition Connection-Threads-Timeout
+    5000)
+  
+  
+  (method (stop-listener)
+    (nextmethod)
+    (wait-connection-threads))
+  
+  
+  (method (wait-connection-threads)
+    (when connection-threads
+      (wait-for connection-threads :timeout Connection-Threads-Timeout error?: #f)))
+  
+  
+  ;;;
+  ;;;; Connection
+  ;;;
+  
+  
+  (definition Liveliness-Test
+    {})
+  
+  
+  (method (accept-connection socket)
+    (let ((info (receive-object~ socket)))
+      (if (eq? info Liveliness-Test)
+          (close~ socket)
+        (bind (stub-address method-name marshalled-arguments) info
+          (new Thread
+            name: (format "Stub Listener Connection Thread for {a}" method-name)
+            context: self
+            execute: (function (thread)
+                       (unwind-protect
+                           (begin
+                             (set! connection-threads (cons thread connection-threads))
+                             (let ((arguments (map unmarshal-object marshalled-arguments))
+                                   (stub (stub-from-address stub-address)))
+                               (catch (Error err
+                                             (let ((info (collect-error-info err)))
+                                               (send-object~ socket (cons {} info))))
+                                 (if (null? stub)
+                                     (error "Unable to find object stub from address: {t}" stub-address)
+                                   (let ((result (invoke~ stub method-name arguments)))
+                                     (send-object~ socket (cons (marshal-object result) {})))))))
+                         (close~ socket)
+                         (set! connection-threads (remove! thread connection-threads)))))))))
+  
+  
+  (method (collect-error-info err)
+    (list (get-message~ err) (print-stack :string :exception err)))
+  
+  
+  (method (stub-from-address stub-address)
+    (if (null? stub-address)
+        (get-process-stub)
+      (address-object stub-address)))
+  
+  
+  (method (get-process-stub)
+    (let* ((process (get-process))
+           (local (get-local-process-server~ process))
+           (object (get-object~ local)))
+      (marshal~ local)
+      (find-stub object)))
+  
+  
+  ;;;
+  ;;;; Marshalling
+  ;;;
+    
+  
+  (method public (marshal-local-object object remotable-class)
+    (make-ior
+      (either (find-stub object)
+              (register-stub object remotable-class))
+      object
+      remotable-class))
+
+  
+  (method (find-stub object)
+    (cdr (assq object stub-alist)))
+  
+  
+  (method (register-stub object remotable-class)
+    (let* ((stub-class (stub-class~ remotable-class))
+           (stub (new stub-class object)))
+      (set! stub-alist (cons (cons object stub) stub-alist))
+      stub))
+  
+  
+  (method (make-ior stub object remotable-class)
+    (let* ((process (get-process))
+           (stub-listener (get-stub-listener~ process))
+           (host (listening-host~ stub-listener))
+           (port (listening-port~ stub-listener))
+           (remotable (type-name remotable-class))
+           (reference (object-address stub)))
+      (new IOR host port remotable reference)))))

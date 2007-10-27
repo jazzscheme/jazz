@@ -1,0 +1,365 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Comparing Directories
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Alain Marcotte
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.groupware.compare.Compare-Directories jazz
+
+
+(import (jazz.groupware)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Compare-Directories extends Compare-Trees)
+
+
+@WAIT (
+
+
+(class Compare-Directories extends Compare-Trees
+  
+  
+  (slot scanned-date initialize {})
+
+
+  (form
+    (<install>
+      (<!>     name: trees        title: "Directories"
+        (<!>   name: green-border
+          (<!> name: green        protocol: dir))
+        (<!>   name: blue-border
+          (<!> name: blue         protocol: dir)))
+      (<!>     name: left-value   title: "Left Date")
+      (<!>     name: right-value  title: "Right Date")))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'compare-directories)
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "CompareDirectories"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Compare Directories")
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-scan-date evt)
+    (when scanned-date
+      (set-base-date (universal->local~ (get-date~ scanned-date)))))
+
+  
+  ;;;
+  ;;;; Compare
+  ;;;
+  
+  
+  (method (new-comparer)
+    (new Directory-Comparer))
+  
+  
+  (method (get-merge-date mode)
+    ; the date is used even in backup mode
+    (let ((date (get-base-date)))
+      (when date
+        (get-time~ date))))
+  
+  
+  (method (scan-feedback left right)
+    (user-message "Scanning {l detail: :human}..." (trim-left left)))
+  
+  
+  ;;;
+  ;;;; Results
+  ;;;
+  
+  
+  (method (present-root left right)
+    (cond ((null? left)
+           (present-item right))
+          ((null? right)
+           (present-item left))
+          (else
+           (let ((l (present-item left))
+                 (r (present-item right)))
+             (if (= l r)
+                 l
+               (format "{a} / {a}" l r))))))
+  
+  
+  (method (present-item item)
+    (get-name~ item))
+  
+  
+  (method (present-value kind date)
+    (if (null? date)
+        ""
+      (present~ (get-date~ (universal->local~ date)))))
+  
+  
+  (method (backup-action local-date left left-date right right-date)
+    (if local-date
+        (let ((base-date (local->universal~ local-date)))
+          (if (and (is? left-date Time) (> left-date base-date))
+              'copy-right
+            {}))
+      'copy-right))
+  
+  
+  (method (merge-action local-date left left-date right right-date)
+    (when local-date
+      (let ((base-date (local->universal~ local-date)))
+        (cond ((and (null? left) right)
+               (if (> right-date base-date)
+                   'copy-left
+                 'copy-right))
+              ((and left (null? right))
+               (if (> left-date base-date)
+                   'copy-right
+                 'copy-left))
+              (else
+               (let ((l (compare left-date base-date))
+                     (r (compare right-date base-date)))
+                 (cond ((and (eq? l :greater) (eq? r :greater))
+                        'merge)
+                       ((and (eq? l :greater) (memq? r '(:less :equal)))
+                        'copy-right)
+                       ((and (memq? l '(:less :equal)) (eq? r :greater))
+                        'copy-left)
+                       ((and (typed? left 'Repository-Moniker) (eq? l :not-equal))
+                        'copy-right)
+                       (else
+                        (debug-string (format "File {s} was modified before the base date on both sides!" (get-name~ left)))
+                        'merge))))))))
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (definition Not-Ignored-Leaves
+    '("Interpreter.exe" "Launcher.exe" "Jedi.exe" "MetaModeler.exe" "MetaModelerBatch.exe"))
+  
+  
+  (method protected virtual (overwrite-read-only?)
+    #t)
+  
+  
+  (method (add-item src dst)
+    (cond ((and (is? src Directory) (is? dst Directory))
+           (copy-directory~ src dst :copy? (function dynamic (path) (add-path? path))
+            feedback: (function dynamic (dir) (user-message "Copying {l detail: :human}..." (get-list~ dir)))))
+          (else
+           (nextmethod src dst))))
+  
+  
+  (method protected virtual (add-path? path)
+    (let ((name (get-name~ path))
+          (ignored (typecase path ((Directory) ignored-nodes) ((File) ignored-leaves) (else '()))))
+      (and (not (member? name ignored))
+           (or (is-not? path File)
+               (null? ignored-extensions)
+               (member? name Not-Ignored-Leaves)
+               (not (member? (get-extension~ path) ignored-extensions))))))
+
+  
+  (method (copy-item src dst)
+    (cond ((and (is? src File) (is? dst File))
+           (copy-file~ src dst :overwrite-read-only? (overwrite-read-only?)))
+          ((and (typed? src 'Repository-Moniker) (is? dst File))
+           (unimplemented 'copy-item)
+           (get-local~ src dst))
+          ((and (is? src File) (typed? dst 'Repository-Moniker))
+           (if (exists?~ dst src)
+               (checkin~ dst)
+             (let ((parent (get-parent~ dst)))
+               (add~ parent src))))
+          ((and (is? src Directory) (typed? dst 'Repository-Moniker))
+           (add-project (get-parent~ dst) src))
+          (else
+           (error "Unable to copy {t} to {t}" src dst)))
+    (user-message "Done"))
+
+  
+  (method (delete-item item)
+    (typecase item
+      ((File)
+        (delete-file~ item :overwrite-read-only? (overwrite-read-only?)))
+      ((Directory)
+        (delete-directory~ item :overwrite-read-only? (overwrite-read-only?) feedback: (function dynamic (dir) (user-message "Deleting {l detail: :human}..." (get-list~ dir))))
+        (user-message "Done"))
+      ((Repository-Moniker)
+        (delete-item~ item))
+      (else
+        (unimplemented 'delete-item))))
+  
+  
+  (method (add-project dst dir)
+    (add-project~ dst (get-base~ dir)))
+    
+  
+  ;;;
+  ;;;; Compare
+  ;;;
+  
+  
+  (method (on-compare evt)
+    (with-cursor :wait
+      (function dynamic ()
+        (set! scanned-date (compare-trees)))))
+  
+  
+  (method (compare-leaves left right user-data)
+    (let ((ext (get-extension~ left)))
+      (cond @wait-fully-debugged ((member? ext '("dbs" "jdi")) (compare-forms left right user-data))
+            ((member? ext '("exe" "pdb")) (message-box (format "Unable to compare .{a} files" ext)))
+            (else (compare-files left right user-data)))))
+  
+  
+  (method (compare-files left right user-data)
+    (with-cursor :wait
+      (function dynamic ()
+        (let* ((frame (new-frame Compare-Files host-visible?: #f))
+               (comparer (get-guest~ frame))
+               (has-differences? (compare-monikers comparer left right user-data)))
+          (if (not has-differences?)
+              (begin
+                (close~ frame)
+                (message-box "No differences"))
+            (bring-to-front~ frame)
+            (set-visible?~ frame #t)
+            (acquire-focus~ (locate~ (get-guest~ frame) 'text)))))))
+  
+  
+  (method protected virtual (compare-monikers comparer left right user-data)
+    (compare-monikers~ comparer left right :compare-directory self :compare-directory-cookie user-data))
+  
+  
+  (method (compare-forms left right user-data)
+    (with-cursor :wait
+      (function dynamic ()
+        (let ((frame (new-frame Compare-Forms host-visible?: #f left-moniker: left right-moniker: right)))
+          (compare-trees~ (get-guest~ frame))
+          (bring-to-front~ frame)
+          (set-visible?~ frame #t)))))
+    
+  
+  ;;;
+  ;;;; Favorites
+  ;;;
+
+  
+  (method (add-to-favorites)
+    (let* ((title "Compare Directories")
+           (mode (get-mode))
+           (left (get-left-moniker))
+           (right (get-right-moniker))
+           (initargs (list mode: mode left: left right: right ignored-nodes: ignored-nodes ignored-leaves: ignored-leaves ignored-extensions: ignored-extensions)))
+      (add-to-favorites~ (get-guest~ (singleton-palette Favorites-Manager {})) Favorite-Compare-Directories title initargs)))
+
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method (make-item item root father)
+    (let ((list (append (get-list~ father) (list (get-name~ item)))))
+      (typecase item
+        ((File)
+          (if (typed? root 'Repository-Moniker)
+              (new Repository-Moniker (join list "/"))
+            (new File list)))
+        ((Directory)
+          (if (typed? root 'Repository-Moniker)
+              (new Repository-Moniker (join list "/"))
+            (new Directory list)))
+        (else
+          (if (typed? item 'Repository-Moniker)
+              (if (typed? root 'Repository-Moniker)
+                  (new Repository-Moniker (join list "/"))
+                (if (get-project?~ item)
+                    (new Directory list)
+                  (new File list)))
+            (error "Unable to make item from {t}" item))))))
+  
+  
+  (method (tree-base tree)
+    (length (get-list~ tree)))
+  
+  
+  (method (trim-left item)
+    (tail (get-list~ item) left-base))
+  
+  
+  (method (trim-right item)
+    (tail (get-list~ item) right-base))
+  
+
+  ;;;
+  ;;;; Compare-Directories-Menu
+  ;;;
+  
+  
+  (method (get-compare-menu)
+    (new Compare-Directories-Menu)))
+
+
+(class Compare-Directories-Menu extends Compare-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: scanned-date title: "Use Scanned Date" before: reset-actions action-handler: {Event-Handler :document on-scan-date})))))
+)

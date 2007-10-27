@@ -1,0 +1,124 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Stage Border
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.window.Stage-Border jazz
+
+
+(import (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Stage-Border metaclass Figure-Class extends View-Player
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (new (stage-class~ (get-parent~ parent)) parent: self name: 'stage))
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (layout-stage size))
+  
+  
+  ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method (new-root)
+    (new Stage-Border-Root))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-stage)
+    (child 'stage))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method public (maximize)
+    (layout-stage (get-size)))
+  
+  
+  (method public (restore)
+    (layout-stage (get-size)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout-stage size)
+    (let* ((stage (get-stage))
+           (maximized? (get-maximized?~ stage))
+           (fullscreen? (get-fullscreen?~ stage))
+           (width (if fullscreen? 0 (if maximized? 1 2))))
+      (set-position~ stage (new Point width width))
+      (set-size~ stage (- size (new Dimension (+ width width) (+ width width)))))))
+
+
+;;;
+;;;; Root
+;;;
+
+
+(class Stage-Border-Root extends Root-View  
+  
+  
+  (definition Frame-Color
+    {Color red: 128 green: 128 blue: 128})
+  
+  
+  (method (draw dc context update lh lv)
+    (with ((bounds (get-bounds)))
+      (frame-rect~ dc (new Rect 0 0 (get-right~ bounds) (get-bottom~ bounds)) Frame-Color)
+      (let* ((stage (get-stage~ player))
+             (maximized? (get-maximized?~ stage))
+             (fullscreen? (get-fullscreen?~ stage)))
+        (unless (or maximized? fullscreen?)
+          (frame-rect~ dc (new Rect 1 1 (- (get-right~ bounds) 1) (- (get-bottom~ bounds) 1)) {Color name: White})))))))

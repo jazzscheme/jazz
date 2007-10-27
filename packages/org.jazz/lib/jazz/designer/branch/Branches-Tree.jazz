@@ -1,0 +1,407 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Branches Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.branch.Branches-Tree jazz
+
+
+(import (jazz.designer)
+        (jazz.jml)
+        (jazz.platform)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Branches-Tree extends Tree-View
+
+
+  (slot editor   initialize {})
+  (slot client   initialize {})
+  (slot designer initialize {})
+
+
+  (form
+    (<install>                         multiple-selection?: #f portfolio: :icons selection-handler: {Event-Handler form: on-selection-change}
+      (<Tree-Node-Column> name: branch title: "Branch" width: 157)))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (context-menu pos)
+    (with-context-click pos
+      (function dynamic ()
+        (let* ((menu (new Branch-Menu))
+               (item (locate~ menu 'add))
+               (classes (essay client (get-addable-branches~ client)))
+               (branch (selected-branch)))
+          (when branch
+            (with-update-locked~ menu
+              (function dynamic ()
+                (when (null? classes)
+                  (set-visible?~ (locate~ menu 'add) #f)
+                  (set-visible?~ (locate~ menu 'separator) #f))
+                (when (is-not? branch Branch)
+                  (set-visible?~ (locate~ menu 'separator) #f)
+                  (set-visible?~ (locate~ menu 'close) #f)
+                  (set-visible?~ (locate~ menu 'rename) #f))))
+            (if (= classes #t)
+                (let ((default (get-addable-default-branch~ client)))
+                  (set-title~ item (format "Add {a}..." (get-class-presentation~ default))))
+              (set-title~ item "Add")
+              (let ((submenu (new Context-Menu parent: item)))
+                (with-update-locked~ submenu
+                  (function dynamic ()
+                    (for-each (function dynamic (class)
+                                (if (null? class)
+                                    (new Separator-Item parent: submenu)
+                                  (let ((icon (get-class-image~ class))
+                                        (title (format "{a}..." (get-class-presentation~ class)))
+                                        (handler (new Event-Handler target: self method-name: 'on-add-branch properties: (list class: class))))
+                                    (new Label-Item parent: submenu icon: icon title: title action-handler: handler))))
+                              classes)))))
+            (layout-menu~ menu)
+            (track-popup-menu menu pos))))))
+  
+  
+  (method (on-add-branch evt)
+    (let ((class (either (get-property~ evt class:) (get-addable-default-branch~ client)))
+          (parent (selected-branch)))
+      (add-branch class parent)))
+  
+  
+  (method public (new-default-branch)
+    (when client
+      (let* ((class (get-addable-default-branch~ client))
+             (add-here? (get-addable-branches~ client))
+             (parent (either (when add-here? (selected-branch))
+                             client)))
+        (add-branch class parent))))
+  
+  
+  (method public (add-branch class parent)
+    (let ((presentation (branch-presentation-request class (get-branches~ parent)))
+          (branch (new class parent: parent))
+          (designer (get-designer~ editor)))
+      (add-child~ designer branch parent branch: {})
+      (set-property~ designer branch client-form: (new Form textual?: #f action: 'install) branch: {})
+      ;; Problem: at that point this update causes some node titles to be {}
+      ;; because the branch doesn't yet have a name...
+      (update-tree)
+      (set-single-selection (branch-index branch))
+      (rename-branch branch presentation)))
+  
+  
+  (method protected virtual (branch-presentation-request class brothers (initial-value: initial-value {}))
+    (let* ((name-mandatory? (get-name-mandatory?~ class))
+           (name-unicity? (get-name-unicity?~ class))
+           (unicity-domain (essay name-unicity? (map (function dynamic (component) (get-presentation~ component)) brothers)))
+           (name-validator (branch-name-validator))
+           (presentation (request-string title: (format "Enter {a} Name" (get-class-presentation~ class)) initial-value: initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
+      presentation))
+  
+  
+  (method protected virtual (branch-name-validator)
+    {})
+  
+  
+  (method (on-close-branch evt)
+    (delete-selection))
+  
+  
+  (method (delete-selection)
+    (let ((branch (selected-branch)))
+      (if (is-not? branch Branch)
+          (bell)
+        (remove-branch branch))))
+  
+  
+  (method protected virtual (remove-branch branch)
+    (let ((client (get-client~ branch))
+          (designer (get-designer~ editor)))
+      (select-branch client)
+      (remove-child~ designer branch)
+      (update-tree)))
+  
+  
+  (method (on-rename-branch evt)
+    (rename-selected-branch))
+  
+  
+  (method (rename-selected-branch)
+    (let* ((branch (selected-branch))
+           (presentation (branch-presentation-request (class-of branch) (get-brothers~ branch) initial-value: (get-presentation~ branch))))
+      (rename-branch branch presentation)))
+  
+  
+  (method (rename-branch branch presentation)
+    (let ((client (if (is? branch Branch) (get-client~ branch) branch))
+          (designer (get-designer~ editor)))
+      (set-presentation~ branch designer presentation)
+      (update-tree)
+      (set-single-selection (branch-index branch))))
+  
+  
+  (method (on-branch-properties evt)
+    (show-properties :select-palette? #t))
+  
+  
+  (method (show-properties (select-palette?: select-palette? #f))
+    (let ((branch (selected-branch)))
+      (set-selection~ editor (if branch (list branch) '()) origin: self force?: #t focus?: #f)
+      (when select-palette?
+        (select-palette Properties-Manager workspace: {} focus?: #t))))
+  
+  
+  (method (maybe-show-properties)
+    (when editor
+      (let ((branch (selected-branch))
+            (selection (get-selection~ editor)))
+        (when (or (null? selection)
+                  (and (= (length selection) 1)
+                       (let ((selection (car selection)))
+                         (or (eq? selection (get-client~ editor))
+                             (is? selection Branch)))))
+          (show-properties)))))
+  
+  
+  ;;;
+  ;;;; Editor
+  ;;;
+  
+  
+  (method public (get-editor)
+    editor)
+  
+  
+  (method public (set-editor edt)
+    (when (/= edt editor)
+      (when editor
+        (remove-editor-listener~ editor self))
+      (set! editor edt)
+      (when editor
+        (add-editor-listener~ editor (new Event-Handler target: self method-name: 'on-editor)))))
+    
+  
+  (method (on-editor evt)
+    (case (get-kind~ evt)
+      ((:client-change) (set-client (get-property~ evt client:)))
+      ((:designer-change) (set-designer (get-property~ evt designer:)))
+      ((:branch-changed) (branch-changed (get-property~ evt branch:)))))
+  
+  
+  (method (branch-changed branch)
+    (set-single-selection (branch-index branch)))
+
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method public (get-designer)
+    designer)
+  
+  
+  (method public virtual (set-designer dsg)
+    (when (/= dsg designer)
+      (when designer
+        (uninstall-listener designer))
+      (set! designer dsg)
+      (when designer
+        (install-listener designer))))
+  
+  
+  (method (install-listener designer)
+    (let ((listener (new Event-Handler target: self method-name: 'on-designer)))
+      (add-designer-listener~ designer listener)))
+  
+  
+  (method (uninstall-listener designer)
+    (remove-designer-listener~ designer self))
+  
+  
+  (method (on-designer evt)
+    (case (get-kind~ evt)
+      ((:presentation-change) (presentation-change (get-property~ evt component:) (get-property~ evt :presentation)))))
+  
+  
+  (method (presentation-change component presentation)
+    (when (eq? component client)
+      (let ((cell {Cell 0 0}))
+        (set-title~ (get-cell-data cell) presentation)
+        (invalidate-cell cell))))
+  
+
+  ;;;
+  ;;;; Client
+  ;;;
+
+
+  (method public (get-client)
+    client)
+
+
+  (method public (set-client clt)
+    (when (/= clt client)
+      (set! client clt)
+      (update-tree))
+    (update-selection))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update)
+    (update-tree)
+    (update-selection))
+
+
+  (method (update-tree)
+    (remove-every-row)
+    (when client
+      (let ((node (insert-client)))
+        (for-each (function dynamic (branch)
+                    (insert-branch node branch))
+                  (sort-branches (get-branches~ client))))))
+  
+  
+  (method protected virtual (sort-branches branches)
+    branches)
+  
+  
+  (method (update-selection)
+    (if (null? client)
+        (set-selection '() generate-event?: #f)
+      (let* ((branch (get-active-branch~ client))
+             (index (user-data-index (either branch client))))
+        (if (null? index)
+            (set-selection '() generate-event?: #f)
+          (set-single-selection index generate-event?: #f)))))
+  
+  
+  (method (insert-client)
+    (let ((title (get-presentation~ client))
+          (image (component-image client)))
+      (add-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: client)))
+  
+  
+  (method (insert-branch node branch)
+    (let ((children (get-children~ branch))
+          (title    (component-presentation branch))
+          (image    (component-image branch)))
+      (let ((handle (add-row father: node state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: branch)))
+        (for-each (function dynamic (child)
+                    (insert-branch handle child))
+                  (sort-branches children)))))
+  
+  
+  (method protected virtual (component-presentation component)
+    (get-presentation~ component))
+  
+  
+  (method protected virtual (component-image component)
+    (get-component-image~ component))
+  
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (can-undo?)
+    #f)
+  
+  
+  (method (can-redo?)
+    #f)
+  
+  
+  (method (can-delete?)
+    (let ((branch (selected-branch)))
+      (is? branch Branch)))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (on-selection-change evt)
+    (select-branch (either (selected-branch) client))
+    (maybe-show-properties)
+    (update-focus-actions~ (get-application)))
+  
+  
+  (method public (selected-branch)
+    (let ((selection (get-single-selection)))
+      (when selection
+        (get-user-data~ (get-row selection)))))
+  
+  
+  (method (select-branch branch)
+    (when (and branch (neq? branch (either (get-active-branch~ client) client)))
+      (with-cursor :wait
+        (function dynamic ()
+          (process-branch-changing~ editor branch)))))
+  
+  
+  (method (branch-index branch)
+    (user-data-index branch)))
+
+
+;;;
+;;;; Branch-Menu
+;;;
+
+
+(class Branch-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: add        title: "&Add Branch" icon: {Bitmap-Resource "Add"} action: {Action branches-tree add-branch})
+      (<Separator-Item> name: separator)
+      (<Label-Item>     name: close      title: "&Delete" icon: {Bitmap-Resource "Remove"} action: {Action branches-tree close-branch})
+      (<Label-Item>     name: rename     title: "&Rename" action: {Action branches-tree rename-branch})
+      (<Separator-Item>)
+      (<Label-Item>     name: properties title: "&Properties" action: {Action branches-tree branch-properties})))))

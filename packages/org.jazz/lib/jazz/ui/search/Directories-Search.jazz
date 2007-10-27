@@ -1,0 +1,133 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Directories Search
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Directories-Search jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.activity)
+        (jazz.utilities))
+
+
+(class Directories-Search extends Search-View
+
+  
+  (form
+    (<install>
+      (<!>                     name: domain      title: "Search"
+        (<Label-View>          name: static-dir  title: "Directories:" position: {Point 15 30} size: {Dimension 60 16})
+        (<Border-View>                           position: {Point 85 27} size: {Dimension 248 19} border-type: solid border-color: {Color name: Entry-Border}
+          (<Scroller-View>                       hscroll?: #f vscroll?: #f
+            (<!>               name: content     layout-type: fill
+              (<IDE-Text-View> name: directories accepts-returns?: #f left-padding: 2 top-padding: 2 show-unfocused-selection?: #f return-press-handler: {Event-Handler form: on-return-press}))))
+        (<Label-View>          name: static-ext  title: "Extensions:" position: {Point 15 60} size: {Dimension 60 16})
+        (<Border-View>                           position: {Point 85 57} size: {Dimension 248 19} border-type: solid border-color: {Color name: Entry-Border}
+          (<Scroller-View>                       hscroll?: #f vscroll?: #f
+            (<!>               name: content     layout-type: fill
+              (<IDE-Text-View> name: extensions  accepts-returns?: #f left-padding: 2 top-padding: 2 show-unfocused-selection?: #f return-press-handler: {Event-Handler form: on-return-press})))))))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+
+  
+  (method (search-targets targets)
+    (search-threaded targets)
+    @convert
+    (new Thread
+      name: "Search"
+      context: self
+      execute: (function (thread)
+                 (search-threaded targets))))
+  
+  
+  (method synchronized (search-threaded targets)
+    (let* ((appl (get-application))
+           (reporter (get-search-reporter {}))
+           (directories (map (function dynamic (list)
+                               (new Directory list))
+                             (read-delimited-string (get-string-content~ (locate 'directories)) #\comma)))
+           (extensions (map ->string (apply append! (read-delimited-string (get-string-content~ (locate 'extensions)) #\comma))))
+           (extensions (either extensions (list "jazz" "jazz" "scm")))
+           (whole-words? (get-whole-words?~ appl))
+           (ignore-case? (get-ignore-case?~ appl))
+           (expression? (get-expression?~ appl))
+           (factory (new List-Factory)))
+      (for-each (function dynamic (directory)
+                  (search-in-directory targets directory extensions whole-words? ignore-case? expression? jazz-constituent? factory reporter))
+                directories)
+	  (let ((results (get-results)))
+        (set-mode~ results 'text)
+        (add-results~ results (get-output~ factory) (get-search-targets))
+        (select-results~ results))
+      (when reporter
+        (let ((manager (get-activity-manager)))
+          (unregister-activity~ manager reporter)
+          (close-manager~ manager)))))
+
+
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (on-action evt)
+    (on-search evt))
+  
+  
+  (method (get-tab-stops)
+    (list
+      (locate 'directories)
+      (locate 'extensions)
+      (locate 'targets)))
+
+
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (method (setup-search-reporter reporter count)
+    (set-infinite?~ reporter #t)
+    (set-range~ reporter {Range 0 500})
+    (set-pos~ reporter 1)
+    (set-step~ reporter 1))))

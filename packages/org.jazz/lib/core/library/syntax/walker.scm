@@ -1692,7 +1692,8 @@
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Variable binding) value source-declaration environment)
   (let ((value-code (jazz.emit-expression value source-declaration environment)))
     (receive (annotated-frame annotated-variable annotated-type) (jazz.find-annotated binding environment)
-      (jazz.extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code)))
+      (%%when (%%class-is? annotated-variable jazz.Annotated-Variable)
+        (jazz.extend-annotated-type annotated-frame annotated-variable (%%get-code-type value-code))))
     (jazz.new-code
       `(set! ,(%%get-lexical-binding-name binding) ,(%%get-code-form value-code))
       jazz.Any)))
@@ -3379,6 +3380,10 @@
 (jazz.add-specialized-patterns 'jazz.dialect.language.-            '((##fx-  <fx*:fx>)   (##fl-  <fl*:fl>)   (##- <number^number:number>) (- <number*:number>)))
 (jazz.add-specialized-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)   (##fl*  <fl*:fl>)   (##* <number^number:number>) (* <number*:number>)))
 (jazz.add-specialized-patterns 'scheme.dialect.kernel./            '(                    (##fl/  <fl*:fl>)   (##/ <number^number:number>) (/ <number*:number>)))
+
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.eqv?         '((##eqv? <any^any:bool>)))
 
 (jazz.add-specialized-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
 (jazz.add-specialized-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))

@@ -640,7 +640,7 @@
   (time (j)))
 
 
-(define (lp . rest)
+(define (r . rest)
   (if (not (null? rest))
       (rl (car rest)))
   (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))

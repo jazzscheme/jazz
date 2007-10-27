@@ -363,11 +363,11 @@
             (with-cursor :wait
               (function dynamic ()
                 (sleep 100)
-                (receive (header footer) (fusion-declarations range)
-                  (fusion-evaluate-forms (read-text-forms range) header footer)))))))))
+                (receive (module-name header footer) (fusion-declarations range)
+                  (fusion-evaluate-forms module-name (read-text-forms range) header footer)))))))))
   
   
-  (method (fusion-evaluate-forms forms header footer)
+  (method (fusion-evaluate-forms module-name forms header footer)
     (let ((console-text (get-console-text))
           (expl (new (explorer-class) self)))
       (let ((names (map (function dynamic (form) (form-name~ expl form)) forms)))
@@ -375,7 +375,8 @@
         (let ((results (map (lambda (form)
                               ;; all this is a bit braindead but makes more sense with a remote debugger...
                               (let ((expr (read-string-element (format "{a}{s}{a}" header form footer))))
-                                (eval expr)))
+                                (parameterize ((requested-module-name module-name))
+                                  (eval expr))))
                             forms)))
           ;; do nothing with results for now. only side effect
           #f)
@@ -387,16 +388,20 @@
   
   
   (method (fusion-declarations range)
-    (let ((header "")
+    (let ((module-name {})
+          (header "")
           (footer "")
           (expl (new Jazz-Explorer self range: range)))
       (while (outer-expr~ expl)
         (when (fusion-declaration?~ expl)
           (let* ((declaration (fusion-declaration~ expl))
                  (declaration-header (join declaration " ")))
+            ;; all this needs some cleanup
+            (when (member (car declaration) '("module" "library"))
+              (set! module-name (string->symbol (cadr declaration))))
             (set! header (format "({a}{%}{a}" declaration-header header))
             (set! footer (format "{a})" footer)))))
-      (values header footer)))
+      (values module-name header footer)))
   
   
   @convert

@@ -57,13 +57,15 @@
   (method meta (tie-string objects)
     (with-closed ((control (new String-Reader (apply append objects))))
       (let ((out (new String-Printer))
-            (out-parameters (new List-Factory))
-            (c))
-        (while (neq? (set! c (read-char control)) #\eof)
-          (case c
-            ((#\~) (put (read-char control) out))
-            ((#\{) (process-string control out out-parameters))
-            (else (put c out))))
+            (out-parameters (new List-Factory)))
+        (let (iterate)
+          (let ((c (read-char control)))
+            (when (neq? c #\eof)
+              (case c
+                ((#\~) (put (read-char control) out))
+                ((#\{) (process-string control out out-parameters))
+                (else (put c out)))
+              (iterate))))
         (cons 'format (cons :string (cons (get-output~ out) (get-output~ out-parameters)))))))
   
   

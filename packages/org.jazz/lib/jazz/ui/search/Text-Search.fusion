@@ -85,6 +85,8 @@
       ((active-window)
        (search-active-window targets))
       (else
+       (search-threaded targets)
+       @convert
        (new Thread
          name: "Search"
          information: targets
@@ -96,12 +98,10 @@
   (method synchronized (search-threaded targets)
     (let* ((reporter (get-search-reporter (count-files)))
            (found (search targets reporter)))
-      (execute-primary
-        (function dynamic ()
-		  (let ((results (get-results)))
-            (set-mode~ results 'text)
-            (add-results~ results found (get-search-targets))
-            (select-results~ results))))
+      (let ((results (get-results)))
+        (set-mode~ results 'text)
+        (add-results~ results found (get-search-targets))
+        (select-results~ results))
       (when reporter
         (let ((manager (get-activity-manager)))
           (unregister-activity~ manager reporter)

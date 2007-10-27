@@ -3893,7 +3893,7 @@
   
   
   (method public virtual (select-next strings . rest)
-    (let ((found (multisearch-content strings position: (get-end) :reverse? #f :constituent-test (get-constituent-test~ syntax))))
+    (let ((found (multisearch-content strings start: (get-end) reverse?: #f constituent-test: (get-constituent-test~ syntax))))
       (when found
         (set-selection found)
         @not-so-sure
@@ -3904,7 +3904,7 @@
   
   
   (method public virtual (select-previous strings . rest)
-    (let ((found (multisearch-content strings position: (get-start) :reverse? #t :constituent-test (get-constituent-test~ syntax))))
+    (let ((found (multisearch-content strings start: (get-start) reverse?: #t constituent-test: (get-constituent-test~ syntax))))
       (when found
         (set-selection found)
         @not-so-sure
@@ -3924,26 +3924,32 @@
     (select-previous targets))
   
   
-  (method public (search-string target (position: position {}) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+  (method public (search-string target (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     (unimplemented 'search-string)
     @convert
     (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
            (found (JzTextSearch (get-paragraphs) (get-limit) target (get-row~ pos) (get-col~ pos) reverse? whole-words? ignore-case? self constituent-test)))
       (when found
         (new Cell (car found) (cdr found)))))
+
+  
+  (method public (multisearch-string targets (start: start {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+    (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
+          (limit (get-limit)))
+      (let ((row (get-row~ pos))
+            (col (get-col~ pos)))
+        (let (iterate (n row) (start col))
+          (if (if reverse? (>= n 0) (<= n limit))
+              (let ((string (paragraph-string n)))
+                (let ((found (multisearch string targets start: start reverse?: reverse? extended?: extended? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
+                  (if found
+                      (bind (pos . target) found
+                        (cons (new Cell n pos) target))
+                    (iterate (if reverse? (- n 1) (+ n 1)) {}))))
+            #f)))))
   
   
-  (method public (multisearch-string targets (position: position {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
-    (unimplemented 'multisearch-string)
-    @convert
-    (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
-           (found (JzTextMultiSearch (get-paragraphs) end targets (get-row~ pos) (get-col~ pos) extended? reverse? whole-words? ignore-case? self constituent-test)))
-      (when found
-        (bind ((row . col) . target) found
-          (cons (new Cell row col) target)))))
-  
-  
-  (method (multisearch-content strings (position: position {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (expression?: expression? (get-expression?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+  (method (multisearch-content strings (start: start {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (expression?: expression? (get-expression?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     (cond (expression?
             (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
                    (moniker (get-moniker))
@@ -3953,15 +3959,15 @@
                 (car found))))
           ;; Quick solution to the fact that the generic multisearch doesn't yet support multiline strings
           ((some? (function dynamic (string)
-                    (search (cn) string))
+                    (search string (cn)))
                   strings)
            (with ((content (get-string-content)))
-             (let ((found (multisearch-string~ content strings position: (position-offset position) :reverse? reverse? :whole-words? whole-words? :ignore-case? ignore-case? :constituent-test constituent-test)))
+             (let ((found (multisearch content strings start: (position-offset position) reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
                (when found
                  (bind (offset . string) found
                    (new Range (offset-position offset) (offset-position (+ offset (length string)))))))))
           (else
-           (let ((found (multisearch-string strings position: position :reverse? reverse? :constituent-test constituent-test)))
+           (let ((found (multisearch-string strings start: start reverse?: reverse? constituent-test: constituent-test)))
              (when found
                (bind (cell . string) found
                  (new Range cell (new Cell (get-row~ cell) (+ (get-col~ cell) (length string))))))))))
@@ -3974,7 +3980,7 @@
           (let ((line (get-string~ paragraph)))
             (for-each (lambda (col)
                         (enqueue queue (new Cell row col)))
-                      (search string line all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
+                      (search line string all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
       (queue-list queue)))
   
   

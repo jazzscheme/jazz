@@ -41,14 +41,6 @@
 (proclaim (optimize))
 
 
-@w (
-(class Object metaclass Object-Class
-  
-  
-  (method chained (initialize . rest)
-    )))
-
-
 ;;;
 ;;;; Object
 ;;;
@@ -1731,7 +1723,7 @@
     (if (is? seq Sequence)
         (let ((l1 (length self))
               (l2 (length seq)))
-          (let (iterate (i 0))
+          (let (iterate (i <fx> 0))
             (if (or (>= i l1) (>= i l2))
                 (cond ((= l1 l2) :equal)
                       ((> l1 l2) :greater)
@@ -1743,11 +1735,11 @@
       :incompatible))
   
   
-  (method (copy-object deep?)
+  (method (copy-object deep? <bool>)
     (let* ((subcopy (if deep? (lambda (x) (copy x deep?)) (lambda (x) x)))
            (len (length self))
            (new-seq (allocate-sequence~ (class-of self) len)))
-      (let (iterate (i 0))
+      (let (iterate (i <fx> 0))
         (if (= i length)
             new-seq
           (begin
@@ -1876,7 +1868,7 @@
 
 
 (definition public (skip-whitespace seq <Sequence>)
-  (let (iterate (i 0))
+  (let (iterate (i <fx> 0))
     (cond ((= i (length seq)) i)
           ((eq? (element seq i) #\space) (iterate (+ i 1)))
           (else i))))
@@ -2321,7 +2313,7 @@
     (lambda (return)
       (let ((srce (iterate seq))
             (targ (iterate target))
-            (pos    0))
+            (pos 0))
         (while (not (done?~ srce))
           (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
             (return pos))
@@ -2358,13 +2350,13 @@
         (done?~ targ)))))
 
 
-(definition public (search target <Object> seq <Object> (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (start: start {}) (constituent-test: constituent-test word-constituent?))
+(definition public (search seq <Sequence> target <Object> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?))
   (let ((len (length seq))
         (size (length target))
         (test (if ignore-case? ci= =)))
-    (define (match-case? pos)
+    (define (match-case? pos <fx>) <bool>
       (let ((to (- size 1)))
-        (let (iterate (i pos) (j 0))
+        (let (iterate (i <fx> pos) (j <fx> 0))
           (cond ((>= i len)
                  #f)
                 ((not (test (element seq i) (element target j)))
@@ -2374,7 +2366,7 @@
                 (else
                  (iterate (+ i 1) (+ j 1)))))))
     
-    (define (match? pos)
+    (define (match? pos <fx>) <bool>
       (and (>= pos 0)
            (match-case? pos)
            (or (not whole-words?)
@@ -2385,13 +2377,13 @@
                      #f
                    (if (< after len)
                        (let ((c (element seq after)))
-                         ;; The explicit test for ~ is a kind off patch for the new ~ syntax
+                         ;; The explicit test for ~ is a kind of patch for the new ~ syntax
                          (or (eqv? c #\~)
                              (not (constituent-test (element seq after)))))
                      #t))))))
     
-    (define (find-backward pos)
-      (let (iterate (pos pos))
+    (define (find-backward pos <fx>) <fx+>
+      (let (iterate (pos <fx> pos))
         (cond ((match? (- pos size))
                (- pos size))
               ((<= pos 0)
@@ -2399,9 +2391,9 @@
               (else
                (iterate (- pos 1))))))
     
-    (define (find-forward pos)
+    (define (find-forward pos <fx>) <fx+>
       (let ((last (- len size)))
-        (let (iterate (pos pos))
+        (let (iterate (pos <fx> pos))
           (cond ((match? pos)
                  pos)
                 ((>= pos last)
@@ -2415,13 +2407,24 @@
       (if (not all?)
           (find pos)
         (let ((queue (new-queue)))
-          (let (iterate (pos pos))
+          (let (iterate (pos <fx> pos))
             (let ((found (find pos)))
               (if found
                   (begin
                     (enqueue queue found)
                     (iterate (move found size)))
                 (queue-list queue)))))))))
+
+
+(definition public (multisearch seq <Sequence> targets <list> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (extended?: extended? #f) (constituent-test: constituent-test word-constituent?))
+  (if (> (length targets) 1)
+      (error "Multisearch is not yet implemented for more than one target")
+    (if extended?
+        (error "Extended multisearch is not yet implemented")
+      (let ((found (search seq (car targets) start: start reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? all?: all? constituent-test: constituent-test)))
+        (if found
+            (cons found (car targets))
+          #f)))))
 
 
 (definition public (split seq <Object> separator <Object>)
@@ -2444,7 +2447,7 @@
                (incr (length separator))
                (result (new List-Factory)))
            (let (iterate)
-             (let ((pos (search separator seq start: previous)))
+             (let ((pos (search seq separator start: previous)))
                (when pos
                  (put~ result (subseq seq previous pos))
                  (set! previous (+ pos incr))
@@ -2656,7 +2659,7 @@
 (definition (find-list target list key test start returned)
   (let ((key (if (not key) (lambda (x) x) key))
         (test (if (not test) eqv? test)))
-    (let (iterate (rest (tail list start)) (rank start))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
              ((test target (key (car rest)))
               (cond ((eq? returned 'position) rank)
@@ -2668,7 +2671,7 @@
        
 (definition (find-if-list predicate list key start returned)
   (let ((key (if (not key) (lambda (x) x) key)))
-    (let (iterate (rest (tail list start)) (rank start))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
              ((predicate (key (car rest)))
               (cond ((eq? returned 'position) rank)
@@ -2976,7 +2979,7 @@
 
 
 (definition public (position-of obj lst)
-  (let (iterate (rst lst) (i 0))
+  (let (iterate (rst lst) (i <fx> 0))
     (if (null? rst)
         {}
       (if (eq? obj (car rst))
@@ -3865,11 +3868,14 @@
 
 (definition public (read-delimited-string string char)
   (with-closed ((reader (new String-Reader string)))
-    (let ((list {})
-          (fact (new List-Factory)))
-      (while (not (eof-object? (set! list (read-delimited reader "delimited" char #t))))
-        (put~ fact list))
-      (get-output~ fact))))
+    (let ((fact (new List-Factory)))
+      (let (iterate)
+        (let ((lst (read-delimited reader "delimited" char #t)))
+          (put~ fact lst)
+          (skip-whites reader)
+          (if (eof-object? (peek-char reader))
+              (get-output~ fact)
+            (iterate)))))))
 
 
 (definition public (parse-integer string)
@@ -4017,6 +4023,21 @@
           (when last-proper?
             (enqueue queue ""))
           (queue-list queue))))))
+
+
+(definition public (read-content-string reader)
+  (let ((output (open-output-string)))
+    (pipe reader output)
+    (get-output-string output)))
+
+
+(definition public (pipe input output)
+  (let (iterate)
+    (let ((c (read-char input)))
+      (if (not (eof-object? c))
+          (begin
+            (write-char c output)
+            (iterate))))))
 
 
 ;; (definition (get-encoding Object))
@@ -4216,8 +4237,12 @@
                               domain))
            (n 1)
            (suffix {}))
-      (while (member? (set! suffix (->string n)) suffixes)
-        (increase! n))
+      ;; not 100% sure about the while converted code
+      (let (iterate)
+        (set! suffix (->string n))
+        (when (member? suffix suffixes)
+          (increase! n)
+          (iterate)))
       (append common-prefix suffix))))
 
 

@@ -489,6 +489,7 @@
 (native jazz.register-literal-constructor)
 (native jazz.parse-specifier)
 (native jazz.add-specialization)
+(native jazz.requested-module-name)
 
 
 ;;;

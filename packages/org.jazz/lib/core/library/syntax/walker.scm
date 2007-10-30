@@ -1009,13 +1009,18 @@
 ;; No conversion beeing necessary between any types, expect is only a type check returning the same object
 
 
-(define (jazz.emit-type-expect code type source-declaration environment)
-  (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
-      (%%get-code-form code)
-    (let ((value (jazz.generate-symbol "val")))
-      `(let ((,value ,(%%get-code-form code)))
-         ,(jazz.emit-check type value source-declaration environment)
-         ,value))))
+(cond-expand
+  (release
+    (define (jazz.emit-type-expect code type source-declaration environment)
+      (%%get-code-form code)))
+  (else
+   (define (jazz.emit-type-expect code type source-declaration environment)
+     (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
+         (%%get-code-form code)
+       (let ((value (jazz.generate-symbol "val")))
+         `(let ((,value ,(%%get-code-form code)))
+            ,(jazz.emit-check type value source-declaration environment)
+            ,value))))))
 
 
 ;;;
@@ -1023,11 +1028,16 @@
 ;;;
 
 
-(define (jazz.emit-type-check code type source-declaration environment)
-  (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
-      #f
-    (let ((value (%%get-code-form code)))
-      (jazz.emit-check type value source-declaration environment))))
+(cond-expand
+  (release
+    (define (jazz.emit-type-check code type source-declaration environment)
+      #f))
+  (else
+   (define (jazz.emit-type-check code type source-declaration environment)
+     (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
+         #f
+       (let ((value (%%get-code-form code)))
+         (jazz.emit-check type value source-declaration environment))))))
 
 
 ;;;
@@ -1035,11 +1045,16 @@
 ;;;
 
 
-(define (jazz.emit-parameter-cast code type source-declaration environment)
-  (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
-      #f
-    (let ((value (%%get-code-form code)))
-      (jazz.emit-check type value source-declaration environment))))
+(cond-expand
+  (release
+    (define (jazz.emit-parameter-cast code type source-declaration environment)
+      #f))
+  (else
+   (define (jazz.emit-parameter-cast code type source-declaration environment)
+     (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
+         #f
+       (let ((value (%%get-code-form code)))
+         (jazz.emit-check type value source-declaration environment))))))
 
 
 #; ;; todo
@@ -4389,7 +4404,10 @@
 (define (jazz.walk-symbol-reference walker resume declaration environment symbol)
   (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
     (if binding
-        (jazz.new-reference binding)
+        (begin
+          (if (%%class-is? binding jazz.Variable)
+              (jazz.walk-binding-referenced binding))
+          (jazz.new-reference binding))
       (jazz.walk-free-reference walker resume declaration symbol))))
 
 

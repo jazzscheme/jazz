@@ -138,7 +138,8 @@
     (define (jazz.load-bin bin)
       (jazz.with-verbose jazz.load-verbose? "loading" (%%substring bin 5 (%%string-length bin))
         (lambda ()
-          (parameterize ((jazz.walk-for 'interpret))
+          (parameterize ((jazz.walk-for 'interpret)
+                         (suppress-warnings #t))
             (jazz.load-filename bin)))))
     
     

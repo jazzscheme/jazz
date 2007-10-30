@@ -56,7 +56,7 @@
 
 
 (define jazz.warnings?
-  #t)
+  #f)
 
 
 ;; Set to #f to debug the walker itself
@@ -86,13 +86,9 @@
 (cond-expand
   (core
     (define jazz.compile-options
-      ;; trying to speed up compile time
-      ;; '(debug)
-      '()))
+      '(debug)))
   (debug
     (define jazz.compile-options
-      ;; trying to speed up compile time
-      ;; '(debug)
       '()))
   (release
     (define jazz.compile-options

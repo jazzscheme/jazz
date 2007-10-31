@@ -1536,7 +1536,7 @@
 
 
 (define (jazz.require-object-field object name)
-  (let* ((class (%%class-of object))
+  (let* ((class (%%get-object-class object))
          (field (jazz.find-field class name)))
     (if (%%not field)
         (jazz.error "Unknown field '{s} of {s}" name (%%get-category-name (%%get-object-class object)))

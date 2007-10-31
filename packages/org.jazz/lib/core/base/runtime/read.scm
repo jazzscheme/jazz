@@ -41,6 +41,9 @@
 (cond-expand
   (gambit
     (define (jazz.eof-object)
-      #!eof))
+      #!eof)
+    
+    (define jazz.gambit-read-line
+      read-line))
   
   (else)))

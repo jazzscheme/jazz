@@ -66,6 +66,36 @@
 
 
 ;; ----------------------------------------------------------------------------
+;; Sort
+
+(define (sort test seq key)
+  (define (sort-list l smaller key)
+    (define (merge-sort l)
+      (define (merge l1 l2)
+        (cond ((null? l1) l2)
+              ((null? l2) l1)
+              (else
+               (let ((e1 (car l1)) (e2 (car l2)))
+                 (if (smaller (key e1) (key e2))
+                     (cons e1 (merge (cdr l1) l2))
+                   (cons e2 (merge l1 (cdr l2))))))))
+      
+      (define (split l)
+        (if (or (null? l) (null? (cdr l)))
+            l
+          (cons (car l) (split (cddr l)))))
+      
+      (if (or (null? l) (null? (cdr l)))
+          l
+        (let* ((l1 (merge-sort (split l)))
+               (l2 (merge-sort (split (cdr l)))))
+          (merge l1 l2))))
+    
+    (merge-sort l))
+  
+  (sort-list seq test key))
+
+;; ----------------------------------------------------------------------------
 ;; Text formatting
 
 (define (pad-left s l c)
@@ -225,18 +255,21 @@
           (body
             (p "total = " ,*total*)
             (p "unknown = " ,*unknown*)
-           ,@(map (lambda (bucket)
+           ,@(map (lambda (info)
                     (let ((file-path (string-append 
                                       directory-name
-                                      (path-strip-directory (car bucket)) 
+                                      (path-strip-directory (car info)) 
                                       ".html")))
                       `(p (a href: ,file-path ,file-path)
                           " ["
-                          ,(round%
-                            (/ (vector-sum (cdr bucket))
-                               *total*))
+                          ,(cdr info)
                           " %%%]")))
-                  *buckets*))))))))
+                  (sort > (map (lambda (bucket)
+                                 (cons (car bucket)
+                                       (round% (/ (vector-sum (cdr bucket))
+                                                  *total*))))
+                               *buckets*)
+                    cdr)))))))))
 
 (define (round% n)
   (/ (round

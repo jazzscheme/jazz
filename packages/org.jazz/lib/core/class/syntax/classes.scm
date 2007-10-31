@@ -85,10 +85,6 @@
   `(%%not (%%is? ,object ,type)))
 
 
-(jazz.define-macro (%%instance-of? object class)
-  `(%%subclass? (%%class-of ,object) ,class))
-
-
 ;;;
 ;;;; Category
 ;;;

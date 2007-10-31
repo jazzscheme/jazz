@@ -43,6 +43,17 @@
   #f)
 
 
+(define (ll file)
+  (let ((input (open-input-file file)))
+    (let iter ((lines '()))
+      (let ((line (read-line input)))
+        (if (eof-object? line)
+            (begin
+              (close-port input)
+              lines)
+          (iter (cons line lines)))))))
+
+
 ;;;
 ;;;; Test
 ;;;
@@ -190,6 +201,11 @@
 (define (e library-name)
   (ll)
   (expand library-name))
+
+
+(define (ec library-name)
+  (parameterize ((jazz.walk-for 'compile))
+    (e library-name)))
 
 
 (define (ef library-name)
@@ -414,7 +430,8 @@
   '(jazz.dialect.language))
 
 (define Util
-  '(jazz.utilities))
+  '(jazz.utilities
+    jazz.library.utility.shapes))
 
 (define Comp
   '(jazz.library.component.Component))
@@ -453,12 +470,23 @@
     jazz.ui.text.Run
     jazz.ui.text.Style
     jazz.ui.text.Text-Style
+    jazz.ui.outline.Outline-Row
     jazz.ui.outline.Outline-View
     jazz.ui.text.Text-View
     jazz.ui.text.Code-Text-View
     jazz.jazz.text.Lisp-Text-View
     jazz.jazz.text.Jazz-Text-View
     jazz.ui.text.Text-Colorizer))
+
+(define Cat
+  '(jazz.catalog.catalog.Catalog
+    jazz.catalog.catalog.Filing-Catalog
+    jazz.catalog.catalog.Indexed-Catalog
+    jazz.builder.package.Package-Catalog
+    jazz.catalog.parser.File-Parser
+    jazz.catalog.parser.Lisp-Parser
+    jazz.catalog.parser.Scheme-Parser
+    jazz.catalog.parser.Jazz-Parser))
 
 (define Tree
   '(jazz.ui.tree.Tree-View
@@ -492,6 +520,9 @@
 (define (btext)
   (for-each cj Text))
 
+(define (bcat)
+  (for-each cj Cat))
+
 (define (btree)
   (for-each cj Tree))
 
@@ -520,6 +551,7 @@
   (bview)
   (bexpl)
   (btext)
+  (bcat)
   (btree)
   (bappl)
   (bjml))

@@ -505,14 +505,14 @@
            (jazz.queue-list queue))
        ,@(case (jazz.walk-for)
            ((compile)
-            `((define (final-dispatch$$$ object implementation ignore)
+            `((define (__final-dispatch object implementation ignore)
                 (%%final-dispatch object implementation))
-              (define (class-dispatch$$$ object class-level implementation-rank)
+              (define (__class-dispatch object class-level implementation-rank)
                 (%%class-dispatch object class-level implementation-rank))
-              (define (interface-dispatch$$$ object interface-rank implementation-rank)
+              (define (__interface-dispatch object interface-rank implementation-rank)
                 (%%interface-dispatch object interface-rank implementation-rank))
-              (define dispatchers$$$
-                (%%vector final-dispatch$$$ class-dispatch$$$ interface-dispatch$$$))))
+              (define __dispatchers
+                (%%vector __final-dispatch __class-dispatch __interface-dispatch))))
            (else
             '()))
        ,@references-expansion
@@ -3385,16 +3385,16 @@
   (%%hashtable-ref jazz.specialized-patterns locator '()))
 
 
-(jazz.add-specialized-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>) (##fl=  <fl*:bool>) (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>) (##fl<  <fl*:bool>) (<   <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>) (##fl<= <fl*:bool>) (<=  <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>) (##fl>  <fl*:bool>) (>   <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>) (##fl>= <fl*:bool>) (>=  <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
 
-(jazz.add-specialized-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)   (##fl+  <fl*:fl>)   (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.-            '((##fx-  <fx*:fx>)   (##fl-  <fl*:fl>)   (##- <number^number:number>) (- <number*:number>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)   (##fl*  <fl*:fl>)   (##* <number^number:number>) (* <number*:number>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel./            '(                    (##fl/  <fl*:fl>)   (##/ <number^number:number>) (/ <number*:number>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <number^number:number>) (+ <number*:number>)))
+(jazz.add-specialized-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <number^number:number>) (- <number^number*:number>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <number^number:number>) (* <number*:number>)))
+(jazz.add-specialized-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>) (##/ <number^number:number>) (/ <number^number*:number>)))
 
 (jazz.add-specialized-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
 (jazz.add-specialized-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))

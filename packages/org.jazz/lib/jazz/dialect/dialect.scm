@@ -1156,7 +1156,7 @@
                 (%%set-cdr! qv `(lambda (d p q)
                                   (set! ,d ,(case (jazz.walk-for)
                                               ((compile)
-                                               `(%%vector-ref dispatchers$$$ d))
+                                               `(%%vector-ref __dispatchers d))
                                               (else
                                                `d)))
                                   (set! ,p p)

@@ -374,6 +374,7 @@
 
 (native skip-whites)
 (native jazz.eof-object)
+(native jazz.gambit-read-line)
 
 
 ;;;

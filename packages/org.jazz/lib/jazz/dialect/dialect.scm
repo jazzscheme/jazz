@@ -205,7 +205,8 @@
 
 
 (jazz.define-class jazz.Category-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups body) jazz.Object-Class
-  (metaclass))
+  (implementor
+   metaclass))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration) source-declaration environment)
@@ -229,13 +230,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
+(jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body implementor metaclass) jazz.Object-Class
   (ascendant
    interfaces))
 
 
-(define (jazz.new-class-declaration name type access compatibility attributes parent metaclass ascendant interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f metaclass ascendant interfaces)))
+(define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant interfaces)
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f implementor metaclass ascendant interfaces)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -379,12 +380,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body metaclass) jazz.Object-Class
+(jazz.define-class jazz.Interface-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body implementor metaclass) jazz.Object-Class
   (ascendants))
 
 
-(define (jazz.new-interface-declaration name type access compatibility attributes parent metaclass ascendants)
-  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f metaclass ascendants)))
+(define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
+  (let ((new-declaration (jazz.allocate-interface-declaration jazz.Interface-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f implementor metaclass ascendants)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -597,21 +598,30 @@
                    (values 'interface method-declaration)))))))))
 
 
+(define (jazz.native-category? category-declaration)
+  (%%neq? (%%get-category-declaration-implementor category-declaration) 'primitive))
+
+
 (define (jazz.emit-method-dispatch object declaration)
   (let ((name (%%get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
-      (case dispatch-type
-        ((final)
-         (let ((implementation-locator (%%get-declaration-locator method-declaration)))
-           `(%%final-dispatch ,(%%get-code-form object) ,implementation-locator)))
-        ((class)
-         (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'level))
-               (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-           `(%%class-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator)))
-        ((interface)
-         (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator (%%get-declaration-parent method-declaration)) 'rank))
-               (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-           `(%%interface-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)))))))
+      (let ((category-declaration (%%get-declaration-parent method-declaration)))
+        (case dispatch-type
+          ((final)
+           (let ((implementation-locator (%%get-declaration-locator method-declaration)))
+             `(%%final-dispatch ,(%%get-code-form object) ,implementation-locator)))
+          ((class)
+           (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
+                 (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+             (if (jazz.native-category? category-declaration)
+                 `(%%class-native-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator)
+               `(%%class-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator))))
+          ((interface)
+           (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
+                 (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+             (if (jazz.native-category? category-declaration)
+                 `(%%interface-native-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)
+               `(%%interface-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)))))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Method-Declaration declaration) source-declaration environment)
@@ -1391,35 +1401,36 @@
 (define jazz.class-modifiers
   '(((private protected public) . public)
     ((abstract concrete) . concrete)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated uptodate) . uptodate)
+    ((primitive native) . native)))
 
 (define jazz.class-keywords
   '(metaclass extends implements attributes))
 
 
 (define (jazz.parse-class walker resume declaration rest)
-  (receive (access abstraction compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.class-modifiers rest)
+  (receive (access abstraction compatibility implementor rest) (jazz.parse-modifiers walker resume declaration jazz.class-modifiers rest)
     (let ((name (%%car rest))
           (type jazz.Any)
           (rest (%%cdr rest)))
       (receive (metaclass-name ascendant-name interface-names attributes body) (jazz.parse-keywords jazz.class-keywords rest)
-        (values name type access abstraction compatibility metaclass-name ascendant-name interface-names attributes body)))))
+        (values name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body)))))
 
 
 (define (jazz.expand-class walker resume declaration environment . rest)
-  (receive (name type access abstraction compatibility metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration rest)
+  (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration rest)
     (if (%%class-is? declaration jazz.Library-Declaration)
-        `(%class ,name ,type ,access ,abstraction ,compatibility ,metaclass-name ,ascendant-name ,interface-names ,attributes ,body)
+        `(%class ,name ,type ,access ,abstraction ,compatibility ,implementor ,metaclass-name ,ascendant-name ,interface-names ,attributes ,body)
       (jazz.walk-error walker resume declaration "Classes can only be defined at the library level: {s}" name))))
 
 
 (define (jazz.walk-%class-declaration walker resume declaration environment form)
-  (jazz.bind (name type access abstraction compatibility metaclass-name ascendant-name interface-names attributes body) (%%cdr form)
+  (jazz.bind (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (%%cdr form)
     ;; explicit test on Object-Class is to break circularity 
     (let ((metaclass (if (or (jazz.unspecified? metaclass-name) (%%eq? metaclass-name 'Object-Class)) #f (jazz.lookup-reference walker resume declaration environment metaclass-name)))
           (ascendant (if (jazz.unspecified? ascendant-name) #f (jazz.lookup-reference walker resume declaration environment ascendant-name)))
           (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
-      (let ((new-declaration (jazz.new-class-declaration name type access compatibility attributes declaration metaclass ascendant interfaces)))
+      (let ((new-declaration (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant interfaces)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-class-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
@@ -1428,7 +1439,7 @@
 
 
 (define (jazz.walk-%class walker resume declaration environment form)
-  (jazz.bind (name type access abstraction compatibility metaclass-name ascendant-name interface-names attributes body) (%%cdr form)
+  (jazz.bind (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (new-environment (%%cons new-declaration environment))
            (ascendant-declaration (%%get-class-declaration-ascendant new-declaration)))
@@ -1447,19 +1458,20 @@
 
 (define jazz.interface-modifiers
   '(((private protected public) . public)
-    ((deprecated uptodate) . uptodate)))
+    ((deprecated uptodate) . uptodate)
+    ((primitive native) . native)))
 
 (define jazz.interface-keywords
   '(metaclass extends attributes))
 
 
 (define (jazz.parse-interface walker resume declaration rest)
-  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.interface-modifiers rest)
+  (receive (access compatibility implementor rest) (jazz.parse-modifiers walker resume declaration jazz.interface-modifiers rest)
     (let ((name (%%car rest))
           (type jazz.Any)
           (rest (%%cdr rest)))
       (receive (metaclass-name ascendant-names attributes body) (jazz.parse-keywords jazz.interface-keywords rest)
-        (values name type access compatibility metaclass-name ascendant-names attributes body)))))
+        (values name type access compatibility implementor metaclass-name ascendant-names attributes body)))))
 
 
 (define (jazz.expand-interface walker resume declaration environment . rest)
@@ -1467,17 +1479,17 @@
 
 
 (define (jazz.expand-interface-form walker resume declaration form)
-  (receive (name type access compatibility metaclass-name ascendant-names attributes body) (jazz.parse-interface walker resume declaration (%%cdr form))
+  (receive (name type access compatibility implementor metaclass-name ascendant-names attributes body) (jazz.parse-interface walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
-        `(%interface ,name ,type ,access ,compatibility ,metaclass-name ,ascendant-names ,attributes ,body)
+        `(%interface ,name ,type ,access ,compatibility ,implementor ,metaclass-name ,ascendant-names ,attributes ,body)
       (jazz.walk-error walker resume declaration "Interfaces can only be defined at the library level: {s}" name))))
 
 
 (define (jazz.walk-%interface-declaration walker resume declaration environment form)
-  (jazz.bind (name type access compatibility metaclass-name ascendant-names attributes body) (%%cdr form)
+  (jazz.bind (name type access compatibility implementor metaclass-name ascendant-names attributes body) (%%cdr form)
     (let ((metaclass (if (or (jazz.unspecified? metaclass-name) (%%eq? metaclass-name 'Interface)) #f (jazz.lookup-reference walker resume declaration environment metaclass-name)))
           (ascendants (if (jazz.unspecified? ascendant-names) '() (map (lambda (ascendant-name) (jazz.lookup-reference walker resume declaration environment ascendant-name)) (jazz.listify ascendant-names)))))
-      (let ((new-declaration (jazz.new-interface-declaration name type access compatibility attributes declaration metaclass ascendants)))
+      (let ((new-declaration (jazz.new-interface-declaration name type access compatibility attributes declaration implementor metaclass ascendants)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-interface-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
@@ -1486,7 +1498,7 @@
 
 
 (define (jazz.walk-%interface walker resume declaration environment form)
-  (jazz.bind (name type access compatibility metaclass-name ascendant-names attributes body) (%%cdr form)
+  (jazz.bind (name type access compatibility implementor metaclass-name ascendant-names attributes body) (%%cdr form)
     (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
            (new-environment (%%cons new-declaration environment)))
       (%%set-namespace-declaration-body new-declaration

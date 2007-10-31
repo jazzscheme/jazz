@@ -431,7 +431,9 @@
 
 (define Util
   '(jazz.utilities
-    jazz.library.utility.shapes))
+    jazz.library.utility.Range
+    jazz.library.utility.shapes
+    jazz.io))
 
 (define Comp
   '(jazz.library.component.Component))
@@ -483,6 +485,11 @@
     jazz.catalog.catalog.Filing-Catalog
     jazz.catalog.catalog.Indexed-Catalog
     jazz.builder.package.Package-Catalog
+    jazz.catalog.entry.Catalog-Entry
+    jazz.catalog.entry.Indexed-Entry
+    jazz.catalog.entry.Lisp-Entry
+    jazz.catalog.entry.File-Entry
+    jazz.catalog.entry.Lisp-File-Entry
     jazz.catalog.parser.File-Parser
     jazz.catalog.parser.Lisp-Parser
     jazz.catalog.parser.Scheme-Parser

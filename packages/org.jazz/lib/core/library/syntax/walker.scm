@@ -2160,17 +2160,17 @@
               (iter-frames (%%cdr frames))))))))
 
 
-(define (jazz.find-annotated-type variable environment)
+(define (jazz.find-annotated-type binding environment)
   ;; big time kludge to test it out
-  (if (%%class-is? variable jazz.Variable)
-      (receive (frame variable type) (jazz.find-annotated variable environment)
+  (if (%%class-is? binding jazz.Variable)
+      (receive (frame variable type) (jazz.find-annotated binding environment)
         type)
     ;; here it is a slot declaration
-    (let ((info (jazz.find-annotated variable environment)))
+    (let ((info (jazz.find-annotated binding environment)))
       (if info
-          (receive (frame variable type) (jazz.find-annotated variable environment)
+          (receive (frame variable type) info
             type)
-        (%%get-lexical-binding-type variable)))))
+        (%%get-lexical-binding-type binding)))))
 
 
 (define (jazz.extend-annotated-type frame variable new-type)

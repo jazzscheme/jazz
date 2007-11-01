@@ -98,7 +98,7 @@
 
 
 (define jazz.profile-walker?
-  #t)
+  #f)
 
 
 ;;;

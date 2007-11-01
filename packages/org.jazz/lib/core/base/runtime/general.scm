@@ -262,12 +262,9 @@
 ;;;
 
 
-(define jazz.hashtable-merge
-  (let ((unbound (%%list 'unbound)))
-    (lambda (into from duplicate-proc)
-      (%%iterate-hashtable from
-        (lambda (key value)
-          (let ((current (%%hashtable-ref into key unbound)))
-            (if (%%eq? current unbound)
-                (%%hashtable-set! into key value)
-              (duplicate-proc key current value)))))))))
+;; no support for duplicates special case needed
+(define (jazz.hashtable-merge into from)
+  (%%iterate-hashtable from
+    (lambda (key value)
+      (if (%%not (%%hashtable-ref into key #f))
+          (%%hashtable-set! into key value))))))

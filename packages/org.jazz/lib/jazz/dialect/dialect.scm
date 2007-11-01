@@ -100,7 +100,8 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) source-declaration environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
-    (%%get-lexical-binding-type declaration)))
+    (or (%%get-lexical-binding-type declaration)
+        jazz.Any)))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Definition-Declaration declaration))
@@ -255,23 +256,30 @@
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
-          (jazz.hashtable-merge private (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+          (jazz.hashtable-merge private (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
+    ;; a test to evaluate performance
+    (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
+      (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.public-access private)
+      (%%vector-set! (%%get-namespace-declaration-lookups class-declaration) jazz.protected-access private))
+    
+    #;
     (let ((public (%%get-access-lookup class-declaration jazz.public-access)))
       (if ascendant
-          (jazz.hashtable-merge public (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+          (jazz.hashtable-merge public (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
+    #;
     (let ((protected (%%get-access-lookup class-declaration jazz.protected-access)))
       (if ascendant
-          (jazz.hashtable-merge protected (%%get-access-lookup ascendant jazz.public-access) ignore-duplicates))
+          (jazz.hashtable-merge protected (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access)))
                 interfaces))))
 
 
@@ -403,17 +411,24 @@
     
     (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access)))
                 ascendants))
     
+    ;; a test to evaluate performance
+    (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
+      (%%vector-set! (%%get-namespace-declaration-lookups interface-declaration) jazz.public-access private)
+      (%%vector-set! (%%get-namespace-declaration-lookups interface-declaration) jazz.protected-access private))
+    
+    #;
     (let ((public (%%get-access-lookup interface-declaration jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access)))
                 ascendants))
     
+    #;
     (let ((protected (%%get-access-lookup interface-declaration jazz.protected-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access) ignore-duplicates))
+                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access)))
                 ascendants))))
 
 

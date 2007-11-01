@@ -433,7 +433,7 @@
                       #f
                     (let ((imported-library-declaration (%%get-library-invoice-library imported-library-invoice)))
                       (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                        (jazz.hashtable-merge private imported ignore-duplicates))))))
+                        (jazz.hashtable-merge private imported))))))
               (%%get-library-declaration-imports library-declaration)))
   
   (let ((public (%%get-access-lookup library-declaration jazz.public-access)))
@@ -453,7 +453,7 @@
                                       autoload)))
                         (else
                          (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
-                           (jazz.hashtable-merge public (%%get-access-lookup exported-library-declaration jazz.public-access) ignore-duplicates))))))
+                           (jazz.hashtable-merge public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
               (%%get-library-declaration-exports library-declaration))))
 
 
@@ -2493,7 +2493,7 @@
       (let* ((dialect (jazz.load-dialect dialect-name))
              (walker (jazz.dialect-walker dialect))
              (resume #f)
-             (declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body))
+             (declaration (jazz.locate-toplevel-declaration name))
              (environment (%%cons declaration (jazz.walker-environment walker)))
              (body (jazz.walk-namespace walker resume declaration environment body)))
         (jazz.validate-walk-problems walker)

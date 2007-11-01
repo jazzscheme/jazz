@@ -8,61 +8,279 @@
 ;; ----------------------------------------------------------------------------
 ;; Profiling & interruption handling
 
-(define *buckets* #f)
+(define *buckets* '())
 (define *total* 0)
 (define *unknown* 0)
 
 (define (profile-start!)
-  (set! *buckets* '())
-  (set! *total* 0)
-  (set! *unknown* 0)
   (##interrupt-vector-set! 1 profile-heartbeat!))
 
 (define (profile-stop!)
   (##interrupt-vector-set! 1 ##thread-heartbeat!))
 
-;; (define (identify-continuation cont) ; first version
-;;   (or (##continuation-creator cont)
-;;       'unknown))
-
-(define (identify-continuation cont) ; second version
-  (let ((locat (##continuation-locat cont)))
-    (if locat
-        (let* ((container (##locat-container locat))
-               (file (##container->file container)))
-          (if file
-              (let* ((filepos (##position->filepos (##locat-position locat)))
-                     (line (##fixnum.+ (##filepos-line filepos) 1))
-                     (col (##fixnum.+ (##filepos-col filepos) 1)))
-                (list file line col))
-              'unknown))
-        'unknown)))
+;; As an improvement, we could use ##continuation-parent and ##object->global-var->identifier
+;; to identify more precisely where the code was in the ##continuation-next ... continuation
+(define (identify-continuation cont)
+  
+  (define (continuation-location cont)
+    (let ((locat (##continuation-locat cont)))
+      (if locat
+          (let ((file (##container->file (##locat-container locat))))
+            (if file
+                (let* ((filepos (##position->filepos (##locat-position locat)))
+                       (line (##filepos-line filepos))
+                       (col (##filepos-col filepos)))
+                  (list file line col))
+              #f))
+        #f)))
+  
+  (or (continuation-location cont)
+      (let ((next (##continuation-next cont)))
+        (if (##not next)
+            #f
+          (identify-continuation next)))))
 
 (define (profile-heartbeat!)
   (##continuation-capture
-   (lambda (cont)
-     (##thread-heartbeat!)
-     (let ((id (identify-continuation cont)))
-       (if (eq? id 'unknown)
-           (set! *unknown* (+ *unknown* 1))
-         (let ((bucket (assoc (car id) *buckets*)))
-           (set! *total* (+ *total* 1))
-           (if (not bucket)
-               (begin
-                 (set! *buckets* (cons 
-                                   (cons (car id) 
-                                         ;; fixme: arbitrary hard limit
-                                         ;; on the length of source
-                                         ;; files
-                                         (make-vector 50000 0)) 
-                                   *buckets*))
-                 (set! bucket (car *buckets*))))
-           
-           (vector-set! (cdr bucket)
-                        (cadr id) 
-                        (+ (vector-ref (cdr bucket) 
-                                       (cadr id))
-                           1))))))))
+    (lambda (cont)
+      (##thread-heartbeat!)
+      (let ((id (identify-continuation cont)))
+        (if (##not id)
+            (set! *unknown* (##fx+ *unknown* 1))
+          (let ((bucket (assoc (##car id) *buckets*)))
+            (set! *total* (##fx+ *total* 1))
+            (if (##not bucket)
+                (begin
+                  (set! *buckets* (##cons
+                                    (##cons (##car id)
+                                          ;; fixme: arbitrary hard limit
+                                          ;; on the length of source
+                                          ;; files
+                                          (##make-vector 50000 0))
+                                    *buckets*))
+                  (set! bucket (##car *buckets*))))
+            (vector-set! (##cdr bucket)
+                         (##cadr id)
+                         (##fx+ (vector-ref (##cdr bucket)
+                                            (##cadr id))
+                                1))))))))
+
+
+;; ----------------------------------------------------------------------------
+;; Function to generate an sexp report
+
+(define (write-sexp-profile-report profile-name)
+  (call-with-output-file profile-name
+    (lambda (port)
+      (pp
+        (cons *total*
+              (cons *unknown*
+                    (map (lambda (bucket)
+                           (let ((file (car bucket))
+                                 (data (cdr bucket)))
+                             (cons file
+                                   (let iter ((n (- (vector-length data) 1))
+                                              (lines '()))
+                                     (if (>= n 0)
+                                         (let ((count (vector-ref data n)))
+                                           (if (= count 0)
+                                               (iter (- n 1) lines)
+                                             (iter (- n 1) (cons (list n count) lines))))
+                                       lines)))))
+                         *buckets*)))
+        port))))
+
+
+;; ----------------------------------------------------------------------------
+;; Functions to generate an HTML report
+
+(define (write-html-profile-report profile-name)
+
+  (define (iota1 n)
+    (let loop ((n n)
+               (l '()))
+      (if (>= n 1)
+          (loop (- n 1) (cons n l))
+          l)))
+  
+  (define (maximum v)
+    (let ((max -1)
+          (len (##vector-length v)))
+      (let loop ((n 0))
+        (if (##fixnum.= n len)
+            max
+          (begin
+            (let ((elem (##vector-ref v n)))
+              (if (##fixnum.> elem max)
+                  (set! max elem)))
+            (loop (##fixnum.+ n 1)))))))
+  
+  (define directory-name (string-append (current-directory)
+                                        profile-name
+                                        "/"))
+  (with-exception-catcher
+   (lambda (e)
+     ;; ignore the exception, it probably means that the directory
+     ;; already existed.  If there's another problem it will be
+     ;; signaled later.
+     #f)
+   (lambda ()
+     (create-directory (list path: directory-name
+                             permissions: #o755))))
+  
+  (let ((max-intensity
+         (apply max
+                (map maximum (map cdr *buckets*)))))
+
+    (map
+     (lambda (bucket)
+       (let ((file (car bucket))
+             (data (cdr bucket)))
+       
+         (define (get-color n)
+           (let ((i (vector-ref data n)))
+             (if (= i 0)
+                 (as-rgb (vector-ref palette 0))
+                 (let ((x (* (/ (log (+ 1. i))
+                                (ceiling (log max-intensity)))
+                             (- (vector-length palette) 1))))
+                   (as-rgb (vector-ref palette
+                                       (inexact->exact (ceiling x))))))))
+
+         (with-output-to-file (string-append
+                               directory-name
+                               (path-strip-directory file)
+                               ".html")
+           (let ((lines (call-with-input-file file
+                          (lambda (p) (read-all p read-line)))))
+             (lambda ()
+               (display
+                (sexp->html
+                 `(html
+                   (body
+                    (table
+                     cellspacing: 0
+                     cellpadding: 0
+                     border: 0
+                     style: "font-size: 12px;"
+                     ,@(map
+                        (lambda (line line#)
+                          `(tr
+                            (td ,(string-append
+                                  (number->string line#)
+                                  ": "))
+                            ;; (td
+                            ;;  align: center
+                            ;;  ,(let ((n (vector-ref data line#)))
+                            ;;     (if (= n 0)
+                            ;;         ""
+                            ;;         (string-append "["
+                            ;;                        (number->string n)
+                            ;;                        "/"
+                            ;;                        (number->string *total*)
+                            ;;                        "]"))))
+                            
+                            (td
+                             align: center
+                             ,(let ((n (vector-ref data line#)))
+                                (if (= n 0)
+                                    ""
+                                    (string-append
+                                     (number->string
+                                      (round% (/ n *total*)))
+                                     "%%% "))))
+                               
+                            (td (pre style: ,(string-append
+                                              "background-color:#"
+                                              (get-color line#))
+                                     ,line))))
+                        lines
+                        (iota1 (length lines)))))))))))))
+     
+     *buckets*))
+
+  (with-output-to-file (string-append directory-name "index.html")
+    (lambda ()
+      (display
+       (sexp->html
+        `(html
+          (body
+            (p "total = " ,*total*)
+            (p "unknown = " ,*unknown*)
+           ,@(map (lambda (info)
+                    (let ((file-path (string-append
+                                      directory-name
+                                      (path-strip-directory (car info))
+                                      ".html")))
+                      `(p (a href: ,file-path ,file-path)
+                          " ["
+                          ,(cdr info)
+                          " %%%]")))
+                  (sort > (map (lambda (bucket)
+                                 (cons (car bucket)
+                                       (round% (/ (vector-sum (cdr bucket))
+                                                  *total*))))
+                               *buckets*)
+                    cdr)))))))))
+
+(define (round% n)
+  (/ (round
+      (* 10000 n))
+     100.))
+
+(define (vector-sum v)
+  (let ((sum 0)
+        (len (##vector-length v)))
+    (let loop ((n 0))
+      (if (##fixnum.= n len)
+          sum
+        (begin
+          (set! sum (##fixnum.+ sum (##vector-ref v n)))
+          (loop (##fixnum.+ n 1)))))))
+
+
+;; ----------------------------------------------------------------------------
+;; Text formatting
+
+(define (pad-left s l c)
+  (let loop ((s (string->list s)))
+    (if (< (length s) l)
+        (loop (cons c s))
+        (list->string s))))
+
+
+;; ----------------------------------------------------------------------------
+;; Palette generation & color formatting
+
+(define (gradient from to step)
+  (let ((inc (map (lambda (x) (/ x step))
+                  (map - to from))))
+    
+    (let loop ((i 0)
+               (acc '()))
+      (if (= i step)
+          (reverse acc)
+          (loop (+ i 1)
+                (cons (map
+                       (lambda (x o)
+                         (round (+ x (* i o))))
+                       from
+                       inc)
+                      acc))))))
+
+(define (as-rgb col)
+  (apply string-append
+         (map
+          (lambda (x)
+            (pad-left (number->string x 16) 2 #\0))
+          col)))
+
+(define palette
+  (list->vector
+   (cons '(255 255 255)
+         (gradient '(127 127 255)
+                   '(255 127 127)
+                   16))))
 
 
 ;; ----------------------------------------------------------------------------
@@ -95,197 +313,6 @@
   
   (sort-list seq test key))
 
-;; ----------------------------------------------------------------------------
-;; Text formatting
-
-(define (pad-left s l c)
-  (let loop ((s (string->list s)))
-    (if (< (length s) l)
-        (loop (cons c s))
-        (list->string s))))
-
-
-;; ----------------------------------------------------------------------------
-;; Palette generation & color formatting
-
-(define (gradient from to step)
-  (let ((inc (map (lambda (x) (/ x step))
-                  (map - to from))))
-    
-    (let loop ((i 0)
-               (acc '()))
-      (if (= i step) 
-          (reverse acc)
-          (loop (+ i 1)
-                (cons (map 
-                       (lambda (x o) 
-                         (round (+ x (* i o))))
-                       from
-                       inc)
-                      acc))))))
-
-(define (as-rgb col)
-  (apply string-append
-         (map
-          (lambda (x)
-            (pad-left (number->string x 16) 2 #\0))
-          col)))
-
-(define palette
-  (list->vector 
-   (cons '(255 255 255) 
-         (gradient '(127 127 255) 
-                   '(255 127 127)
-                   16))))
-
-
-;; ----------------------------------------------------------------------------
-;; Functions to generate the report
-
-(define (write-profile-report profile-name)
-
-  (define (iota1 n)
-    (let loop ((n n)
-               (l '()))
-      (if (>= n 1) 
-          (loop (- n 1) (cons n l))
-          l)))
-  
-  (define (maximum v)
-    (let ((max -1)
-          (len (##vector-length v)))
-      (let loop ((n 0))
-        (if (##fixnum.= n len)
-            max
-          (begin
-            (let ((elem (##vector-ref v n)))
-              (if (##fixnum.> elem max)
-                  (set! max elem)))
-            (loop (##fixnum.+ n 1)))))))
-  
-  (define directory-name (string-append (current-directory)
-                                        profile-name
-                                        "/"))
-  (with-exception-catcher
-   (lambda (e)
-     ;; ignore the exception, it probably means that the directory
-     ;; already existed.  If there's another problem it will be
-     ;; signaled later.
-     #f) 
-   (lambda ()
-     (create-directory (list path: directory-name
-                             permissions: #o755))))
-  
-  (let ((max-intensity 
-         (apply max
-                (map maximum (map cdr *buckets*)))))
-
-    (map 
-     (lambda (bucket)
-       (let ((file (car bucket))
-             (data (cdr bucket)))
-       
-         (define (get-color n)
-           (let ((i (vector-ref data n)))
-             (if (= i 0)
-                 (as-rgb (vector-ref palette 0))
-                 (let ((x (* (/ (log (+ 1. i))
-                                (ceiling (log max-intensity)))
-                             (- (vector-length palette) 1))))
-                   (as-rgb (vector-ref palette 
-                                       (inexact->exact (ceiling x))))))))
-
-         (with-output-to-file (string-append 
-                               directory-name
-                               (path-strip-directory file)
-                               ".html")
-           (let ((lines (call-with-input-file file 
-                          (lambda (p) (read-all p read-line)))))
-             (lambda ()
-               (display
-                (sexp->html
-                 `(html 
-                   (body
-                    (table 
-                     cellspacing: 0 
-                     cellpadding: 0
-                     border: 0
-                     style: "font-size: 12px;"
-                     ,@(map
-                        (lambda (line line#)
-                          `(tr 
-                            (td ,(string-append 
-                                  (number->string line#)
-                                  ": "))
-                            ;; (td 
-                            ;;  align: center
-                            ;;  ,(let ((n (vector-ref data line#)))
-                            ;;     (if (= n 0)
-                            ;;         ""
-                            ;;         (string-append "[" 
-                            ;;                        (number->string n)
-                            ;;                        "/"
-                            ;;                        (number->string *total*)
-                            ;;                        "]"))))
-                            
-                            (td 
-                             align: center
-                             ,(let ((n (vector-ref data line#)))
-                                (if (= n 0)
-                                    ""
-                                    (string-append
-                                     (number->string
-                                      (round% (/ n *total*)))
-                                     "%%% "))))
-                               
-                            (td (pre style: ,(string-append     
-                                              "background-color:#"
-                                              (get-color line#))
-                                     ,line))))
-                        lines
-                        (iota1 (length lines)))))))))))))
-     
-     *buckets*))
-
-  (with-output-to-file (string-append directory-name "index.html")
-    (lambda ()
-      (display
-       (sexp->html
-        `(html
-          (body
-            (p "total = " ,*total*)
-            (p "unknown = " ,*unknown*)
-           ,@(map (lambda (info)
-                    (let ((file-path (string-append 
-                                      directory-name
-                                      (path-strip-directory (car info)) 
-                                      ".html")))
-                      `(p (a href: ,file-path ,file-path)
-                          " ["
-                          ,(cdr info)
-                          " %%%]")))
-                  (sort > (map (lambda (bucket)
-                                 (cons (car bucket)
-                                       (round% (/ (vector-sum (cdr bucket))
-                                                  *total*))))
-                               *buckets*)
-                    cdr)))))))))
-
-(define (round% n)
-  (/ (round
-      (* 10000 n))
-     100.))
-
-(define (vector-sum v)
-  (let ((sum 0)
-        (len (##vector-length v)))
-    (let loop ((n 0))
-      (if (##fixnum.= n len)
-          sum
-        (begin
-          (set! sum (##fixnum.+ sum (##vector-ref v n)))
-          (loop (##fixnum.+ n 1)))))))
-
 
 ;; ----------------------------------------------------------------------------
 ;; Included file "html.scm"
@@ -303,14 +330,14 @@
       (display x))))
 
 (define (to-escaped-string x)
-  (stringify 
+  (stringify
    (map (lambda (c)
           (case c
             ((#\<) "&lt;")
             ((#\>) "&gt;")
             ((#\&) "&amp;")
             (else c)))
-        (string->list 
+        (string->list
          (stringify x)))))
 
 ;; Quick and dirty conversion of s-expressions to html
@@ -320,15 +347,15 @@
   (define (open-tag exp)
     (cond
      ;; null tag isn't valid
-     ((null? exp) 
+     ((null? exp)
       (error "null tag"))
      
      ;; a tag must be a list beginning with a symbol
      ((and (pair? exp)
            (symbol? (car exp)))
-      (list "<" 
+      (list "<"
             (car exp)
-            " " 
+            " "
             (maybe-args (car exp) (cdr exp))))
      
      (else

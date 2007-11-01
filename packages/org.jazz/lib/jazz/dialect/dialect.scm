@@ -100,7 +100,7 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) source-declaration environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
-    jazz.Any))
+    (%%get-lexical-binding-type declaration)))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Definition-Declaration declaration))
@@ -1000,7 +1000,7 @@
       (jazz.simplify-begin
         `(begin
            ,@(parameterize ((jazz.*self* (jazz.new-code 'self declaration)))
-               (jazz.codes-forms (jazz.emit-expressions body declaration environment)))))
+               (%%get-code-form (jazz.emit-expression body declaration environment)))))
       jazz.Any)))
 
 
@@ -1781,7 +1781,8 @@
 (define (jazz.walk-with-self walker resume declaration environment form)
   (let ((new-environment (%%cons (jazz.new-self-binding #f) environment)))
     (jazz.new-with-self
-      (jazz.walk-list walker resume declaration new-environment (%%cdr form)))))
+      (let ((body (%%cdr form)))
+        (jazz.walk-body walker resume declaration new-environment body)))))
 
 
 ;;;

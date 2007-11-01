@@ -102,15 +102,6 @@
 ;;;
 
 
-(define jazz.statprof-loaded?
-  #f)
-
-
-(define profile-start! #f) (set! profile-start! #f)
-(define profile-stop! #f) (set! profile-stop! #f)
-(define write-profile-report #f) (set! write-profile-report #f)
-
-
 (define (jazz.load-statprof)
   (if (not jazz.statprof-loaded?)
       (begin
@@ -130,15 +121,17 @@
 
 (define jazz.report-statprof
   (let ((n 0))
-    (lambda ()
+    (lambda (#!optional (name #f))
       (jazz.load-statprof)
       (let ((port (open-output-string)))
-        (display "STATPROF_REPORT_" port)
+        (display (or name "report") port)
+        (display "_" port)
         (display n port)
+        (display ".spr" port)
         (set! n (+ n 1))
-        (let ((name (get-output-string port)))
-          (write-profile-report name)
-          name)))))
+        (let ((filename (get-output-string port)))
+          (write-sexp-profile-report filename)
+          filename)))))
 
 
 ;;;

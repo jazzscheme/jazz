@@ -649,18 +649,46 @@
 ;;;
 
 
-(define (lsp)
-  (load "contrib/statprof/statprof"))
+;; this is not correct but it is for now the only way to share
+;; usage of statprof between the scheme code and the jazz code
+
+
+(define jazz.statprof-loaded?
+  #f)
+
+
+(define profile-start! #f) (set! profile-start! #f)
+(define profile-stop! #f) (set! profile-stop! #f)
+(define write-profile-report #f) (set! write-profile-report #f)
+
+
+(define (spl)
+  (if (not jazz.statprof-loaded?)
+      (begin
+        (load "../../contrib/statprof/statprof")
+        (set! jazz.statprof-loaded? #t))))
 
 
 (define (spb)
+  (spl)
   (profile-start!))
 
 (define (spe)
+  (spl)
   (profile-stop!))
 
-(define (spw name)
-  (write-profile-report name))
+(define (spp flag thunk)
+  (if (not flag)
+      (thunk)
+    (dynamic-wind
+      spb
+      thunk
+      spe)))
+
+(define (spw . rest)
+  (let ((name (if (null? rest) "report.spr" (car rest))))
+    (spl)
+    (write-sexp-profile-report name)))
 
 
 ;;;

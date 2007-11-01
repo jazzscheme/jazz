@@ -233,8 +233,8 @@
 (native char-whitespace? <char:bool>)
 (native char-upper-case? <char:bool>)
 (native char-lower-case? <char:bool>)
-(native char->integer <char:int>)
-(native integer->char <int:char>)
+(native char->integer <char:fx>)
+(native integer->char <fx:char>)
 (native char-upcase <char:char>)
 (native char-downcase <char:char>)
 

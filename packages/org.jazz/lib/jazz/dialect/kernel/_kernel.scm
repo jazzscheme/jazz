@@ -311,6 +311,7 @@
 
 
 (native open-input-string)
+(native call-with-input-string)
 
 
 ;;;
@@ -325,6 +326,7 @@
 (native jazz.->string)
 (native open-output-string)
 (native get-output-string)
+(native call-with-output-string)
 
 
 ;;;
@@ -344,6 +346,7 @@
 ;;;
 
 
+(native port?)
 (native jazz.close-port)
 
 

@@ -43,17 +43,6 @@
   #f)
 
 
-(define (ll file)
-  (let ((input (open-input-file file)))
-    (let iter ((lines '()))
-      (let ((line (read-line input)))
-        (if (eof-object? line)
-            (begin
-              (close-port input)
-              lines)
-          (iter (cons line lines)))))))
-
-
 ;;;
 ;;;; Test
 ;;;
@@ -412,18 +401,20 @@
   (lj)
   (let* ((file (jazz.determine-module-filename module-name))
          (jazz (jazz.determine-module-source file))
-         (jscmfile (string-append file ".jscm"))
-         (jscm (string-append "_obj/" jscmfile))
+         (jscm (string-append file ".jscm"))
+         (jscmfile (string-append "_obj/" jscm))
+         (jscmdir (jazz.split-filename jscmfile (lambda (dir name) dir)))
          (bin (jazz.determine-module-binary file))
          (jazztime (time->seconds (file-last-modification-time jazz)))
-         (jscmtime (and (file-exists? jscm) (time->seconds (file-last-modification-time jscm))))
+         (jscmtime (and (file-exists? jscmfile) (time->seconds (file-last-modification-time jscmfile))))
          (bintime (and bin (file-exists? bin) (time->seconds (file-last-modification-time bin)))))
     (if (or (not jscmtime) (> jazztime jscmtime)
             (not bintime) (> jscmtime bintime))
         (begin
-          (expand-to-file module-name jscm)
+          (jazz.create-directories jscmdir)
+          (expand-to-file module-name jscmfile)
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename-with-flags jscmfile source: jscm))))))
+            (jazz.compile-filename-with-flags jscm source: jscmfile))))))
 
 
 (define Lang

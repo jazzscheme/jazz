@@ -41,9 +41,6 @@
 (cond-expand
   (gambit
     (define (jazz.open-tcp-client host port)
-      (open-tcp-client (list server-address: host port-number: port)))
-    
-    (define (jazz.close-port port)
-      (close-port port)))
+      (open-tcp-client (list server-address: host port-number: port))))
   
   (else)))

@@ -984,7 +984,12 @@
   
   
   (method (initialize . rest)
-    (native-class "ports")))
+    (native-class "ports"))
+  
+  
+  (method (destroy)
+    (close-port self)
+    (nextmethod)))
 
 
 ;;;
@@ -3476,16 +3481,17 @@
 
 
 (definition public (load-hashtable hashtable file error-on-duplicates?)
-  (with-closed ((reader (new File-Reader file)))
-    (let (iterate)
-      (let ((name (read reader))
-            (object (read reader)))
-        (when (and (not (eof-object? name))
-                   (not (eof-object? object)))
-          (if (and error-on-duplicates? (hashtable-ref hashtable name #f))
-              (error "Duplicated hashtable entries for {t}" name)
-            (hashtable-set! hashtable name object))
-          (iterate))))))
+  (call-with-input-file file
+    (lambda (reader)
+      (let (iterate)
+        (let ((name (read reader))
+              (object (read reader)))
+          (when (and (not (eof-object? name))
+                     (not (eof-object? object)))
+            (if (and error-on-duplicates? (hashtable-ref hashtable name #f))
+                (error "Duplicated hashtable entries for {t}" name)
+              (hashtable-set! hashtable name object))
+            (iterate)))))))
 
 
 ;;;
@@ -3689,14 +3695,27 @@
 
 
 ;;;
+;;;; I/O
+;;;
+
+
+(definition inline (parse-file file)
+  (if (string? file)
+      file
+    (parse~ file)))
+
+
+;;;
 ;;;; Input
 ;;;
 
 
-(definition (input-port obj)
-  (if (is? obj Reader)
-      (get-port~ obj)
-    obj))
+(definition (open-input-file file)
+  (scheme.open-input-file (parse-file file)))
+
+
+(definition (call-with-input-file file proc)
+  (scheme.call-with-input-file (parse-file file) proc))
 
 
 ;;;
@@ -3710,6 +3729,14 @@
     (if (is? obj Printer)
         (get-port~ obj)
       obj)))
+
+
+(definition (open-output-file file)
+  (scheme.open-output-file (parse-file file)))
+
+
+(definition (call-with-output-file file proc)
+  (scheme.call-with-output-file (parse-file file) proc))
 
 
 (definition public (print-unreadable object output proc)
@@ -3854,27 +3881,6 @@
 ;;;
 
 
-(class Reader extends Object
-  
-  
-  (slot port getter generate))
-
-
-(definition public (read . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.read (input-port port))))
-
-
-(definition public (read-char . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.read-char (input-port port))))
-
-
-(definition public (peek-char . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.peek-char (input-port port))))
-
-
 (definition public (read-until test reader)
   (let ((queue (new-queue)))
     (let (iterate)
@@ -3886,25 +3892,27 @@
 
 
 (definition public (read-string-element string)
-  (with-closed ((reader (new String-Reader string)))
-    (read reader)))
+  (call-with-input-string string
+    read))
 
 
 (definition public (read-string-content string)
-  (with-closed ((reader (new String-Reader string)))
-    (read-until eof-object? reader)))
+  (call-with-input-string string
+    (lambda (reader)
+      (read-until eof-object? reader))))
 
 
 (definition public (read-delimited-string string char)
-  (with-closed ((reader (new String-Reader string)))
-    (let ((fact (new List-Factory)))
-      (let (iterate)
-        (let ((lst (read-delimited reader "delimited" char #t)))
-          (put~ fact lst)
-          (skip-whites reader)
-          (if (eof-object? (peek-char reader))
-              (get-output~ fact)
-            (iterate)))))))
+  (call-with-input-string string
+    (lambda (reader)
+      (let ((fact (new List-Factory)))
+        (let (iterate)
+          (let ((lst (read-delimited reader "delimited" char #t)))
+            (put~ fact lst)
+            (skip-whites reader)
+            (if (eof-object? (peek-char reader))
+                (get-output~ fact)
+              (iterate))))))))
 
 
 (definition public (parse-integer string)
@@ -4056,10 +4064,9 @@
 
 
 (definition (read-lines reader)
-  (let ((queue (new-queue))
-        (port (input-port reader)))
+  (let ((queue (new-queue)))
     (let (iterate)
-      (let ((line (gambit-read-line port)))
+      (let ((line (gambit-read-line reader)))
         (if (eof-object? line)
             (queue-list queue)
           (enqueue queue line)
@@ -4084,42 +4091,6 @@
 ;; (definition (get-encoding Object))
 ;; (definition (reader-file-mark                        Object))
 ;; (definition (set-reader-file-mark                    Object Object))
-
-
-;;;
-;;;; String-Reader
-;;;
-
-
-(class String-Reader extends Reader
-  
-  
-  (method (initialize str)
-    (nextmethod)
-    (set! port (open-input-string str)))
-  
-  
-  (method (destroy)
-    (close-input-port port)
-    (nextmethod)))
-
-
-;;;
-;;;; File-Reader
-;;;
-
-
-(class File-Reader extends Reader
-  
-  
-  (method (initialize file)
-    (nextmethod)
-    (set! port (open-input-file (parse~ file))))
-  
-  
-  (method (destroy)
-    (close-input-port port)
-    (nextmethod)))
 
 
 ;;;
@@ -4844,7 +4815,7 @@
   
   (slot out                <Printer>)
   (slot control-string     <string>)
-  (slot control-reader     <String-Reader>)
+  (slot control-reader     <port>)
   (slot arguments          <list>)
   (slot arguments-iterator <List-Iterator>)
   (slot formatter)
@@ -4853,7 +4824,7 @@
   (method (initialize control-string arguments)
     (nextmethod)
     (set! control-string~self control-string)
-    (set! control-reader~self (new String-Reader control-string))
+    (set! control-reader~self (open-input-string control-string))
     (set! arguments~self arguments)
     (set! arguments-iterator~self (new List-Iterator arguments))
     (set! formatter~self {}))
@@ -4962,7 +4933,7 @@
   
   
   (method (process-conditional reader explicit?)
-    (let ((subreader (new String-Reader (read-control-string reader)))
+    (let ((subreader (open-input-string (read-control-string reader)))
           (output? (or (and explicit? (next-argument)) (and (not explicit?) (peek-argument)))))
       (process subreader output?)))
   
@@ -5246,16 +5217,15 @@
 ;;;
 
 
+@to-convert
 (class Formatting extends Reader
   
   
   (method public (read-string)
-    @to-convert
     (formatting-read-string self))
   
   
   (method public (read-parameters)
-    @to-convert
     (formatting-read-parameters self)))
 
 

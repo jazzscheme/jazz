@@ -446,13 +446,14 @@
   
   
   (method public (open-snapshot file . rest)
-    (with-closed ((reader (new File-Reader file)))
-      (let* ((snapshot (read reader))
-             (crash-file? (ci= (get-extension~ file) "crash"))
-             (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
-        (unless (or (not crash-file?) (exists?~ executable))
-          (error "Unable to locate snapshot executable: {t}" executable))
-        (add-snapshot snapshot file executable))))
+    (call-with-input-file file
+      (lambda (reader)
+        (let* ((snapshot (read reader))
+               (crash-file? (ci= (get-extension~ file) "crash"))
+               (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
+          (unless (or (not crash-file?) (exists?~ executable))
+            (error "Unable to locate snapshot executable: {t}" executable))
+          (add-snapshot snapshot file executable)))))
   
   
   (method public (add-snapshot snapshot file executable)

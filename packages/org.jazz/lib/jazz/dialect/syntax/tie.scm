@@ -55,18 +55,19 @@
   
   
   (method meta (tie-string objects)
-    (with-closed ((control (new String-Reader (apply append objects))))
-      (let ((out (new String-Printer))
-            (out-parameters (new List-Factory)))
-        (let (iterate)
-          (let ((c (read-char control)))
-            (when (not (eof-object? c))
-              (case c
-                ((#\~) (put (read-char control) out))
-                ((#\{) (process-string control out out-parameters))
-                (else (put c out)))
-              (iterate))))
-        (cons 'format (cons :string (cons (get-output~ out) (get-output~ out-parameters)))))))
+    (call-with-input-string (apply append objects)
+      (lambda (control)
+        (let ((out (new String-Printer))
+              (out-parameters (new List-Factory)))
+          (let (iterate)
+            (let ((c (read-char control)))
+              (when (not (eof-object? c))
+                    (case c
+                      ((#\~) (put (read-char control) out))
+                      ((#\{) (process-string control out out-parameters))
+                      (else (put c out)))
+                    (iterate))))
+          (cons 'format (cons :string (cons (get-output~ out) (get-output~ out-parameters))))))))
   
   
   (method meta (process-string control out out-parameters)

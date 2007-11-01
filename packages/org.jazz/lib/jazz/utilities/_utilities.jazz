@@ -613,14 +613,14 @@
 
 (definition (extract-jazz-file-toplevel file)
   (unimplemented 'extract-jazz-file-toplevel)
-  @Read-Error
-  (with-closed ((reader (new File-Reader file)))
-    (catch (Read-Error err
-                       {})
-      (let ((in/toplevel (read reader)))
-        (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
-            (values in/toplevel (read reader))
-          (values {} in/toplevel))))))
+  @convert
+  (call-with-input-file file
+    (lambda (reader)
+      (catch (Read-Error err {})
+        (let ((in/toplevel (read reader)))
+          (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
+              (values in/toplevel (read reader))
+            (values {} in/toplevel)))))))
 
 
 (definition (extract-package in)
@@ -1925,17 +1925,18 @@
 
 
 (definition public (read-tab-delimited file)
-  (with-closed ((reader (new File-Reader file)))
-    (let ((tab (coerce (list #\tab) String))
-          (fact (new List-Factory))
-          (done? #f))
-      (while (not done?)
-        (let ((line (read-line reader)))
-          (if (not line)
-              (set! done? #t)
-            (let ((values (split line tab)))
-              (put~ fact (map patch-for-excel values))))))
-      (get-output~ fact))))
+  (call-with-input-file file
+    (lambda (reader)
+      (let ((tab (coerce (list #\tab) String))
+            (fact (new List-Factory))
+            (done? #f))
+        (while (not done?)
+          (let ((line (read-line reader)))
+            (if (not line)
+                (set! done? #t)
+              (let ((values (split line tab)))
+                (put~ fact (map patch-for-excel values))))))
+        (get-output~ fact)))))
 
 
 (definition (patch-for-excel line)
@@ -2221,19 +2222,23 @@
 
 
 (definition (different-file-content? file1 file2)
-  (with-closed ((input1 (new File-Reader file1))
-                (input2 (new File-Reader file2)))
-    (or (/= (get-size~ input1)
-            (get-size~ input2))
-        (/= (read-content-string input1)
-            (read-content-string input2)))))
+  (call-with-input-file file1
+    (lambda (input1)
+      (call-with-input-file file2
+        (lambda (input2)
+          (or (/= (get-size~ input1)
+                  (get-size~ input2))
+              (/= (read-content-string input1)
+                  (read-content-string input2))))))))
 
 
 (definition (different-file-content-no-whitespace? file1 file2)
-  (with-closed ((input1 (new File-Reader file1))
-                (input2 (new File-Reader file2)))
-    (not (wi= (read-content-string input1)
-              (read-content-string input2)))))
+  (call-with-input-file file1
+    (lambda (input1)
+      (call-with-input-file file2
+        (lambda (input2)
+          (not (wi= (read-content-string input1)
+                    (read-content-string input2))))))))
 
 
 (definition public (present-hour/minutes hour minutes)

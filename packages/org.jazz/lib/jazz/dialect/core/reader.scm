@@ -102,9 +102,7 @@
         ("close-brace"          . #\x7D)
         ("tilde"                . #\x7E)
         ("delete"               . #\x7F)
-        ("copyright"            . #\xA9)
-        ;; quick fix to be rethought
-        ("eof"                  . #\xFF)))
+        ("copyright"            . #\xA9)))
     
     
     (define jazz.in-expression-comment? (make-parameter #f))

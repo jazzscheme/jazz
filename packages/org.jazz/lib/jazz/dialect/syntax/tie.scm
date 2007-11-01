@@ -60,7 +60,7 @@
             (out-parameters (new List-Factory)))
         (let (iterate)
           (let ((c (read-char control)))
-            (when (neq? c #\eof)
+            (when (not (eof-object? c))
               (case c
                 ((#\~) (put (read-char control) out))
                 ((#\{) (process-string control out out-parameters))

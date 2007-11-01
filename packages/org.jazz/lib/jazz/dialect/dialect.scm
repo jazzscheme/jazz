@@ -925,10 +925,11 @@
 
 (define (jazz.emit-specialized-new class arguments environment)
   (jazz.new-code
-    ;; quick try
-    (if (%%null? arguments)
-        `(jazz.new0 ,(%%get-code-form class))
-      `(jazz.new ,(%%get-code-form class) ,@(jazz.codes-forms arguments)))
+    (case (%%length arguments)
+      ((0) `(jazz.new0 ,(%%get-code-form class)))
+      ((1) `(jazz.new1 ,(%%get-code-form class) ,@(jazz.codes-forms arguments)))
+      ((2) `(jazz.new2 ,(%%get-code-form class) ,@(jazz.codes-forms arguments)))
+      (else `(jazz.new ,(%%get-code-form class) ,@(jazz.codes-forms arguments))))
     (%%get-code-type class)))
 
 

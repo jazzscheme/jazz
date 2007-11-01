@@ -558,7 +558,7 @@
     (%%when ascendant
       (%%set-category-descendants ascendant (%%cons class (%%get-category-descendants ascendant))))
     (jazz.create-class-tables class)
-    (jazz.initialize-object class '())
+    ((%%class-dispatch class 0 0) class)
     class))
 
 
@@ -637,12 +637,10 @@
     (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
-      ;; todo optimize initialize call and at the same time enable Object.initialize to take variable arguments
-      (jazz.initialize-object object rest)
+      (apply (%%class-dispatch object 0 0) object rest)
       object)))
 
 
-;; a quick try that should evolve into a %%new macro
 (define (jazz.new0 class)
   (%%assert (%%class? class)
     (let ((object (%%make-object (%%get-class-instance-size class))))
@@ -652,9 +650,22 @@
       object)))
 
 
-;; the rank of initialize is known to be 0 as it is the first method of Object
-(define (jazz.initialize-object object rest)
-  (apply (%%class-dispatch object 0 0) object rest))
+(define (jazz.new1 class arg1)
+  (%%assert (%%class? class)
+    (let ((object (%%make-object (%%get-class-instance-size class))))
+      (%%set-object-class object class)
+      (jazz.initialize-slots object)
+      ((%%class-dispatch object 0 0) object arg1)
+      object)))
+
+
+(define (jazz.new2 class arg1 arg2)
+  (%%assert (%%class? class)
+    (let ((object (%%make-object (%%get-class-instance-size class))))
+      (%%set-object-class object class)
+      (jazz.initialize-slots object)
+      ((%%class-dispatch object 0 0) object arg1 arg2)
+      object)))
 
 
 (define (jazz.iterate-descendants-tree class proc)

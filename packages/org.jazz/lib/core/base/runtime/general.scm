@@ -254,17 +254,4 @@
     (%%while (%%fx< n to)
       (set! lst (%%cons n lst))
       (set! n (%%fx+ n 1)))
-    (jazz.reverse! lst)))
-
-
-;;;
-;;;; Hashtable
-;;;
-
-
-;; no support for duplicates special case needed
-(define (jazz.hashtable-merge into from)
-  (%%iterate-hashtable from
-    (lambda (key value)
-      (if (%%not (%%hashtable-ref into key #f))
-          (%%hashtable-set! into key value))))))
+    (jazz.reverse! lst))))

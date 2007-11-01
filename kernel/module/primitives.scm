@@ -317,6 +317,9 @@
     (define-macro (%%iterate-hashtable hashtable proc)
       `(table-for-each ,proc ,hashtable))
     
+    (define-macro (%%hashtable-merge! into from)
+      `(##table-merge! ,into ,from))
+    
     (define-macro (%%alist->hashtable alist test)
       `(list->table ,alist test: ,test))
     

@@ -253,9 +253,9 @@
     
     (let ((private (%%get-access-lookup class-declaration jazz.private-access)))
       (if ascendant
-          (jazz.hashtable-merge private (%%get-access-lookup ascendant jazz.public-access)))
+          (%%hashtable-merge! private (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! private (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
     ;; a test to evaluate performance
@@ -266,17 +266,17 @@
     #;
     (let ((public (%%get-access-lookup class-declaration jazz.public-access)))
       (if ascendant
-          (jazz.hashtable-merge public (%%get-access-lookup ascendant jazz.public-access)))
+          (%%hashtable-merge! public (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! public (%%get-access-lookup interface jazz.public-access)))
                 interfaces))
     
     #;
     (let ((protected (%%get-access-lookup class-declaration jazz.protected-access)))
       (if ascendant
-          (jazz.hashtable-merge protected (%%get-access-lookup ascendant jazz.public-access)))
+          (%%hashtable-merge! protected (%%get-access-lookup ascendant jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! protected (%%get-access-lookup interface jazz.public-access)))
                 interfaces))))
 
 
@@ -405,7 +405,7 @@
     
     (let ((private (%%get-access-lookup interface-declaration jazz.private-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge private (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! private (%%get-access-lookup interface jazz.public-access)))
                 ascendants))
     
     ;; a test to evaluate performance
@@ -416,13 +416,13 @@
     #;
     (let ((public (%%get-access-lookup interface-declaration jazz.public-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge public (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! public (%%get-access-lookup interface jazz.public-access)))
                 ascendants))
     
     #;
     (let ((protected (%%get-access-lookup interface-declaration jazz.protected-access)))
       (for-each (lambda (interface)
-                  (jazz.hashtable-merge protected (%%get-access-lookup interface jazz.public-access)))
+                  (%%hashtable-merge! protected (%%get-access-lookup interface jazz.public-access)))
                 ascendants))))
 
 

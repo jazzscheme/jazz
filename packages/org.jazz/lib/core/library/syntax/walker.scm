@@ -431,7 +431,7 @@
                       #f
                     (let ((imported-library-declaration (%%get-library-invoice-library imported-library-invoice)))
                       (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                        (jazz.hashtable-merge private imported))))))
+                        (%%hashtable-merge! private imported))))))
               (%%get-library-declaration-imports library-declaration)))
   
   (let ((public (%%get-access-lookup library-declaration jazz.public-access)))
@@ -451,7 +451,7 @@
                                       autoload)))
                         (else
                          (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
-                           (jazz.hashtable-merge public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
+                           (%%hashtable-merge! public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
               (%%get-library-declaration-exports library-declaration))))
 
 

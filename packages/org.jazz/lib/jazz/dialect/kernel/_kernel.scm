@@ -392,6 +392,7 @@
 (native jazz.read-module-declaration)
 (native jazz.expand-toplevel-form)
 (native jazz.get-object-slot)
+(native jazz.set-object-slot)
 (native jazz.update-dispatch-table)
 (native jazz.dispatch)
 

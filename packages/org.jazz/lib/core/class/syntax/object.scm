@@ -128,13 +128,9 @@
      `(%%vector-set! ,vector ,n ,value))))
 
 
-(jazz.define-macro (%%slot-offset slot-rank)
-  `(%%fx+ jazz.object-size ,slot-rank))
+(jazz.define-macro (%%get-object-slot object slot-offset)
+  `(%%object-ref ,object ,slot-offset))
 
 
-(jazz.define-macro (%%get-object-slot object slot-rank)
-  `(%%object-ref ,object (%%slot-offset ,slot-rank)))
-
-
-(jazz.define-macro (%%set-object-slot object slot-rank value)
-  `(%%object-set! ,object (%%slot-offset ,slot-rank) ,value)))
+(jazz.define-macro (%%set-object-slot object slot-offset value)
+  `(%%object-set! ,object ,slot-offset ,value)))

@@ -380,12 +380,12 @@
   ())
 
 
-(define (jazz.get-object-slot object slot-rank)
-  (%%get-object-slot object slot-rank))
+(define (jazz.get-object-slot object slot-offset)
+  (%%get-object-slot object slot-offset))
 
 
-(define (jazz.set-object-slot object slot-rank value)
-  (%%set-object-slot object slot-rank value))
+(define (jazz.set-object-slot object slot-offset value)
+  (%%set-object-slot object slot-offset value))
 
 
 (define (jazz.classname->string class)
@@ -1566,12 +1566,12 @@
 
 
 (jazz.define-class jazz.Slot jazz.Field (name) jazz.Object-Class
-  (rank
+  (offset
    initialize))
 
 
-(define (jazz.new-slot slot-name slot-rank slot-initialize)
-  (jazz.allocate-slot jazz.Slot slot-name slot-rank slot-initialize))
+(define (jazz.new-slot slot-name slot-offset slot-initialize)
+  (jazz.allocate-slot jazz.Slot slot-name slot-offset slot-initialize))
 
 
 (define (jazz.slot? object)
@@ -1582,8 +1582,8 @@
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
       (let* ((instance-size (%%get-class-instance-size class))
-             (slot-rank (%%fx- instance-size 1))
-             (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
+             (slot-offset instance-size)
+             (slot (jazz.new-slot slot-name slot-offset slot-initialize)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
         (%%set-class-instance-size class (%%fx+ instance-size 1))
@@ -1599,27 +1599,27 @@
 (define (jazz.slot-value object slot-name)
   (%%assert (%%object? object)
     (let ((slot (jazz.require-object-field object slot-name)))
-      (%%get-object-slot object (%%get-slot-rank slot)))))
+      (%%get-object-slot object (%%get-slot-offset slot)))))
 
 
 (define (jazz.set-slot-value object slot-name value)
   (%%assert (%%object? object)
     (let ((slot (jazz.require-object-field object slot-name)))
-      (%%set-object-slot object (%%get-slot-rank slot) value))))
+      (%%set-object-slot object (%%get-slot-offset slot) value))))
 
 
 (define (jazz.find-slot-offset object slot-name)
   (let ((slot (jazz.require-object-field object slot-name)))
-    (%%slot-offset (%%get-slot-rank slot))))
+    (%%get-slot-offset slot)))
 
 
 (define (jazz.initialize-slots object)
   (let* ((class (%%get-object-class object))
          (slots (%%get-class-slots class)))
     (for-each (lambda (slot)
-                (let ((rank (%%get-slot-rank slot))
+                (let ((offset (%%get-slot-offset slot))
                       (initialize (%%get-slot-initialize slot)))
-                  (%%set-object-slot object rank (initialize object))))
+                  (%%set-object-slot object offset (initialize object))))
               slots)))
 
 
@@ -1631,13 +1631,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Property jazz.Slot (name rank initialize) jazz.Object-Class
+(jazz.define-class jazz.Property jazz.Slot (name offset initialize) jazz.Object-Class
   (getter
    setter))
 
 
-(define (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)
-  (jazz.allocate-property jazz.Property slot-name slot-rank slot-initialize slot-getter slot-setter))
+(define (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)
+  (jazz.allocate-property jazz.Property slot-name slot-offset slot-initialize slot-getter slot-setter))
 
 
 (define (jazz.property? object)
@@ -1663,8 +1663,8 @@
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
       (let* ((instance-size (%%get-class-instance-size class))
-             (slot-rank (%%fx- instance-size 1))
-             (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
+             (slot-offset instance-size)
+             (slot (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
         (%%set-class-instance-size class (%%fx+ instance-size 1))
@@ -1894,7 +1894,7 @@
 
 
 (define (jazz.call-into-abstract . rest)
-  (error "cannot call abstract nextmethod"))
+  (error "Cannot call an abstract method"))
 
 
 (jazz.encapsulate-class jazz.Method-Node)

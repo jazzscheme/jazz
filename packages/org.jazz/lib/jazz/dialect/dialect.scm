@@ -500,7 +500,7 @@
        (define ,slot-locator
          (jazz.add-slot ,class-locator ',name ,initialize-locator))
        (define ,offset-locator
-         (%%slot-offset (%%get-slot-rank ,slot-locator))))))
+         (%%get-slot-offset ,slot-locator)))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Slot-Declaration declaration) source-declaration environment)
@@ -565,7 +565,7 @@
            ,(%%get-code-form (jazz.emit-expression getter declaration environment))
            ,(%%get-code-form (jazz.emit-expression setter declaration environment))))
        (define ,offset-locator
-         (%%slot-offset (%%get-slot-rank ,slot-locator))))))
+         (%%get-slot-offset ,slot-locator)))))
 
 
 (jazz.encapsulate-class jazz.Property-Declaration)

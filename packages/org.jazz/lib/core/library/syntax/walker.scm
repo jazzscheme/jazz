@@ -2491,7 +2491,12 @@
       (let* ((dialect (jazz.load-dialect dialect-name))
              (walker (jazz.dialect-walker dialect))
              (resume #f)
-             (declaration (jazz.locate-toplevel-declaration name))
+             (declaration (or (jazz.get-catalog-entry name)
+                              (jazz.call-with-validate-circularity name
+                                (lambda ()
+                                  (let ((declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body)))
+                                    (jazz.set-catalog-entry name declaration)
+                                    declaration)))))
              (environment (%%cons declaration (jazz.walker-environment walker)))
              (body (jazz.walk-namespace walker resume declaration environment body)))
         (jazz.validate-walk-problems walker)

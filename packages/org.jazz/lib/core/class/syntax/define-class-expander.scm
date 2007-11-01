@@ -58,7 +58,7 @@
          (all-slot-names (%%append inherited-slot-names slot-names))
          (all-variables (map (lambda (slot-name) (jazz.generate-symbol (%%symbol->string slot-name))) all-slot-names))
          (all-length (%%length all-slot-names))
-         (instance-size all-length)
+         (instance-size (%%fx+ jazz.object-size all-length))
          (vector-size (%%fx+ jazz.object-size instance-size)))
     (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)))
 

@@ -128,7 +128,7 @@
          (class (%%car (%%get-specific-signature specific))))
     (jazz.iterate-descendants-tree class
       (lambda (subclass)
-        (%%when (and (jazz.class? subclass)
+        (%%when (and (%%class? subclass)
                      (jazz.class-dispatch-safe subclass name))
           (%%hashtable-set! (%%get-class-dispatch-table subclass) name #f))))))
 

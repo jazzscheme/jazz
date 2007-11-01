@@ -185,7 +185,7 @@
 (define (jazz.update-dispatch-table class name value)
   (jazz.iterate-descendants-tree class
     (lambda (subclass)
-      (%%when (jazz.class? subclass)
+      (%%when (%%class? subclass)
         (%%when (%%not (%%get-class-dispatch-table subclass))
           (%%set-class-dispatch-table subclass (%%make-hashtable eq?)))
         (let ((dispatch-table (%%get-class-dispatch-table subclass)))
@@ -545,7 +545,7 @@
                 ascendant
                 interfaces
                 (if ascendant (%%get-class-slots ascendant) '())
-                (if ascendant (%%get-class-instance-size ascendant) 0)
+                (if ascendant (%%get-class-instance-size ascendant) jazz.object-size)
                 (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
                 (if ascendant (jazz.copy-dispatch-table ascendant) #f)
                 #f
@@ -565,7 +565,7 @@
 (define (jazz.compute-class-ancestors class ascendant interfaces)
   (let ((ancestors '()))
     (let add-interfaces ((category class))
-      (cond ((jazz.class? category)
+      (cond ((%%class? category)
              (let ((ascendant (%%get-class-ascendant category)))
                (%%when ascendant
                  (add-interfaces ascendant)))
@@ -633,10 +633,8 @@
 
 
 (define (jazz.new class . rest)
-  (%%assert (jazz.class? class)
-    (let* ((base jazz.object-size)
-           (size (%%get-class-instance-size class))
-           (object (%%make-object (%%fx+ base size))))
+  (%%assert (%%class? class)
+    (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
       ;; todo optimize initialize call and at the same time enable Object.initialize to take variable arguments
@@ -646,10 +644,8 @@
 
 ;; a quick try that should evolve into a %%new macro
 (define (jazz.new0 class)
-  (%%assert (jazz.class? class)
-    (let* ((base jazz.object-size)
-           (size (%%get-class-instance-size class))
-           (object (%%make-object (%%fx+ base size))))
+  (%%assert (%%class? class)
+    (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
       ((%%class-dispatch object 0 0) object)
@@ -1574,11 +1570,12 @@
 (define (jazz.add-slot class slot-name slot-initialize)
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
-      (let* ((slot-rank (%%get-class-instance-size class))
+      (let* ((instance-size (%%get-class-instance-size class))
+             (slot-rank (%%fx- instance-size 1))
              (slot (jazz.new-slot slot-name slot-rank slot-initialize)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-size class (%%fx+ slot-rank 1))
+        (%%set-class-instance-size class (%%fx+ instance-size 1))
         slot)))
 
 
@@ -1654,11 +1651,12 @@
 (define (jazz.add-property class slot-name slot-initialize slot-getter slot-setter)
   ;; this is a quicky that needs to be well tought out
   (or (%%get-category-field class slot-name)
-      (let* ((slot-rank (%%get-class-instance-size class))
+      (let* ((instance-size (%%get-class-instance-size class))
+             (slot-rank (%%fx- instance-size 1))
              (slot (jazz.new-property slot-name slot-rank slot-initialize slot-getter slot-setter)))
         (jazz.add-field class slot)
         (%%set-class-slots class (%%append (%%get-class-slots class) (%%list slot)))
-        (%%set-class-instance-size class (%%fx+ slot-rank 1))
+        (%%set-class-instance-size class (%%fx+ instance-size 1))
         slot)))
 
 

@@ -166,4 +166,13 @@
   
   (let ((tree-symbol (jazz.generate-symbol "tree")))
     `(let ((,tree-symbol ,tree))
-       ,@(expand-car bindings tree-symbol body)))))
+       ,@(expand-car bindings tree-symbol body))))
+
+
+;;;
+;;;; Compose
+;;;
+
+
+(jazz.define-macro (%%compose-name s1 s2)
+  `(%%string->symbol (%%string-append (%%symbol->string ,s1) "." (%%symbol->string ,s2)))))

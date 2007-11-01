@@ -477,7 +477,12 @@
     (define-macro (%%real? obj)
       (if jazz.debug-core?
           `(real? ,obj)
-        `(##real? ,obj))))
+        `(##real? ,obj)))
+    
+    (define-macro (%%number->string n)
+      (if jazz.debug-core?
+          `(number->string ,n)
+        `(##number->string ,n))))
 
   (else))
 

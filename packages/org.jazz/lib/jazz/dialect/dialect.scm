@@ -243,9 +243,6 @@
 
 
 (define (jazz.setup-class-lookups class-declaration)
-  (define (ignore-duplicates key old new)
-    #f)
-  
   (define (resolve-declaration decl)
     (if decl
         (jazz.resolve-declaration decl)
@@ -399,9 +396,6 @@
 
 
 (define (jazz.setup-interface-lookups interface-declaration)
-  (define (ignore-duplicates key old new)
-    #f)
-  
   (define (resolve-declaration decl)
     (if decl
         (jazz.resolve-declaration decl)
@@ -1881,7 +1875,7 @@
                       (let ((invoker (case invocation ((send) 'jazz.rmi.send-rmi) ((post) 'jazz.rmi.post-rmi)))
                             (proxy-parameter (%%car parameters))
                             (other-parameters (%%cdr parameters))
-                            (implementation-name (jazz.compose-name on-name name)))
+                            (implementation-name (%%compose-name on-name name)))
                         (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
                         (jazz.enqueue remotes `(method (,name ,@parameters)
                                                        (,invoker ',name ,proxy-parameter ,@other-parameters)))
@@ -1957,7 +1951,7 @@
                       (let ((invoker (case invocation ((send) 'jazz.rmi.send-rmi) ((post) 'jazz.rmi.post-rmi)))
                             (proxy-parameter (%%car parameters))
                             (other-parameters (%%cdr parameters))
-                            (implementation-name (jazz.compose-name on-name name)))
+                            (implementation-name (%%compose-name on-name name)))
                         (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
                         (jazz.enqueue remotes `(method (,name ,@parameters)
                                                        (,invoker ',name ,proxy-parameter ,@other-parameters)))
@@ -2381,7 +2375,7 @@
   (let* ((s-name (%%car signature))
          (ext-s-name (%%string->symbol (%%string-append (%%symbol->string s-name) "_EXT")))
          (params (%%cdr signature))
-         (new-params (map jazz.generate-symbol params))
+         (new-params (map (lambda (param) (jazz.generate-symbol (%%symbol->string param))) params))
          (string-param (list-ref new-params arg))
          (c-name (if (%%null? rest) (%%symbol->string s-name) (%%car rest))))
     `(begin 

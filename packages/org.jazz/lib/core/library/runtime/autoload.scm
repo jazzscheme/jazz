@@ -73,10 +73,10 @@
 (define (jazz.autoload name)
   (let ((module-name (jazz.require-autoload name)))
     (jazz.load-module module-name)
-    (jazz.global-value (jazz.compose-name module-name name))))
+    (jazz.global-value (%%compose-name module-name name))))
 
 
 (define (jazz.autoreload name)
   (let ((module-name (jazz.require-autoload name)))
     (jazz.reload-module module-name)
-    (jazz.global-value (jazz.compose-name module-name name)))))
+    (jazz.global-value (%%compose-name module-name name)))))

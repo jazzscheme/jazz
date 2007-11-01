@@ -199,8 +199,9 @@
 
 
 (define (jazz.setup-declaration new-declaration)
-  (%%set-declaration-locator new-declaration (%%apply jazz.compose-name (jazz.get-declaration-path new-declaration)))
-  (let ((parent (%%get-declaration-parent new-declaration)))
+  (let ((parent (%%get-declaration-parent new-declaration))
+        (name (%%get-lexical-binding-name new-declaration)))
+    (%%set-declaration-locator new-declaration (if (%%not parent) name (%%compose-name (%%get-declaration-locator parent) name)))
     (%%set-declaration-toplevel new-declaration (if (%%not parent) new-declaration (%%get-declaration-toplevel parent)))))
 
 
@@ -422,9 +423,6 @@
 
 
 (define (jazz.setup-library-lookups library-declaration)
-  (define (ignore-duplicates key old new)
-    #f)
-  
   (let ((private (%%get-access-lookup library-declaration jazz.private-access)))
     (for-each (lambda (imported-library-invoice)
                 (let ((only (%%get-library-invoice-only imported-library-invoice)))
@@ -2653,7 +2651,7 @@
 (define (jazz.compose-module-name name module)
   (if (%%not module)
       name
-    (jazz.compose-name name module)))
+    (%%compose-name name module)))
 
 
 (define (jazz.merge-declaration-into new-declaration old-declaration)
@@ -4353,13 +4351,12 @@
                   environment)))
 
 
-(define (jazz.lookup-composite walker environment name)
-  (let* ((path (jazz.split-identifier name))
-         (library-name (%%apply jazz.compose-name (jazz.butlast path)))
-         (library-decl (jazz.locate-library-declaration library-name #f)))
-    (if library-decl
-        (jazz.lookup-subpath library-decl (%%list (jazz.last path)))
-      #f)))
+(define (jazz.lookup-composite walker environment symbol)
+  (receive (library-name name) (jazz.split-composite symbol)
+    (let ((library-decl (jazz.locate-library-declaration library-name #f)))
+      (if library-decl
+          (jazz.lookup-subpath library-decl (%%list name))
+        #f))))
 
 
 (define (jazz.lookup-subpath declaration subpath)

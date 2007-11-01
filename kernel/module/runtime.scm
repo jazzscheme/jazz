@@ -156,8 +156,7 @@
                       path
                     #f)))))
         (or (try "scm")
-            (try "jazz")
-            (try "jscm"))))
+            (try "jazz"))))
     
     
     (define (jazz.determine-module-bindir filename)

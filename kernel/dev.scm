@@ -413,7 +413,7 @@
   (let* ((file (jazz.determine-module-filename module-name))
          (jazz (jazz.determine-module-source file))
          (jscmfile (string-append file ".jscm"))
-         (jscm (string-append "../../" jscmfile))
+         (jscm (string-append "_obj/" jscmfile))
          (bin (jazz.determine-module-binary file))
          (jazztime (time->seconds (file-last-modification-time jazz)))
          (jscmtime (and (file-exists? jscm) (time->seconds (file-last-modification-time jscm))))
@@ -423,7 +423,7 @@
         (begin
           (expand-to-file module-name jscm)
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename-with-flags jscmfile source?: #t))))))
+            (jazz.compile-filename-with-flags jscmfile source: jscm))))))
 
 
 (define Lang

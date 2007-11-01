@@ -62,11 +62,11 @@
       (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?))))
 
 
-(define (jazz.compile-filename-with-flags filename #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f) (source? #f))
+(define (jazz.compile-filename-with-flags filename #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f) (source #f))
   (let ((options (or options jazz.compile-options))
         (cc-flags (or cc-flags ""))
         (ld-flags (or ld-flags "")))
-    (let* ((src (if source? (%%string-append "../../" filename) (jazz.require-module-source filename)))
+    (let* ((src (or source (jazz.require-module-source filename)))
            (bin (jazz.determine-module-binary filename))
            (bindir (jazz.determine-module-bindir filename))
            (srctime (time->seconds (file-last-modification-time src)))

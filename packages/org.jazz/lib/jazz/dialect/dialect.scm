@@ -76,7 +76,7 @@
                               (jazz.new-code
                                 `(let ,(map (lambda (parameter argument)
                                               `(,(%%get-lexical-binding-name parameter)
-                                                ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                                ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                             (%%get-signature-positional signature)
                                             arguments)
                                    ,@(%%get-code-form body-code))
@@ -94,7 +94,7 @@
   (let ((locator (%%get-declaration-locator declaration))
         (value (%%get-definition-declaration-value declaration)))
     `(define ,locator
-       ,(jazz.emit-type-expect (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))))
+       ,(jazz.emit-type-cast (jazz.emit-expression value declaration environment) (%%get-lexical-binding-type declaration) declaration environment))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Definition-Declaration declaration) source-declaration environment)
@@ -111,7 +111,7 @@
 (jazz.define-method (jazz.emit-binding-assignment (jazz.Definition-Declaration declaration) value source-declaration environment)
   (let ((locator (%%get-declaration-locator declaration)))
     (jazz.new-code
-      `(set! ,locator ,(jazz.emit-type-expect (jazz.emit-expression value source-declaration environment) (%%get-lexical-binding-type declaration) source-declaration environment))
+      `(set! ,locator ,(jazz.emit-type-cast (jazz.emit-expression value source-declaration environment) (%%get-lexical-binding-type declaration) source-declaration environment))
       jazz.Any)))
 
 
@@ -710,7 +710,7 @@
                              (jazz.new-code
                                `(let ,(map (lambda (parameter argument)
                                              `(,(%%get-lexical-binding-name parameter)
-                                               ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                               ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                            (%%get-signature-positional signature)
                                            arguments)
                                   ,(%%get-code-form body-code))
@@ -1248,7 +1248,7 @@
                                `(let ,(cons `(self ,(%%get-code-form object))
                                             (map (lambda (parameter argument)
                                                    `(,(%%get-lexical-binding-name parameter)
-                                                     ,(jazz.emit-type-expect argument (%%get-lexical-binding-type parameter) source-declaration environment)))
+                                                     ,(jazz.emit-type-cast argument (%%get-lexical-binding-type parameter) source-declaration environment)))
                                                  (%%get-signature-positional signature)
                                                  arguments))
                                   ,(%%get-code-form body-code))

@@ -1002,30 +1002,30 @@
 
 
 ;;;
-;;;; Expect
+;;;; Cast
 ;;;
-
-
-;; No conversion beeing necessary between any types, expect is only a type check returning the same object
 
 
 (cond-expand
   (release
-    (define (jazz.emit-type-expect code type source-declaration environment)
+    (define (jazz.emit-type-cast code type source-declaration environment)
       (%%get-code-form code)))
   (else
-   (define (jazz.emit-type-expect code type source-declaration environment)
+   (define (jazz.emit-type-cast code type source-declaration environment)
      (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
          (%%get-code-form code)
        (let ((value (jazz.generate-symbol "val")))
-         `(let ((,value ,(%%get-code-form code)))
-            ,(jazz.emit-check type value source-declaration environment)
-            ,value))))))
-
-
-;;;
-;;;; Cast
-;;;
+         ;; coded the flonum case here for now has it is the only castable type
+         (if (%%eq? type jazz.Flonum)
+             `(let ((,value ,(%%get-code-form code)))
+                (if (%%fixnum? ,value)
+                    (%%fixnum->flonum ,value)
+                  (begin
+                    ,(jazz.emit-check type value source-declaration environment)
+                    ,value)))
+           `(let ((,value ,(%%get-code-form code)))
+              ,(jazz.emit-check type value source-declaration environment)
+              ,value)))))))
 
 
 (cond-expand
@@ -1036,8 +1036,13 @@
    (define (jazz.emit-parameter-cast code type source-declaration environment)
      (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
          #f
-       (let ((value (%%get-code-form code)))
-         (jazz.emit-check type value source-declaration environment))))))
+       (let ((parameter (%%get-code-form code)))
+         ;; coded the flonum case here for now has it is the only castable type
+         (if (%%eq? type jazz.Flonum)
+             `(if (%%fixnum? ,parameter)
+                  (set! ,parameter (%%fixnum->flonum ,parameter))
+                ,(jazz.emit-check type parameter source-declaration environment))
+           (jazz.emit-check type parameter source-declaration environment)))))))
 
 
 ;;;
@@ -2936,7 +2941,7 @@
               (jazz.new-code
                 `(lambda ,signature-output
                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                   ,(jazz.simplify-begin (jazz.emit-type-expect (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type declaration environment)))
+                   ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type declaration environment)))
                 (jazz.new-function-type '() (%%get-code-type body-code))))))))))
 
 
@@ -2977,7 +2982,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
                              (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
-                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-expect value-code (%%get-lexical-binding-type variable) declaration environment)))))
+                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
                        bindings
                        variables)))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
@@ -3023,7 +3028,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
                              (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
-                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-expect value-code (%%get-lexical-binding-type variable) declaration environment)))))
+                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
                        bindings
                        (%%cdr variables))))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
@@ -3069,7 +3074,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
                              (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
-                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-expect value-code (%%get-lexical-binding-type variable) declaration environment)))))
+                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
                        bindings
                        variables)))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))
@@ -3115,7 +3120,7 @@
                                (value (%%cdr binding)))
                            (let ((value-code (jazz.emit-expression value declaration augmented-environment)))
                              (jazz.extend-annotated-type frame annotated-variable (%%get-code-type value-code))
-                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-expect value-code (%%get-lexical-binding-type variable) declaration environment)))))
+                             `(,(%%get-lexical-binding-name variable) ,(jazz.emit-type-cast value-code (%%get-lexical-binding-type variable) declaration environment)))))
                        bindings
                        variables)))
             (let ((body-code (jazz.emit-expression body declaration augmented-environment)))

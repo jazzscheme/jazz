@@ -154,6 +154,11 @@
          `(fixnum? ,obj)
        `(##fixnum? ,obj)))
    
+   (define-macro (%%fixnum->flonum x)
+     (if jazz.debug-core?
+         `(fixnum->flonum ,x)
+       `(##fixnum->flonum ,x)))
+   
    (define-macro (%%fx= x y)
      (if jazz.debug-core?
          `(= ,x ,y)

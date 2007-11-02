@@ -156,8 +156,7 @@
 
 (jazz.define-class-syntax jazz.Boolean-Class   jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Char-Class      jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
-(jazz.define-class-syntax jazz.Numeric-Class   jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
-(jazz.define-class-syntax jazz.Number-Class    jazz.Numeric-Class  (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class-syntax jazz.Number-Class    jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Complex-Class   jazz.Number-Class   (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Real-Class      jazz.Complex-Class  (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Rational-Class  jazz.Real-Class     (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
@@ -180,8 +179,7 @@
 
 (jazz.define-class-syntax jazz.Boolean   jazz.Object   () jazz.Boolean-Class   () ())
 (jazz.define-class-syntax jazz.Char      jazz.Object   () jazz.Char-Class      () ())
-(jazz.define-class-syntax jazz.Numeric   jazz.Object   () jazz.Numeric-Class   () ())
-(jazz.define-class-syntax jazz.Number    jazz.Numeric  () jazz.Number-Class    () ())
+(jazz.define-class-syntax jazz.Number    jazz.Object   () jazz.Number-Class    () ())
 (jazz.define-class-syntax jazz.Complex   jazz.Number   () jazz.Complex-Class   () ())
 (jazz.define-class-syntax jazz.Real      jazz.Complex  () jazz.Real-Class      () ())
 (jazz.define-class-syntax jazz.Rational  jazz.Real     () jazz.Rational-Class  () ())

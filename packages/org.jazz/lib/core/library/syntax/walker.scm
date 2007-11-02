@@ -3486,8 +3486,8 @@
 (jazz.add-primitive-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
 (jazz.add-primitive-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
 
-(jazz.add-primitive-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>) (- <number^number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>) (+ <number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>) (- <number^number*:number>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>) (* <number*:number>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>) (/ <number^number*:number>)))
 

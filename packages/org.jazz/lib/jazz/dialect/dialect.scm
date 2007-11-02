@@ -761,6 +761,7 @@
                (let ((node (jazz.generate-symbol "node")))
                  `(begin
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                      ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                       (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
                         ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))
                     (define ,method-node-locator
@@ -771,12 +772,14 @@
                        (,method-call ,class-locator ',name jazz.call-into-abstract))
                  `(begin
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                      ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                       ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment)))
                     (define ,method-rank-locator
                       (,method-call ,class-locator ',name ,method-locator)))))
               ((jazz.add-final-method)
                `(begin
                   (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                     ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment)))
                   (,method-call ,class-locator ',name ,method-locator))))))))))
 

@@ -1024,23 +1024,6 @@
 
 
 ;;;
-;;;; Check
-;;;
-
-
-(cond-expand
-  (release
-    (define (jazz.emit-type-check code type source-declaration environment)
-      #f))
-  (else
-   (define (jazz.emit-type-check code type source-declaration environment)
-     (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
-         #f
-       (let ((value (%%get-code-form code)))
-         (jazz.emit-check type value source-declaration environment))))))
-
-
-;;;
 ;;;; Cast
 ;;;
 
@@ -1055,14 +1038,6 @@
          #f
        (let ((value (%%get-code-form code)))
          (jazz.emit-check type value source-declaration environment))))))
-
-
-#; ;; todo
-(define (jazz.emit-type-cast code type environment)
-  (let ((value (jazz.generate-symbol "val")))
-    `(let ((,value ,(%%get-code-form code)))
-       ,(jazz.emit-cast type value)
-       ,value)))
 
 
 ;;;
@@ -3495,10 +3470,10 @@
 (jazz.add-primitive-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
 (jazz.add-primitive-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
 
-(jazz.add-primitive-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <number^number:number>) (- <number^number*:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <number^number:number>) (* <number*:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>) (##/ <number^number:number>) (/ <number^number*:number>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>) (+ <number*:number>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>) (- <number^number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>) (* <number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>) (/ <number^number*:number>)))
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))

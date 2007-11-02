@@ -658,31 +658,34 @@
   (let ((name (%%get-lexical-binding-name declaration)))
     (receive (dispatch-type method-declaration) (jazz.method-dispatch-info declaration)
       (let ((category-declaration (%%get-declaration-parent method-declaration)))
-        (case dispatch-type
-          ((final)
-           (let ((implementation-locator (%%get-declaration-locator method-declaration)))
-             `(%%final-dispatch ,(%%get-code-form object) ,implementation-locator)))
-          ((class)
-           (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
-                 (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-             (if (jazz.native-category? category-declaration)
-                 `(%%class-native-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator)
-               `(%%class-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator))))
-          ((interface)
-           (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
-                 (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
-             (if (jazz.native-category? category-declaration)
-                 `(%%interface-native-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)
-               `(%%interface-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)))))))))
+        (jazz.new-code
+          (case dispatch-type
+            ((final)
+             (let ((implementation-locator (%%get-declaration-locator method-declaration)))
+               `(%%final-dispatch ,(%%get-code-form object) ,implementation-locator)))
+            ((class)
+             (let ((class-level-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'level))
+                   (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+               (if (jazz.native-category? category-declaration)
+                   `(%%class-native-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator)
+                 `(%%class-dispatch ,(%%get-code-form object) ,class-level-locator ,method-rank-locator))))
+            ((interface)
+             (let ((interface-rank-locator (jazz.compose-helper (%%get-declaration-locator category-declaration) 'rank))
+                   (method-rank-locator (jazz.compose-helper (%%get-declaration-locator method-declaration) 'rank)))
+               (if (jazz.native-category? category-declaration)
+                   `(%%interface-native-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)
+                 `(%%interface-dispatch ,(%%get-code-form object) ,interface-rank-locator ,method-rank-locator)))))
+          (jazz.call-return-type (%%get-lexical-binding-type method-declaration)))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Method-Declaration declaration) source-declaration environment)
   (let ((self (jazz.*self*)))
     (if self
-        (jazz.new-code
-          `(lambda rest
-             (apply ,(jazz.emit-method-dispatch self declaration) ,(%%get-code-form self) rest))
-          jazz.Any)
+        (let ((dispatch-code (jazz.emit-method-dispatch self declaration)))
+          (jazz.new-code
+            `(lambda rest
+               (apply ,(%%get-code-form dispatch-code) ,(%%get-code-form self) rest))
+            (%%get-code-type dispatch-code)))
       (jazz.error "Methods can only be called directly from inside methods"))))
 
 
@@ -706,7 +709,6 @@
                        (lambda (frame)
                          (let ((augmented-environment (cons frame environment)))
                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
-                             ;;(jazz.debug 'In (%%get-declaration-locator source-declaration) 'inlining (%%get-declaration-locator declaration))
                              (jazz.new-code
                                `(let ,(map (lambda (parameter argument)
                                              `(,(%%get-lexical-binding-name parameter)
@@ -726,12 +728,13 @@
   (let ((self (jazz.*self*)))
     (if self
         (let ((type (%%get-lexical-binding-type declaration))
-              (arguments (jazz.codes-forms arguments)))
-            (jazz.new-code
-              `(,(jazz.emit-method-dispatch self declaration)
-                ,(%%get-code-form self)
-                ,@arguments)
-              (jazz.call-return-type type)))
+              (arguments (jazz.codes-forms arguments))
+              (dispatch-code (jazz.emit-method-dispatch self declaration)))
+          (jazz.new-code
+            `(,(%%get-code-form dispatch-code)
+              ,(%%get-code-form self)
+              ,@arguments)
+            (%%get-code-type dispatch-code)))
       (jazz.error "Methods can only be called directly from inside methods"))))
 
 
@@ -742,8 +745,8 @@
         (signature (%%get-method-declaration-signature declaration))
         (body (%%get-method-declaration-body declaration)))
     (let* ((category-declaration (%%get-declaration-parent declaration))
-           (root-category-declaration (let ((root-method-declaration (%%get-method-declaration-root declaration)))
-                                        (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
+           (root-method-declaration (%%get-method-declaration-root declaration))
+           (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration)))
            (class-locator (%%get-declaration-locator category-declaration))
            (method-locator (%%get-declaration-locator declaration))
            (method-rank-locator (jazz.compose-helper method-locator 'rank))
@@ -1201,13 +1204,14 @@
         (let ((method-declaration (lookup-method/warn object-code)))
           (if method-declaration
               (or (jazz.emit-inlined-final-dispatch method-declaration object-code rest-codes declaration environment)
-                  (jazz.new-code
-                    (jazz.with-code-value object-code
-                      (lambda (code)
-                        `(,(jazz.emit-method-dispatch code method-declaration)
-                          ,(%%get-code-form code)
-                          ,@(jazz.codes-forms rest-codes))))
-                    (jazz.call-return-type (%%get-lexical-binding-type method-declaration))))
+                  (jazz.with-code-value object-code
+                    (lambda (code)
+                      (let ((dispatch-code (jazz.emit-method-dispatch code method-declaration)))
+                        (jazz.new-code
+                          `(,(%%get-code-form dispatch-code)
+                            ,(%%get-code-form code)
+                            ,@(jazz.codes-forms rest-codes))
+                          (%%get-code-type dispatch-code))))))
             (let ((dv (jazz.register-variable declaration "d" (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
                   (pv (jazz.register-variable declaration "p" `',name))
                   (qv (jazz.register-variable declaration "q" #f)))
@@ -1229,6 +1233,18 @@
                   jazz.Any)))))))))
 
 
+(define (jazz.with-code-value code proc)
+  (let ((form (%%get-code-form code)))
+    (if (%%symbol? form)
+        (proc code)
+      (let ((value (jazz.generate-symbol "val")))
+        (let ((code (proc (jazz.new-code value (%%get-code-type code)))))
+          (jazz.new-code
+            `(let ((,value ,form))
+               ,(%%get-code-form code))
+            (%%get-code-type code)))))))
+
+
 (define (jazz.emit-inlined-final-dispatch declaration object arguments source-declaration environment)
   ;; mostly copy/pasted and adapted from method declaration. need to unify the code
   (if (%%eq? (%%get-method-declaration-expansion declaration) 'inline)
@@ -1243,7 +1259,6 @@
                        (lambda (frame)
                          (let ((augmented-environment (cons frame environment)))
                            (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
-                             ;;(jazz.debug 'In (%%get-declaration-locator source-declaration) 'inlining 'final 'dispatch (%%get-declaration-locator declaration))
                              (jazz.new-code
                                `(let ,(cons `(self ,(%%get-code-form object))
                                             (map (lambda (parameter argument)
@@ -1258,15 +1273,6 @@
           (else
            #f)))
     #f))
-
-
-(define (jazz.with-code-value code proc)
-  (let ((form (%%get-code-form code)))
-    (if (%%symbol? form)
-        (proc code)
-      (let ((value (jazz.generate-symbol "val")))
-        `(let ((,value ,form))
-           ,(proc (jazz.new-code value (%%get-code-type code))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Dispatch expression) f k s)
@@ -1813,8 +1819,8 @@
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr form))
     (let* ((new-declaration (jazz.lookup-declaration declaration name #f))
            (category-declaration (%%get-declaration-parent new-declaration))
-           (root-category-declaration (let ((root-method-declaration (%%get-method-declaration-root new-declaration)))
-                                        (and root-method-declaration (%%get-declaration-parent root-method-declaration)))))
+           (root-method-declaration (%%get-method-declaration-root new-declaration))
+           (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
       (cond ((%%eq? category-declaration root-category-declaration)
              (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
             ((and root-category-declaration (%%neq? propagation 'inherited))
@@ -1825,7 +1831,7 @@
              (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                (let ((body-expression
                        (cond (root-category-declaration
-                              (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) `(with-self ,@body)))
+                              (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
                              ((%%eq? abstraction 'concrete)
                               (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
                              (else

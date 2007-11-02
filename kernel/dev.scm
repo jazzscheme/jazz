@@ -426,7 +426,6 @@
 (define Util
   '(jazz.utilities
     jazz.library.utility.Range
-    jazz.library.utility.shapes
     jazz.io))
 
 (define Comp

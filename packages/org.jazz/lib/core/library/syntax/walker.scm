@@ -1720,6 +1720,17 @@
       jazz.Any)))
 
 
+(jazz.define-method (jazz.emit-binding-call (jazz.NextMethod-Variable binding) arguments source-declaration environment)
+  (let ((name (%%get-lexical-binding-name binding))
+        (type (%%get-lexical-binding-type binding))
+        (self (jazz.*self*)))
+    (jazz.new-code
+      `(,(%%get-lexical-binding-name binding)
+        ,(%%get-code-form self)
+        ,@(jazz.codes-forms arguments))
+      (jazz.call-return-type type))))
+
+
 (jazz.encapsulate-class jazz.NextMethod-Variable)
 
 
@@ -3409,7 +3420,7 @@
                                     (let ((locator (%%get-declaration-locator specializer)))
                                       `(,locator ,@(jazz.codes-forms arguments)))
                                     (%%get-function-type-result function-type)))
-                          (iter (%%cdr scan))))))))))
+                            (iter (%%cdr scan))))))))))
           #f))))
 
 
@@ -4246,7 +4257,7 @@
         ((jazz.scheme-pair-literal? form)
          (jazz.new-constant `(quote ,form) jazz.Pair))
         (else
-         (jazz.register-literal walker resume declaration form))))
+         (jazz.register-literal walker resume declaration environment form))))
 
 
 (define (jazz.scheme-pair-literal? form)
@@ -4289,7 +4300,7 @@
       (%%apply constructor (%%cdr lst)))))
 
 
-(define (jazz.register-literal walker resume declaration literal)
+(define (jazz.register-literal walker resume declaration environment literal)
   ;; calling jazz.get-registered-literal to only register when not already there
   ;; doesnt work directly because some literals are interned and thus can be shared
   (let ((library-declaration (%%get-declaration-toplevel declaration)))
@@ -4298,7 +4309,9 @@
       (let ((info (%%cons literal (%%cons name #f))))
         (%%set-library-declaration-literals library-declaration (%%cons info (%%get-library-declaration-literals library-declaration)))
         (%%set-cdr! (%%cdr info) (jazz.walk-literal walker resume declaration literal)))
-      (jazz.new-constant name #f))))
+      ;; this way of getting a reference to the literal's class is a big quicky mostly to test the concept
+      (let ((class-name (jazz.identifier-name (%%get-category-name (%%class-of literal)))))
+        (jazz.new-constant name (jazz.lookup-reference walker resume declaration environment class-name))))))
 
 
 (define (jazz.get-registered-literal library-declaration literal)

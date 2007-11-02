@@ -3554,8 +3554,8 @@
   
   (slot row <fx> accessors generate)
   (slot col <fx> accessors generate)
-    
-    
+  
+  
   (method (initialize r c)
     (set! row r)
     (set! col c))
@@ -3656,6 +3656,204 @@
   (new Cell
     (get-row~ c)
     (- (get-col~ c) n)))
+
+
+;;;
+;;;; Point
+;;;
+
+
+(class Point extends Numeric
+  
+  
+  (slot h <fx> getter generate)
+  (slot v <fx> getter generate)
+    
+    
+  (method (initialize h v)
+    (nextmethod)
+    (set! h~self h)
+    (set! v~self v))
+  
+  
+  (method (copy-object deep?)
+    (new Point h v))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Point)
+           :incompatible)
+          ((let ((target-point <Point> target))
+             (and (= h (get-h~ target-point)) (= v (get-v~ target-point))))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Point ',h ',v))
+  
+  
+  (method (print printer readably)
+    (format printer "~{Point {a} {a}}"
+            h
+            v))
+
+
+  ;;;
+  ;;;; Numeric
+  ;;;
+
+
+  (method (negate)
+    (new Point (- h) (- v)))
+  
+  
+  (method (norm)
+    (sqrt (+ (expt h 2) (expt v 2))))
+
+
+  (method (add n)
+    (cond ((is? n Point) (new Point (+ h (get-h~ n)) (+ v (get-v~ n))))
+          ((is? n Dimension) (new Point (+ h (get-width~ n)) (+ v (get-height~ n))))
+          ((integer? n) (new Point (+ h n) v))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (inverse)
+    (error "Cannot inverse {t}" self))
+
+
+  (method (multiply n)
+    (if (integer? n)
+        (new Point (* h n) (* v n))
+      (error "Cannot multiply {t} to {t}" n self))))
+
+
+;;;
+;;;; Dimension
+;;;
+
+
+(class Dimension extends Object
+  
+  
+  (slot width  <fx> getter generate)
+  (slot height <fx> getter generate)
+    
+    
+  (method (initialize w h)
+    (nextmethod)
+    (set! width w)
+    (set! height h))
+  
+  
+  (method (copy-object deep?)
+    (new Dimension width height))
+
+
+  (method (compare-object target)
+    (if (is-not? target Dimension)
+        :incompatible
+      (let ((compared (compare width (get-width~ target))))
+        (if (/= compared :equal)
+            compared
+          (compare height (get-height~ target))))))
+  
+  
+  (method (fold-literal)
+    `(new Dimension ',width ',height))
+  
+  
+  (method (print printer readably)
+    (format printer "~{Dimension {a} {a}}"
+            width
+            height)))
+
+
+(specialize inline as new-dimension (new Dimension width <fx> height <fx>) <Dimension>
+  (construct Dimension width height))
+
+
+(specialize inline as dimension= (= d1 <Dimension> d2 <Dimension>) <bool>
+  (and (= (get-width~ d1) (get-width~ d2))
+       (= (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension+ (+ d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (+ (get-width~ d1) (get-width~ d2))
+    (+ (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension- (- d1 <Dimension> d2 <Dimension>) <Dimension>
+  (new Dimension
+    (- (get-width~ d1) (get-width~ d2))
+    (- (get-height~ d1) (get-height~ d2))))
+
+
+(specialize inline as dimension* (* d <Dimension> n <int>) <Dimension>
+  (new Dimension
+    (* (get-width~ d) n)
+    (* (get-height~ d) n)))
+
+
+;;;
+;;;; Rect
+;;;
+
+
+(class Rect-Class extends Class
+  
+  
+  (method (coerce-object object)
+    (typecase object
+      ((Point) (new Rect (get-h~ object) (get-v~ object) 0 0))
+      (else (nextmethod object)))))
+
+
+(class Rect metaclass Rect-Class extends Object
+  
+  
+  ;; put types back to fx when we have Rect<fl> templates
+  (slot left   <number> accessors generate)
+  (slot top    <number> accessors generate)
+  (slot right  <number> accessors generate)
+  (slot bottom <number> accessors generate)
+  
+  
+  (method (initialize l t r b)
+    (nextmethod)
+    (set! left l)
+    (set! top t)
+    (set! right r)
+    (set! bottom b))
+  
+  
+  (method (copy-object deep?)
+    (new Rect left top right bottom))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Rect)
+           :incompatible)
+          ((and (= left (get-left~ target)) (= top (get-top~ target)) (= right (get-right~ target)) (= bottom (get-bottom~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Rect ',left ',top ',right ',bottom))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {a} {a} {a} {a}}"
+            (identifier-name (type-name (class-of self)))
+            left
+            top
+            right
+            bottom)))
 
 
 ;;;

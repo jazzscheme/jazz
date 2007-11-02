@@ -85,7 +85,6 @@
 (jazz.define-class-syntax jazz.Specific-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class jazz.allocate-specific-declaration
   ((generic   %%get-specific-declaration-generic   ())
    (signature %%get-specific-declaration-signature ())
-   (method?   %%get-specific-declaration-method?   ())
    (body      %%get-specific-declaration-body      %%set-specific-declaration-body)))
 
 

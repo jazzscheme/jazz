@@ -2602,9 +2602,8 @@
   (%%list
     (jazz.new-special-form 'proclaim jazz.walk-proclaim)
     (jazz.new-special-form 'native   jazz.walk-native)
-    
-    (jazz.new-macro-form 'macro  jazz.expand-macro)  (jazz.new-special-form '%macro  jazz.walk-%macro)
-    (jazz.new-macro-form 'syntax jazz.expand-syntax) (jazz.new-special-form '%syntax jazz.walk-%syntax)))
+    (jazz.new-special-form 'macro    jazz.walk-macro)
+    (jazz.new-special-form 'syntax   jazz.walk-syntax)))
 
 
 (jazz.define-virtual (jazz.walker-environment (jazz.Walker walker)))
@@ -2686,10 +2685,10 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((native)  (jazz.walk-native-declaration  walker resume declaration environment form))
-          ((%macro)  (jazz.walk-%macro-declaration  walker resume declaration environment form))
-          ((%syntax) (jazz.walk-%syntax-declaration walker resume declaration environment form))
-          (else      #f)))
+          ((native) (jazz.walk-native-declaration walker resume declaration environment form))
+          ((macro)  (jazz.walk-macro-declaration  walker resume declaration environment form))
+          ((syntax) (jazz.walk-syntax-declaration walker resume declaration environment form))
+          (else     #f)))
     #f))
 
 
@@ -4633,26 +4632,17 @@
       (values name type access compatibility parameters body))))
 
 
-(define (jazz.expand-macro walker resume declaration environment . rest)
-  (jazz.expand-macro-form walker resume declaration (%%cons 'macro rest)))
-
-
-(define (jazz.expand-macro-form walker resume declaration form)
+(define (jazz.walk-macro-declaration walker resume declaration environment form)
   (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
-    `(%macro ,name ,type ,access ,compatibility ,parameters ,body)))
-
-
-(define (jazz.walk-%macro-declaration walker resume declaration environment form)
-  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-macro-declaration name type access compatibility '() declaration signature)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
 
 
-(define (jazz.walk-%macro walker resume declaration environment form)
-  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
+(define (jazz.walk-macro walker resume declaration environment form)
+  (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-macro-declaration-signature new-declaration signature)
         (%%set-macro-declaration-body new-declaration
@@ -4680,26 +4670,17 @@
       (values name type access compatibility parameters body))))
 
 
-(define (jazz.expand-syntax walker resume declaration environment . rest)
-  (jazz.expand-syntax-form walker resume declaration (%%cons 'syntax rest)))
-
-
-(define (jazz.expand-syntax-form walker resume declaration form)
+(define (jazz.walk-syntax-declaration walker resume declaration environment form)
   (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
-    `(%syntax ,name ,type ,access ,compatibility ,parameters ,body)))
-
-
-(define (jazz.walk-%syntax-declaration walker resume declaration environment form)
-  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-syntax-declaration name type access compatibility '() declaration signature)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
 
 
-(define (jazz.walk-%syntax walker resume declaration environment form)
-  (jazz.bind (name type access compatibility parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
+(define (jazz.walk-syntax walker resume declaration environment form)
+  (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-syntax-declaration-signature new-declaration signature)
         (%%set-syntax-declaration-body new-declaration

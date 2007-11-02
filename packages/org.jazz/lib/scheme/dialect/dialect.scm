@@ -174,9 +174,9 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((%define)       (jazz.walk-%define-declaration walker resume declaration environment form))
-          ((%define-macro) (jazz.walk-%define-macro-declaration walker resume declaration environment form))
-          (else            (nextmethod walker resume declaration environment form))))
+          ((define)       (jazz.walk-define-declaration walker resume declaration environment form))
+          ((define-macro) (jazz.walk-define-macro-declaration walker resume declaration environment form))
+          (else           (nextmethod walker resume declaration environment form))))
     #f))
 
 
@@ -187,9 +187,8 @@
 
 (define (jazz.scheme-bindings)
   (%%list
-    (jazz.new-macro-form 'define         jazz.expand-define)       (jazz.new-special-form '%define       jazz.walk-%define)
-    (jazz.new-macro-form 'define-macro   jazz.expand-define-macro) (jazz.new-special-form '%define-macro jazz.walk-%define-macro)
-    
+    (jazz.new-special-form 'define       jazz.walk-define)
+    (jazz.new-special-form 'define-macro jazz.walk-define-macro)
     (jazz.new-special-form 'quote        jazz.walk-quote)
     (jazz.new-special-form 'if           jazz.walk-if)
     (jazz.new-special-form 'case         jazz.walk-case)
@@ -226,17 +225,8 @@
 ;;;
 
 
-(define (jazz.expand-define walker resume declaration environment . rest)
-  (jazz.expand-define-form walker resume declaration (%%cons 'define rest)))
-
-
-(define (jazz.expand-define-form walker resume declaration form)
+(define (jazz.walk-define-declaration walker resume declaration environment form)
   (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
-    `(%define ,name ,specifier ,value ,parameters)))
-
-
-(define (jazz.walk-%define-declaration walker resume declaration environment form)
-  (jazz.bind (name specifier value parameters) (%%cdr form)
     (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
             (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #f #f))))
@@ -245,9 +235,9 @@
           new-declaration)))))
 
 
-(define (jazz.walk-%define walker resume declaration environment form)
-  (jazz.bind (name specifier value parameters) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form)))
+(define (jazz.walk-define walker resume declaration environment form)
+  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration name))
            (new-environment (%%cons new-declaration environment)))
       (%%set-define-declaration-value new-declaration
         (jazz.walk walker resume new-declaration new-environment value))
@@ -268,26 +258,17 @@
     (values name type parameters body)))
 
 
-(define (jazz.expand-define-macro walker resume declaration environment . rest)
-  (jazz.expand-define-macro-form walker resume declaration (%%cons 'define-macro rest)))
-
-
-(define (jazz.expand-define-macro-form walker resume declaration form)
+(define (jazz.walk-define-macro-declaration walker resume declaration environment form)
   (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr form))
-    `(%define-macro ,name ,type ,parameters ,body)))
-
-
-(define (jazz.walk-%define-macro-declaration walker resume declaration environment form)
-  (jazz.bind (name type parameters body) (%%cdr form)
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-define-macro-declaration name type declaration signature)))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         new-declaration))))
 
 
-(define (jazz.walk-%define-macro walker resume declaration environment form)
-  (jazz.bind (name type parameters body) (%%cdr form)
-    (let* ((new-declaration (jazz.find-form-declaration declaration (%%cadr form))))
+(define (jazz.walk-define-macro walker resume declaration environment form)
+  (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr form))
+    (let* ((new-declaration (jazz.find-form-declaration declaration name)))
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-signature new-declaration signature)
         (%%set-define-macro-body new-declaration

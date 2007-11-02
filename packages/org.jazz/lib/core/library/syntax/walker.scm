@@ -3323,6 +3323,7 @@
           (arguments-codes (jazz.emit-expressions arguments declaration environment)))
       (or (jazz.emit-new-call operator locator arguments arguments-codes declaration environment)
           (jazz.emit-specialized-call operator locator arguments-codes declaration environment)
+          (jazz.emit-primitive-call operator locator arguments-codes declaration environment)
           (jazz.emit-inlined-call operator arguments-codes declaration environment)
           (jazz.emit-call operator arguments-codes declaration environment)))))
 
@@ -3347,13 +3348,17 @@
 ;;;
 
 
-(define jazz.specialized-new
+;; As a metaclass can be the class of many classes, we cannot deduce the return type
+;; of a new call from the type of the first argument hence this special case for new.
+
+
+(define jazz.new-specializers
   (%%make-hashtable eq?))
 
 
-(define (jazz.add-specialize-new class-declaration name)
-  (%%hashtable-set! jazz.specialized-new class-declaration
-    name))
+(define (jazz.add-new-specializer class-declaration specializer)
+  (%%hashtable-set! jazz.new-specializers class-declaration
+    specializer))
 
 
 (define (jazz.emit-new-call operator locator arguments arguments-codes declaration environment)
@@ -3363,17 +3368,21 @@
           (if (%%class-is? class-expression jazz.Reference)
               (let ((binding (%%get-reference-binding class-expression)))
                 (if (%%class-is? binding jazz.Class-Declaration)
-                    (jazz.new-code
-                      (let ((specialized-new (%%hashtable-ref jazz.specialized-new binding #f))
-                            (values-codes (%%cdr arguments-codes)))
-                        (if specialized-new
-                            `(,specialized-new ,@(jazz.codes-forms values-codes))
+                    (let ((specializer (%%hashtable-ref jazz.new-specializers binding #f))
+                          (values-codes (%%cdr arguments-codes)))
+                      (if specializer
+                          (or (jazz.emit-inlined-binding-call specializer values-codes declaration environment)
+                              (jazz.new-code
+                                (let ((locator (%%get-declaration-locator specializer)))
+                                  `(,locator ,@(jazz.codes-forms values-codes)))
+                                binding))
+                        (jazz.new-code
                           (case (%%length values-codes)
                             ((0) `(jazz.new0 ,@(jazz.codes-forms arguments-codes)))
                             ((1) `(jazz.new1 ,@(jazz.codes-forms arguments-codes)))
                             ((2) `(jazz.new2 ,@(jazz.codes-forms arguments-codes)))
-                            (else `(jazz.new ,@(jazz.codes-forms arguments-codes))))))
-                      binding)
+                            (else `(jazz.new ,@(jazz.codes-forms arguments-codes))))
+                          binding)))
                   #f))
             #f)))
     #f))
@@ -3381,6 +3390,59 @@
 
 ;;;
 ;;;; Specialized Call
+;;;
+
+
+(define jazz.specializers
+  (%%make-hashtable eq?))
+
+
+(define (jazz.add-specializer specialized-declaration specializer)
+  (%%hashtable-set! jazz.specializers specialized-declaration
+    (%%append (%%hashtable-ref jazz.specializers specialized-declaration '())
+              (%%list specializer))))
+
+
+(define (jazz.get-specializers binding)
+  (%%hashtable-ref jazz.specializers binding '()))
+
+
+(define (jazz.emit-specialized-call operator locator arguments declaration environment)
+  (if (%%not locator)
+      #f
+    (or (jazz.emit-specialized-locator locator arguments environment)
+        (if (%%class-is? operator jazz.Reference)
+            (let ((binding (%%get-reference-binding operator)))
+              (let ((specializers (jazz.get-specializers binding)))
+                (let ((types (jazz.codes-types arguments)))
+                  (let iter ((scan specializers))
+                    (if (%%null? scan)
+                        (begin
+                          (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
+                            (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (%%get-lexical-binding-name binding)))
+                          #f)
+                      (let ((specializer (%%car scan)))
+                        (let ((function-type (%%get-lexical-binding-type specializer)))
+                          (if (jazz.match-signature? types function-type)
+                              (or (jazz.emit-inlined-binding-call specializer arguments declaration environment)
+                                  (jazz.new-code
+                                    (let ((locator (%%get-declaration-locator specializer)))
+                                      `(,locator ,@(jazz.codes-forms arguments)))
+                                    (%%get-function-type-result function-type)))
+                          (iter (%%cdr scan))))))))))
+          #f))))
+
+
+;; quicky because classes are not yet defined at this point
+(define jazz.emit-specialized-locator #f)
+
+(set! jazz.emit-specialized-locator
+      (lambda (locator arguments environment)
+        #f))
+
+
+;;;
+;;;; Primitive Call
 ;;;
 
 
@@ -3397,91 +3459,92 @@
 ;; for specializing based on static types...
 
 
-(define jazz.specialized-patterns
+(define jazz.primitive-patterns
   (%%make-hashtable eq?))
 
-(define jazz.specialized-patterns-initialized?
+(define jazz.primitive-patterns-initialized?
   #f)
 
 
-(define (jazz.initialize-specialized-patterns)
-  (%%iterate-hashtable jazz.specialized-patterns
+(define (jazz.initialize-primitive-patterns)
+  (%%iterate-hashtable jazz.primitive-patterns
     (lambda (key patterns)
-      (%%hashtable-set! jazz.specialized-patterns key
+      (%%hashtable-set! jazz.primitive-patterns key
         (map (lambda (pattern)
                (let ((name (%%car pattern))
                      (specifier (%%cadr pattern)))
                  (list name (jazz.walk-specifier #f #f #f '() specifier))))
              patterns))))
-  (set! jazz.specialized-patterns-initialized? #t))
+  (set! jazz.primitive-patterns-initialized? #t))
 
 
-(define (jazz.add-specialized-patterns operator patterns)
-  (set! jazz.specialized-patterns-initialized? #f)
-  (%%hashtable-set! jazz.specialized-patterns operator patterns))
+(define (jazz.add-primitive-patterns operator patterns)
+  (set! jazz.primitive-patterns-initialized? #f)
+  (%%hashtable-set! jazz.primitive-patterns operator patterns))
 
 
-(define (jazz.add-specialize operator name type)
-  (%%hashtable-set! jazz.specialized-patterns operator
-    (append
-      (%%hashtable-ref jazz.specialized-patterns operator '())
-      (list (list name type)))))
+(define (jazz.get-primitive-patterns locator)
+  (if (%%not jazz.primitive-patterns-initialized?)
+      (jazz.initialize-primitive-patterns))
+  (%%hashtable-ref jazz.primitive-patterns locator '()))
 
 
-(define (jazz.get-specialized-patterns locator)
-  (if (%%not jazz.specialized-patterns-initialized?)
-      (jazz.initialize-specialized-patterns))
-  (%%hashtable-ref jazz.specialized-patterns locator '()))
+(jazz.add-primitive-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
+
+(jazz.add-primitive-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <number^number:number>) (+ <number*:number>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <number^number:number>) (- <number^number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <number^number:number>) (* <number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>) (##/ <number^number:number>) (/ <number^number*:number>)))
+
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.eqv?         '((##eqv? <any^any:bool>)))
+
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
+(jazz.add-primitive-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
 
 
-(jazz.add-specialized-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
-
-(jazz.add-specialized-patterns 'jazz.dialect.language.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <number^number:number>) (- <number^number*:number>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <number^number:number>) (* <number*:number>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>) (##/ <number^number:number>) (/ <number^number*:number>)))
-
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.eqv?         '((##eqv? <any^any:bool>)))
-
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.car          '((##car    <pair:any>)))
-(jazz.add-specialized-patterns 'scheme.dialect.kernel.cdr          '((##cdr    <pair:any>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.length       '((##length <list:int>)     (##vector-length <vector:int>)          (##string-length <string:int>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.element      '((list-ref <list^int:any>) (##vector-ref    <vector^int:any>)      (##string-ref    <string^int:char>)))
-(jazz.add-specialized-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
-
-
-(define (jazz.emit-specialized-call operator locator arguments declaration environment)
+(define (jazz.emit-primitive-call operator locator arguments declaration environment)
   (if (%%not locator)
       #f
-    (or (jazz.emit-specialized-locator locator arguments environment)
-        (let ((patterns (jazz.get-specialized-patterns locator)))
-          (let ((types (jazz.codes-types arguments)))
-            (let iter ((scan patterns))
-              (if (%%null? scan)
-                  (begin
-                    (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
-                      (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (jazz.identifier-name locator)))
-                    #f)
-                (jazz.bind (name function-type) (%%car scan)
-                  (if (jazz.match-signature? types function-type)
-                      (jazz.new-code
-                        `(,name ,@(jazz.codes-forms arguments))
-                        (%%get-function-type-result function-type))
-                    (iter (%%cdr scan)))))))))))
+    (let ((patterns (jazz.get-primitive-patterns locator)))
+      (let ((types (jazz.codes-types arguments)))
+        (let iter ((scan patterns))
+          (if (%%null? scan)
+              (begin
+                (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
+                  (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (jazz.identifier-name locator)))
+                #f)
+            (jazz.bind (name function-type) (%%car scan)
+              (if (jazz.match-signature? types function-type)
+                  (jazz.new-code
+                    `(,name ,@(jazz.codes-forms arguments))
+                    (%%get-function-type-result function-type))
+                (iter (%%cdr scan))))))))))
 
 
-;; quicky because class concepts are not yet defined
-(define jazz.emit-specialized-locator #f)
+;;;
+;;;; Inlined Call
+;;;
 
-(set! jazz.emit-specialized-locator
-      (lambda (locator arguments environment)
-        #f))
+
+(define (jazz.emit-inlined-call operator arguments declaration environment)
+  (if (%%class-is? operator jazz.Reference)
+      (let ((binding (%%get-reference-binding operator)))
+        (jazz.emit-inlined-binding-call binding arguments declaration environment))
+    #f))
+
+
+;;;
+;;;; Signature
+;;;
 
 
 (define (jazz.match-signature? argument-types function-type)
@@ -3513,18 +3576,6 @@
       
       (and (match-positional?)
            (match-rest?)))))
-
-
-;;;
-;;;; Inlined Call
-;;;
-
-
-(define (jazz.emit-inlined-call operator arguments declaration environment)
-  (if (%%class-is? operator jazz.Reference)
-      (let ((binding (%%get-reference-binding operator)))
-        (jazz.emit-inlined-binding-call binding arguments declaration environment))
-    #f))
 
 
 ;;;

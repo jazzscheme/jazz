@@ -493,7 +493,6 @@
 (native jazz.new-walk-context)
 (native jazz.register-literal-constructor)
 (native jazz.parse-specifier)
-(native jazz.add-specializer)
 (native jazz.requested-module-name)
 
 

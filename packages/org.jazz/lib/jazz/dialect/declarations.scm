@@ -50,6 +50,24 @@
 
 
 ;;;
+;;;; Specialize New
+;;;
+
+
+(jazz.define-class-syntax jazz.Specialize-New jazz.Expression (type) jazz.Object-Class jazz.allocate-specialize-new
+  ())
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(jazz.define-class-syntax jazz.Specialize jazz.Expression (type) jazz.Object-Class jazz.allocate-specialize
+  ())
+
+
+;;;
 ;;;; Generic
 ;;;
 
@@ -88,7 +106,8 @@
 
 (jazz.define-class-syntax jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body implementor metaclass) jazz.Object-Class jazz.allocate-class-declaration
   ((ascendant  %%get-class-declaration-ascendant  ())
-   (interfaces %%get-class-declaration-interfaces ())))
+   (interfaces %%get-class-declaration-interfaces ())
+   (singleton  %%get-class-declaration-singleton  %%set-class-declaration-singleton)))
 
 
 ;;;
@@ -156,12 +175,13 @@
 
 
 ;;;
-;;;; Specialization
+;;;; Construct
 ;;;
 
 
-(jazz.define-class-syntax jazz.Specialization jazz.Expression (type) jazz.Object-Class jazz.allocate-specialization
-  ())
+(jazz.define-class-syntax jazz.Construct jazz.Expression (type) jazz.Object-Class jazz.allocate-construct
+  ((class  %%get-construct-class  ())
+   (values %%get-construct-values ())))
 
 
 ;;;

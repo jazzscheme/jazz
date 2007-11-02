@@ -125,6 +125,50 @@
 
 
 ;;;
+;;;; Specialize New
+;;;
+
+
+(jazz.define-class jazz.Specialize-New jazz.Expression (type) jazz.Object-Class
+  ())
+
+
+(define (jazz.new-specialize-new)
+  (jazz.allocate-specialize-new jazz.Specialize-New #f))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Specialize-New expression) declaration environment)
+  (jazz.new-code
+    `(begin)
+    jazz.Any))
+
+
+(jazz.encapsulate-class jazz.Specialize-New)
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(jazz.define-class jazz.Specialize jazz.Expression (type) jazz.Object-Class
+  ())
+
+
+(define (jazz.new-specialize)
+  (jazz.allocate-specialize jazz.Specialize #f))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Specialize expression) declaration environment)
+  (jazz.new-code
+    `(begin)
+    jazz.Any))
+
+
+(jazz.encapsulate-class jazz.Specialize)
+
+
+;;;
 ;;;; Generic-Declaration
 ;;;
 
@@ -213,7 +257,7 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration) source-declaration environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
-    declaration))
+    jazz.Category-Declaration))
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Category-Declaration category-declaration) symbol external?)
@@ -233,11 +277,12 @@
 
 (jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent children locator lookups body implementor metaclass) jazz.Object-Class
   (ascendant
-   interfaces))
+   interfaces
+   singleton))
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant interfaces)
-  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f implementor metaclass ascendant interfaces)))
+  (let ((new-declaration (jazz.allocate-class-declaration jazz.Class-Declaration name type access compatibility attributes #f parent '() #f (jazz.make-access-lookups jazz.protected-access) #f implementor metaclass ascendant interfaces #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -278,6 +323,13 @@
       (for-each (lambda (interface)
                   (%%hashtable-merge! protected (%%get-access-lookup interface jazz.public-access)))
                 interfaces))))
+
+
+(jazz.define-method (jazz.emit-binding-reference (jazz.Class-Declaration declaration) source-declaration environment)
+  (jazz.new-code
+    (%%get-declaration-locator declaration)
+    (or (%%get-category-declaration-metaclass declaration)
+        jazz.Class-Declaration)))
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Class-Declaration declaration) subtype)
@@ -817,10 +869,12 @@
     (jazz.new-special-form 'c-initialize   jazz.walk-c-initialize)
     (jazz.new-special-form 'c-function     jazz.walk-c-function)
     (jazz.new-special-form 'function       jazz.walk-function)
+    (jazz.new-special-form 'specialize-new jazz.walk-specialize-new)
     (jazz.new-special-form 'specialize     jazz.walk-specialize)
     (jazz.new-special-form 'parameterize   jazz.walk-parameterize)
     (jazz.new-special-form 'with-slots     jazz.walk-with-slots)
     (jazz.new-special-form 'with-self      jazz.walk-with-self)
+    (jazz.new-special-form 'construct      jazz.walk-construct)
     (jazz.new-special-form 'time           jazz.walk-time)))
 
 
@@ -913,24 +967,11 @@
 (set! jazz.emit-specialized-locator
       (lambda (locator arguments environment)
         (case locator
-          ((jazz.dialect.kernel.new)
-           (%%assert (%%pair? arguments)
-             (jazz.emit-specialized-new (%%car arguments) (%%cdr arguments) environment)))
           ((jazz.dialect.kernel.class-of)
            (%%assert (and (%%pair? arguments) (%%null? (%%cdr arguments)))
              (jazz.emit-specialized-class-of (%%car arguments) environment)))
           (else
            #f))))
-
-
-(define (jazz.emit-specialized-new class arguments environment)
-  (jazz.new-code
-    (case (%%length arguments)
-      ((0) `(jazz.new0 ,(%%get-code-form class)))
-      ((1) `(jazz.new1 ,(%%get-code-form class) ,@(jazz.codes-forms arguments)))
-      ((2) `(jazz.new2 ,(%%get-code-form class) ,@(jazz.codes-forms arguments)))
-      (else `(jazz.new ,(%%get-code-form class) ,@(jazz.codes-forms arguments))))
-    (%%get-code-type class)))
 
 
 (define (jazz.emit-specialized-class-of object environment)
@@ -939,7 +980,7 @@
     (let ((type (%%get-code-type object)))
       (if (%%class-is? type jazz.Class-Declaration)
           (%%get-category-declaration-metaclass type)
-        type))))
+        jazz.Class-Declaration))))
 
 
 ;;;
@@ -1023,25 +1064,29 @@
 
 
 ;;;
-;;;; Specialization
+;;;; Construct
 ;;;
 
 
-(jazz.define-class jazz.Specialization jazz.Expression (type) jazz.Object-Class
-  ())
+(jazz.define-class jazz.Construct jazz.Expression (type) jazz.Object-Class
+  (class
+   values))
 
 
-(define (jazz.new-specialization)
-  (jazz.allocate-specialization jazz.Specialization #f))
+(define (jazz.new-construct class values)
+  (jazz.allocate-construct jazz.Construct #f class values))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Specialization expression) declaration environment)
-  (jazz.new-code
-    `(begin)
-    jazz.Any))
+(jazz.define-method (jazz.emit-expression (jazz.Construct expression) declaration environment)
+  (let ((class (%%get-construct-class expression))
+        (values (%%get-construct-values expression)))
+    (jazz.new-code
+      `(%%object ,(%%get-code-form (jazz.emit-expression class declaration environment))
+         ,@(jazz.codes-forms (jazz.emit-expressions values declaration environment)))
+      jazz.Any)))
 
 
-(jazz.encapsulate-class jazz.Specialization)
+(jazz.encapsulate-class jazz.Construct)
 
 
 ;;;
@@ -1286,15 +1331,15 @@
 (define (jazz.walk-%definition-declaration walker resume declaration environment form)
   (jazz.bind (name specifier access compatibility expansion value parameters) (%%cdr form)
     (let ((type (jazz.specifier->type walker resume declaration environment specifier)))
-      (let ((effective-type (if (and specifier parameters) (jazz.new-function-type '() type) type))
-            (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
-        (let ((new-declaration (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature)))
-          (jazz.add-declaration-child walker resume declaration new-declaration)
-          (%%when (%%eq? expansion 'inline)
-            (let ((new-environment (%%cons new-declaration environment)))
-              (%%set-definition-declaration-value new-declaration
-                (jazz.walk walker resume new-declaration new-environment value))))
-          new-declaration)))))
+      (let ((signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
+        (let ((effective-type (if (and specifier parameters) (jazz.build-function-type signature type) type)))
+          (let ((new-declaration (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature)))
+            (jazz.add-declaration-child walker resume declaration new-declaration)
+            (%%when (%%eq? expansion 'inline)
+              (let ((new-environment (%%cons new-declaration environment)))
+                (%%set-definition-declaration-value new-declaration
+                  (jazz.walk walker resume new-declaration new-environment value))))
+            new-declaration))))))
 
 
 (define (jazz.walk-%definition walker resume declaration environment form)
@@ -1305,6 +1350,55 @@
         (%%set-definition-declaration-value new-declaration
           (jazz.walk walker resume new-declaration new-environment value)))
       new-declaration)))
+
+
+;; Until I unify signature and function type
+;; Only positional parameters as a first draft
+(define (jazz.build-function-type signature result-type)
+  (jazz.new-function-type
+    (map (lambda (parameter)
+           (or (%%get-lexical-binding-type parameter)
+               jazz.Any))
+         (%%get-signature-positional signature))
+    result-type))
+
+
+;;;
+;;;; Specialize New
+;;;
+
+
+(define (jazz.parse-specialize-new form)
+  (values (%%car form) (%%cadr form)))
+
+
+(define (jazz.walk-specialize-new walker resume declaration environment form)
+  (receive (class specialization) (jazz.parse-specialize-new (%%cdr form))
+    (let ((class-declaration (jazz.lookup-reference walker resume declaration environment class))
+          (specialization-declaration (jazz.lookup-reference walker resume declaration environment specialization)))
+      (let ((name (%%get-declaration-locator specialization-declaration)))
+        (jazz.add-specialize-new class-declaration name)
+        (jazz.new-specialize-new)))))
+
+
+;;;
+;;;; Specialize
+;;;
+
+
+(define (jazz.parse-specialize form)
+  (values (%%car form) (%%cadr form)))
+
+
+(define (jazz.walk-specialize walker resume declaration environment form)
+  (receive (specialized specialization) (jazz.parse-specialize (%%cdr form))
+    (let ((specialized-declaration (jazz.lookup-reference walker resume declaration environment specialized))
+          (specialization-declaration (jazz.lookup-reference walker resume declaration environment specialization)))
+      (let ((operator (%%get-declaration-locator specialized-declaration))
+            (name (%%get-declaration-locator specialization-declaration))
+            (type (%%get-lexical-binding-type specialization-declaration)))
+        (jazz.add-specialize operator name type)
+        (jazz.new-specialize)))))
 
 
 ;;;
@@ -1441,6 +1535,8 @@
           (ascendant (if (jazz.unspecified? ascendant-name) #f (jazz.lookup-reference walker resume declaration environment ascendant-name)))
           (interfaces (if (jazz.unspecified? interface-names) '() (map (lambda (interface-name) (jazz.lookup-reference walker resume declaration environment interface-name)) (jazz.listify interface-names)))))
       (let ((new-declaration (jazz.new-class-declaration name type access compatibility attributes declaration implementor metaclass ascendant interfaces)))
+        (if metaclass
+            (%%set-class-declaration-singleton metaclass new-declaration))
         (jazz.add-declaration-child walker resume declaration new-declaration)
         (jazz.setup-class-lookups new-declaration)
         (let ((new-environment (%%cons new-declaration environment)))
@@ -1784,6 +1880,18 @@
 
 
 ;;;
+;;;; Construct
+;;;
+
+
+(define (jazz.walk-construct walker resume declaration environment form)
+  (let ((class (%%cadr form))
+        (values (%%cddr form)))
+    (jazz.new-construct (jazz.walk walker resume declaration environment class)
+      (jazz.walk-list walker resume declaration environment values))))
+
+
+;;;
 ;;;; With Self
 ;;;
 
@@ -1793,26 +1901,6 @@
     (jazz.new-with-self
       (let ((body (%%cdr form)))
         (jazz.walk-body walker resume declaration new-environment body)))))
-
-
-;;;
-;;;; Specialize
-;;;
-
-
-(define (jazz.parse-specialize form)
-  (values (%%car form) (%%cadr form)))
-
-
-(define (jazz.walk-specialize walker resume declaration environment form)
-  (receive (specialized specialization) (jazz.parse-specialize (%%cdr form))
-    (let ((specialized-declaration (jazz.lookup-reference walker resume declaration environment specialized))
-          (specialization-declaration (jazz.lookup-reference walker resume declaration environment specialization)))
-      (let ((operator (%%get-declaration-locator specialized-declaration))
-            (name (%%get-declaration-locator specialization-declaration))
-            (type (%%get-lexical-binding-type specialization-declaration)))
-        (jazz.add-specialization operator name type)
-        (jazz.new-specialization)))))
 
 
 ;;;

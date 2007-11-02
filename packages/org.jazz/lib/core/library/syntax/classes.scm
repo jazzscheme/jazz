@@ -295,6 +295,8 @@
 
 (jazz.define-class-syntax jazz.Function-Type jazz.Type () jazz.Class jazz.allocate-function-type
   ((positional %%get-function-type-positional ())
+   (optional   %%get-function-type-optional   ())
+   (named      %%get-function-type-named      ())
    (rest       %%get-function-type-rest       ())
    (result     %%get-function-type-result     ())))
 

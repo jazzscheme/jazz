@@ -235,6 +235,9 @@
                       port)))))
 
 
+(define (el)
+  (ef 'jazz.dialect.language))
+
 (define (et)
   (e 'test))
 
@@ -493,7 +496,9 @@
 
 (define Appl
   '(jazz.process.Process
-    jazz.application.Application))
+    jazz.application.Application
+    jazz.ui.ide.IDE
+    jedi.application.Jedi))
 
 (define JML
   '(jazz.jml

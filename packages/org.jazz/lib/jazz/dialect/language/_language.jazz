@@ -3663,7 +3663,7 @@
 ;;;
 
 
-(class Point extends Numeric
+(class Point extends Object
   
   
   (slot h <fx> getter generate)
@@ -3697,37 +3697,52 @@
   (method (print printer readably)
     (format printer "~{Point {a} {a}}"
             h
-            v))
+            v)))
 
 
-  ;;;
-  ;;;; Numeric
-  ;;;
+(specialize inline as new-point (new Point h <fx> v <fx>) <Point>
+  (construct Point h v))
 
 
-  (method (negate)
-    (new Point (- h) (- v)))
-  
-  
-  (method (norm)
-    (sqrt (+ (expt h 2) (expt v 2))))
+(specialize inline as point= (= p1 <Point> p2 <Point>) <bool>
+  (and (= (get-h~ p1) (get-h~ p2))
+       (= (get-v~ p1) (get-v~ p2))))
 
 
-  (method (add n)
-    (cond ((is? n Point) (new Point (+ h (get-h~ n)) (+ v (get-v~ n))))
-          ((is? n Dimension) (new Point (+ h (get-width~ n)) (+ v (get-height~ n))))
-          ((integer? n) (new Point (+ h n) v))
-          (else (error "Cannot add {t} to {t}" n self))))
+(specialize inline as point+ (+ p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (+ (get-h~ p1) (get-h~ p2))
+    (+ (get-v~ p1) (get-v~ p2))))
 
 
-  (method (inverse)
-    (error "Cannot inverse {t}" self))
+(specialize inline (+ p <Point> n <int>) <Point>
+  (new Point
+    (+ (get-h~ p) n)
+    (get-v~ p)))
 
 
-  (method (multiply n)
-    (if (integer? n)
-        (new Point (* h n) (* v n))
-      (error "Cannot multiply {t} to {t}" n self))))
+(specialize inline as point- (- p1 <Point> p2 <Point>) <Point>
+  (new Point
+    (- (get-h~ p1) (get-h~ p2))
+    (- (get-v~ p1) (get-v~ p2))))
+
+
+(specialize inline (- p <Point> n <int>) <Point>
+  (new Point
+    (- (get-h~ p) n)
+    (get-v~ p)))
+
+
+(specialize inline (- p <Point>) <Point>
+  (new Point
+    (- (get-h~ p))
+    (- (get-v~ p))))
+
+
+(specialize inline as point* (* p <Point> n <int>) <Point>
+  (new Point
+    (* (get-h~ p) n)
+    (* (get-v~ p) n)))
 
 
 ;;;
@@ -3854,6 +3869,17 @@
             top
             right
             bottom)))
+
+
+(specialize inline as new-rect (new Rect left <number> top <number> right <number> bottom <number>) <Rect>
+  (construct Rect left top right bottom))
+
+
+(specialize inline as rect= (= r1 <Rect> r2 <Rect>) <bool>
+  (and (= (get-left~ r1) (get-left~ r2))
+       (= (get-top~ r1) (get-top~ r2))
+       (= (get-right~ r1) (get-right~ r2))
+       (= (get-bottom~ r1) (get-bottom~ r2))))
 
 
 ;;;

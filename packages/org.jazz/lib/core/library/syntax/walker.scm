@@ -2090,6 +2090,19 @@
     (jazz.queue-list queue)))
 
 
+;; not 100% sure about this special case of using the argument type when the parameter is typeless
+(define (jazz.annotate-inlined-signature signature arguments)
+  (let ((positional (%%get-signature-positional signature))
+        (queue (jazz.new-queue)))
+    (for-each (lambda (parameter argument)
+                (let ((declared-type (%%get-lexical-binding-type parameter)))
+                  (let ((type (or declared-type (%%get-code-type argument))))
+                    (jazz.enqueue queue (jazz.new-annotated-variable parameter declared-type type)))))
+              positional
+              arguments)
+    (jazz.queue-list queue)))
+
+
 (define (jazz.annotate-bindings bindings)
   (map (lambda (binding)
          (let ((variable (%%car binding))
@@ -3480,11 +3493,11 @@
   (%%hashtable-ref jazz.primitive-patterns locator '()))
 
 
-(jazz.add-primitive-patterns 'jazz.dialect.language.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
-(jazz.add-primitive-patterns 'jazz.dialect.language.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>) (+ <number*:number>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>) (- <number^number*:number>)))
@@ -3715,6 +3728,8 @@
            (process-and (%%get-and-expressions expr) env))
           ((%%class-is? expr jazz.Or)
            (process-or (%%get-or-expressions expr) env))
+          ((%%class-is? expr jazz.Lexical-Binding)
+           )
           ((%%class-is? expr jazz.Call)
            (let ((operator (%%get-call-operator expr)))
              (if (%%class-is? operator jazz.Reference)
@@ -4764,7 +4779,7 @@
                    (cond ;; positional parameter
                          ((%%symbol? parameter)
                           (if (%%eq? section 'positional)
-                              (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+                              (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f)))
                                 (let ((positional-parameter (jazz.new-parameter parameter type)))
                                   (jazz.enqueue positional positional-parameter)
                                   (%%when walk?

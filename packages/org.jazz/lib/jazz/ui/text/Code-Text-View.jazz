@@ -120,7 +120,7 @@
   (method (char-press key translated)
     (auto-complete translated)
     (flash-matching-character)
-    (when (= key #\space)
+    (when (eqv? key #\space)
       (show-arguments)))
   
   
@@ -265,8 +265,8 @@
   (method (header-string? form)
     (and (string? form)
          (>= (length form) 2)
-         (= (first form) #\double-quote)
-         (= (last form) #\double-quote)))
+         (eqv? (first form) #\double-quote)
+         (eqv? (last form) #\double-quote)))
   
   
   (method protected virtual (edition-workspace)
@@ -482,7 +482,7 @@
         (while found
           (let ((info (car found)))
             (bind ((target type) row col) info
-              (if (= type 'balanced-comment-backward)
+              (if (eq? type 'balanced-comment-backward)
                   (let ((end (new Cell row (+ col 2))))
                     (apply-coloring colorizer start end style)
                     (return (cdr found)))
@@ -495,13 +495,13 @@
       (let ((found (multisearch-string (list (list close 'close) (open 'open)) position: start :extended? #t reverse?: #t)))
         (when found
           (bind (pos . (target type)) found
-            (when (= type 'open)
+            (when (eq? type 'open)
               (apply-coloring colorizer pos end style)
               (cdr found)))))))
   
   
   (method protected (colorize-line-comment found start end colorizer line-style title-style title-char)
-    (let ((title? (and title-char (= (get-char (next start 2)) title-char))))
+    (let ((title? (and title-char (eqv? (get-char (next start 2)) title-char))))
       (if (not title?)
           (apply-coloring colorizer start (new Cell (get-row~ start) (paragraph-length (get-row~ start))) line-style)
         (apply-coloring colorizer start (+ start 3) line-style)
@@ -524,7 +524,7 @@
            (str (paragraph-string row)))
       (unless (>= (+ col 1) (length str))
         (let ((nxt (element str (+ col 1))))
-          (unless (or (eq? nxt #\space) (eq? nxt #\=))
+          (unless (or (eqv? nxt #\space) (eqv? nxt #\=))
             (let ((col (find-balanced #\< #\> str start: (+ col 1) return: 'position)))
               (when col
                 (new Cell row (+ col 1)))))))))
@@ -538,7 +538,7 @@
         (let ((opening (multisearch-string '(("/*" open) ("*/" close)) position: start :extended? #t reverse?: #t)))
           (when opening
             (bind (start . (target type)) opening
-              (when (= type 'open)
+              (when (eq? type 'open)
                 (set! pos start))))))
       (let ((range (naturals (get-row~ pos) (+ end-row 1))))
         (for-each uncolorize-row range))
@@ -629,8 +629,8 @@
   
   (method (offset-pos/range pos range)
     (if (= 0 (get-row~ (get-start~ range)) (get-row~ (get-end~ range)))
-        (new Range (+ pos (get-start~ range)) (+ pos (get-end~ range)))
-      (new Range
+        (new Range$Cell$ (+ pos (get-start~ range)) (+ pos (get-end~ range)))
+      (new Range$Cell$
         (new Cell (+ (get-row~ pos) (get-row~ (get-start~ range))) (get-col~ (get-start~ range)))
         (new Cell (+ (get-row~ pos) (get-row~ (get-end~ range))) (get-col~ (get-end~ range))))))
 
@@ -656,13 +656,13 @@
   
   
   (method protected virtual (tabulate-line row)
-    (replace-text (new Range (new Cell row 0) (new Cell row 0))
+    (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 0))
                   (list (coerce #\tab String))))
   
   
   (method (untabulate-line row)
     (when (space/tab? (get-char (new Cell row 0)))
-      (replace-text (new Range (new Cell row 0) (new Cell row 1))
+      (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row 1))
                     (list ""))))
   
   
@@ -720,7 +720,7 @@
       (when name
         (let* ((size (length name))
                (favorites (favorite-completions))
-               (favorite (assoc name favorites test: =))
+               (favorite (assoc name favorites test: string=?))
                (feedback? (not (macro-playing?))))
           (if favorite
               (begin
@@ -738,7 +738,7 @@
                        (let ((found (car completions)))
                          (when feedback?
                            (user-message "{a}" found))
-                         (if (= name found)
+                         (if (string=? name found)
                              {}
                            (append (either postfix "") (subseq found size)))))
                       ((> count 100)
@@ -796,7 +796,7 @@
           (complete-current {} (get-start) {} #f #f)))))
   
 
-  (method (complete-current key pos postfix back? inserted?)
+  (method (complete-current key pos <Cell> postfix back? inserted?)
     (if (textual-style? (get-style-at pos))
         (insert-char/backspace key)
       (let ((string (completion-string pos postfix)))
@@ -805,9 +805,9 @@
               (insert-char/backspace key)
               (end-completion))
           (if back?
-              (replace-text (new Range (previous-cell (get-start)) (get-end)) (list string))
+              (replace-text (new Range$Cell$ (previous-cell (get-start)) (get-end)) (list string))
             (insert-string string))
-          (set-completion (new Range (if inserted? (next-cell pos) pos) (+ pos (length string))))))))
+          (set-completion (new Range$Cell$ (if inserted? (next-cell pos) pos) (+ pos (length string))))))))
   
   
   (method protected (has-completion?)
@@ -836,12 +836,12 @@
       (let ((start (get-start))
             (end (get-end)))
         (end-completion)
-        (set-selection (new Range start end) set-anchor?: #f))))
+        (set-selection (new Range$Cell$ start end) set-anchor?: #f))))
 
 
   (method (insert-char/backspace c (word?: word? #f))
     (when c
-      (if (/= c #\backspace)
+      (if (not (eqv? c #\backspace))
           (insert-char c)
         ; remove competion before doing backspace
         (when completion-active?
@@ -934,7 +934,7 @@
         (let* ((column (char->column line char))
                (tabs   (floor (/ column tab-size)))
                (spaces (modulo column tab-size)))
-          (replace-text (new Range (new Cell row 0) (new Cell row char))
+          (replace-text (new Range$Cell$ (new Cell row 0) (new Cell row char))
                         (list (append! (make-string tabs #\tab)
                                        (make-string spaces #\space))))))))
 
@@ -964,7 +964,7 @@
     (unless (macro-playing?)
       (if (cell-displayed? start)
           (let ((old (get-selection)))
-            (set-selection (new Range start (next-cell start)))
+            (set-selection (new Range$Cell$ start (next-cell start)))
             (update-view)
             (sleep 200)
             (set-selection old)

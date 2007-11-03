@@ -458,86 +458,13 @@
       (eq? object #t)))
 
 
-(definition public (xor x y)
-  (/= (not x) (not y)))
+(definition public inline (xor x y)
+  (or (and x (not y))
+      (and (not x) y)))
 
 
-(definition public (= n m . rest)
-  (and (eq? (compare n m) :equal)
-       (let ((first m))
-         (let (iterate (scan rest))
-           (cond ((null? scan)
-                  #t)
-                 ((neq? (compare (car scan) first) :equal)
-                  #f)
-                 (else
-                  (iterate (cdr scan))))))))
-
-
-(definition public (/= n m . rest)
-  (if (null? rest)
-      (neq? (compare n m) :equal)
-    (not (apply = n m rest))))
-
-
-(definition public (< n m . rest)
-  (and (case (compare n m)
-         ((:less) #t)
-         ((:greater :equal) #f)
-         (else (error "Cannot compare {t} and {t}" n m)))
-       (let (iterate (scan rest) (max m))
-         (if (null? scan)
-             #t
-           (let ((value (car scan)))
-             (case (compare max value)
-               ((:less) (iterate (cdr scan) value))
-               ((:greater :equal) #f)
-               (else (error "Cannot compare {t} and {t}" max value))))))))
-
-
-(definition public (<= n m . rest)
-  (and (case (compare n m)
-         ((:less :equal) #t)
-         ((:greater) #f)
-         (else (error "Cannot compare {t} and {t}" n m)))
-       (let (iterate (scan rest) (max m))
-         (if (null? scan)
-             #t
-           (let ((value (car scan)))
-             (case (compare max value)
-               ((:less :equal) (iterate (cdr scan) value))
-               ((:greater) #f)
-               (else (error "Cannot compare {t} and {t}" max value))))))))
-
-
-(definition public (> n m . rest)
-  (and (case (compare n m)
-         ((:greater) #t)
-         ((:less :equal) #f)
-         (else (error "Cannot compare {t} and {t}" n m)))
-       (let (iterate (scan rest) (min m))
-         (if (null? scan)
-             #t
-           (let ((value (car scan)))
-             (case (compare min value)
-               ((:greater) (iterate (cdr scan) value))
-               ((:less :equal) #f)
-               (else (error "Cannot compare {t} and {t}" min value))))))))
-
-
-(definition public (>= n m . rest)
-  (and (case (compare n m)
-         ((:greater :equal) #t)
-         ((:less) #f)
-         (else (error "Cannot compare {t} and {t}" n m)))
-       (let (iterate (scan rest) (min m))
-         (if (null? scan)
-             #t
-           (let ((value (car scan)))
-             (case (compare min value)
-               ((:greater :equal) (iterate (cdr scan) value))
-               ((:less) #f)
-               (else (error "Cannot compare {t} and {t}" min value))))))))
+(definition public inline (/= x y)
+  (not (= x y)))
 
 
 (definition public (ci= . rest)
@@ -1025,6 +952,10 @@
     (if (symbol? obj)
         (ci-compare (symbol->string self) (symbol->string obj))
       :incompatible)))
+
+
+(specialize inline (= s1 <symbol> s2 <symbol>) <bool>
+  (eq? s1 s2))
 
 
 (definition public (generated-symbol? symbol)
@@ -2080,7 +2011,7 @@
 
 (definition (find-string target <Object> seq <Object>)
   (loop (for n from 0 below (length seq))
-        (when (= (element seq n) target)
+        (when (eqv? (element seq n) target)
           (return n))
         (finally {})))
 
@@ -2340,7 +2271,8 @@
 (definition public (search seq <Sequence> target <Object> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?))
   (let ((len (length seq))
         (size (length target))
-        (test (if ignore-case? ci= =)))
+        ;; parameterized-fix-me
+        (test (if ignore-case? char-ci=? char=?)))
     (define (match-case? pos <fx>) <bool>
       (let ((to (- size 1)))
         (let (iterate (i <fx> pos) (j <fx> 0))
@@ -2624,18 +2556,18 @@
     (values yes no)))
 
 
-(definition (starts-with? string target (test: test equal?))
+(definition (starts-with? string target (test: test string=?))
   (let ((str (length string))
         (trg (length target)))
     (and (>= str trg)
          (test (subseq string 0 trg) target))))
 
 
-(definition (ends-with? string target (test: test =))
+(definition (ends-with? string target (test: test string=?))
   (let ((str (length string))
         (trg (length target)))
     (and (>= str trg)
-         (test (subseq! string (- str trg)) target))))
+         (test (subseq string (- str trg)) target))))
 
 
 ;; pickpick impl.
@@ -3612,6 +3544,169 @@
 
 
 ;;;
+;;;; Range
+;;;
+
+
+(class Range extends Object
+  
+  
+  (slot start)
+  (slot end)
+    
+    
+  (method (initialize s e)
+    (nextmethod)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method (copy-object deep?)
+    (new Range start end))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Range)
+           :incompatible)
+          ((and (= start (get-start~ target)) (= end (get-end~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Range ',start ',end))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            start
+            end))
+  
+  
+  (method public inline (get-start)
+    start)
+  
+  
+  (method public inline (get-end)
+    end)
+  
+  
+  (method public virtual (extent)
+    (- end start))
+  
+  
+  (method public virtual (cardinality)
+    (+ (extent) 1))
+  
+  
+  (method public (inside? n)
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? n)
+    (< n start))
+
+
+  (method public (after? n)
+    (> n end))
+  
+  
+  (method public (intersect? range)
+    (and (< (get-start~ range) end)
+         (>= (get-end~ range) start)))
+
+
+  (method public (intersect range)
+    (when (intersect? range)
+      (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
+
+
+;;;
+;;;; Range$Cell$
+;;;
+
+
+(class Range$Cell$ extends Object
+  
+  
+  (slot start <Cell> getter generate)
+  (slot end   <Cell> getter generate)
+  
+  
+  (method (initialize s e)
+    (nextmethod)
+    (set! start s)
+    (set! end e))
+  
+  
+  (method (copy-object deep?)
+    (new Range$Cell$ start end))
+
+
+  (method (compare-object target)
+    (cond ((is-not? target Range$Cell$)
+           :incompatible)
+          ((and (= start (get-start~ target)) (= end (get-end~ target)))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (fold-literal)
+    `(new Range$Cell$ ',start ',end))
+  
+  
+  (method (print printer readably)
+    (format printer "~{{a} {s} {s}}"
+            (identifier-name (type-name (class-of self)))
+            start
+            end))
+  
+  
+  (method public virtual (extent) <Cell>
+    (- end start))
+  
+  
+  (method public virtual (cardinality) <Cell>
+    (+ (extent) 1))
+  
+  
+  (method public (inside? n <Cell>) <bool>
+    (and (>= n start)
+         (< n end)))
+
+
+  (method public (before? n <Cell>) <bool>
+    (< n start))
+
+
+  (method public (after? n <Cell>) <bool>
+    (> n end))
+  
+  
+  (method public (intersect? range <Range$Cell$>) <bool>
+    (and (< (get-start~ range) end)
+         (>= (get-end~ range) start)))
+
+
+  (method public (intersect range <Range$Cell$>)
+    (when (intersect? range)
+      (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
+
+
+(specialize inline (new Range$Cell$ start <Cell> end <Cell>) <Range$Cell$>
+  (construct Range$Cell$ start end))
+
+
+(specialize inline (= r1 <Range$Cell$> r2 <Range$Cell$>) <bool>
+  (and (= (get-start~ r1) (get-start~ r2))
+       (= (get-end~ r1) (get-end~ r2))))
+
+
+;;;
 ;;;; Point
 ;;;
 
@@ -4316,6 +4411,10 @@
   
   (method (sequence-butlast)
     (substring self 0 (- (length self) 1))))
+
+
+(specialize inline (= s1 <string> s2 <string>) <bool>
+  (string=? s1 s2))
 
 
 (definition public inline (empty-string? object)

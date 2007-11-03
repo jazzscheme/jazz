@@ -43,6 +43,49 @@
   #f)
 
 
+(define (dup)
+  (let ((sk (jazz.locate-toplevel-declaration 'scheme.dialect.kernel))
+        (jk (jazz.locate-toplevel-declaration 'jazz.dialect.kernel))
+        (jl (jazz.locate-toplevel-declaration 'jazz.dialect.language)))
+    (define (check l)
+      (for-each (lambda (d)
+                  (let ((name (%%get-lexical-binding-name d)))
+                    (if (jazz.lookup-declaration sk name #t)
+                        (begin
+                          (write name)
+                          (newline)))))
+                (%%get-declaration-children l)))
+    (check jk)
+    (check jl)))
+
+;; min
+;; max
+;; boolean?
+;; procedure?
+;; number?
+;; zero?
+;; positive?
+;; negative?
+;; abs
+;; floor
+;; truncate
+;; round
+;; length
+;; for-each
+;; map
+;; append
+;; assoc
+;; open-input-file
+;; call-with-input-file
+;; open-output-file
+;; call-with-output-file
+;; eof-object?
+;; display
+;; write
+;; write-char
+;; newline
+
+
 ;;;
 ;;;; Test
 ;;;
@@ -241,6 +284,9 @@
 (define (et)
   (e 'test))
 
+(define (etc)
+  (ec 'test))
+
 
 ;;;
 ;;;; Compile
@@ -425,7 +471,6 @@
 
 (define Util
   '(jazz.utilities
-    jazz.library.utility.Range
     jazz.io))
 
 (define Comp
@@ -456,9 +501,8 @@
 (define Text
   '(jazz.ui.graphic.font.Font
     jazz.ui.graphic.Font-Metrics
-    jazz.library.element.Node
-    jazz.library.exemplar.Exemplar
-    jazz.library.exemplar.Exemplar-Domain
+    jazz.library.node
+    jazz.library.exemplar
     jazz.ui.text.Format
     jazz.ui.text.Paragraph
     jazz.ui.text.Line

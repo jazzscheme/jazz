@@ -69,7 +69,7 @@
                   (body (%%get-lambda-body value)))
               (if (jazz.only-positional? signature)
                   (if (%%fx= (%%get-signature-mandatory signature) (%%length arguments))
-                      (jazz.with-annotated-frame (jazz.annotate-signature signature)
+                      (jazz.with-annotated-frame (jazz.annotate-inlined-signature signature arguments)
                         (lambda (frame)
                           (let ((augmented-environment (cons frame environment)))
                             (let ((body-code (jazz.emit-expression body source-declaration augmented-environment)))
@@ -898,16 +898,18 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((definition)      (jazz.walk-definition-declaration   walker resume declaration environment form))
-          ((generic)         (jazz.walk-generic-declaration      walker resume declaration environment form))
+          ((definition)      (jazz.walk-definition-declaration     walker resume declaration environment form))
+          ((%specialize)     (jazz.walk-specialize-declaration     walker resume declaration environment form))
+          ((%specialize-new) (jazz.walk-specialize-new-declaration walker resume declaration environment form))
+          ((generic)         (jazz.walk-generic-declaration        walker resume declaration environment form))
           ((specific)        #f)
-          ((class)           (jazz.walk-class-declaration        walker resume declaration environment form))
-          ((interface)       (jazz.walk-interface-declaration    walker resume declaration environment form))
-          ((%slot %property) (jazz.walk-%slot-declaration        walker resume declaration environment form))
-          ((method)          (jazz.walk-method-declaration       walker resume declaration environment form))
+          ((class)           (jazz.walk-class-declaration          walker resume declaration environment form))
+          ((interface)       (jazz.walk-interface-declaration      walker resume declaration environment form))
+          ((%slot %property) (jazz.walk-%slot-declaration          walker resume declaration environment form))
+          ((method)          (jazz.walk-method-declaration         walker resume declaration environment form))
           ((c-include)       #f)
-          ((c-type)          (jazz.walk-c-type-declaration       walker resume declaration environment form))
-          ((c-definition)    (jazz.walk-c-definition-declaration walker resume declaration environment form))
+          ((c-type)          (jazz.walk-c-type-declaration         walker resume declaration environment form))
+          ((c-definition)    (jazz.walk-c-definition-declaration   walker resume declaration environment form))
           (else              (nextmethod walker resume declaration environment form))))
     #f))
 
@@ -1101,7 +1103,12 @@
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
               ((final)
-               (proc jazz.final-dispatch (%%get-method-implementation field) #f))
+               (let ((implementation
+                      (if jazz.kludge-around-gambit-procedure-name-algorithm?
+                          (lambda rest
+                            (apply (%%get-method-implementation field) rest))
+                        (%%get-method-implementation field))))
+                 (proc jazz.final-dispatch implementation #f)))
               ((class)
                (proc jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
               ((interface)
@@ -1406,7 +1413,7 @@
 ;;;
 
 
-(define (jazz.walk-specialize-new walker resume declaration environment form)
+(define (jazz.walk-specialize-new-declaration walker resume declaration environment form)
   (let ((class (%%cadr form))
         (specializer (%%car (%%cddr form))))
     (let ((class-declaration (jazz.lookup-reference walker resume declaration environment class))
@@ -1415,18 +1422,28 @@
       (jazz.new-specialize-new))))
 
 
+;; we should not even have to do this
+(define (jazz.walk-specialize-new walker resume declaration environment form)
+  (jazz.new-specialize-new))
+
+
 ;;;
 ;;;; Specialize
 ;;;
 
 
-(define (jazz.walk-specialize walker resume declaration environment form)
+(define (jazz.walk-specialize-declaration walker resume declaration environment form)
   (let ((specialized (%%cadr form))
         (specializer (%%car (%%cddr form))))
     (let ((specialized-declaration (jazz.lookup-reference walker resume declaration environment specialized))
           (specializer-declaration (jazz.lookup-reference walker resume declaration environment specializer)))
       (jazz.add-specializer specialized-declaration specializer-declaration)
       (jazz.new-specialize))))
+
+
+;; we should not even have to do this
+(define (jazz.walk-specialize walker resume declaration environment form)
+  (jazz.new-specialize))
 
 
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Exemplar Programming
+;;;; Exemplars
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.library.exemplar.Exemplar jazz
+(library jazz.library.exemplar jazz
 
 
-(import (jazz.library))
+(import (jazz.library)
+        (jazz.library.node)
+        (jazz.utilities))
+
+
+(specialize inline as exemplar=? (= e1 <Exemplar> e2 <Exemplar>) <bool>
+  (and (node=? e1 e2)
+       (eq? (get-base~ e1) (get-base~ e2))))
+
+
+;;;
+;;;; Exemplar
+;;;
 
 
 (class Exemplar extends Node
@@ -264,4 +276,105 @@
   
   
   (method public (set-persistent? value)
-    (set! persistent? value))))
+    (set! persistent? value)))
+
+
+;;;
+;;;; Exemplar-Domain
+;;;
+
+
+(class Exemplar-Domain extends Object
+  
+  
+  (slot protected content initialize (new Axis))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-content)
+    content)
+  
+  
+  (method public (set-content value)
+    (set! content (coerce value Axis)))
+  
+  
+  (method public (empty-content (remove-named?: remove-named? #f))
+    (set! content (collect-if (function dynamic (exemplar)
+                                (and (not remove-named?) (named?~ exemplar)))
+                              content)))
+  
+  
+  ;;;
+  ;;;; Exemplars
+  ;;;
+  
+  
+  (method public (add exemplar)
+    (axis-add content exemplar))
+  
+  
+  (method public (reference rank/name)
+    (if (integer? rank/name)
+        (element content rank/name)
+      (locate rank/name)))
+  
+  
+  (method public (locate name (error?: error? #t))
+    ;; (assert name)
+    (either (find name content key: (function dynamic (exemplar) (get-name~ exemplar)))
+            (when error?
+              (error "Unable to locate {t}" name))))
+  
+  
+  (method public (similar exemplar)
+    ; domain-free exemplar must call (setup-inherited) to inherit default properties
+    (when (not (get-domain~ exemplar))
+      (set-domain~ exemplar self))
+    (find exemplar content test: exemplar=?))
+  
+  
+  (method public (get-rank exemplar)
+    (find exemplar content return: 'position))
+  
+  
+  ;;;
+  ;;;; Inheritance
+  ;;;
+  
+  
+  (method public (has-ascendant? exemplar base)
+    (call/ec
+      (lambda (return)
+        (for-each-ascendant~ exemplar
+          (function dynamic (ascendant)
+            (when (eq? ascendant base)
+              (return #t))))
+        #f)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method protected (update-descendants base)
+    (for-each (function dynamic (exemplar)
+                (when (has-ascendant? exemplar base)
+                  (update~ exemplar)))
+              content))
+  
+  
+  ;;;
+  ;;;; Persistence
+  ;;;
+  
+  
+  (method public (collect-persistent)
+    (collect-if (function dynamic (exemplar)
+                  (get-persistent?~ exemplar))
+                content))))

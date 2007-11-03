@@ -915,7 +915,7 @@
   
   
   (method (set-caret-position pos)
-    (when (/= pos caret-position)
+    (when #t @parameterized-fix-me (/= pos caret-position)
       (without-caret
         (function dynamic ()
           (set! caret-position pos)))))
@@ -1025,7 +1025,7 @@
                  (< (get-h~ view) (paragraph-left~ (get-paragraph (get-row~ pos))))
                  (>= pos (get-end~ selection-anchor)))
         (set! pos (get-end~ (selection-line (get-row~ pos)))))
-      (when (and pos (/= pos previous-pos))
+      (when (and pos #t @parameterized-fix-me (/= pos previous-pos))
         (let* ((range (selection-range pos))
                (parts (range-difference range selection))
                (player (get-player))
@@ -1096,15 +1096,15 @@
       (when (<= row limit)
         (let* ((par (get-paragraph row))
                (len (get-length~ par)))
-          (set-selection (new Range (new Cell row 0) (new Cell row len)))))))
+          (set-selection (new Range$Cell$ (new Cell row 0) (new Cell row len)))))))
   
   
   (method (selection-line row <fx>)
     (let ((limit (get-limit)))
       (when (<= row limit)
         (if (= row limit)
-            (new Range (new Cell row 0) (new Cell row (paragraph-length row)))
-          (new Range (new Cell row 0) (new Cell (+ row 1) 0))))))
+            (new Range$Cell$ (new Cell row 0) (new Cell row (paragraph-length row)))
+          (new Range$Cell$ (new Cell row 0) (new Cell (+ row 1) 0))))))
   
   
   (method (selection-range pos)
@@ -1120,28 +1120,28 @@
            (cond ((not range)
                   (selection-range-from-anchor pos))
                  ((before?~ selection-anchor pos)
-                  (new Range (get-start~ range) (generic-max (get-end~ range) (get-end~ selection-anchor))))
+                  (new Range$Cell$ (get-start~ range) (generic-max (get-end~ range) (get-end~ selection-anchor))))
                  ;; else pos is after selection-anchor
                  (else
-                  (new Range (generic-min (get-start~ range) (get-start~ selection-anchor)) (get-end~ range)))))))
+                  (new Range$Cell$ (generic-min (get-start~ range) (get-start~ selection-anchor)) (get-end~ range)))))))
       (else (selection-range-from-anchor pos))))
   
   
   (method (selection-range-from-anchor pos)
     (cond ((before?~ selection-anchor pos)
-           (new Range pos (get-end~ selection-anchor)))
+           (new Range$Cell$ pos (get-end~ selection-anchor)))
           ((after?~ selection-anchor pos)
-           (new Range (get-start~ selection-anchor) pos))
+           (new Range$Cell$ (get-start~ selection-anchor) pos))
           ;; else pos is inside selection-anchor
           (else
            selection-anchor)))
   
   
-  (method (range-difference x <Range> y <Range>)
-    (let ((sx <Cell> (get-start~ x))
-          (ex <Cell> (get-end~ x))
-          (sy <Cell> (get-start~ y))
-          (ey <Cell> (get-end~ y)))
+  (method (range-difference x <Range$Cell$> y <Range$Cell$>)
+    (let ((sx (get-start~ x))
+          (ex (get-end~ x))
+          (sy (get-start~ y))
+          (ey (get-end~ y)))
       (if (and (= sx sy) (= ex ey))
           '()
         (cond ((= sx ex) (list y))
@@ -1150,10 +1150,10 @@
                (list x y))
               (else
                (let ((parts (new List-Factory)))
-                 (cond ((< sx sy) (put~ parts (new Range sx sy)))
-                       ((> sx sy) (put~ parts (new Range sy sx))))
-                 (cond ((< ex ey) (put~ parts (new Range ex ey)))
-                       ((> ex ey) (put~ parts (new Range ey ex))))
+                 (cond ((< sx sy) (put~ parts (new Range$Cell$ sx sy)))
+                       ((> sx sy) (put~ parts (new Range$Cell$ sy sx))))
+                 (cond ((< ex ey) (put~ parts (new Range$Cell$ ex ey)))
+                       ((> ex ey) (put~ parts (new Range$Cell$ ey ex))))
                  (get-output~ parts)))))))
   
   
@@ -1180,6 +1180,7 @@
   
   
   (method (setup-autoscroll-pulse)
+    @convert
     (if (= autoscroll-amount {Point 0 0})
         (kill-autoscroll-pulse)
       (when (not autoscroll-pulse)
@@ -1399,7 +1400,7 @@
   ;;;
   
   
-  (method (range-region range <Range> dh dv sc (top: top {}) (bottom: bottom {}))
+  (method (range-region range <Range$Cell$> dh dv sc (top: top {}) (bottom: bottom {}))
     (let ((region (new Region)))
       (with ((proc <procedure>
                (function dynamic (paragraph start end)
@@ -1430,7 +1431,7 @@
     (invalidate-rect (row-range-rect row 0 {})))
   
   
-  (method (invalidate-range range <Range>)
+  (method (invalidate-range range <Range$Cell$>)
     (let ((player (get-player)))
       (when player
         (let ((root (get-root)))
@@ -1456,9 +1457,9 @@
     inactive-selection-color)
   
   
-  (method (for-each-range range <Range> proc)
-    (let ((start <Cell> (get-start~ range))
-          (end <Cell> (get-end~ range)))
+  (method (for-each-range range <Range$Cell$> proc)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
       (when (/= start end)
         (if (= (get-row~ start) (get-row~ end))
             (proc (get-paragraph (get-row~ start)) (get-col~ start) (get-col~ end))
@@ -1562,7 +1563,7 @@
   
   
   (method (select-all . rest)
-    (set-selection (new Range (text-beginning) (text-ending))))
+    (set-selection (new Range$Cell$ (text-beginning) (text-ending))))
   
   
   (method public (clear-all)
@@ -1591,7 +1592,7 @@
   (method public (on-jump-mark evt)
     (when mark
       (if (get-property~ evt extend?:)
-          (set-selection (new Range
+          (set-selection (new Range$Cell$
                            (minimum (list (get-start~ selection-anchor) (get-start~ mark)))
                            (maximum (list (get-end~ selection-anchor) (get-end~ mark)))))
         (let ((new-mark mark))
@@ -1607,8 +1608,8 @@
   (proclaim (optimize))
   
   
-  (method (empty-selection) <Range>
-    (new Range (text-beginning) (text-beginning)))
+  (method (empty-selection) <Range$Cell$>
+    (new Range$Cell$ (text-beginning) (text-beginning)))
   
   
   (method (row-selected? row) <bool>
@@ -1636,13 +1637,13 @@
     (get-end~ selection))
   
   
-  (method public (get-selection) <Range>
+  (method public (get-selection) <Range$Cell$>
     selection)
   
   
-  (method public (set-selection range <Range> (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
+  (method public (set-selection range <Range$Cell$> (ensure-displayed?: ensure-displayed? #t) (set-anchor?: set-anchor? #t))
     (validate-range range)
-    (when (and range (/= selection range))
+    (when (and range #t @parameterized-fix-me (/= selection range))
       (when (or set-anchor? (not selection-anchor))
         (set-selection-anchor range))
       (update-selection range)
@@ -1655,7 +1656,7 @@
         (update-focus-actions~ (get-application)))))
   
   
-  (method public (update-selection range <Range>)
+  (method public (update-selection range <Range$Cell$>)
     (let ((player (get-player)))
       (if (not player)
           (set! selection range)
@@ -1675,18 +1676,18 @@
   
   
   (method public (reset-selection pos <Cell>)
-    (let ((range (new Range pos pos)))
+    (let ((range (new Range$Cell$ pos pos)))
       (set-selection range set-anchor?: #t)))
   
   
-  (method (fit-range range <Range>)
+  (method (fit-range range <Range$Cell$>)
     (let* ((ending (text-ending))
-           (start <Cell> (get-start~ range))
-           (end <Cell> (get-end~ range))
+           (start (get-start~ range))
+           (end (get-end~ range))
            (s (when (> start ending) ending))
            (e (when (> end ending) ending)))
       (when (or s e)
-        (new Range (either s start) (either e end)))))
+        (new Range$Cell$ (either s start) (either e end)))))
   
   
   (method (fit-selection)
@@ -1747,11 +1748,13 @@
   
   
   (method public (at-beginning?)
-    (= (get-start) (get-end) (text-beginning)))
+    (and (= (get-start) (get-end))
+         (= (get-start) (text-beginning))))
   
   
   (method public (at-end?)
-    (= (get-start) (get-end) (text-ending)))
+    (and (= (get-start) (get-end))
+         (= (get-start) (text-ending))))
   
   
   (method public (at-line-start?)
@@ -1776,7 +1779,7 @@
         #\newline)))
   
   
-  (method public (get-string range <Range>) <string>
+  (method public (get-string range <Range$Cell$>) <string>
     (join (range-strings range) (cn)))
   
   
@@ -1867,12 +1870,12 @@
   
   (method public (goto-line line)
     (cond ((< line 0)
-           (set-selection (new Range (new Cell 0 0) (new Cell 1 0))))
+           (set-selection (new Range$Cell$ (new Cell 0 0) (new Cell 1 0))))
           ((>= line (get-limit))
            (let ((line (get-limit)))
-             (set-selection (new Range (new Cell line 0) (new Cell line (paragraph-length line))))))
+             (set-selection (new Range$Cell$ (new Cell line 0) (new Cell line (paragraph-length line))))))
           (else
-           (set-selection (new Range (new Cell line 0) (new Cell (+ line 1) 0))))))
+           (set-selection (new Range$Cell$ (new Cell line 0) (new Cell (+ line 1) 0))))))
   
   
   (method (added-update-selection rank count)
@@ -2080,10 +2083,10 @@
       (scroll (scroll-needed start end (get-scroll-context)))))
   
   
-  (method public (ensure-range-displayed range <Range> . rest)
+  (method public (ensure-range-displayed range <Range$Cell$> . rest)
     (unless (or update-locked? (not player))
-      (let* ((start <Cell> (get-start~ range))
-             (end <Cell> (get-end~ range))
+      (let* ((start (get-start~ range))
+             (end (get-end~ range))
              (end-height (get-height-at end)))
         (scroll (apply scroll-needed (text->view start) (+ (text->view end) (new Point 0 end-height)) (get-scroll-context) rest)))))
   
@@ -2188,7 +2191,7 @@
     (let ((start (get-start))
           (style (cond ((is? style Style) style) ((not style) default-style) (else (get-style style)))))
       (insert-string string)
-      (set-style (new Range start (get-start)) style)))
+      (set-style (new Range$Cell$ start (get-start)) style)))
   
   
   (method public (insert-line line (proper? #t))
@@ -2299,7 +2302,7 @@
       (unless (at-beginning?)
         (if (has-selection?)
             (replace-selection (list ""))
-          (let ((range (new Range (move-backward (get-start) word?) (get-end))))
+          (let ((range (new Range$Cell$ (move-backward (get-start) word?) (get-end))))
             (replace range (list "")))))))
   
   
@@ -2308,7 +2311,7 @@
       (unless (at-end?)
         (if (has-selection?)
             (replace-selection (list ""))
-          (let ((range (new Range (get-start) (move-forward (get-end) word?))))
+          (let ((range (new Range$Cell$ (get-start) (move-forward (get-end) word?))))
             (replace range (list "")))))))
   
   
@@ -2316,19 +2319,19 @@
     (replace selection strings))
   
   
-  (method public (replace range <Range> strings)
+  (method public (replace range <Range$Cell$> strings)
     (let ((caret (replace-text range strings)))
       (when caret
         (set-caret caret)
         (show-caret))))
   
   
-  (method protected (replace-text range <Range> strings)
+  (method protected (replace-text range <Range$Cell$> strings)
     (when (write-allowed?)
       (without-caret
         (function dynamic ()
-          (let* ((start <Cell> (get-start~ range))
-                 (end   <Cell> (get-end~ range))
+          (let* ((start (get-start~ range))
+                 (end   (get-end~ range))
                  (count (length strings))
                  (old   (range-strings range))
                  (ufd?  (<= (get-row~ start) first-displayed-rank))
@@ -2349,7 +2352,7 @@
             (set-modified? #t)
             (if #f @commented-because-buggy-with-multiple-undo inserting-single-char?
                 (if (not contiguous-undo-range)
-                    (let ((range (new Range start caret)))
+                    (let ((range (new Range$Cell$ start caret)))
                       (set! contiguous-undo-range range)
                       (register-undo~ undoer
                         (function ()
@@ -2359,7 +2362,7 @@
                     (set! contiguous-undo-range {})))
                 (set! contiguous-undo-range {})
                 (register-undo~ undoer
-                  (let ((range (new Range start caret)))
+                  (let ((range (new Range$Cell$ start caret)))
                     (function ()
                       (replace range old)
                       (set-selection old-selection)))))
@@ -2369,9 +2372,9 @@
             caret)))))
   
   
-  (method (replace-range range <Range> strings)
-    (let ((start <Cell> (get-start~ range))
-          (end   <Cell> (get-end~ range))
+  (method (replace-range range <Range$Cell$> strings)
+    (let ((start (get-start~ range))
+          (end   (get-end~ range))
           (count (length strings)))
       (if (and (= (get-row~ start) (get-row~ end)) (= 1 count))
           (replace-paragraph (get-row~ start) (get-col~ start) (get-col~ end) (car strings))
@@ -2405,9 +2408,9 @@
       (invalidate-paragraph paragraph)))
   
   
-  (method (replace-paragraphs range <Range> strings)
-    (let* ((start       <Cell> (get-start~ range))
-           (end         <Cell> (get-end~ range))
+  (method (replace-paragraphs range <Range$Cell$> strings)
+    (let* ((start       (get-start~ range))
+           (end         (get-end~ range))
            (sr          (get-row~ start))
            (er          (get-row~ end))
            (replaced    (+ (- er sr) 1))
@@ -2788,7 +2791,7 @@
       (print-formatted printer {})))
   
   
-  (method protected (print-formatted printer range <Range>)
+  (method protected (print-formatted printer range <Range$Cell$>)
     (let ((formats (collect-persistent~ formats))
           (styles (collect-persistent~ styles)))
       (format printer "~{Formatted-Text{%}")
@@ -2815,7 +2818,7 @@
         (format printer ")}{%}"))))
   
   
-  (method (range-paragraph-runs paragraph range <Range>)
+  (method (range-paragraph-runs paragraph range <Range$Cell$>)
     (if (not range)
         (get-runs~ paragraph)
       (let ((first? (eq? paragraph (get-paragraph (get-row~ (get-start~ range)))))
@@ -2947,7 +2950,7 @@
     (max 40 (- (if wrap-width (- wrap-width wrap-patch) (get-display-width)) left-padding (get-left-margin~ (get-format~ paragraph)))))
   
   
-  (method (range-paragraphs range <Range>)
+  (method (range-paragraphs range <Range$Cell$>)
     (let ((last {})
           (fact (new List-Factory)))
       (loop (for row from (get-row~ (get-start~ range)) to (get-row~ (get-end~ range)))
@@ -2987,7 +2990,7 @@
               (replace-selection strings)))))))
   
   
-  (method public (replace-formatted range <Range> info)
+  (method public (replace-formatted range <Range$Cell$> info)
     (let ((caret
            (typecase info
              ((Formatted-Text)
@@ -3009,18 +3012,18 @@
         (set-caret caret))))
   
   
-  (method protected (replace-formatted-text range <Range> strings formats styles paragraphs)
+  (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
     (when (write-allowed?)
       (without-caret
         (function dynamic ()
-          (let* ((start <Cell> (get-start~ range))
-                 (end   <Cell> (get-end~ range))
+          (let* ((start (get-start~ range))
+                 (end   (get-end~ range))
                  (count (length strings))
                  (old   (range-formatted-text range))
                  (ufd?  (<= (get-row~ start) first-displayed-rank))
                  (caret (replace-range range strings))
                  (appl  (get-application)))
-            (apply-formats/styles (new Range start caret) formats styles paragraphs)
+            (apply-formats/styles (new Range$Cell$ start caret) formats styles paragraphs)
             ;; note: we have to get ufd? before replace-range calls layout-scrollee
             ;; todo: would < be sufficient for ufd?
             (when ufd?
@@ -3033,7 +3036,7 @@
             (recolorize-text start (- (+ (get-row~ start) count) 1))
             (set-modified? #t)
             (register-undo~ undoer
-                            (let ((range (new Range start caret))
+                            (let ((range (new Range$Cell$ start caret))
                                    (selection (copy selection)))
                               (function ()
                                 (replace-formatted range old)
@@ -3044,7 +3047,7 @@
             caret)))))
   
   
-  (method protected (apply-formats/styles range <Range> formats styles paragraphs)
+  (method protected (apply-formats/styles range <Range$Cell$> formats styles paragraphs)
     (let* ((start (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range))))
            (end   (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range)))))
       (for-each (function dynamic (paragraph)
@@ -3053,7 +3056,7 @@
                                 (bind (string . ref) run
                                   (let ((style (reference-style styles (car ref))))
                                     (set-col~ end (+ (get-col~ start) (length string)))
-                                    (set-style (new Range start end) style)
+                                    (set-style (new Range$Cell$ start end) style)
                                     (set-col~ start (get-col~ end)))))
                               runs)
                     (let* ((full-paragraph (get-paragraph (get-row~ start)))
@@ -3068,7 +3071,7 @@
                 paragraphs)))
   
   
-  (method protected (range-formatted-text range <Range>)
+  (method protected (range-formatted-text range <Range$Cell$>)
     (unimplemented 'range-formatted-text)
     @convert
     (let ((printer (new String-Printer)))
@@ -3124,10 +3127,10 @@
   (method public (stylize name/style start (end {}))
     (when (not end)
       (set! end (new Cell (get-row~ start) (paragraph-length (get-row~ start)))))
-    (set-text-style (new Range start end) (get-style name/style)))
+    (set-text-style (new Range$Cell$ start end) (get-style name/style)))
   
   
-  (method public (set-style range <Range> style <Style>)
+  (method public (set-style range <Range$Cell$> style <Style>)
     @debug
     (let ((info
            (function dynamic (s)
@@ -3149,7 +3152,7 @@
       (invalidate-view)))
   
   
-  (method public (set-text-alignment range <Range> alignment)
+  (method public (set-text-alignment range <Range$Cell$> alignment)
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
@@ -3159,7 +3162,7 @@
     (invalidate-view))
   
   
-  (method public (set-text-font range <Range> font <Font>)
+  (method public (set-text-font range <Range$Cell$> font <Font>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-font~ paragraph start end font)
@@ -3169,7 +3172,7 @@
     (invalidate-view))
   
   
-  (method public (set-text-style range <Range> style <Style>)
+  (method public (set-text-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
         (function dynamic (paragraph start end)
@@ -3179,7 +3182,7 @@
       @should-not-be-done-for-code-text (set-modified? #t)))
   
   
-  (method public (set-text-color range <Range> color <Color>)
+  (method public (set-text-color range <Range$Cell$> color <Color>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-text-color~ paragraph start end color)
@@ -3188,7 +3191,7 @@
     @should-not-be-done-for-code-text (set-modified? #t))
   
   
-  (method public (set-highlight-color range <Range> color <Color>)
+  (method public (set-highlight-color range <Range$Cell$> color <Color>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (set-highlight-color~ paragraph start end color)
@@ -3197,7 +3200,7 @@
     @should-not-be-done-for-code-text (set-modified? #t))
   
   
-  (method public (toggle-bold range <Range>)
+  (method public (toggle-bold range <Range$Cell$>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-bold~ paragraph start end)
@@ -3205,7 +3208,7 @@
         (invalidate-drawing~ paragraph))))
   
   
-  (method public (toggle-italic range <Range>)
+  (method public (toggle-italic range <Range$Cell$>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-italic~ paragraph start end)
@@ -3213,7 +3216,7 @@
         (invalidate-drawing~ paragraph))))
   
   
-  (method public (toggle-underline range <Range>)
+  (method public (toggle-underline range <Range$Cell$>)
     (for-each-range range
       (function dynamic (paragraph start end)
         (toggle-underline~ paragraph start end)
@@ -3542,9 +3545,9 @@
   ;;;
   
   
-  (method (range-strings range <Range>) <list>
-    (let ((start <Cell> (get-start~ range))
-          (end <Cell> (get-end~ range)))
+  (method (range-strings range <Range$Cell$>) <list>
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
       (if (= (get-row~ start) (get-row~ end))
           (list (subseq (paragraph-string (get-row~ start)) (get-col~ start) (get-col~ end)))
         (let ((dest (new List-Factory)))
@@ -3676,16 +3679,16 @@
   (method public (colorize color <Color> start <Cell> (end {}))
     (when (not end)
       (set! end (new Cell (get-row~ start) (paragraph-length (get-row~ start)))))
-    (set-text-color (new Range start end) color))
+    (set-text-color (new Range$Cell$ start end) color))
   
   
   (method public (fill color <Color> pos <fx>) <void>
-    (let ((range (new Range pos (+ pos 1))))
+    (let ((range (new Range$Cell$ pos (+ pos 1))))
       (set-highlight-color range color)))
   
   
   (method public (unfill pos <fx>) <void>
-    (let ((range (new Range pos (+ pos 1))))
+    (let ((range (new Range$Cell$ pos (+ pos 1))))
       (set-highlight-color range {})))
   
   
@@ -3737,10 +3740,10 @@
   ;;;
   
   
-  (method (validate-range range <Range>) <void>
+  (method (validate-range range <Range$Cell$>) <void>
     (let ((limit (get-limit))
-          (start <Cell> (get-start~ range))
-          (end <Cell> (get-end~ range)))
+          (start (get-start~ range))
+          (end (get-end~ range)))
       (when (or (> (get-row~ start) limit)
                 (> (get-row~ end) limit))
         (error "Invalid text range: {t}" range))))
@@ -3762,7 +3765,7 @@
         (cond ((or (empty-selection?) span?)
                (for-each-paragraph
                 (function dynamic (row paragraph)
-                  (set-text-style (new Range (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
+                  (set-text-style (new Range$Cell$ (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
                 start: (get-row~ start)
                 end: (+ (get-row~ end) 1)))
               (else
@@ -3855,7 +3858,7 @@
   ;;;
 
 
-  (method public virtual (set-completion range <Range>)
+  (method public virtual (set-completion range <Range$Cell$>)
     (set-selection range))
   
   
@@ -3965,12 +3968,12 @@
              (let ((found (multisearch content strings start: (position-offset position) reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
                (when found
                  (bind (offset . string) found
-                   (new Range (offset-position offset) (offset-position (+ offset (length string)))))))))
+                   (new Range$Cell$ (offset-position offset) (offset-position (+ offset (length string)))))))))
           (else
            (let ((found (multisearch-string strings start: start reverse?: reverse? constituent-test: constituent-test)))
              (when found
                (bind (cell . string) found
-                 (new Range cell (new Cell (get-row~ cell) (+ (get-col~ cell) (length string))))))))))
+                 (new Range$Cell$ cell (new Cell (get-row~ cell) (+ (get-col~ cell) (length string))))))))))
 
   
   (method public (search-occurrences string (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))
@@ -4079,9 +4082,9 @@
 (class Selection-Row extends Range-Row
   
   
-  (method (present range <Range>)
-    (let ((start <Cell> (get-start~ range))
-          (end <Cell> (get-end~ range)))
+  (method (present range <Range$Cell$>)
+    (let ((start (get-start~ range))
+          (end (get-end~ range)))
       (format "{a}, {a}, {a}, {a}"
               (get-row~ start)
               (get-col~ start)

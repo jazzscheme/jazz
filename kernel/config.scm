@@ -97,6 +97,15 @@
 ;;;
 
 
+(cond-expand
+  (release
+    (define jazz.inline-definitions?
+      #t))
+  (else
+   (define jazz.inline-definitions?
+      #f)))
+
+
 ;; need to brainstorm this with marc
 (define jazz.kludge-around-gambit-procedure-name-algorithm?
   #t)

@@ -62,9 +62,10 @@
 
 
 (jazz.define-method (jazz.emit-inlined-binding-call (jazz.Definition-Declaration declaration) arguments source-declaration environment)
-  (if (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
-      (let ((value (%%get-definition-declaration-value declaration)))
-        (if (%%class-is? value jazz.Lambda)
+  (let ((value (%%get-definition-declaration-value declaration)))
+    (if (%%class-is? value jazz.Lambda)
+        (if (and (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
+                 (or jazz.inline-definitions? (jazz.untyped-inline-definition? value)))
             (let ((signature (%%get-lambda-signature value))
                   (body (%%get-lambda-body value)))
               (if (jazz.only-positional? signature)
@@ -83,11 +84,18 @@
                                 (jazz.call-return-type (%%get-lexical-binding-type declaration)))))))
                     (jazz.error "Wrong number of arguments passed to {s}" (%%get-lexical-binding-name declaration)))
                 (jazz.error "Only positional parameters are supported in inlining: {s}" (%%get-lexical-binding-name declaration))))
-          #f
-          #; ;; not correct as the value is always #f when looking up external declarations!
-             ;; we need to walk the value even at parse time for inline declarations
-          (jazz.error "Constant inlining is not yet supported: {s}" (%%get-lexical-binding-name declaration))))
-    #f))
+          #f)
+      #f #;
+      ;; not correct as the value is always #f when looking up external declarations!
+      ;; we need to walk the value even at parse time for inline declarations
+      (jazz.error "Constant inlining is not yet supported: {s}" (%%get-lexical-binding-name declaration)))))
+
+
+;; quick solution for now as some inlined definitions like /= will change the semantics if not inlined
+(define (jazz.untyped-inline-definition? value)
+  (jazz.every? (lambda (parameter)
+                 (%%not (%%get-lexical-binding-type parameter)))
+               (%%get-signature-positional (%%get-lambda-signature value))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Definition-Declaration declaration) environment)

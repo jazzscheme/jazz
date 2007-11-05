@@ -336,7 +336,7 @@
            (let ((vec (unique "vec"))
                  (for (unique "for"))
                  (len (unique "len")))
-             (add-binding vec '<Vector> vector)
+             (add-binding vec '<vector> vector)
              (add-binding for '<fx> 0)
              (add-binding len '<fx> (list 'length vec))
              (add-binding variable (either type '<Object>))

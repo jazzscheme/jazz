@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Syntax
+;;;; Templates
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,21 +35,30 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.syntax scheme
+(library jazz.dialect.syntax.template scheme
 
 
-(export (jazz.dialect.syntax.attributes)
-        (jazz.dialect.syntax.bind)
-        (jazz.dialect.syntax.bind-optionals)
-        (jazz.dialect.syntax.bind-keywords)
-        (jazz.dialect.syntax.ecase)
-        (jazz.dialect.syntax.either)
-        (jazz.dialect.syntax.essay)
-        (jazz.dialect.syntax.increase)
-        (jazz.dialect.syntax.loop)
-        (jazz.dialect.syntax.typecase)
-        (jazz.dialect.syntax.while)
-        (jazz.dialect.syntax.with)
-        (jazz.dialect.syntax.macros)
-        (jazz.dialect.syntax.templates)
-        (jazz.dialect.kernel)))
+@w
+(import (jazz.dialect.kernel))
+
+
+@w
+(macro (template type)
+  `(specialize inline (butlast seq ,type) ,type
+     (subseq seq 0 (- (length seq) 1))))
+
+
+@w
+(template (butlast<T>)
+  (specialize inline (butlast seq T) T
+    (subseq seq 0 (- (length seq) 1))))
+
+
+@w
+(instantiate butlast<string>)
+
+
+@w
+(syntax (instantiate-butlast type)
+  `(specialize inline (butlast seq ,type) ,type
+     (subseq seq 0 (- (length seq) 1)))))

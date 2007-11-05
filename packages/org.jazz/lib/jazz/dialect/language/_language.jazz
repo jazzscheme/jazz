@@ -1562,7 +1562,8 @@
 
 
 (definition public (explore object <Object> . rest) <Explorer>
-  (new-explorer~ (class-of object) object rest))
+  ;; this will become specializers
+  (apply new Sequence-Explorer object rest))
 
 
 ;;;
@@ -1969,8 +1970,8 @@
 (definition public (find target seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-list target seq key test (either start 0) return)
-    (if (and (string? seq) (not start) (not reversed?) (eq? return 'position))
-        (find-string target seq)
+    (if (and (string? seq) (not start) (eq? return 'position))
+        (find-string target seq reversed?)
       (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
         (when start
           (set-position~ iter start))
@@ -2009,11 +2010,16 @@
         {}))))
 
 
-(definition (find-string target <Object> seq <Object>)
-  (loop (for n from 0 below (length seq))
-        (when (eqv? (element seq n) target)
-          (return n))
-        (finally {})))
+(definition (find-string target <char> seq <string> reversed? <bool>)
+  (if (not reversed?)
+      (loop (for n from 0 below (length seq))
+            (when (eqv? (element seq n) target)
+              (return n))
+            (finally {}))
+    (loop (for n from (- (length seq) 1) downto 0)
+          (when (eqv? (element seq n) target)
+            (return n))
+          (finally {}))))
 
 
 (definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
@@ -2038,8 +2044,8 @@
 (definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-list target seq key test (either start 0) 'position)
-    (if (and (string? seq) (not start) (not reversed?))
-        (find-string target seq)
+    (if (and (string? seq) (not start))
+        (find-string target seq reversed?)
       (call/ec
         (lambda (exit)
           (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
@@ -2176,6 +2182,15 @@
                  (put~ dst object)))))
       (for-each proc (iterate seq)))
     (coerce (get-output~ dst) (class-of seq))))
+
+
+(specialize as string-remove (remove target <char> str <string>) <string>
+  (let ((output (open-output-string)))
+    (loop (for n from 0 below (length str))
+          (let ((c (element str n)))
+            (when (not (eqv? c target))
+              (write-char c output))))
+    (get-output-string output)))
 
 
 (definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
@@ -2346,7 +2361,7 @@
           #f)))))
 
 
-(definition public (split seq <Object> separator <Object>)
+(definition public (split seq <Object> separator <Object>) <list>
   (cond ((zero? (length seq))
          (list seq))
         ((closure? separator)
@@ -2373,6 +2388,10 @@
                  (iterate))))
            (put~ result (subseq seq previous))
            (get-output~ result)))))
+
+
+(specialize (split str <string> separator <char>) <list>
+  (split-string str separator))
 
 
 (definition public (split-justified seq <Object> width separators <Object> (column: column 0))
@@ -2556,6 +2575,33 @@
     (values yes no)))
 
 
+;; these should not be necessary
+(definition (starts-with? seq target) <bool>
+  (error "abstract"))
+
+
+;; these should not be necessary
+(definition (ends-with? seq target) <bool>
+  (error "abstract"))
+
+
+@old
+(specialize (starts-with? seq <string> target <string>) <bool>
+  (let ((slen (length seq))
+        (tlen (length target)))
+    (and (>= slen tlen)
+         (= (subseq seq 0 tlen) target))))
+
+
+@old
+(specialize (ends-with? seq <string> target <string>) <bool>
+  (let ((slen (length seq))
+        (tlen (length target)))
+    (and (>= slen tlen)
+         (= (subseq seq (- slen tlen)) target))))
+
+
+@old
 (definition (starts-with? string target (test: test string=?))
   (let ((str (length string))
         (trg (length target)))
@@ -2563,6 +2609,7 @@
          (test (subseq string 0 trg) target))))
 
 
+@old
 (definition (ends-with? string target (test: test string=?))
   (let ((str (length string))
         (trg (length target)))
@@ -4336,20 +4383,10 @@
 ;;;
 
 
-(class String-Class extends Sequence-Class
-  
-  
-  (method (allocate-sequence len)
-    (make-string len))
-  
-  
-  (method (coerce-object obj <Object>)
-    (if (sequence? obj)
-        (nextmethod obj)
-      (coerce-string~ obj))))
+(class String-Class extends Class)
 
 
-(class primitive String metaclass String-Class extends Sequence
+(class primitive String metaclass String-Class extends Object
   
   
   (method (initialize . rest)
@@ -4417,16 +4454,25 @@
   (string=? s1 s2))
 
 
-(specialize inline (element string <String> n <int>) <char>
+(specialize inline (element string <string> n <int>) <char>
   (string-ref string n))
 
 
-(specialize inline (set-element! string <String> n <int> c <char>) <void>
+(specialize inline (set-element! string <string> n <int> c <char>) <void>
   (string-set! string n c))
 
 
-(specialize inline (length string <String>) <int>
+(specialize inline (length string <string>) <int>
   (string-length string))
+
+
+(specialize inline (subseq string <string> start <int> end <int>) <string>
+  (substring string start end))
+
+
+(instantiate-butlast <string>)
+(instantiate-starts-with? <string>)
+(instantiate-ends-with? <string>)
 
 
 (definition public inline (empty-string? object)
@@ -4616,7 +4662,10 @@
 ;;;
 
 
-(class primitive Vector extends Object
+(class Vector-Class extends Class)
+
+
+(class primitive Vector metaclass Vector-Class extends Object
   
   
   (method (initialize . rest)
@@ -4630,15 +4679,15 @@
          (zero? (length object)))))
 
 
-(specialize inline (element vector <Vector> n <int>) <object>
+(specialize inline (element vector <vector> n <int>) <object>
   (vector-ref vector n))
 
 
-(specialize inline (set-element! vector <Vector> n <int> obj <object>) <void>
+(specialize inline (set-element! vector <vector> n <int> obj <object>) <void>
   (vector-set! vector n obj))
 
 
-(specialize inline (length vector <Vector>) <int>
+(specialize inline (length vector <vector>) <int>
   (vector-length vector))
 
 

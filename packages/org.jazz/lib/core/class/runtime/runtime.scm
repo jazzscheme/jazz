@@ -1103,7 +1103,7 @@
 ;;;
 
 
-(jazz.define-class jazz.String-Class jazz.Sequence-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.String-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -1122,7 +1122,7 @@
 (jazz.encapsulate-class jazz.String-Class)
 
 
-(jazz.define-class jazz.String jazz.Sequence () jazz.String-Class
+(jazz.define-class jazz.String jazz.Object () jazz.String-Class
   ())
 
 

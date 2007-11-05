@@ -146,25 +146,23 @@
   (rl 'test))
 
 
-;; jazz.dialect.language
-;; jazz.ui.text.Paragraph
-;; jazz.ui.text.Text-View
-;; jazz.ui.text.Text-Explorer
-;; jazz.ui.text.Code-Explorer
-;; jazz.jazz.text.Lisp-Explorer
-;; jazz.jazz.text.Scheme-Explorer
-;; jazz.jazz.text.Jazz-Explorer
 (define (rll)
   (rl 'jazz.dialect.language))
 
 (define (rlp)
   (rl 'jazz.ui.text.Paragraph))
 
-(define (rlt)
+(define (rlts)
+  (rl 'jazz.ui.text.Text-Style))
+
+(define (rltv)
   (rl 'jazz.ui.text.Text-View))
 
 (define (rlte)
   (rl 'jazz.ui.text.Text-Explorer))
+
+(define (rltc)
+  (rl 'jazz.ui.text.Text-Colorizer))
 
 (define (rlce)
   (rl 'jazz.ui.text.Code-Explorer))
@@ -177,6 +175,9 @@
 
 (define (rlje)
   (rl 'jazz.jazz.text.Jazz-Explorer))
+
+(define (rls)
+  (rl 'jazz.ui.graphic.Surface))
 
 
 (define (lex module-name)
@@ -195,6 +196,10 @@
 
 (define (parse library-name)
   (jazz.locate-toplevel-declaration library-name))
+
+
+(define (lookup library-name name)
+  (jazz.lookup-declaration (parse library-name) name #t))
 
 
 ;;;
@@ -681,6 +686,10 @@
 
 (define (denv env)
   (jazz.debug-annotated-environment env))
+
+
+(define (sv obj slot-name)
+  (jazz.slot-value obj slot-name))
 
 
 ;;;

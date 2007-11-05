@@ -70,6 +70,24 @@
 
 
 ;;;
+;;;; Fixnum
+;;;
+
+
+;; not very efficient but have to test for now
+
+(define (jazz.fixnum->flonum n)
+  (if (%%fixnum? n)
+      (##fixnum->flonum n)
+    (jazz.type-error n jazz.Fixnum)))
+
+(define (jazz.flonum->fixnum n)
+  (if (%%flonum? n)
+      (##flonum->fixnum n)
+    (jazz.type-error n jazz.Flonum)))
+
+
+;;;
 ;;;; Port
 ;;;
 

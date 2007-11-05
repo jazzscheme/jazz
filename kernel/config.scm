@@ -106,6 +106,11 @@
       #f)))
 
 
+(define jazz.debug-specializers
+  '(subseq!
+    search))
+
+
 ;; need to brainstorm this with marc
 (define jazz.kludge-around-gambit-procedure-name-algorithm?
   #t)

@@ -153,6 +153,33 @@
 
 
 ;;;
+;;;; Flixum
+;;;
+
+
+(native fixnum? <object:bool>)
+(native flonum? <object:bool>)
+(native jazz.fixnum->flonum <fx:fl>)
+(native jazz.flonum->fixnum <fl:fx>)
+(native fx+ <fx^fx:fx>)
+(native fx- <fx^fx:fx>)
+(native fx* <fx^fx:fx>)
+
+
+;;;
+;;;; Flonum
+;;;
+
+
+;; until proper call site casting of native calls
+
+(native ##fl+ <fl^fl:fl>)
+(native ##fl- <fl^fl:fl>)
+(native ##fl* <fl^fl:fl>)
+(native ##fl/ <fl^fl:fl>)
+
+
+;;;
 ;;;; Format
 ;;;
 
@@ -200,8 +227,6 @@
 (native bitwise-xor <int*:int>)
 (native arithmetic-shift <int:int>)
 (native bit-set? <int^int:bool>)
-(native fixnum? <object:bool>)
-(native flonum? <object:bool>)
 
 
 ;;;
@@ -251,6 +276,8 @@
 ;;;
 
 
+(native min)
+(native max)
 (native jazz.naturals)
 
 
@@ -504,15 +531,6 @@
 (native random-integer)
 (native random-source-pseudo-randomize!)
 (native default-random-source)
-
-
-;;;
-;;;; Number
-;;;
-
-
-(native min)
-(native max)
 
 
 ;;;

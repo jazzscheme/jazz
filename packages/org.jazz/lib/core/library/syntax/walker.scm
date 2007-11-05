@@ -758,26 +758,17 @@
 
 
 (jazz.define-class jazz.Function-Type jazz.Type () jazz.Class
-  (positional
+  (mandatory
+   positional
    optional
    named
    rest
    result))
 
 
-(define (jazz.separate-types types proc)
-  (if (%%null? types)
-      (proc '() '() '() #f)
-    (let ((last (jazz.last types)))
-      (if (%%class-is? last jazz.Rest-Type)
-          (proc (jazz.butlast types) '() '() last)
-        (proc types '() '() #f)))))
-
-
-(define (jazz.new-function-type types result)
-  (jazz.separate-types types
-    (lambda (positional optional named rest)
-      (jazz.allocate-function-type jazz.Function-Type positional optional named rest result))))
+(define (jazz.new-function-type positional optional named rest result)
+  (let ((mandatory (%%length positional)))
+    (jazz.allocate-function-type jazz.Function-Type mandatory positional optional named rest result)))
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Function-Type type) subtype)
@@ -1006,10 +997,23 @@
 ;;;
 
 
+;; Todo: unify the 2 versions of both procedures, where the only
+;; difference is that we do not do the emit-check when in release
+
+
 (cond-expand
   (release
     (define (jazz.emit-type-cast code type source-declaration environment)
-      (%%get-code-form code)))
+      (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
+         (%%get-code-form code)
+       (let ((value (jazz.generate-symbol "val")))
+         ;; coded the flonum case here for now has it is the only castable type
+         (if (%%eq? type jazz.Flonum)
+             `(let ((,value ,(%%get-code-form code)))
+                (if (%%fixnum? ,value)
+                    (%%fixnum->flonum ,value)
+                  ,value))
+           (%%get-code-form code))))))
   (else
    (define (jazz.emit-type-cast code type source-declaration environment)
      (if (or (%%not type) (%%subtype? (%%get-code-type code) type))
@@ -1031,7 +1035,14 @@
 (cond-expand
   (release
     (define (jazz.emit-parameter-cast code type source-declaration environment)
-      #f))
+      (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
+         #f
+       (let ((parameter (%%get-code-form code)))
+         ;; coded the flonum case here for now has it is the only castable type
+         (if (%%eq? type jazz.Flonum)
+             `(if (%%fixnum? ,parameter)
+                  (set! ,parameter (%%fixnum->flonum ,parameter)))
+           #f)))))
   (else
    (define (jazz.emit-parameter-cast code type source-declaration environment)
      (if (or (%%not type) (%%eq? type jazz.Any) (%%object-class? type) (jazz.object-declaration? type))
@@ -1063,7 +1074,7 @@
 ;; <Point+>                            ;; Nillable
 ;; <Point<fx/pair>>                    ;; Template
 ;; <values<fx/fl>>                     ;; Values
-;; <fx^fx^opt<fx>^key<k:fx>^fx*:pair>  ;; Function with optional, named and rest parameters
+;; <fx^fx^opt<fx>^key<k:fx>^fx*:pair>  ;; Function with positional, optional, named and rest parameters
 ;; <Object>
 ;; <Point>
 ;; <pair>
@@ -1169,6 +1180,19 @@
               (else
                (lookup-type name))))))
       
+      (define (new-function-type parameters result)
+        (define (split-parameters types proc)
+          (if (%%null? types)
+              (proc '() '() '() #f)
+            (let ((last (jazz.last types)))
+              (if (%%class-is? last jazz.Rest-Type)
+                  (proc (jazz.butlast types) '() '() last)
+                (proc types '() '() #f)))))
+        
+        (split-parameters parameters
+          (lambda (positional optional named rest)
+            (jazz.new-function-type positional optional named rest result))))
+      
       (define (parse atomic?)
         (if (%%eqv? (peekc) #\<)
             (begin
@@ -1179,7 +1203,7 @@
           (if (%%eqv? (peekc) #\:)
               (begin
                 (readc)
-                (jazz.new-function-type '() (parse #t)))
+                (new-function-type '() (parse #t)))
             (let ((type (parse-atomic)))
               (let ((next (peekc)))
                 (case next
@@ -1188,14 +1212,14 @@
                        type
                      (begin
                        (readc)
-                       (jazz.new-function-type (list type) (parse #t)))))
+                       (new-function-type (list type) (parse #t)))))
                   ((#\^)
                    (if atomic?
                        type
                      (begin
                        (readc)
                        (let ((parameters (cons type (parse-until #\^ #\:))))
-                         (jazz.new-function-type parameters (parse #t))))))
+                         (new-function-type parameters (parse #t))))))
                   (else
                    type)))))))
       
@@ -2966,7 +2990,7 @@
                 `(lambda ,signature-output
                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                    ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type declaration environment)))
-                (jazz.new-function-type '() (%%get-code-type body-code))))))))))
+                (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))))))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Lambda expression) f k s)
@@ -3422,8 +3446,21 @@
                   (let iter ((scan specializers))
                     (if (%%null? scan)
                         (begin
-                          (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
-                            (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (%%get-lexical-binding-name binding)))
+                          (%%when (and jazz.warnings? (%%not (%%null? specializers)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                                       ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
+                                       (%%not (%%memq locator '(scheme.dialect.kernel.=
+                                                                scheme.dialect.kernel.<
+                                                                scheme.dialect.kernel.<=
+                                                                scheme.dialect.kernel.>
+                                                                scheme.dialect.kernel.>=
+                                                                scheme.dialect.kernel.+
+                                                                scheme.dialect.kernel.-
+                                                                scheme.dialect.kernel.*
+                                                                scheme.dialect.kernel./))))
+                            (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
+                          ;; for debugging
+                          (%%when (%%memq (%%get-lexical-binding-name binding) jazz.debug-specializers)
+                            (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding) 'on types))
                           #f)
                       (let ((specializer (%%car scan)))
                         (let ((function-type (%%get-lexical-binding-type specializer)))
@@ -3493,16 +3530,33 @@
   (%%hashtable-ref jazz.primitive-patterns locator '()))
 
 
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>) (= <number*:bool>) (string=? <string*:bool>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)  (<   <number*:bool>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)  (<=  <number*:bool>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)  (>   <number*:bool>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)  (>=  <number*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.<            '((##fx<  <fx*:bool>)  (##fl<  <fl*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.<=           '((##fx<= <fx*:bool>)  (##fl<= <fl*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.>            '((##fx>  <fx*:bool>)  (##fl>  <fl*:bool>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.>=           '((##fx>= <fx*:bool>)  (##fl>= <fl*:bool>)))
 
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>) (+ <number*:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>) (- <number^number*:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>) (* <number*:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>) (/ <number^number*:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.floor        '(                     (##flfloor    <fl:fl>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.ceiling      '(                     (##flceiling  <fl:fl>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.truncate     '(                     (##fltruncate <fl:fl>)))
+(jazz.add-primitive-patterns 'scheme.dialect.kernel.round        '(                     (##flround    <fl:fl>)))
+
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fx+            '((##fx+ <fx^fx:fx>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fx-            '((##fx- <fx^fx:fx>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fx*            '((##fx* <fx^fx:fx>)))
+
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fl+            '(                     (##fl+ <fl^fl:fl>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fl-            '(                     (##fl- <fl^fl:fl>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fl*            '(                     (##fl* <fl^fl:fl>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fl/            '(                     (##fl/ <fl^fl:fl>)))
+
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.fixnum->flonum '((##fixnum->flonum <fx:fl>)))
+(jazz.add-primitive-patterns 'jazz.dialect.kernel.flonum->fixnum '(                     (##flonum->fixnum <fl:fx>)))
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.not          '((##not  <any:bool>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.eq?          '((##eq?  <any^any:bool>)))
@@ -3523,8 +3577,11 @@
         (let iter ((scan patterns))
           (if (%%null? scan)
               (begin
-                (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
-                  (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to (jazz.identifier-name locator)))
+                (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                             ;; a bit extreme for now
+                             (%%not (%%memq locator '(scheme.dialect.kernel.car
+                                                      scheme.dialect.kernel.cdr))))
+                  (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz.identifier-name locator)))
                 #f)
             (jazz.bind (name function-type) (%%car scan)
               (if (jazz.match-signature? types function-type)
@@ -3553,33 +3610,39 @@
 
 (define (jazz.match-signature? argument-types function-type)
   (let ((argcount (%%length argument-types))
+        (mandatory (%%get-function-type-mandatory function-type))
         (positional (%%get-function-type-positional function-type))
+        (optional (%%get-function-type-optional function-type))
+        (named (%%get-function-type-named function-type))
         (rest (%%get-function-type-rest function-type)))
-    (let ((mandatory (%%length positional)))
-      (define (match? type expect)
-        (%%subtype? (or type jazz.Any) expect))
-      
-      (define (match-positional?)
-        (and (%%fx>= argcount mandatory)
-             (or rest (%%fx<= argcount mandatory))
-             (let iter ((types argument-types)
-                        (expected positional))
-                  (cond ((%%null? expected)
-                         #t)
-                        ((match? (%%car types) (%%car expected))
-                         (iter (%%cdr types) (%%cdr expected)))
-                        (else
-                         #f)))))
-      
-      (define (match-rest?)
-        (or (%%not rest)
-            (let ((expect (%%get-rest-type-type rest)))
-              (jazz.every? (lambda (type)
-                             (match? type expect))
-                           (list-tail argument-types mandatory)))))
-      
-      (and (match-positional?)
-           (match-rest?)))))
+    (define (match? type expect)
+      (%%subtype? (or type jazz.Any) expect))
+    
+    (define (match-positional?)
+      (and (%%fx>= argcount mandatory)
+           ;; this crude test for optional and named needs to be refined
+           (or (%%fx<= argcount mandatory) (%%not (%%null? optional)) (%%not (%%null? named)) rest)
+           (let iter ((types argument-types)
+                      (expected positional))
+                (cond ((%%null? expected)
+                       #t)
+                      ((match? (%%car types) (%%car expected))
+                       (iter (%%cdr types) (%%cdr expected)))
+                      (else
+                       #f)))))
+    
+    (define (match-rest?)
+      (or (%%not rest)
+          (let ((expect (%%get-rest-type-type rest)))
+            (jazz.every? (lambda (type)
+                           (match? type expect))
+                         (list-tail argument-types mandatory)))))
+    
+    (and (match-positional?)
+         ;; testing the presence of optional named this way is a quicky that needs to be refined
+         (or (%%not (%%null? optional))
+             (%%not (%%null? named))
+             (match-rest?)))))
 
 
 ;;;

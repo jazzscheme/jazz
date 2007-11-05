@@ -59,13 +59,13 @@
   (slot hdc)
   (slot context)
   
-  (slot highlight-color    initialize {})
+  (slot highlight-color      initialize {})
   
-  (slot dash-array         initialize {})
-  (slot empty-array        initialize {})
+  (slot dash-array           initialize {})
+  (slot empty-array          initialize {})
   
-  (slot glyph-array        initialize {})
-  (slot array-length       initialize 0)
+  (slot glyph-array          initialize {})
+  (slot array-length    <fx> initialize 0)
 
   
   (method (initialize surface . rest)
@@ -125,18 +125,18 @@
   (method public (logical->device shape <Object>)
     (typecase shape
       ((Point)
-       (let ((array (cairo_user_to_device context (exact->inexact (get-h~ shape)) (exact->inexact (get-v~ shape)))))
+       (let ((array (cairo_user_to_device context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape)))))
          (new Point (double-array-ref array 0) (double-array-ref array 1))))))
   
   
   (method public (device->logical shape <Object>)
     (typecase shape
       ((Point)
-       (let ((array (cairo_device_to_user context (exact->inexact (get-h~ shape)) (exact->inexact (get-v~ shape)))))
+       (let ((array (cairo_device_to_user context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape)))))
          (new Point (double-array-ref array 0) (double-array-ref array 1))))
       ((Rect)
-       (let ((array1 (cairo_device_to_user context (exact->inexact (get-left~ shape)) (exact->inexact (get-top~ shape))))
-             (array2 (cairo_device_to_user context (exact->inexact (get-right~ shape)) (exact->inexact (get-bottom~ shape)))))
+       (let ((array1 (cairo_device_to_user context (cast <fl> (get-left~ shape)) (cast <fl> (get-top~ shape))))
+             (array2 (cairo_device_to_user context (cast <fl> (get-right~ shape)) (cast <fl> (get-bottom~ shape)))))
          (new Rect (double-array-ref array1 0) (double-array-ref array1 1) (double-array-ref array2 0) (double-array-ref array2 1))))))
   
   
@@ -212,10 +212,10 @@
   (method public (with-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool> proc <procedure>)
     (let* ((dh (- lh sh))
            (dv (- lv sv))
-           (ch (if (not sc?) lh (floor (+ sh (* dh sc))))) 
-           (cv (if (not sc?) lv (floor (+ sv (* dv sc)))))
-           (cwidth (if (not sc?) width (+ 1 (ceil (* width sc)))))
-           (cheight (if (not sc?) height (+ 1 (ceil (* height sc))))))
+           (ch (if (not sc?) lh (fxfloor (+ sh (* dh sc))))) 
+           (cv (if (not sc?) lv (fxfloor (+ sv (* dv sc)))))
+           (cwidth (if (not sc?) width (+ 1 (fxceiling (* width sc)))))
+           (cheight (if (not sc?) height (+ 1 (fxceiling (* height sc))))))
       (let ((old-matrix (cairo_matrix_t-make)))
         (cairo_get_matrix context old-matrix)
         (cairo_identity_matrix context)
@@ -225,9 +225,9 @@
           (set-clipper new-clipper)
           (if sc?
               (begin 
-                (cairo_translate context (exact->inexact (- sh)) (exact->inexact (- sv)))
+                (cairo_translate context (cast <fl> (- sh)) (cast <fl> (- sv)))
                 (cairo_scale context sc sc)))
-          (cairo_translate context (exact->inexact lh) (exact->inexact lv))
+          (cairo_translate context (cast <fl> lh) (cast <fl> lv))
           (proc)
           (cairo_identity_matrix context)
           (set-clipper old-clipper)
@@ -254,10 +254,10 @@
                     (int-array-set! array i 0)
                   (begin
                     (cairo_glyph_t-index-set! gly (- i 29))
-                    (cairo_glyph_t-x-set! gly (exact->inexact 0))
-                    (cairo_glyph_t-y-set! gly (exact->inexact 0))
+                    (cairo_glyph_t-x-set! gly (cast <fl> 0))
+                    (cairo_glyph_t-y-set! gly (cast <fl> 0))
                     (cairo_glyph_extents context gly 1 ext)
-                    (int-array-set! array i (round (cairo_text_extents_t-x_advance-ref ext)))))))
+                    (int-array-set! array i (fxround (cairo_text_extents_t-x_advance-ref ext)))))))
         array)))
   
 
@@ -266,14 +266,14 @@
            (metrics (get-text-metrics)))
       (cairo_text_extents context text extents)
       (new Dimension 
-        (round (cairo_text_extents_t-x_advance-ref extents)) 
-        (round (cairo_font_extents_t-height-ref metrics)))))
+        (fxround (cairo_text_extents_t-x_advance-ref extents)) 
+        (fxround (cairo_font_extents_t-height-ref metrics)))))
     
   
   (method public (get-font-height)
     (with ((extents (cairo_font_extents_t-make)))
       (cairo_font_extents context extents)
-      (round (cairo_font_extents_t-height-ref extents))))
+      (fxround (cairo_font_extents_t-height-ref extents))))
   
   
   (method public (get-text-metrics)
@@ -284,14 +284,14 @@
   
   (method public (cairo_extents->dimension extents)
     (new Dimension 
-      (ceil (cairo_text_extents_t-width-ref extents)) 
-      (ceil (cairo_text_extents_t-height-ref extents))))
+      (fxceiling (cairo_text_extents_t-width-ref extents)) 
+      (fxceiling (cairo_text_extents_t-height-ref extents))))
   
 
   (method public (get-text-width text <string>)
     (with ((extents (cairo_text_extents_t-make)))
       (cairo_text_extents context text extents)
-      (ceil (cairo_text_extents_t-x_advance-ref extents))))
+      (fxceiling (cairo_text_extents_t-x_advance-ref extents))))
   
   
   (method public (with-highlight-color color proc)
@@ -302,52 +302,89 @@
         result)))
       
   
-  (method public (draw-text h v str <string> . rest)
-    (let ((str (if (string? str) str (coerce-string~ str)))
-          (uph h)
+  (method public (draw-text h <fx> v <fx> str <string> . rest)
+    (let ((uph h)
           (font-ext (cairo_font_extents_t-make))
           (extents (cairo_text_extents_t-make))
           (lgt (length str)))
       (if (< array-length lgt)
           (begin
-            (if glyph-array
-                (free-glyph-array glyph-array))
+            (when glyph-array
+              (free-glyph-array glyph-array))
             (set! glyph-array (alloc-glyph-array (* lgt 2)))
             (set! array-length (* lgt 2))))
       (cairo_font_extents context font-ext)
-      (let ((y (+ v (cairo_font_extents_t-ascent-ref font-ext))))
+      (let ((y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
         (let (iterate (i 0))
           (when (< i lgt)
             (let ((glyph (glyph-array-ref glyph-array i))
-                  (ch    (- (char->integer (string-ref str i)) 29)))
+                  (ch (- (char->integer (element str i)) 29)))
               (cairo_glyph_t-index-set! glyph (if (< ch 0) 0 ch))
-              (cairo_glyph_t-x-set! glyph (exact->inexact uph))
-              (cairo_glyph_t-y-set! glyph (exact->inexact y))
-              (cairo_glyph_extents (get-context) glyph 1 extents)
-              (set! uph (+ uph (cairo_text_extents_t-x_advance-ref extents)))
+              (cairo_glyph_t-x-set! glyph (cast <fl> uph))
+              (cairo_glyph_t-y-set! glyph (cast <fl> y))
+              (cairo_glyph_extents context glyph 1 extents)
+              (set! uph (+ uph (fxround (cairo_text_extents_t-x_advance-ref extents))))
               (iterate (+ i 1)))))
         @Unimplemented
         (when highlight-color
           (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
         (cairo_show_glyphs context glyph-array lgt)
-        (round (- uph h)))))
+        (- uph h))))
   
   
-  (method public (draw-tabbed-text h v str <string> tab-stops origin)
+  (proclaim (optimize))
+  
+  
+  ;; temp copy/pasted from above until templates
+  (method (draw-substring h <fx> v <fx> str <Subseq$string$>) <fx>
+    (let ((uph h)
+          (font-ext (cairo_font_extents_t-make))
+          (extents (cairo_text_extents_t-make))
+          (lgt (length str)))
+      (if (< array-length lgt)
+          (begin
+            (when glyph-array
+              (free-glyph-array glyph-array))
+            (set! glyph-array (alloc-glyph-array (* lgt 2)))
+            (set! array-length (* lgt 2))))
+      (cairo_font_extents context font-ext)
+      (let ((y (+ v (fxround (cairo_font_extents_t-ascent-ref font-ext)))))
+        (let (iterate (i 0))
+          (when (< i lgt)
+            (let ((glyph (glyph-array-ref glyph-array i))
+                  (ch (- (char->integer (element str i)) 29)))
+              (cairo_glyph_t-index-set! glyph (if (< ch 0) 0 ch))
+              (cairo_glyph_t-x-set! glyph (cast <fl> uph))
+              (cairo_glyph_t-y-set! glyph (cast <fl> y))
+              (cairo_glyph_extents context glyph 1 extents)
+              (set! uph (+ uph (fxround (cairo_text_extents_t-x_advance-ref extents))))
+              (iterate (+ i 1)))))
+        @Unimplemented
+        (when highlight-color
+          (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
+        (cairo_show_glyphs context glyph-array lgt)
+        (- uph h))))
+  
+  
+  ;; should remove the subseq! and pass the bounds to draw-substring
+  (method public (draw-tabbed-text h <fx> v <fx> str <Subseq$string$> tab-stops origin <fx>) <fx>
     (let ((uph h)
           (beginning 0)
-          (tab tab-stops))
+          (stops tab-stops))
       (loop (for i from 0 below (length str))
-            (when (eq? (element str i) #\tab)
-              (when (not (= beginning i))
-                (set! uph (+ uph (draw-text uph v (subseq! str beginning i)))))
-              (while (<= (+ origin (car tab)) (+ uph 1))
-                (set! tab (cdr tab)))
-              (set! uph (+ origin (car tab)))
+            (when (eqv? (element str i) #\tab)
+              (when (/= beginning i)
+                (set! uph (+ uph (draw-substring uph v (subseq! str beginning i)))))
+              (while (<= (+ origin (cast <fx> (car stops))) (+ uph 1))
+                (set! stops (cdr stops)))
+              (set! uph (+ origin (cast <fx> (car stops))))
               (set! beginning (+ i 1))
-              (set! tab (cdr tab))))
-      (- (+ uph (draw-text uph v (subseq! str beginning (length str))))
+              (set! stops (cdr stops))))
+      (- (+ uph (draw-substring uph v (subseq! str beginning (length str))))
          h)))
+  
+  
+  (proclaim (not optimize))
   
   
   (method public (fill-region region <Region> color)
@@ -359,7 +396,7 @@
     (with-saved-context
       (function dynamic ()
         (let* ((mid (/ (- (get-bottom~ rect) (get-top~ rect)) 2))
-               (pattern (cairo_pattern_create_linear (exact->inexact (get-left~ rect)) (exact->inexact mid) (exact->inexact (get-right~ rect)) (exact->inexact mid))))
+               (pattern (cairo_pattern_create_linear (cast <fl> (get-left~ rect)) (cast <fl> mid) (cast <fl> (get-right~ rect)) (cast <fl> mid))))
           (add-color-stop-rgb pattern 0 start)
           (add-color-stop-rgb pattern 1 end)
           (draw-rectangle rect)
@@ -379,7 +416,7 @@
                 (h (- bottom top)))
             (cairo_translate context (+ left (/ w 2)) (+ top (/ h 2)))
             (cairo_scale context (/ w 2) (/ h 2))
-            (cairo_arc context (exact->inexact 0) (exact->inexact 0) (exact->inexact 1) (exact->inexact 0) (* 2 M_PI))
+            (cairo_arc context (cast <fl> 0) (cast <fl> 0) (cast <fl> 1) (cast <fl> 0) (* 2 M_PI))
             (cairo_scale context (/ 2 w) (/ 2 w))))
         (if outside
             (begin
@@ -401,7 +438,7 @@
   (method public (draw-image handle h v)
     (with-saved-context
       (function dynamic ()
-        (cairo_set_source_surface context handle (exact->inexact h) (exact->inexact v))
+        (cairo_set_source_surface context handle (cast <fl> h) (cast <fl> v))
         (cairo_paint context))))
   
   
@@ -492,26 +529,26 @@
         (let ((x (+ (get-left~ rect) (/ (- (get-right~ rect) (get-left~ rect)) 2)))
               (y (+ (get-top~ rect) (/ (- (get-bottom~ rect) (get-top~ rect)) 2)))
               (r (/ (- (get-right~ rect) (get-left~ rect)) 2)))
-          (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact r) (exact->inexact 0) (* 2 M_PI))
+          (cairo_arc context (cast <fl> x) (cast <fl> y) (cast <fl> r) (cast <fl> 0) (* 2 M_PI))
           (set-color (if inactive? 
                          {Color name: Light-Background}
                        {Color name: White}))
           (fill)
           (set-line-width 1)
-          (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact r) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+          (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact r) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
           (set-color {Color name: Draw-Edge-Medium})
           (stroke)
-          (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact (- r 1)) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
+          (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (- r 1)) (* 3 (/ M_PI 4)) (* 7 (/ M_PI 4)))
           (set-color {Color name: Draw-Edge-Dark})
           (stroke)
-          (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact r) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+          (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact r) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
           (set-color {Color name: White})
           (stroke)
-          (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact (- r 1)) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
+          (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (- r 1)) (* 7 (/ M_PI 4)) (* 3 (/ M_PI 4)))
           (set-color {Color name: Draw-Edge-Light})
           (stroke)
           (when selected?
-            (cairo_arc context (exact->inexact x) (exact->inexact y) (exact->inexact (/ r 3)) (exact->inexact 0) (* 2 M_PI))
+            (cairo_arc context (cast <fl> x) (cast <fl> y) (exact->inexact (/ r 3)) (cast <fl> 0) (* 2 M_PI))
             (set-color {Color name: Black})
             (fill))))))
   
@@ -557,7 +594,7 @@
                            (destination-size: destination-size {}))
     (let ((dest-context (get-context~ dest-dc)))
       (cairo_save dest-context)
-      (cairo_set_source_surface dest-context (get-surface) (exact->inexact (get-h~ destination)) (exact->inexact (get-v~ destination)))
+      (cairo_set_source_surface dest-context (get-surface) (cast <fl> (get-h~ destination)) (cast <fl> (get-v~ destination)))
       (paint~ dest-dc)
       (cairo_restore dest-context)))
   
@@ -789,21 +826,21 @@
   ;;;
   
   
-  (method public (move-to h v)
-    (cairo_move_to context (exact->inexact h) (exact->inexact v)))
+  (method public (move-to h <fl> v <fl>)
+    (cairo_move_to context h v))
   
   
-  (method public (line-to h v)
-    (line-to-no-stroke (exact->inexact h) (exact->inexact v))
+  (method public (line-to h <fl> v <fl>)
+    (line-to-no-stroke h v)
     (stroke))
   
   
-  (method public (line-to-preserve h v)
-    (line-to-no-stroke (exact->inexact h) (exact->inexact v))
+  (method public (line-to-preserve h <fl> v <fl>)
+    (line-to-no-stroke h v)
     (stroke-preserve))
   
 
-  (method public (line-to-no-stroke h v)
+  (method public (line-to-no-stroke h <fl> v <fl>)
     (let* ((pt (cairo_current_point context))
            (cur-h (get-point-x pt))
            (cur-v (get-point-y pt)))
@@ -817,29 +854,29 @@
                      (move-to cur-h (+ cur-v 0.5))
                      (+ v 0.5))
                  v)))
-        (cairo_line_to context (exact->inexact h) (exact->inexact v)))))
+        (cairo_line_to context h v))))
   
   
-  (method public (line-to-rel dh dv)
-    (cairo_rel_line_to context (exact->inexact dh) (exact->inexact dv)))
+  (method public (line-to-rel dh <fl> dv <fl>)
+    (cairo_rel_line_to context dh dv))
   
   
-  (method public (move-to-rel dh dv)
-    (cairo_rel_move_to context (exact->inexact dh) (exact->inexact dv)))
+  (method public (move-to-rel dh <fl> dv <fl>)
+    (cairo_rel_move_to context dh dv))
   
   
-  (method public (line h v dest-h dest-v)
+  (method public (line h <fl> v <fl> dest-h <fl> dest-v <fl>)
     (move-to h v)
     (line-to dest-h dest-v))
   
   
-  (method public (pixel-to h v)
+  (method public (pixel-to h <fl> v <fl>)
     (move-to h v)
     (line-to (+ h 1) v))
   
   
-  (method public (set-line-width w)
-    (cairo_set_line_width context (exact->inexact w)))
+  (method public (set-line-width w <fl>)
+    (cairo_set_line_width context w))
   
   
   (method public (get-line-width)
@@ -872,10 +909,10 @@
           (w (- (get-right~ rect) (get-left~ rect)))
           (h (- (get-bottom~ rect) (get-top~ rect))))
       (cairo_rectangle context
-                      (exact->inexact x)
-                      (exact->inexact y)
-                      (exact->inexact w)
-                      (exact->inexact h))))
+                      (cast <fl> x)
+                      (cast <fl> y)
+                      (cast <fl> w)
+                      (cast <fl> h))))
   
   
   (method public (set-color color <Color>)    

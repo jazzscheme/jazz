@@ -871,6 +871,7 @@
     (jazz.new-special-form 'parameterize    jazz.walk-parameterize)
     (jazz.new-special-form 'with-slots      jazz.walk-with-slots)
     (jazz.new-special-form 'with-self       jazz.walk-with-self)
+    (jazz.new-special-form 'cast            jazz.walk-cast)
     (jazz.new-special-form 'construct       jazz.walk-construct)
     (jazz.new-special-form 'time            jazz.walk-time)
     
@@ -1070,6 +1071,34 @@
 
 
 (jazz.encapsulate-class jazz.With-Self)
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(jazz.define-class jazz.Cast jazz.Expression (type) jazz.Object-Class
+  (expression))
+
+
+(define (jazz.new-cast type expression)
+  (jazz.allocate-cast jazz.Cast type expression))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Cast expression) declaration environment)
+  (let ((type (%%get-expression-type expression))
+        (expression (%%get-cast-expression expression)))
+    (jazz.new-code
+      (jazz.emit-type-cast
+        (jazz.emit-expression expression declaration environment)
+        type
+        declaration
+        environment)
+      type)))
+
+
+(jazz.encapsulate-class jazz.Cast)
 
 
 ;;;
@@ -1340,7 +1369,7 @@
   (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr form))
     (let ((type (jazz.specifier->type walker resume declaration environment specifier)))
       (let ((signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #t #f))))
-        (let ((effective-type (if (and specifier parameters) (jazz.build-function-type signature type) type)))
+        (let ((effective-type (if parameters (jazz.build-function-type signature type) type)))
           (let ((new-declaration (jazz.new-definition-declaration name effective-type access compatibility '() declaration expansion signature)))
             (jazz.add-declaration-child walker resume declaration new-declaration)
             (%%when (%%eq? expansion 'inline)
@@ -1363,12 +1392,17 @@
 ;; Until I unify signature and function type
 ;; Only positional parameters as a first draft
 (define (jazz.build-function-type signature result-type)
+  (define (parameter-type parameter)
+    (or (%%get-lexical-binding-type parameter)
+        jazz.Any))
+  
   (jazz.new-function-type
-    (map (lambda (parameter)
-           (or (%%get-lexical-binding-type parameter)
-               jazz.Any))
-         (%%get-signature-positional signature))
-    result-type))
+    (map parameter-type (%%get-signature-positional signature))
+    (map parameter-type (%%get-signature-optional signature))
+    (map parameter-type (%%get-signature-named signature))
+    (let ((rest (%%get-signature-rest signature)))
+      (and rest (parameter-type rest)))
+    (or result-type jazz.Any)))
 
 
 ;;;
@@ -1819,7 +1853,7 @@
 (define (jazz.walk-method-declaration walker resume declaration environment form)
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Category-Declaration)
-        (let ((type (if specifier (jazz.new-function-type '() (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
+        (let ((type (if specifier (jazz.new-function-type '() '() '() #f (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
               (inline? (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))))
           (receive (signature augmented-environment)
               ;; yuck. to clean
@@ -1891,6 +1925,18 @@
                  (jazz.enqueue queue parameter)))
              (iter (%%cdr scan)))))
     (jazz.queue-list queue)))
+
+
+;;;
+;;;; Cast
+;;;
+
+
+(define (jazz.walk-cast walker resume declaration environment form)
+  (let ((specifier (%%cadr form))
+        (expression (%%car (%%cddr form))))
+    (jazz.new-cast (jazz.walk-specifier walker resume declaration environment specifier)
+      (jazz.walk walker resume declaration environment expression))))
 
 
 ;;;

@@ -173,6 +173,15 @@
 
 
 ;;;
+;;;; Cast
+;;;
+
+
+(jazz.define-class-syntax jazz.Cast jazz.Expression (type) jazz.Object-Class jazz.allocate-cast
+  ((expression %%get-cast-expression ())))
+
+
+;;;
 ;;;; Construct
 ;;;
 

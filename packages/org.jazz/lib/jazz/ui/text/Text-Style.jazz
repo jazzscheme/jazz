@@ -81,12 +81,12 @@
   ;;;
   
   
-  (method (scan h start end tabs run proc)
+  (method (scan h <fx> start <fx> end <fx> tabs run <Run> proc)
     (let ((string (get-string~ run)))
       (let ((left {})
             (mid {})
             (right h)
-            (len (length string)))
+            (len <fx> (length string)))
         (loop (for n from start below (max start (min end len)))
               (let ((c (element string n)))
                 (if (eqv? c #\tab)
@@ -95,11 +95,11 @@
                         (set! tabs (cdr tabs)))
                       (let ((width (- (car tabs) right)))
                         (set! left right)
-                        (set! mid (+ right (round (/ width 2))))
+                        (set! mid (+ right (fxround (/ width 2))))
                         (set! right (+ left width))))
                   (let ((width (get-char-width~ font c)))
                     (set! left right)
-                    (set! mid (+ right (round (/ width 2))))
+                    (set! mid (+ right (fxround (/ width 2))))
                     (increase! right width)))
                 (proc c n left mid right))))))
   
@@ -113,7 +113,7 @@
     '(#\space))
   
   
-  (method (wrap context margin h v width tabs place break run)
+  (method (wrap context margin h <fx> v <fx> width <fx> tabs place break run <Run>)
     (let* ((start h)
            (string (get-string~ run))
            (len (length string))
@@ -123,7 +123,7 @@
            (brk-right {})
            (rightmost h))
       (scan h 0 len tabs run
-        (function dynamic (c n left mid right)
+        (function dynamic (c <char> n <fx> left <fx> mid <fx> right <fx>)
           (set! rightmost right)
           (when (memq? c Break-Characters)
             (set! brk (+ n 1))
@@ -131,7 +131,7 @@
           (when (and (> (+ h (- right start margin)) width)
                      (or (not brk)
                          (not (memq? c Break-Characters))))
-            (let ((n (either brk n)))
+            (let ((n <fx> (either brk n)))
               (place (new Run (subseq! string offset n) self))
               (break right)
               (set! h margin)
@@ -141,7 +141,7 @@
           (when (>= n end)
             (if (= offset 0)
                 (place run)
-              (place (new Run (subseq! string offset) self))))))
+              (place (new Run (subseq! string offset (length string)) self))))))
       (+ h (- rightmost start))))
   
   
@@ -154,7 +154,7 @@
   ;;;
   
   
-  (method (draw-style dc <Surface> context string <Sequence> h <fx> v <fx> line-height <fx> tab-stops left enabled?)
+  (method (draw-style dc <Surface> context string <Subseq$string$> h <fx> v <fx> line-height <fx> tab-stops left <fx> enabled? <bool>) <fx>
     (set-font~ dc font)
     (if (getf context :print-black/white?)
         (set-text-color~ dc (registered-color 'Black))
@@ -163,7 +163,9 @@
            (v (+ v (justify-element font-height line-height))))
       (if (not enabled?)
           (begin
-            (draw-text~ dc h v string #f)
+            (unimplemented)
+            ;; to-fix as coerce is going away
+            (draw-text~ dc h v (coerce string String) #f)
             0)
         (let ((width (with-highlight-color~ dc highlight
                        (function dynamic ()

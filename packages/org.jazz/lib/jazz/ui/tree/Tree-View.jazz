@@ -70,38 +70,38 @@
     {})
 
   
-  (property protected portfolio                 initialize {}        getter get-portfolio                 setter set-portfolio)
-  (property protected show-header?              initialize #t      getter get-show-header?              setter set-show-header?)
+  (property protected portfolio                 initialize {}   getter get-portfolio                 setter set-portfolio)
+  (property protected show-header?              initialize #t   getter get-show-header?              setter set-show-header?)
   ;; row cell node
-  (property protected selection-mode            initialize 'row      getter get-selection-mode            setter set-selection-mode)
-  (property protected multiple-selection?       initialize #f     getter get-multiple-selection?       setter set-multiple-selection?)
-  (property protected can-select-empty?         initialize #t      getter get-can-select-empty?         setter set-can-select-empty?)
-  (property protected show-unfocused-selection? initialize #t      getter get-show-unfocused-selection? setter set-show-unfocused-selection?)
-  (property protected auto-expand/collapse?     initialize #f     getter get-auto-expand/collapse?     setter set-auto-expand/collapse?)
-  (property protected cell-background           initialize {}        getter get-cell-background           setter set-cell-background)
-  (property protected empty-background          initialize {}        getter get-empty-background          setter set-empty-background)
-  (property protected filled-column             initialize #t      getter get-filled-column             setter set-filled-column)
-  (property protected column-spacing            initialize 0         getter get-column-spacing            setter set-column-spacing)
-  (property protected reorderable?              initialize #f     getter get-reorderable?              setter set-reorderable?)
-  (property protected content                   initialize {}        getter get-content                   setter set-content)
+  (property protected selection-mode            initialize 'row getter get-selection-mode            setter set-selection-mode)
+  (property protected multiple-selection?       initialize #f   getter get-multiple-selection?       setter set-multiple-selection?)
+  (property protected can-select-empty?         initialize #t   getter get-can-select-empty?         setter set-can-select-empty?)
+  (property protected show-unfocused-selection? initialize #t   getter get-show-unfocused-selection? setter set-show-unfocused-selection?)
+  (property protected auto-expand/collapse?     initialize #f   getter get-auto-expand/collapse?     setter set-auto-expand/collapse?)
+  (property protected cell-background           initialize {}   getter get-cell-background           setter set-cell-background)
+  (property protected empty-background          initialize {}   getter get-empty-background          setter set-empty-background)
+  (property protected filled-column             initialize #t   getter get-filled-column             setter set-filled-column)
+  (property protected column-spacing            initialize 0    getter get-column-spacing            setter set-column-spacing)
+  (property protected reorderable?              initialize #f   getter get-reorderable?              setter set-reorderable?)
+  (property protected content                   initialize {}   getter get-content                   setter set-content)
   
   
-  (slot protected columns                initialize '())
-  (slot protected node-column            initialize {})
-  (slot protected sorted-column          initialize {}   getter generate)
-  (slot protected sort-ascending?        initialize #t getter generate)
-  (slot protected selection-pivot        initialize {})
-  (slot protected highlighted            initialize '())
-  (slot protected indentation            initialize 16)
-  (slot protected columns-borders        initialize '()  getter generate)
-  (slot protected columns-right          initialize 0    getter generate)
-  (slot protected has-focus?             initialize #f)
-  (slot protected edited-cell            initialize {})
-  (slot protected cell-editor            initialize {})
-  (slot protected close-cell-editor?     initialize #t)
-  (slot protected auto-expanded-row      initialize {})
-  (slot protected locator                initialize (new Tree-Locator))
-  (slot protected selection-manager      initialize (new Selection-Manager self))
+  (slot protected columns                       initialize '())
+  (slot protected node-column                   initialize {})
+  (slot protected sorted-column                 initialize {}   getter generate)
+  (slot protected sort-ascending?               initialize #t   getter generate)
+  (slot protected selection-pivot               initialize {})
+  (slot protected highlighted                   initialize '())
+  (slot protected indentation                   initialize 16)
+  (slot protected columns-borders               initialize '()  getter generate)
+  (slot protected columns-right            <fx> initialize 0    getter generate)
+  (slot protected has-focus?                    initialize #f)
+  (slot protected edited-cell                   initialize {})
+  (slot protected cell-editor                   initialize {})
+  (slot protected close-cell-editor?            initialize #t)
+  (slot protected auto-expanded-row             initialize {})
+  (slot protected locator                       initialize (new Tree-Locator))
+  (slot protected selection-manager             initialize (new Selection-Manager self))
     
   
   (form
@@ -478,7 +478,7 @@
            (height (get-height)))
       ;; probably buggy in ftx fix with alain
       (when (and empty-background (<= columns-right right))
-        (with ((rect (new Rect (if sc? (round (* columns-right sc)) columns-right) 0 (if sc? (round (* right sc)) right) (if sc? (round (* height sc)) height))))
+        (with ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
           (fill-rect~ dc rect empty-background))))
     (draw-highlighted dc))
   
@@ -486,7 +486,7 @@
   ;; probably still buggy when scaling, so limit to tree-view for now
   (method (draw-empty dc top bottom sh sv sc sc? rt width)
     (when (and empty-background (<= rt bottom))
-      (with ((rect (new Rect 0 (round (if sc? (* rt sc) rt)) (round (if sc? (* width sc) width)) (round (if sc? (* bottom sc) bottom)))))
+      (with ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
         (fill-rect~ dc rect empty-background))))
   
   
@@ -576,7 +576,7 @@
            (rect (row-rect rank) @old-l&f-probably-better (cell-content-rect (new Cell (row-rank row) 0)))
            (before-first? (and (= rank 0) (eq? insert 'before)))
            (after-last? (and (= rank (- visible-count 1)) (eq? insert 'after)))
-           (half-spacing (- (round (/ row-spacing 2)) 1))
+           (half-spacing (- (fxround (/ row-spacing 2)) 1))
            (offset (cond (before-first? 0)
                          (after-last? -2)
                          ((eq? insert 'after) half-spacing)
@@ -2054,7 +2054,7 @@
   
   
   ;; temp patch to be virtual...
-  (method (row-rect n)
+  (method (row-rect n <fx>) <Rect>
     (let* ((row   (get-row n))
            (left  (borders-left (car columns-borders)))
            (top   (get-v~ (get-position~ row)))
@@ -2062,23 +2062,23 @@
       (new Rect left top right (+ top (get-height~ row)))))
   
   
-  (method public (cell-position cell)
+  (method public (cell-position cell <Cell>) <Point>
     (let ((rect (cell-rect cell)))
       (new Point (get-left~ rect) (get-top~ rect))))
 
   
-  (method public (cell-rect cell)
+  (method public (cell-rect cell <Cell>) <Rect>
     (let* ((borders (get-borders (get-col~ cell)))
            (row (get-row (get-row~ cell)))
            (top (get-v~ (get-position~ row))))
       (new Rect (borders-left borders) top (borders-right borders) (+ top (get-height~ row)))))
   
   
-  (method public (cell-region cell)
+  (method public (cell-region cell <Cell>) <Region>
     (new Region rect: (cell-rect cell)))
   
   
-  (method (cell-content-rect cell)
+  (method (cell-content-rect cell <Cell>) <Rect>
     (let* ((n       (get-row~ cell))
            (col     (get-col~ cell))
            (row     (get-row n))
@@ -2090,7 +2090,7 @@
       (offset-rect (content-rect~ (get-column col) row cell width (get-height~ row)) left top)))
     
   
-  (method (cell-text-rect cell)
+  (method (cell-text-rect cell <Cell>) <Rect>
     (let* ((n     (get-row~ cell))
            (col   (get-col~ cell))
            (row   (get-row n))
@@ -2100,8 +2100,8 @@
       (offset-rect (text-rect~ (get-column col) row cell width (get-height~ row) #f) 0 top)))
 
 
-  (method public (view->tree pos (any?: any? #f) (uniform-height?: uniform-height? #f))
-    (let ((row (if uniform-height? (floor (/ (get-v~ pos) default-row-height)) (v->row (get-v~ pos))))
+  (method public (view->tree pos <Point> (any?: any? #f) (uniform-height?: uniform-height? #f))
+    (let ((row (if uniform-height? (fxfloor (get-v~ pos) default-row-height) (v->row (get-v~ pos))))
           (col (h->col (get-h~ pos))))
       (when (and row col (>= row 0))
         (let ((cell (new Cell row col)))
@@ -2112,7 +2112,7 @@
 
 
   ;; Should unify with view->tree...
-  (method public (view->tree-extended pos)
+  (method public (view->tree-extended pos <Point>)
     (let ((info (v->row-extended (get-v~ pos))))
       (when info
         (receive (row v height) info

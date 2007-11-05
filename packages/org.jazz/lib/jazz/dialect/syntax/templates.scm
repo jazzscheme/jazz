@@ -39,7 +39,8 @@
 
 
 (import (jazz.dialect.kernel)
-        (jazz.dialect.syntax.template))
+        ;(jazz.dialect.syntax.template)
+        )
 
 
 (syntax (instantiate-butlast type)

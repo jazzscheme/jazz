@@ -38,7 +38,7 @@
 (library jazz.dialect.language jazz.dialect
 
 
-(proclaim (optimize))
+;;(proclaim (optimize))
 
 
 ;;;
@@ -1155,6 +1155,21 @@
 (class primitive Flonum metaclass Flonum-Class extends Real)
 
 
+;; until proper call site casting of calls to natives
+
+(definition public inline (fl+ x <fl> y <fl>) <fl>
+  (##fl+ x y))
+
+(definition public inline (fl- x <fl> y <fl>) <fl>
+  (##fl- x y))
+
+(definition public inline (fl* x <fl> y <fl>) <fl>
+  (##fl* x y))
+
+(definition public inline (fl/ x <fl> y <fl>) <fl>
+  (##fl/ x y))
+
+
 ;;;
 ;;;; Numbers
 ;;;
@@ -1340,7 +1355,7 @@
 
 
 (definition (mask-bit-set? num <int> msk <int>) <bool>
-  (not (= (bit-and num msk) 0)))
+  (/= (bit-and num msk) 0))
 
 
 (definition shift-left <int:int> arithmetic-shift)
@@ -1372,15 +1387,32 @@
   (/ (* n percent) 100))
 
 
-;; All these return exact to implement the same behavior as the old Jazz. To be rethought out
-(definition public inline (floor r)
-  (inexact->exact (scheme.floor r)))
-(definition public inline (ceil r)
-  (inexact->exact (scheme.ceiling r)))
-(definition public inline (truncate r)
-  (inexact->exact (scheme.truncate r)))
-(definition public inline (round r)
-  (inexact->exact (scheme.round r)))
+(definition public inline (fxfloor r <fl>) <fx>
+  (flonum->fixnum (floor r)))
+
+(definition public inline (fxceiling r <fl>) <fx>
+  (flonum->fixnum (ceiling r)))
+
+(definition public inline (fxtruncate r <fl>) <fx>
+  (flonum->fixnum (truncate r)))
+
+(definition public inline (fxround r <fl>) <fx>
+  (flonum->fixnum (round r)))
+
+
+;; these could potentialy optimize out the flonum operation especially fxfloor
+
+(specialize inline (fxfloor n <fx> d <fx>) <fx>
+  (fxfloor (fl/ n d)))
+
+(specialize inline (fxceiling n <fx> d <fx>) <fx>
+  (fxceiling (fl/ n d)))
+
+(specialize inline (fxtruncate n <fx> d <fx>) <fx>
+  (fxtruncate (fl/ n d)))
+
+(specialize inline (fxround n <fx> d <fx>) <fx>
+  (fxround (fl/ n d)))
 
 
 ;;;
@@ -2283,10 +2315,76 @@
         (done?~ targ)))))
 
 
-(definition public (search seq <Sequence> target <Object> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?))
+(definition public (search seq <Sequence> target <Object> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?)) <int+>
   (let ((len (length seq))
         (size (length target))
         ;; parameterized-fix-me
+        (test (if ignore-case? char-ci=? char=?)))
+    (define (match-case? pos <fx>) <bool>
+      (let ((to (- size 1)))
+        (let (iterate (i <fx> pos) (j <fx> 0))
+          (cond ((>= i len)
+                 #f)
+                ((not (test (element seq i) (element target j)))
+                 #f)
+                ((>= j to)
+                 #t)
+                (else
+                 (iterate (+ i 1) (+ j 1)))))))
+    
+    (define (match? pos <fx>) <bool>
+      (and (>= pos 0)
+           (match-case? pos)
+           (or (not whole-words?)
+               (let ((before (- pos 1))
+                     (after (+ pos size)))
+                 (if (and (>= before 0)
+                          (constituent-test (element seq before)))
+                     #f
+                   (if (< after len)
+                       (let ((c (element seq after)))
+                         ;; The explicit test for ~ is a kind of patch for the new ~ syntax
+                         (or (eqv? c #\~)
+                             (not (constituent-test (element seq after)))))
+                     #t))))))
+    
+    (define (find-backward pos <fx>) <fx+>
+      (let (iterate (pos <fx> pos))
+        (cond ((match? (- pos size))
+               (- pos size))
+              ((<= pos 0)
+               {})
+              (else
+               (iterate (- pos 1))))))
+    
+    (define (find-forward pos <fx>) <fx+>
+      (let ((last (- len size)))
+        (let (iterate (pos <fx> pos))
+          (cond ((match? pos)
+                 pos)
+                ((>= pos last)
+                 {})
+                (else
+                 (iterate (+ pos 1)))))))
+    
+    (let ((pos (either start (if reverse? len 0)))
+          (find (if reverse? find-backward find-forward))
+          (move (if reverse? - +)))
+      (if (not all?)
+          (find pos)
+        (let ((queue (new-queue)))
+          (let (iterate (pos <fx> pos))
+            (let ((found (find pos)))
+              (if found
+                  (begin
+                    (enqueue queue found)
+                    (iterate (move found size)))
+                (queue-list queue)))))))))
+
+
+(specialize as string-search (search seq <string> target <string> (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (all?: all? #f) (constituent-test: constituent-test word-constituent?)) <int+>
+  (let ((len (length seq))
+        (size (length target))
         (test (if ignore-case? char-ci=? char=?)))
     (define (match-case? pos <fx>) <bool>
       (let ((to (- size 1)))
@@ -2585,38 +2683,6 @@
   (error "abstract"))
 
 
-@old
-(specialize (starts-with? seq <string> target <string>) <bool>
-  (let ((slen (length seq))
-        (tlen (length target)))
-    (and (>= slen tlen)
-         (= (subseq seq 0 tlen) target))))
-
-
-@old
-(specialize (ends-with? seq <string> target <string>) <bool>
-  (let ((slen (length seq))
-        (tlen (length target)))
-    (and (>= slen tlen)
-         (= (subseq seq (- slen tlen)) target))))
-
-
-@old
-(definition (starts-with? string target (test: test string=?))
-  (let ((str (length string))
-        (trg (length target)))
-    (and (>= str trg)
-         (test (subseq string 0 trg) target))))
-
-
-@old
-(definition (ends-with? string target (test: test string=?))
-  (let ((str (length string))
-        (trg (length target)))
-    (and (>= str trg)
-         (test (subseq string (- str trg)) target))))
-
-
 ;; pickpick impl.
 (definition (for-each-reversed proc lst)
   (for-each proc (reverse lst)))
@@ -2633,8 +2699,8 @@
                     (else (error "Unknown return type {t}" returned))))
              (else
               (iterate (cdr rest) (+ rank 1)))))))
-         
-       
+
+
 (definition (find-if-list predicate list key start returned)
   (let ((key (if (not key) (lambda (x) x) key)))
     (let (iterate (rest (tail list start)) (rank <fx> start))
@@ -4383,10 +4449,7 @@
 ;;;
 
 
-(class String-Class extends Class)
-
-
-(class primitive String metaclass String-Class extends Object
+(class primitive String extends Object
   
   
   (method (initialize . rest)
@@ -4468,6 +4531,13 @@
 
 (specialize inline (subseq string <string> start <int> end <int>) <string>
   (substring string start end))
+
+
+(specialize (replace-subseq! string <string> start <int> end <int> replacement <string>) <string>
+  ;; should become append! when append! is a specialized definition
+  (string-append (subseq string 0 start)
+                 replacement
+                 (subseq string end (length string))))
 
 
 (instantiate-butlast <string>)
@@ -4797,7 +4867,7 @@
            (let ((old-real-size (length content))
                  (old-content content))
              (set-size n)
-             (set! content (make-vector (inexact->exact (round (* n GOLDEN_RATIO))) {}))
+             (set! content (make-vector (fxround (* n GOLDEN_RATIO)) {}))
              (let (iterate (i 0))
                (when (< i old-real-size)
                  (begin
@@ -5791,6 +5861,52 @@
 
 (specialize inline as subseq-length (length subseq <Subseq>) <int>
   (get-size~ subseq))
+
+
+;;;
+;;;; Subseq$string$
+;;;
+
+
+(class Subseq$string$ extends Object
+  
+  
+  (slot sequence <string> getter    generate)
+  (slot start    <fx>     accessors generate)
+  (slot size     <fx>     accessors generate)
+  
+  
+  (method (initialize sequence <string> start <fx> size <fx>)
+    (nextmethod)
+    (set! sequence~self sequence)
+    (set! start~self start)
+    (set! size~self size))
+  
+  
+  (method (print output detail)
+    (print-unreadable self output
+      (function (output)
+        (format output "{s} {s} {s}" sequence start size)))))
+
+
+(specialize inline (element subseq <Subseq$string$> n <fx>) <char>
+  (element (get-sequence~ subseq) (+ (get-start~ subseq) n)))
+
+
+(specialize inline (set-element! subseq <Subseq$string$> n <fx> obj <char>) <void>
+  (set-element! (get-sequence~ subseq) (+ (get-start~ subseq) n) obj))
+
+
+(specialize inline (length subseq <Subseq$string$>) <fx>
+  (get-size~ subseq))
+
+
+(specialize (subseq! seq <string> s <fx> e <fx>) <Subseq$string$>
+  (new Subseq$string$ seq s (- e s)))
+
+
+(specialize (subseq! subseq <Subseq$string$> s <fx> e <fx>) <Subseq$string$>
+  (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s)))
 
 
 ;;;

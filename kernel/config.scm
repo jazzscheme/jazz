@@ -107,8 +107,7 @@
 
 
 (define jazz.debug-specializers
-  '(subseq!
-    search))
+  '())
 
 
 ;; need to brainstorm this with marc

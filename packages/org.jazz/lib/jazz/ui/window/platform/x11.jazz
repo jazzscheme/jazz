@@ -129,9 +129,7 @@
 
 
 (definition (hide-window handle)
-  (unimplemented 'hide-window)
-  @windows
-  (ShowWindow handle SW_HIDE))
+  (XUnmapWindow default-x11-display handle))
 
 
 (definition (minimize-window handle)
@@ -365,9 +363,7 @@
 
 
 (definition (platform-set-parent handle parent)
-  (unimplemented 'platform-set-parent)
-  @windows
-  (SetParent handle (if parent (get-handle~ parent) NULL)))
+  (XReparentWindow default-x11-display handle (get-handle~ parent) 0 0))
 
 
 ;; tofix : temporary
@@ -430,13 +426,11 @@
 
 
 (definition (platform-get-position handle parent-handle)
-  (unimplemented 'platform-get-position)
-  @windows
-  (with ((rect (RECT-make)))
-    (GetWindowRect handle rect)
-    (when (and parent-handle (child-window? handle))
-      (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
-    (new Point (RECT-left-ref rect) (RECT-top-ref rect))))
+   (let ((infos (XWindowAttributes-make)))
+       (XGetWindowAttributes default-x11-display handle infos)
+       (let* ((x (XWindowAttributes-x-ref infos))
+               (y (XWindowAttributes-y-ref infos)))
+         (new Point x y))))
 
 
 (definition (platform-set-position handle pos)
@@ -464,13 +458,13 @@
 
 
 (definition (platform-get-rect handle parent-handle)
-  (unimplemented 'platform-get-rect)
-  @windows
-  (with ((rect (RECT-make)))
-    (GetWindowRect handle rect)
-    (when parent-handle
-      (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
-    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+  (let ((infos (XWindowAttributes-make)))
+       (XGetWindowAttributes default-x11-display handle infos)
+       (let* ((l (XWindowAttributes-x-ref infos))
+               (t (XWindowAttributes-y-ref infos))
+               (r (+ l (XWindowAttributes-width-ref infos)))
+               (b (+ t (XWindowAttributes-height-ref infos))))
+         (new Rect l t r b))))
 
 
 (definition (platform-get-bounds handle)
@@ -644,8 +638,9 @@
       str)))
 
 
+;; tofix
 (definition (platform-lock-window-update handle)
-  (unimplemented 'platform-lock-window-update)
+  #t
   @windows
   (LockWindowUpdate handle))
 
@@ -750,8 +745,9 @@
   Current-Cursor)
 
 
+;; to-fix
 (definition public (set-cursor cursor)
-  (unimplemented 'set-cursor)
+  #f
   @unimp
   (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
           (set! Current-Cursor cursor)

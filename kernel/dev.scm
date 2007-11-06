@@ -158,6 +158,9 @@
 (define (rltv)
   (rl 'jazz.ui.text.Text-View))
 
+(define (rlov)
+  (rl 'jazz.ui.outline.Outline-View))
+
 (define (rlte)
   (rl 'jazz.ui.text.Text-Explorer))
 

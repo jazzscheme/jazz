@@ -1999,25 +1999,58 @@
     total))
 
 
-(definition public (find target seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
+(definition public (find seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
-      (find-list target seq key test (either start 0) return)
-    (if (and (string? seq) (not start) (eq? return 'position))
-        (find-string target seq reversed?)
-      (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
-        (when start
-          (set-position~ iter start))
-        (call/ec
-          (lambda (exit)
-            (with ((proc <procedure>
-                     (function dynamic (object)
-                       (when (apply-test test target (apply-key key object))
-                         (case return
-                           ((item) (exit object))
-                           ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                           (else (error "Unknown return type: {t}" return)))))))
-              (for-each proc iter))
-            {}))))))
+      (list-find seq target key test (either start 0))
+    (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
+      (when start
+        (set-position~ iter start))
+      (call/ec
+        (lambda (exit)
+          (with ((proc <procedure>
+                   (function dynamic (object)
+                     (when (apply-test test target (apply-key key object))
+                       (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
+            (for-each proc iter))
+          {})))))
+
+
+(definition (list-find list target key test start)
+  (let ((key (if (not key) (lambda (x) x) key))
+        (test (if (not test) eqv? test)))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
+       (cond ((null? rest) {})
+             ((test target (key (car rest)))
+              rank)
+             (else
+              (iterate (cdr rest) (+ rank 1)))))))
+
+
+(definition public (find-in seq target (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
+  (if (and (or (null? seq) (pair? seq)) (not reversed?))
+      (list-find-in seq target key test (either start 0))
+    (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
+      (when start
+        (set-position~ iter start))
+      (call/ec
+        (lambda (exit)
+          (with ((proc <procedure>
+                   (function dynamic (object)
+                     (when (apply-test test target (apply-key key object))
+                       (exit object)))))
+            (for-each proc iter))
+          {})))))
+
+
+(definition (list-find-in list target key test start)
+  (let ((key (if (not key) (lambda (x) x) key))
+        (test (if (not test) eqv? test)))
+    (let (iterate (rest (tail list start)) (rank <fx> start))
+       (cond ((null? rest) {})
+             ((test target (key (car rest)))
+              (car rest))
+             (else
+              (iterate (cdr rest) (+ rank 1)))))))
 
 
 (definition public (find-balanced open close seq (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
@@ -2042,18 +2075,6 @@
         {}))))
 
 
-(definition (find-string target <char> seq <string> reversed? <bool>)
-  (if (not reversed?)
-      (loop (for n from 0 below (length seq))
-            (when (eqv? (element seq n) target)
-              (return n))
-            (finally {}))
-    (loop (for n from (- (length seq) 1) downto 0)
-          (when (eqv? (element seq n) target)
-            (return n))
-          (finally {}))))
-
-
 (definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
@@ -2075,9 +2096,9 @@
 
 (definition public (get-rank target <Object> seq <Object> (key: key {}) (test: test {}) (start: start {}) (reversed?: reversed? #f))
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
-      (find-list target seq key test (either start 0) 'position)
+      (list-find seq target key test (either start 0) 'position)
     (if (and (string? seq) (not start))
-        (find-string target seq reversed?)
+        (string-find seq target reversed?)
       (call/ec
         (lambda (exit)
           (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
@@ -2590,7 +2611,7 @@
 
 
 (definition public (ordered-position object seq (key: key {}) (test: test <=))
-  (find object seq key: key test: test return: 'position))
+  (find seq object key: key test: test))
 
 
 (definition public (insert-ordered! object seq (key: key {}) (test: test <=))
@@ -2686,19 +2707,6 @@
 ;; pickpick impl.
 (definition (for-each-reversed proc lst)
   (for-each proc (reverse lst)))
-
-
-(definition (find-list target list key test start returned)
-  (let ((key (if (not key) (lambda (x) x) key))
-        (test (if (not test) eqv? test)))
-    (let (iterate (rest (tail list start)) (rank <fx> start))
-       (cond ((null? rest) {})
-             ((test target (key (car rest)))
-              (cond ((eq? returned 'position) rank)
-                    ((eq? returned 'item) (car rest))
-                    (else (error "Unknown return type {t}" returned))))
-             (else
-              (iterate (cdr rest) (+ rank 1)))))))
 
 
 (definition (find-if-list predicate list key start returned)
@@ -3591,8 +3599,11 @@
     (set! col (+ col delta))))
 
 
-(specialize inline as new-cell (new Cell row <fx> col <fx>) <Cell>
+(definition public inline (new-cell row col)
   (construct Cell row col))
+
+(specialize inline (new class <category<Cell>> row <fx> col <fx>) <Cell>
+  (new-cell row col))
 
 
 (specialize inline as cell= (= c1 <Cell> c2 <Cell>) <bool>
@@ -3737,6 +3748,13 @@
       (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
 
 
+(definition public inline (new-range start end)
+  (construct Range start end))
+
+(specialize inline (new class <category<Range>> start end) <Range>
+  (new-range start end))
+
+
 (specialize inline as range= (= r1 <Range> r2 <Range>) <bool>
   (and (= (get-start~ r1) (get-start~ r2))
        (= (get-end~ r1) (get-end~ r2))))
@@ -3815,7 +3833,7 @@
       (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
 
 
-(specialize inline (new Range$Cell$ start <Cell> end <Cell>) <Range$Cell$>
+(specialize inline (new class <category<Range$Cell$>> start <Cell> end <Cell>) <Range$Cell$>
   (construct Range$Cell$ start end))
 
 
@@ -3866,8 +3884,11 @@
             v)))
 
 
-(specialize inline as new-point (new Point h <fx> v <fx>) <Point>
+(definition public inline (new-point h v)
   (construct Point h v))
+
+(specialize inline (new class <category<Point>> h <fx> v <fx>) <Point>
+  (new-point h v))
 
 
 (specialize inline as point= (= p1 <Point> p2 <Point>) <bool>
@@ -3952,8 +3973,11 @@
             height)))
 
 
-(specialize inline as new-dimension (new Dimension width <fx> height <fx>) <Dimension>
+(definition public inline (new-dimension width height)
   (construct Dimension width height))
+
+(specialize inline (new class <category<Dimension>> width <fx> height <fx>) <Dimension>
+  (new-dimension width height))
 
 
 (specialize inline as dimension= (= d1 <Dimension> d2 <Dimension>) <bool>
@@ -4037,8 +4061,11 @@
             bottom)))
 
 
-(specialize inline as new-rect (new Rect left <number> top <number> right <number> bottom <number>) <Rect>
+(definition public inline (new-rect left top right bottom)
   (construct Rect left top right bottom))
+
+(specialize inline (new class <category<Rect>> left <number> top <number> right <number> bottom <number>) <Rect>
+  (new-rect left top right bottom))
 
 
 (specialize inline as rect= (= r1 <Rect> r2 <Rect>) <bool>
@@ -4545,6 +4572,9 @@
                  (subseq string end (length string))))
 
 
+(instantiate-for-each string-for-each <string>)
+(instantiate-find string-find <string>)
+(instantiate-find-in string-find-in <string>)
 (instantiate-butlast <string>)
 (instantiate-starts-with? <string>)
 (instantiate-ends-with? <string>)
@@ -4771,25 +4801,18 @@
 ;;;
 
 
-(class Axis-Class extends Sequence-Class
-  
-  
-  (method (allocate-sequence len)
-    (new Axis len)))
+(definition AXIS_MIN_SIZE 8)
+(definition AXIS_GOLDEN_RATIO 1.6)
 
 
-(class Axis metaclass Axis-Class extends Sequence
-  
-  
-  (definition MIN_SIZE 8)
-  (definition GOLDEN_RATIO 1.6)
+(class Axis extends Object
   
   
   (slot size    <fx>     accessors generate)
   (slot content <vector> accessors generate)
   
   
-  (method (initialize (s 0))
+  (method (initialize s)
     (set! size s)
     (set! content (make-vector s {})))
   
@@ -4797,93 +4820,94 @@
   (method (print output detail)
     (print-unreadable self output
       (function (output)
-        (format output "{s} {s}" size content))))
-  
-  
-  (method (sequence-element n <fx>) <any>
-    (vector-ref content n))
-  
-  
-  (method (sequence-set-element! n <fx> obj <any>) <void>
-    (vector-set! content n obj))
-  
-  
-  (method (sequence-length) <fx>
-    size)
-  
-  
-  (method (sequence-tail n)
-    (let ((new-axis (new Axis n))
-          (offset (- size n)))
-      (let (iterate (i 0))
-        (if (>= i n)
-            new-axis
-          (set-element! new-axis i (element self (+ i offset)))
-          (iterate (+ i 1))))))
-  
-  
-  (method (sequence-last)
-    (element self (- size 1)))
-  
-  
-  (method (sequence-replace-subseq! start <fx> end <fx> replacement)
-    (let* ((before (- end start))
-           (after (length replacement))
-           (delta (- after before))
-           (old-size size)
-           (new-size (+ old-size delta)))
-      (cond ((< after before)
-             (let (iterate (n (- old-size end))
-                           (src end)
-                           (dst (+ end delta)))
-               (when (> n 0)
-                 (set-element! self dst (element self src))
-                 (set-element! self src {})
-                 (iterate (- n 1) (+ src 1) (+ dst 1))))
-             (grow new-size))     
-            ((> after before)
-             (grow new-size)
-             (let (iterate (n (- old-size end))
-                           (src (- old-size 1))
-                           (dst (+ (- old-size 1) delta)))
-               (when (> n 0)
-                 (set-element! self dst (element self src))
-                 (iterate (- n 1) (- src 1) (- dst 1))))))
-      (let (iterate (n 0) (dst start))
-        (when (< n after)
-          (set-element! self dst (element replacement n))
-          (iterate (+ n 1) (+ dst 1))))
-      self))
-  
-  
-  (method public (add obj)
-    (let ((n size))
-      (grow (+ n 1))
-      (set-element! content n obj)))
-  
-  
-  (method public (grow n <fx>)
-    (cond ((<= n (length content))
-           (set-size n))
-          ((= size 0)
-           (set-size n)
-           (set! content (make-vector MIN_SIZE {})))
-          (else
-           (let ((old-real-size (length content))
-                 (old-content content))
-             (set-size n)
-             (set! content (make-vector (fxround (* n GOLDEN_RATIO)) {}))
-             (let (iterate (i 0))
-               (when (< i old-real-size)
-                 (begin
-                   (set-element! content i (element old-content i))
-                   (iterate (+ i 1))))))))))
+        (format output "{s} {s}" size content)))))
 
 
-(definition (axis-add axis <Axis> obj)
+(specialize inline (element axis <Axis> n <fx>) <any>
+  (vector-ref (get-content~ axis) n))
+
+
+(specialize inline (set-element! axis <Axis> n <fx> obj <any>) <void>
+  (vector-set! (get-content~ axis) n obj))
+
+
+(specialize inline (length axis <Axis>) <fx>
+  (get-size~ axis))
+
+
+(specialize (tail axis <Axis> n <fx>) <Axis>
+  (let ((new-axis (new Axis n))
+        (offset (- (get-size~ axis) n)))
+    (let (iterate (i 0))
+      (if (>= i n)
+          new-axis
+        (set-element! new-axis i (element axis (+ i offset)))
+        (iterate (+ i 1))))))
+
+
+(specialize (last axis <Axis>) <any>
+  (element axis (- (get-size~ axis) 1)))
+
+
+(specialize (replace-subseq! axis <Axis> start <fx> end <fx> replacement <list>) <Axis>
+  (let* ((before (- end start))
+         (after (length replacement))
+         (delta (- after before))
+         (old-size (get-size~ axis))
+         (new-size (+ old-size delta)))
+    (cond ((< after before)
+           (let (iterate (n (- old-size end))
+                         (src end)
+                         (dst (+ end delta)))
+             (when (> n 0)
+               (set-element! axis dst (element axis src))
+               (set-element! axis src {})
+               (iterate (- n 1) (+ src 1) (+ dst 1))))
+           (axis-grow new-size))     
+          ((> after before)
+           (axis-grow new-size)
+           (let (iterate (n (- old-size end))
+                         (src (- old-size 1))
+                         (dst (+ (- old-size 1) delta)))
+             (when (> n 0)
+               (set-element! axis dst (element axis src))
+               (iterate (- n 1) (- src 1) (- dst 1))))))
+    (let (iterate (n 0) (dst start))
+      (when (< n after)
+        (set-element! axis dst (element replacement n))
+        (iterate (+ n 1) (+ dst 1))))
+    axis))
+
+
+(definition public (axis-grow axis <Axis> n <fx>)
+  (cond ((<= n (length (get-content~ axis)))
+         (set-size~ axis n))
+        ((= (get-size~ axis) 0)
+         (set-size~ axis n)
+         (set-content~ axis (make-vector AXIS_MIN_SIZE {})))
+        (else
+         (let ((old-real-size (length (get-content~ axis)))
+               (old-content (get-content~ axis)))
+           (set-size~ axis n)
+           (set-content~ axis (make-vector (fxround (* n AXIS_GOLDEN_RATIO)) {}))
+           (let (iterate (i 0))
+             (when (< i old-real-size)
+               (begin
+                 (set-element! (get-content~ axis) i (element old-content i))
+                 (iterate (+ i 1)))))))))
+
+
+(definition public (axis-add axis <Axis> obj)
   (let ((size (length axis)))
-    (grow~ axis (+ size 1))
+    (axis-grow axis (+ size 1))
     (set-element! axis size obj)))
+
+
+(definition public inline (new-axis s)
+  (construct Axis s (make-vector s {})))
+
+(specialize inline (new class <category<Axis>> s <fx>) <Axis>
+  (new-axis s))
 
 
 (specialize inline as axis-ref (element axis <Axis> n <fx>) <object>
@@ -4896,6 +4920,11 @@
 
 (specialize inline as axis-length (length axis <Axis>) <int>
   (get-size~ axis))
+
+
+(instantiate-for-each axis-for-each <Axis>)
+(instantiate-find axis-find <Axis>)
+(instantiate-find-in axis-find-in <Axis>)
 
 
 ;;;
@@ -4990,12 +5019,12 @@
 
 
   (method (entry-from-name name)
-    (either (find name entries key: first test: eq?)
+    (either (find-in entries name key: first test: eq?)
             (error "Unknown enumeration name: {t} in {t}" name self)))
 
 
   (method (entry-from-value value)
-    (either (find value entries key: second test: eqv?)
+    (either (find-in entries value key: second test: eqv?)
             (error "Unknown enumeration value: {t} in {t}" value self)))
 
 
@@ -5010,7 +5039,7 @@
   (method public (get-rank target)
     (if (= target name)
         0
-      (+ 1 (find target entries key: first test: eq? return: 'position)))))
+      (+ 1 (find entries target key: first test: eq?)))))
 
 
 (definition public inline (enumeration? object <Object>)
@@ -5892,6 +5921,10 @@
     (print-unreadable self output
       (function (output)
         (format output "{s} {s} {s}" sequence start size)))))
+
+
+(specialize inline (new class <category<Subseq$string$>> sequence <string> start <fx> size <fx>) <Subseq$string$>
+  (construct Subseq$string$ sequence start size))
 
 
 (specialize inline (element subseq <Subseq$string$> n <fx>) <char>

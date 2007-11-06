@@ -43,6 +43,7 @@
   #f)
 
 
+;; find where jazz shadows scheme
 (define (dup)
   (let ((sk (jazz.locate-toplevel-declaration 'scheme.dialect.kernel))
         (jk (jazz.locate-toplevel-declaration 'jazz.dialect.kernel))

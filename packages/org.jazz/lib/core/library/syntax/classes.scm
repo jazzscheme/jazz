@@ -303,6 +303,15 @@
 
 
 ;;;
+;;;; Category
+;;;
+
+
+(jazz.define-class-syntax jazz.Category-Type jazz.Type () jazz.Class jazz.allocate-category-type
+  ((declaration %%get-category-type-declaration ())))
+
+
+;;;
 ;;;; Values
 ;;;
 

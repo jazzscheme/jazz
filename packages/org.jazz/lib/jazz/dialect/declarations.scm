@@ -50,15 +50,6 @@
 
 
 ;;;
-;;;; Specialize New
-;;;
-
-
-(jazz.define-class-syntax jazz.Specialize-New jazz.Expression (type) jazz.Object-Class jazz.allocate-specialize-new
-  ())
-
-
-;;;
 ;;;; Specialize
 ;;;
 

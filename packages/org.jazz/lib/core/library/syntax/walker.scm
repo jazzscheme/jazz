@@ -804,6 +804,43 @@
 
 
 ;;;
+;;;; Category
+;;;
+
+
+;; first draft. this type is used to support specializing new and the like
+
+
+(jazz.define-class jazz.Category-Type jazz.Type () jazz.Class
+  (declaration))
+
+
+(define (jazz.new-category-type declaration)
+  (jazz.allocate-category-type jazz.Category-Type declaration))
+
+
+;; quicky solution to stop casts on this type
+(jazz.define-method (jazz.of-subtype? (jazz.Category-Type type) subtype)
+  #t)
+
+
+(jazz.define-method (jazz.emit-check (jazz.Category-Type type) value source-declaration environment)
+  #f)
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Category-Type type))
+  (let ((output (open-output-string)))
+    (display "category" output)
+    (write-char #\< output)
+    (display (jazz.emit-specifier (%%get-category-type-declaration type)) output)
+    (write-char #\> output)
+    (%%string->symbol (get-output-string output))))
+
+
+(jazz.encapsulate-class jazz.Category-Type)
+
+
+;;;
 ;;;; Values
 ;;;
 
@@ -1073,8 +1110,9 @@
 ;; <any>
 ;; <Point+>                            ;; Nillable
 ;; <Point<fx/pair>>                    ;; Template
-;; <values<fx/fl>>                     ;; Values
+;; <category<Cell>>                    ;; Category
 ;; <fx^fx^opt<fx>^key<k:fx>^fx*:pair>  ;; Function with positional, optional, named and rest parameters
+;; <values<fx/fl>>                     ;; Values
 ;; <Object>
 ;; <Point>
 ;; <pair>
@@ -1173,6 +1211,8 @@
                         (let ((type (parse #t)))
                           (consume #\>)
                           (jazz.new-key-type key type))))
+                     ((%%eq? name 'category)
+                      (jazz.new-category-type (parse #t)))
                      ((%%eq? name 'values)
                       (jazz.new-values-type (parse-until #\/ #\>)))
                      (else
@@ -1691,7 +1731,13 @@
 
 
 (define (jazz.new-variable name type)
-  (jazz.allocate-variable jazz.Variable name type 0))
+  (%%assert (jazz.variable-name-valid? name)
+    (jazz.allocate-variable jazz.Variable name type 0)))
+
+
+(define (jazz.variable-name-valid? name)
+  (and (%%symbol? name)
+       (%%not (jazz.specifier? name))))
 
 
 (jazz.define-method (jazz.walk-binding-referenced (jazz.Variable binding))
@@ -1731,7 +1777,8 @@
 
 
 (define (jazz.new-nextmethod-variable name type)
-  (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0))
+  (%%assert (jazz.variable-name-valid? name)
+    (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0)))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.NextMethod-Variable binding) source-declaration environment)
@@ -1768,7 +1815,8 @@
 
 
 (define (jazz.new-parameter name type)
-  (jazz.allocate-parameter jazz.Parameter name type 0))
+  (%%assert (jazz.variable-name-valid? name)
+    (jazz.allocate-parameter jazz.Parameter name type 0)))
 
 
 (jazz.define-virtual (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
@@ -3349,9 +3397,9 @@
                            #f))
                      #f))
           (arguments-codes (jazz.emit-expressions arguments declaration environment)))
-      (or (jazz.emit-new-call operator locator arguments arguments-codes declaration environment)
-          (jazz.emit-specialized-call operator locator arguments-codes declaration environment)
-          (jazz.emit-primitive-call operator locator arguments-codes declaration environment)
+      (or (jazz.emit-specialized-call operator locator arguments arguments-codes declaration environment)
+          (jazz.emit-primitive-new-call operator locator arguments arguments-codes declaration environment)
+          (jazz.emit-primitive-call operator locator arguments arguments-codes declaration environment)
           (jazz.emit-inlined-call operator arguments-codes declaration environment)
           (jazz.emit-call operator arguments-codes declaration environment)))))
 
@@ -3369,51 +3417,6 @@
   (if (%%is? operator-type jazz.Function-Type)
       (%%get-function-type-result operator-type)
     jazz.Any))
-
-
-;;;
-;;;; New Call
-;;;
-
-
-;; As a metaclass can be the class of many classes, we cannot deduce the return type
-;; of a new call from the type of the first argument hence this special case for new.
-
-
-(define jazz.new-specializers
-  (%%make-hashtable eq?))
-
-
-(define (jazz.add-new-specializer class-declaration specializer)
-  (%%hashtable-set! jazz.new-specializers class-declaration
-    specializer))
-
-
-(define (jazz.emit-new-call operator locator arguments arguments-codes declaration environment)
-  (if (%%eq? locator 'jazz.dialect.kernel.new)
-      (%%assert (%%pair? arguments)
-        (let ((class-expression (%%car arguments)))
-          (if (%%class-is? class-expression jazz.Reference)
-              (let ((binding (%%get-reference-binding class-expression)))
-                (if (%%class-is? binding jazz.Class-Declaration)
-                    (let ((specializer (%%hashtable-ref jazz.new-specializers binding #f))
-                          (values-codes (%%cdr arguments-codes)))
-                      (if specializer
-                          (or (jazz.emit-inlined-binding-call specializer values-codes declaration environment)
-                              (jazz.new-code
-                                (let ((locator (%%get-declaration-locator specializer)))
-                                  `(,locator ,@(jazz.codes-forms values-codes)))
-                                binding))
-                        (jazz.new-code
-                          (case (%%length values-codes)
-                            ((0) `(jazz.new0 ,@(jazz.codes-forms arguments-codes)))
-                            ((1) `(jazz.new1 ,@(jazz.codes-forms arguments-codes)))
-                            ((2) `(jazz.new2 ,@(jazz.codes-forms arguments-codes)))
-                            (else `(jazz.new ,@(jazz.codes-forms arguments-codes))))
-                          binding)))
-                  #f))
-            #f)))
-    #f))
 
 
 ;;;
@@ -3435,14 +3438,14 @@
   (%%hashtable-ref jazz.specializers binding '()))
 
 
-(define (jazz.emit-specialized-call operator locator arguments declaration environment)
+(define (jazz.emit-specialized-call operator locator arguments arguments-codes declaration environment)
   (if (%%not locator)
       #f
-    (or (jazz.emit-specialized-locator locator arguments environment)
+    (or (jazz.emit-specialized-locator locator arguments-codes environment)
         (if (%%class-is? operator jazz.Reference)
             (let ((binding (%%get-reference-binding operator)))
               (let ((specializers (jazz.get-specializers binding)))
-                (let ((types (jazz.codes-types arguments)))
+                (let ((types (jazz.codes-types arguments-codes)))
                   (let iter ((scan specializers))
                     (if (%%null? scan)
                         (begin
@@ -3464,11 +3467,11 @@
                           #f)
                       (let ((specializer (%%car scan)))
                         (let ((function-type (%%get-lexical-binding-type specializer)))
-                          (if (jazz.match-signature? types function-type)
-                              (or (jazz.emit-inlined-binding-call specializer arguments declaration environment)
+                          (if (jazz.match-signature? arguments types function-type)
+                              (or (jazz.emit-inlined-binding-call specializer arguments-codes declaration environment)
                                   (jazz.new-code
                                     (let ((locator (%%get-declaration-locator specializer)))
-                                      `(,locator ,@(jazz.codes-forms arguments)))
+                                      `(,locator ,@(jazz.codes-forms arguments-codes)))
                                     (%%get-function-type-result function-type)))
                             (iter (%%cdr scan))))))))))
           #f))))
@@ -3478,8 +3481,33 @@
 (define jazz.emit-specialized-locator #f)
 
 (set! jazz.emit-specialized-locator
-      (lambda (locator arguments environment)
+      (lambda (locator arguments-codes environment)
         #f))
+
+
+;;;
+;;;; Primitive New
+;;;
+
+
+(define (jazz.emit-primitive-new-call operator locator arguments arguments-codes declaration environment)
+  (if (%%eq? locator 'jazz.dialect.kernel.new)
+      (%%assert (%%pair? arguments)
+        (let ((class-expression (%%car arguments)))
+          (if (%%class-is? class-expression jazz.Reference)
+              (let ((binding (%%get-reference-binding class-expression)))
+                (if (%%class-is? binding jazz.Class-Declaration)
+                    (let ((values-codes (%%cdr arguments-codes)))
+                      (jazz.new-code
+                          (case (%%length values-codes)
+                            ((0) `(jazz.new0 ,@(jazz.codes-forms arguments-codes)))
+                            ((1) `(jazz.new1 ,@(jazz.codes-forms arguments-codes)))
+                            ((2) `(jazz.new2 ,@(jazz.codes-forms arguments-codes)))
+                            (else `(jazz.new ,@(jazz.codes-forms arguments-codes))))
+                          binding))
+                  #f))
+            #f)))
+    #f))
 
 
 ;;;
@@ -3569,11 +3597,11 @@
 (jazz.add-primitive-patterns 'jazz.dialect.language.set-element! '(                          (##vector-set!   <vector^int^any:void>) (##string-set!   <string^int^char:void>)))
 
 
-(define (jazz.emit-primitive-call operator locator arguments declaration environment)
+(define (jazz.emit-primitive-call operator locator arguments arguments-codes declaration environment)
   (if (%%not locator)
       #f
     (let ((patterns (jazz.get-primitive-patterns locator)))
-      (let ((types (jazz.codes-types arguments)))
+      (let ((types (jazz.codes-types arguments-codes)))
         (let iter ((scan patterns))
           (if (%%null? scan)
               (begin
@@ -3584,9 +3612,9 @@
                   (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'primitive (jazz.identifier-name locator)))
                 #f)
             (jazz.bind (name function-type) (%%car scan)
-              (if (jazz.match-signature? types function-type)
+              (if (jazz.match-signature? arguments types function-type)
                   (jazz.new-code
-                    `(,name ,@(jazz.codes-forms arguments))
+                    `(,name ,@(jazz.codes-forms arguments-codes))
                     (%%get-function-type-result function-type))
                 (iter (%%cdr scan))))))))))
 
@@ -3608,26 +3636,30 @@
 ;;;
 
 
-(define (jazz.match-signature? argument-types function-type)
+(define (jazz.match-signature? arguments argument-types function-type)
   (let ((argcount (%%length argument-types))
         (mandatory (%%get-function-type-mandatory function-type))
         (positional (%%get-function-type-positional function-type))
         (optional (%%get-function-type-optional function-type))
         (named (%%get-function-type-named function-type))
         (rest (%%get-function-type-rest function-type)))
-    (define (match? type expect)
-      (%%subtype? (or type jazz.Any) expect))
+    (define (match? arg type expect)
+      (if (%%class-is? expect jazz.Category-Type)
+          (and (%%class-is? arg jazz.Reference)
+               (%%eq? (%%get-reference-binding arg) (%%get-category-type-declaration expect)))
+        (%%subtype? (or type jazz.Any) expect)))
     
     (define (match-positional?)
       (and (%%fx>= argcount mandatory)
            ;; this crude test for optional and named needs to be refined
            (or (%%fx<= argcount mandatory) (%%not (%%null? optional)) (%%not (%%null? named)) rest)
-           (let iter ((types argument-types)
+           (let iter ((args arguments)
+                      (types argument-types)
                       (expected positional))
                 (cond ((%%null? expected)
                        #t)
-                      ((match? (%%car types) (%%car expected))
-                       (iter (%%cdr types) (%%cdr expected)))
+                      ((match? (%%car args) (%%car types) (%%car expected))
+                       (iter (%%cdr args) (%%cdr types) (%%cdr expected)))
                       (else
                        #f)))))
     
@@ -3635,7 +3667,8 @@
       (or (%%not rest)
           (let ((expect (%%get-rest-type-type rest)))
             (jazz.every? (lambda (type)
-                           (match? type expect))
+                           ;; should validate that type is not a category-type
+                           (match? #f type expect))
                          (list-tail argument-types mandatory)))))
     
     (and (match-positional?)

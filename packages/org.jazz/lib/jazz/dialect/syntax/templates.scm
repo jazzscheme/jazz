@@ -43,21 +43,68 @@
         )
 
 
-(syntax (instantiate-butlast type)
-  `(specialize inline (butlast seq ,type) ,type
+(syntax (instantiate-for-each name T)
+  `(specialize as ,name (for-each proc seq ,T)
+     (let ((end (- (length seq) 1)))
+       (let (iterate (n 0))
+         (when (<= n end)
+           (proc (element seq n))
+           (iterate (+ n 1)))))))
+
+
+;; #f should be {} when this is moved into a jazz dialect file
+;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
+(syntax (instantiate-find name T)
+  `(specialize as ,name (find seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f)) <int+>
+     (let ((len (length seq))
+           (test (or test eqv?))
+           (inside (if (not reversed?) <= >=))
+           (next (if (not reversed?) + -)))
+       (let ((start <fx> (or start (if (not reversed?) 0 (- len 1))))
+             (end <fx> (or end (if (not reversed?) (- len 1) 0))))
+         (let (iterate (n start))
+           (if (inside n end)
+               (let ((obj (element seq n)))
+                 (if (test (if key (key obj) obj) target)
+                     n
+                   (iterate (next n 1))))
+             #f))))))
+
+
+;; #f should be {} when this is moved into a jazz dialect file
+;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
+(syntax (instantiate-find-in name T)
+  `(specialize as ,name (find-in seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f))
+     (let ((len (length seq))
+           (test (or test eqv?))
+           (inside (if (not reversed?) <= >=))
+           (next (if (not reversed?) + -)))
+       (let ((start <fx> (or start (if (not reversed?) 0 (- len 1))))
+             (end <fx> (or end (if (not reversed?) (- len 1) 0))))
+         (let (iterate (n start))
+           (if (inside n end)
+               (let ((obj (element seq n)))
+                 (if (test (if key (key obj) obj) target)
+                     obj
+                   (iterate (next n 1))))
+             #f))))))
+
+
+(syntax (instantiate-butlast T)
+  `(specialize (butlast seq ,T) ,T
      (subseq seq 0 (- (length seq) 1))))
 
 
-(syntax (instantiate-starts-with? type)
-  `(specialize (starts-with? seq ,type target ,type) <bool>
+(syntax (instantiate-starts-with? T)
+  `(specialize (starts-with? seq ,T target ,T) <bool>
      (let ((slen (length seq))
            (tlen (length target)))
        (and (>= slen tlen)
             (= (subseq seq 0 tlen) target)))))
 
 
-(syntax (instantiate-ends-with? type)
-  `(specialize (ends-with? seq ,type target ,type) <bool>
+(syntax (instantiate-ends-with? T)
+  `(specialize (ends-with? seq ,T target ,T) <bool>
      (let ((slen (length seq))
            (tlen (length target)))
        (and (>= slen tlen)

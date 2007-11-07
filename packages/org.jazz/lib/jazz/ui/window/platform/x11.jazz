@@ -109,12 +109,12 @@
         @tofix-this-is-windows
         (DragAcceptFiles hwnd #t)
         (XMapWindow default-x11-display handle)
-        (XSelectInput default-x11-display handle (or StructureNotifyMask ExposureMask))
+        (XSelectInput default-x11-display handle (+ StructureNotifyMask ExposureMask))
         handle))))
 
 
-(definition (dispatch-message message-consumer msg wparam lparam)
-  (unimplemented 'dispatch-message))
+(definition (dispatch-message window msg wparam lparam)
+  (process-window-message window msg))
 
 
 (definition (bring-window-to-top handle)
@@ -158,8 +158,11 @@
 
 (definition (process-window-message window msg)
    (let ((type (XEvent-type-ref msg)))
+      (debug type)
       (cond
-       ((= type Expose)          (let* ((left (XExposeEvent-x-ref msg))
+       ((= type Expose)          
+                                     (let* ((msg (XEvent-xexpose-ref msg))
+                                        (left (XExposeEvent-x-ref msg))
                                         (top  (XExposeEvent-y-ref msg))
                                         (right (+ left (XExposeEvent-width-ref msg)))
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
@@ -378,9 +381,8 @@
 
 
 (definition (platform-get-window-child-handle handle)
-  (unimplemented 'platform-get-window-child-handle)
-  @windows
-  (GetWindow handle GW_CHILD))
+  (let ((res (XGetChildHandle default-x11-display handle)))
+    (if (= 0 res) #f res)))
 
 
 (definition (platform-get-next-window-handle handle)
@@ -390,9 +392,9 @@
 
 
 (definition (platform-is-window-visible? handle)
-  (unimplemented 'platform-is-window-visible?)
-  @windows
-  (IsWindowVisible handle))
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (not (= (XWindowAttributes-map_state-ref infos) IsUnmapped))))
 
 
 (definition (get-top-window-handle handle)
@@ -527,15 +529,13 @@
 
 
 (definition (platform-get-client-rect handle)
-  (unimplemented 'platform-get-client-rect)
-  @windows
-  (with ((rect (RECT-make)))
-    (GetClientRect handle rect)
-    (RECT->rect rect)))
-
+  (let ((infos (XWindowAttributes-make)))
+       (XGetWindowAttributes default-x11-display handle infos)
+       (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+  
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
-  (unimplemented 'platform-scroll-window)
+  (platform-update-window handle)
   @windows
   (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
     (with ((rect (rect->RECT rect))
@@ -629,8 +629,9 @@
   (SetForegroundWindow handle))
 
 
+;; tofix
 (definition (platform-get-window-handle-title handle)
-  (unimplemented 'platform-get-window-handle-title)
+  "Bouh"
   @windows
   (let* ((size (GetWindowTextLength handle))
          (string (make-string size #\space)))

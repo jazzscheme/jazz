@@ -614,7 +614,7 @@
 (definition (extract-jazz-file-toplevel file)
   (unimplemented 'extract-jazz-file-toplevel)
   @convert
-  (call-with-input-file file
+  (call-with-input-file (parse~ file)
     (lambda (reader)
       (catch (Read-Error err {})
         (let ((in/toplevel (read reader)))
@@ -677,7 +677,7 @@
 (definition public (dispatch->name dispatch)
   (let ((extract
           (function dynamic (string)
-            (subseq string 0 (- (length string) 1)))))
+            (subseq string 0 (- (cardinality string) 1)))))
     (if (string? dispatch)
         (extract dispatch)
       (string->symbol (extract (symbol->string dispatch))))))
@@ -710,7 +710,7 @@
 (definition public (tag->name tag)
   (let ((extract
           (function dynamic (string <string>)
-            (subseq string 1 (- (length string) 1)))))
+            (subseq string 1 (- (cardinality string) 1)))))
     (if (string? tag)
         (extract tag)
       (string->symbol (extract (symbol->string tag))))))
@@ -1215,7 +1215,7 @@
   (for-each (function dynamic (element rank)
               (set-element! seq2 rank element))
             seq1
-            (naturals 0 (length seq1))))
+            (naturals 0 (cardinality seq1))))
 
 
 ;;;
@@ -1914,7 +1914,7 @@
 
 
 (definition public (read-tab-delimited file)
-  (call-with-input-file file
+  (call-with-input-file (parse~ file)
     (lambda (reader)
       (let ((tab (string #\tab))
             (fact (new List-Factory))
@@ -1944,7 +1944,7 @@
          (pref (new JML-Preferences))
          (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
-    (call-with-output-file output
+    (call-with-output-file (parse~ output)
       (lambda (printer)
         (set-printer-use-utf8? printer #t)
         (pretty-print~ jml printer)))
@@ -1956,7 +1956,7 @@
 (definition public (save-tab-delimited content file)
   (unimplemented 'save-tab-delimited)
   @File-Printer
-  (call-with-output-file file
+  (call-with-output-file (parse~ file)
     (lambda (printer)
       (for-each (function dynamic (line)
                   (let ((first? #t))
@@ -2090,27 +2090,27 @@
 
 
 (definition public (sequence->string seq)
-  (let* ((size   (length seq))
-         (length (- (quotient size 2) 1))
-         (string (make-string length)))
+  (let* ((size (cardinality seq))
+         (len (- (quotient size 2) 1))
+         (string (make-string len)))
     (for-each (function dynamic (i)
                 (let* ((n (* i 2))
                        (c (make-word (element seq n) (element seq (+ n 1)))))
                   (set-element! string i c)))
-              (naturals 0 length))
+              (naturals 0 len))
     string))
 
 
 (definition public (string->sequence string type)
-  (let* ((length (length string))
-         (size   (* (+ length 1) 2))
-         (seq    (new type size: size)))
+  (let* ((len (cardinality string))
+         (size (* (+ len 1) 2))
+         (seq (new type size: size)))
     (for-each (function dynamic (i)
                 (let ((n (* i 2))
                       (c (char->integer (element string i))))
                   (set-element! seq n (lochar c))
                   (set-element! seq (+ n 1) (hichar c))))
-              (naturals 0 length))
+              (naturals 0 len))
     (set-element! seq (- size 2) 0)
     (set-element! seq (- size 1) 0)
     seq))
@@ -2213,9 +2213,9 @@
 
 
 (definition (different-file-content? file1 file2)
-  (call-with-input-file file1
+  (call-with-input-file (parse~ file1)
     (lambda (input1)
-      (call-with-input-file file2
+      (call-with-input-file (parse~ file2)
         (lambda (input2)
           (or (/= (get-size~ input1)
                   (get-size~ input2))
@@ -2224,9 +2224,9 @@
 
 
 (definition (different-file-content-no-whitespace? file1 file2)
-  (call-with-input-file file1
+  (call-with-input-file (parse~ file1)
     (lambda (input1)
-      (call-with-input-file file2
+      (call-with-input-file (parse~ file2)
         (lambda (input2)
           (not (wi= (read-content-string input1)
                     (read-content-string input2))))))))

@@ -132,7 +132,7 @@
 
 
 (definition public (parse-patch-file patch-file proc)
-  (call-with-input-file patch-file
+  (call-with-input-file (parse~ patch-file)
     (lambda (reader)
       (define (read-diff line)
         (let (iterate (line line))
@@ -190,7 +190,7 @@
         (let ((str (substring line 4 (length line))))
           (if (equal? str "/dev/null")
               {}
-            (substring str 2 (length str)))))
+            (substring str 2 (cardinality str)))))
       
       (define (parse-range line)
         (let* ((a-start 4)
@@ -330,7 +330,7 @@
                           (unless (exists?~ base-file)
                             (user-message "Extracting base/{a}..." base-name)
                             (create-directories~ base-file)
-                            (call-with-output-file base-file
+                            (call-with-output-file (parse~ base-file)
                               (lambda (printer)
                                 (git-show base-index printer)))))))
                     
@@ -355,7 +355,7 @@
                               ((not base-name)
                                (user-message "Adding right/{a}..." name)
                                (create-directories~ right-file)
-                               (call-with-output-file right-file
+                               (call-with-output-file (parse~ right-file)
                                  (lambda (printer)
                                    (let ((lines (fifth (car deltas))))
                                      (for-each (lambda (info)
@@ -377,9 +377,9 @@
                       (let ((merged-file (new-brother~ target-file (let ((base (get-base~ target-file))
                                                                          (ext (get-extension~ target-file)))
                                                                      (format "{a}_merged.{a}" base ext)))))
-                        (call-with-input-file target-file
+                        (call-with-input-file (parse~ target-file)
                           (lambda (target-input)
-                            (call-with-output-file merged-file
+                            (call-with-output-file (parse~ merged-file)
                               (lambda (merged-output)
                                 (let ((target-rank 1))
                                   (for-each (lambda (delta)

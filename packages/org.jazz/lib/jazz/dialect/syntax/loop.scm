@@ -331,6 +331,15 @@
                     (add-binding value '<Object+>)
                     (add-before (list 'set! value for)))
                    (else (error "Unknown for in keyword: {t}" keyword))))))))
+        ((in-sequence)
+         (bind (iterator) rest
+           (let ((val (unique "val"))
+                 (itr (unique "itr")))
+             (add-binding val '<Object> iterator)
+             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate-sequence val)))
+             (add-binding variable '<Object> #f)
+             (add-test (list 'not (list 'done?~ itr)))
+             (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((in-vector)
          (bind (vector . rest) rest
            (let ((vec (unique "vec"))
@@ -355,15 +364,6 @@
                (add-before (list 'set! for (list 'cdr for)))
                (add-before (list 'set! value (list 'car for)))
                (add-before (list 'set! for (list 'cdr for)))))))
-        ((iterate)
-         (bind (iterator) rest
-           (let ((val (unique "val"))
-                 (itr (unique "itr")))
-             (add-binding val '<Object> iterator)
-             (add-binding itr '<Iterator> (list 'if (list 'is? val 'Iterator) val (list 'iterate val)))
-             (add-binding variable '<Object> #f)
-             (add-test (list 'not (list 'done?~ itr)))
-             (add-before (list 'set! variable (list 'get-next~ itr))))))
         ((from)
          (bind (from . rest) rest
            (let ((to #f)

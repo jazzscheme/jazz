@@ -71,7 +71,7 @@
 
 ;; Print Jazz objects by calling their print method?
 (define jazz.use-print?
-  #t)
+  #f)
 
 ;; Usefull to debug a recursive error occuring inside a print method
 (define jazz.debug-print?

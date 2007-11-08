@@ -396,11 +396,6 @@
   ;;;
   
   
-  @convert
-  (method meta (new-explorer object rest)
-    (apply new Text-Explorer object rest))
-  
-  
   (method public virtual (explorer-class)
     Text-Explorer)
   
@@ -692,7 +687,7 @@
   
   
   (method (get-content)
-    (map-to List paragraph->string (get-paragraphs)))
+    (accumulate-to List paragraph->string (get-paragraphs)))
   
   
   (method (set-content lst)
@@ -734,7 +729,7 @@
      string
      (if (empty-string? string)
          '()
-       (list (new Run (subseq! string 0 (cast <fx> (length string))) (get-style 'Default))))))
+       (list (new Run (subseq! string 0 (cast <fx> (cardinality string))) (get-style 'Default))))))
   
   
   (method (make-paragraph format string <string> runs)
@@ -796,7 +791,7 @@
       (remove-every-row)
       (set-content lst)
       (colorize-syntax)
-      (set-caret (new Cell (min row (length (get-paragraphs))) 0))
+      (set-caret (new Cell (min row (cardinality (get-paragraphs))) 0))
       (set-modified? #f)
       (update-status)))
   
@@ -818,7 +813,7 @@
     (let* ((moniker (get-moniker))
            (initial-filename (essay moniker (format "{a}.html" (get-base~ moniker))))
            (file (choose-new-file :initial-filename initial-filename :default-extension "html" extensions: '(("HTML (*.html)" . "*.html")))))
-      (call-with-output-file file
+      (call-with-output-file (parse~ file)
         (lambda (output)
           (let ((convert (new TextToHTML-Exporter self output)))
             (export-html~ convert))))
@@ -1720,7 +1715,7 @@
     (when caret-position
       (let ((row (get-row~ caret-position))
             (col (get-col~ caret-position))
-            (count (length (get-paragraphs))))
+            (count (cardinality (get-paragraphs))))
         (if (>= row count)
             (set! caret-position (new Cell (- count 1) 0))
           (let ((len (paragraph-length row)))
@@ -1934,7 +1929,7 @@
   
   
   (method public (get-length) <fx>
-    (length (get-paragraphs)))
+    (cardinality (get-paragraphs)))
   
   
   (method public (get-limit) <fx>
@@ -1950,7 +1945,7 @@
   
   
   (method public (paragraph-length n <fx>) <fx>
-    (length (paragraph-string n)))
+    (cardinality (paragraph-string n)))
   
   
   (method (paragraph->string paragraph <Paragraph>) <string>
@@ -2338,7 +2333,7 @@
                  (caret (replace-range range strings))
                  (appl  (get-application))
                  (old-selection (copy selection))
-                 (inserting-single-char? (and (= count 1) (= (length (cast <string> (car strings))) 1) (= start end))))
+                 (inserting-single-char? (and (= count 1) (= (cardinality (cast <string> (car strings))) 1) (= start end))))
             ;; note: we have to get ufd? before replace-range calls layout-scrollee
             ;; todo: would < be sufficient for ufd?
             (when ufd?
@@ -2387,7 +2382,7 @@
   
   (method (replace-paragraph row <fx> start <fx> end <fx> string <string>)
     (let* ((paragraph (get-paragraph row))
-           (inserted <fx> (length string))
+           (inserted <fx> (cardinality string))
            (top (get-bottom~ paragraph)))
       (replace-range~ paragraph start end string)
       (invalidate-replacement paragraph top)
@@ -2422,7 +2417,7 @@
            (paragraphs  (strings->paragraphs first-par strings))
            (first-runs  (range-runs~ first-par 0 (get-col~ start)))
            (last-runs   (range-runs~ last-par (get-col~ end) {}))
-           (last-length (length (cast <string> (last strings))))
+           (last-length (cardinality (cast <string> (last strings))))
            (caret-row   (+ sr inserted -1))
            (caret-col   (+ (if (= inserted 1) (get-col~ start) 0) last-length)))
       (replace-sons~ root-row paragraphs first-par sr (get-next~ last-par) (+ er 1))
@@ -2549,7 +2544,7 @@
   (method (parse-paragraph par intern-format intern-style)
     (if (string? par)
         (cons {} (list (list par {})))
-      (let* ((scan (iterate par))
+      (let* ((scan (iterate-sequence par))
              (format (parse-format scan)))
         (cons (intern-format format) (parse-runs scan intern-style)))))
   
@@ -2582,7 +2577,7 @@
            (cond ((string? run)
                   (list run {}))
                  ((pair? run)
-                  (parse-run (iterate run) intern-style))
+                  (parse-run (iterate-sequence run) intern-style))
                  (else
                   (error "Unable to parse run: {t}" run))))
          scan))
@@ -2782,12 +2777,12 @@
   
   
   (method protected (read-formatted moniker)
-    (call-with-input-file moniker
+    (call-with-input-file (parse~ moniker)
       read))
   
   
   (method protected (save-formatted moniker)
-    (call-with-output-file moniker
+    (call-with-output-file (parse~ moniker)
       (lambda (printer)
         (print-formatted printer {}))))
   
@@ -3056,7 +3051,7 @@
                     (for-each (function dynamic (run)
                                 (bind (string . ref) run
                                   (let ((style (reference-style styles (car ref))))
-                                    (set-col~ end (+ (get-col~ start) (cast <fx> (length string))))
+                                    (set-col~ end (+ (get-col~ start) (cast <fx> (cardinality string))))
                                     (set-style (new Range$Cell$ start end) style)
                                     (set-col~ start (get-col~ end)))))
                               runs)
@@ -3421,7 +3416,7 @@
       (map (function dynamic (info)
              (let ((str (car info)))
                (bind-optionals ((rank {})) (cdr info)
-                 (let* ((limit (+ offset (cast <fx> (length str))))
+                 (let* ((limit (+ offset (cast <fx> (cardinality str))))
                         (subseq (subseq! string offset limit))
                         (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
                    (set! offset limit)
@@ -3476,7 +3471,7 @@
                           (col (get-col~ pos)))
                       (when (= col (get-column row))
                         (let ((string (paragraph-string row)))
-                          (put~ chapters (list 1 pos header (subseq string (+ col (length header))))))))))
+                          (put~ chapters (list 1 pos header (subseq string (+ col (cardinality header))))))))))
                 occurrences)
       (get-output~ chapters)))
   
@@ -3613,7 +3608,7 @@
         (lambda (return)
           (for-each-paragraph
             (function dynamic (rank <fx> paragraph <Paragraph>)
-              (let ((next (+ scan (length (get-string~ paragraph)) 2)))
+              (let ((next (+ scan (cardinality (get-string~ paragraph)) 2)))
                 (if (> next offset)
                     (return (new Cell rank (- offset scan)))
                   (set! scan next)))))))))
@@ -3969,12 +3964,12 @@
              (let ((found (multisearch content strings start: (position-offset position) reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
                (when found
                  (bind (offset . string) found
-                   (new Range$Cell$ (offset-position offset) (offset-position (+ offset (cast <fx> (length string))))))))))
+                   (new Range$Cell$ (offset-position offset) (offset-position (+ offset (cast <fx> (cardinality string))))))))))
           (else
            (let ((found (multisearch-string strings start: start reverse?: reverse? constituent-test: constituent-test)))
              (when found
                (bind (cell . string) found
-                 (new Range$Cell$ cell (new Cell (get-row~ cell) (+ (get-col~ cell) (cast <fx> (length string)))))))))))
+                 (new Range$Cell$ cell (new Cell (get-row~ cell) (+ (get-col~ cell) (cast <fx> (cardinality string)))))))))))
 
   
   (method public (search-occurrences string <string> (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))

@@ -50,11 +50,11 @@
 (class Outline-Row extends Drawing
   
   
-  (property protected father     initialize {}         getter get-father     setter set-father)
-  (property protected sons       initialize '()        getter get-sons       setter set-sons)
-  (property protected level      initialize {}         getter get-level      setter set-level)
-  (property protected state      initialize 'collapsed getter get-state      setter set-state)
-  (property protected row-height initialize {}         getter get-row-height setter set-row-height)
+  (property protected father            initialize {}           getter get-father     setter set-father)
+  (property protected sons       <Axis> initialize (new Axis 0) getter get-sons       setter set-sons)
+  (property protected level             initialize {}           getter get-level      setter set-level)
+  (property protected state             initialize 'collapsed   getter get-state      setter set-state)
+  (property protected row-height        initialize {}           getter get-row-height setter set-row-height)
   
   
   (slot protected previous initialize {} accessors generate)
@@ -372,18 +372,13 @@
   
   
   (method public (add-son row position)
-    (when (null? sons)
-      (let ((class (get-sons-class~ parent)))
-        (when class
-          (set! sons (new (case class
-                            ((Axis) Axis)))))))
     (set-father~ row self)
     (let* ((expanded? (eq? state 'expanded))
            (end (last-descendant~ row))
            (count (length sons))
-           (pos (cond ((not position) count)
-                      ((> position count) count)
-                      (else position))))
+           (pos <fx> (cond ((not position) count)
+                           ((> position count) count)
+                           (else position))))
       (when (get-visible-flag~ row)
         (let* ((before (cond ((= pos 0) (if expanded? self {}))
                              ((= pos count) (if expanded? (last-descendant) (last-visible-descendant)))
@@ -395,13 +390,7 @@
                             (else {}))))
           (link before row)
           (link end after)))
-      ;; when insert! will be optimised and avoids copying the lists this whole expression should shrink to the last line
-      (if (is? sons List)
-          (if (= pos 0)
-              (set! sons (cons row sons))
-            (let ((pair (tail sons (- pos 1))))
-              (set-cdr! pair (cons row (cdr pair)))))
-        (set! sons (insert! row sons pos)))))
+      (set! sons (insert! sons pos row))))
   
   
   (method public (remove-son row)
@@ -423,14 +412,14 @@
       (link before after)))
   
   
-  (method public (replace-sons replacement start-row start end-row end)
+  (method public (replace-sons replacement <list> start-row start <fx> end-row end <fx>)
     (let ((before (essay start-row (get-previous~ start-row)))
           (after end-row))
       (relink replacement before after)
       (set! sons (replace-subseq! sons start end replacement))))
   
   
-  (method public (reorder-sons replacement)
+  (method public (reorder-sons replacement <Axis>)
     (let ((before (when (expanded?) self))
           (after (when (expanded?) (next-non-descendant))))
       (relink replacement before after)

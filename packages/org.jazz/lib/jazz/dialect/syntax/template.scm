@@ -48,14 +48,26 @@
      (subseq seq 0 (- (length seq) 1))))
 
 
-@w
-(template (butlast<T>)
-  (specialize inline (butlast seq T) T
-    (subseq seq 0 (- (length seq) 1))))
+(template
+  
+  (class Cell<T> extends Object
+    
+    (slot row T getter generate)
+    (slot col T getter generate)))
 
 
-@w
+(instantiate Cell<fx>)
+
+
+(template (butlast<T> seq T) T
+  (subseq seq 0 (- (length seq) 1)))
+
+
 (instantiate butlast<string>)
+
+
+(specialize (butlast seq <string>) <string>
+  (subseq seq 0 (- (length seq) 1)))
 
 
 @w

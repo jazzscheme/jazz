@@ -38,7 +38,7 @@
 (library jazz.dialect.language jazz.dialect
 
 
-;;(proclaim (optimize))
+(proclaim (optimize))
 
 
 ;;;
@@ -336,6 +336,10 @@
 
 (definition public inline (coerce object <Object> class <Class>)
   (coerce-object~ class object))
+
+
+(definition public (allocate class <Class> size <int>)
+  (call-into-abstract))
 
 
 ;;;
@@ -2616,7 +2620,7 @@
 
 (definition public (insert-ordered! object seq (key: key {}) (test: test <=))
   (let ((n (ordered-position object seq key: key test: test)))
-    (insert! object seq (either n (length seq)))))
+    (insert! seq (either n (length seq)) object)))
 
 
 (definition public (merge-ordered proc x y (key: key {}) (left-key: left-key key) (right-key: right-key key) (test: test {}) (case-insensitive?: case-insensitive? #f))
@@ -2721,7 +2725,7 @@
               (iterate (cdr rest) (+ rank 1)))))))
 
 
-(definition public inline (insert-sequence! sequence seq pos)
+(definition public inline (insert-sequence! sequence pos seq)
   (replace-subseq! sequence pos pos seq))
 
 
@@ -2946,12 +2950,12 @@
           (unmarshal~ (cdr self)))))
 
 
-(definition public inline (insert! obj seq pos)
-  (insert-sequence! seq (list obj) pos))
+(definition public inline (insert! seq pos obj)
+  (insert-sequence! seq pos (list obj)))
 
 
 @old-definition
-(definition (insert! obj lst pos)
+(definition (insert! lst pos obj)
   (if (= 0 pos)
       (cons obj lst)
     (let (iterate (i 1) (prev lst) (rst (cdr lst)))
@@ -4481,7 +4485,20 @@
 ;;;
 
 
-(class primitive String extends Object
+(class String-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (make-string len))
+  
+  
+  (method (coerce-object obj <Object>)
+    (if (sequence? obj)
+        (nextmethod obj)
+      (coerce-string~ obj))))
+
+
+(class primitive String metaclass String-Class extends Sequence
   
   
   (method (initialize . rest)
@@ -4767,10 +4784,14 @@
 ;;;
 
 
-(class Vector-Class extends Class)
+(class Vector-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (make-vector len)))
 
 
-(class primitive Vector metaclass Vector-Class extends Object
+(class primitive Vector metaclass Vector-Class extends Sequence
   
   
   (method (initialize . rest)
@@ -4781,7 +4802,31 @@
   (method (object-similar? object)
     (and (vector? object)
          (zero? (length self))
-         (zero? (length object)))))
+         (zero? (length object))))
+  
+  
+  (method (sequence-element n)
+    (vector-ref self n))
+  
+  
+  (method (sequence-set-element! n obj)
+    (vector-set! self n obj))
+  
+  
+  (method (sequence-length)
+    (vector-length self))
+  
+  
+  (method (sequence-tail n)
+    (list->vector (tail (vector->list self) n)))
+  
+  
+  (method (sequence-last)
+    (element self (- (length self) 1)))
+  
+  
+  (method (sequence-butlast)
+    (list->vector (butlast (vector->list self)))))
 
 
 (specialize inline (element vector <vector> n <int>) <object>
@@ -4805,7 +4850,14 @@
 (definition AXIS_GOLDEN_RATIO 1.6)
 
 
-(class Axis extends Object
+(class Axis-Class extends Sequence-Class
+  
+  
+  (method (allocate-sequence len)
+    (new Axis len)))
+
+
+(class Axis metaclass Axis-Class extends Sequence
   
   
   (slot size    <fx>     accessors generate)
@@ -4820,7 +4872,27 @@
   (method (print output detail)
     (print-unreadable self output
       (function (output)
-        (format output "{s} {s}" size content)))))
+        (format output "{s} {s}" size content))))
+  
+  
+  (method (sequence-element n <fx>) <any>
+    (element self n))
+  
+  
+  (method (sequence-set-element! n <fx> obj <any>) <void>
+    (set-element! self n obj))
+  
+  
+  (method (sequence-length) <fx>
+    (length self))
+  
+  
+  (method (sequence-tail n <fx>) <Axis>
+    (tail self n))
+  
+  
+  (method (sequence-last) <any>
+    (last self)))
 
 
 (specialize inline (element axis <Axis> n <fx>) <any>
@@ -4849,6 +4921,10 @@
   (element axis (- (get-size~ axis) 1)))
 
 
+(specialize (insert! axis <Axis> pos <fx> obj <any>) <Axis>
+  (replace-subseq! axis pos pos (list obj)))
+
+
 (specialize (replace-subseq! axis <Axis> start <fx> end <fx> replacement <list>) <Axis>
   (let* ((before (- end start))
          (after (length replacement))
@@ -4863,9 +4939,9 @@
                (set-element! axis dst (element axis src))
                (set-element! axis src {})
                (iterate (- n 1) (+ src 1) (+ dst 1))))
-           (axis-grow new-size))     
+           (axis-grow axis new-size))     
           ((> after before)
-           (axis-grow new-size)
+           (axis-grow axis new-size)
            (let (iterate (n (- old-size end))
                          (src (- old-size 1))
                          (dst (+ (- old-size 1) delta)))
@@ -4903,11 +4979,23 @@
     (set-element! axis size obj)))
 
 
-(definition public inline (new-axis s)
-  (construct Axis s (make-vector s {})))
+(definition public inline (new-axis size)
+  (construct Axis size (make-vector size {})))
 
-(specialize inline (new class <category<Axis>> s <fx>) <Axis>
-  (new-axis s))
+(specialize inline (new class <category<Axis>> size <fx>) <Axis>
+  (new-axis size))
+
+
+(specialize (allocate class <category<Axis>> size <fx>) <Axis>
+  (new-axis size))
+
+
+(specialize (coerce seq class <category<Axis>>) <Axis>
+  (let ((len <fx> (length seq)))
+    (let ((new-sequence (allocate class len)))
+      (loop (for n from 0 below len)
+            (set-element! new-sequence n (element seq n)))
+      new-sequence)))
 
 
 (specialize inline as axis-ref (element axis <Axis> n <fx>) <object>
@@ -5871,7 +5959,7 @@
     size)
   
   
-  (method (sequence-subseq! s <fx> e <fx>)
+  (method (sequence-subseq! s <fx> e <fx>) <Subseq>
     (if (or (= s 0) (= e -1))
         self
       (new Subseq sequence (+ start s) (- (if (= e -1) (length self) e) s)))))
@@ -5902,7 +5990,10 @@
 ;;;
 
 
-(class Subseq$string$ extends Object
+(class Subseq$string$-Class extends Sequence-Class)
+
+
+(class Subseq$string$ metaclass Subseq$string$-Class extends Sequence
   
   
   (slot sequence <string> getter    generate)
@@ -5920,7 +6011,25 @@
   (method (print output detail)
     (print-unreadable self output
       (function (output)
-        (format output "{s} {s} {s}" sequence start size)))))
+        (format output "{s} {s} {s}" sequence start size))))
+  
+  
+  (method (sequence-element n <fx>) <any>
+    (element sequence (+ start n)))
+  
+  
+  (method (sequence-set-element! n <fx> obj <any>) <void>
+    (set-element! sequence (+ start n) obj))
+  
+  
+  (method (sequence-length) <int>
+    size)
+  
+  
+  (method (sequence-subseq! s <fx> e <fx>) <Subseq$string$>
+    (if (or (= s 0) (= e -1))
+        self
+      (new Subseq$string$ sequence (+ start s) (- (if (= e -1) (length self) e) s)))))
 
 
 (specialize inline (new class <category<Subseq$string$>> sequence <string> start <fx> size <fx>) <Subseq$string$>
@@ -5945,6 +6054,14 @@
 
 (specialize (subseq! subseq <Subseq$string$> s <fx> e <fx>) <Subseq$string$>
   (new Subseq$string$ (get-sequence~ subseq) (+ (get-start~ subseq) s) (- e s)))
+
+
+(specialize (offset-subseq! subseq <Subseq$string$> offset <fx>) <void>
+  (set-start~ subseq (+ (get-start~ subseq) offset)))
+
+
+(specialize (grow-subseq! subseq <Subseq$string$> n <fx>) <void>
+  (set-size~ subseq (+ (get-size~ subseq) n)))
 
 
 ;;;

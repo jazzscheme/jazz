@@ -1731,7 +1731,7 @@
 
 
 (define (jazz.new-variable name type)
-  (%%assert (jazz.variable-name-valid? name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-variable jazz.Variable name type 0)))
 
 
@@ -1777,7 +1777,7 @@
 
 
 (define (jazz.new-nextmethod-variable name type)
-  (%%assert (jazz.variable-name-valid? name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0)))
 
 
@@ -1815,7 +1815,7 @@
 
 
 (define (jazz.new-parameter name type)
-  (%%assert (jazz.variable-name-valid? name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-parameter jazz.Parameter name type 0)))
 
 
@@ -3645,8 +3645,10 @@
         (rest (%%get-function-type-rest function-type)))
     (define (match? arg type expect)
       (if (%%class-is? expect jazz.Category-Type)
-          (and (%%class-is? arg jazz.Reference)
-               (%%eq? (%%get-reference-binding arg) (%%get-category-type-declaration expect)))
+          (or (and (%%class-is? arg jazz.Reference)
+                   (%%eq? (%%get-reference-binding arg) (%%get-category-type-declaration expect)))
+              (and (%%class-is? type jazz.Category-Type)
+                   (%%eq? (%%get-category-type-declaration type) (%%get-category-type-declaration expect))))
         (%%subtype? (or type jazz.Any) expect)))
     
     (define (match-positional?)

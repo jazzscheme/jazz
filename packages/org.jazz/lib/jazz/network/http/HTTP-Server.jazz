@@ -1,0 +1,469 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTTP Server
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.network.http.HTTP-Server jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class HTTP-Server extends Socket-Listener
+  
+  
+  (slot host)
+  (slot port)
+  (slot debug?)
+  (slot hits      initialize 0)
+  (slot listeners initialize '())
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((host {}) (port 'http) (debug? #f) . others) rest
+      (apply nextmethod others)
+      (set! host~self host)
+      (set! port~self port)
+      (set! debug?~self debug?)))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-host)
+    host)
+  
+  
+  (method public (get-port)
+    port)
+  
+  
+  (method public (get-debug?)
+    debug?)
+  
+  
+  (method public (set-debug? value)
+    (set! debug? value))
+  
+  
+  (method public (get-hits)
+    hits)
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+    
+  
+  (method (run)
+    (set-name (server-name))
+    (let ((host (server-host))
+          (port (server-port)))
+      (start-listener :host host :port port)))
+  
+  
+  ;;;
+  ;;;; Server
+  ;;;
+  
+  
+  (method protected virtual (server-name)
+    "HTTP Server")
+  
+  
+  (method protected virtual (server-host)
+    host)
+  
+  
+  (method protected virtual (server-port)
+    port)
+
+  
+  ;;;
+  ;;;; Connection
+  ;;;
+  
+  
+  @wait-for-a-test
+  (method (accept-connection socket)
+    (server-hit)
+    (unwind-protect
+        (let ((response (request-html socket)))
+          ;; should log intelligently the error
+          ;; a WSAECONNRESET error can occur correctly if the user sends a request
+          ;; before the browser has received the response from the active one
+          (catch Socket-Error
+            (send-response~ response socket)))
+      (close~ socket)))
+  
+  
+  (method (accept-connection socket)
+    (server-hit)
+    (new Thread
+      name: "HTTP Connection"
+      context: self
+      execute: (function (thread)
+                 (unwind-protect
+                     (let ((response (request-html socket)))
+                       ;; should log intelligently the error
+                       ;; a WSAECONNRESET error can occur correctly if the user sends a request
+                       ;; before the browser has received the response from the active one
+                       (catch Socket-Error
+                         (send-message~ response socket)))
+                   (close~ socket)))))
+  
+  
+  (method (server-hit)
+    (increase! hits)
+    (call-listeners-hit))
+  
+  
+  (method (request-html socket)
+    (let ((request (new HTTP-Request :socket socket)))
+      (call-listeners-receive-request request)
+      (with-error-reporting request
+        (function dynamic ()
+          (set-server~ request self)
+          (setup-session request)
+          (let* ((response/html (generate-response request))
+                 (response
+                  (if response/html
+                      (request-response request response/html)
+                    (request-response request (generate-not-found request) :code 'not-found))))
+            (call-listeners-process-request request response)
+            response)))))
+  
+  
+  (method (with-error-reporting request proc)
+    (let ((html))
+      (call-with-catch Exception
+            (function dynamic (exc)
+              (if (not debug?)
+                  (set! html (present-error exc {}))
+                (let ((stack (print-stack :string)))
+                  (set! html (present-error exc stack))
+                  ;; quicky
+                  (let ((appl (get-application)))
+                    (when (typed? appl 'IDE)
+                      (post-primary
+                        (function ()
+                          (add-snapshot~ (get-debuggers-view) (read-string-element stack) {} {})
+                          (select-workspace~ appl 'debugger))))))))
+          (function dynamic (exc)
+            (request-response request html :code 'server-error))
+        proc)))
+  
+  
+  (method (present-error err stack)
+    (let ((text (get-message~ err)))
+      `(<html>
+         (<head>
+           (<title> "Error"))
+         (<body>
+           ,@(if (not debug?)
+                 (let ((msg (format "Application error ({a})" text)))
+                   `((<h3> ,msg)))
+               `("The following server error occured:"
+                 (<pre> ,text)
+                 (<br>)
+                 (<pre> ,stack)))))))
+
+  
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (definition SessionID
+    "SessionID")
+  
+  (definition NoSession
+    "{}")
+  
+  
+  (method (setup-session request)
+    (let ((sessionid (get-cookie-value~ request SessionID)))
+      (when (and sessionid (/= sessionid NoSession))
+        (let* ((session-id (parse-integer sessionid))
+               (session (find-session~ HTTP-Session session-id)))
+          (when session
+            (set-session~ request session))))))
+  
+  
+  (method (add-session-cookie response session)
+    (let ((name SessionID)
+          (value (if (null? session)
+                     NoSession
+                   (->string (get-id~ session)))))
+      (add-cookie~ response (new HTTP-Cookie name value))))
+
+  
+  ;;;
+  ;;;; Response
+  ;;;
+  
+  
+  (method (request-response request response/html (code: code {}))
+    (if (is? response/html HTTP-Response)
+        response/html
+      (let* ((body (effective-html request response/html))
+             (session (get-session~ request))
+             (response (new HTTP-Response :code code :body body)))
+        (add-connection-close response)
+        (add-content-type response "text/html")
+        (add-content-length response body)
+        (add-session-cookie response session)
+        response)))
+  
+  
+  (method (effective-html request html)
+    (cond ((string? html)
+           html)
+          ((pair? html)
+           (process-jml request html))))
+  
+  
+  (method (add-connection-close response)
+    (add-header~ response "Connection" "close"))
+  
+  
+  (method (add-content-type response type)
+    (add-header~ response "Content-Type" type))
+  
+  
+  (method (add-location response location)
+    (add-header~ response "Location" location))
+  
+  
+  (method (add-content-length response content)
+    (when content
+      (add-header~ response "Content-Length" (format "{a}" (length content)))))
+
+  
+  ;;;
+  ;;;; Generate
+  ;;;
+  
+  
+  (method protected virtual (generate-response request)
+    {})
+  
+  
+  (method (generate-not-found request)
+    `(<html>
+       (<head>
+         (<title> "Error"))
+       (<body>
+         "Unable to find resource"
+         (<br>)
+         (<br>)
+         ,(request-content request))))
+
+  
+  ;;;
+  ;;;; JML
+  ;;;
+  
+  
+  (method protected virtual (jml-preferences)
+    (new JML-Preferences))
+  
+  
+  (method protected virtual (jml-parser pref)
+    (new XHTML-Parser preferences: pref))
+  
+  
+  (method protected virtual (jml-renderer pref)
+    (new XHTML-Renderer pref))
+  
+  
+  (method (process-jml request jml)
+    (let* ((pref (jml-preferences))
+           (parser (jml-parser pref))
+           (renderer (jml-renderer pref))
+           (jml (parse~ parser jml))
+           (printer (open-output-string)))
+      (render~ renderer jml printer)
+      (get-output-string printer)))
+
+  
+  ;;;
+  ;;;; Listeners
+  ;;;
+  
+  
+  (method public (add-listener listener)
+    (set! listeners (cons listener listeners)))
+  
+  
+  (method public (remove-listener listener)
+    (set! listeners (remove! listener listeners)))
+  
+  
+  (method (call-listeners-hit)
+    (for-each (function dynamic (listener)
+                (hit~ listener self))
+              listeners))
+  
+  
+  (method (call-listeners-receive-request request)
+    (for-each (function dynamic (listener)
+                (receive-request~ listener self request))
+              listeners))
+  
+  
+  (method (call-listeners-receive-servlet-request request resource servlet-class)
+    (for-each (function dynamic (listener)
+                (receive-servlet-request~ listener self request resource servlet-class))
+              listeners))
+  
+  
+  (method (call-listeners-process-request request response)
+    (for-each (function dynamic (listener)
+                (process-request~ listener self request response))
+              listeners))
+
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public (all-details request)
+    `(,@(request-details request)
+      ,@(session-details request)))
+  
+  
+  (method public (debug-request request)
+    `(<html>
+       (<head>
+         (<title> "Request"))
+       (<body>
+         ,(request-details request))))
+  
+  
+  (method (request-details request)
+    `((<h3> "Request")
+      ,(request-content request)))
+  
+  
+  ;; TO PUT NEXT TO for-each-hash !!!!!
+  (method public (map-hash proc <procedure> hashtable <Hashtable>)
+    (let ((iter (new Hashtable-Iterator hashtable))
+          (fact (new List-Factory)))
+      (while (not (done?~ iter))
+        (put~ fact (proc (peek-key~ iter) (peek~ iter)))
+        (next~ iter))
+      (get-output~ fact)))
+  
+  
+  (method (request-content request)
+    (let ((host (get-host~ request))
+          (port (get-port~ request))
+          (operation (get-operation~ request))
+          (resource (get-resource~ request))
+          (version (get-version~ request))
+          (headers (get-headers~ request))
+          (cookies (get-cookies~ request))
+          (parameters (get-parameters~ request)))
+      `(<table> border: "1"
+         (<tr>
+           (<td> "host")
+           (<td> ,(->string host)))
+         (<tr>
+           (<td> "port")
+           (<td> ,(->string port)))
+         (<tr>
+           (<td> "operation")
+           (<td> ,operation))
+         (<tr>
+           (<td> "resource")
+           (<td> ,resource))
+         (<tr>
+           (<td> "version")
+           (<td> ,version))
+         (<tr>
+           (<td> "headers")
+           (<td> (<table>
+                   ,@(map-hash (function dynamic (name value)
+                                 `(<tr>
+                                    (<td> ,name)
+                                    (<td> ,value)))
+                               headers))))
+         (<tr>
+           (<td> "cookies")
+           (<td> (<table>
+                   ,@(map-hash (function dynamic (name cookie)
+                                 (let ((value (get-value~ cookie)))
+                                   `(<tr>
+                                      (<td> ,name)
+                                      (<td> ,value))))
+                               cookies))))
+         (<tr>
+           (<td> "parameters")
+           (<td> (<table>
+                   ,@(map (function dynamic (parameter)
+                            (bind (name . value) parameter
+                              `(<tr>
+                                 (<td> ,name)
+                                 (<td> ,value))))
+                          parameters)))))))
+  
+  
+  (method (session-details request)
+    `((<h3> "Session")
+      ,(session-content request)))
+  
+  
+  (method (session-content request)
+    (let ((session (get-session~ request)))
+      (when session
+        (let ((id (get-id~ session))
+              (properties (get-properties~ session)))
+          `(<table> border: "1"
+             (<tr>
+               (<td> "id")
+               (<td> ,(->string id)))
+             (<tr>
+               (<td> "properties")
+               (<td> (<table>
+                       ,@(map-property (function dynamic (property value)
+                                         `(<tr>
+                                            (<td> ,(->string property))
+                                            (<td> ,(->string value))))
+                                       properties)))))))))))

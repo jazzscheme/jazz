@@ -1,0 +1,175 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTTP Responses
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.network.http.HTTP-Response jazz
+
+
+(import (jazz.library)
+        (jazz.utilities))
+
+
+(class HTTP-Response extends HTTP-Message
+  
+  
+  (definition Cookie-Header
+    "Set-Cookie")
+  
+  
+  (slot version)
+  (slot code)
+  (slot body)
+  
+  
+  (method (initialize (code: code {}) (body: body {}) (socket: socket {}))
+    (nextmethod)
+    (set! code~self (either code 'ok))
+    (set! body~self body)
+    (when socket
+      (parse-response socket)))
+  
+  
+  ;;;
+  ;;;; Parsing
+  ;;;
+
+
+@response-from-www.yahoo.com
+"HTTP/1.1 200 OK
+Date: Sun, 14 Aug 2005 22:50:44 GMT
+Cache-Control: private
+Vary: User-Agent
+Set-Cookie: FPB=4mvclsmeb11fvim4; expires=Thu, 01-Jun-2006 19:00:00 GMT; path=/; domain=www.yahoo.com
+Connection: close
+Transfer-Encoding: chunked
+Content-Type: text/html
+
+7299   
+..."
+
+
+@response-from-jazz
+"HTTP/1.1 200 OK
+Connection: close
+Content-Type: text/html
+Content-Length: 1543
+Set-Cookie: SessionID=nil
+
+..."
+  
+  
+  (method (parse-response socket)
+    (let* ((block (receive-raw~ socket))
+           (message (coerce block String)))
+      (receive (head body) (split-message message)
+        (bind (line . headers) (split-head head)
+          (bind (version code code-text) (split line " ")
+            (set! version~self version)
+            (set! code~self (parse-code code))
+            (parse-headers headers)
+            (parse-cookies Cookie-Header)
+            (set! body~self (receive-body socket body)))))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-version)
+    version)
+
+
+  (method public (get-code)
+    code)
+  
+  
+  ;;;
+  ;;;; Codes
+  ;;;
+  
+  
+  (definition Response-Codes
+    '((ok           "200" "OK")
+      (see-other    "303" "See Other")
+      (not-found    "404" "Not Found")
+      (server-error "500" "Server Error")))
+  
+  
+  (method (parse-code code)
+    (let ((info (find-in Response-Codes code key: second test: equal?)))
+      (if info
+          (first info)
+        'unknown)))
+  
+  
+  (method (response-code-info code)
+    (either (assq code Response-Codes)
+            (error "Unknown response code: {s}" code)))
+  
+  
+  ;;;
+  ;;;; Body
+  ;;;
+  
+  
+  (method public (get-body)
+    body)
+  
+  
+  ;;;
+  ;;;; Output
+  ;;;
+  
+  
+  (method (message-string)
+    (let ((printer (open-output-string)))
+      (output-control printer)
+      (output-headers printer)
+      (output-cookies Cookie-Header printer)
+      (output-body printer)
+      (get-output-string printer)))
+  
+  
+  (method (output-control printer)
+    (bind (code number text) (response-code-info code)
+      (format printer "HTTP/1.1 {a} {a}" number text)))
+  
+  
+  (method (output-body printer)
+    (format printer "{%}{%}")
+    (when body
+      (format printer "{a}" body)))))

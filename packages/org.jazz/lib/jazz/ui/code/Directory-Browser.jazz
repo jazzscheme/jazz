@@ -356,102 +356,6 @@
 
 
   ;;;
-  ;;;; Roaming
-  ;;;
-  
-  
-  (definition Roaming-Repositories-Extensions
-    '(("Roaming Repositories (*.rrp)" . "*.rrp")))
-  
-  
-  (method (detach-branch)
-    (let* ((repository (get-repository))
-           (directory (get-directory~ (get-ini-file~ repository)))
-           (output (with-preserved-current-directory (function dynamic () (choose-new-file directory: directory :initial-filename "latest.rrp" :default-extension "rrp" extensions: Roaming-Repositories-Extensions))))
-           (branch (selected-directory))
-           (base (file-spec~ repository branch)))
-      (let* ((manager (get-activity-manager))
-             (reporter (register-activity~ manager)))
-                     (set-infinite?~ reporter #t)
-                     (set-range~ reporter {Range 0 100})
-                     (set-pos~ reporter 1)
-                     (set-step~ reporter 1)
-                     (call-with-output-file output
-                       (lambda (printer)
-                         (print-header (get-name~ output) printer)
-                         (scan-latest repository base printer reporter)))
-                     (unregister-activity~ manager reporter)
-                     (close-manager~ manager)
-                     (if (cancel-requested?~ reporter)
-                         (delete-file~ output error?: #f)
-                       (message-box (format "Roaming repository saved to {a}" output))))
-      @w
-      (new Thread
-        name: "Roaming Repository"
-        context: self
-        execute: (function (thread)
-                   (let* ((manager (get-activity-manager))
-                          (reporter (register-activity~ manager)))
-                     (set-infinite?~ reporter #t)
-                     (set-range~ reporter {Range 0 100})
-                     (set-pos~ reporter 1)
-                     (set-step~ reporter 1)
-                     (call-with-output-file output
-                       (lambda (printer)
-                         (print-header (get-name~ output) printer)
-                         (scan-latest repository base printer reporter)))
-                     (unregister-activity~ manager reporter)
-                     (close-manager~ manager)
-                     (if (cancel-requested?~ reporter)
-                         (delete-file~ output error?: #f)
-                       (message-box (format "Roaming repository saved to {a}" output))))))))
-  
-  
-  (method (print-header name printer)
-    ;; need to be updated to using output-header
-    )
-  
-  
-  (method (scan-latest repository base printer reporter)
-    (letrec ((root (length base))
-             (scan
-              (function dynamic (item spec level)
-                (if (cancel-requested?~ reporter)
-                    (return)
-                  (user-message~ reporter "Scanning {a}..." (subseq! spec root))
-                  (format printer "{%}{_ :v}~{Roaming-Repository-Project {s}" (* level 2) spec)
-                  (iterate-item~ item
-                   (function dynamic (item)
-                     (let ((spec (get-spec~ item))
-                            (project? (get-project?~ item)))
-                       (step-it~ reporter)
-                       (cond (project?
-                              (scan item spec (+ level 1)))
-                             (else
-                              (receive (date no) (get-latest-info~ item)
-                                (format printer "{%}{_ :v}~{Roaming-Repository-File {s} {s} {s}}" (* (+ level 1) 2) spec date no))))))
-                   include-self?: #f
-                   recursive?: #f)
-                  (format printer "}")))))
-      (with-closed ((item (get-item~ repository base)))
-        (scan item base 0))
-      (format printer "{%}")
-      (user-message~ reporter "Done")))
-
-  
-  (method (reattach-branch)
-    (let* ((repository (get-repository))
-           (directory (get-directory~ (get-ini-file~ repository)))
-           (file (with-preserved-current-directory (function dynamic () (choose-file directory: directory :initial-filename "latest.rrp" extensions: Roaming-Repositories-Extensions))))
-           (branch (selected-directory))
-           (item (new Roaming-Repository file))
-           (frame (new-frame Synchronize-Roaming-Repository left-moniker: branch right-moniker: item ignored-nodes: Ignored-Nodes ignored-leaves: Ignored-Leaves ignored-extensions: Ignored-Extensions host-visible?: #f)))
-      @w(compare-trees~ (get-guest~ frame))
-      (bring-to-front~ frame)
-      (set-visible?~ frame #t)))
-
-
-  ;;;
   ;;;; Refresh
   ;;;
   
@@ -493,7 +397,7 @@
   
   (method protected virtual (get-moniker-image moniker)
     (let ((ext (get-extension~ moniker)))
-      (cond ((member? ext '("java" "jsp")) {Bitmap-Resource "Java"})
+      (cond ((member? ext '("java")) {Bitmap-Resource "Java"})
             ((member? ext '("htm" "html")) {Bitmap-Resource "HTML"})
             ((member? ext '("jazz")) {Bitmap-Resource "Script"})
             ((member? ext '("dbs" "kwb")) {Bitmap-Resource "Database"})

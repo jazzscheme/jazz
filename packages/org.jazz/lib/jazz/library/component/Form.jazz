@@ -144,17 +144,15 @@
   (method (setup-context ctx level)
     ;; jazz doesnt support inner classes
     ;; (set! context ctx)
-    (with ((proc <procedure>
-            (function dynamic (name value)
-              (cond
-                ((is? value Handler) (set-form-level~ value level))
-                ((is? value Form) (setup-toplevel-context~ value ctx))))))
-      (for-each-property proc properties))
-    (with ((proc <procedure>
-            (function dynamic (child)
-              (when (is? child Form)
-                (setup-context~ child ctx (+ level 1))))))
-      (for-each proc children)))
+    (for-each-property
+      (function dynamic (name value)
+        (cond
+          ((is? value Handler) (set-form-level~ value level))
+          ((is? value Form) (setup-toplevel-context~ value ctx)))) properties)
+    (for-each (function dynamic (child)
+                (when (is? child Form)
+                  (setup-context~ child ctx (+ level 1))))
+              children))
   
   
   (method (canonicalize-properties lst)
@@ -238,10 +236,8 @@
 
 
   (method public (find-child name)
-    (with ((proc <procedure>
-                 (function dynamic (child)
-                   (eq? (get-name~ child) name))))
-      (find-by proc)))
+    (find-by (function dynamic (child)
+               (eq? (get-name~ child) name))))
   
   
   (method (find-name name)

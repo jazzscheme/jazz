@@ -40,6 +40,7 @@
 
 (import (dev)
         (jazz.io)
+        (jazz.network)
         (jazz.process)
         (jazz.library)
         (jazz.library.component)
@@ -67,11 +68,6 @@
 
 
 (definition (restore-debugger)
-  ;; old stuff
-  )
-
-
-(definition (restore-messaging)
   ;; old stuff
   )
 
@@ -727,6 +723,7 @@
   
   
   (method protected (start-stub-listener)
+    @convert-socket
     (unless stub-listener
       (set! stub-listener (new Stub-Listener))
       (unless (wait-started~ stub-listener error?: #f)
@@ -734,6 +731,7 @@
   
   
   (method protected (stop-stub-listener)
+    @convert-socket
     (when stub-listener
       (stop-listener~ stub-listener)
       (set! stub-listener {})))
@@ -1109,12 +1107,10 @@
          ((yes)
           (cond ((not controller-debugger-server)
                  (restore-debugger)
-                 (restore-messaging)
                  (dump-stack :exception exception)
                  (throw-stop))
                 ((not (primary-thread?))
                  (restore-debugger)
-                 (restore-messaging)
                  (present-thread-stack (dump-stack :exception exception))
                  (throw-stop))
                 (else
@@ -1149,7 +1145,6 @@
   
   (method public (stop-debugging)
     (restore-debugger)
-    (restore-messaging)
     (throw-stop))
   
   
@@ -1159,7 +1154,6 @@
     (if (interpreter-present?)
         (begin
           (restore-debugger)
-          (restore-messaging)
           (break-exception local-debuggee exception frame accountable))
       (dump-stack :exception exception)
       (stop-debugging)))

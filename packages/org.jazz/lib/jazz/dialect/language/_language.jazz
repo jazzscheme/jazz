@@ -1512,51 +1512,6 @@
 
 
 ;;;
-;;;; Factory
-;;;
-
-
-(class Factory extends Object
-
-
-  (method public virtual (put object)
-    (error "Cannot put into factory {t}" self))
-
-
-  (method public virtual (put-unique object . rest)
-    (error "Cannot put into factory {t}" self))
-
-
-  (method public virtual (put-sequence seq)
-    (for-each put seq))
-
-
-  (method public virtual (put-sequence! seq)
-    (for-each put seq))
-
-
-  (method public virtual (get-output)
-    (error "Cannot get factory output for {t}" self)))
-
-
-;; temporary patches until we can virtually dispatch
-;; on types...
-
-
-(definition public (can-grow? object <Object>)
-  (typecase object
-    ((List)     #t)
-    ((Sequence) #f)))
-
-
-(definition public (new-factory object <Object> size)
-  (typecase object
-    ((List)   (new List-Factory))
-    ((String) (new Sequence-Factory (make-string size)))
-    ((Vector) (new Sequence-Factory (make-vector size)))))
-
-
-;;;
 ;;;; Sequence
 ;;;
 
@@ -1623,10 +1578,6 @@
   @convert
   (method meta (new-explorer object rest)
     (apply new Sequence-Explorer object rest))
-
-
-  @convert
-  (method meta public virtual abstract (new-factory))
 
 
   (method (object-alphabetic?)
@@ -1941,11 +1892,10 @@
         (set-position~ iter start))
       (call/ec
         (lambda (exit)
-          (with ((proc <procedure>
-                   (function dynamic (object)
-                     (when (apply-test test target (apply-key key object))
-                       (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
-            (for-each proc iter))
+          (for-each (function dynamic (object)
+                      (when (apply-test test target (apply-key key object))
+                        (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
+                    iter)
           {})))))
 
 
@@ -1968,11 +1918,10 @@
         (set-position~ iter start))
       (call/ec
         (lambda (exit)
-          (with ((proc <procedure>
-                   (function dynamic (object)
-                     (when (apply-test test target (apply-key key object))
-                       (exit object)))))
-            (for-each proc iter))
+          (for-each (function dynamic (object)
+                      (when (apply-test test target (apply-key key object))
+                        (exit object)))
+                    iter)
           {})))))
 
 
@@ -1994,18 +1943,17 @@
       (set-position~ iter start))
     (call/ec
       (lambda (exit)
-        (with ((proc <procedure>
-                 (function dynamic (object)
-                   (cond ((apply-test test open (apply-key key object))
-                          (increase! count))
-                         ((apply-test test close (apply-key key object))
-                          (decrease! count)
-                          (when (< count 0)
-                            (case return
-                              ((item) (exit object))
-                              ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                              (else (error "Unknown return type: {t}" return)))))))))
-          (for-each proc iter))
+        (for-each (function dynamic (object)
+                    (cond ((apply-test test open (apply-key key object))
+                           (increase! count))
+                          ((apply-test test close (apply-key key object))
+                           (decrease! count)
+                           (when (< count 0)
+                             (case return
+                               ((item) (exit object))
+                               ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                               (else (error "Unknown return type: {t}" return)))))))
+                  iter)
         {}))))
 
 
@@ -2017,14 +1965,13 @@
         (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
           (when start
             (set-position~ iter start))
-          (with ((proc <procedure>
-                   (function dynamic (object)
-                     (when (predicate (apply-key key object))
-                       (case return
-                         ((item) (exit object))
-                         ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                         (else (error "Unknown return type: {t}" return)))))))
-            (for-each proc iter)))
+          (for-each (function dynamic (object)
+                      (when (predicate (apply-key key object))
+                        (case return
+                          ((item) (exit object))
+                          ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
+                          (else (error "Unknown return type: {t}" return)))))
+                    iter))
         {}))))
 
 
@@ -2038,11 +1985,10 @@
           (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate seq))))
             (when start
               (set-position~ iter start))
-            (with ((proc <procedure>
-                     (function dynamic (object)
-                       (when (apply-test test target (apply-key key object))
-                         (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))))
-              (for-each proc iter))
+            (for-each (function dynamic (object)
+                        (when (apply-test test target (apply-key key object))
+                          (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
+                      iter)
             {}))))))
 
 
@@ -2051,33 +1997,30 @@
     (lambda (return)
       (let ((iter (iterate seq)))
         (set-position~ iter start)
-        (with ((proc <procedure>
-                 (function dynamic (object)
-                   (when (not (predicate (apply-key key object)))
-                     (return (- (get-position~ iter) 1))))))
-          (for-each proc iter))
+        (for-each (function dynamic (object)
+                    (when (not (predicate (apply-key key object)))
+                      (return (- (get-position~ iter) 1))))
+                  iter)
         (get-position~ iter)))))
 
 
 (definition public (some? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
     (lambda (return)
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (when (predicate (apply-key key object))
-                   (return #t)))))
-        (for-each proc (iterate seq)))
+      (for-each (function dynamic (object)
+                  (when (predicate (apply-key key object))
+                    (return #t)))
+                (iterate seq))
       #f)))
 
 
 (definition public (every? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
     (lambda (return)
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (when (not (predicate (apply-key key object)))
-                   (return #f)))))
-        (for-each proc (iterate seq)))
+      (for-each (function dynamic (object)
+                  (when (not (predicate (apply-key key object)))
+                    (return #f)))
+                (iterate seq))
       #t)))
 
 
@@ -2114,13 +2057,12 @@
     (let ((first (car lst))
           (dst (new List-Factory)))
       (put-sequence~ dst first)
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (when (not (member? object (get-output~ dst) test: test))
-                   (put~ dst object)))))
-        (for-each (function dynamic (set)
-                    (for-each proc (iterate set)))
-                  (cdr lst)))
+      (for-each (function dynamic (set)
+                  (for-each (function dynamic (object)
+                              (when (not (member? object (get-output~ dst) test: test))
+                                (put~ dst object)))
+                            (iterate set)))
+                (cdr lst))
       (coerce (get-output~ dst) (class-of first)))))
 
 
@@ -2133,13 +2075,12 @@
     (let ((first (car lst))
           (lst (cdr lst))
           (dst (new List-Factory)))
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (when (every? (function dynamic (set)
-                                 (member? object set test: test))
-                               lst)
-                   (put~ dst object)))))
-        (for-each proc (iterate first)))
+      (for-each (function dynamic (object)
+                  (when (every? (function dynamic (set)
+                                  (member? object set test: test))
+                                lst)
+                    (put~ dst object)))
+                (iterate first))
       (coerce (get-output~ dst) (class-of first)))))
 
 
@@ -2147,11 +2088,10 @@
   (if (not y)
       x
     (let ((dst (new List-Factory)))
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (when (not (member? object y test: test))
-                   (put~ dst object)))))
-        (for-each proc (iterate x)))
+      (for-each (function dynamic (object)
+                  (when (not (member? object y test: test))
+                    (put~ dst object)))
+                (iterate x))
       (coerce (get-output~ dst) (class-of x)))))
 
 
@@ -2162,11 +2102,10 @@
 
 (definition public (remove target <Object> seq <Object> (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (with ((proc <procedure>
-             (function dynamic (object)
-               (when (not (apply-test test object target))
-                 (put~ dst object)))))
-      (for-each proc (iterate seq)))
+    (for-each (function dynamic (object)
+                (when (not (apply-test test object target))
+                  (put~ dst object)))
+              (iterate seq))
     (coerce (get-output~ dst) (class-of seq))))
 
 
@@ -2182,12 +2121,11 @@
 (definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
   (let ((result '())
         (trailing? #t))
-    (with ((proc <procedure>
-             (function dynamic (element)
-               (unless (and trailing? (apply-test test target element))
-                 (set! result (cons element result))
-                 (set! trailing? #f)))))
-      (for-each proc (reverse list)))
+    (for-each (function dynamic (element)
+                (unless (and trailing? (apply-test test target element))
+                  (set! result (cons element result))
+                  (set! trailing? #f)))
+              (reverse list))
     result))
 
 
@@ -2205,11 +2143,10 @@
 
 (definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (with ((proc <procedure>
-             (function dynamic (object)
-               (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
-                 (put~ dst object)))))
-      (for-each proc (iterate seq)))
+    (for-each (function dynamic (object)
+                (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
+                  (put~ dst object)))
+              (iterate seq))
     (coerce (get-output~ dst) (class-of seq))))
 
 
@@ -2247,12 +2184,11 @@
       '()
     (let ((ref (car sequences))
           (min <Object> {}))
-      (with ((proc <procedure>
-               (function dynamic (object)
-                 (let ((n (mismatch object ref)))
-                   (when (and n (or (not min) (< n min)))
-                     (set! min n))))))
-        (for-each proc (cdr sequences)))
+      (for-each (function dynamic (object)
+                  (let ((n (mismatch object ref)))
+                    (when (and n (or (not min) (< n min)))
+                      (set! min n))))
+                (cdr sequences))
       (if (not min)
           ref
         (subseq ref 0 min)))))
@@ -2471,11 +2407,10 @@
         (else
          (let ((dst (new List-Factory)))
            (put~ dst (car sequences))
-           (with ((proc <procedure>
-                    (function dynamic (seq)
-                      (put~ dst separator)
-                      (put~ dst seq))))
-             (for-each proc (cdr sequences)))
+           (for-each (function dynamic (seq)
+                       (put~ dst separator)
+                       (put~ dst seq))
+                     (cdr sequences))
            (apply append (get-output~ dst))))))
 
 
@@ -2602,14 +2537,13 @@
 
 (definition public (partition sequence (key: key identity) (test: test {}))
   (let ((result '()))
-    (with ((proc <procedure>
-             (function dynamic (element)
-               (let* ((category (key element))
-                      (pair (assoc category result test: test)))
-                 (if (not pair)
-                     (set! result (cons (cons category (list element)) result))
-                   (set-cdr! pair (cons element (cdr pair))))))))
-      (for-each proc sequence))
+    (for-each (function dynamic (element)
+                (let* ((category (key element))
+                       (pair (assoc category result test: test)))
+                  (if (not pair)
+                      (set! result (cons (cons category (list element)) result))
+                    (set-cdr! pair (cons element (cdr pair))))))
+              sequence)
     (reverse! (map (function dynamic (partition)
                      (bind (key . elements) partition
                        (cons key (reverse! elements))))
@@ -2737,35 +2671,6 @@
 
   (method (reset-state state <fx>)
     (set! current state)))
-
-
-;;;
-;;;; Sequence-Factory
-;;;
-
-
-(class Sequence-Factory extends Factory
-
-
-  (slot sequence)
-  (slot sequence-length)
-  (slot current)
-
-
-  (method (initialize seq)
-    (nextmethod)
-    (set! sequence seq)
-    (set! sequence-length (length seq))
-    (set! current 0))
-
-
-  (method (put value)
-    (set-element! sequence current value)
-    (set! current (+ current 1)))
-
-
-  (method (get-output)
-    sequence))
 
 
 ;;;
@@ -3240,7 +3145,7 @@
 ;;;
 
 
-(class List-Factory extends Factory
+(class List-Factory extends Object
 
 
   (slot list              initialize '())
@@ -3271,7 +3176,7 @@
   (method (put-sequence seq <Object>)
     (when seq
       (if (not (pair? seq))
-          (nextmethod seq)
+          (for-each put seq)
         (cond ((null? current)
                (set! current seq)
                (set! last-list seq)
@@ -3284,10 +3189,6 @@
                (set-cdr! current seq))))
       (prog1 size
         (increase! size (length seq)))))
-
-
-  (method (put-sequence! seq <Object>)
-    (put-sequence seq))
   
   
   (method public (is-empty?)
@@ -4083,11 +3984,11 @@
 
 (definition public (symbolize-properties properties <Object>)
   (let ((fact (new List-Factory)))
-    (with ((proc <procedure>
-             (function dynamic (property value)
-               (put~ fact (symbolize-property property))
-               (put~ fact value))))
-      (for-each-property proc properties))
+    (for-each-property
+      (function dynamic (property value)
+        (put~ fact (symbolize-property property))
+        (put~ fact value))
+      properties)
     (get-output~ fact)))
 
 
@@ -4099,11 +4000,11 @@
 
 (definition public (keywordize-properties properties <Object>)
   (let ((fact (new List-Factory)))
-    (with ((proc <procedure>
-             (function dynamic (property value)
-               (put~ fact (keywordize-property property))
-               (put~ fact value))))
-      (for-each-property proc properties))
+    (for-each-property
+      (function dynamic (property value)
+        (put~ fact (keywordize-property property))
+        (put~ fact value))
+      properties)
     (get-output~ fact)))
 
 

@@ -276,8 +276,6 @@
 ;;;
 
 
-(native min)
-(native max)
 (native jazz.naturals)
 
 
@@ -337,6 +335,7 @@
 ;;;
 
 
+(native jazz.eof-object)
 (native open-input-string)
 (native call-with-input-string)
 

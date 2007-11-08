@@ -59,18 +59,6 @@
     (check jk)
     (check jl)))
 
-;; min
-;; max
-;; boolean?
-;; procedure?
-;; number?
-;; zero?
-;; positive?
-;; negative?
-;; abs
-;; floor
-;; truncate
-;; round
 ;; length
 ;; for-each
 ;; map

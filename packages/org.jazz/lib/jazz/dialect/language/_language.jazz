@@ -457,11 +457,6 @@
   (not (eq? x y)))
 
 
-(definition public inline (boolean? object <Object>)
-  (or (eq? object #f)
-      (eq? object #t)))
-
-
 (definition public inline (xor x y)
   (or (and x (not y))
       (and (not x) y)))
@@ -1039,10 +1034,6 @@
 (class primitive Procedure metaclass Procedure-Class extends Object)
 
 
-(definition public inline (procedure? obj)
-  (is? obj Procedure))
-
-
 ;;;
 ;;;; Foreign
 ;;;
@@ -1179,22 +1170,6 @@
 ;;;
 
 
-(definition public inline (number? obj)
-  (is? obj Number))
-
-
-(definition public inline (zero? n)
-  (= n 0))
-
-
-(definition public inline (positive? n)
-  (> n 0))
-
-
-(definition public inline (negative? n)
-  (< n 0))
-
-
 (definition public (relate x y)
   (cond ((< x y) -1)
         ((> x y)  1)
@@ -1203,30 +1178,6 @@
 
 (definition public (sign n)
   (relate n 0))
-
-
-(definition public (abs x)
-  (if (>= x 0)
-      x
-    (- x)))
-
-
-;; waiting optimizing compiler to put back as min
-(definition public (generic-min n <number> . rest)
-  (for-each (function dynamic (object <number>)
-              (when (< object n)
-                (set! n object)))
-            rest)
-  n)
-
-
-;; waiting optimizing compiler to put back as max
-(definition public (generic-max n <number> . rest)
-  (for-each (function dynamic (object <number>)
-              (when (> object n)
-                (set! n object)))
-            rest)
-  n)
 
 
 (definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
@@ -1652,6 +1603,11 @@
 ;;;
 
 
+;; for tests
+(definition *static-sequences*
+  #f)
+
+
 (class Sequence-Class extends Class
   
   
@@ -1795,15 +1751,21 @@
 
 
 (definition public inline (element seq <Sequence> n <int>) <any>
-  (sequence-element~ seq n))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-element~ seq n)))
 
 
 (definition public inline (set-element! seq <Sequence> n <int> obj <any>) <void>
-  (sequence-set-element!~ seq n obj))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-set-element!~ seq n obj)))
 
 
 (definition public inline (length seq <Sequence>) <int>
-  (sequence-length~ seq))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-length~ seq)))
 
 
 (definition public inline (empty? seq)
@@ -1811,15 +1773,21 @@
 
 
 (definition public inline (tail seq <Sequence> start)
-  (sequence-tail~ seq start))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-tail~ seq start)))
 
 
 (definition public inline (last seq <Sequence>)
-  (sequence-last~ seq))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-last~ seq)))
 
 
 (definition public inline (butlast seq <Sequence>)
-  (sequence-butlast~ seq))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-butlast~ seq)))
 
 
 (definition public (skip-whitespace seq <Sequence>)
@@ -1843,11 +1811,15 @@
 
 
 (definition public inline (replace-subseq! seq <Sequence> start end replacement)
-  (sequence-replace-subseq!~ seq start end replacement))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-replace-subseq!~ seq start end replacement)))
 
 
 (definition public (subseq! seq <Sequence> start (end (length seq)))
-  (sequence-subseq!~ seq start end))
+  (if *static-sequences*
+      (call-into-abstract)
+    (sequence-subseq!~ seq start end)))
 
 
 (definition public (sort test seq (key: key {}))
@@ -3749,7 +3721,7 @@
 
   (method public (intersect range)
     (when (intersect? range)
-      (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
+      (new (class-of self) (max start (get-start~ range)) (min end (get-end~ range))))))
 
 
 (definition public inline (new-range start end)
@@ -3834,7 +3806,7 @@
 
   (method public (intersect range <Range$Cell$>)
     (when (intersect? range)
-      (new (class-of self) (generic-max start (get-start~ range)) (generic-min end (get-end~ range))))))
+      (new (class-of self) (max start (get-start~ range)) (min end (get-end~ range))))))
 
 
 (specialize inline (new class <category<Range$Cell$>> start <Cell> end <Cell>) <Range$Cell$>
@@ -4381,17 +4353,6 @@
 
 (definition public inline (string-delimiter? c)
   (eqv? c #\double-quote))
-
-
-(definition EOF-Object
-  (list 'eof-object))
-
-(definition public inline (eof-object)
-  EOF-Object)
-
-(definition public inline (eof-object? obj)
-  (or (scheme.eof-object? obj)
-      (eq? obj EOF-Object)))
 
 
 (definition public (read-line reader)

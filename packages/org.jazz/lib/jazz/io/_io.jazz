@@ -335,7 +335,7 @@
   
   
   (method public (parse (separator: separator system-separator))
-    (let ((printer (new String-Printer))
+    (let ((printer (open-output-string))
           (first? #t)
           (aliases '()))
       (letrec ((parse
@@ -361,7 +361,7 @@
                           (error "Bad pathname component {t}" path))))))
         (parse (get-list)))
       (add-suffix printer)
-      (get-output~ printer)))
+      (get-output-string printer)))
   
   
   (method public (parse-unix)
@@ -712,8 +712,9 @@
           (at (get-attributes)))
       ;; this is ugly big time...
       (set-read/write)
-      (with-closed ((printer (new File-Printer self mode: 'append)))
-        (SetFileTime (get-handle~ printer) NULL NULL ft))
+      (call-with-output-file (list self mode: 'append)
+        (lambda (printer)
+          (SetFileTime (get-handle~ printer) NULL NULL ft)))
       (set-attributes at)))
   
   
@@ -760,9 +761,10 @@
 
 
   (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? #f))
-    (with-closed ((printer (new File-Printer self)))
-      ;; the 2 is really Win32. need to fix this
-      (write-lines printer lines (either platform 2) use-utf8?))))
+    (call-with-output-file self
+      (lambda (printer)
+        ;; the 2 is really Win32. need to fix this
+        (write-lines printer lines (either platform 2) use-utf8?)))))
 
 
 (definition public inline (file? object)
@@ -951,7 +953,7 @@
   
   
   (method (add-suffix printer)
-    (print-char #\backslash printer))
+    (write-char #\backslash printer))
      
    
   ;;;

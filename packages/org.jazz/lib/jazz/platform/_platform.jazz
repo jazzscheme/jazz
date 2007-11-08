@@ -388,7 +388,7 @@
 (definition (update-crash-info)
   (unimplemented 'update-crash-info)
   @threads
-  (let ((printer (new String-Printer)))
+  (let ((printer (open-output-string)))
     (for-each (function dynamic (pair)
                 (bind (name . (context . info)) pair
                   (format printer "{%}   {a}{a} {a}"
@@ -396,7 +396,7 @@
                     (if context (format " {a}" context) "")
                     info)))
               Crash-Info)
-    (let ((info (get-output~ printer)))
+    (let ((info (get-output-string printer)))
       (set-crash-info info))))
 
 
@@ -869,8 +869,9 @@
              (/= (hibyte (GetAsyncKeyState VK_MENU)) 0))
         (crash-process)
       (let ((file (either file (module-timestamped-file "Stack" "stack"))))
-        (with-closed ((printer (new File-Printer file)))
-          (apply print-stack printer others))
+        (call-with-output-file file
+          (lambda (printer)
+            (apply print-stack printer others)))
         (when user-feedback?
           (message-box (format "Stack dumped to {t}" file)))
         file))))
@@ -882,14 +883,14 @@
   (if (and (kernel-initialized?) (in-manifest? 'Stack-Presenter))
       (report-stack~ (autoload 'Stack-Presenter))
     (let ((process (snapshot-stack))
-          (printer (new String-Printer)))
+          (printer (open-output-string)))
       (for-each (function dynamic (thread)
                   (format printer "{a}{%}" (get-label~ thread))
                   (for-each (function dynamic (frame)
                               (format printer "  {a}{%}" (car frame)))
                             (get-call-stack~ thread)))
                 (get-threads~ process))
-      (message-box (get-output~ printer)))))
+      (message-box (get-output-string printer)))))
 
 
 (definition public (snapshot-stack)
@@ -902,9 +903,9 @@
   (unimplemented 'print-stack)
   @windows-specific
   (if (= destination :string)
-      (let ((printer (new String-Printer)))
+      (let ((printer (open-output-string)))
         (apply print-stack-to printer rest)
-        (get-output~ printer))
+        (get-output-string printer))
     (apply print-stack-to destination rest)))
 
 

@@ -203,17 +203,18 @@
   (method (save-to-file file)
     (if (and (exists?~ file) (read-only?~ file))
         (message-box (format "Sorry, unable to save to read-only file: {s}" file))
-      (with-closed ((printer (new File-Printer file)))
-        (set-printer-use-utf8? printer #t)
-        (output-header (get-model-name~ form) printer)
-        (format printer "{%}{%}")
-        (print-to #f 0 printer))))
+      (call-with-output-file file
+        (lambda (printer)
+          (set-printer-use-utf8? printer #t)
+          (output-header (get-model-name~ form) printer)
+          (format printer "{%}{%}")
+          (print-to #f 0 printer)))))
 
 
   (method public (saved-form class-form? level (space-properties?: space-properties? #t) (align-name?: align-name? #t))
-    (let ((printer (new String-Printer)))
+    (let ((printer (open-output-string)))
       (print-to class-form? level printer space-properties?: space-properties? align-name?: align-name?)
-      (get-output~ printer)))
+      (get-output-string printer)))
   
   
   (method public (print-to class-form? level printer (space-properties?: space-properties? #t) (align-name?: align-name? #t))
@@ -456,7 +457,7 @@
   
   (method public (copy-components-text components (branch: branch {}))
     (let ((printer (new (get-printer-class)))
-          (output (new String-Printer))
+          (output (open-output-string))
           (parcels (package-components components branch: branch)))
       (format output "(")
       (for-each (function dynamic (parcel)
@@ -471,7 +472,7 @@
                   (format output "}"))
                 parcels)
       (format output ")")
-      (get-output~ output)))
+      (get-output-string output)))
   
   
   (method public virtual (paste-clipboard parent (branch: branch #t) (design-events?: design-events? #t))

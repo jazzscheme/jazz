@@ -818,9 +818,10 @@
     (let* ((moniker (get-moniker))
            (initial-filename (essay moniker (format "{a}.html" (get-base~ moniker))))
            (file (choose-new-file :initial-filename initial-filename :default-extension "html" extensions: '(("HTML (*.html)" . "*.html")))))
-      (with-closed ((output (new File-Printer file)))
-        (let ((convert (new TextToHTML-Exporter self output)))
-          (export-html~ convert)))
+      (call-with-output-file file
+        (lambda (output)
+          (let ((convert (new TextToHTML-Exporter self output)))
+            (export-html~ convert))))
       (user-message "Done")))
   
   
@@ -2787,8 +2788,9 @@
   
   
   (method protected (save-formatted moniker)
-    (with-closed ((printer (new File-Printer moniker)))
-      (print-formatted printer {})))
+    (call-with-output-file moniker
+      (lambda (printer)
+        (print-formatted printer {}))))
   
   
   (method protected (print-formatted printer range <Range$Cell$>)
@@ -2968,9 +2970,9 @@
     @convert
     (if (empty-selection?)
         (bell)
-      (let ((printer (new String-Printer)))
+      (let ((printer (open-output-string)))
         (print-formatted printer (get-selection))
-        (let ((output (get-output~ printer)))
+        (let ((output (get-output-string printer)))
           (with-opened-clipboard
             (function dynamic ()
               (set-clipboard-text output :format :formatted-text))
@@ -3074,9 +3076,9 @@
   (method protected (range-formatted-text range <Range$Cell$>)
     (unimplemented 'range-formatted-text)
     @convert
-    (let ((printer (new String-Printer)))
+    (let ((printer (open-output-string)))
       (print-formatted printer range)
-      (car (read-string-content (get-output~ printer)))))
+      (car (read-string-content (get-output-string printer)))))
   
   
   ;;;
@@ -3407,12 +3409,12 @@
   
   
   (method (run-infos->string infos)
-    (let ((printer (new String-Printer)))
+    (let ((printer (open-output-string)))
       (for-each (function dynamic (info)
                   (let ((string (car info)))
                     (format printer "{a}" string)))
                 infos)
-      (get-output~ printer)))
+      (get-output-string printer)))
   
   
   (method (make-runs string <string> styles infos)

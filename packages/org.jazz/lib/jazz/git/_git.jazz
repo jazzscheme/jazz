@@ -330,8 +330,9 @@
                           (unless (exists?~ base-file)
                             (user-message "Extracting base/{a}..." base-name)
                             (create-directories~ base-file)
-                            (with-closed ((printer (new File-Printer base-file)))
-                              (git-show base-index printer))))))
+                            (call-with-output-file base-file
+                              (lambda (printer)
+                                (git-show base-index printer)))))))
                     
                     (define (setup-left)
                       (let ((working-file (new-file~ directory name-path)))
@@ -354,12 +355,13 @@
                               ((not base-name)
                                (user-message "Adding right/{a}..." name)
                                (create-directories~ right-file)
-                               (with-closed ((printer (new File-Printer right-file)))
-                                 (let ((lines (fifth (car deltas))))
-                                   (for-each (lambda (info)
-                                               (bind (what . line) info
-                                                 (write-line line printer)))
-                                             lines))))
+                               (call-with-output-file right-file
+                                 (lambda (printer)
+                                   (let ((lines (fifth (car deltas))))
+                                     (for-each (lambda (info)
+                                                 (bind (what . line) info
+                                                   (write-line line printer)))
+                                               lines)))))
                               ;; modified
                               (else
                                (user-message "Modifying right/{a}..." name)
@@ -377,31 +379,32 @@
                                                                      (format "{a}_merged.{a}" base ext)))))
                         (call-with-input-file target-file
                           (lambda (target-input)
-                            (with-closed ((merged-output (new File-Printer merged-file)))
-                              (let ((target-rank 1))
-                                (for-each (lambda (delta)
-                                            (bind (target-line target-count result-line result-count lines) delta
-                                              ;; output target common lines
-                                              (loop (repeat (- target-line target-rank))
-                                                    (do (write-line (read-line target-input) merged-output)
-                                                        (increase! target-rank)))
-                                              ;; skip replaced target lines
-                                              (loop (repeat target-count)
-                                                    (do (read-line target-input)
-                                                        (increase! target-rank)))
-                                              ;; output new lines
-                                              (for-each (lambda (info)
-                                                          (bind (what . line) info
-                                                            (when (or (eq? what 'b) (eq? what 'both))
-                                                              (write-line line merged-output))))
-                                                        lines)))
-                                          deltas))
-                              ;; output remaining
-                              (let (iterate)
-                                (let ((line (read-line target-input)))
-                                  (when line
-                                    (write-line line merged-output)
-                                    (iterate)))))
+                            (call-with-output-file merged-file
+                              (lambda (merged-output)
+                                (let ((target-rank 1))
+                                  (for-each (lambda (delta)
+                                              (bind (target-line target-count result-line result-count lines) delta
+                                                ;; output target common lines
+                                                (loop (repeat (- target-line target-rank))
+                                                      (do (write-line (read-line target-input) merged-output)
+                                                          (increase! target-rank)))
+                                                ;; skip replaced target lines
+                                                (loop (repeat target-count)
+                                                      (do (read-line target-input)
+                                                          (increase! target-rank)))
+                                                ;; output new lines
+                                                (for-each (lambda (info)
+                                                            (bind (what . line) info
+                                                              (when (or (eq? what 'b) (eq? what 'both))
+                                                                (write-line line merged-output))))
+                                                          lines)))
+                                            deltas))
+                                ;; output remaining
+                                (let (iterate)
+                                  (let ((line (read-line target-input)))
+                                    (when line
+                                      (write-line line merged-output)
+                                      (iterate))))))
                             (delete-file~ target-file)
                             (move-pathname~ merged-file target-file)))))
                     

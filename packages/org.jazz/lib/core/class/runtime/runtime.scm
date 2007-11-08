@@ -1936,4 +1936,11 @@
   (%%get-queue-list queue))
 
 
+(define (jazz.reset-queue queue)
+  (%%set-queue-list queue '())
+  (%%set-queue-last-list queue '())
+  (%%set-queue-last-anchor queue '())
+  (%%set-queue-current queue '()))
+
+
 (jazz.encapsulate-class jazz.Queue))

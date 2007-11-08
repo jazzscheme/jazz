@@ -799,9 +799,7 @@
 
 
 (definition public (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
-  (unimplemented 'log-properties)
-  @String-Printer
-  (let ((printer (new String-Printer))
+  (let ((printer (open-output-string))
         (first? #t))
     (for-each-property (function dynamic (property value)
                          (if first?
@@ -809,7 +807,7 @@
                            (format printer ", "))
                          (format printer "{a}: {a}" (keyword->symbol property) value))
       properties)
-    (let ((message (get-output~ printer)))
+    (let ((message (get-output-string printer)))
       (log-entry :tag tag name: name message: message :data data :log log))))
 
 
@@ -1946,9 +1944,10 @@
          (pref (new JML-Preferences))
          (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
-    (with-closed ((printer (new File-Printer output)))
-      (set-printer-use-utf8? printer #t)
-      (pretty-print~ jml printer))
+    (call-with-output-file output
+      (lambda (printer)
+        (set-printer-use-utf8? printer #t)
+        (pretty-print~ jml printer)))
     (user-message "{a} converted to {a}" (get-name~ input) (get-name~ output))
     (let ((appl (get-application)))
       (verify-reload~ appl output))))
@@ -1957,17 +1956,18 @@
 (definition public (save-tab-delimited content file)
   (unimplemented 'save-tab-delimited)
   @File-Printer
-  (with-closed ((printer (new File-Printer file)))
-    (for-each (function dynamic (line)
-                (let ((first? #t))
-                  (for-each (function dynamic (text)
-                              (if first?
-                                  (set! first? #f)
-                                (format printer "{&}"))
-                              (format printer "{a}" text))
-                            line))
-                (format printer "{%}"))
-              content)))
+  (call-with-output-file file
+    (lambda (printer)
+      (for-each (function dynamic (line)
+                  (let ((first? #t))
+                    (for-each (function dynamic (text)
+                                (if first?
+                                    (set! first? #f)
+                                  (format printer "{&}"))
+                                (format printer "{a}" text))
+                              line))
+                  (format printer "{%}"))
+                content))))
 
 
 ;;;
@@ -2291,11 +2291,11 @@
     (if (not err)
         result
       ;; a quick patch of putting everything in the error message
-      (let ((printer (new String-Printer)))
+      (let ((printer (open-output-string)))
         (format printer "{a}{%}{%}{a}"
           (get-message~ err)
           stack)
-        (error "{a}" (get-output~ printer))))))
+        (error "{a}" (get-output-string printer))))))
 
 
 ;;;

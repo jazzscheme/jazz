@@ -57,7 +57,7 @@
   (method meta (tie-string objects)
     (call-with-input-string (apply append objects)
       (lambda (control)
-        (let ((out (new String-Printer))
+        (let ((out (open-output-string))
               (out-parameters (new List-Factory)))
           (let (iterate)
             (let ((c (read-char control)))
@@ -67,7 +67,7 @@
                       ((#\{) (process-string control out out-parameters))
                       (else (put c out)))
                     (iterate))))
-          (cons 'format (cons :string (cons (get-output~ out) (get-output~ out-parameters))))))))
+          (cons 'format (cons :string (cons (get-output-string out) (get-output~ out-parameters))))))))
   
   
   (method meta (process-string control out out-parameters)

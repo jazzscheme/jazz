@@ -1057,31 +1057,7 @@
   
   
   (method (initialize . rest)
-    (native-class "numbers"))
-  
-  
-  (method (print output detail)
-    (display self output))
-  
-  
-  (method (compare-object obj)
-    (cond ((scheme.= self obj) :equal)
-          ((scheme.< self obj) :less)
-          (else :greater)))
-  
-  
-  (method (norm)
-    (scheme.abs self))
-  
-  
-  (method (add obj)
-    (if (scheme.number? obj)
-        (scheme.+ self obj)
-      (error "Unsupported number addition : {t} {t}" self obj)))
-  
-  
-  (method (negate)
-    (scheme.- self)))
+    (native-class "numbers")))
 
 
 ;;;
@@ -1368,24 +1344,6 @@
 
 (specialize inline (fxround n <fx> d <fx>) <fx>
   (fxround (fl/ n d)))
-
-
-;;;
-;;;; Queue
-;;;
-
-
-(class Queue extends Object
-  
-  
-  (slot list        initialize '() accessors (generate private))
-  (slot last-list   initialize '() accessors (generate private))
-  (slot last-anchor initialize '() accessors (generate private))
-  (slot current     initialize '() accessors (generate private))
-  
-  
-  (method public (put object)
-    (enqueue self object)))
 
 
 ;;;
@@ -2132,7 +2090,6 @@
                (put-sequence~ fact sequence))))
       (let* ((first (car rest))
              (list? (or (null? first) (pair? first))))
-        (set-pure-list?~ fact list?)
         (for-each proc rest)
         (let ((output (get-output~ fact)))
           (if (not list?)
@@ -3291,7 +3248,6 @@
   (slot last-anchor       initialize {})
   (slot current           initialize '())
   (slot size       <fx>   initialize 0)
-  (slot pure-list? <bool> initialize #f)
 
 
   (method (put object <Object>)
@@ -3348,14 +3304,6 @@
   
   (method public (get-last-element)
     (car current))
-
-
-  (method public (get-pure-list?)
-    pure-list?)
-
-
-  (method public (set-pure-list? value)
-    (set! pure-list? value))
 
 
   (method (get-output)
@@ -4052,61 +4000,6 @@
 
 
 ;;;
-;;;; I/O
-;;;
-
-
-(definition inline (parse-file file)
-  (if (string? file)
-      file
-    (parse~ file)))
-
-
-;;;
-;;;; Input
-;;;
-
-
-(definition (open-input-file file)
-  (scheme.open-input-file (parse-file file)))
-
-
-(definition (call-with-input-file file proc)
-  (scheme.call-with-input-file (parse-file file) proc))
-
-
-;;;
-;;;; Output
-;;;
-
-
-(definition (output-port obj)
-  (if (not obj)
-      (current-output-port)
-    (if (is? obj Printer)
-        (get-port~ obj)
-      obj)))
-
-
-(definition (open-output-file file)
-  (scheme.open-output-file (parse-file file)))
-
-
-(definition (call-with-output-file file proc)
-  (scheme.call-with-output-file (parse-file file) proc))
-
-
-(definition public (print-unreadable object output proc)
-  (let* ((class-name (identifier-name (get-name~ (class-of object))))
-         (string (let ((output (open-output-string)))
-                   (proc output)
-                   (get-output-string output)))
-         (spacer (if (empty-string? string) "" " "))
-         (number (object->serial-number object)))
-    (format output "~{@{a}{a}{a} #{a}}" class-name spacer string number)))
-
-
-;;;
 ;;;; Process
 ;;;
 
@@ -4234,214 +4127,6 @@
 
 
 ;;;
-;;;; Reader
-;;;
-
-
-(definition public (read-until test reader)
-  (let ((queue (new-queue)))
-    (let (iterate)
-      (let ((expr (read reader)))
-        (if (test expr)
-            (queue-list queue)
-          (enqueue queue expr)
-          (iterate))))))
-
-
-(definition public (read-string-element string)
-  (call-with-input-string string
-    read))
-
-
-(definition public (read-string-content string)
-  (call-with-input-string string
-    (lambda (reader)
-      (read-until eof-object? reader))))
-
-
-(definition public (read-delimited-string string char)
-  (call-with-input-string string
-    (lambda (reader)
-      (let ((fact (new List-Factory)))
-        (let (iterate)
-          (let ((lst (read-delimited reader "delimited" char #t)))
-            (put~ fact lst)
-            (skip-whites reader)
-            (if (eof-object? (peek-char reader))
-                (get-output~ fact)
-              (iterate))))))))
-
-
-(definition public (parse-integer string)
-  (if (and (not (empty-string? string)) (numeric? string))
-      (read-string-element string)
-    (signal (new Convertion-Error object: string type: "integer"))))
-
-
-(definition public (parse-hexadecimal string)
-  (read-string-element (format "#x{a}" string)))
-
-
-(definition public (parse-boolean string)
-  (cond ((ci= string "#t") #t)
-        ((ci= string "#f") #f)
-        (else (signal (new Convertion-Error object: string type: "boolean")))))
-
-
-(definition public (parse-strings string (separator: separator ","))
-  (if (or (empty-string? string) (= string "{}"))
-      {}
-    (map (function dynamic (string)
-           (trim-spaces string))
-         (split string separator))))
-
-
-(definition public (parse-delimited-string string (separator: separator ","))
-  (map (function dynamic (string)
-         (parse-strings string separator: " "))
-       (parse-strings string separator: separator)))
-
-
-(definition public (require-char reader)
-  (let ((c (read-char reader)))
-    (if (eof-object? c)
-        (error "Unexpected end of stream reached while reading")
-      c)))
-
-
-(definition public (skip-line reader)
-  (let (iterate)
-    (let ((c (read-char reader)))
-      (if (and (not (eof-object? c))
-               (not (eqv? c #\newline))
-               (not (eqv? c #\return)))
-          (iterate)
-        (if (eqv? c #\return)
-            (read-char reader))))))
-
-
-(definition public (skip-whites reader)
-  (let (iterate)
-    (let ((c (peek-char reader)))
-      (unless (eof-object? c)
-        (if (eqv? c #\;)
-            (skip-line reader)
-          (when (whitespace? c)
-            (read-char reader)
-            (iterate)))))))
-
-
-(definition public (read-delimited reader kind delimiter (allow-eof? #f))
-  (let ((queue (new-queue)))
-    (let (iterate)
-      (skip-whites reader)
-      (let ((c (peek-char reader)))
-        (cond ((eof-object? c)
-               (if allow-eof?
-                   (queue-list queue)
-                 (error "Unexpected end of stream reached while reading {a}" kind)))
-              ((eqv? c delimiter)
-               (read-char reader)
-               (queue-list queue))
-              ((eqv? c #\.)
-               (enqueue-list queue (read reader))
-               (iterate))
-              (else
-               (enqueue queue (read reader))
-               (iterate)))))))
-
-
-(definition public inline (string-delimiter? c)
-  (eqv? c #\double-quote))
-
-
-(definition public (read-line reader)
-  (let ((port (open-output-string)))
-    (let (iterate (empty? #t))
-      (let ((c (read-char reader)))
-        (if (eof-object? c)
-            (if empty?
-                {}
-              (get-output-string port))
-          (case c
-            ((#\linefeed)
-             (get-output-string port))
-            ((#\return)
-             (let ((c (read-char reader)))
-               (get-output-string port)))
-            (else
-             (write-char c port)
-             (iterate #f))))))))
-
-
-(definition (read-line-proper reader)
-  (let ((port (open-output-string)))
-    (let (iterate (empty? #t))
-      (let ((c (read-char reader)))
-        (if (eof-object? c)
-            (if empty?
-                (values {} #f)
-              (values (get-output-string port) #f))
-          (case c
-            ((#\linefeed)
-             (values (get-output-string port) #t))
-            ((#\return)
-             (let ((c (read-char reader)))
-               (values (get-output-string port) #t)))
-            (else
-             (write-char c port)
-             (iterate #f))))))))
-
-
-@a-try
-(definition (read-lines reader)
-  (let ((queue (new-queue))
-        (last-proper? #f))
-    (let (iterate)
-      (receive (line proper?) (read-line-proper reader)
-        (if line
-            (begin
-              (enqueue queue line)
-              (set! last-proper? proper?)
-              (iterate))
-          (when last-proper?
-            (enqueue queue ""))
-          (queue-list queue))))))
-
-
-(definition (read-lines reader)
-  (let ((queue (new-queue)))
-    (let (iterate)
-      (let ((line (gambit-read-line reader)))
-        (if (eof-object? line)
-            (begin
-              (enqueue queue "")
-              (queue-list queue))
-          (enqueue queue line)
-          (iterate))))))
-
-
-(definition public (read-content-string reader)
-  (let ((output (open-output-string)))
-    (pipe reader output)
-    (get-output-string output)))
-
-
-(definition public (pipe input output)
-  (let (iterate)
-    (let ((c (read-char input)))
-      (if (not (eof-object? c))
-          (begin
-            (write-char c output)
-            (iterate))))))
-
-
-;; (definition (get-encoding Object))
-;; (definition (reader-file-mark                        Object))
-;; (definition (set-reader-file-mark                    Object Object))
-
-
-;;;
 ;;;; String
 ;;;
 
@@ -4505,7 +4190,7 @@
   
   
   (method (sequence-length) <fx>
-    (scheme.string-length self))
+    (string-length self))
   
   
   (method (sequence-tail n)
@@ -5102,72 +4787,335 @@
 
 
 ;;;
+;;;; I/O
+;;;
+
+
+(definition inline (parse-file file)
+  (if (string? file)
+      file
+    (parse~ file)))
+
+
+;;;
+;;;; Input
+;;;
+
+
+(definition (open-input-file file)
+  (scheme.open-input-file (parse-file file)))
+
+
+(definition (call-with-input-file file proc)
+  (scheme.call-with-input-file (parse-file file) proc))
+
+
+(definition public (read-until test reader)
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (let ((expr (read reader)))
+        (if (test expr)
+            (queue-list queue)
+          (enqueue queue expr)
+          (iterate))))))
+
+
+(definition public (read-string-element string)
+  (call-with-input-string string
+    read))
+
+
+(definition public (read-string-content string)
+  (call-with-input-string string
+    (lambda (reader)
+      (read-until eof-object? reader))))
+
+
+(definition public (read-delimited-string string char)
+  (call-with-input-string string
+    (lambda (reader)
+      (let ((fact (new List-Factory)))
+        (let (iterate)
+          (let ((lst (read-delimited reader "delimited" char #t)))
+            (put~ fact lst)
+            (skip-whites reader)
+            (if (eof-object? (peek-char reader))
+                (get-output~ fact)
+              (iterate))))))))
+
+
+(definition public (parse-integer string)
+  (if (and (not (empty-string? string)) (numeric? string))
+      (read-string-element string)
+    (signal (new Convertion-Error object: string type: "integer"))))
+
+
+(definition public (parse-hexadecimal string)
+  (read-string-element (format "#x{a}" string)))
+
+
+(definition public (parse-boolean string)
+  (cond ((ci= string "#t") #t)
+        ((ci= string "#f") #f)
+        (else (signal (new Convertion-Error object: string type: "boolean")))))
+
+
+(definition public (parse-strings string (separator: separator ","))
+  (if (or (empty-string? string) (= string "{}"))
+      {}
+    (map (function dynamic (string)
+           (trim-spaces string))
+         (split string separator))))
+
+
+(definition public (parse-delimited-string string (separator: separator ","))
+  (map (function dynamic (string)
+         (parse-strings string separator: " "))
+       (parse-strings string separator: separator)))
+
+
+(definition public (require-char reader)
+  (let ((c (read-char reader)))
+    (if (eof-object? c)
+        (error "Unexpected end of stream reached while reading")
+      c)))
+
+
+(definition public (skip-line reader)
+  (let (iterate)
+    (let ((c (read-char reader)))
+      (if (and (not (eof-object? c))
+               (not (eqv? c #\newline))
+               (not (eqv? c #\return)))
+          (iterate)
+        (if (eqv? c #\return)
+            (read-char reader))))))
+
+
+(definition public (skip-whites reader)
+  (let (iterate)
+    (let ((c (peek-char reader)))
+      (unless (eof-object? c)
+        (if (eqv? c #\;)
+            (skip-line reader)
+          (when (whitespace? c)
+            (read-char reader)
+            (iterate)))))))
+
+
+(definition public (read-delimited reader kind delimiter (allow-eof? #f))
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (skip-whites reader)
+      (let ((c (peek-char reader)))
+        (cond ((eof-object? c)
+               (if allow-eof?
+                   (queue-list queue)
+                 (error "Unexpected end of stream reached while reading {a}" kind)))
+              ((eqv? c delimiter)
+               (read-char reader)
+               (queue-list queue))
+              ((eqv? c #\.)
+               (enqueue-list queue (read reader))
+               (iterate))
+              (else
+               (enqueue queue (read reader))
+               (iterate)))))))
+
+
+(definition public inline (string-delimiter? c)
+  (eqv? c #\double-quote))
+
+
+(definition public (read-line reader)
+  (let ((port (open-output-string)))
+    (let (iterate (empty? #t))
+      (let ((c (read-char reader)))
+        (if (eof-object? c)
+            (if empty?
+                {}
+              (get-output-string port))
+          (case c
+            ((#\linefeed)
+             (get-output-string port))
+            ((#\return)
+             (let ((c (read-char reader)))
+               (get-output-string port)))
+            (else
+             (write-char c port)
+             (iterate #f))))))))
+
+
+(definition (read-line-proper reader)
+  (let ((port (open-output-string)))
+    (let (iterate (empty? #t))
+      (let ((c (read-char reader)))
+        (if (eof-object? c)
+            (if empty?
+                (values {} #f)
+              (values (get-output-string port) #f))
+          (case c
+            ((#\linefeed)
+             (values (get-output-string port) #t))
+            ((#\return)
+             (let ((c (read-char reader)))
+               (values (get-output-string port) #t)))
+            (else
+             (write-char c port)
+             (iterate #f))))))))
+
+
+@a-try
+(definition (read-lines reader)
+  (let ((queue (new-queue))
+        (last-proper? #f))
+    (let (iterate)
+      (receive (line proper?) (read-line-proper reader)
+        (if line
+            (begin
+              (enqueue queue line)
+              (set! last-proper? proper?)
+              (iterate))
+          (when last-proper?
+            (enqueue queue ""))
+          (queue-list queue))))))
+
+
+(definition (read-lines reader)
+  (let ((queue (new-queue)))
+    (let (iterate)
+      (let ((line (gambit-read-line reader)))
+        (if (eof-object? line)
+            (begin
+              (enqueue queue "")
+              (queue-list queue))
+          (enqueue queue line)
+          (iterate))))))
+
+
+(definition public (read-content-string reader)
+  (let ((output (open-output-string)))
+    (pipe reader output)
+    (get-output-string output)))
+
+
+(definition public (pipe input output)
+  (let (iterate)
+    (let ((c (read-char input)))
+      (if (not (eof-object? c))
+          (begin
+            (write-char c output)
+            (iterate))))))
+
+
+;; (definition (get-encoding Object))
+;; (definition (reader-file-mark                        Object))
+;; (definition (set-reader-file-mark                    Object Object))
+
+
+;;;
 ;;;; Printer
 ;;;
 
 
-(class Printer extends Object
-  
-  
-  (slot port getter generate)
-  
-  
-  (method (initialize port)
-    (nextmethod)
-    (set! port~self port))
+(definition public (with-printer printer proc)
+  (if (eq? printer :string)
+      (let ((printer (open-output-string)))
+        (proc printer)
+        (get-output-string printer))
+    (proc printer)))
 
 
-  (method (destroy)
-    @convert
-    (call-destroying-output self)
-    (nextmethod))
+(definition (get-printer-use-utf8? printer)
+  ;; convert
+  #f)
+
+(definition (set-printer-use-utf8? printer flag)
+  ;; convert
+  )
 
 
-  (method public virtual (put c)
-    (write-char port c))
+(definition (textual expr (printer (current-output-port)))
+  (print~ expr printer :text))
 
 
-  (method public virtual (put-buffer buffer size)
-    (unimplemented 'put-buffer))
+(definition (describe expr (printer (current-output-port)))
+  (print~ expr printer :describe))
 
 
-  (method public virtual (force-output)
-    )
+(definition (print-expr expr detail (printer (current-output-port)))
+  (print~ expr printer detail))
 
 
-  ;; force-output && flush-output should probably be just one
-  ;; but at the moment force-output gets called too many times
-  (method public virtual (flush-output)
-    )
-  
-  
-  (method public virtual (get-position)
-    )
-  
-  
-  (method public virtual (set-position pos)
-    )
-  
-  
-  (method public virtual (fresh-line?)
-    #f
-    @convert
-    (at-fresh-line? self)))
+(definition (print-unsigned n (printer (current-output-port)))
+  ;; quick fix
+  (write n printer))
 
 
-(definition public (display obj . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.display obj (output-port port))))
+(definition (print-hexadecimal n (printer (current-output-port)))
+  ;; quick fix
+  (write n printer))
 
 
-(definition public (write obj . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.write obj (output-port port))))
+(definition (print-binary b (printer (current-output-port)))
+  ;; quick fix
+  (write b printer))
 
 
-(definition public (write-char c . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.write-char c (output-port port))))
+(definition (print-real r precision (printer (current-output-port)))
+  ;; quick fix
+  (write r printer))
+
+
+(definition (print-list list separator last-separator before after detail (printer (current-output-port)))
+  (when (not-null? list)
+    (when before
+      (display before printer))
+    (let (iterate (scan list))
+      (let ((expr (car scan)))
+        (print~ expr printer detail)
+        (let ((next (cdr scan)))
+          (when (not-null? next)
+            (if (pair? next)
+                (display (if (null? (cdr next)) last-separator separator) printer)
+              (display " . " printer)
+              (print~ next printer detail))
+            (iterate (cdr scan))))))
+    (when after
+      (display after printer))))
+
+
+(definition (fresh-line (printer (current-output-port)))
+  (unless (at-fresh-line? printer)
+    (newline printer)))
+
+
+(definition (at-fresh-line? (printer (current-output-port)))
+  ;; todo
+  #f)
+
+
+;;;
+;;;; Output
+;;;
+
+
+(definition (open-output-file file)
+  (scheme.open-output-file (parse-file file)))
+
+
+(definition (call-with-output-file file proc)
+  (scheme.call-with-output-file (parse-file file) proc))
+
+
+(definition public (print-unreadable object output proc)
+  (let* ((class-name (identifier-name (get-name~ (class-of object))))
+         (string (let ((output (open-output-string)))
+                   (proc output)
+                   (get-output-string output)))
+         (spacer (if (empty-string? string) "" " "))
+         (number (object->serial-number object)))
+    (format output "~{@{a}{a}{a} #{a}}" class-name spacer string number)))
 
 
 (definition public (write-line line . rest)
@@ -5181,49 +5129,6 @@
   (loop (for line in lines remainder remain)
         (do (unless (null? remain)
               (write-line line printer)))))
-
-
-(definition public (newline . rest)
-  (let ((port (if (null? rest) #f (car rest))))
-    (scheme.newline (output-port port))))
-
-
-;;;
-;;;; String-Printer
-;;;
-
-
-(class String-Printer extends Printer
-  
-  
-  (method (initialize)
-    (nextmethod (open-output-string)))
-  
-  
-  (method (destroy)
-    (close-output-port port)
-    (nextmethod))
-
-
-  (method public (get-output)
-    (get-output-string port)))
-
-
-;;;
-;;;; File-Printer
-;;;
-
-
-(class File-Printer extends Printer
-  
-  
-  (method (initialize file)
-    (nextmethod (open-output-file (parse~ file))))
-  
-  
-  (method (destroy)
-    (close-output-port port)
-    (nextmethod)))
 
 
 ;;;
@@ -5247,7 +5152,7 @@
 (class Format-Processor extends Object
   
   
-  (slot out                <Printer>)
+  (slot out                <port>)
   (slot control-string     <string>)
   (slot control-reader     <port>)
   (slot arguments          <list>)
@@ -5291,7 +5196,7 @@
               ((#\~)
                (let ((c (require-char reader)))
                  (when output?
-                   (print-char c out))))
+                   (write-char c out))))
               ((#\{)
                (let ((c (peek-char reader)))
                  (case c
@@ -5323,7 +5228,7 @@
                         (else (error "Unknown format directive ~{{t}}" directive))))))))
               (else
                (when output?
-                 (print-char c out))))))))
+                 (write-char c out))))))))
     (when (and (toplevel? reader) (not (arguments-empty?)))
       (error "Too many format arguments")))
   
@@ -5354,7 +5259,7 @@
   
   
   (method (read-control-string reader)
-    (let ((printer (new String-Printer))
+    (let ((printer (open-output-string))
           (done? #f))
       (while (not done?)
         (let ((c (require-char reader)))
@@ -5362,8 +5267,8 @@
               (begin
                 (read-char reader)
                 (set! done? #t))
-            (print-char c printer))))
-      (get-output~ printer)))
+            (write-char c printer))))
+      (get-output-string printer)))
   
   
   (method (process-conditional reader explicit?)
@@ -5415,7 +5320,7 @@
       (when output?
         (with-justification parameters
           (function dynamic (printer)
-            (print-char argument printer))))))
+            (write-char argument printer))))))
   
   
   (method (unsigned-directive parameters output?)
@@ -5478,9 +5383,9 @@
                       (value (cadr scan)))
                   (when (and (or (null? properties) (memq? key properties))
                              (or (not empty-value) (neq? value empty-value)))
-                    (print-char #\space printer)
+                    (write-char #\space printer)
                     (print-expr key detail printer)
-                    (print-char #\space printer)
+                    (write-char #\space printer)
                     (print-expr value detail printer)))
                 (set! scan (cddr scan)))))))))
   
@@ -5489,14 +5394,14 @@
     (when output?
       (let ((count (optional-parameter parameters 1)))
         (loop (repeat count)
-              (do (print-char #\space out))))))
+              (do (write-char #\space out))))))
   
   
   (method (tab-directive parameters output?)
     (when output?
       (let ((count (optional-parameter parameters 1)))
         (loop (repeat count)
-              (do (print-char #\tab out))))))
+              (do (write-char #\tab out))))))
   
   
   (method (newline-directive parameters output?)
@@ -5535,9 +5440,9 @@
           (proc out)
         (let ((justification (get-justify parameters))
               (padding (get-padding parameters))
-              (printer (new String-Printer)))
+              (printer (open-output-string)))
           (proc printer)
-          (let ((buffer (get-output~ printer)))
+          (let ((buffer (get-output-string printer)))
             (justify buffer width justification padding))))))
   
   
@@ -5550,10 +5455,10 @@
             ((:left)
              (display buffer out)
              (loop (repeat n)
-                   (do (print-char padding out))))
+                   (do (write-char padding out))))
             ((:right)
              (loop (repeat n)
-                   (do (print-char padding out)))
+                   (do (write-char padding out)))
              (display buffer out)))))))
   
   
@@ -5730,112 +5635,6 @@
 
 
 ;;;
-;;;; Printer
-;;;
-
-
-(definition *output-printer*
-  (new Printer (current-output-port)))
-
-
-(definition *error-printer*
-  (new Printer (current-output-port)))
-
-
-(definition *console-printer*
-  (new Printer (current-output-port)))
-
-
-(definition (resolve-printer obj)
-  (case obj
-    ((:output) *output-printer*)
-    ((:error) *error-printer*)
-    ((:console) *console-printer*)
-    (else obj)))
-
-
-(definition public (with-printer printer proc)
-  (if (eq? printer :string)
-      (let ((printer (new String-Printer)))
-        (proc printer)
-        (get-output~ printer))
-    (proc (resolve-printer printer))))
-
-
-(definition (get-printer-use-utf8? printer)
-  ;; convert
-  #f)
-
-(definition (set-printer-use-utf8? printer flag)
-  ;; convert
-  )
-
-
-(definition (textual expr (printer :output))
-  (print~ expr (resolve-printer printer) :text))
-
-
-(definition (describe expr (printer :output))
-  (print~ expr (resolve-printer printer) :describe))
-
-
-(definition (print-expr expr detail (printer :output))
-  (print~ expr (resolve-printer printer) detail))
-
-
-(definition (print-char c (printer :output))
-  (write-char c (output-port printer)))
-
-
-(definition (print-unsigned n (printer :output))
-  ;; quick fix
-  (write n (output-port printer)))
-
-
-(definition (print-hexadecimal n (printer :output))
-  ;; quick fix
-  (write n (output-port printer)))
-
-
-(definition (print-binary b (printer :output))
-  ;; quick fix
-  (write b (output-port printer)))
-
-
-(definition (print-real r precision (printer :output))
-  ;; quick fix
-  (write r (output-port printer)))
-
-
-(definition (print-list list separator last-separator before after detail (printer :output))
-  (when (not-null? list)
-    (when before
-      (display before printer))
-    (let (iterate (scan list))
-      (let ((expr (car scan)))
-        (print~ expr printer detail)
-        (let ((next (cdr scan)))
-          (when (not-null? next)
-            (if (pair? next)
-                (display (if (null? (cdr next)) last-separator separator) printer)
-              (display " . " printer)
-              (print~ next printer detail))
-            (iterate (cdr scan))))))
-    (when after
-      (display after printer))))
-
-
-(definition (fresh-line (printer :output))
-  (unless (at-fresh-line? printer)
-    (newline printer)))
-
-
-(definition (at-fresh-line? (printer :output))
-  ;; todo
-  #f)
-
-
-;;;
 ;;;; Profiler
 ;;;
 
@@ -5896,7 +5695,7 @@
     (if (string? sequence)
         ;; should take detail into account
         (loop (for n from start below (+ start size))
-              (do (print-char (string-ref sequence n) output)))
+              (do (write-char (string-ref sequence n) output)))
       (print-unreadable self output
         (function (output)
           (format output "{s} {s} {s}" sequence start size)))))

@@ -394,6 +394,7 @@
 (native jazz.enqueue)
 (native jazz.enqueue-list)
 (native jazz.queue-list)
+(native jazz.reset-queue)
 
 
 ;;;

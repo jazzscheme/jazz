@@ -176,9 +176,9 @@
            (servlet (new (autoload servlet-class) self request {} pref))
            (renderer (jml-renderer pref))
            (jml (process-request~ servlet request resource))
-           (printer (new String-Printer)))
+           (printer (open-output-string)))
       (render~ renderer jml printer)
-      (get-output~ printer)))
+      (get-output-string printer)))
   
   
   (method (generate-static-page request resource servlet-class html-generator)
@@ -190,8 +190,9 @@
               (jml (process-request~ servlet request resource))
               (static-file (generated-page~ html-generator request root-directory resource servlet)))
           (create-directories~ static-file)
-          (with-closed ((printer (new File-Printer static-file)))
-            (render~ renderer jml printer))))))
+          (call-with-output-file static-file
+            (lambda (printer)
+              (render~ renderer jml printer)))))))
 
   
   ;;;

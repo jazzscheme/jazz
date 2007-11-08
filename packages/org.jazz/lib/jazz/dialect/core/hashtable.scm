@@ -38,8 +38,8 @@
 (module jazz.dialect.core.hashtable
 
 
-(define (jazz.make-hashtable test #!optional (hash #f))
-  (%%make-hashtable test hash))
+(define (jazz.make-hashtable #!key (test eq?) (hash #f))
+  (%%make-hashtable test: test hash: hash))
 
 
 (define (jazz.hashtable? obj)

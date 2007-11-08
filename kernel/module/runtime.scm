@@ -253,7 +253,7 @@
 
 
 (define jazz.Environment
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (define (jazz.get-environment)
@@ -329,7 +329,7 @@
 
 
 (define jazz.Extension-Readers
-  (%%make-hashtable equal?))
+  (%%make-hashtable test: equal?))
 
 
 (define (jazz.get-extension-reader extension)

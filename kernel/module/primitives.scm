@@ -295,7 +295,7 @@
     (define-macro (%%hashtable? obj)
       `(table? ,obj))
     
-    (define-macro (%%make-hashtable test #!optional (hash #f))
+    (define-macro (%%make-hashtable #!key (test eq?) (hash #f))
       `(if (eq? ,hash #f)
            (make-table test: ,test)
          (make-table test: ,test hash: ,hash)))

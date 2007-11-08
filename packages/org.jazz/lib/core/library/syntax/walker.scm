@@ -85,7 +85,7 @@
     (let iter ((n 0))
       (if (%%fx<= n access-level)
           (begin
-            (%%vector-set! lookups n (%%make-hashtable eq?))
+            (%%vector-set! lookups n (%%make-hashtable test: eq?))
             (iter (%%fx+ n 1)))))
     lookups))
 
@@ -1285,7 +1285,7 @@
 
 
 (define jazz.primitive-types
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (%%hashtable-set! jazz.primitive-types 'any       jazz.Any)
@@ -1667,7 +1667,7 @@
 
 
 (define (jazz.new-walk-frame bindings)
-  (let ((hashtable (%%make-hashtable eq?)))
+  (let ((hashtable (%%make-hashtable test: eq?)))
     (for-each (lambda (binding)
                 (let ((name (%%get-lexical-binding-name binding)))
                   (%%hashtable-set! hashtable name binding)))
@@ -3425,7 +3425,7 @@
 
 
 (define jazz.specializers
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (define (jazz.add-specializer specialized-declaration specializer)
@@ -3529,7 +3529,7 @@
 
 
 (define jazz.primitive-patterns
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 (define jazz.primitive-patterns-initialized?
   #f)
@@ -3696,7 +3696,7 @@
 
 
 (define jazz.type-tests
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
@@ -3732,7 +3732,7 @@
 
 
 (define jazz.not-type-tests
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (%%hashtable-set! jazz.not-type-tests 'jazz.dialect.kernel.not-null? jazz.Null)
@@ -4394,7 +4394,7 @@
 
 
 (define jazz.Literal-Constructors
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (define (jazz.register-literal-constructor name constructor)
@@ -4990,7 +4990,7 @@
 
 
 (define jazz.Catalog
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (define (jazz.get-catalog)

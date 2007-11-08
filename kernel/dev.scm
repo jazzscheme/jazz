@@ -39,6 +39,22 @@
 (display-environment-set! #t)
 
 
+#; ( ;; what's the catch???
+(include "~/gambit/lib/header.scm")
+(define (fill cnt size)
+  (let ((table (make-table test: eq? size: size)))
+    (let iter ((n 0))
+      (if (##fx= (modulo n 10) 1)
+          (begin
+            (write (macro-table-gcht table))
+            (newline)))
+      (if (##fx< n cnt)
+          (begin
+            (table-set! table n n)
+            (iter (##fx+ n 1)))))
+    table)))
+
+
 (define (block-tail-call)
   #f)
 

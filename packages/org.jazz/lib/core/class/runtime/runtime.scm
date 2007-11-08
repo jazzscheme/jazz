@@ -109,7 +109,7 @@
 
 
 (define jazz.Core-Classes
-  (%%make-hashtable eq?))
+  (%%make-hashtable test: eq?))
 
 
 (define (jazz.get-core-classes)
@@ -187,7 +187,7 @@
     (lambda (subclass)
       (%%when (%%class? subclass)
         (%%when (%%not (%%get-class-dispatch-table subclass))
-          (%%set-class-dispatch-table subclass (%%make-hashtable eq?)))
+          (%%set-class-dispatch-table subclass (%%make-hashtable test: eq?)))
         (let ((dispatch-table (%%get-class-dispatch-table subclass)))
           (%%hashtable-set! dispatch-table name value))))))
 
@@ -541,7 +541,7 @@
 
 
 (define (jazz.new-class class-of-class name ascendant interfaces)
-  (let ((class (jazz.allocate-class class-of-class name (%%make-hashtable eq?) 0 #f '()
+  (let ((class (jazz.allocate-class class-of-class name (%%make-hashtable test: eq?) 0 #f '()
                 ascendant
                 interfaces
                 (if ascendant (%%get-class-slots ascendant) '())
@@ -1432,7 +1432,7 @@
 
 
 (define (jazz.new-interface class name ascendants)
-  (let ((interface (jazz.allocate-interface class name (%%make-hashtable eq?) 0 #f '() ascendants jazz.new-interface-rank)))
+  (let ((interface (jazz.allocate-interface class name (%%make-hashtable test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
     (set! jazz.new-interface-rank (+ jazz.new-interface-rank 1))
     (%%set-category-ancestors interface (%%list->vector (jazz.compute-interface-ancestors interface ascendants)))
     (for-each (lambda (ascendant)

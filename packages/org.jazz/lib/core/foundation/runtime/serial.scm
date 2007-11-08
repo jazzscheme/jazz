@@ -58,7 +58,7 @@
      1)
    
    (define jazz.serialized-objects
-     (%%make-hashtable equal?))
+     (%%make-hashtable test: equal?))
    
    (define (jazz.object->serial-number obj)
      (or (%%hashtable-ref jazz.serialized-objects obj #f)

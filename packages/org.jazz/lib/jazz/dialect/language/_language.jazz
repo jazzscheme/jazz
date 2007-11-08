@@ -3231,25 +3231,25 @@
 
 
 ;;;
-;;;; Hashtable
+;;;; Table
 ;;;
 
 
-(class Hashtable-Class extends Class)
+(class Table-Class extends Class)
 
 
-(class primitive Hashtable metaclass Hashtable-Class extends Object
+(class primitive Table metaclass Table-Class extends Object
   
   
   (method (initialize . rest)
-    (native-class "hashtables"))
+    (native-class "tables"))
 
 
   (method (print printer readably)
     (print-unreadable self printer
       (function dynamic (printer)
         (format printer "{a} entries"
-                (hashtable-length self)))))
+                (table-length self)))))
   
   
   (method (iterate-object)
@@ -3280,38 +3280,37 @@
       list)))
 
 
-(definition public (new-hashtable (test: test eq?) (hash: hash {}))
-  (make-hashtable test: test hash: hash))
+(definition public (hash-add table key value)
+  (table-set! table key (cons value (table-ref table key '()))))
 
 
-(definition public (hash-ref hashtable key (default {}))
-  (hashtable-ref hashtable key default))
+(definition public (hash-remove! table <Table> name <Object> value <Object>)
+  (table-set! table name (remove! value (table-ref table name #f))))
 
 
-(definition public (hash-set! hashtable key value)
-  (hashtable-set! hashtable key value))
+(definition public (for-each-hash proc <procedure> table <Table>)
+  (iterate-table table proc))
 
 
-(definition public (hash-add hashtable key value)
-  (hash-set! hashtable key (cons value (hash-ref hashtable key '()))))
+;; TO PUT NEXT TO for-each-hash !!!!!
+@wait
+(method public (map-hash proc <procedure> table <Table>)
+  (let ((iter (new Table-Iterator table))
+        (fact (new List-Factory)))
+    (while (not (done?~ iter))
+      (put~ fact (proc (peek-key~ iter) (peek~ iter)))
+      (next~ iter))
+    (get-output~ fact)))
 
 
-(definition public (hash-remove! hashtable <Hashtable> name <Object> value <Object>)
-  (hash-set! hashtable name (remove! value (hash-ref hashtable name))))
+(definition hash-clear table-clear)
 
 
-(definition public (for-each-hash proc <procedure> hashtable <Hashtable>)
-  (iterate-hashtable hashtable proc))
+(definition (empty-table table)
+  (unimplemented 'empty-table))
 
 
-(definition hash-clear hashtable-clear)
-
-
-(definition (empty-hashtable hashtable)
-  (unimplemented 'empty-hashtable))
-
-
-(definition public (load-hashtable hashtable file error-on-duplicates?)
+(definition public (load-table table file error-on-duplicates?)
   (call-with-input-file file
     (lambda (reader)
       (let (iterate)
@@ -3319,9 +3318,9 @@
               (object (read reader)))
           (when (and (not (eof-object? name))
                      (not (eof-object? object)))
-            (if (and error-on-duplicates? (hashtable-ref hashtable name #f))
-                (error "Duplicated hashtable entries for {t}" name)
-              (hashtable-set! hashtable name object))
+            (if (and error-on-duplicates? (table-ref table name #f))
+                (error "Duplicated table entries for {t}" name)
+              (table-set! table name object))
             (iterate)))))))
 
 
@@ -3334,7 +3333,7 @@
   
   
   (method (iterate-object)
-    (iterate-hashtable self))
+    (iterate-table self))
   
   
   @convert
@@ -3355,16 +3354,16 @@
       list)))
 
 
-(definition new-map new-hashtable)
-(definition map-ref hashtable-ref)
-(definition map-set! hashtable-set!)
+(definition new-map make-table)
+(definition map-ref table-ref)
+(definition map-set! table-set!)
 (definition (map-clear map sym)
   (map-set! map sym))
 
-(definition map-length hashtable-length)
+(definition map-length table-length)
        
 (definition (empty-map map)
-  (let ((keys (hashtable-keys map)))
+  (let ((keys (table-keys map)))
     (for-each (lambda (k) (map-set! map k)) keys)))
 
 (definition (load-map map)

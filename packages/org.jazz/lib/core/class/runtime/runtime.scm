@@ -109,7 +109,7 @@
 
 
 (define jazz.Core-Classes
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.get-core-classes)
@@ -117,15 +117,15 @@
 
 
 (define (jazz.core-class? name)
-  (%%boolean (%%hashtable-ref jazz.Core-Classes name #f)))
+  (%%boolean (%%table-ref jazz.Core-Classes name #f)))
 
 
 (define (jazz.get-core-class name)
-  (%%hashtable-ref jazz.Core-Classes name #f))
+  (%%table-ref jazz.Core-Classes name #f))
 
 
 (define (jazz.set-core-class name class)
-  (%%hashtable-set! jazz.Core-Classes name class))
+  (%%table-set! jazz.Core-Classes name class))
 
 
 ;;;
@@ -178,7 +178,7 @@
 (define (jazz.copy-dispatch-table class)
   (let ((class-dispatch-table (%%get-class-dispatch-table class)))
     (if class-dispatch-table
-        (%%copy-hashtable class-dispatch-table)
+        (%%copy-table class-dispatch-table)
       #f)))
 
 
@@ -187,9 +187,9 @@
     (lambda (subclass)
       (%%when (%%class? subclass)
         (%%when (%%not (%%get-class-dispatch-table subclass))
-          (%%set-class-dispatch-table subclass (%%make-hashtable test: eq?)))
+          (%%set-class-dispatch-table subclass (%%make-table test: eq?)))
         (let ((dispatch-table (%%get-class-dispatch-table subclass)))
-          (%%hashtable-set! dispatch-table name value))))))
+          (%%table-set! dispatch-table name value))))))
 
 
 (define (jazz.create-class-tables class)
@@ -300,7 +300,7 @@
          (class-rank (%%get-class-level class))
          (root-implementation-table (%%vector-ref class-table class-rank))
          (added-methods '()))
-    (%%iterate-hashtable (%%get-category-fields class)
+    (%%iterate-table (%%get-category-fields class)
       (lambda (key field)
         (%%when (jazz.virtual-method? field)
           (if (%%get-method-category-rank field)
@@ -541,7 +541,7 @@
 
 
 (define (jazz.new-class class-of-class name ascendant interfaces)
-  (let ((class (jazz.allocate-class class-of-class name (%%make-hashtable test: eq?) 0 #f '()
+  (let ((class (jazz.allocate-class class-of-class name (%%make-table test: eq?) 0 #f '()
                 ascendant
                 interfaces
                 (if ascendant (%%get-class-slots ascendant) '())
@@ -1322,34 +1322,34 @@
 
 
 ;;;
-;;;; Hashtable
+;;;; Table
 ;;;
 
 
-(jazz.define-class jazz.Hashtable-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Table-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
-(jazz.define-method (jazz.of-type? (jazz.Hashtable-Class class) object)
-  (%%hashtable? object))
+(jazz.define-method (jazz.of-type? (jazz.Table-Class class) object)
+  (%%table? object))
 
 
-(jazz.define-method (jazz.emit-specifier (jazz.Hashtable-Class class))
-  'hashtable)
+(jazz.define-method (jazz.emit-specifier (jazz.Table-Class class))
+  'table)
 
 
-(jazz.define-method (jazz.emit-test (jazz.Hashtable-Class type) value source-declaration environment)
-  `(%%hashtable? ,value))
+(jazz.define-method (jazz.emit-test (jazz.Table-Class type) value source-declaration environment)
+  `(%%table? ,value))
 
 
-(jazz.encapsulate-class jazz.Hashtable-Class)
+(jazz.encapsulate-class jazz.Table-Class)
 
 
-(jazz.define-class jazz.Hashtable jazz.Object () jazz.Hashtable-Class
+(jazz.define-class jazz.Table jazz.Object () jazz.Table-Class
   ())
 
 
-(jazz.encapsulate-class jazz.Hashtable)
+(jazz.encapsulate-class jazz.Table)
 
 
 ;;;
@@ -1391,7 +1391,7 @@
       (make-vector 16 #f))
     
     ;; quicky until we find a clean solution with Marc
-    (define jazz.hashtable-type
+    (define jazz.table-type
       (##structure-type (make-table)))
     
     ;; quicky until we find a clean solution with Marc
@@ -1432,7 +1432,7 @@
 
 
 (define (jazz.new-interface class name ascendants)
-  (let ((interface (jazz.allocate-interface class name (%%make-hashtable test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
+  (let ((interface (jazz.allocate-interface class name (%%make-table test: eq?) 0 #f '() ascendants jazz.new-interface-rank)))
     (set! jazz.new-interface-rank (+ jazz.new-interface-rank 1))
     (%%set-category-ancestors interface (%%list->vector (jazz.compute-interface-ancestors interface ascendants)))
     (for-each (lambda (ascendant)
@@ -1490,7 +1490,7 @@
 (define (jazz.update-interface-root-methods interface)
   (let* ((interface-rank (%%get-interface-rank interface))
          (added-methods '()))
-    (%%iterate-hashtable (%%get-category-fields interface)
+    (%%iterate-table (%%get-category-fields interface)
       (lambda (key field)
         (%%when (and (jazz.virtual-method? field)
                      (%%not (%%get-method-category-rank field)))

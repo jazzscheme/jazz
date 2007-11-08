@@ -40,7 +40,7 @@
 
 (require ;; Language
          (jazz.dialect.core.continuation)
-         (jazz.dialect.core.hashtable)
+         (jazz.dialect.core.table)
          (jazz.dialect.core.gambit)
          (jazz.dialect.core.reader)
          

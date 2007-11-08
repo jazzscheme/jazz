@@ -282,8 +282,8 @@ end-of-c-code
     jazz.Fixnum         ;; ___ARG3
     jazz.Char           ;; ___ARG4
     jazz.specialtypes   ;; ___ARG5
-    jazz.hashtable-type ;; ___ARG6
-    jazz.Hashtable      ;; ___ARG7
+    jazz.table-type     ;; ___ARG6
+    jazz.Table          ;; ___ARG7
     jazz.port-type      ;; ___ARG8
     jazz.Port           ;; ___ARG9
     ))

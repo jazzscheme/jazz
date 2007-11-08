@@ -43,7 +43,7 @@
 
 
 (define jazz.Autoloads
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.get-autoloads)
@@ -51,11 +51,11 @@
 
 
 (define (jazz.get-autoload name)
-  (%%hashtable-ref jazz.Autoloads name #f))
+  (%%table-ref jazz.Autoloads name #f))
 
 
 (define (jazz.set-autoload name module-name)
-  (%%hashtable-set! jazz.Autoloads name module-name))
+  (%%table-set! jazz.Autoloads name module-name))
 
 
 (define (jazz.require-autoload name)

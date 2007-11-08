@@ -85,7 +85,7 @@
     (let iter ((n 0))
       (if (%%fx<= n access-level)
           (begin
-            (%%vector-set! lookups n (%%make-hashtable test: eq?))
+            (%%vector-set! lookups n (%%make-table test: eq?))
             (iter (%%fx+ n 1)))))
     lookups))
 
@@ -393,7 +393,7 @@
 
 
 (define (jazz.find-declaration namespace-declaration name)
-  (%%hashtable-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
+  (%%table-ref (%%get-access-lookup namespace-declaration jazz.private-access) name #f))
 
 
 (jazz.encapsulate-class jazz.Namespace-Declaration)
@@ -431,7 +431,7 @@
                       #f
                     (let ((imported-library-declaration (%%get-library-invoice-library imported-library-invoice)))
                       (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                        (%%hashtable-merge! private imported))))))
+                        (%%table-merge! private imported))))))
               (%%get-library-declaration-imports library-declaration)))
   
   (let ((public (%%get-access-lookup library-declaration jazz.public-access)))
@@ -441,25 +441,25 @@
                   (cond (only
                           (for-each (lambda (declaration-reference)
                                       (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                                        (%%hashtable-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
+                                        (%%table-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
                                     only))
                         (autoload
                           (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))
                             (for-each (lambda (declaration-reference)
                                         (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                                          (%%hashtable-set! public name (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))
+                                          (%%table-set! public name (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))
                                       autoload)))
                         (else
                          (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
-                           (%%hashtable-merge! public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
+                           (%%table-merge! public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
               (%%get-library-declaration-exports library-declaration))))
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol external?)
   (let ((access (if external? jazz.public-access jazz.private-access)))
-    (%%hashtable-ref (%%vector-ref (%%get-namespace-declaration-lookups declaration) access)
-                     symbol
-                     #f)))
+    (%%table-ref (%%vector-ref (%%get-namespace-declaration-lookups declaration) access)
+                 symbol
+                 #f)))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -1285,37 +1285,37 @@
 
 
 (define jazz.primitive-types
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
-(%%hashtable-set! jazz.primitive-types 'any       jazz.Any)
-(%%hashtable-set! jazz.primitive-types 'object    jazz.Object)
-(%%hashtable-set! jazz.primitive-types 'bool      jazz.Boolean)
-(%%hashtable-set! jazz.primitive-types 'char      jazz.Char)
-(%%hashtable-set! jazz.primitive-types 'number    jazz.Number)
-(%%hashtable-set! jazz.primitive-types 'complex   jazz.Complex)
-(%%hashtable-set! jazz.primitive-types 'real      jazz.Real)
-(%%hashtable-set! jazz.primitive-types 'rational  jazz.Rational)
-(%%hashtable-set! jazz.primitive-types 'int       jazz.Integer)
-(%%hashtable-set! jazz.primitive-types 'fx        jazz.Fixnum)
-(%%hashtable-set! jazz.primitive-types 'fl        jazz.Flonum)
-(%%hashtable-set! jazz.primitive-types 'list      jazz.List)
-(%%hashtable-set! jazz.primitive-types 'null      jazz.Null)
-(%%hashtable-set! jazz.primitive-types 'pair      jazz.Pair)
-(%%hashtable-set! jazz.primitive-types 'port      jazz.Port)
-(%%hashtable-set! jazz.primitive-types 'procedure jazz.Procedure)
-(%%hashtable-set! jazz.primitive-types 'foreign   jazz.Foreign)
-(%%hashtable-set! jazz.primitive-types 'string    jazz.String)
-(%%hashtable-set! jazz.primitive-types 'symbol    jazz.Symbol)
-(%%hashtable-set! jazz.primitive-types 'keyword   jazz.Keyword)
-(%%hashtable-set! jazz.primitive-types 'vector    jazz.Vector)
-(%%hashtable-set! jazz.primitive-types 'hashtable jazz.Hashtable)
-(%%hashtable-set! jazz.primitive-types 'promise   jazz.Promise)
-(%%hashtable-set! jazz.primitive-types 'void      jazz.Void)
+(%%table-set! jazz.primitive-types 'any       jazz.Any)
+(%%table-set! jazz.primitive-types 'object    jazz.Object)
+(%%table-set! jazz.primitive-types 'bool      jazz.Boolean)
+(%%table-set! jazz.primitive-types 'char      jazz.Char)
+(%%table-set! jazz.primitive-types 'number    jazz.Number)
+(%%table-set! jazz.primitive-types 'complex   jazz.Complex)
+(%%table-set! jazz.primitive-types 'real      jazz.Real)
+(%%table-set! jazz.primitive-types 'rational  jazz.Rational)
+(%%table-set! jazz.primitive-types 'int       jazz.Integer)
+(%%table-set! jazz.primitive-types 'fx        jazz.Fixnum)
+(%%table-set! jazz.primitive-types 'fl        jazz.Flonum)
+(%%table-set! jazz.primitive-types 'list      jazz.List)
+(%%table-set! jazz.primitive-types 'null      jazz.Null)
+(%%table-set! jazz.primitive-types 'pair      jazz.Pair)
+(%%table-set! jazz.primitive-types 'port      jazz.Port)
+(%%table-set! jazz.primitive-types 'procedure jazz.Procedure)
+(%%table-set! jazz.primitive-types 'foreign   jazz.Foreign)
+(%%table-set! jazz.primitive-types 'string    jazz.String)
+(%%table-set! jazz.primitive-types 'symbol    jazz.Symbol)
+(%%table-set! jazz.primitive-types 'keyword   jazz.Keyword)
+(%%table-set! jazz.primitive-types 'vector    jazz.Vector)
+(%%table-set! jazz.primitive-types 'table     jazz.Table)
+(%%table-set! jazz.primitive-types 'promise   jazz.Promise)
+(%%table-set! jazz.primitive-types 'void      jazz.Void)
 
 
 (define (jazz.lookup-primitive-type name)
-  (%%hashtable-ref jazz.primitive-types name #f))
+  (%%table-ref jazz.primitive-types name #f))
 
 
 (define jazz.primitive-declarations
@@ -1340,7 +1340,7 @@
     (cons jazz.Symbol    'Symbol)
     (cons jazz.Keyword   'Keyword)
     (cons jazz.Vector    'Vector)
-    (cons jazz.Hashtable 'Hashtable)
+    (cons jazz.Table     'Table)
     (cons jazz.Promise   'Promise)))
 
 
@@ -1667,16 +1667,16 @@
 
 
 (define (jazz.new-walk-frame bindings)
-  (let ((hashtable (%%make-hashtable test: eq?)))
+  (let ((table (%%make-table test: eq?)))
     (for-each (lambda (binding)
                 (let ((name (%%get-lexical-binding-name binding)))
-                  (%%hashtable-set! hashtable name binding)))
+                  (%%table-set! table name binding)))
               bindings)
-    (jazz.allocate-walk-frame jazz.Walk-Frame hashtable)))
+    (jazz.allocate-walk-frame jazz.Walk-Frame table)))
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Frame binding) symbol)
-  (%%hashtable-ref (%%get-walk-frame-bindings binding) symbol #f))
+  (%%table-ref (%%get-walk-frame-bindings binding) symbol #f))
 
 
 (jazz.encapsulate-class jazz.Walk-Frame)
@@ -2786,8 +2786,8 @@
   (%%when declaration
     (%%set-declaration-children declaration (%%append (%%get-declaration-children declaration) (%%list child)))
     (let ((name (%%get-lexical-binding-name child)))
-      (%%hashtable-set! (%%get-access-lookup declaration jazz.private-access) name child)
-      (%%hashtable-set! (%%get-access-lookup declaration jazz.public-access) name child))))
+      (%%table-set! (%%get-access-lookup declaration jazz.private-access) name child)
+      (%%table-set! (%%get-access-lookup declaration jazz.public-access) name child))))
 
 
 (define (jazz.find-form-declaration namespace-declaration name)
@@ -3425,17 +3425,17 @@
 
 
 (define jazz.specializers
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.add-specializer specialized-declaration specializer)
-  (%%hashtable-set! jazz.specializers specialized-declaration
-    (%%append (%%hashtable-ref jazz.specializers specialized-declaration '())
+  (%%table-set! jazz.specializers specialized-declaration
+    (%%append (%%table-ref jazz.specializers specialized-declaration '())
               (%%list specializer))))
 
 
 (define (jazz.get-specializers binding)
-  (%%hashtable-ref jazz.specializers binding '()))
+  (%%table-ref jazz.specializers binding '()))
 
 
 (define (jazz.emit-specialized-call operator locator arguments arguments-codes declaration environment)
@@ -3529,16 +3529,16 @@
 
 
 (define jazz.primitive-patterns
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 (define jazz.primitive-patterns-initialized?
   #f)
 
 
 (define (jazz.initialize-primitive-patterns)
-  (%%iterate-hashtable jazz.primitive-patterns
+  (%%iterate-table jazz.primitive-patterns
     (lambda (key patterns)
-      (%%hashtable-set! jazz.primitive-patterns key
+      (%%table-set! jazz.primitive-patterns key
         (map (lambda (pattern)
                (let ((name (%%car pattern))
                      (specifier (%%cadr pattern)))
@@ -3549,13 +3549,13 @@
 
 (define (jazz.add-primitive-patterns operator patterns)
   (set! jazz.primitive-patterns-initialized? #f)
-  (%%hashtable-set! jazz.primitive-patterns operator patterns))
+  (%%table-set! jazz.primitive-patterns operator patterns))
 
 
 (define (jazz.get-primitive-patterns locator)
   (if (%%not jazz.primitive-patterns-initialized?)
       (jazz.initialize-primitive-patterns))
-  (%%hashtable-ref jazz.primitive-patterns locator '()))
+  (%%table-ref jazz.primitive-patterns locator '()))
 
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.=            '((##fx=  <fx*:bool>)  (##fl=  <fl*:bool>)  (##= <number^number:bool>)))
@@ -3696,46 +3696,46 @@
 
 
 (define jazz.type-tests
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.complex?     jazz.Complex)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.real?        jazz.Real)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.rational?    jazz.Rational)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.integer?     jazz.Integer)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.boolean?     jazz.Boolean)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.complex?     jazz.Complex)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.real?        jazz.Real)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.rational?    jazz.Rational)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.integer?     jazz.Integer)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.number?      jazz.Number)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.boolean?     jazz.Boolean)
 ;; not 100% correct because of Scheme's semantic for list?
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.list?        jazz.List)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.null?        jazz.Null)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.pair?        jazz.Pair)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.symbol?      jazz.Symbol)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.char?        jazz.Char)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.string?      jazz.String)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.vector?      jazz.Vector)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.procedure?   jazz.Procedure)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.input-port?  jazz.Port)
-(%%hashtable-set! jazz.type-tests 'scheme.dialect.kernel.output-port? jazz.Port)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.fixnum?        jazz.Fixnum)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.flonum?        jazz.Flonum)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.keyword?       jazz.Keyword)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.object?        jazz.Object)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.category?      jazz.Category)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.class?         jazz.Class)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.interface?     jazz.Interface)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.field?         jazz.Field)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.slot?          jazz.Slot)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.method?        jazz.Method)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.hashtable?     jazz.Hashtable)
-(%%hashtable-set! jazz.type-tests 'jazz.dialect.kernel.foreign?       jazz.Foreign)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.list?        jazz.List)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.null?        jazz.Null)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.pair?        jazz.Pair)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.symbol?      jazz.Symbol)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.char?        jazz.Char)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.string?      jazz.String)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.vector?      jazz.Vector)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.procedure?   jazz.Procedure)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.input-port?  jazz.Port)
+(%%table-set! jazz.type-tests 'scheme.dialect.kernel.output-port? jazz.Port)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.fixnum?        jazz.Fixnum)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.flonum?        jazz.Flonum)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.keyword?       jazz.Keyword)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.object?        jazz.Object)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.category?      jazz.Category)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.class?         jazz.Class)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.interface?     jazz.Interface)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.field?         jazz.Field)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.slot?          jazz.Slot)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.method?        jazz.Method)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.table?         jazz.Table)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.foreign?       jazz.Foreign)
 
 
 (define jazz.not-type-tests
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
-(%%hashtable-set! jazz.not-type-tests 'jazz.dialect.kernel.not-null? jazz.Null)
+(%%table-set! jazz.not-type-tests 'jazz.dialect.kernel.not-null? jazz.Null)
 
 
 (define (jazz.restrict-type base type)
@@ -3851,10 +3851,10 @@
                                 env))
                              (else
                               (if (%%fx= count 1)
-                                  (let ((class (%%hashtable-ref jazz.type-tests operator-locator #f)))
+                                  (let ((class (%%table-ref jazz.type-tests operator-locator #f)))
                                     (if class
                                         (process-is (%%car arguments) class env)
-                                      (let ((class (%%hashtable-ref jazz.not-type-tests operator-locator #f)))
+                                      (let ((class (%%table-ref jazz.not-type-tests operator-locator #f)))
                                         (if class
                                             (revenv (process-is (%%car arguments) class env))
                                           env))))
@@ -4394,15 +4394,15 @@
 
 
 (define jazz.Literal-Constructors
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.register-literal-constructor name constructor)
-  (%%hashtable-set! jazz.Literal-Constructors name constructor))
+  (%%table-set! jazz.Literal-Constructors name constructor))
 
 
 (define (jazz.require-literal-constructor name)
-  (or (%%hashtable-ref jazz.Literal-Constructors name #f)
+  (or (%%table-ref jazz.Literal-Constructors name #f)
       (jazz.error "Cannot construct literals of type {s}" name)))
 
 
@@ -4447,7 +4447,7 @@
 
 
 (define (jazz.make-symbolic-chars alist)
-  (%%alist->hashtable
+  (%%alist->table
     (map (lambda (pair)
            (%%cons (%%car pair) (integer->char (%%cdr pair))))
          alist)
@@ -4503,7 +4503,7 @@
 
 
 (define (jazz.symbolic-char name)
-  (%%hashtable-ref jazz.Symbolic-Chars name #f))
+  (%%table-ref jazz.Symbolic-Chars name #f))
 
 
 ;;;
@@ -4990,7 +4990,7 @@
 
 
 (define jazz.Catalog
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.get-catalog)
@@ -4998,11 +4998,11 @@
 
 
 (define (jazz.get-catalog-entry module-name)
-  (%%hashtable-ref jazz.Catalog module-name #f))
+  (%%table-ref jazz.Catalog module-name #f))
 
 
 (define (jazz.set-catalog-entry module-name entry)
-  (%%hashtable-set! jazz.Catalog module-name entry))
+  (%%table-set! jazz.Catalog module-name entry))
 
 
 (define (jazz.locate-toplevel-declaration module-name #!optional (error? #t))

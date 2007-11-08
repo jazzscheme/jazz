@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module dev.build
+(module core.dev.build
 
 
 (require (core.foundation)

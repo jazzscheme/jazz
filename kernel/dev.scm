@@ -52,6 +52,14 @@
           (begin
             (table-set! table n n)
             (iter (##fx+ n 1)))))
+    table))
+(define (fill cnt size)
+  (let ((table (make-table test: eq? size: size)))
+    (let iter ((n 0))
+      (if (##fx< n cnt)
+          (begin
+            (table-set! table n n)
+            (iter (##fx+ n 1)))))
     table)))
 
 
@@ -127,7 +135,7 @@
 
 (define (ld)
   (ll)
-  (l 'dev))
+  (l 'core.dev))
 
 
 (define (lj)

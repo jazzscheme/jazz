@@ -75,7 +75,7 @@
   (slot user-pathname                   initialize {})
   (slot user                            initialize {})
   (slot focus-listeners                 initialize '())
-  (slot application-listeners           initialize (new-hashtable test: eq?))
+  (slot application-listeners           initialize (make-table test: eq?))
   (slot selected-owner                  initialize {})
   (slot selected                        initialize {})
   (slot selected-listeners              initialize '())
@@ -388,7 +388,7 @@
 
   
   (method (login-user)
-    (let ((name "Guillaume"))
+    (let ((name "Me"))
       (new File (list 'Users name (format "{a}.jazz" name))))
     @convert(
     (debug 'LOGIN)
@@ -467,8 +467,7 @@
       (with-safe-execution "creating the user"
         (function dynamic ()
           (set! user (new (case user-name
-                            ;;(Guillaume (new Guillaume))
-                            (else Guillaume))))
+                            (else Me))))
           @convert
           (set! user (new (load-source user-name user-pathname))))
         continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
@@ -748,7 +747,7 @@
                   (let ((workbench (get-workbench)))
                     (if (not workbench)
                         {}
-                      (gather-keys~ (get-products-hashtable~ workbench)))))))
+                      (gather-keys~ (get-products-table~ workbench)))))))
 
   
   ;;;
@@ -856,11 +855,11 @@
   
   
   (method (get-application-listeners category)
-    (hash-ref application-listeners category '()))
+    (table-ref application-listeners category '()))
   
   
   (method (set-application-listeners category listeners)
-    (hash-set! application-listeners category listeners))
+    (table-set! application-listeners category listeners))
 
   
   ;;;
@@ -877,6 +876,8 @@
   
   
   (method (repositories-file)
+    {File Root "packages" "org.jazz" "lib" "user" "settings" "Repositories.jml"}
+    @convert
     {File User "Settings" "Repositories.jml"})
   
   
@@ -975,7 +976,7 @@
       (method (setup-accelerators)
         (set! accelerators-table (all-accelerators-table))
         (set! accelerators-handle (get-handle~ accelerators-table))
-        (set! accelerators-dispatch (new-hashtable test: shortcut=? hash: shortcut-hash))))
+        (set! accelerators-dispatch (make-table test: shortcut=? hash: shortcut-hash))))
     (else
      (method (setup-accelerators)
        #f)))
@@ -1017,7 +1018,7 @@
   
   
   (method public (get-bound-actions shortcut)
-    (hash-ref accelerators-dispatch shortcut {}))
+    (table-ref accelerators-dispatch shortcut {}))
   
   
   (method public (get-accelerators-hook)
@@ -1031,6 +1032,12 @@
   ;;;
   ;;;; Bindings
   ;;;
+  
+  
+  (definition Bindings-File
+    {File Root "packages" "org.jazz" "lib" "user" "settings" "Bindings.jml"}
+    @convert
+    {File User "Settings" "Bindings.jml"})
   
   
   (method (setup-bindings)
@@ -1047,7 +1054,7 @@
   
   
   (method protected virtual (load-bindings)
-    (let ((file {File User "Settings" "Bindings.jml"}))
+    (let ((file Bindings-File))
       (when (exists?~ file)
         (instantiate~ (read-from-file file)))))
   
@@ -2371,6 +2378,8 @@
       (<Page-Setup>)))
   
   (definition Default-Page-Setup-File
+    {File Root "packages" "org.jazz" "lib" "user" "settings" "PageSetup.jml"}
+    @convert
     {File User "Settings" "PageSetup.jml"})
   
   

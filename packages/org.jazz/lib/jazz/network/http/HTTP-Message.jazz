@@ -51,8 +51,8 @@
 (class HTTP-Message extends Object
   
   
-  (slot headers initialize (new-hashtable test: equal?))
-  (slot cookies initialize (new-hashtable test: equal?))
+  (slot headers initialize (make-table test: equal?))
+  (slot cookies initialize (make-table test: equal?))
   
   
   ;;;
@@ -134,7 +134,7 @@
   
   
   (method public (get-header name (error?: error? #t))
-    (either (hash-ref headers name)
+    (either (table-ref headers name #f)
             (when error?
               (error "Unknown header: {s}" name))))
   
@@ -147,12 +147,12 @@
   
   
   (method public (add-header name value)
-    (let* ((actual (hash-ref headers name))
+    (let* ((actual (table-ref headers name #f))
            (new-value
-            (cond ((null? actual) value)
+            (cond ((not actual) value)
                   ((pair? actual) (append actual (list value)))
                   (else (list actual value)))))
-      (hash-set! headers name new-value)))
+      (table-set! headers name new-value)))
   
   
   ;;;
@@ -165,7 +165,7 @@
   
   
   (method public (get-cookie name)
-    (hash-ref cookies name))
+    (table-ref cookies name #f))
   
   
   (method public (get-cookie-value name)
@@ -176,7 +176,7 @@
   
   (method public (add-cookie cookie)
     (let ((name (get-name~ cookie)))
-      (hash-set! cookies name cookie)))
+      (table-set! cookies name cookie)))
   
   
   (method public (for-each-cookie proc)

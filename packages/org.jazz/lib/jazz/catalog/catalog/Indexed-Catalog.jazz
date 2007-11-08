@@ -62,9 +62,9 @@
     (set! extensions~self extensions)
     (set! recursive?~self recursive?)
     (set! references?~self references?)
-    (set! content~self (new-hashtable test: equal?))
-    (set! definitions-index~self (new-hashtable test: equal?))
-    (set! references-index~self (new-hashtable test: equal?)))
+    (set! content~self (make-table test: equal?))
+    (set! definitions-index~self (make-table test: equal?))
+    (set! references-index~self (make-table test: equal?)))
 
 
   ;;;
@@ -101,7 +101,7 @@
   
   
   (method public (get-file-definitions name)
-    (hash-ref content name '()))
+    (table-ref content name '()))
   
   
   (method (get-file-entry file)
@@ -112,8 +112,8 @@
   
   (method public (get-statistics)
     (let ((f (count-file-entries content))
-          (d (hashtable-length definitions-index))
-          (r (hashtable-length references-index)))
+          (d (table-length definitions-index))
+          (r (table-length references-index)))
       (format "{a} file{a}, {a} definition{a}, {a} reference{a}"
               f (format-plural f)
               d (format-plural d)
@@ -128,9 +128,9 @@
       count))
   
   
-  (method (hashtable-info hashtable)
+  (method (table-info table)
     (format "{s} entries"
-            (hashtable-length hashtable)))
+            (table-length table)))
 
   
   (method (get-entry-time definition)
@@ -167,7 +167,7 @@
     (when (and (not loaded?) (get-active?) (exists?~ file))
       (when report?
         (user-message "Loading Catalog..."))
-      (load-hashtable content file #t)
+      (load-table content file #t)
       (update-catalog-indexes report?)
       (set! loaded? #t)
       (when report?
@@ -343,16 +343,16 @@
   
   
   (method (sweep)
-    (sweep-hashtable content marked? #t)
-    (sweep-hashtable definitions-index marked? #f)
-    (sweep-hashtable references-index marked? #f))
+    (sweep-table content marked? #t)
+    (sweep-table definitions-index marked? #f)
+    (sweep-table references-index marked? #f))
   
   
   (method (marked? definition)
     (get-marked?~ (get-file-definition~ definition)))
   
   
-  (method (sweep-hashtable hashtable marked? reset?)
+  (method (sweep-table table marked? reset?)
     (for-each-hash (function dynamic (class-name definitions)
                      (when definitions
                        (let ((previous definitions)
@@ -369,8 +369,8 @@
                                (set! list (cdr previous))))))
                        (when (not (marked? (car definitions)))
                          (set-modified? #t)
-                         (hash-set! hashtable class-name (cdr definitions)))))
-                   hashtable))
+                         (table-set! table class-name (cdr definitions)))))
+                   table))
 
 
   ;;;
@@ -379,16 +379,16 @@
   
   
   (method (get-definitions name)
-    (hash-ref definitions-index (canonicalize-name name)))
+    (table-ref definitions-index (canonicalize-name name) #f))
   
   
   (method (get-references name)
-    (hash-ref references-index (canonicalize-name name)))
+    (table-ref references-index (canonicalize-name name) #f))
 
 
   (method (get-completions name)
-    (either (hashtable-complete definitions-index name)
-            (hashtable-complete references-index name)))
+    (either (table-complete definitions-index name)
+            (table-complete references-index name)))
   
   
   (method protected virtual (canonicalize-name name)
@@ -419,11 +419,11 @@
   ;;;
   
   
-  (method (hashtable-complete hashtable string)
+  (method (table-complete table string)
     (let ((length (length string))
           (result '()))
       (for-each-hash (function dynamic (name value)
                        (when (compare-n name string length)
                          (set! result (cons name result))))
-                     hashtable)
+                     table)
       result))))

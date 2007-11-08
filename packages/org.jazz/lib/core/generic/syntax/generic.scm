@@ -60,7 +60,7 @@
 
 
 (jazz.define-macro (%%class-specific-dispatch class name)
-  `(%%hashtable-ref (%%get-class-dispatch-table ,class) ,name #f))
+  `(%%table-ref (%%get-class-dispatch-table ,class) ,name #f))
 
 
 ; 5.7 = 5.9 = z + by-class (5.2 + 0.7)

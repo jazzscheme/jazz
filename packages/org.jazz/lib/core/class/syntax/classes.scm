@@ -174,7 +174,7 @@
 (jazz.define-class-syntax jazz.Foreign-Class   jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Symbol-Class    jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class-syntax jazz.Keyword-Class   jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
-(jazz.define-class-syntax jazz.Hashtable-Class jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class-syntax jazz.Table-Class     jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 
 
 (jazz.define-class-syntax jazz.Boolean   jazz.Object   () jazz.Boolean-Class   () ())
@@ -197,7 +197,7 @@
 (jazz.define-class-syntax jazz.Foreign   jazz.Object   () jazz.Foreign-Class   () ())
 (jazz.define-class-syntax jazz.Symbol    jazz.Object   () jazz.Symbol-Class    () ())
 (jazz.define-class-syntax jazz.Keyword   jazz.Object   () jazz.Keyword-Class   () ())
-(jazz.define-class-syntax jazz.Hashtable jazz.Object   () jazz.Hashtable-Class () ())
+(jazz.define-class-syntax jazz.Table     jazz.Object   () jazz.Table-Class     () ())
 (jazz.define-class-syntax jazz.Promise   jazz.Object   () jazz.Promise-Class   () ())
 
 
@@ -221,11 +221,11 @@
 
 
 (jazz.define-macro (%%get-category-field category field-name)
-  `(%%hashtable-ref (%%get-category-fields ,category) ,field-name #f))
+  `(%%table-ref (%%get-category-fields ,category) ,field-name #f))
 
 
 (jazz.define-macro (%%set-category-field category field-name field)
-  `(%%hashtable-set! (%%get-category-fields ,category) ,field-name ,field))
+  `(%%table-set! (%%get-category-fields ,category) ,field-name ,field))
 
 
 ;;;

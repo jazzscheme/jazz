@@ -55,7 +55,7 @@
   
   (slot what               initialize 'after)
   (slot next-rank          initialize 0)
-  (slot last-counters      initialize (new-hashtable test: eq?))
+  (slot last-counters      initialize (make-table test: eq?))
   (slot reference          initialize {})
   (slot reference-entry    initialize {})
   (slot reference-counters)
@@ -216,7 +216,7 @@
           (remove-every-row~ tree)
           (when log
             (set! next-rank 0)
-            (set! last-counters (new-hashtable test: eq?))
+            (set! last-counters (make-table test: eq?))
             (let ((entries (extract-log-content log)))
               (set! reference-entry (essay reference (element entries reference)))
               (set! reference-counters (essay reference-entry (entry-counters reference-entry)))
@@ -251,12 +251,12 @@
                                                                                                   (else Stable-Rendering))
                                                                (new Tree-Label title: (->string counter) :background background :frame-color frame-color)))
                                                             (else
-                                                             (let ((previous (hash-ref last-counters property)))
+                                                             (let ((previous (table-ref last-counters property #f)))
                                                                (bind (background frame-color) (cond (reference-entry? Reference-Rendering)
-                                                                                                    ((or (null? previous) (> counter previous)) Allocate-Rendering)
+                                                                                                    ((or (not previous) (> counter previous)) Allocate-Rendering)
                                                                                                     ((< counter previous) Release-Rendering)
                                                                                                     (else Stable-Rendering))
-                                                                 (hash-set! last-counters property counter)
+                                                                 (table-set! last-counters property counter)
                                                                  (let ((value (if reference (- counter (car reference-scan)) counter)))
                                                                    (new Tree-Label title: (->string value) :background background :frame-color frame-color)))))))
                                                    (when reference-scan

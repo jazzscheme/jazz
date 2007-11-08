@@ -286,61 +286,6 @@
 
 
 ;;;
-;;;; Hashtable
-;;;
-
-
-(cond-expand
-  (gambit
-    (define-macro (%%hashtable? obj)
-      `(table? ,obj))
-    
-    (define-macro (%%make-hashtable #!key (test eq?) (hash #f))
-      `(if (eq? ,hash #f)
-           (make-table test: ,test)
-         (make-table test: ,test hash: ,hash)))
-    
-    (define-macro (%%hashtable-ref hashtable key default)
-      (if jazz.debug-core?
-          `(table-ref ,hashtable ,key ,default)
-        `(##table-ref ,hashtable ,key ,default)))
-    
-    (define-macro (%%hashtable-set! hashtable key value)
-      (if jazz.debug-core?
-          `(table-set! ,hashtable ,key ,value)
-        `(##table-set! ,hashtable ,key ,value)))
-    
-    (define-macro (%%hashtable-clear hashtable key)
-      `(table-set! ,hashtable ,key))
-    
-    (define-macro (%%hashtable-keys hashtable)
-      `(map car (table->list ,hashtable)))
-    
-    (define-macro (%%hashtable-length hashtable)
-      `(table-length ,hashtable))
-    
-    (define-macro (%%iterate-hashtable hashtable proc)
-      `(table-for-each ,proc ,hashtable))
-    
-    (define-macro (%%hashtable-merge! into from)
-      `(##table-merge! ,into ,from))
-    
-    (define-macro (%%alist->hashtable alist test)
-      `(list->table ,alist test: ,test))
-    
-    (define-macro (%%hashtable->alist hashtable)
-      `(table->list ,hashtable))
-    
-    (define-macro (%%hashtable-entries hashtable)
-      `(table-length ,hashtable))
-    
-    (define-macro (%%copy-hashtable hashtable)
-      `(table-copy ,hashtable)))
-  
-  (else))
-
-
-;;;
 ;;;; Keyword
 ;;;
 
@@ -616,6 +561,61 @@
     
     (define (%%sourcify expr src)
       (##sourcify expr src))))
+
+
+;;;
+;;;; Table
+;;;
+
+
+(cond-expand
+  (gambit
+    (define-macro (%%table? obj)
+      `(table? ,obj))
+    
+    (define-macro (%%make-table #!key (test eq?) (hash #f))
+      `(if (eq? ,hash #f)
+           (make-table test: ,test)
+         (make-table test: ,test hash: ,hash)))
+    
+    (define-macro (%%table-ref table key default)
+      (if jazz.debug-core?
+          `(table-ref ,table ,key ,default)
+        `(##table-ref ,table ,key ,default)))
+    
+    (define-macro (%%table-set! table key value)
+      (if jazz.debug-core?
+          `(table-set! ,table ,key ,value)
+        `(##table-set! ,table ,key ,value)))
+    
+    (define-macro (%%table-clear table key)
+      `(table-set! ,table ,key))
+    
+    (define-macro (%%table-keys table)
+      `(map car (table->list ,table)))
+    
+    (define-macro (%%table-length table)
+      `(table-length ,table))
+    
+    (define-macro (%%iterate-table table proc)
+      `(table-for-each ,proc ,table))
+    
+    (define-macro (%%table-merge! into from)
+      `(##table-merge! ,into ,from))
+    
+    (define-macro (%%alist->table alist test)
+      `(list->table ,alist test: ,test))
+    
+    (define-macro (%%table->alist table)
+      `(table->list ,table))
+    
+    (define-macro (%%table-entries table)
+      `(table-length ,table))
+    
+    (define-macro (%%copy-table table)
+      `(table-copy ,table)))
+  
+  (else))
 
 
 ;;;

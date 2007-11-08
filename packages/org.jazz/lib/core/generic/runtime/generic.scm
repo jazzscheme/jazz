@@ -130,7 +130,7 @@
       (lambda (subclass)
         (%%when (and (%%class? subclass)
                      (jazz.class-dispatch-safe subclass name))
-          (%%hashtable-set! (%%get-class-dispatch-table subclass) name #f))))))
+          (%%table-set! (%%get-class-dispatch-table subclass) name #f))))))
 
 
 (define (jazz.update-dispatch-tables generic)
@@ -190,4 +190,4 @@
 (define (jazz.class-dispatch-safe class name)
   (let ((dispatch-table (%%get-class-dispatch-table class)))
     (and dispatch-table
-         (%%hashtable-ref dispatch-table name #f)))))
+         (%%table-ref dispatch-table name #f)))))

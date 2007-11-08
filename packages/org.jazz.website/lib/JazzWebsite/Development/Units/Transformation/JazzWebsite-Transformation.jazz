@@ -45,8 +45,8 @@
     #f)
   
   
-  (slot anchors      initialize (new-hashtable test: eq?))
-  (slot anchor-names initialize (new-hashtable test: eq?))
+  (slot anchors      initialize (make-table test: eq?))
+  (slot anchor-names initialize (make-table test: eq?))
   (slot next-section initialize 1)
   
   
@@ -204,7 +204,7 @@
   (method (manual-output section)
     (let* ((paths (get-property~ section 'products))
            (products (apply append (map find-docs paths)))
-           (toc-anchors (new-hashtable test: eq?))
+           (toc-anchors (make-table test: eq?))
            (content (manual-content-output products))
            (index (index-output))
            (toc (toc-output products toc-anchors))
@@ -402,7 +402,7 @@
   
   (method (register-anchor object name anchors)
     (let ((anchor (if name (->string name) (prog1 (format "SEC{a}" next-section) (increase! next-section)))))
-      (hash-set! anchors object anchor)
+      (table-set! anchors object anchor)
       anchor))
   
   
@@ -427,7 +427,7 @@
   (method (doc-summary-output toc-anchors doc level path)
     (let* ((title (present-doc-title doc))
            (text (format "{a}. {a}" (present-toc-path path) title))
-           (anchor (format "#{a}" (hash-ref toc-anchors doc)))
+           (anchor (format "#{a}" (table-ref toc-anchors doc #f)))
            (children (collect-summary-children doc)))
       `(<div>
          (<div> class: ,(format "summary{a}" level) (<a> href: ,anchor ,text))
@@ -477,7 +477,7 @@
   (method (doc-toc-output toc-anchors doc level path)
     (let* ((title (present-doc-title doc))
            (text (format "{a}. {a}" (present-toc-path path) title))
-           (anchor (format "#{a}" (hash-ref anchors doc)))
+           (anchor (format "#{a}" (table-ref anchors doc #f)))
            (children (collect-toc-children doc))
            (rank (car path))
            (toc-prefix (if (and (= rank 1) (<= level 3)) "toc_first" "toc"))
@@ -524,7 +524,7 @@
   (method (index-output)
     (user-message "Generating Index...")
     (let ((letters (sort < (letters-partition) key: car))
-           (letter-anchors (new-hashtable test: eq?))
+           (letter-anchors (make-table test: eq?))
            (output (new List-Factory)))
       (for-each (function dynamic (letter)
                   (output-letter letter letter-anchors output))
@@ -571,7 +571,7 @@
             (function dynamic (letter-set)
               (for-each (function dynamic (letter)
                           (let ((char (car letter))
-                                (anchor (format "#{a}" (hash-ref letter-anchors letter))))
+                                (anchor (format "#{a}" (table-ref letter-anchors letter #f))))
                             (put~ output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(string char))))
                             (put~ output "&nbsp;")))
                         letter-set))))

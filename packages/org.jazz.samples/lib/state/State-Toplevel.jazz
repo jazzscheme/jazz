@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; The State Application
+;;;; State Toplevel
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,30 +35,42 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(in state)
+(library state.State-Toplevel jazz
 
 
-(class State-Application extends Application
+(class State-Toplevel extends Toplevel uses (Language Utilities System WinUser WinGDI)
 
 
-  (method (process-name)
-    "State")
+  (form
+    (<install> caption-base: "State" position: {Point 380 250} size: {Dimension 700 260}))
 
-
-  (method (process-icon)
-    {Bitmap-Resource "Person"})
-
-
-  (method (new-toplevel)
-    (new State-Toplevel))
   
-  
-  (method (use-user?)
-    #f)
-  
-  
-  (method (workspace-installed)
-    (set-caption?~ toplevel #f)
-    (set-fullscreen?~ stage #t)
-    (set-maximized?~ stage #t)
-    (new-frame State-View :portfolio :large-icons :image-name {Bitmap-Resource "Up"})))
+  @convert
+  (method meta (window-class)
+    "JStateToplevel")
+
+
+  @convert
+  (method meta (initialize)
+    (nextmethod)
+    (register-toplevel icon: {Icon-Resource "Jazz"}))
+
+
+  (method (window-style rest)
+    (bit-or WS_POPUP WS_CLIPCHILDREN))
+
+
+  (method (window-ex-style rest)
+    (bit-or (nextmethod rest)
+            WS_EX_TOPMOST
+            WS_EX_TOOLWINDOW))
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (let ((size     (get-size))
+          (outer    (CreateRectRgn 0 0 32 32))
+          (inner    (CreateEllipticRgn -1 -1 34 34))
+          (combined (CreateRectRgn 0 0 0 0)))
+      (CombineRgn combined outer inner RGN_AND)
+      (SetWindowRgn hwnd combined #t)))))

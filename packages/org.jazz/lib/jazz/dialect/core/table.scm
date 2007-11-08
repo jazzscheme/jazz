@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Properties
+;;;; Module Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,9 +35,46 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;;;
-;;;; Application
-;;;
+(module jazz.dialect.core.table
 
 
-Application                 State-Application
+(define (jazz.table-clear table key)
+  (%%assert (%%table? table)
+    (%%table-clear table key)))
+
+
+(define (jazz.table-keys table)
+  (%%assert (%%table? table)
+    (%%table-keys table)))
+
+
+(define (jazz.table-length table)
+  (%%assert (%%table? table)
+    (%%table-length table)))
+
+
+(define (jazz.iterate-table table proc)
+  (%%assert (%%table? table)
+    (%%iterate-table table proc)))
+
+
+(define (jazz.alist->table alist #!optional (test equal?))
+  (%%alist->table alist test))
+
+
+(define (jazz.table->alist table)
+  (%%assert (%%table? table)
+    (%%table->alist table)))
+
+
+(define (jazz.table-entries table)
+  (%%assert (%%table? table)
+    (%%table-entries table)))
+
+
+(cond-expand
+  (gambit
+    (define jazz.eq-hash eq?-hash)
+    (define jazz.eqv-hash eqv?-hash)
+    (define jazz.equal-hash equal?-hash))
+  (else)))

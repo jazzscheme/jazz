@@ -188,26 +188,6 @@
 
 
 ;;;
-;;;; Hashtable
-;;;
-
-
-(native jazz.hashtable?)
-(native jazz.make-hashtable)
-(native jazz.hashtable-ref)
-(native jazz.hashtable-set!)
-(native jazz.hashtable-clear)
-(native jazz.hashtable-keys)
-(native jazz.hashtable-length)
-(native jazz.iterate-hashtable)
-(native jazz.alist->hashtable)
-(native jazz.hashtable-entries)
-(native jazz.eq-hash)
-(native jazz.eqv-hash)
-(native jazz.equal-hash)
-
-
-;;;
 ;;;; Identifier
 ;;;
 
@@ -472,6 +452,26 @@
 
 
 (native jazz.quit)
+
+
+;;;
+;;;; Table
+;;;
+
+
+(native table?)
+(native make-table)
+(native table-ref)
+(native table-set!)
+(native jazz.table-clear)
+(native jazz.table-keys)
+(native jazz.table-length)
+(native jazz.iterate-table)
+(native jazz.alist->table)
+(native jazz.table-entries)
+(native jazz.eq-hash)
+(native jazz.eqv-hash)
+(native jazz.equal-hash)
 
 
 ;;;

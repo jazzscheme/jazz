@@ -50,11 +50,11 @@
 (class Workbench extends Product
   
   
-  (slot products-hashtable   initialize (new-hashtable test: eq?))
-  (slot categories-hashtable initialize (new-hashtable test: eq?))
-  (slot resources-hashtable  initialize (new-hashtable test: equal?))
+  (slot products-table   initialize (make-table test: eq?))
+  (slot categories-table initialize (make-table test: eq?))
+  (slot resources-table  initialize (make-table test: equal?))
   ;; this is clearly not maintained up to date perfectly but it'll do for now
-  (slot sources-hashtable    initialize (new-hashtable test: equal?))
+  (slot sources-table    initialize (make-table test: equal?))
   
 
   ;;;
@@ -75,12 +75,12 @@
   ;;;
   
   
-  (method public (get-products-hashtable)
-    products-hashtable)
+  (method public (get-products-table)
+    products-table)
   
   
   (method public (find-product type-name)
-    (hash-ref products-hashtable type-name))
+    (table-ref products-table type-name #f))
   
   
   (method public (find-project type-name)
@@ -157,7 +157,7 @@
         (when (is? component Product)
           (set-workbench~ component self)
           (set-parent-product~ component product)
-          (hash-set! products-hashtable (type-name (class-of component)) component))
+          (table-set! products-table (type-name (class-of component)) component))
         (set-product~ component product)
         (let ((source (get-source~ component)))
           (add-source source component)
@@ -173,7 +173,7 @@
     (typecase component
       ((Product-File)
         (when (is? component Product)
-          (hash-clear products-hashtable (type-name (class-of component))))
+          (hash-clear products-table (type-name (class-of component))))
         (let ((source (get-source~ component)))
           (remove-source source component)
           (typecase component
@@ -214,15 +214,15 @@
   
   
   (method public (add-entry category-name entry)
-    (hash-set! categories-hashtable category-name entry))
+    (table-set! categories-table category-name entry))
   
   
   (method public (remove-entry category-name)
-    (hash-clear categories-hashtable category-name))
+    (hash-clear categories-table category-name))
   
   
   (method public (get-entry category-name)
-    (hash-ref categories-hashtable category-name))
+    (table-ref categories-table category-name #f))
   
   
   (method public (get-entry-source category-name)
@@ -234,18 +234,18 @@
   (method (add-resource type source)
     (let* ((name (get-base~ source))
            (key (cons type name)))
-      (hash-set! resources-hashtable key source)))
+      (table-set! resources-table key source)))
   
   
   (method (remove-resource type source)
     (let* ((name (get-base~ source))
            (key (cons type name)))
-      (hash-clear resources-hashtable key)))
+      (hash-clear resources-table key)))
   
   
   (method public (get-resource type name)
     (let ((key (cons type name)))
-      (hash-ref resources-hashtable key)))
+      (table-ref resources-table key #f)))
   
   
   (method public (get-bitmap resource)
@@ -259,18 +259,18 @@
   (method public (add-source source entry)
     (when source
       (let ((name (get-name~ source)))
-        (hash-set! sources-hashtable name (cons entry (hash-ref sources-hashtable name))))))
+        (table-set! sources-table name (cons entry (table-ref sources-table name #f))))))
   
   
   (method public (remove-source source entry)
     (when source
       (let ((name (get-name~ source)))
-        (hash-set! sources-hashtable name (remove! entry (hash-ref sources-hashtable name))))))
+        (table-set! sources-table name (remove! entry (table-ref sources-table name #f))))))
   
   
   (method public (get-source-entry source)
     (let* ((name (get-name~ source))
-           (entries (hash-ref sources-hashtable name)))
+           (entries (table-ref sources-table name #f)))
       (find-if (function dynamic (entry)
                  (pathname= (get-effective-source~ entry) source))
                entries)))
@@ -291,10 +291,10 @@
   
   
   (method public (update)
-    (empty-hashtable products-hashtable)
-    (empty-hashtable sources-hashtable)
-    (empty-hashtable categories-hashtable)
-    (empty-hashtable resources-hashtable))
+    (empty-table products-table)
+    (empty-table sources-table)
+    (empty-table categories-table)
+    (empty-table resources-table))
 
 
   ;;;

@@ -52,25 +52,25 @@
   
   (else
    ;; Incorrect implementation that will not let the serialized objects be
-   ;; garbage collected. Weak hashtables are needed for a correct implementation...
+   ;; garbage collected. Weak tables are needed for a correct implementation...
    
    (define serial-number
      1)
    
    (define jazz.serialized-objects
-     (%%make-hashtable test: equal?))
+     (%%make-table test: equal?))
    
    (define (jazz.object->serial-number obj)
-     (or (%%hashtable-ref jazz.serialized-objects obj #f)
+     (or (%%table-ref jazz.serialized-objects obj #f)
          (let ((number serial-number))
            (set! serial-number (%%fx+ serial-number 1))
-           (%%hashtable-set! jazz.serialized-objects obj number)
+           (%%table-set! jazz.serialized-objects obj number)
            number)))
    
    (define (jazz.serial-number->object number . rest)
      (call/cc
        (lambda (return)
-         (%%iterate-hashtable jazz.serialized-objects
+         (%%iterate-table jazz.serialized-objects
            (lambda (key value)
              (if (%%fx= value number)
                  (return key))))

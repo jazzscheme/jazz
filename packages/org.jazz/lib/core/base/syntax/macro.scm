@@ -39,15 +39,15 @@
 
 
 (define jazz.Macros
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.register-macro name macro)
-  (%%hashtable-set! jazz.Macros name macro))
+  (%%table-set! jazz.Macros name macro))
 
 
 (define (jazz.get-macro name)
-  (%%hashtable-ref jazz.Macros name #f))
+  (%%table-ref jazz.Macros name #f))
 
 
 (define (jazz.need-macro name)

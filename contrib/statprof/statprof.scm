@@ -8,7 +8,7 @@
 ;; ----------------------------------------------------------------------------
 ;; Profiling & interruption handling
 
-;; Buckets should probably be hashtables for better performance
+;; Buckets should probably be tables for better performance
 (define *buckets* '())
 (define *total* 0)
 (define *unknown* 0)

@@ -253,7 +253,7 @@
 
 
 (define jazz.Environment
-  (%%make-hashtable test: eq?))
+  (%%make-table test: eq?))
 
 
 (define (jazz.get-environment)
@@ -261,11 +261,11 @@
 
 
 (define (jazz.get-environment-module name)
-  (%%hashtable-ref jazz.Environment name jazz.Unloaded-State))
+  (%%table-ref jazz.Environment name jazz.Unloaded-State))
 
 
 (define (jazz.set-environment-module name module)
-  (%%hashtable-set! jazz.Environment name module))
+  (%%table-set! jazz.Environment name module))
 
 
 ;;;
@@ -329,11 +329,11 @@
 
 
 (define jazz.Extension-Readers
-  (%%make-hashtable test: equal?))
+  (%%make-table test: equal?))
 
 
 (define (jazz.get-extension-reader extension)
-  (%%hashtable-ref jazz.Extension-Readers extension #f))
+  (%%table-ref jazz.Extension-Readers extension #f))
 
 
 (define (jazz.with-extension-reader extension thunk)
@@ -357,7 +357,7 @@
 
 
 (define (jazz.register-reader-extension dialect-name readtable-getter extension)
-  (%%hashtable-set! jazz.Extension-Readers extension (%%cons dialect-name readtable-getter)))
+  (%%table-set! jazz.Extension-Readers extension (%%cons dialect-name readtable-getter)))
 
 
 (define (jazz.register-reader-extensions dialect-name readtable-getter extensions)

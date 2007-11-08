@@ -105,6 +105,6 @@
     (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)
       `(begin
          (define ,name
-           (jazz.new-core-class ,class-accessor ',name (%%make-hashtable test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
+           (jazz.new-core-class ,class-accessor ',name (%%make-table test: eq?) ,ascendant-accessor ',slot-names ,instance-size))
          (jazz.set-core-class ',(jazz.identifier-name name) ,name)
          (jazz.validate-inherited-slots ',name ,ascendant-accessor ',inherited-slot-names))))))

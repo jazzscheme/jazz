@@ -53,7 +53,7 @@
   
   
   (slot configurations initialize '())
-  (slot servers        initialize (new-hashtable test: eq?))
+  (slot servers        initialize (make-table test: eq?))
 
 
   (form
@@ -245,12 +245,18 @@
   ;;;
   
   
+  (definition WebServers-File
+    {File Root "packages" "org.jazz" "lib" "user" "settings" "WebServers.jml"}
+    @convert
+    {File User "Settings" "WebServers.jml"})
+  
+  
   (method (setup-configurations)
     (set! configurations (read-configurations)))
   
   
   (method (read-configurations)
-    (let ((file {File User "Settings" "WebServers.jml"}))
+    (let ((file WebServers-File))
       (when (exists?~ file)
         (instantiate~ (read-from-file file)))))
 
@@ -322,7 +328,7 @@
            (server (new (autoload class) :host host :port port :root-directory root-directory :default-resource default-resource :unauthentified-resource unauthentified-resource :debug? debug?)))
       (if (not (wait-started~ server error?: #f))
           (error "Unable to start server")
-        (hash-set! servers name server))))
+        (table-set! servers name server))))
   
   
   (method (stop-server config)
@@ -330,7 +336,7 @@
            (server (find-server name)))
       (when server
         (stop-listener~ server)
-        (hash-set! servers name {}))))
+        (table-set! servers name {}))))
   
   
   (method (restart-server config)
@@ -379,7 +385,7 @@
   
   
   (method public (find-server name)
-    (hash-ref servers name))
+    (table-ref servers name #f))
 
   
   ;;;

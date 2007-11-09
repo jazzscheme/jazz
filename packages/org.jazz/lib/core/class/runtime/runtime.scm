@@ -770,11 +770,34 @@
 
 
 ;;;
+;;;; Numeric
+;;;
+
+
+(jazz.define-class jazz.Numeric-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+  ())
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Numeric-Class class))
+  'numeric)
+
+
+(jazz.encapsulate-class jazz.Numeric-Class)
+
+
+(jazz.define-class jazz.Numeric jazz.Object () jazz.Numeric-Class
+  ())
+
+
+(jazz.encapsulate-class jazz.Numeric)
+
+
+;;;
 ;;;; Number
 ;;;
 
 
-(jazz.define-class jazz.Number-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
+(jazz.define-class jazz.Number-Class jazz.Numeric-Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
   ())
 
 
@@ -793,7 +816,7 @@
 (jazz.encapsulate-class jazz.Number-Class)
 
 
-(jazz.define-class jazz.Number jazz.Object () jazz.Number-Class
+(jazz.define-class jazz.Number jazz.Numeric () jazz.Number-Class
   ())
 
 

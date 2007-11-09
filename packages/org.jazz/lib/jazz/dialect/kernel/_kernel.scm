@@ -429,15 +429,6 @@
 
 
 ;;;
-;;;; String
-;;;
-
-
-(native jazz.split-string)
-(native jazz.join-strings)
-
-
-;;;
 ;;;; Symbol
 ;;;
 
@@ -517,6 +508,7 @@
 
 (native jazz.new-walk-context)
 (native jazz.register-literal-constructor)
+(native jazz.specifier?)
 (native jazz.parse-specifier)
 (native jazz.requested-module-name)
 

@@ -38,7 +38,8 @@
 (library jazz.repository.git jazz
 
 
-(import (jazz.utilities))
+(import (jazz.io)
+        (jazz.utilities))
 
 
 (definition *repository*
@@ -120,6 +121,15 @@
 
 (definition public (git-push)
   (git-push~ (git-repository)))
+
+
+(definition public (git-history path)
+  (git-history~ (git-repository) path))
+
+
+;; to think about how to nicely do this
+(definition public (git-extract path)
+  (git-extract~ (git-repository) path))
 
 
 (definition public (git-show object (output (current-output-port)))
@@ -311,6 +321,31 @@
     #f)
   
   
+  (method public (git-history path)
+    (let ((output (open-output-string)))
+      (git (list "rev-list" "HEAD" path) output)
+      (let ((commits (get-output-string output)))
+        (collect-if (lambda (str)
+                      (not (empty-string? str)))
+                    (split commits (cn))))))
+  
+  
+  (method public (git-extract path)
+    (let ((history (git-history path))
+          (version 1))
+      (for-each (lambda (commit)
+                  (user-message "Extracting {a}..." commit)
+                  (let ((filename (extract-filename path)))
+                    (let ((base (extract-base filename))
+                          (extension (extract-extension filename)))
+                      (call-with-output-file (string-append "C:/Merge/" base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)
+                        (lambda (output)
+                          (git-show (string-append commit ":" path) output)))))
+                  (increase! version))
+                (reverse history))
+      (user-message "Done")))
+  
+  
   (method public (git-show object (output (current-output-port)))
     (git (list "show" object) output))
   
@@ -319,7 +354,7 @@
     (iterate-directory~ merge-dir
       (lambda (file)
         (let ((ext (get-extension~ file)))
-          (when (ci= ext "patch")
+          (when (ci=? ext "patch")
             (parse-patch-file file
               (lambda (base-name base-index right-name right-index deltas)
                 (let ((name (either base-name right-name)))

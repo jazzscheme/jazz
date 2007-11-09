@@ -126,6 +126,14 @@
       (validate object))))
 
 
+;; quicky. this is not a good naming
+(definition public (extract-filename filename <string>) <string>
+  (let ((pos <int> (find filename #\/ reversed?: #t)))
+    (if (not pos)
+        filename
+      (subseq filename (+ pos 1) (cardinality filename)))))
+
+
 (definition public (extract-base filename <string>)
   (let ((pos <int> (find filename #\period reversed?: #t)))
     (if (not pos)
@@ -395,7 +403,7 @@
   
   (method (compare-pathname object)
     (and (is? object Pathname)
-         (ci= (parse) (parse~ object))))
+         (ci=? (parse) (parse~ object))))
   
   
   (method public (valid-aliases?)
@@ -531,7 +539,7 @@
            (base-expd (expand~ anchor))
            (base-length (length base-expd))
            (expd (expand))
-           (rank (mismatch base-expd expd test: ci=))
+           (rank (mismatch base-expd expd test: ci=?))
            (result-list (unspecified)))
       (call/ec
         (lambda (return)
@@ -989,13 +997,13 @@
     (iterate-content base 'directories sort? ignored-directories
       (function dynamic (name)
         (when recursive?
-          (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (append base "\\" name) proc))
+          (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "\\" name) proc))
         (when directories?
           (proc (append prefix (list name)) 'directory))))
     (iterate-content base 'files sort? ignored-directories
       (function dynamic (name)
         (when files?
-          (proc (append prefix (list name)) 'file)))))
+          (proc (concatenate prefix (list name)) 'file)))))
   
   
   (method (iterate-content base kind sort? ignored-directories proc)
@@ -1020,7 +1028,7 @@
               (directory-files base))
     @windows-specific
     (let* ((find-data (new WIN32_FIND_DATA))
-           (handle (FindFirstFile (append base "\\*.*") find-data)))
+           (handle (FindFirstFile (concatenate base "\\*.*") find-data)))
       (when (/= handle INVALID_HANDLE_VALUE)
         (while (FindNextFile handle find-data)
           (let ((name (get-string find-data 'cFileName)))

@@ -443,6 +443,10 @@
     (write self output)))
 
 
+(definition public inline (/= x y)
+  (not (= x y)))
+
+
 (definition public inline (neq? x y)
   (not (eq? x y)))
 
@@ -452,11 +456,85 @@
       (and (not x) y)))
 
 
-(definition public inline (/= x y)
-  (not (= x y)))
+(definition public (=? n m . rest)
+  (and (eq? (compare n m) :equal)
+       (let ((first m))
+         (let (iterate (scan rest))
+           (cond ((null? scan)
+                  #t)
+                 ((neq? (compare (car scan) first) :equal)
+                  #f)
+                 (else
+                  (iterate (cdr scan))))))))
 
 
-(definition public (ci= . rest)
+(definition public (/=? n m . rest)
+  (if (null? rest)
+      (neq? (compare n m) :equal)
+    (not (apply =? n m rest))))
+
+
+(definition public (<? n m . rest)
+  (and (case (compare n m)
+         ((:less) #t)
+         ((:greater :equal) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (max m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less) (iterate (cdr scan) value))
+               ((:greater :equal) #f)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
+
+
+(definition public (<=? n m . rest)
+  (and (case (compare n m)
+         ((:less :equal) #t)
+         ((:greater) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (max m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare max value)
+               ((:less :equal) (iterate (cdr scan) value))
+               ((:greater) #f)
+               (else (error "Cannot compare {t} and {t}" max value))))))))
+
+
+(definition public (>? n m . rest)
+  (and (case (compare n m)
+         ((:greater) #t)
+         ((:less :equal) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (min m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater) (iterate (cdr scan) value))
+               ((:less :equal) #f)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
+
+
+(definition public (>=? n m . rest)
+  (and (case (compare n m)
+         ((:greater :equal) #t)
+         ((:less) #f)
+         (else (error "Cannot compare {t} and {t}" n m)))
+       (let (iterate (scan rest) (min m))
+         (if (null? scan)
+             #t
+           (let ((value (car scan)))
+             (case (compare min value)
+               ((:greater :equal) (iterate (cdr scan) value))
+               ((:less) #f)
+               (else (error "Cannot compare {t} and {t}" min value))))))))
+
+
+(definition public (ci=? . rest)
   (if (null? rest)
       #t
     (let ((first (car rest)))
@@ -466,11 +544,11 @@
             (finally #t)))))
 
 
-(definition public (ci/= . rest)
-  (not (apply ci= rest)))
+(definition public (ci/=? . rest)
+  (not (apply ci=? rest)))
 
 
-(definition public (ci< n . rest)
+(definition public (ci<? n . rest)
   (let (iterate (scan rest) (max n))
     (if (null? scan)
         #t
@@ -481,7 +559,7 @@
           (else (error "Cannot ci-compare {t} and {t}" max value)))))))
 
 
-(definition public (ci<= n . rest)
+(definition public (ci<=? n . rest)
   (let (iterate (scan rest) (max n))
     (if (null? scan)
         #t
@@ -492,7 +570,7 @@
           (else (error "Cannot ci-compare {t} and {t}" max value)))))))
 
 
-(definition public (ci> n . rest)
+(definition public (ci>? n . rest)
   (let (iterate (scan rest) (min n))
     (if (null? scan)
         #t
@@ -503,7 +581,7 @@
           (else (error "Cannot ci-compare {t} and {t}" min value)))))))
 
 
-(definition public (ci>= n . rest)
+(definition public (ci>=? n . rest)
   (let (iterate (scan rest) (min n))
     (if (null? scan)
         #t
@@ -537,7 +615,7 @@
   '(#\a #\b #\c #\d #\e #\f #\g #\h #\i #\j #\k #\l #\m #\n #\o #\p #\q #\r #\s #\t #\u #\v #\w #\x #\y #\z))
 
 (definition Alphabetic-Chars
-  (scheme.append Uppercase-Chars Lowercase-Chars))
+  (append Uppercase-Chars Lowercase-Chars))
 
 (definition Numeric-Chars
   '(#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9))
@@ -1036,18 +1114,66 @@
 
 
 ;;;
+;;;; Numeric
+;;;
+
+
+(class Numeric-Class extends Class)
+
+
+(class primitive Numeric metaclass Numeric-Class extends Object
+
+
+  (method public virtual abstract (numeric-norm))
+  (method public virtual abstract (numeric-add obj))
+  (method public virtual abstract (numeric-negate))
+  (method public virtual abstract (numeric-multiply n))
+  (method public virtual abstract (numeric-inverse)))
+
+
+;;;
 ;;;; Number
 ;;;
 
 
-(class Number-Class extends Class)
+(class Number-Class extends Numeric-Class)
 
 
-(class primitive Number metaclass Number-Class extends Object
+(class primitive Number metaclass Number-Class extends Numeric
   
   
   (method (initialize . rest)
-    (native-class "numbers")))
+    (native-class "numbers"))
+  
+  
+  (method (compare-object obj)
+    (cond ((= self obj) :equal)
+          ((< self obj) :less)
+          (else :greater)))
+  
+  
+  (method (numeric-norm)
+    (abs self))
+  
+  
+  (method (numeric-add obj)
+    (if (number? obj)
+        (+ self obj)
+      (error "Unsupported add : {t} {t}" self obj)))
+  
+  
+  (method (numeric-negate)
+    (- self))
+  
+  
+  (method (numeric-multiply obj)
+    (if (number? obj)
+        (* self obj)
+      (error "Unsupported multiply : {t} {t}" self obj)))
+  
+  
+  (method (numeric-inverse)
+    (/ self)))
 
 
 ;;;
@@ -1144,6 +1270,38 @@
 
 (definition public (sign n)
   (relate n 0))
+
+
+(definition public (add . rest)
+  (if (null? rest)
+      0
+    (let (iterate (result <Numeric> (car rest)) (scan (cdr rest)))
+      (if (null? scan)
+          result
+        (iterate (numeric-add~ result (car scan)) (cdr scan))))))
+
+
+(definition public (subtract n <Numeric> . rest)
+  (if (null? rest)
+      (numeric-negate~ n)
+    (let ((r <Numeric> (apply add rest)))
+      (add n (numeric-negate~ r)))))
+
+
+(definition public (multiply . rest)
+  (if (null? rest)
+      1
+    (let (iterate (result <Numeric> (car rest)) (scan (cdr rest)))
+      (if (null? scan)
+          result
+        (iterate (numeric-multiply~ result (car scan)) (cdr scan))))))
+
+
+(definition public (divide n <Numeric> . rest)
+  (if (null? rest)
+      (numeric-inverse~ n)
+    (let ((r <Numeric> (apply multiply rest)))
+      (multiply n (numeric-inverse~ r)))))
 
 
 (definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
@@ -2143,7 +2301,7 @@
             (whitespace? c))))
 
 
-(definition public (mismatch target <Object> seq <Object> (test: test =))
+(definition public (mismatch target <Object> seq <Object> (test: test equal?))
   (call/ec
     (lambda (return)
       (let ((srce (iterate-sequence seq))
@@ -2357,10 +2515,6 @@
            (get-output~ result)))))
 
 
-(specialize (split str <string> separator <char>) <list>
-  (split-string str separator))
-
-
 (definition public (split-justified seq <Object> width separators <Object> (column: column 0))
   (let ((pos 0)
         (size (cardinality seq))
@@ -2390,7 +2544,7 @@
                        (put~ dst separator)
                        (put~ dst seq))
                      (cdr sequences))
-           (apply append (get-output~ dst))))))
+           (apply concatenate (get-output~ dst))))))
 
 
 (definition public (inject sequence inserted)
@@ -2540,14 +2694,22 @@
     (values yes no)))
 
 
-;; these should not be necessary
 (definition (starts-with? seq target) <bool>
-  (error "abstract"))
+  (let ((sl (cardinality seq))
+        (tl (cardinality target)))
+    (and (>= sl tl)
+         ;; put =?
+         ;; put subseq! (not sure)
+         (string=? (subseq seq 0 tl) target))))
 
 
-;; these should not be necessary
 (definition (ends-with? seq target) <bool>
-  (error "abstract"))
+  (let ((sl (cardinality seq))
+        (tl (cardinality target)))
+    (and (>= sl tl)
+         ;; put =?
+         ;; put subseq! (not sure)
+         (string=? (subseq seq (- sl tl)) target))))
 
 
 ;; pickpick impl.
@@ -3336,7 +3498,7 @@
     (if (is-not? target Cell)
         :incompatible
       (let ((compared (compare row (get-row~ target))))
-        (if (/= compared :equal)
+        (if (not (eq? compared :equal))
             compared
           (compare col (get-col~ target))))))
   
@@ -4676,8 +4838,8 @@
 
 
 (definition public (parse-boolean string)
-  (cond ((ci= string "#t") #t)
-        ((ci= string "#f") #f)
+  (cond ((ci=? string "#t") #t)
+        ((ci=? string "#f") #f)
         (else (signal (new Convertion-Error object: string type: "boolean")))))
 
 
@@ -5582,9 +5744,8 @@
   
   
   (method (print output detail)
-    (print-unreadable self output
-      (function (output)
-        (format output "{s} {s} {s}" sequence start size))))
+    ;; quicky
+    (display (substring sequence start (+ start size)) output))
   
   
   (method (sequence-element n <fx>) <any>

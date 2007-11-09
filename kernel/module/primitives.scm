@@ -197,14 +197,12 @@
    (define-macro (%%fx* x y)
      (if jazz.debug-core?
          `(* ,x ,y)
-       `(##fixnum.* ,x ,y))))
-
-  (else
-   (define-macro (%%fx> x y)
-     `(> ,x ,y))
+       `(##fixnum.* ,x ,y)))
    
-   (define-macro (%%fx+ x y)
-     `(+ ,x ,y))))
+   (define-macro (%%fxquotient x y)
+     (if jazz.debug-core?
+         `(quotient ,x ,y)
+       `(##fxquotient ,x ,y)))))
 
 
 ;;;

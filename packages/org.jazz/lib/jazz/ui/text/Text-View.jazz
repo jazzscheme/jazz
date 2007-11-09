@@ -405,7 +405,7 @@
   
   
   (method protected virtual (select-outer)
-    (let ((expl (new (explorer-class) self range: (get-selection))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
       (with-safe-explore
         (function dynamic ()
           (when (outer-expr~ expl)
@@ -1019,7 +1019,7 @@
       ;; patch to manage the line selection border
       (when (and pos
                  (< (get-h~ view) (paragraph-left~ (get-paragraph (get-row~ pos))))
-                 (>= pos (get-end~ selection-anchor)))
+                 (cell>= pos (get-end~ selection-anchor)))
         (set! pos (get-end~ (selection-line (get-row~ pos)))))
       (when (and pos #t @parameterized-fix-me (/= pos previous-pos))
         (let* ((range (selection-range pos))
@@ -1042,7 +1042,7 @@
              (par (get-paragraph (get-row~ pos))))
         (if (< (get-h~ view) (paragraph-left~ par))
             (select-paragraph (get-row~ pos))
-          (let ((expl (new (explorer-class) self start: pos end: pos)))
+          (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
             (with-safe-explore
               (function dynamic ()
                 (when (outer-expr~ expl)
@@ -1057,8 +1057,8 @@
     (when (and enabled? selectable?)
       (set-focus self)
       (let ((text (view->text pos)))
-        (when (and (/= move-caret 'never)
-                   (or (= move-caret 'always) (< text (get-start)) (>= text (get-end))))
+        (when (and (neq? move-caret 'never)
+                   (or (eq? move-caret 'always) (< text (get-start)) (>= text (get-end))))
           (set-caret (view->text pos))
           (update-caret)))))
   
@@ -1110,16 +1110,16 @@
       ((word)
        (if (inside?~ selection-anchor pos)
            (selection-range-from-anchor pos)
-         (let* ((expl (new (explorer-class) self start: pos end: pos))
+         (let* ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos))
                 (kind (outer-expr~ expl outer-composite?: #f))
                 (range (essay kind (get-range~ expl))))
            (cond ((not range)
                   (selection-range-from-anchor pos))
                  ((before?~ selection-anchor pos)
-                  (new Range$Cell$ (get-start~ range) (max (get-end~ range) (get-end~ selection-anchor))))
+                  (new Range$Cell$ (get-start~ range) (maximum (list (get-end~ range) (get-end~ selection-anchor)))))
                  ;; else pos is after selection-anchor
                  (else
-                  (new Range$Cell$ (min (get-start~ range) (get-start~ selection-anchor)) (get-end~ range)))))))
+                  (new Range$Cell$ (minimum (list (get-start~ range) (get-start~ selection-anchor))) (get-end~ range)))))))
       (else (selection-range-from-anchor pos))))
   
   
@@ -1365,7 +1365,7 @@
   
   
   (method public (remove-spaces pos (keep: keep 'one/none))
-    (let ((expl (new (explorer-class) self start: (get-start~ pos) end: (get-end~ pos))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ pos) end: (get-end~ pos))))
       (backward-whitespaces~ expl)
       (forward-whitespaces~ expl)
       (let* ((range (get-range~ expl))
@@ -1851,7 +1851,7 @@
   
   
   (method public virtual (current-name)
-    (let ((expl (new (explorer-class) self range: (get-selection))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
       (when (outer-expr~ expl)
         (get-marked~ expl))))
   
@@ -2179,7 +2179,7 @@
   
   
   (method public (insert-string str)
-    (replace-selection (split-string str #\newline)))
+    (replace-selection (split str (cn))))
   
   
   (method public (insert-styled string style)
@@ -2265,7 +2265,7 @@
         ;; time to patch!
         (when (not header?)
           (increase! height 16))
-        (let ((row-height (fxfloor height (cast <fx> row-count))))
+        (let ((row-height (quotient height (cast <fx> row-count))))
           (for-each (function dynamic (n)
                       (let ((children (map (function dynamic (column)
                                              (new Formatted-Text-View))
@@ -3952,7 +3952,7 @@
     (cond (expression?
             (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
                    (moniker (get-moniker))
-                   (mode (if (or (not moniker) (ci= (get-extension~ moniker) "jazz")) 'code 'quotation))
+                   (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
                    (found (search-expressions~ expl mode strings position whole-words? ignore-case?)))
               (when found
                 (car found))))

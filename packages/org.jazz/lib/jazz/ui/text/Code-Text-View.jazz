@@ -225,25 +225,25 @@
 
 
   (method protected virtual (forward-expr)
-    (let ((expl (new (explorer-class) self end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self end: (get-end))))
       (when (forward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
   
   (method protected virtual (backward-expr)
-    (let ((expl (new (explorer-class) self start: (get-start))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start))))
       (when (backward-expr~ expl)
         (set-selection (get-range~ expl)))))
   
   
   (method protected virtual (enter-composite)
-    (let ((expl (new (explorer-class) self start: (get-start) end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start) end: (get-end))))
       (when (enter-composite~ expl)
         (set-caret (get-end~ expl)))))
   
   
   (method protected virtual (exit-composite)
-    (let ((expl (new (explorer-class) self start: (get-end) end: (get-end))))
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-end) end: (get-end))))
       (when (exit-list~ expl)
         (set-caret (get-end~ expl)))))
   
@@ -264,7 +264,7 @@
   
   (method (header-string? form)
     (and (string? form)
-         (>= (length form) 2)
+         (>= (string-length form) 2)
          (eqv? (first form) #\double-quote)
          (eqv? (last form) #\double-quote)))
   
@@ -278,7 +278,7 @@
           (appl (get-application)))
       (when form
         (cond ((header-string? form)
-               (edit-filename~ appl (subseq form 1 (- (length form) 1))))
+               (edit-filename~ appl (subseq form 1 (- (string-length form) 1))))
               ((file? form)
                (edit-document~ appl form workspace: (edition-workspace)))
               ((is? form URL)
@@ -320,7 +320,7 @@
     (let ((form (expr-at (view->text pos))))
       (when form
         (cond ((header-string? form)
-               (edit-filename~ (get-application) (subseq form 1 (- (length form) 1))))
+               (edit-filename~ (get-application) (subseq form 1 (- (string-length form) 1))))
               ((file? form)
                (edit-document~ (get-application) form))
               ((is? form URL)
@@ -460,7 +460,7 @@
         (let ((info (car found)))
           (bind ((target type) row col) info
             (let ((start (new Cell row col))
-                  (end (new Cell row (+ col (length target)))))
+                  (end (new Cell row (+ col (string-length target)))))
               (set! found (colorize-type found type start end colorizer #f))))))
       (when colorizer
         (finish-current~ colorizer))))
@@ -549,7 +549,7 @@
           (let ((info (car found)))
             (bind ((target type) row col) info
               (let ((start (new Cell row col))
-                    (end (new Cell row (+ col (length target)))))
+                    (end (new Cell row (+ col (string-length target)))))
                 (set! found (colorize-type found type start end colorizer #f))))))
         (finish-current~ colorizer))))
   
@@ -578,7 +578,7 @@
                        (line (get-line~ entry))
                        (column (get-column~ entry))
                        (start (new Cell line column))
-                       (end (new Cell line (+ column (length name)))))
+                       (end (new Cell line (+ column (string-length name)))))
                   ;; until the time test of the previous method becomes functional
                   (when (<= line (get-limit))
                     (stylize 'Definition start end)
@@ -699,7 +699,7 @@
             (unless (string-delimiter? c)
               (if (not (text-constituent?~ syntax c))
                   postfix
-                (let ((expl (new (explorer-class) self start: pos end: pos)))
+                (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
                   (when (and (backward-expr~ expl) (memq? (get-kind~ expl) '(symbol keyword string)))
                     (let ((c (char-backward~ expl 0)))
                       (when (or (not c) (not (string-delimiter? c)))
@@ -708,9 +708,9 @@
   
   (method (alphabetize-completion completions offset)
     (let ((alphabet-char (remove-duplicates
-                           (sort <
+                           (sort char<?
                                  (map (function dynamic (completion)
-                                        (if (> (length completion) offset) (element completion offset) #\space))
+                                        (if (> (string-length completion) offset) (element completion offset) #\space))
                                       completions)))))
       (coerce alphabet-char String)))
 
@@ -726,7 +726,7 @@
               (begin
                 (when feedback?
                   (clear-user-message))
-                (append (either postfix "") (subseq (cdr favorite) size)))
+                (concatenate (either postfix "") (subseq (cdr favorite) size)))
             (when (complete-name? size)
               (let* ((completions (symbol-completions name favorites))
                      (count (length completions)))
@@ -740,23 +740,23 @@
                            (user-message "{a}" found))
                          (if (string=? name found)
                              {}
-                           (append (either postfix "") (subseq found size)))))
+                           (concatenate (either postfix "") (subseq found size)))))
                       ((> count 100)
                        (when feedback?
                          (user-message "..."))
                        {})
                       ((> count 5)
                        (let* ((common (prefix completions))
-                              (offset (length common))
+                              (offset (string-length common))
                               (alphabet (alphabetize-completion completions offset)))
                          (when feedback?
                            (user-message "{a} ... [{a}]" common alphabet))
-                         (append (either postfix "") (subseq common size))))
+                         (concatenate (either postfix "") (subseq common size))))
                       (else
                        (let ((common (prefix completions)))
                          (when feedback?
                            (user-message "{l detail: :human}" completions))
-                         (append (either postfix "") (subseq common size))))))))))))
+                         (concatenate (either postfix "") (subseq common size))))))))))))
   
   
   (method protected virtual (complete-name? size)
@@ -770,7 +770,7 @@
         (if (not cataloguer)
             '()
           (let ((completions (get-completions~ cataloguer name context: (get-context)))
-                (length (length name)))
+                (length (string-length name)))
             (for-each (function dynamic (pair)
                         (let ((favorite (cdr pair)))
                           (when (compare-n (->string favorite) name length)
@@ -954,7 +954,7 @@
         (when (flash-character? (get-char pos))
           (catch (Explore-Error err
                    (bell))
-            (let ((expl (new (explorer-class) self start: (get-end))))
+            (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-end))))
               (if (not (backward-expr~ expl))
                   (bell)
                 (flash-character (get-start~ expl) pos))))))))
@@ -972,7 +972,7 @@
         (let* ((pos (text->view end))
                @w(tran (acquire~ (get-desktop) self pos))
                @w(tool (new Tooltip position: tran size: {Dimension 100 20} visible?: #f))
-               (expl (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
+               (expl <Text-Explorer> (new (explorer-class) self start: (+ start 1) end: (+ start 1))))
           (user-message "{l detail: :human}" (map (function dynamic (mark)
                                                     (get-string (get-range~ mark)))
                                                   (collect-forward-exprs~ expl 3)))
@@ -1080,6 +1080,7 @@
     (nextmethod rest)
     (if (< (length definitions) 20)
         (for-each (function dynamic (definition)
+                    (debug definition (present~ definition 'definitions))
                     (let ((title (present~ definition 'definitions)))
                       (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :definition definition)))))
                   (sort definition<? definitions))
@@ -1091,7 +1092,7 @@
   
   
   (method (definition<? x y)
-    (< (present~ x 'definitions) (present~ y 'definitions)))
+    (string<? (present~ x 'definitions) (present~ y 'definitions)))
   
   
   (method (on-action evt)

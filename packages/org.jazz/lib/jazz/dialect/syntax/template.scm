@@ -60,7 +60,7 @@
 
 
 (template (butlast<T> seq T) T
-  (subseq seq 0 (- (length seq) 1)))
+  (subseq seq 0 (- (cardinality seq) 1)))
 
 
 (instantiate butlast<string>)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Base Syntax
+;;;; Variables
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.syntax
+(module core.base.syntax.variable
 
 
-(require (core.base.syntax.runtime)
-         (core.base.syntax.unspecified (load interpreted))
-         (core.base.syntax.macro (load interpreted))
-         (core.base.syntax.macros (load interpreted))
-         (core.base.syntax.variable (load interpreted))))
+(jazz.define-macro (jazz.define-variable name . rest)
+  (let ((expr (if (%%null? rest) #f (%%car rest))))
+    `(begin
+       (define ,name #f)
+       (set! ,name ,expr)))))

@@ -8,6 +8,10 @@
 ;; ----------------------------------------------------------------------------
 ;; Profiling & interruption handling
 
+(declare (block)
+         (standard-bindings)
+         (extended-bindings))
+
 ;; Buckets should probably be tables for better performance
 (define *buckets* '())
 (define *total* 0)
@@ -18,6 +22,11 @@
 
 (define (profile-stop!)
   (##interrupt-vector-set! 1 ##thread-heartbeat!))
+
+(define (profile-reset!)
+  (set! *buckets* '())
+  (set! *total* 0)
+  (set! *unknown* 0))
 
 ;; As an improvement, we could use ##continuation-parent and ##object->global-var->identifier
 ;; to identify more precisely where the code was in the ##continuation-next ... continuation

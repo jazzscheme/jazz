@@ -507,7 +507,8 @@
   '(jazz.process.Process
     jazz.application.Application
     jazz.ui.ide.IDE
-    jedi.application.Jedi))
+    jedi.application.Jedi
+    jazz.application.platform.windows))
 
 (define JML
   '(jazz.jml
@@ -668,6 +669,7 @@
 
 (define profile-start! #f) (set! profile-start! #f)
 (define profile-stop! #f) (set! profile-stop! #f)
+(define profile-reset! #f) (set! profile-reset! #f)
 (define write-profile-report #f) (set! write-profile-report #f)
 
 
@@ -685,6 +687,10 @@
 (define (spe)
   (spl)
   (profile-stop!))
+
+(define (spr)
+  (spl)
+  (profile-reset!))
 
 (define (spp flag thunk)
   (if (not flag)

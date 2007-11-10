@@ -137,6 +137,11 @@
   (profile-stop!))
 
 
+(define (jazz.reset-statprof)
+  (jazz.load-statprof)
+  (profile-reset!))
+
+
 (define jazz.report-statprof
   (let ((n 0))
     (lambda (#!optional (name #f))
@@ -149,7 +154,8 @@
         (set! n (+ n 1))
         (let ((filename (get-output-string port)))
           (write-sexp-profile-report filename)
-          filename)))))
+          filename))
+      (profile-reset!))))
 
 
 ;;;

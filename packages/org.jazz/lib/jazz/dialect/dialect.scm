@@ -1109,6 +1109,7 @@
 
 
 (define (jazz.cache-dispatch-interpreted object name setter)
+  ;;(jazz.debug 'cache name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
@@ -1133,6 +1134,7 @@
 
 
 (define (jazz.cache-dispatch-compiled object name setter)
+  ;;(jazz.debug 'cache name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)

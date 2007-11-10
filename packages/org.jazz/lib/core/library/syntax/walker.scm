@@ -2650,7 +2650,7 @@
   (map (lambda (variable)
          (let ((symbol (%%car variable))
                (value (%%cdr variable)))
-           `(define ,symbol ,value)))
+           `(jazz.define-variable ,symbol ,value)))
        (jazz.queue-list (%%get-library-declaration-variables library-declaration))))
 
 

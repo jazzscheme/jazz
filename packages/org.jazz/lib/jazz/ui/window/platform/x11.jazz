@@ -92,7 +92,7 @@
                    0
                    500
                    500
-                   1
+                   0
                    CopyFromParent
                    InputOutput
                    visual
@@ -108,7 +108,7 @@
           (error "Unable to create x11 window")
         @tofix-this-is-windows
         (DragAcceptFiles hwnd #t)
-        (XSelectInput default-x11-display handle (+ StructureNotifyMask ExposureMask))
+        (XSelectInput default-x11-display handle (+ FocusChangeMask ButtonPressMask StructureNotifyMask ExposureMask))
         handle))))
 
 
@@ -157,7 +157,6 @@
 
 (definition (process-window-message window msg)
    (let ((type (XEvent-type-ref msg)))
-      (debug type)
       (cond
        ((= type Expose)          
                                      (let* ((msg (XEvent-xexpose-ref msg))
@@ -166,8 +165,57 @@
                                         (right (+ left (XExposeEvent-width-ref msg)))
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
                                         (region (new Rect left top right bottom)))
+                                   (debug "Expose" window region)
                                    (paint~ window region)))
-       ((= type MapNotify)       (XFlush default-x11-display) processed)
+       ((= type ButtonPress)
+        (let* ((msg (XEvent-xbutton-ref msg))
+                (h (XButtonEvent-x-ref msg))
+                (v (XButtonEvent-y-ref msg))
+                (button (XButtonEvent-button-ref msg)))
+          (cond ((= button Button1)
+                     (debug "Button1")
+                     (mouse-down~ window h v))
+                    ((= button Button2)
+                     (debug "Button2")
+                     (middle-mouse-down~ window h v))
+                    ((= button Button3)
+                     (debug "Button3")
+                     (right-mouse-down~ window h v)))))
+
+       ((= type FocusIn)
+        (let* ((msg (XEvent-xfocus-ref msg))
+                 (detail (XFocusChangeEvent-detail-ref msg)))
+            (when (or (= detail NotifyAncestor)
+                            (= detail NotifyInferior)
+                            (= detail NotifyNonlinear))
+              (call-focus-gain~ window))))
+
+       ((= type FocusOut)
+        (let* ((msg (XEvent-xfocus-ref msg))
+                 (detail (XFocusChangeEvent-detail-ref msg)))
+            (when (or (= detail NotifyAncestor)
+                            (= detail NotifyInferior)
+                            (= detail NotifyNonlinear))
+               (call-focus-lose~ window #f))))
+
+       ((= type ConfigureNotify)
+        (let* ((msg (XEvent-xconfigure-ref msg))
+                (width (XConfigureEvent-width-ref msg))
+                (height (XConfigureEvent-height-ref msg))
+                (x (XConfigureEvent-x-ref msg))
+                (y (XConfigureEvent-y-ref msg))
+                (prev-size (get-previous-size~ window))
+                (prev-pos (get-previous-pos~ window)))
+          (when (not prev-size) (call-size-change~ window width height))
+          (when (and prev-size
+                            (not (and (= width (get-width~ prev-size))
+                                           (= height (get-height~ prev-size)))))
+              (call-size-change~ window width height))
+          (when (not prev-pos) (call-position-change~ window x y))
+          (when (and prev-pos
+                            (not (and (= x (get-h~ prev-pos))
+                                           (= x (get-v~ prev-pos)))))
+              (call-position-change~ window x y))))
        (else                      unprocessed))))
 
 (definition (event-loop)
@@ -252,7 +300,7 @@
 (definition (with-platform-painting window proc)
   (let* ((screen-no (XDefaultScreen default-x11-display))
          (visual    (XDefaultVisual default-x11-display screen-no)))
-    (with ((dc (new Surface (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual (get-height~ window) (get-width~ window)))))
+    (with ((dc (new Surface (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual(get-width~ window) (get-height~ window) ))))
       (unwind-protect
           (proc dc)
         (close~ dc))))
@@ -656,9 +704,7 @@
   (GetFocus))
 
 (definition (platform-set-focus handle)
-  (unimplemented 'platform-set-focus)
-  @windows
-  (SetFocus handle))
+  (XSetInputFocus default-x11-display handle RevertToNone CurrentTime))
 
 
 ;;;

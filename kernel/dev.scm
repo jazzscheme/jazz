@@ -444,11 +444,12 @@
 (define View
   '(jazz.ui.dialog
     jazz.ui.view
-    jazz.ui.window
     jazz.ui.layout.Figure
     jazz.ui.view.Drawing
     jazz.ui.view.View
     jazz.ui.view.Scrollbar
+    jazz.ui.window
+    jazz.ui.window.platform.windows
     jazz.ui.window.Window
     jazz.ui.window.View-Player
     jazz.ui.graphic.Surface

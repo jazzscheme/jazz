@@ -16,12 +16,12 @@ Distribution
 Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 
-bin                      :  Architecture dependent files
+bin                      :  Architecture directories
 contrib                  :  Outside contributions
 dev                      :  Stuff for developers of JazzScheme itself
-doc                      :  Documentation
+doc                      :  Preliminary documentation
 include                  :  Include directory for C code
-kernel                   :  Scheme code to bootstrap the module concept
+kernel                   :  Scheme code to bootstrap the module system
 lib                      :  Lib directory for C code
 packages                 :  Installed packages
 

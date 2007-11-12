@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Cairo WIN32 Surface
+;;;; Regions
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -16,12 +16,11 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Guillaume Cartier
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,28 +35,62 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.graphic.Cairo-Client-Surface jazz
+(library jazz.ui.graphic.platform.windows.Region jazz
 
 
-(import (jazz.ui)
+(import (jazz.library)
         (jazz.platform)
         (jazz.platform.windows)
-        (jazz.library)
         (jazz.utilities))
 
 
-(class Cairo-Client-Surface extends Surface
+(class Region extends Object
   
   
-  (slot window initialize {})
+  (slot handle     getter generate)
+  (slot rectangles getter generate)
+    
+    
+  (method (initialize (handle: handle {}) (rect: rect {}) (left: left {}) (top: top {}) (right: right {}) (bottom: bottom {}))
+    (nextmethod)
+    (cond (handle
+            (set! handle~self handle))
+          (rect
+            (set! handle~self (with ((rect (rect->RECT rect))) (CreateRectRgnIndirect rect)))
+            (set! rectangles (list rect)))
+          (left
+            (set! handle~self (CreateRectRgn left top right bottom))
+            (set! rectangles (list (new Rect left top right bottom))))
+          (else
+           (set! handle~self (CreateRectRgn 0 0 0 0))
+           (set! rectangles (list (new Rect 0 0 0 0)))))
+    (destroy-mandatory))
+
+  
+  (method (destroy)
+    (DeleteObject handle)
+    (nextmethod))
+  
+  
+  (method public (offset! h v)
+    (OffsetRgn handle (inexact->exact h) (inexact->exact v)))
 
 
-  (method (initialize wnd)
-    (set! window wnd)
-    @windows-specific
-    (nextmethod (GetDC (get-handle~ window))))
+  (method public (combine! region mode)
+    (CombineRgn handle handle (get-handle~ region) (get-combine-mode mode))
+    (set! rectangles (append rectangles (get-rectangles~ region))))
   
   
-  (method (destroy-hdc)
-    @windows-specific
-    (ReleaseDC (get-handle~ window) hdc))))
+  (method (get-combine-mode mode)
+    (case mode
+      ((and)  RGN_AND)
+      ((or)   RGN_OR)
+      ((xor)  RGN_XOR)
+      ((diff) RGN_DIFF)
+      (else (error "Unknown combine mode: {t}" mode))))
+
+
+  (method public (get-box)
+    (with ((rect (RECT-make)))
+      (GetRgnBox handle rect)
+      (RECT->rect rect)))))

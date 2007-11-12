@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Bitmaps
+;;;; Picture Job
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,43 +35,37 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.graphic.Bitmap jazz
+(library jazz.ui.graphic.platform.windows.Picture-Job jazz
 
 
 (import (jazz.ui)
         (jazz.library)
-        (jazz.utilities)
-        (jazz.platform.windows))
+        (jazz.utilities))
 
 
-(class Bitmap extends Object
+(class Picture-Job extends Print-Job
   
   
-  (slot handle)
+  (slot directory)
+  (slot filename)
   
   
-  (method (initialize (handle: handle {})
-                      (dc: dc {})
-                      (width: width {})
-                      (height: height {}))
-    (nextmethod)
-    (if (not handle)
-        (set! handle~self (CreateCompatibleBitmap (get-hdc~ dc) width height))
-      (set! handle~self handle))
-    (destroy-mandatory))
-
-
-  (method (destroy)
-    (DeleteObject handle)
-    (nextmethod))
+  (method (initialize directory filename client page-setup resolution . rest)
+    (set! directory~self directory)
+    (set! filename~self filename)
+    (apply nextmethod {} client page-setup resolution rest))
   
   
-  (method (get-handle)
-    handle)
+  ;;;
+  ;;;; Page
+  ;;;
   
   
-  (method public (get-size)
-    (let ((info (BITMAP-make)))
-      (GetObject handle (size-of-BITMAP) info)
-      (new Dimension (BITMAP-bmWidth-ref info)
-                     (BITMAP-bmHeight-ref info))))))
+  (method (start-page no)
+    (set! surface (new Picture file: (new-file~ directory (format "{a}{a width: 3 justify: :right padding: #\\0}.emf" filename (+ no 1))))))
+  
+  
+  (method (end-page no)
+    (let ((metafile (get-metafile~ surface)))
+      (close~ surface)
+      (delete-metafile~ Picture metafile)))))

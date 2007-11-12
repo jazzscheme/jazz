@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Memory DC
+;;;; Bitmaps
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,48 +35,43 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.graphic.Memory-DC jazz
+(library jazz.ui.graphic.Bitmap jazz
 
 
 (import (jazz.ui)
         (jazz.library)
-        (jazz.utilities))
+        (jazz.utilities)
+        (jazz.platform.windows))
 
 
-(class Memory-DC extends DC
-
-
-  (slot size)
-  (slot bitmap)
-  (slot keep-bitmap?)
-
-
-  (method (initialize compatibility-dc (size: size {}) (bitmap?: bitmap? #t) (keep-bitmap?: keep-bitmap? #f))
-    (nextmethod (CreateCompatibleDC (if compatibility-dc (get-hdc~ compatibility-dc) NULL)))
-    (set! size~self size)
-    (set! bitmap~self {})
-    (set! keep-bitmap?~self keep-bitmap?)
-    (when bitmap?
-      (set! bitmap~self (new Bitmap :dc compatibility-dc width: (get-width~ size) height: (get-height~ size)))
-      (select-object bitmap))
+(class Bitmap extends Object
+  
+  
+  (slot handle)
+  
+  
+  (method (initialize (handle: handle {})
+                      (surface: surface {})
+                      (width: width {})
+                      (height: height {}))
+    (nextmethod)
+    (if (not handle)
+        (set! handle~self (CreateCompatibleBitmap (get-hdc~ surface) width height))
+      (set! handle~self handle))
     (destroy-mandatory))
 
 
   (method (destroy)
-    (when (and bitmap (not keep-bitmap?))
-      (close~ bitmap)
-      (set! bitmap {}))
+    (DeleteObject handle)
     (nextmethod))
   
   
-  ;;;
-  ;;;; Access
-  ;;;
-
-
-  (method (get-size)
-    size)
-
-
-  (method public (get-bitmap)
-    bitmap)))
+  (method (get-handle)
+    handle)
+  
+  
+  (method public (get-size)
+    (let ((info (BITMAP-make)))
+      (GetObject handle (size-of-BITMAP) info)
+      (new Dimension (BITMAP-bmWidth-ref info)
+                     (BITMAP-bmHeight-ref info))))))

@@ -187,53 +187,53 @@
     {Color name: Blue})
 
 
-  (method (render drawing dc context update lh lv sh sv sc sc?)
-    (default-render drawing dc context update lh lv sh sv sc sc?)
-    (draw dc))
+  (method (render drawing surface context update lh lv sh sv sc sc?)
+    (default-render drawing surface context update lh lv sh sv sc sc?)
+    (draw surface))
 
 
-  (method (default-render drawing dc context update lh lv sh sv sc sc?)
+  (method (default-render drawing surface context update lh lv sh sv sc sc?)
     (let ((content? (show-content?~ editor)))
       (when content?
-        (draw-background~ drawing dc context))
+        (draw-background~ drawing surface context))
       (when content?
-        (draw-content~ drawing dc context update lh lv sh sv sc sc?))
+        (draw-content~ drawing surface context update lh lv sh sv sc sc?))
       (when (or content? (is-not? drawing Outline-View))
-        (draw-children~ drawing dc context update lh lv sh sv sc sc?))))
+        (draw-children~ drawing surface context update lh lv sh sv sc sc?))))
   
   
-  (method public virtual (draw dc)
-    (draw-showed-property dc)
-    (draw-surrogate-frame dc))
+  (method public virtual (draw surface)
+    (draw-showed-property surface)
+    (draw-surrogate-frame surface))
   
   
-  (method public (draw-showed-property dc)
+  (method public (draw-showed-property surface)
     (let ((property (get-showed-property~ editor)))
       (when (and property (property-field client property))
-        (set-font~ dc {Font name: Ansi-Var})
-        (set-text-color~ dc {Color name: Dark-Red})
+        (set-font~ surface {Font name: Ansi-Var})
+        (set-text-color~ surface {Color name: Dark-Red})
         (let* ((value (read-property client property))
                (string (->string value :reader))
-               (extent (get-text-extent~ dc string))
+               (extent (get-text-extent~ surface string))
                (size (+ extent {Dimension 7 4}))
                (pos (center size (get-size~ client)))
                (rect (position/size->rect pos size)))
-          (frame-rect~ dc rect {Color name: Black})
-          (fill-rect~ dc (inflate-rect rect -1 -1) {Color name: White})
-          (draw-text~ dc (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string)))))
+          (frame-rect~ surface rect {Color name: Black})
+          (fill-rect~ surface (inflate-rect rect -1 -1) {Color name: White})
+          (draw-text~ surface (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string)))))
   
   
-  (method (draw-surrogate-frame dc)
+  (method (draw-surrogate-frame surface)
     (when (and (show-frames?~ editor) (eq? (outer-client) client))
       (let ((color Unselected-Color))
         (with ((outside (get-bounds~ client)))
-          (frame-rect~ dc outside color)
+          (frame-rect~ surface outside color)
           (when (eq? client (get-reference~ editor))
             (with ((inside (inflate-rect outside -1 -1)))
-              (frame-rect~ dc inside color)))))))
+              (frame-rect~ surface inside color)))))))
   
   
-  (method public virtual (draw-selected dc rank)
+  (method public virtual (draw-selected surface rank)
     (with ((bounds (get-bounds~ client))
            (outside (acquire~ editor client bounds))
            (clipper (get-view-clipper~ client))
@@ -242,19 +242,19 @@
             (t (get-top~ outside))
             (r (- (get-right~ outside) 1))
             (b (- (get-bottom~ outside) 1)))
-        (set-pen~ dc (selected-pen rank))
-        (line~ dc l t r t)
-        (line~ dc r t r b)
-        (line~ dc l t l b)
-        (line~ dc l b r b)
-        (set-pen~ dc {Pen name: Black})
-        (with-clipper~ dc acquired
+        (set-pen~ surface (selected-pen rank))
+        (line~ surface l t r t)
+        (line~ surface r t r b)
+        (line~ surface l t l b)
+        (line~ surface l b r b)
+        (set-pen~ surface {Pen name: Black})
+        (with-clipper~ surface acquired
           (function dynamic ()
             (let ((color (selected-color rank)))
-              (frame-rect~ dc outside color)
+              (frame-rect~ surface outside color)
               (when (eq? self (get-reference~ editor))
                 (with ((inside (inflate-rect outside -1 -1)))
-                  (frame-rect~ dc inside color)))))))))
+                  (frame-rect~ surface inside color)))))))))
   
   
   (method (border-region)

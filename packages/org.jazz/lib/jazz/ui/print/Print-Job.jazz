@@ -46,7 +46,7 @@
 (class Print-Job extends Object
   
   
-  (slot dc)
+  (slot surface)
   (slot selection?)
   (slot from)
   (slot to)
@@ -59,7 +59,7 @@
   (slot pages)
   
   
-  (method (initialize dc client page-setup resolution
+  (method (initialize surface client page-setup resolution
                       (scaling: scaling {})
                       (zoom: zoom {})
                       (selection?: selection? #f)
@@ -67,7 +67,7 @@
                       (to: to {})
                       (nb-copies: nb-copies 1))
     (nextmethod)
-    (set! dc~self dc)
+    (set! surface~self surface)
     (set! selection?~self selection?)
     (set! from~self from)
     (set! to~self to)
@@ -86,7 +86,7 @@
   
   
   (method public (get-dc)
-    dc)
+    surface)
   
   
   (method public (get-selection?)
@@ -133,30 +133,30 @@
     (for-each (function dynamic (page no)
                 (with-page no
                   (function dynamic ()
-                    (print-page dc 0 0 page no))))
+                    (print-page surface 0 0 page no))))
               pages
               (naturals (if (null? from) 0 (- from 1))
                         (if (null? to) (length pages) to))))
   
   
-  (method (with-orientation dc page clipper proc)
+  (method (with-orientation surface page clipper proc)
     (let* ((landscape? (print-landscape?))
            (proc
             (function dynamic ()
-              (with-clipper~ dc (if landscape? (inverse-rect clipper) clipper)
+              (with-clipper~ surface (if landscape? (inverse-rect clipper) clipper)
                 (function dynamic ()
                   (proc))))))
-      (with-world~ dc
+      (with-world~ surface
         (function dynamic ()
           (if (not landscape?)
               (proc)
             (let ((orientation 'counterclockwise)
                    (page-size (rect-size page)))
-              (with-landscape~ dc
+              (with-landscape~ surface
                 orientation page-size proc)))))))
   
   
-  (method public (print-page dc lh lv page no)
+  (method public (print-page surface lh lv page no)
     (let* ((context (print-context no))
            (zoom (either zoom 1.0))
            (ratio (* (/ resolution 60) zoom))
@@ -165,9 +165,9 @@
            (printed-bounds (get-bounds~ printed))
            (printed-rect (offset-rect (scale printed-bounds ratio) lh lv)))
       (wrap-header/footer~ page-setup context)
-      (with-orientation dc printed-bounds printed-rect
+      (with-orientation surface printed-bounds printed-rect
         (function dynamic ()
-          (paint-drawing~ printed dc context {} lh lv lh lv ratio #t)))
+          (paint-drawing~ printed surface context {} lh lv lh lv ratio #t)))
       (let* ((offset (acquire~ page-setup printed {Point 0 0}))
              (content-rect (scale (offset-rect (get-content-rect~ page-setup) (- (get-h~ offset)) (- (get-v~ offset))) ratio))
              (content (offset-rect content-rect lh lv))
@@ -176,9 +176,9 @@
              (new-lh (- left (get-left~ page)))
              (new-lv (- top (get-top~ page)))
              (clipper (offset-rect (scale (offset-rect page (- (get-left~ page)) (- (get-top~ page))) scaling) left top)))
-        (with-orientation dc page clipper
+        (with-orientation surface page clipper
           (function dynamic ()
-            (paint-drawing~ client dc context content new-lh new-lv left top scaling #t))))))
+            (paint-drawing~ client surface context content new-lh new-lv left top scaling #t))))))
   
   
   (method protected virtual (printed-page)

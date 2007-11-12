@@ -247,29 +247,29 @@
     {Color name: Black})
 
   
-  (method public (paint-cell dc context update lh <fx> lv <fx> h v width height row cell sh <fx> sv <fx> sc <fl> sc? <bool>)
+  (method public (paint-cell surface context update lh <fx> lv <fx> h v width height row cell sh <fx> sv <fx> sc <fl> sc? <bool>)
     (let ((selected? (getf context selected?:)))
-      (with-transform~ dc parent lh lv width height sh sv sc sc?
+      (with-transform~ surface parent lh lv width height sh sv sc sc?
         (function dynamic ()
-          (draw-cell dc context row cell width height)))))
+          (draw-cell surface context row cell width height)))))
 
   
-  (method public virtual (draw-cell dc context row cell width height)
-    (draw-at dc context row cell 0 0 width height))
+  (method public virtual (draw-cell surface context row cell width height)
+    (draw-at surface context row cell 0 0 width height))
   
   
-  (method public virtual (draw-at dc context row cell h v width height)
-    (draw-background dc context row cell width height))
+  (method public virtual (draw-at surface context row cell h v width height)
+    (draw-background surface context row cell width height))
   
   
-  (method public virtual (draw-background dc context row cell width height)
+  (method public virtual (draw-background surface context row cell width height)
     (with ((rect (new Rect 0 0 width height)))
       (let ((color (background-color cell context)))
-        (fill-rect~ dc rect color))
+        (fill-rect~ surface rect color))
       (when (is? cell Tree-Cell)
         (let ((frame-color (get-frame-color~ cell)))
           (when frame-color
-            (frame-rect~ dc rect frame-color))))))
+            (frame-rect~ surface rect frame-color))))))
   
   
   (method (background-color cell context)
@@ -294,17 +294,17 @@
       ((row) #t)))
   
   
-  (method public virtual (draw-header dc context h v width height sorted spaced? flat?)
-    (draw-header-at dc h v width height (localize title) down? sorted spaced? flat?))
+  (method public virtual (draw-header surface context h v width height sorted spaced? flat?)
+    (draw-header-at surface h v width height (localize title) down? sorted spaced? flat?))
   
   
-  (method (draw-header-at dc h v width height title down? sorted spaced? flat?)
+  (method (draw-header-at surface h v width height title down? sorted spaced? flat?)
     (if down?
-        (draw-sunken-button dc h v width height title sorted spaced? flat?)
-      (draw-raised-button dc h v width height title sorted spaced? flat?)))
+        (draw-sunken-button surface h v width height title sorted spaced? flat?)
+      (draw-raised-button surface h v width height title sorted spaced? flat?)))
     
   
-  (method (draw-raised-button dc h v width height title sorted spaced? flat?)
+  (method (draw-raised-button surface h v width height title sorted spaced? flat?)
     (let ((thick (if flat? -1 -2)))
       ;; when spaced, it's the background that draws the right side shadow
       (with ((outer (new Rect h v (+ h width) (+ v height)))
@@ -312,47 +312,47 @@
         (if flat?
             (if spaced?
                 (with ((smaller (expand-rect outer 0 0 0 -1)))
-                  (draw-edge~ dc smaller inner: 'raised edges: '(top left)))
-              (draw-edge~ dc outer inner: 'raised edges: 'rectangle))
-          (draw-edge~ dc outer inner: 'raised outer: 'raised edges: '(right bottom))
+                  (draw-edge~ surface smaller inner: 'raised edges: '(top left)))
+              (draw-edge~ surface outer inner: 'raised edges: 'rectangle))
+          (draw-edge~ surface outer inner: 'raised outer: 'raised edges: '(right bottom))
           (with ((rect (expand-rect outer 0 0 -1 -1)))
-            (draw-edge~ dc rect inner: 'raised edges: '(top left))))
-        (fill-rect~ dc inner (either background (header-color~ parent)))
-        (set-text-color~ dc {Color name: Black})
-        (draw-text~ dc (+ h (header-title-h dc width title)) (+ v 1) title)
-        (draw-sorted dc h v title sorted))))
+            (draw-edge~ surface rect inner: 'raised edges: '(top left))))
+        (fill-rect~ surface inner (either background (header-color~ parent)))
+        (set-text-color~ surface {Color name: Black})
+        (draw-text~ surface (+ h (header-title-h surface width title)) (+ v 1) title)
+        (draw-sorted surface h v title sorted))))
     
   
-  (method protected virtual (header-title-h dc width title)
-    (+ 2 (justify-title dc (- width 4) title justification)))
+  (method protected virtual (header-title-h surface width title)
+    (+ 2 (justify-title surface (- width 4) title justification)))
   
   
-  (method protected (justify-title dc width title justification)
-    (let ((extent (get-text-extent~ dc title)))
+  (method protected (justify-title surface width title justification)
+    (let ((extent (get-text-extent~ surface title)))
       (justify (get-width~ extent) width justification)))
 
   
-  (method (draw-sorted dc h v title sorted)
+  (method (draw-sorted surface h v title sorted)
     (when sorted
-      (set-pen~ dc {Pen name: Dark})
-      (let* ((width (get-text-width~ dc title))
+      (set-pen~ surface {Pen name: Dark})
+      (let* ((width (get-text-width~ surface title))
              (h (+ h (+ width 6)))
              (v (+ v 6))
              (size 4))
         (case sorted
-          ((ascending) (draw-arrow-tip~ dc h v size 'up))
-          ((descending) (draw-arrow-tip~ dc h v size 'down))))))
+          ((ascending) (draw-arrow-tip~ surface h v size 'up))
+          ((descending) (draw-arrow-tip~ surface h v size 'down))))))
   
   
-  (method (draw-sunken-button dc h v width height title sorted spaced? flat?)
+  (method (draw-sunken-button surface h v width height title sorted spaced? flat?)
     (with ((outer (new Rect h v (+ h width) (+ v height)))
            (inner (inflate-rect outer -1 -1)))
-      (set-pen~ dc {Pen name: Dark})
-      (frame-rect~ dc outer {Color name: Dark})
-      (fill-rect~ dc inner (either background (header-color~ parent)))
-      (set-text-color~ dc {Color name: Black})
-      (draw-text~ dc (+ h (header-title-h dc width title) 1) (+ v 2) title)
-      (draw-sorted dc (+ h 1) (+ v 1) title sorted)))
+      (set-pen~ surface {Pen name: Dark})
+      (frame-rect~ surface outer {Color name: Dark})
+      (fill-rect~ surface inner (either background (header-color~ parent)))
+      (set-text-color~ surface {Color name: Black})
+      (draw-text~ surface (+ h (header-title-h surface width title) 1) (+ v 2) title)
+      (draw-sorted surface (+ h 1) (+ v 1) title sorted)))
 
 
   ;;;

@@ -136,81 +136,81 @@
 
 
 ;; tofix : style was ILD_TRANSPARENT
-  (method public (draw dc context h v (size: size (get-size error?: #f)) (style: style {}) (enabled?: enabled? #t))
+  (method public (draw surface context h v (size: size (get-size error?: #f)) (style: style {}) (enabled?: enabled? #t))
     (let ((h (+ (get-h~ view-position) h))
           (v (+ (get-v~ view-position) v)))
-      (draw-image-aux dc context h v size style enabled?)))
+      (draw-image-aux surface context h v size style enabled?)))
   
   
-  (method protected (draw-image-aux dc context h v size style enabled?)
-    (cond (icon (draw-icon dc context h v size))
-          (bitmap (draw-bitmap dc h v size))
-          (metafile (draw-metafile dc h v size))
-          (portfolio (draw-image dc context h v size style enabled?))
-          (source (draw-source dc h v size))
-          ((and handle cache?) (draw-bitmap dc h v size))))
+  (method protected (draw-image-aux surface context h v size style enabled?)
+    (cond (icon (draw-icon surface context h v size))
+          (bitmap (draw-bitmap surface h v size))
+          (metafile (draw-metafile surface h v size))
+          (portfolio (draw-image surface context h v size style enabled?))
+          (source (draw-source surface h v size))
+          ((and handle cache?) (draw-bitmap surface h v size))))
 
 
-  (method (draw-icon dc context h v size)
+  (method (draw-icon surface context h v size)
     (let ((icon (either handle (load-image 'icon icon))))
-      (draw-image~ dc icon h v)))
+      (draw-image~ surface icon h v)))
   
   
-  (method (draw-bitmap dc h v size)
+  (method (draw-bitmap surface h v size)
     (let ((bitmap (either handle (load-image 'bitmap bitmap))))
-      (draw-image~ dc icon h v)))
+      (draw-image~ surface icon h v)))
   
   
-  (method (draw-metafile dc h v size)
+  (method (draw-metafile surface h v size)
     (unimplemented 'draw-metafile)
     @windows-specific
     (with ((bounds (get-bounds))
            (rect (rect->RECT bounds)))
-      (PlayEnhMetaFile (get-hdc~ dc) metafile rect)))
+      (PlayEnhMetaFile (get-hdc~ surface) metafile rect)))
 
 
-  (method (draw-image dc context h v size style enabled?)
+  (method (draw-image surface context h v size style enabled?)
     (when image-name
-      (draw-image~ portfolio dc context image-name h v style: style enabled?: enabled?)))
+      (draw-image~ portfolio surface context image-name h v style: style enabled?: enabled?)))
 
 
-  (method (draw-source dc h v size)
+  (method (draw-source surface h v size)
     (case mode
-      ((centered) (draw-centered dc h v))
-      ((tiled) (draw-tiled dc h v))
-      ((filled) (draw-positioned dc 0 0))
-      ((stretched) (draw-centered dc h v))
-      (else (draw-positioned dc h v))))
+      ((centered) (draw-centered surface h v))
+      ((tiled) (draw-tiled surface h v))
+      ((filled) (draw-positioned surface 0 0))
+      ((stretched) (draw-centered surface h v))
+      (else (draw-positioned surface h v))))
 
 
-  (method (draw-source-bitmap dc h v)
+  (method (draw-source-bitmap surface h v)
     (unimplemented 'draw-source-bitmap)
     @windows-specific
     (when handle
-      (draw-HBITMAP~ Imaging (get-hdc~ dc) handle h v (get-width~ size) (get-height~ size) NULL)))
+      (draw-HBITMAP~ Imaging (get-hdc~ surface) handle h v (get-width~ size) (get-height~ size) NULL)))
 
 
-  (method (draw-centered dc h v)
+  (method (draw-centered surface h v)
     (let ((centered (center size view-size)))
       (when (or (> (get-width~ view-size) (get-width~ size))
                 (> (get-height~ view-size) (get-height~ size)))
         (with ((rect (new Rect 0 0 (get-width~ view-size) (get-height~ view-size))))
-          (fill-rect~ dc rect {Color name: Black})))
-      (draw-source-bitmap dc (get-h~ centered) (get-v~ centered))))
+          (fill-rect~ surface rect {Color name: Black})))
+      (draw-source-bitmap surface (get-h~ centered) (get-v~ centered))))
 
 
-  (method (draw-tiled dc h v)
+  (method (draw-tiled surface h v)
     (let ((v 0))
       (while (< v (get-height~ view-size))
         (let ((h 0))
           (while (< h (get-width~ view-size))
-            (draw-source-bitmap dc h v)
+            (draw-source-bitmap surface h v)
             (increase! h (get-width~ size))))
         (increase! v (get-height~ size)))))
 
 
-  (method (draw-positioned dc h v)
-    (draw-source-bitmap dc (+ (get-h~ view-position) h) (+ (get-v~ view-position) v)))
+  (method (draw-positioned surface h v)
+    (draw-source-bitmap surface (+ (get-h~ view-position) h) (+ (get-v~ view-position) v)))
   
   
   ;;;
@@ -398,7 +398,7 @@
                   (set! rgb resized-rgb)
                   (set! w nw)
                   (set! h nh)))))
-          (with-closed ((compatibility-dc (new Cairo-Client-Surface (get-desktop))))
+          (with-closed ((compatibility-dc (new Client-Surface (get-desktop))))
             (let ((bmp (RGB->HBITMAP~ Imaging rgb w h NULL (get-hdc~ compatibility-dc))))
               (heap-free rgb)
               (set! source file)

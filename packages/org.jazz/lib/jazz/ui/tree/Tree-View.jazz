@@ -470,8 +470,8 @@
     {Color name: Dark-Red})
 
   
-  (method (draw-outline dc context update update-rect lh lv sh sv sc sc?)
-    (nextmethod dc context update update-rect lh lv sh sv sc sc?)
+  (method (draw-outline surface context update update-rect lh lv sh sv sc sc?)
+    (nextmethod surface context update update-rect lh lv sh sv sc sc?)
     (let* ((pos (get-position))
            (left (+ (get-left~ update-rect) (get-h~ pos)))
            (right (+ (get-right~ update-rect) (get-h~ pos)))
@@ -479,37 +479,37 @@
       ;; probably buggy in ftx fix with alain
       (when (and empty-background (<= columns-right right))
         (with ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
-          (fill-rect~ dc rect empty-background))))
-    (draw-highlighted dc))
+          (fill-rect~ surface rect empty-background))))
+    (draw-highlighted surface))
   
   
   ;; probably still buggy when scaling, so limit to tree-view for now
-  (method (draw-empty dc top bottom sh sv sc sc? rt width)
+  (method (draw-empty surface top bottom sh sv sc sc? rt width)
     (when (and empty-background (<= rt bottom))
       (with ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
-        (fill-rect~ dc rect empty-background))))
+        (fill-rect~ surface rect empty-background))))
   
   
-  (method (draw-highlighted dc)
+  (method (draw-highlighted surface)
     (for-each-reversed (function dynamic (highlight)
                          (let ((row (get-row~ highlight))
                                (col (get-col~ highlight))
                                (insert (get-insert~ highlight)))
                            (if (not insert)
-                               (draw-highlighted-cell dc row col highlight)
+                               (draw-highlighted-cell surface row col highlight)
                              (with ((rect (highlighted-insert-rect row insert)))
-                               (fill-rect~ dc rect Highlighted-Insert-Color)))))
+                               (fill-rect~ surface rect Highlighted-Insert-Color)))))
                        highlighted))
   
   
-  (method protected virtual (draw-highlighted-cell dc row col highlight)
+  (method protected virtual (draw-highlighted-cell surface row col highlight)
     (with ((inner-rect (highlighted-target-rect row col))
            (outer-rect (inflate-rect inner-rect 1 1)))
       (let ((outer-color (either (get-outer-color~ highlight) (highlighted-outer-color)))
              (inner-color (either (get-inner-color~ highlight) (highlighted-inner-color))))
-        (frame-rect~ dc outer-rect outer-color)
+        (frame-rect~ surface outer-rect outer-color)
         (when (highlight-inner?)
-          (frame-rect~ dc inner-rect inner-color)))))
+          (frame-rect~ surface inner-rect inner-color)))))
   
   
   (method protected virtual (highlighted-outer-color)
@@ -982,7 +982,7 @@
 
   
   (method public (get-node-image n)
-    (let* ((cdc (new Cairo-Client-Surface player))
+    (let* ((cdc (new Client-Surface player))
            (row (get-row n))
            (cell (get-cell-data (new Cell n 0)))
            (image (get-image~ cell))
@@ -991,8 +991,8 @@
            (height (get-height~ row))
            (bitmap (unspecified))
            (mask (unspecified)))
-      (with-closed ((memdc (new Cairo-Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? #t))
-                    (maskdc (new Cairo-Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? #t)))
+      (with-closed ((memdc (new Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? #t))
+                    (maskdc (new Memory-Surface cdc size: (new Dimension width height) :keep-bitmap? #t)))
         (fill-rect~ memdc (new Rect 0 0 width height) {Color name: White})
         (fill-rect~ maskdc (new Rect 0 0 width height) {Color name: White})
         (draw-image~ portfolio memdc {} image 0 0)

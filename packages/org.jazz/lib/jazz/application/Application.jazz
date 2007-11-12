@@ -50,8 +50,10 @@
         (jazz.jrm)
         (jazz.library)
         (jazz.library.component)
+        (jazz.platform)
         (jazz.process)
         (jazz.sql)
+        (jazz.sql.view)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.action)
@@ -219,6 +221,9 @@
     (nextmethod rest)
     (update-windowing-actions)
     (set-visible?~ toplevel #t)
+    ;; this is not really correct as the os should manage this
+    ;; but it is a quick fix while we still have the gambit console
+    (select-foreground-window (get-handle~ toplevel))
     (when user
       (with-safe-execution "finalizing the user"
         (function dynamic ()
@@ -1012,7 +1017,7 @@
     (if accelerators-hook
         (accelerators-hook shortcut)
       (let ((action-items (get-bound-actions shortcut)))
-        (when (not-null? action-items)
+        (when action-items
           (invoke~ (car action-items) self {})
           #t))))
   
@@ -1563,8 +1568,6 @@
   
   
   (method public (on-sql-console evt)
-    (unimplemented 'on-sql-console)
-    @convert-waiting
     (let ((had-focus? (is? (get-focus) SQL-Console-Text-View)))
       (show-console class: SQL-Console-Manager workspace: 'sql)
       (when had-focus?
@@ -2073,7 +2076,7 @@
   @windows-specific
   (method (initialize-dde)
     (receive (err instance) (DdeInitialize 0 (get-dde-callback) APPCLASS_STANDARD 0)
-	  (when (= err DMLERR_NO_ERROR)
+      (when (= err DMLERR_NO_ERROR)
         (set! DDE-Instance instance)
         (set! Application-Service (DdeCreateStringHandle DDE-Instance (process-name) CP_WINUNICODE))
         (set! System-Topic (DdeCreateStringHandle DDE-Instance "System" CP_WINUNICODE))
@@ -2425,7 +2428,7 @@
   
   
   (method (on-zoom-out evt)
-    (let ((view (scaled-view (get-property~ evt :what))))
+    (let ((view (scaled-view (get-property~ evt what:))))
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
@@ -2433,7 +2436,7 @@
   
   
   (method (on-zoom-in evt)
-    (let ((view (scaled-view (get-property~ evt :what))))
+    (let ((view (scaled-view (get-property~ evt what:))))
       (if (not view)
           (bell)
         (let ((scaling (get-scaling~ view)))
@@ -2441,7 +2444,7 @@
   
   
   (method (on-unzoom evt)
-    (let ((view (scaled-view (get-property~ evt :what))))
+    (let ((view (scaled-view (get-property~ evt what:))))
       (if (not view)
           (bell)
         (scale-view view 1.0 #f))))
@@ -2651,7 +2654,7 @@
   ;; tofix show-window
   (method public virtual (on-select-window evt)
     @windows-specific
-    (let ((window (get-property~ evt :window)))
+    (let ((window (get-property~ evt window:)))
       (unless (is? window Palette)
         (show-window~ window SW_RESTORE))
       (bring-to-front~ window)

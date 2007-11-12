@@ -2,7 +2,103 @@
 
 
 (export (jazz.sql.autoload))
-(import (jazz.sql.autoload))
+(import (jazz.sql.autoload)
+        (jazz.io)
+        (jazz.library.component)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+;;;
+;;;; Data Source
+;;;
+
+
+(definition Active-Data-Source
+  {})
+
+
+(definition public (get-active-data-source)
+  Active-Data-Source)
+
+
+(definition public (set-active-data-source data-source)
+  (set! Active-Data-Source data-source)
+  @convert-this-is-gui
+  (let ((guest (get-sql-connections)))
+    (when guest
+      (set-property~ (get-designer~ guest) (get-client~ guest) 'default-source (essay data-source (get-name~ data-source)))
+      (invalidate-view~ (get-tree~ guest))
+      (get-active-connection))))
+
+
+(definition public (get-active-connection)
+  (when Active-Data-Source
+    (let* ((name (get-name~ Active-Data-Source))
+           (connection (get-connection name :data-source Active-Data-Source)))
+      ;; In case an external source closed the connection
+      (when (eq? (get-state~ connection) 'closed)
+        (open~ connection Active-Data-Source))
+      connection)))
+
+
+;;;
+;;;; Connections
+;;;
+
+
+(definition Active-Connections
+  '())
+
+
+(definition (find-connection name)
+  (cdr (assoc name Active-Connections)))
+
+
+(definition (get-connection name (data-source: data-source {}))
+  (either (find-connection name)
+          (when data-source
+            (let ((connection (new-connection data-source)))
+              (set! Active-Connections (cons (cons name connection) Active-Connections))
+              connection))))
+
+
+(definition (new-connection data-source)
+  (new-connection~ data-source))
+
+
+(definition (close-connections)
+  (for-each (function dynamic (info)
+              (bind (name . connection) info
+                (close~ connection)))
+            Active-Connections)
+  (set! Active-Connections '())
+  (set-active-data-source {}))
+
+
+(definition Connections-File
+  {File Root "packages" "org.jazz" "lib" "user" "settings" "Connections.jml"}
+  @convert
+  {File User "Settings" "Connections.jml"})
+
+
+(definition (read-connections)
+  (with-safe-execution "loading the connections"
+    (function dynamic ()
+      (let ((file Connections-File))
+        (when (exists?~ file)
+          (let ((process (get-process))
+                (connections (instantiate~ (read-from-file file))))
+            (install-context~ process connections)
+            connections))))
+    continue-handler:
+    (function dynamic (err)
+      )))
+
+
+;;;
+;;;; Utilities
+;;;
 
 
 (definition public (parse-sql-command request)

@@ -1,0 +1,173 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Time
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.system.time jazz
+
+
+(definition public (parse-string str (error?: error? #t))
+  (if (valid-string? str)
+      (let* ((len    (cardinality str))
+             (year   (parse-integer (subseq str 0 4)))
+             (month  (parse-integer (subseq str 5 7)))
+             (day    (parse-integer (subseq str 8 10)))
+             (hour   (parse-integer (subseq str 11 13)))
+             (minute (parse-integer (subseq str 14 16)))
+             (second (if (memq? len '(19 23)) (parse-integer (subseq str 17 19)) 0))
+             (milliseconds (if (= len 23) (parse-integer (subseq str 20 23)) 0)))
+        (new Date year month day hour minute second milliseconds))
+    (when error?
+      (error "Unable to parse date: {t}" str))))
+
+
+(definition public (valid-string? str)
+  (let ((len (cardinality str)))
+    (and (string? str)
+         (memq? len '(16 19 23))
+         (member? (element str 4) '(#\slash #\minus))
+         (member? (element str 7) '(#\slash #\minus))
+         (= (element str 10) #\space)
+         (= (element str 13) #\colon)
+         (numeric? (subseq str 0 4))
+         (numeric? (subseq str 5 7))
+         (numeric? (subseq str 8 10))
+         (numeric? (subseq str 11 13))
+         (numeric? (subseq str 14 16))
+         (or (= len 16)
+             (and (= (element str 16) #\colon)
+                  (or (= len 19)
+                      (= (element str 19) #\period)))))))
+
+
+(definition public (parse-date str (error?: error? #t))
+  (if (valid-date-string? str)
+      (let ((year   (parse-integer (subseq str 0 4)))
+            (month  (parse-integer (subseq str 5 7)))
+            (day    (parse-integer (subseq str 8 10))))
+        (new Date year month day))
+    (when error?
+      (error "Unable to parse date: {t}" str))))
+
+
+(definition public (valid-date-string? str)
+  (and (string? str)
+       (= (cardinality str) 10)
+       (member? (element str 4) '(#\slash #\minus))
+       (member? (element str 7) '(#\slash #\minus))
+       (numeric? (subseq str 0 4))
+       (numeric? (subseq str 5 7))
+       (numeric? (subseq str 8 10))))
+
+
+(definition public (local-date)
+  (unimplemented 'local-date)
+  @SYSTEMTIME
+  (let ((st (new SYSTEMTIME)))
+    (GetLocalTime st)
+    (from-systemtime st)))
+
+
+(definition public (universal-date)
+  (unimplemented 'universal-date)
+  @SYSTEMTIME
+  (let ((st (new SYSTEMTIME)))
+    (GetSystemTime st)
+    (from-systemtime st)))
+
+
+(definition public (from-systemtime st)
+  (unimplemented 'from-systemtime)
+  @Window-specific
+  (let ((time (new Date (get st 'wYear)
+                   (get st 'wMonth)
+                   (get st 'wDay)
+                   (get st 'wHour)
+                   (get st 'wMinute)
+                   (get st 'wSecond))))
+    (set-day-of-week~ time (get st 'wDayOfWeek))
+    (set-milliseconds~ time (get st 'wMilliseconds))
+    time))
+
+
+(definition public (from-vtdate vtdate)
+  (unimplemented 'from-vtdate)
+  @SYSTEMTIME
+  (with ((system (new SYSTEMTIME)))
+    (VariantTimeToSystemTime vtdate system)
+    (from-systemtime system)))
+
+
+;;;
+;;;; Week
+;;;
+
+
+(definition Days-Of-Week
+  '((0 sunday    "Sun" "Sunday")
+    (1 monday    "Mon" "Monday")
+    (2 tuesday   "Tue" "Tuesday")
+    (3 wednesday "Wed" "Wednesday")
+    (4 thursday  "Thu" "Thursday")
+    (5 friday    "Fri" "Friday")
+    (6 saturday  "Sat" "Saturday")))
+
+
+(definition public (symbolic-days-of-week)
+  (map second Days-Of-Week))
+
+
+(definition public (symbolic-day-of-week numeric)
+  (let ((info (find-day-of-week-info numeric)))
+    (second info)))
+
+
+(definition public (numeric-day-of-week symbolic)
+  (let ((info (find-day-of-week-info symbolic)))
+    (first info)))
+
+
+(definition public (present-day-of-week key)
+  (let ((info (find-day-of-week-info key)))
+    (third info)))
+
+
+(definition public (weekend-day? key)
+  (let ((info (find-day-of-week-info key)))
+    (memq? (second info) '(sunday saturday))))
+
+
+(definition (find-day-of-week-info key)
+  (find-in Days-Of-Week key key: (if (integer? key) first second))))

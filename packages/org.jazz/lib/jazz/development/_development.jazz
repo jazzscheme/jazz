@@ -38,11 +38,16 @@
 (library jazz.development jazz
 
 
-(import (jazz.library)
+(import (jazz.io)
+        (jazz.library)
+        (jazz.jazz)
         (jazz.jml)
         (jazz.platform)
+        (jazz.sql)
+        (jazz.sql.view)
         (jazz.ui)
         (jazz.ui.clipboard)
+        (jazz.ui.dialog)
         (jazz.ui.view)
         (jazz.ui.workspace)
         (jazz.utilities)
@@ -120,7 +125,7 @@
 (definition (with-text-inspector proc)
   (let ((file (create-temporary-file)))
     (call-with-output-file (parse~ file)
-      output)
+      proc)
     (let* ((workspace (get-name~ (selected-workspace)))
            (frame (new-frame Jazz-Text-View host-visible?: #f host-workspace: workspace))
            (text (get-guest~ frame)))
@@ -222,7 +227,7 @@
          (launcher (find-project~ workbench 'Launcher-Project))
          (class-names Critical-Categories))
     (touch-classes class-names
-                   :filter (function dynamic (class-name)
+                   filter: (function dynamic (class-name)
                              (or (not base)
                                  (subtype? (autoload class-name) base))))))
 
@@ -288,8 +293,8 @@
                    (new-file (new-file~ (get-directory~ file) new-name)))
               (move-pathname~ file new-file)
               (increase! succeeded)))))
-      :files? true
-      :directories? false)
+      :files? #t
+      :directories? #f)
     (let ((failed (get-output~ failed)))
       (message-box
         (cons (format "{a} file{a} renamed" succeeded (format-plural succeeded))

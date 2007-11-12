@@ -105,7 +105,7 @@
                                                          ((view) (list 1 name))
                                                          ((procedure) (list 2 name))
                                                          ((relation) (list 3 name))
-                                                         ((column) (list 4 (either (third (get-property~ x :ordinal-position)) -1)))
+                                                         ((column) (list 4 (either (third (get-property~ x ordinal-position:)) -1)))
                                                          ((primary-key) (list 5 name))
                                                          ((index) (list 6 name))
                                                          ((trigger) (list 7 name))
@@ -123,7 +123,7 @@
         (case (get-kind~ object)
           ((relation) (generate-sql-relation object))
           (else
-           (let ((has-differences? (get-property~ object :has-differences? #f)))
+           (let ((has-differences? (get-property~ object has-differences?: #f)))
              (when has-differences?
                (case (get-kind~ object)
                  ((table)     (generate-sql-table object reporter))
@@ -132,7 +132,7 @@
   
   
   (method (process-object object recreate-table? create-proc drop-proc)
-    (let ((action (get-property~ object :difference)))
+    (let ((action (get-property~ object difference:)))
       (if recreate-table?
           (unless (eq? action 'left)
             (create-proc object))
@@ -197,7 +197,7 @@
   
 
   (method (generate-sql-table table reporter)
-    (let ((action (get-property~ table :difference)))
+    (let ((action (get-property~ table difference:)))
       (if (null? action)
           (if (regenerate-full-table? table)
                       (generate-sql-full-table table reporter)
@@ -211,7 +211,7 @@
 
 
   (method (regenerate-full-table? table)
-    (let ((action (get-property~ table :difference)))
+    (let ((action (get-property~ table difference:)))
       (if (null? action)
           (modify-column? table)   
         (case action
@@ -223,9 +223,9 @@
   (method (modify-column? table)
     (let ((column-pos 0))
       (some? (function dynamic (column)
-               (let ((action (get-property~ column :difference)))
-                 (or (= (first (get-property~ column :ordinal-position)) 'modify)
-                     (= (first (get-property~ column :datatype)) 'modify)
+               (let ((action (get-property~ column difference:)))
+                 (or (= (first (get-property~ column ordinal-position:)) 'modify)
+                     (= (first (get-property~ column datatype:)) 'modify)
                      (= (first (get-property~ column nullable?:)) 'modify))
                  @wait (case action
                          ((right) (increase! column-pos))
@@ -235,20 +235,20 @@
                  @wait (when (or (null? action)
                                  (= action 'modify))
                          ;; il faut tenir compte des trous que laisse SQLServer avec les DROP COLUMN
-                         (when (/= (+ (second (get-property~ column :ordinal-position)) column-pos)
-                                   (third (get-property~ column :ordinal-position)))
+                         (when (/= (+ (second (get-property~ column ordinal-position:)) column-pos)
+                                   (third (get-property~ column ordinal-position:)))
                            #t))))
              (sort < (get-columns~ table) key: (function dynamic (column)
-                                                  (either (third (get-property~ column :ordinal-position)) -1))))))
+                                                  (either (third (get-property~ column ordinal-position:)) -1))))))
         
   (method (generate-sql-full-table table reporter)
     (let* ((table-name (get-name~ table))
-           (action (get-property~ table :difference))
+           (action (get-property~ table difference:))
            (new-table? (= action 'right))
            (table-tempo-name (when (not new-table?) (set-table-tempo-name table)))
            (table-current-name (if new-table? table-name table-tempo-name))
            (identity-column? (some? (function dynamic (column)
-                                      (third (get-property~ column :identity?)))
+                                      (third (get-property~ column identity?:)))
                                     (get-columns~ table))))
       (when reporter
         (user-message~ reporter "Updating full table {a}..." table-name))
@@ -303,17 +303,17 @@
 
   (method (create-fields-list list)
     (collect (function dynamic (field)
-           (when (/= (get-property~ field :difference) 'left)
+           (when (/= (get-property~ field difference:) 'left)
              (let ((field-name (get-name~ field))
                     (datatype (get-native~ (third (get-datatype~ field))))
-                    (ordinal-position (third (get-property~ field :ordinal-position)))
+                    (ordinal-position (third (get-property~ field ordinal-position:)))
                     (nullable-string (if (third (get-property~ field nullable?:))
                                          "NULL"
                                        "NOT NULL"))
-                    (identity-string (if (third (get-property~ field :identity?))
-                                         (let ((id-seed (third (get-property~ field :identity-seed)))
-                                                (id-inc (third (get-property~ field :identity-increment)))
-                                                (id-repl (if (third (get-property~ field :identity-replication?))
+                    (identity-string (if (third (get-property~ field identity?:))
+                                         (let ((id-seed (third (get-property~ field identity-seed:)))
+                                                (id-inc (third (get-property~ field identity-increment:)))
+                                                (id-repl (if (third (get-property~ field identity-replication?:))
                                                              ""
                                                            "NOT FOR REPLICATION")))
                                            (tie "IDENTITY ({id-seed}, {id-inc}) {id-repl}"))
@@ -326,7 +326,7 @@
   (method (generate-sql-create-table object table-name)
     (let* ((fields-list (join (create-fields-list (sort < (get-columns~ object) 
                                                         key: (function dynamic (column)
-                                                               (either (third (get-property~ column :ordinal-position)) -1)))) ", "))
+                                                               (either (third (get-property~ column ordinal-position:)) -1)))) ", "))
            (def-table (tie "CREATE TABLE [{table-name}]~{%}~{&}("
                            "{fields-list}~{%}~{&}"
                            ")~{%}")))
@@ -335,11 +335,11 @@
   
   (method (get-added-columns-without-default-value table)
     (collect-if (function dynamic (column)
-                  (let ((ordinal-position (get-property~ column :ordinal-position))
-                         (new-default-value (third (get-property~ column :default-value)))
-                         (new-default-value-action (first (get-property~ column :default-value)))
+                  (let ((ordinal-position (get-property~ column ordinal-position:))
+                         (new-default-value (third (get-property~ column default-value:)))
+                         (new-default-value-action (first (get-property~ column default-value:)))
                          (new-nullable? (third (get-property~ column nullable?:)))
-                         (new-datatype (third (get-property~ column :datatype))))
+                         (new-datatype (third (get-property~ column datatype:))))
                     (and (null? (second ordinal-position)) 
                          (third ordinal-position)
                          (not new-nullable?)
@@ -402,7 +402,7 @@
   
   
   (method (process-description-table table table-name recreate-table?)
-    (bind (action old-value new-value) (get-property~ table :description)
+    (bind (action old-value new-value) (get-property~ table description:)
       (set! action (find-action-on-process-property action old-value new-value recreate-table?))      
       (when action
         (execute-sql-commit-preserve
@@ -458,7 +458,7 @@
   (method (process-default-values table table-name recreate-table?)
     (let ((constraint-table-name (get-name~ table)))
       (for-each (function dynamic (column)
-                  (bind (action old-value new-value) (get-property~ column :default-value)
+                  (bind (action old-value new-value) (get-property~ column default-value:)
                     (set! action (find-action-on-process-property action old-value new-value recreate-table?))
                     (when action
                       (let* ((column-name (get-name~ column))
@@ -489,7 +489,7 @@
   (method (check-default-values table table-name)
     (let ((constraint-table-name (get-name~ table)))
       (for-each (function dynamic (column)
-                  (bind (action old-value new-value) (get-property~ column :default-value)
+                  (bind (action old-value new-value) (get-property~ column default-value:)
                     (set! action (find-action-on-process-property action old-value new-value #f))
                     (when action
                       (let* ((column-name (get-name~ column))
@@ -503,7 +503,7 @@
   (method (drop-default-values table)
     (let ((table-name (get-name~ table)))
       (for-each (function dynamic (column)
-                  (when (second (get-property~ column :default-value))
+                  (when (second (get-property~ column default-value:))
                     (let* ((column-name (get-name~ column))
                            (constraint-name (find-constraint-name table-name column-name))
                            (script-header (generate-sql-header-script))
@@ -539,7 +539,7 @@
         
   (method (process-description-columns table table-name recreate-table?)
     (for-each (function dynamic (column)
-                (bind (action old-value new-value) (get-property~ column :description)
+                (bind (action old-value new-value) (get-property~ column description:)
                   (set! action (find-action-on-process-property action old-value new-value recreate-table?))
                   (let ((column-name (get-name~ column))) 
                     (when action
@@ -607,9 +607,9 @@
   (method (generate-sql-primary-key primary-key)
     (let* ((table-name (get-name~ (get-parent~ primary-key)))
            (pk-name (get-name~ primary-key))
-           (fields/orders (create-fields/orders-list (third (get-property~ primary-key :fields/orders))))
-           (clustered (if (third (get-property~ primary-key :clustered?)) "CLUSTERED" "NONCLUSTERED"))
-           (fill-factor (third (get-property~ primary-key :fill-factor)))
+           (fields/orders (create-fields/orders-list (third (get-property~ primary-key fields/orders:))))
+           (clustered (if (third (get-property~ primary-key clustered?:)) "CLUSTERED" "NONCLUSTERED"))
+           (fill-factor (third (get-property~ primary-key fill-factor:)))
            (fill-factor-text (if (> fill-factor 0) (tie "WITH FILLFACTOR = {fill-factor}") ""))
            (script (tie "ALTER TABLE [{table-name}] ADD CONSTRAINT~{%}"
                         "~{&}[{pk-name}] PRIMARY KEY {clustered}~{%}"
@@ -658,16 +658,16 @@
   (method (generate-sql-index index)
     (let* ((table-name (get-name~ (get-parent~ index)))
            (index-name (get-name~ index))
-           (fields/orders (create-fields/orders-list (third (get-property~ index :fields/orders))))
+           (fields/orders (create-fields/orders-list (third (get-property~ index fields/orders:))))
            (unique (if (third (get-property~ index unique?:))
                        "UNIQUE"
                      ""))
-           (clustered (if (third (get-property~ index :clustered?)) "CLUSTERED" "NONCLUSTERED"))
-           (pad-index (if (third (get-property~ index :pad-index?)) "PAD_INDEX" {}))
-           (fill-factor (third (get-property~ index :fill-factor)))
+           (clustered (if (third (get-property~ index clustered?:)) "CLUSTERED" "NONCLUSTERED"))
+           (pad-index (if (third (get-property~ index pad-index?:)) "PAD_INDEX" {}))
+           (fill-factor (third (get-property~ index fill-factor:)))
            (fill-factor-text (if (> fill-factor 0) (tie "FILLFACTOR = {fill-factor}") {}))
-           (ignore-dup-key (if (third (get-property~ index :ignore-duplicates?)) "IGNORE_DUP_KEY" {}))
-           (statistics-norecompute (if (third (get-property~ index :recompute-statistics?)) {} "STATISTICS_NORECOMPUTE"))
+           (ignore-dup-key (if (third (get-property~ index ignore-duplicates?:)) "IGNORE_DUP_KEY" {}))
+           (statistics-norecompute (if (third (get-property~ index recompute-statistics?:)) {} "STATISTICS_NORECOMPUTE"))
            (options-list (remove-nils (list pad-index fill-factor-text ignore-dup-key statistics-norecompute)))
            (options (if options-list 
                         (tie "WITH {options-list l detail: :human separator: \", \"}")
@@ -694,8 +694,8 @@
   
   (method (process-table-triggers objects)
     (for-each (function dynamic (table)
-                (let ((recreate-table? (get-property~ table :recreate-table? #f))
-                       (action (get-property~ table :difference)))
+                (let ((recreate-table? (get-property~ table recreate-table?: #f))
+                       (action (get-property~ table difference:)))
                   (unless (= action 'left) ; Drop table
                     (process-triggers table recreate-table?))))
               (get-tables~ objects)))
@@ -749,7 +749,7 @@
   
   
   (method (generate-sql-relation relation)
-    (let ((recreate-table? (get-property~ relation :recreate-table? #f)))
+    (let ((recreate-table? (get-property~ relation recreate-table?: #f)))
       (process-object relation recreate-table? create-relation drop-relation)))
 
 
@@ -791,7 +791,7 @@
   (method (drop-table-relation table)
     (let ((table-name (get-name~ table)))
       (for-each (function dynamic (relation)
-                  (unless (get-property~ relation :recreate-table? #f)
+                  (unless (get-property~ relation recreate-table?: #f)
                     (let ((foreign-table (second (get-foreign-table~ relation)))
                            (primary-table (second (get-primary-table~ relation))))
                       (when (or (= foreign-table table-name)
@@ -807,7 +807,7 @@
   
   
   (method (generate-sql-procedure object reporter)
-    (let ((action (get-property~ object :difference))
+    (let ((action (get-property~ object difference:))
           (name (get-name~ object)))
       (when reporter
         (user-message~ reporter "Updating procedure {a}..." name))
@@ -880,7 +880,7 @@
   (method (process-entity object parent-proxy reporter)
     (with-continue
       (function dynamic ()
-        (let ((action (cdr (assq (get-property~ object :difference) Actions)))
+        (let ((action (cdr (assq (get-property~ object difference:) Actions)))
               (kind (get-kind~ object))
               (name (get-name~ object)))
           (case action
@@ -919,7 +919,7 @@
   
   
   (method (process-proxy object parent-proxy proxy reporter)
-    (let* ((action (cdr (assq (get-property~ object :difference) Actions)))
+    (let* ((action (cdr (assq (get-property~ object difference:) Actions)))
            (kind (get-kind~ object))
            (name (get-name~ object))
            (entity? (is? object Data-Entity))
@@ -931,10 +931,10 @@
         (when (eq? kind 'relation)
           (process-pending-triggers/indexes))
         (when (or (= action 'no-action) (= action 'modify))
-          (when (and (get-property~ object :has-differences? #f)
+          (when (and (get-property~ object has-differences?: #f)
                      (or (memq? kind Recreate)
                          (and (= kind 'table)
-                              (get-property~ object :linked? #f))))
+                              (get-property~ object linked?: #f))))
             (delete-proxy kind parent-proxy name object)
             (set! proxy (new-proxy parent-proxy kind name object))
             (set! ugly-patch (cons proxy ugly-patch))
@@ -959,7 +959,7 @@
   (method (new-proxy parent kind name object)
     (case kind
       ((table)       (create-table~ parent name))
-      ((primary-key) (let ((fields/orders (third (get-property~ object :fields/orders)))) 
+      ((primary-key) (let ((fields/orders (third (get-property~ object fields/orders:)))) 
                      (create-primary-key~ parent name fields/orders)))
       ((column)      (create-column~ parent name))
       ((index)       (create-index~ parent name))

@@ -1478,14 +1478,14 @@
 
 ;;tBool is_interface_subtype(jType target, jType type)
 ;;{
-;;	jTypePtr	ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
-;;	jTypePtr	ptr = target->ancestorsGet() + target->ancestors_sizeGet();
-;;	
-;;	while (--ptr >= ptr_start)
-;;		if (*ptr == type)
-;;			return true;
-;;	
-;;	return false;
+;;  jTypePtr ptr_start = target->ancestorsGet() + target->class_ancestors_sizeGet();
+;;  jTypePtr ptr = target->ancestorsGet() + target->ancestors_sizeGet();
+;;  
+;;  while (--ptr >= ptr_start)
+;;      if (*ptr == type)
+;;          return true;
+;;  
+;;  return false;
 ;;}
 (jazz.define-method (jazz.of-type? (jazz.Interface interface) object)
   (jazz.of-subtype? interface (%%class-of object)))

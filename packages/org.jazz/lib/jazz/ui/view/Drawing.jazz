@@ -41,73 +41,12 @@
 
 (import (jazz.utilities)
         (jazz.ui)
+        (jazz.ui.offscreen)
         (jazz.library)
         (jazz.literals))
 
 
-;;;
-;;;; Offscreen
-;;;
-
-
-(definition offscreen
-  {})
-
-
-(definition (get-offscreen surface <Surface> width <fx> height <fx>)
-  (if (and offscreen
-           (let ((size (get-size~ offscreen)))
-             (and (<= width (get-width~ size))
-                  (<= height (get-height~ size)))))
-      (begin
-        (new-context~ offscreen)
-        offscreen)
-    (when offscreen
-      (close~ offscreen))
-    (set! offscreen (new-offscreen surface width height))
-    offscreen))
-
-
-(definition (new-offscreen surface <Surface> width <fx> height <fx>)
-  (new Memory-Surface surface size: (new Dimension width height)))
-
-
-(class Drawing-Class extends Figure-Class
-
-
-  ;;;
-  ;;;; Effect
-  ;;;
-  
-  
-  (definition effect-offscreen
-    {})
-  
-  
-  (method public (get-effect-offscreen surface <Surface> width <fx> height <fx>)
-    (if (and effect-offscreen
-             (let ((size (get-size~ effect-offscreen)))
-               (and (<= width (get-width~ size))
-                    (<= height (get-height~ size)))))
-        effect-offscreen
-      (when effect-offscreen
-        (close~ effect-offscreen))
-      (set! effect-offscreen (new-offscreen surface width height))))
-
-
-  ;;;
-  ;;;; Designer
-  ;;;
-  
-  
-  (method (property-presentation property)
-    (case (field-name property)
-      ((offscreen?) "Offscreen")
-      ((effect) "Effect")
-      (else (nextmethod property)))))
-
-
-(class Drawing metaclass Drawing-Class extends Figure
+(class Drawing extends Figure
   
   
   ;;;
@@ -469,7 +408,7 @@
   ;; with scaling). Why not always get the bounding box and pass it around. Drawing methods would then
   ;; always have an update rect available for consultation...
   
-  ;; debug
+  
   (method public (paint surface <Surface> context <Object> update <Object> lh <fx> lv <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (when (get-visible?)
       ;; beurk code for testing
@@ -495,14 +434,13 @@
           ;; the next lines are in case an error occurs in the paint process
           ;; so that on the next pass at least these values will be reset...
           @JLR-Check-What-This-Does
-          (if (not Cairo?)
-              (begin
-                (SetWindowOrgEx offhdc 0 0 NULL)
-                (SetViewportOrgEx offhdc 0 0 NULL)
-                (SetMapMode offhdc MM_TEXT)
-                (let ((overlay (get-overlay)))
-                  (when overlay
-                    (draw-overlay~ overlay self offscreen (get-width~ size) (get-height~ size))))))
+          (when (not Cairo?)
+            (SetWindowOrgEx offhdc 0 0 NULL)
+            (SetViewportOrgEx offhdc 0 0 NULL)
+            (SetMapMode offhdc MM_TEXT))
+          (let ((overlay (get-overlay)))
+            (when overlay
+              (draw-overlay~ overlay self offscreen (get-width~ size) (get-height~ size))))
           (let ((effect (get-effect)))
             (bit-blit~ offscreen surface size: size)
             @not-converted-to-cairo
@@ -619,6 +557,11 @@
   
   (method public virtual (set-overlay value)
     )
+
+
+  ;;;
+  ;;;; Effect
+  ;;;
   
   
   (method public virtual (get-effect)

@@ -40,6 +40,7 @@
 
 (import (jazz.library)
         (jazz.ui)
+        (jazz.ui.offscreen)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -263,9 +264,7 @@
 
 
 (definition public (singleton-palette guest-class name . rest)
-  (new-palette guest-class host-visible?: #f)
-  @convert
-  (let ((ref (either name (type-name self))))
+  (let ((ref (either name (type-name guest-class))))
     (either (table-ref Palettes ref #f)
             (let ((palette (new-palette guest-class host-visible?: #f)))
               (table-set! Palettes ref palette)
@@ -274,7 +273,7 @@
 
 (definition public (new-palette guest-class . rest)
   (bind-keywords ((host-title (palette-title)) (host-position (palette-position)) (host-size (palette-size)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (palette-class) in-parent?: #f visible?: #f)))
+    (let ((host (new Host-Palette in-parent?: #f visible?: #f)))
       (when host-title
         (set-title~ host host-title))
       (when host-position
@@ -299,10 +298,8 @@
 
 
 (definition public (show-palette guest-class . rest)
-  (unimplemented 'show-palette)
-  @convert
   (let* ((toplevel (get-toplevel))
-         (palette (find-host~ toplevel self)))
+         (palette (find-host~ toplevel guest-class)))
     (if (not palette)
         (apply new-palette guest-class rest)
       (let ((guest (get-guest~ palette))
@@ -315,10 +312,6 @@
           (unless visible?
             (fade-in~ palette)))
         palette))))
-
-
-(definition public (palette-class)
-  Host-Palette)
 
 
 (definition public (view-icon)
@@ -390,9 +383,7 @@
 
 
 (definition public (singleton-toolbar guest-class name . rest)
-  (new-toolbar guest-class name: name)
-  @convert
-  (let ((ref (either name (type-name self))))
+  (let ((ref (either name (type-name guest-class))))
     (either (table-ref Palettes ref #f)
             (let ((palette (new-toolbar guest-class name: name)))
               (table-set! Palettes ref palette)

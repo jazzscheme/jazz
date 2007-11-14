@@ -41,6 +41,7 @@
 (import (jazz.jazz)
         (jazz.platform)
         (jazz.ui)
+        (jazz.ui.offscreen)
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.literals)
@@ -88,8 +89,8 @@
                         (install-overlays window)
                         (let* ((position {Point 0 0})
                                (size (get-size~ window))
-                               (excluded? (or (memq? window exclude) (and (= include 'toplevel) (neq? window toplevel))))
-                               (picker (new Figure-Picker parent: window position: position size: size action: action :window window menu: menu :excluded? excluded? feedback: feedback tooltips?: tooltips?)))
+                               (excluded? (or (memq? window exclude) (and (eq? include 'toplevel) (neq? window toplevel))))
+                               (picker (new Figure-Picker parent: window position: position size: size action: action window: window menu: menu excluded?: excluded? feedback: feedback tooltips?: tooltips?)))
                           (bring-to-front~ picker)
                           (invalidate-window~ window)
                           (set! All-Pickers (cons picker All-Pickers))))
@@ -100,7 +101,7 @@
 
 (definition (setup-pick)
   (inhibit-view-cursor #t)
-  (set-escape-handler~ View-Player end-pick))
+  (set-escape-handler end-pick))
 
 
 (definition (install-overlays window)
@@ -147,7 +148,7 @@
   (set! In-Pick? #f)
   (inhibit-view-cursor #f)
   (setup-feedback {} {} {} {} {})
-  (set-escape-handler~ View-Player {})
+  (set-escape-handler {})
   (close-all-popups)
   (close-pickers))
 
@@ -185,8 +186,8 @@
   (receive (player view root-rect view-rect row-rect) (feedback-info picker window position view pos)
     (when (or (neq? player Feedback-Player)
               (neq? view Feedback-View)
-              (/= view-rect Feedback-View-Rect)
-              (/= row-rect Feedback-Row-Rect))
+              (/=? view-rect Feedback-View-Rect)
+              (/=? row-rect Feedback-Row-Rect))
       (let ((old-player Feedback-Player))
         (set! Feedback-Player player)
         (set! Feedback-View view)
@@ -229,7 +230,7 @@
   {Color name: Black})
 
 (definition Overlay-Transparency
-  40)
+  0.4)
 
 
 (definition Highlight-Color
@@ -245,12 +246,12 @@
   (method (draw-overlay view surface width height)
     (if (or (not Feedback-Player) (neq? view (get-root~ Feedback-Player)))
         (when Draw-Overlays?
-          (draw-colored-overlay~ surface width height Overlay-Color Overlay-Transparency))
+          (draw-colored-overlay surface width height Overlay-Color Overlay-Transparency))
       (if (not Feedback-Figure?)
           (rectangle~ surface Feedback-Root-Rect Highlight-Pen {})
         (if Feedback-Row-Rect
             (rectangle~ surface Feedback-Row-Rect Highlight-Pen {})
-          (when (and Feedback-View-Rect (/= Feedback-View-Rect Feedback-Root-Rect))
+          (when (and Feedback-View-Rect (/=? Feedback-View-Rect Feedback-Root-Rect))
             (rectangle~ surface Feedback-View-Rect Highlight-Pen {})))))))
 
 
@@ -299,61 +300,6 @@
   @convert
   (method (new-root)
     (new Figure-Picker-Root))
-  
-  
-  @convert
-  (class Figure-Picker-Root extends Root-View
-      
-  
-    (form
-      (<install>
-        (<!>                    name: content layout-type: fill
-          (<Figure-Picker-View> name: view))))
-    
-    
-    (class Figure-Picker-View extends View
-      
-      
-      (method (cursor-update pos)
-        (set-cursor (if excluded? :no :spy)))
-      
-      
-      ;;;
-      ;;;; Tooltip
-      ;;;
-      
-      
-      (method (get-tooltip?)
-        tooltips?)
-      
-      
-      (method (get-formatted-tooltip?)
-        #t)
-      
-      
-      (method (get-tooltip-context pos)
-        (receive (window position view pos) (mouse-figure (get-h~ pos) (get-v~ pos))
-          (when view
-            (let* ((view-player (get-player~ view))
-                   (view-root (get-root~ view))
-                   (view-bounds (get-bounds~ view))
-                   (root (get-root))
-                   (row-rect (determine-row-rect-aux root view pos))
-                   (rect (acquire~ view-root view (either row-rect view-bounds)))
-                   (bounds (acquire~ player view-player rect)))
-              (new Tooltip-Context
-                view: self
-                text: (display-description (describe-view~ view pos))
-                bounds: bounds
-                font: {Font name: Ansi-Var})))))
-      
-      
-      (method (display-description description)
-        (cons "Properties"
-              (map (function dynamic (info)
-                     (bind (name value) info
-                       (list :bulleted (format "{a}: {s}" name value))))
-                   description)))))
   
   
   ;;;
@@ -424,8 +370,78 @@
                        (execute (function (event)
                                   (end-pick)
                                   (when action-handler
-                                    (let* ((properties (augment :window window position: position view: view :pos pos (get-properties~ action-handler)))
+                                    (let* ((properties (augment window: window position: position view: view :pos pos (get-properties~ action-handler)))
                                            (event (apply new Action-Event :action self properties)))
                                       (invoke~ action-handler self event))))))
                   (set-action-handler~ item (new Event-Handler execute: execute))))
-              (get-children~ menu)))))
+              (get-children~ menu))))
+
+
+;;;
+;;;; Figure-Picker-Root
+;;;
+
+
+@convert
+(class Figure-Picker-Root extends Root-View
+  
+  
+  (form
+    (<install>
+      (<!>                    name: content layout-type: fill
+        (<Figure-Picker-View> name: view)))))
+
+
+;;;
+;;;; Figure-Picker-View
+;;;
+
+
+@convert
+(class Figure-Picker-View extends View
+  
+  
+  (method (cursor-update pos)
+    (set-cursor (if excluded? :no :spy)))
+  
+  
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method (get-tooltip?)
+    tooltips?)
+  
+  
+  (method (get-formatted-tooltip?)
+    #t)
+  
+  
+  (method (get-tooltip-context pos)
+    (receive (window position view pos) (mouse-figure (get-h~ pos) (get-v~ pos))
+      (when view
+        (let* ((view-player (get-player~ view))
+               (view-root (get-root~ view))
+               (view-bounds (get-bounds~ view))
+               (root (get-root))
+               (row-rect (determine-row-rect-aux root view pos))
+               (rect (acquire~ view-root view (either row-rect view-bounds)))
+               (bounds (acquire~ player view-player rect)))
+          (new Tooltip-Context
+            view: self
+            text: (display-description (describe-view~ view pos))
+            bounds: bounds
+            font: {Font name: Ansi-Var})))))
+  
+  
+  (method (display-description description)
+    (cons "Properties"
+          (map (function dynamic (info)
+                 (bind (name value) info
+                   (list :bulleted (format "{a}: {s}" name value))))
+               description))))
+
+
+@convert
+(register-autoclass 'Figure-Picker-View Figure-Picker-View))

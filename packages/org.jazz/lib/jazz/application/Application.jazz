@@ -221,8 +221,6 @@
     (nextmethod rest)
     (update-windowing-actions)
     (set-visible?~ toplevel #t)
-    ;; this is not really correct as the os should manage this
-    ;; but it is a quick fix while we still have the gambit console
     (select-foreground-window (get-handle~ toplevel))
     (when user
       (with-safe-execution "finalizing the user"
@@ -2579,14 +2577,16 @@
   
   (method (toggle-jazz-text file)
     (let* ((workbench (get-workbench))
-           (project-file (find-source~ workbench file))
-           (project (get-product~ project-file)))
-      (if (is-not? project (autoload 'Project))
+           (project-file (find-source~ workbench file)))
+      (if (not project-file)
           (bell)
-        (let* ((c++ (get-source-file~ project (get-name~ project-file) #f))
-               (frame (edit-document c++))
-               (text (get-guest~ frame)))
-          (verify-reload~ (get-controller~ text))))))
+        (let ((project (get-product~ project-file)))
+          (if (is-not? project (autoload 'Project))
+              (bell)
+            (let* ((c++ (get-source-file~ project (get-name~ project-file) #f))
+                   (frame (edit-document c++))
+                   (text (get-guest~ frame)))
+              (verify-reload~ (get-controller~ text))))))))
   
   
   (method public virtual (on-cascade evt)

@@ -1,0 +1,108 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Offscreens
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.offscreen jazz
+
+
+(import (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+;;;
+;;;; Offscreen
+;;;
+
+
+(definition offscreen
+  {})
+
+
+(definition (get-offscreen surface <Surface> width <fx> height <fx>)
+  (if (and offscreen
+           (let ((size (get-size~ offscreen)))
+             (and (<= width (get-width~ size))
+                  (<= height (get-height~ size)))))
+      (begin
+        (new-context~ offscreen)
+        offscreen)
+    (when offscreen
+      (close~ offscreen))
+    (set! offscreen (new-offscreen surface width height))
+    offscreen))
+
+
+(definition (new-offscreen surface <Surface> width <fx> height <fx>)
+  (new Memory-Surface surface size: (new Dimension width height)))
+
+
+;;;
+;;;; Effect
+;;;
+
+
+(definition effect-offscreen
+  {})
+
+
+(definition public (get-effect-offscreen surface <Surface> width <fx> height <fx>)
+  (if (and effect-offscreen
+           (let ((size (get-size~ effect-offscreen)))
+             (and (<= width (get-width~ size))
+                  (<= height (get-height~ size)))))
+      effect-offscreen
+    (when effect-offscreen
+      (close~ effect-offscreen))
+    (set! effect-offscreen (new-offscreen surface width height))
+    effect-offscreen))
+
+
+(definition public (draw-colored-overlay surface <Surface> width <fx> height <fx> color alpha)
+  (fill-rect-alpha~ surface (new Rect 0 0 width height) color alpha)
+  @wait
+  (let ((effect-offscreen (get-effect-offscreen surface width height)))
+    (with ((rect (new Rect 0 0 width height)))
+      (fill-rect~ effect-offscreen rect color)
+      ;; We cannot use a record because Jazz puts a pointer to the record on the stack
+      ;; and because (size-of BLENDFUNCTION) <= 4, Windows expects the actual content...
+      @convert-windows-specific
+      (let* ((op AC_SRC_OVER)
+             (flags 0)
+             (format 0)
+             (blend (make-int (make-word op flags) (make-word alpha format))))
+        (AlphaBlend hdc 0 0 width height (get-hdc~ effect-offscreen) 0 0 width height blend))))))

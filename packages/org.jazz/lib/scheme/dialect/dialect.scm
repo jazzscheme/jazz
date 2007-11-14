@@ -479,7 +479,21 @@
 
 
 (define (jazz.walk-do walker resume declaration environment form)
-  (jazz.unimplemented 'jazz.walk-do))
+  (let ((bindings (%%cadr form))
+        (test (%%caar (%%cddr form)))
+        (result (%%cdar (%%cddr form)))
+        (body (%%cdr (%%cddr form))))
+    (let* ((new-variables (map (lambda (binding-form) (jazz.new-variable (%%car binding-form) #f)) bindings))
+           (augmented-environment (%%append new-variables environment)))
+      (jazz.new-do (map (lambda (variable binding-form)
+                          (let ((init (jazz.walk walker resume declaration augmented-environment (%%cadr binding-form)))
+                                (step (if (%%null? (%%cddr binding-form)) #f (jazz.walk walker resume declaration augmented-environment (%%car (%%cddr binding-form))))))
+                            (cons variable (cons init step))))
+                        new-variables
+                        bindings)
+        (jazz.walk walker resume declaration augmented-environment test)
+        (jazz.walk-body walker resume declaration augmented-environment result)
+        (jazz.walk-body walker resume declaration augmented-environment body)))))
 
 
 (define (jazz.walk-named-let walker resume declaration environment form)
@@ -514,7 +528,8 @@
 
 
 (define (jazz.walk-delay walker resume declaration environment form)
-  (jazz.unimplemented 'jazz.walk-delay))
+  (let ((expression (%%cadr form)))
+    (jazz.new-delay (jazz.walk walker resume declaration environment expression))))
 
 
 ;;;

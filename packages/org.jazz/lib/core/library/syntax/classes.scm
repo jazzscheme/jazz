@@ -693,6 +693,15 @@
 
 
 ;;;
+;;;; Delay
+;;;
+
+
+(jazz.define-class-syntax jazz.Delay jazz.Expression (type) jazz.Object-Class jazz.allocate-delay
+  ((expression %%get-delay-expression ())))
+
+
+;;;
 ;;;; Quasiquote
 ;;;
 
@@ -807,6 +816,18 @@
 
 (jazz.define-class-syntax jazz.Begin jazz.Expression (type) jazz.Object-Class jazz.allocate-begin
   ((expressions %%get-begin-expressions ())))
+
+
+;;;
+;;;; Do
+;;;
+
+
+(jazz.define-class-syntax jazz.Do jazz.Expression (type) jazz.Object-Class jazz.allocate-do
+  ((bindings %%get-do-bindings ())
+   (test     %%get-do-test     ())
+   (result   %%get-do-result   ())
+   (body     %%get-do-body     ())))
 
 
 ;;;

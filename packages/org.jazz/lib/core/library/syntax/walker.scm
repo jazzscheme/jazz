@@ -2936,6 +2936,29 @@
 
 
 ;;;
+;;;; Delay
+;;;
+
+
+(jazz.define-class jazz.Delay jazz.Expression (type) jazz.Object-Class
+  (expression))
+
+
+(define (jazz.new-delay expression)
+  (jazz.allocate-delay jazz.Delay #f expression))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Delay expression) declaration environment)
+  (let ((expression (%%get-delay-expression expression)))
+    (jazz.new-code
+      `(delay ,(jazz.emit-expression expression declaration environment))
+      jazz.Any)))
+
+
+(jazz.encapsulate-class jazz.Delay)
+
+
+;;;
 ;;;; Quasiquote
 ;;;
 
@@ -3376,6 +3399,56 @@
 
 
 (jazz.encapsulate-class jazz.Begin)
+
+
+;;;
+;;;; Do
+;;;
+
+
+(jazz.define-class jazz.Do jazz.Expression (type) jazz.Object-Class
+  (bindings
+   test
+   result
+   body))
+
+
+(define (jazz.new-do bindings test result body)
+  (jazz.allocate-do jazz.Do #f bindings test result body))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Do expression) declaration environment)
+  (let ((bindings (%%get-do-bindings expression))
+        (test (%%get-do-test expression))
+        (result (%%get-do-result expression))
+        (body (%%get-do-body expression)))
+    (jazz.with-annotated-frame (jazz.annotate-bindings bindings)
+      (lambda (frame)
+        (let ((variables (%%get-annotated-frame-variables frame))
+              (augmented-environment (cons frame environment)))
+          (let ((bindings-output
+                  (map (lambda (binding annotated-variable)
+                         (let ((variable (%%car binding))
+                               (init (%%cadr binding))
+                               (step (%%cddr binding)))
+                           (let ((init-code (%%get-code-form (jazz.emit-expression init declaration augmented-environment)))
+                                 (step-code-list (if step (list (%%get-code-form (jazz.emit-expression step declaration augmented-environment))) '())))
+                             `(,(%%get-lexical-binding-name variable)
+                               ,init-code
+                               ,@step-code-list))))
+                       bindings
+                       variables)))
+            (let ((test-code (jazz.emit-expression test declaration augmented-environment))
+                  (result-code (jazz.emit-expression result declaration augmented-environment))
+                  (body-code (jazz.emit-expression body declaration augmented-environment)))
+              (jazz.new-code
+                `(do ,bindings-output
+                     (,(%%get-code-form test-code) ,@(%%get-code-form result-code))
+                   ,@(%%get-code-form body-code))
+                (%%get-code-type result-code)))))))))
+
+
+(jazz.encapsulate-class jazz.Do)
 
 
 ;;;

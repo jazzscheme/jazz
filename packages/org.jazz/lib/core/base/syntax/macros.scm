@@ -115,7 +115,9 @@
 (define (jazz.expand-%%assertion test? assertion message . body)
   (if test?
       `(if (%%not ,assertion)
-           (error ,message)
+           (begin
+             (error ,message)
+             (block-tail-call))
          ,(jazz.simplify-begin
             `(begin
                ,@body)))

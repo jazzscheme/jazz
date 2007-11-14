@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; UI Development
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.development jazz
+
+
+(import (jazz.development)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.ui.dialog)
+        (jazz.ui.window)
+        (jazz.ui.view)
+        (jazz.ui.workspace)
+        (jazz.utilities))
+
+
+;;;
+;;;; Window
+;;;
+
+
+;;;
+;;;; View-Player
+;;;
+
+
+@convert
+(method (debug-window pos)
+  (let ((view (find-drawing~ root pos)))
+    (if (not view)
+        (nextmethod pos)
+      (debug-view~ view (acquire~ view root pos)))))
+
+
+@convert
+(method (describe-window pos)
+  (let ((view (find-drawing~ root pos)))
+    (when view
+      (describe-view~ view (acquire~ view root pos)))))
+
+
+;;;
+;;;; View
+;;;
+
+
+(generic (view-debug (<View> view) pos))
+
+(specific (view-debug (<View> view) pos)
+  (let* ((root (get-root~ view))
+         (player (get-player~ view))
+         (guest (and (is? player View-Host) (get-guest~ player))))
+    (set! % view)
+    (set! %m pos)
+    (set! %r root)
+    (set! %h player)
+    (set! %g guest)))
+
+
+(generic (view-describe (<View> view) pos))
+
+(specific (view-describe (<View> view) pos)
+  (list
+    (list "Class" (class-of view))
+    (list "Name" (get-name~ view))
+    (list "Position" (get-position~ view))
+    (list "Size" (get-size~ view))
+    (list "Mouse" pos)
+    (list "Action" (get-action~ view))
+    (list "Action Handler" (get-action-handler~ view))))
+
+
+;; State as in the state that the view and it's associated objects must maintain
+;; in synch to have a coherent state. State can be a big source of headaches...
+(generic (view-describe-state (<View> view) pos))
+
+
+@convert
+(definition (view-outline view)
+  (let* ((display (new Columns-Display))
+         (classes (new Indented-Column display))
+         (properties (new Aligned-Column display border: 3)))
+    (for-each-descendant
+      (function dynamic (view level)
+        (when (is? view View)
+          (let ((type (type-name (class-of view)))
+                (lie (get-lie~ view))
+                (position (get-position~ view))
+                (size (get-size~ view)))
+            (output~ classes type level)
+            (output~ properties (format "~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Point {a width: 4 justify: :right} {a width: 4 justify: :right}}   ~{Dimension {a width: 4 justify: :right} {a width: 4 justify: :right}}"
+                                        (get-h~ lie)
+                                        (get-v~ lie)
+                                        (get-h~ position)
+                                        (get-v~ position)
+                                        (get-width~ size)
+                                        (get-height~ size)))
+            (newline~ display)))))
+    (print-to~ display (list classes properties) :console)
+    (format :console "{%}")
+    {}))
+
+
+;;;
+;;;; Image-Tool
+;;;
+
+
+@convert
+(specific (view-describe (<Image-Tool> view) pos)
+  (append (nextmethod pos)
+          (list
+            (list "Image Name" (get-image-name))
+            (list "Disabled Image Name" (get-disabled-image-name)))))
+
+
+;;;
+;;;; Label-Item
+;;;
+
+
+@convert
+(specific (view-describe (<Label-Item> view) pos)
+  (append (nextmethod pos)
+          (list
+            (list "Icon" icon))))
+
+
+;;;
+;;;; Outline-View
+;;;
+
+
+@convert
+(specific (debug-view (<Outline-View> view) view)
+  (nextmethod view)
+  (let* ((v (get-v~ view))
+         (r (v->row v)))
+    (when r
+      (let ((row (get-row r)))
+        (set-%r~ Development row)))))
+
+
+@convert
+(specific (describe-view (<Outline-View> view) pos)
+  (append (nextmethod pos)
+          (list
+            (list "Visible Count" visible-count)
+            (list "Visible Width" visible-width)
+            (list "Visible Height" visible-height)
+            (list "First Displayed" first-displayed)
+            (list "First Displayed Rank" first-displayed-rank)
+            (list "First Displayed Offset" first-displayed-offset))))
+
+
+@convert
+(definition public (internal-fields)
+  (values visible-count visible-height first-displayed first-displayed-rank first-displayed-offset))
+
+
+;;;
+;;;; Text-View
+;;;
+
+
+@convert
+(specific (debug-view (<Text-View> view) view)
+  (nextmethod view)
+  (let* ((start (get-start))
+         (end (get-end))
+         (paragraph (get-paragraph (get-row~ start))))
+    (set-%r~ Development selection)
+    (set-%s~ Development start)
+    (set-%e~ Development end)
+    (set-%p~ Development paragraph)
+    (set-%f~ Development (get-format~ paragraph))
+    (set-%n~ Development (get-line-at~ paragraph (get-col~ start)))
+    (set-%y~ Development (get-style-at start))
+    (set-%k~ Development (get-moniker))
+    (set-%c~ Development (get-controller))))
+
+
+@convert
+(specific (describe-view (<Text-View> view) pos)
+  (append (nextmethod pos)
+          (list
+            (list "Selection" (format "{s} {s}" (get-start) (get-end))))))
+
+
+;;;
+;;;; Code-Text-View
+;;;
+
+
+@convert
+(specific (debug-view (<Code-Text-View> view) view)
+  (nextmethod view)
+  (let* ((range (get-selection))
+         (strings (range-strings range))
+         (string (car text))
+         (entries (get-parsed-entries))
+         (entry (find-if (function dynamic (element)
+                           (equal? string (get-name~ element)))
+                         entries)))
+    (set-%t~ Development entry)))
+
+
+;;;
+;;;; Tree-View
+;;;
+
+
+@convert
+(specific (debug-view (<Tree-View> view) view)
+  (nextmethod view)
+  (let ((cell (view->tree view)))
+    (when cell
+      (let* ((pos (cell-coordinates cell view))
+             (column (get-column (get-col~ cell)))
+             (row (get-row (get-row~ cell)))
+             (node (car (get-children~ row)))
+             (user-data (get-user-data~ row)))
+        (receive (cell part) (get-debugged~ column cell pos)
+          (let ((data (get-cell-data cell)))
+            (set-%c~ Development cell)
+            (set-%d~ Development data)
+            (set-%n~ Development node)
+            (set-%o~ Development column)
+            (set-%p~ Development part)
+            (set-%r~ Development row)
+            (set-%u~ Development user-data)))))))
+
+
+@convert
+(specific (describe-view (<Tree-View> view) view)
+  (append (nextmethod view)
+          (let ((cell (view->tree view)))
+            (when cell
+              (let* ((pos (cell-coordinates cell view))
+                     (column (get-column (get-col~ cell)))
+                     (row (get-row (get-row~ cell)))
+                     (node (car (get-children~ row)))
+                     (user-data (get-user-data~ row)))
+                (receive (cell part) (get-debugged~ column cell pos)
+                  (let ((data (get-cell-data cell)))
+                    (list
+                      (list "Node Column" node-column)
+                      (list "Columns Borders" columns-borders)
+                      (list "Columns Right" columns-right)
+                      (list "User Data" user-data)
+                      (list "Image" (get-image~ node)))))))))))

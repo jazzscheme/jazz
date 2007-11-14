@@ -1795,11 +1795,16 @@
   (let ((name (%%get-lexical-binding-name binding))
         (type (%%get-lexical-binding-type binding))
         (self (jazz.*self*)))
-    (jazz.new-code
-      `(,(%%get-lexical-binding-name binding)
-        ,(%%get-code-form self)
-        ,@(jazz.codes-forms arguments))
-      (jazz.call-return-type type))))
+    (if self
+        (jazz.new-code
+          `(,(%%get-lexical-binding-name binding)
+            ,(%%get-code-form self)
+            ,@(jazz.codes-forms arguments))
+          (jazz.call-return-type type))
+      (jazz.new-code
+        `(,(%%get-lexical-binding-name binding)
+          ,@(jazz.codes-forms arguments))
+        (jazz.call-return-type type)))))
 
 
 (jazz.encapsulate-class jazz.NextMethod-Variable)

@@ -126,7 +126,7 @@
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment)
-  (jazz.unspecified))
+  (jazz.error "Unable to emit binding reference for: {s}" binding))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments)

@@ -257,16 +257,21 @@
   (jazz.build-module module-name))
 
 
-(define (bjazz)
+(define (bcore)
   (ll)
   (bkernel)
   (bmodule 'core.base)
   (bmodule 'core.class)
   (bmodule 'core.foundation)
   (bmodule 'core.generic)
-  (bmodule 'core.library)
+  (bmodule 'core.library))
+
+
+(define (bjazz)
+  (bcore)
   (bmodule 'scheme.dialect)
-  (bmodule 'jazz.dialect))
+  (bmodule 'jazz.dialect)
+  (cj 'jazz.dialect.language))
 
 
 (define (bcairo)
@@ -323,6 +328,14 @@
   (x11
     (define (bplatform)
       (bx11))))
+
+
+;; build everything that needs to be compiled
+(define (bcmp)
+  (ld)
+  (bcairo)
+  (bfont)
+  (bplatform))
 
 
 (define (ball)

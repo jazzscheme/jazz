@@ -748,4 +748,47 @@
 
 
 (definition (platform-get-desktop)
-  (GetDesktopWindow)))
+  (GetDesktopWindow))
+
+
+;;;
+;;;; Work Area
+;;;
+
+
+(definition public (get-work-area) <Rect>
+  (with ((area (RECT-make)))
+    (SystemParametersInfo SPI_GETWORKAREA 0 area 0)
+    (adjust-work-area-with-taskbar (RECT->rect area))))
+
+
+;; Because fucking Window's SPI_GETWORKAREA doesn't take autohide into account!
+(definition (adjust-work-area-with-taskbar rect)
+  rect
+  @convert
+  (let ((state (get-taskbar-state))
+        (edge (get-taskbar-edge)))
+    (if (and (mask-bit-set? state ABS_AUTOHIDE) (mask-bit-set? state ABS_ALWAYSONTOP))
+        (ecase edge
+          ((ABE_LEFT)   (expand-rect rect  1  0  0  0))
+          ((ABE_TOP)    (expand-rect rect  0  1  0  0))
+          ((ABE_RIGHT)  (expand-rect rect  0  0 -1  0))
+          ((ABE_BOTTOM) (expand-rect rect  0  0  0 -1)))
+      rect)))
+
+
+(definition public (get-taskbar-state)
+  (unimplemented 'get-taskbar-state)
+  @convert
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETSTATE data)))
+
+
+(definition public (get-taskbar-edge)
+  (unimplemented 'get-taskbar-edge)
+  @convert
+  (with ((data (new APPBARDATA)))
+    (set data 'cbSize (size-of APPBARDATA))
+    (SHAppBarMessage ABM_GETTASKBARPOS data)
+    (get data 'uEdge))))

@@ -48,24 +48,16 @@
 ;;;
 
 
-(define (jazz.compile-library-with-options library-name options)
-  (let ((filename (jazz.determine-module-filename library-name)))
-    (let ((src (jazz.require-module-source filename)))
-      (jazz.with-extension-reader (jazz.filename-extension src)
-        (lambda ()
-          (compile-file src options))))))
+(define (jazz.compile-module module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+  (let ((filename (jazz.determine-module-filename module-name)))
+    (parameterize ((jazz.requested-module-name module-name))
+      (jazz.compile-filename filename options: options cc-options: cc-options ld-options: ld-options force?: force?))))
 
 
-(define (jazz.compile-library-with-flags library-name #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f))
-  (let ((filename (jazz.determine-module-filename library-name)))
-    (parameterize ((jazz.requested-module-name library-name))
-      (jazz.compile-filename-with-flags filename options: options cc-flags: cc-flags ld-flags: ld-flags force?: force?))))
-
-
-(define (jazz.compile-filename-with-flags filename #!key (options #f) (cc-flags #f) (ld-flags #f) (force? #f) (source #f))
+(define (jazz.compile-filename filename #!key (options #f) (cc-options #f) (ld-options #f) (force? #f) (source #f))
   (let ((options (or options jazz.compile-options))
-        (cc-flags (or cc-flags ""))
-        (ld-flags (or ld-flags "")))
+        (cc-options (or cc-options ""))
+        (ld-options (or ld-options "")))
     (let* ((src (or source (jazz.require-module-source filename)))
            (bin (jazz.determine-module-binary filename))
            (bindir (jazz.determine-module-bindir filename))
@@ -78,21 +70,7 @@
             (jazz.with-extension-reader (jazz.filename-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  (compile-file-to src bindir options cc-flags ld-flags)))))))))
-
-
-(define (jazz.compile-library-to-c library-name)
-  (let* ((filename (jazz.determine-module-filename library-name))
-         (source (jazz.require-module-source filename))
-         (c-file (string-append filename ".c")))
-    (if (file-exists? c-file)
-        (delete-file c-file))
-    (compile-file-to-c source)))
-
-
-(define (jazz.compile-library library-name)
-  (let ((filename (jazz.require-module-source (jazz.determine-module-filename library-name))))
-    (jazz.compile-filename-with-flags filename)))
+                  (compile-file src output: bindir options: options cc-options: cc-options ld-options: ld-options)))))))))
 
 
 (define (jazz.compile-verbose filename)
@@ -124,7 +102,7 @@
 
 (define (jazz.build-kernel)
   (jazz.build-bin-dir "kernel/module")
-  (jazz.compile-filename-with-flags "kernel/module/runtime"))
+  (jazz.compile-filename "kernel/module/runtime"))
 
 
 (define (jazz.build-module module-name)
@@ -135,7 +113,7 @@
                (directory (jazz.split-filename filename (lambda (dir file) dir))))
           (jazz.build-bin-dir directory)
           (parameterize ((jazz.requested-module-name module-name))
-            (jazz.compile-filename-with-flags filename)))))))
+            (jazz.compile-filename filename)))))))
 
 
 (define (jazz.for-each-submodule module-name proc)

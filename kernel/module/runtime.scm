@@ -138,9 +138,13 @@
     (define (jazz.load-bin bin)
       (jazz.with-verbose jazz.load-verbose? "loading" (%%substring bin 5 (%%string-length bin))
         (lambda ()
-          (parameterize ((jazz.walk-for 'interpret)
-                         (suppress-warnings #t))
-            (jazz.load-filename bin)))))
+          (parameterize ((jazz.walk-for 'interpret))
+            ;; until a standard mecanism is added to Gambit
+            (if (and (##global-var? 'suppress-warnings)
+                     (##not (##unbound? (##global-var-ref 'suppress-warnings))))
+                (parameterize ((suppress-warnings #t))
+                  (jazz.load-filename bin))
+              (jazz.load-filename bin))))))
     
     
     (define (jazz.require-module-source filename)

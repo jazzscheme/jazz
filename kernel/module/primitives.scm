@@ -599,7 +599,7 @@
       `(table-for-each ,proc ,table))
     
     (define-macro (%%table-merge! into from)
-      `(##table-merge! ,into ,from))
+      `(table-merge! ,into ,from))
     
     (define-macro (%%alist->table alist test)
       `(list->table ,alist test: ,test))

@@ -550,10 +550,10 @@
 (native jazz.foreign-address)
 (native jazz.foreign-release!)
 (native jazz.foreign-released?)
-(native jazz.foreign-tag)
+;;(native jazz.foreign-tag)
 (native jazz.still-obj-refcount-dec!)
 (native jazz.still-obj-refcount-inc!)
-(native jazz.still-obj-refcount)
+;;(native jazz.still-obj-refcount)
 
 
 ;;;
@@ -561,7 +561,7 @@
 ;;;
 
 
-(native jazz.current-instance)
+;;(native jazz.current-instance)
 
 
 ;;;

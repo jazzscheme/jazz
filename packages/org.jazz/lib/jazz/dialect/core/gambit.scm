@@ -47,14 +47,6 @@
 
 
 ;;;
-;;;; Instance
-;;;
-
-
-(define jazz.current-instance ##current-instance)
-
-
-;;;
 ;;;; Foreign
 ;;;
 
@@ -63,10 +55,10 @@
 (define jazz.foreign-address foreign-address)
 (define jazz.foreign-release! foreign-release!)
 (define jazz.foreign-released? foreign-released?)
-(define jazz.foreign-tag ##foreign-tag)
+;;(define jazz.foreign-tag ##foreign-tag)
 (define jazz.still-obj-refcount-dec! ##still-obj-refcount-dec!)
 (define jazz.still-obj-refcount-inc! ##still-obj-refcount-inc!)
-(define jazz.still-obj-refcount ##still-obj-refcount)
+;;(define jazz.still-obj-refcount ##still-obj-refcount)
 
 
 ;;;

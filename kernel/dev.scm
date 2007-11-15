@@ -93,51 +93,9 @@
   (l 'jazz.platform.literals))
 
 
-(define (lit)
-  (lj)
-  (l 'jazz.literals))
-
-
 (define (lt)
   (ll)
   (rl 'test))
-
-
-(define (rll)
-  (rl 'jazz.dialect.language))
-
-(define (rlp)
-  (rl 'jazz.ui.text.Paragraph))
-
-(define (rlts)
-  (rl 'jazz.ui.text.Text-Style))
-
-(define (rltv)
-  (rl 'jazz.ui.text.Text-View))
-
-(define (rlov)
-  (rl 'jazz.ui.outline.Outline-View))
-
-(define (rlte)
-  (rl 'jazz.ui.text.Text-Explorer))
-
-(define (rltc)
-  (rl 'jazz.ui.text.Text-Colorizer))
-
-(define (rlce)
-  (rl 'jazz.ui.text.Code-Explorer))
-
-(define (rlle)
-  (rl 'jazz.jazz.text.Lisp-Explorer))
-
-(define (rlse)
-  (rl 'jazz.jazz.text.Scheme-Explorer))
-
-(define (rlje)
-  (rl 'jazz.jazz.text.Jazz-Explorer))
-
-(define (rls)
-  (rl 'jazz.ui.graphic.Surface))
 
 
 (define (lex module-name)
@@ -212,12 +170,12 @@
 
 (define (ee library-name)
   (ld)
-  (jazz.compile-library-with-options library-name (list 'expansion)))
+  (jazz.compile-module library-name options: (list 'expansion)))
 
 
 (define (eg library-name)
   (ld)
-  (jazz.compile-library-with-options library-name (list 'gvm)))
+  (jazz.compile-module library-name options: (list 'gvm)))
 
 
 (define (expand library-name)
@@ -258,58 +216,30 @@
 ;;;
 
 
-(define compiled-libs
-  '((core.base.syntax.readtable "" "") (core.class.runtime.output-hook "" "")))
-
-(define compiled-libs-windows
-  (append compiled-libs
-          '((jazz.platform.cairo "-Ic:/mingw/include/cairo/" "-Lc:/mingw/lib -lcairo"))))
-
-(define compiled-libs-linux
-  (append compiled-libs 
-          '((jazz.platform.x11 "" "-lX11") 
-            (jazz.platform.cairo "-I/usr/local/include/cairo -I/usr/include/freetype2" "-L/usr/local/lib -lcairo")
-            (jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))))
+(define (cm module-name cc-options ld-options)
+  (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
 
 
-(define (c library-name)
-  (jazz.compile-library-with-flags library-name))
-
-
-(define (cflag module-name cc-flags ld-flags)
-  (jazz.compile-library-with-flags module-name cc-flags: cc-flags ld-flags: ld-flags))
-
-
-(define (bwindows)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) cc-flags: (cadr x) ld-flags: (caddr x)))
-            compiled-libs-windows))
-
-
-(define (blinux)
-  (for-each (lambda (x) (jazz.compile-library-with-flags (car x) cc-flags: (cadr x) ld-flags: (caddr x)))
-            compiled-libs-linux))
-
-
-(define (cx)
-  (cflag 'jazz.platform.x11 "" "-lX11"))
-
-
-(define (cf)
-  (cflag 'jazz.platform.freetype "-I/usr/include/freetype2" "-lfreetype"))
-
-
-(define (cl)
+;; patch around a gambit bug
+(define (cj module-name)
   (ld)
-  (c 'jazz.dialect.language))
-
-
-(define (ct)
-  (ld)
-  (jazz.compile-library-with-flags 'test force?: #t))
-
-(define (cffi)
-  (ld)
-  (jazz.compile-library-with-flags 'test.cffi force?: #t))
+  (lj)
+  (let* ((file (jazz.determine-module-filename module-name))
+         (jazz (jazz.determine-module-source file))
+         (jscm (string-append file ".jscm"))
+         (jscmfile (string-append "_obj/" jscm))
+         (jscmdir (jazz.split-filename jscmfile (lambda (dir name) dir)))
+         (bin (jazz.determine-module-binary file))
+         (jazztime (time->seconds (file-last-modification-time jazz)))
+         (jscmtime (and (file-exists? jscmfile) (time->seconds (file-last-modification-time jscmfile))))
+         (bintime (and bin (file-exists? bin) (time->seconds (file-last-modification-time bin)))))
+    (if (or (not jscmtime) (> jazztime jscmtime)
+            (not bintime) (> jscmtime bintime))
+        (begin
+          (jazz.create-directories jscmdir)
+          (expand-to-file module-name jscmfile)
+          (parameterize ((current-readtable jazz.jazz-readtable))
+            (jazz.compile-filename jscm source: jscmfile))))))
 
 
 ;;;
@@ -339,96 +269,67 @@
   (bmodule 'jazz.dialect))
 
 
-(define (bwin)
-  (ld)
-  (cflag 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
-  (cflag 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
-  (cflag 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows"))
+(define (bcairo)
+  (cm 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
 
 
-(define (bcairo-windows-freetype)
-  (cflag 'jazz.platform.freetype "-IC:/jazz/dev/jazz/include/freetype2" "-LC:/jazz/dev/jazz/lib/freetype -lfreetype")
-  (cflag 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
-  (cflag 'jazz.platform.cairo.cairo-freetype "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
-  (cflag 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+(define (bfreetype)
+  (cm 'jazz.platform.freetype "-IC:/jazz/dev/jazz/include/freetype2" "-LC:/jazz/dev/jazz/lib/freetype -lfreetype")
+  (cm 'jazz.platform.cairo.cairo-freetype "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
 
 
-(define (bcairo-windows-logfont)
-  (cflag 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
-  (cflag 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
-  (cflag 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
-  
-  
-(define (bwin/freetype)
-  (bwin)
-  (bcairo-windows-freetype))
-
-
-(define (bwin/logfont)
-  (bwin)
-  (bcairo-windows-logfont))
+(define (blogfont)
+  (cm 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
 
 
 (cond-expand
   (freetype
-    (define (bui)
-      (bwin/freetype)))
+    (define (bfont)
+      (bfreetype)))
   (logfont
-    (define (bui)
-      (bwin/logfont))))
+    (define (bfont)
+      (blogfont))))
 
 
-(define (bx)
-  (ld) 
-  (cflag 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
-  (cflag 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
-  (cflag 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")
-  (cflag 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lcairo")
-  (cflag 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
-
-
-(define (bffi)
+(define (bwindows)
   (ld)
-  (jazz.compile-library-with-flags 'jazz.platform.windows.WinUser cc-flags: "-D UNICODE" ld-flags: "-mwindows -lUser32" force?: #t)
-  (jazz.compile-library-with-flags 'jazz.platform.cairo.cairo-win32 cc-flags: "-IC:/jazz/dev/jazz/bin/cairo/include" ld-flags: "-LC:/jazz/dev/jazz/bin/cairo/lib -lcairo" force?: #t))
+  (cm 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
+  (cm 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows")
+  (cm 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cj 'jazz.system.platform.windows))
+  
+
+(define (bx11)
+  (ld) 
+  (cm 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
+  (cm 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
+  (cm 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")
+  (cm 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lcairo")
+  (cm 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
+
+
+(cond-expand
+  (windows
+    (define (bplatform)
+      (bwindows)))
+  (x11
+    (define (bplatform)
+      (bx11))))
 
 
 (define (ball)
   (bjazz)
-  (bwin/logfont))
-
-
-(define (ballx)
-  (bjazz)
-  (bx))
-
-
-(define (cj module-name)
-  (ld)
-  (lj)
-  (let* ((file (jazz.determine-module-filename module-name))
-         (jazz (jazz.determine-module-source file))
-         (jscm (string-append file ".jscm"))
-         (jscmfile (string-append "_obj/" jscm))
-         (jscmdir (jazz.split-filename jscmfile (lambda (dir name) dir)))
-         (bin (jazz.determine-module-binary file))
-         (jazztime (time->seconds (file-last-modification-time jazz)))
-         (jscmtime (and (file-exists? jscmfile) (time->seconds (file-last-modification-time jscmfile))))
-         (bintime (and bin (file-exists? bin) (time->seconds (file-last-modification-time bin)))))
-    (if (or (not jscmtime) (> jazztime jscmtime)
-            (not bintime) (> jscmtime bintime))
-        (begin
-          (jazz.create-directories jscmdir)
-          (expand-to-file module-name jscmfile)
-          (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename-with-flags jscm source: jscmfile))))))
+  (bcairo)
+  (bfont)
+  (bplatform))
 
 
 (define Lang
@@ -546,15 +447,6 @@
   (for-each cj JML))
 
 
-(define (btest)
-  (la)
-  (ball)
-  (blang)
-  (bcomp)
-  (bexpl)
-  (btext))
-
-
 (define (bjd)
   (la)
   (ball)
@@ -595,37 +487,13 @@
 
 
 (define (cjz)
-  (clang)
-  (cutil)
-  (cui)
-  (cexpl)
-  (ctext)
-  (ctree)
-  (cappl)
-  (cjml))
-
-(define (clang)
-  (for-each cln Lang))
-
-(define (cutil)
-  (for-each cln Util))
-
-(define (cview)
-  (for-each cln view))
-
-(define (cexpl)
-  (for-each cln Expl))
-
-(define (ctext)
-  (for-each cln Text))
-
-(define (ctree)
-  (for-each cln Tree))
-
-(define (cappl)
-  (for-each cln Appl))
-
-(define (cjml)
+  (for-each cln Lang)
+  (for-each cln Util)
+  (for-each cln view)
+  (for-each cln Expl)
+  (for-each cln Text)
+  (for-each cln Tree)
+  (for-each cln Appl)
   (for-each cln JML))
 
 
@@ -659,7 +527,7 @@
 ;;;
 
 
-;; this is not correct but it is for now the only way to share
+;; this is not nice but it is for now the only way to share
 ;; usage of statprof between the scheme code and the jazz code
 
 
@@ -726,14 +594,3 @@
   (if (not (null? rest))
       (rl (car rest)))
   (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))
-
-
-;;;
-;;;; Tests
-;;;
-
-
-(define (tx)
-  (lj)
-  (l 'jazz.platform.literals)
-  (l 'test.window))

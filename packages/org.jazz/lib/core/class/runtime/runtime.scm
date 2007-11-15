@@ -1405,7 +1405,9 @@
 
 (cond-expand
   (gambit
-    (include "~/gambit/lib/type#.scm")
+    (include "../../../../../../include/gambit/type#.scm")
+    ;;not yet included in the gambit distribution
+    ;;(include "~/gambit/lib/type#.scm")
     
     (define jazz.subtypes
       (make-vector 32 #f))

@@ -50,8 +50,17 @@
 
 (jazz.define-feature debug)
 
+
+;;;
+;;;; Font
+;;;
+
+
 (jazz.define-feature freetype)
 
+
+;;;
+;;;; 
 ;;;
 ;;;; Boot
 ;;;

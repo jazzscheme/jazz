@@ -109,15 +109,13 @@
                    (write assertion port)
                    (display " failed" port)
                    (get-output-string port))))
-    (apply jazz.expand-%%assertion test? assertion message body)))
+    (apply jazz.expand-%%assertion test? assertion (list 'error message) body)))
 
 
-(define (jazz.expand-%%assertion test? assertion message . body)
+(define (jazz.expand-%%assertion test? assertion action . body)
   (if test?
       `(if (%%not ,assertion)
-           (begin
-             (error ,message)
-             (block-tail-call))
+           ,action
          ,(jazz.simplify-begin
             `(begin
                ,@body)))

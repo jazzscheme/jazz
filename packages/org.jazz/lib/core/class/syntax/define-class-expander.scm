@@ -82,19 +82,19 @@
                              '()
                            (if jazz.debug-core?
                                `((define (,slot-getter ,object)
-                                   (%%core-assert (%%object-of-class? ,object ,name)
+                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
                                      (%%object-ref ,object ,rank))))
                              `((jazz.define-macro (,slot-getter ,object)
-                                 (%%list '%%core-assert (%%list '%%object-of-class? ,object ',name)
+                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
                                    (%%list '%%object-ref ,object ,rank))))))
                        ,@(if (%%null? slot-setter)
                              '()
                            (if jazz.debug-core?
                                `((define (,slot-setter ,object ,value)
-                                   (%%core-assert (%%object-of-class? ,object ,name)
+                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
                                      (%%object-set! ,object ,rank ,value))))
                              `((jazz.define-macro (,slot-setter ,object ,value)
-                                 (%%list '%%core-assert (%%list '%%object-of-class? ,object ',name)
+                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
                                    (%%list '%%object-set! ,object ,rank ,value)))))))))
                 slots
                 (jazz.naturals (%%fx+ jazz.object-size ascendant-size) vector-size))))))

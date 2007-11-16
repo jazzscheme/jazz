@@ -79,7 +79,8 @@
 (define (jazz.expand-define-generic signature)
   (let* ((method-locator (%%car signature))
          (parameters (%%cdr signature))
-         (parameter-access (%%list (jazz.dispatch-parameter-type (%%car parameters))))
+         (parameter-type (jazz.dispatch-parameter-type (%%car parameters)))
+         (parameter-access (%%list parameter-type))
          (parameter-names (%%cons (jazz.dispatch-parameter-name (%%car parameters)) (%%cdr parameters)))
          (generic-locator (jazz.generic-object-locator method-locator))
          (gensym-specific (jazz.generate-symbol "specific")))
@@ -90,15 +91,16 @@
              ;; this is a quicky that needs to be well tought out
              (if (jazz.global-variable? ',generic-locator)
                  (jazz.global-value ',generic-locator)
-               (jazz.new-generic ',method-locator ',(if rest? #f mandatory-parameters) (lambda () (%%list ,@parameter-access)))))
+               (jazz.new-generic ',method-locator ,parameter-type ',(if rest? #f mandatory-parameters) (lambda () (%%list ,@parameter-access)))))
            (define ,method-locator
              (lambda (,@mandatory-parameters . ,rest-parameter)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
                  (jazz.update-generic ,generic-locator))
-               (let ((,gensym-specific (%%specific-dispatch ,generic-locator ,(%%car parameter-names))))
-                 ,(if rest?
-                      `(apply ,gensym-specific ,@mandatory-parameters ,rest-parameter)
-                    `(,gensym-specific ,@parameter-names))))))))))
+               (%%assertion (%%class-is? ,(%%car parameter-names) (%%get-generic-virtual-class ,generic-locator)) (jazz.expected-error ,(%%car parameter-names) (%%get-generic-virtual-class ,generic-locator))
+                 (let ((,gensym-specific (%%specific-dispatch ,generic-locator ,(%%car parameter-names))))
+                   ,(if rest?
+                        `(apply ,gensym-specific ,@mandatory-parameters ,rest-parameter)
+                      `(,gensym-specific ,@parameter-names)))))))))))
 
 
 (define (jazz.generic-object-locator locator)

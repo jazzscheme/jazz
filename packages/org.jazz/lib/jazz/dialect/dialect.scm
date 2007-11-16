@@ -1309,7 +1309,7 @@
 (define (jazz.walk-dispatch walker resume declaration environment form)
   (let ((name (jazz.dispatch->symbol (%%car form)))
         (arguments (%%cdr form)))
-    (%%assertion (%%not (%%null? arguments)) (jazz.format "Dispatch call must contain at least one argument: {s}" form)
+    (%%assertion (%%not (%%null? arguments)) (jazz.error "Dispatch call must contain at least one argument: {s}" form)
       (jazz.new-dispatch name
         (jazz.walk-list walker resume declaration environment arguments)))))
 
@@ -1460,7 +1460,7 @@
             (parameters (%%cdr signature)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (%%assertion (%%null? body) (jazz.format "Ill-formed generic containing a body: {s}" signature)
+            (%%assertion (%%null? body) (jazz.error "Ill-formed generic containing a body: {s}" signature)
               (values name specifier access compatibility parameters))))))))
 
 
@@ -1793,7 +1793,7 @@
 
 (define (jazz.parse-method walker resume declaration rest)
   (receive (access compatibility propagation abstraction expansion remote synchronized rest) (jazz.parse-modifiers walker resume declaration jazz.method-modifiers rest)
-    (%%assertion (and (%%pair? rest) (%%pair? (%%car rest))) (jazz.format "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method rest))
+    (%%assertion (and (%%pair? rest) (%%pair? (%%car rest))) (jazz.error "Ill-formed method in {a}: {s}" (%%get-lexical-binding-name (%%get-declaration-toplevel declaration)) (%%cons 'method rest))
       (let ((name (%%caar rest))
             (parameters (jazz.wrap-parameters (%%cdar rest))))
         (jazz.parse-specifier (%%cdr rest)

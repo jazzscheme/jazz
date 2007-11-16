@@ -77,7 +77,7 @@
       (if jazz.debug-core?
           (jazz.with-expression-value object
             (lambda (obj)
-              `(%%core-assert (%%object? ,obj)
+              `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
                  (##vector-length ,obj))))
         `(##vector-length ,object)))
     
@@ -87,8 +87,10 @@
             (lambda (obj)
               (jazz.with-expression-value n
                 (lambda (rnk)
-                  `(%%core-assert (%%object? ,obj)
-                     (%%core-assert (##fixnum.< ,rnk (##vector-length ,obj))
+                  `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+                     (##vector-ref ,obj ,n)
+                     #; ;; costly test for a very low probability class of bugs
+                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
                        (##vector-ref ,obj ,n)))))))
         `(##vector-ref ,object ,n)))
     
@@ -98,8 +100,10 @@
             (lambda (obj)
               (jazz.with-expression-value n
                 (lambda (rnk)
-                  `(%%core-assert (%%object? ,obj)
-                     (%%core-assert (##fixnum.< ,rnk (##vector-length ,obj))
+                  `(%%core-assertion (%%object? ,obj) (jazz.not-object-error ,obj)
+                     (##vector-set! ,obj ,n ,value)
+                     #; ;; costly test for a very low probability class of bugs
+                     (%%core-assertion (##fixnum.< ,rnk (##vector-length ,obj)) (jazz.outside-object-error ,obj ,rnk)
                        (##vector-set! ,obj ,n ,value)))))))
         `(##vector-set! ,object ,n ,value))))
   

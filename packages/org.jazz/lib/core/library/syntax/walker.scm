@@ -638,7 +638,7 @@
              (name (%%get-lexical-binding-name declaration))
              (decl (jazz.lookup-declaration exported-library name #t)))
         (%%set-autoload-declaration-declaration declaration decl)
-        (%%assertion decl (jazz.format "Unable to find autoload: {s}" name)
+        (%%assertion decl (jazz.error "Unable to find autoload: {s}" name)
           decl))))
 
 
@@ -2450,7 +2450,7 @@
 
 
 (define (jazz.parse-library-invoice specification)
-  (%%assertion (%%pair? specification) (jazz.format "Ill-formed library invoice: {s}" specification)
+  (%%assertion (%%pair? specification) (jazz.error "Ill-formed library invoice: {s}" specification)
     (let ((name (%%car specification))
           (scan (%%cdr specification))
           (version '())
@@ -2797,7 +2797,7 @@
 
 (define (jazz.find-form-declaration namespace-declaration name)
   (let ((declaration (jazz.find-declaration namespace-declaration name)))
-    (%%assertion declaration (jazz.format "Unable to find declaration: {a}" name)
+    (%%assertion declaration (jazz.error "Unable to find declaration: {a}" name)
       declaration)))
 
 

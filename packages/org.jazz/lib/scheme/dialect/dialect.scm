@@ -334,7 +334,7 @@
 
 
 (define (jazz.parse-binding walker resume declaration environment form)
-  (%%assertion (and (%%pair? form) (%%pair? (%%cdr form))) (jazz.format "Ill-formed binding: {s}" form)
+  (%%assertion (and (%%pair? form) (%%pair? (%%cdr form))) (jazz.error "Ill-formed binding: {s}" form)
     (let ((symbol (%%car form)))
       (jazz.parse-specifier (%%cdr form)
         (lambda (specifier rest)

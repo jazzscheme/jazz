@@ -42,6 +42,7 @@
 (jazz.define-class-syntax jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
   ((locator              %%get-generic-locator              ())
    (name                 %%get-generic-name                 ())
+   (virtual-class        %%get-generic-virtual-class        ())
    (mandatory-parameters %%get-generic-mandatory-parameters ())
    (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
    (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
@@ -50,6 +51,7 @@
 (jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class
   (locator
    name
+   virtual-class
    mandatory-parameters
    root-specific
    pending-specifics))
@@ -63,9 +65,6 @@
   `(%%table-ref (%%get-class-dispatch-table ,class) ,name #f))
 
 
-; 5.7 = 5.9 = z + by-class (5.2 + 0.7)
-; 7.6 = 7.8 = z + by-root  (5.2 + 2.6)
-; 8.3 = 8.5 = z + by-root + by-class (Presario X1000 for 154000 calls)
 (jazz.define-macro (%%specific-dispatch generic object)
   `(%%class-specific-dispatch (%%class-of ,object) (%%get-generic-name ,generic))
   ;; `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic))

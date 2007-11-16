@@ -18,7 +18,7 @@ Install.txt              :  Installation instructions
 
 bin                      :  Architecture directories
 contrib                  :  Outside contributions
-dev                      :  Stuff for developers of JazzScheme itself
+dev                      :  For developers of JazzScheme
 doc                      :  Preliminary documentation
 include                  :  Include directory for C code
 kernel                   :  Scheme code to bootstrap the module system
@@ -29,9 +29,7 @@ packages                 :  Installed packages
 Launching
 =========
 
-At this time, there is no executable. Just start gsc in the proper subdirectory
-of the bin directory and execute (j). For example, under Windows, you could use
-the bin/GambitWinIntelDebug directory to run a debug version of Jazz.
+Please refer to Install.txt for details on launching JazzScheme and the Jedi IDE.
 
 
 Documentation

@@ -274,13 +274,18 @@
   (cj 'jazz.dialect.language))
 
 
-(define (bcairo)
-  (cm 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+(cond-expand
+  (windows
+    (define (bcairo)
+      (cm 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")))
+  (x11
+    (define (bcairo)
+      (cm 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))))
 
 
 (define (bfreetype)
-  (cm 'jazz.platform.freetype "-IC:/jazz/dev/jazz/include/freetype2" "-LC:/jazz/dev/jazz/lib/freetype -lfreetype")
-  (cm 'jazz.platform.cairo.cairo-freetype "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+  (cm 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
+  (cm 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include -I/opt/local/include/freetype2 -I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
 
 
 (define (blogfont)

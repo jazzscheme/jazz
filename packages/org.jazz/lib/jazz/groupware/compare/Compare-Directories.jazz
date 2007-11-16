@@ -40,18 +40,14 @@
 
 
 (import (jazz.groupware)
+        (jazz.io)
         (jazz.jml)
         (jazz.library)
         (jazz.system)
+        (jazz.system.time)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.utilities))
-
-
-(class Compare-Directories extends Compare-Trees)
-
-
-@WAIT (
 
 
 (class Compare-Directories extends Compare-Trees
@@ -127,14 +123,14 @@
   
   
   (method (present-root left right)
-    (cond ((null? left)
+    (cond ((not left)
            (present-item right))
-          ((null? right)
+          ((not right)
            (present-item left))
           (else
            (let ((l (present-item left))
                  (r (present-item right)))
-             (if (= l r)
+             (if (string=? l r)
                  l
                (format "{a} / {a}" l r))))))
   
@@ -144,15 +140,15 @@
   
   
   (method (present-value kind date)
-    (if (null? date)
+    (if (not date)
         ""
-      (present~ (get-date~ (universal->local~ date)))))
+      (present~ (time->date (universal->local date)))))
   
   
   (method (backup-action local-date left left-date right right-date)
     (if local-date
         (let ((base-date (local->universal~ local-date)))
-          (if (and (is? left-date Time) (> left-date base-date))
+          (if (> left-date base-date)
               'copy-right
             {}))
       'copy-right))
@@ -161,11 +157,11 @@
   (method (merge-action local-date left left-date right right-date)
     (when local-date
       (let ((base-date (local->universal~ local-date)))
-        (cond ((and (null? left) right)
+        (cond ((and (not left) right)
                (if (> right-date base-date)
                    'copy-left
                  'copy-right))
-              ((and left (null? right))
+              ((and left (not right))
                (if (> left-date base-date)
                    'copy-right
                  'copy-left))
@@ -178,6 +174,7 @@
                         'copy-right)
                        ((and (memq? l '(:less :equal)) (eq? r :greater))
                         'copy-left)
+                       @convert/wait
                        ((and (typed? left 'Repository-Moniker) (eq? l :not-equal))
                         'copy-right)
                        (else
@@ -219,14 +216,17 @@
   (method (copy-item src dst)
     (cond ((and (is? src File) (is? dst File))
            (copy-file~ src dst :overwrite-read-only? (overwrite-read-only?)))
+          @convert/wait
           ((and (typed? src 'Repository-Moniker) (is? dst File))
            (unimplemented 'copy-item)
            (get-local~ src dst))
+          @convert/wait
           ((and (is? src File) (typed? dst 'Repository-Moniker))
            (if (exists?~ dst src)
                (checkin~ dst)
              (let ((parent (get-parent~ dst)))
                (add~ parent src))))
+          @convert/wait
           ((and (is? src Directory) (typed? dst 'Repository-Moniker))
            (add-project (get-parent~ dst) src))
           (else
@@ -241,6 +241,7 @@
       ((Directory)
         (delete-directory~ item :overwrite-read-only? (overwrite-read-only?) feedback: (function dynamic (dir) (user-message "Deleting {l detail: :human}..." (get-list~ dir))))
         (user-message "Done"))
+      @convert/wait
       ((Repository-Moniker)
         (delete-item~ item))
       (else
@@ -320,14 +321,20 @@
     (let ((list (append (get-list~ father) (list (get-name~ item)))))
       (typecase item
         ((File)
+         (new File list)
+         @convert/wait
           (if (typed? root 'Repository-Moniker)
               (new Repository-Moniker (join list "/"))
             (new File list)))
         ((Directory)
+         (new Directory list)
+         @convert/wait
           (if (typed? root 'Repository-Moniker)
               (new Repository-Moniker (join list "/"))
             (new Directory list)))
         (else
+          (error "Unable to make item from {t}" item)
+          @convert/wait
           (if (typed? item 'Repository-Moniker)
               (if (typed? root 'Repository-Moniker)
                   (new Repository-Moniker (join list "/"))
@@ -364,4 +371,3 @@
   (form
     (<install>
       (<Label-Item> name: scanned-date title: "Use Scanned Date" before: reset-actions action-handler: {Event-Handler :document on-scan-date})))))
-)

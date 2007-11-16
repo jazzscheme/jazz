@@ -38,12 +38,6 @@
 (library jazz.system.time.Date jazz
   
 
-(class Date extends Object)
-
-
-@very-windows-specific
-  
-
 (class Date extends Object
   
   
@@ -67,10 +61,12 @@
   ;;;
   
   
+  @convert/wait
   (method public (universal->local)
     (get-date~ (universal->local~ (get-time))))
   
   
+  @convert/wait
   (method public (local->universal)
     (get-date~ (local->universal~ (get-time))))
   
@@ -137,6 +133,8 @@
   
   
   (method public (get-time)
+    (unimplemented)
+    @convert-windows-specific
     (let ((systemtime (get-systemtime))
           (filetime (new FILETIME)))
       ;; this will cause an error for a date like {Date 1000 1 1}
@@ -145,12 +143,14 @@
       (from-filetime filetime)))
 
 
+  @convert-windows-specific
   (method (get-systemtime)
     (let ((st (new SYSTEMTIME)))
       (fill-systemtime st)
       st))
   
   
+  @convert-windows-specific
   (method (fill-systemtime st)
     (set st 'wYear year)
     (set st 'wMonth month)
@@ -388,18 +388,22 @@
     (third (find-day-of-week-info day-of-week)))
   
   
+  @convert-windows-specific
   (definition System-Time
     (new SYSTEMTIME))
   
+  @convert-windows-specific
   (definition File-Time
     (new FILETIME))
   
   
   (method synchronized (update-day-of-week)
+    (unimplemented)
+    @convert-windows-specific(
     (fill-systemtime System-Time)
     (SystemTimeToFileTime System-Time File-Time)
     (FileTimeToSystemTime File-Time System-Time)
-    (set! day-of-week (get System-Time 'wDayOfWeek)))
+    (set! day-of-week (get System-Time 'wDayOfWeek))))
   
   
   ;;;
@@ -504,19 +508,7 @@
   
   (method public (present-date . rest)
     (subseq (apply present rest) 0 10))
-  
-  
-  ;; yuk... for informix
-  @does-seem-necessary-anymore
-  (method public (present-date2)
-    (let ((date-separator "/"))
-      (format "{a width: 2 justify: :right padding: #\\0}{a}{a width: 2 justify: :right padding: #\\0}{a}{a width: 4 justify: :right padding: #\\0}"
-              day
-              date-separator
-              month
-              date-separator
-              (subseq (->string year) 0 4))))
-  
+ 
   
   (method public (present-time . rest)
     (subseq (apply present rest) 11 16))

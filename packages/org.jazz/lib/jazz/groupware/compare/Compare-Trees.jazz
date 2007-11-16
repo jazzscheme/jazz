@@ -248,7 +248,7 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
                           (set-action~ entry 'copy-right)
                           (let ((cell (new Cell n $Action-Column)))
                             (invalidate-cell~ tree cell)))))
@@ -268,7 +268,7 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
                           (let ((cell (new Cell n $Action-Column)))
                             (set-action~ entry 'copy-left)
                             (invalidate-cell~ tree cell)))))
@@ -286,7 +286,7 @@
         (if (> (length selection) 1)
             (bell)
           (let ((entry (get-user-data~ (get-row~ tree (car selection)))))
-            (when (and (= (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry))
+            (when (and (eq? (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry))
               (compare-leaves (get-left~ entry) (get-right~ entry) entry)))))))
   
   
@@ -296,7 +296,7 @@
         (function dynamic ()
           (for-each (function dynamic (n)
                       (let ((entry (get-user-data~ (get-row~ tree n))))
-                        (unless (and (= (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
+                        (unless (and (eq? (get-kind~ entry) 'node) (get-left~ entry) (get-right~ entry))
                           (set-action~ entry {})
                           (let ((cell (new Cell n $Action-Column)))
                             (invalidate-cell~ tree cell)))))
@@ -370,9 +370,9 @@
                        (set-left~ entry new-left)
                        (add-item right new-left)))))
                 ;; When copying nodes, treatment is a bit different because they stay showed...
-                (if (and (= (get-kind~ entry) 'node)
-                         (or (and (= action 'copy-right) left (null? right))
-                             (and (= action 'copy-left) right (null? left))))
+                (if (and (eq? (get-kind~ entry) 'node)
+                         (or (and (eq? action 'copy-right) left (null? right))
+                             (and (eq? action 'copy-left) right (null? left))))
                     (begin
                       (case action
                         ((copy-right)
@@ -512,7 +512,7 @@
   (method public (install-configuration config)
     (set! installed-configuration config)
     (set-mode (get-mode~ config))
-    (set-base-date (essay (= (get-mode~ config) 'merge) (find-base-date (get-name~ config))))
+    (set-base-date (essay (eq? (get-mode~ config) 'merge) (find-base-date (get-name~ config))))
     (set-left-moniker (get-left~ config))
     (set-right-moniker (get-right~ config))
     (set-ignored-nodes (get-ignored-nodes~ config))
@@ -531,7 +531,7 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (= (get-kind~ entry) 'node) (null? (get-left~ entry)))
+          (if (or (eq? (get-kind~ entry) 'node) (null? (get-left~ entry)))
               (bell)
             (let ((appl (get-application)))
               (edit-document~ appl (get-left~ entry) workspace: 'groupware)))))))
@@ -542,7 +542,7 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (= (get-kind~ entry) 'node) (null? (get-right~ entry)))
+          (if (or (eq? (get-kind~ entry) 'node) (null? (get-right~ entry)))
               (bell)
             (let ((appl (get-application)))
               (edit-document~ appl (get-right~ entry) workspace: 'groupware)))))))
@@ -585,7 +585,8 @@
     (let ((browser (locate 'green)))
       (if (get-read-only?~ browser)
           left-moniker
-        (set! left-moniker (get-moniker~ browser)))))
+        (set! left-moniker (get-moniker~ browser))
+        left-moniker)))
   
   
   (method protected virtual (set-left-moniker moniker)
@@ -597,7 +598,8 @@
     (let ((browser (locate 'blue)))
       (if (get-read-only?~ browser)
           right-moniker
-        (set! right-moniker (get-moniker~ browser)))))
+        (set! right-moniker (get-moniker~ browser))
+        right-moniker)))
   
   
   (method protected virtual (set-right-moniker moniker)
@@ -676,7 +678,7 @@
         (function dynamic ()
           (remove-every-row~ tree)
           (display-entry mode date tree {} entry 0)
-          (set-selection~ tree {})))))
+          (set-selection~ tree '())))))
   
   
   (method (display-entry mode date tree father entry level)
@@ -685,7 +687,7 @@
            (right (get-right~ entry))
            (action (get-action~ entry))
            (ref (either left right))
-           (lvl? (and (= kind 'node) left right))
+           (lvl? (and (eq? kind 'node) left right))
            (name (if (< level 2) (present-root left right) (present-item ref)))
            (image (entry-image entry ref))
            (c0 (new Tree-Node title: name image: image))
@@ -890,7 +892,7 @@
   
   
   (method (comparable? entry)
-    (and (= (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry)))
+    (and (eq? (get-kind~ entry) 'leaf) (get-left~ entry) (get-right~ entry)))
   
   
   (method (uncomparable? entry)
@@ -964,7 +966,7 @@
   
   (method (draw-cell surface context row cell width height)
     (draw-background surface context row cell width height)
-    (let ((lvl? (and (= (get-kind~ cell) 'node) (get-left~ cell) (get-right~ cell))))
+    (let ((lvl? (and (eq? (get-kind~ cell) 'node) (get-left~ cell) (get-right~ cell))))
       (when (and (not lvl?) (present? cell))
         (let ((image (present-image cell)))
           (draw-image~ (get-icons-cache~ (get-application)) surface context image (quotient (- width 16) 2) 0)))))

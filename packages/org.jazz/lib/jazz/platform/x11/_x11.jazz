@@ -134,6 +134,7 @@
 (c-type char       (native char))
 (c-type char*      (pointer char))
 (c-type int        (native int))
+(c-type int*       (pointer int))
 (c-type long       (native long))
 (c-type long*      (pointer long))
 (c-type uint       (native unsigned-int))
@@ -600,6 +601,21 @@
 (c-external KeyCode      (XKeysymToKeycode       Display* KeySym))
 (c-external void         (XReparentWindow        Display* Window Window int int))
 (c-external void         (XSetInputFocus            Display* Window int Time))
+(c-external int           (XPending                      Display*))
+
+(definition int-array-ref
+  (c-function (int* int) int
+    "___result = *(___arg1 + ___arg2);"))
+
+
+(definition (XTranslateCoordinates disp src_win dst_win x y)
+  (let ((pt ((c-function (Display* Window Window int int) int*
+                  "int *point = malloc(2*sizeof(int));
+                  Window tmp;
+                  XTranslateCoordinates( ___arg1, ___arg2, ___arg3, ___arg4, ___arg5, point, point+1, &tmp);
+                  ___result_voidstar = point;") disp src_win dst_win x y)))
+      (values (int-array-ref pt 0) (int-array-ref pt 1))))
+
 
 (definition XGetChildHandle 
   (c-function (Display* Window) Window

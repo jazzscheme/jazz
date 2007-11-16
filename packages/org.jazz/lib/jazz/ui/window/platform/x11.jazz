@@ -141,10 +141,9 @@
   (XUnmapWindow default-x11-display (get-handle~ window)))
 
 
+;; tofix
 (definition (destroy-window handle)
-  (unimplemented 'destroy-window)
-  @windows
-  (DestroyWindow handle))
+  (XUnmapWindow default-x11-display handle))
 
 
 (definition (platform-erase-background handle)
@@ -154,19 +153,25 @@
 ;;;; Messages
 ;;;
 
+(definition expose-store (make-table))
 
 (definition (process-window-message window msg)
    (let ((type (XEvent-type-ref msg)))
       (cond
-       ((= type Expose)          
+       ((= type Expose)      
                                      (let* ((msg (XEvent-xexpose-ref msg))
                                         (left (XExposeEvent-x-ref msg))
                                         (top  (XExposeEvent-y-ref msg))
                                         (right (+ left (XExposeEvent-width-ref msg)))
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
-                                        (region (new Rect left top right bottom)))
-                                   (debug "Expose" window region)
-                                   (paint~ window region)))
+                                        (region (new Rect left top right bottom))
+                                        (old-region (table-ref expose-store window #f)))
+                                          (if old-region
+                                              (table-set! expose-store window (rect-union old-region region))
+                                              (table-set! expose-store window region))
+                                          processed))
+                                            
+                                          
        ((= type ButtonPress)
         (let* ((msg (XEvent-xbutton-ref msg))
                 (h (XButtonEvent-x-ref msg))
@@ -206,16 +211,24 @@
                 (y (XConfigureEvent-y-ref msg))
                 (prev-size (get-previous-size~ window))
                 (prev-pos (get-previous-pos~ window)))
-          (when (not prev-size) (call-size-change~ window width height))
+         (table-clear expose-store #f)
+         (call-size-change~ window width height)
+         (call-position-change~ window x y)
+          @temp (
+          (when (not prev-size)
+              (table-clear expose-store #f)
+              (call-size-change~ window width height))
           (when (and prev-size
                             (not (and (= width (get-width~ prev-size))
                                            (= height (get-height~ prev-size)))))
+              (table-clear expose-store #f)
+              (debug "size-change" window width height)
               (call-size-change~ window width height))
           (when (not prev-pos) (call-position-change~ window x y))
           (when (and prev-pos
                             (not (and (= x (get-h~ prev-pos))
                                            (= x (get-v~ prev-pos)))))
-              (call-position-change~ window x y))))
+              (call-position-change~ window x y)))))
        (else                      unprocessed))))
 
 (definition (event-loop)
@@ -300,7 +313,7 @@
 (definition (with-platform-painting window proc)
   (let* ((screen-no (XDefaultScreen default-x11-display))
          (visual    (XDefaultVisual default-x11-display screen-no)))
-    (with ((surface (new Surface (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual(get-width~ window) (get-height~ window) ))))
+    (with ((surface (new Surface (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual (get-width~ window) (get-height~ window) ))))
       (unwind-protect
           (proc surface)
         (close~ surface))))
@@ -366,13 +379,14 @@
 
 
 (definition (set-layered? handle flag)
-  (unimplemented 'set-layered?)
+  #t
   @windows
   (SetWindowLong handle GWL_EXSTYLE (mask-bit-set (GetWindowLong handle GWL_EXSTYLE) WS_EX_LAYERED flag)))
 
 
+;; tofix : this needs to use cairo...
 (definition (set-alpha-blending handle n)
-  (unimplemented 'set-alpha-blending)
+  #f
   @windows (
   (set-layered? handle #t)
   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
@@ -451,11 +465,8 @@
 
 
 (definition (acquire-point handle window shape)
-  (unimplemented 'acquire-point)
-  @windows
-  (let ((acquired (point->POINT shape)))
-    (MapWindowPoints (get-handle~ window) handle acquired 1)
-    (POINT->point acquired)))
+    (receive (x y) (XTranslateCoordinates default-x11-display (get-handle~ window) handle (get-h~ shape) (get-v~ shape))
+      (new Point x y)))
 
 
 (definition (acquire-rect handle window shape)
@@ -647,13 +658,13 @@
   
   
 (definition (platform-show-noactivate handle)
-  (unimplemented 'platform-show-noactivate)
+  (show-window handle)
   @windows
   (SetWindowPos handle HWND_TOP 0 0 0 0 (bit-or SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
   
   
 (definition (platform-hide-noactivate handle)
-  (unimplemented 'platform-hide-noactivate)
+  (hide-window handle)
   @windows
   (SetWindowPos handle 0 0 0 0 0 (bit-or SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
 
@@ -801,18 +812,14 @@
             (SetCursor (load-cursor cursor)))))
 
 
+;; tofix : find how to do this in X11
 (definition public (hide-cursor)
-  (unimplemented 'hide-cursor)
-  @unimp
-  (while (>= (ShowCursor #f) 0)
-    ))
+  (debug "Warning : hide-cursor unimplemented in X11"))
 
 
+;; tofix : find how to do this in X11
 (definition public (show-cursor)
-  (unimplemented 'show-cursor)
-  @unimp
-  (while (< (ShowCursor #t) 0)
-    ))
+  (debug "Warning : hide-cursor unimplemented in X11"))
 
 
 (definition (platform-get-desktop)

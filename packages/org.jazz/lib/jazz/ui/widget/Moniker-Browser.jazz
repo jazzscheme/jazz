@@ -39,6 +39,7 @@
 
 
 (import (jazz.io)
+        (jazz.io.protocol)
         (jazz.jml)
         (jazz.platform)
         (jazz.literals)
@@ -191,8 +192,8 @@
   
   (method public (browse-moniker)
     (let* ((handler (get-protocol-handler protocol))
-           (arguments (augment mode: mode :actual (get-moniker) parameters))
-           (moniker (apply (~ get-modal handler) arguments)))
+           (arguments (augment mode: mode actual: (get-moniker) parameters))
+           (moniker (apply moniker-modal handler arguments)))
       (set-moniker moniker)
       (let ((text (get-text)))
         (acquire-focus~ text)
@@ -211,11 +212,11 @@
         (if (not (alias-displayed?))
             (let ((handler (get-protocol-handler protocol))
                   (list (tokenise string)))
-              (anchorize~ (new-moniker~ handler list) anchors: anchors))
+              (anchorize~ (moniker-new handler list) anchors: anchors))
           (let ((content (read-string-content string)))
             (bind (protocol . list) content
-              (let* ((handler (parse-protocol protocol))
-                     (moniker (new-moniker~ handler list)))
+              (let* ((handler (get-protocol-handler protocol))
+                     (moniker (moniker-new handler list)))
                 (typecase moniker
                   ((Directory-Group) moniker)
                   ((Pathname) (anchorize~ moniker anchors: anchors))
@@ -256,25 +257,6 @@
   
   (method (set-modified? flag)
     (set-modified?~ (get-controller~ (get-text)) flag))
-  
-  
-  ;;;
-  ;;;; Protocol
-  ;;;
-  
-  
-  (method (parse-protocol object)
-    (if (and (symbol? object)
-             (= (last (symbol->string object)) #\colon))
-        (get-protocol-handler (string->symbol (butlast (symbol->string object))))
-      (error "Bad protocol format: {t}" object)))
-  
-  
-  (method (get-protocol-handler protocol)
-    (let ((pair (assq protocol (get-protocols~ (get-preferences {})))))
-      (if (not pair)
-          (error "Unknown protocol: {t}" protocol)
-        (autoload (cdr pair)))))
   
   
   ;;;

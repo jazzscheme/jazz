@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Errors
+;;;; IO Protocols
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,17 +35,31 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.error
+(library jazz.io.protocol jazz
 
 
-(define (jazz.error fmt-string . rest)
-  (let ((error-string (apply jazz.format fmt-string rest)))
-    (begin
-      (error error-string)
-      (block-tail-call))))
+(import (jazz.io)
+        (jazz.ui.dialog))
 
 
-(define (jazz.unimplemented . rest)
-  (if (%%null? rest)
-      (jazz.error "Unimplemented functionnality")
-    (jazz.error "The following functionnality is unimplemented: {a}" (%%car rest)))))
+(generic (moniker-modal (<Moniker-Class> class) . rest))
+
+
+(specific (moniker-modal (<File-Class> class) . rest)
+  (bind-keywords ((mode 'open) (actual {}) . others) rest
+    (let ((directory (essay actual (get-directory~ actual))))
+      (case mode
+        ((open) (apply choose-file directory: directory others))
+        ((save) (apply choose-new-file directory: directory others))))))
+
+
+(specific (moniker-modal (<Directory-Class> class) . rest)
+  (bind-keywords ((mode {}) (actual {}) . others) rest
+    (apply choose-directory directory: actual others)))
+
+
+(generic (moniker-new (<Moniker-Class> class) list))
+
+
+(specific (moniker-new (<Moniker-Class> class) list)
+  (new class list)))

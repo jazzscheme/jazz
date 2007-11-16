@@ -338,7 +338,7 @@
   (bplatform))
 
 
-(define (ball)
+(define (build)
   (bjazz)
   (bcairo)
   (bfont)
@@ -460,9 +460,9 @@
   (for-each cj JML))
 
 
-(define (bjd)
+(define (bjedi)
   (la)
-  (ball)
+  (build)
   (blang)
   (butil)
   (bcomp)

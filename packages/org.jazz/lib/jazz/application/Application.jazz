@@ -63,6 +63,7 @@
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.ui.workspace)
+        (jazz.user)
         (jazz.utilities))
 
 
@@ -144,11 +145,11 @@
   
   @test-java
   (definition Java-Classpath
-    '({File Native "C:" "Java" "j2sdk1.4.2_04" "jre" "lib" "rt.jar"}
-      {File Native "C:" "Java" "BCEL" "lib" "bcel-5.1.jar"}
-      {File Native "C:" "Java" "JDBC" "msbase.jar"}
-      {File Native "C:" "Java" "JDBC" "msutil.jar"}
-      {File Native "C:" "Java" "JDBC" "mssqlserver.jar"}))
+    '({File Root "Java" "j2sdk1.4.2_04" "jre" "lib" "rt.jar"}
+      {File Root "Java" "BCEL" "lib" "bcel-5.1.jar"}
+      {File Root "Java" "JDBC" "msbase.jar"}
+      {File Root "Java" "JDBC" "msutil.jar"}
+      {File Root "Java" "JDBC" "mssqlserver.jar"}))
   
   
   @test-java
@@ -390,6 +391,9 @@
 
   
   (method (login-user)
+    (let ((name "Me"))
+      (new File (list 'Users name (format "{a}.jazz" name))))
+    @wait
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
         (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
           (new File (list 'Users name (format "{a}.jazz" name))))
@@ -412,12 +416,15 @@
   (method (setup-new-user directory name)
     (let ((expander (new Template-Expander))
           (associations (list (cons 'user name))))
+      @wait
       (create-directories~ directory)
+      @wait
       (copy-user-settings directory expander associations)
       (cond ((not (use-user-class?))
              (set! user-pathname directory))
             (else
              (let ((file (new-file~ directory (format "{a}.jazz" name))))
+               @wait
                (copy-user file expander associations)
                (set! user-pathname file))))))
   
@@ -460,6 +467,9 @@
       (with-safe-execution "creating the user"
         (function dynamic ()
           (debug user-name user-pathname)
+          (set! user (new (case user-name
+                            (else Me))))
+          @wait
           (set! user (new (load-source user-name user-pathname))))
         continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
         continue-handler:
@@ -867,7 +877,7 @@
   
   
   (method (repositories-file)
-    {File Root "packages" "org.jazz" "lib" "user" "settings" "Repositories.jml"}
+    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "Repositories.jml"}
     @convert
     {File User "Settings" "Repositories.jml"})
   
@@ -1026,7 +1036,7 @@
   
   
   (definition Bindings-File
-    {File Root "packages" "org.jazz" "lib" "user" "settings" "Bindings.jml"}
+    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "Bindings.jml"}
     @convert
     {File User "Settings" "Bindings.jml"})
   
@@ -2327,7 +2337,7 @@
       (<Page-Setup>)))
   
   (definition Default-Page-Setup-File
-    {File Root "packages" "org.jazz" "lib" "user" "settings" "PageSetup.jml"}
+    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "PageSetup.jml"}
     @convert
     {File User "Settings" "PageSetup.jml"})
   

@@ -190,19 +190,18 @@
 ;;;
 
 
-(define jazz.PackageDirs
+(define jazz.Packages
   '("packages/org.jazz/lib/"
     "packages/org.jedi/lib/"))
 
 
-;; Quick draft. The code is not really correct as it uses the parent folder
-;; to determine in which prefix a file is located which can potentially be not
-;; correct. Also, library roots of packages should be determined automatically
+;; Quick draft. The code is not really correct as it uses the parent folder to
+;; determine in which prefix a file is located which can potentially be incorrect
 (define (jazz.determine-module-filename module-name)
   (let ((path (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
     (jazz.split-filename path
       (lambda (dir name)
-        (let iter ((scan jazz.PackageDirs))
+        (let iter ((scan jazz.Packages))
           (if (%%null? scan)
               (jazz.kernel-error "Unable to find module:" module-name)
             (let ((prefix (%%car scan)))

@@ -349,6 +349,9 @@
   (bfont)
   (bplatform))
 
+(define (b)
+  (build))
+
 
 (define Lang
   '(jazz.dialect.language))

@@ -126,7 +126,7 @@
 
 
 (define (walk library-name)
-  (let ((source (jazz.determine-module-source (jazz.determine-module-filename library-name))))
+  (let ((source (jazz.determine-module-source (jazz.find-module-filename library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (jazz.walk-library (cdr form)))))
 
@@ -146,7 +146,7 @@
 
 
 (define (expand-module module-name)
-  (let ((source (jazz.determine-module-source (jazz.determine-module-filename module-name))))
+  (let ((source (jazz.determine-module-source (jazz.find-module-filename module-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((name (cadr form))
             (rest (cddr form)))
@@ -190,7 +190,7 @@
 
 
 (define (expand-to-port library-name port)
-  (let ((source (jazz.determine-module-source (jazz.determine-module-filename library-name))))
+  (let ((source (jazz.determine-module-source (jazz.find-module-filename library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((kind (car form))
             (rest (cdr form)))
@@ -224,12 +224,13 @@
 (define (cj module-name)
   (ld)
   (lj)
-  (let* ((file (jazz.determine-module-filename module-name))
+  (let* ((file (jazz.find-module-filename module-name))
+         (suffix (jazz.runtime-filename-suffix file))
          (jazz (jazz.determine-module-source file))
-         (jscm (string-append file ".jscm"))
+         (jscm (string-append suffix ".jscm"))
          (jscmfile (string-append "_obj/" jscm))
          (jscmdir (jazz.split-filename jscmfile (lambda (dir name) dir)))
-         (bin (jazz.determine-module-binary file))
+         (bin (jazz.determine-module-binary suffix))
          (jazztime (time->seconds (file-last-modification-time jazz)))
          (jscmtime (and (file-exists? jscmfile) (time->seconds (file-last-modification-time jscmfile))))
          (bintime (and bin (file-exists? bin) (time->seconds (file-last-modification-time bin)))))
@@ -239,7 +240,7 @@
           (jazz.create-directories jscmdir)
           (expand-to-file module-name jscmfile)
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename jscm source: jscmfile))))))
+            (jazz.compile-filename jscmfile suffix: suffix))))))
 
 
 ;;;
@@ -482,6 +483,9 @@
   (bappl)
   (bjml))
 
+(define (bjd)
+  (bjedi))
+
 
 ;;;
 ;;;; Clean
@@ -490,9 +494,10 @@
 
 (define (cln module-name)
   (ld)
-  (let* ((file (jazz.determine-module-filename module-name))
-         (jscm (string-append file ".jscm"))
-         (bin (jazz.determine-module-binary file)))
+  (let* ((file (jazz.find-module-filename module-name))
+         (suffix (jazz.runtime-filename-suffix file))
+         (jscm (string-append suffix ".jscm"))
+         (bin (jazz.determine-module-binary suffix)))
     (define (delete-if-exists file)
       (if (file-exists? file)
           (begin

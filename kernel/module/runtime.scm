@@ -107,7 +107,7 @@
     
     (define (jazz.with-file-src/bin filename proc)
       (let ((src (jazz.determine-module-source filename))
-            (bin (jazz.determine-module-binary filename)))
+            (bin (jazz.determine-module-binary (jazz.runtime-filename-suffix filename))))
         (let ((srctime (and src (time->seconds (file-last-modification-time src))))
               (bintime (and bin (time->seconds (file-last-modification-time bin)))))
           (proc src srctime bin bintime))))
@@ -153,26 +153,25 @@
     
     
     (define (jazz.determine-module-source filename)
-      (let ((try
-              (lambda (ext)
-                (let ((path (%%string-append "../../" filename "." ext)))
-                  (if (file-exists? path)
-                      path
-                    #f)))))
-        (or (try "scm")
-            (try "jazz"))))
+      (define (try ext)
+        (let ((path (%%string-append filename "." ext)))
+          (if (file-exists? path)
+              path
+            #f)))
+      (or (try "scm")
+          (try "jazz")))
     
     
-    (define (jazz.determine-module-bindir filename)
-      (jazz.split-filename filename
+    (define (jazz.determine-module-bindir suffix)
+      (jazz.split-filename suffix
         (lambda (dirname name)
           (%%string-append "_obj/" dirname))))
     
     
-    (define (jazz.determine-module-binary filename)
+    (define (jazz.determine-module-binary suffix)
       (let ((try
               (lambda (n)
-                (%%string-append "_obj/" filename ".o" (number->string n)))))
+                (%%string-append "_obj/" suffix ".o" (number->string n)))))
         (let ((o1 (try 1)))
           (if (%%not (file-exists? o1))
               #f
@@ -186,33 +185,67 @@
 
 
 ;;;
-;;;; Manifest
+;;;; Packages
 ;;;
 
 
-(define jazz.Packages
-  '("packages/org.jazz/lib/"
-    "packages/org.jedi/lib/"))
+;; A file starting with ../../ e.g. ../../a/b/c.jazz is called a runtime file.
+;; For those files, compilation will be able to use its suffix a/b/c.jazz to put
+;; the binaries under the _obj subdirectory of the architecture directory, thus
+;; enabling a cross-compilation scheme.
+
+;; For non-runtime files, compilation will use the standard approach of putting the
+;; .o1 next to the source file. Need to think how to extend the cross-compilation
+;; scheme to non-runtime files.
 
 
-;; Quick draft. The code is not really correct as it uses the parent folder to
-;; determine in which prefix a file is located which can potentially be incorrect
-(define (jazz.determine-module-filename module-name)
+(define jazz.Runtime-Packages
+  '("../../packages/org.jazz/lib/"
+    "../../packages/org.jedi/lib/"))
+
+
+(define (jazz.runtime-filename? filename)
+  (let ((len (%%string-length filename)))
+    (and (%%fx>= len 6)
+         (%%string=? (%%substring filename 0 6) "../../"))))
+
+
+(define (jazz.runtime-filename-suffix filename)
+  (if (jazz.runtime-filename? filename)
+      (%%substring filename 6 (%%string-length filename))
+    #f))
+
+
+(define jazz.Registered-Packages
+  '())
+
+
+(define (jazz.register-package package)
+  (set! jazz.Registered-Packages (cons package jazz.Registered-Packages)))
+
+
+(define (jazz.find-module-filename module-name)
   (let ((path (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
     (jazz.split-filename path
       (lambda (dir name)
-        (let iter ((scan jazz.Packages))
-          (if (%%null? scan)
-              (jazz.kernel-error "Unable to find module:" module-name)
-            (let ((prefix (%%car scan)))
-              (let ((prefixed-path (%%string-append prefix path))
-                    (prefixed-dir (%%string-append prefix dir)))
-                (cond ((jazz.directory-exists? (%%string-append "../../" prefixed-path))
-                       (%%string-append prefixed-path "/_" name))
-                      ((and (%%not (%%equal? dir "")) (jazz.directory-exists? (%%string-append "../../" prefixed-dir)))
-                       prefixed-path)
-                      (else
-                       (iter (%%cdr scan))))))))))))
+        (define (iterate packages)
+          (let iter ((scan packages))
+            (if (%%null? scan)
+                #f
+              (let ((packaged-path (%%string-append (%%car scan) path)))
+                (define (try path)
+                  (if (jazz.determine-module-source path)
+                      path
+                    #f))
+                
+                (or (if (jazz.directory-exists? packaged-path)
+                        (try (%%string-append packaged-path "/_" name))
+                      (try packaged-path))
+                    (iter (%%cdr scan)))))))
+        
+        (or (iterate jazz.Runtime-Packages)
+            (iterate jazz.Registered-Packages)
+            (jazz.kernel-error "Unable to find module:" module-name))))))
 
 
 (define (jazz.string-replace str old new)
@@ -284,7 +317,7 @@
                (jazz.set-environment-module module-name jazz.Loading-State))
              (lambda ()
                (parameterize ((jazz.requested-module-name module-name))
-                 (jazz.load-source-file (jazz.determine-module-filename module-name))))
+                 (jazz.load-source-file (jazz.find-module-filename module-name))))
              (lambda ()
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State)))))

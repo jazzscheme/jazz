@@ -142,7 +142,7 @@
   ;;;; Startup
   ;;;
   
-  ;; tofix
+  
   (method public virtual (boot-environment rest)
     @unimplemented
     (register-versions)
@@ -169,9 +169,10 @@
       context: self
       execute: supervise-threads))
   
-  ;; tofix
+  
   (method (prepare-phase rest)
-    (prepare-aliases rest)
+    (prepare-aliases)
+    (prepare-packages)
     (prepare-environment rest)
     (prepare-preferences rest)
     (prepare-user-aliases)
@@ -578,7 +579,7 @@
   
   
   (method public virtual (system-title)
-    "JazzScheme")
+    "JazzScheme Process")
 
 
   ;;;
@@ -586,36 +587,8 @@
   ;;;
   
   
-  (method protected virtual (prepare-aliases rest)
-    @not-available-on-nt!
-    (begin
-      (set-alias 'Profiles (get-profiles-dir))
-      (set-alias 'All-Users-Profile (get-all-users-profile-dir))
-      (set-alias 'Default-User-Profile (get-default-user-profile-dir))))
-  
-  
-  @not-available-on-nt!
-  (method (get-profiles-dir)
-    (let ((dirname (make-string MAX_PATH)))
-      (GetProfilesDirectory dirname MAX_PATH)
-      (adjust-string dirname)
-      (tokenize-pathname dirname)))
-  
-  
-  @not-available-on-nt!
-  (method (get-all-users-profile-dir)
-    (let ((dirname (make-string MAX_PATH)))
-      (GetAllUsersProfileDirectory dirname MAX_PATH)
-      (adjust-string dirname)
-      (tokenize-pathname dirname)))
-  
-  
-  @not-available-on-nt!
-  (method (get-default-user-profile-dir)
-    (let ((dirname (make-string MAX_PATH)))
-      (GetDefaultUserProfileDirectory dirname MAX_PATH)
-      (adjust-string dirname)
-      (tokenize-pathname dirname)))
+  (method protected virtual (prepare-aliases)
+    )
   
   
   (method public virtual (prepare-user-aliases)
@@ -635,6 +608,20 @@
   
   (method public virtual (resolve-alias name)
     {})
+
+
+  ;;;
+  ;;;; Packages
+  ;;;
+  
+  
+  (method protected virtual (prepare-packages)
+    (define (register-if-exists dir)
+      (when (exists?~ dir)
+        (register-package (parse~ dir))))
+    
+    (register-if-exists {Directory Home "jazz" "lib"})
+    (register-if-exists {Directory Jazz ".." "jazz.users" "lib"}))
 
 
   ;;;

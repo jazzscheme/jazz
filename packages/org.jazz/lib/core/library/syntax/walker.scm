@@ -5121,7 +5121,7 @@
 
 
 (define (jazz.load-toplevel-declaration module-name)
-  (let ((filename (jazz.require-module-source (jazz.determine-module-filename module-name))))
+  (let ((filename (jazz.require-module-source (jazz.find-module-filename module-name))))
     (define (load-declaration)
       (let ((form (jazz.read-toplevel-form filename)))
         (parameterize ((jazz.requested-module-name module-name))

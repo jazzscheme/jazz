@@ -484,6 +484,11 @@
       (if jazz.debug-core?
           `(string? ,obj)
         `(##string? ,obj)))
+    
+    (define-macro (%%string=? str1 str2)
+      (if jazz.debug-core?
+          `(string=? ,str1 ,str2)
+        `(##string=? ,str1 ,str2)))
    
     (define-macro (%%string-length str)
       (if jazz.debug-core?

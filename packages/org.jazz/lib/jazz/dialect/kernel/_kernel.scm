@@ -392,6 +392,7 @@
 ;;;
 
 
+(native jazz.register-package)
 (native jazz.get-environment)
 (native jazz.get-catalog)
 (native jazz.locate-library-declaration)

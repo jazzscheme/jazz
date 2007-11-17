@@ -63,8 +63,7 @@
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.ui.workspace)
-        (jazz.utilities)
-        (user))
+        (jazz.utilities))
 
 
 (class Application extends Process implements (Context-Provider History-Provider Event-Consumer Save-Environment-Listener Exit-Listener)
@@ -391,10 +390,6 @@
 
   
   (method (login-user)
-    (let ((name "Me"))
-      (new File (list 'Users name (format "{a}.jazz" name))))
-    @convert(
-    (debug 'LOGIN)
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
         (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
           (new File (list 'Users name (format "{a}.jazz" name))))
@@ -402,8 +397,7 @@
       @catch-syntax-not-implemented
       (catch (Cancel-Signal signal
                (exit))
-        (get-modal Login-Dialog use-user-class?: (use-user-class?))))
-    (debug 'LOGINDONE)))
+        (get-modal Login-Dialog use-user-class?: (use-user-class?)))))
   
   
   (method (setup-user-file user)
@@ -418,21 +412,18 @@
   (method (setup-new-user directory name)
     (let ((expander (new Template-Expander))
           (associations (list (cons 'user name))))
-      @convert
       (create-directories~ directory)
-      @convert
       (copy-user-settings directory expander associations)
       (cond ((not (use-user-class?))
              (set! user-pathname directory))
             (else
              (let ((file (new-file~ directory (format "{a}.jazz" name))))
-               @convert
                (copy-user file expander associations)
                (set! user-pathname file))))))
   
   
   (method (copy-user-settings directory expander associations)
-    (let ((settings {Directory Home "Defaults" "Settings"}))
+    (let ((settings {Directory Launch "Defaults" "Settings"}))
       (copy-directory~ settings (new-directory~ directory "Settings")
         :copier (function dynamic (src dst)
                   (copy-template src dst expander associations))
@@ -440,8 +431,8 @@
   
   
   (method (copy-user file expander associations)
-    (let ((template {File Home "Defaults" "User.jazz"}))
-      (copy-template {File Home "Defaults" "User.jazz"} file expander associations)))
+    (let ((template {File Launch "Defaults" "User.jazz"}))
+      (copy-template {File Launch "Defaults" "User.jazz"} file expander associations)))
   
   
   (method (copy-template template destination expander associations)
@@ -451,7 +442,6 @@
   
   
   (method (setup-user-alias user)
-    @convert/wait
     (set-alias 'User (cond ((not (use-user-class?))
                             (get-list~ user-pathname))
                            (else
@@ -469,9 +459,7 @@
         title: "Create User")
       (with-safe-execution "creating the user"
         (function dynamic ()
-          (set! user (new (case user-name
-                            (else Me))))
-          @convert
+          (debug user-name user-pathname)
           (set! user (new (load-source user-name user-pathname))))
         continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
         continue-handler:
@@ -992,23 +980,23 @@
                   (for-each (function dynamic (action-item)
                               (let ((shortcut (get-shortcut~ action-item)))
                                 (when shortcut
-                                  (hash-remove! accelerators-dispatch shortcut action-item))))
+                                  (table-remove! accelerators-dispatch shortcut action-item))))
                             (get-children~ actions)))
                 old-actions)
       (for-each-reversed (function dynamic (actions)
                            (for-each (function dynamic (action-item)
                                        (let ((shortcut (get-shortcut~ action-item)))
                                          (when shortcut
-                                           (hash-add accelerators-dispatch shortcut action-item))))
+                                           (table-add accelerators-dispatch shortcut action-item))))
                                      (get-children~ actions)))
                          new-actions)))
   
   
   (method public (update-accelerator action-item old-shortcut new-shortcut)
     (when old-shortcut
-      (hash-remove! accelerators-dispatch old-shortcut action-item))
+      (table-remove! accelerators-dispatch old-shortcut action-item))
     (when new-shortcut
-      (hash-add accelerators-dispatch new-shortcut action-item)))
+      (table-add accelerators-dispatch new-shortcut action-item)))
   
   
   (method public (dispatch-shortcut shortcut)
@@ -1438,12 +1426,6 @@
   
   (method public virtual (get-text-class)
     Plain-Text-View)
-  
-  
-  (method public virtual (get-explorer-class)
-    (unimplemented 'get-explorer-class)
-    @convert
-    Explorer-View)
 
 
   ;;;
@@ -1581,20 +1563,14 @@
   
   
   (method (on-sql-connections evt)
-    (unimplemented 'on-sql-connections)
-    @convert-waiting
     (select-palette SQL-Connections-Manager workspace: 'sql focus?: #t))
   
   
   (method (on-sql-inventory evt)
-    (unimplemented 'on-sql-inventory)
-    @convert-waiting
     (select-palette Inventory-Browser workspace: 'sql focus?: #t))
   
   
   (method (on-sql-tree-output evt)
-    (unimplemented 'on-sql-tree-output)
-    @convert-waiting
     (select-palette SQL-Tree-Output 'sql focus?: #t))
   
 
@@ -2211,34 +2187,6 @@
   
   (method public virtual (edit-category name)
     )
-  
-  
-  (method public (browse-url url)
-    (let ((frame (find-explorer-frame url)))
-      (if (not frame)
-          (let* ((frame (new-frame (get-explorer-class) host-visible?: #f))
-                 (explorer (get-guest~ frame)))
-            (set-url~ explorer url)
-            (bring-to-front~ frame)
-            (set-visible?~ frame #t)
-            frame)
-        (let ((explorer (get-guest~ frame)))
-          (refresh~ explorer)
-          (bring-to-front~ frame)
-          (set-visible?~ frame #t)
-          frame))))
-
-
-  (method public (find-explorer-frame url)
-    (unimplemented 'find-explorer-frame)
-    @convert
-    (let ((string (parse~ url)))
-      (find-if (function dynamic (frame)
-                 (and (is? frame Host-Frame)
-                      (let ((guest (get-guest~ frame)))
-                        (and (is? guest Explorer-View)
-                             (= (get-current-url~ (get-site~ (get-browser~ guest))) string)))))
-               (get-children~ stage))))
   
   
   (method public virtual (on-close evt)

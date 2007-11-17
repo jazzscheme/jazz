@@ -3387,10 +3387,7 @@
 ;;;
 
 
-(class Table-Class extends Class)
-
-
-(class primitive Table metaclass Table-Class extends Object
+(class primitive Table extends Object
   
   
   (method (initialize . rest)
@@ -3401,65 +3398,43 @@
     (print-unreadable self printer
       (function dynamic (printer)
         (format printer "{a} entries"
-                (table-length self)))))
-  
-  
-  (method (iterate-object)
-    (unimplemented 'iterate-object))
-  
-  
-  (method public (gather-keys)
-    (let ((list '()))
-      (for-each-hash (function dynamic (key value)
-                       (set! list (cons key list)))
-                     self)
-      list))
-  
-  
-  (method public (gather-values)
-    (let ((list '()))
-      (for-each-hash (function dynamic (key value)
-                       (set! list (cons value list)))
-                     self)
-      list))
-  
-  
-  (method public (gather-keys/values)
-    (let ((list '()))
-      (for-each-hash (function dynamic (key value)
-                       (set! list (cons (cons key value) list)))
-                     self)
-      list)))
+                (table-length self))))))
 
 
-(definition public (hash-add table key value)
+(definition public (table-add table key value)
   (table-set! table key (cons value (table-ref table key '()))))
 
 
-(definition public (hash-remove! table <Table> name <Object> value <Object>)
+(definition public (table-remove! table <Table> name <Object> value <Object>)
   (table-set! table name (remove! value (table-ref table name #f))))
-
-
-(definition public (for-each-hash proc <procedure> table <Table>)
-  (iterate-table table proc))
-
-
-;; TO PUT NEXT TO for-each-hash !!!!!
-@wait
-(method public (map-hash proc <procedure> table <Table>)
-  (let ((iter (new Table-Iterator table))
-        (fact (new List-Factory)))
-    (while (not (done?~ iter))
-      (put~ fact (proc (peek-key~ iter) (peek~ iter)))
-      (next~ iter))
-    (get-output~ fact)))
-
-
-(definition hash-clear table-clear)
 
 
 (definition (empty-table table)
   (unimplemented 'empty-table))
+
+
+(definition public (table-keys table)
+  (let ((list '()))
+    (iterate-table table
+                   (function dynamic (key value)
+                     (set! list (cons key list))))
+    list))
+
+
+(definition public (table-values table)
+  (let ((list '()))
+    (iterate-table table
+                   (function dynamic (key value)
+                     (set! list (cons value list))))
+    list))
+
+
+(definition public (table-keys/values table)
+  (let ((list '()))
+    (iterate-table table
+                   (function dynamic (key value)
+                     (set! list (cons (cons key value) list))))
+    list))
 
 
 (definition public (load-table table file error-on-duplicates?)

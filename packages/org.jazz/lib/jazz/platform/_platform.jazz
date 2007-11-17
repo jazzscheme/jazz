@@ -38,121 +38,12 @@
 (library jazz.platform jazz
 
 
-(import (jazz.platform.windows (cond windows))
-        (jazz.io)
+(import (jazz.io)
         (jazz.library)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.window))
 
-
-;;; Windows logging specific
-;;; Not needed right now.
-(definition public (make-event-id . rest) ;; CONVERT code (severity: severity SEVERITY_SUCCESS) (facility: facility FACILITY_NULL))
-  (unimplemented 'make-event-id)
-  @Platform-Specific
-  (+ severity facility code))
-
-
-;;;
-;;;; EventLog
-;;;
-
-
-(definition public (log-event type event-id message)
-  (unimplemented 'log-event)
-  @unimplemented
-  (let* ((name (process-event-source~ (get-process)))
-         (handle (RegisterEventSource {} name))
-         (strings (new-array string 1)))
-    (array-set! strings 0 message)
-    (ReportEvent handle type 0 event-id 0 1 0 strings 0)))
-
-
-(definition public (log-error-event message . rest) ;; CONVERT (event-id: event-id (make-event-id 1 :severity SEVERITY_ERROR)))
-  (unimplemented 'log-error-event)
-  @unimp
-  (log-event EVENTLOG_ERROR_TYPE event-id message))
-
-
-(definition public (log-success-event message (event-id: event-id (make-event-id 1)))
-  (unimplemented 'log-success-event)
-  @unimp
-  (log-event EVENTLOG_SUCCESS event-id message))
-
-
-;;;
-;;;; System
-;;;
-
-
-(definition public (play-sound sound (asynchronous?: asynchronous? #t))
-  @platform-dependant
-  (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
-    (if (file? sound)
-        (PlaySound (parse~ sound) NULL (bit-or SND_FILENAME async-bit))
-      (PlaySound sound NULL async-bit))))
-
-
-(definition public (with-preserved-current-directory proc)
-  (proc)
-  @unwind-protect
-  (let ((preserved (get-current-directory)))
-    (unwind-protect
-        (proc)
-      (set-current-directory preserved))))
-
-
-;;;
-;;;; Message
-;;;
-
-;;; This is now gambit IO.
-
-@could-be-removed
-(definition public (format-system-message id)
-  (let* ((size 128)
-         (msg (make-string (- size 1))))
-    (when (/= (FormatMessage FORMAT_MESSAGE_FROM_SYSTEM 0 id 0 msg size NULL) 0)
-      msg)))
-
-
-;;;
-;;;; Keyboard
-;;;
-
-;;; I think this needs to become platform independent.
-;;; Or atleast be compile time but it must hide the
-;;; OS details...
-
-
-
-
-;;;
-;;;; Dialog
-;;;
-
-;; Returns NULL used by file dialogs. Windows specific.
-;; We will need a platform independent dialog.
-(definition public (extensions-filter extensions)
-  (unimplemented 'extensions-filter)
-  @returns-NULL
-  (if (null? extensions)
-      NULL
-    (let ((dst (new List-Factory))
-          (separator (make-string 1 #\nul)))
-      (for-each (function dynamic (ext)
-                  (put~ dst (car ext))
-                  (put~ dst (cdr ext)))
-                extensions)
-      (put~ dst separator)
-      (join (get-output~ dst) separator))))
-
-
-;;;
-;;;; Threads
-;;;
-
-;;; Adapt to Gambit-C threads.
 
 ;;;
 ;;;; Message Post
@@ -334,84 +225,6 @@
 
 
 ;;;
-;;;; Compression
-;;;
-
-
-;;(external Jazz int             (zip-open                                ansistring)                                                                                       "JzZipOpen")
-;;(external Jazz void            (zip-open-new-file-in-zip                int ansistring)                                                                                   "JzZipOpenNewFileInZip")
-;;(external Jazz void            (zip-write-in-file-in-zip                int Object)                                                                                       "JzZipWriteInFileInZip")
-;;(external Jazz void            (zip-close-file-in-zip                   int)                                                                                              "JzZipCloseFileInZip")
-;;(external Jazz void            (zip-close                               int)                                                                                              "JzZipClose")
-;;(external Jazz int             (unzip-open                              ansistring)                                                                                       "JzUnzipOpen")
-;;(external Jazz void            (unzip-go-to-first-file                  int)                                                                                              "JzUnzipGoToFirstFile")
-;;(external Jazz bool            (unzip-go-to-next-file                   int)                                                                                              "JzUnzipGoToNextFile")
-;;(external Jazz bool            (unzip-locate-file                       int ansistring)                                                                                   "JzUnzipLocateFile")
-;;(external Jazz Object          (unzip-get-current-file-info             int)                                                                                              "JzUnzipGetCurrentFileInfo")
-;;(external Jazz void            (unzip-open-current-file                 int)                                                                                              "JzUnzipOpenCurrentFile")
-;;(external Jazz void            (unzip-read-current-file                 int Object int)                                                                                   "JzUnzipReadCurrentFile")
-;;(external Jazz void            (unzip-close-current-file                int)                                                                                              "JzUnzipCloseCurrentFile")
-;;(external Jazz void            (unzip-close                             int)                                                                                              "JzUnzipClose")
-
-
-;;;
-;;;; Crash
-;;;
-
-
-;;(external Jazz bool            (get-use-default-crash-handler?)                                                                                                            "JzGetUseDefaultCrashHandler")
-;;(external Jazz void            (set-use-default-crash-handler?          bool)                                                                                              "JzSetUseDefaultCrashHandler")
-;;(external Jazz void            (snapshot-process-content)                                                                                                                  "JzSnapshotProcessContent")
-;;(external Jazz void            (dump-memory-content)                                                                                                                       "JzDumpMemoryContent")
-;;(external Jazz void            (crash-process                           . rest)                                                                                            "JzCrashProcess")
-;;(external Jazz Object          (get-crash-email)                                                                                                                           "JzGetCrashEmail")
-;;(external Jazz void            (set-crash-email                         string)                                                                                            "JzSetCrashEmail")
-;;(external Jazz Object          (get-crash-info)                                                                                                                            "JzGetCrashInfo")
-;;(external Jazz void            (set-crash-info                          string)                                                                                            "JzSetCrashInfo")
-
-
-;;;
-;;;; Database
-;;;
-
-
-;;(external Jazz Object          (read-table                              File Object)                                                                                       "JzReadTable")
-
-
-;;;
-;;;; GUID
-;;;
-
-
-;;(external Jazz Object          (create-guid)                                                                                                                               "JzCreateGUID")
-
-
-;;;
-;;;; HeapBlock
-;;;
-
-
-;;(external Jazz void            (heap-validate)                                                                                                                             "JzHeapValidate")
-
-
-;;;
-;;;; Java
-;;;
-
-
-;;(external Jazz Object          (parse-java                              Object class . rest)                                                                               "JzParseJava")
-;;(external Jazz Object          (java-definitions                        Object . rest)                                                                                     "JzJavaDefinitions")
-
-
-;;;
-;;;; NetworkTime
-;;;
-
-
-;;(external Jazz int             (network-time                            string int)                                                                                        "JzNetworkTime")
-
-
-;;;
 ;;;; Platform
 ;;;
 
@@ -441,95 +254,35 @@
   2)
 
 
-(definition public inline (directory? object)
-  (is? object Directory))
+;;;
+;;;; Aliases
+;;;
 
 
-;; A bit of a temporary patch to enable early use
-;; of Windows functions to get system dirs information
-(definition Libraries
-  '((AdvAPI    . "advapi32.dll")
-    (Comctl    . "comctl32.dll")
-    (Comdlg    . "comdlg32.dll")
-    (GDI       . "gdi32.dll")
-    (Kernel    . "kernel32.dll")
-    (MSImg     . "msimg32.dll")
-    (OLE       . "ole32.dll")
-    (OLEAut    . "oleaut32.dll")
-    (Shell     . "shell32.dll")
-    (Shlw      . "shlwapi.dll")
-    (Socket    . "ws2_32.dll")
-    (User      . "user32.dll")
-    (UserEnv   . "userenv.dll")
-    (WinInet   . "wininet.dll")
-    (WinMM     . "winmm.dll")
-    (Help      . "hhctrl.ocx")
-    (PDH       . "pdh.dll")
-    (PSAPI     . "psapi.dll")
-    (ImgSource . "imaging.dll")
-    (Cairo     . "libcairo-2.dll")))
+(definition public (initialize-aliases)
+  (new-alias 'Native #t)
+  (new-alias 'Network "\\")
+  (new-alias 'Home '("~" "jazz"))
+  (new-alias 'Boot '("."))
+  (new-alias 'Root '(Boot ".." ".."))
+  (new-alias 'org.jazz '(Root "packages" "org.jazz"))
+  (new-alias 'org.jedi '(Root "packages" "org.jedi"))
+  (new-alias 'Launch (validate-alias 'Launch (get-launch-dir)))
+  (new-alias 'Users (validate-alias 'Users (get-users-dir))))
 
 
-(definition public (initialize-libraries libraries)
-  (for-each (function dynamic (pair)
-              (bind (name . value) pair
-                (table-set! libraries name value)))
-            Libraries))
-
-
-@windows-specific
-(definition (get-windows-dir)
-  (let ((dirname (make-string MAX_PATH)))
-    (GetWindowsDirectory dirname MAX_PATH)
-    (adjust-string dirname)
-    (tokenise dirname)))
-
-
-@windows-specific
-(definition (get-system-dir)
-  (let ((dirname (make-string MAX_PATH)))
-    (GetSystemDirectory dirname MAX_PATH)
-    (adjust-string dirname)
-    (tokenise dirname)))
-
-
-@windows-specific
-(definition (get-boot-dir)
-  (module-dir))
-
-
-@windows-specific
-(definition (get-base-dir)
-  (let ((boot-dir (get-boot-dir))
-        (uses-bin-directory? (get-boolean-setting (coerce "UsesBinDirectory" Ansi-String) #f)))
-    (if uses-bin-directory?
-        (butlast boot-dir)
-      boot-dir)))
-
-
-@convert
-(definition (get-home-dir)
-  (let ((dir (command-argument "homedir")))
+(definition (get-launch-dir)
+  (let ((dir (command-argument "launchdir")))
     (if dir
         (pathname-argument dir)
-      (if (not (get-compiled-property 'Application))
-          ;; kind of a heuristic for enabling non-applications to boot
-          ;; by double-clicking the exe without having to create a shortcut
-          (append (butlast (get-base-dir)) (list "Products" "org.jedi" "Projects" "Jedi" "Distribution"))
-        (list 'Base)))))
+      (list 'org.jedi "lib" "jedi"))))
 
 
-@convert
 (definition (get-users-dir)
   (let ((dir (command-argument "usersdir")))
     (if dir
         (pathname-argument dir)
-      (if (and (not (command-argument "homedir"))
-               (not (get-compiled-property 'Application)))
-          ;; kind of a heuristic for enabling non-applications to boot
-          ;; by double-clicking the exe without having to create a shortcut
-          (append (butlast (get-base-dir)) (list "Users"))
-        (list 'Home "Users")))))
+      (list 'Home "lib" "user"))))
 
 
 (definition (pathname-argument arg)
@@ -539,170 +292,15 @@
       arg)))
 
 
-(definition (validate-alias name)
-  (let* ((path (get-alias name))
-         (dir (new Directory path)))
-    (unless (exists?~ dir)
-      (error "Unable to set alias {t} to inexistant directory: {t}" name path))))
-
-
-(definition public (initialize-aliases)
-  (initialize-system-aliases)
-  (initialize-home-aliases))
-
-
-(definition (initialize-system-aliases)
-  @convert(
-  (new-alias 'Windows (get-windows-dir))
-  (new-alias 'System (get-system-dir))))
-
-
-(definition (initialize-home-aliases)
-  (new-alias 'Native #t)
-  (new-alias 'Network "\\")
-  ;; hardcoded for now
-  (new-alias 'Root '(Native ".." ".."))
-  (new-alias 'org.jazz '(Root "packages" "org.jazz"))
-  (new-alias 'org.jedi '(Root "packages" "org.jedi"))
-  (new-alias 'Home '(Native "C:" "Jazz" "dev" "jazz" "packages" "org.jedi" "projects" "jedi" "distribution"))
-  (new-alias 'Users '(Native ".." ".." ".." "jazz.dev" "Users"))
-  (new-alias 'User '(Users "Guillaume"))
-  @convert(
-  (new-alias 'Boot (get-boot-dir))
-  (new-alias 'Base (get-base-dir))
-  (new-alias 'Home (get-home-dir))
-  (validate-alias 'Base)
-  (validate-alias 'Home)
-  (new-alias 'Bin           '(Home "Bin"))
-  (new-alias 'Defaults      '(Home "Defaults"))
-  (new-alias 'Documentation '(Home "Documentation"))
-  (new-alias 'Users         (get-users-dir))
-  (let ((dir (command-argument "rootdir")))
-    (when dir
-      (new-alias 'Root (pathname-argument dir))))
-  ;; Root will get defined later...
-  (new-alias 'Products '(Root "Products"))))
-
-
-@convert
-(definition public (timestamped-file directory base ext)
-  (let* ((dir (parse~ directory))
-         (path (tokenise (timestamped-filename dir base ext))))
-    (new File path)))
-
-
-(definition public (timestamped-filename dir base ext)
-  (unimplemented 'timestamped-filename))
+(definition (validate-alias name path)
+  (if (exists?~ (new Directory path))
+      path
+    (error "Unable to set alias {t} to inexistant directory: {t}" name path)))
 
 
 ;;;
-;;;; Protection
+;;;; Module
 ;;;
-
-
-;;(external Jazz bool            (guest-login?)                                                                                                                              "JzIsGuestLogin")
-
-
-;;;
-;;;; Runtime
-;;;
-
-
-;;(external Jazz int             (winerror)                                                                                                                                  "JzWinError")
-
-
-;;;
-;;;; Service
-;;;
-
-
-;;(external Jazz int             (start-service-dispatcher)                                                                                                                  "JzStartServiceDispatcher")
-;;(external Jazz int             (get-service-handle)                                                                                                                        "JzGetServiceHandle")
-;;(external Jazz int             (get-service-error)                                                                                                                         "JzGetServiceError")
-;;(external Jazz int             (get-service-state)                                                                                                                         "JzGetServiceState")
-;;(external Jazz void            (set-service-state int)                                                                                                                     "JzSetServiceState")
-
-
-;;;
-;;;; System
-;;;
-
-
-;;(external Jazz Object          (debugger                                Object)                                                                                            "JzDebugger")
-;;(external Jazz Object          (debug-print                             Object)                                                                                            "JzDebugPrint")
-;;(external Jazz Object          (enter-debugger                          Object)                                                                                            "JzEnterDebugger")
-;;(external Jazz Object          (c-test                                  . rest)                                                                                            "JzCTest")
-;;(external Jazz int             (get-browse-callback)                                                                                                                       "JzGetBrowseCallback")
-;;(external Jazz Object          (get-current-directory)                                                                                                                     "JzGetCurrentDirectory")
-;;(external Jazz void            (set-current-directory                   Object)                                                                                            "JzSetCurrentDirectory")
-;;(external Jazz Object          (tokenise-choose-file-string             string)                                                                                            "JzTokeniseChooseFileString")
-;;(external Jazz void            (system-call)                                                                                                                               "JzSystemCall")
-;;(external Jazz int             (heap-alloc                              int)                                                                                               "JzHeapAlloc")
-;;(external Jazz void            (heap-free                               int)                                                                                               "JzHeapFree")
-
-
-;;;
-;;;; TypeLib
-;;;
-
-
-;;(external Jazz int             (load-type-lib                           File)                                                                                              "JzLoadTypeLib")
-;;(external Jazz int             (load-reg-type-lib                       guid& int int int)                                                                                 "JzLoadRegTypeLib")
-;;(external Jazz void            (register-type-lib                       int File)                                                                                          "JzRegisterTypeLib")
-;;(external Jazz void            (release-type-lib                        int)                                                                                               "JzReleaseTypeLib")
-;;(external Jazz int             (get-lib-attr                            int)                                                                                               "JzGetLibAttr")
-;;(external Jazz void            (release-lib-attr                        int int)                                                                                           "JzReleaseLibAttr")
-;;(external Jazz Object          (get-type-lib-name                       int)                                                                                               "JzGetTypeLibName")
-;;(external Jazz Object          (get-type-lib-doc                        int)                                                                                               "JzGetTypeLibDoc")
-;;(external Jazz int             (get-type-info-count                     int)                                                                                               "JzGetTypeInfoCount")
-;;(external Jazz int             (get-type-info                           int int)                                                                                           "JzGetTypeInfo")
-;;(external Jazz void            (release-type-info                       int)                                                                                               "JzReleaseTypeInfo")
-;;(external Jazz int             (get-type-attr                           int)                                                                                               "JzGetTypeAttr")
-;;(external Jazz void            (release-type-attr                       int int)                                                                                           "JzReleaseTypeAttr")
-;;(external Jazz Object          (get-type-info-name                      int int)                                                                                           "JzGetTypeInfoName")
-;;(external Jazz Object          (get-type-info-doc                       int int)                                                                                           "JzGetTypeInfoDoc")
-;;(external Jazz int             (get-type-info-func-desc                 int int)                                                                                           "JzGetTypeInfoFuncDesc")
-;;(external Jazz int             (get-type-info-var-desc                  int int)                                                                                           "JzGetTypeInfoVarDesc")
-;;(external Jazz int             (get-type-info-referenced-type           int int)                                                                                           "JzGetTypeInfoReferencedType")
-;;(external Jazz int             (get-type-info-implemented-type          int int)                                                                                           "JzGetTypeInfoImplementedType")
-;;(external Jazz void            (release-func-desc                       int int)                                                                                           "JzReleaseFuncDesc")
-;;(external Jazz void            (release-var-desc                        int int)                                                                                           "JzReleaseVarDesc")
-
-
-;;;
-;;;; Window
-;;;
-
-
-;;(external Jazz int             (get-window-proc)                                                                                                                           "JzGetWindowProc")
-;;(external Jazz void            (set-window-callback                     Object)                                                                                            "JzSetWindowCallback")
-;;(external Jazz int             (get-dialog-proc)                                                                                                                           "JzGetDialogProc")
-;;(external Jazz int             (get-dde-callback)                                                                                                                          "JzGetDdeCallback")
-;;(external Jazz Object          (toplevel-hwnds)                                                                                                                            "JzToplevelHwnds")
-;;(external Jazz Object          (process-hwnds)                                                                                                                             "JzProcessHwnds")
-;;(external Jazz Object          (all-child-hwnds                         int)                                                                                               "JzAllChildHwnds")
-
-
-;;;
-;;;; WinMain
-;;;
-
-
-;;(external Jazz int             (current-show)                                                                                                                              "JzCurrentShow")
-;;(external Jazz Object          (command-line)                                                                                                                              "JzCommandLine")
-;;(external Jazz Object          (command-action)                                                                                                                            "JzCommandAction")
-;;(external Jazz Object          (command-arguments)  
-
-
-;;;
-;;;; Pathname
-;;;
-
-
-(definition public (pathnames= x y)
-  (unimplemented 'pathnames=)
-  @windows-specific
-  (equal? (get-list~ x) (get-list~ y)))
 
 
 (definition public (module-path)
@@ -715,43 +313,38 @@
 
 
 (definition public (module-pathname)
-  (unimplemented 'module-pathname)
-  @windows-specific
   (new File (module-path)))
 
 
+(definition public (module-name)
+  (get-name~ (module-pathname)))
+
+
 (definition public (module-base)
-  (unimplemented 'module-base)
-  @windows-specific
   (get-base~ (module-pathname)))
 
 
-(definition public (module-dir)
-  (unimplemented 'module-dir)
-  @windows-specific
-  (butlast (module-path)))
-
-
-(definition public (module-directory)
-  (unimplemented 'module-directory)
-  @windows-specific
-  (let ((module (module-pathname)))
-    (get-parent~ module)))
-
-
 (definition public (module-file filename)
-  (unimplemented 'module-file)
-  @windows-specific
-  (let ((module (module-pathname)))
-    (new-file~ (get-parent~ module) filename)))
+  (new-file~ {Directory Boot} filename))
 
 
 (definition public (module-timestamped-file base ext)
-  (unimplemented 'module-timestamped-file)
-  @windows-specific
-  (let* ((dir (join (cdr (module-dir)) "\\"))
+  (timestamped-file {Directory Boot} base expt))
+
+
+;;;
+;;;; File
+;;;
+
+
+(definition public (timestamped-file directory base ext)
+  (let* ((dir (parse~ directory))
          (path (tokenise (timestamped-filename dir base ext))))
     (new File path)))
+
+
+(definition (timestamped-filename dir base ext)
+  (unimplemented))
 
 
 ;;;
@@ -765,19 +358,6 @@
 
 (definition public (unmarshal-object object)
   (unmarshal~ object))
-
-
-;;;
-;;;; Execution
-;;;
-
-
-(definition (bootsafe-get-execution-stack)
-  (unimplemented 'bootsafe-get-execution-stack)
-  @windows-specific
-  (if (process-active?)
-      (get-execution-stack)
-    {}))
 
 
 ;;;

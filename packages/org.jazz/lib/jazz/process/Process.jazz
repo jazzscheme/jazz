@@ -38,38 +38,18 @@
 (library jazz.process.Process jazz
 
 
-(import (jazz.development)
+(import (jazz.debugger)
+        (jazz.designer)
+        (jazz.development)
         (jazz.io)
-        (jazz.network)
-        (jazz.process)
+        (jazz.jrm)
         (jazz.library)
         (jazz.library.component)
         (jazz.library.shell)
-        (jazz.jrm)
-        (jazz.debugger)
-        (jazz.designer)
+        (jazz.network)
+        (jazz.process)
+        (jazz.system)
         (jazz.utilities))
-
-
-(definition public Critical-Error?
-  #f)
-
-(definition public Critical-Debugger-Error?
-  #f)
-
-(definition public Paint-Error?
-  #f)
-
-(definition public Focus-Error?
-  #f)
-
-(definition Debugging?
-  #f)
-
-
-(definition (restore-debugger)
-  ;; old stuff
-  )
 
 
 (class Process extends Object
@@ -201,9 +181,7 @@
 
 
   (method protected virtual (prepare-environment rest)
-    (set-process self)
-    @convert/wait
-    (set-alias 'User 'Home))
+    (set-process self))
 
 
   (method (prepare-preferences rest)
@@ -923,7 +901,7 @@
                                  (wait-ready: wait-ready {})
                                  (wait-ready-timeout: wait-ready-timeout 5000))
     (let* ((root          (parse~ {Directory Root}))
-           (launcher      (parse~ {File Base "Launcher.exe"}))
+           (launcher      (parse~ {File Boot "Launcher.exe"}))
            (homedir-arg   (if homedir (format " /homedir \"{a}\\{a}\"" root homedir) ""))
            (rootdir-arg   (format " /rootdir \"{a}\"" root))
            (app-arg       (format " /app {a}" app))
@@ -1014,38 +992,20 @@
   ;;;
   ;;;; Debug
   ;;;
-  
-  
-  (method public (get-debugging?)
-    Debugging?)
-  
-  
-  (method public (focus-error?)
-    (and Debugging? Focus-Error?))
 
   
   (method protected virtual (debug-exception exception frame accountable)
-    (let ((preserved Debugging?))
-      (unwind-protect
-          (begin
-            (set! Debugging? #t)
-            (process-exception exception frame accountable))
-        (set! Debugging? preserved))))
+    (process-exception exception frame accountable))
   
   
   (method (process-exception exception frame accountable)
     (exception-reported)
     (log-execution-context exception)
-    (cond ((or Critical-Error? (not loop-running?))
+    (cond ((not loop-running?)
            (dump-stack :exception exception)
            (present-exception exception type: 'message)
            (exit-process))
           (else
-           ;; so that the debugger problem is the one that gets critical errored!
-           (when Critical-Debugger-Error?
-             (set! Critical-Error? #t))
-           (when Paint-Error?
-             (select-debugger))
            (log-exception exception)
            (report-exception exception frame accountable))))
   
@@ -1108,11 +1068,9 @@
           (stop-debugging))
          ((yes)
           (cond ((not controller-debugger-server)
-                 (restore-debugger)
                  (dump-stack :exception exception)
                  (throw-stop))
                 ((not (primary-thread?))
-                 (restore-debugger)
                  (present-thread-stack (dump-stack :exception exception))
                  (throw-stop))
                 (else
@@ -1146,7 +1104,6 @@
   
   
   (method public (stop-debugging)
-    (restore-debugger)
     (throw-stop))
   
   
@@ -1154,9 +1111,7 @@
     (unimplemented)
     @convert-error
     (if (interpreter-present?)
-        (begin
-          (restore-debugger)
-          (break-exception local-debuggee exception frame accountable))
+        (break-exception local-debuggee exception frame accountable)
       (dump-stack :exception exception)
       (stop-debugging)))
   

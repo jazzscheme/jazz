@@ -231,7 +231,7 @@
 
 
 (definition public (unregister-cookie-id id)
-  (hash-clear Id-Cookies id))
+  (table-clear Id-Cookies id))
 
 
 (definition public (get-id-cookie id)
@@ -844,10 +844,10 @@
   (unimplemented 'profiles->jml)
   @later
   (let ((nodes '()))
-    (for-each-hash (function dynamic (name profile)
+    (iterate-table (get-profiles)
+                   (function dynamic (name profile)
                      (when (not (profile-parent profile))
-                       (set! nodes (cons (profile->jml {} profile) nodes))))
-                   (get-profiles))
+                       (set! nodes (cons (profile->jml {} profile) nodes)))))
     (sort < nodes key: (function dynamic (node) (get-property~ node 'name)))))
 
 
@@ -902,14 +902,14 @@
               (function dynamic (file)
                 (proc (get-name~ file) (get-source~ file) (manifest-properties~ file)))))
           (manifest
-            (for-each-hash (function dynamic (category-name properties)
-                             (proc category-name (getf properties :source) properties))
-                           (get-manifest)))
+            (iterate-table (get-manifest)
+                           (function dynamic (category-name properties)
+                             (proc category-name (getf properties :source) properties))))
           (else
-           (for-each-hash (function dynamic (name value)
+           (iterate-table (get-compiled-categories)
+                          (function dynamic (name value)
                             (bind (ignore time . properties) value
-                              (proc name {} properties)))
-                          (get-compiled-categories))))))
+                              (proc name {} properties))))))))
 
 
 ;;;
@@ -1927,29 +1927,6 @@
 
 
 ;;;
-;;;; Message
-;;;
-
-
-(definition public (system-error id)
-  (unimplemented 'system-error)
-  @unimp
-  (error "System error {a}" (present-system-message id)))
-
-@could-be-removed
-(definition public (present-system-message id)
-  (format "(#x{x}){? : {a}~}"
-    id
-    (format-system-message id)))
-
-
-(definition public (present-winerror)
-  (unimplemented 'present-winerror)
-  @winerror
-  (present-system-message (winerror)))
-
-
-;;;
 ;;;; WinHelp
 ;;;
 
@@ -2251,14 +2228,4 @@
         (format printer "{a}{%}{%}{a}"
           (get-message~ err)
           stack)
-        (error "{a}" (get-output-string printer))))))
-
-
-;;;
-;;;; Command Argument
-;;;
-
-
-;; tofix : do in gambit
-(definition public (command-argument string)
-  #f))
+        (error "{a}" (get-output-string printer)))))))

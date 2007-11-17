@@ -52,18 +52,6 @@
 ;;;
 
 
-(definition (tokenise-choose-file-string buffer)
-  (let loop ((offset 0)
-             (start-of-string? #t))
-       (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))
-         (if start-of-string?
-             (if end-of-string?
-                 '()
-               (cons (WCHAR-string (WCHAR-subarray buffer offset))
-                     (loop (+ offset 1) end-of-string?)))
-           (loop (+ offset 1) end-of-string?)))))
-
-
 (definition public (choose-file (title: title {})
                                 (directory: directory {})
                                 (initial-filename: initial-filename {})
@@ -187,4 +175,38 @@
               (adjust-string string)
               (let ((directory (anchorize~ (new Directory (tokenise string)) anchors: anchors)))
                 (set-current-directory (parse~ directory))
-                directory))))))))))
+                directory)))))))))
+
+
+;;;
+;;;; Utilities
+;;;
+
+
+(definition (tokenise-choose-file-string buffer)
+  (let loop ((offset 0)
+             (start-of-string? #t))
+       (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))
+         (if start-of-string?
+             (if end-of-string?
+                 '()
+               (cons (WCHAR-string (WCHAR-subarray buffer offset))
+                     (loop (+ offset 1) end-of-string?)))
+           (loop (+ offset 1) end-of-string?)))))
+
+
+;; Returns NULL used by file dialogs. Windows specific.
+;; We will need a platform independent dialog.
+(definition public (extensions-filter extensions)
+  (unimplemented 'extensions-filter)
+  @returns-NULL
+  (if (null? extensions)
+      NULL
+    (let ((dst (new List-Factory))
+          (separator (make-string 1 #\nul)))
+      (for-each (function dynamic (ext)
+                  (put~ dst (car ext))
+                  (put~ dst (cdr ext)))
+                extensions)
+      (put~ dst separator)
+      (join (get-output~ dst) separator)))))

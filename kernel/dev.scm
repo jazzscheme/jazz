@@ -600,7 +600,7 @@
 (define (j)
   (lj)
   (l 'jazz.platform.literals)
-  (l 'test.boot))
+  (l 'jazz.system.boot))
 
 
 (define (tj)

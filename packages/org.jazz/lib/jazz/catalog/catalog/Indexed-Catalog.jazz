@@ -122,9 +122,9 @@
   
   (method (count-file-entries content)
     (let ((count 0))
-      (for-each-hash (function dynamic (name file-entries)
-                       (increase! count (length file-entries)))
-                     content)
+      (iterate-table content
+                     (function dynamic (name file-entries)
+                       (increase! count (length file-entries))))
       count))
   
   
@@ -142,7 +142,7 @@
   
   
   (method (add-entry name entry)
-    (hash-add content name entry))
+    (table-add content name entry))
 
 
   ;;;
@@ -177,12 +177,12 @@
   (method (update-catalog-indexes report?)
     (when report?
       (user-message "Updating Indexes..."))
-    (for-each-hash (function dynamic (class-name definitions)
+    (iterate-table content
+                   (function dynamic (class-name definitions)
                      (for-each (function dynamic (file-definition)
                                  (set-catalog~ file-definition self)
                                  (update-indexes~ file-definition definitions-index references-index))
-                               definitions))
-                   content))
+                               definitions))))
 
 
   ;;;
@@ -252,11 +252,11 @@
   
   
   (method (reset-marks)
-    (for-each-hash (function dynamic (class-name definitions)
+    (iterate-table content
+                   (function dynamic (class-name definitions)
                      (for-each (function dynamic (file-definition)
                                  (set-marked?~ file-definition #f))
-                               definitions))
-                   content))
+                               definitions))))
   
 
   ;;;
@@ -353,7 +353,8 @@
   
   
   (method (sweep-table table marked? reset?)
-    (for-each-hash (function dynamic (class-name definitions)
+    (iterate-table table
+                   (function dynamic (class-name definitions)
                      (when definitions
                        (let ((previous definitions)
                              (list (cdr definitions)))
@@ -369,8 +370,7 @@
                                (set! list (cdr previous))))))
                        (when (not (marked? (car definitions)))
                          (set-modified? #t)
-                         (table-set! table class-name (cdr definitions)))))
-                   table))
+                         (table-set! table class-name (cdr definitions)))))))
 
 
   ;;;
@@ -422,8 +422,8 @@
   (method (table-complete table string)
     (let ((length (cardinality string))
           (result '()))
-      (for-each-hash (function dynamic (name value)
+      (iterate-table table
+                     (function dynamic (name value)
                        (when (compare-n name string length)
-                         (set! result (cons name result))))
-                     table)
+                         (set! result (cons name result)))))
       result))))

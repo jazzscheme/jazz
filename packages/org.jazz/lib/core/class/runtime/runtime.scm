@@ -38,6 +38,9 @@
 (module core.class.runtime.runtime
 
 
+(include "~/gambit/lib/header.scm")
+
+
 (define jazz.new-interface-rank
   0)
 
@@ -1422,10 +1425,6 @@
 
 (cond-expand
   (gambit
-    (include "../../../../../../include/gambit/type#.scm")
-    ;;not yet included in the gambit distribution
-    ;;(include "~/gambit/lib/type#.scm")
-    
     (define jazz.subtypes
       (make-vector 32 #f))
     

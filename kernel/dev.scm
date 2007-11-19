@@ -425,9 +425,9 @@
 (define Appl
   '(jazz.process.Process
     jazz.application.Application
-    jazz.ui.ide.IDE
-    jedi.application.Jedi
-    jazz.application.platform.windows))
+    jazz.application.platform.windows
+    jazz.ide.IDE
+    jedi.application.Jedi))
 
 (define JML
   '(jazz.jml

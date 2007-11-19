@@ -389,19 +389,21 @@
   
   (method (system-user)
     (standard-user (get-system-user-name)))
+  
+  
+  (definition NEWLOGIN?
+    #f)
 
   
   (method (login-user)
-    {File org.jazz "lib" "jazz" "user" "Me.jazz"}
-    @wait
+    (if NEWLOGIN?
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
         (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
           (new File (list 'Users name (format "{a}.jazz" name))))
-      (get-modal Login-Dialog use-user-class?: (use-user-class?))
-      @catch-syntax-not-implemented
       (catch (Cancel-Signal signal
                (exit))
-        (get-modal Login-Dialog use-user-class?: (use-user-class?)))))
+        (get-modal Login-Dialog use-user-class?: (use-user-class?))))
+    {File org.jazz "lib" "jazz" "user" "Me" "_Me.jazz"}))
   
   
   (method (setup-user-file user)
@@ -416,16 +418,15 @@
   (method (setup-new-user directory name)
     (let ((expander (new Template-Expander))
           (associations (list (cons 'user name))))
-      @wait
+      (when NEWLOGIN?
       (create-directories~ directory)
-      @wait
-      (copy-user-settings directory expander associations)
+      (copy-user-settings directory expander associations))
       (cond ((not (use-user-class?))
              (set! user-pathname directory))
             (else
              (let ((file (new-file~ directory (format "{a}.jazz" name))))
-               @wait
-               (copy-user file expander associations)
+               (when NEWLOGIN?
+               (copy-user file expander associations))
                (set! user-pathname file))))))
   
   
@@ -456,7 +457,7 @@
 
   
   (method (create-user)
-    (let ((user-name (string->symbol (get-base~ user-pathname))))
+    (let ((user-name (extract-user-name)))
       @cannot-yet-use-because-the-exception-presenter-kicks-in-only-after-the-debugger-is-installed
       (with-execution-context
         (function dynamic ()
@@ -466,15 +467,18 @@
         title: "Create User")
       (with-safe-execution "creating the user"
         (function dynamic ()
-          (set! user (new (case user-name
-                            (else Me))))
-          @wait(
-          (jazz.load-module (jazz.compose-name 'user user-name))
-          (set! user (new (load-source user-name user-pathname)))))
+          (if NEWLOGIN?
+          (set! user (new (load-userclass user-name)))
+          (set! user (new jazz.user.Me))))
         continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
         continue-handler:
         (function dynamic (err)
           (set! user (new User))))))
+  
+  
+  (method (extract-user-name)
+    (let ((base (get-base~ user-pathname)))
+      (string->symbol (substring base 1 (string-length base)))))
 
 
   ;;;

@@ -35,41 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jedi.application.Jedi-User jazz
+(library jedi.user.Jedi-User jazz
 
 
-(import (jazz.jazz)
+(import (jazz.designer)
+        (jazz.ide)
+        (jazz.io)
+        (jazz.jazz)
         (jazz.jazz.debuggee)
+        (jazz.jml)
         (jazz.library)
         (jazz.network)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.activity)
         (jazz.ui.view)
+        (jazz.utilities)
+        (jazz.user)
         (jedi))
 
 
 (class Jedi-User extends IDE-User
-
-  
-  (method (init)
-    (nextmethod))
-  
-
-  (method (finalize)
-    (nextmethod))
-
-  
-  ;;;
-  ;;;; Jedi
-  ;;;
-  
-  
-  (method (export-jedi)
-    (let* ((workbench (get-workbench))
-           (project (find-project~ workbench 'Jedi-Project)))
-      (export-manifest~ project)
-      (user-message "Manifest exported")))
 
   
   ;;;
@@ -112,6 +98,7 @@
       ((:expand) (expand (car arguments)))
       ((:expand-scheme) (expand-scheme (car arguments)))
       ;; Various
+      @convert
       ((:load-all) (load-all~ Analyser))
       ((:touch) (touch arguments))
       ((:touch-descendants) (touch-descendants arguments))
@@ -127,6 +114,8 @@
   
   
   (method (checkout names)
+    (unimplemented)
+    @convert
     (let ((repository (get-repository~ Repository)))
       (for-each (function dynamic (name)
                   (let ((file (get-manifest-source name)))
@@ -135,6 +124,8 @@
   
   
   (method (checkin names)
+    (unimplemented)
+    @convert
     (let ((repository (get-repository~ Repository)))
       (for-each (function dynamic (name)
                   (let ((file (get-manifest-source name)))
@@ -143,6 +134,8 @@
 
   
   (method (expand form)
+    (unimplemented)
+    @convert
     (bind (name . arguments) form
       (let* ((try (function dynamic (object) (category-field (class-of object) name)))
              (definition (either (try Language) (try Java) (essay Interactive-Object (try Interactive-Object)))))
@@ -158,6 +151,8 @@
   
   
   (method (expand-scheme form)
+    (unimplemented)
+    @convert
     (bind (name . arguments) form
       (let* ((try (function dynamic (package) (category-field (class-of package) name)))
              (macro (definition-value (either (try Kernel)))))
@@ -175,6 +170,8 @@
 
 
   (method (touch-classes descendants? classes)
+    (unimplemented)
+    @convert
     (let ((touched (new List-Factory)))
       (letrec ((process
                 (function dynamic (model)
@@ -201,6 +198,8 @@
   
   
   (method (compile classes)
+    (unimplemented)
+    @convert
     (compile-classes classes))
   
   
@@ -232,6 +231,8 @@
   
   
   (method (generate-jazzwebsite)
+    (unimplemented)
+    @convert
     (let* ((file {File JazzWebsite-Project "Development" "Website" "JazzWebsite.jml"})
            (node (load-jml file))
            (site (transform-jml node (new JazzWebsite-Transformation)))
@@ -244,6 +245,8 @@
   
   
   (method (render-jazzwebsite-page page)
+    (unimplemented)
+    @convert
     (let* ((content JazzWebsite-Directory)
            (file (new-file~ content (format "{a}.htm" (get-property~ page 'path))))
            (preferences (new JML-Preferences))
@@ -275,6 +278,8 @@
   
   
   (method (gambit (expr: expr {}) (maximum-heapsize: maximum-heapsize 102400) (exception-handler: exception-handler :repl))
+    (unimplemented)
+    @convert
     (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
            (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
       (create-process command directory: {Directory jazz} :capture-input? #f :capture-output? #f :capture-error? #f :wait? #f size: {Dimension 900 500} visible?: #t)))
@@ -394,7 +399,7 @@
       (insert-node~ dispatcher {} (list A A A))
       (insert-node~ dispatcher {} (list A A B))
       (let ((test
-             (function dynamic (. signature)
+             (function dynamic signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test X X)
@@ -413,7 +418,7 @@
       (insert-node~ dispatcher {} (list Rect))
       (insert-node~ dispatcher {} (list Point))
       (let ((test
-             (function dynamic (. signature)
+             (function dynamic signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test Object)
@@ -429,7 +434,7 @@
       (insert-node~ dispatcher {} (list))
       (insert-node~ dispatcher {} (list <javaint>))
       (let ((test
-             (function dynamic (. signature)
+             (function dynamic signature
                (let ((generics (find-generics~ dispatcher signature)))
                  (debug (map type-name signature) generics)))))
         (test )
@@ -596,166 +601,6 @@
       (for-each-selected-paragraph~ text
        (function dynamic (row paragraph)
          (hide~ paragraph)))))
-  
-  
-  ;;;
-  ;;;; Excel
-  ;;;
-  
-  
-  @wait
-  (definition Excel-Dll
-    {File Root "Program Files" "Microsoft Office" "Office" "EXCEL9.OLB"})
-  
-  @wait
-  (definition Excel-Lib
-    (new Type-Lib file: Excel-Dll))
-  
-  @wait
-  (definition Excel-Extractor
-    (new Type-Extractor :library Excel-Lib))
-  
-  @wait
-  (definition Excel-Type
-    (new Type-Info (get-type-info (get-handle~ Excel-Lib) 555)))
-  
-  
-  @wait
-  (method (generate-typelib pathname)
-    (let* ((library (new Type-Lib file: pathname))
-           (extractor (new Type-Extractor :library library)))
-      (extract~ extractor)))
-  
-  
-  @wait
-  (method (test-excel)
-    (call-with-output-file (parse~ {File Jazz "Dummy.jazz"})
-      (lambda (printer)
-        (set-to-emit~ Excel-Extractor (list Excel-Type))
-        (set-emited~ Excel-Extractor {})
-        (emit-type-info~ Excel-Extractor Excel-Type printer))))
-  
-  
-  @wait
-  (method (test-excel)
-    (extract~ Excel-Extractor))
-  
-  
-  @wait
-  (method (test-excel)
-    (new Activity
-      context: self
-      execute: (function (activity)
-                 (extract~ Excel-Extractor :activity activity))))
-
-  
-  ;;;
-  ;;;; Storage
-  ;;;
-  
-  
-  @wait
-  (method (test-storage)
-    (let ((file {File Jazz "CF.txt"}))
-      (with-closed ((storage (create-storage-file~ Storage file)))
-        )))
-  
-  
-  @wait
-  (method (test-doc-storage)
-    (let ((file {File Jazz "X.doc"}))
-      (with-closed ((storage (open-storage-file~ Storage file)))
-        (let* ((content (get-content~ storage))
-               (names (map (function dynamic (stat) (get stat 'pwcsName)) content))
-               (types (map (function dynamic (stat) (get stat 'type)) content)))
-          (debug content names types)))))
-
-  
-  ;;;
-  ;;;; Mail
-  ;;;
-  
-  
-  @wait
-  (method (test-mail)
-    (with-closed ((session (new Mapi-Session))
-                  (messages (new Mapi-Messages session)))
-      (let ((attachment {File Jazz "Documentation" "Images" "SmallJazz.png"}))
-        (send-email~ messages
-         :prompt? #t
-         :recipient "gcartier@jazzscheme.org"
-         :subject "Un test"
-         :body (format "Tel que convenu...{%}{%}{%}{%}lors de notre...")
-         :attachment attachment))))
-
-  
-  ;;;
-  ;;;; ADO
-  ;;;
-  
-  
-  @wait
-  (method (test-ado)
-    (let ((data-source (new Access-Data-Source :dsn "Cassettes")))
-      (with-closed ((connection (new-connection~ data-source)))
-        (execute~ connection "Select * from Rubriques"))))
-  
-  
-  @wait
-  (definition Test-Connection
-    {})
-
-
-  @wait
-  (method (get-connection)
-    (unless Test-Connection
-      (set! Test-Connection (new-connection)))
-    Test-Connection)
-  
-  
-  @wait
-  (method (new-connection)
-    (let ((connection (new Connection)))
-      (open~ connection "DSN=Sample;")
-      connection))
-  
-  
-  @wait
-  (method (close-connection)
-    (when Test-Connection
-      (close~ Test-Connection)
-      (set! Test-Connection {})))
-  
-  
-  @wait
-  (method (rq request)
-    (load-request~ (new-request~ (get-connection)) request))
-  
-  
-  @wait
-  (method (process-sql connection request)
-    (let ((pos (find request #\space)))
-      (when pos
-        (let ((command (subseq request 0 pos)))
-          (when (= command "DESC")
-            (let ((name (subseq request (+ pos 1)))
-                  (browser (select-palette Inventory-Browser workspace: {} focus?: #f)))
-              (describe-connection-table~ browser connection name)))))))
-  
-  
-  @wait
-  (method (expand-sql request)
-    (let* ((request (trim-whitespace request))
-           (pos (find request #\space))
-           (name (if (null? pos) request (subseq request 0 pos)))
-           (where (if (null? pos) {} (subseq request (+ pos 1)))))
-      (if (member? (upcase name) '("SELECT" "DELETE" "UPDATE" "INSERT" "EXEC" "EXECUTE" "CREATE" "SET" "BEGIN" "COMMIT" "USE" "DROP" "ALTER" "GRANT" "DENY" "IF" "DECLARE"))
-          request
-        (let ((columns "*"))
-          (format "select {a} from {a}{a}"
-                  columns
-                  name
-                  (if where (format " where {a}" where) ""))))))
 
   
   ;;;
@@ -776,55 +621,6 @@
            (obj2 (new org.jazzscheme.test.Test 8)))
       (debug (cj~ obj1 2))
       (debug (test~ obj1 4 5) (test~ obj2 2 3 4))))
-
-  
-  ;;;
-  ;;;; Error
-  ;;;
-  
-  
-  @wait
-  (method (test)
-    (new Thread
-      context: self
-      execute: (function (thread)
-                 (foo))))
-  
-  
-  @wait
-  (method (foo)
-    (let ((x 1))
-      (unwind-protect
-          (begin
-            (car x)
-            (message-box "This should not happen!"))
-        (debug 'hello))))
-  
-  
-  @wait
-  (class Error-Tester extends View
-    
-    
-    (slot processing? initialize #f)
-    
-    
-    (method (mouse-down pos)
-      (set! processing? #t))
-    
-    
-    (method (drag-move pos)
-      (when processing?
-        (car 1)))
-    
-    
-    (method (drag-up pos . rest)
-      (debug 'up)
-      (set! processing? #f)))
-  
-  
-  @wait
-  (method (test-shift)
-    (new-frame Error-Tester :guest-context self))
 
   
   ;;;
@@ -1181,174 +977,6 @@
   
   
   ;;;
-  ;;;; Process Monitor
-  ;;;
-  
-  
-  @wait
-  (method (present-process-monitor-stack file)
-    (let* ((executable {File Boot "Launcher.exe"})
-           (handler (new Symbol-Handler executable))
-           (stack (read-process-monitor-stack file)))
-      (for-each (function dynamic (line)
-                  (bind (no name relative absolute executable) line
-                    (let ((addr (read-string-element absolute)))
-                      (format :console "{%}{a} {a}" name (either (get-sym-from-addr~ handler addr) absolute)))))
-                stack)
-      (fresh-prompt~ (get-application))))
-  
-  
-  @wait
-  (method (read-process-monitor-stack file)
-    (let ((reader (new File-Reader file))
-          (readtable (new Readtable)))
-      (set-syntax~ readtable #\comma TWhitespace)
-      (set-readtable~ reader readtable)
-      (let ((lines (new List-Factory))
-            (done? #f))
-        (while (not done?)
-          (let ((line (read-process-monitor-stack-line reader)))
-            (if (eof-object? line)
-                (set! done? #t)
-              (put~ lines line))))
-        (get-output~ lines))))
-  
-  
-  @wait
-  (method (read-process-monitor-stack-line reader)
-    (let ((no (read reader)))
-      (if (eof-object? no)
-          no
-        (let ((name (read reader))
-              (relative (read reader))
-              (absolute (read reader))
-              (executable (read reader)))
-          (list no name relative absolute executable)))))
-  
-  
-  @wait
-  (method (test9)
-    (present-process-monitor-stack {File Root "stack.CSV"}))
-  
-  
-  ;;;
-  ;;;; Symbol Handler
-  ;;;
-  
-  
-  @wait
-  (method (ts addr)
-    (let* ((executable {File Boot "Launcher.exe"})
-           (handler (new Symbol-Handler executable)))
-      (debug handler)
-      (debug (get-sym-from-addr~ handler addr))))
-
-  
-  ;;;
-  ;;;; Profiler
-  ;;;
-  
-  
-  @wait
-  (method (test-shift)
-    (debug (foo 2)))
-  
-  
-  @wait
-  (method (foo x)
-    (profile (:on? #t name: foo)
-    (list (bar x)
-          (baz (+ x x)))))
-  
-  
-  @wait
-  (method (bar x)
-    (profile (name: bar :condition foo)
-    (+ (bar1 x)
-       (bar2 (+ x x)))))
-  
-  
-  @wait
-  (method (bar1 x)
-    (profile (name: bar1 :condition bar)
-    (sleep 10)
-    x))
-  
-  
-  @wait
-  (method (bar2 y)
-    (profile (name: bar2 :condition bar)
-    (sleep 50)
-    y))
-  
-  
-  @wait
-  (method (baz y)
-    (profile (name: baz :condition foo)
-    (sleep 100)
-    y))
-  
-  
-  ;;;
-  ;;;; Socket
-  ;;;
-  
-  
-  @wait
-  (definition Ping-Host
-    {Host name: "localhost"})
-  
-  @wait
-  (definition Ping-Port
-    33001)
-  
-  
-  @wait
-  (definition Ping-Running?
-    #f)
-  
-  
-  @wait
-  (method (start-ping-server)
-    (unless Ping-Running?
-      (let* ((appl (get-application))
-             (workbench (get-workbench))
-             (project (find-project~ workbench 'Ping-Project)))
-        (launch~ appl project)
-        (set! Ping-Running? #t)
-        (user-message "Ping server started"))))
-  
-  
-  @wait
-  (method (stop-ping-server)
-    (when Ping-Running?
-      (with-closed ((socket (new Socket)))
-        (connect~ socket Ping-Host Ping-Port)
-        (send-object~ socket 'quit))
-      (set! Ping-Running? #f)
-      (user-message "Ping server stopped")))
-  
-  
-  @wait
-  (method (test)
-    (start-ping-server))
-  
-  
-  @wait
-  (method (test-shift)
-    (stop-ping-server))
-  
-  
-  @wait
-  (method (test1)
-    (start-ping-server)
-    (with-closed ((socket (new Socket)))
-      (connect~ socket Ping-Host Ping-Port)
-      (send-object~ socket (naturals 0 100))
-      (debug (receive-object~ socket))))
-  
-  
-  ;;;
   ;;;; Scaling
   ;;;
   
@@ -1665,6 +1293,7 @@
   ;;;
 
   
+  @wait
   (class My-Transfo extends XML-Transformer
     
     
@@ -1826,6 +1455,8 @@
   
   
   (method (report-times)
+    (unimplemented)
+    @convert
     (let ((times (gc-times)))
       (for-each (function dynamic (info name)
                   (bind (maximum average) info
@@ -1917,24 +1548,6 @@
     (let ((file {File org.jazz "Jazz" "Samples" "Java" "org" "jazz" "project" "Z.java"}))
       (let ((ast (parse-java file Java-AST)))
         (java-definitions ast))))
-
-
-  ;;;
-  ;;;; Purify
-  ;;;
-  
-
-  (method (purify-packages)
-    (for-each (function dynamic (category)
-                (when (package? category)
-                  (user-message "Processing {s}" category)
-                  (for-each (function dynamic (field)
-                              (let ((value (definition-value field)))
-                                (when (external? value)
-                                  (external-address value))))
-                            (category-fields (class-of category)))))
-              (all-categories))
-    (user-message "Done"))
 
   
   ;;;

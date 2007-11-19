@@ -193,6 +193,7 @@
 
 
 (native jazz.composite-name?)
+(native jazz.compose-name)
 (native jazz.identifier-name)
 
 
@@ -277,7 +278,6 @@
 (native jazz.subcategory?)
 (native jazz.subclass?)
 (native jazz.load-module)
-(native jazz.load-metaclass)
 (native jazz.reload-module)
 
 

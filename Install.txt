@@ -5,8 +5,8 @@ JazzScheme has very few dependencies
 
 Gambit
 ------
-You need to install the Gambit binaries and also have Gambit's source code installed in
-your HOME directory as "gambit" so that JazzScheme can use (include "~/gambit/lib/header.scm")
+You need to install Gambit version 4.1.0 or later and also have Gambit's source code installed
+in your HOME directory as "gambit" so that JazzScheme can use (include "~/gambit/lib/header.scm")
 to include some Gambit internal stuff (see 16.1 Handling of file names in Gambit's documentation
 for details on the ~ syntax).
 
@@ -28,77 +28,98 @@ Binaries
 ========
 
 We plan on having binary distributions for the standard platforms Mac and Windows. This will
-ease trying out JazzScheme as no dependencies will then need to be installed to just run the IDE.
+ease trying out JazzScheme as no dependencies will need to be installed to run the IDE.
 
 
-Architecture
-============
+Sources
+=======
 
-JazzScheme uses a directory structure to support cross-compilation accross multiple architectures.
-The architecture is determined by 4 features :
+JazzScheme uses Git to store all development files
 
-- System : the underlying Scheme system (Gambit, Chicken, ...)
-- Platform : the GUI platform (Mac, X11, Windows)
-- Processor : the target processor (Intel, ...)
-- Safety : the desired safety level
-  - Core : core debug mode for debugging jazzscheme itself with tests to make the core safe
-  - Debug : standard debug mode with tests to make user code safe (recommanded safety for development)
-  - Release : release mode for stable user code with no safety tests
-
-Each architecture has an associated subdirectory in the bin directory. This directory will contain
-any architecture specific files: executables, compilation result files, libraries, ...
+Repository
+----------
+The repository is currently hosted at
+git://64.235.209.250/home/jazz/dev
 
 
-Launching
-=========
+Help
+----
+Some usefull Git links :
+- http://www.kernel.org/pub/software/scm/git/docs/
+- http://www.kernel.org/pub/software/scm/git/docs/user-manual.html
+- http://www.kernel.org/pub/software/scm/git/docs/core-tutorial.html
 
-At this time there is no executable to launch. Launching the underlying Scheme system from the desired
-architecture directory plays that role. In Gambit's case, we rely on a Gambit feature where Gambit will
-load any gambcini.scm file located in the current directory. Each architecture directory then contains
-a gambcini.scm file that defines all the features of the architecture.
 
-For example, using Gambit on Windows / Intel in Debug mode, just start gsc in the bin/GambitWinIntelDebug
-directory. You can then issue the various build commands described in the next section or load modules
-interpreted.
+User
+----
+;; clone the JazzScheme repository (only once)
+git clone git://64.235.209.250/home/jazz/dev jazz
+cd jazz
+
+;; from time to time to get the latest revision
+git pull
+
+
+Contributor
+-----------
+;; clone the JazzScheme repository (only once)
+git clone git://64.235.209.250/home/jazz/dev jazz
+cd jazz
+
+git config user.email "you@email.com"
+git config user.name "Your Name"
+
+;; After you clone the public repo, would should never modify the master branch as it
+;; will be used by git-rebase. You should always work in your own branch lets say work
+git branch work
+git checkout work
+
+;; from time to time to get the latest revision and rebase your changes
+git checkout master
+git pull
+git checkout work
+git rebase master
+<optional step: fix any rebase conflicts>
+  <edit and resolve conflicts in all the conflicting files>
+  <git add the resolved files>
+  git rebase --continue
+  <see http://www.kernel.org/pub/software/scm/git/docs/git-rebase.html for details>
+
+;; send contribution as a series of patch files
+;; make sure you do the previous step of rebasing your changes just before doing this
+git format-patch origin
+<email generated patch files to gcartier@jazzscheme.org>
+
+
+Maintainer
+----------
+;; publish some changes
+git push pub
+
+;; merge contributions
+git am -3 *.patch
+<optional step: fix any am conflicts>
+  git am --resolved
 
 
 Building
 ========
 
-As a design goal, JazzScheme's code is structured in such a way that it can be loaded almost fully
-interpreted in the underlying Scheme. No external build is thus required. Only modules that use Gambit's
-FFI (mainly platform modules) need to be compiled in order to run.
+As a design goal, JazzScheme is structured in such a way that its core can be loaded fully interpreted
+in the underlying Scheme. No external build script is thus required. JazzScheme uses itself running
+interpreted to execute build commands.
 
-For better performance you can build :
-- (bcore) : jazz core
-- (bjazz) : jazz core + language
-- (build) : jazz core + language + platform modules
-- (bjedi) : all jedi critical modules
+Example
+-------
+cd bin\GambitWinIntelDebug
+gsc
+Gambit v4.1.0
+> (build)
+...
+> (exit)
+gsc
+Gambit v4.1.0
+> (j)
+...
 
-
-Jedi IDE
-========
-
-Launch
-------
-To launch Jedi, the Jazz IDE, you will first need to build the core and all platform modules using (build). If
-it's the first time you build the core, I suggest for better performance that you quit Gambit and relaunch so
-that the compiled files get loaded.
-
-The (j) command will then launch the IDE.
-
-Build
------
-If you plan on using the IDE a lot, you should also run the (bjedi) command that will build all Jedi critical modules.
-It makes a huge difference in performance.
-
-Debug
------
-At the current time, the IDE relies totally on the underlying Scheme for debugging. This is not as painfull as would
-appear as JazzScheme code is very close to the generated Scheme code so that inspecting a Jazz stack inside the Gambit
-debugger is very easy. Having a lower level debugger is even a very nice feature as it is virtually impossible to crash
-the IDE even when modifying a critical piece of code (like inserting a bug in the view system for instance) as the Gambit
-debugger is completely self contained.
-
-If you get an error and want to restart the IDE's message loop, just clear the error level using the ,d command and then
-execute (r).
+See Readme.txt for details and examples on launching and building.

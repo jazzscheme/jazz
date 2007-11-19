@@ -149,7 +149,7 @@
         ;; autoload access via a function call
         ((%%pair? access)
          (let ((name (%%symbol->string (%%car access))))
-           (let ((pos (jazz.find-char-reversed #\: name)))
+           (let ((pos (jazz.string-find-reversed name #\:)))
              (%%substring name 0 pos))))
         (else
          (jazz.error "Unable to extract name from: {s}" access))))

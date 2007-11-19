@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Files
+;;;; Module Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.file
-
-
-(define (jazz.file-directory filename)
-  (let ((n (jazz.string-find-reversed filename #\/)))
-    (if (%%not n)
-        ""
-      (%%substring filename 0 n))))
-
-
 (cond-expand
   (gambit
-    (define (jazz.file-exists? path)
-      (file-exists? path))
-    
-    (define (jazz.file-delete path)
-      (delete-file path))
-    
-    (define (jazz.file-last-modification-time path)
-      (file-last-modification-time path)))
-  
-  (else)))
+    (declare (block)
+             (standard-bindings)
+             (extended-bindings)
+             (not safe)))
+  (else))
+
+
+(jazz.define-syntax module
+  (lambda (src)
+    (let ((form (%%source-code src)))
+      (let ((name (%%source-code (%%cadr form)))
+            (rest (%%cddr form)))
+        (if (%%neq? name (jazz.requested-module-name))
+            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+          (jazz.expand-module name rest))))))

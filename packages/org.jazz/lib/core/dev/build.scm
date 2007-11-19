@@ -49,34 +49,32 @@
 
 
 (define (jazz.compile-module module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (let ((filename (jazz.find-module-filename module-name)))
+  (let ((src (jazz.find-module-src module-name)))
     (parameterize ((jazz.requested-module-name module-name))
-      (jazz.compile-filename filename options: options cc-options: cc-options ld-options: ld-options force?: force?))))
+      (jazz.compile-source-path src options: options cc-options: cc-options ld-options: ld-options force?: force?))))
 
 
-(define (jazz.compile-filename filename #!key (options #f) (cc-options #f) (ld-options #f) (force? #f) (suffix #f))
+(define (jazz.compile-source-path src #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((options (or options jazz.compile-options))
         (cc-options (or cc-options ""))
-        (ld-options (or ld-options "")))
-    (let* ((src (if suffix filename (jazz.require-module-source filename)))
-           (suffix (or suffix (jazz.runtime-filename-suffix filename)))
-           (bin (jazz.determine-module-binary suffix))
-           (bindir (jazz.determine-module-bindir suffix))
-           (srctime (time->seconds (file-last-modification-time src)))
-           (bintime (and bin (time->seconds (file-last-modification-time bin)))))
-      (jazz.create-directories bindir)
+        (ld-options (or ld-options ""))
+        (bin (jazz.path-find-binary src))
+        (bindir (jazz.path-bin-dir src)))
+    (let ((srctime (jazz.path-modification-time src))
+          (bintime (jazz.path-modification-time bin)))
       (if (or force? (not bintime) (> srctime bintime))
-          (begin
-            (jazz.compile-verbose suffix)
-            (jazz.with-extension-reader (jazz.filename-extension src)
+          (let ((name (jazz.path-name src)))
+            (jazz.compile-verbose name)
+            (jazz.create-directories bindir)
+            (jazz.with-extension-reader (jazz.path-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  (compile-file src output: bindir options: options cc-options: cc-options ld-options: ld-options)))))))))
+                  (compile-file (jazz.path-filename src) output: bindir options: options cc-options: cc-options ld-options: ld-options)))))))))
 
 
-(define (jazz.compile-verbose filename)
+(define (jazz.compile-verbose name)
   (display "; compiling ")
-  (display filename)
+  (display name)
   (display " ...")
   (newline))
 
@@ -86,35 +84,16 @@
 ;;;
 
 
-(define (jazz.create-directories dirname)
-  (let ((path (%%reverse (jazz.split-string dirname #\/))))
-    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
-      (if (%%not (%%null? scan))
-          (begin
-            (iter (%%cdr scan))
-            (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
-              (if (%%not (file-exists? subdir))
-                  (create-directory subdir))))))))
-
-
-(define (jazz.build-bin-dir directory)
-  (jazz.create-directories (%%string-append "_obj/" (jazz.runtime-filename-suffix directory))))
-
-
-(define (jazz.build-kernel)
-  (jazz.build-bin-dir "../../kernel/module")
-  (jazz.compile-filename "../../kernel/module/runtime"))
-
-
 (define (jazz.build-module module-name)
   (jazz.for-each-submodule module-name
     (lambda (module-name declaration load phase)
       (%%when (not (eq? load 'interpreted))
-        (let* ((filename (jazz.find-module-filename module-name))
-               (directory (jazz.split-filename filename (lambda (dir file) dir))))
-          (jazz.build-bin-dir directory)
-          (parameterize ((jazz.requested-module-name module-name))
-            (jazz.compile-filename filename)))))))
+        (jazz.compile-module module-name)))))
+
+
+;;;
+;;;; Module
+;;;
 
 
 (define (jazz.for-each-submodule module-name proc)
@@ -134,21 +113,16 @@
 
 
 ;;;
-;;;; Clean
+;;;; Directory
 ;;;
 
 
-#; ;; doesn't work
-(define (jazz.clean-module module-name)
-  (jazz.for-each-submodule module-name
-    (lambda (declaration load phase)
-      (if (not (eq? load 'interpreted))
-          (let* ((filename (jazz.find-module-filename module-name))
-                 (bindir (jazz.determine-module-bindir filename)))
-            (let iter ((n 0))
-                 (let ((bin (%%string-append bindir filename ".o" (number->string n))))
-                   (if (file-exists? bin)
-                       (begin
-                         (write (list 'deleting bin)) (newline)
-                         (delete-file bin)
-                         (iter (%%fx+ n 1))))))))))))
+(define (jazz.create-directories dirname)
+  (let ((path (%%reverse (jazz.split-string dirname #\/))))
+    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
+      (if (%%not (%%null? scan))
+          (begin
+            (iter (%%cdr scan))
+            (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
+              (if (%%not (jazz.file-exists? subdir))
+                  (create-directory subdir)))))))))

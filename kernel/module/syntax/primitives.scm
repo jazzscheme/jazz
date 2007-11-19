@@ -72,7 +72,12 @@
     (define-macro (%%char? obj)
       (if jazz.debug-core?
           `(char? ,obj)
-        `(##char? ,obj))))
+        `(##char? ,obj)))
+    
+    (define-macro (%%char=? c1 c2)
+      (if jazz.debug-core?
+          `(char=? ,c1 ,c2)
+        `(##char=? ,c1 ,c2))))
 
   (else))
 

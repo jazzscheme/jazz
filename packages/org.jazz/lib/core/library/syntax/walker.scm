@@ -5121,9 +5121,9 @@
 
 
 (define (jazz.load-toplevel-declaration module-name)
-  (let ((filename (jazz.require-module-source (jazz.find-module-filename module-name))))
+  (let ((source (jazz.path-filename (jazz.find-module-src module-name))))
     (define (load-declaration)
-      (let ((form (jazz.read-toplevel-form filename)))
+      (let ((form (jazz.read-toplevel-form source)))
         (parameterize ((jazz.requested-module-name module-name))
           (case (%%car form)
             ((module)
@@ -5131,7 +5131,7 @@
             ((library)
              (jazz.parse-library-declaration (%%cdr form)))))))
     
-    (jazz.with-verbose jazz.parse-verbose? "parsing" filename
+    (jazz.with-verbose jazz.parse-verbose? "parsing" source
       (lambda ()
         (load-declaration)))))
 
@@ -5139,18 +5139,18 @@
 (define jazz.parse-read? (make-parameter #f))
 
 
-(define (jazz.read-toplevel-form filename . rest)
+(define (jazz.read-toplevel-form source . rest)
   (let ((parse-read? (if (%%null? rest) #t (%%car rest))))
     (let ((form
-            (jazz.with-extension-reader (jazz.filename-extension filename)
+            (jazz.with-extension-reader (jazz.filename-extension source)
               (lambda ()
-                (call-with-input-file filename
+                (call-with-input-file source
                   (lambda (port)
                     (parameterize ((jazz.parse-read? parse-read?))
                       (read port))))))))
       (if (and (%%not (%%eof-object? form)) (%%memq (%%car form) '(module library)))
           form
-        (jazz.error "Invalid module declaration in {a}: {s}" filename form)))))
+        (jazz.error "Invalid module declaration in {a}: {s}" source form)))))
 
 
 ;;;

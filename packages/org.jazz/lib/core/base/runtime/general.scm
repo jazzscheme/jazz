@@ -81,16 +81,6 @@
     result))
 
 
-(define (jazz.find-char-reversed c str)
-  (let iter ((pos (%%fx- (%%string-length str) 1)))
-    (cond ((%%fx< pos 0)
-           #f)
-          ((char=? (%%string-ref str pos) c)
-           pos)
-          (else
-           (iter (%%fx- pos 1))))))
-
-
 (define (jazz.getprop plist target)
   (let iter ((scan plist))
     (cond ((%%null? scan)
@@ -242,7 +232,7 @@
 
 (define (jazz.identifier-name identifier)
   (let* ((str (%%symbol->string identifier))
-         (pos (jazz.find-char-reversed #\. str)))
+         (pos (jazz.string-find-reversed str #\.)))
     (if (%%not pos)
         identifier
       (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str))))))

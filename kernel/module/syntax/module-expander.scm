@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Module Syntax
+;;;; Module Expander
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -42,16 +42,6 @@
              (extended-bindings)
              (not safe)))
   (else))
-
-
-(jazz.define-syntax module
-  (lambda (src)
-    (let ((form (%%source-code src)))
-      (let ((name (%%source-code (%%cadr form)))
-            (rest (%%cddr form)))
-        (if (%%neq? name (jazz.requested-module-name))
-            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-          (jazz.expand-module name rest))))))
 
 
 (define (jazz.expand-module name rest)

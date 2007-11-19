@@ -126,7 +126,7 @@
 
 
 (define (walk library-name)
-  (let ((source (jazz.determine-module-source (jazz.find-module-filename library-name))))
+  (let ((source (jazz.path-filename (jazz.find-module-src library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (jazz.walk-library (cdr form)))))
 
@@ -146,7 +146,7 @@
 
 
 (define (expand-module module-name)
-  (let ((source (jazz.determine-module-source (jazz.find-module-filename module-name))))
+  (let ((source (jazz.path-filename (jazz.find-module-src module-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((name (cadr form))
             (rest (cddr form)))
@@ -190,7 +190,7 @@
 
 
 (define (expand-to-port library-name port)
-  (let ((source (jazz.determine-module-source (jazz.find-module-filename library-name))))
+  (let ((source (jazz.path-filename (jazz.find-module-src library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((kind (car form))
             (rest (cdr form)))
@@ -220,27 +220,23 @@
   (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
 
 
-;; patch around a gambit bug
+;; temporary patch around a gambit bug
 (define (cj module-name)
   (ld)
   (lj)
-  (let* ((file (jazz.find-module-filename module-name))
-         (suffix (jazz.runtime-filename-suffix file))
-         (jazz (jazz.determine-module-source file))
-         (jscm (string-append suffix ".jscm"))
-         (jscmfile (string-append "_obj/" jscm))
-         (jscmdir (jazz.split-filename jscmfile (lambda (dir name) dir)))
-         (bin (jazz.determine-module-binary suffix))
-         (jazztime (time->seconds (file-last-modification-time jazz)))
-         (jscmtime (and (file-exists? jscmfile) (time->seconds (file-last-modification-time jscmfile))))
-         (bintime (and bin (file-exists? bin) (time->seconds (file-last-modification-time bin)))))
+  (let* ((jazz (jazz.find-module-src module-name))
+         (jscm (jazz.make-path jazz.bin-package (jazz.path-name jazz) "jscm"))
+         (bin (jazz.path-find-binary jscm))
+         (jazztime (jazz.path-modification-time jazz))
+         (jscmtime (jazz.path-modification-time jscm))
+         (bintime (jazz.path-modification-time bin)))
     (if (or (not jscmtime) (> jazztime jscmtime)
             (not bintime) (> jscmtime bintime))
         (begin
-          (jazz.create-directories jscmdir)
-          (expand-to-file module-name jscmfile)
+          (jazz.create-directories (jazz.path-bin-dir jscm))
+          (expand-to-file module-name (jazz.path-filename jscm))
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-filename jscmfile suffix: suffix))))))
+            (jazz.compile-source-path jscm))))))
 
 
 ;;;
@@ -485,42 +481,6 @@
 
 (define (bjd)
   (bjedi))
-
-
-;;;
-;;;; Clean
-;;;
-
-
-(define (cln module-name)
-  (ld)
-  (let* ((file (jazz.find-module-filename module-name))
-         (suffix (jazz.runtime-filename-suffix file))
-         (jscm (string-append suffix ".jscm"))
-         (bin (jazz.determine-module-binary suffix)))
-    (define (delete-if-exists file)
-      (if (file-exists? file)
-          (begin
-            (display "; deleting ")
-            (display file)
-            (display " ...")
-            (newline)
-            (delete-file file))))
-    
-    (delete-if-exists jscm)
-    (if bin
-        (delete-if-exists bin))))
-
-
-(define (cjz)
-  (for-each cln Lang)
-  (for-each cln Util)
-  (for-each cln view)
-  (for-each cln Expl)
-  (for-each cln Text)
-  (for-each cln Tree)
-  (for-each cln Appl)
-  (for-each cln JML))
 
 
 ;;;

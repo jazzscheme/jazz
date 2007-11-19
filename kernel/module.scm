@@ -86,16 +86,59 @@
 
 
 ;;;
+;;;; Path
+;;;
+
+
+;; A path is a triplet (package name . extension) representing a module location.
+;; Compilation will use the name part to put the binary outputs under the _obj subdir
+;; of the architecture directory to enable a cross-compilation scheme.
+
+
+(define (jazz.make-path package name extension)
+  (cons package (cons name extension)))
+
+
+(define (jazz.path-package path)
+  (car path))
+
+(define (jazz.path-name path)
+  (cadr path))
+
+(define (jazz.path-extension path)
+  (cddr path))
+
+
+(define (jazz.path-suffix path)
+  (string-append (jazz.path-name path)
+                 "."
+                 (jazz.path-extension path)))
+
+
+(define (jazz.path-filename path)
+  (string-append (jazz.path-package path)
+                 (jazz.path-name path)
+                 "."
+                 (jazz.path-extension path)))
+
+
+;;;
 ;;;; Load
 ;;;
+
+
+(define jazz.load-indent
+  (make-parameter 0))
 
 
 (define (jazz.load-filename filename)
   (##load filename (lambda rest #f) #f #t))
 
 
-(define jazz.load-indent
-  (make-parameter 0))
+(define (jazz.load-path path)
+  (jazz.with-verbose jazz.load-verbose? "loading" (jazz.path-suffix path)
+    (lambda ()
+      (jazz.load-filename (jazz.path-filename path)))))
 
 
 (define (jazz.with-verbose flag action filename proc)
@@ -131,36 +174,37 @@
 ;;;
 
 
+(define jazz.Module-Paths
+  (list
+    (jazz.make-path "../../" "kernel/module/syntax/primitives" "scm")
+    (jazz.make-path "../../" "kernel/module/syntax/module" "scm")
+    (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm")
+    (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))
+
+
+(define jazz.Module-Compiled-Paths
+  (list
+    (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm")
+    (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))
+
+
 (define (jazz.load-module-system)
-  (define (kernel-load filename)
-    (jazz.with-verbose jazz.load-verbose? "loading" filename
-      (lambda ()
-        (jazz.load-filename filename))))
-  
-  (kernel-load "../../kernel/module/primitives")
-  (kernel-load "../../kernel/module/syntax")
-  (kernel-load "../../kernel/module/runtime")
-  
   ;; for now this is the best solution I found to guaranty that the kernel
   ;; can be loaded fully interpreted without having to do any build but at
   ;; the same time also load a compiled .o file from the bin dir if present
-  (jazz.with-load-src/bin "../../kernel/module/runtime"
-    (lambda (src)
-      #f)
-    (lambda (bin)
-      (jazz.with-verbose jazz.load-verbose? "loading" (substring bin 5 (string-length bin))
-        (lambda ()
-          (jazz.load-filename bin))))))
+  (define (load-bin src)
+    (jazz.with-path-src/bin src
+      (lambda (src)
+        #f)
+      jazz.load-path))
+  
+  (for-each jazz.load-path jazz.Module-Paths)
+  (for-each load-bin jazz.Module-Compiled-Paths))
 
 
 ;;;
 ;;;; Kernel
 ;;;
-
-
-(define (jazz.load-kernel)
-  (jazz.load-module-system)
-  (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz")))
 
 
 (define jazz.boot-kernel
@@ -170,3 +214,13 @@
           (begin
             (jazz.load-kernel)
             (set! loaded? #t))))))
+
+
+(define (jazz.load-kernel)
+  (jazz.load-module-system)
+  (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz")))
+
+
+(define (jazz.build-kernel)
+  (jazz.compile-source-path (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm"))
+  (jazz.compile-source-path (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))

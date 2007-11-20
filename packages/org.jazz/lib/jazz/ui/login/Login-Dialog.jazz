@@ -141,24 +141,6 @@
              (install-standard users)
              (set-selected?~ (locate 'standard-button) #t)))))
   
-  
-  ;;;
-  ;;;; Dialog
-  ;;;
-  
-  
-  @convert-dialog
-  (method meta (dialog-class)
-    Login-Host-Dialog)
-  
-
-  @convert-dialog
-  (class meta Login-Host-Dialog extends Host-Dialog
-    
-    
-    (form
-      (<install> title: "Login" position: {Point 450 300})))
-  
 
   ;;;
   ;;;; Modal
@@ -294,21 +276,26 @@
   
   
   (method (collect-standard-users)
-    (let ((dir {Directory Home "jazz" "lib" "user"})
-          (lst '()))
-      (iterate-directory~ dir
-        (function dynamic (dir)
-          (cond ((not use-user-class?)
-                 (let ((presentation (get-name~ dir)))
-                   (set! lst (cons (cons presentation dir) lst))))
-                (else
-                 (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
-                   (when (exists?~ file)
-                     (let ((presentation (get-base~ file)))
-                       (set! lst (cons (cons presentation file) lst))))))))
-        files?: #f
-        directories?: #t
-        recursive?: #f)
+    (let ((lst '()))
+      (define (collect-directory dir)
+        (iterate-directory~ dir
+          (function dynamic (dir)
+            (cond ((not use-user-class?)
+                   (let ((presentation (get-name~ dir)))
+                     (set! lst (cons (cons presentation dir) lst))))
+                  (else
+                   (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
+                     (when (exists?~ file)
+                       (let ((base (get-base~ file)))
+                         (let ((presentation (substring base 1 (string-length base))))
+                           (set! lst (cons (cons presentation file) lst)))))))))
+          files?: #f
+          directories?: #t
+          recursive?: #f))
+      
+      (collect-directory {Directory Home "jazz" "lib" "user"})
+      (collect-directory {Directory Jazz ".." "jazz.lib" "user"})
+      
       (sort ci<? lst key: car)))
   
 
@@ -394,7 +381,7 @@
   
   (method (draw surface context update lh lv)
     (let ((size (get-size)))
-      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 50) {Color name: White} Header-Color))))
+      (gradient-fill~ surface (new Rect 0 0 (get-width~ size) 44) {Color name: White} Header-Color))))
 
 
 ;;;

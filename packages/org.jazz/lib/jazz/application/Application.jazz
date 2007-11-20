@@ -59,6 +59,7 @@
         (jazz.ui.action)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
+        (jazz.ui.login)
         (jazz.ui.look)
         (jazz.ui.view)
         (jazz.ui.window)
@@ -389,21 +390,15 @@
   
   (method (system-user)
     (standard-user (get-system-user-name)))
-  
-  
-  (definition NEWLOGIN?
-    #f)
 
   
   (method (login-user)
-    (if NEWLOGIN?
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
         (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
           (new File (list 'Users name (format "{a}.jazz" name))))
       (catch (Cancel-Signal signal
                (exit))
-        (get-modal Login-Dialog use-user-class?: (use-user-class?))))
-    {File org.jazz "lib" "jazz" "user" "Me" "_Me.jazz"}))
+        (choose-login use-user-class?: (use-user-class?)))))
   
   
   (method (setup-user-file user)
@@ -418,15 +413,13 @@
   (method (setup-new-user directory name)
     (let ((expander (new Template-Expander))
           (associations (list (cons 'user name))))
-      (when NEWLOGIN?
       (create-directories~ directory)
-      (copy-user-settings directory expander associations))
+      (copy-user-settings directory expander associations)
       (cond ((not (use-user-class?))
              (set! user-pathname directory))
             (else
              (let ((file (new-file~ directory (format "{a}.jazz" name))))
-               (when NEWLOGIN?
-               (copy-user file expander associations))
+               (copy-user file expander associations)
                (set! user-pathname file))))))
   
   
@@ -467,9 +460,8 @@
         title: "Create User")
       (with-safe-execution "creating the user"
         (function dynamic ()
-          (if NEWLOGIN?
           (set! user (new (load-userclass user-name)))
-          (set! user (new jazz.user.Me))))
+          (set! user (new jazz.user.Me)))
         continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
         continue-handler:
         (function dynamic (err)
@@ -881,8 +873,6 @@
   
   
   (method (repositories-file)
-    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "Repositories.jml"}
-    @convert
     {File User "Settings" "Repositories.jml"})
   
   
@@ -1040,8 +1030,6 @@
   
   
   (definition Bindings-File
-    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "Bindings.jml"}
-    @convert
     {File User "Settings" "Bindings.jml"})
   
   
@@ -2341,8 +2329,6 @@
       (<Page-Setup>)))
   
   (definition Default-Page-Setup-File
-    {File Jazz "packages" "org.jazz" "lib" "jazz" "user" "settings" "PageSetup.jml"}
-    @convert
     {File User "Settings" "PageSetup.jml"})
   
   

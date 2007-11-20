@@ -433,6 +433,15 @@
   '(jazz.jml
     jazz.jml.parser.JML-Parser))
 
+(define Compare
+  '(jazz.groupware.compare.Compare-Directories
+    jazz.groupware.compare.Compare-Text-View
+    jazz.groupware.compare.Compare-Texts
+    jazz.groupware.compare.Compare-Trees
+    jazz.groupware.compare.Directory-Comparer
+    jazz.groupware.compare.Text-Comparer
+    jazz.groupware.compare.Tree-Comparer))
+
 
 (define (blang)
   (for-each cj Lang))
@@ -464,6 +473,9 @@
 (define (bjml)
   (for-each cj JML))
 
+(define (bcompare)
+  (for-each cj Compare))
+
 
 (define (bjedi)
   (la)
@@ -477,7 +489,8 @@
   (bcat)
   (btree)
   (bappl)
-  (bjml))
+  (bjml)
+  (bcompare))
 
 (define (bjd)
   (bjedi))

@@ -1,5 +1,16 @@
 JazzScheme is a programming language and development platform based on Scheme
 
+***
+*** This is an alpha release.
+***
+*** Note: Jazz is just emerging from a year long operation to have its C++ core replaced
+*** by a Scheme / Gambit core. This changed the language radically. Consequently, a lot
+*** of modules and tools are still broken. Also, the source code is currently a mixup of
+*** 'old style' and 'new style'. We are actively refactoring and cleaning up all the source
+*** code to use the new features like libraries, tail-call recursion, continuations, generics,
+*** type system, ... 
+***
+
 Jazz is the programming language
 Jedi is the IDE
 

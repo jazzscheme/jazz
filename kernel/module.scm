@@ -131,14 +131,15 @@
   (make-parameter 0))
 
 
-(define (jazz.load-filename filename)
-  (##load filename (lambda rest #f) #f #t))
+(define (jazz.load-filename filename quiet?)
+  (##load filename (lambda rest #f) #f #t quiet?))
 
 
-(define (jazz.load-path path)
-  (jazz.with-verbose jazz.load-verbose? "loading" (jazz.path-suffix path)
-    (lambda ()
-      (jazz.load-filename (jazz.path-filename path)))))
+(define (jazz.load-path path . rest)
+  (let ((quiet? (if (null? rest) #f (car rest))))
+    (jazz.with-verbose jazz.load-verbose? "loading" (jazz.path-suffix path)
+      (lambda ()
+        (jazz.load-filename (jazz.path-filename path) quiet?)))))
 
 
 (define (jazz.with-verbose flag action filename proc)
@@ -196,7 +197,8 @@
     (jazz.with-path-src/bin src
       (lambda (src)
         #f)
-      jazz.load-path))
+      (lambda (bin)
+        (jazz.load-path bin #t))))
   
   (for-each jazz.load-path jazz.Module-Paths)
   (for-each load-bin jazz.Module-Compiled-Paths))

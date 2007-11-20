@@ -7,7 +7,7 @@
 ;;;
 
 
-(include "~/gambit/lib/header.scm")
+(include "~~/lib/_gambit#.scm")
 
 
 ;;;

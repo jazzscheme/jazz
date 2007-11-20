@@ -478,7 +478,7 @@
            (height (get-height)))
       ;; probably buggy in ftx fix with alain
       (when (and empty-background (<= columns-right right))
-        (with ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
+        (let ((rect (new Rect (if sc? (fxround (* columns-right sc)) columns-right) 0 (if sc? (fxround (* right sc)) right) (if sc? (fxround (* height sc)) height))))
           (fill-rect~ surface rect empty-background))))
     (draw-highlighted surface))
   
@@ -486,7 +486,7 @@
   ;; probably still buggy when scaling, so limit to tree-view for now
   (method (draw-empty surface top bottom sh sv sc sc? rt width)
     (when (and empty-background (<= rt bottom))
-      (with ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
+      (let ((rect (new Rect 0 (fxround (if sc? (* rt sc) rt)) (fxround (if sc? (* width sc) width)) (fxround (if sc? (* bottom sc) bottom)))))
         (fill-rect~ surface rect empty-background))))
   
   
@@ -497,13 +497,13 @@
                                (insert (get-insert~ highlight)))
                            (if (not insert)
                                (draw-highlighted-cell surface row col highlight)
-                             (with ((rect (highlighted-insert-rect row insert)))
+                             (let ((rect (highlighted-insert-rect row insert)))
                                (fill-rect~ surface rect Highlighted-Insert-Color)))))
                        highlighted))
   
   
   (method protected virtual (draw-highlighted-cell surface row col highlight)
-    (with ((inner-rect (highlighted-target-rect row col))
+    (let* ((inner-rect (highlighted-target-rect row col))
            (outer-rect (inflate-rect inner-rect 1 1)))
       (let ((outer-color (either (get-outer-color~ highlight) (highlighted-outer-color)))
              (inner-color (either (get-inner-color~ highlight) (highlighted-inner-color))))
@@ -1316,9 +1316,9 @@
                 (set-cdr! filled-borders new-right)
                 (increase! columns-right delta)
                 (set-width~ column (+ (get-width~ column) delta))
-                (with ((rect (new Rect
-                               (- (min old-right new-right) 2) 0
-                               (get-width~ size) (get-height~ size))))
+                (let ((rect (new Rect
+                              (- (min old-right new-right) 2) 0
+                              (get-width~ size) (get-height~ size))))
                   (invalidate-rect rect))
                 (invalidate-header))))))))
   
@@ -1339,9 +1339,9 @@
             (set-cdr! filled-borders new-right) 
             (increase! columns-right delta)
             (set-width~ column (+ (get-width~ column) delta))
-            (with ((rect (new Rect
-                           (- (min old-right new-right) 2) 0
-                           (get-width~ size) (get-height~ size))))
+            (let ((rect (new Rect
+                          (- (min old-right new-right) 2) 0
+                          (get-width~ size) (get-height~ size))))
               (invalidate-rect rect))
             (invalidate-header))))))
   
@@ -1942,18 +1942,17 @@
   (method (added-update-selection rank count)
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
-    (with ((proc
-            (case selection-mode
-              ((cell) (function dynamic (pair)
-                      (let* ((cell (car pair))
-                             (r (get-row~ cell)))
-                        (when (>= r rank)
-                          (set-car! pair (new Cell (+ r count) (get-col~ cell)))))))
-              (else (function dynamic (pair)
-                      (let ((r (car pair)))
-                        (when (>= r rank)
-                          (set-car! pair (+ r count)))))))))
-      (for-each-pair proc selection)))
+    (for-each-pair (case selection-mode
+                     ((cell) (function dynamic (pair)
+                               (let* ((cell (car pair))
+                                      (r (get-row~ cell)))
+                                 (when (>= r rank)
+                                   (set-car! pair (new Cell (+ r count) (get-col~ cell)))))))
+                     (else (function dynamic (pair)
+                             (let ((r (car pair)))
+                               (when (>= r rank)
+                                 (set-car! pair (+ r count)))))))
+                   selection))
   
   
   ;; update slots that are rank based
@@ -1961,24 +1960,23 @@
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (- (get-row~ edited-cell) count)))
     (let ((removed '()))
-      (with ((proc
-               (case selection-mode
-                 ((cell) (function dynamic (cell)
-                           (let ((r (get-row~ cell)))
-                             (if (< r rank)
-                                 cell
-                               (if (> r (+ rank count -1))
-                                   (new Cell (- r count) (get-col~ cell))
-                                 (set! removed (cons cell removed))
-                                 {})))))
-                 (else (function dynamic (r)
-                         (if (< r rank)
-                             r
-                           (if (> r (+ rank count -1))
-                               (- r count)
-                             (set! removed (cons r removed))
-                             {})))))))
-        (set! selection (collect proc selection)))
+      (set! selection (collect (case selection-mode
+                                 ((cell) (function dynamic (cell)
+                                           (let ((r (get-row~ cell)))
+                                             (if (< r rank)
+                                                 cell
+                                               (if (> r (+ rank count -1))
+                                                   (new Cell (- r count) (get-col~ cell))
+                                                 (set! removed (cons cell removed))
+                                                 {})))))
+                                 (else (function dynamic (r)
+                                         (if (< r rank)
+                                             r
+                                           (if (> r (+ rank count -1))
+                                               (- r count)
+                                             (set! removed (cons r removed))
+                                             {})))))
+                               selection))
       (if (null? removed)
           #f
         (car removed))))

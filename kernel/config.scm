@@ -41,7 +41,7 @@
 
 
 (define jazz.load-verbose?
-  #f)
+  #t)
 
 (define jazz.parse-verbose?
   #f)

@@ -75,7 +75,7 @@
   
   
   (method public (set-lie lie <Point>) <void>
-    (with ((actual (get-lie))
+    (let* ((actual (get-lie))
            (delta (- lie actual))
            (pos (+ position delta)))
       (set-position pos)))
@@ -346,12 +346,11 @@
   
   
   (method public (for-each-drawing-reversed proc <procedure> (include-invisibles?: include-invisibles? #f))
-    (with ((proc
-             (function dynamic (child)
-               (when (and (is? child View)
-                          (or include-invisibles? (get-visible?~ child)))
-                 (proc child)))))
-      (for-each-reversed proc children)))
+    (for-each-reversed (function dynamic (child)
+                         (when (and (is? child View)
+                                    (or include-invisibles? (get-visible?~ child)))
+                           (proc child)))
+      children))
   
   
   ;;;
@@ -375,14 +374,14 @@
       (lambda (return)
         (for-each-drawing-reversed
           (function dynamic (view <View>)
-            (with ((delta <Point> (- pos (get-position~ view))))
+            (let ((delta <Point> (- pos (get-position~ view))))
               (let* ((scaled? (get-scaled?~ view))
                      (found (if (not scaled?)
                                 (find-drawing~ view delta)
                               (let ((scaling <fl> (get-scaling~ view)))
-                                (with ((scaled (new Point
-                                                 (fxround (/ (get-h~ delta) scaling))
-                                                 (fxround (/ (get-v~ delta) scaling)))))
+                                (let ((scaled (new Point
+                                                (fxround (/ (get-h~ delta) scaling))
+                                                (fxround (/ (get-v~ delta) scaling)))))
                                   (find-drawing~ view scaled))))))
                 (when found
                   (return found))))))
@@ -395,7 +394,7 @@
   
   
   (method public (invalidate-drawing)
-    (with ((rect (get-rect)))
+    (let ((rect (get-rect)))
       (invalidate-rect~ parent rect)))
 
   
@@ -413,12 +412,12 @@
     (when (get-visible?)
       ;; beurk code for testing
       (if (or (get-scaled?) sc?)
-          (with ((rect (h/v/size->rect lh lv size)))
+          (let ((rect (h/v/size->rect lh lv size)))
             ;; quick patch for the time being
             (when #t @w (rect-intersects-region? (get-left~ scaled) (get-top~ scaled) (rect-size scaled) update)
               (paint-displayed surface context update lh lv sh sv sc sc?)))
         (when (cond ((not update) #t)
-                    ((is? update Rect) (with ((lie (new Point lh lv))) (rects-intersect? update lie size)))
+                    ((is? update Rect) (let ((lie (new Point lh lv))) (rects-intersect? update lie size)))
                     (else (rect-intersects-region? lh lv size update)))
           (paint-displayed surface context update lh lv sh sv sc sc?)))))
 
@@ -427,8 +426,8 @@
     (if (not (get-offscreen?))
         (paint-drawing surface context update lh lv sh sv sc sc?)
       (let ((offscreen (get-offscreen surface (get-width~ size) (get-height~ size))))
-        (with ((origin (new Point 0 0))
-               (clipper (get-bounds)))
+        (let ((origin (new Point 0 0))
+              (clipper (get-bounds)))
           (setup-clipper~ offscreen clipper)
           (paint-drawing offscreen context update lh lv sh sv sc sc?)
           ;; the next lines are in case an error occurs in the paint process
@@ -445,7 +444,7 @@
             (bit-blit~ offscreen surface size: size)
             @not-converted-to-cairo
             (if (not effect)
-              (with ((lie (new Point lh lv)))
+              (let ((lie (new Point lh lv)))
                 (animate~ effect offscreen surface lie size))
               (set-effect {})))))))
 
@@ -514,7 +513,7 @@
     (cond ((not update) (get-bounds))
           ((is? update Rect) (device->logical~ surface update))
           (else
-           (with ((box (get-box~ update))
+           (let* ((box (get-box~ update))
                   (logical (device->logical~ surface box))
                   (bounds (get-bounds)))
              (rect-intersection logical bounds)))))
@@ -530,11 +529,11 @@
   
   
   (method protected virtual (get-translated-clipper h v)
-    (with ((b (get-bounds))
+    (let* ((b (get-bounds))
            (r (offset-rect b (fxround h) (fxround v))))
       (if (not parent)
           (copy r)
-        (with ((p (get-translated-clipper~ parent (- h (get-h~ position)) (- v (get-v~ position)))))
+        (let ((p (get-translated-clipper~ parent (- h (get-h~ position)) (- v (get-v~ position)))))
           (rect-intersection p r)))))
   
   

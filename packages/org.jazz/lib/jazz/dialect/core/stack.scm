@@ -62,7 +62,7 @@
   
 (cond-expand
   (gambit
-    (include "~/gambit/lib/header.scm")
+    (include "~~/lib/_gambit#.scm")
     
     
     (define (jazz.continuation-capture proc)

@@ -160,12 +160,7 @@
     
     (define (jazz.load-bin bin)
       (parameterize ((jazz.walk-for 'interpret))
-        ;; until a standard mecanism is added to Gambit
-        (if (and (##global-var? 'suppress-warnings)
-                 (##not (##unbound? (##global-var-ref 'suppress-warnings))))
-            (parameterize ((suppress-warnings #t))
-              (jazz.load-path bin))
-          (jazz.load-path bin))))
+        (jazz.load-path bin #t)))
     
     
     (define (jazz.load-source-path src)

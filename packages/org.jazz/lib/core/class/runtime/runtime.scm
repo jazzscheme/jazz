@@ -38,7 +38,7 @@
 (module core.class.runtime.runtime
 
 
-(include "~/gambit/lib/header.scm")
+(include "~~/lib/_gambit#.scm")
 
 
 (define jazz.new-interface-rank

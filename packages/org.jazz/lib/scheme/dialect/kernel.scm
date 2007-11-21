@@ -291,8 +291,8 @@
 
 (native procedure? <object:bool>)
 (native apply <procedure^object*:object>)
-(native map <list^list*:list>)
-(native for-each <list^list*:void>)
+(native map <procedure^list*:list>)
+(native for-each <procedure^list*:void>)
 (native force <promise:object>)
 (native call-with-current-continuation <procedure:object>)
 (native call/cc <procedure:object>)

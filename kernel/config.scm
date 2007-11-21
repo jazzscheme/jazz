@@ -56,7 +56,7 @@
 
 
 (define jazz.warnings?
-  #f)
+  #t)
 
 
 ;; Set to #f to debug the walker itself

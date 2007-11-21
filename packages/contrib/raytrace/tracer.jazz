@@ -16,40 +16,48 @@
 ;;; 10/04/2007
 ;;; James Long
 
+
 (library raytrace.tracer jazz
+
 
 (import (raytrace.syntax (phase syntax))
         (raytrace.log)
         (raytrace.parser)
         (raytrace.vec))
 
+
+(proclaim (optimize))
+
+
 ;;; Utility
 
-(definition (real->u8 n)
-  (inexact->exact
-   (max 0
-        (min 255
-             (floor n)))))
+(definition (real->u8 n <fl>) <fx>
+  (max 0
+       (min 255
+            (fxfloor n))))
 
-(definition (real->percentage n)
-  (inexact->exact (floor (* 100.0 n))))
+(definition (real->percentage n <fl>) <fx>
+  (fxfloor (* 100.0 n)))
 
-(definition (write-color v1)
-  (write-u8 (real->u8 (* (vec3d-x v1) 255.0)))
-  (write-u8 (real->u8 (* (vec3d-y v1) 255.0)))
-  (write-u8 (real->u8 (* (vec3d-z v1) 255.0))))
+(definition (write-color v1 <vec3d> port <port>)
+  (write-u8 (real->u8 (* (vec3d-x v1) 255.0)) port)
+  (write-u8 (real->u8 (* (vec3d-y v1) 255.0)) port)
+  (write-u8 (real->u8 (* (vec3d-z v1) 255.0)) port))
+
 
 ;;; Config constants
-(definition screenDimen (make-vec2d 8.0 6.0))
-(definition res (make-vec2d 600 450))
-(definition eye (make-vec3d 0.0 0.0 -5.0))
-(definition depth 10000.0)
-(definition backColor (make-vec3d 0.0 0.0 0.0))
-(definition ambient (make-vec3d .1 .1 .1))
-(definition maxsteps 3)
+(definition screenDimen <vec2d> (make-vec2d 8.0 6.0))
+(definition x-res <fx> 600)
+(definition y-res <fx> 450)
+(definition eye <vec3d> (make-vec3d 0.0 0.0 -5.0))
+(definition depth <fl> 10000.0)
+(definition backColor <vec3d> (make-vec3d 0.0 0.0 0.0))
+(definition ambient <vec3d> (make-vec3d .1 .1 .1))
+(definition maxsteps <fx> 3)
 
 (definition coptix (delay (load-obj "coptix_slim")))
 (definition box (delay (load-obj "box")))
+
 
 (definition (generate-spheres)
   (let ((start (make-vec3d 0.0 0.0 65.0))
@@ -58,18 +66,19 @@
     (let loop ((num 0)
                (acc '()))
       (if (< num 25)
-          (loop (+ num 1) (cons `(sphere ,(make-vec3d .8 (+ .2 (/ (exact->inexact num) 50.0)) .2)
+          (loop (+ num 1) (cons `(sphere ,(make-vec3d .8 (+ .2 (/ (cast <fl> num) 50.0)) .2)
                                          ,(vec3d-add
                                             (vec3d-add start
                                                        (vec3d-scalar-mul
                                                          (vec3d-scalar-mul dX 10.0)
-                                                         (exact->inexact (remainder num 5))))
+                                                         (cast <fl> (remainder num 5))))
                                             (vec3d-scalar-mul
                                               (vec3d-scalar-mul dY 10.0)
-                                              (exact->inexact (quotient num 5))))
+                                              (/ num 5.0)))
                                          5.0)
                                 acc))
           acc))))
+
 
 (definition scene `(,@(generate-spheres)
                 ;(sphere ,(make-vec3d .4 .6 .5) ,(make-vec3d -15.0 0.0 90.0) 20.0)
@@ -77,6 +86,7 @@
                 (plane ,(make-vec3d .7 .7 1.0) 10.0 ,(make-vec3d .25 -1.0 0.0))
                 (mesh #f ,(make-vec3d 23.0 0.0 50.0) ,coptix)
                 (light ,(make-vec3d .7 .9 .9) ,(make-vec3d -40.0 -15.0 60.0) 1.0)))
+
 
 (definition (obj-type obj)
   (car obj))
@@ -92,42 +102,42 @@
    ((triangle) (triangle-normal obj))))
 
 ;;; Light
-(definition (light-pos obj)
+(definition (light-pos obj) <vec3d>
   (sphere-pos obj))
 
-(definition (light-intersection obj origVec dirVec)
+(definition (light-intersection obj origVec <vec3d> dirVec <vec3d>) <fl>
   (sphere-intersection obj origVec dirVec))
 
 ;;; Sphere
-(definition (sphere-pos obj)
+(definition (sphere-pos obj) <vec3d>
   (caddr obj))
 
-(definition (sphere-radius obj)
+(definition (sphere-radius obj) <fl>
   (cadddr obj))
 
-(definition (sphere-intersection obj origVec dirVec)
+(definition (sphere-intersection obj origVec <vec3d> dirVec <vec3d>) <fl>
   (let* ((eo (vec3d-sub origVec (sphere-pos obj)))
          (b (vec3d-dot eo dirVec))
-         (c (- (vec3d-dot eo eo) (expt (sphere-radius obj) 2.0)))
+         (c (- (vec3d-dot eo eo) (cast <fl> (expt (sphere-radius obj) 2.0))))
          (d (- (* b b) c)))
-    (if (<= d 0.0)
+    (if (<= d (cast <fl> 0.0))
         depth
-        (let ((r (- (- b) (sqrt d))))
+        (let ((r (- (- b) (cast <fl> (sqrt d)))))
           (if (> r 0.0)
               r
               depth)))))
 
-(definition (sphere-normal obj point)
+(definition (sphere-normal obj point <vec3d>) <vec3d>
   (vec3d-unit (vec3d-sub point (sphere-pos obj))))
 
 ;;; Plane
-(definition (plane-normal obj)
+(definition (plane-normal obj) <vec3d>
   (cadddr obj))
 
-(definition (plane-distance obj)
+(definition (plane-distance obj) <fl>
   (caddr obj))
 
-(definition (plane-intersection obj origVec dirVec)
+(definition (plane-intersection obj origVec <vec3d> dirVec <vec3d>) <fl>
   (let ((d (vec3d-dot (plane-normal obj) dirVec)))
     (if (not (zero? d))
         (let ((dist (/ (- (+ (vec3d-dot (plane-normal obj) origVec)
@@ -139,14 +149,14 @@
         depth)))
 
 ;;; Triangles
-(definition (triangle-v1 obj)
+(definition (triangle-v1 obj) <vec3d>
   (caddr obj))
-(definition (triangle-v2 obj)
+(definition (triangle-v2 obj) <vec3d>
   (cadddr obj))
-(definition (triangle-v3 obj)
+(definition (triangle-v3 obj) <vec3d>
   (car (cddddr obj)))
 
-(definition (triangle-normal obj)
+(definition (triangle-normal obj) <vec3d>
   (vec3d-unit
     (vec3d-cross
       (vec3d-sub (triangle-v2 obj)
@@ -154,7 +164,7 @@
       (vec3d-sub (triangle-v3 obj)
                  (triangle-v1 obj)))))
 
-(definition (triangle-intersection obj origVec dirVec)
+(definition (triangle-intersection obj origVec <vec3d> dirVec <vec3d>) <fl>
   (let* ((n (triangle-normal obj))
          (v$n (vec3d-dot dirVec n)))
     (if (>= v$n 0.0)
@@ -189,7 +199,7 @@
                   depth)))))))
 
 ;; Simplistic meshes
-(definition (mesh-pos obj)
+(definition (mesh-pos obj) <vec3d>
   (caddr obj))
 
 (definition (mesh-primitives obj)
@@ -199,7 +209,7 @@
         (force a))))
 
 ;;; Intersections and casting
-(definition (test-intersection obj origVec dirVec)
+(definition (test-intersection obj origVec <vec3d> dirVec <vec3d>) <fl>
   (obj-dispatch obj
    ((sphere) (sphere-intersection obj origVec dirVec))
    ((light) (sphere-intersection obj origVec dirVec))
@@ -244,7 +254,7 @@
     (for-each (lambda (obj)
                 (if (eq? (obj-type obj) 'mesh)
                     (find-closest-prim (vec3d-add orig (vec3d-inverse (mesh-pos obj))) dir (mesh-primitives obj)
-                                       (lambda (o d)
+                                       (lambda (o d <fl>)
                                          (if (< d closestDepth)
                                              (begin
                                                (set! closestDepth d)
@@ -259,13 +269,13 @@
         (cont closestObj closestDepth)
         backColor)))
 
-(definition (shoot-ray orig dir step)
+(definition (shoot-ray orig dir step <fx>)
   (if (< step maxsteps)
       (find-closest-prim
         orig
         dir
         scene
-        (lambda (closestObj closestDepth)
+        (lambda (closestObj closestDepth <fl>)
           (if closestObj
               (let* ((d closestDepth)
                      (point (vec3d-add orig (vec3d-scalar-mul dir d)))
@@ -274,28 +284,28 @@
                      (view (vec3d-unit (vec3d-sub point eye))))
                 (vec3d-add
                   (apply-lighting closestObj point view)
-                  (vec3d-scalar-mul (shoot-ray (vec3d-add point (vec3d-scalar-mul r .0001)) r (+ step 1)) (/ (* (exact->inexact (+ step 1)) 2.0)))))
+                  (vec3d-scalar-mul (shoot-ray (vec3d-add point (vec3d-scalar-mul r .0001)) r (+ step 1)) (/ (* (cast <fl> (+ step 1)) 2.0)))))
               backColor)))
       (make-vec3d 0.0 0.0 0.0)))
-  
+
 (definition (shoot-screen-rays)
-  (let ((dX (/ (vec2d-x screenDimen) (exact->inexact (vec2d-x res))))
-        (dY (/ (vec2d-y screenDimen) (exact->inexact (vec2d-y res))))
+  (let ((dX (/ (vec2d-x screenDimen) x-res))
+        (dY (/ (vec2d-y screenDimen) y-res))
         (screenCorner (make-vec3d (- (/ (vec2d-x screenDimen) 2.0))
                                   (- (/ (vec2d-y screenDimen) 2.0))
                                   0.0))
-        (count (* (vec2d-x res) (vec2d-y res))))
+        (count (* x-res y-res)))
     (let loop ((n 0)
                (acc '()))
       (if (< n count)
-          (let* ((curPoint (make-vec3d (* (exact->inexact (remainder n (vec2d-x res))) dX) (* (exact->inexact (quotient n (vec2d-y res))) dY) 0.0))
+          (let* ((curPoint (make-vec3d (* (cast <fl> (remainder n x-res)) dX) (* (fl/ n y-res) dY) 0.0))
                  (view (vec3d-unit
                         (vec3d-sub (vec3d-add screenCorner curPoint)
                                    eye)))
                  (curColor (shoot-ray eye
                                       view
                                       0)))
-            (if (zero? (remainder n (* (vec2d-y res) 5)))
-                  (log-args (real->percentage (/ (exact->inexact n) (exact->inexact count))) "%"))
+            (if (zero? (remainder n (* y-res 5)))
+                  (log-args (real->percentage (/ (cast <fl> n) (cast <fl> count))) "%"))
             (loop (+ n 1) (cons curColor acc)))
           (reverse acc))))))

@@ -3455,7 +3455,7 @@
 ;;;
 
 
-(class Cell extends Object
+(class Cell extends Numeric
   
   
   (slot row <fx> accessors generate)
@@ -3489,6 +3489,30 @@
             (identifier-name (type-name (class-of self)))
             row
             col))
+
+
+  (method (numeric-norm)
+    (error "Cannot norm {t}" self))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Cell) (new Cell (+ row (get-row~ n)) (+ col (get-col~ n))))
+          ((integer? n) (new Cell row (+ col n)))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Cell (- row) (- col)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Cell (* row n) (* col n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self))
   
   
   (method public (increase-row (delta <fx> 1))
@@ -3739,7 +3763,7 @@
 ;;;
 
 
-(class Point extends Object
+(class Point extends Numeric
   
   
   (slot h <fx> getter generate)
@@ -3773,7 +3797,32 @@
   (method (print printer readably)
     (format printer "~{Point {a} {a}}"
             h
-            v)))
+            v))
+  
+  
+  (method (numeric-norm)
+    (sqrt (+ (expt h 2) (expt v 2))))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Point) (new Point (+ h (get-h~ n)) (+ v (get-v~ n))))
+          ((is? n Dimension) (new Point (+ h (get-width~ n)) (+ v (get-height~ n))))
+          ((integer? n) (new Point (+ h n) v))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Point (- h) (- v)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Point (* h n) (* v n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self)))
 
 
 (definition public inline (new-point h v)
@@ -3829,7 +3878,7 @@
 ;;;
 
 
-(class Dimension extends Object
+(class Dimension extends Numeric
   
   
   (slot width  <fx> getter generate)
@@ -3862,7 +3911,31 @@
   (method (print printer readably)
     (format printer "~{Dimension {a} {a}}"
             width
-            height)))
+            height))
+
+
+  (method (numeric-norm)
+    (error "Cannot norm {t}" self))
+
+
+  (method (numeric-add n)
+    (cond ((is? n Dimension) (new Dimension (+ width (get-width~ n)) (+ height (get-height~ n))))
+          ((is? n Point) (new Dimension (+ width (get-h~ n)) (+ height (get-v~ n))))
+          (else (error "Cannot add {t} to {t}" n self))))
+
+
+  (method (numeric-negate)
+    (new Dimension (- width) (- height)))
+
+
+  (method (numeric-multiply n)
+    (if (integer? n)
+        (new Dimension (* width n) (* height n))
+      (error "Cannot multiply {t} to {t}" n self)))
+
+
+  (method (numeric-inverse)
+    (error "Cannot inverse {t}" self)))
 
 
 (definition public inline (new-dimension width height)

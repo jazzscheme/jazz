@@ -40,6 +40,7 @@
 
 (import (jazz.literals)
         (jazz.library)
+        (jazz.platform.cairo)
         (jazz.ui)
         (jazz.ui.look)
         (jazz.utilities))
@@ -92,7 +93,7 @@
 
   
   (method (draw surface context update lh lv)
-    (let* ((title (localize (either (get-title) "")))
+    (let* ((title (localize (get-title)))
            (size (get-size))
            (width (get-width~ size))
            (height (get-height~ size))
@@ -102,11 +103,12 @@
            (frame-color (case style ((entry) {Color name: Entry-Border}) (else {Color name: Group-Border})))
            (rect (get-bounds)))  
       (let* ((metrics (get-text-metrics~ surface))
-             (extent (get-text-extent~ surface title))
-             (top 0 @convert (ceiling (/ (get metrics 'ascent) 2))))
+             (extent (and title (get-text-extent~ surface title)))
+             (top (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2))))
         (if flat?
             (frame-rect~ surface (new Rect 0 top width height) frame-color)
           (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle))
-        (fill-rect~ surface (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)) color)
-        (set-text-color~ surface {Color name: Black})
-        (draw-text~ surface offset 0 title))))))
+        (when title
+          (fill-rect~ surface (new Rect (- offset 2) 0 (+ offset (get-width~ extent) 2) (get-height~ extent)) color)
+          (set-text-color~ surface {Color name: Black})
+          (draw-text~ surface offset 0 title)))))))

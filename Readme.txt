@@ -8,7 +8,7 @@ JazzScheme is a programming language and development platform based on Scheme
 *** of modules and tools are still broken. Also, the source code is currently a mixup of
 *** 'old style' and 'new style'. We are actively refactoring and cleaning up all the source
 *** code to use the new features like libraries, tail-call recursion, continuations, generics,
-*** type system, ... 
+*** type system, ...
 ***
 
 Jazz is the programming language

@@ -2951,7 +2951,7 @@
 (jazz.define-method (jazz.emit-expression (jazz.Delay expression) declaration environment)
   (let ((expression (%%get-delay-expression expression)))
     (jazz.new-code
-      `(delay ,(jazz.emit-expression expression declaration environment))
+      `(delay ,(%%get-code-form (jazz.emit-expression expression declaration environment)))
       jazz.Any)))
 
 

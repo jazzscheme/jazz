@@ -318,6 +318,9 @@
 (native jazz.eof-object)
 (native open-input-string)
 (native call-with-input-string)
+(native with-input-from-string)
+(native read-line)
+(native read-all)
 
 
 ;;;
@@ -333,6 +336,9 @@
 (native open-output-string)
 (native get-output-string)
 (native call-with-output-string)
+(native current-error-port)
+(native with-output-to-port)
+(native write-u8)
 
 
 ;;;

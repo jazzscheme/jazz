@@ -207,7 +207,8 @@
 
 (define jazz.Packages
   '("../../packages/org.jazz/lib/"
-    "../../packages/org.jedi/lib/"))
+    "../../packages/org.jedi/lib/"
+    "~/jazz/lib/"))
 
 
 (define (jazz.register-package package)

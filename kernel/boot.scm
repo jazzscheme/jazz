@@ -38,3 +38,6 @@
 (load "../../kernel/config")
 (load "../../kernel/module")
 (load "../../kernel/dev")
+
+(if (file-exists? "~/jazz/jazzini.scm")
+    (load "~/jazz/jazzini"))

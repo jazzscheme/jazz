@@ -44,19 +44,6 @@
 
 
 ;;;
-;;;; Test
-;;;
-
-
-(define (s specifier)
-  (jazz.type->specifier (jazz.walk-specifier #f #f #f '() specifier)))
-
-
-(define (sbuggy)
-  (s '<fx<fx/<fx^fx:fx>/fx>^fx:fx>))
-
-
-;;;
 ;;;; Load
 ;;;
 

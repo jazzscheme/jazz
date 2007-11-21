@@ -74,9 +74,13 @@
   (l 'jazz))
 
 
-(define (la)
+(define (li)
   (lj)
-  (l 'jazz.literals)
+  (l 'jazz.literals))
+
+
+(define (la)
+  (li)
   (l 'jazz.platform.literals))
 
 

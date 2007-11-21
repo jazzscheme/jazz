@@ -208,6 +208,7 @@
 (define jazz.Packages
   '("../../packages/org.jazz/lib/"
     "../../packages/org.jedi/lib/"
+    "../../packages/contrib/"
     "~/jazz/lib/"))
 
 

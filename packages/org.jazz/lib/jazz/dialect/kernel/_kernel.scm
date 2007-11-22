@@ -342,6 +342,14 @@
 
 
 ;;;
+;;;; Path
+;;;
+
+
+(native jazz.path-filename)
+
+
+;;;
 ;;;; Pathname
 ;;;
 
@@ -399,6 +407,7 @@
 
 
 (native jazz.register-package)
+(native jazz.find-module-src)
 (native jazz.get-environment)
 (native jazz.get-catalog)
 (native jazz.locate-library-declaration)

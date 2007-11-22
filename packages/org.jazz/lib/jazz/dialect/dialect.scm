@@ -633,7 +633,9 @@
             (cond ((%%class-is? category-declaration jazz.Class-Declaration)
                    (values 'class method-declaration))
                   ((%%class-is? category-declaration jazz.Interface-Declaration)
-                   (values 'interface method-declaration)))))))))
+                   (values 'interface method-declaration))
+                  (else
+                   (error "Invalid category declaration: {s}" category-declaration)))))))))
 
 
 (define (jazz.native-category? category-declaration)
@@ -1117,12 +1119,7 @@
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
               ((final)
-               (let ((implementation
-                      (if jazz.kludge-around-gambit-procedure-name-algorithm?
-                          (lambda rest
-                            (apply (%%get-method-implementation field) rest))
-                        (%%get-method-implementation field))))
-                 (proc jazz.final-dispatch implementation #f)))
+               (proc jazz.final-dispatch (%%get-method-implementation field) #f))
               ((class)
                (proc jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
               ((interface)

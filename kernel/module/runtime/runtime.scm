@@ -216,26 +216,29 @@
   (set! jazz.Packages (cons package jazz.Packages)))
 
 
-(define (jazz.find-module-src module-name)
-  (let ((name (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
-    (let ((base (jazz.filename-name name)))
-      (let iter ((scan jazz.Packages))
-        (if (%%null? scan)
-            (jazz.kernel-error "Unable to find module:" module-name)
-          (let ((package (%%car scan)))
-            (define (try name)
-              (define (try-extension extension)
-                (if (jazz.file-exists? (%%string-append package name "." extension))
-                    (jazz.make-path package name extension)
-                  #f))
+(define (jazz.find-module-src module-name . rest)
+  (let ((error? (if (%%null? rest) #t (%%car rest))))
+    (let ((name (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
+      (let ((base (jazz.filename-name name)))
+        (let iter ((scan jazz.Packages))
+          (if (%%null? scan)
+              (if error?
+                  (jazz.kernel-error "Unable to find module:" module-name)
+                #f)
+            (let ((package (%%car scan)))
+              (define (try name)
+                (define (try-extension extension)
+                  (if (jazz.file-exists? (%%string-append package name "." extension))
+                      (jazz.make-path package name extension)
+                    #f))
+                
+                (or (try-extension "scm")
+                    (try-extension "jazz")))
               
-              (or (try-extension "scm")
-                  (try-extension "jazz")))
-            
-            (or (if (jazz.directory-exists? (%%string-append package name))
-                    (try (%%string-append name "/_" base))
-                  (try name))
-                (iter (%%cdr scan)))))))))
+              (or (if (jazz.directory-exists? (%%string-append package name))
+                      (try (%%string-append name "/_" base))
+                    (try name))
+                  (iter (%%cdr scan))))))))))
 
 
 ;;;

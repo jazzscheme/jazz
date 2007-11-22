@@ -85,7 +85,7 @@
 
   (method (prepare-workbench)
     (nextmethod)
-    (load-workbench))
+    (setup-workbench))
   
   
   (method (process-title)
@@ -135,10 +135,6 @@
   
   
   (method (use-user-logging?)
-    #t)
-  
-  
-  (method (use-user-class?)
     #t)
 
   
@@ -313,16 +309,24 @@
     {File User "Settings" "Workbench.jml"})
   
   
-  (method public (load-workbench)
+  (method (load-workbench)
+    (let ((file Workbench-File))
+      (if (exists?~ file)
+          (instantiate~ (read-from-file file))
+        (default-workbench))))
+  
+  
+  (method protected virtual (default-workbench)
+    (new Workbench))
+  
+  
+  (method public (setup-workbench)
     (with-safe-execution "loading the workbench"
       (function dynamic ()
-        (let ((file Workbench-File))
-          (if (not (exists?~ file))
-              (set-workbench {})
-            (with-execution-context
-              (function dynamic ()
-                (set-workbench (instantiate~ (read-from-file file))))
-              title: "Load Workbench"))))
+        (with-execution-context
+          (function dynamic ()
+            (set-workbench (load-workbench)))
+          title: "Load Workbench"))
       continue-handler:
       (function dynamic (err)
         )))

@@ -137,16 +137,18 @@
       (subseq filename (+ pos 1) (cardinality filename)))))
 
 
+(definition public (tokenise-filename filename <string>)
+  (split filename "/"))
+
+
 (definition public (tokenise filename <string>)
+  (cons 'Root (split filename "/")))
+
+
+(definition public (tokenise-windows filename <string>)
   (if (starts-with? filename "\\\\")
       (cons 'Network (split (subseq filename 2 (cardinality filename)) "\\"))
     (cons 'Root (split filename "\\"))))
-
-
-(definition public (tokenise-unix filename <string>)
-  (if (starts-with? filename "//")
-      (cons 'Network (split (subseq filename 2 (cardinality filename)) "/"))
-    (cons 'Root (split filename "/"))))
 
 
 (definition public (get-tmp-directory)
@@ -469,10 +471,12 @@
   
   
   (method (get-parent)
-    (let* ((list (get-list))
-           (parent (butlast (if (= (length list) 1) (expand) list))))
-      (when (not-null? parent)
-        (new Directory parent))))
+    (let ((effective-path (if (= (length path) 1) (expand) path)))
+      (if (null? effective-path)
+          #f
+        (if (equal? (last effective-path) "..")
+            (new Directory (append effective-path (list "..")))
+          (new Directory (butlast effective-path))))))
   
   
   (method public (get-brother name)
@@ -848,8 +852,6 @@
 
 
   (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? #f) (copy?: copy? #t))
-    (unimplemented 'copy-directory)
-    @windows-specific (
     (when feedback
       (feedback self))
     (create-directories~ dst)
@@ -864,12 +866,13 @@
                   (if copier
                       (copier path dest)
                     (copy-file~ path dest))
+                  @convert
                   (when touch-files?
                     (touch~ dest)))
-              (copy-directory~ path (new Directory (destination path)) feedback: feedback :touch-files? touch-files? :copy? copy?))))
+              (copy-directory~ path (new Directory (destination path)) feedback: feedback touch-files?: touch-files? copy?: copy?))))
         files?: #t
         directories?: #t
-        recursive?: #f))))
+        recursive?: #f)))
   
   
   (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))

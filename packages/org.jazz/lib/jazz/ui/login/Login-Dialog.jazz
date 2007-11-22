@@ -50,9 +50,6 @@
 
 
 (class Login-Dialog extends View
-  
-  
-  (property use-user-class? initialize #f accessors generate)
 
 
   (form
@@ -64,17 +61,11 @@
         (<Radio-Button>             name: new-button          title: "New" position: {Point 25 55} tooltip?: #t tooltip-text: "Create a new user" action-handler: {Event-Handler form: on-new})
         (<Radio-Button>             name: existing-button     title: "Existing" position: {Point 25 78} tooltip?: #t tooltip-text: "Open an existing user from the standard directories" action-handler: {Event-Handler form: on-existing})
         (<Vertical-Line>                                      position: {Point 110 15} size: {Dimension 8 91})
-        (<Label-View>               name: new-label           title: "User:" position: {Point 136 42} size: {Dimension 33 16} visible?: #f font: {Font name: Default-GUI})
-        (<Border-View>              name: new-border          position: {Point 173 39} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
+        (<Label-View>               name: new-label           title: "Name:" position: {Point 136 56} size: {Dimension 33 16} visible?: #f font: {Font name: Default-GUI})
+        (<Border-View>              name: new-border          position: {Point 173 53} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
           (<Scroller-View>                                    hscroll?: #f vscroll?: #f
             (<!>                    name: content             layout-type: fill
               (<User-Text-View>     name: new-user            left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Ansi-Var}} tooltip?: #t tooltip-text: "Username. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press} content-change-handler: {Event-Handler form: on-content-change}))))
-        (<Label-View>               name: new-directory-label title: "Dir:" position: {Point 136 65} size: {Dimension 24 16} visible?: #f font: {Font name: Default-GUI})
-        (<Moniker-Widget>           name: new-directory       position: {Point 173 62} size: {Dimension 219 22} visible?: #f protocol: dir display-protocol?: #f moniker-update-handler: {Event-Handler form: on-moniker-update}
-          (<!>                      name: moniker-border      style: entry
-            (<!>                    name: scroller
-              (<!>                  name: content
-                (<!>                name: text                editable?: #f show-unfocused-selection?: #f tooltip?: #t tooltip-text: "Directory where the user will be created" return-press-handler: {Event-Handler form: on-return-press} escape-press-handler: {Event-Handler form: on-escape-press})))))
         (<Border-View>              name: existing-border     position: {Point 140 20} size: {Dimension 251 82} visible?: #f border-type: edge style: entry
           (<Scroller-View>                                    vscroll?: #t style: document
             (<!>                    name: content             layout-type: fill
@@ -87,9 +78,7 @@
         (<install>
           (<!>                      name: content
             (<!>                    name: new-label           visible?: #t)
-            (<!>                    name: new-border          visible?: #t)
-            (<!>                    name: new-directory-label visible?: #t)
-            (<!>                    name: new-directory       visible?: #t))))
+            (<!>                    name: new-border          visible?: #t))))
       (<Branch>                     name: existing
         (<install>
           (<!>                      name: content
@@ -108,8 +97,7 @@
   
   
   (method (setup-new-user)
-    (set-string-content~ (locate 'new-user) "" @convert (get-system-user-name))
-    (set-moniker~ (locate 'new-directory) {Directory Home "jazz" "lib" "user"}))
+    (set-string-content~ (locate 'new-user) "" @convert (get-system-user-name)))
   
   
   (method (setup-existing-users)
@@ -136,21 +124,17 @@
   
   (method (get-modal-result)
     (case (get-name~ branch)
-      ((new)
-       (let ((dir (get-moniker~ (locate 'new-directory)))
-             (name (get-string-content~ (locate 'new-user))))
-         (cond ((not use-user-class?)
-                (new-directory~ dir name))
-               (else
-                (new-file~ dir (list name (format "{a}.jazz" name)))))))
       ((default)
-       #f)
+       'jazz.user.Me)
+      ((new)
+       (let ((name (get-string-content~ (locate 'new-user))))
+         (compose-name 'user (string->symbol name))))
       ((existing)
        (let* ((tree (locate 'users))
               (rank (get-single-selection~ tree)))
          (when rank
            (let ((row (get-row~ tree rank)))
-             (get-user-data~ row)))))))
+             (compose-name 'user (get-user-data~ row))))))))
   
 
   ;;;
@@ -160,11 +144,9 @@
   
   (method (get-tab-stops)
     (case (get-name~ branch)
-      ((new)
-       (list
-        (locate 'new-user)
-        (get-text~ (locate 'new-directory))))
       ((default)
+       '())
+      ((new)
        '())
       ((existing)
        '())))
@@ -175,12 +157,12 @@
   ;;;
   
   
-  (method (on-new evt)
-    (install-new))
-  
-  
   (method (on-default evt)
     (install-default))
+  
+  
+  (method (on-new evt)
+    (install-new))
   
   
   (method (on-existing evt)
@@ -221,29 +203,27 @@
   ;;;
   
   
-  (method (install-new)
-    (set-active-branch (locate 'new))
-    (let* ((text (locate 'new-user))
-           (content (get-string-content~ text))
-           (prefix "user."))
-      (acquire-focus~ text)
-      (select-all~ text))
+  (method (install-default)
+    (set-active-branch (locate 'default))
     (update-login))
   
   
-  (method (install-default)
-    (set-active-branch (locate 'default))
+  (method (install-new)
+    (set-active-branch (locate 'new))
+    (let ((text (locate 'new-user)))
+      (acquire-focus~ text)
+      (select-all~ text))
     (update-login))
   
   
   (method (install-existing users)
     (set-active-branch (locate 'existing))
     (let ((tree (locate 'users))
-          (rank (either (find users (either (command-argument "defaultuser") (get-system-property 'Default-User)) key: car test: equal?) (essay users 0))))
+          (rank (either (find users (either (command-argument "defaultuser") (get-system-property 'Default-User)) test: equal?) (essay users 0))))
       (remove-every-row~ tree)
-      (for-each (function dynamic (info)
-                  (bind (presentation . file) info
-                    (add-row~ tree children: (list (new Tree-Node title: presentation)) user-data: file)))
+      (for-each (function dynamic (user)
+                  (let ((name (string->symbol user)))
+                    (add-row~ tree children: (list (new Tree-Node title: user)) user-data: name)))
                 users)
       (when (and rank (< rank (get-visible-count~ tree)))
         (set-single-selection~ tree rank)
@@ -258,22 +238,18 @@
         (when (exists?~ dir)
           (iterate-directory~ dir
             (function dynamic (dir)
-              (cond ((not use-user-class?)
-                     (let ((presentation (get-name~ dir)))
-                       (set! lst (cons (cons presentation dir) lst))))
-                    (else
-                     (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
-                       (when (exists?~ file)
-                         (let ((base (get-base~ file)))
-                           (let ((presentation (substring base 1 (string-length base))))
-                             (set! lst (cons (cons presentation file) lst)))))))))
+              (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
+                (when (exists?~ file)
+                  (let ((base (get-base~ file)))
+                    (let ((user (substring base 1 (string-length base))))
+                      (set! lst (cons user lst)))))))
             files?: #f
             directories?: #t
             recursive?: #f)))
       
-      (collect-directory {Directory Home "jazz" "lib" "user"})
+      (collect-directory {Directory Users})
       
-      (sort ci<? lst key: car)))
+      (sort ci<? lst)))
   
 
   ;;;
@@ -284,8 +260,10 @@
   (method (update-login)
     (when branch
       (case (get-name~ branch)
+        ((default)
+         (set-enabled?~ (locate 'login) #t))
         ((new)
-         (set-enabled?~ (locate 'login) (and (not (empty-string? (get-string-content~ (locate 'new-user)))) (get-moniker~ (locate 'new-directory)))))
+         (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-user))))))
         ((existing)
          (set-enabled?~ (locate 'login) (get-selection~ (locate 'users)))))))
   
@@ -315,7 +293,7 @@
                               (memv? char '(#\minus #\_ #\period))))
                         username))
            "Username can only contain letters, digits, dashes, underscores and periods")
-          ((let ((dir (new Directory (list 'Home "jazz" "lib" "user" username))))
+          ((let ((dir (new Directory (list 'Users username))))
              (exists?~ dir))
            (format "The username \"{a}\" already exists in your home library" username))
           (else

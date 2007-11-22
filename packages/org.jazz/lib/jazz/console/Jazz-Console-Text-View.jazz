@@ -88,16 +88,16 @@
   
   (method (eval-command range name command console?)
     (let* ((appl (get-application))
+           (module (get-user-module~ appl))
            (user (get-user~ appl))
-           (identifier (type-name (class-of user)))
-           (name (identifier-name identifier))
+           (name (identifier-name (type-name (class-of user))))
            (forms (read-text-forms range string: command console?: #t)))
       (if (and (not-null? forms) (console-command~ user (car forms) (cdr forms)))
           {}
         (map (function dynamic (form)
-               (parameterize ((jazz.requested-module-name identifier))
+               (parameterize ((jazz.requested-module-name module))
                  (eval
-                   `(library ,identifier jazz
+                   `(library ,module jazz
                       (import (jazz.development)
                               (jazz.io)
                               (jazz.jml)
@@ -107,14 +107,20 @@
                               (jazz.platform)
                               (jazz.platform.windows)
                               (jazz.repository.git)
+                              (jazz.runtime)
                               (jazz.system)
                               (jazz.ui)
                               (jazz.ui.view)
                               (jazz.ui.window)
+                              (jazz.user)
                               (jazz.utilities)
                               (jedi))
                       (class ,name extends User
-                        (set! ? ,form)))))
+                        (method (evaluate)
+                          ,form))
+                      (set! ? ,form)
+                      @waiting-fix
+                      (set! ? (evaluate~ (get-user~ (get-application)))))))
                ?)
              forms))))
   

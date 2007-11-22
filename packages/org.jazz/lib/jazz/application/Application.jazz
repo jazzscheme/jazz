@@ -52,6 +52,7 @@
         (jazz.library.component)
         (jazz.platform)
         (jazz.process)
+        (jazz.runtime)
         (jazz.sql)
         (jazz.sql.view)
         (jazz.system)
@@ -75,7 +76,7 @@
   (slot stage                           initialize {})
   (slot menubar                         initialize {})
   (slot status-bar                      initialize {})
-  (slot user-pathname                   initialize {})
+  (slot user-module                     initialize {})
   (slot user                            initialize {})
   (slot focus-listeners                 initialize '())
   (slot application-listeners           initialize (make-table test: eq?))
@@ -133,6 +134,10 @@
 
   (method public (set-status-bar status)
     (set! status-bar status))
+
+
+  (method public (get-user-module)
+    user-module)
 
 
   (method public (get-user)
@@ -199,7 +204,7 @@
 
   
   (method (setup-user rest)
-    (when (and (use-user?) (use-user-class?))
+    (when (use-user?)
       (create-user)
       (set-user-actions (get-class-actions user))))
   
@@ -368,67 +373,56 @@
     #f)
   
   
-  (method protected virtual (use-user-class?)
-    #f)
-  
-  
   (method (log-user)
-    (let* ((user-arg (command-argument "user"))
-           (user (cond (user-arg (standard-user user-arg))
-                       ((use-user-logging?) (login-user))
-                       (else (system-user)))))
-      (setup-user-file user)
-      (setup-user-alias user)))
+    (let ((user-arg (command-argument "user")))
+      (set! user-module (cond (user-arg (standard-user-module user-arg))
+                              ((use-user-logging?) (login-user))
+                              (else (system-user-module))))
+      (install-user)))
   
   
-  (method (standard-user username)
-    (cond ((not (use-user-class?))
-           (new Directory (list 'Users username)))
-          (else
-           (new File (list 'Users username (format "{a}.jazz" username))))))
+  (method (standard-user-module name)
+    (compose-name 'user (string->symbol name)))
   
   
-  (method (system-user)
-    (standard-user (get-system-user-name)))
+  (method (system-user-module)
+    (standard-user-module (get-system-user-name)))
 
   
   (method (login-user)
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
         (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
-          (new File (list 'Users name (format "{a}.jazz" name))))
+          (standard-user-module name))
       (catch (Cancel-Signal signal
                (exit))
-        (choose-login use-user-class?: (use-user-class?)))))
+        (choose-login))))
   
   
-  (method (setup-user-file user)
-    (if (not (exists?~ user))
-        (cond ((not (use-user-class?))
-               (setup-new-user user (get-name~ user)))
-              (else
-               (setup-new-user (get-parent~ user) (get-base~ user))))
-      (set! user-pathname user)))
+  (method (install-user)
+    (let ((source (find-module-source user-module)))
+      (if source
+          (set-alias 'User (get-list~ (get-parent~ source)))
+        (let ((name (symbol->string (identifier-name user-module))))
+          (set-alias 'User (list 'Users name))
+          (install-new-user name)))))
+
   
-  
-  (method (setup-new-user directory name)
+  (method (install-new-user name)
     (let ((expander (new Template-Expander))
-          (associations (list (cons 'user name))))
+          (associations (list (cons 'module user-module) (cons 'user name)))
+          (directory (new Directory (list 'Users name))))
       (create-directories~ directory)
       (copy-user-settings directory expander associations)
-      (cond ((not (use-user-class?))
-             (set! user-pathname directory))
-            (else
-             (let ((file (new-file~ directory (format "{a}.jazz" name))))
-               (copy-user file expander associations)
-               (set! user-pathname file))))))
+      (let ((file (new-file~ directory (format "_{a}.jazz" name))))
+        (copy-user file expander associations))))
   
   
   (method (copy-user-settings directory expander associations)
     (let ((settings {Directory Launch "Defaults" "Settings"}))
       (copy-directory~ settings (new-directory~ directory "Settings")
-        :copier (function dynamic (src dst)
+        copier: (function dynamic (src dst)
                   (copy-template src dst expander associations))
-        :touch-files? #t)))
+        touch-files?: #t)))
   
   
   (method (copy-user file expander associations)
@@ -440,36 +434,16 @@
     (call-with-output-file (parse~ destination)
       (lambda (printer)
         (expand~ expander template associations printer))))
-  
-  
-  (method (setup-user-alias user)
-    (set-alias 'User (cond ((not (use-user-class?))
-                            (get-list~ user-pathname))
-                           (else
-                            (get-list~ (get-parent~ user-pathname))))))
 
   
   (method (create-user)
-    (let ((user-name (extract-user-name)))
-      @cannot-yet-use-because-the-exception-presenter-kicks-in-only-after-the-debugger-is-installed
-      (with-execution-context
-        (function dynamic ()
-          (with-continue
-            (function dynamic ()
-              (set! user (new (load-source user-name user-pathname))))))
-        title: "Create User")
-      (with-safe-execution "creating the user"
-        (function dynamic ()
-          (set! user (new (load-userclass user-name))))
-        continue-text: (list (format "Press Continue to bypass this problem by using the generic User class instead of {a} to instantiate the user" user-name))
-        continue-handler:
-        (function dynamic (err)
-          (set! user (new User))))))
-  
-  
-  (method (extract-user-name)
-    (let ((base (get-base~ user-pathname)))
-      (string->symbol (substring base 1 (string-length base)))))
+    (with-safe-execution "creating the user"
+      (function dynamic ()
+        (set! user (new (load-userclass user-module))))
+      continue-text: (list (format "Press Continue to bypass this problem by using the generic user class instead of {a} to instantiate your user" (identifier-name user-module)))
+      continue-handler:
+      (function dynamic (err)
+        (set! user (new Me)))))
 
 
   ;;;
@@ -1047,8 +1021,13 @@
   
   (method protected virtual (load-bindings)
     (let ((file Bindings-File))
-      (when (exists?~ file)
-        (instantiate~ (read-from-file file)))))
+      (if (exists?~ file)
+          (instantiate~ (read-from-file file))
+        (default-bindings))))
+  
+  
+  (method protected virtual (default-bindings)
+    (new Bindings))
   
   
   (method (save-bindings)

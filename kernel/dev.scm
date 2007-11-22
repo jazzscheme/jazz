@@ -397,7 +397,6 @@
   '(jazz.catalog.catalog.Catalog
     jazz.catalog.catalog.Filing-Catalog
     jazz.catalog.catalog.Indexed-Catalog
-    jazz.builder.package.Package-Catalog
     jazz.catalog.entry.Catalog-Entry
     jazz.catalog.entry.Indexed-Entry
     jazz.catalog.entry.Lisp-Entry

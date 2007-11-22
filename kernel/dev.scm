@@ -205,6 +205,9 @@
 (define (et)
   (e 'test))
 
+(define (eft)
+  (ef 'test))
+
 (define (etc)
   (ec 'test))
 

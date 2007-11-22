@@ -66,9 +66,7 @@
 
 
 (jazz.define-macro (%%specific-dispatch generic object)
-  `(%%class-specific-dispatch (%%class-of ,object) (%%get-generic-name ,generic))
-  ;; `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic))
-  )
+  `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic)))
 
 
 (jazz.encapsulate-class jazz.Generic))

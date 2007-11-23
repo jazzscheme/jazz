@@ -55,6 +55,7 @@
 ;;;
 
 
+;; code walker warnings
 (define jazz.warnings?
   #f)
 
@@ -120,8 +121,12 @@
 
 
 ;;;
-;;;; Loop
+;;;; Jedi
 ;;;
+
+
+(define jazz.default-username
+  #f)
 
 
 (define jazz.run-loop?

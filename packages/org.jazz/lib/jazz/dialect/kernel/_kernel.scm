@@ -98,6 +98,7 @@
 ;;;
 
 
+(native jazz.default-username)
 (native jazz.run-loop?)
 (native jazz.debug)
 (native jazz.error)

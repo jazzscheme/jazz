@@ -89,6 +89,11 @@
   (rl 'test))
 
 
+(define (lut)
+  (ll)
+  (rl 'user.test))
+
+
 (define (lex module-name)
   (ef module-name)
   (load "x"))
@@ -499,14 +504,17 @@
   (table->list jazz.Environment))
 
 
-(define (d obj)
-  (jazz.object-content (if (integer? obj) (jazz.serial-number->object obj) obj)))
+;; inspect jazz object
+(define (i obj)
+  (jazz.inspect-object (if (integer? obj) (jazz.serial-number->object obj) obj)))
 
 
-(define (denv env)
-  (jazz.debug-annotated-environment env))
+;; inspect annotated environment
+(define (ienv env)
+  (jazz.inspect-annotated-environment env))
 
 
+;; slot value
 (define (sv obj slot-name)
   (jazz.slot-value obj slot-name))
 

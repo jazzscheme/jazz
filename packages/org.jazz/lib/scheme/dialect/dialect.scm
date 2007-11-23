@@ -43,13 +43,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Define-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (signature
    value))
 
 
 (define (jazz.new-define-declaration name type parent signature)
-  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'public 'uptodate '() #f parent '() #f signature #f)))
+  (let ((new-declaration (jazz.allocate-define-declaration jazz.Define-Declaration name type 'public 'uptodate '() #f parent #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -93,13 +93,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (signature
    body))
 
 
 (define (jazz.new-define-macro-declaration name type parent signature)
-  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'public 'uptodate '() #f parent '() #f signature #f)))
+  (let ((new-declaration (jazz.allocate-define-macro-declaration jazz.Define-Macro-Declaration name type 'public 'uptodate '() #f parent #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -231,8 +231,8 @@
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
             (signature (and parameters (jazz.walk-parameters walker resume declaration environment parameters #f #f))))
         (let ((new-declaration (jazz.new-define-declaration name type declaration signature)))
-          (jazz.add-declaration-child walker resume declaration new-declaration)
-          new-declaration)))))
+          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
 
 
 (define (jazz.walk-define walker resume declaration environment form)
@@ -262,8 +262,8 @@
   (receive (name type parameters body) (jazz.parse-define-macro walker resume declaration (%%cdr form))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-define-macro-declaration name type declaration signature)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
+        (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration)))))
 
 
 (define (jazz.walk-define-macro walker resume declaration environment form)

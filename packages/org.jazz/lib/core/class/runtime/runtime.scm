@@ -93,8 +93,7 @@
 ;;;
 
 
-;; debugging utility
-(define (jazz.object-content object)
+(define (jazz.inspect-object object)
   (%%assert (%%object? object)
     (let* ((size (%%object-length object))
            (content (%%make-vector size)))

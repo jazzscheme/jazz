@@ -194,7 +194,6 @@
    attributes
    toplevel
    parent
-   children
    locator))
 
 
@@ -210,9 +209,6 @@
 
 (jazz.define-method (jazz.resolve-declaration (jazz.Declaration declaration))
   declaration)
-
-
-(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
 
 
 (define (jazz.get-declaration-path declaration)
@@ -234,7 +230,17 @@
   (jazz.walk-error walker resume source-declaration "{a} is not callable" (%%get-declaration-locator declaration)))
 
 
+(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
+
+
 (jazz.define-method (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?)
+  #f)
+
+
+(jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
+
+
+(jazz.define-method (jazz.update-declaration (jazz.Declaration declaration) new-declaration)
   #f)
 
 
@@ -369,12 +375,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (requires))
 
 
 (define (jazz.new-module-declaration name parent requires)
-  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent '() #f requires)))
+  (let ((new-declaration (jazz.allocate-module-declaration jazz.Module-Declaration name #f 'public 'uptodate '() #f parent #f requires)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -387,8 +393,10 @@
 ;;;
 
 
-(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (lookups
+   children-lookup
+   children
    body))
 
 
@@ -404,7 +412,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent children locator lookups body) jazz.Object-Class
+(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body) jazz.Object-Class
   (dialect
    requires
    exports
@@ -417,42 +425,50 @@
 
 
 (define (jazz.new-library-declaration name parent dialect requires exports imports)
-  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent '() #f (jazz.make-access-lookups jazz.public-access) #f dialect requires exports imports #f '() (jazz.new-queue) '() '())))
+  (let ((new-declaration (jazz.allocate-library-declaration jazz.Library-Declaration name #f 'public 'uptodate '() #f parent #f (jazz.make-access-lookups jazz.public-access) (%%make-table test: eq?) '() #f dialect requires exports imports #f '() (jazz.new-queue) '() '())))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
 
 (define (jazz.setup-library-lookups library-declaration)
-  (let ((private (%%get-access-lookup library-declaration jazz.private-access)))
-    (for-each (lambda (imported-library-invoice)
-                (let ((only (%%get-library-invoice-only imported-library-invoice)))
-                  (if only
-                      ;; todo
-                      #f
-                    (let ((imported-library-declaration (%%get-library-invoice-library imported-library-invoice)))
-                      (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
-                        (%%table-merge! private imported))))))
-              (%%get-library-declaration-imports library-declaration)))
+  (for-each (lambda (imported-library-invoice)
+              (jazz.install-library-import library-declaration imported-library-invoice))
+            (%%get-library-declaration-imports library-declaration))
   
-  (let ((public (%%get-access-lookup library-declaration jazz.public-access)))
-    (for-each (lambda (exported-library-invoice)
-                (let ((only (%%get-library-invoice-only exported-library-invoice))
-                      (autoload (%%get-export-invoice-autoload exported-library-invoice)))
-                  (cond (only
-                          (for-each (lambda (declaration-reference)
-                                      (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                                        (%%table-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
-                                    only))
-                        (autoload
-                          (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))
-                            (for-each (lambda (declaration-reference)
-                                        (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                                          (%%table-set! public name (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))
-                                      autoload)))
-                        (else
-                         (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
-                           (%%table-merge! public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
-              (%%get-library-declaration-exports library-declaration))))
+  (for-each (lambda (exported-library-invoice)
+              (jazz.install-library-export library-declaration exported-library-invoice))
+            (%%get-library-declaration-exports library-declaration)))
+
+
+(define (jazz.install-library-import library-declaration imported-library-invoice)
+  (let ((private (%%get-access-lookup library-declaration jazz.private-access))
+        (only (%%get-library-invoice-only imported-library-invoice)))
+    (if only
+        ;; todo
+        #f
+      (let ((imported-library-declaration (%%get-library-invoice-library imported-library-invoice)))
+        (let ((imported (%%get-access-lookup imported-library-declaration jazz.public-access)))
+          (%%table-merge! private imported))))))
+
+
+(define (jazz.install-library-export library-declaration exported-library-invoice)
+  (let ((public (%%get-access-lookup library-declaration jazz.public-access))
+        (only (%%get-library-invoice-only exported-library-invoice))
+        (autoload (%%get-export-invoice-autoload exported-library-invoice)))
+    (cond (only
+            (for-each (lambda (declaration-reference)
+                        (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
+                          (%%table-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
+                      only))
+          (autoload
+            (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))
+              (for-each (lambda (declaration-reference)
+                          (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
+                            (%%table-set! public name (jazz.resolve-autoload-reference declaration-reference library-declaration exported-library-reference))))
+                        autoload)))
+          (else
+           (let ((exported-library-declaration (jazz.resolve-reference (%%get-library-invoice-library exported-library-invoice) library-declaration)))
+             (%%table-merge! public (%%get-access-lookup exported-library-declaration jazz.public-access)))))))
 
 
 (jazz.define-method (jazz.lookup-declaration (jazz.Library-Declaration declaration) symbol external?)
@@ -460,6 +476,33 @@
     (%%table-ref (%%vector-ref (%%get-namespace-declaration-lookups declaration) access)
                  symbol
                  #f)))
+
+
+(jazz.define-method (jazz.update-declaration (jazz.Library-Declaration declaration) new-declaration)
+  (let ((actual-imports (%%get-library-declaration-imports declaration)))
+    (for-each (lambda (new-invoice)
+                (let ((new-imported-library (%%get-library-invoice-library new-invoice)))
+                  (let ((actual-invoice (jazz.find-if (lambda (invoice) (%%eq? (%%get-library-invoice-library invoice) new-imported-library))
+                                                      actual-imports)))
+                    (if actual-invoice
+                        ;; need to merge new invoice
+                        #f
+                      (begin
+                        (%%set-library-declaration-imports declaration (%%cons new-invoice (%%get-library-declaration-imports declaration)))
+                        (jazz.install-library-import declaration new-invoice))))))
+              (%%get-library-declaration-imports new-declaration)))
+  (let ((actual-exports (%%get-library-declaration-exports declaration)))
+    (for-each (lambda (new-invoice)
+                (let ((new-exported-library (%%get-library-invoice-library new-invoice)))
+                  (let ((actual-invoice (jazz.find-if (lambda (invoice) (%%eq? (%%get-library-invoice-library invoice) new-exported-library))
+                                                      actual-exports)))
+                    (if actual-invoice
+                        ;; need to merge new invoice
+                        #f
+                      (begin
+                        (%%set-library-declaration-exports declaration (%%cons new-invoice (%%get-library-declaration-exports declaration)))
+                        (jazz.install-library-export declaration new-invoice))))))
+              (%%get-library-declaration-exports new-declaration))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Library-Declaration declaration) environment)
@@ -583,12 +626,12 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (symbol))
 
 
 (define (jazz.new-export-declaration name type access compatibility attributes parent symbol)
-  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent '() #f symbol)))
+  (let ((new-declaration (jazz.allocate-export-declaration jazz.Export-Declaration name type access compatibility attributes #f parent #f symbol)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -615,14 +658,14 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (library
    exported-library
    declaration))
 
 
 (define (jazz.new-autoload-declaration name type parent library-declaration exported-library)
-  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent '() #f library-declaration exported-library #f)))
+  (let ((new-declaration (jazz.allocate-autoload-declaration jazz.Autoload-Declaration name type 'public 'uptodate '() #f parent #f library-declaration exported-library #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1360,13 +1403,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (signature
    body))
 
 
 (define (jazz.new-macro-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent '() #f signature #f)))
+  (let ((new-declaration (jazz.allocate-macro-declaration jazz.Macro-Declaration name type access compatibility attributes #f parent #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1411,13 +1454,13 @@
 ;;;
 
 
-(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (signature
    body))
 
 
 (define (jazz.new-syntax-declaration name type access compatibility attributes parent signature)
-  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent '() #f signature #f)))
+  (let ((new-declaration (jazz.allocate-syntax-declaration jazz.Syntax-Declaration name type access compatibility attributes #f parent #f signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1462,14 +1505,14 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (kind
    expansion
    references))
 
 
 (define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion references)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent '() #f kind expansion references)))
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f kind expansion references)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1496,7 +1539,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent children locator) jazz.Object-Class
+(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
   (signature
    parameter-types
    result-type
@@ -1506,7 +1549,7 @@
 
 
 (define (jazz.new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
-  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent '() #f signature parameter-types result-type c-name scope #f)))
+  (let ((new-declaration (jazz.allocate-c-definition-declaration jazz.C-Definition-Declaration name type access compatibility attributes #f parent #f signature parameter-types result-type c-name scope #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -2100,19 +2143,19 @@
 
 
 ;; put those in a cond-expand when cond-expand supports multiple features
-(define (jazz.debug-annotated-variable variable)
+(define (jazz.inspect-annotated-variable variable)
   (let ((serial (jazz.object->serial-symbol variable)))
     (if (%%class-is? variable jazz.Restricted-Binding)
         (list restricted: (%%get-lexical-binding-name (%%get-restricted-binding-binding variable)) (%%get-restricted-binding-type variable) serial)
       (list variable: (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable) serial))))
 
 
-(define (jazz.debug-annotated-frame frame)
-  (cons frame: (map jazz.debug-annotated-variable (%%get-annotated-frame-variables frame))))
+(define (jazz.inspect-annotated-frame frame)
+  (cons frame: (map jazz.inspect-annotated-variable (%%get-annotated-frame-variables frame))))
 
 
-(define (jazz.debug-annotated-environment environment)
-  (cons environment: (map jazz.debug-annotated-frame environment)))
+(define (jazz.inspect-annotated-environment environment)
+  (cons environment: (map jazz.inspect-annotated-frame environment)))
 
 
 ;;;
@@ -2494,18 +2537,19 @@
     (if (%%neq? name (jazz.requested-module-name))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
       (let ((walker (jazz.dialect-walker (jazz.load-dialect dialect-name))))
-        (jazz.walk-library-declaration walker name dialect-name requires exports imports body)))))
+        (jazz.walk-library-declaration walker #f name dialect-name requires exports imports body)))))
 
 
-(define (jazz.walk-library-declaration walker name dialect-name requires exports imports body)
+(define (jazz.walk-library-declaration walker actual name dialect-name requires exports imports body)
   (let ((exports (%%reverse (jazz.walk-library-exports walker exports)))
         (imports (%%reverse (jazz.walk-library-imports walker (jazz.add-dialect-import imports dialect-name)))))
-    (let ((declaration (jazz.new-library-declaration name #f dialect-name requires exports imports)))
-      (jazz.load-library-syntax declaration)
-      (jazz.setup-library-lookups declaration)
-      (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
-      (jazz.validate-walk-problems walker)
-      declaration)))
+    (let ((new-declaration (jazz.new-library-declaration name #f dialect-name requires exports imports)))
+      (jazz.load-library-syntax new-declaration)
+      (jazz.setup-library-lookups new-declaration)
+      (let ((declaration (jazz.merge-declarations actual new-declaration)))
+        (jazz.walk-declarations walker #f declaration (%%cons declaration (jazz.walker-environment walker)) body)
+        (jazz.validate-walk-problems walker)
+        declaration))))
 
 
 (define (jazz.load-library-syntax declaration)
@@ -2574,12 +2618,12 @@
       (let* ((dialect (jazz.load-dialect dialect-name))
              (walker (jazz.dialect-walker dialect))
              (resume #f)
-             (declaration (or (jazz.get-catalog-entry name)
-                              (jazz.call-with-validate-circularity name
-                                (lambda ()
-                                  (let ((declaration (jazz.walk-library-declaration walker name dialect-name requires exports imports body)))
-                                    (jazz.set-catalog-entry name declaration)
-                                    declaration)))))
+             (actual (jazz.get-catalog-entry name))
+             (declaration (jazz.call-with-validate-circularity name
+                            (lambda ()
+                              (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name requires exports imports body)))
+                                (jazz.set-catalog-entry name declaration)
+                                declaration))))
              (environment (%%cons declaration (jazz.walker-environment walker)))
              (body (jazz.walk-namespace walker resume declaration environment body)))
         (jazz.validate-walk-problems walker)
@@ -2705,60 +2749,6 @@
 ;; declaration tree coming from the runtime catalog.
 
 
-;; For a module, declaration will be #f
-(define (jazz.walk/find-declaration walker resume name module declaration environment form)
-  (if (%%not declaration)
-      (jazz.merge-toplevel-declarations walker resume name module (jazz.walk-declaration walker resume #f environment form))
-    (jazz.find-form-declaration declaration (%%cadr form))))
-
-
-;; Note that this merging should not be done while recursively building the new-declaration
-;; in case an error occurs in which case we do have to leave the original declarations intact
-(define (jazz.merge-toplevel-declarations walker resume name module new-declaration)
-  (let ((old-declaration (jazz.find-module-declaration name module)))
-    (cond ((%%not old-declaration)
-           new-declaration)
-          (else
-           (jazz.merge-declaration-into new-declaration old-declaration)
-           old-declaration))))
-
-
-(define (jazz.find-module-declaration name module)
-  (let ((entry (jazz.get-validated-catalog-entry (jazz.compose-module-name name module))))
-    (if (%%not entry)
-        #f
-      (%%get-declaration-parent entry))))
-
-
-(define (jazz.set-module-declaration name module new-declaration)
-  (let ((module-declaration (if (%%not module) new-declaration (jazz.find-declaration new-declaration module))))
-    (jazz.set-catalog-entry (jazz.get-walk-locator) module-declaration)))
-
-
-(define (jazz.compose-module-name name module)
-  (if (%%not module)
-      name
-    (%%compose-name name module)))
-
-
-(define (jazz.merge-declaration-into new-declaration old-declaration)
-  (jazz.update-declaration-from old-declaration new-declaration)
-  (for-each (lambda (new-child)
-              (let ((name (%%get-lexical-binding-name new-child)))
-                (let ((old-child (jazz.find-declaration old-declaration name)))
-                  (if old-child
-                      (jazz.merge-declaration-into new-child old-child)
-                    (begin
-                      (%%set-declaration-parent new-child old-declaration)
-                      (%%set-declaration-children old-declaration (%%append (%%get-declaration-children old-declaration) (%%list new-child))))))))
-            (%%get-declaration-children new-declaration)))
-
-
-;; This should either update the old declaration or throw an error if it cannot
-(define (jazz.update-declaration-from old-declaration new-declaration)
-  #f)
-
-
 (jazz.define-virtual (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form))
 
 
@@ -2787,12 +2777,25 @@
   (walk forms))
 
 
-(define (jazz.add-declaration-child walker resume declaration child)
-  (%%when declaration
-    (%%set-declaration-children declaration (%%append (%%get-declaration-children declaration) (%%list child)))
-    (let ((name (%%get-lexical-binding-name child)))
-      (%%table-set! (%%get-access-lookup declaration jazz.private-access) name child)
-      (%%table-set! (%%get-access-lookup declaration jazz.public-access) name child))))
+(define (jazz.add-declaration-child walker resume namespace-declaration child)
+  (let ((name (%%get-lexical-binding-name child)))
+    (let ((actual (%%table-ref (%%get-namespace-declaration-children-lookup namespace-declaration) name #f)))
+      (if actual
+          (jazz.merge-declarations actual child)
+        (begin
+          (%%set-namespace-declaration-children namespace-declaration (%%append (%%get-namespace-declaration-children namespace-declaration) (%%list child)))
+          (%%table-set! (%%get-namespace-declaration-children-lookup namespace-declaration) name child)
+          (%%table-set! (%%get-access-lookup namespace-declaration jazz.private-access) name child)
+          (%%table-set! (%%get-access-lookup namespace-declaration jazz.public-access) name child)
+          child)))))
+
+
+(define (jazz.merge-declarations actual-declaration new-declaration)
+  (if (not actual-declaration)
+      new-declaration
+    (begin
+      (jazz.update-declaration actual-declaration new-declaration)
+      actual-declaration)))
 
 
 (define (jazz.find-form-declaration namespace-declaration name)
@@ -4838,8 +4841,8 @@
     (receive (name symbol) (jazz.parse-exported-symbol declaration name)
       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
         (let ((new-declaration (jazz.new-export-declaration name type access compatibility '() declaration symbol)))
-          (jazz.add-declaration-child walker resume declaration new-declaration)
-          new-declaration)))))
+          (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+            effective-declaration))))))
 
 
 (define (jazz.walk-native walker resume declaration environment form)
@@ -4872,8 +4875,8 @@
   (receive (name type access compatibility parameters body) (jazz.parse-macro walker resume declaration (%%cdr form))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-macro-declaration name type access compatibility '() declaration signature)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
+        (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration)))))
 
 
 (define (jazz.walk-macro walker resume declaration environment form)
@@ -4910,8 +4913,8 @@
   (receive (name type access compatibility parameters body) (jazz.parse-syntax walker resume declaration (%%cdr form))
     (let ((signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-syntax-declaration name type access compatibility '() declaration signature)))
-        (jazz.add-declaration-child walker resume declaration new-declaration)
-        new-declaration))))
+        (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration)))))
 
 
 (define (jazz.walk-syntax walker resume declaration environment form)

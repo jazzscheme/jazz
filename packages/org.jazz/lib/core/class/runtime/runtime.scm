@@ -194,23 +194,6 @@
       (%%append (jazz.get-core-class-all-slot-names ascendant) slot-names))))
 
 
-(define (jazz.copy-dispatch-table class)
-  (let ((class-dispatch-table (%%get-class-dispatch-table class)))
-    (if class-dispatch-table
-        (%%copy-table class-dispatch-table)
-      #f)))
-
-
-(define (jazz.update-dispatch-table class name value)
-  (jazz.iterate-descendants-tree class
-    (lambda (subclass)
-      (%%when (%%class? subclass)
-        (%%when (%%not (%%get-class-dispatch-table subclass))
-          (%%set-class-dispatch-table subclass (%%make-table test: eq?)))
-        (let ((dispatch-table (%%get-class-dispatch-table subclass)))
-          (%%table-set! dispatch-table name value))))))
-
-
 (define (jazz.create-class-tables class)
   (jazz.create-class-interface-table class)
   (jazz.create-class-class-table class))
@@ -372,8 +355,7 @@
           #f)))
     (%%set-category-ancestors core-class (%%list->vector (jazz.compute-core-class-ancestors core-class ascendant)))
     (%%when ascendant
-      (%%set-category-descendants ascendant (%%cons core-class (%%get-category-descendants ascendant)))
-      (%%set-class-dispatch-table core-class (jazz.copy-dispatch-table ascendant)))
+      (%%set-category-descendants ascendant (%%cons core-class (%%get-category-descendants ascendant))))
     (jazz.create-core-class-tables core-class)
     core-class))
 
@@ -566,7 +548,7 @@
                 (if ascendant (%%get-class-slots ascendant) '())
                 (if ascendant (%%get-class-instance-size ascendant) jazz.object-size)
                 (if ascendant (%%fx+ (%%get-class-level ascendant) 1) 0)
-                (if ascendant (jazz.copy-dispatch-table ascendant) #f)
+                #f ;;toremove - dispatch-table
                 #f
                 #f
                 #f

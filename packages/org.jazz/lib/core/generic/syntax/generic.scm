@@ -61,10 +61,6 @@
   (apply jazz.expand-define-generic rest))
 
 
-(jazz.define-macro (%%class-specific-dispatch class name)
-  `(%%table-ref (%%get-class-dispatch-table ,class) ,name #f))
-
-
 (jazz.define-macro (%%specific-dispatch generic object)
   `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic)))
 

@@ -73,9 +73,7 @@
               (jazz.resolve-signature specific)
               (jazz.insert-specific generic specific))
             (%%get-generic-pending-specifics generic))
-  (%%set-generic-pending-specifics generic '())
-  (jazz.clear-dispatch-tables generic)
-  (jazz.update-dispatch-tables generic))
+  (%%set-generic-pending-specifics generic '()))
 
 
 (define (jazz.resolve-signature specific)
@@ -122,26 +120,6 @@
         (insert-specific next-specific)))))
 
 
-(define (jazz.clear-dispatch-tables generic)
-  (let* ((name (%%get-generic-name generic))
-         (specific (%%get-generic-root-specific generic))
-         (class (%%car (%%get-specific-signature specific))))
-    (jazz.iterate-descendants-tree class
-      (lambda (subclass)
-        (%%when (and (%%class? subclass)
-                     (jazz.class-dispatch-safe subclass name))
-          (%%table-set! (%%get-class-dispatch-table subclass) name #f))))))
-
-
-(define (jazz.update-dispatch-tables generic)
-  (let ((name (%%get-generic-name generic)))
-    (let iter ((specific (%%get-generic-root-specific generic)))
-      (let ((class (%%car (%%get-specific-signature specific))))
-        (jazz.update-dispatch-table class name (%%get-specific-implementation specific)))
-      (for-each iter
-                (%%get-specific-previous-specifics specific)))))
-
-
 ;;;
 ;;;; Compare
 ;;;
@@ -184,10 +162,4 @@
                       (%%get-specific-previous-specifics previous-found))))
          (if found
              (iter found)
-           previous-found))))
-
-
-(define (jazz.class-dispatch-safe class name)
-  (let ((dispatch-table (%%get-class-dispatch-table class)))
-    (and dispatch-table
-         (%%table-ref dispatch-table name #f)))))
+           previous-found)))))

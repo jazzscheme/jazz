@@ -39,6 +39,34 @@
 (module core.generic.syntax.expander
 
 
+(define (jazz.dynamic-parameter-type parameter)
+  (let ((type (%%car parameter)))
+    (if (jazz.specifier? type)
+        (jazz.specifier->name type)
+      type)))
+
+
+(define (jazz.dynamic-parameter-types parameters)
+  (let iterate ((parameters parameters))
+       (if (and (%%pair? parameters)
+                (%%pair? (%%car parameters)))
+           (%%cons (jazz.dynamic-parameter-type (%%car parameters))
+                   (iterate (%%cdr parameters)))
+         '())))
+
+
+(define (jazz.dispatch-parameter-names parameters)
+  (let iterate ((parameters parameters))
+       (if (%pair? parameters)
+           (let ((parameter (%%car parameters)))
+             (cond ((%%pair? parameter)
+                    (%%cons (%%cadr parameter) (iterate (%%cdr parameters))))
+                   ((%%symbol? parameter)
+                    (%%cons parameter (iterate (%%cdr parameters))))
+                   (else
+                    (iterate (%%cdr parameters))))))))
+
+
 (define (jazz.dispatch-parameter? parameter)
   (and (%%pair? parameter)
        (jazz.specifier? (%%car parameter))))

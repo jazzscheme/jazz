@@ -1458,9 +1458,6 @@
 ;;;
 
 
-;; Only implemented for 1 dynamic parameter for now
-
-
 (define jazz.generic-modifiers
   '(((private protected public) . private)
     ((deprecated uptodate) . uptodate)))
@@ -1481,18 +1478,13 @@
   (receive (name specifier access compatibility parameters) (jazz.parse-generic walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
         (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
-              (dispatch-type-specifiers (let iterate ((scan parameters))
-                                             (if (and (pair? scan) (pair? (car scan)))
-                                                 (cons (caar scan) (iterate (cdr scan)))
-                                               '()))))
-          (%%assert (jazz.every? jazz.specifier? dispatch-type-specifiers)
-            (let ((dispatch-type-declarations (map (lambda (specifier)
-                                                     (jazz.lookup-reference walker resume declaration environment (jazz.specifier->name specifier)))
-                                                   dispatch-type-specifiers))
-                  (signature (jazz.walk-parameters walker resume declaration environment parameters #t #f)))
-              (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration signature dispatch-type-declarations)))
-                (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-                  effective-declaration)))))
+              (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
+                                                 (jazz.lookup-reference walker resume declaration environment dynamic-parameter-type))
+                                               (jazz.dynamic-parameter-types parameters)))
+              (signature (jazz.walk-parameters walker resume declaration environment parameters #t #f)))
+          (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration signature dispatch-type-declarations)))
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              effective-declaration)))
       (jazz.walk-error walker resume declaration "Generics can only be defined inside libraries: {s}" name))))
 
 
@@ -1528,21 +1520,12 @@
     (if (%%class-is? declaration jazz.Library-Declaration)
         (let* ((generic-declaration (jazz.lookup-declaration declaration name #f))
                (generic-locator (%%get-declaration-locator generic-declaration))
-               (generic-object-locator (jazz.generic-object-locator generic-locator))
-               (dispatch-type-specifiers (let iterate ((scan parameters))
-                                             (if (and (pair? scan) (pair? (car scan)))
-                                                 (cons (caar scan) (iterate (cdr scan)))
-                                               '()))))
-          (%%assert (jazz.every? jazz.specifier? dispatch-type-specifiers)
-            (if (eqv? (length dispatch-type-specifiers) (length (%%get-generic-declaration-dispatch-types generic-declaration)))
-                (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+               (generic-object-locator (jazz.generic-object-locator generic-locator)))
+          (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
                   (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
                     (%%set-specific-declaration-body new-declaration
                       (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
-                    new-declaration))
-              ;; we should test for parameter compatibility with generic
-              ;; !!! - problem on re-eval - spurious error
-              (jazz.walk-error walker resume declaration "Specific dispatch does not match generic: {s}" name))))
+                    new-declaration)))
       (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name))))
 
 

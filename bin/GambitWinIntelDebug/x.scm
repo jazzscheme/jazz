@@ -19,9 +19,36 @@
           (jazz.new-class jazz.Object-Class 'test.Y test.X (%%list))))
     (define test.Y:level (%%get-class-level test.Y))
     (jazz.update-class test.Y))
-  (jazz.define-generic (test.foo (test.X x) u a b))
-  (jazz.define-specific (test.foo (test.X x) u a b) (+ a b))
-  (jazz.define-specific (test.foo (test.Y x) u a b) (cons a b))
+  (begin
+    (define test.U
+      (if (jazz.global-variable? 'test.U)
+          (jazz.global-value 'test.U)
+          (jazz.new-class
+           jazz.Object-Class
+           'test.U
+           jazz.dialect.language.Object
+           (%%list))))
+    (define test.U:level (%%get-class-level test.U))
+    (jazz.update-class test.U))
+  (begin
+    (define test.V
+      (if (jazz.global-variable? 'test.V)
+          (jazz.global-value 'test.V)
+          (jazz.new-class jazz.Object-Class 'test.V test.U (%%list))))
+    (define test.V:level (%%get-class-level test.V))
+    (jazz.update-class test.V))
+  (jazz.define-generic (test.foo (test.X x) (test.U u) a b))
+  (jazz.define-specific (test.foo (test.X x) (test.U u) a b) (+ a b))
+  (jazz.define-specific (test.foo (test.Y x) (test.U u) a b) (list a b))
+  (jazz.define-generic (test.baz (test.X x) (test.U u) #!rest rest))
+  (jazz.define-specific
+   (test.baz (test.X x) (test.U u) #!rest rest)
+   (apply + rest))
+  (jazz.define-specific
+   (test.baz (test.Y x) (test.U u) #!rest rest)
+   (apply list rest))
   (jazz.debug (test.foo (jazz.new0 test.X) #f 1 2))
   (jazz.debug (test.foo (jazz.new0 test.Y) #f 1 2))
+  (jazz.debug (test.baz (jazz.new0 test.X) #f 1 2))
+  (jazz.debug (test.baz (jazz.new0 test.Y) #f 1 2))
   (jazz.module-loaded 'test))

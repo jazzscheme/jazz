@@ -109,6 +109,7 @@
 (jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
 (jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
 (jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
+(jazz.define-virtual (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration))
 (jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
 (jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
@@ -143,6 +144,11 @@
 
 (jazz.define-method (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment)
   #f)
+
+
+(jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration)
+  (%%when (%%not (jazz.walk-binding-assignable? binding))
+    (jazz.walk-error walker resume source-declaration "Illegal assignment to: {s}" binding)))
 
 
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Walk-Binding binding))
@@ -4707,9 +4713,9 @@
 (jazz.define-method (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value)
   (let ((binding (jazz.lookup-accessible/compatible-symbol walker resume declaration environment symbol)))
     (if binding
-        (if (jazz.walk-binding-assignable? binding)
-            (jazz.new-assignment binding (jazz.walk walker resume declaration environment value))
-          (jazz.walk-error walker resume declaration "Illegal assignment to: {s}" binding))
+        (begin
+          (jazz.walk-binding-validate-assignment binding walker resume declaration)
+          (jazz.new-assignment binding (jazz.walk walker resume declaration environment value)))
       (jazz.walk-free-assignment walker resume declaration symbol))))
 
 

@@ -326,7 +326,7 @@
   
   (method public (popup class . initargs)
     (let ((popup (new-popup class initargs)))
-      (set! popups (cons popup popups))
+      (set-popups (cons popup (get-popups)))
       popup))
 
 
@@ -338,13 +338,13 @@
   
   
   (method public (close-popups (all?: all? #f) (exclude: exclude '()))
-    (when (and popups (not Passing-Through?))
+    (when (and (get-popups) (not (get-passing-through?)))
       (let* ((overlapped (get-overlapped))
              (owners (get-owners~ overlapped)))
         (for-each (function dynamic (popup)
                     (when (and (or all? (not (memq? popup owners))) (not (memq? popup exclude)))
                       (close-popup popup)))
-                  popups))))
+                  (get-popups)))))
   
   
   ;;;
@@ -365,9 +365,9 @@
   (method (key-press char)
     (if (and (eqv? char #\escape) Escape-Handler)
         (Escape-Handler)
-      (if (null? popups)
+      (if (null? (get-popups))
           (dispatch-key-press~ root char)
-        (unless (popup-key-press~ (car popups) char)
+        (unless (popup-key-press~ (car (get-popups)) char)
           (close-popups)
           (dispatch-key-press~ root char))))
     processed)))

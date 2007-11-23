@@ -112,6 +112,12 @@
         jazz.Any)))
 
 
+(jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Definition-Declaration declaration) walker resume source-declaration)
+  (nextmethod declaration walker resume source-declaration)
+  (%%when (%%neq? (%%get-declaration-toplevel declaration) (%%get-declaration-toplevel source-declaration))
+    (jazz.walk-error walker resume source-declaration "Illegal inter-module assignment to: {s}" (%%get-lexical-binding-name declaration))))
+
+
 (jazz.define-method (jazz.walk-binding-assignable? (jazz.Definition-Declaration declaration))
   #t)
 

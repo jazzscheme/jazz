@@ -57,12 +57,9 @@
 
 (define (jazz.every? predicate lst)
   (let iter ((scan lst))
-    (cond ((%%null? scan)
-           #t)
-          ((%%not (predicate (%%car scan)))
-           #f)
-          (else
-           (iter (%%cdr scan))))))
+       (or (%%null? scan)
+           (and (predicate (%%car scan))
+                (iter (%%cdr scan))))))
 
 
 (define (jazz.butlast lst)

@@ -74,7 +74,7 @@
 
   (method public (extract file (activity: activity {}))
     (call-with-output-file (parse~ file)
-      (lambda (printer)
+      (function (printer)
         (output-header name printer)
         (format printer "{%}{%}")
         (emit-package-header printer)
@@ -109,7 +109,7 @@
       (set! waiting {})
       (when activity
         (set-range~ activity (new Range 0 (length types))))
-      (for-each (function dynamic (info)
+      (for-each (function (info)
                   (emit-type-information info printer activity))
                 types)
       (when (not-null? waiting)
@@ -134,22 +134,22 @@
   
   (method (emit-waiting name printer activity)
     (let ((processed '()))
-      (for-each (function dynamic (pair)
+      (for-each (function (pair)
                   (bind (info . names) pair
                     (when (and (member? name names)
-                               (every? (function dynamic (name)
+                               (every? (function (name)
                                          (member? name emited))
                                        names))
                       (emit-type-information info printer activity)
                       (set! processed (cons pair processed)))))
                 waiting)
-      (for-each (function dynamic (pair)
+      (for-each (function (pair)
                   (set! waiting (remove! pair waiting)))
                 processed)))
   
   
   (method (waiting-implemented info)
-    (collect (function dynamic (info)
+    (collect (function (info)
                (let ((name (get-name~ info)))
                  (when (and (member? name to-emit)
                             (not (member? name emited)))
@@ -212,7 +212,7 @@
       (format printer "    (properties{a} guid: {s})" (if pure-dispatch? " :pure-dispatch? #t" "") guid)
       (when (or variables functions)
         (format printer "{%}{%}"))
-      (for-each (function dynamic (desc)
+      (for-each (function (desc)
                   (let* ((name (get-member-name~ info desc))
                          (typedesc (get desc '(elemdescVar tdesc)))
                          (type (get typedesc 'vt))
@@ -249,7 +249,7 @@
             (let ((names '()))
               (if (null? interfaces)
                   (format printer ")")
-                (for-each-pair (function dynamic (pair)
+                (for-each-pair (function (pair)
                                  (bind (interface . tail) pair
                                    (let ((functions (get-functions~ interface)))
                                      (set! names (emit-functions interface names functions 'comethod "" printer (essay (null? tail) ")")))))
@@ -290,7 +290,7 @@
     (if (null? functions)
         (when trailer
           (format printer "{a}" trailer))
-      (for-each-pair (function dynamic (pair)
+      (for-each-pair (function (pair)
                        (bind (desc . tail) pair
                          (let* ((name (get-member-name~ info desc))
                                 (effective (effective-name (get desc 'invkind) name)))
@@ -320,7 +320,7 @@
       (when (eq? return-type-name 'unpl)
         (set! unimplemented (cons return-type unimplemented)))
       (let ((params (get-function-parameters~ info desc)))
-        (for-each (function dynamic (n)
+        (for-each (function (n)
                     (let* ((param (array-ref params n))
                            (typedesc (get param 'tdesc))
                            (type (get typedesc 'vt))
@@ -349,7 +349,7 @@
           (format printer "{a}" trailer))
         (when unimplemented
           (format printer " ; {l separator: \", \"}"
-                  (map (function dynamic (item)
+                  (map (function (item)
                          (value->name~ VARENUM item))
                        (reverse! unimplemented))))))))
   
@@ -397,7 +397,7 @@
     (if (null? variables)
         (when trailer
           (format printer "{a}" trailer))
-      (for-each-pair (function dynamic (pair)
+      (for-each-pair (function (pair)
                        (bind (desc . tail) pair
                          (emit-variable info desc printer (essay (null? tail) trailer))))
                      variables)))

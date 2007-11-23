@@ -267,7 +267,7 @@
     (let* ((default-directory? (get-shift?~ evt))
            (parent (selected-object))
            (file (with-import-directory default-directory? parent
-                   (function dynamic (directory)
+                   (function (directory)
                      (choose-file extensions: '(("Jazz Files (*.jazz)" . "*.jazz")) directory: directory)))))
       (install-product file parent #f)))
   
@@ -352,7 +352,7 @@
   
   (method (edit-selection)
     (let ((objects (selected-objects)))
-      (for-each (function dynamic (object)
+      (for-each (function (object)
                   (typecase object
                     ((Workbench) (edit-workbench))
                     ((Product) (edit-product object))))
@@ -402,7 +402,7 @@
                      (extension (get-extension~ template))
                      (destination (new-file~ directory (format "{a}.{a}" name extension))))
                 (call-with-output-file (parse~ destination)
-                  (lambda (printer)
+                  (function (printer)
                     (expand~ expander template associations printer)))
                 (select-component~ (get-tree) (import-pathname (ascendant-product parent) destination parent #f)))))))))
   
@@ -463,9 +463,9 @@
     (let* ((parent (selected-object))
            (product (ascendant-product parent))
            (directory (with-import-directory default-directory? parent
-                        (function dynamic (directory)
+                        (function (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory filter: (function dynamic (file) (import-filter? product file)) :max-count MaxFiles-Warning)))
+           (count (count-files~ directory filter: (function (file) (import-filter? product file)) :max-count MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames product (list directory))
           (let ((component (import-pathname product directory parent #f)))
@@ -478,16 +478,16 @@
     (let* ((parent (selected-object))
            (product (ascendant-product parent))
            (files (with-import-directory default-directory? parent
-                    (function dynamic (directory)
+                    (function (directory)
                       (choose-file multiple-selection?: #t directory: directory)))))
       (import-pathnames product files parent)))
   
   
   (method protected (import-pathnames product pathnames parent)
     (when (validate-pathnames product pathnames)
-      (for-each (function dynamic (pathname)
+      (for-each (function (pathname)
                   (import-pathname product pathname parent #f))
-                (sort < pathnames key: (function dynamic (pathname) (get-name~ pathname))))
+                (sort < pathnames key: (function (pathname) (get-name~ pathname))))
       (let ((count (length pathnames)))
         (user-message "{a} file{a} imported"
                       (format-cardinality count)
@@ -505,7 +505,7 @@
                (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
                (set-name~ designer subgroup name design-events?: (not descendant?))
                (iterate-directory~ pathname
-                 (function dynamic (pathname)
+                 (function (pathname)
                    (import-pathname product pathname subgroup #t))
                  files?: #t
                  directories?: #t
@@ -548,7 +548,7 @@
     (unimplemented 'default-import-directory)
     @convert
     (letrec ((default
-               (function dynamic (object)
+               (function (object)
                  (typecase object
                    ((Workbench)
                     {Directory Jazz})
@@ -573,7 +573,7 @@
     (let ((default-directory (essay default-directory? (default-import-directory object))))
       (if (and default-directory (exists?~ default-directory))
           (with-preserved-current-directory
-            (function dynamic ()
+            (function ()
               (proc default-directory)))
         (proc {}))))
   
@@ -610,20 +610,20 @@
           (error "Directory {s} not found" directory)
         (let ((fact (new List-Factory))
               (component-name
-               (function dynamic (component)
+               (function (component)
                  (if (is? component Product-Group)
                      (get-name~ component)
                    (get-name~ (get-manifest-source (type-name (class-of component)))))))
               (pathname-name
-               (function dynamic (pathname)
+               (function (pathname)
                  (get-name~ pathname))))
           (letrec ((fold
-                    (function dynamic (component pathname path)
-                      (let ((children (collect-if (function dynamic (child)
+                    (function (component pathname path)
+                      (let ((children (collect-if (function (child)
                                                     (is-not? child Project-Dependencies))
                                                   (get-children~ component)))
                             (content (get-content~ pathname)))
-                        (merge-ordered (function dynamic (what key left right)
+                        (merge-ordered (function (what key left right)
                                          (let ((path (cons key path)))
                                            (case what
                                              (:left (put~ fact (list what path)))
@@ -643,10 +643,10 @@
                 (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
                        (tree (locate~ border 'tree))
                        (add
-                        (function dynamic (what path)
+                        (function (what path)
                           (let ((c0 (new Tree-Node title: (join path "/") image: {Bitmap-Resource "OpenedFolder"})))
                             (add-row~ tree children: (list c0 {} {} {}))))))
-                  (for-each (function dynamic (info)
+                  (for-each (function (info)
                               (bind (what path) info
                                 (add what (reverse path))))
                             out-of-synch)
@@ -660,10 +660,10 @@
   
   (method (validate-pathnames product pathnames)
     (validate
-      (function dynamic (report)
+      (function (report)
         (letrec ((workbench (get-workbench))
                  (iterate
-                  (function dynamic (pathname)
+                  (function (pathname)
                     (typecase pathname
                       ((Directory)
                        (iterate-directory~ pathname iterate
@@ -686,7 +686,7 @@
     (let ((workbench (get-workbench))
           (already-defined (new List-Factory)))
       (iterate
-        (function dynamic (jazz-file)
+        (function (jazz-file)
           (put~ already-defined jazz-file)))
       (let ((already-defined (get-output~ already-defined)))
         (if (null? already-defined)
@@ -702,7 +702,7 @@
                  (text
                   `(,header
                     ()
-                    ,@(map (function dynamic (jazz-file)
+                    ,@(map (function (jazz-file)
                              (let ((product (get-product~ jazz-file))
                                    (action
                                     (function ()
@@ -760,7 +760,7 @@
   
   (method (update-catalog)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (let ((catalog (require-catalog~ (selected-product))))
           (load-content~ catalog)
           (update~ catalog)))))
@@ -779,7 +779,7 @@
     @obsolete-Project!?
     (let ((appl (get-application))
           (tree (get-tree)))
-      (for-each (function dynamic (component)
+      (for-each (function (component)
                   (typecase component
                     ((Project)
                      (launch-project component))
@@ -1025,7 +1025,7 @@
            (extensions   (list))
            (frame        (new-frame Compare-Directories left-moniker: left right-moniker: right left-content: content ignored-nodes: ignored-dirs ignored-leaves: files ignored-extensions: extensions host-visible?: #f)))
       (with-cursor :wait
-        (function dynamic ()
+        (function ()
           (compare-trees~ (get-guest~ frame))
           (bring-to-front~ frame)
           (set-visible?~ frame #t)))))
@@ -1140,9 +1140,9 @@
     (let ((workbench (get-workbench)))
       (format :console "{%}active-project = {s}" active-project)
       (format :console "{%}product-designers =")
-      (let* ((pairs (sort < (get-product-designers~ designer) key: (function dynamic (pair) (type-name (class-of (car pair))))))
+      (let* ((pairs (sort < (get-product-designers~ designer) key: (function (pair) (type-name (class-of (car pair))))))
              (more? (> (length pairs) 5)))
-        (for-each (function dynamic (pair)
+        (for-each (function (pair)
                     (bind (product . designer) pair
                       (format :console "{%}  {a} {a}" (type-name (class-of product)) designer)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1151,7 +1151,7 @@
       (format :console "{%}products-table =")
       (let* ((pairs (sort < (table-keys/values (get-products-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function dynamic (pair)
+        (for-each (function (pair)
                     (bind (name . product) pair
                       (format :console "{%}  {a} {a}" name product)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1160,7 +1160,7 @@
       (format :console "{%}categories-table =")
       (let* ((pairs (sort < (table-keys/values (get-categories-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function dynamic (pair)
+        (for-each (function (pair)
                     (bind (name . category) pair
                       (format :console "{%}  {a} {a}" name category)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1169,7 +1169,7 @@
       (format :console "{%}resources-table =")
       (let* ((pairs (sort < (table-keys/values (get-resources-table~ workbench)) key: car))
              (more? (> (length pairs) 5)))
-        (for-each (function dynamic (pair)
+        (for-each (function (pair)
                     (bind (name . resource) pair
                       (format :console "{%}  {a} {a}" name resource)))
                   (if more? (subseq pairs 0 5) pairs))
@@ -1206,7 +1206,7 @@
     (nextmethod rest)
     (let* ((pref (get-preferences '(build policies)))
            (policies (get-children~ pref)))
-      (for-each (function dynamic (policy)
+      (for-each (function (policy)
                   (let ((name (get-name~ policy))
                         (title (get-title~ policy)))
                     (new Check-Item parent: self checked?: (eq? name Current-Policy) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :policy name)))))

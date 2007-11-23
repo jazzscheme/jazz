@@ -157,7 +157,7 @@
     (let ((request (new HTTP-Request :socket socket)))
       (call-listeners-receive-request request)
       (with-error-reporting request
-        (function dynamic ()
+        (function ()
           (set-server~ request self)
           (setup-session request)
           (let* ((response/html (generate-response request))
@@ -172,7 +172,7 @@
   (method (with-error-reporting request proc)
     (let ((html))
       (call-with-catch Exception
-            (function dynamic (exc)
+            (function (exc)
               (if (not debug?)
                   (set! html (present-error exc {}))
                 (let ((stack (print-stack :string)))
@@ -184,7 +184,7 @@
                         (function ()
                           (add-snapshot~ (get-debuggers-view) (read-string-element stack) {} {})
                           (select-workspace~ appl 'debugger))))))))
-          (function dynamic (exc)
+          (function (exc)
             (request-response request html :code 'server-error))
         proc)))
   
@@ -336,25 +336,25 @@
   
   
   (method (call-listeners-hit)
-    (for-each (function dynamic (listener)
+    (for-each (function (listener)
                 (hit~ listener self))
               listeners))
   
   
   (method (call-listeners-receive-request request)
-    (for-each (function dynamic (listener)
+    (for-each (function (listener)
                 (receive-request~ listener self request))
               listeners))
   
   
   (method (call-listeners-receive-servlet-request request resource servlet-class)
-    (for-each (function dynamic (listener)
+    (for-each (function (listener)
                 (receive-servlet-request~ listener self request resource servlet-class))
               listeners))
   
   
   (method (call-listeners-process-request request response)
-    (for-each (function dynamic (listener)
+    (for-each (function (listener)
                 (process-request~ listener self request response))
               listeners))
 
@@ -410,7 +410,7 @@
          (<tr>
            (<td> "headers")
            (<td> (<table>
-                   ,@(map-hash (function dynamic (name value)
+                   ,@(map-hash (function (name value)
                                  `(<tr>
                                     (<td> ,name)
                                     (<td> ,value)))
@@ -418,7 +418,7 @@
          (<tr>
            (<td> "cookies")
            (<td> (<table>
-                   ,@(map-hash (function dynamic (name cookie)
+                   ,@(map-hash (function (name cookie)
                                  (let ((value (get-value~ cookie)))
                                    `(<tr>
                                       (<td> ,name)
@@ -427,7 +427,7 @@
          (<tr>
            (<td> "parameters")
            (<td> (<table>
-                   ,@(map (function dynamic (parameter)
+                   ,@(map (function (parameter)
                             (bind (name . value) parameter
                               `(<tr>
                                  (<td> ,name)
@@ -452,7 +452,7 @@
              (<tr>
                (<td> "properties")
                (<td> (<table>
-                       ,@(map-property (function dynamic (property value)
+                       ,@(map-property (function (property value)
                                          `(<tr>
                                             (<td> ,(->string property))
                                             (<td> ,(->string value))))

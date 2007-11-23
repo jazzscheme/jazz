@@ -136,7 +136,7 @@
   
   (method (on-browse evt)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         ;; overkill for the moment... especially since some modules still have
         ;; references to classes not included in the JazzScheme distribution...
         ;; (load-all)
@@ -177,23 +177,23 @@
   (method (browse-inheritance-tree (root: root Object) (size-range: size-range #t))
     (let ((tree (locate 'classes)))
       (with-update-locked~ tree
-        (function dynamic ()
+        (function ()
           (remove-every-row~ tree)
           (letrec ((get-size
-                     (function dynamic (type)
+                     (function (type)
                        (cond ((structure? type) (size-of type))
                              ((class? type) (fourth (class-sizes type)))
                              ((eq? type void) 0)
                              (else (size-of type)))))
                    (upward
-                     (function dynamic (type)
+                     (function (type)
                        (let* ((state 'expanded)
                               (title (->string (type-name type)))
                               (ascendant (type-ascendant type))
                               (father (essay ascendant (upward ascendant))))
                          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type))))
                    (proc
-                     (function dynamic (type father)
+                     (function (type father)
                        (let ((size (get-size type)))
                          (when (or (eq? size-range #t)
                                    (and (>= size (get-start~ size-range))
@@ -201,7 +201,7 @@
                            (let* ((state 'expanded @old (if (eq? type root) 'expanded 'collapsed))
                                   (title (->string (type-name type)))
                                   (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
-                             (for-each (function dynamic (subtype)
+                             (for-each (function (subtype)
                                          (proc subtype father))
                                        (sort < (type-descendants type) key: type-name))))))))
             (let ((ascendant (type-ascendant root)))
@@ -216,7 +216,7 @@
   (method (selected-categories)
     (let* ((tree (locate 'classes))
            (selection (get-selection~ tree)))
-      (map (function dynamic (rank)
+      (map (function (rank)
              (let ((category (get-user-data~ (get-row~ tree rank))))
                category))
            selection)))
@@ -224,7 +224,7 @@
   
   (method (selected-files)
     @convert
-    (collect (function dynamic (category)
+    (collect (function (category)
                (get-manifest-source (type-name category)))
              (selected-categories)))
 
@@ -237,7 +237,7 @@
   (method (touch-selection)
     (let* ((files (selected-files))
            (count (length files)))
-      (for-each (function dynamic (file)
+      (for-each (function (file)
                   (touch~ file))
                 files)
       (message-box (format "{a} file{a} touched" count (format-plural count)))))))

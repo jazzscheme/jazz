@@ -191,8 +191,8 @@
   (method (find-editor form)
     (let ((stage (get-stage)))
       (call/ec
-        (lambda (return)
-          (for-each (function dynamic (frame)
+        (function (return)
+          (for-each (function (frame)
                       (when (is? frame View-Host)
                         (let ((guest (get-guest~ frame)))
                           (when (is? guest Editor-View)
@@ -205,7 +205,7 @@
   
   (method (on-copy-list evt)
     (let ((appl (get-application))
-          (list (map (function dynamic (object) (->string object :reader)) (read-string-content (get-selected-string)))))
+          (list (map (function (object) (->string object :reader)) (read-string-content (get-selected-string)))))
       (push-clipboard-list~ appl list)
       (user-message "Pushed {a} elements onto the clipboard stack" (length list))))
   
@@ -359,11 +359,11 @@
   
   (method protected virtual (on-evaluate evt)
     (with-safe-explore
-      (function dynamic ()
+      (function ()
         (let ((range (current-definition-range)))
           (when range
             (with-cursor :wait
-              (function dynamic ()
+              (function ()
                 (sleep .1)
                 (receive (module-name header footer) (fusion-declarations range)
                   (fusion-evaluate-forms module-name (read-text-forms range) header footer)))))))))
@@ -372,9 +372,9 @@
   (method (fusion-evaluate-forms module-name forms header footer)
     (let ((console-text (get-console-text))
           (expl <Text-Explorer> (new (explorer-class) self)))
-      (let ((names (map (function dynamic (form) (form-name~ expl form)) forms)))
+      (let ((names (map (function (form) (form-name~ expl form)) forms)))
         (evaluation-break~ console-text)
-        (let ((results (map (lambda (form)
+        (let ((results (map (function (form)
                               ;; all this is a bit braindead but makes more sense with a remote debugger...
                               (let ((expr (read-string-element (format "{a}{s}{a}" header form footer))))
                                 (parameterize ((requested-module-name module-name))
@@ -387,7 +387,7 @@
         (display-evaluation~ console-text names #f)
         (fresh-prompt~ console-text)
         (user-message "Evaluated: {l}"
-                      (map (function dynamic (name)
+                      (map (function (name)
                              (either name '<expr>))
                            names)))))
   
@@ -412,11 +412,11 @@
   @convert
   (method protected virtual (on-evaluate evt)
     (with-safe-explore
-      (function dynamic ()
+      (function ()
         (let ((range (current-definition-range)))
           (when range
             (with-cursor :wait
-              (function dynamic ()
+              (function ()
                 (remove-highlights range)
                 (sleep .1)
                 (let ((info (current-toplevel-info))
@@ -595,7 +595,7 @@
       (if (not class)
           (error "Unable to find class: {t}" class-name)
         (let ((meta? #f))
-          (for-each (function dynamic (name)
+          (for-each (function (name)
                       (if (eq? name 'meta)
                           (set! meta? #t)
                         (set! class (definition-value (category-field (if meta? (class-of class) class) name)))
@@ -752,7 +752,7 @@
            (user (get-user~ appl))
            (apidocs (java-apidocs~ user)))
       (receive (package name) (parse-classname~ Java classname)
-        (for-each (function dynamic (dir)
+        (for-each (function (dir)
                     (let ((file (new-file~ dir (append package (list (format "{a}.html" name))))))
                       (when (exists?~ file)
                         (shell-execute file)
@@ -814,7 +814,7 @@
     @convert
     (user-message "({s} {l}{a}) {s}"
                   symbol
-                  (map type-name (accumulate-to List (function dynamic (param) (get-type~ param)) (proxy-parameters~ Interpreter external)))
+                  (map type-name (accumulate-to List (function (param) (get-type~ param)) (proxy-parameters~ Interpreter external)))
                   (if (proxy-rest?~ Interpreter external) " . rest" "")
                   (type-name (get-type~ (proxy-result~ Interpreter external)))))
 
@@ -851,8 +851,8 @@
   @convert
   (method (find-in symbol class packages)
     (call/ec
-      (lambda (return)
-        (for-each (function dynamic (package)
+      (function (return)
+        (for-each (function (package)
                     (let* ((name (type-name package))
                            (package (either (get-interpreted-category~ Interpreter-Services name) package))
                            (field (category-field (class-of package) symbol)))
@@ -883,7 +883,7 @@
   
   
   (method public (current-class-form)
-    (let ((range (with-safe-explore (function dynamic () (current-definition-range)))))
+    (let ((range (with-safe-explore (function () (current-definition-range)))))
       (when range
         (let ((info (current-toplevel-info))
               (forms (read-text-forms range)))
@@ -960,7 +960,7 @@
         (let ((start (get-start))
               (printer (new Text-Printer self)))
           (with-atomic-undo~ undoer
-            (function dynamic ()
+            (function ()
               (set-caret (new Cell (get-row~ start) 0))
               (format printer "{%}{%}")
               (insert-properties (map ->string names) printer)))))))
@@ -968,10 +968,10 @@
   
   (method (insert-properties names printer)
     (let ((max (apply max (map length names))))
-      (for-each (function dynamic (name)
+      (for-each (function (name)
                   (insert-property name max printer))
                 names)
-      (for-each (function dynamic (name)
+      (for-each (function (name)
                   (format printer "{%}{%}")
                   (insert-getter name printer)
                   (format printer "{%}{%}")

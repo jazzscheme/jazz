@@ -68,7 +68,7 @@
                 (items (standardize-items items))
                 (rank base))
             `(declare ,enumeration-name ,declaration
-               ,@(map (function dynamic (item)
+               ,@(map (function (item)
                         (increase! rank)
                         (bind (name value) item
                           `(attribute (:location (,enumeration-name ,rank))
@@ -78,7 +78,7 @@
                  (constant ,@modifiers ,enumeration-name
                    (new Enumeration ',enumeration-name
                      (list
-                      ,@(map (function dynamic (item)
+                      ,@(map (function (item)
                                (bind (name) item
                                  `(list ',name ,name)))
                              items)))))))))))
@@ -106,12 +106,12 @@
       (let ((base (+ (length modifiers) 1)))
         (bind (enumeration-name . items) rest
           (let* ((items (standardize-items items))
-                 (enumeration (new Enumeration enumeration-name (map (function dynamic (item) (list (car item) #f)) items)))
+                 (enumeration (new Enumeration enumeration-name (map (function (item) (list (car item) #f)) items)))
                  (rank base))
             `(declare ,enumeration-name ()
                (attribute (:location (,enumeration-name ,base))
                  (constant ,@modifiers ,enumeration-name ,enumeration))
-               ,@(map (function dynamic (item)
+               ,@(map (function (item)
                         (increase! rank)
                         (bind (name value) item
                           `(attribute (:location (,enumeration-name ,rank))
@@ -122,7 +122,7 @@
   
   (method meta (standardize-items items)
     (let ((rank 0))
-      (map (function dynamic (item)
+      (map (function (item)
              (prog1 (if (symbol? item)
                         (list item rank)
                       item)

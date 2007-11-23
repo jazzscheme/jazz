@@ -242,7 +242,7 @@
   
   (method (print printer readably)
     (print-unreadable self printer
-      (function dynamic (printer)
+      (function (printer)
         (format printer "{a} {a} {a} {a}" title name position size))))
   
   
@@ -289,7 +289,7 @@
   (method public (set-player plr)
     (set! player plr)
     (for-each-view
-      (function dynamic (view)
+      (function (view)
         (set-player~ view player))))
   
   
@@ -399,7 +399,7 @@
   
   (method (filter-inexistant-workspaces pref workspaces)
     (let ((names (map component-name (get-children~ pref))))
-      (collect-if (function dynamic (name)
+      (collect-if (function (name)
                     (memq? name names))
                   workspaces)))
 
@@ -1027,7 +1027,7 @@
   (method (delete-existing directory filename)
     (let ((regexp (new Regular-Expression (format "{a}*.emf" filename))))
       (iterate-directory~ directory
-        (function dynamic (file)
+        (function (file)
           (when (matches?~ regexp (get-name~ file))
             (delete-file~ file)))
         recursive?: #f)))
@@ -1035,7 +1035,7 @@
   
   (method public virtual (print-layout (from-preview?: from-preview? #f))
     (with-locked-update
-      (function dynamic ()
+      (function ()
         (let* ((client (current-document))
                (current (selected-workspace))
                (ws (new Page-Workspace name: 'page :previous current)))
@@ -1051,7 +1051,7 @@
 
   (method public virtual (print-preview (from-layout?: from-layout? #f))
     (with-locked-update
-      (function dynamic ()
+      (function ()
         (let* ((frame (new-frame Preview-Pane host-title: "Print Preview" host-visible?: #f client: self))
                (pane (get-guest~ frame))
                (current (selected-workspace))
@@ -1076,8 +1076,8 @@
            (cols (fxceiling/ width page-width))
            (rows (fxceiling/ height page-height))
            (pages (new List-Factory)))
-      (for-each (function dynamic (row)
-                  (for-each (function dynamic (col)
+      (for-each (function (row)
+                  (for-each (function (col)
                               (let* ((h (+ (get-left~ area) (* col page-width)))
                                      (v (+ (get-top~ area) (* row page-height)))
                                      (page (new Rect h v (+ h page-width) (+ v page-height))))
@@ -1123,18 +1123,18 @@
     ;; the savefile dialog can disrupt the context (ex: popups closing)
     (let ((file (case where ((clipboard) {}) ((file) (create-temporary-file)))))
       (with-cursor :wait
-        (function dynamic ()
+        (function ()
           (let ((metafile))
             (with-closed ((picture (new Picture file: file)))
               (with-printing
-                (function dynamic ()
+                (function ()
                   (let* ((area (get-print-area context))
                          (lie (get-lie))
                          (lh (get-h~ lie))
                          (lv (get-v~ lie)))
                     (let ((content (offset-rect area lh lv)))
                       (with-clipper~ picture content
-                        (function dynamic ()
+                        (function ()
                           (paint-drawing picture context {} lh lv (get-left~ content) (get-top~ content) 1.0 #f)))))))
               (set! metafile (get-metafile~ picture)))
             (if (eq? where 'clipboard)
@@ -1313,7 +1313,7 @@
             ;; it is important to update scrollbars first as this can change
             ;; the scrollee size and we do not want to layout twice for nothing
             (with-scrollee-locked
-              (function dynamic ()
+              (function ()
                 (update-scrollbars)))
             (layout-scrollee-content))))))
   
@@ -1456,11 +1456,11 @@
     (let ((display-pos (get-display-position))
           (display-size (get-display-size))
           (needed
-            (function dynamic (start end context pos size force-direction)
+            (function (start end context pos size force-direction)
               (let* ((start-offset (- pos start))
                      (end-offset (- (+ pos size) end))
                      (big-range? (> (- end start) size))
-                     (proc (function dynamic (use-head?)
+                     (proc (function (use-head?)
                              (let ((context (if context (fxround (* size context)) 0)))
                                (if use-head? (+ start-offset context) (- end-offset context))))))
                 (cond
@@ -1563,7 +1563,7 @@
   
   (method public (for-each-view-reversed proc (include-invisibles?: include-invisibles? #f))
     (let ((proc
-            (function dynamic (child)
+            (function (child)
               (when (and (is? child View)
                          (or include-invisibles? (get-visible?~ child)))
                 (proc child)))))
@@ -1595,7 +1595,7 @@
   
   (method public (get-views (include-invisibles?: include-invisibles? #f))
     (collect-if
-      (function dynamic (child)
+      (function (child)
         (and (is? child View)
              (or include-invisibles? (get-visible?~ child)))) (get-children)))
   
@@ -1861,7 +1861,7 @@
   
   
   (method public virtual (cursor-update pos)
-    (unless Current-Drag-Drop
+    (unless (current-drag-drop)
       (set-cursor :arrow)))
   
   
@@ -1870,11 +1870,11 @@
   
   
   (method public (mouse-right-pressed?)
-    mouse-right-down?)
+    (get-mouse-right-down?))
   
   
   (method public (mouse-in?)
-    (eq? self mouse-in))
+    (eq? self (get-mouse-in)))
   
   
   (method public (mouse-over?)
@@ -1990,9 +1990,9 @@
       (when view
         (close-popups~ view event: 'mouse-down)
         (let ((acquired (acquire~ view self pos)))
-          (set! mouse-down? #t)
-          (set! mouse-down-view view)
-          (set! mouse-down-point acquired)
+          (set-mouse-down? #t)
+          (set-mouse-down-view view)
+          (set-mouse-down-point acquired)
           (when (mouse-activate?~ view)
             (mouse-activate~ (get-root)))
           (call-mouse-down~ view acquired)
@@ -2009,16 +2009,16 @@
     (let ((pos (new Point h v)))
       (let ((view (find-mouse-view pos)))
         (when view
-          (when (neq? view mouse-in)
-            (when mouse-in
-              (call-mouse-leave~ mouse-in)
+          (when (neq? view (get-mouse-in))
+            (when (get-mouse-in)
+              (call-mouse-leave~ (get-mouse-in))
               (unless (or (and view (is? (get-player~ view) Tooltip)) (in-tooltip? pos))
-                (cancel-tooltip-tracking~ mouse-in)))
-            (set! mouse-in view)
-            (when mouse-in
-              (unless Current-Drag-Drop
-                (track-tooltip~ mouse-in))
-              (call-mouse-enter~ mouse-in)))
+                (cancel-tooltip-tracking~ (get-mouse-in))))
+            (set-mouse-in view)
+            (when (get-mouse-in)
+              (unless (current-drag-drop)
+                (track-tooltip~ (get-mouse-in)))
+              (call-mouse-enter~ (get-mouse-in))))
           (if mouse-down?
               (let ((acquired (acquire~ mouse-down-view self pos)))
                 (call-cursor-update~ mouse-down-view acquired)
@@ -2050,15 +2050,15 @@
         (let ((acquired (acquire~ view self pos)))
           (call-cursor-update~ view acquired)
           (process-mouse-up~ view acquired))))
-    (when delayed-mouse-action
-      (let ((action delayed-mouse-action))
-        (set! delayed-mouse-action {})
+    (when (get-delayed-mouse-action)
+      (let ((action (get-delayed-mouse-action)))
+        (set-delayed-mouse-action {})
         (action))))
 
   
   (method (process-mouse-up pos)
-    (when Current-Drag-Drop
-      (drag-drop Current-Drag-Drop pos))
+    (when (current-drag-drop)
+      (drag-drop (current-drag-drop) pos))
     (call-mouse-up pos))
 
   
@@ -2069,19 +2069,19 @@
 
   
   (method (process-drag-move pos)
-    (if (and (eq? self mouse-down-view) (get-draggable?) (or (not Current-Drag-Drop) (eq? self (get-view~ (get-source~ Current-Drag-Drop)))))
+    (if (and (eq? self mouse-down-view) (get-draggable?) (or (not (current-drag-drop)) (eq? self (get-view~ (get-source~ (current-drag-drop))))))
         (begin
           (when (allow-start-drag? pos)
             (let ((drag-drop (get-drag-drop)))
               (when drag-drop
                 (drag-start pos (- mouse-down-point (get-drag-hotspot)) drag-drop))))
-          (when Current-Drag-Drop
+          (when (current-drag-drop)
             (drag-follow pos)))
       (call-drag-move pos)))
   
   
   (method protected virtual (allow-start-drag? pos)
-    (and mouse-down? (not Current-Drag-Drop) (not (near? pos mouse-down-point drag-tolerance))))
+    (and mouse-down? (not (current-drag-drop)) (not (near? pos mouse-down-point drag-tolerance))))
   
   
   (method (call-drag-move pos)
@@ -2090,8 +2090,8 @@
       (drag-move pos)))
 
   
-  (method (process-drag-up pos (dragging? Current-Drag-Drop))
-    (set! mouse-down? #f)
+  (method (process-drag-up pos (dragging? (current-drag-drop)))
+    (set-mouse-down? #f)
     (call-drag-up pos dragging?))
 
   
@@ -2107,9 +2107,9 @@
       (when view
         (close-popups~ view event: 'double-click)
         (let ((acquired (acquire~ view self pos)))
-          (set! mouse-down? #t)
-          (set! mouse-down-view view)
-          (set! mouse-down-point acquired)
+          (set-mouse-down? #t)
+          (set-mouse-down-view view)
+          (set-mouse-down-point acquired)
           (when (mouse-activate?~ view)
             (mouse-activate~ (get-root)))
           (call-double-click~ view (acquire~ view self pos))))))
@@ -2154,7 +2154,7 @@
   (method protected (dispatch-right-mouse-down h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
-      (set! mouse-right-down? #t)
+      (set-mouse-right-down? #t)
       (when view
         (right-mouse-down~ view (acquire~ view self pos)))))
   
@@ -2162,7 +2162,7 @@
   (method protected (dispatch-right-mouse-up h v)
     (let* ((pos (new Point h v))
            (view (find-mouse-view pos)))
-      (set! mouse-right-down? #f)
+      (set-mouse-right-down? #f)
       (when view
         (right-mouse-up~ view (acquire~ view self pos)))))
   
@@ -2184,10 +2184,10 @@
   
   
   (method public virtual (mouse-wheel delta)
-    (if (or (shift-down?) mouse-right-down?)
+    (if (or (shift-down?) (get-mouse-right-down?))
         (begin
           (scroll (new Point (quotient delta 3) 0))
-          (when mouse-right-down?
+          (when (get-mouse-right-down?)
             (set! inhibit-context-menu? #t)))
       (scroll (new Point 0 (quotient delta 3)))))
 
@@ -2257,7 +2257,7 @@
 
 
   (method public (mouse-view)
-    (either Captured-View mouse-in))
+    (either (get-captured-view) (get-mouse-in)))
 
 
   ;;;
@@ -2339,7 +2339,7 @@
   
   
   (method (popup-tooltip pos)
-    (unless (or mouse-down? Current-Drag-Drop (in-tooltip? pos))
+    (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
       (close-tooltip)
       (let ((context (essay (/= pos Last-Tooltip-Context-Pos) (get-tooltip-context pos))))
         (set! Current-Tooltip-Context context)
@@ -2412,7 +2412,7 @@
   
   (method public (get-selected-element (class: class Radio-Button) (group: group {}))
     (let ((element
-            (find-if (function dynamic (child)
+            (find-if (function (child)
                        (and (is? child class)
                             (or (not group) (eq? (get-group~ child) group))
                             (get-selected?~ child)))
@@ -2423,7 +2423,7 @@
   
   (method public (set-selected-element name (class: class Radio-Button) (group: group {}))
     (let ((found? #f))
-      (for-each (function dynamic (child)
+      (for-each (function (child)
                   (when (and (is? child class)
                              (or (not group) (eq? (get-group~ child) group)))
                     (let ((selected? (eq? (get-name~ child) name)))
@@ -2436,7 +2436,7 @@
   
   
   (method public (unselect-elements (class: class Radio-Button) (group: group {}))
-    (for-each (function dynamic (child)
+    (for-each (function (child)
                 (when (and (is? child class)
                            (or (not group) (eq? (get-group~ child) group)))
                   (unselect~ child)))
@@ -2464,7 +2464,7 @@
   
   
   (method (all-invisible? menu)
-    (every? (function dynamic (item)
+    (every? (function (item)
               (not (get-visible?~ item)))
             (get-children~ menu)))
 
@@ -2600,7 +2600,7 @@
   
   
   (method (drag-start pos hotspot drag-drop)
-    (set! Current-Drag-Drop drag-drop)
+    (set-current-drag-drop drag-drop)
     (let ((view (get-view~ (get-source~ drag-drop))))
       (set-cursor :no)
       (acquire-focus~ view)
@@ -2617,8 +2617,8 @@
   
   
   (method (drag-follow pos)
-    (when Current-Drag-Drop
-      (let* ((drag-drop Current-Drag-Drop)
+    (when (current-drag-drop)
+      (let* ((drag-drop (current-drag-drop))
              (view (get-view~ (get-source~ drag-drop)))
              (global (to-desktop~ view pos)))
         @old(ImageList_DragMove (get-h~ global) (get-v~ global))
@@ -2632,18 +2632,18 @@
   
   
   (method (drag-end)
-    (when Current-Drag-Drop
-      (let ((drag-drop Current-Drag-Drop))
+    (when (current-drag-drop)
+      (let ((drag-drop (current-drag-drop)))
         (hide-drag-image)
         (unhighlight-current drag-drop)
         @old(ImageList_EndDrag)
         @old(ImageList_DragLeave (get-handle~ (get-desktop)))
         (release-capture~ (get-view~ (get-source~ drag-drop)))
-        (set! Current-Drag-Drop {}))))
+        (set-current-drag-drop {}))))
   
   
   (method (process-drag-feedback global)
-    (let* ((drag-drop Current-Drag-Drop)
+    (let* ((drag-drop (current-drag-drop))
            (current (get-view~ drag-drop))
            (desktop (get-desktop))
            (view (find-view~ desktop global)))
@@ -2719,7 +2719,7 @@
            (drag-over (get-view~ drag-drop))
            (drag-info (cons drag-start drag-over)))
       (if (neq? drag-start drag-over)
-          (let ((criteria (find-if (function dynamic (criteria) (accepts?~ criteria drag-info)) acceptance)))
+          (let ((criteria (find-if (function (criteria) (accepts?~ criteria drag-info)) acceptance)))
             (if criteria
                 (new Drop-Target :handler handler view: sender position: pos :criteria criteria)
               (current-drop~ sender drag-drop pos)))
@@ -2966,7 +2966,7 @@
   
   
   (method protected (dispatch-key-press key)
-    (if (and Current-Drag-Drop (= key #\escape))
+    (if (and (current-drag-drop) (= key #\escape))
         (begin
           (drag-end)
           @convert
@@ -3187,12 +3187,12 @@
   
   
   (method public (acquire-capture)
-    (set! Captured-View self)
+    (set-captured-view self)
     (acquire-capture~ (get-player)))
   
   
   (method public (release-capture)
-    (set! Captured-View {})
+    (set-captured-view {})
     (release-capture~ (get-player)))
 
 

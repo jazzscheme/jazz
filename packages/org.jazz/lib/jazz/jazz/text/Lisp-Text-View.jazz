@@ -102,7 +102,7 @@
       (if (shift-key? modifiers)
           (insert-char #\tab)
         (with-atomic-undo~ undoer
-          (function dynamic ()
+          (function ()
             (tabulate))))))
   
   
@@ -110,7 +110,7 @@
     (if (has-selection?)
         (bell)
       (with-atomic-undo~ undoer
-        (function dynamic ()
+        (function ()
           (let ((left-expl <Text-Explorer> (new (explorer-class) self))
                 (right-expl <Text-Explorer> (new (explorer-class) self)))
             (set-pos~ left-expl (get-start))
@@ -146,7 +146,7 @@
   (method (colorize-syntax (recoloring?: recoloring? #f))
     (nextmethod entries?: #f)
     (with-safe-explore
-      (function dynamic ()
+      (function ()
         (colorize-declarations recoloring?)
         (colorize-comments recoloring?))))
   
@@ -187,12 +187,12 @@
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (walk-declarations~ expl
         {}
-        (function dynamic (context start end marked documented?)
+        (function (context start end marked documented?)
           (when marked
             (apply-coloring colorizer start end (declaration-style documented?))))
-        (function dynamic (context start end)
+        (function (context start end)
           (apply-coloring colorizer start end 'Declaration-Keyword))
-        (function dynamic (context start end mode kind)
+        (function (context start end mode kind)
           (case kind
             ((symbol)
              @wait-no-easy-way-to-recolorize-when-on-multiple-lines
@@ -249,7 +249,7 @@
     (let ((expl <Text-Explorer> (new (explorer-class) self end: (text-beginning)))
           (colorizer (essay (not recoloring?) (new-colorizer self))))
       (for-each-comment~ expl
-        (function dynamic (start <Cell> end <Cell> title?)
+        (function (start <Cell> end <Cell> title?)
           (let* ((row (get-row~ start))
                  (len (paragraph-length row))
                  (end (new Cell row len)))
@@ -291,12 +291,12 @@
                  (expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
             (walk-declaration~ expl
               {}
-              (function dynamic (context start end marked documented?)
+              (function (context start end marked documented?)
                 (when marked
                   (apply-style (declaration-style documented?) start end)))
-              (function dynamic (context start end)
+              (function (context start end)
                 (apply-style 'Declaration-Keyword start end))
-              (function dynamic (context start end mode kind)
+              (function (context start end mode kind)
                 (case kind
                   ((tag)
                    (apply-style 'Tag start end))
@@ -388,7 +388,7 @@
            (col 0)
            (done? #f))
       (call/ec
-        (lambda (return)
+        (function (return)
           (while (not done?)
             (let ((col (search str "<" start: col)))
               (if (not col)
@@ -457,13 +457,13 @@
   
   
   (method (comment-style? style)
-    (some? (function dynamic (style-name)
+    (some? (function (style-name)
              (inherits?~ style style-name))
            Comment-Styles))
   
   
   (method (string-style? style)
-    (some? (function dynamic (style-name)
+    (some? (function (style-name)
              (inherits?~ style style-name))
            String-Styles))
   
@@ -510,7 +510,7 @@
 
   (method (return-press key)
     (with-atomic-undo~ undoer
-      (function dynamic ()
+      (function ()
         (nextmethod key)
         (tabulate))))
 
@@ -519,9 +519,9 @@
     (let ((start (get-start))
           (end (get-end)))
       (with-update-locked
-        (function dynamic ()
+        (function ()
           (with-safe-explore
-            (function dynamic ()
+            (function ()
               (set-caret (get-start))
               (receive (modified? last-delta <fx>) (tabulate-lines (get-row~ start) (get-row~ end))
                 (set-caret (+ end last-delta))
@@ -770,14 +770,14 @@
   (method public (highlight-expression range symbol)
     (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
       (iterate-expression~ expl
-        (function dynamic (mode)
+        (function (mode)
           (when (and (eq? (get-kind~ expl) 'symbol) (eq? (find-marked-symbol~ expl) symbol))
             (apply-style 'Reference (get-start~ expl) (get-end~ expl)))))))
   
   
   (method public (remove-highlights range)
-    (for-each-paragraph (function dynamic (row <fx> paragraph <Paragraph>)
-                          (for-each (function dynamic (run)
+    (for-each-paragraph (function (row <fx> paragraph <Paragraph>)
+                          (for-each (function (run)
                                       (let* ((style (get-style~ run))
                                              (style-name (get-name~ (get-style~ run))))
                                         (when (memq? style-name '(Reference Walk-Warning Walk-Fatal Break))

@@ -90,7 +90,7 @@
   
   (method (context-menu pos)
     (with-context-click pos
-      (function dynamic ()
+      (function ()
         (let ((menu (get-context-menu)))
           (when menu
             (track-popup-menu menu pos))))))
@@ -167,7 +167,7 @@
           (when name
             (set-name~ child name))
           (with-update-locked
-            (function dynamic ()
+            (function ()
               (install-new-entity controller child parent presentation (append added-properties extra-properties))))
           (when select?
             (select-entity child))
@@ -184,7 +184,7 @@
         {}
       (let* ((name-mandatory? (get-name-mandatory?~ factory))
              (name-unicity? (get-name-unicity?~ factory))
-             (unicity-domain (essay name-unicity? (map (function dynamic (entity) (get-presentation~ entity)) brothers)))
+             (unicity-domain (essay name-unicity? (map (function (entity) (get-presentation~ entity)) brothers)))
              (name-validator (entity-name-validator))
              (pres (localize (get-factory-presentation~ factory)))
              (presentation (request-string title: (new Locales english: (format "Enter {a} Name" pres) french: "Entrez le nom") initial-value: initial-value :accepts-empty? (not name-mandatory?) :unicity-domain unicity-domain :validator name-validator)))
@@ -206,7 +206,7 @@
   
   
   (method protected virtual (add-properties entity properties)
-    (for-each-property (function dynamic (property value)
+    (for-each-property (function (property value)
                          (set-property~ controller entity property value))
                        properties))
 
@@ -234,7 +234,7 @@
   
   (method (end-rename entity cell presentation)
     (with-update-locked
-      (function dynamic ()
+      (function ()
         (set-title~ (get-cell-data cell) presentation)
         (set-name~ controller entity presentation)
         (let ((parent (get-parent~ entity)))
@@ -256,9 +256,9 @@
            (part (get-part~ target))
            (destination (get-user-data~ dst)))
       (with-update-locked
-        (function dynamic ()
+        (function ()
           (if (eq? part 'row)
-              (let ((parent (uniform entities key: (function dynamic (entity) (relocation-parent destination (class-of entity))))))
+              (let ((parent (uniform entities key: (function (entity) (relocation-parent destination (class-of entity))))))
                 (if (not parent)
                     (bell)
                   (move-entities~ controller entities parent)))
@@ -268,7 +268,7 @@
                    (position (case part ((before) rank) ((after) (+ rank 1))))
                    (target (if (< position (length sons)) (element sons position) {}))
                    (target-data (essay target (get-user-data~ target))))
-              (for-each (function dynamic (entity)
+              (for-each (function (entity)
                           (send-before~ controller entity (essay target (send-entity-before entity target-data))))
                         entities)))
           (select-entities entities)))))
@@ -280,7 +280,7 @@
              (destination (either (get-user-data~ father) client))
              (sort? (sort-entities?~ destination)))
         (move-row row father
-          position: (either position (function dynamic ()
+          position: (either position (function ()
                                        (if (not sort?)
                                            {}
                                          (find-entity-position source row father))))))))
@@ -325,9 +325,9 @@
   (method (get-row-reorder-target drag-drop row quarter)
     (let* ((src-selection (get-selection~ (get-view~ (get-source~ drag-drop))))
            (src-range (contiguous-range src-selection))
-           (src (map (function dynamic (n) (get-user-data~ (get-row n))) src-selection))
+           (src (map (function (n) (get-user-data~ (get-row n))) src-selection))
            (src-types (remove-duplicates (map class-of src)))
-           (src-parent (uniform src key: (function dynamic (entity) (parent-relocation (get-parent~ entity)))))
+           (src-parent (uniform src key: (function (entity) (parent-relocation (get-parent~ entity)))))
            (dst (get-user-data~ row))
            (dst-father (get-father~ row))
            (dst-rank (row-rank row))
@@ -336,7 +336,7 @@
            (before-last (row-rank (last (get-sons~ dst-father))))
            (before-rank (essay before? (if (memq? quarter '(1 2)) dst-rank (if (eq? dst-rank before-last) {} (+ dst-rank 1)))))
            (before (essay before-rank (if (< before-rank visible-count) (get-row before-rank) {})))
-           (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (function dynamic (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
+           (move? (and (not (memq? dst src)) (or (null? dst) (and (or (null? src-parent) (neq? src-parent dst)) (every? (function (src) (and (not (has-parent?~ dst src)) (addable-class?~ dst (class-of src)))) src)))))
            (before? (and before? (not (memq? before-rank src-selection)) (or (null? src-range) (/= (either before-rank (+ before-last 1)) (+ (cdr src-range) 1))) (can-send-before?~ src-parent src-types dst-father before)))
            (part (cond ((and move? (or (memq? quarter '(2 3)) (and (not before?) (memq? quarter '(1 4))))) 'row)
                        ((and before? (or (= quarter 1) (and (not move?) (= quarter 2)))) 'before)
@@ -368,7 +368,7 @@
            (parent (get-user-data~ (get-row~ target)))
            (child (new model visible?: #f)))
       (with-update-locked
-        (function dynamic ()
+        (function ()
           (add-view~ (get-controller) child parent position: {Point 0 0} :centered? #f)
           (rename-entity child)))))
 
@@ -402,7 +402,7 @@
   (method (can-cut?)
     (let ((entities (selected-entities)))
       (and entities
-           (every? (function dynamic (entity)
+           (every? (function (entity)
                      (can-cut-entity?~ entity))
                    entities))))
   
@@ -410,14 +410,14 @@
   (method (can-copy?)
     (let ((entities (selected-entities)))
       (and entities
-           (every? (function dynamic (entity)
+           (every? (function (entity)
                      (can-copy-entity?~ entity))
                    entities))))
   
   
   (method (can-paste?)
     (let* ((entities (selected-entities))
-           (parents (map (function dynamic (entity)
+           (parents (map (function (entity)
                            (determine-paster~ entity))
                          entities)))
       (and (not (memq? {} parents))
@@ -427,7 +427,7 @@
   (method (can-delete?)
     (let ((entities (selected-entities)))
       (and entities
-           (every? (function dynamic (entity)
+           (every? (function (entity)
                      (can-delete-entity?~ entity))
                    entities))))
   
@@ -448,9 +448,9 @@
       (if (null? entities)
           (bell)
         (with-update-locked
-          (function dynamic ()
+          (function ()
             (with-deleted-selection (get-selection)
-              (function dynamic ()
+              (function ()
                 (cut-entities~ controller entities))))))))
   
   
@@ -459,7 +459,7 @@
       (if (null? entities)
           (bell)
         (with-cursor :wait
-          (function dynamic ()
+          (function ()
             (copy-entities~ controller entities)
             (update-focus-actions~ (get-application)))
           :duration 150))))
@@ -469,13 +469,13 @@
     (let ((parent (either (selected-entity) client))
           (parcels (get-jazz-parcels)))
       (with-update-locked
-        (function dynamic ()
+        (function ()
           (with-cursor :wait
-            (function dynamic ()
-              (for-each (function dynamic (info)
+            (function ()
+              (for-each (function (info)
                           (bind (model . parcels) info
                             (paste-parcels~ controller parcels (relocation-parent parent model))))
-                        (partition parcels key: (function dynamic (parcel) (let ((master (car (get-content~ parcel)))) (get-model~ master)))))))))))
+                        (partition parcels key: (function (parcel) (let ((master (car (get-content~ parcel)))) (get-model~ master)))))))))))
   
   
   (method (delete-selection)
@@ -484,7 +484,7 @@
         (let ((entities (get-selected-data)))
           (when (confirm-close entities)
             (with-deleted-selection selection
-              (function dynamic ()
+              (function ()
                 (delete-entities~ controller entities))))))))
   
   
@@ -521,16 +521,16 @@
     (let ((selection (get-ordered-selection)))
       (if (null? selection)
           (list client)
-        (map (function dynamic (row)
+        (map (function (row)
                (get-user-data~ (get-row row)))
              selection))))
   
   
   (method public (entity-row entity)
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-row
-          (function dynamic (row rank)
+          (function (row rank)
             (when (eq? (get-user-data~ row) entity)
               (return row))))
         {})))

@@ -162,7 +162,7 @@
            (pos (get-position~ evt))
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
-        (function dynamic ()
+        (function ()
           (let ((menu (new-context-menu (selected-object))))
             (when menu
               (track-popup-menu menu acquired)))))))
@@ -174,10 +174,10 @@
   
   (method (on-open-snapshot evt)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (let ((file (if (get-shift?~ evt)
                         (with-preserved-current-directory
-                          (function dynamic ()
+                          (function ()
                             (choose-file directory: {Directory Boot} extensions: Snapshot-Extensions)))
                       (choose-file extensions: Snapshot-Extensions))))
           (open-snapshot file)))))
@@ -220,7 +220,7 @@
   (method (on-toggle-c++-frames evt)
     (let ((tree (locate 'stack)))
       (with-preserved-selection~ tree
-        (function dynamic ()
+        (function ()
           (update))
         :use 'data
         test: equal?)))
@@ -303,7 +303,7 @@
 
   (method (collect-presented stack)
     @convert
-    (collect-if (function dynamic (frame)
+    (collect-if (function (frame)
                   (or (is? frame Closure-Frame)
                       (is? frame Proxy-Frame)
                       (is? frame Compiled-Procedure-Frame)))
@@ -315,9 +315,9 @@
     (let ((tree (locate 'stack))
           (passed? #f))
       (call/ec
-        (lambda (return)
+        (function (return)
           (for-each-visible-row~ tree
-            (function dynamic (row rank)
+            (function (row rank)
               (let ((frame (get-user-data~ row)))
                 (when (and (is? frame Execution-Frame)
                            (= (get-address~ frame) from))
@@ -378,7 +378,7 @@
   (method (present-stack stack)
     (let ((presented (collect-if not-null? (map present-frame stack))))
       (if advanced-view?
-          (map (function dynamic (info)
+          (map (function (info)
                  (bind (frame image text) info
                    (list frame
                          image
@@ -443,7 +443,7 @@
   
   (method public (open-snapshot file . rest)
     (call-with-input-file (parse~ file)
-      (lambda (reader)
+      (function (reader)
         (let* ((snapshot (read reader))
                (crash-file? (ci=? (get-extension~ file) "crash"))
                (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
@@ -472,7 +472,7 @@
   
   (method public (update snapshots)
     (with-update-locked
-      (function dynamic ()
+      (function ()
         (remove-every-row)
         (update-debuggees)
         (update-debuggers)
@@ -483,11 +483,11 @@
     @convert
     (let* ((appl (get-application))
            (debuggees (get-debuggees~ (get-local-debugger-server~ appl))))
-      (for-each (function dynamic (debuggee)
+      (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
                          (threads (reverse! (get-process-threads~ debuggee)))
                          (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
-                    (for-each (function dynamic (thread)
+                    (for-each (function (thread)
                                 (let* ((title (present~ thread))
                                        (state (get-state~ thread))
                                        (primary? (get-primary?~ thread))
@@ -496,7 +496,7 @@
                                   (when primary?
                                     (let* ((stack (get-breaked-stack~ thread))
                                            (presented (present-stack (collect-presented stack))))
-                                      (for-each (function dynamic (info)
+                                      (for-each (function (info)
                                                   (bind (frame image text) info
                                                     (add-row father: thread-row children: (list (new Tree-Node title: text image: image)) user-data: frame)))
                                                 presented)))))
@@ -508,12 +508,12 @@
   (method (update-debuggers)
     @convert
     (let ((debuggers (get-debuggers)))
-      (for-each (function dynamic (debugger)
+      (for-each (function (debugger)
                   (let* ((process (get-process~ debugger))
                          (title (present~ process))
                          (threads (get-threads~ process))
                          (debugger-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debugger)))
-                    (for-each (function dynamic (thread)
+                    (for-each (function (thread)
                                 (let* ((title (present~ thread))
                                        (state (get-state~ thread))
                                        (primary? (get-primary?~ thread))
@@ -521,7 +521,7 @@
                                        (thread-row (add-row father: debugger-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
                                   (when (neq? state 'run)
                                     (let ((frames (get-frames~ thread)))
-                                      (for-each (function dynamic (frame)
+                                      (for-each (function (frame)
                                                   (let ((title (present~ frame))
                                                         (image (get-image~ frame)))
                                                     (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
@@ -532,24 +532,24 @@
   
   (method (update-snapshots snapshots)
     @convert
-    (for-each (function dynamic (snapshot)
+    (for-each (function (snapshot)
                 (bind (process file executable) snapshot
                   (let ((handler (essay executable (new Symbol-Handler executable))))
                     (let* ((title (format "{a}{? : {a}~}" (get-process~ process) (essay file (get-base~ file))))
                            (threads (get-threads~ process))
                            (process-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Spy"})) user-data: snapshot)))
-                      (for-each (function dynamic (thread)
+                      (for-each (function (thread)
                                   (let* ((title (get-label~ thread))
                                          (state (get-state~ thread))
                                          (image (if (> state 0) {Bitmap-Resource "ThreadError"} {Bitmap-Resource "ThreadRun"}))
                                          (thread-row (add-row father: process-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread))
                                          (call-stack (get-call-stack~ thread))
-                                         (frames (coalesce-frames thread (map (function dynamic (info)
+                                         (frames (coalesce-frames thread (map (function (info)
                                                                                 (bind (address . parameters) info
                                                                                   (get-frame-snapshot thread handler address parameters)))
                                                                               call-stack)))
                                          (c++? (show-c++-frames?)))
-                                    (for-each (function dynamic (frame)
+                                    (for-each (function (frame)
                                                 (let ((title (present~ frame))
                                                       (image (get-image~ frame)))
                                                   (when (or c++? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
@@ -588,7 +588,7 @@
   (method (coalesce-frames thread frames)
     (let ((fact (new List-Factory))
           (get-type
-            (function dynamic (frame)
+            (function (frame)
               (cond ((null? frame)
                      'none)
                     ((and (is? frame Cpp-Frame-Snapshot)

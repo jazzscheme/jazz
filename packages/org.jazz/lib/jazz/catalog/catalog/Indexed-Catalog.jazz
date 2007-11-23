@@ -105,7 +105,7 @@
   
   
   (method (get-file-entry file)
-    (find-if (function dynamic (definition)
+    (find-if (function (definition)
                (pathname= (get-file~ definition) file))
              (get-file-definitions (get-base~ file))))
   
@@ -123,7 +123,7 @@
   (method (count-file-entries content)
     (let ((count 0))
       (iterate-table content
-                     (function dynamic (name file-entries)
+                     (function (name file-entries)
                        (increase! count (length file-entries))))
       count))
   
@@ -178,8 +178,8 @@
     (when report?
       (user-message "Updating Indexes..."))
     (iterate-table content
-                   (function dynamic (class-name definitions)
-                     (for-each (function dynamic (file-definition)
+                   (function (class-name definitions)
+                     (for-each (function (file-definition)
                                  (set-catalog~ file-definition self)
                                  (update-indexes~ file-definition definitions-index references-index))
                                definitions))))
@@ -202,14 +202,14 @@
     (let* ((all (table-keys/values content))
            (sorted (sort string<? all key: car)))
       (call-with-output-file (parse~ file)
-        (lambda (printer)
-          (for-each (function dynamic (info)
+        (function (printer)
+          (for-each (function (info)
                       (bind (name . definitions) info
                         (when definitions
                           (format printer "{s}{%}" name)
                           (format printer " (")
                           (let ((first? #t))
-                            (for-each (function dynamic (definition)
+                            (for-each (function (definition)
                                         (print-catalog~ definition first? printer)
                                         (set! first? #f))
                                       definitions))
@@ -253,8 +253,8 @@
   
   (method (reset-marks)
     (iterate-table content
-                   (function dynamic (class-name definitions)
-                     (for-each (function dynamic (file-definition)
+                   (function (class-name definitions)
+                     (for-each (function (file-definition)
                                  (set-marked?~ file-definition #f))
                                definitions))))
   
@@ -271,7 +271,7 @@
   (method (scan-directories)
     (let* ((processed 0)
            (scandir
-            (function dynamic (dir)
+            (function (dir)
               (increase! processed (scan-directory dir recursive?: recursive?)))))
       (if (is? directories Directory-Group)
           (for-each scandir (get-list~ directories))
@@ -295,7 +295,7 @@
   (method (get-parser-class extension)
     (let ((info
            (rassociate extension Parser-Associations
-             test: (function dynamic (ext extensions)
+             test: (function (ext extensions)
                      (member? ext extensions test: ci=?)))))
       (when info
         (autoload (car info)))))
@@ -327,7 +327,7 @@
     (let ((entries (new List-Factory)))
       (with-closed ((unzip (new Unzip-File file)))
         (iterate-files~ unzip
-          (function dynamic (filename size)
+          (function (filename size)
             (let ((parser (get-parser (extract-extension filename))))
               (when parser
                 (let* ((zipped (new Zipped file filename))
@@ -354,7 +354,7 @@
   
   (method (sweep-table table marked? reset?)
     (iterate-table table
-                   (function dynamic (class-name definitions)
+                   (function (class-name definitions)
                      (when (not-null? definitions)
                        (let ((previous definitions)
                              (list (cdr definitions)))
@@ -400,7 +400,7 @@
   (method public (get-qualified-category qualified)
     (let ((name (last qualified))
           (qualifier (butlast qualified)))
-      (find-if (function dynamic (definition)
+      (find-if (function (definition)
                  (and (is? definition Category-Entry)
                       (let ((package (get-category-package definition)))
                         (and package
@@ -409,7 +409,7 @@
   
   
   (method (get-category-package definition)
-    (find-if (function dynamic (definition)
+    (find-if (function (definition)
                (is? definition Package-Entry))
              (get-definitions~ (get-file-definition~ definition))))
 
@@ -423,7 +423,7 @@
     (let ((length (cardinality string))
           (result '()))
       (iterate-table table
-                     (function dynamic (name value)
+                     (function (name value)
                        (when (compare-n name string length)
                          (set! result (cons name result)))))
       result))))

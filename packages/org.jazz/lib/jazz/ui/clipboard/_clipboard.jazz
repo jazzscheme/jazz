@@ -50,36 +50,37 @@
   *super-quicky-clipboard*
   @platform-dependant
   (case type
-    ((metafile)
-     (with-opened-clipboard
-       (function dynamic ()
-         (get-clipboard-metafile))))
     ((text)
      (with-opened-clipboard
-       (function dynamic ()
+       (function ()
          ;; Because I do not store unicode characters in saved files,
          ;; lets get only ansi text from the clipboard...
-         (get-clipboard-text :format CF_TEXT :unicode? #f))))))
+         (get-clipboard-text :format CF_TEXT :unicode? #f))))
+    @convert
+    ((metafile)
+     (with-opened-clipboard
+       (function ()
+         (get-clipboard-metafile))))))
 
 
 (definition public (set-clipboard object (type: type {}) (empty?: empty? #t))
   (set! *super-quicky-clipboard* object)
   @platform-dependant
-  (typecase object
-    ((String)
-     (with-opened-clipboard
-       (function dynamic ()
-         (set-clipboard-text object))
-       :empty? empty?))
-    (else
-     (case type
-       ((metafile)
-        (with-opened-clipboard
-          (function dynamic ()
-            (set-clipboard-metafile object))
-          :empty? empty?))
-       (else
-        (unimplemented 'set-clipboard))))))
+  (cond ((string? object)
+         (with-opened-clipboard
+           (function ()
+             (set-clipboard-text object))
+           :empty? empty?))
+        (else
+         (case type
+           @convert
+           ((metafile)
+            (with-opened-clipboard
+              (function ()
+                (set-clipboard-metafile object))
+              :empty? empty?))
+           (else
+            (unimplemented 'set-clipboard))))))
 
 
 (definition public (get-clipboard-formats)
@@ -92,26 +93,11 @@
     (get-output~ formats)))
 
 
-(definition public (with-opened-clipboard proc (empty?: empty? #f))
-  (unimplemented 'with-opened-clipboard)
-  @platform-dependant
-  (let ((opened? #f))
-    (unwind-protect
-        (begin
-          (OpenClipboard NULL)
-          (set! opened? #t)
-          (when empty?
-            (EmptyClipboard))
-          (proc))
-      (when opened?
-        (CloseClipboard)))))
-
-
 (definition public (clipboard-format-available? format)
   (unimplemented 'format-available?)
   @platform-dependant
   (with-opened-clipboard
-    (function dynamic ()
+    (function ()
       (let ((format (get-format format))
             (formats (get-clipboard-formats)))
         (member? format formats)))))
@@ -146,7 +132,7 @@
   (unimplemented 'get-jazz-clipboard)
   @platform-dependant
   (with-opened-clipboard
-    (function dynamic ()
+    (function ()
       (get-clipboard-text :format format))))
 
 
@@ -154,7 +140,7 @@
   (unimplemented 'set-jazz-clipboard)
   @platform-dependant
   (with-opened-clipboard
-    (function dynamic ()
+    (function ()
       (set-clipboard-text text :format format))
     :empty? #t))
 

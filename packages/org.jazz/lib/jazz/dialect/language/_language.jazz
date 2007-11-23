@@ -371,7 +371,7 @@
   (unimplemented 'all-slots)
   @unimplemented
   (let ((fact (new List-Factory)))
-    (letrec ((add (function dynamic (model)
+    (letrec ((add (function (model)
                     (when model
                       (put-sequence~ fact (class-slots model))
                       (add (type-ascendant model))))))
@@ -872,7 +872,7 @@
   
   (method (print printer readably)
     (print-unreadable self printer
-      (function dynamic (printer)
+      (function (printer)
         (format printer "{a}" (get-message)))))
   
   
@@ -916,7 +916,7 @@
 
 (definition (call-with-catch type handler thunk)
   (call/ec
-    (lambda (cont)
+    (function (cont)
       (parameterize ((exceptions-catched (cons (cons type (cons handler cont)) (exceptions-catched))))
         (thunk)))))
 
@@ -1307,7 +1307,7 @@
 
 (definition public (minimum lst <pair> (key: key {}) (compare: compare compare))
   (let ((min (car lst)))
-    (for-each (function dynamic (object)
+    (for-each (function (object)
                 (when (eq? (compare (apply-key key object) (apply-key key min)) :less)
                   (set! min object)))
               (cdr lst))
@@ -1316,7 +1316,7 @@
 
 (definition public (maximum lst <pair> (key: key {}) (compare: compare compare))
   (let ((max (car lst)))
-    (for-each (function dynamic (object)
+    (for-each (function (object)
                 (when (eq? (compare (apply-key key object) (apply-key key max)) :greater)
                   (set! max object)))
               (cdr lst))
@@ -1349,10 +1349,10 @@
 (definition public (contiguous-range lst)
   (when (not-null? lst)
     (call/ec
-      (lambda (return)
+      (function (return)
         (let* ((first (car lst))
                (second first))
-          (for-each (function dynamic (n)
+          (for-each (function (n)
                       (if (= n (+ second 1))
                           (set! second n)
                         (return {})))
@@ -1705,7 +1705,7 @@
   
   
   (method (copy-object deep? <bool>)
-    (let* ((subcopy (if deep? (lambda (x) (copy x deep?)) (lambda (x) x)))
+    (let* ((subcopy (if deep? (function (x) (copy x deep?)) (function (x) x)))
            (len (cardinality self))
            (new-seq (allocate-sequence~ (class-of self) len)))
       (let (iterate (i <fx> 0))
@@ -1754,7 +1754,7 @@
 
   (method (object-capitalize)
     (let ((break? #t))
-      (map (function dynamic (object)
+      (map (function (object)
              (if (alphanumeric? object)
                  (if (not break?)
                      object
@@ -1987,7 +1987,7 @@
 (definition public (collect-sections lst (separator: separator {}) (test: test {}))
   (let ((sections (new List-Factory))
         (section (new List-Factory)))
-    (for-each (function dynamic (value)
+    (for-each (function (value)
                 (if (apply-test test separator value)
                     (begin
                       (put~ sections (get-output~ section))
@@ -2029,8 +2029,8 @@
       (when start
         (set-position~ iter start))
       (call/ec
-        (lambda (exit)
-          (iterate (function dynamic (object)
+        (function (exit)
+          (iterate (function (object)
                      (when (apply-test test target (apply-key key object))
                        (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
                    iter)
@@ -2038,7 +2038,7 @@
 
 
 (definition (list-find list target key test start)
-  (let ((key (if (not key) (lambda (x) x) key))
+  (let ((key (if (not key) (function (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iterate (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
@@ -2055,8 +2055,8 @@
       (when start
         (set-position~ iter start))
       (call/ec
-        (lambda (exit)
-          (iterate (function dynamic (object)
+        (function (exit)
+          (iterate (function (object)
                      (when (apply-test test target (apply-key key object))
                        (exit object)))
                    iter)
@@ -2064,7 +2064,7 @@
 
 
 (definition (list-find-in list target key test start)
-  (let ((key (if (not key) (lambda (x) x) key))
+  (let ((key (if (not key) (function (x) x) key))
         (test (if (not test) eqv? test)))
     (let (iterate (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
@@ -2080,8 +2080,8 @@
     (when start
       (set-position~ iter start))
     (call/ec
-      (lambda (exit)
-        (iterate (function dynamic (object)
+      (function (exit)
+        (iterate (function (object)
                    (cond ((apply-test test open (apply-key key object))
                           (increase! count))
                          ((apply-test test close (apply-key key object))
@@ -2099,11 +2099,11 @@
   (if (and (or (null? seq) (pair? seq)) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
     (call/ec
-      (lambda (exit)
+      (function (exit)
         (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
           (when start
             (set-position~ iter start))
-          (iterate (function dynamic (object)
+          (iterate (function (object)
                      (when (predicate (apply-key key object))
                        (case return
                          ((item) (exit object))
@@ -2119,11 +2119,11 @@
     (if (and (string? seq) (not start))
         (string-find seq target reversed?)
       (call/ec
-        (lambda (exit)
+        (function (exit)
           (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
             (when start
               (set-position~ iter start))
-            (iterate (function dynamic (object)
+            (iterate (function (object)
                        (when (apply-test test target (apply-key key object))
                          (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
                      iter)
@@ -2132,10 +2132,10 @@
 
 (definition public (skip predicate <procedure> seq <Object> (key: key {}) (start: start 0))
   (call/ec
-    (lambda (return)
+    (function (return)
       (let ((iter (iterate-sequence seq)))
         (set-position~ iter start)
-        (iterate (function dynamic (object)
+        (iterate (function (object)
                    (when (not (predicate (apply-key key object)))
                      (return (- (get-position~ iter) 1))))
                  iter)
@@ -2144,8 +2144,8 @@
 
 (definition public (some? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
-    (lambda (return)
-      (iterate (function dynamic (object)
+    (function (return)
+      (iterate (function (object)
                  (when (predicate (apply-key key object))
                    (return #t)))
                (iterate-sequence seq))
@@ -2154,8 +2154,8 @@
 
 (definition public (every? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
-    (lambda (return)
-      (iterate (function dynamic (object)
+    (function (return)
+      (iterate (function (object)
                  (when (not (predicate (apply-key key object)))
                    (return #f)))
                (iterate-sequence seq))
@@ -2168,7 +2168,7 @@
     (let ((fact (new List-Factory)))
       (let* ((first (car rest))
              (list? (or (null? first) (pair? first))))
-        (for-each (function dynamic (sequence)
+        (for-each (function (sequence)
                     (put-sequence~ fact sequence))
                   rest)
         (let ((output (get-output~ fact)))
@@ -2183,7 +2183,7 @@
 
 (definition public (subset? set1 set2)
   (or (null? set1)
-      (every? (function dynamic (element)
+      (every? (function (element)
                 (memv? element set2))
               set1)))
 
@@ -2198,8 +2198,8 @@
     (let ((first (car lst))
           (dst (new List-Factory)))
       (put-sequence~ dst first)
-      (for-each (function dynamic (set)
-                  (for-each (function dynamic (object)
+      (for-each (function (set)
+                  (for-each (function (object)
                               (when (not (member? object (get-output~ dst) test: test))
                                 (put~ dst object)))
                             (iterate-sequence set)))
@@ -2216,8 +2216,8 @@
     (let ((first (car lst))
           (lst (cdr lst))
           (dst (new List-Factory)))
-      (for-each (function dynamic (object)
-                  (when (every? (function dynamic (set)
+      (for-each (function (object)
+                  (when (every? (function (set)
                                   (member? object set test: test))
                                 lst)
                     (put~ dst object)))
@@ -2229,7 +2229,7 @@
   (if (not y)
       x
     (let ((dst (new List-Factory)))
-      (iterate (function dynamic (object)
+      (iterate (function (object)
                  (when (not (member? object y test: test))
                    (put~ dst object)))
                (iterate-sequence x))
@@ -2243,7 +2243,7 @@
 
 (definition public (remove target <Object> seq <Object> (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (iterate (function dynamic (object)
+    (iterate (function (object)
                (when (not (apply-test test object target))
                  (put~ dst object)))
              (iterate-sequence seq))
@@ -2262,7 +2262,7 @@
 (definition public (remove-trailing target <Object> list <Object> (test: test eqv?))
   (let ((result '())
         (trailing? #t))
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (unless (and trailing? (apply-test test target element))
                   (set! result (cons element result))
                   (set! trailing? #f)))
@@ -2284,7 +2284,7 @@
 
 (definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (iterate (function dynamic (object)
+    (iterate (function (object)
                (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
                  (put~ dst object)))
              (iterate-sequence seq))
@@ -2307,7 +2307,7 @@
 
 (definition public (mismatch target <Object> seq <Object> (test: test equal?))
   (call/ec
-    (lambda (return)
+    (function (return)
       (let ((srce (iterate-sequence seq))
             (targ (iterate-sequence target))
             (pos 0))
@@ -2325,7 +2325,7 @@
       '()
     (let ((ref (car sequences))
           (min <Object> {}))
-      (for-each (function dynamic (object)
+      (for-each (function (object)
                   (let ((n (mismatch object ref)))
                     (when (and n (or (not min) (< n min)))
                       (set! min n))))
@@ -2337,7 +2337,7 @@
 
 (definition public (prefix? target <Object> seq <Object>)
   (call/ec
-    (lambda (return)
+    (function (return)
       (let ((targ (iterate-sequence target))
             (iter (iterate-sequence seq)))
         (while (and (not (done?~ targ)) (not (done?~ iter)))
@@ -2544,7 +2544,7 @@
         (else
          (let ((dst (new List-Factory)))
            (put~ dst (car sequences))
-           (for-each (function dynamic (seq)
+           (for-each (function (seq)
                        (put~ dst separator)
                        (put~ dst seq))
                      (cdr sequences))
@@ -2554,7 +2554,7 @@
 (definition public (inject sequence inserted)
   (let ((fact (new List-Factory))
         (first? #t))
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (if first?
                     (set! first? #f)
                   (put-sequence~ fact inserted))
@@ -2582,7 +2582,7 @@
     (while (not (done?~ src))
       (let ((object (get-next~ src))
             (found? #f))
-        (for-each (function dynamic (replacement)
+        (for-each (function (replacement)
                     (unless found?
                       (bind (old . new) replacement
                         (when (apply-test test old (apply-key key object))
@@ -2656,7 +2656,7 @@
       (let* ((min (minimum (map car (remove-nils scan)) key: key :compare compare))
              (min-key (apply-key key min))
              (res (new List-Factory)))
-        (for-each-pair (function dynamic (pair)
+        (for-each-pair (function (pair)
                          (let* ((list (car pair))
                                 (object (car list)))
                            (if (or (not object)
@@ -2674,14 +2674,14 @@
 
 (definition public (partition sequence (key: key identity) (test: test {}))
   (let ((result '()))
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (let* ((category (key element))
                        (pair (associate category result test: test)))
                   (if (not pair)
                       (set! result (cons (cons category (list element)) result))
                     (set-cdr! pair (cons element (cdr pair))))))
               sequence)
-    (reverse! (map (function dynamic (partition)
+    (reverse! (map (function (partition)
                      (bind (key . elements) partition
                        (cons key (reverse! elements))))
                    result))))
@@ -2690,7 +2690,7 @@
 (definition public (partition-binary lst predicate)
   (let ((yes '())
         (no '()))
-    (for-each (function dynamic (elem)
+    (for-each (function (elem)
                 (if (predicate elem)
                     (set! yes (cons elem yes))
                   (set! no (cons elem no))))
@@ -2722,7 +2722,7 @@
 
 
 (definition (find-if-list predicate list key start returned)
-  (let ((key (if (not key) (lambda (x) x) key)))
+  (let ((key (if (not key) (function (x) x) key)))
     (let (iterate (rest (tail list start)) (rank <fx> start))
        (cond ((null? rest) {})
              ((predicate (key (car rest)))
@@ -2848,7 +2848,7 @@
   
   
   (method (copy-object deep?)
-    (map (lambda (x)
+    (map (function (x)
            (if deep?
                (copy x deep?)
              x))
@@ -3153,7 +3153,7 @@
 
 (definition public (getprop plist <Object> target <Object> (key: key {}))
   (call/ec
-    (lambda (return)
+    (function (return)
       (let ((scan plist))
         (while (not-null? scan)
           (when (eqv? (apply-key key (car scan)) target)
@@ -3211,9 +3211,9 @@
 (definition public (uniform lst (key: key {}) (test: test {}))
   (when lst
     (call/ec
-      (lambda (return)
+      (function (return)
         (let ((first (apply-key key (car lst))))
-          (for-each (function dynamic (object)
+          (for-each (function (object)
                       (let ((value (apply-key key object)))
                         (unless (apply-test test first value)
                           (return {}))))
@@ -3223,7 +3223,7 @@
 
 (definition public (sort-property-list prop-list <Object>)
   (let* ((factory (new List-Factory))
-         (proc    (function dynamic (property value)
+         (proc    (function (property value)
                     (put~ factory (list property value))))
          (alist   (begin
                     (for-each-property proc prop-list)
@@ -3395,7 +3395,7 @@
 
   (method (print printer readably)
     (print-unreadable self printer
-      (function dynamic (printer)
+      (function (printer)
         (format printer "{a} entries"
                 (table-length self))))))
 
@@ -3415,7 +3415,7 @@
 (definition public (table-keys table)
   (let ((list '()))
     (iterate-table table
-                   (function dynamic (key value)
+                   (function (key value)
                      (set! list (cons key list))))
     list))
 
@@ -3423,7 +3423,7 @@
 (definition public (table-values table)
   (let ((list '()))
     (iterate-table table
-                   (function dynamic (key value)
+                   (function (key value)
                      (set! list (cons value list))))
     list))
 
@@ -3431,14 +3431,14 @@
 (definition public (table-keys/values table)
   (let ((list '()))
     (iterate-table table
-                   (function dynamic (key value)
+                   (function (key value)
                      (set! list (cons (cons key value) list))))
     list))
 
 
 (definition public (load-table table file error-on-duplicates?)
   (call-with-input-file (parse~ file)
-    (lambda (reader)
+    (function (reader)
       (let (iterate)
         (let ((name (read reader))
               (object (read reader)))
@@ -4125,7 +4125,7 @@
 (definition public (symbolize-properties properties <Object>)
   (let ((fact (new List-Factory)))
     (for-each-property
-      (function dynamic (property value)
+      (function (property value)
         (put~ fact (symbolize-property property))
         (put~ fact value))
       properties)
@@ -4141,7 +4141,7 @@
 (definition public (keywordize-properties properties <Object>)
   (let ((fact (new List-Factory)))
     (for-each-property
-      (function dynamic (property value)
+      (function (property value)
         (put~ fact (keywordize-property property))
         (put~ fact value))
       properties)
@@ -4309,7 +4309,7 @@
 
 (definition public (wi= s1 <Object> s2 <Object>)
   (call/ec
-    (lambda (return)
+    (function (return)
       (let* ((n1 <fx> 0)
              (n2 <fx> 0)
              (l1 <fx> (cardinality s1))
@@ -4352,7 +4352,7 @@
       name
     (let* ((common-prefix (if (not separator) name (append name separator)))
            (common-length (cardinality common-prefix))
-           (suffixes (collect (function dynamic (string)
+           (suffixes (collect (function (string)
                                 (when (starts-with? string common-prefix)
                                   (subseq string common-length)))
                               domain))
@@ -4368,7 +4368,7 @@
 
 
 (definition public (remove-numeric-suffix string)
-  (let ((pos (find-if (function dynamic (c) (not (numeric? c))) string reversed?: #t return: 'position)))
+  (let ((pos (find-if (function (c) (not (numeric? c))) string reversed?: #t return: 'position)))
     (if (not pos)
         ""
       (subseq string 0 (+ pos 1)))))
@@ -4860,13 +4860,13 @@
 
 (definition public (read-string-content string)
   (call-with-input-string string
-    (lambda (reader)
+    (function (reader)
       (read-until eof-object? reader))))
 
 
 (definition public (read-delimited-string string char)
   (call-with-input-string string
-    (lambda (reader)
+    (function (reader)
       (let ((fact (new List-Factory)))
         (let (iterate)
           (let ((lst (read-delimited reader "delimited" char #t)))
@@ -4896,13 +4896,13 @@
 (definition public (parse-strings string (separator: separator ","))
   (if (or (empty-string? string) (= string "{}"))
       {}
-    (map (function dynamic (string)
+    (map (function (string)
            (trim-spaces string))
          (split string separator))))
 
 
 (definition public (parse-delimited-string string (separator: separator ","))
-  (map (function dynamic (string)
+  (map (function (string)
          (parse-strings string separator: " "))
        (parse-strings string separator: separator)))
 
@@ -5202,7 +5202,7 @@
   
   (method (process-format destination)
     (with-printer destination
-      (function dynamic (printer)
+      (function (printer)
         (set! out printer)
         (process control-reader))))
   
@@ -5312,7 +5312,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (display argument printer))))))
   
   
@@ -5320,7 +5320,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (write argument printer))))))
   
   
@@ -5328,7 +5328,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (textual argument printer))))))
   
   
@@ -5337,7 +5337,7 @@
           (detail (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-expr argument detail printer))))))
   
   
@@ -5345,7 +5345,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (write-char argument printer))))))
   
   
@@ -5353,7 +5353,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-unsigned argument printer))))))
   
   
@@ -5361,7 +5361,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-hexadecimal argument printer))))))
   
   
@@ -5369,7 +5369,7 @@
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-binary argument printer))))))
   
   
@@ -5378,7 +5378,7 @@
           (precision (get-precision parameters)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-real argument precision printer))))))
   
   
@@ -5391,7 +5391,7 @@
            (detail (get-detail parameters)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (print-list argument separator last-separator before after detail printer))))))
 
   
@@ -5402,7 +5402,7 @@
           (detail (get-detail parameters)))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (let ((scan argument))
               (while (not-null? scan)
                 (let ((key (car scan))
@@ -5451,7 +5451,7 @@
     (let ((argument (localize (next-argument))))
       (when output?
         (with-justification parameters
-          (function dynamic (printer)
+          (function (printer)
             (display argument printer))))))
   
   
@@ -5607,7 +5607,7 @@
 
 (definition public (format . rest)
   (jazz.parse-format rest
-    (lambda (destination control-string arguments)
+    (function (destination control-string arguments)
       (let ((processor (new Format-Processor control-string arguments)))
         (process-format~ processor destination)))))
 

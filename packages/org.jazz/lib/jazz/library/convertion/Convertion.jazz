@@ -52,10 +52,10 @@
   (method (convert-form proc (extensions: extensions '()))
     (let ((file (choose-file extensions: extensions)))
       (with-cursor :wait
-        (function dynamic ()
+        (function ()
           (let ((form (file-form file)))
             (letrec ((convert
-                       (function dynamic (form)
+                       (function (form)
                          (proc form)
                          (for-each convert (get-children~ form)))))
               (convert form))
@@ -83,10 +83,10 @@
       (ensure-read/write file)
       (let ((back (essay backup? (backup-file file))))
         (with-cursor :wait
-          (function dynamic ()
+          (function ()
             (let ((book (load-book file literal-hook))
                   (fact (new List-Factory)))
-              (for-each-property (function dynamic (keyword section)
+              (for-each-property (function (keyword section)
                                    (let ((section-name (if (null? section-proc) keyword (section-proc keyword))))
                                      (put~ fact section-name)
                                      (case keyword
@@ -99,7 +99,7 @@
                                         (if (null? property-proc)
                                             (put~ fact section)
                                           (let ((f (new List-Factory)))
-                                            (for-each-property (function dynamic (property value)
+                                            (for-each-property (function (property value)
                                                                  (receive (property value) (property-proc property value)
                                                                    (put~ f property)
                                                                    (put~ f value)))
@@ -107,9 +107,9 @@
                                             (put~ fact (get-output~ f)))))
                                        (else
                                         (letrec ((convert
-                                                   (function dynamic (parent-form form)
+                                                   (function (parent-form form)
                                                      (proc section-name parent-form form)
-                                                     (for-each (function dynamic (subform)
+                                                     (for-each (function (subform)
                                                                  (convert form subform))
                                                                (get-children~ form))
                                                      (let ((client-form (get-property~ form 'client-form)))
@@ -141,10 +141,10 @@
     (when (in-manifest? 'Repository)
       (ensure-read/write file))
     (call-with-output-file (parse~ file)
-      (lambda (printer)
+      (function (printer)
         (set-printer-use-utf8? printer #t)
         (output-header (get-base~ file) printer)
-        (for-each-property (function dynamic (keyword section)
+        (for-each-property (function (keyword section)
                              (case keyword
                                ((:version properties:) (format printer "{%}{%}{s}{%}{%}{s}{%}" keyword section))
                                (else (format printer "{%}{%}{s}{%}{%}" keyword)

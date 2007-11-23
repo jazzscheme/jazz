@@ -114,7 +114,7 @@
 
   (method public (on-find evt)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (let* ((roots (collect-roots))
                (appl (get-application))
                (catalog (get-main-catalog~ (get-cataloguer~ appl)))
@@ -134,14 +134,14 @@
         (when dir-list
           (let ((directory (new Directory dir-list)))
             (iterate-directory~ directory
-              (function dynamic (file)
+              (function (file)
                 (let ((ext (get-extension~ file)))
                   (when (= ext "txt")
                     (call-with-input-file (parse~ file)
-                      (lambda (reader)
+                      (function (reader)
                         (let* ((content (read-content-string reader))
                                (list (read-string-content content)))
-                          (for-each (function dynamic (symbol)
+                          (for-each (function (symbol)
                                       (put~ roots (->string symbol)))
                                     list)))))))))))
       (get-output~ roots)))
@@ -158,10 +158,10 @@
            (live-count 0)
            (dead-count 0))
       (with-update-locked~ tree
-        (function dynamic ()
+        (function ()
           (remove-every-row~ tree)
           (when references
-            (for-each (function dynamic (name)
+            (for-each (function (name)
                         (when (or (not category-only?) (defines-category? name))
                           (let ((reference (table-ref references name #f)))
                             (if (not reference)
@@ -185,13 +185,13 @@
   
   
   (method (defines-category? name)
-    (find-if (function dynamic (entry) (is? entry Category-Entry))
+    (find-if (function (entry) (is? entry Category-Entry))
              (get-definitions~ (get-main-catalog~ (get-cataloguer~ (get-application))) name)))
   
   
   (method (on-update evt)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (update-list))))
     
     
@@ -205,7 +205,7 @@
     (set-clipboard
       (let ((tree (locate 'references)))
         (format (format "~{l detail: :human separator: {s}}" (cn))
-          (map (function dynamic (n)
+          (map (function (n)
                  (get-user-data~ (get-row~ tree n)))
                (get-selection~ tree))))))
   
@@ -221,7 +221,7 @@
   (method (edit-selection alt?)
     (let* ((tree (locate 'references))
            (selection (get-selection~ tree)))
-      (for-each (function dynamic (n)
+      (for-each (function (n)
                   (let ((name (get-user-data~ (get-row~ tree n)))
                         (appl (get-application)))
                     (if (not alt?)

@@ -74,7 +74,7 @@
   
   (method public (update-inventory delta reporter)
     (with-execution-context
-      (function dynamic ()
+      (function ()
         (set! pending-properties '())
         (set! pending-deletes '())
         (set! pending-triggers/indexes '())
@@ -84,7 +84,7 @@
         (process-pending-properties)
         (process-pending-triggers/indexes)
         (process-pending-deletes)
-        (for-each (function dynamic (proxy)
+        (for-each (function (proxy)
                     (close~ proxy))
                   ugly-patch)
         ;; pas necessaire quand ugly-patch devient une slot
@@ -94,11 +94,11 @@
   
   
   (method (process-children entity parent-proxy reporter)
-    (for-each (function dynamic (object)
+    (for-each (function (object)
                 (if (is? parent-proxy SQLServer-Inventory) 
                     (create-sql object parent-proxy reporter)
                   (process-entity object parent-proxy reporter)))
-              (sort < (get-children~ entity) key: (function dynamic (x) 
+              (sort < (get-children~ entity) key: (function (x) 
                                                      (let ((name (get-name~ x)))
                                                        (case (get-kind~ x)
                                                          ((table) (list 0 name))
@@ -119,7 +119,7 @@
   
   (method (create-sql object parent-proxy reporter)
     (with-continue
-      (function dynamic ()
+      (function ()
         (case (get-kind~ object)
           ((relation) (generate-sql-relation object))
           (else
@@ -222,7 +222,7 @@
   
   (method (modify-column? table)
     (let ((column-pos 0))
-      (some? (function dynamic (column)
+      (some? (function (column)
                (let ((action (get-property~ column difference:)))
                  (or (= (first (get-property~ column ordinal-position:)) 'modify)
                      (= (first (get-property~ column datatype:)) 'modify)
@@ -238,7 +238,7 @@
                          (when (/= (+ (second (get-property~ column ordinal-position:)) column-pos)
                                    (third (get-property~ column ordinal-position:)))
                            #t))))
-             (sort < (get-columns~ table) key: (function dynamic (column)
+             (sort < (get-columns~ table) key: (function (column)
                                                   (either (third (get-property~ column ordinal-position:)) -1))))))
         
   (method (generate-sql-full-table table reporter)
@@ -247,7 +247,7 @@
            (new-table? (= action 'right))
            (table-tempo-name (when (not new-table?) (set-table-tempo-name table)))
            (table-current-name (if new-table? table-name table-tempo-name))
-           (identity-column? (some? (function dynamic (column)
+           (identity-column? (some? (function (column)
                                       (third (get-property~ column identity?:)))
                                     (get-columns~ table))))
       (when reporter
@@ -302,7 +302,7 @@
 
 
   (method (create-fields-list list)
-    (collect (function dynamic (field)
+    (collect (function (field)
            (when (/= (get-property~ field difference:) 'left)
              (let ((field-name (get-name~ field))
                     (datatype (get-native~ (third (get-datatype~ field))))
@@ -325,7 +325,7 @@
   
   (method (generate-sql-create-table object table-name)
     (let* ((fields-list (join (create-fields-list (sort < (get-columns~ object) 
-                                                        key: (function dynamic (column)
+                                                        key: (function (column)
                                                                (either (third (get-property~ column ordinal-position:)) -1)))) ", "))
            (def-table (tie "CREATE TABLE [{table-name}]~{%}~{&}("
                            "{fields-list}~{%}~{&}"
@@ -334,7 +334,7 @@
   
   
   (method (get-added-columns-without-default-value table)
-    (collect-if (function dynamic (column)
+    (collect-if (function (column)
                   (let ((ordinal-position (get-property~ column ordinal-position:))
                          (new-default-value (third (get-property~ column default-value:)))
                          (new-default-value-action (first (get-property~ column default-value:)))
@@ -351,15 +351,15 @@
 
 
   (method (process-copy-data object new-table old-table)
-    (let* ((new-columns (sort < (collect-if (function dynamic (column)
+    (let* ((new-columns (sort < (collect-if (function (column)
                                               (not-null? (object-new-property column :ordinal-position)))
                                             (get-columns~ object))
-                              key: (function dynamic (column)
+                              key: (function (column)
                                      (object-new-property column :ordinal-position))))
-           (new-names (map (function dynamic (column)
+           (new-names (map (function (column)
                              (encapsulate-name (get-name~ column)))
                            new-columns))
-           (new-values (map (function dynamic (column)
+           (new-values (map (function (column)
                               (let* ((new-column? (null? (object-old-property column :ordinal-position)))
                                      (nullable? (object-new-property column nullable?:))
                                      (datatype (object-new-property column :datatype))
@@ -457,7 +457,7 @@
  
   (method (process-default-values table table-name recreate-table?)
     (let ((constraint-table-name (get-name~ table)))
-      (for-each (function dynamic (column)
+      (for-each (function (column)
                   (bind (action old-value new-value) (get-property~ column default-value:)
                     (set! action (find-action-on-process-property action old-value new-value recreate-table?))
                     (when action
@@ -465,18 +465,18 @@
                              (new-constraint-name (tie "DF_{constraint-table-name}_{column-name}")))
                         (case action
                           ((right)  (with-execution-node
-                                    (function dynamic ()
+                                    (function ()
                                       (execute-sql-commit-preserve
                                        (generate-sql-add-default-value table-name column-name new-constraint-name new-value)))
                                     title: (format "Create default value {a} in table {a}" new-constraint-name constraint-table-name)))
                           ((left)   (with-execution-node
-                                    (function dynamic ()
+                                    (function ()
                                       (execute-sql-commit-preserve
                                        (let ((old-constraint-name (find-constraint-name constraint-table-name column-name)))
                                          (generate-sql-drop-constraint table-name old-constraint-name))))
                                     title: (format "Drop default value {a} in table {a}" new-constraint-name constraint-table-name)))
                           ((modify) (with-execution-node
-                                    (function dynamic ()
+                                    (function ()
                                       (execute-sql-commit-preserve
                                        (let* ((old-constraint-name (find-constraint-name constraint-table-name column-name))
                                               (script-drop-default-value (generate-sql-drop-constraint table-name old-constraint-name))
@@ -488,7 +488,7 @@
   
   (method (check-default-values table table-name)
     (let ((constraint-table-name (get-name~ table)))
-      (for-each (function dynamic (column)
+      (for-each (function (column)
                   (bind (action old-value new-value) (get-property~ column default-value:)
                     (set! action (find-action-on-process-property action old-value new-value #f))
                     (when action
@@ -502,7 +502,7 @@
 
   (method (drop-default-values table)
     (let ((table-name (get-name~ table)))
-      (for-each (function dynamic (column)
+      (for-each (function (column)
                   (when (second (get-property~ column default-value:))
                     (let* ((column-name (get-name~ column))
                            (constraint-name (find-constraint-name table-name column-name))
@@ -538,7 +538,7 @@
   
         
   (method (process-description-columns table table-name recreate-table?)
-    (for-each (function dynamic (column)
+    (for-each (function (column)
                 (bind (action old-value new-value) (get-property~ column description:)
                   (set! action (find-action-on-process-property action old-value new-value recreate-table?))
                   (let ((column-name (get-name~ column))) 
@@ -621,7 +621,7 @@
   
   (method (create-fields/orders-list list)
     (join
-     (map (function dynamic (field/order)
+     (map (function (field/order)
             (let* ((field (encapsulate-name (first field/order)))
                    (order (second field/order))
                    (order-string (if (= order 'ascending) "" "DESC")))
@@ -636,7 +636,7 @@
   
   
   (method (process-indexes object recreate-table?)
-    (for-each (function dynamic (index)
+    (for-each (function (index)
                 (process-object index recreate-table? add-index drop-index))
               (get-indexes~ object)))
   
@@ -685,15 +685,15 @@
   
 
   (method (process-triggers object recreate-table?)
-    (for-each (function dynamic (trigger)
+    (for-each (function (trigger)
                 (with-continue
-                  (function dynamic ()
+                  (function ()
                     (process-object trigger recreate-table? create-procedure drop-object))))
               (get-triggers~ object)))
   
   
   (method (process-table-triggers objects)
-    (for-each (function dynamic (table)
+    (for-each (function (table)
                 (let ((recreate-table? (get-property~ table recreate-table?: #f))
                        (action (get-property~ table difference:)))
                   (unless (= action 'left) ; Drop table
@@ -707,7 +707,7 @@
   
   
   (method (process-constraints table recreate-table?)
-    (for-each (function dynamic (constraint)
+    (for-each (function (constraint)
                 (process-object constraint recreate-table? create-constraint drop-constraint))
               (get-constraints~ table)))
   
@@ -790,7 +790,7 @@
   
   (method (drop-table-relation table)
     (let ((table-name (get-name~ table)))
-      (for-each (function dynamic (relation)
+      (for-each (function (relation)
                   (unless (get-property~ relation recreate-table?: #f)
                     (let ((foreign-table (second (get-foreign-table~ relation)))
                            (primary-table (second (get-primary-table~ relation))))
@@ -879,7 +879,7 @@
   
   (method (process-entity object parent-proxy reporter)
     (with-continue
-      (function dynamic ()
+      (function ()
         (let ((action (cdr (assq (get-property~ object difference:) Actions)))
               (kind (get-kind~ object))
               (name (get-name~ object)))
@@ -891,7 +891,7 @@
   
   (method (process-new object parent-proxy kind name reporter)
     (with-execution-node
-      (function dynamic ()
+      (function ()
         (let ((proxy (new-proxy parent-proxy kind name object)))
           (set! ugly-patch (cons proxy ugly-patch))
           (process-proxy object parent-proxy proxy reporter)))
@@ -900,14 +900,14 @@
   
   (method (process-delete object parent-proxy kind name reporter)
     (with-execution-node
-      (function dynamic ()
+      (function ()
         (process-proxy object parent-proxy {} reporter))
       title: (format "Delete {a} {a}" kind name)))
   
   
   (method (process-modify object parent-proxy kind name reporter)
     (with-execution-node
-      (function dynamic ()
+      (function ()
         (let ((proxy (get-proxy parent-proxy kind name)))
           (set! ugly-patch (cons proxy ugly-patch))
           (process-proxy object parent-proxy proxy reporter)))
@@ -1002,7 +1002,7 @@
 
     
   (method (modify-proxy object physical kind force?)
-    (for-each (function dynamic (symbol)
+    (for-each (function (symbol)
                 (let* ((property (symbol->keyword symbol))
                        (composite (get-property~ object property)))
                   (bind (action old-value new-value) composite
@@ -1015,7 +1015,7 @@
 
   (method (modify-proxy-property object physical kind property value force?)
     (with-execution-node
-      (function dynamic ()
+      (function ()
         (case kind 
           ((table)       (modify-table-property physical property value))
           ((primary-key) (modify-primary-key-property physical property value))
@@ -1153,7 +1153,7 @@
 
   (method (complete-append kind parent child)
     (with-continue
-      (function dynamic ()
+      (function ()
         (case kind
           ((table)       (append-table~ parent child))
           ((primary-key) (append-primary-key~ parent child))
@@ -1207,10 +1207,10 @@
   
   
   (method (process-pending-properties)
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (bind (object physical kind symbol new-value) element
                   (with-continue
-                    (function dynamic ()
+                    (function ()
                       (modify-proxy-property object physical kind symbol new-value #t)))))
               pending-properties))
   
@@ -1220,17 +1220,17 @@
   
     
   (method (process-pending-deletes)
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (bind (kind physical name object) element
                   (with-continue
-                    (function dynamic ()
+                    (function ()
                       (delete-proxy kind physical name object)))))
-              (sort < pending-deletes key: (function dynamic (lst) 
+              (sort < pending-deletes key: (function (lst) 
                                              (find Entities-Delete (first lst))))))
   
   
   (method (process-pending-triggers/indexes)
-    (for-each (function dynamic (element)
+    (for-each (function (element)
                 (bind (kind entity subentity) element
                   (complete-append kind entity subentity)))
               pending-triggers/indexes)

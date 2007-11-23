@@ -130,12 +130,12 @@
         ((1) (evaluate (car statements) console?))
         (else
          (with-cursor :wait
-           (function dynamic ()
+           (function ()
              (let ((connection (get-connection))
                    (affected 0))
                (with-transaction~ connection
-                 (function dynamic ()
-                   (for-each (function dynamic (statement)
+                 (function ()
+                   (for-each (function (statement)
                                (let ((table (load-request~ connection statement)))
                                  (when table
                                    (increase! affected (get-count~ table)))))
@@ -150,7 +150,7 @@
   
   (method (eval-command range name command console?)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (let ((connection (get-connection)))
           (set! current-request command)
           (if (and console? (not (shift-down?)))
@@ -299,15 +299,16 @@
            (tree-font (get-font~ tree))
            (tree-max-char (get-max-char-width~ (get-metrics~ tree-font)))
            (tree-widths (compute-widths columns tree-font tree-max-char)))
+      @convert-inter-module-assignment (
       (set! ?t table)
       (set! ?c columns)
-      (set! ?r rows)
+      (set! ?r rows))
       (display-text columns rows affected max-display not-displayed text-widths)
       (display-tree columns rows affected max-display not-displayed tree-widths)))
   
   
   (method (compute-widths columns font max-char)
-    (map (function dynamic (column)
+    (map (function (column)
            (min 250 (+ (max (text-width~ font (get-name~ column)) (* (get-prefered-width~ column) max-char)) 24)))
          columns))
   
@@ -320,25 +321,25 @@
            (stop 0))
       (clear-all~ output)
       (cond (tabulate?
-             (let ((stops (map (function dynamic (width)
+             (let ((stops (map (function (width)
                                  (increase! stop width)
                                  stop)
                                widths)))
                (set-tab-stops~ output (append! stops (make-tab-stops-from stop 32 256))))
-             (insert-styled~ output (join (map (function dynamic (column) (get-name~ column)) columns) (string #\tab)) style)
+             (insert-styled~ output (join (map (function (column) (get-name~ column)) columns) (string #\tab)) style)
              (insert-line~ output "")
              (insert-line~ output "")
-             (for-each (function dynamic (row)
+             (for-each (function (row)
                          (insert-line~ output (join (map present-value (get-values~ row)) (string #\tab))))
                        (if (> affected max-display) (subseq rows 0 max-display) rows)))
             (else
-             (let* ((headers (map (function dynamic (column) (get-name~ column)) columns))
-                    (data (map (function dynamic (row) (map present-value (get-values~ row))) rows))
+             (let* ((headers (map (function (column) (get-name~ column)) columns))
+                    (data (map (function (row) (map present-value (get-values~ row))) rows))
                     (max-list (determine-max-list headers data)))
                (insert-styled~ output (join-data headers max-list) style)
                (insert-line~ output "")
                (insert-line~ output "")
-               (for-each (function dynamic (row)
+               (for-each (function (row)
                            (insert-line~ output (join-data row max-list)))
                          (if (> affected max-display) (subseq data 0 max-display) data)))))
       (when (> not-displayed 0)
@@ -349,9 +350,9 @@
   
   
   (method (determine-max-list headers data)
-    (map (function dynamic (n)
+    (map (function (n)
            (let ((max (length (element headers n))))
-             (for-each (function dynamic (row)
+             (for-each (function (row)
                          (let* ((data (element row n))
                                 (count (length data)))
                            (when (> count max)
@@ -383,7 +384,7 @@
     (let ((output (get-sql-output-tree)))
       (remove-columns~ output)
       (let ((first-column (car columns)))
-        (for-each (function dynamic (column width)
+        (for-each (function (column width)
                     (let* ((node? (eq? column first-column))
                            (column (if node?
                                        (add-column~ output class: Tree-Node-Column toplevel-controls?: #f title: (get-name~ column) width: width)
@@ -392,9 +393,9 @@
                         (set-display-images?~ column #f))))
                   columns
                   widths))
-      (for-each (function dynamic (row)
+      (for-each (function (row)
                   (let* ((values (get-values~ row))
                          (first (car values))
                          (rest (cdr values)))
-                    (add-row~ output children: (cons (new Tree-Node title: (present-value first)) (map (function dynamic (value) (new Tree-Label title: (present-value value))) rest)))))
+                    (add-row~ output children: (cons (new Tree-Node title: (present-value first)) (map (function (value) (new Tree-Label title: (present-value value))) rest)))))
                 (if (> affected max-display) (subseq rows 0 max-display) rows))))))

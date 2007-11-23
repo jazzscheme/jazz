@@ -318,7 +318,7 @@
   
   (method (print printer readably)
     (print-unreadable self printer
-      (function dynamic (printer)
+      (function (printer)
         (format printer "{a}" name)
         @dangerous
         (format printer "{a}{a}"
@@ -327,7 +327,7 @@
                   (get-presentation))
                 (if (not branch)
                     ""
-                  (format " {a}" (map (function dynamic (component)
+                  (format " {a}" (map (function (component)
                                                 (get-presentation~ component))
                                               (get-installed-branches))))))))
 
@@ -581,7 +581,7 @@
   
   @convert
   (method meta public (get-properties)
-    (collect-if (function dynamic (property)
+    (collect-if (function (property)
                   (and (property? property)
                        (property-getter property)))
                 (all-fields self)))
@@ -615,7 +615,7 @@
               (get-all-properties filter)
             (let ((class (class-of self)))
               (letrec ((standardize
-                         (function dynamic (object)
+                         (function (object)
                            (cond ((string? object)
                                   object)
                                  ((symbol? object)
@@ -628,7 +628,7 @@
   
   
   (method (get-all-properties filter)
-    (sort (function dynamic (x y)
+    (sort (function (x y)
             (if (memq? filter '(all categorized))
                 (let ((xr (get-filter-rank~ (get-row-class x)))
                       (yr (get-filter-rank~ (get-row-class y))))
@@ -636,7 +636,7 @@
                       (and (= xr yr)
                            (< (field-name x) (field-name y)))))
               (< (field-name x) (field-name y))))
-          (collect-if (function dynamic (property)
+          (collect-if (function (property)
                         (display-filtered-property? property filter))
                       (all-fields (class-of self)))))
   
@@ -750,25 +750,25 @@
 
 
   (method public (find-child name <Object>)
-    (find-if (function dynamic (child)
+    (find-if (function (child)
                (equal? (get-name~ child) name))
              children))
 
 
   (method public (find-child-with name <Object> test <procedure>)
-    (find-if (function dynamic (child)
+    (find-if (function (child)
                (test (get-name~ child) name))
              children))
 
 
   (method public (find-type type)
-    (find-if (function dynamic (child)
+    (find-if (function (child)
                (is? child type))
              children))
   
   
   (method public (find-key key value)
-    (find-if (function dynamic (child)
+    (find-if (function (child)
                (equal? (key child) value))
              children))
   
@@ -815,7 +815,7 @@
   
   
   (method public (get-visible-children)
-    (collect-if (function dynamic (child)
+    (collect-if (function (child)
                   (get-visible?~ child))
                 children))
   
@@ -952,7 +952,7 @@
   
   
   (method public (get-branches)
-    (collect-if (function dynamic (child)
+    (collect-if (function (child)
                   (is? child Branch))
                 children))
   
@@ -997,7 +997,7 @@
   
   
   (method public (for-each-branch proc)
-    (for-each (function dynamic (branch)
+    (for-each (function (branch)
                 (proc branch)
                 (for-each-branch~ branch proc))
               (get-branches)))
@@ -1006,7 +1006,7 @@
   (method public (with-each-branch proc)
     (let ((active-branch (get-branch)))
       (for-each-branch
-        (function dynamic (branch)
+        (function (branch)
           (set-active-branch branch)
           (proc)))
       (set-active-branch active-branch)))
@@ -1064,7 +1064,7 @@
   
   
   (method public virtual (validate-component root client context manager)
-    (for-each (function dynamic (symbol)
+    (for-each (function (symbol)
                 (let ((property (property-field self symbol)))
                   (validate-property property root client context manager)))
               (get-categorized-properties)))
@@ -1110,15 +1110,15 @@
   
   
   (method (search-plain-text text <Object> target <Object>)
-    (some? (function dynamic (line)
+    (some? (function (line)
              (search line target ignore-case?: #t))
            (get-paragraphs~ text)))
   
   
   (method (search-formatted-text text <Object> target <Object>)
-    (some? (function dynamic (info)
+    (some? (function (info)
              (bind (format . runs) info
-               (some? (function dynamic (run)
+               (some? (function (run)
                         (let ((string (car run)))
                           (search string target ignore-case?: #t)))
                       runs)))
@@ -1183,9 +1183,9 @@
     (let* ((form (get-form~ (get-creator)))
            (active-branch (get-branch))
            (active-branch-name (essay active-branch (get-name~ active-branch)))
-           (all-branch-names (map (function dynamic (branch) (get-name~ branch)) (get-branches)))
+           (all-branch-names (map (function (branch) (get-name~ branch)) (get-branches)))
            (instantiate
-             (function dynamic (branch-name)
+             (function (branch-name)
                (if (eq? branch-name active-branch-name)
                    self
                  (let ((client (apply (~ instantiate form) properties)))
@@ -1331,7 +1331,7 @@
     @unimplemented
     (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
       (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
-             (models (remove-duplicates (map (function dynamic (parcel) (get-master-model~ parcel)) parcels))))
+             (models (remove-duplicates (map (function (parcel) (get-master-model~ parcel)) parcels))))
         (cond ((memq? {} models)
                {})
               ((every? addable-class? models)
@@ -1351,7 +1351,7 @@
   
   
   (method public virtual (sort-components components)
-    (sort (sort-predicate 'smaller) components key: (function dynamic (component) (get-presentation~ component))))
+    (sort (sort-predicate 'smaller) components key: (function (component) (get-presentation~ component))))
   
   
   (method public virtual (indexable?)
@@ -1375,7 +1375,7 @@
   
   
   (method public virtual (install-children-surrogates editor)
-    (for-each (function dynamic (component)
+    (for-each (function (component)
                 (install-surrogate~ component editor))
               (get-components)))
 
@@ -1385,7 +1385,7 @@
 
 
   (method public (remove-component-surrogate)
-    (for-each (function dynamic (component)
+    (for-each (function (component)
                 (remove-component-surrogate~ component))
               (get-components))
     (when surrogate
@@ -1432,7 +1432,7 @@
   
   
   (method public virtual (addable-class? class)
-    (some? (function dynamic (addable-class)
+    (some? (function (addable-class)
              (and addable-class (subtype? class addable-class)))
            (get-addable-classes)))
   
@@ -1494,21 +1494,21 @@
   
   (method public (set-designers lst)
     (set! designers lst)
-    (for-each (function dynamic (child)
+    (for-each (function (child)
                 (set-designers~ child lst))
               children))
   
   
   (method public (install-designer designer)
     (set! designers (cons designer designers))
-    (for-each (function dynamic (child)
+    (for-each (function (child)
                 (install-designer~ child designer))
               (get-components)))
   
   
   (method public (uninstall-designer designer)
     (set! designers (remove! designer designers))
-    (for-each (function dynamic (child)
+    (for-each (function (child)
                 (uninstall-designer~ child designer))
               (get-components)))
 
@@ -1556,7 +1556,7 @@
   (method public virtual (output-properties text)
     (unimplemented 'output-properties)
     @get-properties
-    (for-each (function dynamic (property)
+    (for-each (function (property)
                 (let ((title (localize (property-presentation~ (class-of self) property)))
                       (value (->string (read-property self property))))
                   (insert-bulleted-line~ text (format "{a} : {a}" title value))))
@@ -1581,7 +1581,7 @@
   
   (method public (for-each-descendant proc <procedure> (include-self?: include-self? #t))
     (letrec ((iterate
-               (function dynamic (component include? level)
+               (function (component include? level)
                  (when include?
                    (proc component level))
                  (loop (for child in (get-children~ component))
@@ -1598,6 +1598,6 @@
   (method public (collect-family)
     (let ((factory (new List-Factory)))
       (for-each-descendant
-        (function dynamic (child . rest)
+        (function (child . rest)
           (put~ factory child)))
       (get-output~ factory)))))

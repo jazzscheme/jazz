@@ -98,7 +98,7 @@
   (method (finish rest)
     (nextmethod rest)
     (let ((tree (locate 'targets)))
-      (for-each (function dynamic (column)
+      (for-each (function (column)
                   (set-title-vertical-offset~ column 1))
                 (get-columns~ tree))))
 
@@ -157,7 +157,7 @@
       ;; to-convert temp patch
       (if (in-edition?~ tree)
           '()
-        (for-each (function dynamic (row)
+        (for-each (function (row)
                     (let ((find (get-title~ (get-cell-data~ tree (new Cell row 0))))
                           (repl (get-title~ (get-cell-data~ tree (new Cell row 1)))))
                       (unless (and (empty-string? find) (empty-string? repl))
@@ -173,9 +173,9 @@
       (let ((width (get-columns-count~ tree))
             (height (get-visible-count~ tree)))
         (with-update-locked~ tree
-          (function dynamic ()
-            (for-each (function dynamic (line row)
-                        (for-each (function dynamic (target col)
+          (function ()
+            (for-each (function (line row)
+                        (for-each (function (target col)
                                     (let ((cell (new Cell row col)))
                                       (set-title~ (get-cell-data~ tree cell) target)
                                       (invalidate-cell~ tree cell)))
@@ -183,8 +183,8 @@
                                   (naturals 0 (length line))))
                       targets
                       (naturals 0 (length targets)))
-            (for-each (function dynamic (row)
-                        (for-each (function dynamic (col)
+            (for-each (function (row)
+                        (for-each (function (col)
                                     (let ((cell (new Cell row col)))
                                       (set-title~ (get-cell-data~ tree cell) "")
                                       (invalidate-cell~ tree cell)))
@@ -202,7 +202,7 @@
   
   (method public (get-search-domain)
     (let* ((group (locate 'domain))
-           (proc (function dynamic (name)
+           (proc (function (name)
                    (let ((radio (find-component~ group name)))
                      (when (and radio (get-selected?~ radio))
                        name)))))
@@ -213,7 +213,7 @@
     (let* ((group (locate 'domain))
            (radio (find-component~ group domain)))
       (when radio
-        (for-each (function dynamic (child)
+        (for-each (function (child)
                     (when (is? child Radio-Button)
                       (set-selected?~ child (eq? child radio))))
                   (get-children~ group)))))
@@ -389,7 +389,7 @@
                (tree (locate~ results 'results))
                (selection (get-selection~ tree))
                (modified-count 0))
-          (for-each (function dynamic (item)
+          (for-each (function (item)
                       (receive (frame new?) (edit-item~ results item #t #f)
                         (let* ((guest (get-guest~ frame))
                                (target (get-text-view~ guest))
@@ -509,7 +509,7 @@
   (method (search-in-zip targets file extensions whole-words? ignore-case? expression? constituent-test factory reporter)
     (with-closed ((unzip (new Unzip-File file)))
       (iterate-files~ unzip
-        (function dynamic (filename size)
+        (function (filename size)
           (let ((extension (extract-extension filename)))
             (when (member? extension extensions test: ci=?)
               (unless (and reporter (cancel-requested?~ reporter))
@@ -524,7 +524,7 @@
   
   
   (method protected (search-in-directories targets directories extensions whole-words? ignore-case? expression? constituent-test factory reporter)
-    (for-each (function dynamic (directory)
+    (for-each (function (directory)
                 (search-in-directory targets directory extensions whole-words? ignore-case? expression? constituent-test factory reporter))
               directories))
     
@@ -532,7 +532,7 @@
   (method protected (search-in-directory targets directory extensions whole-words? ignore-case? expression? constituent-test factory reporter)
     (let ((all-extensions? (equal? extensions '("*"))))
       (iterate-directory~ directory
-        (function dynamic (file)
+        (function (file)
           (let ((ext (get-extension~ file)))
             (cond ;; very quick and dirty solution
              ((and all-extensions? (not (member? ext '("obj" "dll" "exe") test: ci=?)) (<= (get-size~ file) 512000))
@@ -549,7 +549,7 @@
     (when (exists?~ file)
       (if (not expression?)
           (call-with-input-file (parse~ file)
-            (lambda (reader)
+            (function (reader)
               (let ((content (read-content-string reader)))
                 (search-content content targets whole-words? ignore-case? constituent-test))))
         (let ((text (new Jazz-Text-View)))
@@ -633,7 +633,7 @@
   
   (method (add-empty-row (father: father {}))
     (let ((father (either father root-row))
-          (children (map (function dynamic (column)
+          (children (map (function (column)
                            (new-empty-cell~ column))
                          columns)))
       (add-row father: father children: children)))

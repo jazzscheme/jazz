@@ -71,9 +71,9 @@
 
 
 (syntax (unwind-protect body . protection)
-  `(dynamic-wind (function dynamic () #f)
-                 (function dynamic () ,body)
-                 (function dynamic () ,@protection)))
+  `(dynamic-wind (function () #f)
+                 (function () ,body)
+                 (function () ,@protection)))
 
 
 (syntax (catch type . body)

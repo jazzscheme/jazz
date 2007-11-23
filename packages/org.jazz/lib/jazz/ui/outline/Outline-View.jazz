@@ -169,7 +169,7 @@
   (method public (get-expand-state (include-invisibles?: include-invisibles? #f))
     (when root-row
       (letrec ((proc
-                 (function dynamic (row)
+                 (function (row)
                    (let ((title (get-title~ (first-child~ row)))
                          (state (get-state~ row))
                          (sons (get-sons~ row)))
@@ -186,7 +186,7 @@
   (method public (set-expand-state state)
     (when root-row
       (letrec ((proc
-                (function dynamic (row info)
+                (function (row info)
                   (bind (title state . children) info
                     (let ((subrow (find-by-title~ row title)))
                       (when subrow
@@ -196,10 +196,10 @@
                                 (expand/collapse subrow))
                             (when (and (= actual 'dynamic) children)
                               (update-row subrow))))
-                        (for-each (function dynamic (info)
+                        (for-each (function (info)
                                     (proc subrow info))
                                   children)))))))
-        (for-each (function dynamic (info)
+        (for-each (function (info)
                     (proc root-row info))
                   state))))
   
@@ -212,7 +212,7 @@
   (method public (expand-spine spine)
     (when root-row
       (letrec ((proc
-                (function dynamic (row spine)
+                (function (row spine)
                   (bind (title . subspine) spine
                     (let ((subrow (find-by-title~ row title)))
                       (when subrow
@@ -552,9 +552,9 @@
   
   (method public (get-visible-row n)
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-visible-row
-          (function dynamic (row rank)
+          (function (row rank)
             (when (= rank n)
               (return row))))
         {})))
@@ -579,9 +579,9 @@
   
   (method public (row-rank target)
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-visible-row
-          (function dynamic (row rank)
+          (function (row rank)
             (when (eq? row target)
               (return rank))))
         {})))
@@ -736,13 +736,13 @@
   (method public (for-each-row proc)
     (letrec ((rank 0)
              (recurse
-              (function dynamic (row visible?)
+              (function (row visible?)
                 (let* ((visible? (and visible? (get-visible-flag~ row)))
                        (son-visible? (and visible? (expanded?~ row))))
                   (proc row (essay visible? rank))
                   (when visible?
                     (increase! rank))
-                  (for-each (function dynamic (row)
+                  (for-each (function (row)
                               (recurse row son-visible?))
                             (get-sons~ row))))))
       (recurse root-row (row-visible?~ root-row))))
@@ -796,7 +796,7 @@
              (height 0)
              (level (+ (get-level~ row) 1))
              (previous {})
-             (rows (map (function dynamic (info)
+             (rows (map (function (info)
                           (let ((subrow (proc info)))
                             (set-father~ subrow row)
                             (set-level~ subrow level)
@@ -857,7 +857,7 @@
   
   (method public (expand-all row)
     (with-update-locked
-      (function dynamic ()
+      (function ()
         (unless (= (get-state~ row) 'expanded)
           (expand/collapse row))
         (for-each expand-all (get-sons~ row)))))
@@ -887,7 +887,7 @@
   
   (method public (collapse-all row)
     (with-update-locked
-      (function dynamic ()
+      (function ()
         (for-each collapse-all (get-sons~ row))
         (when (eq? (get-state~ row) 'expanded)
           (expand/collapse row)))))
@@ -928,7 +928,7 @@
   ;; this will currently only work with flat outlines
   (method public (set-visibilities predicate)
     (let ((previous root-row))
-      (for-each (function dynamic (row)
+      (for-each (function (row)
                   (let ((visible? (predicate row)))
                     (when visible?
                       (link-rows previous row)
@@ -1040,7 +1040,7 @@
   
   (method (follow-backward v)
     (call/ec
-      (lambda (return)
+      (function (return)
         (while (> v 0)
           (if (<= v first-displayed-offset)
               (begin

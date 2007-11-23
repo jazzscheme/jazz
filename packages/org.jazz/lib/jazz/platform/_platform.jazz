@@ -92,7 +92,7 @@
   (unimplemented 'wait-for)
   @unimp
   (let* ((get-handle
-           (function dynamic (object)
+           (function (object)
              (if (integer? object)
                  object
                (get-handle~ object))))
@@ -139,8 +139,8 @@
         (process-base (module-base))
         (count 0))
     (call/ec
-      (lambda (return)
-        (for-each (function dynamic (id)
+      (function (return)
+        (for-each (function (id)
                     (if (= id process-id)
                         (return count)
                       (let ((handle (OpenProcess (bit-or PROCESS_QUERY_INFORMATION PROCESS_VM_READ) #f id)))
@@ -161,7 +161,7 @@
          (processes (new-array int count)))
     (receive (success? received) (EnumProcesses processes count)
       (let ((fact (new List-Factory)))
-        (for-each (function dynamic (n)
+        (for-each (function (n)
                     (let ((id (array-ref processes n)))
                       (when (/= id 0)
                         (put~ fact id))))
@@ -213,7 +213,7 @@
   (unimplemented 'update-crash-info)
   @threads
   (let ((printer (open-output-string)))
-    (for-each (function dynamic (pair)
+    (for-each (function (pair)
                 (bind (name . (context . info)) pair
                   (format printer "{%}   {a}{a} {a}"
                     name
@@ -376,7 +376,7 @@
         (crash-process)
       (let ((file (either file (module-timestamped-file "Stack" "stack"))))
         (call-with-output-file (parse~ file)
-          (lambda (printer)
+          (function (printer)
             (apply print-stack printer others)))
         (when user-feedback?
           (message-box (format "Stack dumped to {t}" file)))
@@ -390,9 +390,9 @@
       (report-stack~ (autoload 'Stack-Presenter))
     (let ((process (snapshot-stack))
           (printer (open-output-string)))
-      (for-each (function dynamic (thread)
+      (for-each (function (thread)
                   (format printer "{a}{%}" (get-label~ thread))
-                  (for-each (function dynamic (frame)
+                  (for-each (function (frame)
                               (format printer "  {a}{%}" (car frame)))
                             (get-call-stack~ thread)))
                 (get-threads~ process))
@@ -495,7 +495,7 @@
   ;; quicky
   (list (get-toplevel))
   @convert
-  (collect (function dynamic (hwnd)
+  (collect (function (hwnd)
              (let ((window (get-window hwnd)))
                (when (and window (or include-invisibles? (get-visible?~ window)))
                  window)))
@@ -511,6 +511,6 @@
 (definition public (child-windows hwnd)
   (unimplemented 'child-windows)
   @convert
-  (collect-if (function dynamic (child)
+  (collect-if (function (child)
                 (= (GetParent child) hwnd))
               (all-child-windows hwnd))))

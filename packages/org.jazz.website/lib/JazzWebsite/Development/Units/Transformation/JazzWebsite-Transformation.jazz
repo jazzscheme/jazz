@@ -86,8 +86,8 @@
   
   
   (method (collect-sections website)
-    (map (function dynamic (section)
-           (cons section (collect-if (function dynamic (node)
+    (map (function (section)
+           (cons section (collect-if (function (node)
                                        (= (get-tag~ node) 'section))
                                      (get-children~ section))))
          (get-children~ website)))
@@ -96,14 +96,14 @@
   (method (validate-anchor-names)
     (let ((fact (new List-Factory)))
       (iterate-table anchor-names
-                     (function dynamic (name lst)
+                     (function (name lst)
                        (when (> (length lst) 1)
                          (put~ fact name))))
       (let ((ambiguities (get-output~ fact)))
         (when ambiguities
           (let ((message
                  (cons "The following anchors are multiply defined:"
-                       (map (function dynamic (name)
+                       (map (function (name)
                               (list :bulleted (->string name)))
                             ambiguities))))
             (message-box message))))))
@@ -115,10 +115,10 @@
   
   
   (method (process-sections sections pages)
-    (for-each (function dynamic (info)
+    (for-each (function (info)
                 (bind (section . subsections) info
                   (process-section section sections pages)
-                  (for-each (function dynamic (subsection)
+                  (for-each (function (subsection)
                               (process-section subsection sections pages))
                             subsections)))
               sections))
@@ -159,7 +159,7 @@
   
   (method (section-content-output section)
     (let ((output (new List-Factory)))
-      (for-each (function dynamic (node)
+      (for-each (function (node)
                   (if (is? node JML-Element)
                       (case (get-tag~ node)
                         ((section))
@@ -177,7 +177,7 @@
   
   (method (navigation-output section sections)
     (let ((output (new List-Factory)))
-      (for-each (function dynamic (info)
+      (for-each (function (info)
                   (bind (sec . subsecs) info
                     (let ((name (get-property~ sec 'name))
                           (path (format "{a}.htm" (section-path sec)))
@@ -185,7 +185,7 @@
                           (selected? (eq? sec section)))
                       (put~ output `(<a> class: "section" href: ,path ,(if selected? `(<b> ,title) title)))
                       (when (or (eq? sec section) (memq? section subsecs))
-                        (for-each (function dynamic (subsec)
+                        (for-each (function (subsec)
                                     (let ((name (get-property~ subsec 'name))
                                           (path (format "{a}.htm" (section-path subsec)))
                                           (title (get-property~ subsec 'title))
@@ -217,7 +217,7 @@
   
   (method (manual-content-output products)
     (let ((output (new List-Factory)))
-      (for-each (function dynamic (product)
+      (for-each (function (product)
                   (output-manual-doc product output))
                 products)
       (get-output~ output)))
@@ -340,7 +340,7 @@
         (put~ output `(<p>))
         (put~ output `(<p> "Examples"))
         (put~ output `(<node>
-                       ,@(map (function dynamic (example)
+                       ,@(map (function (example)
                                 (bind (tag . rest) (->jml~ (form->node example))
                                   `(<span> ,@rest)))
                               (get-children~ examples)))))))
@@ -350,20 +350,20 @@
     (let* ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
            (children (effective-manual-doc-children doc))
            (sorted (if sort?
-                       (sort < children key: (function dynamic (child) (get-name~ child)))
+                       (sort < children key: (function (child) (get-name~ child)))
                      children)))
       (output-manual-docs sorted output)))
   
   
   (method (output-manual-docs docs output)
-    (for-each (function dynamic (doc)
+    (for-each (function (doc)
                 (output-manual-doc doc output))
               docs))
   
   
   (method (effective-manual-doc-children doc)
     (let ((fact (new List-Factory)))
-      (for-each (function dynamic (child)
+      (for-each (function (child)
                   (if (is? child Doc-Insert)
                       (let* ((path (get-path~ child))
                              (docs (find-docs path)))
@@ -383,7 +383,7 @@
                  (put~ docs (get-client~ catalog)))
                 ((equal? rest '(*))
                  (let ((parent (get-product~ catalog)))
-                   (for-each (function dynamic (catalog)
+                   (for-each (function (catalog)
                                (when (eq? (get-parent-product~ (get-product~ catalog)) parent)
                                  (put~ docs (get-client~ catalog))))
                              (get-catalogs~ cataloguer))))
@@ -418,7 +418,7 @@
       (<h3> "Summary")
       (<div> class: "summary_toc" (<a> href: "#TOC" "Table of Contents"))
       (<div> class: "summary_index" (<a> href: "#INDEX" "Index"))
-      ,@(map (function dynamic (product rank)
+      ,@(map (function (product rank)
                (doc-summary-output toc-anchors product 1 (list (+ rank 1))))
              products
              (naturals 0 (length products)))))
@@ -434,7 +434,7 @@
          ,@(if (null? children)
                {}
              `((<div>
-                 ,@(map (function dynamic (child rank)
+                 ,@(map (function (child rank)
                           (doc-summary-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
@@ -445,14 +445,14 @@
           (children (effective-manual-doc-children doc)))
       (collect-if has-product-descendant?
                   (if sort?
-                      (sort < children key: (function dynamic (child) (get-name~ child)))
+                      (sort < children key: (function (child) (get-name~ child)))
                     children))))
   
   
   (method (has-product-descendant? doc)
     (let ((has? #f))
       (letrec ((iter
-                (function dynamic (doc)
+                (function (doc)
                   (typecase doc
                     ((Product-Doc) (set! has? #t))
                     ((Section-Doc) (for-each iter (effective-manual-doc-children doc)))))))
@@ -468,7 +468,7 @@
   (method (toc-output products toc-anchors)
     (user-message "Generating Table of Contents...")
     `((<a> name: "TOC" (<h3> "Table of Contents"))
-      ,@(map (function dynamic (product rank)
+      ,@(map (function (product rank)
                (doc-toc-output toc-anchors product 1 (list (+ rank 1))))
              products
              (naturals 0 (length products)))))
@@ -487,7 +487,7 @@
          ,@(if (null? children)
                {}
              `((<div>
-                 ,@(map (function dynamic (child rank)
+                 ,@(map (function (child rank)
                           (doc-toc-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
                         children
                         (naturals 0 (length children)))))))))
@@ -504,7 +504,7 @@
   (method (collect-toc-children doc)
     (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
           (children (effective-manual-doc-children doc)))
-      (collect-if (function dynamic (child)
+      (collect-if (function (child)
                     (or (is? child Product-Doc)
                         (is? child Section-Doc)
                         (is? child Concept-Doc)
@@ -512,7 +512,7 @@
                         (is? child Category-Doc)
                         (is? child Form-Doc)))
                   (if sort?
-                      (sort < children key: (function dynamic (child) (get-name~ child)))
+                      (sort < children key: (function (child) (get-name~ child)))
                     children))))
   
   
@@ -526,7 +526,7 @@
     (let ((letters (sort < (letters-partition) key: car))
            (letter-anchors (make-table test: eq?))
            (output (new List-Factory)))
-      (for-each (function dynamic (letter)
+      (for-each (function (letter)
                   (output-letter letter letter-anchors output))
                 letters)
       `((<a> name: "INDEX" (<h3> "Index"))
@@ -539,7 +539,7 @@
     (bind (char . infos) letter
       (let ((anchor (register-anchor letter {} letter-anchors)))
         (put~ output `(<tr> (<td> colspan: "2" (<div> class: "index-letter" (<a> name: ,anchor ,(string char)))))))
-      (for-each (function dynamic (info)
+      (for-each (function (info)
                   (bind (doc anchor title) info
                     (let ((anchor (format "#{a}" anchor)))
                       (put~ output `(<tr>
@@ -555,7 +555,7 @@
   (method (gather-anchors)
     (let ((lst '()))
       (iterate-table anchors
-                     (function dynamic (doc anchor)
+                     (function (doc anchor)
                        (when (get-name~ doc)
                          (let ((title (get-effective-title~ doc)))
                            (set! lst (cons (list doc anchor title) lst))))))
@@ -568,8 +568,8 @@
            (alpha (cdr (assv #t partition)))
            (output (new List-Factory))
            (process-letter-set
-            (function dynamic (letter-set)
-              (for-each (function dynamic (letter)
+            (function (letter-set)
+              (for-each (function (letter)
                           (let ((char (car letter))
                                 (anchor (format "#{a}" (table-ref letter-anchors letter #f))))
                             (put~ output `(<a> class: "letter-navigator" href: ,anchor (<b> ,(string char))))
@@ -582,7 +582,7 @@
   
   
   (method (alphabetic-partition letters)
-    (partition letters key: (function dynamic (letter)
+    (partition letters key: (function (letter)
                               (let ((char (car letter)))
                                 (alphabetic? char)))))
   
@@ -593,7 +593,7 @@
   
   
   (method (output-articles articles output)
-    (for-each (function dynamic (article)
+    (for-each (function (article)
                 (output-article article output))
              (get-children~ articles)))
   

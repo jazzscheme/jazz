@@ -103,7 +103,7 @@
 (definition protected (validate-component object)
   (let ((original object))
     (letrec ((validate
-               (function dynamic (object)
+               (function (object)
                  (cond ((not object))
                        ((string? object))
                        ((symbol? object))
@@ -358,7 +358,7 @@
           (first? #t)
           (aliases '()))
       (letrec ((parse
-                 (function dynamic (path)
+                 (function (path)
                    (cond ((null? path))
                          ((eq? path #t)
                           (display root-prefix printer))
@@ -416,9 +416,9 @@
   
   (method public (valid-aliases?)
     (letrec ((valid?
-              (function dynamic (list)
+              (function (list)
                 (or (eq? list #t)
-                    (every? (function dynamic (item)
+                    (every? (function (item)
                               (or (not (symbol? item))
                                   (and (is-alias? item)
                                        (valid? (get-alias item)))))
@@ -429,7 +429,7 @@
   (method public (expand)
     (let ((fact (new List-Factory)))
       (letrec ((expand
-                (function dynamic (object)
+                (function (object)
                   (cond ((eq? object #t))
                         ((string? object) (put~ fact object))
                         ((symbol? object) (expand (get-alias object)))
@@ -533,7 +533,7 @@
       (while scan
         (set! dirs (cons scan dirs))
         (set! scan (get-parent~ scan)))
-      (for-each (function dynamic (dir)
+      (for-each (function (dir)
                   (unless (exists?~ dir)
                     (create~ dir)))
                 dirs)))
@@ -552,7 +552,7 @@
            (rank (mismatch base-expd expd test: ci=?))
            (result-list (unspecified)))
       (call/ec
-        (lambda (return)
+        (function (return)
           (cond ((not rank)
                  (set! result-list base-list))
                 ((< rank base-length)
@@ -566,8 +566,8 @@
   
   (method public (anchorize (anchors: anchors {}))
     (let* ((anchors (if (not anchors) (default-anchors) anchors))
-           (anchored (collect (function dynamic (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: #f))) anchors))
-           (sorted (sort < anchored key: (function dynamic (path) (length (get-list~ path))))))
+           (anchored (collect (function (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: #f))) anchors))
+           (sorted (sort < anchored key: (function (path) (length (get-list~ path))))))
       (if (null? sorted)
           self
         (car sorted))))
@@ -717,7 +717,7 @@
       ;; this is ugly big time...
       (set-read/write)
       (call-with-output-file (list (parse) mode: 'append)
-        (lambda (printer)
+        (function (printer)
           (SetFileTime (get-handle~ printer) NULL NULL ft)))
       (set-attributes at)))
   
@@ -766,7 +766,7 @@
 
   (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? #f))
     (call-with-output-file (parse)
-      (lambda (printer)
+      (function (printer)
         ;; the 2 is really Win32. need to fix this
         (write-lines printer lines (either platform 2) use-utf8?)))))
 
@@ -856,10 +856,10 @@
       (feedback self))
     (create-directories~ dst)
     (let ((destination
-            (function dynamic (path)
+            (function (path)
               (append (get-list~ dst) (list (get-name~ path))))))
       (iterate-directory
-        (function dynamic (path)
+        (function (path)
           (when (or (eq? copy? #t) (copy? path))
             (if (is? path File)
                 (let ((dest (new File (destination path))))
@@ -888,7 +888,7 @@
     (unimplemented 'empty-directory)
     @windows-specific
     (iterate-directory
-      (function dynamic (path)
+      (function (path)
         (if (is? path File)
             (delete-file~ path :overwrite-read-only? overwrite-read-only?)
           (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
@@ -923,7 +923,7 @@
   
   (method (collect-nodes fact)
     (iterate-directory
-      (function dynamic (item)
+      (function (item)
         (put~ fact item))
       files?: #f
       directories?: #t
@@ -932,7 +932,7 @@
   
   (method (collect-leaves fact)
     (iterate-directory
-      (function dynamic (item)
+      (function (item)
         (put~ fact item))
       files?: #t
       directories?: #f
@@ -956,7 +956,7 @@
   (method public (collect-files predicate)
     (let ((fact (new List-Factory)))
       (iterate-directory
-        (function dynamic (file)
+        (function (file)
           (when (predicate file)
             (put~ fact file)))
         recursive?: #f)
@@ -971,7 +971,7 @@
   (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #f) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
     (let ((directory (if full? (get-list) {})))
       (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
-        (function dynamic (list kind)
+        (function (list kind)
           (case kind
             ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
             ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory))))))))
@@ -979,13 +979,13 @@
   
   (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
     (iterate-content base 'directories sort? ignored-directories
-      (function dynamic (name)
+      (function (name)
         (when recursive?
           (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "\\" name) proc))
         (when directories?
           (proc (append prefix (list name)) 'directory))))
     (iterate-content base 'files sort? ignored-directories
-      (function dynamic (name)
+      (function (name)
         (when files?
           (proc (concatenate prefix (list name)) 'file)))))
   
@@ -995,7 +995,7 @@
         (iterate-content-unsorted base kind ignored-directories proc)
       (let ((list '()))
         (iterate-content-unsorted base kind ignored-directories
-          (function dynamic (object)
+          (function (object)
             (set! list (cons object list))))
         (let ((sorted (sort < list)))
           (for-each proc sorted)))))
@@ -1003,7 +1003,7 @@
   
   (method (iterate-content-unsorted base kind ignored-directories proc)
     ;; SIMPLIFIED VERSION FOR NOW
-    (for-each (lambda (name)
+    (for-each (function (name)
                 (let ((type (file-type (string-append base "/" name))))
                   (when (or (and (eq? kind 'files) (eq? type 'regular))
                             (and (eq? kind 'directories) (eq? type 'directory)))
@@ -1027,9 +1027,9 @@
   (method public (count-files (filter: filter {}) (max-count: max-count #f))
     (let ((count 0))
       (call/ec
-        (lambda (return)
+        (function (return)
           (iterate-directory
-            (function dynamic (file)
+            (function (file)
               (when (or (not filter) (filter file))
                 (increase! count)
                 (when (and max-count (> count max-count))

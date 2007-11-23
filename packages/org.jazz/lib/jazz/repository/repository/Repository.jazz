@@ -204,9 +204,9 @@
   
   (method meta public (find-repository pathname)
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-repository-preferences
-          (function dynamic (pref)
+          (function (pref)
             (when (in-repository?~ pref pathname)
               (return (get-repository (get-name~ pref))))))
         {})))
@@ -237,7 +237,7 @@
   
   (method (print printer readably)
     (print-unreadable self printer
-      (function dynamic (printer)
+      (function (printer)
         (format printer "{s}" name))))
   
   
@@ -343,7 +343,7 @@
              (all (collect-files directory extension))
              (effective (difference all actual test: pathname=))
              (files (get-modal~ chooser :files effective)))
-        (for-each (function dynamic (file)
+        (for-each (function (file)
                     (with-closed ((item (add-file~ project file)))
                       ))
                   files))))
@@ -359,7 +359,7 @@
   
   (method (collect-actual project)
     (with-closed ((items (get-content~ project nodes?: #f leaves?: #t)))
-      (map (function dynamic (item)
+      (map (function (item)
              (get-pathname~ item))
            items)))
   
@@ -367,12 +367,12 @@
   (method (collect-files directory extension)
     (let ((fact (new List-Factory)))
       (iterate-directory~ directory
-        (function dynamic (file)
+        (function (file)
           (when (and (or (eq? extension #t) (ci=? (get-extension~ file) extension))
                      (not (member? (get-name~ file) '("vssver.scc") test: ci=?)))
             (put~ fact file)))
         recursive?: #f)
-      (sort ci<? (get-output~ fact) key: (function dynamic (file) (get-name~ file)))))
+      (sort ci<? (get-output~ fact) key: (function (file) (get-name~ file)))))
   
   
   (method protected (create-project-in-project path)
@@ -386,7 +386,7 @@
   
   (method (collect-subprojects project)
     (with-closed ((items (get-content~ project nodes?: #t leaves?: #f)))
-      (map (function dynamic (item)
+      (map (function (item)
              (get-name~ item))
            items)))
   
@@ -441,7 +441,7 @@
       (let ((parent-path (butlast path)))
         (with-closed ((parent-item (get-item parent-path))
                       (items (get-content~ parent-item nodes?: #t leaves?: #t)))
-          (map (function dynamic (item)
+          (map (function (item)
                  (remote->local (get-name~ item)))
                items)))))
   
@@ -475,7 +475,7 @@
   
   (method public (get-latest pathname)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (get-latest-pathname pathname)))
     (call-repository-event :item-status self pathname))
   
@@ -488,7 +488,7 @@
         (select-palette Output-Log))
       (with-closed ((item (get-item pathname)))
         (iterate-item~ item
-         (function dynamic (item pathname)
+         (function (item pathname)
            (if (file? pathname)
                (get-latest-file item pathname output)
              (get-latest-directory item pathname output)))
@@ -596,7 +596,7 @@
       (case code
         ((yes)
          (with-cursor :wait
-           (function dynamic ()
+           (function ()
              (undo-checkout-action file :get? get?)
              (when get?
                (set-read-only~ file))
@@ -658,7 +658,7 @@
   
   (method public virtual (show-changes file)
     (with-cursor :wait
-      (function dynamic ()
+      (function ()
         (let* ((frame (new-frame Compare-Files host-visible?: #f host-workspace: 'text))
                (left file)
                (right (new Repository-Moniker self (file->path file)))
@@ -688,7 +688,7 @@
   (method (get-checkouts-usernames file)
     (with-closed ((item (get-item file))
                   (checkouts (get-checkouts~ item)))
-      (map (function dynamic (checkout)
+      (map (function (checkout)
              (get-username~ checkout))
            checkouts)))
 
@@ -712,7 +712,7 @@
   
   (method meta (call-repository-event what repository moniker)
     (when repository-listeners
-      (for-each (function dynamic (listener)
+      (for-each (function (listener)
                   (repository-event~ listener what repository moniker))
                 repository-listeners)))
   
@@ -728,7 +728,7 @@
            (local-exists? (and file (exists?~ file))))
       (if (not remote?)
           (for-each
-           (function dynamic (item)
+           (function (item)
              (set-visible?~ (locate~ menu item) #f))
            '(get-latest detach checkout checkin reintegrate undo-checkout show-changes show-history))
         (let ((detaching? (supports-detaching?~ repository file))

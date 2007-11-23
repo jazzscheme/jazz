@@ -154,7 +154,7 @@
     (when (not text)
       (set-content (empty-content)))
     (when editable?
-      (set! caret-pulse (new Pulse owner: self period: 500 pulse-handler: (new Event-Handler execute: (function dynamic (evt) (pulse-caret))))))
+      (set! caret-pulse (new Pulse owner: self period: 500 pulse-handler: (new Event-Handler execute: (function (evt) (pulse-caret))))))
     (set! tab-stops (make-tab-stops)))
   
   
@@ -408,7 +408,7 @@
   (method protected virtual (select-outer)
     (let ((expl <Text-Explorer> (new (explorer-class) self range: (get-selection))))
       (with-safe-explore
-        (function dynamic ()
+        (function ()
           (when (outer-expr~ expl)
             (set-selection (get-range~ expl)))))))
   
@@ -481,26 +481,26 @@
   
   (method (on-bulleted evt)
     (for-each-selected-paragraph
-     (function dynamic (row paragraph)
+     (function (row paragraph)
        (toggle-bulleted row))))
   
   
   (method (on-decrease-indent evt)
     (for-each-selected-paragraph
-     (function dynamic (row paragraph)
+     (function (row paragraph)
        (indent-paragraph row paragraph -32))))
   
   
   (method (on-increase-indent evt)
     (for-each-selected-paragraph
-     (function dynamic (row paragraph)
+     (function (row paragraph)
        (indent-paragraph row paragraph 32))))
   
   
   (method (on-justify evt)
     (let ((justification (get-property~ evt justification:)))
       (for-each-selected-paragraph
-       (function dynamic (row paragraph)
+       (function (row paragraph)
          (set-justification row paragraph justification)))))
   
   
@@ -569,7 +569,7 @@
   (method public (process-selection-change)
     (when text-listeners
       (let ((evt (new Text-Event :selection-change self)))
-        (for-each (function dynamic (listener)
+        (for-each (function (listener)
                     (invoke~ listener self evt))
                   text-listeners))))
   
@@ -701,7 +701,7 @@
            (count <fx> 0)
            (height <fx> 0)
            (previous root-row)
-           (rows (map (function dynamic (string)
+           (rows (map (function (string)
                         (let ((paragraph (make-string-paragraph {} string)))
                           (set-previous~ paragraph previous)
                           (set-next~ previous paragraph)
@@ -774,8 +774,8 @@
   
   
   (method (determine-use-utf8? content)
-    (some? (function dynamic (line)
-             (some? (function dynamic (char)
+    (some? (function (line)
+             (some? (function (char)
                       (>= (char->integer char) 128))
                     line))
            content))
@@ -815,7 +815,7 @@
            (initial-filename (essay moniker (format "{a}.html" (get-base~ moniker))))
            (file (choose-new-file initial-filename: initial-filename default-extension: "html" extensions: '(("HTML (*.html)" . "*.html")))))
       (call-with-output-file (parse~ file)
-        (lambda (output)
+        (function (output)
           (let ((convert (new TextToHTML-Exporter self output)))
             (export-html~ convert))))
       (user-message "Done")))
@@ -914,7 +914,7 @@
   (method (set-caret-position pos)
     (when #t @parameterized-fix-me (/= pos caret-position)
       (without-caret
-        (function dynamic ()
+        (function ()
           (set! caret-position pos)))))
   
   
@@ -1045,7 +1045,7 @@
             (select-paragraph (get-row~ pos))
           (let ((expl <Text-Explorer> (new (explorer-class) self start: pos end: pos)))
             (with-safe-explore
-              (function dynamic ()
+              (function ()
                 (when (outer-expr~ expl)
                   (set-selection (get-range~ expl) set-anchor?: #t))
                 (set! selecting? #t)
@@ -1400,7 +1400,7 @@
   (method (range-region range <Range$Cell$> dh dv sc (top: top {}) (bottom: bottom {}))
     (let ((region (new Region)))
       (for-each-range range
-                      (function dynamic (paragraph start end)
+                      (function (paragraph start end)
                         (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
                           (combine!~ region sub 'or))))
       region))
@@ -1481,7 +1481,7 @@
   
   (method public (make-tab-stops-from from tab-size number)
     (let ((stop from))
-      (map (function dynamic (n)
+      (map (function (n)
              (prog1 stop
                (increase! stop tab-size)))
            (naturals 0 number))))
@@ -1648,7 +1648,7 @@
         ;; To allow forward mouse drag scrolling.
         (unless selecting?
           (ensure-displayed)))
-      (unless (and mouse-down? (eq? mouse-in self))
+      (unless (and mouse-down? (eq? (get-mouse-in) self))
         (update-focus-actions~ (get-application)))))
   
   
@@ -1972,7 +1972,7 @@
            (bottom 0)
            (together {}))
       (for-each-paragraph
-       (function dynamic (rank <fx> paragraph <Paragraph>)
+       (function (rank <fx> paragraph <Paragraph>)
          (when (and (>= rank start) (< rank end))
            (let* ((paragraph-top bottom)
                   (string (get-string~ paragraph))
@@ -2048,7 +2048,7 @@
   (method (draw-caret surface sc <fl> sc? <bool>)
     (when (and caret-visible? (not caret-pulsed?) (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
       (let ((proc
-             (function dynamic (rect)
+             (function (rect)
                (set-pen~ surface caret-pen)
                (line~ surface (get-left~ rect) (get-top~ rect) (get-right~ rect) (get-bottom~ rect)))))
         (let ((rect <Rect> (caret-rect (get-caret) 0)))
@@ -2249,7 +2249,7 @@
   
   (method (setup-columns tree <Tree-View> node-column? columns)
     (let ((first? #t))
-      (for-each (function dynamic (column)
+      (for-each (function (column)
                   (let* ((node?  (and first? node-column?))
                          (class  (if node? Tree-Node-Column Tree-Label-Column))
                          (title  (getf column title:))
@@ -2267,8 +2267,8 @@
         (when (not header?)
           (increase! height 16))
         (let ((row-height (quotient height (cast <fx> row-count))))
-          (for-each (function dynamic (n)
-                      (let ((children (map (function dynamic (column)
+          (for-each (function (n)
+                      (let ((children (map (function (column)
                                              (new Formatted-Text-View))
                                            columns)))
                         (add-row~ tree :row-height row-height children: children)))
@@ -2325,7 +2325,7 @@
   (method protected (replace-text range <Range$Cell$> strings)
     (when (write-allowed?)
       (without-caret
-        (function dynamic ()
+        (function ()
           (let* ((start (get-start~ range))
                  (end   (get-end~ range))
                  (count (length strings))
@@ -2376,7 +2376,7 @@
           (replace-paragraph (get-row~ start) (get-col~ start) (get-col~ end) (car strings))
         (if (<= count (- (get-row~ end) (get-row~ start)))
             (with-update-locked
-              (function dynamic ()
+              (function ()
                 (replace-paragraphs range strings)))
           (replace-paragraphs range strings)))))
   
@@ -2429,7 +2429,7 @@
   
   
   (method (invalidate-replacements paragraphs replaced inserted bottom before)
-    (for-each (function dynamic (paragraph)
+    (for-each (function (paragraph)
                 (wrap-paragraph-lowlevel {} paragraph))
               paragraphs)
     (let* ((after (paragraphs-height paragraphs))
@@ -2465,7 +2465,7 @@
   
   (method (strings->paragraphs first-par strings)
     (let ((last-format (get-format~ first-par)))
-      (map (function dynamic (string)
+      (map (function (string)
              (make-string-paragraph last-format string))
            strings)))
   
@@ -2526,14 +2526,14 @@
     (let* ((formats (new List-Factory))
            (styles (new List-Factory))
            (intern-format
-            (function dynamic (format)
+            (function (format)
               (when format
                 (put~ formats format))))
            (intern-style
-            (function dynamic (style)
+            (function (style)
               (when style
                 (put~ styles style))))
-           (paragraphs (map (function dynamic (par)
+           (paragraphs (map (function (par)
                               (parse-paragraph par intern-format intern-style))
                             content)))
       (new Formatted-Text
@@ -2553,7 +2553,7 @@
   (method (parse-format scan <Iterator>)
     (let* ((format {})
            (add-formatting
-            (function dynamic (proc)
+            (function (proc)
               (when (not format)
                 (set! format (new Format)))
               (proc format)))
@@ -2562,11 +2562,11 @@
         (let ((target (get-next~ scan)))
           (case target
             ((:bulleted)
-             (add-formatting (function dynamic (format) (set-bulleted?~ format #t)))
-             (add-formatting (function dynamic (format) (set-left-margin~ format 16))))
+             (add-formatting (function (format) (set-bulleted?~ format #t)))
+             (add-formatting (function (format) (set-left-margin~ format 16))))
             ((:indent)
              (let ((n (get-next~ scan)))
-               (add-formatting (function dynamic (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
+               (add-formatting (function (format) (set-left-margin~ format (+ (get-left-margin~ format) (* n 32)))))))
             (else
              (unget~ scan target)
              (set! out? #t)))))
@@ -2574,7 +2574,7 @@
   
   
   (method (parse-runs scan <Iterator> intern-style)
-    (accumulate (function dynamic (run)
+    (accumulate (function (run)
                   (cond ((string? run)
                          (list run {}))
                         ((pair? run)
@@ -2588,7 +2588,7 @@
     (let* ((string {})
            (style {})
            (add-styling
-            (function dynamic (proc)
+            (function (proc)
               (when (not style)
                 (set! style (new Text-Style base: 'Default)))
               (proc style))))
@@ -2605,17 +2605,17 @@
              (let ((color (get-next~ scan)))
                (when (symbol? color)
                  (set! color (eval-symbol color Color)))
-               (add-styling (function dynamic (style) (set-color~ style color)))))
+               (add-styling (function (style) (set-color~ style color)))))
             ((highlight:)
              (let ((highlight (get-next~ scan)))
                (when (symbol? highlight)
                  (set! highlight (eval-symbol highlight Color)))
-               (add-styling (function dynamic (style) (set-highlight~ style highlight)))))
+               (add-styling (function (style) (set-highlight~ style highlight)))))
             ((font:)
              (let ((font (get-next~ scan)))
                (when (symbol? font)
                  (set! font (eval-symbol font Font)))
-               (add-styling (function dynamic (style) (set-font~ style font)))))
+               (add-styling (function (style) (set-font~ style font)))))
             ((image:)
              (let ((image (get-next~ scan))
                    (portfolio (get-icons-cache~ (get-application))))
@@ -2671,14 +2671,14 @@
     (let* ((formats (new List-Factory))
            (styles (new List-Factory))
            (intern-format
-            (function dynamic (format)
+            (function (format)
               (when format
                 (put~ formats format))))
            (intern-style
-            (function dynamic (style)
+            (function (style)
               (when style
                 (put~ styles style))))
-           (paragraphs (map (function dynamic (par)
+           (paragraphs (map (function (par)
                               (parse-jml-paragraph par intern-format intern-style))
                             (get-children~ node))))
       (new Formatted-Text
@@ -2704,20 +2704,20 @@
   (method (parse-p-format node)
     (let* ((format {})
            (add-formatting
-            (function dynamic (proc)
+            (function (proc)
               (when (not format)
                 (set! format (new Format)))
               (proc format))))
       (when (get-property~ node 'bulleted?)
         (add-formatting
-          (function dynamic (format)
+          (function (format)
             (set-bulleted?~ format #t)
             (set-left-margin~ format 16))))
       format))
   
   
   (method (parse-p-runs node intern-style)
-    (map (function dynamic (node)
+    (map (function (node)
            (parse-p-run node intern-style))
          (get-children~ node)))
   
@@ -2734,7 +2734,7 @@
   (method (parse-style-tag node intern-style)
     (let ((string (get-text~ (first-child~ node)))
           (style (new Text-Style base: 'Default)))
-      (for-each-property (function dynamic (property value)
+      (for-each-property (function (property value)
                            (case property
                              ((font-weight) (set-font-weight~ style value))
                              ((color) (set-color~ style (parse-color value)))
@@ -2770,9 +2770,9 @@
     (empty-content~ formats)
     (empty-content~ styles)
     (for-each-paragraph
-      (function dynamic (row <fx> paragraph <Paragraph>)
+      (function (row <fx> paragraph <Paragraph>)
         (set-format~ paragraph (intern-format (get-format~ paragraph)))
-        (for-each (function dynamic (run)
+        (for-each (function (run)
                     (set-style~ run (intern-style (get-style~ run))))
                   (get-runs~ paragraph)))))
   
@@ -2784,7 +2784,7 @@
   
   (method protected (save-formatted moniker)
     (call-with-output-file (parse~ moniker)
-      (lambda (printer)
+      (function (printer)
         (print-formatted printer {}))))
   
   
@@ -2802,12 +2802,12 @@
             (paragraphs (if (not range)
                             (get-paragraphs)
                           (range-paragraphs range))))
-        (for-each (function dynamic (paragraph)
+        (for-each (function (paragraph)
                     (if first?
                         (set! first? #f)
                       (format printer "{%}  "))
                     (format printer "({s}" (format-reference (get-format~ paragraph) formats))
-                    (for-each (function dynamic (run)
+                    (for-each (function (run)
                                 (format printer " ({s} {s})" (get-string~ run) (style-reference (get-style~ run) styles)))
                               (range-paragraph-runs paragraph range))
                     (format printer ")"))
@@ -2830,7 +2830,7 @@
   (method (print-formats formats printer)
     (format printer " (")
     (let ((first? #t))
-      (for-each (function dynamic (fmt)
+      (for-each (function (fmt)
                   (if first?
                       (set! first? #f)
                     (format printer "{%}  "))
@@ -2842,7 +2842,7 @@
   (method (print-styles styles printer)
     (format printer " (")
     (let ((first? #t))
-      (for-each (function dynamic (style)
+      (for-each (function (style)
                   (if first?
                       (set! first? #f)
                     (format printer "{%}  "))
@@ -2863,9 +2863,9 @@
   (method (get-formatted-paragraphs formats styles)
     (let ((fact (new List-Factory)))
       (for-each-paragraph
-        (function dynamic (row <fx> paragraph <Paragraph>)
+        (function (row <fx> paragraph <Paragraph>)
           (put~ fact (cons (format-reference (get-format~ paragraph) formats)
-                           (map (function dynamic (run)
+                           (map (function (run)
                                   (list (get-string~ run) (style-reference (get-style~ run) styles)))
                                 (get-runs~ paragraph))))))
       (get-output~ fact)))
@@ -2882,7 +2882,7 @@
                 (count 0)
                 (height 0)
                 (previous root-row)
-                (rows (map (function dynamic (info)
+                (rows (map (function (info)
                              (bind (format . runs) info
                                (let* ((format (essay format (reference-format formats format)))
                                       (string (run-infos->string runs))
@@ -2916,7 +2916,7 @@
   (method public (wrap-content context)
     (unless update-locked?
       (let ((height 0))
-        (for-each (function dynamic (paragraph)
+        (for-each (function (paragraph)
                     (wrap-paragraph context paragraph)
                     (increase! height (get-row-height~ paragraph)))
                   (get-paragraphs))
@@ -2969,14 +2969,14 @@
         (print-formatted printer (get-selection))
         (let ((output (get-output-string printer)))
           (with-opened-clipboard
-            (function dynamic ()
+            (function ()
               (set-clipboard-text output :format :formatted-text))
             :empty? empty?)))))
   
   
   (method (paste-formatted-clipboard)
     (with-opened-clipboard
-      (function dynamic ()
+      (function ()
         (let ((format (get-clipboard-format :formatted-text))
               (formats (get-clipboard-formats)))
           (if (member? format formats)
@@ -2996,7 +2996,7 @@
                      (paragraphs (get-paragraphs~ info))
                      (interned-formats (map @w intern-format setup-format formats))
                      (interned-styles (map @w intern-style setup-style styles))
-                     (strings (map (function dynamic (run-info)
+                     (strings (map (function (run-info)
                                      (bind (format . runs) run-info
                                        (run-infos->string runs)))
                                    paragraphs)))
@@ -3012,7 +3012,7 @@
   (method protected (replace-formatted-text range <Range$Cell$> strings formats styles paragraphs)
     (when (write-allowed?)
       (without-caret
-        (function dynamic ()
+        (function ()
           (let* ((start (get-start~ range))
                  (end   (get-end~ range))
                  (count (length strings))
@@ -3047,9 +3047,9 @@
   (method protected (apply-formats/styles range <Range$Cell$> formats styles paragraphs)
     (let* ((start (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range))))
            (end   (new Cell (get-row~ (get-start~ range)) (get-col~ (get-start~ range)))))
-      (for-each (function dynamic (paragraph)
+      (for-each (function (paragraph)
                   (bind (format . runs) paragraph
-                    (for-each (function dynamic (run)
+                    (for-each (function (run)
                                 (bind (string . ref) run
                                   (let ((style (reference-style styles (car ref))))
                                     (set-col~ end (+ (get-col~ start) (cast <fx> (cardinality string))))
@@ -3083,7 +3083,7 @@
   
   (method public (toggle-bulleted row)
     (modify-format (get-paragraph row)
-                   (function dynamic (format)
+                   (function (format)
                      (let ((left-margin (get-left-margin~ format))
                            (bulleted? (get-bulleted?~ format)))
                        (set-bulleted?~ format (not bulleted?))
@@ -3092,14 +3092,14 @@
   
   (method public (indent-paragraph row paragraph delta)
     (modify-format paragraph
-                   (function dynamic (format)
+                   (function (format)
                      (let ((left (get-left-margin~ format)))
                        (set-left-margin~ format (+ left delta))))))
   
   
   (method (set-justification row paragraph justification)
     (modify-format paragraph
-                   (function dynamic (format)
+                   (function (format)
                      (set-justification~ format justification))))
   
   
@@ -3130,10 +3130,10 @@
   (method public (set-style range <Range$Cell$> style <Style>)
     @debug
     (let ((info
-           (function dynamic (s)
+           (function (s)
              (cons (get-name~ s)
                    (cons (get-base~ s)
-                         (map (function dynamic (property)
+                         (map (function (property)
                                 (get-value~ s property))
                               (get-properties~ s)))))))
       (debug (info style))
@@ -3141,7 +3141,7 @@
              (similar~ styles style)))
     (let ((style (intern-style style)))
       (for-each-range range
-        (function dynamic (paragraph start end)
+        (function (paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph {} paragraph)))
       (set-modified? #t)
@@ -3151,7 +3151,7 @@
   
   (method public (set-text-alignment range <Range$Cell$> alignment)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
         (wrap-paragraph {} paragraph)))
     (set-modified? #t)
@@ -3161,7 +3161,7 @@
   
   (method public (set-text-font range <Range$Cell$> font <Font>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-text-font~ paragraph start end font)
         (wrap-paragraph {} paragraph)))
     (set-modified? #t)
@@ -3172,7 +3172,7 @@
   (method public (set-text-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
       (for-each-range range
-        (function dynamic (paragraph start end)
+        (function (paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph {} paragraph)
           (invalidate-drawing~ paragraph)))
@@ -3181,7 +3181,7 @@
   
   (method public (set-text-color range <Range$Cell$> color <Color>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-text-color~ paragraph start end color)
         (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3190,7 +3190,7 @@
   
   (method public (set-highlight-color range <Range$Cell$> color <Color>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-highlight-color~ paragraph start end color)
         (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph)))
@@ -3199,7 +3199,7 @@
   
   (method public (toggle-bold range <Range$Cell$>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (toggle-bold~ paragraph start end)
         (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3207,7 +3207,7 @@
   
   (method public (toggle-italic range <Range$Cell$>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (toggle-italic~ paragraph start end)
         (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3215,7 +3215,7 @@
   
   (method public (toggle-underline range <Range$Cell$>)
     (for-each-range range
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (toggle-underline~ paragraph start end)
         (wrap-paragraph {} paragraph)
         (invalidate-drawing~ paragraph))))
@@ -3253,7 +3253,7 @@
   
   
   (method public (get-named-formats)
-    (collect-if (function dynamic (format)
+    (collect-if (function (format)
                   (get-name~ format))
                 (get-formats)))
   
@@ -3321,7 +3321,7 @@
   
   
   (method public (get-named-styles)
-    (collect-if (function dynamic (style)
+    (collect-if (function (style)
                   (get-name~ style))
                 (get-styles)))
   
@@ -3374,7 +3374,7 @@
   
   (method (fix-view-style-parent paragraph)
     (let ((runs (get-runs~ paragraph)))
-      (for-each (function dynamic (run)
+      (for-each (function (run)
                   (let ((style (get-style~ run)))
                     (when (is? style View-Style)
                       (let ((view (get-view~ style)))
@@ -3405,7 +3405,7 @@
   
   (method (run-infos->string infos)
     (let ((printer (open-output-string)))
-      (for-each (function dynamic (info)
+      (for-each (function (info)
                   (let ((string (car info)))
                     (format printer "{a}" string)))
                 infos)
@@ -3414,7 +3414,7 @@
   
   (method (make-runs string <string> styles infos)
     (let ((offset 0))
-      (map (function dynamic (info)
+      (map (function (info)
              (let ((str (car info)))
                (bind-optionals ((rank {})) (cdr info)
                  (let* ((limit (+ offset (cast <fx> (cardinality str))))
@@ -3446,7 +3446,7 @@
   (method public (compute-width) <fx>
     (let ((width 0))
       (for-each-paragraph
-       (function dynamic (rank <fx> paragraph <Paragraph>)
+       (function (rank <fx> paragraph <Paragraph>)
          (let ((w (compute-width~ paragraph)))
            (when (> w width)
              (set! width w)))))
@@ -3466,7 +3466,7 @@
     (let* ((headers (get-headers))
            (occurrences (multisearch-occurrences headers))
            (chapters (new List-Factory)))
-      (for-each (function dynamic (info)
+      (for-each (function (info)
                   (bind (pos . header) info
                     (let ((row (get-row~ pos))
                           (col (get-col~ pos)))
@@ -3533,7 +3533,7 @@
       (when (and (/= end (text-ending)) (text-constituent?~ syntax (last copy)) (text-constituent?~ syntax (get-char end)))
         (set! copy (append! copy " ")))
       (with-update-locked
-        (function dynamic ()
+        (function ()
           (insert-string copy)))))
   
   
@@ -3606,9 +3606,9 @@
   (method (offset-position offset <fx>) <Cell>
     (let ((scan 0))
       (call/ec
-        (lambda (return)
+        (function (return)
           (for-each-paragraph
-            (function dynamic (rank <fx> paragraph <Paragraph>)
+            (function (rank <fx> paragraph <Paragraph>)
               (let ((next (+ scan (cardinality (get-string~ paragraph)) 2)))
                 (if (> next offset)
                     (return (new Cell rank (- offset scan)))
@@ -3624,7 +3624,7 @@
     (if (empty-selection?)
         (bell)
       (with-preserved-selection
-        (function dynamic ()
+        (function ()
           (insert-string (upcase (get-selected-string)))))))
   
   
@@ -3632,7 +3632,7 @@
     (if (empty-selection?)
         (bell)
       (with-preserved-selection
-        (function dynamic ()
+        (function ()
           (insert-string (downcase (get-selected-string)))))))
   
   
@@ -3640,7 +3640,7 @@
     (if (empty-selection?)
         (bell)
       (with-preserved-selection
-        (function dynamic ()
+        (function ()
           (insert-string (capitalize (get-selected-string)))))))
   
   
@@ -3761,7 +3761,7 @@
       (when style
         (cond ((or (empty-selection?) span?)
                (for-each-paragraph
-                (function dynamic (row <fx> paragraph <Paragraph>)
+                (function (row <fx> paragraph <Paragraph>)
                   (set-text-style (new Range$Cell$ (new Cell row 0) (new Cell row (get-length~ paragraph))) style))
                 start: (get-row~ start)
                 end: (+ (get-row~ end) 1)))
@@ -3769,7 +3769,7 @@
                (set-text-style selection style))))
       (when format
         (for-each-paragraph
-         (function dynamic (row <fx> paragraph <Paragraph>)
+         (function (row <fx> paragraph <Paragraph>)
            (set-paragraph-format paragraph format))
          start: (get-row~ start)
          end: (+ (get-row~ end) 1)))
@@ -3819,7 +3819,7 @@
   
   (method public (set-selection-font-name name)
     (for-each-range (get-selection)
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-font-name~ paragraph start end name)
         (wrap-paragraph {} paragraph)))
     (set-modified? #t)
@@ -3829,7 +3829,7 @@
   
   (method public (set-selection-point-size size)
     (for-each-range (get-selection)
-      (function dynamic (paragraph start end)
+      (function (paragraph start end)
         (set-point-size~ paragraph start end size)
         (wrap-paragraph {} paragraph)))
     (set-modified? #t)
@@ -3958,7 +3958,7 @@
               (when found
                 (car found))))
           ;; Quick solution to the fact that the generic multisearch doesn't yet support multiline strings
-          ((some? (function dynamic (string)
+          ((some? (function (string)
                     (search string (cn)))
                   strings)
            (let ((content (get-string-content)))
@@ -3976,9 +3976,9 @@
   (method public (search-occurrences string <string> (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     (let ((queue (new-queue)))
       (for-each-paragraph
-        (function dynamic (row <fx> paragraph <Paragraph>)
+        (function (row <fx> paragraph <Paragraph>)
           (let ((line (get-string~ paragraph)))
-            (for-each (lambda (col)
+            (for-each (function (col)
                         (enqueue queue (new Cell row col)))
                       (search line string all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
       (queue-list queue)))
@@ -3987,7 +3987,7 @@
   (method public (multisearch-occurrences targets (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))
     '()
     @convert-optimized
-    (map (function dynamic (info)
+    (map (function (info)
            (bind ((row . col) . target) info
              (cons (new Cell row col) target)))
          (JzTextMultiSearchOccurrences (get-paragraphs) (get-limit) targets #f whole-words? ignore-case? self constituent-test)))

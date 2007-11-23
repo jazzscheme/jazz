@@ -92,7 +92,7 @@
 
 
 (definition public (set-actions-enabled? actions enabled?)
-  (for-each (function dynamic (action)
+  (for-each (function (action)
               (set-action-enabled? action enabled?))
             actions))
 
@@ -203,8 +203,8 @@
 
 (definition (build-shortcuts keys modifiers)
   (let ((fact (new List-Factory)))
-    (for-each (function dynamic (key)
-                (for-each (function dynamic (modifiers)
+    (for-each (function (key)
+                (for-each (function (modifiers)
                             (put~ fact (new Shortcut modifiers key)))
                           modifiers))
               keys)
@@ -256,7 +256,7 @@
   (unimplemented 'for-each-definition)
   @field-creator
   (letrec ((process
-             (function dynamic (model)
+             (function (model)
                (when model
                  (let ((definition (category-field model definition)))
                    (when definition
@@ -380,7 +380,7 @@
         (when text
           (fresh-line)
           (with-colored-output~ text (either color (get-debug-color))
-            (function dynamic ()
+            (function ()
               (display string)))
           (fresh-prompt~ text)))))
   {})
@@ -607,7 +607,7 @@
   (unimplemented 'extract-jazz-file-toplevel)
   @convert
   (call-with-input-file (parse~ file)
-    (lambda (reader)
+    (function (reader)
       (catch (Read-Error err {})
         (let ((in/toplevel (read reader)))
           (if (and (pair? in/toplevel) (eq? (car in/toplevel) 'in))
@@ -668,7 +668,7 @@
 
 (definition public (dispatch->name dispatch)
   (let ((extract
-          (function dynamic (string)
+          (function (string)
             (subseq string 0 (- (cardinality string) 1)))))
     (if (string? dispatch)
         (extract dispatch)
@@ -701,7 +701,7 @@
 
 (definition public (tag->name tag)
   (let ((extract
-          (function dynamic (string <string>)
+          (function (string <string>)
             (subseq string 1 (- (cardinality string) 1)))))
     (if (string? tag)
         (extract tag)
@@ -793,7 +793,7 @@
 (definition public (log-properties properties (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
   (let ((printer (open-output-string))
         (first? #t))
-    (for-each-property (function dynamic (property value)
+    (for-each-property (function (property value)
                          (if first?
                              (set! first? #f)
                            (format printer ", "))
@@ -816,7 +816,7 @@
   (unimplemented 'with-profile)
   @Profiling-later
   (with-node
-    (function dynamic (node)
+    (function (node)
       (let ((result))
         (log-profile name: 'before :log log)
         ;; this is ugly but necessary not to change stack depth
@@ -845,10 +845,10 @@
   @later
   (let ((nodes '()))
     (iterate-table (get-profiles)
-                   (function dynamic (name profile)
+                   (function (name profile)
                      (when (not (profile-parent profile))
                        (set! nodes (cons (profile->jml {} profile) nodes)))))
-    (sort < nodes key: (function dynamic (node) (get-property~ node 'name)))))
+    (sort < nodes key: (function (node) (get-property~ node 'name)))))
 
 
 (definition (profile->jml parent profile)
@@ -871,7 +871,7 @@
 (definition (insert-profile-children parent profile)
   (unimplemented 'insert-profile-children)
   @later
-  (map (function dynamic (child)
+  (map (function (child)
          (profile->jml parent child))
        (collect-profile-children profile)))
 
@@ -899,15 +899,15 @@
         (manifest (get-manifest)))
     (cond (workbench
             (for-each-jazz-file~ workbench
-              (function dynamic (file)
+              (function (file)
                 (proc (get-name~ file) (get-source~ file) (manifest-properties~ file)))))
           (manifest
             (iterate-table (get-manifest)
-                           (function dynamic (category-name properties)
+                           (function (category-name properties)
                              (proc category-name (getf properties :source) properties))))
           (else
            (iterate-table (get-compiled-categories)
-                          (function dynamic (name value)
+                          (function (name value)
                             (bind (ignore time . properties) value
                               (proc name {} properties))))))))
 
@@ -1111,7 +1111,7 @@
   (proc)
   @convert-message-box?
   (call-with-catch Error
-        (function dynamic (err)
+        (function (err)
           (dump-stack :exception err)
           (let ((invite (format "The following error occured while {a}:" title))
                 (message (present-message~ err :active-content? #f))
@@ -1159,7 +1159,7 @@
 (definition public (bits->symbolic bits enumeration)
   (let ((entries (get-entries~ enumeration)))
     (let ((fact (new List-Factory)))
-      (for-each (function dynamic (entry)
+      (for-each (function (entry)
                   (bind (name value) entry
                     (when (mask-bit-set? bits value)
                       (put~ fact name))))
@@ -1168,7 +1168,7 @@
 
 
 (definition public (copy-into! seq1 seq2)
-  (for-each (function dynamic (element rank)
+  (for-each (function (element rank)
               (set-element! seq2 rank element))
             seq1
             (naturals 0 (cardinality seq1))))
@@ -1222,7 +1222,7 @@
   (unimplemented 'present-context-actions)
   @?self?
   (present-context-text title
-                        (map (function dynamic (action)
+                        (map (function (action)
                                (let* ((image (get-image~ action))
                                       (title (get-title~ action))
                                       (handler (get-handler~ action))
@@ -1259,8 +1259,8 @@
                                      (new Display-Column display)
                                    (new Aligned-Column display border-after: 1 alignment: 'left))))))
     (add-columns~ display columns)
-    (for-each (function dynamic (row)
-                (for-each (function dynamic (object column)
+    (for-each (function (row)
+                (for-each (function (object column)
                             (output~ column (->string object)))
                           row
                           columns)
@@ -1458,7 +1458,7 @@
 
 (definition public (justify inner outer justification)
   (let ((proc
-          (function dynamic (i o j)
+          (function (i o j)
             (if (integer? j)
                 (if (>= j 0)
                     j
@@ -1540,7 +1540,7 @@
          (start (modulo (+ parity count) count))
          (end (+ start extra -1))
          (end2 (- end count)))
-    (map (function dynamic (n)
+    (map (function (n)
            (+ base (if (or (between? n start end) (<= n end2)) 1 0)))
          (naturals 0 count))))
 
@@ -1590,7 +1590,7 @@
   (let* ((next (case direction
                  ((forward) next-cell)
                  ((backward) previous-cell)))
-         (advance (function dynamic (cell) (next cell top-left bottom-right 'horizontal)))
+         (advance (function (cell) (next cell top-left bottom-right 'horizontal)))
          (cell (advance (either start (case direction
                                         ((forward) top-left)
                                         ((backward) bottom-right))))))
@@ -1640,7 +1640,7 @@
 
 (definition public (output-header title printer (language: language 'jazz) (system: system {}) (license: license {}) (author: author {}) (copyright: copyright {}) (contributors: contributors '()) (end-proper?: end-proper? #t))
   (with-printer printer
-    (function dynamic (printer)
+    (function (printer)
       (let* ((system (either system (system-title~ (get-process))))
              (system-padding (make-string (string-length system) #\=))
              (comment (case language ((jazz) ";;;") ((cpp/java) "//")))
@@ -1671,7 +1671,7 @@
            (format printer #"{a}  the Initial Developer. All Rights Reserved.{%}"# comment)
            (format printer #"{a}{%}"# comment)
            (format printer #"{a}  Contributor(s):{%}"# comment)
-           (for-each (function dynamic (contributor)
+           (for-each (function (contributor)
                        (format printer #"{a}    {a}{%}"# comment contributor))
                      contributors)
            (format printer #"{a}{%}"# comment)
@@ -1871,7 +1871,7 @@
 
 (definition public (read-tab-delimited file)
   (call-with-input-file (parse~ file)
-    (lambda (reader)
+    (function (reader)
       (let ((tab (string #\tab))
             (fact (new List-Factory))
             (done? #f))
@@ -1901,7 +1901,7 @@
          (parser (new JML-Parser preferences: pref))
          (jml (parse~ parser jml)))
     (call-with-output-file (parse~ output)
-      (lambda (printer)
+      (function (printer)
         (set-printer-use-utf8? printer #t)
         (pretty-print~ jml printer)))
     (user-message "{a} converted to {a}" (get-name~ input) (get-name~ output))
@@ -1913,10 +1913,10 @@
   (unimplemented 'save-tab-delimited)
   @File-Printer
   (call-with-output-file (parse~ file)
-    (lambda (printer)
-      (for-each (function dynamic (line)
+    (function (printer)
+      (for-each (function (line)
                   (let ((first? #t))
-                    (for-each (function dynamic (text)
+                    (for-each (function (text)
                                 (if first?
                                     (set! first? #f)
                                   (format printer "{&}"))
@@ -2026,7 +2026,7 @@
   (let* ((size (cardinality seq))
          (len (- (quotient size 2) 1))
          (string (make-string len)))
-    (for-each (function dynamic (i)
+    (for-each (function (i)
                 (let* ((n (* i 2))
                        (c (make-word (element seq n) (element seq (+ n 1)))))
                   (set-element! string i c)))
@@ -2038,7 +2038,7 @@
   (let* ((len (cardinality string))
          (size (* (+ len 1) 2))
          (seq (new type size: size)))
-    (for-each (function dynamic (i)
+    (for-each (function (i)
                 (let ((n (* i 2))
                       (c (char->integer (element string i))))
                   (set-element! seq n (lochar c))
@@ -2059,14 +2059,14 @@
     (let ((table (generate-symbol "table"))
           (rank 1))
       `(class ,name extends Data-Container
-         ,@(map (function dynamic (field)
+         ,@(map (function (field)
                   (increase! rank)
                   `(attribute (:location (,name ,rank))
                      (slot ,field)))
                 fields)
          (definition (initialize ,table ,@fields)
            (nextmethod ,table)
-           ,@(map (function dynamic (field)
+           ,@(map (function (field)
                     (let ((access (string->symbol (format "{a}~self" field))))
                       `(set! ,access ,field)))
                   fields))))))
@@ -2098,7 +2098,7 @@
 (definition public (collect-hierarchical-data proc data size key)
   (let ((fact (new List-Factory)))
     (iterate-hierarchical-data
-      (function dynamic (row data size)
+      (function (row data size)
         (let ((object (proc row data size)))
           (when object
             (put~ fact object))))
@@ -2110,10 +2110,10 @@
 
 ;; quicky ugly
 (definition public (sorted-hierarchical-data proc data size key sort-test sort-key)
-  (collect (function dynamic (data)
+  (collect (function (data)
              (proc (first data) (second data) (third data)))
            (sort sort-test (collect-hierarchical-data list data size key)
-             key: (function dynamic (data)
+             key: (function (data)
                     (sort-key (first data))))))
 
 
@@ -2147,9 +2147,9 @@
 
 (definition (different-file-content? file1 file2)
   (call-with-input-file (parse~ file1)
-    (lambda (input1)
+    (function (input1)
       (call-with-input-file (parse~ file2)
-        (lambda (input2)
+        (function (input2)
           (or @convert
               (/= (get-size~ input1)
                   (get-size~ input2))
@@ -2159,9 +2159,9 @@
 
 (definition (different-file-content-no-whitespace? file1 file2)
   (call-with-input-file (parse~ file1)
-    (lambda (input1)
+    (function (input1)
       (call-with-input-file (parse~ file2)
-        (lambda (input2)
+        (function (input2)
           (not (wi= (read-content-string input1)
                     (read-content-string input2))))))))
 
@@ -2210,17 +2210,17 @@
   ;; a quick solution to get accurate debug info back to the calling thread
   (receive (result err stack)
       (receive-primary
-        (function dynamic ()
+        (function ()
           (let ((result)
                 (error {})
                 (stack {}))
             (call-with-catch Error
-                  (function dynamic (err)
+                  (function (err)
                     (set! error err)
                     (set! stack (print-stack :string)))
-                (function dynamic (err)
+                (function (err)
                   (values {} error stack))
-              (function dynamic ()
+              (function ()
                 (values (proc) {} {}))))))
     (if (not err)
         result

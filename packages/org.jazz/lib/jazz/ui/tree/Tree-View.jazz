@@ -420,7 +420,7 @@
           (height 0)
           (first? #t))
       (for-each-visible-row
-        (function dynamic (row rank)
+        (function (row rank)
           (increase! count)
           (increase! height (get-effective-height~ row))
           (if first?
@@ -438,7 +438,7 @@
         ;; a quick not too clean solution for now...
         (when (is? node-column Tree-Node-Column)
           (for-each-visible-row
-            (function dynamic (row rank)
+            (function (row rank)
               (let* ((highlight-border 3)
                      (nw (+ (either (get-node-width~ row) 0) highlight-border))
                      (w (+ (text-h~ node-column (get-level~ row)) nw)))
@@ -491,7 +491,7 @@
   
   
   (method (draw-highlighted surface)
-    (for-each-reversed (function dynamic (highlight)
+    (for-each-reversed (function (highlight)
                          (let ((row (get-row~ highlight))
                                (col (get-col~ highlight))
                                (insert (get-insert~ highlight)))
@@ -538,7 +538,7 @@
   
   
   (method public (set-highlighted value)
-    (assert (every? (function dynamic (object) (is? object Tree-Highlight)) value))
+    (assert (every? (function (object) (is? object Tree-Highlight)) value))
     (when (not (equal? value highlighted))
       (let ((old highlighted))
         (set! highlighted value)
@@ -547,7 +547,7 @@
   
   
   (method (invalidate-highlighted highlighted)
-    (for-each (function dynamic (highlight)
+    (for-each (function (highlight)
                 (let ((row (get-row~ highlight))
                       (col (get-col~ highlight))
                       (insert (get-insert~ highlight)))
@@ -582,7 +582,7 @@
                          ((eq? insert 'after) half-spacing)
                          (else (- half-spacing row-spacing))))
            (proc
-            (function dynamic (v)
+            (function (v)
               (let* ((top (+ v offset))
                      (bottom (+ top 2)))
                 (new Rect (get-left~ rect) top (get-right~ rect) bottom)))))
@@ -753,14 +753,14 @@
     (set-sorted column (or (not sorted-column) (/= column sorted-column) (not sort-ascending?)))
     (receive (equal smaller greater) (sort-predicates)
       (letrec ((direction (if sort-ascending? smaller greater))
-               (proc (function dynamic (row)
+               (proc (function (row)
                        (let ((sorted (sort-rows (get-sons~ row) column equal direction)))
                          (reorder-sons~ row sorted)
                          (for-each proc (get-sons~ row))))))
         (with-preserved-selection
-          (function dynamic ()
+          (function ()
             (with-update-locked
-              (function dynamic ()
+              (function ()
                 (proc root-row))))
           ensure-displayed?: #f))))
   
@@ -768,10 +768,10 @@
   (method (sort-rows rows column equal direction)
     (let ((dual? (/= column 0))
            (get-node
-            (function dynamic (row children n)
+            (function (row children n)
               (let ((cell (element children n)))
                 (either (sort-value~ (get-column n) row cell) "")))))
-      (sort (function dynamic (rx ry)
+      (sort (function (rx ry)
               (let* ((cx (get-children~ rx))
                      (cy (get-children~ ry))
                      (nx (localize (get-node rx cx column)))
@@ -846,16 +846,16 @@
         (set-visible?~ path-column (not flattened?))
         (fill-column (get-display-size))
         (with-preserved-selection
-          (function dynamic ()
+          (function ()
             (with-update-locked
-              (function dynamic ()
+              (function ()
                 (if flattened?
                     (unflatten)
                   (flatten)))))))))
   
   
   (method public (get-path-column)
-    (find-if (function dynamic (column)
+    (find-if (function (column)
                (is? column Tree-Path-Column))
              columns))
   
@@ -866,23 +866,23 @@
   
   (method public (flatten)
     (let ((sons (get-sons~ root-row)))
-      (for-each (function dynamic (son)
+      (for-each (function (son)
                   (if (flatten-row? son)
                       (disconnect~ son)
                     (flatten~ son root-row)))
                 sons)
-      (for-each (function dynamic (son)
+      (for-each (function (son)
                   (unless (disconnected?~ son)
                     (set-visible?~ son #f)))
                 sons)))
   
   
   (method public (unflatten)
-    (for-each (function dynamic (son)
+    (for-each (function (son)
                 (when (disconnected?~ son)
                   (reconnect~ son)))
               (get-sons~ root-row))
-    (for-each (function dynamic (son)
+    (for-each (function (son)
                 (unless (get-visible?~ son)
                   (set-visible?~ son #t)))
               (get-sons~ root-row)))
@@ -1309,7 +1309,7 @@
                   (when (eq? self (get-%~ Development))
                     (log-stack name: "fill-column" message: (format "size: {a}" size))
                     @reset-scroller-width xxx)
-                (for-each (function dynamic (pair)
+                (for-each (function (pair)
                             (set-car! pair (+ (car pair) delta))
                             (set-cdr! pair (+ (cdr pair) delta)))
                           (tail columns-borders (+ rank 1)))
@@ -1332,7 +1332,7 @@
                  (delta (- (get-width~ size) (space-after-column rank) (borders-right filled-borders)))
                  (old-right (cdr filled-borders))
                  (new-right (+ old-right delta)))
-            (for-each (function dynamic (pair)
+            (for-each (function (pair)
                         (set-car! pair (+ (car pair) delta))
                         (set-cdr! pair (+ (cdr pair) delta)))
                       (tail columns-borders (+ rank 1)))
@@ -1349,14 +1349,14 @@
   (method (find-filled-column name)
     (cond ((integer? name) (element columns name))
           ((eq? name #t) (last columns))
-          (else (find-if (function dynamic (column)
+          (else (find-if (function (column)
                            (eq? (get-name~ column) name))
                          columns))))
   
   
   (method (space-after-column rank)
     (let ((total 0))
-      (for-each (function dynamic (borders)
+      (for-each (function (borders)
                   (increase! total (borders-width borders)))
                 (tail columns-borders (+ rank 1)))
       total))
@@ -1404,7 +1404,7 @@
   
   (method (remove-columns-preserving preserve-node-column? preserve)
     (remove-every-row)
-    (for-each (function dynamic (column)
+    (for-each (function (column)
                 (unless (or (and preserve-node-column? (is? column Tree-Node-Column))
                             (memq? (get-name~ column) preserve))
                   (remove-column column)))
@@ -1419,7 +1419,7 @@
   
   
   (method (invalidate-node-column)
-    (set! node-column (find-if (function dynamic (column)
+    (set! node-column (find-if (function (column)
                                  (is? column Tree-Node-Column))
                                columns)))
 
@@ -1427,7 +1427,7 @@
   (method protected (invalidate-borders)
     (let ((left 0))
       (set! columns-borders
-            (map (function dynamic (column)
+            (map (function (column)
                    (let* ((width (get-width~ column))
                           (right (+ left width)))
                      (prog1 (cons left right)
@@ -1481,14 +1481,14 @@
   
   (method (add-empty-row (father: father {}))
     (let ((father (either father root-row)))
-      (add-row father: father children: (map (function dynamic (column)
+      (add-row father: father children: (map (function (column)
                                                (new-empty-cell~ column))
                                              columns))))
   
   
   (method (row-selected? row)
     (case selection-mode
-      ((cell) (some? (function dynamic (cell) (= (get-row~ cell) row)) selection))
+      ((cell) (some? (function (cell) (= (get-row~ cell) row)) selection))
       (else (memq? row selection))))
   
   
@@ -1504,9 +1504,9 @@
   
   (method public (row-index target)
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-visible-row
-          (function dynamic (row rank)
+          (function (row rank)
             (when (eq? row target)
               (return rank))))
         {})))
@@ -1514,9 +1514,9 @@
 
   (method public (user-data-row data (test: test eqv?) (visible?: visible? #t))
     (call/ec
-      (lambda (return)
+      (function (return)
         ((if visible? for-each-visible-row for-each-row)
-         (function dynamic (row rank)
+         (function (row rank)
            (when (test (get-user-data~ row) data)
              (return row))))
         {})))
@@ -1525,7 +1525,7 @@
   (method public (user-data-rows data-list (test: test eqv?) (visible?: visible? #t))
     (let ((fact (new List-Factory)))
       ((if visible? for-each-visible-row for-each-row)
-       (function dynamic (row rank)
+       (function (row rank)
          (let ((user-data (get-user-data~ row)))
            (when (member? user-data data-list test: test)
              (put~ fact row)))))
@@ -1535,9 +1535,9 @@
   ;; Because it returns the rank, this method only makes sense on visible rows
   (method public (user-data-index data (test: test eqv?))
     (call/ec
-      (lambda (return)
+      (function (return)
         (for-each-visible-row
-          (function dynamic (row rank)
+          (function (row rank)
             (when (test (get-user-data~ row) data)
               (return rank))))
         {})))
@@ -1547,7 +1547,7 @@
   (method public (user-data-indexes data-list (test: test eqv?))
     (let ((fact (new List-Factory)))
       (for-each-visible-row
-        (function dynamic (row rank)
+        (function (row rank)
           (let ((user-data (get-user-data~ row)))
             (when (member? user-data data-list test: test)
               (put~ fact rank)))))
@@ -1635,7 +1635,7 @@
   
   (method public (auto-expand/collapse row (close-auto-expanded?: close-auto-expanded? #t) (auto-toggle?: auto-toggle? #f))
     (with-update-locked
-      (function dynamic ()
+      (function ()
         (let ((selected-rows (selection->rows selection)))
           (cond
             ((mouse-down?~ selection-manager)
@@ -1675,7 +1675,7 @@
       (let ((old-spine (get-spine~ delayed-autorow))
             (done? #f))
         (set! delayed-autorow {})
-        (for-each-reversed (function dynamic (row)
+        (for-each-reversed (function (row)
                              (unless done?
                                (if (memq? row new-spine)
                                    (set! done? #t)
@@ -1688,7 +1688,7 @@
       (let ((old-spine (get-spine~ auto-expanded-row))
             (done? #f))
         (set! auto-expanded-row {})
-        (for-each-reversed (function dynamic (row)
+        (for-each-reversed (function (row)
                              (unless done?
                                (if (memq? row new-spine)
                                    (set! done? #t)
@@ -1809,7 +1809,7 @@
   
   (method protected virtual (selection-change old-selection force? user-origin?)
     (with-locked-operation~ selection-manager
-     (function dynamic ()
+     (function ()
        (call-selection-handler old-selection selection force? user-origin?))))
   
   
@@ -1817,9 +1817,9 @@
     (let ((proc (case use
                   ((row) get-row)
                   ((rank) identity)
-                  ((data) (function dynamic (row) (get-user-data~ (get-row row)))))))
+                  ((data) (function (row) (get-user-data~ (get-row row)))))))
       (case selection-mode
-        ((cell) (map (function dynamic (cell)
+        ((cell) (map (function (cell)
                      (cons (proc (get-row~ cell)) (get-col~ cell)))
                    (get-selection)))
         (else (map proc (get-selection))))))
@@ -1829,10 +1829,10 @@
     (let ((proc (case use
                   ((row) row-rank)
                   ((rank) identity)
-                  ((data) (function dynamic (data) (user-data-index data test: test))))))
+                  ((data) (function (data) (user-data-index data test: test))))))
       (remove-nils
        (case selection-mode
-         ((cell) (map (function dynamic (pair)
+         ((cell) (map (function (pair)
                       (bind (row . col) pair
                         (let ((row (proc row)))
                           (when row
@@ -1887,7 +1887,7 @@
   
   
   (method public (get-selected-data)
-    (map (function dynamic (row)
+    (map (function (row)
            (get-user-data~ row))
          (get-selected-rows)))
   
@@ -1899,7 +1899,7 @@
   
   
   (method public (get-selection-data selection)
-    (map (function dynamic (n)
+    (map (function (n)
            (let ((row (get-row n)))
              (get-user-data~ row)))
          selection))
@@ -1920,7 +1920,7 @@
   (method (selection->rows selection)
     (case selection-mode
       ((cell)
-       (map (function dynamic (cell)
+       (map (function (cell)
               (cons (get-visible-row (get-row~ cell)) (get-col~ cell)))
             selection))
       (else
@@ -1930,7 +1930,7 @@
   (method (rows->selection rows)
     (case selection-mode
       ((cell)
-       (remove-nils (map (function dynamic (pair)
+       (remove-nils (map (function (pair)
                            (bind (row . col) pair
                              (new Cell (row-index row) col)))
                          rows)))
@@ -1943,12 +1943,12 @@
     (when (and edited-cell (>= (get-row~ edited-cell) rank))
       (set-row~ edited-cell (+ (get-row~ edited-cell) count)))
     (for-each-pair (case selection-mode
-                     ((cell) (function dynamic (pair)
+                     ((cell) (function (pair)
                                (let* ((cell (car pair))
                                       (r (get-row~ cell)))
                                  (when (>= r rank)
                                    (set-car! pair (new Cell (+ r count) (get-col~ cell)))))))
-                     (else (function dynamic (pair)
+                     (else (function (pair)
                              (let ((r (car pair)))
                                (when (>= r rank)
                                  (set-car! pair (+ r count)))))))
@@ -1961,7 +1961,7 @@
       (set-row~ edited-cell (- (get-row~ edited-cell) count)))
     (let ((removed '()))
       (set! selection (collect (case selection-mode
-                                 ((cell) (function dynamic (cell)
+                                 ((cell) (function (cell)
                                            (let ((r (get-row~ cell)))
                                              (if (< r rank)
                                                  cell
@@ -1969,7 +1969,7 @@
                                                    (new Cell (- r count) (get-col~ cell))
                                                  (set! removed (cons cell removed))
                                                  {})))))
-                                 (else (function dynamic (r)
+                                 (else (function (r)
                                          (if (< r rank)
                                              r
                                            (if (> r (+ rank count -1))
@@ -2129,7 +2129,7 @@
 
   (method public (h->col h)
     (call/ec
-      (lambda (return)
+      (function (return)
         (loop (for borders in columns-borders)
               (for n from 0 below (get-columns-count))
               (bind (left . right) borders
@@ -2303,7 +2303,7 @@
   (method (iterate proc)
     (bind (row . proc2) (prepare-iterate)
       (for-each-visible-row
-        (function dynamic (row rank)
+        (function (row rank)
           (let* ((node (proc2 row))
                  (title (get-title~ node)))
             (proc title rank)))
@@ -2323,7 +2323,7 @@
         ((cell)
          (set! column (if sel (get-col~ sel) 0))
          (cons (essay sel (get-row (get-row~ sel)))
-               (function dynamic (row) (element (get-children~ row) column))))
+               (function (row) (element (get-children~ row) column))))
         (else
          (cons (essay sel (get-row sel))
-               (function dynamic (row) (car (get-children~ row))))))))))
+               (function (row) (car (get-children~ row))))))))))

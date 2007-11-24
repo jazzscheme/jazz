@@ -107,6 +107,11 @@
       #f)))
 
 
+;; general purpose debugging parameter
+(define jazz.debug?
+  (make-parameter #f))
+
+
 (define jazz.debug-specializers
   '())
 

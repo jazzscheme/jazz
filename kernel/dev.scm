@@ -260,11 +260,15 @@
   (bmodule 'core.library))
 
 
+(define (blang)
+  (cj 'jazz.dialect.language))
+
+
 (define (bjazz)
   (bcore)
   (bmodule 'scheme.dialect)
   (bmodule 'jazz.dialect)
-  (cj 'jazz.dialect.language))
+  (blang))
 
 
 (cond-expand
@@ -345,9 +349,6 @@
 (define (b)
   (build))
 
-
-(define Lang
-  '(jazz.dialect.language))
 
 (define Util
   '(jazz.utilities
@@ -438,9 +439,6 @@
     jazz.groupware.compare.Tree-Comparer))
 
 
-(define (blang)
-  (for-each cj Lang))
-
 (define (butil)
   (for-each cj Util))
 
@@ -475,7 +473,6 @@
 (define (bjedi)
   (la)
   (build)
-  (blang)
   (butil)
   (bcomp)
   (bview)
@@ -576,15 +573,18 @@
 ;;;
 
 
-(define (j)
+(define (jedi)
   (lj)
   (l 'jazz.platform.literals)
   (l 'jazz.system.boot))
 
+(define (j)
+  (jedi))
+
 
 (define (tj)
   (set! jazz.run-loop? #f)
-  (time (j)))
+  (time (jedi)))
 
 
 (define (r . rest)

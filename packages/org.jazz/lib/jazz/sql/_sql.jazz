@@ -5,6 +5,7 @@
 (import (jazz.sql.autoload)
         (jazz.io)
         (jazz.library.component)
+        (jazz.schema)
         (jazz.ui.view)
         (jazz.utilities))
 
@@ -80,15 +81,20 @@
   {File User "Settings" "Connections.jml"})
 
 
+(definition (load-connections)
+  (let ((file Connections-File))
+    (if (exists?~ file)
+        (instantiate~ (read-from-file file))
+      (new Data-Sources))))
+
+
 (definition (read-connections)
   (with-safe-execution "loading the connections"
     (function ()
-      (let ((file Connections-File))
-        (when (exists?~ file)
-          (let ((process (get-process))
-                (connections (instantiate~ (read-from-file file))))
-            (install-context~ process connections)
-            connections))))
+      (let ((process (get-process))
+            (connections (load-connections)))
+        (install-context~ process connections)
+        connections))
     continue-handler:
     (function (err)
       )))

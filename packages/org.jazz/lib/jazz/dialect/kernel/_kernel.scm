@@ -417,6 +417,7 @@
 (native jazz.update-dispatch-table)
 (native jazz.dispatch)
 (native jazz.call-into-abstract)
+(native jazz.debug?)
 
 
 ;;;
@@ -471,6 +472,7 @@
 (native make-table)
 (native table-ref)
 (native table-set!)
+(native table->list)
 (native jazz.table-clear)
 (native jazz.table-keys)
 (native jazz.table-length)

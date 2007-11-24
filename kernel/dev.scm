@@ -216,8 +216,16 @@
   (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
 
 
-;; temporary patch around a gambit bug
 (define (cj module-name)
+  (if (memq 'debug jazz.compile-options)
+      (cjscm module-name)
+    (jazz.compile-module module-name)))
+
+
+;; Generates an intermediate jscm expansion file. This is usefull for debugging until
+;; we implement the library macro as a source transformation like for module. This will
+;; probably be a very complex task
+(define (cjscm module-name)
   (ld)
   (lj)
   (let* ((jazz (jazz.find-module-src module-name))

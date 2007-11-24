@@ -345,17 +345,8 @@
         (let ((dialect-name (%%car reader-info))
               (readtable-getter (%%cdr reader-info)))
           (jazz.load-module dialect-name)
-          (let ((old-readtable ##main-readtable))
-            (dynamic-wind
-              (lambda ()
-                (set! c#**main-readtable (readtable-getter)))
-              (lambda ()
-                ;; unfortunately due to a Gambit bug this code only works when calling load
-                ;; and not when calling compile-file hence the manual setting of ##main-readtable
-                (parameterize ((current-readtable (readtable-getter)))
-                  (thunk)))
-              (lambda ()
-                (set! c#**main-readtable old-readtable)))))
+          (parameterize ((current-readtable (readtable-getter)))
+            (thunk)))
       (thunk))))
 
 

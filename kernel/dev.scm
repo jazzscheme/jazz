@@ -212,14 +212,21 @@
 ;;;
 
 
-(define (cm module-name cc-options ld-options)
+(define (cmodule module-name cc-options ld-options)
+  (ld)
   (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
 
 
+(define (cm module-name)
+  (ld)
+  (jazz.compile-module module-name))
+
+
 (define (cj module-name)
-  (if (memq 'debug jazz.compile-options)
+  ;; seems the new gambit functionality has a bug
+  (if #t ;; (memq 'debug jazz.compile-options)
       (cjscm module-name)
-    (jazz.compile-module module-name)))
+    (cm module-name)))
 
 
 ;; Generates an intermediate jscm expansion file. This is usefull for debugging until
@@ -282,19 +289,19 @@
 (cond-expand
   (windows
     (define (bcairo)
-      (cm 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")))
+      (cmodule 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")))
   (x11
     (define (bcairo)
-      (cm 'jazz.platform.cairo "-I/opt/local/include/cairo -I/opt/local/include" "-L/opt/local/lib -lcairo"))))
+      (cmodule 'jazz.platform.cairo "-I/opt/local/include/cairo -I/opt/local/include" "-L/opt/local/lib -lcairo"))))
 
 
 (define (bfreetype)
-  (cm 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
-  (cm 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include -I/opt/local/include/freetype2 -I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
+  (cmodule 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
+  (cmodule 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include -I/opt/local/include/freetype2 -I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
 
 
 (define (blogfont)
-  (cm 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+  (cmodule 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
 
 
 (cond-expand
@@ -308,27 +315,27 @@
 
 (define (bwindows)
   (ld)
-  (cm 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
-  (cm 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows")
-  (cm 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cmodule 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
+  (cmodule 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
   (cj 'jazz.system.platform.windows))
   
 
 (define (bx11)
   (ld) 
-  (cm 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
-  (cm 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
-  (cm 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")
-  (cm 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lcairo")
-  (cm 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
+  (cmodule 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
+  (cmodule 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
+  (cmodule 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")
+  (cmodule 'jazz.platform.cairo.cairo-freetype "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lcairo")
+  (cmodule 'jazz.platform.cairo "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo"))
 
 
 (cond-expand

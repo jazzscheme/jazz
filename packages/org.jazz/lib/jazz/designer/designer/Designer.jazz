@@ -42,8 +42,9 @@
         (jazz.jazz)
         (jazz.io)
         (jazz.jml)
-        (jazz.platform)
         (jazz.library)
+        (jazz.library.listener)
+        (jazz.platform)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
         (jazz.ui.view)
@@ -167,37 +168,36 @@
   
   
   (method (save-to-class class)
-    (let ((appl (get-application)))
-      (when (typed? appl 'IDE)
-        (let* ((class-name (type-name class))
-               (where (if (eq? form (get-self-form~ class)) form: :new-form))
-               (location (list class-name where))
-               (code-location (new Jazz-Code-Location location))
-               (code-source (find-source~ code-location))
-               (being-edited? (find-document~ appl code-source))
-               (output (saved-form #t 2)))
-          ;; Invoking the Interpreter is the simplest way of creating
-          ;; the new definition that did not already exist in the class...
-          @convert
-          (when (eq? where :new-form)
-            (evaluate~ Interpreter (list '(form (<install>))) {} class (list Language)))
-          (set-class-form~ class form)
-          (catch (Location-Error err
-                   (error (get-message~ err)))
-            (receive (frame text range) (find-location~ code-location)
-              (with-update-locked~ text
-                (function ()
-                  (set-selection~ text range)
-                  (when (eq? where :new-form)
-                    (insert-string~ text (format "{%}{%}{%}  ")))
-                  (insert-string~ text output)))
-              (if (not being-edited?)
-                  (begin
-                    (save~ text)
-                    (close~ frame))
-                (set-visible?~ frame #t)
-                (bring-to-front~ frame)
-                (acquire-focus~ frame))))))))
+    (let* ((appl (get-application))
+           (class-name (type-name class))
+           (where (if (eq? form (get-self-form~ class)) form: :new-form))
+           (location (list class-name where))
+           (code-location (new Jazz-Code-Location location))
+           (code-source (find-source~ code-location))
+           (being-edited? (find-document~ appl code-source))
+           (output (saved-form #t 2)))
+      ;; Invoking the Interpreter is the simplest way of creating
+      ;; the new definition that did not already exist in the class...
+      @convert
+      (when (eq? where :new-form)
+        (evaluate~ Interpreter (list '(form (<install>))) {} class (list Language)))
+      (set-class-form~ class form)
+      (catch (Location-Error err
+                             (error (get-message~ err)))
+        (receive (frame text range) (find-location~ code-location)
+          (with-update-locked~ text
+            (function ()
+              (set-selection~ text range)
+              (when (eq? where :new-form)
+                (insert-string~ text (format "{%}{%}{%}  ")))
+              (insert-string~ text output)))
+          (if (not being-edited?)
+              (begin
+                (save~ text)
+                (close~ frame))
+            (set-visible?~ frame #t)
+            (bring-to-front~ frame)
+            (acquire-focus~ frame))))))
   
   
   (method (save-to-file file)
@@ -863,22 +863,20 @@
   
   
   (method public (edit-form)
-    (let ((appl (get-application)))
-      (when (typed? appl 'Jedi)
-        (let ((origin (get-origin~ form)))
-          (if (file? origin)
-              (edit-document~ appl origin)
-            (let ((location (new Jazz-Code-Location (append (form-location) (list 2)))))
-              (edit~ location)))))))
+    (let ((appl (get-application))
+          (origin (get-origin~ form)))
+      (if (file? origin)
+          (edit-document~ appl origin)
+        (let ((location (new Jazz-Code-Location (append (form-location) (list 2)))))
+          (edit~ location)))))
   
   
   (method public (form-location)
-    (when (typed? (get-application) 'Jedi)
-      (let ((origin (get-origin~ form)))
-        (if (file? origin)
-            (unimplemented 'form-location)
-          (append (get-category-location~ Jazz-Entry origin)
-                  (list 'class-form))))))
+    (let ((origin (get-origin~ form)))
+      (if (file? origin)
+          (unimplemented 'form-location)
+        (append (get-category-location~ Jazz-Entry origin)
+                (list 'class-form)))))
   
   
   ;;;

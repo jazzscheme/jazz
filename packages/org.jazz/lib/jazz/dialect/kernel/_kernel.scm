@@ -356,7 +356,7 @@
 
 
 (native jazz.file-type)
-(native jazz._copy-file)
+(native jazz.file-copy)
 (native jazz.rename-file)
 (native jazz.create-directory)
 (native jazz.directory-files)

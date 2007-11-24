@@ -93,7 +93,7 @@
 
 
 (define jazz.file-type file-type)
-(define jazz._copy-file copy-file)
+(define jazz.file-copy copy-file)
 (define jazz.rename-file rename-file)
 (define jazz.create-directory create-directory)
 (define jazz.directory-files directory-files)

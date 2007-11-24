@@ -393,11 +393,7 @@
 
 
   (method public (move-pathname dst (error?: error? #t))
-    (rename-file (parse) (parse~ dst))
-    @windows-specific
-    (let ((ok? (MoveFile (parse) (parse~ dst))))
-      (when (and error? (not ok?))
-        (error "Unable to move {t} to {t}" self dst))))
+    (rename-file (parse) (parse~ dst)))
   
 
   (method (compare-object target)
@@ -665,27 +661,19 @@
     (get-parent))
 
 
-  (method public (copy-file dst (overwrite-read-only?: overwrite-read-only? #f))
-    (_copy-file (parse) (parse~ dst))
-    @windows-specific (
+  (method public (copy-file dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f))
     (overwrite-read-only~ dst overwrite-read-only?)
-    (let ((ok? (CopyFile (parse) (parse~ dst) #f)))
-      (when (not ok?)
-        (error "Unable to copy file {t} to {t}" self dst)))))
+    (when (and overwrite? (exists?))
+      (delete-file~ dst))
+    (file-copy (parse) (parse~ dst)))
   
   
   (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
-    (file-delete (parse))
-    @windows-specific (
     (overwrite-read-only overwrite-read-only?)
-    (let ((deleted? (DeleteFile (parse))))
-      (when (and error? (not deleted?))
-        (error "Unable to delete file {t}" self))
-      deleted?)))
+    (file-delete (parse)))
   
   
   (method (overwrite-read-only overwrite-read-only?)
-    (unimplemented 'overwrite-read-only)
     @windows-specific
     (when (and overwrite-read-only? (exists?) (read-only?))
       (set-read/write)))
@@ -699,14 +687,7 @@
 
 
   (method (get-modification-time)
-    (file-last-modification-time (parse))
-    @windows-specific
-    (if (not (exists?))
-        (error "Unable to get modification time of non-existant file: {t}" self)
-      (let ((time (new FILETIME)))
-        (with-closed ((reader (new File-Reader self :readable? #f)))
-          (GetFileTime (get-handle~ reader) NULL NULL time))
-        (from-filetime time))))
+    (file-last-modification-time (parse)))
 
 
   (method public (set-modification-time time)
@@ -880,7 +861,7 @@
     @windows-specific (
     (when feedback
       (feedback self))
-    (empty-directory :overwrite-read-only? overwrite-read-only? feedback: feedback)
+    (empty-directory overwrite-read-only?: overwrite-read-only? feedback: feedback)
     (remove-directory)))
   
   
@@ -890,8 +871,8 @@
     (iterate-directory
       (function (path)
         (if (is? path File)
-            (delete-file~ path :overwrite-read-only? overwrite-read-only?)
-          (delete-directory~ path :overwrite-read-only? overwrite-read-only? feedback: feedback)))
+            (delete-file~ path overwrite-read-only?: overwrite-read-only?)
+          (delete-directory~ path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
       files?: #t
       directories?: #t
       recursive?: #f))

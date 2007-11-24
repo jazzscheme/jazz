@@ -1928,20 +1928,18 @@
   (element seq (- (cardinality seq) n 1)))
 
 
-(definition public (iterate proc <procedure> seq . rest)
+(definition public (iterate seq proc <procedure>)
   (loop (for obj in-sequence seq)
         (proc obj)))
 
 
-(definition public (accumulate proc <procedure> seq . rest)
-  (loop (for obj in-sequence seq)
-        (collect (proc obj))))
-
-
-(definition public (accumulate-to type proc <procedure> seq <Object> . rest)
-  (coerce (loop (for obj in-sequence seq)
-                (collect (proc obj)))
-          type))
+(definition public (accumulate seq proc <procedure> (type #f))
+  (let ((lst
+          (loop (for obj in-sequence seq)
+                (collect (proc obj)))))
+    (if (not type)
+        lst
+      (coerce lst type))))
 
 
 (definition private inline (apply-key key <Object> object <Object>)
@@ -2030,10 +2028,10 @@
         (set-position~ iter start))
       (call/ec
         (function (exit)
-          (iterate (function (object)
+          (iterate iter
+                   (function (object)
                      (when (apply-test test target (apply-key key object))
-                       (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
-                   iter)
+                       (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))))
           {})))))
 
 
@@ -2056,10 +2054,10 @@
         (set-position~ iter start))
       (call/ec
         (function (exit)
-          (iterate (function (object)
+          (iterate iter
+                   (function (object)
                      (when (apply-test test target (apply-key key object))
-                       (exit object)))
-                   iter)
+                       (exit object))))
           {})))))
 
 
@@ -2081,7 +2079,8 @@
       (set-position~ iter start))
     (call/ec
       (function (exit)
-        (iterate (function (object)
+        (iterate iter
+                 (function (object)
                    (cond ((apply-test test open (apply-key key object))
                           (increase! count))
                          ((apply-test test close (apply-key key object))
@@ -2090,8 +2089,7 @@
                             (case return
                               ((item) (exit object))
                               ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                              (else (error "Unknown return type: {t}" return)))))))
-                 iter)
+                              (else (error "Unknown return type: {t}" return))))))))
         {}))))
 
 
@@ -2103,13 +2101,13 @@
         (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
           (when start
             (set-position~ iter start))
-          (iterate (function (object)
+          (iterate iter
+                   (function (object)
                      (when (predicate (apply-key key object))
                        (case return
                          ((item) (exit object))
                          ((position) (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))
-                         (else (error "Unknown return type: {t}" return)))))
-                   iter))
+                         (else (error "Unknown return type: {t}" return)))))))
         {}))))
 
 
@@ -2123,10 +2121,10 @@
           (let ((iter <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
             (when start
               (set-position~ iter start))
-            (iterate (function (object)
+            (iterate iter
+                     (function (object)
                        (when (apply-test test target (apply-key key object))
-                         (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1)))))
-                     iter)
+                         (exit (if reversed? (get-position~ iter) (- (get-position~ iter) 1))))))
             {}))))))
 
 
@@ -2135,30 +2133,30 @@
     (function (return)
       (let ((iter (iterate-sequence seq)))
         (set-position~ iter start)
-        (iterate (function (object)
+        (iterate iter
+                 (function (object)
                    (when (not (predicate (apply-key key object)))
-                     (return (- (get-position~ iter) 1))))
-                 iter)
+                     (return (- (get-position~ iter) 1)))))
         (get-position~ iter)))))
 
 
 (definition public (some? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
     (function (return)
-      (iterate (function (object)
+      (iterate (iterate-sequence seq)
+               (function (object)
                  (when (predicate (apply-key key object))
-                   (return #t)))
-               (iterate-sequence seq))
+                   (return #t))))
       #f)))
 
 
 (definition public (every? predicate <procedure> seq <Object> (key: key {}))
   (call/ec
     (function (return)
-      (iterate (function (object)
+      (iterate (iterate-sequence seq)
+               (function (object)
                  (when (not (predicate (apply-key key object)))
-                   (return #f)))
-               (iterate-sequence seq))
+                   (return #f))))
       #t)))
 
 
@@ -2229,10 +2227,10 @@
   (if (not y)
       x
     (let ((dst (new List-Factory)))
-      (iterate (function (object)
+      (iterate (iterate-sequence x)
+               (function (object)
                  (when (not (member? object y test: test))
-                   (put~ dst object)))
-               (iterate-sequence x))
+                   (put~ dst object))))
       (coerce (get-output~ dst) (class-of x)))))
 
 
@@ -2243,10 +2241,10 @@
 
 (definition public (remove target <Object> seq <Object> (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (iterate (function (object)
+    (iterate (iterate-sequence seq)
+             (function (object)
                (when (not (apply-test test object target))
-                 (put~ dst object)))
-             (iterate-sequence seq))
+                 (put~ dst object))))
     (coerce (get-output~ dst) (class-of seq))))
 
 
@@ -2284,10 +2282,10 @@
 
 (definition public (remove-duplicates seq <Object> (key: key {}) (test: test eqv?))
   (let ((dst (new List-Factory)))
-    (iterate (function (object)
+    (iterate (iterate-sequence seq)
+             (function (object)
                (when (not (member? (apply-key key object) (get-output~ dst) key: key test: test))
-                 (put~ dst object)))
-             (iterate-sequence seq))
+                 (put~ dst object))))
     (coerce (get-output~ dst) (class-of seq))))
 
 
@@ -3327,7 +3325,7 @@
   (method (put-sequence seq <Object>)
     (when seq
       (if (not (pair? seq))
-          (iterate put seq)
+          (iterate seq put)
         (cond ((null? current)
                (set! current seq)
                (set! last-list seq)
@@ -4456,16 +4454,6 @@
   (get-class-ascendant obj))
 
 
-;; Patch temporaire.
-(definition (new-in obj . rest)
-  (apply new rest))
-
-
-(definition (typed? obj classname)
-  ;; not correct quicky
-  (is? obj (autoload classname)))
-
-
 ;;;
 ;;;; Vector
 ;;;
@@ -4640,6 +4628,14 @@
         (set-element! axis dst (element replacement n))
         (iterate (+ n 1) (+ dst 1))))
     axis))
+
+
+(definition public (axis-remove! axis <Axis> element <any>) <void>
+  (let ((n (find axis element)))
+    (when n
+      (let* ((start <fx> n)
+             (end (+ start 1)))
+        (replace-subseq! axis start end '())))))
 
 
 (definition public (axis-grow axis <Axis> n <fx>)

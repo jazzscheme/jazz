@@ -366,11 +366,15 @@
 
 
 (define Util
-  '(jazz.utilities
-    jazz.io))
+  '(jazz.io
+    jazz.literals
+    jazz.utilities
+    time.time-module))
 
 (define Comp
-  '(jazz.library.component.Component))
+  '(jazz.library.component.Component
+    jazz.library.component.Branch
+    jazz.library.component.Form))
 
 (define View
   '(jazz.ui.dialog
@@ -379,10 +383,25 @@
     jazz.ui.view.Drawing
     jazz.ui.view.View
     jazz.ui.view.Scrollbar
+    jazz.ui.view.Layout-View
+    jazz.ui.view.Container
+    jazz.ui.view.Root-View
+    jazz.ui.view.Caption-Root
+    jazz.ui.view.Frame-Root
+    jazz.ui.view.Docked-Root
+    jazz.ui.view.Toplevel-Root
+    jazz.ui.view.Image-Tool
+    jazz.ui.view.Tool-Button
     jazz.ui.window
     jazz.ui.window.platform.windows
     jazz.ui.window.Window
     jazz.ui.window.View-Player
+    jazz.ui.window.Frame
+    jazz.ui.window.Stage
+    jazz.ui.window.Pad-Window
+    jazz.ui.offscreen
+    jazz.ui.graphic.Color
+    jazz.ui.graphic.Pen
     jazz.ui.graphic.Surface
     jazz.ui.image.Image
     jazz.ui.image.Portfolio
@@ -437,12 +456,17 @@
   '(jazz.process.Process
     jazz.application.Application
     jazz.application.platform.windows
+    jazz.ui.workspace
+    jazz.ui.workspace.Workspace-Preferences
     jazz.ide.IDE
     jedi.application.Jedi))
 
 (define JML
   '(jazz.jml
-    jazz.jml.parser.JML-Parser))
+    jazz.jml.parser.JML-Parser
+    jazz.jml.model.JML-Node
+    jazz.jml.model.JML-Element
+    jazz.jml.model.JML-Text))
 
 (define Compare
   '(jazz.groupware.compare.Compare-Directories

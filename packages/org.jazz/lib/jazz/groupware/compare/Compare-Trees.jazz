@@ -371,8 +371,8 @@
                        (add-item right new-left)))))
                 ;; When copying nodes, treatment is a bit different because they stay showed...
                 (if (and (eq? (get-kind~ entry) 'node)
-                         (or (and (eq? action 'copy-right) left (null? right))
-                             (and (eq? action 'copy-left) right (null? left))))
+                         (or (and (eq? action 'copy-right) left (not right))
+                             (and (eq? action 'copy-left) right (not left))))
                     (begin
                       (case action
                         ((copy-right)
@@ -488,7 +488,7 @@
   (method public (on-register-base-date evt)
     (unimplemented)
     @convert-date
-    (if (null? installed-configuration)
+    (if (not installed-configuration)
         (error "You need an installed configuration to register a base date")
       (bind (name mode) installed-configuration
         (if (/= mode 'merge)
@@ -534,7 +534,7 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (eq? (get-kind~ entry) 'node) (null? (get-left~ entry)))
+          (if (or (eq? (get-kind~ entry) 'node) (not (get-left~ entry)))
               (bell)
             (let ((appl (get-application)))
               (edit-document~ appl (get-left~ entry) workspace: 'groupware)))))))
@@ -545,7 +545,7 @@
            (selection (get-single-selection~ tree)))
       (when selection
         (let ((entry (get-user-data~ (get-row~ tree selection))))
-          (if (or (eq? (get-kind~ entry) 'node) (null? (get-right~ entry)))
+          (if (or (eq? (get-kind~ entry) 'node) (not (get-right~ entry)))
               (bell)
             (let ((appl (get-application)))
               (edit-document~ appl (get-right~ entry) workspace: 'groupware)))))))
@@ -573,6 +573,8 @@
   
   
   (method (get-base-date)
+    #f
+    @convert
     (let ((text (get-string-content~ (locate 'base-date))))
       (if (empty-string? text)
           {}
@@ -580,7 +582,8 @@
   
   
   (method (set-base-date date)
-    (let ((text (cond ((or (null? date) (eq? date #f)) "") ((is? date Date) (present~ date)) (else date))))
+    @convert
+    (let ((text (cond ((not date) "") ((is? date Date) (present~ date)) (else date))))
       (set-string-content~ (locate 'base-date) text)))
   
   
@@ -787,7 +790,7 @@
   
   
   (method (add-action src dst builder)
-    (if (null? src)
+    (if (not src)
         (add-delete~ builder dst)
       (add-copy~ builder src dst)))
   
@@ -944,14 +947,14 @@
   (method protected virtual (action-image action left right)
     (case action
       ((copy-right)
-       (cond ((null? left) {Bitmap-Resource "DeleteRight"})
-             ((null? right) {Bitmap-Resource "AddRight"})
+       (cond ((not left) {Bitmap-Resource "DeleteRight"})
+             ((not right) {Bitmap-Resource "AddRight"})
              (else {Bitmap-Resource "CopyRight"})))
       ((merge)
        {Bitmap-Resource "Merge"})
       ((copy-left)
-       (cond ((null? left) {Bitmap-Resource "AddLeft"})
-             ((null? right) {Bitmap-Resource "DeleteLeft"})
+       (cond ((not left) {Bitmap-Resource "AddLeft"})
+             ((not right) {Bitmap-Resource "DeleteLeft"})
              (else {Bitmap-Resource "CopyLeft"})))))
   
   

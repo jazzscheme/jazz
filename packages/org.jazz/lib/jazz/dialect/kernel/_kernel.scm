@@ -357,9 +357,11 @@
 
 (native jazz.file-type)
 (native jazz.file-copy)
+(native jazz.file-last-modification-time)
 (native jazz.rename-file)
 (native jazz.create-directory)
 (native jazz.directory-files)
+(native jazz.directory-delete)
 
 
 ;;;
@@ -497,17 +499,6 @@
 (native jazz.scheme.thread-specific-set!)
 (native jazz.thread-start!)
 (native jazz.thread-sleep!)
-
-
-;;;
-;;;; Time
-;;;
-
-
-(native jazz.running-time)
-(native current-time)
-(native time->seconds)
-(native seconds->time)
 
 
 ;;;

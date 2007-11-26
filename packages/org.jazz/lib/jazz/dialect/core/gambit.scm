@@ -94,9 +94,14 @@
 
 (define jazz.file-type file-type)
 (define jazz.file-copy copy-file)
+
+(define (jazz.file-last-modification-time file)
+  (inexact->exact (floor (time->seconds (file-last-modification-time file)))))
+
 (define jazz.rename-file rename-file)
 (define jazz.create-directory create-directory)
 (define jazz.directory-files directory-files)
+(define jazz.directory-delete delete-directory)
 
 
 ;;;

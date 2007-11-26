@@ -82,10 +82,6 @@
 
 (module time.time-module
 
-;; TODO Jazz
-;; - implement as a library to have proper name resolution and then
-;;   put back tm:current-time as just current-time as it was
-
 (cond-expand
   (gambit)
   (else
@@ -288,8 +284,8 @@
 
 (define (copy-time time)
   (make-time (time-type time)
-	     (time-second time)
-	     (time-nanosecond time)))
+	     (time-nanosecond time)
+	     (time-second time)))
 
 
 ;;; current-time
@@ -305,16 +301,20 @@
 
 (cond-expand
   (gambit
+    (define gambit-current-time
+      current-time)
+    
     (define (current-seconds)
-      (inexact->exact (floor (time->seconds (current-time)))))
+      (inexact->exact (floor (time->seconds (gambit-current-time)))))
     
     (define (current-milliseconds)
-      ;; quick try
-      (inexact->exact (floor (time->seconds (current-time)))))
+      0)
     
     (define (current-process-milliseconds)
-      ;; quick try
-      (inexact->exact (floor (time->seconds (current-time)))))))
+      0)
+    
+    (define (current-gc-milliseconds)
+      0)))
 
 (define (tm:get-time-of-day)
   (values (current-seconds)
@@ -362,7 +362,7 @@
 (define (tm:current-time-gc)
   (tm:current-time-ms-time time-gc current-gc-milliseconds))
 
-(define (tm:current-time . clock-type)
+(define (current-time . clock-type)
   (let ( (clock-type (:optional clock-type time-utc)) )
     (cond
       ((eq? clock-type time-tai) (tm:current-time-tai))
@@ -371,7 +371,7 @@
       ((eq? clock-type time-thread) (tm:current-time-thread))
       ((eq? clock-type time-process) (tm:current-time-process))
       ((eq? clock-type time-gc) (tm:current-time-gc))
-      (else (tm:time-error 'tm:current-time 'invalid-clock-type clock-type)))))
+      (else (tm:time-error 'current-time 'invalid-clock-type clock-type)))))
 
 
 
@@ -709,12 +709,16 @@
     ))
 
 
-;; relies on the fact that we named our time zone accessor
-;; differently from MzScheme's....
-;; This should be written to be OS specific.
-
-(define (tm:local-tz-offset)
-  (date-time-zone-offset (seconds->date (current-seconds))))
+(cond-expand
+  (gambit
+    (define (tm:local-tz-offset)
+      0))
+  (else
+    ;; relies on the fact that we named our time zone accessor
+    ;; differently from MzScheme's....
+    ;; This should be written to be OS specific.
+    (define (tm:local-tz-offset)
+      (date-time-zone-offset (seconds->date (current-seconds))))))
 
 ;; special thing -- ignores nanos
 (define (tm:time->julian-day-number seconds tz-offset)
@@ -852,7 +856,7 @@
 	    7))
 
 (define (current-date . tz-offset) 
-  (time-utc->date (tm:current-time time-utc)
+  (time-utc->date (current-time time-utc)
 		  (:optional tz-offset (tm:local-tz-offset))))
 
 ;; given a 'two digit' number, find the year within 50 years +/-
@@ -957,10 +961,10 @@
   (julian-day->time-monotonic (+ jdn 4800001/2)))
 
 (define (current-julian-day)
-  (time-utc->julian-day (tm:current-time time-utc)))
+  (time-utc->julian-day (current-time time-utc)))
 
 (define (current-modified-julian-day)
-  (time-utc->modified-julian-day (tm:current-time time-utc)))
+  (time-utc->modified-julian-day (current-time time-utc)))
 
 ;; returns a string rep. of number N, of minimum LENGTH,
 ;; padded with character PAD-WITH. If PAD-WITH if #f, 

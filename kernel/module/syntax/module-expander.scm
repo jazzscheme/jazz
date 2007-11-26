@@ -39,8 +39,7 @@
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)
-             (not safe)))
+             (extended-bindings)))
   (else))
 
 
@@ -98,7 +97,8 @@
 
 (define (jazz.filter-features invoices)
   (define (extract-feature-requirement invoice)
-    (if (and (%%not (%%null? (%%cdr invoice)))
+    (if (and (%%pair? invoice)
+             (%%not (%%null? (%%cdr invoice)))
              (%%pair? (%%cadr invoice))
              (%%eq? (%%car (%%cadr invoice)) 'cond))
         (%%cadr (%%cadr invoice))

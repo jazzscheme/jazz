@@ -464,7 +464,7 @@
     (cond (only
             (for-each (lambda (declaration-reference)
                         (let ((name (jazz.identifier-name (%%get-declaration-reference-name declaration-reference))))
-                          (%%table-set! public name (jazz.resolve-reference declaration-reference library-declaration))))
+                          (%%table-set! public name declaration-reference)))
                       only))
           (autoload
             (let ((exported-library-reference (%%get-library-invoice-library exported-library-invoice)))

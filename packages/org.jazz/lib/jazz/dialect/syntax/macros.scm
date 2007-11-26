@@ -53,7 +53,9 @@
 (syntax (when test . body)
   `(if ,test
        (begin
-         ,@body)
+         ,@(if (null? body)
+               (list (list 'unspecified))
+             body))
      #f))
 
 

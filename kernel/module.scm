@@ -74,11 +74,7 @@
       `((declare (block)
                  (standard-bindings)
                  (extended-bindings)
-                 ,@(if ;; a first approximation on having different declarations for kernel modules
-                       ;; of course this solution would treat any user module like a kernel one...
-                       (case kind
-                         ((module) jazz.debug-core?)
-                         ((library) jazz.debug-user?))
+                 ,@(if jazz.debug-user?
                        '()
                      `((not safe)))))))
   

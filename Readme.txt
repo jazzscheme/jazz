@@ -28,7 +28,6 @@ Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 
 bin                      :  Architecture directories
-contrib                  :  Outside contributions
 dev                      :  For developers of JazzScheme
 doc                      :  Preliminary documentation
 include                  :  Include directory for C code

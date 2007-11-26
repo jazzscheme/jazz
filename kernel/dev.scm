@@ -553,7 +553,7 @@
 (define (spl)
   (if (not jazz.statprof-loaded?)
       (begin
-        (load "../../contrib/statprof/statprof")
+        (jazz.load-module 'statprof)
         (set! jazz.statprof-loaded? #t))))
 
 
@@ -580,7 +580,7 @@
 (define (spw . rest)
   (let ((name (if (null? rest) "report.spr" (car rest))))
     (spl)
-    (write-sexp-profile-report name)))
+    (write-profile-report name)))
 
 
 ;;;
@@ -595,11 +595,6 @@
 
 (define (j)
   (jedi))
-
-
-(define (tj)
-  (set! jazz.run-loop? #f)
-  (time (jedi)))
 
 
 (define (r . rest)

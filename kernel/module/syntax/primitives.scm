@@ -39,8 +39,7 @@
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)
-             (not safe)))
+             (extended-bindings)))
   (else))
 
 
@@ -609,7 +608,9 @@
       `(table-for-each ,proc ,table))
     
     (define-macro (%%table-merge! into from)
-      `(table-merge! ,into ,from))
+      (if jazz.debug-core?
+          `(table-merge! ,into ,from)
+        `(##table-merge! ,into ,from #f)))
     
     (define-macro (%%alist->table alist test)
       `(list->table ,alist test: ,test))

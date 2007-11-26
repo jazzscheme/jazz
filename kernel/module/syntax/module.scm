@@ -39,8 +39,7 @@
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)
-             (not safe)))
+             (extended-bindings)))
   (else))
 
 

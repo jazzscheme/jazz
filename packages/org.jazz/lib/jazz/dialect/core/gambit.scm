@@ -115,7 +115,7 @@
 (define (jazz.load-statprof)
   (if (not jazz.statprof-loaded?)
       (begin
-        (load "../../contrib/statprof/statprof")
+        (jazz.load-module 'statprof)
         (set! jazz.statprof-loaded? #t))))
 
 
@@ -145,7 +145,7 @@
         (display ".spr" port)
         (set! n (+ n 1))
         (let ((filename (get-output-string port)))
-          (write-sexp-profile-report filename)
+          (write-profile-report filename)
           filename))
       (profile-reset!))))
 

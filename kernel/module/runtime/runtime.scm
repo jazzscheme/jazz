@@ -39,8 +39,7 @@
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)
-             (not safe)))
+             (extended-bindings)))
   (else))
 
 
@@ -209,6 +208,8 @@
   '("../../packages/org.jazz/lib/"
     "../../packages/org.jedi/lib/"
     "../../packages/contrib/"
+    "../../packages/srfi/"
+    "../../packages/snow/"
     "~/jazz/lib/"))
 
 

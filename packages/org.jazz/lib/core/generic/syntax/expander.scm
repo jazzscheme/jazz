@@ -39,6 +39,11 @@
 (module core.generic.syntax.expander
 
 
+(define (jazz.dynamic-parameter? parameter)
+  (and (%%pair? parameter)
+       (%%pair? (%%cdr parameter))))
+
+
 (define (jazz.dynamic-parameter-type parameter)
   (let ((type (%%car parameter)))
     (if (jazz.specifier? type)
@@ -49,22 +54,41 @@
 (define (jazz.dynamic-parameter-types parameters)
   (let iterate ((parameters parameters))
        (if (and (%%pair? parameters)
-                (%%pair? (%%car parameters)))
+                (jazz.dynamic-parameter? (%%car parameters)))
            (%%cons (jazz.dynamic-parameter-type (%%car parameters))
                    (iterate (%%cdr parameters)))
          '())))
 
 
-(define (jazz.dispatch-parameter-names parameters)
+(define (jazz.dynamic-parameter-name parameter)
+  (%%cadr parameter))
+
+
+(define (jazz.dynamic-parameter-names parameters)
   (let iterate ((parameters parameters))
-       (if (%pair? parameters)
-           (let ((parameter (%%car parameters)))
-             (cond ((%%pair? parameter)
-                    (%%cons (%%cadr parameter) (iterate (%%cdr parameters))))
-                   ((%%symbol? parameter)
-                    (%%cons parameter (iterate (%%cdr parameters))))
-                   (else
-                    (iterate (%%cdr parameters))))))))
+       (if (and (%%pair? parameters)
+                (jazz.dynamic-parameter? (%%car parameters)))
+           (%%cons (jazz.dynamic-parameter-name (%%car parameters))
+                   (iterate (%%cdr parameters)))
+         '())))
+
+
+(define (jazz.formal-parameters parameters)
+  (let ((optional-parameters #f))
+    (values
+      (let iterate ((parameters parameters))
+           (cond ((%%pair? parameters)
+                  (let ((parameter (%%car parameters)))
+                    (cond ((jazz.dynamic-parameter? parameter)
+                           (%%cons (jazz.dynamic-parameter-name parameter) (iterate (%%cdr parameters))))
+                          ((%%symbol? parameter)
+                           (%%cons parameter (iterate (%%cdr parameters))))
+                          (else ; #!xxx -> parsing delayed to specific
+                           (set! optional-parameters parameters)
+                           '()))))
+                 (else ; we dont handle . rest
+                  '())))
+      optional-parameters)))
 
 
 (define (jazz.dispatch-parameter? parameter)
@@ -107,28 +131,25 @@
 (define (jazz.expand-define-generic signature)
   (let* ((method-locator (%%car signature))
          (parameters (%%cdr signature))
-         (parameter-type (jazz.dispatch-parameter-type (%%car parameters)))
-         (parameter-access (%%list parameter-type))
-         (parameter-names (%%cons (jazz.dispatch-parameter-name (%%car parameters)) (%%cdr parameters)))
+         (dynamic-signature (jazz.dynamic-parameter-types parameters))
          (generic-locator (jazz.generic-object-locator method-locator))
          (gensym-specific (jazz.generate-symbol "specific")))
-    (receive (mandatory-parameters rest?) (jazz.split-parameters parameter-names)
-      (let ((rest-parameter (if rest? (jazz.generate-symbol "rest") '())))
+    (receive (mandatory-parameters apply-rest?) (jazz.formal-parameters parameters)
+      (let ((gensym-rest (if apply-rest? (jazz.generate-symbol "rest") '())))
         `(begin
            (define ,generic-locator
-             ;; this is a quicky that needs to be well tought out
+             ;; we do not reprocess generic - aka you must restart to change its signature
              (if (jazz.global-variable? ',generic-locator)
                  (jazz.global-value ',generic-locator)
-               (jazz.new-generic ',method-locator ,parameter-type ',(if rest? #f mandatory-parameters) (lambda () (%%list ,@parameter-access)))))
+               (jazz.new-generic ',method-locator (lambda () (%%list ,@dynamic-signature)))))
            (define ,method-locator
-             (lambda (,@mandatory-parameters . ,rest-parameter)
+             (lambda (,@mandatory-parameters . ,gensym-rest)
                (%%when (%%not (%%null? (%%get-generic-pending-specifics ,generic-locator)))
-                 (jazz.update-generic ,generic-locator))
-               (%%assertion (%%class-is? ,(%%car parameter-names) (%%get-generic-virtual-class ,generic-locator)) (jazz.expected-error ,(%%car parameter-names) (%%get-generic-virtual-class ,generic-locator))
-                 (let ((,gensym-specific (%%specific-dispatch ,generic-locator ,(%%car parameter-names))))
-                   ,(if rest?
-                        `(apply ,gensym-specific ,@mandatory-parameters ,rest-parameter)
-                      `(,gensym-specific ,@parameter-names)))))))))))
+                 (jazz.process-pending-specifics ,generic-locator))
+               (let ((,gensym-specific (%%specific-dispatch ,generic-locator (list ,@(jazz.dynamic-parameter-names parameters)))))
+                 ,(if apply-rest?
+                      `(apply ,gensym-specific ,@mandatory-parameters ,gensym-rest)
+                    `(,gensym-specific ,@mandatory-parameters))))))))))
 
 
 (define (jazz.generic-object-locator locator)

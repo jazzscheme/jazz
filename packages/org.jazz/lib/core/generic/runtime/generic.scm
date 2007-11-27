@@ -39,10 +39,10 @@
 (module core.generic.runtime.generic
 
 
-(define (jazz.new-generic locator virtual-class mandatory-parameters signature-proc)
+(define (jazz.new-generic locator signature-proc)
   (let ((name (jazz.identifier-name locator)))
     (let ((root-specific (jazz.new-specific #f signature-proc (lambda rest (jazz.error "No specific method to call {a} on {s}" name rest)))))
-      (jazz.allocate-generic jazz.Generic locator name virtual-class mandatory-parameters root-specific '()))))
+      (jazz.allocate-generic jazz.Generic locator name root-specific '()))))
 
 
 ;;;
@@ -51,6 +51,8 @@
 
 
 (define (jazz.register-specific generic specific)
+  (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic)))
+  @indev
   (let ((g (%%get-generic-mandatory-parameters generic))
         (s (%%get-specific-mandatory-parameters specific))
         (name (%%get-generic-name generic)))
@@ -67,7 +69,7 @@
 ;;;
 
 
-(define (jazz.update-generic generic)
+(define (jazz.process-pending-specifics generic)
   (jazz.resolve-signature (%%get-generic-root-specific generic))
   (for-each (lambda (specific)
               (jazz.resolve-signature specific)

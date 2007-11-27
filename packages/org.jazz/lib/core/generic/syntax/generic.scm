@@ -35,6 +35,11 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
+;; locator - a.b.c.foo
+;; name - foo
+;; root-specific - (maybe abstract) specific matching generic signature
+;; pending-specifics - delayed evaluation at boot -> signatures are proc (unnecessary now?)
+
 
 (module core.generic.syntax.generic
 
@@ -42,8 +47,6 @@
 (jazz.define-class-syntax jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
   ((locator              %%get-generic-locator              ())
    (name                 %%get-generic-name                 ())
-   (virtual-class        %%get-generic-virtual-class        ())
-   (mandatory-parameters %%get-generic-mandatory-parameters ())
    (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
    (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
 
@@ -51,8 +54,6 @@
 (jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class
   (locator
    name
-   virtual-class
-   mandatory-parameters
    root-specific
    pending-specifics))
 
@@ -61,8 +62,8 @@
   (apply jazz.expand-define-generic rest))
 
 
-(jazz.define-macro (%%specific-dispatch generic object)
-  `(%%get-specific-implementation (jazz.dispatch-from-root (%%class-of ,object) ,generic)))
+(jazz.define-macro (%%specific-dispatch generic dynamic-classes)
+  `(%%get-specific-implementation (jazz.dispatch-from-root (%%car dynamic-classes) ,generic)))
 
 
 (jazz.encapsulate-class jazz.Generic))

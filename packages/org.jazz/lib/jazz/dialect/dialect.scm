@@ -1166,7 +1166,7 @@
   (%%interface-dispatch object interface-rank implementation-rank))
 
 
-(define (jazz.dispatch name object)
+(define (jazz.dispatch object name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)

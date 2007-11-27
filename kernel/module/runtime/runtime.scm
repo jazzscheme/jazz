@@ -206,6 +206,7 @@
 
 (define jazz.Packages
   '("../../packages/org.jazz/lib/"
+    "../../packages/org.jazz.website/lib/"
     "../../packages/org.jedi/lib/"
     "../../packages/contrib/"
     "../../packages/srfi/"

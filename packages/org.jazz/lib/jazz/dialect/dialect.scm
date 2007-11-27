@@ -1117,7 +1117,6 @@
 
 
 (define (jazz.cache-dispatch-interpreted object name setter)
-  ;;(jazz.debug 'cache name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
@@ -1125,7 +1124,7 @@
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
               ((final)
-               (proc jazz.final-dispatch (%%get-method-implementation field) #f))
+               (proc jazz.final-dispatch field #f))
               ((class)
                (proc jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
               ((interface)
@@ -1137,7 +1136,6 @@
 
 
 (define (jazz.cache-dispatch-compiled object name setter)
-  ;;(jazz.debug 'cache name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
@@ -1145,7 +1143,7 @@
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
               ((final)
-               (proc 0 jazz.final-dispatch (%%get-method-implementation field) #f))
+               (proc 0 jazz.final-dispatch field #f))
               ((class)
                (proc 1 jazz.class-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))
               ((interface)
@@ -1156,8 +1154,8 @@
               (d object p q))))))))
 
 
-(define (jazz.final-dispatch object implementation ignore)
-  (%%final-dispatch object implementation))
+(define (jazz.final-dispatch object field ignore)
+  (%%final-dispatch object (%%get-method-implementation field)))
 
 
 (define (jazz.class-dispatch object class-level implementation-rank)

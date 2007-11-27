@@ -369,7 +369,8 @@
   '(jazz.io
     jazz.literals
     jazz.utilities
-    time.time-module))
+    digest.implementation
+    time.implementation))
 
 (define Comp
   '(jazz.library.component.Component

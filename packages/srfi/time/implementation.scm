@@ -80,7 +80,7 @@
 ;; 'fractional part'. Will Fitzgerald 5/16/2003.
 ;; --------------------------------------------------------------
 
-(module time.time-module
+(module time.implementation
 
 (cond-expand
   (gambit)
@@ -301,11 +301,8 @@
 
 (cond-expand
   (gambit
-    (define gambit-current-time
-      current-time)
-    
     (define (current-seconds)
-      (inexact->exact (floor (time->seconds (gambit-current-time)))))
+      (inexact->exact (floor (time->seconds (current-time)))))
     
     (define (current-milliseconds)
       0)
@@ -362,7 +359,7 @@
 (define (tm:current-time-gc)
   (tm:current-time-ms-time time-gc current-gc-milliseconds))
 
-(define (current-time . clock-type)
+(define (tm:current-time . clock-type)
   (let ( (clock-type (:optional clock-type time-utc)) )
     (cond
       ((eq? clock-type time-tai) (tm:current-time-tai))
@@ -856,7 +853,7 @@
 	    7))
 
 (define (current-date . tz-offset) 
-  (time-utc->date (current-time time-utc)
+  (time-utc->date (tm:current-time time-utc)
 		  (:optional tz-offset (tm:local-tz-offset))))
 
 ;; given a 'two digit' number, find the year within 50 years +/-
@@ -961,10 +958,10 @@
   (julian-day->time-monotonic (+ jdn 4800001/2)))
 
 (define (current-julian-day)
-  (time-utc->julian-day (current-time time-utc)))
+  (time-utc->julian-day (tm:current-time time-utc)))
 
 (define (current-modified-julian-day)
-  (time-utc->modified-julian-day (current-time time-utc)))
+  (time-utc->modified-julian-day (tm:current-time time-utc)))
 
 ;; returns a string rep. of number N, of minimum LENGTH,
 ;; padded with character PAD-WITH. If PAD-WITH if #f, 

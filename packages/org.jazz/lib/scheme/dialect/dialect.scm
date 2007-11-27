@@ -278,7 +278,7 @@
       (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #f #t)
         (%%set-define-macro-signature new-declaration signature)
         (%%set-define-macro-body new-declaration
-          (jazz.walk walker resume new-declaration augmented-environment body))
+          (jazz.walk-body walker resume new-declaration augmented-environment body))
         new-declaration))))
 
 

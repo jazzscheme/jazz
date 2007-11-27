@@ -111,16 +111,6 @@
 
 
 ;;;
-;;;; Directory
-;;;
-
-
-(native jazz.get-current-directory)
-(native jazz.set-current-directory)
-(native jazz.with-current-directory)
-
-
-;;;
 ;;;; Enumerator
 ;;;
 
@@ -141,16 +131,6 @@
 (native jazz.dump-exception)
 (native jazz.call-with-catch)
 (native jazz.raise)
-
-
-;;;
-;;;; File
-;;;
-
-
-(native jazz.file-exists?)
-(native jazz.file-delete)
-(native jazz.file-last-modification-time)
 
 
 ;;;
@@ -355,6 +335,8 @@
 ;;;
 
 
+(native jazz.file-exists?)
+(native jazz.file-delete)
 (native jazz.file-type)
 (native jazz.file-copy)
 (native jazz.file-last-modification-time)
@@ -362,6 +344,9 @@
 (native jazz.create-directory)
 (native jazz.directory-files)
 (native jazz.directory-delete)
+(native jazz.get-current-directory)
+(native jazz.set-current-directory)
+(native jazz.with-current-directory)
 
 
 ;;;

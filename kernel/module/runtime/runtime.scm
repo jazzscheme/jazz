@@ -92,7 +92,7 @@
       (file-exists? filename))
     
     (define (jazz.file-last-modification-time filename)
-      (file-last-modification-time filename)))
+      (time->seconds (file-last-modification-time filename))))
   
   (else))
 
@@ -149,7 +149,7 @@
         (let ((filename (jazz.path-filename path)))
           (if (%%not (jazz.file-exists? filename))
               #f
-            (time->seconds (jazz.file-last-modification-time filename))))))
+            (jazz.file-last-modification-time filename)))))
     
     
     (define (jazz.load-src src)

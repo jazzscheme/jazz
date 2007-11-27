@@ -1,8 +1,8 @@
 ;;; simple test procedures
 
-(module time.test-suite
+(module time.tests
 
-(require (time-module))
+(require (time.implementation))
 
 (define s19-tests (list))
 

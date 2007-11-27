@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Files
+;;;; Snow Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,69 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.file
+(library jazz.snow.syntax scheme
 
 
-(define (jazz.file-directory filename)
-  (let ((n (jazz.string-find-reversed filename #\/)))
-    (if (%%not n)
-        ""
-      (%%substring filename 0 n))))
+;;;
+;;;; package*
+;;;
 
 
-(cond-expand
-  (gambit
-    (define (jazz.file-exists? path)
-      (file-exists? path))
-    
-    (define (jazz.file-delete path)
-      (delete-file path)))
+(define-macro (package* name . clauses)
+  (define (parse-clauses clauses proc)
+    (let ((provides '())
+          (requires '()))
+      (define (extract-provided form)
+        (if (pair? form)
+            (case (car form)
+              ((define define*)
+               (let ((name/signature (cadr form)))
+                 (if (symbol? name/signature)
+                     name/signature
+                   (car name/signature))))
+              (else
+               #f))
+          #f))
+      
+      (for-each (lambda (clause)
+                  (if (pair? clause)
+                      (case (car clause)
+                        ((provide:)
+                         (set! provides (map extract-provided (cdr clause))))
+                        ((require:)
+                         (set! requires (cons (cadr clause) requires))))
+                    #f))
+                clauses)
+      (proc provides requires)))
   
-  (else)))
+  (parse-clauses clauses
+    (lambda (provides requires)
+      `(library ,name scheme
+         (export ,@provides)))))
+
+
+;;;
+;;;; define-record*
+;;;
+
+
+(define-macro (define-record* . rest)
+  `(define-structure ,@rest))
+
+
+;;;
+;;;; define*
+;;;
+
+
+(define-macro (define* . rest)
+  `(definition ,@rest))
+
+
+;;;
+;;;; test*
+;;;
+
+
+(define-macro (test* . rest)
+  `(begin)))

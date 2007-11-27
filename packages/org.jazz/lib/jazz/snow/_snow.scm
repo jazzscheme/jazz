@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Files
+;;;; Snow
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.file
+(library jazz.snow scheme
 
 
-(define (jazz.file-directory filename)
-  (let ((n (jazz.string-find-reversed filename #\/)))
-    (if (%%not n)
-        ""
-      (%%substring filename 0 n))))
-
-
-(cond-expand
-  (gambit
-    (define (jazz.file-exists? path)
-      (file-exists? path))
-    
-    (define (jazz.file-delete path)
-      (delete-file path)))
-  
-  (else)))
+(export (jazz.snow.syntax)))

@@ -41,40 +41,9 @@
 (import (jazz.jml)
         (jazz.library)
         (jazz.utilities))
-  
-  
-(class JML-Transformation-Class extends Class
-  
-  
-  (slot patterns initialize '())
-  
-  
-  (method public (get-patterns)
-    patterns)
-  
-  
-  (method public (add-pattern pattern)
-    (unless (memq? pattern patterns)
-      (set! patterns (cons pattern patterns))))
-  
-  
-  (method public (has-pattern? tag)
-    (let ((class self)
-          (found? #f))
-      (while (and (not found?) (neq? class JML-Transformation))
-        (let ((patterns (get-patterns~ class)))
-          (if (memq? tag patterns)
-              (set! found? #t)
-            (set! class (type-ascendant class)))))
-      found?)))
 
 
-(class JML-Transformation metaclass JML-Transformation-Class extends Object
-  
-  
-  ;;;
-  ;;;; Transformation
-  ;;;
+(class JML-Transformation extends Object
   
   
   (slot parser)
@@ -103,15 +72,10 @@
   
   
   (method (transform-one node)
-    (if (node-pattern? node)
-        (parse~ parser (transform-pattern node))
-      node))
-  
-  
-  (method (transform-pattern node)
-    (let* ((tag (get-tag~ node))
-           (proc (dispatch self tag)))
-      (proc~ self node)))
+    (let ((pattern (node-pattern node)))
+      (if pattern
+          (parse~ parser (pattern self node))
+        node)))
   
   
   ;;;
@@ -119,8 +83,7 @@
   ;;;
   
   
-  (method (node-pattern? node)
+  (method (node-pattern node)
     (and (is? node JML-Element)
-         (let ((tag (get-tag~ node))
-               (class (class-of self)))
-           (has-pattern?~ class tag))))))
+         (let ((tag (name->tag (get-tag~ node))))
+           (find-dispatch self tag))))))

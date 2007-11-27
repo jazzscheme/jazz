@@ -680,7 +680,7 @@
             `(lambda rest
                (apply ,(%%get-code-form dispatch-code) ,(%%get-code-form self) rest))
             (%%get-code-type dispatch-code)))
-      (jazz.error "Methods can only be called directly from inside methods"))))
+      (jazz.error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
 
 
 (jazz.define-method (jazz.walk-binding-validate-call (jazz.Method-Declaration declaration) walker resume source-declaration operator arguments)
@@ -729,7 +729,7 @@
               ,(%%get-code-form self)
               ,@arguments)
             (%%get-code-type dispatch-code)))
-      (jazz.error "Methods can only be called directly from inside methods"))))
+      (jazz.error "Methods can only be called directly from inside a method: {a} in {a}" (%%get-lexical-binding-name declaration) (%%get-declaration-locator source-declaration)))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Method-Declaration declaration) environment)
@@ -1167,9 +1167,15 @@
 
 
 (define (jazz.dispatch object name)
+  (or (jazz.find-dispatch object name)
+      (jazz.error "Unable to find method {s} in: {s}" name object)))
+
+
+(define (jazz.find-dispatch object name)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
-      (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
+      (if (%%not category)
+          #f
         (let ((field (%%get-category-field category name)))
           (case (%%get-method-dispatch-type field)
             ((final)
@@ -1805,54 +1811,54 @@
 
 (define (jazz.walk-method-declaration walker resume declaration environment form)
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr form))
-    (if (%%class-is? declaration jazz.Category-Declaration)
-        (let ((type (if specifier (jazz.new-function-type '() '() '() #f (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
-              (inline? (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))))
-          (receive (signature augmented-environment)
-              ;; yuck. to clean
-              (if inline?
-                  (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-                (values
-                  (jazz.walk-parameters walker resume declaration environment parameters #t #f)
-                  (jazz.unspecified)))
-            (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
-                   (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration)))
-                   (new-declaration (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature)))
-              (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
-                (%%when (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))
-                   (%%set-method-declaration-signature effective-declaration signature)
-                  (%%set-method-declaration-body effective-declaration
-                    (jazz.walk walker resume effective-declaration augmented-environment
-                      `(with-self ,@body))))
-                effective-declaration))))
-      (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name))))
+    (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name)
+      (let ((type (if specifier (jazz.new-function-type '() '() '() #f (jazz.walk-specifier walker resume declaration environment specifier)) jazz.Procedure))
+            (inline? (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))))
+        (receive (signature augmented-environment)
+            ;; yuck. to clean
+            (if inline?
+                (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+              (values
+                (jazz.walk-parameters walker resume declaration environment parameters #t #f)
+                (jazz.unspecified)))
+          (let* ((next-declaration (jazz.lookup-declaration declaration name #f))
+                 (root-declaration (and next-declaration (or (%%get-method-declaration-root next-declaration) next-declaration)))
+                 (new-declaration (jazz.new-method-declaration name type access compatibility '() declaration root-declaration propagation abstraction expansion remote synchronized signature)))
+            (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+              (%%when (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete))
+                (%%set-method-declaration-signature effective-declaration signature)
+                (%%set-method-declaration-body effective-declaration
+                  (jazz.walk walker resume effective-declaration augmented-environment
+                    `(with-self ,@body))))
+              effective-declaration)))))))
 
 
 (define (jazz.walk-method walker resume declaration environment form)
   (receive (name specifier access compatibility propagation abstraction expansion remote synchronized parameters body) (jazz.parse-method walker resume declaration (%%cdr form))
-    (let* ((new-declaration (jazz.lookup-declaration declaration name #f))
-           (category-declaration (%%get-declaration-parent new-declaration))
-           (root-method-declaration (%%get-method-declaration-root new-declaration))
-           (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
-      (cond ((%%eq? category-declaration root-category-declaration)
-             (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
-            ((and root-category-declaration (%%neq? propagation 'inherited))
-             (jazz.walk-error walker resume declaration "Cannot rebase inherited method {s}" name))
-            ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
-             (jazz.walk-error walker resume declaration "Interface method must be virtual {s}" name))
-            (else
-             (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-               (let ((body-expression
-                       (cond (root-category-declaration
-                              (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
-                             ((%%eq? abstraction 'concrete)
-                              (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
-                             (else
-                              #f))))
-                 (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
-                   (%%set-method-declaration-signature new-declaration signature)
-                   (%%set-method-declaration-body new-declaration body-expression))
-                 new-declaration)))))))
+    (%%assertion (%%class-is? declaration jazz.Category-Declaration) (jazz.walk-error walker resume declaration "Methods can only be defined inside categories: {s}" name)
+      (let* ((new-declaration (jazz.lookup-declaration declaration name #f))
+             (category-declaration (%%get-declaration-parent new-declaration))
+             (root-method-declaration (%%get-method-declaration-root new-declaration))
+             (root-category-declaration (and root-method-declaration (%%get-declaration-parent root-method-declaration))))
+        (cond ((%%eq? category-declaration root-category-declaration)
+               (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
+              ((and root-category-declaration (%%neq? propagation 'inherited))
+               (jazz.walk-error walker resume declaration "Cannot rebase inherited method {s}" name))
+              ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
+               (jazz.walk-error walker resume declaration "Interface method must be virtual {s}" name))
+              (else
+               (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+                 (let ((body-expression
+                         (cond (root-category-declaration
+                                 (jazz.walk walker resume new-declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod (%%get-lexical-binding-type root-method-declaration)) augmented-environment) `(with-self ,@body)))
+                               ((%%eq? abstraction 'concrete)
+                                (jazz.walk walker resume new-declaration augmented-environment `(with-self ,@body)))
+                               (else
+                                #f))))
+                   (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
+                     (%%set-method-declaration-signature new-declaration signature)
+                     (%%set-method-declaration-body new-declaration body-expression))
+                   new-declaration))))))))
 
 
 ;; quick not elegant solution to wrap with-self around parameter code

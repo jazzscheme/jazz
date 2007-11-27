@@ -35,20 +35,26 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(transformation DocToHTML-Transformation extends JML-Transformation
+(library jazz.doc.transformation.DocToHTML-Transformation jazz
+
+
+(import (jazz.jml))
+
+
+(class DocToHTML-Transformation extends JML-Transformation
   
   
-  (pattern (parameter node)
+  (pattern (<parameter> node)
     (let ((text (get-child-text~ node)))
       `(<i> ,text)))
   
   
-  (pattern (code node)
+  (pattern (<code> node)
     (let ((text (get-child-text~ node)))
       `(<code> ,text)))
   
   
-  (pattern (reference node)
+  (pattern (<reference> node)
     (let* ((href (get-property~ node 'href))
            (name (format "manual.htm#{a}" href))
            (child (first-child~ node))
@@ -56,30 +62,28 @@
       `(<a> href: ,name ,text)))
   
   
-  (pattern (header node)
+  (pattern (<header> node)
     (let ((text (get-child-text~ node)))
       `(<i> ,text)))
   
   
-  (pattern (node node)
-    (expand-node node))
+  (pattern (<node> node)
+    (define (expand node)
+      (if (and (is? node JML-Element)
+               (eq? (get-tag~ node) 'node))
+          `(<ul> ,@(map expand (get-children~ node)))
+        `(<li> ,(->jml~ node))))
+    (expand node))
   
   
-  (method (expand-node node)
-    (if (and (is? node JML-Element)
-             (eq? (get-tag~ node) 'node))
-        `(<ul> ,@(map expand-node (get-children~ node)))
-      `(<li> ,(->jml~ node))))
-  
-  
-  (pattern (definition node)
+  (pattern (<definition> node)
     (let ((title (either (get-property~ node 'title) (->string (get-property~ node 'name)))))
       `(<div>
          (<p> class: "definition" (<b> ,title))
          ,@(children->jml~ node))))
   
   
-  (pattern (properties node)
+  (pattern (<properties> node)
     `(<table> class: "properties"
        ,@(map (function (prop)
                 (bind (property value) (get-children~ prop)
@@ -89,7 +93,7 @@
               (get-children~ node))))
   
   
-  (pattern (terminology node)
+  (pattern (<terminology> node)
     `(<table> class: "terminology"
        (<caption> "Terminology")
        ,@(map (function (definition)
@@ -100,7 +104,7 @@
               (get-children~ node))))
   
   
-  (pattern (format-directives node)
+  (pattern (<format-directives> node)
     `(<table> class: "format-directives"
        ,@(map (function (directive)
                 (bind (name char text) (get-children~ directive)
@@ -111,7 +115,7 @@
               (get-children~ node))))
   
   
-  (pattern (styled-table node)
+  (pattern (<styled-table> node)
     (let ((style (format "border-style: {a}; border-width: {a}; border-color: {a};" 'solid 1 'red)))
       `(<table> style: ,style ,@(properties->jml~ node)
-         ,@(children->jml~ node)))))
+         ,@(children->jml~ node))))))

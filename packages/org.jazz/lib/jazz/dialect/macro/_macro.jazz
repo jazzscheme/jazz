@@ -43,112 +43,11 @@
 
 
 (definition public (get-macro-toplevels)
-  '(parser transformation))
+  '())
 
 
 (definition public (get-macro-definitions)
-  '(parser transformation pattern))
-
-
-(definition public (expand-macro form)
-  (bind (head . body) form
-    (case head
-      ((parser) (parser body))
-      ((transformation) (transformation body)))))
-
-
-;;;
-;;;; Class
-;;;
-
-
-(definition (parse-class scan)
-  (bind (name . scan) scan
-    (let ((extends {})
-          (implements {})
-          (uses {})
-          (body (unspecified))
-          (done? #f))
-      (while (not done?)
-        (let ((form (car scan)))
-          (case form
-            ((extends) (set! extends (cadr scan)) (set! scan (cddr scan)))
-            ((implements) (set! implements (cadr scan)) (set! scan (cddr scan)))
-            ((uses) (set! uses (cadr scan)) (set! scan (cddr scan)))
-            (else (set! body scan) (set! done? #t)))))
-      (values name extends implements uses body))))
-
-
-(definition (collect-patterns body)
-  (collect (function (form)
-             (when (and (pair? form)
-                        (eq? (car form) 'pattern))
-               (car (cadr form))))
-           body))
-
-
-(definition (expand-patterns body)
-  (map (function (form)
-         (if (and (pair? form)
-                  (eq? (car form) 'pattern))
-             (pattern (cdr form))
-           form))
-       body))
-
-
-(definition (generate-initialize patterns)
-  (list 'method 'meta (list 'initialize)
-    (list (list 'super 'initialize))
-    (list 'set! 'patterns (list 'quote patterns))))
-
-
-;;;
-;;;; Parser
-;;;
-
-
-;; Having to use a toplevel macro like this is really a patch for a shortcoming
-;; in Jazz for not having initialize special form at the class toplevel. With it
-;; all the initialization could be done simply and reusably by the pattern macro.
-
-
-(definition (parser body)
-  (receive (name extends implements uses body) (parse-class body)
-    (let* ((patterns (collect-patterns body))
-           (initialize (generate-initialize patterns))
-           (body (expand-patterns body)))
-      `(class ,name extends ,extends implements ,implements uses ,uses
-         ,initialize
-         ,@body))))
-
-
-;;;
-;;;; Transformation
-;;;
-
-
-;; Having to use a toplevel macro like this is really a patch for a shortcoming
-;; in Jazz for not having initialize special form at the class toplevel. With it
-;; all the initialization could be done simply and reusably by the pattern macro.
-
-
-(definition (transformation body)
-  (receive (name extends implements uses body) (parse-class body)
-    (let* ((patterns (collect-patterns body))
-           (initialize (generate-initialize patterns))
-           (body (expand-patterns body)))
-      `(class ,name extends ,extends implements ,implements uses ,uses
-         ,initialize
-         ,@body))))
-
-
-;;;
-;;;; Pattern
-;;;
-
-
-(definition (pattern rest)
-  `(method ,@rest))
+  '(pattern))
 
 
 ;;;
@@ -158,35 +57,11 @@
 
 (definition public (get-macro-tabulation symbol)
   (case symbol
-    ((transformation) '(0 #t))
-    ((pattern)        '(1 #f))
-    (else             {})))
-
-
-;; This integration is one of the most complex ones
-;; in the new macro system, so for now it's patch time...
-(definition public (expand-macro-evaluations category forms)
-  (let ((scan forms))
-    (while (not-null? scan)
-      (let ((form (car scan)))
-        (when (and (pair? form)
-                   (eq? (car form) 'pattern))
-          (set-car! scan (pattern (cdr form)))
-          (cond ((subtype? category JML-Parser)
-                 (add-pattern~ category (car (cadr form))))
-                ((subtype? category JML-Transformation)
-                 (add-pattern~ category (car (cadr form))))))
-        (set! scan (cdr scan))))))
+    (else {})))
 
 
 (definition public (walk-macro-declaration symbol explorer context declaration keyword expression doc line walk-expressions?)
   (case symbol
-    ((parser)
-     (walk-category~ explorer context declaration keyword expression doc line walk-expressions?)
-     #t)
-    ((transformation)
-     (walk-category~ explorer context declaration keyword expression doc line walk-expressions?)
-     #t)
     ((pattern)
      (walk-method~ explorer context declaration keyword expression doc line walk-expressions?)
      #t)

@@ -369,7 +369,6 @@
   '(jazz.io
     jazz.literals
     jazz.utilities
-    digest.implementation
     time.implementation))
 
 (define Comp
@@ -478,6 +477,9 @@
     jazz.groupware.compare.Text-Comparer
     jazz.groupware.compare.Tree-Comparer))
 
+(define Extra
+  '(digest.implementation))
+
 
 (define (butil)
   (for-each cj Util))
@@ -509,6 +511,9 @@
 (define (bcompare)
   (for-each cj Compare))
 
+(define (bextra)
+  (for-each cj Extra))
+
 
 (define (bjedi)
   (la)
@@ -522,7 +527,8 @@
   (btree)
   (bappl)
   (bjml)
-  (bcompare))
+  (bcompare)
+  (bextra))
 
 (define (bjd)
   (bjedi))

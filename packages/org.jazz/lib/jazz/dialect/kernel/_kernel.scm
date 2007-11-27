@@ -403,6 +403,7 @@
 (native jazz.set-object-slot)
 (native jazz.update-dispatch-table)
 (native jazz.dispatch)
+(native jazz.find-dispatch)
 (native jazz.call-into-abstract)
 (native jazz.debug?)
 

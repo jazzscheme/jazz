@@ -38,7 +38,12 @@
 (library jazz.website.transformation.JazzWebsite-Transformation jazz
 
 
-(transformation JazzWebsite-Transformation extends DocToHTML-Transformation
+(import (jazz.doc)
+        (jazz.jml)
+        (jazz.utilities))
+
+
+(class JazzWebsite-Transformation extends DocToHTML-Transformation
   
   
   (definition Generate-Manual?
@@ -55,12 +60,12 @@
   ;;;
   
   
-  (pattern (website node)
+  (pattern (<website> node)
     (user-message "Generating website...")
     (process-website node))
   
   
-  (pattern (screenshot node)
+  (pattern (<screenshot> node)
     (let ((label (get-property~ node 'label))
           (preview (get-property~ node 'preview))
           (image (get-property~ node 'image)))
@@ -88,7 +93,7 @@
   (method (collect-sections website)
     (map (function (section)
            (cons section (collect-if (function (node)
-                                       (= (get-tag~ node) 'section))
+                                       (eq? (get-tag~ node) 'section))
                                      (get-children~ section))))
          (get-children~ website)))
   
@@ -100,7 +105,7 @@
                        (when (> (length lst) 1)
                          (put~ fact name))))
       (let ((ambiguities (get-output~ fact)))
-        (when ambiguities
+        (when (not-null? ambiguities)
           (let ((message
                  (cons "The following anchors are multiply defined:"
                        (map (function (name)
@@ -374,6 +379,8 @@
   
   
   (method (find-docs path)
+    '()
+    @convert
     (let* ((appl (get-application))
            (cataloguer (get-documentation-cataloguer~ appl))
            (docs (new List-Factory)))
@@ -564,8 +571,8 @@
   
   (method (index-navigator letters letter-anchors)
     (let* ((partition (alphabetic-partition letters))
-           (non-alpha (cdr (assv #f partition)))
-           (alpha (cdr (assv #t partition)))
+           (non-alpha (assv-value #f partition '()))
+           (alpha (assv-value #t partition '()))
            (output (new List-Factory))
            (process-letter-set
             (function (letter-set)

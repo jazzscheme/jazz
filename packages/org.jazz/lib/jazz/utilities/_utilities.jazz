@@ -1014,34 +1014,13 @@
         'no-action
       (let* ((appl (get-application))
              (pref (get-repositories-preferences~ appl))
-             (repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
-             (status (essay repository (get-file-status~ repository file error?: #f)))
-             (code (cond ((not status)
-                          (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
-                                             title: "File Status"
-                                             type: 'question
-                                             process-keys?: #f)
-                            ((yes) 'set-read/write)
-                            ((no) 'cancel)))
-                         ((or (= status 'checked-out-me) (get-auto-checkout?~ pref))
-                          'checkout)
-                         (else
-                          (case (message-box (format "File {s} is read-only. Do you want to check it out?{%}Overwrite read-only status by pressing \"Set Read/Write\"." (get-name~ moniker))
-                                             title: "File Status"
-                                             type: 'confirmation
-                                             yes: "Check Out"
-                                             no: "Set Read/Write"
-                                             cancel: (case cancel-action (throw "Cancel") (ignore "Ignore"))
-                                             process-keys?: #f)
-                            ((yes) 'checkout)
-                            ((no) 'set-read/write)
-                            ((cancel) 'cancel))))))
+             (code (case (message-box (format "File {s} is read-only. Overwrite?" (get-name~ moniker))
+                                      title: "File Status"
+                                      type: 'question
+                                      process-keys?: #f)
+                     ((yes) 'set-read/write)
+                     ((no) 'cancel))))
         (case code
-          ((checkout)
-           (unless (= status 'checked-out-me)
-             (checkout-file~ repository file))
-           (set-read/write~ file)
-           'checkout)
           ((set-read/write)
            (set-read/write~ file)
            'read/write)

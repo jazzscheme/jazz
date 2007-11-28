@@ -214,23 +214,9 @@
 
   
   (method (copy-item src dst)
-    (cond ((and (is? src File) (is? dst File))
-           (copy-file~ src dst overwrite-read-only?: (overwrite-read-only?)))
-          @convert/wait
-          ((and (is? src Repository-Moniker) (is? dst File))
-           (unimplemented 'copy-item)
-           (get-local~ src dst))
-          @convert/wait
-          ((and (is? src File) (is? dst Repository-Moniker))
-           (if (exists?~ dst src)
-               (checkin~ dst)
-             (let ((parent (get-parent~ dst)))
-               (add~ parent src))))
-          @convert/wait
-          ((and (is? src Directory) (is? dst Repository-Moniker))
-           (add-project (get-parent~ dst) src))
-          (else
-           (error "Unable to copy {t} to {t}" src dst)))
+    (if (and (is? src File) (is? dst File))
+        (copy-file~ src dst overwrite-read-only?: (overwrite-read-only?))
+      (error "Unable to copy {t} to {t}" src dst))
     (user-message "Done"))
 
   
@@ -241,9 +227,6 @@
       ((Directory)
         (delete-directory~ item overwrite-read-only?: (overwrite-read-only?) feedback: (function (dir) (user-message "Deleting {l detail: :human}..." (get-list~ dir))))
         (user-message "Done"))
-      @convert/wait
-      ((Repository-Moniker)
-        (delete-item~ item))
       (else
         (unimplemented 'delete-item))))
   

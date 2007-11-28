@@ -2,4 +2,119 @@
 
 
 (export (jazz.repository.autoload))
-(import (jazz.repository.autoload)))
+(import (jazz.repository.autoload))
+
+
+(definition Repositories
+  (make-table test: equal?))
+
+
+;;;
+;;;; Preferences
+;;;
+
+
+(definition (preferences)
+  (let ((appl (get-application)))
+    (get-repositories-preferences~ appl)))
+
+
+(definition (repository-preferences name (pref (preferences)))
+  (when pref
+    (find-component~ pref name)))
+
+
+(definition public (reload-preferences pref)
+  (let ((name (get-name~ pref)))
+    (remove-repository name error?: #f)))
+
+
+(definition public (remove-preferences pref)
+  (let ((name (get-name~ pref)))
+    (remove-repository name error?: #f)))
+
+
+;;;
+;;;; Repositories
+;;;
+
+
+(definition (add-repository pref)
+  (let ((name (get-name~ pref)))
+    (when (get-repository name)
+      (remove-repository name))
+    (let ((repository (instantiate-preferences pref)))
+      (table-set! Repositories name repository))))
+
+
+(definition (remove-repository name (error?: error? #t))
+  (if (not (get-repository name))
+      (when error?
+        (error "Unable to find repository {a}" name))
+    (table-clear Repositories name)))
+
+
+;;;
+;;;; Active Repository
+;;;
+
+
+(definition public (require-repository (name {}))
+  (either (get-repository name)
+          (if (null? name)
+              (error "No repository is currently active")
+            (error "Unable to find repository: {t}" name))))
+
+
+(definition public (get-repository (name {}))
+  (let* ((pref (preferences))
+         (name (either name (essay pref (get-active~ pref)))))
+    (when name
+      (either (table-ref Repositories name #f)
+              (let ((pref (repository-preferences name pref)))
+                (when (and pref (get-active?~ pref))
+                  (let ((repository (instantiate-preferences pref)))
+                    (table-set! Repositories name repository))))))))
+
+
+;;;
+;;;; New Repository
+;;;
+
+
+(definition public (instantiate-preferences pref)
+  (let ((appl (get-application))
+        (class (repository-class~ pref))
+        (name (get-name~ pref)))
+    (new-repository~ class pref name)))
+
+
+(definition public (new-repository class pref name)
+  (new class name: name))
+
+
+;;;
+;;;; Repositories
+;;;
+
+
+(definition public (for-each-repository-preferences proc)
+  (let ((pref (preferences)))
+    (when pref
+      (for-each proc (get-children~ pref)))))
+
+
+(definition public (find-repository pathname)
+  (call/ec
+    (function (return)
+      (for-each-repository-preferences
+        (function (pref)
+          (when (in-repository?~ pref pathname)
+            (return (get-repository (get-name~ pref))))))
+      {})))
+
+
+(definition public (find-moniker pathname)
+  (let ((repository (find-repository pathname)))
+    (essay repository
+           (new Repository-Moniker repository (file->path~ repository pathname))))))

@@ -41,7 +41,6 @@
 (import (jazz.io)
         (jazz.library)
         (jazz.platform)
-        (jazz.repository)
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view)
@@ -52,32 +51,21 @@
 (class Document-Controller extends Object
   
 
-  (slot document               initialize {})
-  (slot newname                initialize {})
-  (slot moniker                initialize {})
-  (slot tool?                  initialize #f)
-  (slot console?               initialize #f)
-  (slot modified?              initialize #f)
-  (slot read-only?             initialize #f)
-  (slot moniker-time           initialize {})
-  (slot last-repository-status initialize {})
+  (slot document     initialize {})
+  (slot newname      initialize {})
+  (slot moniker      initialize {})
+  (slot tool?        initialize #f)
+  (slot console?     initialize #f)
+  (slot modified?    initialize #f)
+  (slot read-only?   initialize #f)
+  (slot moniker-time initialize {})
 
 
   (method (initialize document (tool?: tool? #f) (console?: console? #f))
     (nextmethod)
     (set! document~self document)
     (set! tool?~self tool?)
-    (set! console?~self console?)
-    @waiting-see-repository-event-comment
-    (when (repository-register?)
-      (add-repository-listener self)
-      (destroy-mandatory)))
-  
-  
-  (method (destroy)
-    @waiting-see-repository-event-comment
-    (remove-repository-listener self)
-    (nextmethod))
+    (set! console?~self console?))
   
   
   ;;;
@@ -262,9 +250,7 @@
   ;;;
 
 
-  (method public virtual (update-status (refresh-repository-status?: refresh-repository-status? #t))
-    (when refresh-repository-status?
-      (set! last-repository-status {}))
+  (method public virtual (update-status)
     (update-state)
     (let ((host (get-host~ document)))
       (when (and (is? host View-Host) (eq? (get-guest~ host) document))
@@ -272,14 +258,10 @@
   
   
   (method public virtual (document-status)
-    (format "{a}{a}{a}{a}{a}"
+    (format "{a}{a}{a}{a}"
             (name-status)
             (modified-status)
             (directory-status)
-            (either last-repository-status
-                    (begin
-                      (set! last-repository-status (repository-status))
-                      last-repository-status))
             (read/write-status)))
   
   
@@ -301,47 +283,6 @@
     (if (or (not moniker) tool?)
         ""
       (format " ~{{a}}" (present-location~ moniker))))
-  
-  
-  (method protected virtual (repository-status)
-    (let ((info (repository-info)))
-      (if (not info)
-          ""
-        (receive (repository item) info
-          (if (supports-detaching?~ repository moniker)
-              (repository-detached-status repository)
-            (if (null? item)
-                (repository-status-aux {} {} {})
-              (with-closed ((item item))
-                (let ((status (get-status~ item)))
-                  (repository-status-aux repository item status)))))))))
-  
-  
-  (method (repository-status-aux repository item status)
-    (cond ((null? item)
-           "")
-          ((= status 'checked-in)
-           (format " [Checked in]"))
-          (else
-           (format " [Checked out by {a}]" (present-usernames~ repository (get-checkouts-usernames~ item))))))
-  
-  
-  (method (repository-info)
-    #f
-    ;; convert
-    @wait
-    (when (and (in-manifest? 'Repository) moniker (not tool?))
-      (let ((moniker (find-moniker~ Repository moniker)))
-        (when moniker
-          (values (get-repository~ moniker)
-                  (get-repository-item~ moniker error?: #f))))))
-  
-  
-  (method (repository-detached-status repository)
-    (case (get-detached-status~ repository moniker)
-      ((not-edited)  " [Not Edited]")
-      ((detached)    " [Detached]")
-      ((checked-out) " [Checked Out]")))
 
   
   (method (read/write-status)
@@ -419,19 +360,12 @@
   
   
   (method public (write-allowed?)
-    (or (not (get-read-only?))
-        @wait
-        (let* ((repository (essay (in-manifest? 'Repository) (find-repository~ Repository moniker)))
-               (in? (and repository (in-repository?~ repository (get-file~ moniker)))))
-          (if in?
-              (in-write-allowed? moniker)
-            (out-write-allowed? moniker)))))
+    (not (get-read-only?)))
   
   
   (method (in-write-allowed? moniker)
     (let ((code (ensure-read/write moniker)))
       (case code
-        ((checkout) #t)
         ((read/write) (update-status) #t)
         ((read-only) #f)
         ((no-action) #t))))
@@ -534,50 +468,6 @@
   ;;;
   
   
-  (method public (add-to-repository)
-    (unimplemented 'add-to-repository)
-    @wait
-    (add-file-to-repository~ (find-repository~ Repository moniker) moniker))
-
-  
-  (method public (get-latest)
-    (unimplemented 'get-latest)
-    @wait
-    (get-latest~ (find-repository~ Repository moniker) moniker))
-  
-  
-  (method public (detach)
-    (unimplemented 'detach)
-    @wait
-    (detach-file~ (find-repository~ Repository moniker) moniker))
-
-  
-  (method public (checkout)
-    (unimplemented 'checkout)
-    @wait
-    (checkout-file~ (find-repository~ Repository moniker) moniker))
-  
-  
-  (method public (checkin)
-    (unimplemented 'checkin)
-    @wait (
-    (save)
-    (checkin-file~ (find-repository~ Repository moniker) moniker)))
-  
-  
-  (method public (reintegrate)
-    (unimplemented 'reintegrate)
-    @wait (
-    (save)
-    (reintegrate-file~ (find-repository~ Repository moniker) moniker)))
-  
-  
-  (method public (undo-checkout)
-    (unimplemented 'undo-checkout)
-    @wait
-    (undo-checkout-file~ (find-repository~ Repository moniker) moniker))
-  
-  
   (method public (show-history)
     (unimplemented 'show-history)
     @wait
@@ -587,30 +477,4 @@
   (method public (show-changes)
     (unimplemented 'show-changes)
     @wait
-    (show-changes~ (find-repository~ Repository moniker) moniker))
-
-  
-  ;;;
-  ;;;; Repository Events
-  ;;;
-  
-  
-  (method (repository-register?)
-    (frame-guest?~ document))
-  
-  
-  ;; This was from Repository-Listener but it is not correct to implement such a specific
-  ;; interface here and force all applications to include the Repository module...
-  (method (repository-event what repository mnk)
-    (case what
-      ((:checkin)
-       (checkin-save))
-      ((:item-status)
-       (when (pathname= mnk moniker)
-         (update-status refresh-repository-status?: #t)
-         (verify-reload cancel-edition?: #t)))))
-  
-  
-  (method (checkin-save)
-    (when (get-modified?)
-      (save)))))
+    (show-changes~ (find-repository~ Repository moniker) moniker))))

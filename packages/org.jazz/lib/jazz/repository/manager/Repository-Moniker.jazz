@@ -50,12 +50,11 @@
   
   (slot repository)
   (slot path)
-  (slot version)
   
   
   @convert-literal
-  (method meta (construct-literal context repository path (version {}))
-    (let ((item (new self repository path version: version)))
+  (method meta (construct-literal context repository path)
+    (let ((item (new self repository path)))
       item))
 
 
@@ -63,8 +62,7 @@
     (cond ((is-not? target Repository-Moniker)
            :incompatible)
           ((and (eq? repository (get-repository~ target))
-                (equal? path (get-path~ target))
-                (= version (get-version~ target)))
+                (equal? path (get-path~ target)))
            :equal)
           (else
            :not-equal)))
@@ -73,14 +71,9 @@
   (method (print printer readably)
     (print-unreadable self printer
       (function (printer)
-        (if (null? version)
-            (format printer "{s} {s}"
-                    repository
-                    path)
-          (format printer "{s} {s} {s}"
-                  repository
-                  path
-                  version)))))
+        (format printer "{s} {s}"
+          repository
+          path))))
   
   
   ;;;
@@ -108,55 +101,10 @@
   ;;;
   
   
-  (method (initialize repository path (version: version {}))
+  (method (initialize repository path)
     (nextmethod)
     (set! repository~self repository)
-    (set! path~self path)
-    (set! version~self version))
-  
-  
-  ;;;
-  ;;;; Interface
-  ;;;
-  
-  
-  (method public (exists? (file (get-file)))
-    (in-repository?~ repository file))
-  
-  
-  (method (get-writable?)
-    #t)
-  
-  
-  (method (set-writable? flag)
-    )
-  
-  
-  (method (writable?)
-    #t)
-
-
-  (method (get-name)
-    (with-closed ((item (get-repository-item)))
-      (get-name~ item)))
-
-
-  (method (get-base)
-    (let* ((list (get-list))
-           (filename (last list)))
-      (extract-base filename)))
-  
-  
-  (method (get-extension)
-    (let* ((list (get-list))
-           (filename (last list)))
-      (extract-extension filename)))
-  
-  
-  (method (get-parent)
-    (let ((parent-path (remove (last path) path)))
-      (with-closed ((item (get-repository-item path: parent-path)))
-        (new Repository-Moniker repository (get-path~ item)))))
+    (set! path~self path))
   
     
   ;;;
@@ -175,71 +123,6 @@
   (method (get-children (nodes?: nodes? #t) (leaves?: leaves? #t))
     (get-content nodes?: nodes? leaves?: leaves?))
   
-  
-  ;;;
-  ;;;; Delegation
-  ;;;
-  
- 
- (method public (get-repository-item . rest)
-   (bind-keywords ((path (get-path)) . other) rest
-     (apply (~ get-item repository) path other)))
-  
-  
-  (method public (get-pathname)
-    (with-closed ((item (get-repository-item)))
-      (get-pathname~ item)))
-  
-  
-  (method public (get-local local)
-    (with-closed ((item (get-repository-item)))
-      (get-local~ item local)))
-  
-  
-  (method public (add local)
-    (with-closed ((item (get-repository-item)))
-      (add~ item local)))
-  
-  
-  (method public (add-project local)
-    (with-closed ((item (get-repository-item)))
-      (add-project~ item local)))
-  
-  
-  (method public (checkin)
-    (with-closed ((item (get-repository-item)))
-      (safe-checkin~ item (get-file) (get-username~ repository))))
-  
-  
-  (method public (checkout)
-    (with-closed ((item (get-repository-item)))
-      (checkout~ item (get-file))))
-  
-  
-  (method public (get-status)
-    (with-closed ((item (get-repository-item)))
-      (get-status~ item)))
-  
-  
-  (method public (get-file?)
-    (with-closed ((item (get-repository-item)))
-      (get-file?~ item)))
-  
-  
-  (method public (get-project?)
-    (with-closed ((item (get-repository-item)))
-      (get-project?~ item)))
-  
-  
-  (method (is-different? local)
-    (with-closed ((item (get-repository-item)))
-      (is-different?~ item local)))
-  
-  
-  (method public (delete-item)
-    (with-closed ((item (get-repository-item)))
-      (delete-item~ item)))
-    
     
   ;;;
   ;;;; Pathname 
@@ -248,10 +131,6 @@
   
   (method public (get-list)
     path)
-  
-  
-  (method public (get-file)
-    (get-pathname))
     
   
   ;;;
@@ -260,13 +139,7 @@
 
 
   (method (load-lines)
-    (let* ((dir {Directory User "Work"})
-           (tmp (new-unique-file~ dir "Get.tmp")))
-      (unwind-protect
-          (begin
-            (get-local tmp)
-            (load-lines~ tmp))
-        (delete-file~ tmp overwrite-read-only?: #t error?: #f))))
+    )
 
   
   ;;;
@@ -279,38 +152,4 @@
 
   
   (method public (get-path)
-    path)
-  
-  
-  (method public (get-absolute-path)
-    (append (get-base-project~ repository) path))
-
-
-  (method public (get-version)
-    version)
-
-
-  (method public (get-deleted?)
-    (if (= version 0) 
-        #t 
-      #f))
-  
-  
-  ;;;
-  ;;;; Compiler
-  ;;;
-  
-  
-  @convert-fold
-  (method (foldable?)
-    #t)
-
-
-  @convert-fold
-  (method (fold-object compiler)
-    (output~ compiler "make_object(")
-    (fold~ compiler (type-name (class-of self)))
-    (fold-more~ compiler (get-repository))
-    (fold-more~ compiler path)
-    (fold-more~ compiler version)
-    (output~ compiler ")"))))
+    path)))

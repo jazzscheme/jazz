@@ -388,7 +388,7 @@
     (let ((parent (either (selected-object) (get-workbench))))
       (when (or (is? parent Product-Group)
                 (is? parent Product))
-        (let ((default-directory (either (default-import-directory parent :must-exist? #f) {Directory User})))
+        (let ((default-directory (either (default-import-directory parent must-exist?: #f) {Directory User})))
           (when (or (exists?~ default-directory)
                     (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
             (create-directories~ default-directory)
@@ -435,7 +435,7 @@
                (workbench (get-workbench)))
           (if (not (subtype? class Product))
               (error "The file \"{a}\" does not contain a Product class" (get-name~ file))
-            (let ((product (new class :workbench workbench parent: parent)))
+            (let ((product (new class workbench: workbench parent: parent)))
               (add-child~ designer product parent)
               (reorder-component~ (get-tree) product)
               (user-message "{s} installed" (get-presentation~ product))
@@ -465,7 +465,7 @@
            (directory (with-import-directory default-directory? parent
                         (function (directory)
                           (choose-directory directory: directory))))
-           (count (count-files~ directory filter: (function (file) (import-filter? product file)) :max-count MaxFiles-Warning)))
+           (count (count-files~ directory filter: (function (file) (import-filter? product file)) max-count: MaxFiles-Warning)))
       (when (or count (eq? (message-box (format "The directory you are importing contains more than {a} files. Are you sure you want to import?" MaxFiles-Warning) type: 'question) 'yes))
         (when (validate-pathnames product (list directory))
           (let ((component (import-pathname product directory parent #f)))
@@ -522,7 +522,7 @@
   (method (import-file file parent descendant?)
     (let* ((model (extension-model (get-extension~ file)))
            (name (if (eq? model Jazz-File) (string->symbol (get-base~ file)) {}))
-           (product-file (new model name: name :source file))
+           (product-file (new model name: name source: file))
            (workbench (get-workbench)))
       (add-child~ designer product-file parent design-events?: (not descendant?) descendant?: descendant?)
       (set-property~ designer product-file 'source file design-events?: (not descendant?))
@@ -605,7 +605,7 @@
     @convert
     (let* ((object (selected-object))
            (product (ascendant-product object))
-           (directory (default-import-directory object :must-exist? #f)))
+           (directory (default-import-directory object must-exist?: #f)))
       (if (not (exists?~ directory))
           (error "Directory {s} not found" directory)
         (let ((fact (new List-Factory))
@@ -633,9 +633,9 @@
                                                 (fold left right path))))))
                                        (sort ci<? children key: component-name)
                                        (sort ci<? content key: pathname-name)
-                                       :left-key component-name
-                                       :right-key pathname-name
-                                       :case-insensitive? #t)))))
+                                       left-key: component-name
+                                       right-key: pathname-name
+                                       case-insensitive?: #t)))))
             (fold object directory '())
             (let ((out-of-synch (get-output~ fact)))
               (if (null? out-of-synch)
@@ -920,7 +920,7 @@
         (bell)
       (let ((log? #t @wait (get-selected?~ (locate 'log?)))
             (force-link? #f @wait (get-selected?~ (locate 'force-link?))))
-        (build~ project :log? log? :force-link? force-link?))))
+        (build~ project log?: log? force-link?: force-link?))))
     
   
   ;;;
@@ -991,7 +991,7 @@
           (file (log-file~ project)))
       (if (not file)
           (bell)
-        (edit-document~ appl file :wrap? #t))))
+        (edit-document~ appl file wrap?: #t))))
 
   
   ;;;
@@ -1209,7 +1209,7 @@
       (for-each (function (policy)
                   (let ((name (get-name~ policy))
                         (title (get-title~ policy)))
-                    (new Check-Item parent: self checked?: (eq? name Current-Policy) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list :policy name)))))
+                    (new Check-Item parent: self checked?: (eq? name Current-Policy) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list policy: name)))))
                 policies)))
   
   

@@ -1116,7 +1116,7 @@
 ;;;
 
 
-(define (jazz.cache-dispatch-interpreted object name setter)
+(define (jazz.cache-dispatch-interpreted object name setter ignore)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
@@ -1131,11 +1131,11 @@
                (proc jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))
           (dispatch
             (lambda (d p q)
-              (setter d p q)
-              (d object p q))))))))
+              (setter d p q category)
+              (d object p q category))))))))
 
 
-(define (jazz.cache-dispatch-compiled object name setter)
+(define (jazz.cache-dispatch-compiled object name setter ignore)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
       (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
@@ -1150,20 +1150,23 @@
                (proc 2 jazz.interface-dispatch (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))
           (dispatch
             (lambda (n d p q)
-              (setter n p q)
-              (d object p q))))))))
+              (setter n p q category)
+              (d object p q category))))))))
 
 
-(define (jazz.final-dispatch object field ignore)
-  (%%final-dispatch object (%%get-method-implementation field)))
+(define (jazz.final-dispatch object field ignore type)
+  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+    (%%final-dispatch object (%%get-method-implementation field))))
 
 
-(define (jazz.class-dispatch object class-level implementation-rank)
-  (%%class-dispatch object class-level implementation-rank))
+(define (jazz.class-dispatch object class-level implementation-rank type)
+  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+    (%%class-dispatch object class-level implementation-rank)))
 
 
-(define (jazz.interface-dispatch object interface-rank implementation-rank)
-  (%%interface-dispatch object interface-rank implementation-rank))
+(define (jazz.interface-dispatch object interface-rank implementation-rank type)
+  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+    (%%interface-dispatch object interface-rank implementation-rank)))
 
 
 (define (jazz.dispatch object name)
@@ -1243,22 +1246,25 @@
                           (%%get-code-type dispatch-code))))))
             (let ((dv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!d") (case (jazz.walk-for) ((compile) 'jazz.cache-dispatch-compiled) (else 'jazz.cache-dispatch-interpreted))))
                   (pv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!p") `',name))
-                  (qv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!q") #f)))
+                  (qv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!q") #f))
+                  (tv (jazz.register-variable declaration (%%string-append (%%symbol->string name) "!t") #f)))
               (let ((d (%%car dv))
                     (p (%%car pv))
-                    (q (%%car qv)))
-                (%%set-cdr! qv `(lambda (d p q)
+                    (q (%%car qv))
+                    (t (%%car tv)))
+                (%%set-cdr! qv `(lambda (d p q t)
                                   (set! ,d ,(case (jazz.walk-for)
                                               ((compile)
                                                `(%%vector-ref __dispatchers d))
                                               (else
                                                `d)))
                                   (set! ,p p)
-                                  (set! ,q q)))
+                                  (set! ,q q)
+                                  (set! ,t t)))
                 (jazz.new-code
                   (jazz.with-expression-value (%%get-code-form object-code)
                     (lambda (object)
-                      `((,d ,object ,p ,q) ,object ,@(jazz.codes-forms rest-codes))))
+                      `((,d ,object ,p ,q ,t) ,object ,@(jazz.codes-forms rest-codes))))
                   jazz.Any)))))))))
 
 

@@ -38,4 +38,17 @@
 (module core.library.runtime
 
 
-(require (core.library.runtime.autoload)))
+(require (core.library.runtime.autoload))
+
+
+;;;
+;;;; Error
+;;;
+
+
+(define (jazz.type-error value type)
+  (jazz.error "{s} expected: {s}" type value))
+
+
+(define (jazz.dispatch-error value type)
+  (jazz.error "Inconsistent dispatch: {s} is not of the expected {s} type" value type)))

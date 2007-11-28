@@ -552,12 +552,15 @@
            (jazz.queue-list queue))
        ,@(case (jazz.walk-for)
            ((compile)
-            `((define (__final-dispatch object field ignore)
-                (%%final-dispatch object (%%get-method-implementation field)))
-              (define (__class-dispatch object class-level implementation-rank)
-                (%%class-dispatch object class-level implementation-rank))
-              (define (__interface-dispatch object interface-rank implementation-rank)
-                (%%interface-dispatch object interface-rank implementation-rank))
+            `((define (__final-dispatch object field ignore type)
+                (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+                  (%%final-dispatch object (%%get-method-implementation field))))
+              (define (__class-dispatch object class-level implementation-rank type)
+                (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+                  (%%class-dispatch object class-level implementation-rank)))
+              (define (__interface-dispatch object interface-rank implementation-rank type)
+                (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+                  (%%interface-dispatch object interface-rank implementation-rank)))
               (define __dispatchers
                 (%%vector __final-dispatch __class-dispatch __interface-dispatch))))
            (else
@@ -1140,15 +1143,6 @@
                   (set! ,parameter (%%fixnum->flonum ,parameter))
                 ,(jazz.emit-check type parameter source-declaration environment))
            (jazz.emit-check type parameter source-declaration environment)))))))
-
-
-;;;
-;;;; Error
-;;;
-
-
-(define (jazz.type-error value type)
-  (jazz.error "{s} expected: {s}" type value))
 
 
 ;;;

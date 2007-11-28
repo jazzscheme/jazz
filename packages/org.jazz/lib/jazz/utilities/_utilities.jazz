@@ -399,7 +399,7 @@
   (proc)
   ;; to convert
   @unimp
-  (with-closed ((context (new Execution-Context title: title :details details reporter: reporter)))
+  (with-closed ((context (new Execution-Context title: title details: details reporter: reporter)))
     (proc)))
 
 
@@ -407,7 +407,7 @@
   (proc)
   ;; to convert
   @unimp
-  (with-closed ((node (new Execution-Node title: title :details details reporter: reporter)))
+  (with-closed ((node (new Execution-Node title: title details: details reporter: reporter)))
     (proc)))
 
 
@@ -791,7 +791,7 @@
                          (format printer "{a}: {a}" (keyword->symbol property) value))
       properties)
     (let ((message (get-output-string printer)))
-      (log-entry :tag tag name: name message: message :data data :log log))))
+      (log-entry tag: tag name: name message: message data: data log: log))))
 
 
 (definition public (new-log-node (tag: tag {}) (name: name {}) (message: message {}) (data: data {}) (log: log (current-log)))
@@ -809,10 +809,10 @@
   (with-node
     (function (node)
       (let ((result))
-        (log-profile name: 'before :log log)
+        (log-profile name: 'before log: log)
         ;; this is ugly but necessary not to change stack depth
         (set! result (proc node))
-        (log-profile name: 'after :log log)
+        (log-profile name: 'after log: log)
         result))
     :node (either node (new-entry~ log tag name message data))))
 
@@ -821,14 +821,14 @@
   (unimplemented 'log-profile)
   @Profiling-later (
   (gc)
-  (log-node (resources-snapshot~ Performance name: name) :log log)))
+  (log-node (resources-snapshot~ Performance name: name) log: log)))
 
 
 (definition public (log-stack (tag: tag {}) (name: name {}) (message: message {}) (log: log (current-log)))
   (unimplemented 'log-stack)
   @later
   (let ((data (new Stack-Snapshot)))
-    (log-entry :tag tag name: name message: message :data data :log log)))
+    (log-entry tag: tag name: name message: message data: data log: log)))
 
 
 (definition public (profiles->jml profiles)
@@ -1103,7 +1103,7 @@
   @convert-message-box?
   (call-with-catch Error
         (function (err)
-          (dump-stack :exception err)
+          (dump-stack exception: err)
           (let ((invite (format "The following error occured while {a}:" title))
                 (message (present-message~ err :active-content? #f))
                 (message-box? (message-box?)))
@@ -1184,24 +1184,6 @@
     (while (not (predicate))
       (process-one-message~ process window)
       (sleep 0))))
-
-
-;;;
-;;;; Critical Sections
-;;;
-
-
-(definition public (monitor section proc)
-  (unimplemented 'monitor)
-  @unwind-protect
-  (let ((entered? #f))
-    (unwind-protect
-        (begin
-          (enter~ section)
-          (set! entered? #t)
-          (proc))
-      (when entered?
-        (leave~ section)))))
 
 
 ;;;
@@ -1918,44 +1900,6 @@
 
 
 ;;;
-;;;; WinHelp
-;;;
-
-
-(definition public (winhelp winhelp-file entry)
-  (unimplemented 'winhelp)
-  @threads
-  (WinHelp (get-toplevel-hwnd) (parse~ winhelp-file) HELP_KEY entry))
-
-
-;;;
-;;;; Document
-;;;
-
-
-(definition public (file-document file)
-  (unimplemented 'file-document)
-  @get-application
-  (let* ((appl (get-application))
-         (frame (find-document~ appl file)))
-    (when frame
-      (get-guest~ frame))))
-
-
-;;;
-;;;; Resource
-;;;
-
-
-(definition public (int-resource resource)
-  (unimplemented 'int-resource)
-  @make-int-resource
-  (if (integer? resource)
-      (make-int-resource resource)
-    (get-name~ resource)))
-
-
-;;;
 ;;;; Message
 ;;;
 
@@ -2161,48 +2105,4 @@
   (let ((process (get-process)))
     (if (not process)
         (apply system-message text rest)
-      (show-box~ process text rest))))
-
-
-;;;
-;;;; Message Receive
-;;;
-
-;; This seems almost platform independent. Needs to adapt to gambit.
-
-;; This definition relies on the fact that the conservative garbage collector will find
-;; the address of the result somewhere on the stack or in a register thus protecting it
-(definition public (receive-primary proc)
-  (proc)
-  @JZ-RECEIVE-NULL
-  (if (primary-thread?)
-      (proc)
-    (address-object-unsafe (send-message~ Messenger JZ_RECEIVE (object-address proc) NULL))))
-
-
-(definition public (receive-primary-with-error proc)
-  (values (proc) {} {})
-  @print-stack
-  ;; a quick solution to get accurate debug info back to the calling thread
-  (receive (result err stack)
-      (receive-primary
-        (function ()
-          (let ((result)
-                (error {})
-                (stack {}))
-            (call-with-catch Error
-                  (function (err)
-                    (set! error err)
-                    (set! stack (print-stack :string)))
-                (function (err)
-                  (values {} error stack))
-              (function ()
-                (values (proc) {} {}))))))
-    (if (not err)
-        result
-      ;; a quick patch of putting everything in the error message
-      (let ((printer (open-output-string)))
-        (format printer "{a}{%}{%}{a}"
-          (get-message~ err)
-          stack)
-        (error "{a}" (get-output-string printer)))))))
+      (show-box~ process text rest)))))

@@ -271,7 +271,7 @@
           (when temp-table-created
             (undo-create-table table-current-name)))
         (when (not new-table?)
-          (set-property~ table :recreate-table? #t)
+          (set-property~ table recreate-table?: #t)
           (when identity-column?
             (execute-sql-commit-preserve (generate-sql-identity-end table-name)))))
       (process-primary-key table #t)
@@ -352,18 +352,18 @@
 
   (method (process-copy-data object new-table old-table)
     (let* ((new-columns (sort < (collect-if (function (column)
-                                              (not-null? (object-new-property column :ordinal-position)))
+                                              (not-null? (object-new-property column ordinal-position:)))
                                             (get-columns~ object))
                               key: (function (column)
-                                     (object-new-property column :ordinal-position))))
+                                     (object-new-property column ordinal-position:))))
            (new-names (map (function (column)
                              (encapsulate-name (get-name~ column)))
                            new-columns))
            (new-values (map (function (column)
-                              (let* ((new-column? (null? (object-old-property column :ordinal-position)))
+                              (let* ((new-column? (null? (object-old-property column ordinal-position:)))
                                      (nullable? (object-new-property column nullable?:))
-                                     (datatype (object-new-property column :datatype))
-                                     (default-value (get-native-with-value~ datatype (object-new-property column :default-value) :indirect? #t))
+                                     (datatype (object-new-property column datatype:))
+                                     (default-value (get-native-with-value~ datatype (object-new-property column default-value:) indirect?: #t))
                                      (read-only? (= default-value 'read-only)))
                                 (cond (read-only?
                                        "{}")
@@ -371,7 +371,7 @@
                                        (if nullable? "{}" default-value))
                                       (else
                                        (let ((safe-name (encapsulate-name (get-name~ column)))
-                                             (must-convert? (eq? (action-for-property column :datatype) 'modify))
+                                             (must-convert? (eq? (action-for-property column datatype:) 'modify))
                                              (need-default? (and (not nullable?)
                                                                  (eq? (action-for-property column nullable?:) 'modify))))
                                          (cond ((and must-convert? need-default?)
@@ -797,7 +797,7 @@
                       (when (or (= foreign-table table-name)
                                 (= primary-table table-name))
                         (drop-relation relation)
-                        (set-property~ relation :recreate-table? #t)))))
+                        (set-property~ relation recreate-table?: #t)))))
                 (get-relations~ (get-parent~ table)))))
     
   

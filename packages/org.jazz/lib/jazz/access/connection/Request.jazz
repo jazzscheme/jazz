@@ -59,28 +59,28 @@
   
   
   (method public (load-request request (table: table {}) (name: name {}) (max-load: max-load #t) (data-class: data-class {}))
-    (with-closed ((recordset (new-recordset request :max-load max-load)))
+    (with-closed ((recordset (new-recordset request max-load: max-load)))
       (unless (= (get-state~ recordset) 'closed)
-        (let ((table (either table (new Data-Table :request request))))
+        (let ((table (either table (new Data-Table request: request))))
           (when name
             (set-name~ table name))
-          (load-table~ recordset table :max-load max-load :data-class data-class)
+          (load-table~ recordset table max-load: max-load data-class: data-class)
           table))))
   
   
   (method public (load-multirequest request (max-load: max-load #t) (data-classes: data-classes '()))
     (if (not (supports-multirequests?~ connection))
-        (list (load-request request :max-load max-load))
-      (with-closed ((recordset (new-recordset request :max-load max-load)))
+        (list (load-request request max-load: max-load))
+      (with-closed ((recordset (new-recordset request max-load: max-load)))
         (let ((tables (new List-Factory)))
           ;; this double test is a bit strange but it will do for now!
           (while (and (opened?~ recordset) (= (get-state~ recordset) 'open))
-            (let ((table (new Data-Table :request request)))
+            (let ((table (new Data-Table request: request)))
               (if (null? data-classes)
-                  (load-table~ recordset table :max-load max-load)
+                  (load-table~ recordset table max-load: max-load)
                 (let ((data-class (car data-classes)))
                   (set! data-classes (cdr data-classes))
-                  (load-table~ recordset table :max-load max-load :data-class data-class)))
+                  (load-table~ recordset table max-load: max-load data-class: data-class)))
               (put~ tables table))
             (next-recordset!~ recordset))
           (get-output~ tables)))))
@@ -89,7 +89,7 @@
   (method public (load-rows request table (max-load: max-load #t))
     (with-closed ((recordset (new-recordset)))
       (let ((columns (get-columns~ recordset)))
-        (receive (rows missing?) (get-rows~ recordset table :max-load max-load)
+        (receive (rows missing?) (get-rows~ recordset table max-load: max-load)
           (values columns rows missing?)))))
   
   

@@ -176,7 +176,10 @@
 
     
     (define (jazz.path-bin-dir path)
-      (%%string-append jazz.bin-package (jazz.filename-dir (jazz.path-name path))))
+      (let ((dir (jazz.filename-dir (jazz.path-name path))))
+        (if (not dir)
+            jazz.bin-package
+          (%%string-append jazz.bin-package dir))))
 
     
     (define (jazz.path-find-binary path)

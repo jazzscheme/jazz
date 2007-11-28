@@ -81,7 +81,9 @@
 
 (define (la)
   (li)
-  (l 'jazz.platform.literals))
+  (l 'jazz.platform)
+  (l 'jazz.platform.literals)
+  (jazz.platform.initialize-aliases))
 
 
 (define (lt)

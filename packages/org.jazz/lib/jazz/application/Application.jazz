@@ -1729,7 +1729,7 @@
       (receive (resolved? in-context? toplevel-closure object) (resolve-location~ Interpreter declarations)
         (when (and object (definition? object))
           (let ((value (definition-value object)))
-            (when (closure? value)
+            (when (procedure? value)
               (let ((location (object-location~ Interpreter problem (closure-function~ Interpreter value))))
                 (when location
                   (find-location~ (new Jazz-Code-Location location))))))))))
@@ -1890,16 +1890,20 @@
   (method public (on-find-forward evt)
     (let ((search (active-search)))
       (if (not search)
-          (unless (select-next~ (get-text-view~ (get-guest~ (first-child~ stage))) (get-find-targets))
-            (bell))
+          (let ((text (get-text-view~ (get-guest~ (first-child~ stage)))))
+            (let ((targets (get-find-targets (get-constituent-test~ (get-syntax~ text)))))
+              (unless (select-next~ text targets)
+                (bell))))
         (on-find-forward~ search evt))))
 
 
   (method public (on-find-backward evt)
     (let ((search (active-search)))
       (if (not search)
-          (unless (select-previous~ (get-text-view~ (get-guest~ (first-child~ stage))) (get-find-targets))
-            (bell))
+          (let ((text (get-text-view~ (get-guest~ (first-child~ stage)))))
+            (let ((targets (get-find-targets (get-constituent-test~ (get-syntax~ text)))))
+              (unless (select-previous~ text targets)
+                (bell))))
         (on-find-backward~ search evt))))
 
 
@@ -1968,12 +1972,23 @@
         (set-search-targets~ search targets))))
 
 
-  (method public (get-find-targets)
-    (map first (get-search-targets)))
+  (method public (get-find-targets (constituent-test {}))
+    (let ((search (active-search)))
+      (if (not search)
+          (map (function (target)
+                 (make-search-context (first target)
+                   whole-words?: (get-whole-words?)
+                   ignore-case?: (get-ignore-case?)
+                   constituent-test: constituent-test))
+               (get-search-targets))
+        (get-find-targets~ search constituent-test))))
 
 
   (method public (get-replace-targets)
-    (map second (get-search-targets)))
+    (let ((search (active-search)))
+      (if (not search)
+          (map second (get-search-targets))
+        (get-replace-targets~ search))))
 
   
   (method public (get-whole-words?)
@@ -2115,10 +2130,6 @@
       (if (not (exists?~ moniker))
           (error "Unable to locate document: {t}" moniker)
         (let ((file moniker))
-          @ejb-to-convert
-          (when (is? moniker Zipped)
-            (set! file (get-file~ moniker))
-            (set! selection (cons (get-entry~ moniker) selection)))
           (let* ((frame (if force-new? {} (find-document file)))
                  (result (function (frame new?) (if return-new? (values frame new?) frame))))
             (if (not frame)

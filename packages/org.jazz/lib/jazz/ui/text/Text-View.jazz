@@ -2272,7 +2272,7 @@
                       (let ((children (map (function (column)
                                              (new Formatted-Text-View))
                                            columns)))
-                        (add-row~ tree :row-height row-height children: children)))
+                        (add-row~ tree row-height: row-height children: children)))
                     (naturals 0 row-count))))))
   
   
@@ -3465,11 +3465,12 @@
   
   (method public virtual (get-chapters) <list>
     (let* ((headers (get-headers))
-           (occurrences (multisearch-occurrences headers))
+           (occurrences (text-multisearch-all (map make-search-context headers)))
            (chapters (new List-Factory)))
       (for-each (function (info)
-                  (bind (pos . header) info
-                    (let ((row (get-row~ pos))
+                  (bind (context . pos) info
+                    (let ((header (get-target~ context))
+                          (row (get-row~ pos))
                           (col (get-col~ pos)))
                       (when (= col (get-column row))
                         (let ((string (paragraph-string row)))
@@ -3600,7 +3601,7 @@
           (col (get-col~ pos))
           (offset 0))
       (loop (for n from 0 below row)
-            (increase! offset (+ (paragraph-length n) 2)))
+            (increase! offset (+ (paragraph-length n) 1)))
       (+ offset col)))
   
   
@@ -3610,7 +3611,7 @@
         (function (return)
           (for-each-paragraph
             (function (rank <fx> paragraph <Paragraph>)
-              (let ((next (+ scan (cardinality (get-string~ paragraph)) 2)))
+              (let ((next (+ scan (cardinality (get-string~ paragraph)) 1)))
                 (if (> next offset)
                     (return (new Cell rank (- offset scan)))
                   (set! scan next)))))))))
@@ -3861,138 +3862,126 @@
   
   
   ;;;
+  ;;;; Find
+  ;;;
+  
+  
+  (method (find-context)
+    (let ((string (either (get-selected-string) (current-expr-string))))
+      (if (not string)
+          #f
+        (let ((appl (get-application)))
+          (make-search-context string
+            whole-words?: (get-whole-words?~ appl)
+            ignore-case?: (get-ignore-case?~ appl)
+            constituent-test: (get-constituent-test~ syntax))))))
+  
+  
+  (method public (on-find-next evt)
+    (let ((context (find-context)))
+      (unless (and context (select-next (list context)))
+        (bell))))
+  
+  
+  (method public (on-find-previous evt)
+    (let ((context (find-context)))
+      (unless (and context (select-previous (list context)))
+        (bell))))
+  
+  
+  (method public virtual (select-next contexts . rest)
+    (let ((found (text-multisearch contexts start: (get-end) reverse?: #f)))
+      (when found
+        (bind (context . pos) found
+          (let ((target (get-target~ context)))
+            (set-selection (new Range$Cell$ pos (offset-position (+ (position-offset pos) (cardinality target)))))
+            (ensure-displayed)
+            (ensure-scrolled-left)
+            #t)))))
+  
+  
+  (method public virtual (select-previous contexts . rest)
+    (let ((found (text-multisearch contexts start: (get-start) reverse?: #t)))
+      (when found
+        (bind (context . pos) found
+          (let ((target (get-target~ context)))
+            (set-selection (new Range$Cell$ pos (offset-position (+ (position-offset pos) (cardinality target)))))
+            (ensure-displayed)
+            (ensure-scrolled-left)
+            #t)))))
+  
+  
+  (method public virtual (select-expr contexts)
+    (set-caret (text-beginning))
+    (select-next contexts))
+  
+  
+  (method public virtual (select-expr-backward contexts)
+    (set-caret (text-ending))
+    (select-previous contexts))
+  
+  
+  ;;;
   ;;;; Search
   ;;;
   
   
-  (method public (on-find-next evt)
-    (let ((string (either (get-selected-string) (current-expr-string))))
-      (if (not string)
-          (bell)
-        @this-is-damn-annoying-to-lose-ur-current-search-text
-        (enter-search-text string)
-        (unless (select-next (list string))
-          (bell)))))
-  
-  
-  (method public (on-find-previous evt)
-    (let ((string (either (get-selected-string) (current-expr-string))))
-      (if (not string)
-          (bell)
-        @this-is-damn-annoying-to-lose-ur-current-search-text
-        (enter-search-text string)
-        (unless (select-previous (list string))
-          (bell)))))
-  
-  
-  (method (enter-search-text string)
-    (let* ((appl (get-application))
-           (palette (get-search-manager~ appl))
-           (manager (get-guest~ palette)))
-      (set-selection-name~ (locate~ manager 'tab) 'text)
-      (set-search-targets~ (get-search~ manager) (list (list string "")))))
-  
-  
-  (method public virtual (select-next strings . rest)
-    (let ((found (multisearch-content strings start: (get-end) reverse?: #f constituent-test: (get-constituent-test~ syntax))))
-      (when found
-        (set-selection found)
-        @not-so-sure
-        (set-completion found)
-        (ensure-displayed)
-        (ensure-scrolled-left)
-        #t)))
-  
-  
-  (method public virtual (select-previous strings . rest)
-    (let ((found (multisearch-content strings start: (get-start) reverse?: #t constituent-test: (get-constituent-test~ syntax))))
-      (when found
-        (set-selection found)
-        @not-so-sure
-        (set-completion found)
-        (ensure-displayed)
-        (ensure-scrolled-left)
-        #t)))
-  
-  
-  (method public virtual (select-expr targets)
-    (set-caret (text-beginning))
-    (select-next targets))
-  
-  
-  (method public virtual (select-expr-backward targets)
-    (set-caret (text-ending))
-    (select-previous targets))
-  
-  
-  (method public (search-string target (start: start {}) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
-    (unimplemented 'search-string)
-    @convert
-    (let* ((pos (either position (if reverse? (text-ending) (text-beginning))))
-           (found (JzTextSearch (get-paragraphs) (get-limit) target (get-row~ pos) (get-col~ pos) reverse? whole-words? ignore-case? self constituent-test)))
-      (when found
-        (new Cell (car found) (cdr found)))))
+  (method public (text-multisearch contexts (start: start {}) (end: end (get-limit)) (reverse?: reverse? #f))
+    ;; Quick solution to multi-line string search
+    (if (some? (function (context)
+                 (search (get-target~ context) (cn)))
+               contexts)
+        (let ((content (get-string-content)))
+          (let ((found (multisearch content contexts start: (position-offset start) reverse?: reverse?)))
+            (when found
+              (bind (context . offset) found
+                (cons context (offset-position offset))))))
+      (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
+            (limit (get-limit)))
+        (let ((row (get-row~ pos))
+              (col (get-col~ pos)))
+          (let (iter (n row) (start col))
+            (if (if reverse? (>= n 0) (<= n limit))
+                (let ((string (paragraph-string n)))
+                  (let ((found (multisearch string contexts start: start reverse?: reverse?)))
+                    (if found
+                        (bind (context . pos) found
+                          (cons context (new Cell n pos)))
+                      (iter (if reverse? (- n 1) (+ n 1)) {}))))
+              #f))))))
 
   
-  (method public (multisearch-string targets (start: start {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
-    (let ((pos (either start (if reverse? (text-ending) (text-beginning))))
-          (limit (get-limit)))
-      (let ((row (get-row~ pos))
-            (col (get-col~ pos)))
-        (let (iterate (n row) (start col))
-          (if (if reverse? (>= n 0) (<= n limit))
-              (let ((string (paragraph-string n)))
-                (let ((found (multisearch string targets start: start reverse?: reverse? extended?: extended? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
-                  (if found
-                      (bind (pos . target) found
-                        (cons (new Cell n pos) target))
-                    (iterate (if reverse? (- n 1) (+ n 1)) {}))))
-            #f)))))
-  
-  
-  (method (multisearch-content strings (start: start {}) (end: end (get-limit)) (extended?: extended? #f) (reverse?: reverse? #f) (whole-words?: whole-words? (get-whole-words?~ (get-application))) (ignore-case?: ignore-case? (get-ignore-case?~ (get-application))) (expression?: expression? (get-expression?~ (get-application))) (constituent-test: constituent-test (get-constituent-test~ syntax)))
-    (cond (expression?
-            (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
-                   (moniker (get-moniker))
-                   (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
-                   (found (search-expressions~ expl mode strings position whole-words? ignore-case?)))
-              (when found
-                (car found))))
-          ;; Quick solution to the fact that the generic multisearch doesn't yet support multiline strings
-          ((some? (function (string)
-                    (search string (cn)))
-                  strings)
-           (let ((content (get-string-content)))
-             (let ((found (multisearch content strings start: (position-offset position) reverse?: reverse? whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))
-               (when found
-                 (bind (offset . string) found
-                   (new Range$Cell$ (offset-position offset) (offset-position (+ offset (cast <fx> (cardinality string))))))))))
-          (else
-           (let ((found (multisearch-string strings start: start reverse?: reverse? constituent-test: constituent-test)))
-             (when found
-               (bind (cell . string) found
-                 (new Range$Cell$ cell (new Cell (get-row~ cell) (+ (get-col~ cell) (cast <fx> (cardinality string)))))))))))
-
-  
-  (method public (search-occurrences string <string> (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))
+  (method public (text-multisearch-all contexts)
     (let ((queue (new-queue)))
       (for-each-paragraph
         (function (row <fx> paragraph <Paragraph>)
           (let ((line (get-string~ paragraph)))
-            (for-each (function (col)
-                        (enqueue queue (new Cell row col)))
-                      (search line string all?: #t whole-words?: whole-words? ignore-case?: ignore-case? constituent-test: constituent-test)))))
+            (for-each (function (found)
+                        (bind (context . pos) found
+                          (enqueue queue (cons context (new Cell row pos)))))
+                      (multisearch-all line contexts)))))
       (queue-list queue)))
   
   
-  (method public (multisearch-occurrences targets (whole-words?: whole-words? #f) (ignore-case?: ignore-case? #f) (constituent-test: constituent-test (get-constituent-test~ syntax)))
-    '()
-    @convert-optimized
-    (map (function (info)
-           (bind ((row . col) . target) info
-             (cons (new Cell row col) target)))
-         (JzTextMultiSearchOccurrences (get-paragraphs) (get-limit) targets #f whole-words? ignore-case? self constituent-test)))
+  (method public (text-search string)
+    (let ((found (text-multisearch (list (make-search-context string)))))
+      (if found
+          (cdr found)
+        #f)))
   
+  
+  (method public (text-search-all string)
+    (map cdr (text-multisearch-all (list (make-search-context string)))))
+
+  
+  (method public (text-expression-search string (start: start {}) (end: end (get-limit)) (reverse?: reverse? #f))
+    (let* ((expl (new Jazz-Explorer self start: (text-beginning) end: (text-beginning)))
+           (moniker (get-moniker))
+           (mode (if (or (not moniker) (ci=? (get-extension~ moniker) "jazz")) 'code 'quotation))
+           (found (search-expressions~ expl mode string position #f #f)))
+      (when found
+        (car found))))
+
   
   ;;;
   ;;;; Designer
@@ -4004,10 +3993,12 @@
     {Bitmap-Resource "Style"})
   
   
+  @convert-designer
   (method (component-surrogate)
     Text-Surrogate)
   
   
+  @convert-designer
   (method (save-component-properties designer)
     (when (get-modified?)
       (set-property~ designer self 'text-content (get-content) design-events?: #f)
@@ -4028,6 +4019,7 @@
       (else (nextmethod property))))
   
   
+  @convert-designer
   (method (get-row-instance property)
     (case (field-name property)
       ((selection) (new Selection-Row))
@@ -4036,6 +4028,7 @@
       (else (nextmethod property))))
   
   
+  @convert-designer
   (method (get-categorized-properties)
     '(class-info name-info
       wrap? accepts-returns? focus-selects-all?
@@ -4048,6 +4041,7 @@
 ;;;
 
 
+@convert-designer
 (class Selection-Row extends Range-Row
   
   

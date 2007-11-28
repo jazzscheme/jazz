@@ -89,7 +89,6 @@
        @convert
        (new Thread
          name: "Search"
-         information: targets
          context: self
          execute: (function (thread)
                     (search-threaded targets))))))
@@ -112,6 +111,12 @@
     (case (get-search-domain)
       ((jazz-files)     (search-jazz-files     targets reporter))
       ((cpp/java-files) (search-cpp/java-files targets reporter))))
+  
+  
+  (method (get-constituent-test)
+    (case (get-search-domain)
+      ((jazz-files)     jazz-constituent?)
+      ((cpp/java-files) cpp/java-constituent?)))
 
 
   ;;;
@@ -141,28 +146,31 @@
   
   (method (count-jazz-files)
     (unless Jazz-Count
-      (set! Jazz-Count (count-jazz-directory (jazz-search-directory))))
+      (set! Jazz-Count (count-jazz-directories (jazz-search-directories))))
     Jazz-Count)
   
   
-  (method (count-jazz-directory directory)
+  (method (count-jazz-directories directories)
     (let ((count 0))
-      (iterate-directory~ directory
-        (function (file)
-          (when (member? (get-extension~ file) '("jazz") test: ci=?)
-            (increase! count)))
-        ignored-directories: '("Debug" "Release" "Work"))
+      (for-each (function (directory)
+                  (iterate-directory~ directory
+                    (function (file)
+                      (when (member? (get-extension~ file) '("jazz") test: ci=?)
+                        (increase! count)))
+                    ignored-directories: '("Debug" "Release" "Work")))
+                directories)
       count))
   
   
-  (method (jazz-search-directory)
-    (cond @wait
-          ((is-alias? 'Jazz-Branch)
-           {Directory Jazz-Branch})
-          ((is-alias? 'Jazz)
-           {Directory Jazz})
-          (else
-           {Directory Launch})))
+  (method (jazz-search-directories)
+    (list (cond @wait
+                ((is-alias? 'Jazz-Branch)
+                 {Directory Jazz-Branch})
+                ((is-alias? 'Dev-Jazz)
+                 {Directory Dev-Jazz})
+                (else
+                 {Directory Launch}))
+          {Directory Home "jazz"}))
   
   
   (definition Cpp/Java-Count
@@ -210,19 +218,13 @@
   
   
   (method (search-jazz-files targets reporter)
-    (let ((factory (new List-Factory))
-          (whole-words? (get-whole-words?))
-          (ignore-case? (get-ignore-case?))
-          (expression? (get-expression?)))
-      (search-in-directories targets (list (jazz-search-directory)) '("jazz" "jml") whole-words? ignore-case? expression? jazz-constituent? factory reporter)
+    (let ((factory (new List-Factory)))
+      (search-in-directories targets (jazz-search-directories) '("scm" "jazz" "jml") (get-expression?) factory reporter)
       (get-output~ factory)))
   
   
   (method (search-cpp/java-files targets reporter)
     (let ((factory (new List-Factory))
-          (whole-words? (get-whole-words?~ (get-application)))
-          (ignore-case? (get-ignore-case?~ (get-application)))
-          (expression? (get-expression?~ (get-application)))
           (directories (get-cpp/java-directories~ (get-preferences '(tools search-manager)))))
-      (search-in-directories targets directories '("c" "cpp" "h" "java") whole-words? ignore-case? expression? cpp/java-constituent? factory reporter)
+      (search-in-directories targets directories '("c" "cpp" "h" "java") (get-expression?) factory reporter)
       (get-output~ factory)))))

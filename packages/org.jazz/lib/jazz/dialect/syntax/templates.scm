@@ -52,6 +52,11 @@
            (iterate (+ n 1)))))))
 
 
+(syntax (instantiate-butlast T)
+  `(specialize (butlast seq ,T) ,T
+     (subseq seq 0 (- (cardinality seq) 1))))
+
+
 ;; #f should be {} when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
 (syntax (instantiate-find name T)
@@ -90,9 +95,115 @@
              #f))))))
 
 
-(syntax (instantiate-butlast T)
-  `(specialize (butlast seq ,T) ,T
-     (subseq seq 0 (- (cardinality seq) 1))))
+#; ;; wait
+(syntax (instantiate-search name T)
+  `(begin
+     (definition (multisearch-impl seq <Sequence> contexts <list> start <fx+> reverse? <bool>)
+       (let ((len (cardinality seq)))
+         (let ((pos (either start (if reverse? len 0))))
+           (let (iter (scan contexts))
+             (if (null? scan)
+                 #f
+               (let ((context (car scan)))
+                 (let ((target (get-target~ context))
+                       (whole-words? (get-whole-words?~ context))
+                       (ignore-case? (get-ignore-case?~ context))
+                       (constituent-test (get-constituent-test~ context)))
+                   (let ((test (if ignore-case? char-ci=? char=?))
+                         (size (cardinality target)))
+                     
+                     (define (match-case? pos <fx>) <bool>
+                       (let ((to (- size 1)))
+                         (let (iter (i <fx> pos) (j <fx> 0))
+                           (cond ((>= i len)
+                                  #f)
+                                 ((not (test (element seq i) (element target j)))
+                                  #f)
+                                 ((>= j to)
+                                  #t)
+                                 (else
+                                  (iter (+ i 1) (+ j 1)))))))
+                     
+                     (define (match? pos <fx>) <bool>
+                       (and (>= pos 0)
+                            (match-case? pos)
+                            (or (not whole-words?)
+                                (let ((before (- pos 1))
+                                      (after (+ pos size)))
+                                  (if (and (>= before 0)
+                                           (constituent-test (element seq before)))
+                                      #f
+                                    (if (< after len)
+                                        (let ((c (element seq after)))
+                                          ;; This explicit test for ~ is a kind of patch for the new ~ syntax
+                                          (or (eqv? c #\~)
+                                              (not (constituent-test (element seq after)))))
+                                      #t))))))
+                     
+                     (define (find-backward) <fx+>
+                       (let (iter (pos <fx> pos))
+                         (cond ((match? (- pos size))
+                                (- pos size))
+                               ((<= pos 0)
+                                {})
+                               (else
+                                (iter (- pos 1))))))
+                     
+                     (define (find-forward) <fx+>
+                       (let ((last (- len size)))
+                         (let (iter (pos <fx> pos))
+                           (cond ((match? pos)
+                                  pos)
+                                 ((>= pos last)
+                                  {})
+                                 (else
+                                  (iter (+ pos 1)))))))
+                     
+                     (let ((found ((if reverse? find-backward find-forward))))
+                       (if found
+                           (cons context found)
+                         (iter (cdr scan))))))))))))
+     
+     (definition public (multisearch seq <Sequence> contexts <list>
+                          (start: start {})
+                          (reverse?: reverse? #f))
+       (multisearch-impl seq contexts start reverse?))
+     
+     (definition public (multisearch-all seq <Sequence> contexts <list>
+                          (start: start {})
+                          (reverse?: reverse? #f))
+       (let ((len (cardinality seq))
+             (queue (new-queue)))
+         (let (iter (pos <fx> (either start (if reverse? len 0))))
+           (let ((found (multisearch-impl seq contexts pos reverse?)))
+             (if found
+                 (begin
+                   (enqueue queue found)
+                   (iter (if reverse?
+                             (cdr found)
+                           (+ (cdr found) (cardinality (get-target~ (car found)))))))
+               (queue-list queue))))))
+     
+     (definition public (search seq <Sequence> target <Object>
+                          (start: start {})
+                          (reverse?: reverse? #f)
+                          (whole-words?: whole-words? #f)
+                          (ignore-case?: ignore-case? #f)
+                          (constituent-test: constituent-test word-constituent?)) <int+>
+       (let ((result (multisearch-impl seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f)) start reverse?)))
+         (if result
+             (cdr result)
+           #f)))
+     
+     (definition public (search-all seq <Sequence> target <Object>
+                          (start: start {})
+                          (reverse?: reverse? #f)
+                          (whole-words?: whole-words? #f)
+                          (ignore-case?: ignore-case? #f)
+                          (constituent-test: constituent-test word-constituent?)) <list>
+       (map cdr (multisearch-all seq (list (construct-search-context target whole-words? ignore-case? constituent-test #f))
+                  start: start
+                  reverse?: reverse?)))))
 
 
 (syntax (instantiate-starts-with? T)

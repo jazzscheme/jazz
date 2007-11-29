@@ -63,7 +63,7 @@
 
 
 (jazz.define-macro (%%specific-dispatch generic dynamic-classes)
-  `(%%get-specific-implementation (jazz.dispatch-from-root (%%car dynamic-classes) ,generic)))
+  `(%%get-specific-implementation (jazz.dispatch-from-root ,generic ,dynamic-classes)))
 
 
 (jazz.encapsulate-class jazz.Generic))

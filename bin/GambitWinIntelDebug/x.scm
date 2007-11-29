@@ -47,8 +47,4 @@
   (jazz.define-specific
    (test.baz (test.Y x) (test.U u) #!rest rest)
    (apply list rest))
-  (jazz.debug (test.foo (jazz.new0 test.X) #f 1 2))
-  (jazz.debug (test.foo (jazz.new0 test.Y) #f 1 2))
-  (jazz.debug (test.baz (jazz.new0 test.X) #f 1 2))
-  (jazz.debug (test.baz (jazz.new0 test.Y) #f 1 2))
   (jazz.module-loaded 'test))

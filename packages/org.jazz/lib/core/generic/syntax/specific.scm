@@ -35,26 +35,28 @@
 ;;;
 ;;;  See www.jazzscheme.org for details.
 
+;; dynamic-signature - classes of the dynamic parameters
+;; implementation - lambda to call
+;; best-ancestor - nextmethod specific
+;; ancestor-specifics - nextmethod specific + other direct ancestors
+;; descendant-specifics - reverse relation
+
 
 (module core.generic.syntax.specific
 
 
 (jazz.define-class-syntax jazz.Specific jazz.Object () jazz.Object-Class jazz.allocate-specific
-  ((mandatory-parameters %%get-specific-mandatory-parameters ())
-   (signature            %%get-specific-signature            %%set-specific-signature)
+  ((dynamic-signature    %%get-specific-dynamic-signature    %%set-specific-dynamic-signature)
    (implementation       %%get-specific-implementation       %%set-specific-implementation)
-   (next-implementation  %%get-specific-next-implementation  %%set-specific-next-implementation)
-   (next-specific        %%get-specific-next-specific        %%set-specific-next-specific)
-   (previous-specifics   %%get-specific-previous-specifics   %%set-specific-previous-specifics)))
+   (ancestor-specifics   %%get-specific-ancestor-specifics   %%set-specific-ancestor-specifics)
+   (descendant-specifics %%get-specific-descendant-specifics %%set-specific-descendant-specifics)))
 
 
 (jazz.define-class jazz.Specific jazz.Object () jazz.Object-Class
-  (mandatory-parameters
-   signature
+  (dynamic-signature
    implementation
-   next-implementation
-   next-specific
-   previous-specifics))
+   ancestor-specifics
+   descendant-specifics))
 
 
 (jazz.define-macro (jazz.define-specific . rest)

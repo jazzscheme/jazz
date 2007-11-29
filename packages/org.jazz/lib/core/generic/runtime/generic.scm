@@ -39,10 +39,29 @@
 (module core.generic.runtime.generic
 
 
-(define (jazz.new-generic locator signature-proc)
-  (let ((name (jazz.identifier-name locator)))
-    (let ((root-specific (jazz.new-specific #f signature-proc (lambda rest (jazz.error "No specific method to call {a} on {s}" name rest)))))
-      (jazz.allocate-generic jazz.Generic locator name root-specific '()))))
+(define (jazz.new-generic locator signature-proc root-proc)
+  (let* ((name (jazz.identifier-name locator))
+         (generic (jazz.allocate-generic jazz.Generic locator name #f '()))
+         (root-specific (jazz.new-specific signature-proc (or root-proc (lambda rest (apply jazz.invalid-generic-call generic rest))))))
+    (%%set-generic-root-specific generic root-specific)
+    generic))
+
+
+(define (jazz.invalid-generic-call generic . rest)
+  (let ((dynamic-parameters (let iter ((signature (%%get-specific-dynamic-signature (%%get-generic-root-specific generic)))
+                                       (rest rest))
+                                 (if (and (%%pair? signature) (%%pair? rest))
+                                     (%%cons (%%class-of (%%car rest))
+                                             (iter (%%cdr signature) (%%cdr rest)))
+                                   '()))))
+    (jazz.generic-error generic dynamic-parameters)))
+
+
+(define (jazz.generic-error generic signature)
+  (let ((name (%%get-generic-name generic))
+        (root-signature (%%get-specific-dynamic-signature (%%get-generic-root-specific generic))))
+    (jazz.error "Generic {a} cannot take {a}" (%%cons name root-signature) signature)))
+
 
 
 ;;;
@@ -51,17 +70,7 @@
 
 
 (define (jazz.register-specific generic specific)
-  (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic)))
-  @indev
-  (let ((g (%%get-generic-mandatory-parameters generic))
-        (s (%%get-specific-mandatory-parameters specific))
-        (name (%%get-generic-name generic)))
-    (%%assertion (or ;; until special treatment for initialize
-                     (%%eq? name 'initialize)
-                     (and (%%not g) (%%not s))
-                     (and g s (%%fx= (%%length g) (%%length s))))
-                 (jazz.error "Inconsistant mandatory parameters for {a}: {a} and {a}" name g s)
-      (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic))))))
+  (%%set-generic-pending-specifics generic (%%cons specific (%%get-generic-pending-specifics generic))))
 
 
 ;;;
@@ -73,53 +82,65 @@
   (jazz.resolve-signature (%%get-generic-root-specific generic))
   (for-each (lambda (specific)
               (jazz.resolve-signature specific)
-              (jazz.insert-specific generic specific))
+              (jazz.insert/replace-specific generic specific))
             (%%get-generic-pending-specifics generic))
   (%%set-generic-pending-specifics generic '()))
 
 
 (define (jazz.resolve-signature specific)
-  (let ((signature/proc (%%get-specific-signature specific)))
+  (let ((signature/proc (%%get-specific-dynamic-signature specific)))
     (%%when (%%procedure? signature/proc)
-      (%%set-specific-signature specific (signature/proc)))))
+      (%%set-specific-dynamic-signature specific (signature/proc)))))
 
 
-(define (jazz.insert-specific generic specific)
-  (letrec ((replace-specific (lambda (replaced-specific)
-                               (let ((replace-root? (%%eq? replaced-specific (%%get-generic-root-specific generic)))
-                                     (moved-specifics (%%get-specific-previous-specifics replaced-specific))
-                                     (next-specific (%%get-specific-next-specific replaced-specific)))
-                                 (%%when replace-root?
-                                   (%%set-generic-root-specific generic specific))
-                                 (%%when next-specific
-                                   (%%set-specific-previous-specifics next-specific
-                                                                         (%%cons specific (jazz.remove! replaced-specific
-                                                                                                      (%%get-specific-previous-specifics next-specific)))))
-                                 (common-proc moved-specifics next-specific))))
-           (insert-specific (lambda (next-specific)
-                              (let* ((partition (jazz.partition (%%get-specific-previous-specifics next-specific)
-                                                                (lambda (previous-specific)
-                                                                  (jazz.specific-next? specific previous-specific))))
-                                     (keep (assq #f partition))
-                                     (kept-specifics (if keep (%%cons specific (%%cdr keep)) (%%list specific)))
-                                     (move (assq #t partition))
-                                     (moved-specifics (if move (%%cdr move) '())))
-                                (%%set-specific-previous-specifics next-specific kept-specifics)
-                                (common-proc moved-specifics next-specific))))
-           (common-proc (lambda (moved-specifics next-specific)
-                          (%%set-specific-previous-specifics specific moved-specifics)
-                          (%%set-specific-next-specific specific next-specific)
-                          (%%when next-specific
-                            (%%set-specific-next-implementation specific (%%get-specific-implementation next-specific)))
-                          (let ((implementation (%%get-specific-implementation specific)))
-                            (for-each (lambda (previous-specific)
-                                        (%%set-specific-next-specific previous-specific specific)
-                                        (%%set-specific-next-implementation previous-specific implementation))
-                                      moved-specifics)))))
-    (let ((next-specific (jazz.find-specific-from-root generic specific)))
-      (if (jazz.specific-dispatch-equal? next-specific specific)
-          (replace-specific next-specific)
-        (insert-specific next-specific)))))
+(define (jazz.insert/replace-specific generic specific)
+  (define (put-best-first specifics)
+    (let iter ((scan (%%cdr specifics))
+               (best (%%car specifics))
+               (others '()))
+         (if (%%pair? scan)
+             (let* ((specific (%%car scan)))
+               (if (jazz.specific-better? specific best)
+                   (iter (%%cdr ancestors) specific (%%cons best others))
+                 (iter (%%cdr ancestors) best (%%cons specific others))))
+           (%%cons best others))))
+  (let* ((dynamic-signature (%%get-specific-dynamic-signature specific))
+         (matches (jazz.gather-dynamic-signature-ancestors generic dynamic-signature)))
+    (cond ((%%not matches)
+           (jazz.generic-error generic dynamic-signature))
+          ((%%pair? matches)
+           ;; new node - replace ancestor/descendant links with ancestor/specific specific/descendant links
+           ;; new node - keep nextmethod specific as first ancestor
+           (let ((ancestors (put-best-first matches))
+                 (descendant-specifics '()))
+             (%%set-specific-ancestor-specifics specific ancestors)
+             (for-each (lambda (ancestor)
+                         (let* ((ancestor-signature (%%get-specific-dynamic-signature ancestor))
+                                (partition (jazz.partition (%%get-specific-descendant-specifics ancestor)
+                                                           (lambda (descendant)
+                                                             (let ((descendant-signature (%%get-specific-dynamic-signature descendant)))
+                                                               (%%eq? 'ordered (jazz.dynamic-signature-compare descendant-signature dynamic-signature)))))))
+                           (for-each (lambda (descendant)
+                                       (let ((best (%%car (%%get-specific-ancestor-specifics descendant))))
+                                         (cond ((%%eq? ancestor best)
+                                                (%%set-specific-ancestor-specifics descendant
+                                                  (%%cons specific (%%cdr (%%get-specific-ancestor-specifics descendant)))))
+                                               ((jazz.specific-better? specific best)
+                                                (%%set-specific-ancestor-specifics descendant
+                                                  (%%cons specific (jazz.remove! ancestor (%%get-specific-ancestor-specifics descendant)))))
+                                               (else
+                                                (%%set-specific-ancestor-specifics descendant
+                                                  (%%cons best (%%cons specific (jazz.remove! ancestor (%%cdr (%%get-specific-ancestor-specifics descendant)))))))))
+                                       (%%when (%%not (%%assq descendant descendant-specifics))
+                                         (set! descendant-specifics (%%cons descendant descendant-specifics))))
+                                     (assq #t partition))
+                           (%%set-specific-descendant-specifics ancestor (%%cons specific (assq #f partition)))))
+                       ancestors)
+             (%%set-specific-descendant-specifics specific descendant-specifics)))
+          (else
+           ;; node already exists - replace implementation
+           (let ((perfect-match matches))
+             (%%set-specific-implementation perfect-match (%%get-specific-implementation specific)))))))
 
 
 ;;;
@@ -127,27 +148,66 @@
 ;;;
 
 
-(define (jazz.find-specific-from-root generic specific)
-  (let iter ((loop-specific (%%get-generic-root-specific generic)))
-       (let ((found (jazz.find-if
-                      (lambda (next-specific)
-                        (jazz.specific-next? next-specific specific))
-                      (%%get-specific-previous-specifics loop-specific))))
-         (if found
-             (iter found)
-           loop-specific))))
+(define (jazz.gather-dynamic-signature-ancestors generic dynamic-signature)
+  (let ((perfect-match #f))
+    (or (let iter ((specifics (list (%%get-generic-root-specific generic)))
+                   (partial-matches '()))
+             (if (%%pair? specifics)
+                 (let ((specific (%%car specifics)))
+                   (case (jazz.dynamic-signature-compare dynamic-signature (%%get-specific-dynamic-signature specific))
+                     ((equal)
+                      (set! perfect-match specific)
+                      #f)
+                     ((ordered)
+                      (let ((found-in-descendants (iter (%%get-specific-descendant-specifics specific) partial-matches)))
+                        (if perfect-match
+                            #f
+                          (iter (%%cdr specifics) (or found-in-descendants
+                                                      (if (%%memq specific partial-matches)
+                                                          partial-matches
+                                                        (%%cons specific partial-matches)))))))
+                     (else
+                      #f)))
+               partial-matches))
+        perfect-match)))
 
 
-(define (jazz.specific-next? next-specific specific)
-  (let ((next-signature (%%get-specific-signature next-specific))
-        (signature (%%get-specific-signature specific)))
-    (jazz.subcategory? (%%car signature) (%%car next-signature))))
+(define (jazz.dynamic-signature-compare descendant-signature ancestor-signature)
+  (let iter ((descendant-signature descendant-signature)
+             (ancestor-signature ancestor-signature)
+             (match 'equal))
+       (if (or (null? descendant-signature) (null? ancestor-signature))
+           (if (and (null? descendant-signature) (null? ancestor-signature))
+               match
+             'unordered)
+         (cond ((%%eq? (%%car descendant-signature) (%%car ancestor-signature))
+                (iter (%%cdr descendant-signature) (%%cdr ancestor-signature) match))
+               ((jazz.subcategory? (%%car descendant-signature) (%%car ancestor-signature))
+                (if (%%eq? match 'reverse-ordered)
+                    'unordered
+                  (iter (%%cdr descendant-signature) (%%cdr ancestor-signature) 'ordered)))
+               ((jazz.subcategory? (%%car ancestor-signature) (%%car descendant-signature))
+                (if (%%eq? match 'ordered)
+                    'unordered
+                  (iter (%%cdr descendant-signature) (%%cdr ancestor-signature) 'reverse-ordered)))
+               (else
+                'unordered)))))
+
+;; not used
+(define (jazz.dynamic-signature-equal? dynamic-signature1 dynamic-signature2)
+  (let iter ((dynamic-signature1 dynamic-signature1)
+             (dynamic-signature2 dynamic-signature2))
+       (if (or (null? dynamic-signature1) (null? dynamic-signature2))
+           (and (null? dynamic-signature1) (null? dynamic-signature2))
+         (and (%%eq? (%%car dynamic-signature1) (%%car dynamic-signature2))
+              (iter (%%cdr dynamic-signature1) (%%cdr dynamic-signature2))))))
 
 
-(define (jazz.specific-dispatch-equal? specific1 specific2)
-  (let ((signature1 (%%get-specific-signature specific1))
-        (signature2 (%%get-specific-signature specific2)))
-    (%%eq? (%%car signature1) (%%car signature2))))
+(define (jazz.specific-better? specific1 specific2)
+  (let iter ((signature1 (%%get-specific-dynamic-signature specific1))
+             (signature2 (%%get-specific-dynamic-signature specific2)))
+       (or (> (%%get-class-level (%%car signature1)) (%%get-class-level (%%car signature2)))
+           (iter (%%cdr signature1) (%%cdr signature2)))))
 
 
 ;;;
@@ -155,13 +215,8 @@
 ;;;
 
 
-(define (jazz.dispatch-from-root class generic)
-  (let iter ((previous-found (%%get-generic-root-specific generic)))
-       (let ((found (jazz.find-if
-                      (lambda (next-specific)
-                        (let ((next-signature (%%get-specific-signature next-specific)))
-                          (jazz.subcategory? class (%%car next-signature))))
-                      (%%get-specific-previous-specifics previous-found))))
-         (if found
-             (iter found)
-           previous-found)))))
+(define (jazz.dispatch-from-root generic dynamic-classes)
+  (let ((matches (jazz.gather-dynamic-signature-ancestors generic dynamic-classes)))
+    (if (%%pair? matches)
+        (%%car matches)
+      (jazz.generic-error generic dynamic-classes)))))

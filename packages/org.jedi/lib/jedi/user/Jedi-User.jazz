@@ -96,8 +96,6 @@
       ((:expand) (expand (car arguments)))
       ((:expand-scheme) (expand-scheme (car arguments)))
       ;; Various
-      @convert
-      ((:load-all) (load-all~ Analyser))
       ((:touch) (touch arguments))
       ((:touch-descendants) (touch-descendants arguments))
       ((:compile) (compile arguments))
@@ -1369,80 +1367,6 @@
   @wait
   (method (test)
     (test~ CPS identity))
-  
-  
-  ;;;
-  ;;;; DirectX
-  ;;;
-
-  
-  @souvenir
-  (method (test-directx)
-    (let ((frame (new Frame title: "DirectX" size: {Dimension 600 400} position: {Point 100 100}))
-          (dx (cocreate DxVBLib.DirectX7)))
-      (receive (hr ptr) (DirectDrawCreate~ dx "")
-        (assert-hr hr 1)
-        (let ((dd (cobind ptr DxVBLib.DirectDraw7)))
-          (SetCooperativeLevel~ dd (get-handle~ frame) DxVBLib.DDSCL_NORMAL)
-          (let ((ddsd (new DxVBLib.DDSURFACEDESC2)))
-            (set ddsd 'lSize (size-of DxVBLib.DDSURFACEDESC2))
-            (set ddsd 'lFlags DxVBLib.DDSD_CAPS)
-            (set ddsd '(ddsCaps lCaps) DxVBLib.DDSCAPS_PRIMARYSURFACE)
-            (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
-              (assert-hr hr 2)
-              (let ((primary (cobind ptr DxVBLib.DirectDrawSurface7)))
-                (set ddsd 'lFlags (bit-or DxVBLib.DDSD_WIDTH DxVBLib.DDSD_HEIGHT DxVBLib.DDSD_CAPS))
-                (set ddsd '(ddsCaps lCaps) DxVBLib.DDSCAPS_OFFSCREENPLAIN)
-                (set ddsd 'lWidth 600)
-                (set ddsd 'lHeight 400)
-                (receive (hr ptr) (CreateSurface~ dd (record-address ddsd))
-                  (assert-hr hr 3)
-                  (let ((offscreen (cobind ptr DxVBLib.DirectDrawSurface7))
-                        (rect (rect->RECT {Rect 0 0 600 400}))
-                        (fr (new RECT)))
-                    (GetClientRect (get-handle~ frame) fr)
-                    (MapWindowPoints (get-handle~ frame) NULL fr 2)
-                    (BltFast~ primary (get fr 'Left) (get fr 'Top) ptr (record-address rect) DxVBLib.DDBLTFAST_WAIT))))))))))
-  
-  
-  @souvenir
-  (method (assert-hr hr n)
-    (unless (succeeded? hr)
-      (set-clipboard (->string hr))
-      (error "COM error {t} {t}" (value->name~ DxVBLib.CONST_DDRAWERR hr) n)))
-    
-  
-  ;;;
-  ;;;; Analyser
-  ;;;
-  
-  
-  @wait
-  (method (test-analyser)
-    (let ((analyser (new Reference-Analyser :include-path? #t)))
-      (receive (references resources) (find-references~ analyser '(Jedi) {})
-        (set-% references)
-        (message-box "Done"))))
-  
-  
-  ;;;
-  ;;;; Collector
-  ;;;
-  
-  
-  (method (report-times)
-    (unimplemented)
-    @convert
-    (let ((times (gc-times)))
-      (for-each (function (info name)
-                  (bind (maximum average) info
-                    (format :console "{%}{a width: 16}: {s width: 2 justify: :right} {s width: 2 justify: :right}"
-                            name
-                            maximum
-                            average)))
-                times
-                '(GcSome MarkPhase EndMarkPhase MarkRootsInitial MarkRootsFinal MarkSystemStack EmptyUnvisited SweepPhase))
-      (fresh-prompt~ (get-application))))
 
   
   ;;;

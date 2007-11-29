@@ -1,0 +1,227 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; C++ Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.c.text.Cpp-Text-View jazz
+
+
+(import (jazz.language.c)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.utilities))
+
+
+(class Cpp-Text-View extends CppJava-Text-View
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'cpp-text)
+  
+  
+  (method (preferences)
+    (get-preferences '(documents cpp-text)))
+      
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+
+
+  (method (favorite-completions)
+    (get-completions~ (preferences)))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (definition Syntax-Targets
+    {})
+  
+  (definition Syntax-Automata
+    {})
+  
+  
+  (method (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method (colorize-entries)
+    )
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("#pragma"
+      "#include"
+      "#define"
+      "#undef"
+      "#if"
+      "#ifdef"
+      "#ifndef"
+      "#elif"
+      "#else"
+      "#endif"
+      "static"
+      "class"
+      "struct"
+      "namespace"
+      "const"
+      "enum"
+      "extern"
+      "new"
+      "delete"
+      "operator"
+      "sizeof"
+      "this"
+      "inline"
+      "typedef"
+      "public"
+      "protected"
+      "private"
+      "virtual"
+      "if"
+      "else"
+      "while"
+      "for"
+      "do"
+      "switch"
+      "case"
+      "default"
+      "break"
+      "continue"
+      "return"
+      "try"
+      "catch"
+      "throw"
+      "#t"
+      "#f"
+      "{}"
+      "void"
+      "bool"
+      "char"
+      "int"
+      "long"
+      "short"
+      "unsigned"
+      "float"
+      "double"
+      "size_t"
+      "wchar_t"
+      "NULL"))
+  
+  
+  (method (get-keywords)
+    Keywords)
+    
+  
+  ;;;
+  ;;;; User
+  ;;;
+
+  
+  (method (get-user-macros user)
+    (get-macros~ (get-preferences '(documents cpp-text))))
+
+  
+  (method (get-user-keywords user)
+    (get-keywords~ (get-preferences '(documents cpp-text))))
+
+  
+  (method (get-user-types user)
+    (get-types~ (get-preferences '(documents cpp-text))))
+
+  
+  (method (get-user-definitions user)
+    (get-definitions~ (get-preferences '(documents cpp-text))))
+
+
+  ;;;
+  ;;;; Breaks
+  ;;;
+  
+  
+  (method public (on-add-break evt)
+    (let* ((file (get-moniker~ (get-controller)))
+           (start (get-start))
+           (row (+ (get-row~ start) 1))
+           (break-command (format "break {a}:{a}" (get-name~ file) row)))
+      (set-clipboard break-command)
+      (user-message "Clipboard set to {a}" break-command)))
+  
+  
+  (method public (on-remove-break evt)
+    )
+    
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (new Cpp-Text-Menu)))
+
+
+(class Cpp-Text-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: update-catalog    title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
+      (<Label-Item>     name: recolorize-syntax title: "&Recolorize Syntax" icon: {Bitmap-Resource "Refresh"} action: {Action code-text recolorize-syntax})
+      (<Separator-Item>)
+      (<Label-Item>     name: goto-line         title: "&Goto Line" action: {Action text goto-line})
+      (<Separator-Item>)
+      (<Label-Item>                             title: "&Column"
+        (<Column-Menu>))
+      (<Label-Item>                             title: "&Format"
+        (<Format-Menu>))))))

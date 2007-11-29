@@ -412,9 +412,9 @@
 (define Expl
   '(jazz.ui.text.Text-Explorer
     jazz.ui.text.Code-Explorer
-    jazz.jazz.text.Lisp-Explorer
-    jazz.jazz.text.Scheme-Explorer
-    jazz.jazz.text.Jazz-Explorer))
+    jazz.language.jazz.text.Jazz-Explorer
+    jazz.language.lisp.text.Lisp-Explorer
+    jazz.language.scheme.text.Scheme-Explorer))
 
 (define Text
   '(jazz.ui.graphic.font.Font
@@ -431,9 +431,9 @@
     jazz.ui.outline.Outline-View
     jazz.ui.text.Text-View
     jazz.ui.text.Code-Text-View
-    jazz.jazz.text.Lisp-Text-View
-    jazz.jazz.text.Jazz-Text-View
-    jazz.ui.text.Text-Colorizer))
+    jazz.ui.text.Text-Colorizer
+    jazz.language.jazz.text.Jazz-Text-View
+    jazz.language.lisp.text.Lisp-Text-View))
 
 (define Cat
   '(jazz.catalog.catalog.Catalog

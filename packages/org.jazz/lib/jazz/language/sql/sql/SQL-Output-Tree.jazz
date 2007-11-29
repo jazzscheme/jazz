@@ -1,0 +1,116 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQL-Output Tree
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.sql.sql.SQL-Output-Tree jazz
+
+
+(import (jazz.jml)
+        (jazz.language.sql)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.clipboard)
+        (jazz.utilities))
+
+
+(class SQL-Output-Tree extends Tree-View
+
+
+  (form
+    (<install> background-filler: {Color name: White}))
+  
+  
+  (method (double-click pos)
+    (nextmethod pos)
+    (let ((user (get-user~ (get-application)))
+          (cell (view->tree pos)))
+      (sql-output-action~ user self cell)))
+
+  
+  (method (context-menu pos)
+    (with-context-click pos
+      (function ()
+        (let ((user (get-user~ (get-application)))
+              (cell (view->tree pos)))
+          (when cell
+            (let ((menu (either (sql-output-menu~ user self cell) (default-sql-menu cell))))
+              (track-popup-menu menu pos)))))))
+  
+  
+  (method (default-sql-menu cell)
+    (let ((menu (new Context-Menu)))
+      (new Label-Item parent: menu title: "Copy" icon: {Bitmap-Resource "Copy"} action-handler: (new Event-Handler target: self method-name: 'on-copy-data))
+      (layout-menu~ menu)
+      menu))
+  
+  
+  (method (on-copy-data evt)
+    (let ((cell-title
+           (function (cell)
+             (get-title~ (get-cell-data cell))))
+          (copy
+           (function (string)
+             (add-clipboard~ (get-application))
+             (set-clipboard string))))
+      (case (length selection)
+        ((0))
+        ((1) (copy (cell-title (car selection))))
+        (else
+         (copy (join (map cell-title selection) ", "))))))
+  
+
+  ;;;
+  ;;;; Tooltip
+  ;;;
+  
+  
+  (method (cell-tooltips?)
+    #t)
+  
+  
+  (method (get-cell-tooltip cell)
+    (let* ((appl (get-application))
+           (user (get-user~ appl))
+           (column (get-column (get-col~ cell)))
+           (data (get-cell-data cell)))
+      (essay (> (get-row~ cell) 0)
+             (sql-output-tooltip~ user self cell data))))
+  
+  
+  (method (get-tooltip-position text rect h v)
+    (+ (rect-position rect)
+       (center (new Dimension (+ (text-width~ font text) 6) 16) (rect-size rect))))))

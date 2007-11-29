@@ -1,0 +1,163 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Exploring CommonLisp Code
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.commonlisp.text.CommonLisp-Explorer jazz
+
+
+(import (jazz.language.commonlisp)
+        (jazz.language.lisp)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class CommonLisp-Explorer extends Lisp-Explorer
+  
+  
+  (definition Modifiers
+    '())
+  
+  
+  (method (get-modifiers)
+    Modifiers)
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+  
+  
+  (definition Toplevels
+    '(defun defmacro defvar defparameter defstruct))
+
+
+  (method (definition-name? name)
+    (memq? name Toplevels))
+
+
+  ;;;
+  ;;;; Declarations
+  ;;;
+  
+  
+  (method (walk-declaration context declaration keyword expression doc line walk-expressions?)
+    (let ((list? (enter-list)))
+      (when (or (null? line) (= (get-row~ end) line))
+        (if (not list?)
+            (when (forward-expr)
+              (when (or (null? line) (= (get-row~ end) line))
+                (expression context start end 'code kind))
+              #t)
+          (when (and (forward-expr) (= kind 'symbol))
+            (let ((symbol (find-marked-symbol)))
+              (case symbol
+                ((eval-when)
+                 (walk-eval-when context declaration keyword expression doc line walk-expressions?))
+                ((defun defmethod defgeneric)
+                 (walk-define context declaration keyword expression doc line walk-expressions?))
+                ((defmacro)
+                 (walk-define-macro context declaration keyword expression doc line walk-expressions?))
+                ((defvar defparameter defstruct defclass defpackage define-condition define-modify-macro)
+                 (walk-define-variable context declaration keyword expression doc line walk-expressions?))
+                (else
+                 (walk-unknown context declaration keyword expression doc line walk-expressions?)))))
+          (exit-list)
+          #t))))
+    
+  
+  (method (walk-eval-when context declaration keyword expression doc line walk-expressions?)
+    (walk-declarations context declaration keyword expression doc walk-expressions?))
+
+  
+  (method (walk-define context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (= (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= (get-row~ end) line)))
+          (set! entry (declaration context start end (get-marked) #f)))
+        (when list?
+          (walk-parameters entry declaration keyword expression doc line))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+  
+  
+  (method (walk-define-macro context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (= (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= (get-row~ end) line)))
+          (set! entry (declaration context start end (get-marked) #f)))
+        (when list?
+          (walk-expressions entry expression 'code #f))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+    
+  
+  (method (walk-define-variable context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (forward-whites)
+      (let ((list? (= (char-forward 0) #\open-parenthesis)))
+        (when list?
+          (enter-list))
+        (when (and (forward-expr) (= kind 'symbol) (or (null? line) (= (get-row~ end) line)))
+          (set! entry (declaration context start end (get-marked) #f)))
+        (when list?
+          (walk-parameters entry declaration keyword expression doc line))
+        (when list?
+          (exit-list)))
+      (when walk-expressions?
+        (walk-declarations entry declaration keyword expression doc walk-expressions?))
+      entry))
+
+  
+  (method (walk-unknown context declaration keyword expression doc line walk-expressions?)
+    (when walk-expressions?
+      (walk-expression context expression 'code #t)
+      (walk-expressions context expression))
+    context)))

@@ -1,0 +1,243 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Class Browser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.jazz.tools.Class-Browser jazz
+
+
+(import (jazz.ide)
+        (jazz.jml)
+        (jazz.language.jazz)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Class-Browser extends View
+  
+  
+  (property text initialize {})
+
+
+  (form
+    (<install>                                             size: {Dimension 395 599}
+      (<Border-View>                  name: name-border    position: {Point 2 9} size: {Dimension 250 19} border-type: edge style: entry
+        (<Scroller-View>                                   hscroll?: #f vscroll?: #f
+          (<!>                        name: content        layout-type: fill
+            (<IDE-Text-View>          name: name           left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f focus-selects-all?: #t return-press-handler: {Event-Handler :form on-return-press}))))
+      (<Push-Button>                  name: browse         title: "Browse Hierarchy" position: {Point 272 7} size: {Dimension 120 22} action-handler: {Event-Handler :form on-browse})
+      (<Border-View>                  name: classes-border position: {Point 2 35} size: {Dimension 391 562} border-type: edge style: entry
+        (<Scroller-View>                                   style: document hscroll?: #t vscroll?: #t
+          (<!>                        name: content        layout-type: fill
+            (<Tree-Header>                                 style: document
+              (<!>                    name: content
+                (<Tree-View>          name: classes        multiple-selection?: #t portfolio: :icons double-click-handler: {Event-Handler :form on-double-click}
+                  (<Tree-Node-Column>                      title: "Name" display-images?: #f width: 419)))))))))
+
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+    
+
+  (method (view-icon)
+    {Bitmap-Resource "Class"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Class Browser")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 90 20})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 395 600})
+
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (acquire-focus~ (locate 'name)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-text)
+    (get-string-content~ (locate 'name)))
+  
+  
+  (method public (set-text value)
+    (set-string-content~ (locate 'name) (either value "")))
+  
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  
+  (method (guest-actions)
+    (cons (find-actions 'class-browser)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'browse) dh 0)
+    (size-figure~ (locate 'classes-border) dh dv))
+  
+  
+  (method (on-browse evt)
+    (with-cursor :wait
+      (function ()
+        ;; overkill for the moment... especially since some modules still have
+        ;; references to classes not included in the JazzScheme distribution...
+        ;; (load-all)
+        (browse-inheritance-tree :root (get-root-class) :size-range #t))))
+  
+  
+  (method (on-return-press evt)
+    (on-browse evt))
+  
+  
+  (method (on-double-click evt)
+    (let* ((tree (get-sender~ evt))
+           (selection (get-single-selection~ tree)))
+      (when selection
+        (let* ((row (get-row~ tree selection))
+               (type (get-user-data~ row))
+               (appl (get-application)))
+          (edit-definition~ appl (type-name type))))))
+  
+  
+  (method (on-touch-files evt)
+    (touch-selection))
+  
+  
+  (method (get-root-class)
+    (let* ((text (locate 'name))
+           (string (get-string-content~ text)))
+      (if (empty-string? string)
+          Object
+        (autoload (string->symbol string)))))
+
+  
+  ;;;
+  ;;;; Browse
+  ;;;
+  
+  
+  (method (browse-inheritance-tree (root: root Object) (size-range: size-range #t))
+    (let ((tree (locate 'classes)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (letrec ((get-size
+                     (function (type)
+                       (cond ((structure? type) (size-of type))
+                             ((class? type) (fourth (class-sizes type)))
+                             ((eq? type void) 0)
+                             (else (size-of type)))))
+                   (upward
+                     (function (type)
+                       (let* ((state 'expanded)
+                              (title (->string (type-name type)))
+                              (ascendant (type-ascendant type))
+                              (father (essay ascendant (upward ascendant))))
+                         (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type))))
+                   (proc
+                     (function (type father)
+                       (let ((size (get-size type)))
+                         (when (or (eq? size-range #t)
+                                   (and (>= size (get-start~ size-range))
+                                        (<= size (get-end~ size-range))))
+                           (let* ((state 'expanded @old (if (eq? type root) 'expanded 'collapsed))
+                                  (title (->string (type-name type)))
+                                  (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
+                             (for-each (function (subtype)
+                                         (proc subtype father))
+                                       (sort < (type-descendants type) key: type-name))))))))
+            (let ((ascendant (type-ascendant root)))
+              (proc root (essay ascendant (upward ascendant)))))))))
+
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-categories)
+    (let* ((tree (locate 'classes))
+           (selection (get-selection~ tree)))
+      (map (function (rank)
+             (let ((category (get-user-data~ (get-row~ tree rank))))
+               category))
+           selection)))
+  
+  
+  (method (selected-files)
+    @convert
+    (collect (function (category)
+               (get-manifest-source (type-name category)))
+             (selected-categories)))
+
+  
+  ;;;
+  ;;;; Touch
+  ;;;
+  
+  
+  (method (touch-selection)
+    (let* ((files (selected-files))
+           (count (length files)))
+      (for-each (function (file)
+                  (touch~ file))
+                files)
+      (message-box (format "{a} file{a} touched" count (format-plural count)))))))

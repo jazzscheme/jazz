@@ -1,0 +1,492 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; HTML Source Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.html.text.HTML-Text-View jazz
+
+
+(import (jazz.language.html)
+        (jazz.ui)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class HTML-Text-View extends Code-Text-View
+  
+  
+  (slot previewer initialize {})
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style name: 'Tag       base: 'Default color: (get-tag-color~ pref)))
+      (add-style (new Text-Style name: 'Attribute base: 'Default color: (get-attribute-color~ pref)))
+      (add-style (new Text-Style name: 'Option    base: 'Default color: (get-option-color~ pref)))
+      (add-style (new Text-Style name: 'Specifier base: 'Default color: (get-specifier-color~ pref)))))
+  
+  
+  @convert-external
+  (method meta (external-name . rest)
+    'html-text)
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method meta (frame-icon)
+    {Bitmap-Resource "HTML"})
+  
+  
+  (method (frame-workspaces)
+    '(html))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+  
+  (method (on-render evt)
+    (let ((previewer (find-palette HTML-Previewer)))
+      (setup-main-renderer~ previewer)))
+
+
+  ;;;
+  ;;;; Menu
+  ;;;
+
+
+  (method (context-menu pos)
+    (receive (shift? control? alt?) (modifiers-down)
+      (let ((action? (and control? (not shift?) (not alt?))))
+        (context-menu-click pos move-caret: (if action? 'never 'always))
+        (cond (action? (track-popup-menu (new Action-Menu) pos))
+              (else (track-popup-menu (new HTML-Text-Menu) pos))))))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (focus-actions)
+    (cons (find-actions 'html-text)
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+
+
+  (method (auto-complete key)
+    (insert-char/backspace key))
+    
+  
+  ;;;
+  ;;;; Template
+  ;;;
+  
+  
+  (method (on-base-template evt)
+    (with-closed ((printer (open-output-string)))
+      (format printer "<HTML>{%}")
+      (format printer "{%}")
+      (format printer "<HEAD>{%}")
+      (format printer "<TITLE></TITLE>{%}")
+      (format printer "<LINK REL=STYLESHEET HREF=\"Styles/Jazz.css\" TYPE=\"text/css\">{%}")
+      (format printer "</HEAD>{%}")
+      (format printer "{%}")
+      (format printer "<BODY>{%}")
+      (format printer "</BODY>{%}")
+      (format printer "{%}")
+      (format printer "</HTML>{%}")
+      (insert-string (get-output-string printer))))
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  (method (on-header evt)
+    (let ((level (get-property~ evt level:)))
+      (insert-tag (format "H{s}" level))))
+  
+  
+  (method (on-comment evt)
+    (insert-pair "<!-- " " -->"))
+  
+  
+  (method (on-division evt)
+    (insert-tag "DIV"))
+  
+  
+  (method (on-paragraph evt)
+    (insert-tag "P"))
+  
+  
+  (method (on-line-break evt)
+    (insert-tag "BR"))
+  
+  
+  (method (on-insert-bold evt)
+    (insert-tag "B"))
+  
+  
+  (method (on-insert-italic evt)
+    (insert-tag "I"))
+  
+  
+  (method (on-font evt)
+    (insert-tag "FONT"))
+  
+  
+  (method (on-center evt)
+    (insert-tag "CENTER"))
+  
+  
+  (method (on-anchor evt)
+    (insert-tag "A"))
+  
+  
+  (method (on-image evt)
+    (insert-tag "IMG"))
+  
+  
+  (method (on-table evt)
+    (insert-tag "TABLE" vertical?: #t))
+  
+  
+  (method (on-table-header evt)
+    (insert-tag "TH" vertical?: #t))
+  
+  
+  (method (on-table-row evt)
+    (insert-tag "TR" vertical?: #t))
+  
+  
+  (method (on-table-data evt)
+    (insert-tag "TD"))
+  
+  
+  (method (on-ordered-list evt)
+    (insert-tag "OL" vertical?: #t))
+  
+  
+  (method (on-unordered-list evt)
+    (insert-tag "UL" vertical?: #t))
+  
+  
+  (method (on-list-item evt)
+    (insert-string "<LI>"))
+  
+  
+  (method (on-definition-list evt)
+    (insert-string "<DL>"))
+  
+  
+  (method (on-definition-term evt)
+    (insert-string "<DT>"))
+  
+  
+  (method (on-definition-data evt)
+    (insert-string "<DD>"))
+  
+  
+  (method (on-variable evt)
+    (insert-tag "VAR"))
+  
+  
+  (method (on-code evt)
+    (insert-tag "CODE"))
+  
+  
+  (method (on-preformatted evt)
+    (insert-tag "PRE"))
+  
+  
+  ;;;
+  ;;;; Inserting
+  ;;;
+  
+  
+  (method (insert-tag tag . rest)
+    (apply insert-pair (start-tag tag) (end-tag tag) rest))
+  
+  
+  (method (insert-pair start end (vertical?: vertical? #f))
+    (if (empty-selection?)
+        (let ((pos (get-caret))
+              (str (if (not vertical?)
+                       (format "{a}{a}" start end)
+                     (format "{a}{%}{%}{a}" start end))))
+          (insert-string str)
+          (set-caret (if (not vertical?) (+ pos (length start)) (new Cell (+ (get-row~ pos) 1) 0))))
+      (let ((s (get-start))
+            (e (get-end)))
+        (set-caret s)
+        (insert-string start)
+        (let ((s (get-caret)))
+          (set-caret (+ e (length start)))
+          (let ((e (get-caret)))
+            (insert-string end)
+            (set-selection (new Range$Cell$ s e)))))))
+  
+  
+  (method (start-tag tag)
+    (format "<{a}>" tag))
+  
+  
+  (method (end-tag tag)
+    (format "</{a}>" tag))
+
+  
+  ;;;
+  ;;;; Tags
+  ;;;
+  
+  
+  (constant Tags
+    '("!--"
+      "--"
+      "A"
+      "APPLET"
+      "B"
+      "BODY"
+      "BR"
+      "CENTER"
+      "CODE"
+      "DD"
+      "DIV"
+      "DL"
+      "DT"
+      "FONT"
+      "FORM"
+      "FRAME"
+      "H1"
+      "H2"
+      "H3"
+      "H4"
+      "H5"
+      "H6"
+      "HEAD"
+      "HR"
+      "HTML"
+      "I"
+      "IMG"
+      "INPUT"
+      "LI"
+      "LINK"
+      "MAP"
+      "META"
+      "OBJECT"
+      "OL"
+      "P"
+      "PARAM"
+      "PRE"
+      "SCRIPT"
+      "TABLE"
+      "TD"
+      "TH"
+      "TITLE"
+      "TR"
+      "UL"
+      "VAR"))
+
+  
+  (method protected virtual (get-tags)
+    Tags)
+
+  
+  ;;;
+  ;;;; Attributes
+  ;;;
+  
+  
+  (constant Attributes
+    '("ALIGN"
+      "BGCOLOR"
+      "BORDER"
+      "CELLPADDING"
+      "CELLSPACING"
+      "CLASS"
+      "COLOR"
+      "HEIGHT"
+      "HREF"
+      "REL"
+      "SIZE"
+      "SRC"
+      "TYPE"
+      "VALIGN"
+      "WIDTH"))
+
+  
+  (method protected virtual (get-attributes)
+    Attributes)
+
+  
+  ;;;
+  ;;;; Options
+  ;;;
+  
+  
+  (constant Options
+    '("BLUE"
+      "CENTER"
+      "GREEN"
+      "STYLESHEET"
+      "TOP"))
+
+  
+  (method protected virtual (get-options)
+    Options)
+
+  
+  ;;;
+  ;;;; Targets
+  ;;;
+      
+  
+  (definition Syntax-Targets
+    {})
+  
+  (definition Syntax-Automata
+    {})
+  
+  
+  (method (syntax-targets)
+    (unless Syntax-Targets
+      (set! Syntax-Targets (compute-syntax-targets)))
+    Syntax-Targets)
+  
+  
+  (method (syntax-automata)
+    (unless Syntax-Automata
+      (set! Syntax-Automata (compute-syntax-automata)))
+    Syntax-Automata)
+  
+  
+  (method (compute-syntax-targets)
+    (append (map (function (str) (list str 'tag)) (get-tags))
+            (map (function (str) (list str 'attribute)) (get-attributes))
+            @wait (map (function (str) (list (append "=" str) 'option #f)) (get-options))))
+        
+  
+  (method (compute-syntax-automata)
+    (build-search-automata (syntax-targets) #t #f self cpp/java-constituent?))
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (method (preferences)
+    (get-preferences '(documents html-text)))
+  
+  
+  (method (colorize-type found type start end colorizer recolorize?)
+    (case type
+      ((tag)       (colorize-keyword found start end colorizer 'Tag))
+      ((attribute) (colorize-keyword found start end colorizer 'Attribute))
+      ((option)    (colorize-keyword found start end colorizer 'Option)))))
+
+
+;;;
+;;;; HTML-Text-Menu
+;;;
+
+
+(class HTML-Text-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: render            title: "Ren&der" action: {Action html-text render})
+      (<Separator-Item>)
+      (<Label-Item>     name: goto-line         title: "&Goto Line" action: {Action text goto-line})
+      (<Label-Item>     name: update-catalog    title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
+      (<Label-Item>     name: recolorize-syntax title: "&Recolorize Syntax" action: {Action code-text recolorize-syntax}))))
+
+
+;;;
+;;;; Action-Menu
+;;;
+
+
+(class Action-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: base-template   title: "Base Template" action: {Action html-text base-template})
+      (<Separator-Item>)
+      (<Label-Item>     name: header1         title: "&Header Level 1" action: {Action html-text header-1})
+      (<Label-Item>     name: header2         title: "&Header Level 2" action: {Action html-text header-2})
+      (<Label-Item>     name: header3         title: "&Header Level 3" action: {Action html-text header-3})
+      (<Separator-Item>)
+      (<Label-Item>     name: comment         title: "&Comment" action: {Action html-text comment})
+      (<Label-Item>     name: division        title: "&Division" action: {Action html-text division})
+      (<Label-Item>     name: paragraph       title: "&Paragraph" action: {Action html-text paragraph})
+      (<Label-Item>     name: line-break      title: "&Line Break" action: {Action html-text line-break})
+      (<Separator-Item>)
+      (<Label-Item>     name: bold            title: "&Bold" action: {Action html-text bold})
+      (<Label-Item>     name: italic          title: "&Italic" action: {Action html-text italic})
+      (<Label-Item>     name: font            title: "&Font" action: {Action html-text font})
+      (<Label-Item>     name: center          title: "&Center" action: {Action html-text center})
+      (<Label-Item>     name: anchor          title: "&Anchor" action: {Action html-text anchor})
+      (<Label-Item>     name: image           title: "&Image" action: {Action html-text image})
+      (<Separator-Item>)
+      (<Label-Item>     name: table           title: "&Table" action: {Action html-text table})
+      (<Label-Item>     name: table-header    title: "Table &Header" action: {Action html-text table-header})
+      (<Label-Item>     name: table-row       title: "Table &Row" action: {Action html-text table-row})
+      (<Label-Item>     name: table-data      title: "Table &Data" action: {Action html-text table-data})
+      (<Separator-Item>)
+      (<Label-Item>     name: ordered-list    title: "&Ordered List" action: {Action html-text ordered-list})
+      (<Label-Item>     name: unordered-list  title: "&Unordered List" action: {Action html-text unordered-list})
+      (<Label-Item>     name: list-item       title: "List &Item" action: {Action html-text list-item})
+      (<Separator-Item>)
+      (<Label-Item>     name: definition-list title: "&Definition List" action: {Action html-text definition-list})
+      (<Label-Item>     name: definition-term title: "Definition &Term" action: {Action html-text definition-term})
+      (<Label-Item>     name: definition-data title: "Definition &Data" action: {Action html-text definition-data})
+      (<Separator-Item>)
+      (<Label-Item>     name: variable        title: "&Variable" action: {Action html-text variable})
+      (<Label-Item>     name: code            title: "&Code" action: {Action html-text code})
+      (<Label-Item>     name: preformatted    title: "&Preformatted" action: {Action html-text preformatted})))))

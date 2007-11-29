@@ -1,0 +1,172 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Threads Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.jazz.tools.Threads-Manager jazz
+
+
+(import (jazz.language.jazz)
+        (jazz.jml)
+        (jazz.ui)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class Threads-Manager extends View
+  
+  
+  (form
+    (<install>                                              size: {Dimension 613 263}
+      (<Push-Button>                   name: terminate      title: "Terminate" position: {Point 190 6} size: {Dimension 100 22} action-handler: {Event-Handler :form on-terminate})
+      (<Push-Button>                   name: suspend        title: "Suspend" position: {Point 296 6} size: {Dimension 100 22} action-handler: {Event-Handler :form on-suspend})
+      (<Push-Button>                   name: resume         title: "Resume" position: {Point 402 6} size: {Dimension 100 22} action-handler: {Event-Handler :form on-resume})
+      (<Push-Button>                   name: update         title: "Update" position: {Point 508 6} size: {Dimension 100 22} action-handler: {Event-Handler :form on-update})
+      (<Border-View>                   name: threads-border position: {Point 4 35} size: {Dimension 606 225} border-type: edge
+        (<Scroller-View>                                    vscroll?: #t
+          (<!>                         name: content        layout-type: fill
+            (<Tree-Header>
+              (<!>                     name: content
+                (<Tree-View>           name: threads        filled-column: information multiple-selection?: #t selection-mode: row
+                  (<Tree-Node-Column>  name: name           title: "Name" width: 160 toplevel-controls?: #f display-images?: #f)
+                  (<Tree-Label-Column> name: information    title: "Information" width: 350)
+                  (<Tree-Label-Column> name: state          title: "State" width: 100)))))))))
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (update-threads))
+  
+  
+  ;;;
+  ;;;; Palette
+  ;;;
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Threads Manager")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 240 150})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 613 263})
+
+  
+  (method (install-in-host host)
+    (nextmethod host)
+    (acquire-focus~ (locate 'threads)))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'terminate) dh 0)
+    (move-figure~ (locate 'suspend) dh 0)
+    (move-figure~ (locate 'resume) dh 0)
+    (move-figure~ (locate 'update) dh 0)
+    (size-figure~ (locate 'threads-border) dh dv))
+
+
+  (method (on-update evt)
+    (update-threads))
+
+
+  (method (update-threads)
+    (let ((threads (reverse (get-threads)))
+          (tree (locate 'threads)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (for-each (function (thread)
+                      (let ((c0 (new Tree-Node title: (present~ thread)))
+                            (c1 (new Tree-Label title: (either (get-information~ thread) "")))
+                            (c2 (new Tree-Label title: (if (suspended?~ thread) "Suspended" "Running"))))
+                        (add-row~ tree children: (list c0 c1 c2) user-data: thread)))
+                    threads)
+          (when (> (get-visible-count~ tree) 0)
+            (set-selection~ tree (list 0)))))))
+  
+  
+  (method (update-states threads)
+    (let ((tree (locate 'threads)))
+      (for-each (function (thread)
+                  (let* ((n (user-data-index~ tree thread))
+                         (cell (new Cell n 2)))
+                    (set-title~ (get-cell-data~ tree cell) (if (> (thread-state thread) 0) "Suspended" "Running"))
+                    (invalidate-cell~ tree cell)))
+                threads)))
+  
+  
+  (method (selected-threads)
+    (let* ((tree (locate 'threads))
+           (selection (get-selection~ tree)))
+      (map (function (item)
+             (get-user-data~ (get-row~ tree item)))
+           selection)))
+
+
+  (method (on-terminate evt)
+    (let ((threads (selected-threads)))
+      (for-each (function (thread)
+                  (terminate~ thread))
+                threads)
+      (update-threads)))
+
+
+  (method (on-suspend evt)
+    (let ((threads (selected-threads)))
+      (for-each (function (thread)
+                  (suspend~ thread))
+                threads)
+      (update-states threads)))
+
+
+  (method (on-resume evt)
+    (let ((threads (selected-threads)))
+      (for-each (function (thread)
+                  (resume~ thread))
+                threads)
+      (update-states threads)))))

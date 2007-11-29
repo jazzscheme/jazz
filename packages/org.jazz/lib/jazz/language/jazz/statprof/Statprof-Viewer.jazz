@@ -1,0 +1,284 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Statprof Viewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.jazz.statprof.Statprof-Viewer jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.language.jazz)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.utilities))
+
+
+(class Statprof-Viewer extends Layout-View
+  
+  
+  (property report initialize #f accessors generate)
+  
+  
+  (slot hierarchical? initialize #f)
+
+
+  (form
+    (<install>                                      size: {Dimension 420 639} layout-type: border
+      (<Layout-View>          name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Toggle-Tool>        name: toggle-view     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Hierarchical / Flat" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-view})
+        (<Push-Button>        name: open-report     location: tail title: "Open Report" size: {Dimension 100 22} action-handler: {Event-Handler :form on-open-report} default?: #t))
+      (<Border-View>          name: bindings-border location: center border-type: edge style: entry
+        (<Scroller-View>                            style: document hscroll?: #t vscroll?: #t
+          (<content!>                               layout-type: fill
+            (<Tree-Header>                          style: document
+              (<content!>
+                (<Calls-Tree> name: calls           double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
+  
+
+  (method (conclude initargs)
+    (nextmethod initargs)
+    (when report
+      (view-report)))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+    
+  
+  (method (view-icon)
+    {Bitmap-Resource "EditLink"})
+  
+  
+  @convert-guest
+  (method meta (palette-title)
+    "Statprof Viewer")
+  
+  
+  @convert-guest
+  (method meta (palette-position)
+    {Point 28 14})
+  
+  
+  @convert-guest
+  (method meta (palette-size)
+    {Dimension 416 635})
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'calls))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-open-report evt)
+    (open-report))
+  
+  
+  (method (on-toggle-view evt)
+    (set! hierarchical? (not hierarchical?))
+    (set-toplevel-controls?~ (locate '(calls location)) hierarchical?)
+    (view-report))
+  
+  
+  (method (on-double-click evt)
+    (edit-source))
+  
+  
+  (method (on-return-press evt)
+    (edit-source))
+  
+  
+  ;;;
+  ;;;; Open
+  ;;;
+  
+  
+  (method (open-report)
+    (set! report (read-statprof-report (choose-file)))
+    (view-report))
+  
+  
+  (method (read-statprof-report file)
+    (call-with-input-file (parse~ file)
+      read))
+  
+  
+  ;;;
+  ;;;; Source
+  ;;;
+  
+  
+  (method (edit-source)
+    (receive (filename no) (selected-call)
+      (when filename
+        (let ((appl (get-application))
+              (file (new File (list 'Root filename))))
+          (edit-document~ appl file selection: (if no (new Range$Cell$ (new Cell no 0) (new Cell (+ no 1) 0)) {}))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method (selected-call)
+    (let* ((tree (get-tree))
+           (rank (get-single-selection~ tree)))
+      (if (not rank)
+          (values #f #f)
+        (let* ((row (get-row~ tree rank))
+               (data (get-user-data~ row)))
+          (if (string? data)
+              (values data #f)
+            (values (car data) (cdr data)))))))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (view-report)
+    (view-report~ (get-tree) report hierarchical?)))
+
+
+;;;
+;;;; Calls-Tree
+;;;
+
+
+(class Calls-Tree extends Tree-View
+  
+  
+  (form
+    (<install>                              portfolio: :icons filled-column: location
+      (<Tree-Node-Column>  name: location   title: "Location" width: 235 toplevel-controls?: #f)
+      (<Tree-Label-Column> name: percentage title: "Percentage" width: 100)))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (view-report report hierarchical?)
+    (with-update-locked
+      (function ()
+        (remove-every-row)
+        (if hierarchical?
+            (view-hierarchical report)
+          (view-flat report)))))
+  
+  
+  (method (view-hierarchical report)
+    (for-each (function (bucket-info)
+                (bind (filename infos bucket-percentage) bucket-info
+                  (let ((row (add-row state: 'collapsed children: (list (new Tree-Node title: (present-filename filename) image: {Bitmap-Resource "Document"}) (new Tree-Label title: (number->string bucket-percentage))) user-data: filename)))
+                    (for-each (function (info)
+                                (bind (no percentage) info
+                                  (let ((title (->string no))
+                                        (percentage (number->string percentage)))
+                                    (add-row father: row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: (cons filename no)))))
+                              infos))))
+                (collect-hierarchical report)))
+  
+  
+  (method (collect-hierarchical report)
+    (bind (total unknown . buckets) report
+      (sort > (map (function (bucket)
+                     (bind (filename . lines) bucket
+                       (let ((infos (collect-bucket lines total)))
+                         (let ((bucket-percentage (calculate-percentage (apply + (map second lines)) total)))
+                           (list filename infos bucket-percentage)))))
+                   buckets)
+              key: third)))
+  
+  
+  (method (collect-bucket lines total)
+    (let ((flat '()))
+      (for-each (function (line)
+                  (bind (no count) line
+                    (set! flat (cons (list no (calculate-percentage count total)) flat))))
+                lines)
+      (sort > flat key: second)))
+  
+  
+  (method (view-flat report)
+    (for-each (function (info)
+                (bind (filename no percentage) info
+                  (let ((title (string-append (present-filename filename) ":" (->string no)))
+                        (percentage (number->string percentage)))
+                    (add-row children: (list (new Tree-Node title: title image: {Bitmap-Resource "Link"}) (new Tree-Label title: percentage)) user-data: (cons filename no)))))
+            (collect-flat report)))
+  
+  
+  (method (collect-flat report)
+    (let ((flat '()))
+      (bind (total unknown . buckets) report
+        (for-each (function (bucket)
+                    (bind (filename . lines) bucket
+                      (for-each (function (line)
+                                  (bind (no count) line
+                                    (set! flat (cons (list filename no (calculate-percentage count total)) flat))))
+                                lines)))
+                  buckets))
+      (sort > flat key: third)))
+  
+  
+  (definition (present-filename filename)
+    (let ((pos (find filename #\/ reversed?: #t)))
+      (if pos
+          (subseq filename (+ pos 1))
+        filename)))
+  
+  
+  (definition (calculate-percentage count total)
+    (/ (round (* 10000 (/ count total)))
+       100.)))
+
+
+(register-autoclass Calls-Tree))

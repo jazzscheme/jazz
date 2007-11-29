@@ -1,0 +1,106 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; JavaExternal Expander
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.java.macro.JavaExternal-Expander jazz
+
+
+(import (jazz.language.java)
+        (jazz.library)
+        (jazz.utilities))
+
+
+(class JavaExternal-Expander extends Object uses (Interpreter)
+  
+  
+  @macro
+  (javaexternal public virtual <java.sql.ResultSet> (executeQuery <javastring>))
+  
+  @expansion
+  (%javaexternal public virtual <java.sql.ResultSet> executeQuery (<javastring>)
+                 {Ansi-String "executeQuery"}
+                 {Ansi-String "(Ljava/lang/String;)Ljava/sql/ResultSet;"})
+  
+  (method meta public (expand form)
+    (receive (meta? modifiers list) (parse-modifiers~ Interpreter form)
+      (bind (return-type (name . parameter-types)) list
+        (let ((entry-name (coerce (symbol->string name) Ansi-String))
+              (signature (coerce (compute-signature return-type parameter-types) Ansi-String)))
+          `(attribute (:location (,name))
+             (%javaexternal ,@modifiers ,return-type ,name ,parameter-types ,entry-name ,signature))))))
+  
+  
+  (method meta (compute-signature return-type parameter-types)
+    (let ((printer (open-output-string)))
+      (format printer "(")
+      (for-each (function (type)
+                  (format printer "{a}" (java-type type)))
+                parameter-types)
+      (format printer ")")
+      (format printer "{a}" (java-type return-type))
+      (get-output-string printer)))
+  
+  
+  (method meta (java-type specifier)
+    (java-typeref (parse-specifier~ Interpreter specifier)))
+  
+  
+  (method meta (java-typeref typeref)
+    (let ((reference (get-reference~ typeref)))
+      (case reference
+        ((javavoid)   "V")
+        ((javabool)   "Z")
+        ((javabyte)   "B")
+        ((javachar)   "C")
+        ((javashort)  "S")
+        ((javaint)    "I")
+        ((javalong)   "J")
+        ((javafloat)  "F")
+        ((javadouble) "D")
+        ((javastring) "Ljava/lang/String;")
+        ((javaarray)  (java-array-type typeref))
+        (else (either (java-reference-type reference)
+                      (error "Unknown java type: {t}" reference))))))
+  
+  
+  (method meta (java-array-type typeref)
+    (let ((typeref (car (get-parameters~ typeref))))
+      (format "[{a}" (java-typeref typeref))))
+  
+  
+  (method meta (java-reference-type reference)
+    (when (symbol? reference)
+      (format "L{a};" (period->slash-notation~ Java (symbol->string reference)))))))

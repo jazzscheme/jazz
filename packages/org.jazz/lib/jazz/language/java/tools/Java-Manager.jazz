@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Java Manager
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.language.java.tools.Java-Manager jazz
+
+
+(import (jazz.language.java)
+        (jazz.jml)
+        (jazz.literals)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Java-Manager extends Layout-View
+  
+  
+  (slot current-classname initialize {})
+
+
+  (form
+    (<install>                                                  layout-type: border
+      (<Layout-View>                     name: toolbar          size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 2 6 2 0}
+        (<Push-Tool>                     name: edit             size: {Dimension 22 22} image-name: {Bitmap-Resource "Edit"} portfolio: :icons tooltip?: #t tooltip-text: "Edit" action-handler: {Event-Handler :form on-edit})
+        (<Separator>)
+        (<Push-Tool>                     name: generate-classes size: {Dimension 22 22} image-name: {Bitmap-Resource "GenerateLibrary"} portfolio: :icons tooltip?: #t tooltip-text: "Generate Classes" action-handler: {Event-Handler :form on-generate-classes})
+        (<Separator>)
+        (<Push-Tool>                     name: copy-methods     size: {Dimension 22 22} image-name: {Bitmap-Resource "Copy"} portfolio: :icons tooltip?: #t tooltip-text: "Copy Methods" action-handler: {Event-Handler :form on-copy-methods})
+        (<Push-Button>                   name: browse           title: "Browse..." size: {Dimension 100 22} location: tail action-handler: {Event-Handler :form on-browse}))
+      (<Splitter-View>                   name: splitter         location: center state: split orientation: horz mode: relative division: 35
+        (<Border-View>                   name: classes-border   location: first border-type: edge style: entry
+          (<Scroller-View>                                      style: document hscroll?: #t vscroll?: #t
+            (<!>                         name: content          layout-type: fill
+              (<Tree-Header>                                    style: document
+                (<!>                     name: content
+                  (<Tree-View>           name: classes          multiple-selection?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} portfolio: :icons
+                    (<Tree-Node-Column>  name: name             title: "Class" toplevel-controls?: #f)))))))
+        (<Border-View>                   name: methods-border   location: second border-type: edge style: entry
+          (<Scroller-View>                                      style: document hscroll?: #t vscroll?: #t
+            (<!>                         name: content          layout-type: fill
+              (<Tree-Header>                                    style: document
+                (<!>                     name: content
+                  (<Tree-View>           name: methods          filled-column: signature multiple-selection?: #t selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} portfolio: :icons
+                    (<Tree-Node-Column>  name: name             title: "Method" width: 175 toplevel-controls?: #f)
+                    (<Tree-Label-Column> name: signature        title: "Signature"))))))))))
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+    
+  
+  @convert-guest
+  (method meta (frame-icon)
+    {Bitmap-Resource "Java"})
+  
+  
+  @convert-guest
+  (method meta (frame-title)
+    "Java Manager")
+  
+  
+  @convert-guest
+  (method meta (frame-position)
+    {Point 74 75})
+  
+  
+  @convert-guest
+  (method meta (frame-size)
+    {Dimension 825 460})
+  
+  
+  (method (frame-workspaces)
+    '(home))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (move-figure~ (locate 'browse) dh 0))
+  
+  
+  (method (on-edit evt)
+    (edit-source))
+
+
+  (method (on-generate-classes evt)
+    (generate-classes))
+  
+  
+  (method (on-copy-methods evt)
+    (copy-methods))
+ 
+ 
+  (method (on-browse evt)
+    (let* ((file (choose-file extensions: '(("Class Files (*.class)" . "*.class") ("Jar Files (*.jar)" . "*.jar"))))
+           (ext (get-extension~ file)))
+      (cond ((ci=? ext "class") (browse-classfile file))
+            ((ci=? ext "jar") (browse-jarfile file)))))
+  
+  
+  (method (on-selection-change evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((classes)
+         (let ((classnames (get-selected-data~ sender)))
+           (set-enabled?~ (locate 'edit) (= (length classnames) 1))
+           (browse-methods classnames))))))
+  
+  
+  (method (on-double-click evt)
+    (let ((sender (get-sender~ evt)))
+      (case (get-name~ sender)
+        ((classes)
+         (edit-source))
+        ((methods)
+         (copy-methods)))))
+  
+  
+  ;;;
+  ;;;; Classfile
+  ;;;
+  
+  
+  (method public (browse-classfile classfile)
+    )
+  
+  
+  ;;;
+  ;;;; Jarfile
+  ;;;
+  
+  
+  (method public (browse-jarfile jarfile)
+    (view-classes (extract-jarfile-classnames jarfile)))
+  
+  
+  (method (extract-jarfile-classnames jarfile)
+    (let ((fact (new List-Factory)))
+      (with-closed ((unzip (new Unzip-File jarfile)))
+        (iterate-files~ unzip
+          (function (filename size)
+            (unless (find-in filename #\$)
+              (let ((extension (extract-extension filename)))
+                (when (= extension "class")
+                  (let ((classname (subseq filename 0 (- (length filename) (length ".class")))))
+                    (put~ fact classname))))))))
+      (get-output~ fact)))
+  
+  
+  ;;;
+  ;;;; Classes
+  ;;;
+  
+  
+  (method public (browse-classes classnames)
+    (view-classes classnames)
+    (when (= (length classnames) 1)
+      (let ((tree (locate 'classes)))
+        (set-selection~ tree (list 0)))))
+
+
+  (method (view-classes classnames)
+    (let ((tree (locate 'classes)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (for-each (function (classname)
+                      (insert-class tree classname))
+                    classnames)))))
+  
+  
+  (method (insert-class tree classname)
+    (add-row~ tree children: (list (new Tree-Node image: {Bitmap-Resource "Class"} title: classname)) user-data: classname))
+  
+  
+  (method (edit-source)
+    (let* ((tree (locate 'classes))
+           (classnames (get-selected-data~ tree))
+           (classname (string->symbol (car classnames)))
+           (appl (get-application)))
+      (edit-category~ appl classname)))
+  
+  
+  (method (generate-classes)
+    (let* ((tree (locate 'classes))
+           (directory (choose-directory))
+           (extractor (new Java-Extractor))
+           (classnames (get-selected-data~ tree)))
+      (for-each (function (classname)
+                  (user-message "Extracting {a}..." classname)
+                  (extract~ extractor classname directory))
+                classnames)
+      (user-message "Done")))
+  
+  
+  ;;;
+  ;;;; Methods
+  ;;;
+
+
+  (method (browse-methods classnames)
+    (let ((tree (locate 'methods)))
+      (with-update-locked~ tree
+        (function ()
+          (remove-every-row~ tree)
+          (if (/= (length classnames) 1)
+              (set! current-classname {})
+            (let ((classname (car classnames)))
+              (insert-methods tree classname)
+              (set! current-classname classname)))))))
+  
+  
+  (method (insert-methods tree classname)
+    (let ((javaClass (lookupClass~ org.apache.bcel.Repository classname)))
+      (if (null? javaClass)
+          (error "Unable to find java class: {a}" classname)
+        (let ((methods (sort < (getMethods~ javaClass) key: (function (method) (getName~ method)))))
+          (for-each (function (method)
+                      (insert-method tree method))
+                    methods)))))
+  
+  
+  (method (insert-method tree method)
+    (let ((name (getName~ method))
+          (signature (getSignature~ method)))
+      (add-row~ tree children: (list (new Tree-Node image: {Bitmap-Resource "Method"} title: name) (new Tree-Label title: signature)) user-data: method)))
+  
+  
+  @waiting
+  (method (insert-method tree method)
+    (let* ((name (getName~ method))
+           (layout-view (new Layout-View layout-type: 'fill layout-insets: (new Rect 2 0 0 0)))
+           (checkbox (new Check-Box parent: layout-view title: name checked?: #f user-data: method)))
+      (add-row~ tree children: (list (new Tree-Node image: {Bitmap-Resource "Method"} title: name) checkbox))))
+  
+  
+  (method (copy-methods)
+    (let* ((tree (locate 'methods))
+           (extractor (new Java-Extractor))
+           (classname current-classname)
+           (methods (get-selected-data~ tree)))
+      (copy-methods~ extractor classname methods)
+      (let ((count (length methods)))
+        (message-box (format "{a} method{a} copied" count (format-plural count))))))))

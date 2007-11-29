@@ -1,0 +1,282 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Cat Text View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(in cat)
+
+
+(class Cat-Text-View extends Code-Text-View uses (Language Utilities System)
+  
+  
+  (method (install rest)
+    ((super install) rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style :name 'Title            :base 'Default :color (get-title-color~ pref)))
+      (add-style (new Text-Style :name 'Line-Comment     :base 'Default :color (get-line-comment-color~ pref)))
+      (add-style (new Text-Style :name 'Balanced-Comment :base 'Default :color (get-balanced-comment-color~ pref)))
+      (add-style (new Text-Style :name 'Define           :base 'Default :color (get-define-color~ pref)))
+      (add-style (new Text-Style :name 'Definition       :base 'Default :color (get-definition-color~ pref)))
+      (add-style (new Text-Style :name 'Keyword          :base 'Default :color (get-keyword-color~ pref)))))
+  
+  
+  (method meta (external-name . rest)
+    'cat-text)
+
+  
+  (method (preferences)
+    (get-preferences '(documents cat-text)))
+  
+  
+  (method meta (get-constituent-test)
+    cpp/java-constituent?)
+
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (frame-workspaces)
+    '(text))
+
+  
+  ;;;
+  ;;;; Completion
+  ;;;
+
+
+  (method (favorite-completions)
+    (get-completions~ (preferences)))
+  
+  
+  (method (commented? pos)
+    (let ((style (get-style-at pos)))
+      (and style
+           (or (inherits?~ style 'Title)
+               (inherits?~ style 'Line-Comment)))))
+
+  
+  ;;;
+  ;;;; Tabulation
+  ;;;
+
+
+  (method (return-press key)
+    ((super return-press) key)
+    (tabulate))
+
+
+  ;;;
+  ;;;; Explorer
+  ;;;
+
+
+  (method (explorer-class)
+    Cat-Explorer)
+ 
+  
+  ;;;
+  ;;;; Expr
+  ;;;
+  
+  
+  (method (get-context)
+    '(cpp/java))
+
+
+  (method (current-name)
+    (name-at (current-expr-range)))
+  
+  
+  (method (name-at range)
+    (when range
+      (let ((name (get-string range)))
+        (when (> (length name) 0)
+          (if (= (element name 0) #\Open-Brace)
+              (read-string-element name)
+            name)))))
+
+
+  (method (current-expr)
+    (current-name))
+  
+  
+  (method (current-expr-range)
+    (if (and (not completion-active?) (has-selection?))
+        (get-selection)
+      (expr-range (get-end))))
+  
+  
+  (method (expr-range pos)
+    (let ((expl (new Cat-Explorer self :start pos :end pos)))
+      (outer-expr~ expl)
+      (get-range~ expl)))
+  
+  
+  (method (expr-at pos)
+    (name-at (expr-range pos)))
+
+  
+  ;;;
+  ;;;; Chapters
+  ;;;
+  
+  
+  (constant headers
+    (list
+      (append (new String :size 3 :default #\Slash) " ")))
+  
+  
+  (method (get-headers)
+    headers)
+  
+  
+  (method (get-first-special?)
+    false)
+
+  
+  ;;;
+  ;;;; Defines
+  ;;;
+  
+  
+  (constant Defines
+    '("define"))
+  
+  
+  (method (get-defines)
+    Defines)
+
+  
+  ;;;
+  ;;;; Keywords
+  ;;;
+  
+  
+  (constant Keywords
+    '("dup"
+      "pop"
+      "swap"
+      "popd"
+      "apply"
+      "quote"
+      "if"
+      "while"
+      "for"
+      "repeat"
+      "bin_rec"
+      "swapd"
+      "dip"
+      "not"
+      "gteq"
+      "lteq"
+      "gt"
+      "lt"
+      "eq"
+      "neq"
+      "desc:"
+      "test:"
+      "in:"
+      "out:"
+      "semantics:"))
+  
+  
+  (method protected virtual (get-keywords)
+    Keywords)
+
+  
+  ;;;
+  ;;;; Coloring
+  ;;;
+  
+  
+  (definition Syntax-Targets
+    nil)
+  
+  (definition Syntax-Automata
+    nil)
+  
+  
+  (method (syntax-targets)
+    (either Syntax-Targets
+            (set! Syntax-Targets (compute-syntax-targets))))
+  
+  
+  (method (syntax-automata)
+    (either Syntax-Automata
+            (set! Syntax-Automata (compute-syntax-automata))))
+
+  
+  (method (compute-syntax-targets)
+    (append (list (list "//" 'line-comment false))
+            (map (function dynamic (str) (list str 'define)) (get-defines))
+            (map (function dynamic (str) (list str 'keyword)) (get-keywords))))
+        
+  
+  (method (compute-syntax-automata)
+    (build-search-automata (syntax-targets) true true self cpp/java-constituent?))
+  
+  
+  (method (colorize-type found type start end colorizer recolorize?)
+    (case type
+      ((line-comment) (colorize-line-comment found start end colorizer 'Line-Comment 'Title {}))
+      ((define)       (colorize-keyword      found start end colorizer 'Define))
+      ((keyword)      (colorize-keyword      found start end colorizer 'Keyword))))
+    
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (get-context-menu)
+    (new Cat-Text-Menu))
+  
+  
+  (class Cat-Text-Menu extends Context-Menu uses (Language Utilities System)
+    
+    
+    (form
+      (<install>
+        (<Label-Item>     name: update-catalog    title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
+        (<Label-Item>     name: recolorize-syntax title: "&Recolorize Syntax" icon: {Bitmap-Resource "Refresh"} action: {Action code-text recolorize-syntax})
+        (<Separator-Item>)
+        (<Label-Item>     name: goto-line         title: "&Goto Line" action: {Action text goto-line})
+        (<Separator-Item>)
+        (<Label-Item>                             title: "&Column"
+          (<Column-Menu>))
+        (<Label-Item>                             title: "&Format"
+          (<Format-Menu>))))))

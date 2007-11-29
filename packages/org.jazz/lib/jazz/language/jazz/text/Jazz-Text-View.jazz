@@ -209,14 +209,6 @@
           (list (map (function (object) (->string object :reader)) (read-string-content (get-selected-string)))))
       (push-clipboard-list~ appl list)
       (user-message "Pushed {a} elements onto the clipboard stack" (length list))))
-  
-  
-  (method (on-paste-pathname evt)
-    (let* ((string (get-clipboard))
-           (content (tokenise string))
-           (directory (new Directory content))
-           (anchorized (anchorize~ directory)))
-      (insert-string (->string anchorized :reader))))
 
   
   ;;;
@@ -943,56 +935,7 @@
     @convert
     (when (in-manifest? symbol)
       (edit-class~ (get-application) symbol)
-      #t))
-    
-  
-  ;;;
-  ;;;; Wizard
-  ;;;
-
-  
-  (method (on-insert-properties evt)
-    @convert-text-printer
-    (let ((names (get-modal Properties-Wizard)))
-      (if (null? names)
-          (bell)
-        (let ((start (get-start))
-              (printer (new Text-Printer self)))
-          (with-atomic-undo~ undoer
-            (function ()
-              (set-caret (new Cell (get-row~ start) 0))
-              (format printer "{%}{%}")
-              (insert-properties (map ->string names) printer)))))))
-  
-  
-  (method (insert-properties names printer)
-    (let ((max (apply max (map length names))))
-      (for-each (function (name)
-                  (insert-property name max printer))
-                names)
-      (for-each (function (name)
-                  (format printer "{%}{%}")
-                  (insert-getter name printer)
-                  (format printer "{%}{%}")
-                  (insert-setter name printer))
-                names)))
-  
-  
-  (method (insert-property name max printer)
-    (format printer "  (property {a}{_ :v} initialize {} getter get-{a}{_ :v} setter set-{a}){%}"
-            name (- max (length name))
-            name (- max (length name))
-            name))
-  
-  
-  (method (insert-getter name printer)
-    (format printer "  (method public (get-{a}){%}" name)
-    (format printer "    {a}){%}" name))
-  
-  
-  (method (insert-setter name printer)
-    (format printer "  (method public (set-{a} value){%}" name)
-    (format printer "    (set! {a} value)){%}" name)))
+      #t)))
 
 
 ;;;
@@ -1040,19 +983,10 @@
       @waiting
       (<Separator-Item>)
       @waiting
-      (<Label-Item>     name: paste-pathname       title: "&Paste Pathname" icon: {Bitmap-Resource "Paste"} action: {Action jazz-text paste-pathname})
-      @waiting
-      (<Separator-Item>)
-      @waiting
       (<Label-Item>     name: show-history         title: "Show &History..." icon: {Bitmap-Resource "ShowHistory"} action: {Action text show-history})
       @waiting
       (<Label-Item>     name: show-changes         title: "Show &Changes..." icon: {Bitmap-Resource "ShowChanges"} action: {Action text show-changes})
-      @waiting
       (<Separator-Item>)
-      @waiting
-      (<Label-Item>     name: patch-file           title: "&Patch File" action: {Action jazz-text patch-file})
-      (<Separator-Item>)
-      (<Label-Item>     name: insert-properties    title: "Insert &Properties..." action: {Action jazz-text insert-properties})
       (<Label-Item>     name: set-read/write       title: "&Set Read/Write" action: {Action jazz-text set-read/write})
       (<Label-Item>     name: update-catalog       title: "&Update Catalog" icon: {Bitmap-Resource "Repository"} action: {Action code-text update-catalog})
       (<Label-Item>     name: recolorize-syntax    title: "&Recolorize Syntax" icon: {Bitmap-Resource "Refresh"} action: {Action code-text recolorize-syntax})

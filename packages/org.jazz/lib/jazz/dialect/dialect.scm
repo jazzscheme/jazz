@@ -2466,7 +2466,7 @@
        (c-function ,params ,type ,c-name))))
 
 
-;; tofix : Danger de segmentation fault si on passe une mauvaise taille de string.
+;; tofix : risk of segmentation fault if passing an bad string size
 (define (jazz.expand-c-external-so walker resume declaration environment type arg signature . rest)
   (let* ((s-name (%%car signature))
          (ext-s-name (%%string->symbol (%%string-append (%%symbol->string s-name) "_EXT")))

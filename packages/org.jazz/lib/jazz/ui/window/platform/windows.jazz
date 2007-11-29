@@ -792,4 +792,36 @@
   (with ((data (new APPBARDATA)))
     (set data 'cbSize (size-of APPBARDATA))
     (SHAppBarMessage ABM_GETTASKBARPOS data)
-    (get data 'uEdge))))
+    (get data 'uEdge)))
+
+
+;;;
+;;;; Drop Files
+;;;
+
+
+(definition (platform-drop-files window wparam)
+  (let ((files (received-files wparam))
+        (pt (POINT-make)))
+    (DragQueryPoint wparam pt)
+    (DragFinish wparam)
+    (let ((pos (POINT->point pt)))
+      (receive-files~ window pos files))
+    ;; not clear this is the Windows standard
+    @wait
+    (platform-select-foreground-window (get-handle~ (get-toplevel)))))
+
+
+(definition (received-files wparam)
+  (let ((count (DragQueryFile wparam #xFFFFFFFF NULL 0)))
+    (map (function (n)
+           (let* ((size MAX_PATH)
+                  (buffer (WCHAR-array-make size)))
+             (WCHAR-array-set! buffer 0 #\nul)
+             (DragQueryFile wparam n buffer size)
+             (let* ((filename (WCHAR-string buffer))
+                    (attributes #f @w (GetFileAttributes filename))
+                    (directory? #f @w (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY))
+                    (pathname (new (if directory? Directory File) (tokenise filename))))
+               (anchorize~ pathname))))
+         (naturals 0 count)))))

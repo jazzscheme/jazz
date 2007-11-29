@@ -441,13 +441,13 @@
     jazz.catalog.catalog.Indexed-Catalog
     jazz.catalog.entry.Catalog-Entry
     jazz.catalog.entry.Indexed-Entry
-    jazz.catalog.entry.Lisp-Entry
     jazz.catalog.entry.File-Entry
-    jazz.catalog.entry.Lisp-File-Entry
     jazz.catalog.parser.File-Parser
-    jazz.catalog.parser.Lisp-Parser
-    jazz.catalog.parser.Scheme-Parser
-    jazz.catalog.parser.Jazz-Parser))
+    jazz.language.lisp.catalog.Lisp-Entry
+    jazz.language.lisp.catalog.Lisp-File-Entry
+    jazz.language.lisp.parser.Lisp-Parser
+    jazz.language.scheme.parser.Scheme-Parser
+    jazz.language.jazz.parser.Jazz-Parser))
 
 (define Tree
   '(jazz.ui.tree.Tree-View

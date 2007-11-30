@@ -68,18 +68,6 @@
   (table-set! Windows-Table handle window))
 
 
-;; So that the window<->hwnd association can be made on the very first windows message
-(definition in-creation {})
-
-
-(definition (set-in-creation in)
-  (set! in-creation in))
-
-
-(definition (get-in-creation)
-  in-creation)
-
-
 (definition (create-handle window parent rest)
   (let* ((screen-no (XDefaultScreen default-x11-display))
          (screen    (XScreenOfDisplay default-x11-display screen-no))
@@ -102,7 +90,6 @@
 
 (definition (prepare-handle window parent rest)
   (bind-keywords ((handle {}) . others) rest
-    (set-in-creation window)
     (let ((handle (create-handle window parent rest)))
       (if (not handle)
           (error "Unable to create x11 window")
@@ -165,13 +152,8 @@
         (let ((window (get-window handle))
               (wparam 0)
               (lparam 0))
-          (when (and (not window) (get-in-creation))
-            (set! window (get-in-creation))
-            (set-handle~ window handle)
-            (set-window handle window)
-            (set-in-creation {}))
           (if (not window)
-              (error "No window")
+              (debug "Warning : No window")
             (call-dispatch-message~ window msg wparam lparam))))
      (when (= 0 (XPending default-x11-display))
        (iterate-table expose-store

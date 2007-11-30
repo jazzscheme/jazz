@@ -264,13 +264,12 @@
     ((WM_RBUTTONDOWN)     (right-mouse-down~ window (loword lparam) (hiword lparam)))
     ((WM_RBUTTONUP)       (right-mouse-up~ window (loword lparam) (hiword lparam)))
     ((WM_CONTEXTMENU)     (call-context-menu~ window (loword lparam) (hiword lparam)))
-    ((WM_SYSKEYDOWN)      (if (/= wparam VK_MENU) unprocessed (system-key-down~ window)))
-    ((WM_SYSKEYUP)        (if (/= wparam VK_MENU) unprocessed (system-key-up~ window)))
-    ((WM_KEYDOWN)         (call-key-down~ window wparam))
-    ((WM_KEYUP)           (call-key-up~ window wparam))
+    ((WM_SYSKEYDOWN)      (if (= wparam VK_MENU) (system-key-down~ window) unprocessed))
+    ((WM_SYSKEYUP)        (if (= wparam VK_MENU) (system-key-up~ window) unprocessed))
+    ((WM_KEYDOWN)         (key-down~ window wparam))
+    ((WM_KEYUP)           (key-up~ window wparam))
     ((WM_CHAR)            (call-key-press~ window wparam))
-    ((WM_COMMAND)         (on-command~ window lparam wparam))
-    ((WM_SYSCOMMAND)      (on-system-command~ window (bit-and wparam #xFFF0)))
+    ((WM_COMMAND)         (dispatch-command lparam wparam))
     ((WM_MOVE)            (call-position-change~ window (loword lparam) (hiword lparam)))    
     ;; Windows sends a size message with both the width
     ;; and the height equal to zero when minimizing a window...
@@ -632,6 +631,18 @@
 
 (definition (platform-set-focus handle)
   (SetFocus handle))
+
+
+;;;
+;;;; Keyboard
+;;;
+
+
+(definition (dispatch-command lparam wparam)
+  (if (= lparam 0)
+      (let ((appl (get-application)))
+        (dispatch-shortcut~ appl (find-shortcut~ (get-shortcut-table~ appl) (loword wparam))))
+    unprocessed))
 
 
 ;;;

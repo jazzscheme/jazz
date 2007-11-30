@@ -74,31 +74,31 @@
 (class Application extends Process implements (Context-Provider History-Provider Event-Consumer Save-Environment-Listener Exit-Listener)
 
 
-  (slot toplevel                        initialize {})
-  (slot stage                           initialize {})
-  (slot menubar                         initialize {})
-  (slot status-bar                      initialize {})
-  (slot user-module                     initialize {})
-  (slot user                            initialize {})
-  (slot focus-listeners                 initialize '())
-  (slot application-listeners           initialize (make-table test: eq?))
-  (slot selected-owner                  initialize {})
-  (slot selected                        initialize {})
-  (slot selected-listeners              initialize '())
-  (slot event-consumer                  initialize self)
-  (slot history-manager                 initialize (new History-Manager self))
-  (slot repositories-preferences        initialize {})
-  (slot active?                         initialize #f)
-  (slot application-actions             initialize '())
-  (slot user-actions                    initialize '())
-  (slot guest-actions                   initialize '())
-  (slot focus-actions                   initialize '())
-  (slot bindings                        initialize {})
-  (slot bindings-designer               initialize {})
-  (slot accelerators-table              initialize {})
-  (slot accelerators-handle             initialize {})
-  (slot accelerators-dispatch           initialize {})
-  (slot accelerators-hook               initialize {})
+  (slot toplevel                 initialize {})
+  (slot stage                    initialize {})
+  (slot menubar                  initialize {})
+  (slot status-bar               initialize {})
+  (slot user-module              initialize {})
+  (slot user                     initialize {})
+  (slot focus-listeners          initialize '())
+  (slot application-listeners    initialize (make-table test: eq?))
+  (slot selected-owner           initialize {})
+  (slot selected                 initialize {})
+  (slot selected-listeners       initialize '())
+  (slot event-consumer           initialize self)
+  (slot history-manager          initialize (new History-Manager self))
+  (slot repositories-preferences initialize {})
+  (slot active?                  initialize #f)
+  (slot application-actions      initialize '())
+  (slot user-actions             initialize '())
+  (slot guest-actions            initialize '())
+  (slot focus-actions            initialize '())
+  (slot bindings                 initialize {})
+  (slot bindings-designer        initialize {})
+  (slot shortcut-table           initialize {})
+  (slot shortcut-handle          initialize {})
+  (slot shortcut-dispatch        initialize {})
+  (slot shortcut-hook            initialize {})
   
   
   (method (prepare-exit));;abstract
@@ -172,7 +172,7 @@
   (method (prepare-environment rest)
     (nextmethod rest)
     (set-application self)
-    (setup-accelerators)
+    (setup-shortcuts)
     @test-java
     (test-java)
     (let ((flat-look (new Flat-Look))
@@ -934,49 +934,49 @@
   
   
   ;;;
-  ;;;; Accelerators
+  ;;;; Shortcuts
   ;;;
+  
   
   (cond-expand
     (windows
-      (method (setup-accelerators)
-        (set! accelerators-table (all-accelerators-table))
-        (set! accelerators-handle (get-handle~ accelerators-table))
-        (set! accelerators-dispatch (make-table test: shortcut=? hash: shortcut-hash))))
+      (method (setup-shortcuts)
+        (set! shortcut-table (all-shortcut-table))
+        (set! shortcut-handle (get-handle~ shortcut-table))
+        (set! shortcut-dispatch (make-table test: shortcut=? hash: shortcut-hash))))
     (else
-     (method (setup-accelerators)
+     (method (setup-shortcuts)
        #f)))
       
   
-  
   (method (register-actions-shortcuts old-actions new-actions)
-    (when accelerators-dispatch
+    (when shortcut-dispatch
       (for-each (function (actions)
                   (for-each (function (action-item)
                               (let ((shortcut (get-shortcut~ action-item)))
                                 (when shortcut
-                                  (table-remove! accelerators-dispatch shortcut action-item))))
+                                  (table-remove! shortcut-dispatch shortcut action-item))))
                             (get-children~ actions)))
                 old-actions)
       (for-each-reversed (function (actions)
                            (for-each (function (action-item)
                                        (let ((shortcut (get-shortcut~ action-item)))
                                          (when shortcut
-                                           (table-add accelerators-dispatch shortcut action-item))))
+                                           (table-add shortcut-dispatch shortcut action-item))))
                                      (get-children~ actions)))
                          new-actions)))
   
   
-  (method public (update-accelerator action-item old-shortcut new-shortcut)
+  (method public (update-shortcut action-item old-shortcut new-shortcut)
     (when old-shortcut
-      (table-remove! accelerators-dispatch old-shortcut action-item))
+      (table-remove! shortcut-dispatch old-shortcut action-item))
     (when new-shortcut
-      (table-add accelerators-dispatch new-shortcut action-item)))
+      (table-add shortcut-dispatch new-shortcut action-item)))
   
   
   (method public (dispatch-shortcut shortcut)
-    (if accelerators-hook
-        (accelerators-hook shortcut)
+    (if shortcut-hook
+        (shortcut-hook shortcut)
       (let ((action-items (get-bound-actions shortcut)))
         (when action-items
           (invoke~ (car action-items) self {})
@@ -984,15 +984,19 @@
   
   
   (method public (get-bound-actions shortcut)
-    (table-ref accelerators-dispatch shortcut {}))
+    (table-ref shortcut-dispatch shortcut {}))
   
   
-  (method public (get-accelerators-hook)
-    accelerators-hook)
+  (method public (get-shortcut-table)
+    shortcut-table)
   
   
-  (method public (set-accelerators-hook value)
-    (set! accelerators-hook value))
+  (method public (get-shortcut-hook)
+    shortcut-hook)
+  
+  
+  (method public (set-shortcut-hook value)
+    (set! shortcut-hook value))
   
   
   ;;;
@@ -1127,11 +1131,11 @@
 
   
   (method (process-messages)
-    (platform-process-messages accelerators-handle))
+    (platform-process-messages shortcut-handle))
   
   
   (method (process-one-message (window (get-toplevel)))
-    (platform-process-one-message window accelerators-handle))
+    (platform-process-one-message window shortcut-handle))
 
   
   ;;;

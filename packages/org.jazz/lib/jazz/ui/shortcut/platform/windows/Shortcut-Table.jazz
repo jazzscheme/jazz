@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Accelerator Tables
+;;;; Shortcut Tables
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.library.utility.Accelerator-Table jazz
+(library jazz.ui.shortcut.platform.windows.Shortcut-Table jazz
 
 
 (import (jazz.library)
         (jazz.platform.windows)
         (jazz.ui)
         (jazz.utilities))
+
+
+;;;
+;;;; Keys
+;;;
 
 
 (definition public Symbolic-Keys
@@ -91,10 +96,42 @@
     (cons 'Divide        VK_DIVIDE)))
 
 
-(class Accelerator-Table extends Object
+;;;
+;;;; Cookies
+;;;
 
 
-  (slot handle      initialize {})
+(definition Unique-Id
+  8000)
+
+(definition Id-Cookies
+  (make-table test: eqv?))
+
+
+(definition (register-cookie-id cookie)
+  (let ((id Unique-Id))
+    (increase! Unique-Id)
+    (table-set! Id-Cookies id cookie)
+    id))
+
+
+(definition (unregister-cookie-id id)
+  (table-clear Id-Cookies id))
+
+
+(definition (get-id-cookie id)
+  (table-ref Id-Cookies id #f))
+
+
+;;;
+;;;; Table
+;;;
+
+
+(class Shortcut-Table extends Object
+
+
+  (slot handle      initialize {} getter generate)
   (slot accel-array initialize {})
   (slot accel-size  initialize {})
 
@@ -114,13 +151,13 @@
                     (unregister-cookie-id (ACCEL-cmd-ref accel))))
                 (naturals 0 accel-size)))
     (nextmethod))
+  
+  
+  (method public (find-shortcut id)
+    (get-id-cookie id))
 
 
-  (method public (get-handle)
-    handle)
-
-
-  (method public (create-table action-items)
+  (method (create-table action-items)
     (when action-items
       (let* ((size  (length action-items))
              (array (make-ACCEL-array size)))

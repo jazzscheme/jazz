@@ -55,7 +55,7 @@
 (define-macro (bind-keywords bindings rest . body)
   (let ((box (generate-symbol "box"))
         (bnd (new-queue))
-        (oth (last-pair bindings)))
+        (oth (last-tail bindings)))
     `(let ((,box (box-list ,rest)))
        (let* ,(map (lambda (binding)
                      (let ((variable (car binding))

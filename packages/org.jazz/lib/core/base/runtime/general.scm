@@ -61,17 +61,17 @@
 
 (define (jazz.find-if predicate lst)
   (let iter ((scan lst))
-    (if (%%pair? scan)
-        (let ((value (%%car scan)))
+    (if (%%null? scan)
+        #f
+      (let ((value (%%car scan)))
         (if (predicate value)
             value
-          (iter (%%cdr scan))))
-      #f)))
+          (iter (%%cdr scan)))))))
 
 
 (define (jazz.collect-if predicate lst)
   (let iter ((scan lst))
-       (if (%%pair? scan)
+       (if (%%not-null? scan)
            (let ((value (%%car scan)))
              (if (predicate value)
                  (%%cons value (iter (%%cdr scan)))
@@ -113,13 +113,26 @@
   (map (lambda (obj) obj) lst))
 
 
+(define (jazz.last-tail lst)
+  (if (%%pair? lst)
+      (let iter ((scan lst))
+        (let ((tail (%%cdr scan)))
+          (cond ((%%pair? tail)
+                 (iter tail))
+                ((%%null? tail)
+                 scan)
+                (else
+                 tail))))
+    lst))
+
+
 (define (jazz.last-pair lst)
   (if (%%pair? lst)
-      (let iterate ((lst lst))
-           (let ((tail (%%cdr lst)))
-             (if (%%pair? tail)
-                 (iterate tail)
-               lst)))
+      (let iter ((scan lst))
+        (let ((tail (%%cdr scan)))
+          (if (%%pair? tail)
+              (iter tail)
+            scan)))
     lst))
 
 
@@ -129,7 +142,7 @@
 
 (define (jazz.remove-duplicates lst)
   (let iter ((scan lst))
-       (if (%%pair? scan)
+    (if (%%not-null? scan)
            (let ((value (%%car scan))
                  (result (iter (%%cdr scan))))
              (if (%%memv value result)
@@ -140,17 +153,17 @@
 
 (define (jazz.partition lst key)
   (let iter ((scan lst))
-       (if (%%pair? scan)
-           (let* ((partition (iter (%%cdr scan)))
-                  (element (%%car scan))
-                  (category (key element))
-                  (set (assv category partition)))
-             (if set
-                 (begin
-                   (set-cdr! set (cons element (cdr set)))
-                   partition)
-               (%%cons (%%cons category (list element)) partition)))
-         '())))
+    (if (%%null? scan)
+        '()
+      (let* ((partition (iter (%%cdr scan)))
+             (element (%%car scan))
+             (category (key element))
+             (set (assv category partition)))
+        (if (%%not set)
+            (%%cons (%%cons category (%%list element)) partition)
+          (begin
+            (%%set-cdr! set (%%cons element (%%cdr set)))
+            partition))))))
 
 
 ;;;

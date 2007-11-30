@@ -227,6 +227,7 @@
 (native jazz.butlast)
 (native jazz.listify)
 (native jazz.list-copy)
+(native jazz.last-tail)
 (native jazz.last-pair)
 (native jazz.getprop)
 (native jazz.getf)

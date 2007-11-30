@@ -1946,10 +1946,10 @@
   (let ((last-anchor (%%get-queue-last-anchor queue)))
     (cond ((%%null? last-anchor)
            (%%set-queue-list queue (jazz.list-copy (%%get-queue-last-list queue)))
-           (%%set-queue-current queue (jazz.last-pair (%%get-queue-list queue))))
+           (%%set-queue-current queue (jazz.last-tail (%%get-queue-list queue))))
           (else
            (%%set-cdr! last-anchor (jazz.list-copy (%%get-queue-last-list queue)))
-           (%%set-queue-current queue (jazz.last-pair last-anchor))))
+           (%%set-queue-current queue (jazz.last-tail last-anchor))))
     (%%set-queue-last-list queue '())
     (%%set-queue-last-anchor queue '())))
 

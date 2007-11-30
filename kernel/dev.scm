@@ -346,28 +346,16 @@
 (cond-expand
   (windows
     (define (bplatform)
+      (bjazz)
+      (bcairo)
+      (bfont)
       (bwindows)))
   (x11
     (define (bplatform)
+      (bjazz)
+      (bcairo)
+      (bfont)
       (bx11))))
-
-
-;; build everything that needs to be compiled
-(define (bcmp)
-  (ld)
-  (bcairo)
-  (bfont)
-  (bplatform))
-
-
-(define (build)
-  (bjazz)
-  (bcairo)
-  (bfont)
-  (bplatform))
-
-(define (b)
-  (build))
 
 
 (define Util
@@ -522,7 +510,8 @@
 
 (define (bjedi)
   (la)
-  (build)
+  (bjazz)
+  (bplatform)
   (butil)
   (bcomp)
   (bview)

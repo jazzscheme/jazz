@@ -1366,7 +1366,7 @@
 
 
 (definition public (hibyte short <int>) <int>
-  (shift-right (bit-and short #xFF00) -8))
+  (arithmetic-shift (bitwise-and short #xFF00) 8))
 
 
 (definition public (make-word lo <int> hi <int>) <int>
@@ -1374,7 +1374,7 @@
 
 
 (definition public (lochar word <int>) <int>
-  (bit-and #xFF word))
+  (bitwise-and #xFF word))
 
 
 (definition public (hichar word <int>) <int>
@@ -1411,38 +1411,25 @@
 (definition random random-integer)
 
 
-(definition bit-not <int:int> bitwise-not)
-(definition bit-and <int*:int> bitwise-and)
-(definition bit-or  <int*:int> bitwise-ior)
-(definition bit-xor <int*:int> bitwise-xor)
-
-
 (definition (bit-set num <int> pos <int> bit <bool>) <int>
-  (let ((msk (shift-left 1 pos)))
+  (let ((msk (arithmetic-shift 1 pos)))
     (if bit
-        (bit-or num msk)
-      (bit-and num (bit-not msk)))))
+        (bitwise-ior num msk)
+      (bitwise-and num (bitwise-not msk)))))
 
 
 (definition (mask-bit-set num <int> msk <int> bit <bool>) <int>
   (if bit
-      (bit-or num msk)
-    (bit-and num (bit-not msk))))
+      (bitwise-ior num msk)
+    (bitwise-and num (bitwise-not msk))))
 
 
 (definition (mask-bit-set? num <int> msk <int>) <bool>
-  (/= (bit-and num msk) 0))
-
-
-(definition shift-left <int:int> arithmetic-shift)
-
-
-(definition (shift-right num <int> pos <int>) <int>
-  (arithmetic-shift num (- pos)))
+  (/= (bitwise-and num msk) 0))
 
 
 (definition public (bit-mask hi <int> lo <int>)
-  (- (shift-left 1 hi) (shift-left 1 lo)))
+  (- (arithmetic-shift 1 hi) (arithmetic-shift 1 lo)))
 
 
 (definition public (random-seed)
@@ -5072,23 +5059,20 @@
 
 
 (definition (print-unsigned n (printer (current-output-port)))
-  ;; quick fix
-  (write n printer))
+  (unimplemented 'print-unsigned))
+
+
+(definition (print-binary n (printer (current-output-port)))
+  (display (number->string n 2) printer))
 
 
 (definition (print-hexadecimal n (printer (current-output-port)))
-  ;; quick fix
-  (write n printer))
-
-
-(definition (print-binary b (printer (current-output-port)))
-  ;; quick fix
-  (write b printer))
+  (display (number->string n 16) printer))
 
 
 (definition (print-real r precision (printer (current-output-port)))
   ;; quick fix
-  (write r printer))
+  (display r printer))
 
 
 (definition (print-list list separator last-separator before after detail (printer (current-output-port)))
@@ -5235,8 +5219,8 @@
                         ((p) (print-directive parameters output?))
                         ((c) (char-directive parameters output?))
                         ((u) (unsigned-directive parameters output?))
-                        ((x) (hexadecimal-directive parameters output?))
                         ((b) (binary-directive parameters output?))
+                        ((x) (hexadecimal-directive parameters output?))
                         ((r) (real-directive parameters output?))
                         ((l) (list-directive parameters output?))
                         ((k) (properties-directive parameters output?))
@@ -5351,20 +5335,20 @@
             (print-unsigned argument printer))))))
   
   
-  (method (hexadecimal-directive parameters output?)
-    (let ((argument (next-argument)))
-      (when output?
-        (with-justification parameters
-          (function (printer)
-            (print-hexadecimal argument printer))))))
-  
-  
   (method (binary-directive parameters output?)
     (let ((argument (next-argument)))
       (when output?
         (with-justification parameters
           (function (printer)
             (print-binary argument printer))))))
+  
+  
+  (method (hexadecimal-directive parameters output?)
+    (let ((argument (next-argument)))
+      (when output?
+        (with-justification parameters
+          (function (printer)
+            (print-hexadecimal argument printer))))))
   
   
   (method (real-directive parameters output?)

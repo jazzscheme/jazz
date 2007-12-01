@@ -52,7 +52,7 @@
 
 
 ;;;
-;;;;  Window
+;;;; Window
 ;;;
 
 
@@ -149,9 +149,53 @@
 (definition (platform-erase-background handle)
   (unimplemented 'platform-erase-background))
 
+
+;;;
+;;;; Loop
+;;;
+
+
+(definition (platform-process-messages)
+  (let ((msg (XEvent-make)))
+    ;; process messages from all windows
+    (while (XNextEvent default-x11-display msg)
+      (let* ((any-event (XEvent-xany-ref msg))
+             (handle (XAnyEvent-window-ref any-event)))
+        ;; tofix wparam and lparam should be removed
+        (let ((window (get-window handle))
+              (wparam 0)
+              (lparam 0))
+          (when (and (not window) (get-in-creation))
+            (set! window (get-in-creation))
+            (set-handle~ window handle)
+            (set-window handle window)
+            (set-in-creation {}))
+          (if (not window)
+              (error "No window")
+            (call-dispatch-message~ window msg wparam lparam))))
+     (when (= 0 (XPending default-x11-display))
+       (iterate-table expose-store
+                             (function (win region)
+                               (when region
+                                 (paint~ win region))))
+       (table-clear expose-store #f)))))
+
+
+(definition (platform-process-one-message window)
+  (unimplemented 'platform-process-one-message)
+  @unimp
+  (with ((msg (MSG-make)))
+    (let ((hwnd (get-handle~ window)))
+      (when (GetMessage msg hwnd 0 0)
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg))))))
+
+
 ;;;
 ;;;; Messages
 ;;;
+
 
 (definition expose-store (make-table))
 
@@ -390,7 +434,7 @@
   @windows (
   (set-layered? handle #t)
   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-  (RedrawWindow handle NULL NULL (bit-or RDW_ERASE RDW_INVALIDATE))))
+  (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
 
 
 ;;;
@@ -515,7 +559,7 @@
 (definition (platform-set-bounds handle rect)
   (unimplemented 'platform-set-bounds)
   @windows
-    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition (platform-get-rect handle parent-handle)
@@ -560,7 +604,7 @@
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (ChildWindowFromPointEx handle pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
+    (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
 
 
 (definition (platform-move-window handle x y cx cy)
@@ -596,7 +640,7 @@
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
   (platform-update-window handle)
   @windows
-  (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
+  (let ((flags (bitwise-ior (if erase? SW_ERASE 0) SW_INVALIDATE)))
     (with ((rect (rect->RECT rect))
            (clip-rect (rect->RECT clip-rect)))
       (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
@@ -629,7 +673,7 @@
   (when handle
     ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
-    (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
+    (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
       (with ((rect (if (not rect) NULL (rect->RECT rect))))
         (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)))))
 
@@ -661,13 +705,13 @@
 (definition (platform-show-noactivate handle)
   (show-window handle)
   @windows
-  (SetWindowPos handle HWND_TOP 0 0 0 0 (bit-or SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle HWND_TOP 0 0 0 0 (bitwise-ior SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
   
   
 (definition (platform-hide-noactivate handle)
   (hide-window handle)
   @windows
-  (SetWindowPos handle 0 0 0 0 0 (bit-or SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle 0 0 0 0 0 (bitwise-ior SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
 
 
 (definition (platform-bring-window-to-front handle)
@@ -677,7 +721,7 @@
 (definition (platform-send-window-to-back handle)
   (unimplemented 'platform-send-window-to-back)
   @windows
-  (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bit-or SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bitwise-ior SWP_NOMOVE SWP_NOSIZE)))
 
 
 (definition (platform-select-foreground-window handle)

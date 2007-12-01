@@ -53,7 +53,7 @@
 
 
 ;;;
-;;;;  Window
+;;;; Window
 ;;;
 
 
@@ -88,7 +88,7 @@
 
 ;;tofix : Transient CS_SAVEBITS
 (definition (class-style)
-  (bit-or CS_OWNDC CS_DBLCLKS))
+  (bitwise-ior CS_OWNDC CS_DBLCLKS))
 
 
 (definition (class-background)
@@ -132,50 +132,50 @@
 
 (definition (window-style window rest)
   (typecase window
-      ((Dialog)           (bit-or (if (child-style? rest) WS_CHILD 0)
-                                  WS_CLIPCHILDREN
-                                  WS_CLIPSIBLINGS
-                                  WS_POPUP
-                                  WS_BORDER
-                                  WS_OVERLAPPED
-                                  WS_CAPTION
-                                  WS_DLGFRAME
-                                  (if (getf rest sizable?: not-found: #t) WS_THICKFRAME 0)
-                                  (if (getf rest closable?: not-found: #t) WS_SYSMENU 0)))
-      ((Frame)            (bit-or WS_CHILD
-                                  WS_SYSMENU
-                                  WS_CLIPCHILDREN
-                                  WS_CLIPSIBLINGS))
-      ((Message-Window)   0)
-      ((Orphanage-Window) 0)
-      ((Palette)          (bit-or WS_POPUP
-                                  WS_CLIPCHILDREN))
-      ((Popup)            (bit-or WS_POPUP
-                                  WS_CLIPCHILDREN))
-      @unimplemented
-      ((State-Toplevel)   (bit-or WS_POPUP
-                                  WS_CLIPCHILDREN))
-      ((Toplevel)         (bit-or WS_CLIPSIBLINGS
-                                  WS_CLIPCHILDREN
-                                  WS_POPUP
-                                  WS_OVERLAPPED
-                                  WS_MINIMIZEBOX
-                                  WS_SYSMENU))
-      (else               (bit-or (if (child-style? rest) WS_CHILD 0)
-                                  WS_CLIPCHILDREN
-                                  WS_CLIPSIBLINGS))))
+    ((Dialog)           (bitwise-ior (if (child-style? rest) WS_CHILD 0)
+                                     WS_CLIPCHILDREN
+                                     WS_CLIPSIBLINGS
+                                     WS_POPUP
+                                     WS_BORDER
+                                     WS_OVERLAPPED
+                                     WS_CAPTION
+                                     WS_DLGFRAME
+                                     (if (getf rest sizable?: not-found: #t) WS_THICKFRAME 0)
+                                     (if (getf rest closable?: not-found: #t) WS_SYSMENU 0)))
+    ((Frame)            (bitwise-ior WS_CHILD
+                                     WS_SYSMENU
+                                     WS_CLIPCHILDREN
+                                     WS_CLIPSIBLINGS))
+    ((Message-Window)   0)
+    ((Orphanage-Window) 0)
+    ((Palette)          (bitwise-ior WS_POPUP
+                                     WS_CLIPCHILDREN))
+    ((Popup)            (bitwise-ior WS_POPUP
+                                     WS_CLIPCHILDREN))
+    @unimplemented
+    ((State-Toplevel)   (bitwise-ior WS_POPUP
+                                     WS_CLIPCHILDREN))
+    ((Toplevel)         (bitwise-ior WS_CLIPSIBLINGS
+                                     WS_CLIPCHILDREN
+                                     WS_POPUP
+                                     WS_OVERLAPPED
+                                     WS_MINIMIZEBOX
+                                     WS_SYSMENU))
+    (else               (bitwise-ior (if (child-style? rest) WS_CHILD 0)
+                                     WS_CLIPCHILDREN
+                                     WS_CLIPSIBLINGS))))
 
 
 (definition (window-ex-style window rest)
   (let ((transparent (if (window-transparent?~ window) WS_EX_TRANSPARENT 0)))
-    (bit-or transparent
-            (typecase window
-              ((Dialog)    WS_EX_DLGMODALFRAME)
-              ((Palette)   WS_EX_TOOLWINDOW)
-              ((Popup)     WS_EX_TOOLWINDOW)
-              ((Toplevel)  WS_EX_APPWINDOW)
-              ((Transient) (bit-or WS_EX_TOOLWINDOW WS_EX_TOPMOST))
-              (else        0)))))
+    (bitwise-ior transparent
+                 (typecase window
+                   ((Dialog)    WS_EX_DLGMODALFRAME)
+                   ((Palette)   WS_EX_TOOLWINDOW)
+                   ((Popup)     WS_EX_TOOLWINDOW)
+                   ((Toplevel)  WS_EX_APPWINDOW)
+                   ((Transient) (bitwise-ior WS_EX_TOOLWINDOW WS_EX_TOPMOST))
+                   (else        0)))))
 
 
 (definition (window-parent window parent)
@@ -243,6 +243,137 @@
 
 
 ;;;
+;;;; Loop
+;;;
+
+
+(definition (platform-process-messages)
+  (with ((msg (MSG-make)))
+    (let ((hwnd (get-handle~ (get-toplevel~ (get-application)))))
+      ;; get messages from all windows
+      (while (GetMessage msg NULL 0 0)
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg))))))
+
+
+(definition (platform-process-one-message window)
+  (with ((msg (MSG-make)))
+    (let ((hwnd (get-handle~ window)))
+      ;; get only messages from window
+      (when (GetMessage msg hwnd 0 0)
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg))))))
+
+
+;;;
+;;;; Shortcuts
+;;;
+
+
+;; - standard usage -
+;; ()                     : letters
+;; (:shift)               : capital letters
+;; (:control)             : standard Windows
+;; (:alt)                 : mostly for focus
+;; (:control :alt)        : mostly for guest
+;; (:alt :shift)          : window management
+;; (:control :shift)      : window selection
+;; (:control :alt :shift) : favorite files
+
+
+(definition public Symbolic-Keys
+  (list->table
+    (list
+      (cons VK_OEM_MINUS  #\-)
+      (cons VK_OEM_PLUS   #\+)
+      (cons VK_OEM_COMMA  #\,)
+      (cons VK_OEM_PERIOD #\.)
+      (cons VK_OEM_1      #\;)
+      (cons VK_OEM_2      #\/)
+      (cons VK_OEM_3      #\~)
+      (cons VK_OEM_4      #\[)
+      (cons VK_OEM_5      #\\)
+      (cons VK_OEM_6      #\])
+      (cons VK_OEM_7      #\')
+      (cons VK_F1         'F1)
+      (cons VK_F2         'F2)
+      (cons VK_F3         'F3)
+      (cons VK_F4         'F4)
+      (cons VK_F5         'F5)
+      (cons VK_F6         'F6)
+      (cons VK_F7         'F7)
+      (cons VK_F8         'F8)
+      (cons VK_F9         'F9)
+      (cons VK_F10        'F10)
+      (cons VK_F11        'F11)
+      (cons VK_F12        'F12)
+      (cons VK_ESCAPE     'Escape)
+      (cons VK_BACK       'Backspace)
+      (cons VK_RETURN     'Return)
+      (cons VK_SPACE      'Space)
+      (cons VK_TAB        'Tab)
+      (cons VK_HOME       'Home)
+      (cons VK_END        'End)
+      (cons VK_LEFT       'Left)
+      (cons VK_UP         'Up)
+      (cons VK_RIGHT      'Right)
+      (cons VK_DOWN       'Down)
+      (cons VK_PRIOR      'Prior)
+      (cons VK_NEXT       'Next)
+      (cons VK_INSERT     'Insert)
+      (cons VK_PAUSE      'Pause)
+      (cons VK_DELETE     'Delete)
+      (cons VK_ADD        'Add)
+      (cons VK_SUBTRACT   'Subtract)
+      (cons VK_MULTIPLY   'Multiply)
+      (cons VK_DIVIDE     'Divide))
+    test: eqv?))
+
+
+(definition (translate-shortcut msg)
+  (define (modifiers)
+    (let ((modifiers '()))
+      (let ((try
+              (function (down? modifier)
+                (when down?
+                  (set! modifiers (cons modifier modifiers))))))
+        (try (alt-down?) :alt)
+        (try (shift-down?) :shift)
+        (try (control-down?) :control)
+        modifiers)))
+  
+  (define (key code)
+    (and (/= code VK_SHIFT)
+         (/= code VK_CONTROL)
+         (/= code VK_MENU)
+         (or (table-ref Symbolic-Keys code #f)
+             (integer->char code))))
+  
+  (let ((message (MSG-message-ref msg)))
+    (if (or (= message WM_KEYDOWN)
+            (= message WM_SYSKEYDOWN))
+        (let ((key (key (MSG-wParam-ref msg))))
+          (if key
+              (dispatch-shortcut~ (get-application) (new Shortcut (modifiers) key))
+            #f))
+      #f)))
+
+
+(definition public (shift-down?)
+  (key-down? VK_SHIFT))
+
+
+(definition public (control-down?)
+  (key-down? VK_CONTROL))
+
+
+(definition public (alt-down?)
+  (key-down? VK_MENU))
+
+
+;;;
 ;;;; Messages
 ;;;
 
@@ -269,7 +400,6 @@
     ((WM_KEYDOWN)         (key-down~ window wparam))
     ((WM_KEYUP)           (key-up~ window wparam))
     ((WM_CHAR)            (call-key-press~ window wparam))
-    ((WM_COMMAND)         (dispatch-command lparam wparam))
     ((WM_MOVE)            (call-position-change~ window (loword lparam) (hiword lparam)))    
     ;; Windows sends a size message with both the width
     ;; and the height equal to zero when minimizing a window...
@@ -335,9 +465,9 @@
         (call-dispatch-message~ window msg wparam lparam)))))
 
 
-  ;;;
-  ;;;; Style
-  ;;;
+;;;
+;;;; Style
+;;;
 
 
 (definition (get-style handle)
@@ -376,7 +506,7 @@
 (definition (set-alpha-blending handle n)
   (set-layered? handle #t)
   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-  (RedrawWindow handle NULL NULL (bit-or RDW_ERASE RDW_INVALIDATE)))
+  (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE)))
 
 
 ;;;
@@ -461,7 +591,7 @@
 
 
 (definition (platform-set-position handle pos)
-  (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bit-or SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
+  (SetWindowPos handle NULL (get-h~ pos) (get-v~ pos) 0 0 (bitwise-ior SWP_NOSIZE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition (platform-get-size handle)
@@ -478,11 +608,11 @@
 
 
 (definition (platform-set-window-size handle size)
-    (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bit-or SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL 0 0 (get-width~ size) (get-height~ size) (bitwise-ior SWP_NOCOPYBITS SWP_NOMOVE SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition (platform-set-bounds handle rect)
-    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bit-or SWP_NOZORDER SWP_NOACTIVATE)))
+    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition (platform-get-rect handle parent-handle)
@@ -517,7 +647,7 @@
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (ChildWindowFromPointEx handle pt (bit-or CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
+    (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
 
 
 (definition (platform-move-window handle x y cx cy)
@@ -543,7 +673,7 @@
 
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
-  (let ((flags (bit-or (if erase? SW_ERASE 0) SW_INVALIDATE)))
+  (let ((flags (bitwise-ior (if erase? SW_ERASE 0) SW_INVALIDATE)))
     (with ((rect (rect->RECT rect))
            (clip-rect (rect->RECT clip-rect)))
       (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
@@ -569,7 +699,7 @@
   (when handle
     ;; Changed RDW_NOCHILDREN to RDW_ALLCHILDREN so that a redraw-window on the
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
-    (let ((flags (bit-or RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
+    (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
       (with ((rect (if (not rect) NULL (rect->RECT rect))))
         (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)))))
 
@@ -591,11 +721,11 @@
   
   
 (definition (platform-show-noactivate handle)
-  (SetWindowPos handle HWND_TOP 0 0 0 0 (bit-or SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle HWND_TOP 0 0 0 0 (bitwise-ior SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
   
   
 (definition (platform-hide-noactivate handle)
-  (SetWindowPos handle 0 0 0 0 0 (bit-or SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle 0 0 0 0 0 (bitwise-ior SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
 
 
 (definition (platform-bring-window-to-front handle)
@@ -603,7 +733,7 @@
 
 
 (definition (platform-send-window-to-back handle)
-  (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bit-or SWP_NOMOVE SWP_NOSIZE)))
+  (SetWindowPos handle HWND_BOTTOM 0 0 0 0 (bitwise-ior SWP_NOMOVE SWP_NOSIZE)))
 
 
 (definition (platform-select-foreground-window handle)
@@ -631,18 +761,6 @@
 
 (definition (platform-set-focus handle)
   (SetFocus handle))
-
-
-;;;
-;;;; Keyboard
-;;;
-
-
-(definition (dispatch-command lparam wparam)
-  (if (= lparam 0)
-      (let ((appl (get-application)))
-        (dispatch-shortcut~ appl (find-shortcut~ (get-shortcut-table~ appl) (loword wparam))))
-    unprocessed))
 
 
 ;;;

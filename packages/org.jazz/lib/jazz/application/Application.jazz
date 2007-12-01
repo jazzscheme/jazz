@@ -96,8 +96,6 @@
   (slot bindings                 initialize {})
   (slot bindings-designer        initialize {})
   (slot shortcut-table           initialize {})
-  (slot shortcut-handle          initialize {})
-  (slot shortcut-dispatch        initialize {})
   (slot shortcut-hook            initialize {})
   
   
@@ -938,57 +936,46 @@
   ;;;
   
   
-  (cond-expand
-    (windows
-      (method (setup-shortcuts)
-        (set! shortcut-table (all-shortcut-table))
-        (set! shortcut-handle (get-handle~ shortcut-table))
-        (set! shortcut-dispatch (make-table test: shortcut=? hash: shortcut-hash))))
-    (else
-     (method (setup-shortcuts)
-       #f)))
+  (method (setup-shortcuts)
+    (set! shortcut-table (make-table test: shortcut=? hash: shortcut-hash)))
       
   
   (method (register-actions-shortcuts old-actions new-actions)
-    (when shortcut-dispatch
+    (when shortcut-table
       (for-each (function (actions)
                   (for-each (function (action-item)
                               (let ((shortcut (get-shortcut~ action-item)))
                                 (when shortcut
-                                  (table-remove! shortcut-dispatch shortcut action-item))))
+                                  (table-remove! shortcut-table shortcut action-item))))
                             (get-children~ actions)))
                 old-actions)
       (for-each-reversed (function (actions)
                            (for-each (function (action-item)
                                        (let ((shortcut (get-shortcut~ action-item)))
                                          (when shortcut
-                                           (table-add shortcut-dispatch shortcut action-item))))
+                                           (table-add shortcut-table shortcut action-item))))
                                      (get-children~ actions)))
                          new-actions)))
   
   
   (method public (update-shortcut action-item old-shortcut new-shortcut)
     (when old-shortcut
-      (table-remove! shortcut-dispatch old-shortcut action-item))
+      (table-remove! shortcut-table old-shortcut action-item))
     (when new-shortcut
-      (table-add shortcut-dispatch new-shortcut action-item)))
+      (table-add shortcut-table new-shortcut action-item)))
   
   
   (method public (dispatch-shortcut shortcut)
     (if shortcut-hook
         (shortcut-hook shortcut)
       (let ((action-items (get-bound-actions shortcut)))
-        (when action-items
+        (when (not-null? action-items)
           (invoke~ (car action-items) self {})
           #t))))
   
   
   (method public (get-bound-actions shortcut)
-    (table-ref shortcut-dispatch shortcut {}))
-  
-  
-  (method public (get-shortcut-table)
-    shortcut-table)
+    (table-ref shortcut-table shortcut '()))
   
   
   (method public (get-shortcut-hook)
@@ -1131,11 +1118,11 @@
 
   
   (method (process-messages)
-    (platform-process-messages shortcut-handle))
+    (platform-process-messages))
   
   
   (method (process-one-message (window (get-toplevel)))
-    (platform-process-one-message window shortcut-handle))
+    (platform-process-one-message window))
 
   
   ;;;

@@ -189,6 +189,7 @@
 (native bitwise-xor <int*:int>)
 (native arithmetic-shift <int:int>)
 (native bit-set? <int^int:bool>)
+(native extract-bit-field <int^int^int:int>)
 
 
 ;;;
@@ -461,6 +462,7 @@
 (native table-ref)
 (native table-set!)
 (native table->list)
+(native list->table)
 (native jazz.table-clear)
 (native jazz.table-keys)
 (native jazz.table-length)

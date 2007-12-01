@@ -448,7 +448,6 @@
 (define Appl
   '(jazz.process.Process
     jazz.application.Application
-    jazz.application.platform.windows
     jazz.ui.workspace
     jazz.ui.workspace.Workspace-Preferences
     jazz.ide.IDE

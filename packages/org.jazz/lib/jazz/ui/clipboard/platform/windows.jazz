@@ -43,16 +43,49 @@
         (jazz.platform.windows))
 
 
-(definition public (get-clipboard-string str)
-  (with-opened-clipboard
-    (function ()
-      )))
+;;;
+;;;; Text
+;;;
 
 
-(definition public (set-clipboard-string str)
+(definition public (get-clipboard-text)
   (with-opened-clipboard
     (function ()
-      )))
+      (GetClipboardText))))
+
+
+(definition public (set-clipboard-text text)
+  (with-opened-clipboard
+    (function ()
+      (SetClipboardText text))
+    empty?: #t))
+
+
+;;;
+;;;; Metafile
+;;;
+
+
+(definition public (get-clipboard-metafile)
+  (unimplemented 'get-clipboard-metafile)
+  @convert
+  (with-opened-clipboard
+    (function ()
+      (GetClipboardData CF_ENHMETAFILE))))
+
+
+(definition public (set-clipboard-metafile metafile)
+  (unimplemented 'set-clipboard-metafile)
+  @convert
+  (with-opened-clipboard
+    (function ()
+      (SetClipboardData CF_ENHMETAFILE metafile))
+    empty?: #t))
+
+
+;;;
+;;;; Open/Close
+;;;
 
 
 (definition public (with-opened-clipboard proc (empty?: empty? #f))
@@ -69,17 +102,34 @@
 
 
 ;;;
-;;;; Low Level
+;;;; Formats
 ;;;
 
 
-(definition public (get-clipboard-text (format: format CF_UNICODETEXT) (unicode?: unicode? #t))
-  (unimplemented 'get-clipboard-text)
-  @platform-dependant
-  (JzGetClipboardText (get-format format) unicode?))
+(definition Formats
+  (make-table test: eq?))
 
 
-(definition public (set-clipboard-text text (format: format CF_UNICODETEXT) (unicode?: unicode? #t))
-  (unimplemented 'set-clipboard-text)
-  @platform-dependant
-  (JzSetClipboardText text (get-format format) unicode?)))
+(definition public (register-clipboard-format name format)
+  (let ((id (RegisterClipboardFormat format)))
+    (table-set! Formats name id)))
+
+
+(definition public (clipboard-format-available? format)
+  (define (get-format format)
+    (either (table-ref Formats format #f)
+            (error "Unknown clipboard format: {t}" format)))
+  
+  (member? (get-format format) (available-clipboard-formats)))
+
+
+(definition public (available-clipboard-formats)
+  (with-opened-clipboard
+    (function ()
+      (let ((formats (new List-Factory)))
+        (let (iter (previous 0))
+          (let ((format (EnumClipboardFormats previous)))
+            (when (/= format 0)
+              (put~ formats format)
+              (iter format))))
+        (get-output~ formats))))))

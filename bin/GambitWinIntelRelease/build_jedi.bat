@@ -1,3 +1,3 @@
-@gsc -:d,m500000,h1000000 -e "(bcore)" %*
-@gsc -:d,m500000,h1000000 -e "(bjazz)" %*
-@gsc -:d,m500000,h1000000 -e "(bjedi)" %*
+@gsc -:d -e "(bcore)" %*
+@gsc -:d -e "(bjazz)" %*
+@gsc -:d -e "(bjedi)" %*

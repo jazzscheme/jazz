@@ -40,6 +40,15 @@
 
 
 ;;;
+;;;; Autoload
+;;;
+
+
+(native jazz.autoload)
+(native jazz.autoreload)
+
+
+;;;
 ;;;; Boolean
 ;;;
 
@@ -52,7 +61,7 @@
 ;;;
 
 
-(native jazz.compile-file)
+(native jazz.compile-module)
 (native jazz.for-each-submodule)
 
 
@@ -134,7 +143,17 @@
 
 
 ;;;
-;;;; Flixum
+;;;; Field
+;;;
+
+
+(native jazz.field? <object:bool>)
+(native jazz.field-name)
+(native jazz.find-field)
+
+
+;;;
+;;;; Fixnum
 ;;;
 
 
@@ -161,6 +180,21 @@
 
 
 ;;;
+;;;; Foreign
+;;;
+
+
+(native jazz.foreign?)
+(native jazz.foreign-address)
+(native jazz.foreign-release!)
+(native jazz.foreign-released?)
+;;(native jazz.foreign-tag)
+(native jazz.still-obj-refcount-dec!)
+(native jazz.still-obj-refcount-inc!)
+;;(native jazz.still-obj-refcount)
+
+
+;;;
 ;;;; Format
 ;;;
 
@@ -179,6 +213,27 @@
 
 
 ;;;
+;;;; Input
+;;;
+
+
+(native jazz.eof-object)
+(native open-input-string)
+(native call-with-input-string)
+(native with-input-from-string)
+(native read-line)
+(native read-all)
+
+
+;;;
+;;;; Instance
+;;;
+
+
+;;(native jazz.current-instance)
+
+
+;;;
 ;;;; Integer
 ;;;
 
@@ -190,14 +245,6 @@
 (native arithmetic-shift <int:int>)
 (native bit-set? <int^int:bool>)
 (native extract-bit-field <int^int^int:int>)
-
-
-;;;
-;;;; Key
-;;;
-
-
-(native jazz.apply-key)
 
 
 ;;;
@@ -265,48 +312,6 @@
 
 
 ;;;
-;;;; Field
-;;;
-
-
-(native jazz.field? <object:bool>)
-(native jazz.field-name)
-(native jazz.find-field)
-
-
-;;;
-;;;; Slot
-;;;
-
-
-(native jazz.slot? <object:bool>)
-(native jazz.slot-value)
-(native jazz.set-slot-value)
-
-
-;;;
-;;;; Property
-;;;
-
-
-(native jazz.property-getter)
-(native jazz.property-setter)
-
-
-;;;
-;;;; Input
-;;;
-
-
-(native jazz.eof-object)
-(native open-input-string)
-(native call-with-input-string)
-(native with-input-from-string)
-(native read-line)
-(native read-all)
-
-
-;;;
 ;;;; Output
 ;;;
 
@@ -325,6 +330,15 @@
 
 
 ;;;
+;;;; Parameters
+;;;
+
+
+(native make-parameter)
+(native parameterize)
+
+
+;;;
 ;;;; Path
 ;;;
 
@@ -337,13 +351,14 @@
 ;;;
 
 
+(native jazz.pathname-normalize)
 (native jazz.file-exists?)
 (native jazz.file-delete)
 (native jazz.file-type)
 (native jazz.file-copy)
 (native jazz.file-last-modification-time)
-(native jazz.rename-file)
-(native jazz.create-directory)
+(native jazz.file-rename)
+(native jazz.directory-create)
 (native jazz.directory-files)
 (native jazz.directory-delete)
 (native jazz.get-current-directory)
@@ -361,12 +376,12 @@
 
 
 ;;;
-;;;; Process
+;;;; Property
 ;;;
 
 
-(native open-process)
-(native system-exit)
+(native jazz.property-getter)
+(native jazz.property-setter)
 
 
 ;;;
@@ -379,6 +394,16 @@
 (native jazz.enqueue-list)
 (native jazz.queue-list)
 (native jazz.reset-queue)
+
+
+;;;
+;;;; Random
+;;;
+
+
+(native jazz.random-integer)
+(native jazz.random-source-pseudo-randomize!)
+(native jazz.default-random-source)
 
 
 ;;;
@@ -427,12 +452,40 @@
 
 
 ;;;
+;;;; Slot
+;;;
+
+
+(native jazz.slot? <object:bool>)
+(native jazz.slot-value)
+(native jazz.set-slot-value)
+
+
+;;;
+;;;; Socket
+;;;
+
+
+(native jazz.open-tcp-client)
+
+
+;;;
 ;;;; Stack
 ;;;
 
 
 (native jazz.continuation-capture)
 (native jazz.get-continuation-stack)
+
+
+;;;
+;;;; Statprof
+;;;
+
+
+(native jazz.start-statprof)
+(native jazz.stop-statprof)
+(native jazz.report-statprof)
 
 
 ;;;
@@ -449,7 +502,8 @@
 ;;;
 
 
-(native jazz.quit)
+(native open-process)
+(native jazz.exit)
 
 
 ;;;
@@ -467,7 +521,6 @@
 (native jazz.table-keys)
 (native jazz.table-length)
 (native jazz.iterate-table)
-(native jazz.alist->table)
 (native jazz.table-entries)
 (native jazz.eq-hash)
 (native jazz.eqv-hash)
@@ -480,13 +533,26 @@
 
 
 (native jazz.current-thread)
-(native jazz.scheme-current-thread)
-(native jazz.scheme-thread-start!)
-(native jazz.make-scheme-thread)
-(native jazz.thread.Thread.set-scheme-thread)
-(native jazz.scheme.thread-specific-set!)
+(native jazz.thread?)
+(native jazz.make-thread)
+(native jazz.thread-name)
+(native jazz.thread-specific)
+(native jazz.thread-specific-set!)
 (native jazz.thread-start!)
+(native jazz.thread-yield!)
 (native jazz.thread-sleep!)
+(native jazz.thread-terminate!)
+(native jazz.thread-join!)
+(native jazz.thread-send)
+(native jazz.thread-receive)
+(native jazz.mutex?)
+(native jazz.make-thread)
+(native jazz.mutex-name)
+(native jazz.mutex-specific)
+(native jazz.mutex-specific-set!)
+(native jazz.mutex-state)
+(native jazz.mutex-lock!)
+(native jazz.mutex-unlock!)
 
 
 ;;;
@@ -508,65 +574,4 @@
 (native jazz.register-literal-constructor)
 (native jazz.specifier?)
 (native jazz.parse-specifier)
-(native jazz.requested-module-name)
-
-
-;;;
-;;;; Random
-;;;
-
-
-(native random-integer)
-(native random-source-pseudo-randomize!)
-(native default-random-source)
-
-
-;;;
-;;;; Parameters
-;;;
-
-
-(native make-parameter)
-(native parameterize)
-
-
-;;;
-;;;; Autoload
-;;;
-
-
-(native jazz.autoload)
-(native jazz.autoreload)
-
-
-;;;
-;;;; Foreign
-;;;
-
-
-(native jazz.foreign?)
-(native jazz.foreign-address)
-(native jazz.foreign-release!)
-(native jazz.foreign-released?)
-;;(native jazz.foreign-tag)
-(native jazz.still-obj-refcount-dec!)
-(native jazz.still-obj-refcount-inc!)
-;;(native jazz.still-obj-refcount)
-
-
-;;;
-;;;; Instance
-;;;
-
-
-;;(native jazz.current-instance)
-
-
-;;;
-;;;; Statprof
-;;;
-
-
-(native jazz.start-statprof)
-(native jazz.stop-statprof)
-(native jazz.report-statprof))
+(native jazz.requested-module-name))

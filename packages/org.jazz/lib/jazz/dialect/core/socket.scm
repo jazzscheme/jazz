@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.jazz.runtime.debug.socket
+(module jazz.dialect.core.socket
 
 
 (cond-expand

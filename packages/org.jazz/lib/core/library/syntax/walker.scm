@@ -4529,7 +4529,7 @@
 
 
 (define (jazz.make-symbolic-chars alist)
-  (%%alist->table
+  (%%list->table
     (map (lambda (pair)
            (%%cons (%%car pair) (integer->char (%%cdr pair))))
          alist)

@@ -42,74 +42,13 @@
         (jazz.ui.clipboard.platform.x11 (cond x11)))
 
 
-(definition *super-quicky-clipboard*
-  "")
-
-
-(definition public (get-clipboard (type: type 'text))
-  *super-quicky-clipboard*
-  @platform-dependant
-  (case type
-    ((text)
-     (with-opened-clipboard
-       (function ()
-         ;; Because I do not store unicode characters in saved files,
-         ;; lets get only ansi text from the clipboard...
-         (get-clipboard-text format: CF_TEXT unicode?: #f))))
-    @convert
-    ((metafile)
-     (with-opened-clipboard
-       (function ()
-         (get-clipboard-metafile))))))
-
-
-(definition public (set-clipboard object (type: type {}) (empty?: empty? #t))
-  (set! *super-quicky-clipboard* object)
-  @platform-dependant
-  (cond ((string? object)
-         (with-opened-clipboard
-           (function ()
-             (set-clipboard-text object))
-           empty?: empty?))
-        (else
-         (case type
-           @convert
-           ((metafile)
-            (with-opened-clipboard
-              (function ()
-                (set-clipboard-metafile object))
-              empty?: empty?))
-           (else
-            (unimplemented 'set-clipboard))))))
-
-
-(definition public (get-clipboard-formats)
-  '()
-  @platform-dependant
-  (let ((formats (new List-Factory))
-        (fmt 0))
-    (while (/= (set! fmt (EnumClipboardFormats fmt)) 0)
-      (put~ formats fmt))
-    (get-output~ formats)))
-
-
-(definition public (clipboard-format-available? format)
-  #f
-  @platform-dependant
-  (with-opened-clipboard
-    (function ()
-      (let ((format (get-format format))
-            (formats (get-clipboard-formats)))
-        (member? format formats)))))
-
-
 ;;;
 ;;;; Jazz
 ;;;
 
 
-(definition formatted-text
-  "FORMATTED_TEXT")
+(definition jazz-formatted-text
+  "JAZZ_FORMATTED_TEXT")
 
 (definition jazz-parcels
   "JAZZ_PARCELS")
@@ -123,26 +62,21 @@
 
 (definition public (register-jazz-clipboard-formats)
   (unimplemented 'register-jazz-clipboard-formats)
-  @platform-dependant
-  (register-clipboard-format :formatted-text (prefixed-format formatted-text))
-  (register-clipboard-format :jazz-parcels (prefixed-format jazz-parcels)))
+  @platform-dependant (
+  (register-clipboard-format :jazz-formatted-text (prefixed-format jazz-formatted-text))
+  (register-clipboard-format :jazz-parcels (prefixed-format jazz-parcels))))
 
 
 (definition public (get-jazz-clipboard format)
   (unimplemented 'get-jazz-clipboard)
   @platform-dependant
-  (with-opened-clipboard
-    (function ()
-      (get-clipboard-text format: format))))
+  (get-clipboard-text format: format))
 
 
 (definition public (set-jazz-clipboard format text)
   (unimplemented 'set-jazz-clipboard)
   @platform-dependant
-  (with-opened-clipboard
-    (function ()
-      (set-clipboard-text text format: format))
-    empty?: #t))
+  (set-clipboard-text text format: format))
 
 
 (definition public (get-jazz-parcels)
@@ -150,87 +84,6 @@
   @platform-dependant
   (when (clipboard-format-available? :jazz-parcels))
   (read-string-element (get-jazz-clipboard :jazz-parcels)))
-
-
-;;;
-;;;; Low Level
-;;;
-
-
-;; format CF_UNICODETEXT
-(definition public (get-clipboard-text (format: format #f) (unicode?: unicode? #t))
-  (unimplemented 'get-clipboard-text)
-  @platform-dependant
-  (JzGetClipboardText (get-format format) unicode?))
-
-
-;; format CF_UNICODETEXT
-(definition public (set-clipboard-text text (format: format #f) (unicode?: unicode? #t))
-  (unimplemented 'set-clipboard-text)
-  @platform-dependant
-  (JzSetClipboardText text (get-format format) unicode?))
-
-
-(definition public (set-clipboard-metafile metafile)
-  (unimplemented 'set-clipboard-metafile)
-  @platform-dependant
-  (SetClipboardData CF_ENHMETAFILE metafile))
-
-
-(definition public (get-clipboard-metafile)
-  (unimplemented 'get-clipboard-metafile)
-  @platform-dependant
-  (GetClipboardData CF_ENHMETAFILE))
-
-
-(definition public (get-clipboard-data type)
-  (unimplemented 'get-clipboard-data)
-  @platform-dependant
-  (JzGetClipboardData type))
-
-
-(definition public (set-clipboard-data type data)
-  (unimplemented 'set-clipboard-data)
-  @platform-dependant
-  (JzSetClipboardData type data))
-
-
-;;;
-;;;; Formats
-;;;
-
-
-(definition Formats
-  '())
-
-
-(definition public (register-clipboard-format name format)
-  (unimplemented 'register-clipboard-format)
-  @platform-dependant
-  (let ((id (RegisterClipboardFormat format)))
-    (set! Formats (cons (cons name id) Formats))))
-
-
-(definition public (get-clipboard-format format)
-  (unimplemented 'get-format)
-  @platform-dependant
-  (if (integer? format)
-      format
-    (let ((info (assoc format Formats)))
-      (if info
-          (cdr info)
-        (error "Unknown clipboard format: {t}" format)))))
-
-
-;;;
-;;;; System
-;;;
-
-
-(definition (JzGetClipboardData i) (unimplemented 'JzGetClipboardData))
-(definition (JzSetClipboardData i o) (unimplemented 'JzSetClipboardData))
-(definition (JzGetClipboardText i b) (unimplemented 'JzGetClipboardText))
-(definition (JzSetClipboardText o i b) (unimplemented 'JzSetClipboardText))
 
 
 ;;;

@@ -103,13 +103,6 @@
     (jazz.queue-list proper)))
 
 
-(cond-expand
-  (blues
-    (define jazz.list-copy
-      copy))
-  (else))
-
-
 ;;;
 ;;;; Specifier
 ;;;

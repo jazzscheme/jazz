@@ -141,17 +141,24 @@
 
 
 (definition public (tokenise-filename filename <string>)
-  (split filename "/"))
+  (remove-empty-strings (split filename "/")))
 
 
 (definition public (tokenise filename <string>)
-  (cons 'Root (split filename "/")))
+  (cons 'Root (remove-empty-strings (split filename "/"))))
+
+
+;; will not be necessary when we can ask Gambit to always use /
+(definition public (tokenise-patch filename <string>)
+  (cons 'Root (apply append (map (function (name)
+                                   (remove-empty-strings (split filename "\\")))
+                                 (remove-empty-strings (split filename "/"))))))
 
 
 (definition public (tokenise-windows filename <string>)
   (if (starts-with? filename "\\\\")
-      (cons 'Network (split (subseq filename 2 (cardinality filename)) "\\"))
-    (cons 'Root (split filename "\\"))))
+      (cons 'Network (remove-empty-strings (split (subseq filename 2 (cardinality filename)) "\\")))
+    (cons 'Root (remove-empty-strings (split filename "\\")))))
 
 
 (definition public (get-tmp-directory)
@@ -396,7 +403,7 @@
 
 
   (method public (move-pathname dst (error?: error? #t))
-    (rename-file (parse) (parse~ dst)))
+    (file-rename (parse) (parse~ dst)))
   
 
   (method (compare-object target)
@@ -759,6 +766,16 @@
   (is? object File))
 
 
+(definition public (timestamped-file directory base ext)
+  (let* ((dir (parse~ directory))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+(definition (timestamped-filename dir base ext)
+  (unimplemented))
+
+
 ;;;
 ;;;; Directory
 ;;;
@@ -811,7 +828,7 @@
 
 
   (method public virtual (create)
-    (create-directory (parse)))
+    (directory-create (parse)))
   
   
   (method public (new-file name)

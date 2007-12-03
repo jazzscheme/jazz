@@ -847,9 +847,11 @@
 (c-external INT     (ShowCursor                 BOOL))
 (c-external BOOL    (MessageBeep INT))
 (c-external INT     (MessageBox HWND LPCWSTR LPCWSTR INT))
-(c-external BOOL    (EmptyClipboard))
-(c-external BOOL    (OpenClipboard INT))
+(c-external BOOL    (OpenClipboard HWND))
 (c-external BOOL    (CloseClipboard))
+(c-external BOOL    (EmptyClipboard))
+(c-external INT     (RegisterClipboardFormat LPCWSTR) "RegisterClipboardFormatW")
+(c-external INT     (EnumClipboardFormats INT))
 (c-external BOOL    (SystemParametersInfo INT INT LPRECT INT))
 
 
@@ -861,6 +863,34 @@
 (definition public LoadCursorInt 
   (c-function (WORD) HCURSOR
     "___result_voidstar = LoadImage(NULL,MAKEINTRESOURCE(___arg1),IMAGE_CURSOR,0,0,LR_SHARED);"))
+
+
+(definition public GetClipboardText
+  (c-function () STR
+    "char *str = NULL;
+     HANDLE data;
+     int data_size;
+     HANDLE copy;
+     int len;
+     data = GetClipboardData(CF_TEXT);
+     if( data != NULL ) { 
+       data_size = HeapSize(GetProcessHeap(), 0, data);
+       copy = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, data_size);
+       memcpy(copy,data,data_size);
+       len = strlen((char *) copy);
+       str = malloc((len+1) * sizeof(char));
+       strcpy(str, (char *)copy);
+     }
+     ___result = str;"))
+
+
+(definition public SetClipboardText
+  (c-function (STR) VOID
+    "HANDLE copy;
+     int size = strlen(___arg1)+1;
+     copy = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, size);
+     memcpy(copy, ___arg1, size);
+     SetClipboardData(CF_TEXT, copy);"))
 
 
 ;;;

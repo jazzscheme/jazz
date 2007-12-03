@@ -107,6 +107,10 @@
     '())
   
   
+  (method protected virtual (service-executable)
+    )
+  
+  
   (method protected virtual (service-icon)
     )
 
@@ -131,15 +135,15 @@
           (let* ((presentation (service-presentation))
                  (local-machine-key [Local-Machine Registry])
                  (application-path (format "SYSTEM\\CurrentControlSet\\Services\\Eventlog\\Application\\{a}" presentation))
-                 (message-file (module-file messages)))
+                 (message-file (new-file~ {Directory Boot} messages)))
             (with-closed ((application-key (create-key~ local-machine-key application-path)))
               (set-value~ application-key "EventMessageFile" (parse~ message-file))))))
       ;; create service - must come last because the windows service manager is not releasing registry keys
       (with-closed ((manager (new Service-Manager)))
         (let* ((presentation (service-presentation))
-               (module (module-pathname))
-               (path (format "{a} run" (parse~ module))))
-          (with-closed ((handle (create-service~ manager name path presentation: presentation)))
+               (executable (service-executable))
+               (command (format "{a} run" (parse~ executable))))
+          (with-closed ((handle (create-service~ manager name command presentation: presentation)))
             )))))
   
   
@@ -302,7 +306,7 @@
   
   (method (debug-exception exception frame accountable)
     (log-error-event (get-message~ exception))
-    (let ((file (module-timestamped-file "Stack" "stack")))
+    (let ((file (timestamped-file {Directory Boot} "Stack" "stack")))
       (when (and file (not (distribution-build?)))
         (dump-stack file: file exception: exception))
       (exit-process EXIT_FAILURE)))

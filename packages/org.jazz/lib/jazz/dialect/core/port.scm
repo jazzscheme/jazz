@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Compile
+;;;; Ports
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.compile
+(module jazz.dialect.core.port
 
 
 (cond-expand
   (gambit
-    (define (jazz.compile-file filename . rest)
-      (let ((options (if (null? rest) '() (car rest))))
-        (apply compile-file filename options))))
+    (define jazz.close-port close-port))
   
   (else)))

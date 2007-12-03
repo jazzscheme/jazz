@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Files
+;;;; Pathname
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.file
-
-
-(define (jazz.file-directory filename)
-  (let ((n (jazz.string-find-reversed filename #\/)))
-    (if (%%not n)
-        ""
-      (%%substring filename 0 n))))
+(module jazz.dialect.core.pathname
 
 
 (cond-expand
   (gambit
-    (define (jazz.file-exists? path)
-      (file-exists? path))
-    
-    (define (jazz.file-delete path)
-      (delete-file path)))
+    (define jazz.pathname-normalize path-normalize)
+    (define jazz.file-type file-type)
+    (define jazz.file-copy copy-file)
+    (define jazz.file-delete delete-file)
+    (define jazz.file-rename rename-file)
+    (define jazz.directory-create create-directory)
+    (define jazz.directory-files directory-files)
+    (define jazz.directory-delete delete-directory))
   
   (else)))

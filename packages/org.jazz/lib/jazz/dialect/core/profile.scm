@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Message Windows
+;;;; Profiling
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,54 +35,47 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.window.Message-Window jazz
+(module jazz.dialect.core.profile
 
 
-(import (jazz.jml)
-        (jazz.ui)
-        (jazz.library)
-        (jazz.utilities))
+;;;
+;;;; Statprof
+;;;
 
 
-(class Message-Window extends Window
+(define (jazz.load-statprof)
+  (if (not jazz.statprof-loaded?)
+      (begin
+        (jazz.load-module 'statprof)
+        (set! jazz.statprof-loaded? #t))))
 
 
-  (form
-    (<install> visible?: #f))
+(define (jazz.start-statprof)
+  (jazz.load-statprof)
+  (profile-start!))
 
 
-  ;;;
-  ;;;; Initialization
-  ;;;
-  
-  
-  (method (default-parent)
-    {})
+(define (jazz.stop-statprof)
+  (jazz.load-statprof)
+  (profile-stop!))
 
 
-  (method (window-parent)
-    {})
-  
-  
-  @moved-in-jazz.ui.window.windows
-  (method (window-style rest)
-    0)
-  
-  
-  @moved-in-jazz.ui.window.windows
-  (method (window-ex-style rest)
-    0)
-  
-  
-  ;;;
-  ;;;; Message
-  ;;;
+(define (jazz.reset-statprof)
+  (jazz.load-statprof)
+  (profile-reset!))
 
-  
-  @tofix-unimplemented
-  (method (dispatch-message msg wparam lparam)
-    (ecase msg
-      ((JZ_POST) (receive-post wparam))
-      ((JZ_SEND) ((address-object-unsafe wparam)) 0)
-      ((JZ_RECEIVE) (object-address ((address-object-unsafe wparam))))
-      (else (nextmethod msg wparam lparam))))))
+
+(define jazz.report-statprof
+  (let ((n 0))
+    (lambda (#!optional (name #f))
+      (jazz.load-statprof)
+      (let ((port (open-output-string)))
+        (display (or name "report") port)
+        (display "_" port)
+        (display n port)
+        (display ".spr" port)
+        (set! n (+ n 1))
+        (let ((filename (get-output-string port)))
+          (write-profile-report filename)
+          filename))
+      (profile-reset!)))))

@@ -39,23 +39,6 @@
 
 
 ;;;
-;;;; Blues
-;;;
-
-
-(cond-expand
-  (blues
-    (define (jazz.continuation-capture proc)
-      (proc #f))
-    
-    
-    (define (jazz.get-continuation-stack cont)
-      (cdddr (reverse (blues.get-stack)))))
-  
-  (else))
-
-
-;;;
 ;;;; Gambit
 ;;;
   

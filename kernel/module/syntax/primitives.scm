@@ -612,10 +612,10 @@
           `(table-merge! ,into ,from)
         `(##table-merge! ,into ,from #f)))
     
-    (define-macro (%%alist->table alist test)
+    (define-macro (%%list->table alist test)
       `(list->table ,alist test: ,test))
     
-    (define-macro (%%table->alist table)
+    (define-macro (%%table->list table)
       `(table->list ,table))
     
     (define-macro (%%table-entries table)

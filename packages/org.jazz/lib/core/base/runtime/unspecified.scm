@@ -39,10 +39,6 @@
 
 
 (cond-expand
-  (blues
-    (define jazz.Unspecified
-      {}))
-  
   (gambit
     (define jazz.Unspecified
       (void)))

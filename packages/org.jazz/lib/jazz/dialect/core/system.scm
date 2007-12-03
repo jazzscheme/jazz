@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Quit
+;;;; System
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,16 +35,11 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.quit
+(module jazz.dialect.core.system
 
 
 (cond-expand
-  (chicken
-    (define (jazz.quit)
-      (exit)))
-  
   (gambit
-    (define (jazz.quit)
-      (exit)))
+    (define jazz.exit exit))
   
   (else)))

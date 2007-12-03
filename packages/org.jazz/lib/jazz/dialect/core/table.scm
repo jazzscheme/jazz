@@ -58,13 +58,13 @@
     (%%iterate-table table proc)))
 
 
-(define (jazz.alist->table alist #!optional (test equal?))
-  (%%alist->table alist test))
+(define (jazz.list->table alist #!optional (test equal?))
+  (%%list->table alist test))
 
 
-(define (jazz.table->alist table)
+(define (jazz.table->list table)
   (%%assert (%%table? table)
-    (%%table->alist table)))
+    (%%table->list table)))
 
 
 (define (jazz.table-entries table)

@@ -35,32 +35,31 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.jazz.runtime.debug.thread
+(module jazz.dialect.core.thread
 
 
-(define (jazz.current-thread)
-  (jazz.scheme.thread-specific (jazz.scheme.current-thread)))
+;;;
+;;;; Thread
+;;;
 
 
-(define (jazz.make-scheme-thread thread execute)
-  (jazz.scheme.make-thread
-    (lambda ()
-      (jazz.with-thread-dynamic-environment
-        (lambda ()
-          (execute thread))))))
-
-
-(define (jazz.with-thread-dynamic-environment thunk)
-  (jazz.with-jazz-exception-handler
-    thunk))
-
-
-(define (jazz.scheme-current-thread)
-  (jazz.scheme.current-thread))
-
-
-(define (jazz.scheme-thread-start! scheme-thread)
-  (jazz.scheme.thread-start! scheme-thread))
+(cond-expand
+  (gambit
+    (define jazz.current-thread current-thread)
+    (define jazz.thread? thread?)
+    (define jazz.make-thread make-thread)
+    (define jazz.thread-name thread-name)
+    (define jazz.thread-specific thread-specific)
+    (define jazz.thread-specific-set! thread-specific-set!)
+    (define jazz.thread-start! thread-start!)
+    (define jazz.thread-yield! thread-yield!)
+    (define jazz.thread-sleep! thread-sleep!)
+    (define jazz.thread-terminate! thread-terminate!)
+    (define jazz.thread-join! thread-join!)
+    (define jazz.thread-send thread-send)
+    (define jazz.thread-receive thread-receive))
+  
+  (else))
 
 
 ;;;
@@ -82,4 +81,23 @@
   (else
    (define (jazz.expand-atomic-region . body)
      `(begin
-        ,@body)))))
+        ,@body))))
+
+
+;;;
+;;;; Mutex
+;;;
+
+
+(cond-expand
+  (gambit
+    (define jazz.mutex? mutex?)
+    (define jazz.make-thread make-thread)
+    (define jazz.mutex-name mutex-name)
+    (define jazz.mutex-specific mutex-specific)
+    (define jazz.mutex-specific-set! mutex-specific-set!)
+    (define jazz.mutex-state mutex-state)
+    (define jazz.mutex-lock! mutex-lock!)
+    (define jazz.mutex-unlock! mutex-unlock!))
+  
+  (else)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Gambit Specific
+;;;; Numbers
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,30 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.gambit
-
-
-;;;
-;;;; Collector
-;;;
-
-
-(define jazz.gc ##gc)
-
-
-;;;
-;;;; Foreign
-;;;
-
-
-(define jazz.foreign? ##foreign?)
-(define jazz.foreign-address foreign-address)
-(define jazz.foreign-release! foreign-release!)
-(define jazz.foreign-released? foreign-released?)
-;;(define jazz.foreign-tag ##foreign-tag)
-(define jazz.still-obj-refcount-dec! ##still-obj-refcount-dec!)
-(define jazz.still-obj-refcount-inc! ##still-obj-refcount-inc!)
-;;(define jazz.still-obj-refcount ##still-obj-refcount)
+(module jazz.dialect.core.number
 
 
 ;;;
@@ -80,80 +57,14 @@
 
 
 ;;;
-;;;; Port
+;;;; Random
 ;;;
 
 
-(define jazz.close-port close-port)
-
-
-;;;
-;;;; Pathname
-;;;
-
-
-(define jazz.file-type file-type)
-(define jazz.file-copy copy-file)
-(define jazz.rename-file rename-file)
-(define jazz.create-directory create-directory)
-(define jazz.directory-files directory-files)
-(define jazz.directory-delete delete-directory)
-
-
-;;;
-;;;; Thread
-;;;
-
-
-(define jazz.thread-sleep! thread-sleep!)
-
-
-;;;
-;;;; Statprof
-;;;
-
-
-(define (jazz.load-statprof)
-  (if (not jazz.statprof-loaded?)
-      (begin
-        (jazz.load-module 'statprof)
-        (set! jazz.statprof-loaded? #t))))
-
-
-(define (jazz.start-statprof)
-  (jazz.load-statprof)
-  (profile-start!))
-
-
-(define (jazz.stop-statprof)
-  (jazz.load-statprof)
-  (profile-stop!))
-
-
-(define (jazz.reset-statprof)
-  (jazz.load-statprof)
-  (profile-reset!))
-
-
-(define jazz.report-statprof
-  (let ((n 0))
-    (lambda (#!optional (name #f))
-      (jazz.load-statprof)
-      (let ((port (open-output-string)))
-        (display (or name "report") port)
-        (display "_" port)
-        (display n port)
-        (display ".spr" port)
-        (set! n (+ n 1))
-        (let ((filename (get-output-string port)))
-          (write-profile-report filename)
-          filename))
-      (profile-reset!))))
-
-
-;;;
-;;;; System
-;;;
-
-
-(define system-exit exit))
+(cond-expand
+  (gambit
+    (define jazz.random-integer random-integer)
+    (define jazz.random-source-pseudo-randomize! random-source-pseudo-randomize!)
+    (define jazz.default-random-source default-random-source))
+  
+  (else)))

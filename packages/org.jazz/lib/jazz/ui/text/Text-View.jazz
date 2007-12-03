@@ -1517,11 +1517,11 @@
     (if (empty-selection?)
         (bell)
       (add-clipboard~ (get-application))
-      (set-clipboard (join (selection-lines) (cn)))))
+      (set-clipboard-text (join (selection-lines) (cn)))))
   
   
   (method (paste-clipboard)
-    (paste-clipboard-string (get-clipboard)))
+    (paste-clipboard-string (get-clipboard-text)))
   
   
   (method public (paste-clipboard-string string)
@@ -2934,7 +2934,7 @@
       (get-output~ fact)))
   
   
-  (method (copy-formatted-selection empty?)
+  (method (copy-formatted-selection)
     (unimplemented 'copy-formatted-selection)
     @convert
     (if (empty-selection?)
@@ -2942,23 +2942,16 @@
       (let ((printer (open-output-string)))
         (print-formatted printer (get-selection))
         (let ((output (get-output-string printer)))
-          (with-opened-clipboard
-            (function ()
-              (set-clipboard-text output format: :formatted-text))
-            empty?: empty?)))))
+          (set-clipboard-text output format: :jazz-formatted-text)))))
   
   
   (method (paste-formatted-clipboard)
-    (with-opened-clipboard
-      (function ()
-        (let ((format (get-clipboard-format :formatted-text))
-              (formats (get-clipboard-formats)))
-          (if (member? format formats)
-              (let* ((text (get-clipboard-text format: :formatted-text))
-                     (info (read-string-content text)))
-                (apply replace-formatted (get-selection) info))
-            (let ((strings (split (get-clipboard) (cn))))
-              (replace-selection strings)))))))
+    (if (clipboard-format-available? :jazz-formatted-text)
+        (let* ((text (get-clipboard-text format: :jazz-formatted-text))
+               (info (read-string-content text)))
+          (apply replace-formatted (get-selection) info))
+      (let ((strings (split (get-clipboard-text) (cn))))
+        (replace-selection strings))))
   
   
   (method public (replace-formatted range <Range$Cell$> info)

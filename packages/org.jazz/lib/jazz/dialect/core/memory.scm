@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Core
+;;;; Memory
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,20 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.core scheme
+(module jazz.dialect.core.memory
 
 
-(require (jazz.dialect.core.continuation)
-         ; (jazz.dialect.core.exception)
-         (jazz.dialect.core.foreign)
-         (jazz.dialect.core.memory)
-         (jazz.dialect.core.number)
-         (jazz.dialect.core.pathname)
-         (jazz.dialect.core.port)
-         (jazz.dialect.core.profile)
-         (jazz.dialect.core.reader)
-         (jazz.dialect.core.socket)
-         ; (jazz.dialect.core.stack)
-         (jazz.dialect.core.system)
-         (jazz.dialect.core.table)
-         (jazz.dialect.core.thread)))
+(define jazz.gc ##gc))

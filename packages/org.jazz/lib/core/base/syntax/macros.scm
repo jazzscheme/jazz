@@ -63,23 +63,13 @@
 ;;;
 
 
-(jazz.define-macro (%%while . rest)
-  (apply jazz.expand-while rest))
-
-
-(cond-expand
-  (blues
-    (define (jazz.expand-while test . body)
-      `(blues.while ,test ,@body)))
-
-  (else
-    (define (jazz.expand-while test . body)
-      (let ((iter (jazz.generate-symbol "iter")))
-        `(let ,iter ()
-           (if ,test
-               (begin
-                 ,@body
-                 (,iter))))))))
+(jazz.define-macro (%%while test . body)
+  (let ((iter (jazz.generate-symbol "iter")))
+    `(let ,iter ()
+       (if ,test
+           (begin
+             ,@body
+             (,iter))))))
 
 
 ;;;

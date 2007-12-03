@@ -40,13 +40,6 @@
 
 
 (cond-expand
-  (blues
-    (define (jazz.with-exception-handler proc thunk)
-      (with-exception-handler proc thunk))
-    
-    (define (jazz.exception-reason exc)
-      exc))
-  
   (chicken
     (define (jazz.current-exception-handler)
       (current-exception-handler))

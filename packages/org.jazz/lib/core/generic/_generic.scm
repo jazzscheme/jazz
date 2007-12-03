@@ -39,7 +39,6 @@
 
 
 (require (core.class)
-         (core.foundation)
          
          (core.generic.syntax (phase syntax))
          (core.generic.runtime)))

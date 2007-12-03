@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Code
+;;;; Lists
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,7 +21,6 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,12 +35,122 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.foundation.runtime.foundation
+(module core.base.runtime.list
 
 
-;;;
-;;;; List
-;;;
+(define (jazz.find-in proc lst)
+  (let iter ((scan lst))
+    (if (%%null? scan)
+        #f
+      (or (proc (%%car scan))
+          (iter (%%cdr scan))))))
+
+
+(define (jazz.find-if predicate lst)
+  (let iter ((scan lst))
+    (if (%%null? scan)
+        #f
+      (let ((value (%%car scan)))
+        (if (predicate value)
+            value
+          (iter (%%cdr scan)))))))
+
+
+(define (jazz.collect-if predicate lst)
+  (let iter ((scan lst))
+       (if (%%not-null? scan)
+           (let ((value (%%car scan)))
+             (if (predicate value)
+                 (%%cons value (iter (%%cdr scan)))
+               (iter (%%cdr scan))))
+         '())))
+
+
+(define (jazz.getprop plist target)
+  (let iter ((scan plist))
+    (cond ((%%null? scan)
+           #f)
+          ((%%eqv? (%%car scan) target)
+           scan)
+          (else
+           (iter (%%cddr scan))))))
+
+
+(define (jazz.getf plist target #!optional (not-found #f))
+  (let ((pair (jazz.getprop plist target)))
+    (if pair
+        (%%cadr pair)
+      not-found)))
+
+
+(define (jazz.simplify-begin form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'begin)
+           (%%pair? (%%cdr form))
+           (%%null? (%%cddr form)))
+      (%%cadr form)
+    form))
+
+
+(define jazz.reverse!
+  reverse)
+
+
+(define (jazz.list-copy lst)
+  (map (lambda (obj) obj) lst))
+
+
+(define (jazz.last-tail lst)
+  (if (%%pair? lst)
+      (let iter ((scan lst))
+        (let ((tail (%%cdr scan)))
+          (cond ((%%pair? tail)
+                 (iter tail))
+                ((%%null? tail)
+                 scan)
+                (else
+                 tail))))
+    lst))
+
+
+(define (jazz.last-pair lst)
+  (if (%%pair? lst)
+      (let iter ((scan lst))
+        (let ((tail (%%cdr scan)))
+          (if (%%pair? tail)
+              (iter tail)
+            scan)))
+    lst))
+
+
+(define (jazz.last lst)
+  (%%car (jazz.last-pair lst)))
+
+
+(define (jazz.remove-duplicates lst)
+  (let iter ((scan lst))
+    (if (%%not-null? scan)
+           (let ((value (%%car scan))
+                 (result (iter (%%cdr scan))))
+             (if (%%memv value result)
+                 result
+               (%%cons value result)))
+         '())))
+
+
+(define (jazz.partition lst key)
+  (let iter ((scan lst))
+    (if (%%null? scan)
+        '()
+      (let* ((partition (iter (%%cdr scan)))
+             (element (%%car scan))
+             (category (key element))
+             (set (assv category partition)))
+        (if (%%not set)
+            (%%cons (%%cons category (%%list element)) partition)
+          (begin
+            (%%set-cdr! set (%%cons element (%%cdr set)))
+            partition))))))
 
         
 (define (jazz.rassq obj alist)
@@ -76,6 +185,15 @@
     (%%list obj)))
 
 
+(define (jazz.naturals from to)
+  (let ((lst '())
+        (n from))
+    (%%while (%%fx< n to)
+      (set! lst (%%cons n lst))
+      (set! n (%%fx+ n 1)))
+    (jazz.reverse! lst)))
+
+
 (define (jazz.remove! target lst)
   (%%while (and (%%not-null? lst) (%%eqv? target (%%car lst)))
     (set! lst (%%cdr lst)))
@@ -100,75 +218,4 @@
     (%%while (%%pair? lst)
       (jazz.enqueue proper (%%car lst))
       (set! lst (%%cdr lst)))
-    (jazz.queue-list proper)))
-
-
-;;;
-;;;; Specifier
-;;;
-
-
-(define (jazz.specifier? expr)
-  (and (%%symbol? expr)
-       (let ((str (%%symbol->string expr)))
-         (let ((len (%%string-length str)))
-           (and (%%fx> len 2)
-                (%%eqv? (%%string-ref str 0) #\<)
-                (%%eqv? (%%string-ref str (%%fx- len 1)) #\>))))))
-
-
-(define (jazz.specifier->name specifier)
-  (let ((extract
-          (lambda (string)
-            (%%substring string 1 (%%fx- (%%string-length string) 1)))))
-    (%%string->symbol (extract (%%symbol->string specifier)))))
-
-
-(define (jazz.name->specifier name)
-  (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
-
-
-;;;
-;;;; Enumerator
-;;;
-
-
-(define (jazz.enumerator? obj)
-  (and (%%symbol? obj)
-       (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:)))
-
-
-;;;
-;;;; Reader
-;;;
-
-
-(define (jazz.skip-whitespace port)
-  (%%while (char-whitespace? (peek-char port))
-    (read-char port)))
-
-
-(define (jazz.read-delimited port delimiter)
-  (let ((queue (jazz.new-queue)))
-    (jazz.skip-whitespace port)
-    (%%while (%%not (%%eqv? (peek-char port) delimiter))
-      (jazz.enqueue queue (read port))
-      (jazz.skip-whitespace port))
-    (read-char port)
-    (jazz.queue-list queue)))
-
-
-(define (jazz.read-until test port)
-  (let ((expr '())
-        (queue (jazz.new-queue))
-        (done? #f))
-    (%%while (%%not done?)
-      (let ((expr (read port)))
-        (if (test expr)
-            (set! done? #t)
-          (jazz.enqueue queue expr))))
-    (jazz.queue-list queue)))
-
-
-(define (jazz.read-content port)
-  (jazz.read-until eof-object? port)))
+    (jazz.queue-list proper))))

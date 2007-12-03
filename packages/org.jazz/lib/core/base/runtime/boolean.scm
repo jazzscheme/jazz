@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Tree-Comparer Entry
+;;;; Boolean
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,40 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.groupware.compare.Compare-Entry jazz
+(module core.base.runtime.boolean
 
 
-(import (jazz.groupware)
-        (jazz.library)
-        (jazz.utilities))
+(define (jazz.boolean expr)
+  (%%boolean expr))
 
 
-(class Compare-Entry extends Object
-  
-  
-  (slot protected parent      getter generate)
-  (slot protected kind        getter generate)
-  (slot protected left        accessors generate)
-  (slot protected left-value  accessors generate)
-  (slot protected right       accessors generate)
-  (slot protected right-value accessors generate)
-  (slot protected action      accessors generate)
-  (slot protected children    accessors generate)
-  
-  
-  (method (initialize parent kind left left-value right right-value)
-    (nextmethod)
-    (set! parent~self parent)
-    (set! kind~self kind)
-    (set! left~self left)
-    (set! left-value~self left-value)
-    (set! right~self right)
-    (set! right-value~self right-value)
-    (set! action~self {})
-    (set! children~self '()))
-  
-  
-  (method (print printer readably)
-    (print-unreadable self printer
-      (function (printer)
-        (format printer "{s} {s} {s}" left right action))))))
+(define (jazz.not-null? expr)
+  (%%not-null? expr)))

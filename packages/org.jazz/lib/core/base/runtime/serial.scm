@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Foundation Runtime
+;;;; Serial Numbers
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.foundation.runtime
+(module core.base.runtime.serial
 
 
-(require (core.foundation.runtime.foundation)
-         (core.foundation.runtime.keyword)
-         (core.foundation.runtime.serial)))
+(cond-expand
+  (gambit
+    (define (jazz.object->serial-number obj)
+      (object->serial-number obj))
+    
+    (define (jazz.serial-number->object number)
+      (serial-number->object number))
+    
+    ;; for debugging
+    (define (jazz.object->serial-symbol obj)
+      (string->symbol (string-append "#" (number->string (jazz.object->serial-number obj))))))
+  
+  (else
+   ;; Incorrect implementation that will not let the serialized objects be
+   ;; garbage collected. Weak tables are needed for a correct implementation...
+   
+   (define serial-number
+     1)
+   
+   (define jazz.serialized-objects
+     (%%make-table test: equal?))
+   
+   (define (jazz.object->serial-number obj)
+     (or (%%table-ref jazz.serialized-objects obj #f)
+         (let ((number serial-number))
+           (set! serial-number (%%fx+ serial-number 1))
+           (%%table-set! jazz.serialized-objects obj number)
+           number)))
+   
+   (define (jazz.serial-number->object number . rest)
+     (call/cc
+       (lambda (return)
+         (%%iterate-table jazz.serialized-objects
+           (lambda (key value)
+             (if (%%fx= value number)
+                 (return key))))
+         (if (%%null? rest)
+             (jazz.error "Unbound serial number: {s}" number)
+           (%%car rest))))))))

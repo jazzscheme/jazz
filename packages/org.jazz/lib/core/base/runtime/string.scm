@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Global Access
+;;;; Strings
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,39 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.global
+(module core.base.runtime.string
 
 
-(cond-expand
-  (chicken
-    (require 'lolevel)
+(define (jazz.memstring char string)
+  (let ((len (%%string-length string)))
+    (let iter ((n 0))
+      (cond ((%%fx= n len)
+             #f)
+            ((%%eqv? (%%string-ref string n) char)
+             #t)
+            (else
+             (iter (%%fx+ n 1)))))))
 
-    (define (jazz.global-variable? symbol)
-      (global-bound? symbol))
-    
-    (define (jazz.global-value symbol)
-      (global-ref symbol)))
-  
-  (gambit
-    (define (jazz.global-variable? symbol)
-      (and (##global-var? symbol)
-           (%%not (##unbound? (##global-var-ref symbol)))))
-    
-    (define (jazz.global-value symbol)
-      (##global-var-ref symbol)))
-  
-  (else)))
+
+(define (jazz.split-string str separator)
+  (let ((lst '())
+        (end (%%string-length str)))
+    (let iter ((pos (%%fx- end 1)))
+      (if (%%fx> pos 0)
+          (begin
+            (if (%%eqv? (%%string-ref str pos) separator)
+                (begin
+                  (set! lst (%%cons (%%substring str (%%fx+ pos 1) end) lst))
+                  (set! end pos)))
+            (iter (%%fx- pos 1))))
+        (%%cons (%%substring str 0 end) lst))))
+
+
+(define (jazz.join-strings strings separator)
+  (let ((output (open-output-string)))
+    (display (%%car strings) output)
+    (for-each (lambda (string)
+                (display separator output)
+                (display string output))
+              (%%cdr strings))
+    (get-output-string output))))

@@ -39,7 +39,7 @@
 (module core.dev.build
 
 
-(require (core.foundation)
+(require (core.base)
          (core.library))
 
 

@@ -275,7 +275,6 @@
   (bkernel)
   (bmodule 'core.base)
   (bmodule 'core.class)
-  (bmodule 'core.foundation)
   (bmodule 'core.generic)
   (bmodule 'core.library))
 

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Serial Numbers
+;;;; Symbols
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,78 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.foundation.runtime.serial
+(module core.base.runtime.symbol
+
+
+;;;
+;;;; Global
+;;;
 
 
 (cond-expand
-  (gambit
-    (define (jazz.object->serial-number obj)
-      (object->serial-number obj))
+  (chicken
+    (require 'lolevel)
+
+    (define (jazz.global-variable? symbol)
+      (global-bound? symbol))
     
-    (define (jazz.serial-number->object number)
-      (serial-number->object number))
-    
-    ;; for debugging
-    (define (jazz.object->serial-symbol obj)
-      (string->symbol (string-append "#" (number->string (jazz.object->serial-number obj))))))
+    (define (jazz.global-value symbol)
+      (global-ref symbol)))
   
-  (else
-   ;; Incorrect implementation that will not let the serialized objects be
-   ;; garbage collected. Weak tables are needed for a correct implementation...
-   
-   (define serial-number
-     1)
-   
-   (define jazz.serialized-objects
-     (%%make-table test: equal?))
-   
-   (define (jazz.object->serial-number obj)
-     (or (%%table-ref jazz.serialized-objects obj #f)
-         (let ((number serial-number))
-           (set! serial-number (%%fx+ serial-number 1))
-           (%%table-set! jazz.serialized-objects obj number)
-           number)))
-   
-   (define (jazz.serial-number->object number . rest)
-     (call/cc
-       (lambda (return)
-         (%%iterate-table jazz.serialized-objects
-           (lambda (key value)
-             (if (%%fx= value number)
-                 (return key))))
-         (if (%%null? rest)
-             (jazz.error "Unbound serial number: {s}" number)
-           (%%car rest))))))))
+  (gambit
+    (define (jazz.global-variable? symbol)
+      (and (##global-var? symbol)
+           (%%not (##unbound? (##global-var-ref symbol)))))
+    
+    (define (jazz.global-value symbol)
+      (##global-var-ref symbol)))
+  
+  (else))
+
+
+;;;
+;;;; Identifier
+;;;
+
+
+(define (jazz.identifier-name identifier)
+  (let* ((str (%%symbol->string identifier))
+         (pos (jazz.string-find-reversed str #\.)))
+    (if (%%not pos)
+        identifier
+      (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str))))))
+
+
+;;;
+;;;; Specifier
+;;;
+
+
+(define (jazz.specifier? expr)
+  (and (%%symbol? expr)
+       (let ((str (%%symbol->string expr)))
+         (let ((len (%%string-length str)))
+           (and (%%fx> len 2)
+                (%%eqv? (%%string-ref str 0) #\<)
+                (%%eqv? (%%string-ref str (%%fx- len 1)) #\>))))))
+
+
+(define (jazz.specifier->name specifier)
+  (let ((extract
+          (lambda (string)
+            (%%substring string 1 (%%fx- (%%string-length string) 1)))))
+    (%%string->symbol (extract (%%symbol->string specifier)))))
+
+
+(define (jazz.name->specifier name)
+  (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
+
+
+;;;
+;;;; Enumerator
+;;;
+
+
+(define (jazz.enumerator? obj)
+  (and (%%symbol? obj)
+       (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:))))

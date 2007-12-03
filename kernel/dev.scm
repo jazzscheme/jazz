@@ -64,9 +64,9 @@
   (l 'core.library))
 
 
-(define (ld)
+(define (lm)
   (ll)
-  (l 'core.dev))
+  (l 'core.module))
 
 
 (define (lj)
@@ -167,12 +167,12 @@
 
 
 (define (ee library-name)
-  (ld)
+  (lm)
   (jazz.compile-module library-name options: (list 'expansion)))
 
 
 (define (eg library-name)
-  (ld)
+  (lm)
   (jazz.compile-module library-name options: (list 'gvm)))
 
 
@@ -218,12 +218,12 @@
 
 
 (define (cmodule module-name cc-options ld-options)
-  (ld)
+  (lm)
   (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
 
 
 (define (cm module-name)
-  (ld)
+  (lm)
   (jazz.compile-module module-name))
 
 
@@ -238,7 +238,7 @@
 ;; we implement the library macro as a source transformation like for module. This will
 ;; probably be a very complex task
 (define (cjscm module-name)
-  (ld)
+  (lm)
   (lj)
   (let* ((jazz (jazz.find-module-src module-name))
          (jscm (jazz.make-path jazz.bin-package (jazz.path-name jazz) "jscm"))
@@ -261,12 +261,12 @@
 
 
 (define (bkernel)
-  (ld)
+  (lm)
   (jazz.build-kernel))
 
 
 (define (bmodule module-name)
-  (ld)
+  (lm)
   (jazz.build-module module-name))
 
 
@@ -276,7 +276,8 @@
   (bmodule 'core.base)
   (bmodule 'core.class)
   (bmodule 'core.generic)
-  (bmodule 'core.library))
+  (bmodule 'core.library)
+  (bmodule 'core.module))
 
 
 (define (blang)
@@ -318,7 +319,7 @@
 
 
 (define (bwindows)
-  (ld)
+  (lm)
   (cmodule 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
@@ -334,7 +335,7 @@
   
 
 (define (bx11)
-  (ld) 
+  (lm) 
   (cmodule 'jazz.platform.x11 "-I/usr/X11R6/include" "-L/usr/X11R6/lib -lX11")
   (cmodule 'jazz.platform.freetype "-I/opt/local/include -I/opt/local/include/freetype2" "-L/opt/local/lib -lfreetype")
   (cmodule 'jazz.platform.cairo.cairo-x11 "-I/opt/local/include/cairo" "-L/opt/local/lib -lcairo")

@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.dev.build
+(module core.module.build
 
 
 (require (core.base)
@@ -109,20 +109,4 @@
                     (%%get-module-declaration-requires declaration))
         (for-each (lambda (require)
                     (jazz.parse-require require iter))
-                  (%%get-library-declaration-requires declaration))))))
-
-
-;;;
-;;;; Directory
-;;;
-
-
-(define (jazz.create-directories dirname)
-  (let ((path (%%reverse (jazz.split-string dirname #\/))))
-    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
-      (if (%%not (%%null? scan))
-          (begin
-            (iter (%%cdr scan))
-            (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
-              (if (%%not (jazz.file-exists? subdir))
-                  (create-directory subdir)))))))))
+                  (%%get-library-declaration-requires declaration)))))))

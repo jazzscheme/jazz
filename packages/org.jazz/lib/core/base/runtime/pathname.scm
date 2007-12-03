@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Base Runtime
+;;;; Pathname
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,20 +35,20 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime
+(module core.base.runtime.pathname
 
 
-(require (core.base.runtime.boolean)
-         (core.base.runtime.error)
-         (core.base.runtime.exception)
-         (core.base.runtime.format)
-         (core.base.runtime.keyword)
-         (core.base.runtime.list)
-         (core.base.runtime.output)
-         (core.base.runtime.pathname)
-         (core.base.runtime.reader)
-         (core.base.runtime.serial)
-         (core.base.runtime.string)
-         (core.base.runtime.symbol)
-         (core.base.runtime.unspecified)
-         (core.base.runtime.vector)))
+;;;
+;;;; Directory
+;;;
+
+
+(define (jazz.create-directories dirname)
+  (let ((path (%%reverse (jazz.split-string dirname #\/))))
+    (let iter ((scan (if (%%equal? (%%car path) "") (%%cdr path) path)))
+      (if (%%not (%%null? scan))
+          (begin
+            (iter (%%cdr scan))
+            (let ((subdir (jazz.join-strings (%%reverse scan) "/")))
+              (if (%%not (jazz.file-exists? subdir))
+                  (create-directory subdir)))))))))

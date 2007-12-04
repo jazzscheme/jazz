@@ -64,8 +64,9 @@
 
 
 (jazz.define-class-syntax jazz.Generic-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class jazz.allocate-generic-declaration
-  ((signature     %%get-generic-declaration-signature     %%set-generic-declaration-signature)
-   (dispatch-types %%get-generic-declaration-dispatch-types ())))
+  ((dispatch-types %%get-generic-declaration-dispatch-types ())
+   (signature      %%get-generic-declaration-signature      %%set-generic-declaration-signature)
+   (body           %%get-generic-declaration-body           %%set-generic-declaration-body)))
 
 
 ;;;

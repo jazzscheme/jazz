@@ -166,12 +166,13 @@
 
 
 (jazz.define-class jazz.Generic-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   dispatch-types))
+  (dispatch-types
+   signature
+   body))
 
 
-(define (jazz.new-generic-declaration name type access compatibility attributes parent signature dispatch-types)
-  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type access compatibility attributes #f parent #f signature dispatch-types)))
+(define (jazz.new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
+  (let ((new-declaration (jazz.allocate-generic-declaration jazz.Generic-Declaration name type access compatibility attributes #f parent #f dispatch-types signature #f)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -182,8 +183,13 @@
 
 (jazz.define-method (jazz.emit-declaration (jazz.Generic-Declaration declaration) environment)
   (let ((generic-locator (%%get-declaration-locator declaration))
-        (signature (%%get-generic-declaration-signature declaration)))
-    `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-signature signature declaration environment)))))
+        (signature (%%get-generic-declaration-signature declaration))
+        (body (%%get-generic-declaration-body declaration)))
+    (jazz.with-annotated-frame (jazz.annotate-signature signature)
+      (lambda (frame)
+        (let ((augmented-environment (cons frame environment)))
+          `(jazz.define-generic ,(%%cons generic-locator (jazz.emit-signature signature declaration augmented-environment))
+             ,@(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))))))
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Generic-Declaration declaration) source-declaration environment)
@@ -1470,29 +1476,30 @@
             (parameters (%%cdr signature)))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
-            (%%assertion (%%null? body) (jazz.error "Ill-formed generic containing a body: {s}" signature)
-              (values name specifier access compatibility parameters))))))))
+            (values name specifier access compatibility parameters body)))))))
 
 
 (define (jazz.walk-generic-declaration walker resume declaration environment form)
-  (receive (name specifier access compatibility parameters) (jazz.parse-generic walker resume declaration (%%cdr form))
+  (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
         (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any))
               (dispatch-type-declarations (map (lambda (dynamic-parameter-type)
                                                  (jazz.lookup-reference walker resume declaration environment dynamic-parameter-type))
                                                (jazz.dynamic-parameter-types parameters)))
               (signature (jazz.walk-parameters walker resume declaration environment parameters #t #f)))
-          (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration signature dispatch-type-declarations)))
+          (let ((new-declaration (jazz.new-generic-declaration name type access compatibility '() declaration dispatch-type-declarations signature)))
             (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
               effective-declaration)))
       (jazz.walk-error walker resume declaration "Generics can only be defined inside libraries: {s}" name))))
 
 
 (define (jazz.walk-generic walker resume declaration environment form)
-  (receive (name specifier access compatibility parameters) (jazz.parse-generic walker resume declaration (%%cdr form))
+  (receive (name specifier access compatibility parameters body) (jazz.parse-generic walker resume declaration (%%cdr form))
     (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
       (let ((new-declaration (jazz.find-form-declaration declaration name)))
         (%%set-generic-declaration-signature new-declaration signature)
+        (%%set-generic-declaration-body new-declaration
+          (jazz.walk-body walker resume declaration augmented-environment body)) 
         new-declaration))))
 
 
@@ -1518,14 +1525,12 @@
 (define (jazz.walk-specific walker resume declaration environment form)
   (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
-        (let* ((generic-declaration (jazz.lookup-declaration declaration name #f))
-               (generic-locator (%%get-declaration-locator generic-declaration))
-               (generic-object-locator (jazz.generic-object-locator generic-locator)))
+        (let* ((generic-declaration (jazz.lookup-declaration declaration name #f)))
           (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-                  (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
-                    (%%set-specific-declaration-body new-declaration
-                      (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
-                    new-declaration)))
+            (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
+              (%%set-specific-declaration-body new-declaration
+                (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
+              new-declaration)))
       (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name))))
 
 

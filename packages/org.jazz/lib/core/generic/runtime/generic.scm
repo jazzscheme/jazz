@@ -39,12 +39,21 @@
 (module core.generic.runtime.generic
 
 
-(define (jazz.new-generic locator signature-proc root-proc)
+(define (jazz.new-generic locator dynamic-signature root-proc)
   (let* ((name (jazz.identifier-name locator))
-         (generic (jazz.allocate-generic jazz.Generic locator name #f '()))
-         (root-specific (jazz.new-specific signature-proc (or root-proc (lambda rest (apply jazz.invalid-generic-call generic rest))))))
-    (%%set-generic-root-specific generic root-specific)
+         (generic (jazz.allocate-generic jazz.Generic locator name #f '())))
+    (jazz.generic-make-root generic dynamic-signature root-proc)
     generic))
+
+
+(define (jazz.generic-reset generic root-proc)
+  (jazz.generic-make-root generic (%%get-specific-dynamic-signature (%%get-generic-root-specific generic)) root-proc))
+
+
+(define (jazz.generic-make-root generic dynamic-signature root-proc)
+  (let ((root-specific (jazz.new-specific dynamic-signature (or root-proc (lambda rest (apply jazz.invalid-generic-call generic rest))))))
+    (%%set-generic-root-specific generic root-specific)
+    (%%set-generic-pending-specifics generic (%%cons root-specific (%%get-generic-pending-specifics generic)))))
 
 
 (define (jazz.invalid-generic-call generic . rest)
@@ -79,6 +88,7 @@
 
 
 (define (jazz.process-pending-specifics generic)
+  ;; root must be done first - already present in the hierarchy
   (jazz.resolve-signature (%%get-generic-root-specific generic))
   (for-each (lambda (specific)
               (jazz.resolve-signature specific)
@@ -133,14 +143,29 @@
                                                   (%%cons best (%%cons specific (jazz.remove! ancestor (%%cdr (%%get-specific-ancestor-specifics descendant)))))))))
                                        (%%when (%%not (%%assq descendant descendant-specifics))
                                          (set! descendant-specifics (%%cons descendant descendant-specifics))))
-                                     (assq #t partition))
-                           (%%set-specific-descendant-specifics ancestor (%%cons specific (assq #f partition)))))
+                                     (or (assq #t partition) '()))
+                           (%%set-specific-descendant-specifics ancestor (%%cons specific (or (assq #f partition) '())))))
                        ancestors)
              (%%set-specific-descendant-specifics specific descendant-specifics)))
           (else
-           ;; node already exists - replace implementation
+           ;; node already exists - since lexical nextmethod uses new specific we cannot just copy implementation into old node
            (let ((perfect-match matches))
-             (%%set-specific-implementation perfect-match (%%get-specific-implementation specific)))))))
+             (%%when (%%eq? perfect-match (%%get-generic-root-specific generic))
+               (%%set-generic-root-specific generic specific))
+             (let ((ancestors (%%get-specific-ancestor-specifics perfect-match)))
+               (%%set-specific-ancestor-specifics specific ancestors)
+               (let iter ((ancestors ancestors))
+                    (if (%%pair? ancestors)
+                        (if (%%eq? perfect-match (%%car ancestors))
+                            (%%set-car! ancestors specific)
+                          (iter (%%cdr ancestors))))))
+             (let ((descendants (%%get-specific-descendant-specifics perfect-match)))
+               (%%set-specific-descendant-specifics specific descendants)
+               (let iter ((descendants descendants))
+                    (if (%%pair? descendants)
+                        (if (%%eq? perfect-match (%%car descendants))
+                            (%%set-car! descendants specific)
+                          (iter (%%cdr descendants)))))))))))
 
 
 ;;;
@@ -168,7 +193,9 @@
                                                         (%%cons specific partial-matches)))))))
                      (else
                       #f)))
-               partial-matches))
+               (if (%%null? partial-matches)
+                   #f
+                 partial-matches)))
         perfect-match)))
 
 
@@ -211,12 +238,40 @@
 
 
 ;;;
+;;;; Debug
+;;;
+
+
+(define (jazz.display-tree generic)
+  (%%when (%%not (%%null? (%%get-generic-pending-specifics generic)))
+    (jazz.process-pending-specifics generic))
+  (let iterate ((specifics (list (%%get-generic-root-specific generic)))
+                (level 0))
+       (for-each (lambda (specific)
+                   (write (%%list level
+                                  specific
+                                  (%%get-specific-dynamic-signature specific)
+                                  (%%get-specific-ancestor-specifics specific)
+                                  (%%get-specific-descendant-specifics specific)))
+                   (newline))
+                 specifics)
+       (for-each (lambda (specific)
+                   (write (%%list level specific))
+                   (newline)
+                   (iterate (%%get-specific-descendant-specifics specific) (+ level 1)))
+                 specifics)))
+
+
+;;;
 ;;;; Dispatch
 ;;;
 
 
 (define (jazz.dispatch-from-root generic dynamic-classes)
   (let ((matches (jazz.gather-dynamic-signature-ancestors generic dynamic-classes)))
-    (if (%%pair? matches)
-        (%%car matches)
-      (jazz.generic-error generic dynamic-classes)))))
+    (cond ((%%not matches)
+           (jazz.generic-error generic dynamic-classes))
+          ((%%pair? matches)
+           (%%car matches))
+          (else
+           matches)))))

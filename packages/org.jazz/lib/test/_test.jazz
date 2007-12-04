@@ -38,7 +38,6 @@
 (library test jazz
 
 
-@slc (
 (class X extends Object)
 (class Y extends X)
 (class U extends Object)
@@ -47,27 +46,33 @@
 
 ;; (jazz.expand-define-generic '(test.foo (test.X x) (test.U u) a b))
 ;; (jazz.expand-define-specific '(test.foo (test.X x) (test.U u) a b) '(+ a b))
-(generic (foo (<X> x) @w u (<U> u) a b))
-(specific (foo (<X> x) @w u (<U> u) a b)
+(generic (foo (<X> x) @w u (<U> u) a b)
   (+ a b))
 (specific (foo (<Y> x) @w u (<U> u) a b)
-  (list a b))
+  (list (nextmethod x u a b) a b))
 
 
-(generic (baz (<X> x) @w u (<U> u) . rest))
-(specific (baz (<X> x) @w u (<U> u) . rest)
+(generic (baz (<X> x) @w u (<U> u) . rest)
   (apply + rest))
 (specific (baz (<Y> x) @w u (<U> u) . rest)
-  (apply list rest))
+  (apply list (apply nextmethod x u rest) rest))
 
 
-(jazz.debug (foo (new X) #f 1 2))
-(jazz.debug (foo (new Y) #f 1 2))
+(native jazz.display-tree)
+(native test.foo!generic)
+(native test.baz!generic)
 
-@w(
-(jazz.debug (baz (new X) #f 1 2))
-(jazz.debug (baz (new Y) #f 1 2))
-))
+(newline)
+(display "--------------------------------")
+(newline)
+(jazz.debug (foo (new X) (new U) 1 2))
+(jazz.debug (foo (new Y) (new U) 1 2))
+
+(newline)
+(display "--------------------------------")
+(newline)
+(jazz.debug (baz (new X) (new U) 1 2))
+(jazz.debug (baz (new Y) (new U) 1 2))
 
 
 @w(

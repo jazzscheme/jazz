@@ -2553,6 +2553,12 @@
 
 
 (define (jazz.load-library-syntax declaration)
+  (for-each (lambda (spec)
+              (jazz.parse-require spec
+                (lambda (module-name feature-requirement load phase)
+                  (%%when (%%eq? phase 'syntax)
+                    (jazz.load-module module-name)))))
+            (%%get-library-declaration-requires declaration))
   (for-each (lambda (library-invoice)
               (%%when (%%eq? (%%get-library-invoice-phase library-invoice) 'syntax)
                 (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) declaration)))

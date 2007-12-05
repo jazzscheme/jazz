@@ -38,7 +38,8 @@
 (module core.library
 
 
-(require (core.generic)
+(require (core.class)
+         (core.generic)
          (core.exception)
          
          (core.library.syntax)

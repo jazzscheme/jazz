@@ -38,8 +38,9 @@
 (library jazz.dialect scheme
 
 
-(require (jazz.dialect.core)
-         (jazz.dialect.declarations (load interpreted))
+(require (core.library)
+         (jazz.dialect.core)
+         (jazz.dialect.classes (phase syntax) (load interpreted))
          (jazz.dialect.dialect))
 
 

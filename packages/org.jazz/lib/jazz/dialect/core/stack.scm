@@ -41,8 +41,8 @@
 ;;;
 ;;;; Gambit
 ;;;
-  
-  
+
+
 (cond-expand
   (gambit
     (include "~~/lib/_gambit#.scm")

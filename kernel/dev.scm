@@ -320,16 +320,16 @@
 
 (define (bwindows)
   (lm)
-  (cmodule 'jazz.platform.windows.WinDef "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinTypes "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinBase "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinNT  "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinKernel "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinGDI "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinUser "-D UNICODE" "-mwindows -lUser32")
-  (cmodule 'jazz.platform.windows.WinShell "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinCtrl "-D UNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinDlg "-D UNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinDef    "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinTypes  "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinBase   "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinNT     "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinKernel "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinGDI    "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinUser   "-DUNICODE" "-mwindows -lUser32")
+  (cmodule 'jazz.platform.windows.WinShell  "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinCtrl   "-DUNICODE" "-mwindows")
+  (cmodule 'jazz.platform.windows.WinDlg    "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
   (cj 'jazz.system.platform.windows))
   
@@ -446,8 +446,8 @@
     jazz.ui.tree.Tree-Row))
 
 (define Appl
-  '(jazz.process.Process
-    jazz.application.Application
+  '(jazz.system.process.Process
+    jazz.system.application.Application
     jazz.ui.workspace
     jazz.ui.workspace.Workspace-Preferences
     jazz.ide.IDE
@@ -525,6 +525,15 @@
 
 (define (bjd)
   (bjedi))
+
+
+;;;
+;;;; Make
+;;;
+
+
+(define (mjazz)
+  (bkernel))
 
 
 ;;;
@@ -624,4 +633,4 @@
 (define (r . rest)
   (if (not (null? rest))
       (rl (car rest)))
-  (jazz.process.Process.Process.run-loop (jazz.dialect.language.get-process)))
+  (jazz.system.process.Process.Process.run-loop (jazz.dialect.language.get-process)))

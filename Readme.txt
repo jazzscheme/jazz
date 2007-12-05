@@ -15,6 +15,13 @@ Jazz is the programming language
 Jedi is the IDE
 
 
+License
+=======
+
+JazzScheme is released under a dual Mozilla Public License Version 1.1 or
+GNU General Public License v2 or later. Choose whichever license you prefer.
+
+
 Platforms
 =========
 
@@ -27,12 +34,13 @@ Distribution
 Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 
-bin                      :  Architecture directories
-dev                      :  For developers of JazzScheme
+app                      :  Installed applications
+bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
+doc/dev                  :  For developers of JazzScheme
 include                  :  Include directory for C code
 kernel                   :  Scheme code to bootstrap the module system
-lib                      :  Lib directory for C code
+lib                      :  Lib for external tools
 packages                 :  Installed packages
 
 

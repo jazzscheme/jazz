@@ -77,8 +77,8 @@
 (define (jazz.invoke-debugger message kind reason continuation)
   (jazz.with-default-exception-handler
     (lambda ()
-      (let* ((process (jazz.process.get-process))
-             (debugger (and process (jazz.process.Process.get-debugger process))))
+      (let* ((process (jazz.system.process.get-process))
+             (debugger (and process (jazz.system.process.Process.get-debugger process))))
         (if (not debugger)
             (jazz.raise (list kind reason))
           (jazz.debug.invoke-debugger kind reason continuation)))))))

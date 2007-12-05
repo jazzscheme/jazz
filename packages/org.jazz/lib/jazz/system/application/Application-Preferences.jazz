@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Process Preferences
+;;;; Application Preferences
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,103 +35,70 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.process.Process-Preferences jazz
+(library jazz.system.application.Application-Preferences jazz
 
 
 (import (jazz.designer)
         (jazz.jml)
-        (jazz.process)
         (jazz.library)
-        (jazz.utilities)
-        (jazz.ui))
+        (jazz.system.application)
+        (jazz.system.process)
+        (jazz.utilities))
 
 
-(class Process-Preferences extends Preferences
+(class Application-Preferences extends Process-Preferences
 
 
-  (property active-context    initialize {}  accessors generate)
-  (property current-directory initialize {}  accessors generate)
-  (property protocols         initialize '() accessors generate)
+  (property toplevel-title     initialize {}        accessors generate)
+  (property toplevel-state     initialize 'restored accessors generate)
+  (property catalog-types      initialize '()       accessors generate)
+  (property documented?        initialize #f        accessors generate)
+  (property fullscreen-warned? initialize #f        accessors generate)
   
   
   (form
-    (<install> title: "Process"))
-    
+    (<install>
+      (<Aliases-Preferences>    name: aliases)
+      (<Favorites-Preferences>  name: favorites)
+      (<Documents-Preferences>  name: documents)
+      (<Tools-Preferences>      name: tools)
+      (<Workspaces-Preferences> name: workspaces)
+      (<Interface-Preferences>  name: interface)))
+
   
   ;;;
   ;;;; Walk
   ;;;
-
+  
   
   @convert
   (method meta (walk-form analyser form)
-    (let ((protocols (get-property~ form 'protocols)))
+    (nextmethod analyser form)
+    (let ((catalog-types (get-property~ form 'catalog-types)))
       (for-each (function (info)
-                  (let ((protocol-class (cdr info)))
-                    (when (in-manifest? protocol-class)
-                      (push-reference~ analyser protocol-class))))
-                protocols)))
+                  (let ((catalog-type (cdr info)))
+                    (when (in-manifest? catalog-type)
+                      (push-reference~ analyser catalog-type))))
+                catalog-types)))
 
 
   ;;;
   ;;;; Designer
   ;;;
-  
-  
-  (method (can-rename-component?)
-    #f)
-  
-  
-  (method (can-delete-component?)
-    #f)
-  
-  
-  (method (can-move-component?)
-    #f)
-  
-  
-  (method (can-copy-component?)
-    #f)
-  
+
   
   (method (get-row-instance property)
     (case (field-name property)
-      ((protocols) (new Protocol-List-Row))
-      (else (nextmethod property)))))
-
-
-;;;
-;;;; Protocol-List-Row
-;;;
-
-
-(class Protocol-List-Row extends List-Row
+      ((toplevel-title) (new String-Row))
+      ((documented?) (new Boolean-Row))
+      (else (nextmethod property))))
+    
   
-  
-  (method (get-subrow-class)
-    Protocol-Row)
-  
-  
-  (method (add-value value class)
-    (add-row self (car value) (cdr value) class: class))
-  
-  
-  (method (new-value)
-    (cons "" {})))
-
-
-;;;
-;;;; Protocol-Row
-;;;
-
-
-(class Protocol-Row extends Value-Row
-  
-  
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method (present model)
-    (format "{s}" model))))
+  (method (get-categorized-properties)
+    '(active-context
+      current-directory
+      protocols
+      toplevel-title
+      toplevel-state
+      catalog-types
+      documented?))))

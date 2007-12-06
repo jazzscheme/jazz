@@ -81,8 +81,6 @@
         (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc))
       (let ((anchorize
               (function (pathname)
-                pathname
-                @w
                 (anchorize~ pathname anchors: anchors))))
         (if (GetOpenFileName r)
             (begin
@@ -114,34 +112,34 @@
                                     (default-extension: default-extension {})
                                     (extensions: extensions '())
                                     (anchors: anchors {}))
-  (unimplemented 'choose-new-file)
-  @convert (
   (close-all-popups)
   (when directory
     (create-directories~ directory))
-  (let ((r (new OPENFILENAME))
-        (filename (make-string MAX_PATH)))
-    (if (null? initial-filename)
-        (set-element! filename 0 #\nul)
-      (copy-into! initial-filename filename))
-    (set r 'lStructSize     (size-of OPENFILENAME))
-    (set r 'hwndOwner       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-    (set r 'lpstrFilter     (extensions-filter extensions))
-    (set r 'lpstrFile       filename)
-    (set r 'nMaxFile        MAX_PATH)
-    (set r 'lpstrInitialDir (if directory (parse~ directory) (get-current-directory)))
-    (set r 'Flags           (bitwise-ior OFN_EXPLORER OFN_ENABLEHOOK @w OFN_FILEMUSTEXIST OFN_ENABLESIZING OFN_OVERWRITEPROMPT))
-    (set r 'lpstrDefExt     (either default-extension NULL))
-    (set r 'lCustData       NULL)
-    (set r 'lpfnHook        (get-dialog-proc))
+  (let ((r (OPENFILENAME-make))
+        (buffer (WCHAR-array-make MAX_PATH)))
+    (if (not initial-filename)
+        (WCHAR-array-set! buffer 0 #\nul)
+      (WCHAR-copy buffer initial-filename MAX_PATH))
+    (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
+          (fake-current-directory @fake (get-current-directory) NULL)
+          (fake-dialog-proc @fake (get-dialog-proc) NULL))
+      (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
+      (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+      (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter @w (extensions-filter extensions))
+      (OPENFILENAME-lpstrFile-set! r       buffer)
+      (OPENFILENAME-nMaxFile-set! r        MAX_PATH)
+      (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory @w (get-current-directory)))
+      (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER OFN_ENABLEHOOK @w OFN_FILEMUSTEXIST OFN_ENABLESIZING OFN_OVERWRITEPROMPT))
+      (OPENFILENAME-lpstrDefExt-set! r     (either default-extension NULL))
+      (OPENFILENAME-lCustData-set! r       0)
+      (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc @w (get-dialog-proc)))
     (if (GetSaveFileName r)
-        (begin
-          (adjust-string filename)
+        (let ((filename (WCHAR-string buffer)))
           (anchorize~ (new File (tokenise filename)) anchors: anchors))
       (let ((code (CommDlgExtendedError)))
         (if (= code 0)
             (throw-cancel)
-          (error "Dialog error: {t}" code)))))))
+          (error "Dialog error: {t}" code))))))
 
 
 ;;;
@@ -152,18 +150,18 @@
 (definition public (choose-directory (title: title {})
                                      (directory: directory {})
                                      (anchors: anchors {}))
-  (unimplemented 'choose-directory)
+  (unimplemented)
   @convert (
   (close-all-popups)
   (let ((preserved {}))
     (when directory
       (set! preserved (get-current-directory))
       (set-current-directory (parse~ directory)))
-    (let ((r (new BROWSEINFO)))
-      (set r 'hwndOwner (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-      (set r 'pidlRoot  NULL)
-      (set r 'lpfn      (get-browse-callback))
-      (set r 'lpszTitle (either title NULL))
+    (let ((r (BROWSEINFO-make)))
+      (BROWSEINFO-hwndOwner-set! (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+      (BROWSEINFO-pidlRoot-set!  NULL)
+      (BROWSEINFO-lpfn-set!      (get-browse-callback))
+      (BROWSEINFO-lpszTitle-set! (either title NULL))
       (let ((items (SHBrowseForFolder r)))
         (when preserved
           (set-current-directory preserved))
@@ -198,8 +196,8 @@
 ;; Returns NULL used by file dialogs. Windows specific.
 ;; We will need a platform independent dialog.
 (definition public (extensions-filter extensions)
-  (unimplemented 'extensions-filter)
-  @returns-NULL
+  NULL
+  @convert
   (if (null? extensions)
       NULL
     (let ((dst (new List-Factory))

@@ -38,6 +38,11 @@
 (module jazz.dialect.core.reader
 
 
+;;;
+;;;; Jazz
+;;;
+
+
 (cond-expand
   (gambit
     (include "~~/lib/_gambit#.scm")
@@ -154,4 +159,51 @@
           (and res (%%car res))))))
   
   
-  (else)))
+  (else))
+
+
+;;;
+;;;; General
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (jazz.eof-object)
+      #!eof)
+    
+    (define jazz.gambit-read-line
+      read-line))
+  
+  (else))
+
+
+(define (jazz.skip-whitespace port)
+  (%%while (char-whitespace? (peek-char port))
+    (read-char port)))
+
+
+(define (jazz.read-delimited port delimiter)
+  (let ((queue (jazz.new-queue)))
+    (jazz.skip-whitespace port)
+    (%%while (%%not (%%eqv? (peek-char port) delimiter))
+      (jazz.enqueue queue (read port))
+      (jazz.skip-whitespace port))
+    (read-char port)
+    (jazz.queue-list queue)))
+
+
+(define (jazz.read-until test port)
+  (let ((expr '())
+        (queue (jazz.new-queue))
+        (done? #f))
+    (%%while (%%not done?)
+      (let ((expr (read port)))
+        (if (test expr)
+            (set! done? #t)
+          (jazz.enqueue queue expr))))
+    (jazz.queue-list queue)))
+
+
+(define (jazz.read-content port)
+  (jazz.read-until eof-object? port)))

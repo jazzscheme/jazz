@@ -195,7 +195,7 @@
   (let ( (port (open-input-file filename))
 	 (table '()) )
     (let loop ((line (read-line port)))
-      (if (not (eq? line eof))
+      (if (not (eof-object? line))
 	  (begin
 	    (let* ( (data (read (open-input-string (string-append "(" line ")")))) 
 		    (year (car data))

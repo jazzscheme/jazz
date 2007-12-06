@@ -230,29 +230,14 @@
 (define (cj module-name)
   ;; seems the new gambit functionality has a bug
   (if #t ;; (memq 'debug jazz.compile-options)
-      (cjscm module-name)
+      (cjm module-name)
     (cm module-name)))
 
 
-;; Generates an intermediate jscm expansion file. This is usefull for debugging until
-;; we implement the library macro as a source transformation like for module. This will
-;; probably be a very complex task
-(define (cjscm module-name)
+(define (cjm module-name)
   (lm)
   (lj)
-  (let* ((jazz (jazz.find-module-src module-name))
-         (jscm (jazz.make-path jazz.bin-package (jazz.path-name jazz) "jscm"))
-         (bin (jazz.path-find-binary jscm))
-         (jazztime (jazz.path-modification-time jazz))
-         (jscmtime (jazz.path-modification-time jscm))
-         (bintime (jazz.path-modification-time bin)))
-    (if (or (not jscmtime) (> jazztime jscmtime)
-            (not bintime) (> jscmtime bintime))
-        (begin
-          (jazz.create-directories (jazz.path-bin-dir jscm))
-          (expand-to-file module-name (jazz.path-filename jscm))
-          (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-source-path jscm))))))
+  (jazz.compile-jazz-module module-name))
 
 
 ;;;

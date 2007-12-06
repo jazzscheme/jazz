@@ -130,12 +130,12 @@
 (define (jazz.remove-duplicates lst)
   (let iter ((scan lst))
     (if (%%not-null? scan)
-           (let ((value (%%car scan))
-                 (result (iter (%%cdr scan))))
-             (if (%%memv value result)
-                 result
-               (%%cons value result)))
-         '())))
+        (let ((value (%%car scan))
+              (result (iter (%%cdr scan))))
+          (if (%%memv value result)
+              result
+            (%%cons value result)))
+      '())))
 
 
 (define (jazz.partition lst key)
@@ -172,11 +172,9 @@
 
 
 (define (jazz.butlast lst)
-  (let ((queue (jazz.new-queue)))
-    (%%while (%%not (%%null? (%%cdr lst)))
-      (jazz.enqueue queue (%%car lst))
-      (set! lst (%%cdr lst)))
-    (jazz.queue-list queue)))
+  (if (%%null? (%%cdr lst))
+      '()
+    (%%cons (%%car lst) (jazz.butlast (%%cdr lst)))))
 
 
 (define (jazz.listify obj)
@@ -210,12 +208,4 @@
             (begin
               (set! previous scan)
               (set! scan (%%cdr scan))))))
-      lst)))
-
-
-(define (jazz.proper-list lst)
-  (let ((proper (jazz.new-queue)))
-    (%%while (%%pair? lst)
-      (jazz.enqueue proper (%%car lst))
-      (set! lst (%%cdr lst)))
-    (jazz.queue-list proper))))
+      lst))))

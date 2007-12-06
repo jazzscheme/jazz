@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Reader
+;;;; Libraries
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,46 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.runtime.reader
+(module core.library.initialize
 
 
-(cond-expand
-  (gambit
-    (define (jazz.eof-object)
-      #!eof)
-    
-    (define jazz.gambit-read-line
-      read-line))
-  
-  (else))
-
-
-(define (jazz.skip-whitespace port)
-  (%%while (char-whitespace? (peek-char port))
-    (read-char port)))
-
-
-(define (jazz.read-delimited port delimiter)
-  (let ((queue (jazz.new-queue)))
-    (jazz.skip-whitespace port)
-    (%%while (%%not (%%eqv? (peek-char port) delimiter))
-      (jazz.enqueue queue (read port))
-      (jazz.skip-whitespace port))
-    (read-char port)
-    (jazz.queue-list queue)))
-
-
-(define (jazz.read-until test port)
-  (let ((expr '())
-        (queue (jazz.new-queue))
-        (done? #f))
-    (%%while (%%not done?)
-      (let ((expr (read port)))
-        (if (test expr)
-            (set! done? #t)
-          (jazz.enqueue queue expr))))
-    (jazz.queue-list queue)))
-
-
-(define (jazz.read-content port)
-  (jazz.read-until eof-object? port)))
+(jazz.initialize-primitive-patterns))

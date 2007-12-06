@@ -43,7 +43,5 @@
          (core.exception)
          
          (core.library.syntax)
-         (core.library.runtime))
-
-
-(jazz.initialize-primitive-patterns))
+         (core.library.runtime)
+         (core.library.initialize)))

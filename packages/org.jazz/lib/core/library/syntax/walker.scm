@@ -3577,24 +3577,12 @@
 ;;;
 
 
-(define (jazz.emit-primitive-new-call operator locator arguments arguments-codes declaration environment)
-  (if (%%eq? locator 'jazz.dialect.kernel.new)
-      (%%assert (%%pair? arguments)
-        (let ((class-expression (%%car arguments)))
-          (if (%%class-is? class-expression jazz.Reference)
-              (let ((binding (%%get-reference-binding class-expression)))
-                (if (%%class-is? binding jazz.Class-Declaration)
-                    (let ((values-codes (%%cdr arguments-codes)))
-                      (jazz.new-code
-                          (case (%%length values-codes)
-                            ((0) `(jazz.new0 ,@(jazz.codes-forms arguments-codes)))
-                            ((1) `(jazz.new1 ,@(jazz.codes-forms arguments-codes)))
-                            ((2) `(jazz.new2 ,@(jazz.codes-forms arguments-codes)))
-                            (else `(jazz.new ,@(jazz.codes-forms arguments-codes))))
-                          binding))
-                  #f))
-            #f)))
-    #f))
+;; quicky because classes are not yet defined at this point
+(define jazz.emit-primitive-new-call #f)
+
+(set! jazz.emit-primitive-new-call
+      (lambda (operator locator arguments arguments-codes declaration environment)
+        #f))
 
 
 ;;;

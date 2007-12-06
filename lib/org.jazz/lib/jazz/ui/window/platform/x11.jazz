@@ -260,7 +260,7 @@
           (error "Unable to create x11 window")
         @tofix-this-is-windows
         (DragAcceptFiles hwnd #t)
-        (XSelectInput default-x11-display handle (+ FocusChangeMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
+        (XSelectInput default-x11-display handle (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
         handle))))
 
 
@@ -325,7 +325,7 @@
                              (function (win region)
                                (when region
                                  (paint~ win region))))
-       (table-clear expose-store #f)))))
+       (set! expose-store (make-table))))))
 
 
 (definition (platform-process-one-message window)
@@ -350,7 +350,7 @@
    (let ((type (XEvent-type-ref msg)))
       (cond
        ((= type Expose)      
-                                     (let* ((msg (XEvent-xexpose-ref msg))
+                                        (let* ((msg (XEvent-xexpose-ref msg))
                                         (left (XExposeEvent-x-ref msg))
                                         (top  (XExposeEvent-y-ref msg))
                                         (right (+ left (XExposeEvent-width-ref msg)))
@@ -374,6 +374,20 @@
                      (middle-mouse-down~ window h v))
                     ((= button Button3)
                      (right-mouse-down~ window h v)))))
+
+
+       ((= type ButtonRelease)
+        (let* ((msg (XEvent-xbutton-ref msg))
+                (h (XButtonEvent-x-ref msg))
+                (v (XButtonEvent-y-ref msg))
+                (button (XButtonEvent-button-ref msg)))
+          (cond ((= button Button1)
+                     (mouse-up~ window h v))
+                    ((= button Button2)
+                     (middle-mouse-up~ window h v))
+                    ((= button Button3)
+                     (right-mouse-up~ window h v)))))
+
 
        ((= type FocusIn)
         (let* ((msg (XEvent-xfocus-ref msg))
@@ -402,11 +416,11 @@
                 (keycode (XKeyEvent-keycode-ref msg))
                 (state (XKeyEvent-state-ref msg))
                 (mod  '()))
-          (when (bit-set? state ShiftMask) (set! mod (cons :shift mod)))
-          (when (bit-set? state ControlMask) (set! mod (cons :control mod)))
+          (when (bit-set? ShiftMask state) (set! mod (cons :shift mod)))
+          (when (bit-set? ControlMask state) (set! mod (cons :control mod)))
+          (when (bit-set? Mod2Mask state) (set! mod (cons :alt mod)))
           (unless (translate-shortcut mod keycode)
-             (let ((key (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) (if (memq :shift mod) 0 1)) Symbolic-Keys #f)))
-               (debug key)
+             (let ((key (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) (if (memq :shift mod) 1 0)) Symbolic-Keys #f)))
                (if (and key (char? key))
                  (call-key-press~ window key)
                  unprocessed)))))

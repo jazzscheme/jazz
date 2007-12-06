@@ -47,4 +47,35 @@
 
 
 (definition public (set-clipboard-text text)
-  (set! *quicky-clipboard* text)))
+  (set! *quicky-clipboard* text))
+
+
+(definition public (register-clipboard-format name format)
+  (unimplemented 'register-clipboard-format)
+  @unimplemented
+  (let ((id (RegisterClipboardFormat format)))
+    (table-set! Formats name id)))
+
+
+(definition public (clipboard-format-available? format)
+  (unimplemented 'clipboard-format-available?)
+  @unimplemented
+  (define (get-format format)
+    (either (table-ref Formats format #f)
+            (error "Unknown clipboard format: {t}" format)))
+  @unimplemented
+  (member? (get-format format) (available-clipboard-formats)))
+
+
+(definition public (available-clipboard-formats)
+  (unimplemented 'clipboard-format-available?)
+  @unimplemented
+  (with-opened-clipboard
+    (function ()
+      (let ((formats (new List-Factory)))
+        (let (iter (previous 0))
+          (let ((format (EnumClipboardFormats previous)))
+            (when (/= format 0)
+              (put~ formats format)
+              (iter format))))
+        (get-output~ formats))))))

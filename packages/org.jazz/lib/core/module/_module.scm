@@ -38,4 +38,6 @@
 (module core.module
 
 
-(require (core.module.build)))
+(require (digest)
+         
+         (core.module.build)))

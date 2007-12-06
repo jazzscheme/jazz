@@ -134,10 +134,23 @@
       (make-parameter #f))
     
     
+    #; ;; new
     (define (jazz.with-path-src/bin src proc)
       (let ((bin (jazz.path-find-binary src)))
         (let ((srctime (jazz.path-modification-time src))
-              (bintime (jazz.path-modification-time bin)))
+              (binpck (and bin (jazz.find-bin-package bin))))
+          (let ((latest 
+                  (if (or (%%not binpck)
+                          (%%not (%%string=? (jazz.package-digest binpck))))
+                      'src
+                    'bin)))
+            (proc src bin latest)))))
+    
+    
+    (define (jazz.with-path-src/bin src proc)
+      (let ((bin (jazz.path-find-binary src)))
+        (let ((srctime (jazz.path-modification-time src))
+              (bintime (and bin (jazz.path-modification-time bin))))
           (let ((latest 
                   (if (or (%%not bintime) (> srctime bintime))
                       'src
@@ -146,12 +159,10 @@
     
     
     (define (jazz.path-modification-time path)
-      (if (%%not path)
-          #f
-        (let ((filename (jazz.path-filename path)))
-          (if (%%not (jazz.file-exists? filename))
-              #f
-            (jazz.file-last-modification-time filename)))))
+      (let ((filename (jazz.path-filename path)))
+        (if (%%not (jazz.file-exists? filename))
+            #f
+          (jazz.file-last-modification-time filename))))
     
     
     (define (jazz.load-src src)
@@ -204,7 +215,16 @@
               (let ((next-extension (try next)))
                 (if (exists? next-extension)
                     (iter (%%fx+ next 1) next-extension)
-                  (jazz.make-path jazz.bin-package name last-extension)))))))))
+                  (jazz.make-path jazz.bin-package name last-extension))))))))
+    
+    
+    (define (jazz.find-bin-package bin)
+      (let ((pck (jazz.make-path (jazz.path-package bin) (jazz.path-name bin) "jpck")))
+        (let ((pck-filename (jazz.path-filename pck)))
+          (if (jazz.file-exists? pck-filename)
+              (call-with-input-file pck-filename
+                read)
+            #f)))))
   (else))
 
 

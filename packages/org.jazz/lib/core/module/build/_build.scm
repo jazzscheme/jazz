@@ -44,30 +44,6 @@
 
 
 ;;;
-;;;; Jazz
-;;;
-
-
-;; Generates an intermediate jscm expansion file. This is usefull for debugging until
-;; we implement the library macro as a source transformation like for module. This will
-;; probably be a very complex task
-(define (jazz.compile-jazz-module module-name)
-  (let* ((jazz (jazz.find-module-src module-name))
-         (jscm (jazz.make-path jazz.bin-package (jazz.path-name jazz) "jscm"))
-         (bin (jazz.path-find-binary jscm))
-         (jazztime (jazz.path-modification-time jazz))
-         (jscmtime (jazz.path-modification-time jscm))
-         (bintime (jazz.path-modification-time bin)))
-    (if (or (not jscmtime) (> jazztime jscmtime)
-            (not bintime) (> jscmtime bintime))
-        (begin
-          (jazz.create-directories (jazz.path-bin-dir jscm))
-          (expand-to-file module-name (jazz.path-filename jscm))
-          (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-source-path jscm))))))
-
-
-;;;
 ;;;; Compile
 ;;;
 
@@ -85,15 +61,22 @@
         (bin (jazz.path-find-binary src))
         (bindir (jazz.path-bin-dir src)))
     (let ((srctime (jazz.path-modification-time src))
-          (bintime (jazz.path-modification-time bin)))
+          (bintime (and bin (jazz.path-modification-time bin))))
       (if (or force? (not bintime) (> srctime bintime))
-          (let ((name (jazz.path-name src)))
+          (let ((name (jazz.path-name src))
+                (filename (jazz.path-filename src)))
             (jazz.compile-verbose name)
             (jazz.create-directories bindir)
             (jazz.with-extension-reader (jazz.path-extension src)
               (lambda ()
                 (parameterize ((jazz.walk-for 'compile))
-                  (compile-file (jazz.path-filename src) output: bindir options: options cc-options: cc-options ld-options: ld-options)))))))))
+                  (compile-file filename output: bindir options: options cc-options: cc-options ld-options: ld-options))))
+            (let ((base (jazz.filename-name name))
+                  (digest (digest-file filename 'sha-1)))
+              (call-with-output-file (%%string-append bindir base ".jpck")
+                (lambda (output)
+                  (jazz.format output "(package {a}{%}{%}" name)
+                  (jazz.format output "  (digest {s})){%}" digest)))))))))
 
 
 (define (jazz.compile-verbose name)

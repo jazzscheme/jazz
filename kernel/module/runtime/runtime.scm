@@ -134,13 +134,15 @@
       (make-parameter #f))
     
     
-    (define (jazz.with-path-src/bin src src-proc bin-proc)
+    (define (jazz.with-path-src/bin src proc)
       (let ((bin (jazz.path-find-binary src)))
         (let ((srctime (jazz.path-modification-time src))
               (bintime (jazz.path-modification-time bin)))
-          (if (or (%%not bintime) (> srctime bintime))
-              (src-proc src)
-            (bin-proc bin)))))
+          (let ((latest 
+                  (if (or (%%not bintime) (> srctime bintime))
+                      'src
+                    'bin)))
+            (proc src bin latest)))))
     
     
     (define (jazz.path-modification-time path)
@@ -157,18 +159,22 @@
         (jazz.load-path src)))
     
     
-    (define (jazz.load-bin bin)
+    (define (jazz.load-bin bin quiet?)
       (parameterize ((jazz.walk-for 'interpret))
-        (jazz.load-path bin #t)))
+        (jazz.load-path bin quiet?)))
     
     
     (define (jazz.load-source-path src)
       (jazz.with-path-src/bin src
-        (lambda (src)
-          (jazz.with-extension-reader (jazz.path-extension src)
-            (lambda ()
-              (jazz.load-src src))))
-        jazz.load-bin))
+        (lambda (src bin latest)
+          (case latest
+            ((src)
+             (jazz.with-extension-reader (jazz.path-extension src)
+               (lambda ()
+                 (jazz.load-src src))))
+            ((bin)
+             (let ((quiet? (or (%%not src) (%%string=? (jazz.path-extension src) "jazz"))))
+               (jazz.load-bin bin quiet?)))))))
     
     
     (define jazz.bin-package

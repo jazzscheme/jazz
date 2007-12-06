@@ -382,6 +382,11 @@
     (define-macro (%%memv obj lst)
       `(memv ,obj ,lst))
     
+    (define-macro (%%assq obj alist)
+      (if jazz.debug-core?
+          `(assq ,obj ,alist)
+        `(##assq ,obj ,alist)))
+    
     (define-macro (%%cons x y)
       (if jazz.debug-core?
           `(cons ,x ,y)

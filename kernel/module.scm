@@ -191,10 +191,9 @@
   ;; the same time also load a compiled .o file from the bin dir if present
   (define (load-bin src)
     (jazz.with-path-src/bin src
-      (lambda (src)
-        #f)
-      (lambda (bin)
-        (jazz.load-path bin #t))))
+      (lambda (src bin latest)
+        (case latest
+          ((bin) jazz.load-path)))))
   
   (for-each jazz.load-path jazz.Module-Paths)
   (for-each load-bin jazz.Module-Compiled-Paths))

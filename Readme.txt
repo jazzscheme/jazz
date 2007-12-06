@@ -39,7 +39,7 @@ bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
 doc/dev                  :  For developers of JazzScheme
 include                  :  Include directory for C code
-kernel                   :  Scheme code to bootstrap the module system
+kernel                   :  Scheme code implementing the module system
 lib                      :  Lib for external tools
 packages                 :  Installed packages
 
@@ -79,8 +79,9 @@ Building
 ========
 
 Build commands :
-- (build) : core + language + platform modules
-- (bjedi) : jedi critical modules
+- (bcore) : core
+- (bjazz) : core + language
+- (bjedi) : core + language + jedi critical modules
 
 Note that you must restart gsc to use the newly compiled files.
 
@@ -90,18 +91,25 @@ From a new Jazz installation, the optimal build sequence is :
 
 gsc
 Gambit v4.1.0
-> (build)
+> (bcore)
 ...
 > (exit)
 
-;; will have all core + language + platform modules compiled
+;; gsc will now have all core modules compiled
+gsc
+Gambit v4.1.0
+> (bjazz)
+...
+> (exit)
+
+;; gsc will now have all core + language modules compiled
 gsc
 Gambit v4.1.0
 > (bjedi)
 ...
 > (exit)
 
-;; will have all jedi critical modules compiled
+;; gsc will now have all core + language + jedi critical modules compiled
 gsc
 > (j)
 ...
@@ -114,11 +122,10 @@ Jedi IDE
 
 Launch
 ------
-To launch Jedi, the Jazz IDE, you will first need to build the core and all platform modules using (build). If
-it's the first time you build the core, it is recommended for better performance that you quit Gambit and relaunch
-so the newly compiled files get loaded.
+To launch Jedi, the Jazz IDE, you will first need to build it using (bjedi). If it's the first time you build Jedi, it
+is recommended for better performance that you quit Gambit and relaunch so the newly compiled files get loaded.
 
-The (j) command will then launch the IDE.
+The (j) command will then launch the Jedi IDE.
 
 Debug
 -----

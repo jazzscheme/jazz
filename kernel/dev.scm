@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Debugging
+;;;; Development
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -245,18 +245,15 @@
 ;; probably be a very complex task
 (define (jazz.compile-jazz-module module-name)
   (let* ((jazz (jazz.find-module-src module-name))
-         (jscm (jazz.make-path jazz.bin-package (jazz.path-name jazz) "jscm"))
+         (jscm (%%make-path jazz.bin-repository (%%path-name jazz) "jscm"))
          (bin (jazz.path-find-binary jscm))
-         (jazztime (jazz.path-modification-time jazz))
-         (jscmtime (jazz.path-modification-time jscm))
-         (bintime (and bin (jazz.path-modification-time bin))))
-    (if (or (not jscmtime) (> jazztime jscmtime)
-            (not bintime) (> jscmtime bintime))
+         (binpck (and bin (jazz.load-package bin))))
+    (if (or (not binpck) (not (jazz.src-determine/cache-identical? jazz binpck)))
         (begin
           (jazz.create-directories (jazz.path-bin-dir jscm))
           (expand-to-file module-name (jazz.path-filename jscm))
           (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-source-path jscm))))))
+            (jazz.compile-source-path jscm digest: (jazz.path-digest jazz)))))))
 
 
 ;;;
@@ -473,9 +470,6 @@
     jazz.groupware.compare.Text-Comparer
     jazz.groupware.compare.Tree-Comparer))
 
-(define Extra
-  '(digest.implementation))
-
 
 (define (butil)
   (for-each cj Util))
@@ -507,9 +501,6 @@
 (define (bcompare)
   (for-each cj Compare))
 
-(define (bextra)
-  (for-each cj Extra))
-
 
 (define (bjedi)
   (la)
@@ -524,8 +515,7 @@
   (btree)
   (bappl)
   (bjml)
-  (bcompare)
-  (bextra))
+  (bcompare))
 
 (define (bjd)
   (bjedi))

@@ -86,36 +86,17 @@
 ;;;
 
 
-;; A path is a triplet (package name . extension) representing a module location.
-;; Compilation will use the name part to put the binary outputs under the _obj subdir
-;; of the architecture directory to enable a cross-compilation scheme.
-
-
-(define (jazz.make-path package name extension)
-  (cons package (cons name extension)))
-
-
-(define (jazz.path-package path)
-  (car path))
-
-(define (jazz.path-name path)
-  (cadr path))
-
-(define (jazz.path-extension path)
-  (cddr path))
-
-
 (define (jazz.path-suffix path)
-  (string-append (jazz.path-name path)
+  (string-append (%%path-name path)
                  "."
-                 (jazz.path-extension path)))
+                 (%%path-extension path)))
 
 
 (define (jazz.path-filename path)
-  (string-append (jazz.path-package path)
-                 (jazz.path-name path)
+  (string-append (%%path-repository path)
+                 (%%path-name path)
                  "."
-                 (jazz.path-extension path)))
+                 (%%path-extension path)))
 
 
 ;;;
@@ -127,15 +108,11 @@
   (make-parameter 0))
 
 
-(define (jazz.load-filename filename quiet?)
-  (##load filename (lambda rest #f) #f #t quiet?))
-
-
 (define (jazz.load-path path . rest)
   (let ((quiet? (if (null? rest) #f (car rest))))
     (jazz.with-verbose jazz.load-verbose? "loading" (jazz.path-suffix path)
       (lambda ()
-        (jazz.load-filename (jazz.path-filename path) quiet?)))))
+        (jazz.load (jazz.path-filename path) quiet?)))))
 
 
 (define (jazz.with-verbose flag action filename proc)
@@ -173,16 +150,18 @@
 
 (define jazz.Module-Paths
   (list
-    (jazz.make-path "../../" "kernel/module/syntax/primitives" "scm")
-    (jazz.make-path "../../" "kernel/module/syntax/module" "scm")
-    (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm")
-    (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))
+    (%%make-path "../../" "kernel/module/syntax/primitives" "scm")
+    (%%make-path "../../" "kernel/module/syntax/module" "scm")
+    (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
+    (%%make-path "../../" "kernel/module/runtime/digest" "scm")
+    (%%make-path "../../" "kernel/module/runtime/runtime" "scm")))
 
 
 (define jazz.Module-Compiled-Paths
   (list
-    (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm")
-    (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))
+    (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
+    (%%make-path "../../" "kernel/module/runtime/digest" "scm")
+    (%%make-path "../../" "kernel/module/runtime/runtime" "scm")))
 
 
 (define (jazz.load-module-system)
@@ -193,7 +172,8 @@
     (jazz.with-path-src/bin src
       (lambda (src bin latest)
         (case latest
-          ((bin) jazz.load-path)))))
+          ((bin)
+           (jazz.load-path bin))))))
   
   (for-each jazz.load-path jazz.Module-Paths)
   (for-each load-bin jazz.Module-Compiled-Paths))
@@ -219,5 +199,4 @@
 
 
 (define (jazz.build-kernel)
-  (jazz.compile-source-path (jazz.make-path "../../" "kernel/module/syntax/module-expander" "scm"))
-  (jazz.compile-source-path (jazz.make-path "../../" "kernel/module/runtime/runtime" "scm")))
+  (for-each jazz.compile-source-path jazz.Module-Compiled-Paths))

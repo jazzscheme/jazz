@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Boot
+;;;; Kernel Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,26 +35,25 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (define (jazz.load filename . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load filename (lambda rest #f) #f #t quiet?))))
-  
-  (else
-    (define (jazz.load filename . rest)
-      (load filename))))
+;;;
+;;;; Path
+;;;
 
 
-(define jazz.Kernel
-  '("../../kernel/config"
-    "../../kernel/syntax"
-    "../../kernel/kernel"
-    "../../kernel/dev"))
+;; A path is a triplet (repository name . extension) representing a module location.
+;; Compilation will use the name part to put the binary outputs under the _obj subdir
+;; of the architecture directory to enable a cross-compilation scheme.
 
 
-(for-each jazz.load jazz.Kernel)
+(define-macro (%%make-path repository name extension)
+  `(cons ,repository (cons ,name ,extension)))
 
 
-(if (file-exists? "~/jazz/jazzini.scm")
-    (load "~/jazz/jazzini"))
+(define-macro (%%path-repository path)
+  `(car ,path))
+
+(define-macro (%%path-name path)
+  `(cadr ,path))
+
+(define-macro (%%path-extension path)
+  `(cddr ,path))

@@ -6,8 +6,6 @@
 
 ;==============================================================================
 
-(module digest.implementation
-
 (##include "~~/lib/gambit#.scm")
 
 (declare
@@ -1186,4 +1184,3 @@ Previous message: Mark Thomas + ECHELON?
 Next message: Encrypted sessions
 Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
 |#
-)

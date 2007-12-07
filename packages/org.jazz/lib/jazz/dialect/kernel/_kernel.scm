@@ -120,6 +120,21 @@
 
 
 ;;;
+;;;; Digest
+;;;
+
+
+(native open-digest)
+(native close-digest)
+(native digest-update-subu8vector)
+(native digest-string)
+(native digest-substring)
+(native digest-u8vector)
+(native digest-subu8vector)
+(native digest-file)
+
+
+;;;
 ;;;; Enumerator
 ;;;
 
@@ -356,7 +371,7 @@
 (native jazz.file-delete)
 (native jazz.file-type)
 (native jazz.file-copy)
-(native jazz.file-last-modification-time)
+(native jazz.file-modification-time)
 (native jazz.file-rename)
 (native jazz.directory-create)
 (native jazz.directory-files)
@@ -421,7 +436,7 @@
 ;;;
 
 
-(native jazz.register-package)
+(native jazz.register-package-repository)
 (native jazz.find-module-src)
 (native jazz.get-environment)
 (native jazz.get-catalog)

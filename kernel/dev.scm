@@ -244,16 +244,15 @@
 ;; we implement the library macro as a source transformation like for module. This will
 ;; probably be a very complex task
 (define (jazz.compile-jazz-module module-name)
-  (let* ((jazz (jazz.find-module-src module-name))
-         (jscm (%%make-path jazz.bin-repository (%%path-name jazz) "jscm"))
-         (bin (jazz.path-find-binary jscm))
-         (binpck (and bin (jazz.load-package bin))))
-    (if (or (not binpck) (not (jazz.src-determine/cache-identical? jazz binpck)))
-        (begin
-          (jazz.create-directories (jazz.path-bin-dir jscm))
-          (expand-to-file module-name (jazz.path-filename jscm))
-          (parameterize ((current-readtable jazz.jazz-readtable))
-            (jazz.compile-source-path jscm digest: (jazz.path-digest jazz)))))))
+  (let ((src (jazz.find-module-src module-name)))
+    (jazz.with-path-src/bin src
+      (lambda (src bin bin-uptodate?)
+        (if (or (not bin) (not bin-uptodate?))
+            (let ((jscm (%%make-path jazz.build-repository (%%path-name src) "jscm")))
+              (jazz.create-directories (jazz.path-build-dir jscm))
+              (expand-to-file module-name (jazz.path-filename jscm))
+              (parameterize ((current-readtable jazz.jazz-readtable))
+                (jazz.compile-source-path jscm digest: (jazz.path-digest src)))))))))
 
 
 ;;;

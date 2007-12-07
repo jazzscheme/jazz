@@ -157,7 +157,7 @@
     (%%make-path "../../" "kernel/module/runtime/runtime" "scm")))
 
 
-(define jazz.Module-Compiled-Paths
+(define jazz.Compiled-Module-Paths
   (list
     (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
     (%%make-path "../../" "kernel/module/runtime/digest" "scm")
@@ -165,18 +165,17 @@
 
 
 (define (jazz.load-module-system)
-  ;; for now this is the best solution I found to guaranty that the kernel
+  ;; For now this is the best solution I found to guaranty that the kernel
   ;; can be loaded fully interpreted without having to do any build but at
   ;; the same time also load a compiled .o file from the bin dir if present
   (define (load-bin src)
     (jazz.with-path-src/bin src
-      (lambda (src bin latest)
-        (case latest
-          ((bin)
-           (jazz.load-path bin))))))
+      (lambda (src bin bin-uptodate?)
+        (if bin-uptodate?
+            (jazz.load-path bin)))))
   
   (for-each jazz.load-path jazz.Module-Paths)
-  (for-each load-bin jazz.Module-Compiled-Paths))
+  (for-each load-bin jazz.Compiled-Module-Paths))
 
 
 ;;;
@@ -199,4 +198,4 @@
 
 
 (define (jazz.build-kernel)
-  (for-each jazz.compile-source-path jazz.Module-Compiled-Paths))
+  (for-each jazz.compile-source-path jazz.Compiled-Module-Paths))

@@ -133,12 +133,12 @@
 
 
 (define (jazz.with-path-src/bin src proc)
-  (let ((bin (jazz.path-find-binary src)))
+  (let ((bin (jazz.find-bin (%%path-name src))))
     (let ((package (and bin (jazz.load-package bin))))
-      (let ((use-src?
-              (or (%%not package)
-                  (%%not (jazz.src-determine/cache-identical? src package)))))
-        (proc src bin (if use-src? 'src 'bin))))))
+      (let ((bin-uptodate?
+              (and package
+                   (jazz.bin-determine/cache-uptodate? src package (%%path-repository bin)))))
+        (proc src bin bin-uptodate?)))))
 
 
 (define (jazz.load-src src)
@@ -153,45 +153,13 @@
 
 (define (jazz.load-source-path src)
   (jazz.with-path-src/bin src
-    (lambda (src bin latest)
-      (case latest
-        ((src)
-         (jazz.with-extension-reader (%%path-extension src)
-           (lambda ()
-             (jazz.load-src src))))
-        ((bin)
-         (let ((quiet? (or (%%not src) (%%string=? (%%path-extension src) "jazz"))))
-           (jazz.load-bin bin quiet?)))))))
-
-
-(define jazz.bin-repository
-  "_obj/")
-
-
-(define (jazz.path-bin-dir path)
-  (let ((dir (jazz.filename-dir (%%path-name path))))
-    (if (not dir)
-        jazz.bin-repository
-      (%%string-append jazz.bin-repository dir))))
-
-
-(define (jazz.path-find-binary path)
-  (let ((name (%%path-name path)))
-    (define (try n)
-      (%%string-append "o" (number->string n)))
-    
-    (define (exists? extension)
-      (jazz.file-exists? (%%string-append jazz.bin-repository name "." extension)))
-    
-    (let ((o1 (try 1)))
-      (if (%%not (exists? o1))
-          #f
-        (let iter ((next 2)
-                   (last-extension o1))
-             (let ((next-extension (try next)))
-               (if (exists? next-extension)
-                   (iter (%%fx+ next 1) next-extension)
-                 (%%make-path jazz.bin-repository name last-extension))))))))
+    (lambda (src bin bin-uptodate?)
+      (if bin-uptodate?
+          (let ((quiet? (or (%%not src) (%%string=? (%%path-extension src) "jazz"))))
+            (jazz.load-bin bin quiet?))
+        (jazz.with-extension-reader (%%path-extension src)
+          (lambda ()
+            (jazz.load-src src)))))))
 
 
 ;;;
@@ -226,7 +194,7 @@
                       #t)))
 
 
-(define (jazz.src-determine/cache-identical? src package)
+(define (jazz.bin-determine/cache-uptodate? src package package-repository)
   (let ((filename (jazz.path-filename src))
         (digest (jazz.package-digest package)))
     (let ((hash (jazz.digest-hash digest))
@@ -238,7 +206,7 @@
         (let ((identical? (%%string=? hash (digest-file filename 'sha-1))))
           (jazz.digest-cached-time-set! digest time)
           (jazz.digest-cached-identical?-set! digest identical?)
-          (jazz.save-package (jazz.path-bin-package src jazz.bin-repository) package)
+          (jazz.save-package (jazz.repository-package-path package-repository (%%path-name src)) package)
           identical?)))))
 
 
@@ -256,10 +224,6 @@
 
 (define (jazz.package-digest package)
   (%%cdr package))
-
-
-(define (jazz.path-bin-package src bin-repository)
-  (%%make-path bin-repository (%%path-name src) "jpck"))
 
 
 (define (jazz.load-package bin)
@@ -312,6 +276,11 @@
     "~/jazz/lib/"))
 
 
+(define jazz.Binary-Repositories
+  '("_app/"
+    "_obj/"))
+
+
 (define (jazz.register-package-repository repository)
   (set! jazz.Repositories (cons repository jazz.Repositories)))
 
@@ -319,26 +288,79 @@
 (define (jazz.find-module-src module-name . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
     (let ((name (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
-      (let ((base (jazz.filename-name name)))
-        (let iter ((scan jazz.Repositories))
-          (if (%%null? scan)
-              (if error?
-                  (jazz.kernel-error "Unable to find module:" module-name)
-                #f)
-            (let ((repository (%%car scan)))
-              (define (try name)
-                (define (try-extension extension)
-                  (if (jazz.file-exists? (%%string-append repository name "." extension))
-                      (%%make-path repository name extension)
-                    #f))
-                
-                (or (try-extension "scm")
-                    (try-extension "jazz")))
-              
-              (or (if (jazz.directory-exists? (%%string-append repository name))
-                      (try (%%string-append name "/_" base))
-                    (try name))
-                  (iter (%%cdr scan))))))))))
+      (let iter ((scan jazz.Repositories))
+        (if (%%null? scan)
+            (if error?
+                (jazz.kernel-error "Unable to find module:" module-name)
+              #f)
+          (or (jazz.repository-find-src (%%car scan) name)
+              (iter (%%cdr scan))))))))
+
+
+(define (jazz.repository-find-src repository name)
+  (define (try name)
+    (define (try-extension extension)
+      (if (jazz.file-exists? (%%string-append repository name "." extension))
+          (%%make-path repository name extension)
+        #f))
+    
+    (or (try-extension "scm")
+        (try-extension "jazz")))
+  
+  (if (jazz.directory-exists? (%%string-append repository name))
+      (try (%%string-append name "/_" (jazz.filename-name name)))
+    (try name)))
+
+
+(define (jazz.find-bin name)
+  (let iter ((scan jazz.Binary-Repositories)
+             (found #f)
+             (foundtime #f))
+    (if (%%null? scan)
+        found
+      (let ((bin (jazz.repository-find-bin (%%car scan) name)))
+        (let ((bintime (and bin (jazz.file-modification-time (jazz.path-filename bin)))))
+          (if (or (%%not found) (and bintime (> bintime foundtime)))
+              (iter (%%cdr scan) bin bintime)
+            (iter (%%cdr scan) found foundtime)))))))
+
+
+(define (jazz.repository-find-bin repository name)
+  (define (try n)
+    (%%string-append "o" (number->string n)))
+  
+  (define (exists? extension)
+    (jazz.file-exists? (%%string-append repository name "." extension)))
+  
+  (let ((o1 (try 1)))
+    (if (%%not (exists? o1))
+        #f
+      (let iter ((next 2)
+                 (last-extension o1))
+        (let ((next-extension (try next)))
+          (if (exists? next-extension)
+              (iter (%%fx+ next 1) next-extension)
+            (%%make-path repository name last-extension)))))))
+
+
+(define (jazz.repository-package-path repository name)
+  (%%make-path repository name "jpck"))
+
+
+;;;
+;;;; Build
+;;;
+
+
+(define jazz.build-repository
+  "_obj/")
+
+
+(define (jazz.path-build-dir path)
+  (let ((dir (jazz.filename-dir (%%path-name path))))
+    (if (not dir)
+        jazz.build-repository
+      (%%string-append jazz.build-repository dir))))
 
 
 ;;;

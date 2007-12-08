@@ -160,19 +160,19 @@
 
 (define jazz.Module-Paths
   (list
-    (%%make-path "../../" "kernel/module/syntax/primitives" "scm")
-    (%%make-path "../../" "kernel/module/syntax/syntax" "scm")
-    (%%make-path "../../" "kernel/module/syntax/module" "scm")
-    (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
-    (%%make-path "../../" "kernel/module/runtime/digest" "scm")
-    (%%make-path "../../" "kernel/module/runtime/runtime" "scm")))
+    (%%make-path "../../" "kernel/syntax/primitives" "scm")
+    (%%make-path "../../" "kernel/syntax/syntax" "scm")
+    (%%make-path "../../" "kernel/syntax/module" "scm")
+    (%%make-path "../../" "kernel/syntax/module-expander" "scm")
+    (%%make-path "../../" "kernel/runtime/digest" "scm")
+    (%%make-path "../../" "kernel/runtime/runtime" "scm")))
 
 
 (define jazz.Compiled-Module-Paths
   (list
-    (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
-    (%%make-path "../../" "kernel/module/runtime/digest" "scm")
-    (%%make-path "../../" "kernel/module/runtime/runtime" "scm")))
+    (%%make-path "../../" "kernel/syntax/module-expander" "scm")
+    (%%make-path "../../" "kernel/runtime/digest" "scm")
+    (%%make-path "../../" "kernel/runtime/runtime" "scm")))
 
 
 (define (jazz.load-module-system)

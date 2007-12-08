@@ -38,7 +38,7 @@ bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
 doc/dev                  :  For developers of JazzScheme
 foreign                  :  Directory for foreign include and lib code
-kernel                   :  Scheme code implementing the module system
+kernel                   :  Scheme code implementing the Jazz kernel
 lib                      :  Installed packages
 
 

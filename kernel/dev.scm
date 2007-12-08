@@ -256,7 +256,7 @@
     (jazz.with-path-src/bin src
       (lambda (src bin bin-uptodate?)
         (if (or (not bin) (not bin-uptodate?))
-            (let ((jscm (%%make-path jazz.build-repository (%%path-name src) "jscm")))
+            (let ((jscm (%%make-path jazz.build-package (%%path-name src) "jscm")))
               (jazz.create-directories (jazz.path-build-dir jscm))
               (expand-to-file module-name (jazz.path-filename jscm))
               (parameterize ((current-readtable jazz.jazz-readtable))
@@ -302,7 +302,7 @@
 (cond-expand
   (windows
     (define (bcairo)
-      (cmodule 'jazz.platform.cairo "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")))
+      (cmodule 'jazz.platform.cairo "-IC:/jazz/dev/jazz/foreign/include/cairo" "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo")))
   (x11
     (define (bcairo)
       (cmodule 'jazz.platform.cairo "-I/opt/local/include/cairo -I/opt/local/include" "-L/opt/local/lib -lcairo"))))
@@ -314,7 +314,7 @@
 
 
 (define (blogfont)
-  (cmodule 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo"))
+  (cmodule 'jazz.platform.cairo.cairo-logfont "-IC:/jazz/dev/jazz/foreign/include/cairo" "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo"))
 
 
 (cond-expand
@@ -338,7 +338,7 @@
   (cmodule 'jazz.platform.windows.WinShell  "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl   "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg    "-DUNICODE" "-mwindows")
-  (cmodule 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/include/cairo" "-LC:/jazz/dev/jazz/lib/cairo -lcairo")
+  (cmodule 'jazz.platform.cairo.cairo-windows "-IC:/jazz/dev/jazz/foreign/include/cairo" "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo")
   (cj 'jazz.system.platform.windows))
   
 

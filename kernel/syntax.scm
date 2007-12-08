@@ -40,16 +40,16 @@
 ;;;
 
 
-;; A path is a triplet (repository name . extension) representing a module location.
+;; A path is a triplet (package name . extension) representing a module location.
 ;; Compilation will use the name part to put the binary outputs under the _obj subdir
 ;; of the architecture directory to enable a cross-compilation scheme.
 
 
-(define-macro (%%make-path repository name extension)
-  `(cons ,repository (cons ,name ,extension)))
+(define-macro (%%make-path package name extension)
+  `(cons ,package (cons ,name ,extension)))
 
 
-(define-macro (%%path-repository path)
+(define-macro (%%path-package path)
   `(car ,path))
 
 (define-macro (%%path-name path)

@@ -34,14 +34,12 @@ Distribution
 Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 
-app                      :  Installed applications
 bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
 doc/dev                  :  For developers of JazzScheme
-include                  :  Include directory for foreign code
+foreign                  :  Directory for foreign include and lib code
 kernel                   :  Scheme code implementing the module system
-lib                      :  Lib directory for foreign code
-packages                 :  Installed packages
+lib                      :  Installed packages
 
 
 Architecture

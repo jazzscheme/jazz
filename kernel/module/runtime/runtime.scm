@@ -85,14 +85,20 @@
 
 (cond-expand
   (gambit
-    (define (jazz.file-exists? filename)
-      (file-exists? filename))
+    (define jazz.file-exists?
+      file-exists?)
     
-    (define (jazz.directory-exists? filename)
-      (file-exists? filename))
+    (define jazz.file-type
+      file-type)
     
     (define (jazz.file-modification-time filename)
-      (time->seconds (file-last-modification-time filename))))
+      (time->seconds (file-last-modification-time filename)))
+    
+    (define jazz.directory-exists?
+      file-exists?)
+    
+    (define jazz.directory-files
+      directory-files))
   
   (else))
 
@@ -134,10 +140,10 @@
 
 (define (jazz.with-path-src/bin src proc)
   (let ((bin (jazz.find-bin (%%path-name src))))
-    (let ((package (and bin (jazz.load-package bin))))
+    (let ((manifest (and bin (jazz.load-manifest bin))))
       (let ((bin-uptodate?
-              (and package
-                   (jazz.bin-determine/cache-uptodate? src package (%%path-repository bin)))))
+              (and manifest
+                   (jazz.bin-determine/cache-uptodate? src manifest (%%path-package bin)))))
         (proc src bin bin-uptodate?)))))
 
 
@@ -174,9 +180,9 @@
                    #t)))
 
 
-(define (jazz.bin-determine/cache-uptodate? src package package-repository)
+(define (jazz.bin-determine/cache-uptodate? src manifest manifest-package)
   (let ((filename (jazz.path-filename src))
-        (digest (%%package-digest package)))
+        (digest (%%manifest-digest manifest)))
     (let ((hash (%%digest-hash digest))
           (cached-time (%%digest-cached-time digest))
           (cached-identical? (%%digest-cached-identical? digest))
@@ -186,17 +192,17 @@
         (let ((identical? (%%string=? hash (digest-file filename 'sha-1))))
           (%%digest-cached-time-set! digest time)
           (%%digest-cached-identical?-set! digest identical?)
-          (jazz.save-package (jazz.repository-package-path package-repository (%%path-name src)) package)
+          (jazz.save-manifest (jazz.package-manifest-path manifest-package (%%path-name src)) manifest)
           identical?)))))
 
 
 ;;;
-;;;; Package
+;;;; Manifest
 ;;;
 
 
-(define (jazz.load-package bin)
-  (let ((path (%%make-path (%%path-repository bin) (%%path-name bin) "jpck")))
+(define (jazz.load-manifest bin)
+  (let ((path (%%make-path (%%path-package bin) (%%path-name bin) "mnf")))
     (let ((filename (jazz.path-filename path)))
       (if (jazz.file-exists? filename)
           (call-with-input-file filename
@@ -207,16 +213,16 @@
                   (let ((hash (%%cadr digest-form))
                         (cached-time (%%car (%%cddr digest-form)))
                         (cached-identical? (%%cadr (%%cddr digest-form))))
-                    (%%make-package name (%%make-digest hash cached-time cached-identical?)))))))
+                    (%%make-manifest name (%%make-digest hash cached-time cached-identical?)))))))
         #f))))
 
 
-(define (jazz.save-package path package)
-  (let ((name (%%package-name package))
-        (digest (%%package-digest package)))
+(define (jazz.save-manifest path manifest)
+  (let ((name (%%manifest-name manifest))
+        (digest (%%manifest-digest manifest)))
     (call-with-output-file (jazz.path-filename path)
       (lambda (output)
-        (display "(package " output)
+        (display "(manifest " output)
         (display name output)
         (newline output)
         (newline output)
@@ -231,75 +237,85 @@
 
 
 ;;;
-;;;; Repositories
+;;;; Repository
 ;;;
 
 
 (define jazz.Repositories
-  '("../../packages/org.jazz/lib/"
-    "../../packages/org.jazz.website/lib/"
-    "../../packages/org.jedi/lib/"
-    "../../packages/contrib/"
-    "../../packages/srfi/"
-    "../../packages/snow/"
+  '("."
+    "../../lib/"))
+
+
+(define (jazz.repository-find-packages repository)
+  #f)
+
+
+;;;
+;;;; Package
+;;;
+
+
+(define jazz.Packages
+  '("../../lib/jazz/lib/"
+    "../../lib/jazz.website/lib/"
+    "../../lib/jedi/lib/"
+    "../../lib/contrib/"
+    "../../lib/srfi/time/lib/"
+    "../../lib/snow/"
+    "../../../jazz.lib/"
     "~/jazz/lib/"))
 
 
-(define jazz.Binary-Repositories
-  '("_app/"
-    "_obj/"))
-
-
-(define (jazz.register-package-repository repository)
-  (set! jazz.Repositories (cons repository jazz.Repositories)))
+(define jazz.Binary-Packages
+  '("jazz/"))
 
 
 (define (jazz.find-module-src module-name . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
     (let ((name (jazz.module-name->path-name module-name)))
-      (let iter ((scan jazz.Repositories))
+      (let iter ((scan jazz.Packages))
         (if (%%null? scan)
             (if error?
                 (jazz.kernel-error "Unable to find module:" module-name)
               #f)
-          (or (jazz.repository-find-src (%%car scan) name)
+          (or (jazz.package-find-src (%%car scan) name)
               (iter (%%cdr scan))))))))
 
 
-(define (jazz.repository-find-src repository name)
+(define (jazz.package-find-src package name)
   (define (try name)
     (define (try-extension extension)
-      (if (jazz.file-exists? (%%string-append repository name "." extension))
-          (%%make-path repository name extension)
+      (if (jazz.file-exists? (%%string-append package name "." extension))
+          (%%make-path package name extension)
         #f))
     
-    (or (try-extension "scm")
-        (try-extension "jazz")))
+    (or (try-extension "jazz")
+        (try-extension "scm")))
   
-  (if (jazz.directory-exists? (%%string-append repository name))
+  (if (jazz.directory-exists? (%%string-append package name))
       (try (%%string-append name "/_" (jazz.filename-name name)))
     (try name)))
 
 
 (define (jazz.find-bin name)
-  (let iter ((scan jazz.Binary-Repositories)
+  (let iter ((scan jazz.Binary-Packages)
              (found #f)
              (foundtime #f))
     (if (%%null? scan)
         found
-      (let ((bin (jazz.repository-find-bin (%%car scan) name)))
+      (let ((bin (jazz.package-find-bin (%%car scan) name)))
         (let ((bintime (and bin (jazz.file-modification-time (jazz.path-filename bin)))))
           (if (or (%%not found) (and bintime (> bintime foundtime)))
               (iter (%%cdr scan) bin bintime)
             (iter (%%cdr scan) found foundtime)))))))
 
 
-(define (jazz.repository-find-bin repository name)
+(define (jazz.package-find-bin package name)
   (define (try n)
     (%%string-append "o" (number->string n)))
   
   (define (exists? extension)
-    (jazz.file-exists? (%%string-append repository name "." extension)))
+    (jazz.file-exists? (%%string-append package name "." extension)))
   
   (let ((o1 (try 1)))
     (if (%%not (exists? o1))
@@ -309,11 +325,11 @@
         (let ((next-extension (try next)))
           (if (exists? next-extension)
               (iter (%%fx+ next 1) next-extension)
-            (%%make-path repository name last-extension)))))))
+            (%%make-path package name last-extension)))))))
 
 
-(define (jazz.repository-package-path repository name)
-  (%%make-path repository name "jpck"))
+(define (jazz.package-manifest-path package name)
+  (%%make-path package name "mnf"))
 
 
 ;;;
@@ -321,15 +337,15 @@
 ;;;
 
 
-(define jazz.build-repository
-  "_obj/")
+(define jazz.build-package
+  "jazz/")
 
 
 (define (jazz.path-build-dir path)
   (let ((dir (jazz.filename-dir (%%path-name path))))
     (if (not dir)
-        jazz.build-repository
-      (%%string-append jazz.build-repository dir))))
+        jazz.build-package
+      (%%string-append jazz.build-package dir))))
 
 
 ;;;
@@ -342,7 +358,7 @@
 
 
 ;;;
-;;;; States
+;;;; State
 ;;;
 
 

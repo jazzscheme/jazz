@@ -61,16 +61,16 @@
 
 
 ;;;
-;;;; Package
+;;;; Manifest
 ;;;
 
 
-(define-macro (%%make-package name digest)
+(define-macro (%%make-manifest name digest)
   `(%%cons ,name ,digest))
 
 
-(define-macro (%%package-name package)
-  `(%%car ,package))
+(define-macro (%%manifest-name manifest)
+  `(%%car ,manifest))
 
-(define-macro (%%package-digest package)
-  `(%%cdr ,package))
+(define-macro (%%manifest-digest manifest)
+  `(%%cdr ,manifest))

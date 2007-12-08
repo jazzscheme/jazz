@@ -93,7 +93,7 @@
 
 
 (define (jazz.path-filename path)
-  (string-append (%%path-repository path)
+  (string-append (%%path-package path)
                  (%%path-name path)
                  "."
                  (%%path-extension path)))

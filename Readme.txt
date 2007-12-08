@@ -38,9 +38,9 @@ app                      :  Installed applications
 bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
 doc/dev                  :  For developers of JazzScheme
-include                  :  Include directory for C code
+include                  :  Include directory for foreign code
 kernel                   :  Scheme code implementing the module system
-lib                      :  Lib for external tools
+lib                      :  Lib directory for foreign code
 packages                 :  Installed packages
 
 

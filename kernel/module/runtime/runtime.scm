@@ -167,45 +167,25 @@
 ;;;
 
 
-(define (jazz.make-digest hash time identical?)
-  (%%cons hash (%%cons time identical?)))
-
-
-(define (jazz.digest-hash digest)
-  (%%car digest))
-
-(define (jazz.digest-cached-time digest)
-  (%%cadr digest))
-
-(define (jazz.digest-cached-time-set! digest time)
-  (%%set-car! (%%cdr digest) time))
-
-(define (jazz.digest-cached-identical? digest)
-  (%%cddr digest))
-
-(define (jazz.digest-cached-identical?-set! digest identical?)
-  (%%set-cdr! (%%cdr digest) identical?))
-
-
 (define (jazz.path-digest src)
   (let ((filename (jazz.path-filename src)))
-    (jazz.make-digest (digest-file filename 'sha-1)
-                      (jazz.file-modification-time filename)
-                      #t)))
+    (%%make-digest (digest-file filename 'sha-1)
+                   (jazz.file-modification-time filename)
+                   #t)))
 
 
 (define (jazz.bin-determine/cache-uptodate? src package package-repository)
   (let ((filename (jazz.path-filename src))
-        (digest (jazz.package-digest package)))
-    (let ((hash (jazz.digest-hash digest))
-          (cached-time (jazz.digest-cached-time digest))
-          (cached-identical? (jazz.digest-cached-identical? digest))
+        (digest (%%package-digest package)))
+    (let ((hash (%%digest-hash digest))
+          (cached-time (%%digest-cached-time digest))
+          (cached-identical? (%%digest-cached-identical? digest))
           (time (jazz.file-modification-time filename)))
       (if (= time cached-time)
           cached-identical?
         (let ((identical? (%%string=? hash (digest-file filename 'sha-1))))
-          (jazz.digest-cached-time-set! digest time)
-          (jazz.digest-cached-identical?-set! digest identical?)
+          (%%digest-cached-time-set! digest time)
+          (%%digest-cached-identical?-set! digest identical?)
           (jazz.save-package (jazz.repository-package-path package-repository (%%path-name src)) package)
           identical?)))))
 
@@ -213,17 +193,6 @@
 ;;;
 ;;;; Package
 ;;;
-
-
-(define (jazz.make-package name digest)
-  (%%cons name digest))
-
-
-(define (jazz.package-name package)
-  (%%car package))
-
-(define (jazz.package-digest package)
-  (%%cdr package))
 
 
 (define (jazz.load-package bin)
@@ -238,13 +207,13 @@
                   (let ((hash (%%cadr digest-form))
                         (cached-time (%%car (%%cddr digest-form)))
                         (cached-identical? (%%cadr (%%cddr digest-form))))
-                    (jazz.make-package name (jazz.make-digest hash cached-time cached-identical?)))))))
+                    (%%make-package name (%%make-digest hash cached-time cached-identical?)))))))
         #f))))
 
 
 (define (jazz.save-package path package)
-  (let ((name (jazz.package-name package))
-        (digest (jazz.package-digest package)))
+  (let ((name (%%package-name package))
+        (digest (%%package-digest package)))
     (call-with-output-file (jazz.path-filename path)
       (lambda (output)
         (display "(package " output)
@@ -252,11 +221,11 @@
         (newline output)
         (newline output)
         (display "  (digest " output)
-        (write (jazz.digest-hash digest) output)
+        (write (%%digest-hash digest) output)
         (display " " output)
-        (write (jazz.digest-cached-time digest) output)
+        (write (%%digest-cached-time digest) output)
         (display " " output)
-        (write (jazz.digest-cached-identical? digest) output)
+        (write (%%digest-cached-identical? digest) output)
         (display "))" output)
         (newline output)))))
 
@@ -287,7 +256,7 @@
 
 (define (jazz.find-module-src module-name . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (let ((name (jazz.string-replace (%%symbol->string module-name) #\. #\/)))
+    (let ((name (jazz.module-name->path-name module-name)))
       (let iter ((scan jazz.Repositories))
         (if (%%null? scan)
             (if error?

@@ -126,7 +126,8 @@
               (display " ")
               (display (jazz.->string expr)))
             rest)
-  (newline))
+  (newline)
+  (force-output))
 
 
 (define (jazz.bootstrap-output-value value output)

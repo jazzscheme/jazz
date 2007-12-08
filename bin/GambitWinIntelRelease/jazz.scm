@@ -3,9 +3,9 @@
 ;;;  Jazz System
 ;;;===============
 ;;;
-;;;; Gambit Ini
+;;;; Jazz
 ;;;
 
 
-(load "features")
-(load "../../kernel/boot")
+(include "features.scm")
+(include "../../kernel/jazz.scm")

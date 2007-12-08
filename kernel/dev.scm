@@ -74,16 +74,24 @@
   (l 'jazz))
 
 
-(define (li)
+(define (lliterals)
   (lj)
   (l 'jazz.literals))
 
 
-(define (la)
+(define (li)
+  (lliterals))
+
+
+(define (lplatform)
   (li)
   (l 'jazz.platform)
   (l 'jazz.platform.literals)
   (jazz.platform.initialize-aliases))
+
+
+(define (lp)
+  (lplatform))
 
 
 (define (lt)
@@ -252,7 +260,7 @@
               (jazz.create-directories (jazz.path-build-dir jscm))
               (expand-to-file module-name (jazz.path-filename jscm))
               (parameterize ((current-readtable jazz.jazz-readtable))
-                (jazz.compile-source-path jscm digest: (jazz.path-digest src)))))))))
+                (jazz.compile-source jscm module-name digest: (jazz.path-digest src)))))))))
 
 
 ;;;
@@ -326,7 +334,7 @@
   (cmodule 'jazz.platform.windows.WinNT     "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinKernel "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinGDI    "-DUNICODE" "-mwindows")
-  (cmodule 'jazz.platform.windows.WinUser   "-DUNICODE" "-mwindows -lUser32")
+  (cmodule 'jazz.platform.windows.WinUser   "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinShell  "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl   "-DUNICODE" "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg    "-DUNICODE" "-mwindows")
@@ -502,9 +510,9 @@
 
 
 (define (bjedi)
-  (la)
   (bjazz)
   (bplatform)
+  (lplatform)
   (butil)
   (bcomp)
   (bview)
@@ -526,7 +534,8 @@
 
 
 (define (mjazz)
-  (bkernel))
+  (compile-file-to-c "jazz")
+  (shell-command "gcc jazz.c jazz_.c -lgambc -lws2_32 -mconsole -o jazz"))
 
 
 ;;;

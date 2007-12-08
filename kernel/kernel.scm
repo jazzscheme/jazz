@@ -99,6 +99,14 @@
                  (%%path-extension path)))
 
 
+(define (jazz.module-name->path-name module-name)
+  (jazz.string-replace (symbol->string module-name) #\. #\/))
+
+
+(define (jazz.path-name->module-name path-name)
+  (string->symbol (jazz.string-replace path-name #\/ #\.)))
+
+
 ;;;
 ;;;; Load
 ;;;
@@ -123,13 +131,15 @@
     (display " ")
     (display filename)
     (display " ...")
-    (newline))
+    (newline)
+    (force-output))
   
   (define (verbose-done)
     (display (make-string (jazz.load-indent) #\space))
     (display "; done ")
     (display " ...")
-    (newline))
+    (newline)
+    (force-output))
   
   (if flag
       (begin
@@ -151,6 +161,7 @@
 (define jazz.Module-Paths
   (list
     (%%make-path "../../" "kernel/module/syntax/primitives" "scm")
+    (%%make-path "../../" "kernel/module/syntax/syntax" "scm")
     (%%make-path "../../" "kernel/module/syntax/module" "scm")
     (%%make-path "../../" "kernel/module/syntax/module-expander" "scm")
     (%%make-path "../../" "kernel/module/runtime/digest" "scm")
@@ -198,4 +209,6 @@
 
 
 (define (jazz.build-kernel)
-  (for-each jazz.compile-source-path jazz.Compiled-Module-Paths))
+  (for-each (lambda (src)
+              (jazz.compile-source src (jazz.path-name->module-name (%%path-name src))))
+            jazz.Compiled-Module-Paths))

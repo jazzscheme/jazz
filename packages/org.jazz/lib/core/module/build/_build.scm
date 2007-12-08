@@ -51,10 +51,10 @@
 (define (jazz.compile-module module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((src (jazz.find-module-src module-name)))
     (parameterize ((jazz.requested-module-name module-name))
-      (jazz.compile-source-path src options: options cc-options: cc-options ld-options: ld-options force?: force?))))
+      (jazz.compile-source src module-name options: options cc-options: cc-options ld-options: ld-options force?: force?))))
 
 
-(define (jazz.compile-source-path src #!key (options #f) (cc-options #f) (ld-options #f) (digest #f) (force? #f))
+(define (jazz.compile-source src package-name #!key (options #f) (cc-options #f) (ld-options #f) (digest #f) (force? #f))
   (let ((options (or options jazz.compile-options))
         (cc-options (or cc-options ""))
         (ld-options (or ld-options "")))
@@ -73,14 +73,15 @@
               (let ((package-path (jazz.repository-package-path jazz.build-repository name))
                     ;; remove explicit digest passing when gambit bug that forces us to generate a jscm is fixed
                     (package-digest (or digest (jazz.path-digest src))))
-                (jazz.save-package package-path (jazz.make-package name package-digest)))))))))
+                (jazz.save-package package-path (%%make-package package-name package-digest)))))))))
 
 
 (define (jazz.compile-verbose name)
   (display "; compiling ")
   (display name)
   (display " ...")
-  (newline))
+  (newline)
+  (force-output))
 
 
 ;;;

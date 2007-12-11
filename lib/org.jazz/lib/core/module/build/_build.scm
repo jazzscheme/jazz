@@ -87,12 +87,16 @@
 
 
 (define (jazz.copy-package package)
-  (let ((name (%%symbol->string (%%package-name package))))
-    (let ((path (%%string-append name "/" name "." jazz.Package-Extension)))
+  (let ((name (%%package-name package)))
+    (let ((path (%%string-append (%%symbol->string name) "/" (%%symbol->string name) "." jazz.Package-Extension)))
       (let ((src (jazz.repository-pathname (%%package-repository package) path))
             (dst (jazz.repository-pathname jazz.Build-Repository path)))
         (if (or (%%not (jazz.file-exists? dst)) (< (jazz.file-modification-time dst) (jazz.file-modification-time src)))
-            (jazz.file-copy src dst))))))
+            (begin
+              (jazz.file-copy src dst)
+              (%%table-set! (%%repository-packages-table jazz.Build-Repository)
+                            name
+                            (jazz.load-package jazz.Build-Repository name dst))))))))
 
 
 ;;;

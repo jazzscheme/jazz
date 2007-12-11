@@ -41,8 +41,8 @@
 
 
 ;; A repository is where packages are located. For now there are only a fixed hardcoded
-;; number of repositories. Note that repository order is important as it defines search
-;; precedence.
+;; number of repositories: build, app, lib and user. Note that repository order is important
+;; as it defines search precedence.
 
 
 (define-macro (%%make-repository name directory binary?)
@@ -70,8 +70,7 @@
 ;;;
 
 
-;; A package is the deployment unit that groups together related resources. It is also
-;; uniformly used to group development resources such as source files. Packages are
+;; A package is the deployment unit that groups together related resources. Packages are
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
@@ -97,9 +96,9 @@
 ;;;
 
 
-;; A resource is a triplet (package path . extension) representing a resource location
-;; inside a package. Compilation will use the path part to put the binary outputs under
-;; the _build subdir of the architecture directory to enable a cross-compilation scheme.
+;; A resource is a triplet (package path . extension) representing a resource inside
+;; a package. Compilation will use the path part to put the binary outputs under the
+;; _build subdir of the architecture directory to enable a cross-compilation scheme.
 
 
 (define-macro (%%make-resource package path extension)

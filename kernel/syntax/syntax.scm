@@ -36,28 +36,109 @@
 
 
 ;;;
+;;;; Repository
+;;;
+
+
+;; A repository is where packages are located. For now there are only a fixed hardcoded
+;; number of repositories. Note that repository order is important as it defines search
+;; precedence.
+
+
+(define-macro (%%make-repository name directory binary?)
+  `(%%vector 'repository ,name ,directory ,binary? #f))
+
+
+(define-macro (%%repository-name repository)
+  `(%%vector-ref ,repository 1))
+
+(define-macro (%%repository-directory repository)
+  `(%%vector-ref ,repository 2))
+
+(define-macro (%%repository-binary? repository)
+  `(%%vector-ref ,repository 3))
+
+(define-macro (%%repository-packages-table repository)
+  `(%%vector-ref ,repository 4))
+
+(define-macro (%%repository-packages-table-set! repository packages-table)
+  `(%%vector-set! ,repository 4 ,packages-table))
+
+
+;;;
+;;;; Package
+;;;
+
+
+;; A package is the deployment unit that groups together related resources. It is also
+;; uniformly used to group development resources such as source files. Packages are
+;; discovered automatically and their order within their repository should not be relevant.
+
+
+(define-macro (%%make-package repository name root path)
+  `(%%vector 'package ,repository ,name ,root ,path))
+
+
+(define-macro (%%package-repository package)
+  `(%%vector-ref ,package 1))
+
+(define-macro (%%package-name package)
+  `(%%vector-ref ,package 2))
+
+(define-macro (%%package-root package)
+  `(%%vector-ref ,package 3))
+
+(define-macro (%%package-path package)
+  `(%%vector-ref ,package 4))
+
+
+;;;
+;;;; Resource
+;;;
+
+
+;; A resource is a triplet (package path . extension) representing a resource location
+;; inside a package. Compilation will use the path part to put the binary outputs under
+;; the _build subdir of the architecture directory to enable a cross-compilation scheme.
+
+
+(define-macro (%%make-resource package path extension)
+  `(%%vector 'resource ,package ,path ,extension))
+
+
+(define-macro (%%resource-package resource)
+  `(%%vector-ref ,resource 1))
+
+(define-macro (%%resource-path resource)
+  `(%%vector-ref ,resource 2))
+
+(define-macro (%%resource-extension resource)
+  `(%%vector-ref ,resource 3))
+
+
+;;;
 ;;;; Digest
 ;;;
 
 
 (define-macro (%%make-digest hash time identical?)
-  `(%%cons ,hash (%%cons ,time ,identical?)))
+  `(%%vector 'digest ,hash ,time ,identical?))
 
 
 (define-macro (%%digest-hash digest)
-  `(%%car ,digest))
+  `(%%vector-ref ,digest 1))
 
 (define-macro (%%digest-cached-time digest)
-  `(%%cadr ,digest))
+  `(%%vector-ref ,digest 2))
 
 (define-macro (%%digest-cached-time-set! digest time)
-  `(%%set-car! (%%cdr ,digest) ,time))
+  `(%%vector-set! ,digest 2 ,time))
 
 (define-macro (%%digest-cached-identical? digest)
-  `(%%cddr ,digest))
+  `(%%vector-ref ,digest 3))
 
 (define-macro (%%digest-cached-identical?-set! digest identical?)
-  `(%%set-cdr! (%%cdr ,digest) ,identical?))
+  `(%%vector-set! ,digest 3 ,identical?))
 
 
 ;;;
@@ -66,11 +147,11 @@
 
 
 (define-macro (%%make-manifest name digest)
-  `(%%cons ,name ,digest))
+  `(%%vector 'manifest ,name ,digest))
 
 
 (define-macro (%%manifest-name manifest)
-  `(%%car ,manifest))
+  `(%%vector-ref ,manifest 1))
 
 (define-macro (%%manifest-digest manifest)
-  `(%%cdr ,manifest))
+  `(%%vector-ref ,manifest 2))

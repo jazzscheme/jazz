@@ -132,7 +132,7 @@
 
 
 (define (walk library-name)
-  (let ((source (jazz.path-filename (jazz.find-module-src library-name))))
+  (let ((source (jazz.resource-pathname (jazz.find-module-src library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (jazz.walk-library (cdr form)))))
 
@@ -152,7 +152,7 @@
 
 
 (define (expand-module module-name)
-  (let ((source (jazz.path-filename (jazz.find-module-src module-name))))
+  (let ((source (jazz.resource-pathname (jazz.find-module-src module-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((name (cadr form))
             (rest (cddr form)))
@@ -196,7 +196,7 @@
 
 
 (define (expand-to-port library-name port)
-  (let ((source (jazz.path-filename (jazz.find-module-src library-name))))
+  (let ((source (jazz.resource-pathname (jazz.find-module-src library-name))))
     (let ((form (jazz.read-toplevel-form source #f)))
       (let ((kind (car form))
             (rest (cdr form)))
@@ -246,21 +246,6 @@
   (lm)
   (lj)
   (jazz.compile-jazz-module module-name))
-
-
-;; Generates an intermediate jscm expansion file. This is usefull for debugging until
-;; we implement the library macro as a source transformation like for module. This will
-;; probably be a very complex task
-(define (jazz.compile-jazz-module module-name)
-  (let ((src (jazz.find-module-src module-name)))
-    (jazz.with-path-src/bin src
-      (lambda (src bin bin-uptodate?)
-        (if (or (not bin) (not bin-uptodate?))
-            (let ((jscm (%%make-path jazz.build-package (%%path-name src) "jscm")))
-              (jazz.create-directories (jazz.path-build-dir jscm))
-              (expand-to-file module-name (jazz.path-filename jscm))
-              (parameterize ((current-readtable jazz.jazz-readtable))
-                (jazz.compile-source jscm module-name digest: (jazz.path-digest src)))))))))
 
 
 ;;;

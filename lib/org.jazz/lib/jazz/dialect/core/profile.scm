@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Boot
+;;;; Profiling
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,47 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load pathname (lambda rest #f) #f #t quiet?))))
-  
-  (else
-    (define (jazz.load pathname . rest)
-      (load pathname))))
+(module jazz.dialect.core.profile
 
 
-(define jazz.Kernel
-  '("../../kernel/config"
-    "../../kernel/kernel"
-    "../../kernel/dev"))
+;;;
+;;;; Statprof
+;;;
 
 
-(for-each jazz.load jazz.Kernel)
+(define (jazz.load-statprof)
+  (if (not jazz.statprof-loaded?)
+      (begin
+        (jazz.load-module 'statprof)
+        (set! jazz.statprof-loaded? #t))))
 
 
-(if (file-exists? "~/jazz/jazzini.scm")
-    (load "~/jazz/jazzini"))
+(define (jazz.start-statprof)
+  (jazz.load-statprof)
+  (profile-start!))
+
+
+(define (jazz.stop-statprof)
+  (jazz.load-statprof)
+  (profile-stop!))
+
+
+(define (jazz.reset-statprof)
+  (jazz.load-statprof)
+  (profile-reset!))
+
+
+(define jazz.report-statprof
+  (let ((n 0))
+    (lambda (#!optional (name #f))
+      (jazz.load-statprof)
+      (let ((port (open-output-string)))
+        (display (or name "report") port)
+        (display "_" port)
+        (display n port)
+        (display ".spr" port)
+        (set! n (+ n 1))
+        (let ((pathname (get-output-string port)))
+          (write-profile-report pathname)
+          pathname))
+      (profile-reset!)))))

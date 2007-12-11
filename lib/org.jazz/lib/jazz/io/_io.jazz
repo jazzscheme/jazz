@@ -1,0 +1,1043 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; IO
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.io jazz
+
+
+(import (time))
+
+
+;;;
+;;;; Aliases
+;;;
+
+
+(definition Aliases
+  {})
+
+
+(definition public (get-aliases)
+  (unless Aliases
+    (set! Aliases (new-aliases)))
+  Aliases)
+
+
+(definition (new-aliases)
+  (make-table test: eq?))
+
+
+(definition public (is-alias? name)
+  (or (table-ref (get-aliases) name #f)
+      @convert (get-manifest-source name)))
+
+
+(definition public (get-alias name (error?: error? #t))
+  (either (find-alias name)
+          (when error?
+            (error "Unknown alias: {t}" name))))
+
+
+(definition public (find-alias name)
+  (either (table-ref (get-aliases) name #f)
+          @convert
+          (get-manifest-alias name)
+          @convert
+          (get-system-property name)
+          (let ((process (get-process)))
+            (when process
+              (resolve-alias~ process name)))))
+
+
+@convert
+(definition (get-manifest-alias name)
+  (let ((source (get-manifest-source name)))
+    (if (not source)
+        {}
+      (butlast (get-list~ source)))))
+
+
+(definition public (new-alias name path)
+  (table-set! (get-aliases) name path))
+
+
+(definition public (set-alias name path)
+  (table-set! (get-aliases) name path))
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(definition protected (validate-component object)
+  (let ((original object))
+    (letrec ((validate
+               (function (object)
+                 (cond ((not object))
+                       ((string? object))
+                       ((symbol? object))
+                       ((pair? object)
+                        (if (pair? (car object))
+                            (error "Bad pathname sub-component {t} of {t}" (car object) original)
+                          (validate (car object))
+                          (validate (cdr object))))
+                       (else (error "Bad pathname sub-component {t} of {t}" object original))))))
+      (validate object))))
+
+
+;; quicky. this is not a good naming
+(definition public (extract-filename filename <string>) <string>
+  (let ((pos (find filename #\/ reversed?: #t)))
+    (if (not pos)
+        filename
+      (subseq filename (+ pos 1) (cardinality filename)))))
+
+
+(definition public (extract-base filename <string>)
+  (let ((pos (find filename #\period reversed?: #t)))
+    (if (not pos)
+        filename
+      (subseq filename 0 pos))))
+
+
+(definition public (extract-extension filename <string>)
+  (let ((pos (find filename #\period reversed?: #t)))
+    (when pos
+      (subseq filename (+ pos 1) (cardinality filename)))))
+
+
+(definition public (tokenise-filename filename <string>)
+  (remove-empty-strings (split filename "/")))
+
+
+(definition public (tokenise filename <string>)
+  (cons 'Root (remove-empty-strings (split filename "/"))))
+
+
+;; will not be necessary when we can ask Gambit to always use /
+(definition public (tokenise-patch filename <string>)
+  (cons 'Root (apply append (map (function (name)
+                                   (remove-empty-strings (split filename "\\")))
+                                 (remove-empty-strings (split filename "/"))))))
+
+
+(definition public (tokenise-windows filename <string>)
+  (if (starts-with? filename "\\\\")
+      (cons 'Network (remove-empty-strings (split (subseq filename 2 (cardinality filename)) "\\")))
+    (cons 'Root (remove-empty-strings (split filename "\\")))))
+
+
+(definition public (get-tmp-directory)
+  (unimplemented 'get-tmp-directory)
+  @windows-specific
+  (let* ((size (GetTempPath 0 NULL))
+         (path (make-string size)))
+    (GetTempPath size path)
+    (new Directory (list 'Root path))))
+
+
+;;;
+;;;; Protocol
+;;;
+
+
+(definition public (get-protocol-handler protocol)
+  (let ((protocol (if (keyword? protocol) (keyword->symbol protocol) protocol)))
+    (case protocol
+      ((file) File)
+      ((dir) Directory)
+      (else (error "Unknown protocol: {t}" protocol)
+            @convert
+            (signal (new Parse-Error message: (format "Unknown protocol: {t}" protocol)))))))
+
+
+;;;
+;;;; Moniker
+;;;
+
+
+(class Moniker-Class extends Class
+  
+  
+  (method public virtual (get-protocol)
+    ))
+
+
+(class Moniker metaclass Moniker-Class extends Object
+  
+  
+  (method public virtual (compare-pathname object)
+    #f)
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method public virtual (present)
+    )
+  
+  
+  (method public virtual (present-base)
+    (->string (get-base)))
+  
+  
+  (method public virtual (present-name)
+    (->string (get-name)))
+  
+  
+  (method public virtual (present-location)
+    (format "{l detail: :human}" (get-list~ (get-parent))))
+  
+  
+  ;;;
+  ;;;; Interface
+  ;;;
+
+
+  (method public virtual (exists?)
+    )
+  
+  
+  (method public (read-only?)
+    (not (get-writable?)))
+  
+  
+  (method public (read/write?)
+    (get-writable?))
+  
+  
+  (method public (set-read-only)
+    (set-writable? #f))
+  
+  
+  (method public (set-read/write)
+    (set-writable? #t))
+  
+  
+  (method public virtual (get-writable?)
+    )
+  
+  
+  (method public virtual (set-writable? flag)
+    )
+  
+  
+  (method public virtual (writable?)
+    )
+
+
+  (method public virtual (get-modification-time)
+    )
+
+
+  (method public virtual (get-file)
+    )
+
+
+  (method public virtual (get-name)
+    )
+
+
+  (method public virtual (get-base)
+    )
+  
+  
+  (method public virtual (get-extension)
+    )
+
+
+  (method public virtual (get-list)
+    )
+  
+  
+  (method public virtual (get-parent)
+    )
+  
+  
+  (method public virtual (get-content . rest)
+    )
+  
+  
+  ;; I think this is only for repository monikers and should probably be removed
+  (method public virtual (get-children . rest)
+    )
+  
+  
+  (method public virtual (is-different? moniker)
+    )
+  
+  
+  (method public (relocated-list old-root new-root)
+    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+
+
+  (method public virtual (load-lines)
+    )
+
+
+  (method public virtual (save-lines lines . rest)
+    )
+  
+  
+  (method public virtual (load-form)
+    )
+  
+  
+  ;;;
+  ;;;; External
+  ;;;
+  
+  
+  ;;(definition (JzLoadLines Object))
+  )
+
+
+;;;
+;;;; Pathname
+;;;
+
+
+(cond-expand
+  (windows
+    (definition root-prefix
+      ""))
+  (else
+    (definition root-prefix
+      "/")))
+
+
+(class Pathname-Class extends Moniker-Class)
+
+
+(class Pathname metaclass Pathname-Class extends Moniker
+  
+  
+  (slot path)
+  
+  
+  (method (initialize lst)
+    (nextmethod)
+    @convert
+    (validate-component lst)
+    (set-list lst))
+  
+  
+  (method public (parse)
+    (let ((printer (open-output-string))
+          (first? #t)
+          (aliases '()))
+      (letrec ((parse
+                 (function (path)
+                   (cond ((null? path))
+                         ((eq? path #t)
+                          (display root-prefix printer))
+                         ((string? path)
+                          (if first?
+                              (set! first? #f)
+                            (display "/" printer))
+                          (display path printer))
+                         ((symbol? path)
+                          (if (memq? path aliases)
+                              (error "Recursive alias {a} in {s}" path self)
+                            (set! aliases (cons path aliases))
+                            (if (is-alias? path)
+                                (parse (get-alias path))
+                              (error "Unknown alias: {s}" path))))
+                         ((pair? path)
+                          (parse (car path))
+                          (parse (cdr path)))
+                         (else
+                          (error "Bad pathname component {t}" path))))))
+        (parse (get-list)))
+      (add-suffix printer)
+      (get-output-string printer)))
+  
+  
+  (method protected virtual (add-suffix printer)
+    )
+  
+  
+  (method public (relocated-pathname old-root new-root)
+    (append (get-list~ new-root) (tail (get-list) (length (get-list~ old-root)))))
+
+
+  (method public (move-pathname dst (error?: error? #t))
+    (file-rename (parse) (parse~ dst)))
+  
+
+  (method (compare-object target)
+    (cond ((is-not? target (class-of self))
+           :incompatible)
+          ((= (get-list) (get-list~ target))
+           :equal)
+          (else
+           :not-equal)))
+  
+  
+  (method (compare-pathname object)
+    (and (is? object Pathname)
+         (ci=? (parse) (parse~ object))))
+  
+  
+  (method public (valid-aliases?)
+    (letrec ((valid?
+              (function (list)
+                (or (eq? list #t)
+                    (every? (function (item)
+                              (or (not (symbol? item))
+                                  (and (is-alias? item)
+                                       (valid? (get-alias item)))))
+                            list)))))
+      (valid? (get-list))))
+  
+  
+  (method public (expand)
+    (let ((fact (new List-Factory)))
+      (letrec ((expand
+                (function (object)
+                  (cond ((eq? object #t))
+                        ((string? object) (put~ fact object))
+                        ((symbol? object) (expand (get-alias object)))
+                        ((pair? object)
+                         (expand (car object))
+                         (expand (cdr object)))))))
+        (expand (get-list)))
+      (get-output~ fact)))
+
+
+  (method public (get-list)
+    path)
+
+
+  (method public (set-list value)
+    (set! path value))
+
+
+  (method (get-name)
+    (effective-name (get-list)))
+  
+  
+  (method (effective-name lst)
+    (let ((name (last lst)))
+      (if (symbol? name)
+          (effective-name (get-alias name))
+        name)))
+  
+  
+  (method (get-base)
+    (let ((name (get-name)))
+      (if (symbol? name)
+          name
+        (extract-base name))))
+  
+  
+  (method (get-extension)
+    (extract-extension (get-name)))
+  
+  
+  (method (get-parent)
+    (let ((effective-path (if (= (length path) 1) (expand) path)))
+      (if (null? effective-path)
+          #f
+        (if (equal? (last effective-path) "..")
+            (new Directory (append effective-path (list "..")))
+          (new Directory (butlast effective-path))))))
+  
+  
+  (method public (get-brother name)
+    (new (class-of self) (append (get-list~ (get-parent)) (list name))))
+  
+  
+  (method public virtual (new-brother name)
+    )
+  
+  
+  (method public virtual (get-directory)
+    )
+  
+  
+  (method public (get-attributes (error?: error? #t))
+    (unimplemented 'get-attributes)
+    @windows-specific
+    (let ((attributes (GetFileAttributes (parse))))
+      (if (= attributes -1)
+          (when error?
+            (error "Unable to get file attributes for {t}" self))
+        attributes)))
+  
+  
+  (method public (set-attributes flags)
+    (unimplemented 'set-attributes)
+    @windows-specific
+    (let ((ok? (SetFileAttributes (parse) flags)))
+      (when (not ok?)
+        (error "Unable to set file attributes for {t}" self))))
+  
+  
+  (method (get-writable?)
+    #t ;; super quicky
+    @windows-specific
+    (not (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_READONLY)))
+  
+  
+  (method (set-writable? flag)
+    (unimplemented 'set-writable?)
+    @windows-specific
+    (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_READONLY (not flag))))
+
+
+  (method (exists?)
+    (file-exists? (parse)))
+  
+  
+  (method public (create-directories)
+    (let* ((base (get-directory))
+           (scan (new Directory (cons 'Root (expand~ base))))
+           (dirs '()))
+      ;; collect the directories reversed so that creation starts from the top
+      (while scan
+        (set! dirs (cons scan dirs))
+        (set! scan (get-parent~ scan)))
+      (for-each (function (dir)
+                  (unless (exists?~ dir)
+                    (create~ dir)))
+                dirs)))
+
+
+  ;;;
+  ;;;; Anchoring
+  ;;;
+  
+  
+  (method public (anchor-to anchor (error?: error? #t))
+    (let* ((base-list (get-list~ anchor))
+           (base-expd (expand~ anchor))
+           (base-length (length base-expd))
+           (expd (expand))
+           (rank (mismatch base-expd expd test: ci=?))
+           (result-list (unspecified)))
+      (call/ec
+        (function (return)
+          (cond ((not rank)
+                 (set! result-list base-list))
+                ((< rank base-length)
+                 (if error?
+                     (error "Unable to anchor pathname {t}, it is not a descendant of {t}" self anchor)
+                   (return {})))
+                (else
+                 (set! result-list (append base-list (subseq expd base-length (length expd))))))
+          (new (class-of self) result-list)))))
+  
+  
+  (method public (anchorize (anchors: anchors {}))
+    (let* ((anchors (if (not anchors) (default-anchors) anchors))
+           (anchored (collect (function (anchor) (when (valid-aliases?~ anchor) (anchor-to anchor error?: #f))) anchors))
+           (sorted (sort < anchored key: (function (path) (length (get-list~ path))))))
+      (if (null? sorted)
+          self
+        (car sorted))))
+  
+  
+  (method (default-anchors)
+    (application-anchors~ (get-application))))
+
+
+(definition public inline (pathname? object)
+  (is? object Pathname))
+
+
+(definition public inline (pathname= x <Moniker> y <Moniker>)
+  (compare-pathname~ x y))
+
+
+(definition public inline (pathname-exists? pathname <Pathname>)
+  (file-exists? (parse~ pathname)))
+
+
+(definition public inline (pathname-delete pathname <Pathname>)
+  (file-delete (parse~ pathname)))
+
+
+(definition public inline (pathname-modification-time pathname <Pathname>)
+  (file-modification-time (parse~ pathname)))
+
+
+(specialize inline as pathname=? (= p1 <Pathname> p2 <Pathname>) <bool>
+  (equal? (get-list~ p1) (get-list~ p2)))
+
+
+;;;
+;;;; File
+;;;
+
+
+(class File-Class extends Pathname-Class
+  
+  
+  (method (get-protocol)
+    'file))
+
+
+(definition public (create-temporary-file (directory: directory {}) (prefix: prefix "JZZ"))
+  (unimplemented 'create-temporary-file)
+  @windows-specific
+  (let* ((directory (either directory (get-tmp-directory)))
+         (dir (parse~ directory)))
+    (if (empty-string? dir)
+        (error "Unable to use {t} as a temporary directory" directory)
+      (let ((filename (make-string MAX_PATH)))
+        (GetTempFileName (parse~ directory) prefix 0 filename)
+        (adjust-string filename)
+        (new File (list 'Root filename))))))
+
+
+(class File metaclass File-Class extends Pathname
+  
+  
+  (method (fold-literal)
+    `(new File ',path))
+  
+  
+  (method (print printer readably)
+    (format printer "~{File {l detail: :v}}"
+            (get-list)
+            readably))
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method (new-brother name)
+    (new-file~ (get-parent) name))
+  
+  
+  (method (present)
+    (format "{l}" (get-list)))
+  
+  
+  ;;;
+  ;;;; Operations
+  ;;;
+
+
+  (method (get-file)
+    self)
+  
+  
+  (method (get-directory)
+    (get-parent))
+
+
+  (method public (copy-file dst (overwrite?: overwrite? #t) (overwrite-read-only?: overwrite-read-only? #f))
+    (overwrite-read-only~ dst overwrite-read-only?)
+    (when (and overwrite? (exists?~ dst))
+      (delete-file~ dst))
+    (file-copy (parse) (parse~ dst)))
+  
+  
+  (method public (delete-file (overwrite-read-only?: overwrite-read-only? #f) (error?: error? #t))
+    (overwrite-read-only overwrite-read-only?)
+    (file-delete (parse)))
+  
+  
+  (method (overwrite-read-only overwrite-read-only?)
+    @windows-specific
+    (when (and overwrite-read-only? (exists?) (read-only?))
+      (set-read/write)))
+  
+  
+  (method public (get-size)
+    (unimplemented 'get-size)
+    @windows-specific
+    (with-closed ((reader (new File-Reader self readable?: #f)))
+      (get-size~ reader)))
+
+
+  (method (get-modification-time)
+    (seconds->time (inexact->exact (floor (file-modification-time (parse))))))
+
+
+  (method public (set-modification-time time)
+    (unimplemented 'set-modification-time)
+    @windows-specific
+    (let ((ft (get-filetime~ time))
+          (at (get-attributes)))
+      ;; this is ugly big time...
+      (set-read/write)
+      (call-with-output-file (list (parse) mode: 'append)
+        (function (printer)
+          (SetFileTime (get-handle~ printer) NULL NULL ft)))
+      (set-attributes at)))
+  
+  
+  (method public (touch)
+    (unimplemented 'touch)
+    @windows-specific
+    (set-modification-time (get-time~ (universal-date))))
+  
+  
+  (method public (get-hidden?)
+    (unimplemented 'get-hidden?)
+    @windows-specific
+    (mask-bit-set? (get-attributes) FILE_ATTRIBUTE_HIDDEN))
+  
+  
+  (method public (set-hidden? flag)
+    (unimplemented 'set-hidden?)
+    @windows-specific
+    (set-attributes (mask-bit-set (get-attributes) FILE_ATTRIBUTE_HIDDEN flag)))
+  
+  
+  (method (writable?)
+    (unimplemented 'writable?)
+    @windows-specific
+    (let ((handle (CreateFile (parse) GENERIC_WRITE 0 NULL OPEN_EXISTING FILE_ATTRIBUTE_NORMAL NULL)))
+      (if (= handle INVALID_HANDLE_VALUE)
+          #f
+        (CloseHandle handle)
+        #t)))
+  
+  
+  (method public (clone-file extension)
+    (new File (append (get-list~ (get-directory)) (list (format "{a}.{a}" (get-base) extension)))))
+  
+  
+  ;;;
+  ;;;; Input/Output
+  ;;;
+
+
+  (method (load-lines)
+    (call-with-input-file (parse)
+      read-lines))
+
+
+  (method (save-lines lines (platform: platform {}) (use-utf8?: use-utf8? #f))
+    (call-with-output-file (parse)
+      (function (printer)
+        ;; the 2 is really Win32. need to fix this
+        (write-lines printer lines (either platform 2) use-utf8?)))))
+
+
+(definition public inline (file? object)
+  (is? object File))
+
+
+(definition public (timestamped-file directory base ext)
+  (let* ((dir (parse~ directory))
+         (path (tokenise (timestamped-filename dir base ext))))
+    (new File path)))
+
+
+(definition (timestamped-filename dir base ext)
+  (unimplemented))
+
+
+;;;
+;;;; Directory
+;;;
+
+
+(class Directory-Class extends Pathname-Class
+  
+  
+  (method (get-protocol)
+    'dir))
+
+
+(class Directory metaclass Directory-Class extends Pathname
+  
+  
+  (method (fold-literal)
+    `(new Directory ',path))
+  
+  
+  (method (print printer readably)
+    (format printer "~{Directory {l detail: :v}}"
+            (get-list)
+            readably))
+  
+  
+  ;;;
+  ;;;; Protocol
+  ;;;
+  
+  
+  (method (new-brother name)
+    (new-directory~ (get-parent) name))
+  
+  
+  (method (present)
+    (format "{l}" (get-list)))
+  
+  
+  ;;;
+  ;;;; Operations
+  ;;;
+  
+  
+  (method (get-directory)
+    self)
+
+
+  (method (get-modification-time)
+    {})
+
+
+  (method public virtual (create)
+    (directory-create (parse)))
+  
+  
+  (method public (new-file name)
+    (new File (append (get-list) (if (or (null? name) (pair? name)) name (list name)))))
+  
+  
+  (method public (new-directory name)
+    (new Directory (append (get-list) (if (or (null? name) (pair? name)) name (list name)))))
+  
+  
+  (method public (new-unique-file name (separator: separator "_"))
+    (let ((file (new-file name)))
+      (if (not (exists?~ file))
+          file
+        (let ((base (extract-base name))
+              (ext (extract-extension name))
+              (suffix 1))
+          (while (exists?~ file)
+            (set! file (new-file (format "{a}{a}{a width: 2 justify: :right padding: #\\0}.{a}" base (either separator "") suffix ext)))
+            (increase! suffix))
+          file))))
+
+
+  (method public (copy-directory dst (copier: copier {}) (feedback: feedback {}) (touch-files?: touch-files? #f) (copy?: copy? #t))
+    (when feedback
+      (feedback self))
+    (create-directories~ dst)
+    (let ((destination
+            (function (path)
+              (append (get-list~ dst) (list (get-name~ path))))))
+      (iterate-directory
+        (function (path)
+          (when (or (eq? copy? #t) (copy? path))
+            (if (is? path File)
+                (let ((dest (new File (destination path))))
+                  (if copier
+                      (copier path dest)
+                    (copy-file~ path dest))
+                  @convert
+                  (when touch-files?
+                    (touch~ dest)))
+              (copy-directory~ path (new Directory (destination path)) feedback: feedback touch-files?: touch-files? copy?: copy?))))
+        files?: #t
+        directories?: #t
+        recursive?: #f)))
+  
+  
+  (method public virtual (delete-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
+    (empty-directory overwrite-read-only?: overwrite-read-only? feedback: feedback)
+    (remove-directory))
+  
+  
+  (method public (empty-directory (overwrite-read-only?: overwrite-read-only? #f) (feedback: feedback {}))
+    (iterate-directory
+      (function (path)
+        (if (is? path File)
+            (delete-file~ path overwrite-read-only?: overwrite-read-only?)
+          (delete-directory~ path overwrite-read-only?: overwrite-read-only? feedback: feedback)))
+      files?: #t
+      directories?: #t
+      recursive?: #f))
+  
+  
+  (method public (remove-directory)
+    (directory-delete (parse)))
+  
+  
+  (method (foldable?)
+    #t)
+
+
+  (method (fold-object compiler)
+    (output~ compiler "make_object(")
+    (fold~ compiler (type-name (class-of self)))
+    (fold-more~ compiler (get-list))
+    (output~ compiler ")"))
+  
+  
+  (method public (get-content (nodes?: nodes? #t) (leaves?: leaves? #t))
+    (let ((fact (new List-Factory)))
+      (when nodes? (collect-nodes fact))
+      (when leaves? (collect-leaves fact))
+      (get-output~ fact)))
+  
+  
+  (method (collect-nodes fact)
+    (iterate-directory
+      (function (item)
+        (put~ fact item))
+      files?: #f
+      directories?: #t
+      recursive?: #f))
+  
+  
+  (method (collect-leaves fact)
+    (iterate-directory
+      (function (item)
+        (put~ fact item))
+      files?: #t
+      directories?: #f
+      recursive?: #f))
+     
+   
+  ;;;
+  ;;;; Parse
+  ;;;
+  
+  
+  (method (add-suffix printer)
+    (write-char #\/ printer))
+     
+   
+  ;;;
+  ;;;; Files
+  ;;;
+  
+  
+  (method public (collect-files predicate)
+    (let ((fact (new List-Factory)))
+      (iterate-directory
+        (function (file)
+          (when (predicate file)
+            (put~ fact file)))
+        recursive?: #f)
+      (get-output~ fact)))
+  
+  
+  ;;;
+  ;;;; Iterator
+  ;;;
+  
+  
+  (method public virtual (iterate-directory proc (full?: full? #t) (files?: files? #t) (directories?: directories? #f) (sort?: sort? #f) (recursive?: recursive? #t) (ignored-directories: ignored-directories '()))
+    (let ((directory (if full? (get-list) {})))
+      (iterate-directory-content files? directories? sort? recursive? ignored-directories '() (parse)
+        (function (list kind)
+          (case kind
+            ((file) (if full? (proc (new File (append directory list))) (proc list 'file)))
+            ((directory) (if full? (proc (new Directory (append directory list))) (proc list 'directory))))))))
+  
+  
+  (method (iterate-directory-content files? directories? sort? recursive? ignored-directories prefix base proc)
+    (iterate-content base 'directories sort? ignored-directories
+      (function (name)
+        (when recursive?
+          (iterate-directory-content files? directories? sort? recursive? ignored-directories (append prefix (list name)) (concatenate base "\\" name) proc))
+        (when directories?
+          (proc (append prefix (list name)) 'directory))))
+    (iterate-content base 'files sort? ignored-directories
+      (function (name)
+        (when files?
+          (proc (concatenate prefix (list name)) 'file)))))
+  
+  
+  (method (iterate-content base kind sort? ignored-directories proc)
+    (if (not sort?)
+        (iterate-content-unsorted base kind ignored-directories proc)
+      (let ((list '()))
+        (iterate-content-unsorted base kind ignored-directories
+          (function (object)
+            (set! list (cons object list))))
+        (let ((sorted (sort < list)))
+          (for-each proc sorted)))))
+  
+  
+  (method (iterate-content-unsorted base kind ignored-directories proc)
+    ;; SIMPLIFIED VERSION FOR NOW
+    (for-each (function (name)
+                (let ((type (pathname-type (string-append base "/" name))))
+                  (when (or (and (eq? kind 'files) (eq? type 'regular))
+                            (and (eq? kind 'directories) (eq? type 'directory)))
+                    (proc name))))
+              (directory-content base))
+    @windows-specific
+    (let* ((find-data (new WIN32_FIND_DATA))
+           (handle (FindFirstFile (concatenate base "\\*.*") find-data)))
+      (when (/= handle INVALID_HANDLE_VALUE)
+        (while (FindNextFile handle find-data)
+          (let ((name (get-string find-data 'cFileName)))
+            (unless (member? name '("." ".."))
+              (let* ((attributes (get find-data 'dwFileAttributes))
+                     (directory? (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY)))
+                (when (or (and (= kind 'files) (not directory?))
+                          (and (= kind 'directories) directory? (not (member? name ignored-directories))))
+                  (proc name))))))
+        (FindClose handle))))
+  
+  
+  (method public (count-files (filter: filter {}) (max-count: max-count #f))
+    (let ((count 0))
+      (call/ec
+        (function (return)
+          (iterate-directory
+            (function (file)
+              (when (or (not filter) (filter file))
+                (increase! count)
+                (when (and max-count (> count max-count))
+                  (return #f)))))
+          count)))))
+
+
+(definition public inline (directory? obj)
+  (is? obj Directory))
+
+
+(definition public (with-preserved-current-directory proc)
+  (proc)
+  @convert
+  (let ((preserved (get-current-directory)))
+    (unwind-protect
+        (proc)
+      (set-current-directory preserved)))))

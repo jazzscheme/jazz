@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Boot
+;;;; Base Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,17 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load pathname (lambda rest #f) #f #t quiet?))))
-  
-  (else
-    (define (jazz.load pathname . rest)
-      (load pathname))))
+(module core.base.runtime
 
 
-(define jazz.Kernel
-  '("../../kernel/config"
-    "../../kernel/kernel"
-    "../../kernel/dev"))
-
-
-(for-each jazz.load jazz.Kernel)
-
-
-(if (file-exists? "~/jazz/jazzini.scm")
-    (load "~/jazz/jazzini"))
+(require (core.base.runtime.boolean)
+         (core.base.runtime.keyword)
+         (core.base.runtime.list)
+         (core.base.runtime.exception)
+         (core.base.runtime.error)
+         (core.base.runtime.serial)
+         (core.base.runtime.string)
+         (core.base.runtime.symbol)
+         (core.base.runtime.unspecified)
+         (core.base.runtime.vector)
+         (core.base.runtime.pathname)))

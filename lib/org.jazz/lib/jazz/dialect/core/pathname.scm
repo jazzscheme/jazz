@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Boot
+;;;; Pathname
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,15 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(module jazz.dialect.core.pathname
+
+
 (cond-expand
   (gambit
-    (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load pathname (lambda rest #f) #f #t quiet?))))
+    (define jazz.pathname-normalize path-normalize)
+    (define jazz.file-delete delete-file)
+    (define jazz.file-rename rename-file)
+    (define jazz.directory-create create-directory)
+    (define jazz.directory-delete delete-directory))
   
-  (else
-    (define (jazz.load pathname . rest)
-      (load pathname))))
-
-
-(define jazz.Kernel
-  '("../../kernel/config"
-    "../../kernel/kernel"
-    "../../kernel/dev"))
-
-
-(for-each jazz.load jazz.Kernel)
-
-
-(if (file-exists? "~/jazz/jazzini.scm")
-    (load "~/jazz/jazzini"))
+  (else)))

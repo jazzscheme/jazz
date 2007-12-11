@@ -82,111 +82,24 @@
 
 
 ;;;
-;;;; Path
+;;;; Sources
 ;;;
 
 
-(define (jazz.path-suffix path)
-  (string-append (%%path-name path)
-                 "."
-                 (%%path-extension path)))
-
-
-(define (jazz.path-filename path)
-  (string-append (%%path-package path)
-                 (%%path-name path)
-                 "."
-                 (%%path-extension path)))
-
-
-(define (jazz.module-name->path-name module-name)
-  (jazz.string-replace (symbol->string module-name) #\. #\/))
-
-
-(define (jazz.path-name->module-name path-name)
-  (string->symbol (jazz.string-replace path-name #\/ #\.)))
-
-
-;;;
-;;;; Load
-;;;
-
-
-(define jazz.load-indent
-  (make-parameter 0))
-
-
-(define (jazz.load-path path . rest)
-  (let ((quiet? (if (null? rest) #f (car rest))))
-    (jazz.with-verbose jazz.load-verbose? "loading" (jazz.path-suffix path)
-      (lambda ()
-        (jazz.load (jazz.path-filename path) quiet?)))))
-
-
-(define (jazz.with-verbose flag action filename proc)
-  (define (verbose-load)
-    (display (make-string (jazz.load-indent) #\space))
-    (display "; ")
-    (display action)
-    (display " ")
-    (display filename)
-    (display " ...")
-    (newline)
-    (force-output))
-  
-  (define (verbose-done)
-    (display (make-string (jazz.load-indent) #\space))
-    (display "; done ")
-    (display " ...")
-    (newline)
-    (force-output))
-  
-  (if flag
-      (begin
-        (verbose-load)
-        (let ((result
-                (parameterize ((jazz.load-indent (+ (jazz.load-indent) 2)))
-                  (proc))))
-          (if jazz.done-verbose?
-              (verbose-done))
-          result))
-    (proc)))
-
-
-;;;
-;;;; Module
-;;;
-
-
-(define jazz.Module-Paths
+(define jazz.Kernel-Sources
   (list
-    (%%make-path "../../" "kernel/syntax/primitives" "scm")
-    (%%make-path "../../" "kernel/syntax/syntax" "scm")
-    (%%make-path "../../" "kernel/syntax/module" "scm")
-    (%%make-path "../../" "kernel/syntax/module-expander" "scm")
-    (%%make-path "../../" "kernel/runtime/digest" "scm")
-    (%%make-path "../../" "kernel/runtime/runtime" "scm")))
+    "kernel/syntax/primitives"
+    "kernel/syntax/syntax"
+    "kernel/syntax/module"
+    "kernel/syntax/module-expander"
+    "kernel/runtime/digest"
+    "kernel/runtime/runtime"))
 
 
-(define jazz.Compiled-Module-Paths
-  (list
-    (%%make-path "../../" "kernel/syntax/module-expander" "scm")
-    (%%make-path "../../" "kernel/runtime/digest" "scm")
-    (%%make-path "../../" "kernel/runtime/runtime" "scm")))
-
-
-(define (jazz.load-module-system)
-  ;; For now this is the best solution I found to guaranty that the kernel
-  ;; can be loaded fully interpreted without having to do any build but at
-  ;; the same time also load a compiled .o file from the bin dir if present
-  (define (load-bin src)
-    (jazz.with-path-src/bin src
-      (lambda (src bin bin-uptodate?)
-        (if bin-uptodate?
-            (jazz.load-path bin)))))
-  
-  (for-each jazz.load-path jazz.Module-Paths)
-  (for-each load-bin jazz.Compiled-Module-Paths))
+(define (jazz.load-kernel-sources)
+  (for-each (lambda (path)
+              (jazz.load (string-append "../../" path)))
+            jazz.Kernel-Sources))
 
 
 ;;;
@@ -204,11 +117,10 @@
 
 
 (define (jazz.load-kernel)
-  (jazz.load-module-system)
+  (jazz.load-kernel-sources)
   (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz")))
 
 
+;; todo
 (define (jazz.build-kernel)
-  (for-each (lambda (src)
-              (jazz.compile-source src (jazz.path-name->module-name (%%path-name src))))
-            jazz.Compiled-Module-Paths))
+  #f)

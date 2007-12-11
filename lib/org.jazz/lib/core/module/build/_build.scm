@@ -44,26 +44,6 @@
 
 
 ;;;
-;;;; Jazz
-;;;
-
-
-;; Generates an intermediate jscm expansion file. This is usefull for debugging until
-;; we implement the library macro as a source transformation like for module. This will
-;; probably be a very complex task
-(define (jazz.compile-jazz-module module-name)
-  (let ((src (jazz.find-module-src module-name)))
-    (jazz.with-src/bin src
-      (lambda (src bin bin-uptodate?)
-        (if (or (not bin) (not bin-uptodate?))
-            (let ((jscm (%%make-resource (%%resource-package src) (%%resource-path src) "jscm")))
-              (jazz.create-directories (jazz.resource-build-dir jscm))
-              (expand-to-file module-name (jazz.resource-pathname jscm))
-              (parameterize ((current-readtable jazz.jazz-readtable))
-                (jazz.compile-source jscm module-name digest: (jazz.resource-digest src)))))))))
-
-
-;;;
 ;;;; Compile
 ;;;
 

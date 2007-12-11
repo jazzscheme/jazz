@@ -82,29 +82,33 @@
 
 
 ;;;
-;;;; Sources
+;;;; Syntax
 ;;;
 
 
-(define jazz.Kernel-Sources
+(define jazz.Kernel-Syntax
   (list
     "kernel/syntax/primitives"
     "kernel/syntax/syntax"
     "kernel/syntax/module"
-    "kernel/syntax/module-expander"
-    "kernel/runtime/digest"
-    "kernel/runtime/runtime"))
+    "kernel/syntax/module-expander"))
 
 
-(define (jazz.load-kernel-sources)
+(define (jazz.load-kernel-syntax)
   (for-each (lambda (path)
               (jazz.load (string-append "../../" path)))
-            jazz.Kernel-Sources))
+            jazz.Kernel-Syntax))
 
 
 ;;;
-;;;; Kernel
+;;;; Load
 ;;;
+
+
+(define jazz.Kernel-Runtime
+  (list
+    "kernel/runtime/digest"
+    "kernel/runtime/runtime"))
 
 
 (define jazz.boot-kernel
@@ -117,10 +121,35 @@
 
 
 (define (jazz.load-kernel)
-  (jazz.load-kernel-sources)
+  (jazz.load-kernel-syntax)
+  (jazz.load-kernel-runtime)
   (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz")))
 
 
-;; todo
+(define (jazz.load-kernel-runtime)
+  (for-each (lambda (path)
+              (jazz.load (string-append "../../" path)))
+            jazz.Kernel-Runtime))
+
+
+;;;
+;;;; Build
+;;;
+
+
 (define (jazz.build-kernel)
   #f)
+
+
+#; ;; wait
+(define (jazz.build-kernel)
+  (define (create-directory dir)
+    (if (not (jazz.directory-exists? dir))
+        (jazz.directory-create dir)))
+  
+  (jazz.load-kernel)
+  (create-directory "./_build/")
+  (create-directory "./_build/kernel/")
+  (for-each (lambda (path)
+              (compile-file-to-c (string-append "../../" path) output: "./_build/kernel/"))
+            jazz.Kernel-Runtime))

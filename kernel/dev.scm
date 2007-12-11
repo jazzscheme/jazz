@@ -245,6 +245,7 @@
 (define (cjm module-name)
   (lm)
   (lj)
+  (l 'jazz.build)
   (jazz.compile-jazz-module module-name))
 
 
@@ -254,7 +255,6 @@
 
 
 (define (bkernel)
-  (lm)
   (jazz.build-kernel))
 
 

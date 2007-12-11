@@ -246,6 +246,9 @@
     (define jazz.directory-exists?
       file-exists?)
     
+    (define jazz.directory-create
+      create-directory)
+    
     (define jazz.directory-content
       directory-files)
     

@@ -388,7 +388,8 @@
                     ((= button Button2)
                      (middle-mouse-down~ window h v))
                     ((= button Button3)
-                     (right-mouse-down~ window h v)))))
+                     (right-mouse-down~ window h v)
+                     (call-context-menu~ window h v)))))
 
 
        ((= type ButtonRelease)
@@ -796,11 +797,12 @@
 
 
 (definition (platform-invalidate-rect handle rect erase?)
-  (let* ((x (get-left~ rect))
-           (y (get-top~ rect))
-           (w (- (get-right~ rect) x))
-           (h (- (get-bottom~ rect) y)))
-    (XInvalidateRect default-x11-display handle x y w h)))
+  (when handle
+    (let* ((x (get-left~ rect))
+             (y (get-top~ rect))
+             (w (- (get-right~ rect) x))
+             (h (- (get-bottom~ rect) y)))
+      (XInvalidateRect default-x11-display handle x y w h))))
 
 
 (definition (platform-invalidate-region handle region erase?)
@@ -885,9 +887,8 @@
 
 
 (definition (platform-get-focus)
-  (unimplemented 'platform-get-focus)
-  @windows
-  (GetFocus))
+  (receive (win state) (XGetInputFocus default-x11-display)
+    win))
 
 (definition (platform-set-focus handle)
   (XSetInputFocus default-x11-display handle RevertToNone CurrentTime))

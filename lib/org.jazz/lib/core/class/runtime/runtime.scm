@@ -377,7 +377,7 @@
 ;;;
 
 
-(jazz.Object-implement)
+(jazz.define-class-runtime jazz.Object)
 
 
 (define (jazz.get-object-slot object slot-offset)
@@ -402,7 +402,7 @@
 ;;;
 
 
-(jazz.Type-implement)
+(jazz.define-class-runtime jazz.Type)
 
 
 (jazz.define-virtual (jazz.of-type? (jazz.Type type) object))
@@ -475,7 +475,7 @@
 ;;;
 
 
-(jazz.Category-implement)
+(jazz.define-class-runtime jazz.Category)
 
 
 (define (jazz.category? object)
@@ -519,7 +519,7 @@
 ;;;
 
 
-(jazz.Class-implement)
+(jazz.define-class-runtime jazz.Class)
 
 
 (define (jazz.new-class class-of-class name ascendant interfaces)
@@ -664,7 +664,7 @@
 ;;;
 
 
-(jazz.Object-Class-implement)
+(jazz.define-class-runtime jazz.Object-Class)
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Object-Class class) subtype)
@@ -693,7 +693,7 @@
 ;;;
 
 
-(jazz.Boolean-Class-implement)
+(jazz.define-class-runtime jazz.Boolean-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Boolean-Class class) object)
@@ -711,7 +711,7 @@
 (jazz.encapsulate-class jazz.Boolean-Class)
 
 
-(jazz.Boolean-implement)
+(jazz.define-class-runtime jazz.Boolean)
 
 
 (jazz.encapsulate-class jazz.Boolean)
@@ -722,7 +722,7 @@
 ;;;
 
 
-(jazz.Char-Class-implement)
+(jazz.define-class-runtime jazz.Char-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Char-Class class) object)
@@ -740,7 +740,7 @@
 (jazz.encapsulate-class jazz.Char-Class)
 
 
-(jazz.Char-implement)
+(jazz.define-class-runtime jazz.Char)
 
 
 (jazz.encapsulate-class jazz.Char)
@@ -751,7 +751,7 @@
 ;;;
 
 
-(jazz.Numeric-Class-implement)
+(jazz.define-class-runtime jazz.Numeric-Class)
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Numeric-Class class))
@@ -761,7 +761,7 @@
 (jazz.encapsulate-class jazz.Numeric-Class)
 
 
-(jazz.Numeric-implement)
+(jazz.define-class-runtime jazz.Numeric)
 
 
 (jazz.encapsulate-class jazz.Numeric)
@@ -772,7 +772,7 @@
 ;;;
 
 
-(jazz.Number-Class-implement)
+(jazz.define-class-runtime jazz.Number-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Number-Class class) object)
@@ -790,7 +790,7 @@
 (jazz.encapsulate-class jazz.Number-Class)
 
 
-(jazz.Number-implement)
+(jazz.define-class-runtime jazz.Number)
 
 
 (jazz.encapsulate-class jazz.Number)
@@ -801,7 +801,7 @@
 ;;;
 
 
-(jazz.Complex-Class-implement)
+(jazz.define-class-runtime jazz.Complex-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Complex-Class class) object)
@@ -819,7 +819,7 @@
 (jazz.encapsulate-class jazz.Complex-Class)
 
 
-(jazz.Complex-implement)
+(jazz.define-class-runtime jazz.Complex)
 
 
 (jazz.encapsulate-class jazz.Complex)
@@ -830,7 +830,7 @@
 ;;;
 
 
-(jazz.Real-Class-implement)
+(jazz.define-class-runtime jazz.Real-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Real-Class class) object)
@@ -848,7 +848,7 @@
 (jazz.encapsulate-class jazz.Real-Class)
 
 
-(jazz.Real-implement)
+(jazz.define-class-runtime jazz.Real)
 
 
 (jazz.encapsulate-class jazz.Real)
@@ -859,7 +859,7 @@
 ;;;
 
 
-(jazz.Rational-Class-implement)
+(jazz.define-class-runtime jazz.Rational-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Rational-Class class) object)
@@ -877,7 +877,7 @@
 (jazz.encapsulate-class jazz.Rational-Class)
 
 
-(jazz.Rational-implement)
+(jazz.define-class-runtime jazz.Rational)
 
 
 (jazz.encapsulate-class jazz.Rational)
@@ -888,7 +888,7 @@
 ;;;
 
 
-(jazz.Integer-Class-implement)
+(jazz.define-class-runtime jazz.Integer-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Integer-Class class) object)
@@ -906,7 +906,7 @@
 (jazz.encapsulate-class jazz.Integer-Class)
 
 
-(jazz.Integer-implement)
+(jazz.define-class-runtime jazz.Integer)
 
 
 (jazz.encapsulate-class jazz.Integer)
@@ -917,7 +917,7 @@
 ;;;
 
 
-(jazz.Fixnum-Class-implement)
+(jazz.define-class-runtime jazz.Fixnum-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Fixnum-Class class) object)
@@ -935,7 +935,7 @@
 (jazz.encapsulate-class jazz.Fixnum-Class)
 
 
-(jazz.Fixnum-implement)
+(jazz.define-class-runtime jazz.Fixnum)
 
 
 (jazz.encapsulate-class jazz.Fixnum)
@@ -946,7 +946,7 @@
 ;;;
 
 
-(jazz.Flonum-Class-implement)
+(jazz.define-class-runtime jazz.Flonum-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Flonum-Class class) object)
@@ -964,7 +964,7 @@
 (jazz.encapsulate-class jazz.Flonum-Class)
 
 
-(jazz.Flonum-implement)
+(jazz.define-class-runtime jazz.Flonum)
 
 
 (jazz.encapsulate-class jazz.Flonum)
@@ -975,7 +975,7 @@
 ;;;
 
 
-(jazz.Sequence-Class-implement)
+(jazz.define-class-runtime jazz.Sequence-Class)
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Sequence-Class class))
@@ -985,7 +985,7 @@
 (jazz.encapsulate-class jazz.Sequence-Class)
 
 
-(jazz.Sequence-implement)
+(jazz.define-class-runtime jazz.Sequence)
 
 
 (jazz.encapsulate-class jazz.Sequence)
@@ -996,7 +996,7 @@
 ;;;
 
 
-(jazz.List-Class-implement)
+(jazz.define-class-runtime jazz.List-Class)
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.List-Class class))
@@ -1010,7 +1010,7 @@
 (jazz.encapsulate-class jazz.List-Class)
 
 
-(jazz.List-implement)
+(jazz.define-class-runtime jazz.List)
 
 
 (jazz.encapsulate-class jazz.List)
@@ -1021,7 +1021,7 @@
 ;;;
 
 
-(jazz.Null-Class-implement)
+(jazz.define-class-runtime jazz.Null-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Null-Class class) object)
@@ -1039,7 +1039,7 @@
 (jazz.encapsulate-class jazz.Null-Class)
 
 
-(jazz.Null-implement)
+(jazz.define-class-runtime jazz.Null)
 
 
 (jazz.encapsulate-class jazz.Null)
@@ -1050,7 +1050,7 @@
 ;;;
 
 
-(jazz.Pair-Class-implement)
+(jazz.define-class-runtime jazz.Pair-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Pair-Class class) object)
@@ -1068,7 +1068,7 @@
 (jazz.encapsulate-class jazz.Pair-Class)
 
 
-(jazz.Pair-implement)
+(jazz.define-class-runtime jazz.Pair)
 
 
 (jazz.encapsulate-class jazz.Pair)
@@ -1079,7 +1079,7 @@
 ;;;
 
 
-(jazz.String-Class-implement)
+(jazz.define-class-runtime jazz.String-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.String-Class class) object)
@@ -1097,7 +1097,7 @@
 (jazz.encapsulate-class jazz.String-Class)
 
 
-(jazz.String-implement)
+(jazz.define-class-runtime jazz.String)
 
 
 (jazz.encapsulate-class jazz.String)
@@ -1108,7 +1108,7 @@
 ;;;
 
 
-(jazz.Vector-Class-implement)
+(jazz.define-class-runtime jazz.Vector-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Vector-Class class) object)
@@ -1126,7 +1126,7 @@
 (jazz.encapsulate-class jazz.Vector-Class)
 
 
-(jazz.Vector-implement)
+(jazz.define-class-runtime jazz.Vector)
 
 
 (jazz.encapsulate-class jazz.Vector)
@@ -1137,7 +1137,7 @@
 ;;;
 
 
-(jazz.Port-Class-implement)
+(jazz.define-class-runtime jazz.Port-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Port-Class class) object)
@@ -1155,7 +1155,7 @@
 (jazz.encapsulate-class jazz.Port-Class)
 
 
-(jazz.Port-implement)
+(jazz.define-class-runtime jazz.Port)
 
 
 (jazz.encapsulate-class jazz.Port)
@@ -1166,7 +1166,7 @@
 ;;;
 
 
-(jazz.Procedure-Class-implement)
+(jazz.define-class-runtime jazz.Procedure-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Procedure-Class class) object)
@@ -1190,7 +1190,7 @@
 (jazz.encapsulate-class jazz.Procedure-Class)
 
 
-(jazz.Procedure-implement)
+(jazz.define-class-runtime jazz.Procedure)
 
 
 (jazz.encapsulate-class jazz.Procedure)
@@ -1201,7 +1201,7 @@
 ;;;
 
 
-(jazz.Foreign-Class-implement)
+(jazz.define-class-runtime jazz.Foreign-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Foreign-Class class) object)
@@ -1219,7 +1219,7 @@
 (jazz.encapsulate-class jazz.Foreign-Class)
 
 
-(jazz.Foreign-implement)
+(jazz.define-class-runtime jazz.Foreign)
 
 
 (jazz.encapsulate-class jazz.Foreign)
@@ -1230,7 +1230,7 @@
 ;;;
 
 
-(jazz.Symbol-Class-implement)
+(jazz.define-class-runtime jazz.Symbol-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Symbol-Class class) object)
@@ -1248,7 +1248,7 @@
 (jazz.encapsulate-class jazz.Symbol-Class)
 
 
-(jazz.Symbol-implement)
+(jazz.define-class-runtime jazz.Symbol)
 
 
 (jazz.encapsulate-class jazz.Symbol)
@@ -1259,7 +1259,7 @@
 ;;;
 
 
-(jazz.Keyword-Class-implement)
+(jazz.define-class-runtime jazz.Keyword-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Keyword-Class class) object)
@@ -1277,7 +1277,7 @@
 (jazz.encapsulate-class jazz.Keyword-Class)
 
 
-(jazz.Keyword-implement)
+(jazz.define-class-runtime jazz.Keyword)
 
 
 (jazz.encapsulate-class jazz.Keyword)
@@ -1288,7 +1288,7 @@
 ;;;
 
 
-(jazz.Table-Class-implement)
+(jazz.define-class-runtime jazz.Table-Class)
 
 
 (jazz.define-method (jazz.of-type? (jazz.Table-Class class) object)
@@ -1306,7 +1306,7 @@
 (jazz.encapsulate-class jazz.Table-Class)
 
 
-(jazz.Table-implement)
+(jazz.define-class-runtime jazz.Table)
 
 
 (jazz.encapsulate-class jazz.Table)
@@ -1317,7 +1317,7 @@
 ;;;
 
 
-(jazz.Promise-Class-implement)
+(jazz.define-class-runtime jazz.Promise-Class)
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Promise-Class class))
@@ -1327,7 +1327,7 @@
 (jazz.encapsulate-class jazz.Promise-Class)
 
 
-(jazz.Promise-implement)
+(jazz.define-class-runtime jazz.Promise)
 
 
 (jazz.encapsulate-class jazz.Promise)
@@ -1382,7 +1382,7 @@
 ;;;
 
 
-(jazz.Interface-implement)
+(jazz.define-class-runtime jazz.Interface)
 
 
 (define (jazz.new-interface class name ascendants)
@@ -1461,7 +1461,7 @@
 ;;;
 
 
-(jazz.Field-implement)
+(jazz.define-class-runtime jazz.Field)
 
 
 (define (jazz.field? object)
@@ -1495,7 +1495,7 @@
 ;;;
 
 
-(jazz.Slot-implement)
+(jazz.define-class-runtime jazz.Slot)
 
 
 (define (jazz.new-slot slot-name slot-offset slot-initialize)
@@ -1559,7 +1559,7 @@
 ;;;
 
 
-(jazz.Property-implement)
+(jazz.define-class-runtime jazz.Property)
 
 
 (define (jazz.new-property slot-name slot-offset slot-initialize slot-getter slot-setter)
@@ -1605,7 +1605,7 @@
 ;;;
 
 
-(jazz.Method-implement)
+(jazz.define-class-runtime jazz.Method)
 
 
 (define (jazz.method? object)
@@ -1775,7 +1775,7 @@
 ;;;
 
 
-(jazz.Method-Node-implement)
+(jazz.define-class-runtime jazz.Method-Node)
 
 
 (define (jazz.new-method-node category implementation next-node children)
@@ -1821,7 +1821,7 @@
 ;;;
 
 
-(jazz.Queue-implement)
+(jazz.define-class-runtime jazz.Queue)
 
 
 (define (jazz.new-queue)

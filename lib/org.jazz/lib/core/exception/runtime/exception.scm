@@ -38,7 +38,7 @@
 (module core.exception.runtime.exception
 
 
-(jazz.Exception-implement)
+(jazz.define-class-runtime jazz.Exception)
 
 
 (jazz.define-virtual (jazz.present-exception (jazz.Exception exception)))

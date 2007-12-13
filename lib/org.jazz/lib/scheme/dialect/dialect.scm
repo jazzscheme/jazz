@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.Define-Declaration-implement)
+(jazz.define-class-runtime jazz.Define-Declaration)
 
 
 (define (jazz.new-define-declaration name type parent signature)
@@ -97,7 +97,7 @@
 ;;;
 
 
-(jazz.Define-Macro-Declaration-implement)
+(jazz.define-class-runtime jazz.Define-Macro-Declaration)
 
 
 (define (jazz.new-define-macro-declaration name type parent signature)
@@ -139,7 +139,7 @@
 ;;;
 
 
-(jazz.Scheme-Dialect-implement)
+(jazz.define-class-runtime jazz.Scheme-Dialect)
 
 
 (define (jazz.new-scheme-dialect)
@@ -158,7 +158,7 @@
 ;;;
 
 
-(jazz.Scheme-Walker-implement)
+(jazz.define-class-runtime jazz.Scheme-Walker)
 
 
 (define (jazz.new-scheme-walker)

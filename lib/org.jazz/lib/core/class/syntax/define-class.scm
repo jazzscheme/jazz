@@ -39,8 +39,58 @@
 
 
 (jazz.define-macro (jazz.define-class name ascendant-name inherited-slot-names class-name constructor slots)
-  (jazz.expand-define-class name ascendant-name inherited-slot-names class-name constructor slots))
+  (define (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots proc)
+    (let* ((class-accessor (if (%%null? class-name) #f class-name))
+           (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
+           (ascendant-size (%%length inherited-slot-names))
+           (slot-names (map car slots))
+           (all-slot-names (%%append inherited-slot-names slot-names))
+           (all-variables (map (lambda (slot-name) (jazz.generate-symbol (%%symbol->string slot-name))) all-slot-names))
+           (all-length (%%length all-slot-names))
+           (instance-size (%%fx+ jazz.object-size all-length)))
+      (proc class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size)))
+  
+  (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots
+    (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size)
+      `(begin
+         ,@(if (%%null? constructor)
+               '()
+             `((jazz.define-macro (,constructor class ,@all-variables)
+                 (%%list '%%object class ,@all-variables))))
+         ,@(map (lambda (slot rank)
+                  (let ((slot-name (%%car slot))
+                        (slot-getter (%%cadr slot))
+                        (slot-setter (%%car (%%cddr slot)))
+                        (object (jazz.generate-symbol "object"))
+                        (value (jazz.generate-symbol "value")))
+                    `(begin
+                       ,@(if (%%null? slot-getter)
+                             '()
+                           (if jazz.debug-core?
+                               `((define (,slot-getter ,object)
+                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
+                                     (%%object-ref ,object ,rank))))
+                             `((jazz.define-macro (,slot-getter ,object)
+                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
+                                   (%%list '%%object-ref ,object ,rank))))))
+                       ,@(if (%%null? slot-setter)
+                             '()
+                           (if jazz.debug-core?
+                               `((define (,slot-setter ,object ,value)
+                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
+                                     (%%object-set! ,object ,rank ,value))))
+                             `((jazz.define-macro (,slot-setter ,object ,value)
+                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
+                                   (%%list '%%object-set! ,object ,rank ,value)))))))))
+                slots
+                (jazz.naturals (%%fx+ jazz.object-size ascendant-size) instance-size))
+         (jazz.define-macro (,(%%string->symbol (%%string-append (%%symbol->string name) "-implement")))
+           `(begin
+             (define ,',name
+               (jazz.new-core-class ,',class-accessor ',',name (%%make-table test: eq?) ,',ascendant-accessor ',',slot-names ,',instance-size))
+             (jazz.set-core-class ',',(jazz.identifier-name name) ,',name)
+             (jazz.validate-inherited-slots ',',name ,',ascendant-accessor ',',inherited-slot-names)))))))
 
 
-(jazz.define-macro (jazz.define-class-runtime name ascendant-name inherited-slot-names class-name slot-names)
-  (jazz.expand-define-class-runtime name ascendant-name inherited-slot-names class-name slot-names)))
+(jazz.define-macro (jazz.define-class-runtime name)
+  `(,(%%string->symbol (%%string-append (%%symbol->string name) "-implement")))))

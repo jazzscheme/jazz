@@ -137,17 +137,14 @@
 (cond-expand
   (gambit
     (set! jazz.write-jazz
-      (lambda (port obj)
-        (if (and jazz.use-print? jazz.dialect.language.Object.print)
-            ;; the rank of print is known to be 2 as it is the third method of Object
-            ((%%class-dispatch obj 0 2) obj port ':reader)
-          (let ((class-name (%%get-category-name (%%get-object-class obj)))
-                (serial-number (object->serial-number obj)))
-            (display "#<jazz " port)
-            (display class-name port)
-            (display " #" port)
-            (display serial-number port)
-            (display ">" port))))))
+          (lambda (port obj)
+            (if (and jazz.use-print? jazz.dialect.language.Object.print)
+                ;; the rank of print is known to be 2 as it is the third method of Object
+                ((%%class-dispatch obj 0 2) obj port ':reader)
+              (let ((serial-number (object->serial-number obj)))
+                (display "#<jazz #" port)
+                (display serial-number port)
+                (display ">" port))))))
   (else))
 
 

@@ -161,7 +161,7 @@
 (jazz.define-class X jazz.Object () jazz.Object-Class allocate-x
   ())
 
-(X-implement)
+(jazz.define-class-runtime X)
 
 (jazz.encapsulate-class X)
 
@@ -191,7 +191,7 @@
 ;;;
 
 
-(Z-implement)
+(jazz.define-class-runtime Z)
 
 
 (jazz.define-virtual (f-vtable (Z z) n))
@@ -217,7 +217,7 @@
 (jazz.encapsulate-class Z)
 
 
-(W-implement)
+(jazz.define-class-runtime W)
 
 
 (jazz.define-method (f-vtable (W w) n)

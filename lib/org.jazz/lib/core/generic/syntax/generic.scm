@@ -51,7 +51,7 @@
    (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
 
 
-(jazz.Generic-implement)
+(jazz.define-class-runtime jazz.Generic)
 
 
 (jazz.define-macro (jazz.define-generic . rest)

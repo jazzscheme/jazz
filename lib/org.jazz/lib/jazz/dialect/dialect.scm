@@ -43,7 +43,7 @@
 ;;;
 
 
-(jazz.Definition-Declaration-implement)
+(jazz.define-class-runtime jazz.Definition-Declaration)
 
 
 (define (jazz.new-definition-declaration name type access compatibility attributes parent expansion signature)
@@ -140,7 +140,7 @@
 ;;;
 
 
-(jazz.Specialize-implement)
+(jazz.define-class-runtime jazz.Specialize)
 
 
 (define (jazz.new-specialize)
@@ -161,7 +161,7 @@
 ;;;
 
 
-(jazz.Generic-Declaration-implement)
+(jazz.define-class-runtime jazz.Generic-Declaration)
 
 
 (define (jazz.new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
@@ -199,7 +199,7 @@
 ;;;
 
 
-(jazz.Specific-Declaration-implement)
+(jazz.define-class-runtime jazz.Specific-Declaration)
 
 
 (define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature)
@@ -229,7 +229,7 @@
 ;;;
 
 
-(jazz.Category-Declaration-implement)
+(jazz.define-class-runtime jazz.Category-Declaration)
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration) source-declaration environment)
@@ -253,7 +253,7 @@
 ;;;
 
 
-(jazz.Class-Declaration-implement)
+(jazz.define-class-runtime jazz.Class-Declaration)
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant interfaces)
@@ -412,7 +412,7 @@
 ;;;
 
 
-(jazz.Interface-Declaration-implement)
+(jazz.define-class-runtime jazz.Interface-Declaration)
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
@@ -483,7 +483,7 @@
 ;;;
 
 
-(jazz.Field-Declaration-implement)
+(jazz.define-class-runtime jazz.Field-Declaration)
 
 
 (jazz.encapsulate-class jazz.Field-Declaration)
@@ -494,7 +494,7 @@
 ;;;
 
 
-(jazz.Slot-Declaration-implement)
+(jazz.define-class-runtime jazz.Slot-Declaration)
 
 
 (define (jazz.new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -557,7 +557,7 @@
 ;;;
 
 
-(jazz.Property-Declaration-implement)
+(jazz.define-class-runtime jazz.Property-Declaration)
 
 
 (define (jazz.new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -596,7 +596,7 @@
 ;;;
 
 
-(jazz.Method-Declaration-implement)
+(jazz.define-class-runtime jazz.Method-Declaration)
 
 
 (define (jazz.new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
@@ -770,7 +770,7 @@
   ())
 
 
-(jazz.Jazz-Dialect-implement)
+(jazz.define-class-runtime jazz.Jazz-Dialect)
 
 
 (define (jazz.new-jazz-dialect)
@@ -793,7 +793,7 @@
   ())
 
 
-(jazz.Jazz-Walker-implement)
+(jazz.define-class-runtime jazz.Jazz-Walker)
 
 
 (define (jazz.new-jazz-walker)
@@ -1032,7 +1032,7 @@
 ;;;
 
 
-(jazz.With-Self-implement)
+(jazz.define-class-runtime jazz.With-Self)
 
 
 (define (jazz.new-with-self body)
@@ -1062,7 +1062,7 @@
 ;;;
 
 
-(jazz.Cast-implement)
+(jazz.define-class-runtime jazz.Cast)
 
 
 (define (jazz.new-cast type expression)
@@ -1089,7 +1089,7 @@
 ;;;
 
 
-(jazz.Construct-implement)
+(jazz.define-class-runtime jazz.Construct)
 
 
 (define (jazz.new-construct class values)
@@ -1186,7 +1186,7 @@
              (%%interface-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))))))
 
 
-(jazz.Dispatch-implement)
+(jazz.define-class-runtime jazz.Dispatch)
 
 
 (define (jazz.new-dispatch name arguments)

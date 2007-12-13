@@ -52,7 +52,7 @@
    (descendant-specifics %%get-specific-descendant-specifics %%set-specific-descendant-specifics)))
 
 
-(jazz.Specific-implement)
+(jazz.define-class-runtime jazz.Specific)
 
 
 (jazz.define-macro (jazz.define-specific . rest)

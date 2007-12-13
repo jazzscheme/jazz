@@ -749,5 +749,14 @@
 ;;;
 
 
+;; should probably be the packages that register reader extensions...
+
+
+(jazz.define-variable jazz.jazz-readtable)
+
+
+(jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
+
+
 (if (file-exists? "~/jazz/jazzini.scm")
     (jazz.load "~/jazz/jazzini"))

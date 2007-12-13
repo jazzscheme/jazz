@@ -252,7 +252,9 @@
          (parent    (if parent (get-handle~ parent) (XRootWindow default-x11-display screen-no)))
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
-    (XCreateWindow default-x11-display
+    (if (is? window Desktop)
+        (platform-get-desktop)
+        (XCreateWindow default-x11-display
                    parent
                    0
                    0
@@ -263,7 +265,7 @@
                    InputOutput
                    visual
                    0
-                   attr)))
+                   attr))))
 
 
 (definition (prepare-handle window parent rest)
@@ -684,9 +686,12 @@
                (y (XWindowAttributes-y-ref infos)))
          (new Point x y))))
 
-
+;; tofix : This is an ugly hack because 1. popups are toplevel in windows and 2. 22 pixels are not accounted for in X11 in Mac OS X.
 (definition (platform-set-position handle pos)
-  (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))
+    (if (is? (get-window handle) Popup)
+              (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
+                (XMoveWindow default-x11-display handle h v))
+              (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))))
 
 
 (definition (platform-get-size handle)

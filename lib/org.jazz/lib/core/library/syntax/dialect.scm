@@ -38,8 +38,7 @@
 (module core.library.syntax.dialect
 
 
-(jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class
-  ())
+(jazz.Dialect-implement)
 
 
 (jazz.define-virtual (jazz.dialect-walker (jazz.Dialect dialect)))

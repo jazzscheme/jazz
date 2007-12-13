@@ -391,13 +391,18 @@
 ;;;
 
 
+(define jazz.version
+  "2.0a1")
+
+
 (define (jazz.main)
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
   (##repl-debug
     (lambda (first output-port)
-      (display "Jazz 1.0a1" output-port)
+      (display "Jazz " output-port)
+      (display jazz.version output-port)
       (newline output-port)
       (newline output-port)
       (force-output output-port)

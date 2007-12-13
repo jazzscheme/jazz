@@ -38,8 +38,7 @@
 (module core.exception.runtime.error
 
 
-(jazz.define-class jazz.Error jazz.Exception () jazz.Object-Class
-  (message))
+(jazz.Error-implement)
 
 
 (define (jazz.new-error message)

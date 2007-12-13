@@ -43,10 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (expansion
-   signature
-   value))
+(jazz.Definition-Declaration-implement)
 
 
 (define (jazz.new-definition-declaration name type access compatibility attributes parent expansion signature)
@@ -143,8 +140,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Specialize jazz.Expression (type) jazz.Object-Class
-  ())
+(jazz.Specialize-implement)
 
 
 (define (jazz.new-specialize)
@@ -165,10 +161,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Generic-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (dispatch-types
-   signature
-   body))
+(jazz.Generic-Declaration-implement)
 
 
 (define (jazz.new-generic-declaration name type access compatibility attributes parent dispatch-types signature)
@@ -206,10 +199,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Specific-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (generic
-   signature
-   body))
+(jazz.Specific-Declaration-implement)
 
 
 (define (jazz.new-specific-declaration name type access compatibility attributes parent generic signature)
@@ -239,9 +229,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Category-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body) jazz.Object-Class
-  (implementor
-   metaclass))
+(jazz.Category-Declaration-implement)
 
 
 (jazz.define-method (jazz.emit-binding-reference (jazz.Category-Declaration declaration) source-declaration environment)
@@ -265,9 +253,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body implementor metaclass) jazz.Object-Class
-  (ascendant
-   interfaces))
+(jazz.Class-Declaration-implement)
 
 
 (define (jazz.new-class-declaration name type access compatibility attributes parent implementor metaclass ascendant interfaces)
@@ -426,8 +412,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Interface-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body implementor metaclass) jazz.Object-Class
-  (ascendants))
+(jazz.Interface-Declaration-implement)
 
 
 (define (jazz.new-interface-declaration name type access compatibility attributes parent implementor metaclass ascendants)
@@ -498,8 +483,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Field-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  ())
+(jazz.Field-Declaration-implement)
 
 
 (jazz.encapsulate-class jazz.Field-Declaration)
@@ -510,10 +494,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Slot-Declaration jazz.Field-Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (initialize
-   getter-name
-   setter-name))
+(jazz.Slot-Declaration-implement)
 
 
 (define (jazz.new-slot-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -576,9 +557,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Property-Declaration jazz.Slot-Declaration (name type access compatibility attributes toplevel parent locator initialize getter-name setter-name) jazz.Object-Class
-  (getter
-   setter))
+(jazz.Property-Declaration-implement)
 
 
 (define (jazz.new-property-declaration name type access compatibility attributes parent initialize getter-name setter-name)
@@ -617,15 +596,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Method-Declaration jazz.Field-Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (root
-   propagation
-   abstraction
-   expansion
-   remote
-   synchronized
-   signature
-   body))
+(jazz.Method-Declaration-implement)
 
 
 (define (jazz.new-method-declaration name type access compatibility attributes parent root propagation abstraction expansion remote synchronized signature)
@@ -795,12 +766,11 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-jazz-dialect
+(jazz.define-class jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class jazz.allocate-jazz-dialect
   ())
 
 
-(jazz.define-class jazz.Jazz-Dialect jazz.Dialect () jazz.Object-Class
-  ())
+(jazz.Jazz-Dialect-implement)
 
 
 (define (jazz.new-jazz-dialect)
@@ -819,12 +789,11 @@
 ;;;
 
 
-(jazz.define-class-syntax jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-jazz-walker
+(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class jazz.allocate-jazz-walker
   ())
 
 
-(jazz.define-class jazz.Jazz-Walker jazz.Scheme-Walker (warnings errors) jazz.Object-Class
-  ())
+(jazz.Jazz-Walker-implement)
 
 
 (define (jazz.new-jazz-walker)
@@ -1063,8 +1032,7 @@
 ;;;
 
 
-(jazz.define-class jazz.With-Self jazz.Expression (type) jazz.Object-Class
-  (body))
+(jazz.With-Self-implement)
 
 
 (define (jazz.new-with-self body)
@@ -1094,8 +1062,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Cast jazz.Expression (type) jazz.Object-Class
-  (expression))
+(jazz.Cast-implement)
 
 
 (define (jazz.new-cast type expression)
@@ -1122,9 +1089,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Construct jazz.Expression (type) jazz.Object-Class
-  (class
-   values))
+(jazz.Construct-implement)
 
 
 (define (jazz.new-construct class values)
@@ -1221,9 +1186,7 @@
              (%%interface-dispatch object (%%get-method-category-rank field) (%%get-method-implementation-rank field)))))))))
 
 
-(jazz.define-class jazz.Dispatch jazz.Expression (type) jazz.Object-Class
-  (name
-   arguments))
+(jazz.Dispatch-implement)
 
 
 (define (jazz.new-dispatch name arguments)

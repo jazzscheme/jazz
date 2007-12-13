@@ -38,7 +38,7 @@
 (module core.library.syntax.dialect-syntax
 
 
-(jazz.define-class-syntax jazz.Dialect jazz.Object () jazz.Object-Class ()
+(jazz.define-class jazz.Dialect jazz.Object () jazz.Object-Class ()
   ())
 
 

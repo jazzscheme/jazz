@@ -95,8 +95,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walk-Binding jazz.Type () jazz.Object-Class
-  ())
+(jazz.Walk-Binding-implement)
 
 
 (jazz.define-method (jazz.emit-type (jazz.Walk-Binding type) source-declaration environment)
@@ -175,9 +174,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Lexical-Binding jazz.Walk-Binding () jazz.Object-Class
-  (name
-   type))
+(jazz.Lexical-Binding-implement)
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Lexical-Binding binding) symbol)
@@ -194,13 +191,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Declaration jazz.Lexical-Binding (name type) jazz.Object-Class
-  (access
-   compatibility
-   attributes
-   toplevel
-   parent
-   locator))
+(jazz.Declaration-implement)
 
 
 (define (jazz.setup-declaration new-declaration)
@@ -286,9 +277,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Declaration-Reference jazz.Object () jazz.Object-Class
-  (name
-   declaration))
+(jazz.Declaration-Reference-implement)
 
 
 (jazz.define-virtual (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration))
@@ -302,8 +291,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Reference jazz.Declaration-Reference (name declaration) jazz.Object-Class
-  ())
+(jazz.Library-Reference-implement)
 
 
 (define (jazz.new-library-reference name declaration)
@@ -325,8 +313,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Reference jazz.Declaration-Reference (name declaration) jazz.Object-Class
-  (library-reference))
+(jazz.Export-Reference-implement)
 
 
 (define (jazz.new-export-reference name declaration library-reference)
@@ -355,8 +342,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Reference jazz.Export-Reference (name declaration library-reference) jazz.Object-Class
-  ())
+(jazz.Autoload-Reference-implement)
 
 
 (define (jazz.new-autoload-reference name declaration library-reference)
@@ -381,8 +367,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Module-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (requires))
+(jazz.Module-Declaration-implement)
 
 
 (define (jazz.new-module-declaration name parent requires)
@@ -399,11 +384,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Namespace-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (lookups
-   children-lookup
-   children
-   body))
+(jazz.Namespace-Declaration-implement)
 
 
 (define (jazz.find-declaration namespace-declaration name)
@@ -418,16 +399,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body) jazz.Object-Class
-  (dialect
-   requires
-   exports
-   imports
-   declares
-   literals
-   variables
-   references
-   autoloads))
+(jazz.Library-Declaration-implement)
 
 
 (define (jazz.new-library-declaration name parent dialect requires exports imports)
@@ -585,14 +557,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Library-Invoice jazz.Object () jazz.Object-Class
-  (library
-   phase
-   version
-   only
-   except
-   prefix
-   rename))
+(jazz.Library-Invoice-implement)
 
 
 (jazz.encapsulate-class jazz.Library-Invoice)
@@ -603,8 +568,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Invoice jazz.Library-Invoice (library phase version only except prefix rename) jazz.Object-Class
-  (autoload))
+(jazz.Export-Invoice-implement)
 
 
 (define (jazz.new-export-invoice library phase version only autoload)
@@ -619,8 +583,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Import-Invoice jazz.Library-Invoice (library phase version only except prefix rename) jazz.Object-Class
-  ())
+(jazz.Import-Invoice-implement)
 
 
 (define (jazz.new-import-invoice library phase version only)
@@ -635,8 +598,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Export-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (symbol))
+(jazz.Export-Declaration-implement)
 
 
 (define (jazz.new-export-declaration name type access compatibility attributes parent symbol)
@@ -667,10 +629,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Autoload-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (library
-   exported-library
-   declaration))
+(jazz.Autoload-Declaration-implement)
 
 
 (define (jazz.new-autoload-declaration name type parent library-declaration exported-library)
@@ -714,8 +673,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Void-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
-  ())
+(jazz.Void-Class-implement)
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Void-Class type) subtype)
@@ -729,8 +687,7 @@
 (jazz.encapsulate-class jazz.Void-Class)
 
 
-(jazz.define-class jazz.Void jazz.Type () jazz.Void-Class
-  ())
+(jazz.Void-implement)
 
 
 (jazz.encapsulate-class jazz.Void)
@@ -741,8 +698,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Opt-Type jazz.Type () jazz.Class
-  (type))
+(jazz.Opt-Type-implement)
 
 
 (define (jazz.new-opt-type type)
@@ -762,9 +718,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Key-Type jazz.Type () jazz.Class
-  (key
-   type))
+(jazz.Key-Type-implement)
 
 
 (define (jazz.new-key-type key type)
@@ -785,8 +739,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Rest-Type jazz.Type () jazz.Class
-  (type))
+(jazz.Rest-Type-implement)
 
 
 (define (jazz.new-rest-type type)
@@ -809,13 +762,7 @@
 ;; should probably be unified with the Signature class
 
 
-(jazz.define-class jazz.Function-Type jazz.Type () jazz.Class
-  (mandatory
-   positional
-   optional
-   named
-   rest
-   result))
+(jazz.Function-Type-implement)
 
 
 (define (jazz.new-function-type positional optional named rest result)
@@ -863,8 +810,7 @@
 ;; first draft. this type is used to support specializing new and the like
 
 
-(jazz.define-class jazz.Category-Type jazz.Type () jazz.Class
-  (declaration))
+(jazz.Category-Type-implement)
 
 
 (define (jazz.new-category-type declaration)
@@ -897,8 +843,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Values-Type jazz.Type () jazz.Class
-  (types))
+(jazz.Values-Type-implement)
 
 
 (define (jazz.new-values-type types)
@@ -928,9 +873,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Restriction-Type jazz.Type () jazz.Class
-  (base
-   type))
+(jazz.Restriction-Type-implement)
 
 
 (define (jazz.new-restriction-type base type)
@@ -945,8 +888,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Complement-Type jazz.Type () jazz.Class
-  (type))
+(jazz.Complement-Type-implement)
 
 
 (define (jazz.new-complement-type type)
@@ -961,8 +903,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Union-Type jazz.Type () jazz.Class
-  (types))
+(jazz.Union-Type-implement)
 
 
 (define (jazz.new-union-type types)
@@ -980,9 +921,7 @@
 ;; future work. just here to make sure specifier syntax can express them
 
 
-(jazz.define-class jazz.Template-Type jazz.Type () jazz.Class
-  (class
-   types))
+(jazz.Template-Type-implement)
 
 
 (define (jazz.new-template-type class types)
@@ -1012,8 +951,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Nillable-Type jazz.Type () jazz.Class
-  (type))
+(jazz.Nillable-Type-implement)
 
 
 (define (jazz.new-nillable-type type)
@@ -1055,8 +993,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Any-Class jazz.Class (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class
-  ())
+(jazz.Any-Class-implement)
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Any-Class type) subtype)
@@ -1074,8 +1011,7 @@
 (jazz.encapsulate-class jazz.Any-Class)
 
 
-(jazz.define-class jazz.Any jazz.Type () jazz.Any-Class
-  ())
+(jazz.Any-implement)
 
 
 (jazz.encapsulate-class jazz.Any)
@@ -1403,9 +1339,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   body))
+(jazz.Macro-Declaration-implement)
 
 
 (define (jazz.new-macro-declaration name type access compatibility attributes parent signature)
@@ -1454,9 +1388,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Syntax-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   body))
+(jazz.Syntax-Declaration-implement)
 
 
 (define (jazz.new-syntax-declaration name type access compatibility attributes parent signature)
@@ -1505,10 +1437,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (kind
-   expansion
-   references))
+(jazz.C-Type-Declaration-implement)
 
 
 (define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion references)
@@ -1539,13 +1468,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Definition-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   parameter-types
-   result-type
-   c-name
-   scope
-   body))
+(jazz.C-Definition-Declaration-implement)
 
 
 (define (jazz.new-c-definition-declaration name type access compatibility attributes parent signature parameter-types result-type c-name scope)
@@ -1589,10 +1512,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walk-Context jazz.Object () jazz.Object-Class
-  (policy
-   locator
-   pathname))
+(jazz.Walk-Context-implement)
 
 
 (define (jazz.new-walk-context policy locator pathname)
@@ -1641,9 +1561,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walk-Location jazz.Object () jazz.Object-Class
-  (module-locator
-   declaration-locator))
+(jazz.Walk-Location-implement)
 
 
 (define (jazz.new-walk-location module-locator declaration-locator)
@@ -1664,8 +1582,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walk-Error jazz.Error (message) jazz.Object-Class
-  (location))
+(jazz.Walk-Error-implement)
 
 
 (define (jazz.new-walk-error location message)
@@ -1684,8 +1601,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Unresolved-Error jazz.Walk-Error (message location) jazz.Object-Class
-  (symbol))
+(jazz.Unresolved-Error-implement)
 
 
 (define (jazz.new-unresolved-error location symbol)
@@ -1705,8 +1621,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walk-Frame jazz.Walk-Binding () jazz.Object-Class
-  (bindings))
+(jazz.Walk-Frame-implement)
 
 
 (define (jazz.new-walk-frame bindings)
@@ -1730,12 +1645,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Signature jazz.Object () jazz.Object-Class
-  (mandatory
-   positional
-   optional
-   named
-   rest))
+(jazz.Signature-implement)
 
 
 (define (jazz.new-signature positional optional named rest)
@@ -1757,8 +1667,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Symbol-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
-  ())
+(jazz.Symbol-Binding-implement)
 
 
 (jazz.encapsulate-class jazz.Symbol-Binding)
@@ -1769,8 +1678,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Variable jazz.Symbol-Binding (name type) jazz.Object-Class
-  (reference-count))
+(jazz.Variable-implement)
 
 
 (define (jazz.new-variable name type)
@@ -1815,8 +1723,7 @@
 ;;;
 
 
-(jazz.define-class jazz.NextMethod-Variable jazz.Variable (name type reference-count) jazz.Object-Class
-  ())
+(jazz.NextMethod-Variable-implement)
 
 
 (define (jazz.new-nextmethod-variable name type)
@@ -1858,8 +1765,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Parameter jazz.Variable (name type reference-count) jazz.Object-Class
-  ())
+(jazz.Parameter-implement)
 
 
 (define (jazz.new-parameter name type)
@@ -1882,8 +1788,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Dynamic-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
-  (class))
+(jazz.Dynamic-Parameter-implement)
 
 
 (define (jazz.new-dynamic-parameter name type class)
@@ -1903,8 +1808,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Optional-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
-  (default))
+(jazz.Optional-Parameter-implement)
 
 
 (define (jazz.new-optional-parameter name type default)
@@ -1924,8 +1828,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
-  (default))
+(jazz.Named-Parameter-implement)
 
 
 (define (jazz.new-named-parameter name type default)
@@ -1945,8 +1848,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Rest-Parameter jazz.Parameter (name type reference-count) jazz.Object-Class
-  ())
+(jazz.Rest-Parameter-implement)
 
 
 (define (jazz.new-rest-parameter name type)
@@ -1968,8 +1870,7 @@
 ;; Support for dialects that have an implicit self concept
 
 
-(jazz.define-class jazz.Self-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
-  ())
+(jazz.Self-Binding-implement)
 
 
 (define (jazz.new-self-binding type)
@@ -1999,9 +1900,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Symbol jazz.Symbol-Binding (name type) jazz.Object-Class
-  (getter
-   setter))
+(jazz.Macro-Symbol-implement)
 
 
 (define (jazz.new-macro-symbol name getter setter)
@@ -2033,8 +1932,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Form-Binding jazz.Lexical-Binding (name type) jazz.Object-Class
-  ())
+(jazz.Form-Binding-implement)
 
 
 (jazz.encapsulate-class jazz.Form-Binding)
@@ -2045,8 +1943,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Special-Form jazz.Form-Binding (name type) jazz.Object-Class
-  (walk))
+(jazz.Special-Form-implement)
 
 
 (define (jazz.new-special-form name walk)
@@ -2070,8 +1967,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Macro-Form jazz.Form-Binding (name type) jazz.Object-Class
-  (expander))
+(jazz.Macro-Form-implement)
 
 
 (define (jazz.new-macro-form name expander)
@@ -2095,10 +1991,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Annotated-Variable jazz.Object () jazz.Object-Class
-  (variable
-   declared-type
-   type))
+(jazz.Annotated-Variable-implement)
 
 
 (define (jazz.new-annotated-variable variable declared-type type)
@@ -2113,9 +2006,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Restricted-Binding jazz.Object () jazz.Object-Class
-  (binding
-   type))
+(jazz.Restricted-Binding-implement)
 
 
 (define (jazz.new-restricted-binding binding type)
@@ -2130,9 +2021,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Annotated-Frame jazz.Object () jazz.Object-Class
-  (variables
-   reset))
+(jazz.Annotated-Frame-implement)
 
 
 (define (jazz.new-annotated-frame variables reset)
@@ -2163,9 +2052,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Code jazz.Object () jazz.Object-Class
-  (form
-   type))
+(jazz.Code-implement)
 
 
 (define (jazz.new-code form type)
@@ -2345,9 +2232,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Walker jazz.Object () jazz.Object-Class
-  (warnings
-   errors))
+(jazz.Walker-implement)
 
 
 ;;;
@@ -2851,8 +2736,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Expression jazz.Object () jazz.Object-Class
-  (type))
+(jazz.Expression-implement)
 
 
 (jazz.define-virtual (jazz.emit-expression (jazz.Expression expression) declaration environment))
@@ -2899,8 +2783,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Proclaim jazz.Expression (type) jazz.Object-Class
-  (optimize?))
+(jazz.Proclaim-implement)
 
 
 (define (jazz.new-proclaim optimize?)
@@ -2921,8 +2804,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Constant jazz.Expression (type) jazz.Object-Class
-  (expansion))
+(jazz.Constant-implement)
 
 
 (define (jazz.new-constant expansion type)
@@ -2949,8 +2831,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Delay jazz.Expression (type) jazz.Object-Class
-  (expression))
+(jazz.Delay-implement)
 
 
 (define (jazz.new-delay expression)
@@ -2972,8 +2853,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Quasiquote jazz.Expression (type) jazz.Object-Class
-  (form))
+(jazz.Quasiquote-implement)
 
 
 (define (jazz.new-quasiquote form)
@@ -3002,8 +2882,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Reference jazz.Expression (type) jazz.Object-Class
-  (binding))
+(jazz.Reference-implement)
 
 
 (define (jazz.new-reference binding)
@@ -3026,9 +2905,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Assignment jazz.Expression (type) jazz.Object-Class
-  (binding
-   value))
+(jazz.Assignment-implement)
 
 
 (define (jazz.new-assignment binding value)
@@ -3053,9 +2930,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Lambda jazz.Expression (type) jazz.Object-Class
-  (signature
-   body))
+(jazz.Lambda-implement)
 
 
 (define (jazz.new-lambda type signature body)
@@ -3093,9 +2968,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Let jazz.Expression (type) jazz.Object-Class
-  (bindings
-   body))
+(jazz.Let-implement)
 
 
 (define (jazz.new-let bindings body)
@@ -3139,8 +3012,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Let jazz.Let (type bindings body) jazz.Object-Class
-  (variable))
+(jazz.Named-Let-implement)
 
 
 (define (jazz.new-named-let variable bindings body)
@@ -3185,9 +3057,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Letstar jazz.Expression (type) jazz.Object-Class
-  (bindings
-   body))
+(jazz.Letstar-implement)
 
 
 (define (jazz.new-letstar bindings body)
@@ -3231,9 +3101,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Letrec jazz.Expression (type) jazz.Object-Class
-  (bindings
-   body))
+(jazz.Letrec-implement)
 
 
 (define (jazz.new-letrec bindings body)
@@ -3277,10 +3145,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Receive jazz.Expression (type) jazz.Object-Class
-  (variables
-   expression
-   body))
+(jazz.Receive-implement)
 
 
 (define (jazz.new-receive variables expression body)
@@ -3319,9 +3184,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Body jazz.Expression (type) jazz.Object-Class
-  (internal-defines
-   expressions))
+(jazz.Body-implement)
 
 
 (define (jazz.new-body internal-defines expressions)
@@ -3354,9 +3217,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Internal-Define jazz.Expression (type) jazz.Object-Class
-  (variable
-   value))
+(jazz.Internal-Define-implement)
 
 
 (define (jazz.new-internal-define variable value)
@@ -3386,8 +3247,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Begin jazz.Expression (type) jazz.Object-Class
-  (expressions))
+(jazz.Begin-implement)
 
 
 (define (jazz.new-begin expressions)
@@ -3415,11 +3275,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Do jazz.Expression (type) jazz.Object-Class
-  (bindings
-   test
-   result
-   body))
+(jazz.Do-implement)
 
 
 (define (jazz.new-do bindings test result body)
@@ -3465,9 +3321,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Call jazz.Expression (type) jazz.Object-Class
-  (operator
-   arguments))
+(jazz.Call-implement)
 
 
 (define (jazz.new-call operator arguments)
@@ -3604,32 +3458,29 @@
 
 
 (define jazz.primitive-patterns
-  (%%make-table test: eq?))
-
-(define jazz.primitive-patterns-initialized?
-  #f)
+  '())
 
 
 (define (jazz.initialize-primitive-patterns)
-  (%%iterate-table jazz.primitive-patterns
-    (lambda (key patterns)
-      (%%table-set! jazz.primitive-patterns key
-        (map (lambda (pattern)
-               (let ((name (%%car pattern))
-                     (specifier (%%cadr pattern)))
-                 (list name (jazz.walk-specifier #f #f #f '() specifier))))
-             patterns))))
-  (set! jazz.primitive-patterns-initialized? #t))
+  (let ((table (%%make-table test: eq?)))
+    (for-each (lambda (pair)
+                (let ((operator (%%car pair))
+                      (patterns (%%cdr pair)))
+                  (%%table-set! table operator
+                    (map (lambda (pattern)
+                           (let ((name (%%car pattern))
+                                 (specifier (%%cadr pattern)))
+                             (list name (jazz.walk-specifier #f #f #f '() specifier))))
+                         patterns))))
+              jazz.primitive-patterns)
+    (set! jazz.primitive-patterns table)))
 
 
 (define (jazz.add-primitive-patterns operator patterns)
-  (set! jazz.primitive-patterns-initialized? #f)
-  (%%table-set! jazz.primitive-patterns operator patterns))
+  (set! jazz.primitive-patterns (%%cons (%%cons operator patterns) jazz.primitive-patterns)))
 
 
 (define (jazz.get-primitive-patterns locator)
-  (if (%%not jazz.primitive-patterns-initialized?)
-      (jazz.initialize-primitive-patterns))
   (%%table-ref jazz.primitive-patterns locator '()))
 
 
@@ -3761,10 +3612,7 @@
 ;;;
 
 
-(jazz.define-class jazz.If jazz.Expression (type) jazz.Object-Class
-  (test
-   yes
-   no))
+(jazz.If-implement)
 
 
 (define (jazz.new-if test yes no)
@@ -3971,8 +3819,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Cond jazz.Expression (type) jazz.Object-Class
-  (clauses))
+(jazz.Cond-implement)
 
 
 (define (jazz.new-cond clauses)
@@ -4017,9 +3864,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Case jazz.Expression (type) jazz.Object-Class
-  (target
-   clauses))
+(jazz.Case-implement)
 
 
 (define (jazz.new-case target clauses)
@@ -4051,8 +3896,7 @@
 ;;;
 
 
-(jazz.define-class jazz.And jazz.Expression (type) jazz.Object-Class
-  (expressions))
+(jazz.And-implement)
 
 
 (define (jazz.new-and expressions)
@@ -4078,8 +3922,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Or jazz.Expression (type) jazz.Object-Class
-  (expressions))
+(jazz.Or-implement)
 
 
 (define (jazz.new-or expressions)
@@ -4105,8 +3948,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Include jazz.Expression (type) jazz.Object-Class
-  (name))
+(jazz.C-Include-implement)
 
 
 (define (jazz.new-c-include name)
@@ -4132,8 +3974,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Declare jazz.Expression (type) jazz.Object-Class
-  (code))
+(jazz.C-Declare-implement)
 
 
 (define (jazz.new-c-declare code)
@@ -4159,8 +4000,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Initialize jazz.Expression (type) jazz.Object-Class
-  (code))
+(jazz.C-Initialize-implement)
 
 
 (define (jazz.new-c-initialize code)
@@ -4186,8 +4026,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Function jazz.Expression (type) jazz.Object-Class
-  (expansion))
+(jazz.C-Function-implement)
 
 
 (define (jazz.new-c-function expansion)
@@ -4212,8 +4051,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Time jazz.Expression (type) jazz.Object-Class
-  (expression))
+(jazz.Time-implement)
 
 
 (define (jazz.new-time expression)
@@ -5155,8 +4993,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Dialect jazz.Dialect () jazz.Object-Class
-  ())
+(jazz.Core-Dialect-implement)
 
 
 (define (jazz.new-core-dialect)
@@ -5175,8 +5012,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Core-Walker jazz.Walker (warnings errors) jazz.Object-Class
-  ())
+(jazz.Core-Walker-implement)
 
 
 (define (jazz.new-core-walker)

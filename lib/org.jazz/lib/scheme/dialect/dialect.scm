@@ -43,9 +43,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   value))
+(jazz.Define-Declaration-implement)
 
 
 (define (jazz.new-define-declaration name type parent signature)
@@ -99,9 +97,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Define-Macro-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class
-  (signature
-   body))
+(jazz.Define-Macro-Declaration-implement)
 
 
 (define (jazz.new-define-macro-declaration name type parent signature)
@@ -143,8 +139,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Dialect jazz.Dialect () jazz.Object-Class
-  ())
+(jazz.Scheme-Dialect-implement)
 
 
 (define (jazz.new-scheme-dialect)
@@ -163,8 +158,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Scheme-Walker jazz.Walker (warnings errors) jazz.Object-Class
-  ())
+(jazz.Scheme-Walker-implement)
 
 
 (define (jazz.new-scheme-walker)

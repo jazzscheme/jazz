@@ -158,11 +158,10 @@
          (not safe))
 
 
-(jazz.define-class-syntax X jazz.Object () jazz.Object-Class allocate-x
+(jazz.define-class X jazz.Object () jazz.Object-Class allocate-x
   ())
 
-(jazz.define-class X jazz.Object () jazz.Object-Class
-  ())
+(X-implement)
 
 (jazz.encapsulate-class X)
 
@@ -192,8 +191,7 @@
 ;;;
 
 
-(jazz.define-class Z jazz.Object () jazz.Object-Class
-  ())
+(Z-implement)
 
 
 (jazz.define-virtual (f-vtable (Z z) n))
@@ -219,8 +217,7 @@
 (jazz.encapsulate-class Z)
 
 
-(jazz.define-class W Z () jazz.Object-Class
-  ())
+(W-implement)
 
 
 (jazz.define-method (f-vtable (W w) n)

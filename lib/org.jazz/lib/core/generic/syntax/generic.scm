@@ -44,18 +44,14 @@
 (module core.generic.syntax.generic
 
 
-(jazz.define-class-syntax jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
+(jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class jazz.allocate-generic
   ((locator              %%get-generic-locator              ())
    (name                 %%get-generic-name                 ())
    (root-specific        %%get-generic-root-specific        %%set-generic-root-specific)
    (pending-specifics    %%get-generic-pending-specifics    %%set-generic-pending-specifics)))
 
 
-(jazz.define-class jazz.Generic jazz.Object () jazz.Object-Class
-  (locator
-   name
-   root-specific
-   pending-specifics))
+(jazz.Generic-implement)
 
 
 (jazz.define-macro (jazz.define-generic . rest)

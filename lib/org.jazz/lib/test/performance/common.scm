@@ -194,8 +194,8 @@
 (jazz.define-class-runtime Z)
 
 
-(jazz.define-virtual (f-vtable (Z z) n))
-(jazz.define-virtual (g-vtable (Z z) n))
+(jazz.define-virtual-runtime (f-vtable (Z z) n))
+(jazz.define-virtual-runtime (g-vtable (Z z) n))
 
 
 (define (new-z)
@@ -224,7 +224,7 @@
   #f)
 
 
-(jazz.define-virtual (h (W w)))
+(jazz.define-virtual-runtime (h (W w)))
 
 
 (jazz.define-method (h (W w))

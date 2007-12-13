@@ -56,13 +56,13 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.of-type? (jazz.Type type) object) #t)
-(jazz.define-virtual-syntax (jazz.of-subtype? (jazz.Type type) subtype) #t)
-(jazz.define-virtual-syntax (jazz.category-type? (jazz.Type type)) #t)
-(jazz.define-virtual-syntax (jazz.emit-specifier (jazz.Type type)) #t)
-(jazz.define-virtual-syntax (jazz.emit-type (jazz.Type type) source-declaration environment) #t)
-(jazz.define-virtual-syntax (jazz.emit-test (jazz.Type type) value source-declaration environment) #t)
-(jazz.define-virtual-syntax (jazz.emit-check (jazz.Type type) value source-declaration environment) #t)
+(jazz.define-virtual (jazz.of-type? (jazz.Type type) object) #t)
+(jazz.define-virtual (jazz.of-subtype? (jazz.Type type) subtype) #t)
+(jazz.define-virtual (jazz.category-type? (jazz.Type type)) #t)
+(jazz.define-virtual (jazz.emit-specifier (jazz.Type type)) #t)
+(jazz.define-virtual (jazz.emit-type (jazz.Type type) source-declaration environment) #t)
+(jazz.define-virtual (jazz.emit-test (jazz.Type type) value source-declaration environment) #t)
+(jazz.define-virtual (jazz.emit-check (jazz.Type type) value source-declaration environment) #t)
 
 
 (jazz.define-macro (%%subtype? target type)

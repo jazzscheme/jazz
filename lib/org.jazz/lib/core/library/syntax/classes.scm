@@ -47,19 +47,19 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
-(jazz.define-virtual-syntax (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
-(jazz.define-virtual-syntax (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
-(jazz.define-virtual-syntax (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
-(jazz.define-virtual-syntax (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual-syntax (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
-(jazz.define-virtual-syntax (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration))
-(jazz.define-virtual-syntax (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual-syntax (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
-(jazz.define-virtual-syntax (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual-syntax (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
-(jazz.define-virtual-syntax (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual-syntax (jazz.walk-binding-expand-form (jazz.Walk-Binding binding) walker resume declaration environment form))
+(jazz.define-virtual (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol))
+(jazz.define-virtual (jazz.walk-binding-referenced (jazz.Walk-Binding binding)))
+(jazz.define-virtual (jazz.emit-binding-reference (jazz.Walk-Binding binding) source-declaration environment))
+(jazz.define-virtual (jazz.walk-binding-validate-call (jazz.Walk-Binding binding) walker resume source-declaration operator arguments))
+(jazz.define-virtual (jazz.emit-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
+(jazz.define-virtual (jazz.emit-inlined-binding-call (jazz.Walk-Binding binding) arguments source-declaration environment))
+(jazz.define-virtual (jazz.walk-binding-validate-assignment (jazz.Walk-Binding binding) walker resume source-declaration))
+(jazz.define-virtual (jazz.walk-binding-assignable? (jazz.Walk-Binding binding)))
+(jazz.define-virtual (jazz.emit-binding-assignment (jazz.Walk-Binding binding) value source-declaration environment))
+(jazz.define-virtual (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
+(jazz.define-virtual (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
+(jazz.define-virtual (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
+(jazz.define-virtual (jazz.walk-binding-expand-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 
 
 ;;;
@@ -86,13 +86,13 @@
    (locator       %%get-declaration-locator       %%set-declaration-locator)))
 
 
-(jazz.define-virtual-syntax (jazz.resolve-declaration (jazz.Declaration declaration)))
-(jazz.define-virtual-syntax (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
-(jazz.define-virtual-syntax (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
-(jazz.define-virtual-syntax (jazz.get-declaration-references (jazz.Declaration declaration)))
-(jazz.define-virtual-syntax (jazz.emit-declaration (jazz.Declaration declaration) environment))
-(jazz.define-virtual-syntax (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
-(jazz.define-virtual-syntax (jazz.fold-declaration (jazz.Declaration declaration) f k s))
+(jazz.define-virtual (jazz.resolve-declaration (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.lookup-declaration (jazz.Declaration declaration) symbol external?))
+(jazz.define-virtual (jazz.update-declaration (jazz.Declaration declaration) new-declaration))
+(jazz.define-virtual (jazz.get-declaration-references (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.emit-declaration (jazz.Declaration declaration) environment))
+(jazz.define-virtual (jazz.expand-referenced-declaration (jazz.Declaration declaration)))
+(jazz.define-virtual (jazz.fold-declaration (jazz.Declaration declaration) f k s))
 
 
 ;;;
@@ -105,7 +105,7 @@
    (declaration %%get-declaration-reference-declaration %%set-declaration-reference-declaration)))
 
 
-(jazz.define-virtual-syntax (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration))
+(jazz.define-virtual (jazz.resolve-reference (jazz.Declaration-Reference declaration-reference) library-declaration))
 
 
 ;;;
@@ -418,15 +418,15 @@
    (errors   %%get-walker-errors   %%set-walker-errors)))
 
 
-(jazz.define-virtual-syntax (jazz.walker-environment (jazz.Walker walker)))
-(jazz.define-virtual-syntax (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form))
-(jazz.define-virtual-syntax (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration))
-(jazz.define-virtual-syntax (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol))
-(jazz.define-virtual-syntax (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value))
-(jazz.define-virtual-syntax (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol))
-(jazz.define-virtual-syntax (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol))
-(jazz.define-virtual-syntax (jazz.walk-form (jazz.Walker walker) resume declaration environment form))
-(jazz.define-virtual-syntax (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
+(jazz.define-virtual (jazz.walker-environment (jazz.Walker walker)))
+(jazz.define-virtual (jazz.walk-declaration (jazz.Walker walker) resume declaration environment form))
+(jazz.define-virtual (jazz.validate-access (jazz.Walker walker) resume declaration referenced-declaration))
+(jazz.define-virtual (jazz.walk-free-reference (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual (jazz.walk-symbol-assignment (jazz.Walker walker) resume declaration environment symbol value))
+(jazz.define-virtual (jazz.walk-free-assignment (jazz.Walker walker) resume declaration symbol))
+(jazz.define-virtual (jazz.walk-symbol (jazz.Walker walker) resume declaration environment symbol))
+(jazz.define-virtual (jazz.walk-form (jazz.Walker walker) resume declaration environment form))
+(jazz.define-virtual (jazz.validate-arguments (jazz.Walker walker) resume source-declaration declaration signature arguments))
 
 
 ;;;
@@ -526,7 +526,7 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
+(jazz.define-virtual (jazz.emit-parameter (jazz.Parameter parameter) declaration environment))
 
 
 ;;;
@@ -672,9 +672,9 @@
   ((type %%get-expression-type ())))
 
 
-(jazz.define-virtual-syntax (jazz.emit-expression (jazz.Expression expression) declaration environment))
-(jazz.define-virtual-syntax (jazz.emit-call (jazz.Expression expression) arguments declaration environment))
-(jazz.define-virtual-syntax (jazz.fold-expression (jazz.Expression expression) f k s))
+(jazz.define-virtual (jazz.emit-expression (jazz.Expression expression) declaration environment))
+(jazz.define-virtual (jazz.emit-call (jazz.Expression expression) arguments declaration environment))
+(jazz.define-virtual (jazz.fold-expression (jazz.Expression expression) f k s))
 
 
 ;;;

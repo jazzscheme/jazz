@@ -405,42 +405,42 @@
 (jazz.define-class-runtime jazz.Type)
 
 
-(jazz.define-virtual (jazz.of-type? (jazz.Type type) object))
+(jazz.define-virtual-runtime (jazz.of-type? (jazz.Type type) object))
 
 
 (jazz.define-method (jazz.of-type? (jazz.Type type) object)
   (jazz.of-subtype? type (%%class-of object)))
 
 
-(jazz.define-virtual (jazz.of-subtype? (jazz.Type type) subtype))
+(jazz.define-virtual-runtime (jazz.of-subtype? (jazz.Type type) subtype))
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Type type) subtype)
   (jazz.error "Unable to test type on: {s}" type))
 
 
-(jazz.define-virtual (jazz.category-type? (jazz.Type type)))
+(jazz.define-virtual-runtime (jazz.category-type? (jazz.Type type)))
 
 
 (jazz.define-method (jazz.category-type? (jazz.Type type))
   #f)
 
 
-(jazz.define-virtual (jazz.emit-specifier (jazz.Type type)))
+(jazz.define-virtual-runtime (jazz.emit-specifier (jazz.Type type)))
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Type type))
   (jazz.error "Unable to emit specifier for: {s}" type))
 
 
-(jazz.define-virtual (jazz.emit-type (jazz.Type type) source-declaration environment))
+(jazz.define-virtual-runtime (jazz.emit-type (jazz.Type type) source-declaration environment))
 
 
 (jazz.define-method (jazz.emit-type (jazz.Type type) source-declaration environment)
   (jazz.error "Unable to emit type for: {s}" type))
 
 
-(jazz.define-virtual (jazz.emit-test (jazz.Type type) value source-declaration environment))
+(jazz.define-virtual-runtime (jazz.emit-test (jazz.Type type) value source-declaration environment))
 
 
 (jazz.define-method (jazz.emit-test (jazz.Type type) value source-declaration environment)
@@ -448,7 +448,7 @@
     `(%%is? ,value ,locator)))
 
 
-(jazz.define-virtual (jazz.emit-check (jazz.Type type) value source-declaration environment))
+(jazz.define-virtual-runtime (jazz.emit-check (jazz.Type type) value source-declaration environment))
 
 
 (jazz.define-method (jazz.emit-check (jazz.Type type) value source-declaration environment)

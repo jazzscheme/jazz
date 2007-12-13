@@ -41,7 +41,7 @@
 (jazz.define-class-runtime jazz.Exception)
 
 
-(jazz.define-virtual (jazz.present-exception (jazz.Exception exception)))
+(jazz.define-virtual-runtime (jazz.present-exception (jazz.Exception exception)))
 
 
 (jazz.encapsulate-class jazz.Exception))

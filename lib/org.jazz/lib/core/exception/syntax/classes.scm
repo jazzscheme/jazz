@@ -42,7 +42,7 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.present-exception (jazz.Exception exception)))
+(jazz.define-virtual (jazz.present-exception (jazz.Exception exception)))
 
 
 (jazz.define-class jazz.Error jazz.Exception () jazz.Object-Class jazz.allocate-error

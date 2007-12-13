@@ -38,12 +38,12 @@
 (module core.class.syntax.define-method
 
 
-(jazz.define-macro (jazz.define-virtual-syntax signature . rest)
+(jazz.define-macro (jazz.define-virtual signature . rest)
   (let ((bootstrap-type? (if (%%null? rest) #f (%%car rest))))
     (jazz.expand-define-virtual-syntax signature bootstrap-type?)))
 
 
-(jazz.define-macro (jazz.define-virtual signature)
+(jazz.define-macro (jazz.define-virtual-runtime signature)
   (jazz.expand-define-virtual signature))
 
 

@@ -42,4 +42,4 @@
   ())
 
 
-(jazz.define-virtual-syntax (jazz.dialect-walker (jazz.Dialect dialect))))
+(jazz.define-virtual (jazz.dialect-walker (jazz.Dialect dialect))))

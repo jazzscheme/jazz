@@ -3,67 +3,12 @@
 ;;;  Jazz System
 ;;;===============
 ;;;
-;;;; gambcini
+;;;; Gambit Ini
 ;;;
 
 
-;;;
-;;;; Features
-;;;
-
-
-(cond-expand
-  (gambit
-    (define-macro (jazz.define-feature feature)
-      `(define-cond-expand-feature ,feature)))
-  (else))
-
-
-;;;
-;;;; System
-;;;
-
-
-;; defined by the underlying Scheme system
-
-
-;;;
-;;;; Platform
-;;;
-
-
-(jazz.define-feature x11)
-
-
-;;;
-;;;; Processor
-;;;
-
-
-(jazz.define-feature intel)
-
-
-;;;
-;;;; Safety
-;;;
-
-
-(jazz.define-feature debug)
-
-
-;;;
-;;;; Font
-;;;
-
-
-(jazz.define-feature freetype)
-
-
-;;;
-;;;; 
-;;;
-;;;; Boot
-;;;
+(define jazz.architecture
+  '(gambit x11 intel debug freetype))
 
 
 (load "../../kernel/boot")

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Module Syntax
+;;;; Kernel Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,6 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(cond-expand
+  (gambit
+    (declare (block)
+             (standard-bindings)
+             (extended-bindings)))
+  (else))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(jazz.define-macro (block-tail-call form)
+  (if jazz.debug-user?
+      `(begin
+         ,form
+         #f)
+    form))
+
+
 ;;;
 ;;;; Repository
 ;;;
@@ -45,23 +66,23 @@
 ;; as it defines search precedence.
 
 
-(define-macro (%%make-repository name directory binary?)
+(jazz.define-macro (%%make-repository name directory binary?)
   `(%%vector 'repository ,name ,directory ,binary? #f))
 
 
-(define-macro (%%repository-name repository)
+(jazz.define-macro (%%repository-name repository)
   `(%%vector-ref ,repository 1))
 
-(define-macro (%%repository-directory repository)
+(jazz.define-macro (%%repository-directory repository)
   `(%%vector-ref ,repository 2))
 
-(define-macro (%%repository-binary? repository)
+(jazz.define-macro (%%repository-binary? repository)
   `(%%vector-ref ,repository 3))
 
-(define-macro (%%repository-packages-table repository)
+(jazz.define-macro (%%repository-packages-table repository)
   `(%%vector-ref ,repository 4))
 
-(define-macro (%%repository-packages-table-set! repository packages-table)
+(jazz.define-macro (%%repository-packages-table-set! repository packages-table)
   `(%%vector-set! ,repository 4 ,packages-table))
 
 
@@ -74,20 +95,20 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(define-macro (%%make-package repository name root path)
+(jazz.define-macro (%%make-package repository name root path)
   `(%%vector 'package ,repository ,name ,root ,path))
 
 
-(define-macro (%%package-repository package)
+(jazz.define-macro (%%package-repository package)
   `(%%vector-ref ,package 1))
 
-(define-macro (%%package-name package)
+(jazz.define-macro (%%package-name package)
   `(%%vector-ref ,package 2))
 
-(define-macro (%%package-root package)
+(jazz.define-macro (%%package-root package)
   `(%%vector-ref ,package 3))
 
-(define-macro (%%package-path package)
+(jazz.define-macro (%%package-path package)
   `(%%vector-ref ,package 4))
 
 
@@ -101,17 +122,17 @@
 ;; _build subdir of the architecture directory to enable a cross-compilation scheme.
 
 
-(define-macro (%%make-resource package path extension)
+(jazz.define-macro (%%make-resource package path extension)
   `(%%vector 'resource ,package ,path ,extension))
 
 
-(define-macro (%%resource-package resource)
+(jazz.define-macro (%%resource-package resource)
   `(%%vector-ref ,resource 1))
 
-(define-macro (%%resource-path resource)
+(jazz.define-macro (%%resource-path resource)
   `(%%vector-ref ,resource 2))
 
-(define-macro (%%resource-extension resource)
+(jazz.define-macro (%%resource-extension resource)
   `(%%vector-ref ,resource 3))
 
 
@@ -120,23 +141,23 @@
 ;;;
 
 
-(define-macro (%%make-digest hash time identical?)
+(jazz.define-macro (%%make-digest hash time identical?)
   `(%%vector 'digest ,hash ,time ,identical?))
 
 
-(define-macro (%%digest-hash digest)
+(jazz.define-macro (%%digest-hash digest)
   `(%%vector-ref ,digest 1))
 
-(define-macro (%%digest-cached-time digest)
+(jazz.define-macro (%%digest-cached-time digest)
   `(%%vector-ref ,digest 2))
 
-(define-macro (%%digest-cached-time-set! digest time)
+(jazz.define-macro (%%digest-cached-time-set! digest time)
   `(%%vector-set! ,digest 2 ,time))
 
-(define-macro (%%digest-cached-identical? digest)
+(jazz.define-macro (%%digest-cached-identical? digest)
   `(%%vector-ref ,digest 3))
 
-(define-macro (%%digest-cached-identical?-set! digest identical?)
+(jazz.define-macro (%%digest-cached-identical?-set! digest identical?)
   `(%%vector-set! ,digest 3 ,identical?))
 
 
@@ -145,12 +166,27 @@
 ;;;
 
 
-(define-macro (%%make-manifest name digest)
+(jazz.define-macro (%%make-manifest name digest)
   `(%%vector 'manifest ,name ,digest))
 
 
-(define-macro (%%manifest-name manifest)
+(jazz.define-macro (%%manifest-name manifest)
   `(%%vector-ref ,manifest 1))
 
-(define-macro (%%manifest-digest manifest)
+(jazz.define-macro (%%manifest-digest manifest)
   `(%%vector-ref ,manifest 2))
+
+
+;;;
+;;;; Module
+;;;
+
+
+(jazz.define-syntax module
+  (lambda (src)
+    (let ((form (%%source-code src)))
+      (let ((name (%%source-code (%%cadr form)))
+            (rest (%%cddr form)))
+        (if (%%neq? name (jazz.requested-module-name))
+            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
+          (jazz.expand-module name rest))))))

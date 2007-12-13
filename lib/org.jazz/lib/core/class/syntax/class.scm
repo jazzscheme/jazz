@@ -248,7 +248,7 @@
 
 (cond-expand
   (gambit
-    (define-macro (%%c-class-of obj)
+    (jazz.define-macro (%%c-class-of obj)
       `(##c-code #<<end-of-c-code
 {
     ___SCMOBJ obj = ___ARG1;
@@ -288,7 +288,7 @@ end-of-c-code
     jazz.Port           ;; ___ARG9
     ))
     
-    (define-macro (%%class-of obj)
+    (jazz.define-macro (%%class-of obj)
       (jazz.with-expression-value obj
         (lambda (symbol)
           (case (jazz.walk-for)
@@ -299,7 +299,7 @@ end-of-c-code
                   (%%get-object-class ,symbol)
                 (jazz.i-class-of ,symbol)))))))
     
-    (define-macro (%%i-class-of-impl var)
+    (jazz.define-macro (%%i-class-of-impl var)
       (case (jazz.walk-for)
         ((compile)
          `(%%c-class-of ,var))
@@ -308,14 +308,14 @@ end-of-c-code
               (%%get-object-class ,var)
             (jazz.class-of-native ,var)))))
     
-    (define-macro (%%class-of-impl var)
+    (jazz.define-macro (%%class-of-impl var)
       (if jazz.debug-user?
           `(or (%%class-of ,var)
                (jazz.error "Unable to get class of {s}" ,var))
         `(%%class-of ,var))))
   
   (else
-    (define-macro (%%class-of obj)
+    (jazz.define-macro (%%class-of obj)
       (jazz.with-expression-value obj
         (lambda (symbol)
           `(if (%%object? ,symbol)

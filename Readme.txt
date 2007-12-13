@@ -109,7 +109,7 @@ Gambit v4.1.0
 
 ;; gsc will now have all core + language + jedi critical modules compiled
 gsc
-> (j)
+> (jedi)
 ...
 
 Note that restarting gsc is entirely optional as most JazzScheme modules can run interpreted.
@@ -123,7 +123,7 @@ Launch
 To launch Jedi, the Jazz IDE, you will first need to build it using (bjedi). If it's the first time you build Jedi, it
 is recommended for better performance that you quit Gambit and relaunch so the newly compiled files get loaded.
 
-The (j) command will then launch the Jedi IDE.
+The (jedi) command will then launch the Jedi IDE.
 
 Debug
 -----
@@ -134,8 +134,8 @@ the IDE even when modifying a critical piece of code (like inserting a bug in th
 debugger is completely self contained.
 
 If you get an error you will find the IDE totally unresponsive as Gambit's debugger has now taken over. Just switch to the
-Gambit console. You can now use all of Gambit's debugging command to debug your Jazz code and when you want to restart the
-IDE's message loop, just clear the error level using Gambit's ,d command and then execute the restart command (r).
+Gambit console. You can now use all of Gambit's debugging command to debug your Jazz code and when you want to resume the
+IDE's message loop, just clear the error level using Gambit's ,d command and then execute the (resume) command.
 
 
 Documentation

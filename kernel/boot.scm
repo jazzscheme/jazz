@@ -35,25 +35,49 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(define jazz.Kernel-Syntax
+  (list
+    "kernel/syntax/macros"
+    "kernel/syntax/features"
+    "kernel/syntax/primitives"
+    "kernel/syntax/syntax"
+    "kernel/syntax/runtime"))
+
+
+(define jazz.Kernel-Runtime
+  (list
+    "kernel/runtime/config"
+    "kernel/runtime/digest"
+    "kernel/runtime/kernel"
+    "kernel/runtime/main"))
+
+
 (cond-expand
   (gambit
-    (define (jazz.load pathname . rest)
-      (let ((quiet? (if (null? rest) #f (car rest))))
-        (##load pathname (lambda rest #f) #f #t quiet?))))
+    (define (jazz.kernel-load path)
+      (##load (string-append "../../" path) (lambda rest #f) #f #t #f)))
   
   (else
-    (define (jazz.load pathname . rest)
-      (load pathname))))
+    (define (jazz.kernel-load path . rest)
+      (load (string-append "../../" path)))))
 
 
-(define jazz.Kernel
-  '("../../kernel/config"
-    "../../kernel/kernel"
-    "../../kernel/dev"))
+(define (jazz.load-kernel-syntax)
+  (for-each jazz.kernel-load jazz.Kernel-Syntax))
 
 
-(for-each jazz.load jazz.Kernel)
+(define (jazz.load-kernel-runtime)
+  (for-each jazz.kernel-load jazz.Kernel-Runtime))
 
 
-(if (file-exists? "~/jazz/jazzini.scm")
-    (load "~/jazz/jazzini"))
+(define jazz.load-kernel
+  (let ((loaded? #f))
+    (lambda ()
+      (if (not loaded?)
+          (begin
+            (jazz.load-kernel-syntax)
+            (jazz.load-kernel-runtime)
+            (set! loaded? #t))))))
+
+
+(jazz.load-kernel)

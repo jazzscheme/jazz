@@ -8,7 +8,7 @@
 
 
 (define jazz.architecture
-  '(gambit mac intel debug freetype))
+  '(gambit windows intel release logfont))
 
 
 (load "../../kernel/boot")

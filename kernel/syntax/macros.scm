@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Module Syntax
+;;;; Kernel Macros
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,6 +35,9 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+(include "~~/lib/_gambit#.scm")
+
+
 (cond-expand
   (gambit
     (declare (block)
@@ -43,11 +46,74 @@
   (else))
 
 
-(jazz.define-syntax module
-  (lambda (src)
-    (let ((form (%%source-code src)))
-      (let ((name (%%source-code (%%cadr form)))
-            (rest (%%cddr form)))
-        (if (%%neq? name (jazz.requested-module-name))
-            (jazz.error "Module at {s} is defining {s}" (jazz.requested-module-name) name)
-          (jazz.expand-module name rest))))))
+;;;
+;;;; Syntax
+;;;
+
+
+(define jazz.Macros
+  (make-table test: eq?))
+
+
+(define (jazz.register-macro name macro)
+  (table-set! jazz.Macros name macro))
+
+
+(define (jazz.get-macro name)
+  (table-ref jazz.Macros name #f))
+
+
+(define (jazz.need-macro name)
+  (or (jazz.get-macro name)
+      (jazz.error "Unable to find macro: {s}" name)))
+
+
+(define (jazz.expand-macro form)
+  (apply (jazz.need-macro (car form)) (cdr form)))
+
+
+(define-runtime-macro (jazz.define-macro pattern . rest)
+
+  (define (form-size parms)
+    (let loop ((lst parms) (n 1))
+      (cond ((pair? lst)
+             (let ((parm (car lst)))
+               (if (memq parm '(#!optional #!key #!rest))
+                 (- n)
+                 (loop (cdr lst)
+                       (+ n 1)))))
+            ((null? lst)
+             n)
+            (else
+             (- n)))))
+
+  (let ((src `(lambda ,(cdr pattern) ,@rest)))
+    `(begin
+       (##define-macro ,pattern
+         ,@rest)
+       (##top-cte-add-macro!
+        ##interaction-cte
+        ',(car pattern)
+        (##make-macro-descr
+          #f
+          ',(form-size (cdr pattern))
+          ,src
+          #f))
+       (jazz.register-macro ',(car pattern)
+         ,src))))
+
+
+(define-runtime-macro (jazz.define-syntax name expander)
+  `(begin
+     (##define-syntax ,name
+       ,expander)
+     (##top-cte-add-macro!
+      ##interaction-cte
+      ',name
+      (##make-macro-descr
+        #t
+        -1
+        ,expander
+        #f))
+     (jazz.register-macro ',name
+       ,expander)))

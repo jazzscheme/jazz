@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Macros
+;;;; Kernel Architecture
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,89 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.base.syntax.macro
+(include "~~/lib/_gambit#.scm")
 
 
-(define jazz.Macros
-  (%%make-table test: eq?))
+(cond-expand
+  (gambit
+    (declare (block)
+             (standard-bindings)
+             (extended-bindings)))
+  (else))
 
 
-(define (jazz.register-macro name macro)
-  (%%table-set! jazz.Macros name macro))
+;;;
+;;;; Features
+;;;
 
 
-(define (jazz.get-macro name)
-  (%%table-ref jazz.Macros name #f))
+(define-macro (jazz.install-features)
+  (for-each (lambda (feature)
+              (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+            jazz.architecture)
+  `(for-each (lambda (feature)
+               (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+             ',jazz.architecture))
 
 
-(define (jazz.need-macro name)
-  (or (jazz.get-macro name)
-      (jazz.error "Unable to find macro: {s}" name)))
+(jazz.install-features)
 
 
-(define (jazz.expand-global-macro form)
-  (apply (jazz.need-macro (%%car form)) (%%cdr form)))
+;;;
+;;;; System
+;;;
 
 
-(define-macro (jazz.define-macro signature . body)
-  `(begin
-     (define-macro ,signature
-       ,@body)
-     (jazz.register-macro ',(%%car signature)
-       (lambda ,(%%cdr signature)
-         ,@body))))
+(cond-expand
+  (gambit
+    (define jazz.system 'gambit)))
 
 
-(define-macro (jazz.define-syntax signature . body)
-  `(begin
-     (##define-syntax ,(%%car signature)
-       (lambda ,(%%cadr signature)
-         ,@body))
-     #;
-     (jazz.register-macro ',(%%car signature)
-       (lambda ,(%%cdr signature)
-         ,@body)))))
+;;;
+;;;; Platform
+;;;
+
+
+(cond-expand
+  (mac
+    (define jazz.platform 'mac))
+  (windows
+    (define jazz.platform 'windows))
+  (x11
+    (define jazz.platform 'x11)))
+
+
+;;;
+;;;; Processor
+;;;
+
+
+(cond-expand
+  (intel
+    (define jazz.processor 'intel)))
+
+
+;;;
+;;;; Safety
+;;;
+
+
+;; core - core debug mode with tests to make the core safe
+;; debug - standard debug mode with tests to make user code safe
+;; release - release mode without tests for stable user code
+
+
+(cond-expand
+  (core
+    (define jazz.safety 'core))
+  (debug
+    (define jazz.safety 'debug))
+  (release
+    (define jazz.safety 'release)))
+
+
+(define jazz.debug-core?
+  (eq? jazz.safety 'core))
+
+(define jazz.debug-user?
+  (not (eq? jazz.safety 'release)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Module Runtime
+;;;; Kernel Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -137,9 +137,8 @@
 
 (define (jazz.error fmt-string . rest)
   (let ((error-string (apply jazz.format fmt-string rest)))
-    (begin
-      (error error-string)
-      (block-tail-call))))
+    (block-tail-call
+      (error error-string))))
 
 
 ;;;
@@ -540,6 +539,18 @@
 ;;;
 
 
+(cond-expand
+  (gambit
+    (define (jazz.load pathname . rest)
+      (let ((quiet? (if (null? rest) #f (car rest))))
+        (##load pathname (lambda rest #f) #f #t quiet?))
+      (void)))
+  
+  (else
+    (define (jazz.load pathname . rest)
+      (load pathname))))
+
+
 (define jazz.load-indent
   (make-parameter 0))
 
@@ -680,8 +691,8 @@
                (jazz.set-environment-module module-name jazz.Loading-State))
              (lambda ()
                (parameterize ((jazz.requested-module-name module-name))
-                 (jazz.load-source (jazz.find-module-src module-name))
-                 (block-tail-call)))
+                 (block-tail-call
+                   (jazz.load-source (jazz.find-module-src module-name)))))
              (lambda ()
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State)))))
@@ -739,3 +750,15 @@
   (for-each (lambda (extension)
               (jazz.register-reader-extension dialect-name readtable-getter extension))
             extensions))
+
+
+;;;
+;;;; Init
+;;;
+
+
+(jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
+
+
+(if (file-exists? "~/jazz/jazzini.scm")
+    (jazz.load "~/jazz/jazzini"))

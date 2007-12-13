@@ -38,7 +38,7 @@
 (module core.class.syntax.define-class-expander
 
 
-(define (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots proc)
+(define (jazz.parse-define-class-syntax ascendant-name inherited-slot-names class-name slots proc)
   (let* ((class-accessor (if (%%null? class-name) #f class-name))
          (ascendant-accessor (if (%%null? ascendant-name) #f ascendant-name))
          (ascendant-size (%%length inherited-slot-names))
@@ -64,7 +64,7 @@
 
 
 (define (jazz.expand-define-class-syntax name ascendant-name inherited-slot-names class-name constructor slots)
-  (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots
+  (jazz.parse-define-class-syntax ascendant-name inherited-slot-names class-name slots
     (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size vector-size)
       `(begin
          ,@(if (%%null? constructor)

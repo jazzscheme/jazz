@@ -3,9 +3,12 @@
 ;;;  Jazz System
 ;;;===============
 ;;;
-;;;; Gambit Ini
+;;;; gambcini
 ;;;
 
 
-(load "features")
+(define jazz.architecture
+  '(gambit windows intel debug logfont))
+
+
 (load "../../kernel/boot")

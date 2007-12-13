@@ -38,13 +38,13 @@
 (module core.base.syntax.unspecified
 
 
-(define-macro (%%unspecified)
+(jazz.define-macro (%%unspecified)
   'jazz.Unspecified)
 
 
-(define-macro (%%unspecified? value)
+(jazz.define-macro (%%unspecified? value)
   `(%%eq? ,value jazz.Unspecified))
 
 
-(define-macro (%%specified? value)
+(jazz.define-macro (%%specified? value)
   `(%%neq? ,value jazz.Unspecified)))

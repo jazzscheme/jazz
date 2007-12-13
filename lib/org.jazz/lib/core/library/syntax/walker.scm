@@ -4121,10 +4121,12 @@
 ;;;
 
 
+#; ;; fix warnings
 (define (ppl library-name)
   (pps (walk library-name)))
 
 
+#; ;; fix warnings
 (define (pps statement)
   (define (present-declaration sta)
     (%%get-lexical-binding-name sta))

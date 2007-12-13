@@ -38,6 +38,12 @@
 (module jazz.dialect.core.profile
 
 
+(jazz.define-variable profile-start!)
+(jazz.define-variable profile-stop!)
+(jazz.define-variable profile-reset!)
+(jazz.define-variable write-profile-report)
+
+
 ;;;
 ;;;; Statprof
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Hello World Process
+;;;; Debugging
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -35,17 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library world jazz
+(module jazz.dialect.core.debug
 
 
-(import (time))
+;; inspect a Jazz object
+(define (inspect obj)
+  (jazz.inspect-object (if (integer? obj) (jazz.serial-number->object obj) obj)))
 
 
-(class World extends Process
-  
-  
-  (method (start-process rest)
-    (let ((launch-time (getf rest launch-time:)))
-      (let ((seconds (- (time->seconds (current-time)) launch-time)))
-        (message-box (format "Hello World! (boot time: {s} seconds)" seconds))
-        (exit-process))))))
+(jazz.define-variable jazz.dialect.language.get-process)
+(jazz.define-variable jazz.system.process.Process.Process.run-loop)
+
+
+;; resume the IDE message loop
+(define (resume)
+  (jazz.system.process.Process.Process.run-loop (jazz.dialect.language.get-process))))

@@ -46,11 +46,6 @@
   (else))
 
 
-;;;
-;;;; Syntax
-;;;
-
-
 (define jazz.Macros
   (make-table test: eq?))
 

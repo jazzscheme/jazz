@@ -57,6 +57,18 @@
 
 
 ;;;
+;;;; Variable
+;;;
+
+
+(jazz.define-macro (jazz.define-variable name . rest)
+  (let ((expr (if (%%null? rest) #f (%%car rest))))
+    `(begin
+       (define ,name #f)
+       (set! ,name ,expr))))
+
+
+;;;
 ;;;; Repository
 ;;;
 

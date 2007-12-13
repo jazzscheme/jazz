@@ -48,16 +48,8 @@
 ;;;
 
 
-(define jazz.display
-  #f)
-
-(set! jazz.display display)
-
-
-(define jazz.write
-  #f)
-
-(set! jazz.write write)
+(jazz.define-variable jazz.display)
+(jazz.define-variable jazz.write)
 
 
 ;;;
@@ -755,9 +747,6 @@
 ;;;
 ;;;; Init
 ;;;
-
-
-(jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
 
 
 (if (file-exists? "~/jazz/jazzini.scm")

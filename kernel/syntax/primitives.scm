@@ -387,6 +387,16 @@
           `(assq ,obj ,alist)
         `(##assq ,obj ,alist)))
     
+    (jazz.define-macro (%%assv obj alist)
+      (if jazz.debug-core?
+          `(assv ,obj ,alist)
+        `(##assv ,obj ,alist)))
+    
+    (jazz.define-macro (%%assoc obj alist)
+      (if jazz.debug-core?
+          `(assoc ,obj ,alist)
+        `(##assoc ,obj ,alist)))
+    
     (jazz.define-macro (%%cons x y)
       (if jazz.debug-core?
           `(cons ,x ,y)

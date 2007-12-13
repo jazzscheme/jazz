@@ -39,6 +39,4 @@
 
 
 (jazz.define-macro (library . rest)
-  (spp jazz.profile-walker?
-    (lambda ()
-      (jazz.expand-library rest)))))
+  (jazz.expand-library rest)))

@@ -1,3 +1,4 @@
 (package org.jedi
   
-  (root "lib"))
+  (root "lib")
+  (app (jedi jedi.application.Jedi)))

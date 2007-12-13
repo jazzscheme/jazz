@@ -162,6 +162,9 @@
   (else))
 
 
+(jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
+
+
 ;;;
 ;;;; General
 ;;;

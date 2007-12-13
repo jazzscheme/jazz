@@ -44,6 +44,17 @@
 
 
 ;;;
+;;;; Forward
+;;;
+
+
+(jazz.define-variable jazz.compile-module)
+(jazz.define-variable jazz.compile-jazz-module)
+(jazz.define-variable jazz.build-module)
+(jazz.define-variable jazz.system.boot-app)
+
+
+;;;
 ;;;; Compile
 ;;;
 
@@ -235,8 +246,18 @@
   (jazz.load-module 'jazz)
   (jazz.load-module 'jazz.literals)
   (jazz.load-module 'jazz.platform)
-  (jazz.load-module 'jazz.platform.literals)
-  (jazz.platform.initialize-aliases))
+  (jazz.load-module 'jazz.platform.literals))
+
+
+;;;
+;;;; App
+;;;
+
+
+(define (boot-app name)
+  (jazz.load-module 'core.library)
+  (jazz.load-module name)
+  (jazz.system.boot-app name))
 
 
 ;;;
@@ -365,25 +386,7 @@
 
 
 (define (jedi)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.platform.literals)
-  (jazz.load-module 'jazz.system.boot))
-
-
-;;;
-;;;; Debug
-;;;
-
-
-;; inspect a Jazz object
-(define (inspect obj)
-  (jazz.inspect-object (if (integer? obj) (jazz.serial-number->object obj) obj)))
-
-
-;; resume the IDE message loop
-(define (resume)
-  (jazz.system.process.Process.Process.run-loop (jazz.dialect.language.get-process)))
+  (boot-app 'jedi))
 
 
 ;;;
@@ -396,11 +399,65 @@
 
 
 (define (jazz.main)
+  (define (warn-missing-argument-for-option opt)
+    (jazz.repl-main
+      (lambda (output-port)
+        (##write-string
+          "*** WARNING -- Missing argument for option \""
+          output-port)
+        (##write-string opt output-port)
+        (##write-string "\"\n" output-port)
+        #t)))
+  
+  (define (option? arg)
+    (and (##fixnum.< 0 (##string-length arg))
+         (or (##char=? (##string-ref arg 0) #\-)
+             (##char=? (##string-ref arg 0) #\/))))
+             
+  (define (convert-option arg)
+    (##substring arg 1 (##string-length arg)))
+
+  (define (split-command-line
+           arguments
+           options-with-no-args
+           options-with-args
+           cont)
+    (let loop ((args arguments)
+               (rev-options '()))
+      (if (and (##pair? args)
+               (option? (##car args)))
+          (let ((opt (convert-option (##car args)))
+                (rest (##cdr args)))
+            (cond ((##member opt options-with-no-args)
+                   (loop rest
+                         (##cons (##cons opt #f) rev-options)))
+                  ((##member opt options-with-args)
+                   (if (##pair? rest)
+                       (loop (##cdr rest)
+                             (##cons (##cons opt (##car rest)) rev-options))
+                     (begin
+                       (warn-missing-argument-for-option opt)
+                       (loop rest rev-options))))
+                  (else
+                   (cont (##reverse rev-options) args))))
+        (cont (##reverse rev-options) args))))
+  
+  (split-command-line (%%cdr (command-line)) '() '("app")
+    (lambda (options remaining)
+      (let ((app (%%assoc "app" options)))
+        (if (%%not app)
+            (jazz.repl-main #f)
+          (boot-app (%%string->symbol (%%cdr app))))))))
+
+
+(define (jazz.repl-main warnings)
   (current-input-port (repl-input-port))
   (current-output-port (repl-output-port))
   (current-error-port (repl-output-port))
   (##repl-debug
     (lambda (first output-port)
+      (if warnings
+          (warnings output-port))
       (display "Jazz " output-port)
       (display jazz.version output-port)
       (newline output-port)

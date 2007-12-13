@@ -39,6 +39,7 @@
 
 
 (require (jazz.dialect.core.continuation)
+         (jazz.dialect.core.debug)
          ; (jazz.dialect.core.exception)
          (jazz.dialect.core.foreign)
          (jazz.dialect.core.list)

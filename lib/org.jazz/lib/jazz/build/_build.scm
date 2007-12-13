@@ -39,6 +39,11 @@
 (module jazz.build
 
 
+;;;
+;;;; Compile
+;;;
+
+
 ;; Generates an intermediate jscm expansion file. This is usefull for debugging until
 ;; we implement the library macro as a source transformation like for module. This will
 ;; probably be a very complex task
@@ -51,4 +56,32 @@
               (jazz.create-directories (jazz.resource-build-dir jscm))
               (expand-to-file module-name (jazz.resource-pathname jscm))
               (parameterize ((current-readtable jazz.jazz-readtable))
-                (jazz.compile-source jscm module-name digest: (jazz.resource-digest src))))))))))
+                (jazz.compile-source jscm module-name digest: (jazz.resource-digest src)))))))))
+
+
+;;;
+;;;; Expand
+;;;
+
+
+(define (expand library-name)
+  (expand-to-port library-name (current-output-port)))
+
+
+(define (expand-to-file library-name . rest)
+  (let ((filename (if (null? rest) "x.scm" (car rest))))
+    (call-with-output-file filename
+      (lambda (port)
+        (expand-to-port library-name port)))))
+
+
+(define (expand-to-port library-name port)
+  (let ((source (jazz.resource-pathname (jazz.find-module-src library-name))))
+    (let ((form (jazz.read-toplevel-form source #f)))
+      (let ((kind (car form))
+            (rest (cdr form)))
+        (pretty-print (parameterize ((jazz.requested-module-name library-name))
+                        (case kind
+                          ((module) (jazz.expand-module (car rest) (cdr rest)))
+                          ((library) (jazz.expand-library rest))))
+                      port))))))

@@ -40,5 +40,4 @@
 
 (require (core.base.syntax.runtime)
          (core.base.syntax.unspecified)
-         (core.base.syntax.macros)
-         (core.base.syntax.variable)))
+         (core.base.syntax.macros)))

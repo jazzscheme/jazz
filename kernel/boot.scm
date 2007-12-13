@@ -52,14 +52,8 @@
     "kernel/runtime/main"))
 
 
-(cond-expand
-  (gambit
-    (define (jazz.kernel-load path)
-      (##load (string-append "../../" path) (lambda rest #f) #f #t #f)))
-  
-  (else
-    (define (jazz.kernel-load path . rest)
-      (load (string-append "../../" path)))))
+(define (jazz.kernel-load path)
+  (load (string-append "../../" path)))
 
 
 (define (jazz.load-kernel-syntax)

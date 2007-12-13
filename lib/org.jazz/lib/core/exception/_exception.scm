@@ -40,7 +40,7 @@
 
 (require (core.class)
          
-         (core.exception.syntax.classes (load interpreted))
+         (core.exception.syntax.classes)
          
          (core.exception.runtime.exception)
          (core.exception.runtime.error)))

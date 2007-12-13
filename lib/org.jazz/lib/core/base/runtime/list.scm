@@ -73,15 +73,6 @@
       not-found)))
 
 
-(define (jazz.simplify-begin form)
-  (if (and (%%pair? form)
-           (%%eq? (%%car form) 'begin)
-           (%%pair? (%%cdr form))
-           (%%null? (%%cddr form)))
-      (%%cadr form)
-    form))
-
-
 (define jazz.reverse!
   reverse)
 

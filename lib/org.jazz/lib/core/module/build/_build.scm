@@ -106,9 +106,8 @@
 
 (define (jazz.build-module module-name)
   (jazz.for-each-submodule module-name
-    (lambda (module-name declaration load phase)
-      (%%when (%%not (%%eq? load 'interpreted))
-        (jazz.compile-module module-name)))))
+    (lambda (module-name declaration phase)
+      (jazz.compile-module module-name))))
 
 
 ;;;
@@ -119,10 +118,9 @@
 (define (jazz.for-each-submodule module-name proc)
   (let iter ((module-name module-name)
              (feature-requirement #f)
-             (load #f)
              (phase #f))
     (let ((declaration (jazz.locate-toplevel-declaration module-name)))
-      (proc module-name declaration load phase)
+      (proc module-name declaration phase)
       (if (jazz.is? declaration jazz.Module-Declaration)
           (for-each (lambda (require)
                       (jazz.parse-require require iter))

@@ -55,7 +55,7 @@
          ,@(jazz.declares 'module)
          ,@(map (lambda (require)
                   (jazz.parse-require require
-                    (lambda (module-name feature-requirement load phase)
+                    (lambda (module-name feature-requirement phase)
                       `(jazz.load-module ',module-name))))
                 requires)
          ,@body
@@ -74,7 +74,6 @@
   (let ((name (%%car require))
         (scan (%%cdr require))
         (feature-requirement #f)
-        (load #f)
         (phase 'runtime))
     (if (and (%%pair? scan)
              (%%pair? (%%car scan))
@@ -84,19 +83,12 @@
           (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
              (%%pair? (%%car scan))
-             (%%eq? (%%caar scan) 'load))
-        (begin
-          (set! load (%%car (%%cdar scan)))
-          (set! scan (%%cdr scan))))
-    (if (and (%%pair? scan)
-             (%%pair? (%%car scan))
              (%%eq? (%%caar scan) 'phase))
         (begin
           (set! phase (%%car (%%cdar scan)))
           (set! scan (%%cdr scan))))
     (proc name
           feature-requirement
-          load
           phase)))
 
 

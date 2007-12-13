@@ -38,9 +38,9 @@
 (module core.class.syntax
 
 
-(require (core.class.syntax.object (load interpreted))
-         (core.class.syntax.class (load interpreted))
-         (core.class.syntax.define-class (load interpreted))
+(require (core.class.syntax.object)
+         (core.class.syntax.class)
+         (core.class.syntax.define-class)
          (core.class.syntax.define-method-expander)
-         (core.class.syntax.define-method (load interpreted))
-         (core.class.syntax.classes (load interpreted))))
+         (core.class.syntax.define-method)
+         (core.class.syntax.classes)))

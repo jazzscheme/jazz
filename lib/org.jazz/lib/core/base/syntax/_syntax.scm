@@ -39,6 +39,6 @@
 
 
 (require (core.base.syntax.runtime)
-         (core.base.syntax.unspecified (load interpreted))
-         (core.base.syntax.macros (load interpreted))
-         (core.base.syntax.variable (load interpreted))))
+         (core.base.syntax.unspecified)
+         (core.base.syntax.macros)
+         (core.base.syntax.variable)))

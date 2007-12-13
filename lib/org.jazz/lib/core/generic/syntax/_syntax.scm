@@ -38,6 +38,6 @@
 (module core.generic.syntax
 
 
-(require (core.generic.syntax.generic (load interpreted))
-         (core.generic.syntax.specific (load interpreted))
-         (core.generic.syntax.expander)))
+(require (core.generic.syntax.expander)
+         (core.generic.syntax.generic)
+         (core.generic.syntax.specific)))

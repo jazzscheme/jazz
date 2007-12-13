@@ -39,7 +39,7 @@
 
 
 (require (core.library)
-         (scheme.dialect.classes (phase syntax) (load interpreted))
+         (scheme.dialect.classes (phase syntax))
          (scheme.dialect.dialect))
 
 

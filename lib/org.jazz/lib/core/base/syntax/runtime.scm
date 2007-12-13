@@ -52,4 +52,13 @@
       (proc expr)
     (let ((value (jazz.generate-symbol "val")))
       `(let ((,value ,expr))
-         ,(proc value))))))
+         ,(proc value)))))
+
+
+(define (jazz.simplify-begin form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'begin)
+           (%%pair? (%%cdr form))
+           (%%null? (%%cddr form)))
+      (%%cadr form)
+    form)))

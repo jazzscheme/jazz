@@ -495,7 +495,7 @@
        ,@(let ((queue (jazz.new-queue)))
            (for-each (lambda (spec)
                        (jazz.parse-require spec
-                         (lambda (module-name feature-requirement load phase)
+                         (lambda (module-name feature-requirement phase)
                            (jazz.enqueue queue `(jazz.load-module ',module-name)))))
                      (%%get-library-declaration-requires declaration))
            (for-each (lambda (library-invoice)
@@ -2440,7 +2440,7 @@
 (define (jazz.load-library-syntax declaration)
   (for-each (lambda (spec)
               (jazz.parse-require spec
-                (lambda (module-name feature-requirement load phase)
+                (lambda (module-name feature-requirement phase)
                   (%%when (%%eq? phase 'syntax)
                     (jazz.load-module module-name)))))
             (%%get-library-declaration-requires declaration))

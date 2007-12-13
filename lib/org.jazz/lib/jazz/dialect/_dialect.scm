@@ -40,7 +40,7 @@
 
 (require (core.library)
          (jazz.dialect.core)
-         (jazz.dialect.classes (phase syntax) (load interpreted))
+         (jazz.dialect.classes (phase syntax))
          (jazz.dialect.dialect))
 
 

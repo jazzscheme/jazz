@@ -38,7 +38,7 @@
 (module core.class.syntax.define-method-expander
 
 
-(define (jazz.expand-define-virtual-syntax signature bootstrap-type?)
+(define (jazz.expand-define-virtual signature bootstrap-type?)
   (let* ((name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))
@@ -61,7 +61,7 @@
                        ,@extra-parameters))))))))
 
 
-(define (jazz.expand-define-virtual signature)
+(define (jazz.expand-define-virtual-runtime signature)
   (let* ((name (%%car signature))
          (parameters (%%cdr signature))
          (class-name (%%caar parameters))

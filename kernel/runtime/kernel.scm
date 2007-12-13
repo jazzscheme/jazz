@@ -48,8 +48,8 @@
 ;;;
 
 
-(jazz.define-variable jazz.display)
-(jazz.define-variable jazz.write)
+(jazz.define-variable jazz.display display)
+(jazz.define-variable jazz.write write)
 
 
 ;;;

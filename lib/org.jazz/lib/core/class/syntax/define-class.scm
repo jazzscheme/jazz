@@ -53,6 +53,11 @@
   (jazz.parse-define-class ascendant-name inherited-slot-names class-name slots
     (lambda (class-accessor ascendant-accessor ascendant-size slot-names all-variables instance-size)
       `(begin
+         ;; this is necessary as the getter/setter type assertions will refer to
+         ;; the class that is only defined later in the runtime implementation file
+         ,@(if jazz.debug-core?
+               `((jazz.define-variable ,name))
+             '())
          ,@(if (%%null? constructor)
                '()
              `((jazz.define-macro (,constructor class ,@all-variables)
@@ -68,20 +73,18 @@
                              '()
                            (if jazz.debug-core?
                                `((define (,slot-getter ,object)
-                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
+                                   (%%core-assertion (jazz.object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
                                      (%%object-ref ,object ,rank))))
                              `((jazz.define-macro (,slot-getter ,object)
-                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
-                                   (%%list '%%object-ref ,object ,rank))))))
+                                 (%%list '%%object-ref ,object ,rank)))))
                        ,@(if (%%null? slot-setter)
                              '()
                            (if jazz.debug-core?
                                `((define (,slot-setter ,object ,value)
-                                   (%%core-assertion (%%object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
+                                   (%%core-assertion (jazz.object-of-class? ,object ,name) (jazz.expected-error ,name ,object)
                                      (%%object-set! ,object ,rank ,value))))
                              `((jazz.define-macro (,slot-setter ,object ,value)
-                                 (%%list '%%core-assertion (%%list '%%object-of-class? ,object ',name) (%%list 'jazz.expected-error ',name ,object)
-                                   (%%list '%%object-set! ,object ,rank ,value)))))))))
+                                 (%%list '%%object-set! ,object ,rank ,value))))))))
                 slots
                 (jazz.naturals (%%fx+ jazz.object-size ascendant-size) instance-size))
          (jazz.define-macro (,(%%string->symbol (%%string-append (%%symbol->string name) "-implement")))

@@ -104,6 +104,8 @@
       (create-dir "_build/kernel/syntax/")
       (create-dir "_build/kernel/runtime/")
       (generate-architecture)
+      (display "; compiling kernel...")
+      (newline)
       (compile-file-to-c "_build/kernel/syntax/architecture" output: "_build/kernel/syntax/")
       (compile-file-to-c "../../kernel/syntax/macros" output: "_build/kernel/syntax/")
       (compile-file-to-c "../../kernel/syntax/features" output: "_build/kernel/syntax/")
@@ -126,6 +128,8 @@
                               "_build/kernel/runtime/main")
                         output: "_build/kernel/runtime/jazz.c"
                         base: "~~/lib/_gambcgsc")
+      (display "; linking kernel...")
+      (newline)
       (jazz.link-kernel)))
   
   (else))
@@ -134,10 +138,45 @@
 (cond-expand
   (windows
     (define (jazz.link-kernel)
-      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -lgambcgsc -lws2_32 -mconsole -o jazz")))
+      (shell-command
+        (%%string-append
+          "gcc "
+          "_build/kernel/syntax/architecture.c "
+          "_build/kernel/syntax/macros.c "
+          "_build/kernel/syntax/features.c "
+          "_build/kernel/syntax/primitives.c "
+          "_build/kernel/syntax/syntax.c "
+          "_build/kernel/syntax/runtime.c "
+          "_build/kernel/runtime/config.c "
+          "_build/kernel/runtime/digest.c "
+          "_build/kernel/runtime/kernel.c "
+          "_build/kernel/runtime/main.c "
+          "_build/kernel/runtime/jazz.c "
+          "-I" (path-expand "~~/include") " "
+          "-L" (path-expand "~~/lib") " "
+          "-lgambc -lgambcgsc -lws2_32 "
+          "-mconsole "
+          "-o jazz"))))
   (else
     (define (jazz.link-kernel)
-      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -lgambcgsc -o jazz"))))
+      (shell-command
+        (%%string-append
+          "gcc "
+          "_build/kernel/syntax/architecture.c "
+          "_build/kernel/syntax/macros.c "
+          "_build/kernel/syntax/features.c "
+          "_build/kernel/syntax/primitives.c "
+          "_build/kernel/syntax/syntax.c "
+          "_build/kernel/syntax/runtime.c "
+          "_build/kernel/runtime/config.c "
+          "_build/kernel/runtime/digest.c "
+          "_build/kernel/runtime/kernel.c "
+          "_build/kernel/runtime/main.c "
+          "_build/kernel/runtime/jazz.c "
+          "-I" (path-expand "~~/include") " "
+          "-L" (path-expand "~~/lib") " "
+          "-lgambc -lgambcgsc "
+          "-o jazz")))))
 
 
 ;;;

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Class Syntax
+;;;; Class Errors
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,13 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.class.syntax
+(module core.class.syntax.error
 
 
-(require (core.class.syntax.error)
-         (core.class.syntax.object)
-         (core.class.syntax.class)
-         (core.class.syntax.define-class)
-         (core.class.syntax.define-method-expander)
-         (core.class.syntax.define-method)
-         (core.class.syntax.classes)))
+(cond-expand
+  (core
+    (jazz.define-variable jazz.object-of-class?))
+  (else))
+
+
+(define (jazz.not-object-error obj)
+  (jazz.error "Jazz object expected: {s}" obj))
+
+
+(define (jazz.outside-object-error obj rnk)
+  (jazz.error "Invalid access to object outside its bounds: {s}" obj))
+
+
+(define (jazz.expected-error class obj)
+  (jazz.error "{a} expected: {s}" class obj)))

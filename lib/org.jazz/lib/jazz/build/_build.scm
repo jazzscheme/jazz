@@ -52,11 +52,12 @@
     (jazz.with-src/bin src
       (lambda (src bin bin-uptodate?)
         (if (or (not bin) (not bin-uptodate?))
-            (let ((jscm (%%make-resource (%%resource-package src) (%%resource-path src) "jscm")))
-              (jazz.create-directories (jazz.resource-build-dir jscm))
-              (expand-to-file module-name (jazz.resource-pathname jscm))
-              (parameterize ((current-readtable jazz.jazz-readtable))
-                (jazz.compile-source jscm module-name digest: (jazz.resource-digest src)))))))))
+            (let ((build-package (jazz.copy-package (%%resource-package src))))
+              (let ((jscm (%%make-resource build-package (%%resource-path src) "jscm")))
+                (jazz.create-directories (jazz.resource-build-dir jscm))
+                (expand-to-file module-name (jazz.resource-pathname jscm))
+                (parameterize ((current-readtable jazz.jazz-readtable))
+                  (jazz.compile-source jscm module-name digest: (jazz.resource-digest src))))))))))
 
 
 ;;;

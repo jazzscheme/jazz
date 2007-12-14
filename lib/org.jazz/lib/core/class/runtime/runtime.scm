@@ -106,23 +106,6 @@
 
 
 ;;;
-;;;; Error
-;;;
-
-
-(define (jazz.not-object-error obj)
-  (jazz.error "Jazz object expected: {s}" obj))
-
-
-(define (jazz.outside-object-error obj rnk)
-  (jazz.error "Invalid access to object outside its bounds: {s}" obj))
-
-
-(define (jazz.expected-error class obj)
-  (jazz.error "{a} expected: {s}" class obj))
-
-
-;;;
 ;;;; Core
 ;;;
 
@@ -176,7 +159,7 @@
   (%%get-class-ascendant class))
 
 
-(define (%%object-of-class? object class)
+(define (jazz.object-of-class? object class)
   (%%subclass? (%%get-object-class object) class))
 
 

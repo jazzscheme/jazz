@@ -65,17 +65,17 @@
                   (path (%%resource-path src))
                   (pathname (jazz.resource-pathname src))
                   (bindir (jazz.resource-build-dir src)))
-              (jazz.compile-verbose path)
-              (jazz.create-directories bindir)
-              (jazz.copy-package package)
-              (jazz.with-extension-reader (%%resource-extension src)
-                (lambda ()
-                  (parameterize ((jazz.walk-for 'compile))
-                    (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
-              (let ((manifest-resource (%%make-resource (jazz.repository-find-package jazz.Build-Repository (%%package-name package)) path jazz.Manifest-Extension))
-                    ;; remove explicit digest passing when gambit bug that forces us to generate a jscm is fixed
-                    (manifest-digest (or digest (jazz.resource-digest src))))
-                (jazz.save-manifest manifest-resource (%%make-manifest manifest-name manifest-digest)))))))))
+              (let ((build-package (jazz.copy-package package)))
+                (jazz.compile-verbose path)
+                (jazz.create-directories bindir)
+                (jazz.with-extension-reader (%%resource-extension src)
+                  (lambda ()
+                    (parameterize ((jazz.walk-for 'compile))
+                      (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
+                (let ((manifest-resource (%%make-resource build-package path jazz.Manifest-Extension))
+                      ;; remove explicit digest passing when gambit bug that forces us to generate a jscm is fixed
+                      (manifest-digest (or digest (jazz.resource-digest src))))
+                  (jazz.save-manifest manifest-resource (%%make-manifest manifest-name manifest-digest))))))))))
 
 
 (define (jazz.compile-verbose path)
@@ -87,16 +87,21 @@
 
 
 (define (jazz.copy-package package)
-  (let ((name (%%package-name package)))
-    (let ((path (%%string-append (%%symbol->string name) "/" (%%symbol->string name) "." jazz.Package-Extension)))
-      (let ((src (jazz.repository-pathname (%%package-repository package) path))
-            (dst (jazz.repository-pathname jazz.Build-Repository path)))
-        (if (or (%%not (jazz.file-exists? dst)) (< (jazz.file-modification-time dst) (jazz.file-modification-time src)))
-            (begin
-              (jazz.file-copy src dst)
-              (%%table-set! (%%repository-packages-table jazz.Build-Repository)
-                            name
-                            (jazz.load-package jazz.Build-Repository name dst))))))))
+  (let* ((name (%%package-name package))
+         (dir (%%string-append (%%symbol->string name) "/"))
+         (path (%%string-append dir (%%symbol->string name) "." jazz.Package-Extension))
+         (src (jazz.repository-pathname (%%package-repository package) path))
+         (dst (jazz.repository-pathname jazz.Build-Repository path)))
+    (if (and (jazz.file-exists? dst) (>= (jazz.file-modification-time dst) (jazz.file-modification-time src)))
+        (jazz.repository-find-package jazz.Build-Repository name)
+      (begin
+        (jazz.create-directories (jazz.repository-pathname jazz.Build-Repository dir))
+        (jazz.file-copy src dst)
+        (let ((package (jazz.load-package jazz.Build-Repository name dst)))
+          (%%table-set! (%%repository-packages-table jazz.Build-Repository)
+                        name
+                        package)
+          package)))))
 
 
 ;;;

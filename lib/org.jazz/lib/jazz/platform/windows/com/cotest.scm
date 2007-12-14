@@ -35,7 +35,7 @@
 (define zz4 #f)
 (define (z4)
   (if zz3
-      (set! zz4 (OpenDatabase (car zz3) "c:\\dev\\db.mdb" 0 #f ""))
+      (set! zz4 (OpenDatabase (car zz3) "c:/dev/db.mdb" 0 #f ""))
     (error "zz3" zz3))
   zz4)
 

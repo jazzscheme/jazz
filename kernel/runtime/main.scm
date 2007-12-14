@@ -124,7 +124,8 @@
                               "_build/kernel/runtime/digest"
                               "_build/kernel/runtime/kernel"
                               "_build/kernel/runtime/main")
-                        output: "_build/kernel/runtime/jazz.c")
+                        output: "_build/kernel/runtime/jazz.c"
+                        base: "~~/lib/_gambcgsc")
       (jazz.link-kernel)))
   
   (else))
@@ -133,10 +134,10 @@
 (cond-expand
   (windows
     (define (jazz.link-kernel)
-      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -lws2_32 -mconsole -o jazz")))
+      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -lgambcgsc -lws2_32 -mconsole -o jazz")))
   (else
     (define (jazz.link-kernel)
-      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -o jazz"))))
+      (shell-command "gcc _build/kernel/syntax/architecture.c _build/kernel/syntax/macros.c _build/kernel/syntax/features.c _build/kernel/syntax/primitives.c _build/kernel/syntax/syntax.c _build/kernel/syntax/runtime.c _build/kernel/runtime/config.c _build/kernel/runtime/digest.c _build/kernel/runtime/kernel.c _build/kernel/runtime/main.c _build/kernel/runtime/jazz.c -lgambc -lgambcgsc -o jazz"))))
 
 
 ;;;
@@ -177,7 +178,7 @@
 (cond-expand
   (windows
     (define (bcairo)
-      (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/include/cairo" ld-options: "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo")))
+      (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo")))
   (x11
     (define (bcairo)
       (cmodule 'jazz.platform.cairo cc-options: "-I/opt/local/include/cairo -I/opt/local/include" ld-options: "-L/opt/local/lib -lcairo"))))
@@ -189,7 +190,7 @@
 
 
 (define (blogfont)
-  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: "-IC:/jazz/dev/jazz/foreign/include/cairo" ld-options: "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo"))
+  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo"))
 
 
 (cond-expand
@@ -213,7 +214,7 @@
   (cmodule 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: "-IC:/jazz/dev/jazz/foreign/include/cairo" ld-options: "-LC:/jazz/dev/jazz/foreign/lib/cairo -lcairo")
+  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo")
   (cjazz 'jazz.system.platform.windows))
   
 

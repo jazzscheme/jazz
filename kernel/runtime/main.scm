@@ -229,13 +229,11 @@
 (cond-expand
   (windows
     (define (bplatform)
-      (bjazz)
       (bcairo)
       (bfont)
       (bwindows)))
   (x11
     (define (bplatform)
-      (bjazz)
       (bcairo)
       (bfont)
       (bx11))))
@@ -294,7 +292,6 @@
     jazz.ui.view.Image-Tool
     jazz.ui.view.Tool-Button
     jazz.ui.window
-    jazz.ui.window.platform.windows
     jazz.ui.window.Window
     jazz.ui.window.View-Player
     jazz.ui.window.Frame
@@ -378,11 +375,21 @@
     jazz.groupware.compare.Tree-Comparer))
 
 
+(cond-expand
+  (windows
+    (define Jedi-Critical-Platform-Modules
+      '(jazz.ui.window.platform.windows)))
+  (x11
+    (define Jedi-Critical-Platform-Modules
+      '(jazz.ui.window.platform.x11))))
+
+
 (define (bjedi)
   (bjazz)
   (bplatform)
   (lplatform)
-  (for-each cjazz Jedi-Critical-Modules))
+  (for-each cjazz Jedi-Critical-Modules)
+  (for-each cjazz Jedi-Critical-Platform-Modules))
 
 
 (define (jedi)

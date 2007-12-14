@@ -35,7 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library mandelbrot jazz
+(library mandelbrot.Mandelbrot jazz
+
+
+(import (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
 
 
 (class Mandelbrot extends View
@@ -89,7 +95,7 @@
   
   
   (method (complex->view r i)
-    (new Point (quotient (+ ch (* r scale))) (quotient (+ cv (* i scale)))))
+    (new Point (round (+ ch (* r scale))) (round (+ cv (* i scale)))))
   
   
   (method (view->complex h v . rest)
@@ -104,7 +110,7 @@
   
   
   (method (iterate dragging?)
-    (let ((surface (new View-DC self)))
+    (with-closed ((surface (get-surface)))
       (set-pen~ surface (new Pen color: {Color name: Dark-Red}))
       (let ((z 0)
             (pixel {})
@@ -113,25 +119,24 @@
               (do (unless outside?
                     (let ((next (+ (* z z) c)))
                       (when (not dragging?)
-                        (line surface (get-r~ z) (get-i~ z) (get-r~ next) (get-i~ next))
+                        (line surface (real-part z) (imag-part z) (real-part next) (imag-part next))
                         (sleep .1))
                       (let ((norm (norm next)))
                         (if (> norm 2)
                             (begin
-                              (set! pixel (new Pixel c (complex->view (get-r~ c) (get-i~ c)) n (iteration-color n)))
+                              (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) n (iteration-color n)))
                               (set! outside? #t))
                           (set! z next)))))))
         (when (not outside?)
-          (set! pixel (new Pixel c (complex->view (get-r~ c) (get-i~ c)) {} (iteration-color {}))))
+          (set! pixel (new Pixel c (complex->view (real-part c) (imag-part c)) {} (iteration-color {}))))
         (put~ pixels pixel)
         (if dragging?
             (draw-pixel surface pixel)
-          (loop (for radius from 0 to Pixel-Radius)
+          (loop (for radius from 1 to Pixel-Radius)
                 (do (draw-pixel surface pixel radius)
                     (sleep .05)))))
       (when (not dragging?)
-        (sleep .25))
-      (close~ surface)))
+        (sleep .25))))
   
   
   (method (change-iterations)
@@ -153,7 +158,7 @@
   (method (recalculate-pixel-positions)
     (for-each (function (pixel)
                 (let ((c (get-c~ pixel)))
-                  (set-pos~ pixel (complex->view (get-r~ c) (get-i~ c)))))
+                  (set-pos~ pixel (complex->view (real-part c) (imag-part c)))))
               (get-output~ pixels)))
 
   
@@ -190,7 +195,7 @@
       (line surface -2 0 2 0)
       (line surface 0 -2 0 2)
       (let ((lt (complex->view -2 -2))
-             (rb (complex->view 2 2)))
+            (rb (complex->view 2 2)))
         (ellipse~ surface (new Rect (get-h~ lt) (get-v~ lt) (get-h~ rb) (get-v~ rb)) Radius-Color {}))
       (for-each (function (pixel)
                   (draw-pixel surface pixel))
@@ -254,26 +259,26 @@
   
   (method (clear)
     (reset~ pixels)
-    (redraw-view))
+    (redraw-view)))
+
+
+;;;
+;;;; Pixel
+;;;
+
+
+(class Pixel extends Object
   
   
-  ;;;
-  ;;;; Pixel
-  ;;;
+  (slot c     accessors generate)
+  (slot pos   accessors generate)
+  (slot iter  accessors generate)
+  (slot color accessors generate)
   
   
-  (class Pixel extends Object
-    
-    
-    (slot c)
-    (slot pos)
-    (slot iter)
-    (slot color)
-    
-    
-    (method (initialize c pos iter color)
-      (nextmethod)
-      (set! c~self c)
-      (set! pos~self pos)
-      (set! iter~self iter)
-      (set! color~self color)))))
+  (method (initialize c pos iter color)
+    (nextmethod)
+    (set! c~self c)
+    (set! pos~self pos)
+    (set! iter~self iter)
+    (set! color~self color))))

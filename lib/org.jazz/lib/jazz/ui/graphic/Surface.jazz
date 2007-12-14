@@ -207,9 +207,9 @@
   ;; dh dv : position of the drawing relative to the scaled view, i.e. s - l
   ;; ch cv : position of the clipper in device coordinates
   ;; cwidth cheight : size of the clipper in device coordinates
+    
   
-  
-  (method public (with-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool> proc <procedure>)
+  (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
     (let* ((dh (- lh sh))
            (dv (- lv sv))
            (ch (if (not sc?) lh (quotient (+ sh (* dh sc))))) 
@@ -223,15 +223,19 @@
                (old-clipper (get-clipper))
                (new-clipper (rect-intersection old-clipper clipper)))
           (set-clipper new-clipper)
-          (if sc?
-              (begin 
-                (cairo_translate context (cast <fl> (- sh)) (cast <fl> (- sv)))
-                (cairo_scale context sc sc)))
+          (when sc?
+            (cairo_translate context (cast <fl> (- sh)) (cast <fl> (- sv)))
+            (cairo_scale context sc sc))
           (cairo_translate context (cast <fl> lh) (cast <fl> lv))
-          (proc)
-          (cairo_identity_matrix context)
-          (set-clipper old-clipper)
-          (cairo_set_matrix context old-matrix)))))
+          (values old-clipper old-matrix)))))
+
+  
+  (method public (with-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool> proc <procedure>)
+    (receive (old-clipper old-matrix) (set-transform drawing lh lv width height sh sv sc sc?)
+      (proc)
+      (cairo_identity_matrix context)
+      (set-clipper old-clipper)
+      (cairo_set_matrix context old-matrix)))
   
   
   ;;;
@@ -406,35 +410,34 @@
           (fill)
           (cairo_pattern_destroy pattern)))))
   
-  
+   
   (method public (ellipse rect <Rect> outside inside)
     (with-saved-context
-      (function ()  
+      (function ()
         (let ((left (get-left~ rect))
               (right (get-right~ rect))
               (top (get-top~ rect))
               (bottom (get-bottom~ rect)))
           (let ((w (- right left))
                 (h (- bottom top)))
-            (cairo_translate context (+ left (/ w 2)) (+ top (/ h 2)))
-            (cairo_scale context (/ w 2) (/ h 2))
+            (cairo_translate context (exact->inexact (+ left (/ w 2))) (exact->inexact (+ top (/ h 2))))
+            (cairo_scale context (exact->inexact (/ w 2)) (exact->inexact (/ h 2)))
             (cairo_arc context (cast <fl> 0) (cast <fl> 0) (cast <fl> 1) (cast <fl> 0) (* 2 M_PI))
-            (cairo_scale context (/ 2 w) (/ 2 w))))
-        (if outside
-            (begin
-              (set-color (if (is? outside Color)
-                             outside
-                           (get-color-for-object outside)))
-              (set-line-width (if (and (is? outside Pen) (get-width~ outside))
-                                  (get-width~ outside)
-                                1))
-              (stroke-preserve)))
-        (if inside
-            (begin
-              (set-color (if (is? inside Color)
-                             inside
-                           (get-color-for-object inside)))
-              (fill))))))
+            (cairo_scale context (exact->inexact (/ 2 w)) (exact->inexact (/ 2 h)))))
+        (when outside
+          (set-color (if (is? outside Color)
+                         outside
+                       (get-color-for-object outside)))
+          (set-line-width (if (and (is? outside Pen) (get-width~ outside))
+                              (get-width~ outside)
+                            1)))
+        (if (not inside)
+            (stroke)
+          (stroke-preserve)
+          (set-color (if (is? inside Color)
+                         inside
+                       (get-color-for-object inside)))
+          (fill)))))
 
   
   (method public (draw-image handle h v)

@@ -3493,8 +3493,13 @@
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.+            '((##fx+  <fx*:fx>)    (##fl+  <fl*:fl>)    (##+ <int^int:int>) (##+ <number^number:number>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.-            '((##fx-  <fx^fx*:fx>) (##fl-  <fl^fl*:fl>) (##- <int^int:int>) (##- <number^number:number>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.*            '((##fx*  <fx*:fx>)    (##fl*  <fl*:fl>)    (##* <int^int:int>) (##* <number^number:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel./            '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
-(jazz.add-primitive-patterns 'scheme.dialect.kernel.quotient     '((##fxquotient <fx^fx:fx>)))
+
+;; only done in release as these can crash on a division by zero
+(cond-expand
+  (release
+    (jazz.add-primitive-patterns 'scheme.dialect.kernel./        '(                     (##fl/  <fl^fl*:fl>)                     (##/ <number^number:number>)))
+    (jazz.add-primitive-patterns 'scheme.dialect.kernel.quotient '((##fxquotient <fx^fx:fx>))))
+  (else))
 
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.floor        '(                     (##flfloor    <fl:fl>)))
 (jazz.add-primitive-patterns 'scheme.dialect.kernel.ceiling      '(                     (##flceiling  <fl:fl>)))

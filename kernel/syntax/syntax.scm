@@ -131,7 +131,7 @@
 
 ;; A resource is a triplet (package path . extension) representing a resource inside
 ;; a package. Compilation will use the path part to put the binary outputs under the
-;; _build subdir of the architecture directory to enable a cross-compilation scheme.
+;; build subdir of the architecture directory to enable a cross-compilation scheme.
 
 
 (jazz.define-macro (%%make-resource package path extension)

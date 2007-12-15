@@ -265,10 +265,10 @@
 
 
 (define jazz.Build-Repository
-  (%%make-repository 'build "./_build/" #t))
+  (%%make-repository 'build "./build/" #t))
 
 (define jazz.App-Repository
-  (%%make-repository 'app "./_app/" #t))
+  (%%make-repository 'app "./app/" #t))
 
 (define jazz.Lib-Repository
   (%%make-repository 'lib "../../lib/" #f))

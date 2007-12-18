@@ -44,7 +44,8 @@
         (jazz.io)
         (jazz.platform.x11)
         (jazz.platform.cairo)
-        (jazz.ui))
+        (jazz.ui)
+        (time))
 
 
 (definition public processed   '(processed))
@@ -221,6 +222,10 @@
 ;;;
 
 
+(definition last-click
+  (time->seconds (current-time)))
+
+
 (definition public Window-Title-Table
   (make-table test: eqv?))
 
@@ -288,8 +293,7 @@
 
 
 (definition (show-window handle)
-  (XMapWindow default-x11-display handle)
-  (XFlush default-x11-display))
+  (XMapWindow default-x11-display handle))
 
 
 (definition (hide-window handle)
@@ -332,8 +336,7 @@
         (let ((window (get-window handle))
               (wparam 0)
               (lparam 0))
-          (if (not window)
-              (debug "Warning : No window")
+          (when window
             (call-dispatch-message~ window msg wparam lparam))))
      (when (= 0 (XPending default-x11-display))
        (iterate-table expose-store
@@ -384,7 +387,11 @@
                 (v (XButtonEvent-y-ref msg))
                 (button (XButtonEvent-button-ref msg)))
           (cond ((= button Button1)
-                     (mouse-down~ window h v))
+                     (let ((click (time->seconds (current-time))))
+                       (if (< (- click last-click) 0.2)
+                           (double-click~ window h v)
+                           (mouse-down~ window h v))
+                       (set! last-click click)))
                     ((= button Button2)
                      (middle-mouse-down~ window h v))
                     ((= button Button3)
@@ -696,10 +703,12 @@
               (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))))
 
 
+;; tofix : destroyed window
 (definition (platform-get-size handle)
-  (with ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+  (when handle
+    (with ((infos (XWindowAttributes-make)))
+      (XGetWindowAttributes default-x11-display handle infos)
+      (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
 
 
 (definition (platform-get-window-size handle)
@@ -843,10 +852,12 @@
   (platform-update-window handle))
 
 
+;; tofix : destroyed window
 (definition (platform-update-window handle)
-  (let* ((size (platform-get-size handle))
-          (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
-    (platform-invalidate-rect handle rct #t)))
+  (when handle
+    (let* ((size (platform-get-size handle))
+            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+      (platform-invalidate-rect handle rct #t))))
   
   
 (definition (platform-show-noactivate handle)

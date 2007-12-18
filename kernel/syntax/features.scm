@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Architecture
+;;;; Kernel Features
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(include "~~/lib/_gambit#.scm")
-
-
 (cond-expand
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)))
+             (extended-bindings)
+             (not safe)))
   (else))
 
 
@@ -52,68 +50,21 @@
 
 
 (define-macro (jazz.install-features)
-  (for-each (lambda (feature)
-              (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
-            jazz.architecture)
-  `(for-each (lambda (feature)
-               (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
-             ',jazz.architecture))
+  (let ((features (list jazz.system jazz.platform jazz.safety)))
+    (for-each (lambda (feature)
+                (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+              features)
+    `(for-each (lambda (feature)
+                 (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+               ',features)))
 
 
 (jazz.install-features)
 
 
 ;;;
-;;;; System
-;;;
-
-
-(cond-expand
-  (gambit
-    (define jazz.system 'gambit)))
-
-
-;;;
-;;;; Platform
-;;;
-
-
-(cond-expand
-  (mac
-    (define jazz.platform 'mac))
-  (windows
-    (define jazz.platform 'windows))
-  (x11
-    (define jazz.platform 'x11)))
-
-
-;;;
-;;;; Processor
-;;;
-
-
-(cond-expand
-  (intel
-    (define jazz.processor 'intel)))
-
-
-;;;
 ;;;; Safety
 ;;;
-
-
-;; core - core debug mode with tests to make the core safe
-;; debug - standard debug mode with tests to make user code safe
-;; release - release mode without tests for stable user code
-
-
-(cond-expand
-  (core
-    (define jazz.safety 'core))
-  (debug
-    (define jazz.safety 'debug))
-  (release
-    (define jazz.safety 'release)))
 
 
 (define jazz.debug-core?

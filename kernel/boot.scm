@@ -35,33 +35,17 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(define jazz.Kernel-Syntax
+(define jazz.Kernel
   (list
     "kernel/syntax/macros"
     "kernel/syntax/features"
     "kernel/syntax/primitives"
     "kernel/syntax/syntax"
-    "kernel/syntax/runtime"))
-
-
-(define jazz.Kernel-Runtime
-  (list
+    "kernel/syntax/runtime"
     "kernel/runtime/config"
     "kernel/runtime/digest"
     "kernel/runtime/kernel"
     "kernel/runtime/main"))
-
-
-(define (jazz.kernel-load path)
-  (load (string-append "../../" path)))
-
-
-(define (jazz.load-kernel-syntax)
-  (for-each jazz.kernel-load jazz.Kernel-Syntax))
-
-
-(define (jazz.load-kernel-runtime)
-  (for-each jazz.kernel-load jazz.Kernel-Runtime))
 
 
 (define jazz.load-kernel
@@ -69,8 +53,9 @@
     (lambda ()
       (if (not loaded?)
           (begin
-            (jazz.load-kernel-syntax)
-            (jazz.load-kernel-runtime)
+            (for-each (lambda (path)
+                        (load (string-append "../../" path)))
+                      jazz.Kernel)
             (set! loaded? #t))))))
 
 

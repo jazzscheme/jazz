@@ -39,7 +39,8 @@
   (gambit
     (declare (block)
              (standard-bindings)
-             (extended-bindings)))
+             (extended-bindings)
+             (not safe)))
   (else))
 
 
@@ -78,114 +79,8 @@
 
 
 ;;;
-;;;; Kernel
-;;;
-
-
-(cond-expand
-  (gambit
-    (define (jazz.build-kernel)
-      (define (create-dir dir)
-        (if (not (file-exists? dir))
-            (create-directory dir)))
-      
-      (define (generate-architecture)
-        (call-with-output-file "build/kernel/syntax/architecture.scm"
-          (lambda (output)
-            (display "(define jazz.architecture" output)
-            (newline output)
-            (display "'" output)
-            (write jazz.architecture output)
-            (display ")" output)
-            (newline output))))
-      
-      (create-dir "build/")
-      (create-dir "build/kernel/")
-      (create-dir "build/kernel/syntax/")
-      (create-dir "build/kernel/runtime/")
-      (generate-architecture)
-      (display "; compiling kernel...")
-      (newline)
-      (compile-file-to-c "build/kernel/syntax/architecture" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/syntax/macros" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/syntax/features" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/syntax/primitives" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/syntax/syntax" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/syntax/runtime" output: "build/kernel/syntax/")
-      (compile-file-to-c "../../kernel/runtime/config" output: "build/kernel/runtime/")
-      (compile-file-to-c "../../kernel/runtime/digest" output: "build/kernel/runtime/")
-      (compile-file-to-c "../../kernel/runtime/kernel" output: "build/kernel/runtime/")
-      (compile-file-to-c "../../kernel/runtime/main" output: "build/kernel/runtime/")
-      (link-incremental (list "build/kernel/syntax/architecture"
-                              "build/kernel/syntax/macros"
-                              "build/kernel/syntax/features"
-                              "build/kernel/syntax/primitives"
-                              "build/kernel/syntax/syntax"
-                              "build/kernel/syntax/runtime"
-                              "build/kernel/runtime/config"
-                              "build/kernel/runtime/digest"
-                              "build/kernel/runtime/kernel"
-                              "build/kernel/runtime/main")
-                        output: "build/kernel/runtime/jazz.c"
-                        base: "~~/lib/_gambcgsc")
-      (display "; linking kernel...")
-      (newline)
-      (jazz.link-kernel)))
-  
-  (else))
-
-
-(cond-expand
-  (windows
-    (define (jazz.link-kernel)
-      (shell-command
-        (%%string-append
-          "gcc "
-          "build/kernel/syntax/architecture.c "
-          "build/kernel/syntax/macros.c "
-          "build/kernel/syntax/features.c "
-          "build/kernel/syntax/primitives.c "
-          "build/kernel/syntax/syntax.c "
-          "build/kernel/syntax/runtime.c "
-          "build/kernel/runtime/config.c "
-          "build/kernel/runtime/digest.c "
-          "build/kernel/runtime/kernel.c "
-          "build/kernel/runtime/main.c "
-          "build/kernel/runtime/jazz.c "
-          "-I" (path-expand "~~/include") " "
-          "-L" (path-expand "~~/lib") " "
-          "-lgambc -lgambcgsc -lws2_32 "
-          "-mconsole "
-          "-o jazz"))))
-  (else
-    (define (jazz.link-kernel)
-      (shell-command
-        (%%string-append
-          "gcc "
-          "build/kernel/syntax/architecture.c "
-          "build/kernel/syntax/macros.c "
-          "build/kernel/syntax/features.c "
-          "build/kernel/syntax/primitives.c "
-          "build/kernel/syntax/syntax.c "
-          "build/kernel/syntax/runtime.c "
-          "build/kernel/runtime/config.c "
-          "build/kernel/runtime/digest.c "
-          "build/kernel/runtime/kernel.c "
-          "build/kernel/runtime/main.c "
-          "build/kernel/runtime/jazz.c "
-          "-I" (path-expand "~~/include") " "
-          "-L" (path-expand "~~/lib") " "
-          "-lgambc -lgambcgsc "
-          "-o jazz")))))
-
-
-;;;
 ;;;; Build
 ;;;
-
-
-(define (bkernel)
-  (jazz.build-kernel))
 
 
 (define (bmodule module-name)
@@ -233,12 +128,12 @@
 
 
 (cond-expand
-  (freetype
+  (windows
     (define (bfont)
-      (bfreetype)))
-  (logfont
+      (blogfont)))
+  (else
     (define (bfont)
-      (blogfont))))
+      (bfreetype))))
 
 
 (define (bwindows)
@@ -285,6 +180,19 @@
   (jazz.load-module 'jazz.literals)
   (jazz.load-module 'jazz.platform)
   (jazz.load-module 'jazz.platform.literals))
+
+
+;;;
+;;;; Make
+;;;
+
+
+
+(define (jazz.make target)
+  (case target
+    ((core) (bcore))
+    ((jazz) (bjazz))
+    ((jedi) (bjedi))))
 
 
 ;;;
@@ -489,12 +397,15 @@
                    (cont (##reverse rev-options) args))))
         (cont (##reverse rev-options) args))))
   
-  (split-command-line (%%cdr (command-line)) '() '("app")
+  (split-command-line (%%cdr (command-line)) '() '("app" "make")
     (lambda (options remaining)
       (let ((app (%%assoc "app" options)))
-        (if (%%not app)
-            (jazz.repl-main #f)
-          (boot-app (%%string->symbol (%%cdr app))))))))
+        (if app
+            (boot-app (%%string->symbol (%%cdr app)))
+          (let ((make (%%assoc "make" options)))
+            (if make
+                (jazz.make (%%string->symbol (%%cdr make)))
+              (jazz.repl-main #f))))))))
 
 
 (define (jazz.repl-main warnings)

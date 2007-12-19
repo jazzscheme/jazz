@@ -58,6 +58,43 @@
 
 
 ;;;
+;;;; Declares
+;;;
+
+
+(cond-expand
+  (gambit
+    (define (jazz.declares kind)
+      `((declare (block)
+                 (standard-bindings)
+                 (extended-bindings)
+                 ;; inlining can have a huge impact on compilation time
+                 ;; and really bloat the size of the generated .o1 file
+                 (not inline)
+                 ,@(if jazz.debug-user?
+                       ;; safe and inlining primitives at the same time
+                       ;; is really costly on compilation time
+                       '((not inline-primitives))
+                     `((not safe)))))))
+  
+  (else))
+
+
+;;;
+;;;; Compile
+;;;
+
+
+(cond-expand
+  (dbg
+    (define jazz.compile-options
+      '(debug)))
+  (else
+    (define jazz.compile-options
+      '())))
+
+
+;;;
 ;;;; Variable
 ;;;
 

@@ -36,44 +36,8 @@
 
 
 ;;;
-;;;; Configurations
+;;;; Configuration
 ;;;
-
-
-(define jazz.configurations-file
-  ".configurations")
-
-
-(define jazz.configurations
-  '())
-
-(define jazz.active-configuration-name
-  #f)
-
-
-(define (jazz.require-configuration)
-  (or (jazz.find-configuration jazz.active-configuration-name)
-      (jazz.error "Please use configure to specify an active configuration")))
-
-(define (jazz.require-named-configuration name)
-  (or (jazz.find-configuration name)
-      (jazz.error "Unable to find configuration: {s}" name)))
-
-
-(define (jazz.find-configuration name)
-  (let ((pair (jazz.find-configuration-pair name)))
-    (if (not pair)
-        #f
-      (car pair))))
-
-(define (jazz.find-configuration-pair name)
-  (let iter ((configurations jazz.configurations))
-    (if (null? configurations)
-        #f
-      (let ((configuration (car configurations)))
-        (if (eq? (jazz.configuration-name configuration) name)
-            configurations
-          (iter (cdr configurations)))))))
 
 
 (define (jazz.make-configuration name system platform safety options directory)
@@ -115,11 +79,96 @@
     (jazz.validate-directory directory)))
 
 
+;;;
+;;;; Configurations
+;;;
+
+
+(define jazz.configurations-file
+  ".configurations")
+
+
+(define jazz.configurations
+  '())
+
+
+(define (jazz.manage-configurations rest)
+  (jazz.with-stop
+    (lambda ()
+      (let ((action
+              (if (null? rest)
+                  'list
+                (car rest))))
+        (case action
+          ((list)
+           (jazz.list-configurations))
+          ((delete)
+           (let ((name (if (null? (cdr rest)) #f (cadr rest))))
+             (jazz.delete-configuration (jazz.require-configuration name))
+             (jazz.list-configurations)))
+          (else
+           (jazz.error "Unknown cfg command: {s}" (car rest)))))))
+  (void))
+
+
+(define (jazz.list-configurations)
+  (for-each jazz.describe-configuration (jazz.sorted-configurations)))
+
+
+(define (jazz.require-configuration name)
+  (or (jazz.find-configuration name)
+      (if (not name)
+          (jazz.error "Unable to find default configuration")
+        (jazz.error "Unable to find configuration: {s}" name))))
+
+(define (jazz.require-default-configuration)
+  (jazz.require-configuration #f))
+
+
+(define (jazz.find-configuration name)
+  (let ((pair (jazz.find-configuration-pair name)))
+    (if (not pair)
+        #f
+      (car pair))))
+
+(define (jazz.find-configuration-pair name)
+  (let iter ((configurations jazz.configurations))
+    (if (null? configurations)
+        #f
+      (let ((configuration (car configurations)))
+        (if (eq? (jazz.configuration-name configuration) name)
+            configurations
+          (iter (cdr configurations)))))))
+
+
+(define (jazz.sorted-configurations)
+  (jazz.sort jazz.configurations
+             (lambda (c1 c2)
+               (let ((n1 (jazz.configuration-name c1))
+                     (n2 (jazz.configuration-name c2)))
+                 (cond ((not n1)
+                        #t)
+                       ((not n2)
+                        #f)
+                       (else
+                        (string-ci<? (symbol->string n1) (symbol->string n2))))))))
+
+
 (define (jazz.register-configuration configuration)
   (let ((pair (jazz.find-configuration-pair (jazz.configuration-name configuration))))
     (if pair
         (set-car! pair configuration)
-      (set! jazz.configurations (append jazz.configurations (list configuration))))))
+      (set! jazz.configurations (append jazz.configurations (list configuration)))))
+  (jazz.save-configurations))
+
+
+(define (jazz.delete-configuration name)
+  (set! jazz.configurations
+        (jazz.delete name jazz.configurations
+          (lambda (c1 c2)
+            (eq? (jazz.configuration-name c1)
+                 (jazz.configuration-name c2)))))
+  (jazz.save-configurations))
 
 
 (define (jazz.load-configurations)
@@ -169,7 +218,24 @@
           (display ")" output)
           (newline output)))
       
-      (for-each print-configuration jazz.configurations))))
+      (for-each print-configuration (jazz.sorted-configurations)))))
+
+
+(define (jazz.describe-configuration configuration)
+  (let ((name (jazz.configuration-name configuration))
+        (system (jazz.configuration-system configuration))
+        (platform (jazz.configuration-platform configuration))
+        (safety (jazz.configuration-safety configuration))
+        (options (jazz.configuration-options configuration))
+        (directory (jazz.configuration-directory configuration)))
+    (jazz.feedback "{a}" (or name "<default>"))
+    (jazz.feedback "  system: {s}" system)
+    (jazz.feedback "  platform: {s}" platform)
+    (jazz.feedback "  safety: {s}" safety)
+    (if (not (null? options))
+        (jazz.feedback "  options: {s}" options))
+    (if directory
+        (jazz.feedback "  directory: {s}" directory))))
 
 
 ;;;
@@ -186,24 +252,16 @@
             (safety (jazz.require-safety safety))
             (options (jazz.require-options options))
             (directory (jazz.require-directory directory)))
-        (jazz.register-configuration (jazz.new-configuration
-                                       name: name
-                                       system: system
-                                       platform: platform
-                                       safety: safety
-                                       options: options
-                                       directory: directory))
-        (jazz.save-configurations)
-        (set! jazz.active-configuration-name name)
-        (if name
-            (jazz.print "name: {s}" name))
-        (jazz.print "system: {s}" system)
-        (jazz.print "platform: {s}" platform)
-        (jazz.print "safety: {s}" safety)
-        (if (not (null? options))
-            (jazz.print "options: {s}" options))
-        (if directory
-            (jazz.print "directory: {s}" directory)))))
+        (let ((configuration
+                (jazz.new-configuration
+                  name: name
+                  system: system
+                  platform: platform
+                  safety: safety
+                  options: options
+                  directory: directory)))
+          (jazz.register-configuration configuration)
+          (jazz.describe-configuration configuration)))))
   (void))
 
 
@@ -408,20 +466,20 @@
             (let ((name (symbol->string target)))
               (let ((pos (jazz.string-find name #\@)))
                 (if (not pos)
-                    (jazz.make-target target (jazz.require-configuration))
+                    (jazz.make-target target (jazz.require-default-configuration))
                   (let ((target
                           (if (= pos 0)
                               jazz.default-target
                             (string->symbol (substring name 0 pos))))
                         (configuration
                           (if (= (+ pos 1) (string-length name))
-                              (jazz.require-configuration)
-                            (jazz.require-named-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
+                              (jazz.require-default-configuration)
+                            (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
                     (jazz.make-target target configuration))))))
           #t))
       (void)
     (begin
-      (jazz.print "failed")
+      (jazz.feedback "failed")
       (void))))
 
 
@@ -430,6 +488,7 @@
     ((kernel) (jazz.make-kernel configuration))
     ((core) (jazz.make-core configuration))
     ((jazz) (jazz.make-jazz configuration))
+    ((platform) (jazz.make-platform configuration))
     ((jedi) (jazz.make-jedi configuration))
     (else (jazz.error "Unknown target: {s}" target))))
 
@@ -438,19 +497,20 @@
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (jazz.shell-command (string-append "gsc -e \"(jazz.recursive-make '" target-argument " '" configuration-argument ")\"")))))
+      (jazz.open-process "gsc" (list "-e" (string-append "(jazz.recursive-make '" target-argument " '" configuration-argument ")"))))))
 
 
 (define (jazz.recursive-make target configuration-name)
   (if (jazz.with-stop
         (lambda ()
-          (let ((configuration (jazz.require-named-configuration configuration-name)))
+          (let ((configuration (jazz.require-configuration configuration-name)))
             (case target
               ((kernel) (jazz.make-kernel-recursive configuration))
+              ((jedi) (jazz.make-jedi-recursive configuration))
               (else (jazz.error "Unknown target: {s}" target))))
           #t))
-      0
-    1))
+      (exit)
+    (exit 1)))
 
 
 (define (jazz.target-needs-update? src dst)
@@ -460,163 +520,202 @@
 
 
 ;;;
+;;;; App
+;;;
+
+
+(define (jazz.build-app app configuration #!key (console? #t))
+  (let ((system (jazz.configuration-system configuration))
+        (platform (jazz.configuration-platform configuration))
+        (safety (jazz.configuration-safety configuration))
+        (options (jazz.configuration-options configuration))
+        (confdir (jazz.effective-directory configuration))
+        (appname (if (not app) "jazz" (symbol->string app))))
+    (let ((appdir (string-append confdir "build/_app/" appname "/")))
+      (define (conffile path)
+        (string-append confdir path))
+      
+      (define (appfile path)
+        (string-append appdir path))
+      
+      (define (print-variable variable value output)
+        (display "(define " output)
+        (display variable output)
+        (newline output)
+        (display "  '" output)
+        (write value output)
+        (display ")" output)
+        (newline output))
+      
+      (define (print-architecture output)
+        (print-variable 'jazz.system system output)
+        (newline output)
+        (print-variable 'jazz.platform platform output)
+        (newline output)
+        (print-variable 'jazz.safety safety output)
+        (newline output)
+        (print-variable 'jazz.options options output))
+      
+      (define (generate-architecture)
+        (let ((file (appfile "architecture.scm")))
+          (if (not (file-exists? file))
+              (begin
+                (jazz.feedback "; generating {a} ..." file)
+                (call-with-output-file file
+                  print-architecture)
+                #t)
+            #f)))
+      
+      (define (generate-app)
+        (let ((file (appfile "app.scm")))
+          (if (not (file-exists? file))
+              (begin
+                (jazz.feedback "; generating {a} ..." file)
+                (call-with-output-file file
+                  (lambda (output)
+                    (print-variable 'jazz.default-app app output)))
+                #t)
+            #f)))
+      
+      (define (compile-kernel)
+        (let ((architecture? (generate-architecture))
+              (app? (generate-app))
+              (needs-linking? #f))
+          (define (compile-file name dir output)
+            (let ((src (string-append dir name ".scm"))
+                  (dst (string-append output name ".c")))
+              (if (jazz.target-needs-update? src dst)
+                  (begin
+                    (let ((path (string-append dir name)))
+                      (jazz.feedback "; compiling {a} ..." path)
+                      (compile-file-to-c path output: output))
+                    (set! needs-linking? #t)))))
+          
+          (define (compile-kernel-file path name)
+            (compile-file name
+                          (string-append "kernel/" path)
+                          (conffile (string-append "build/_kernel/" path))))
+          
+          (load (appfile "architecture"))
+          (load "kernel/syntax/macros")
+          (load "kernel/syntax/features")
+          (load "kernel/syntax/primitives")
+          (load "kernel/syntax/syntax")
+          (load "kernel/syntax/runtime")
+          
+          (if architecture?
+              (compile-file "architecture" appdir appdir))
+          (compile-kernel-file "syntax/" "macros")
+          (compile-kernel-file "syntax/" "features")
+          (compile-kernel-file "syntax/" "primitives")
+          (compile-kernel-file "syntax/" "syntax")
+          (compile-kernel-file "syntax/" "runtime")
+          (compile-kernel-file "runtime/" "settings")
+          (compile-kernel-file "runtime/" "digest")
+          (compile-kernel-file "runtime/" "kernel")
+          (compile-kernel-file "runtime/" "main")
+          (if app?
+              (compile-file "app" appdir appdir))
+          
+          (if needs-linking?
+              (begin
+                (jazz.feedback "; linking kernel ...")
+                (link-incremental (list (appfile "architecture")
+                                        (conffile "build/_kernel/syntax/macros")
+                                        (conffile "build/_kernel/syntax/features")
+                                        (conffile "build/_kernel/syntax/primitives")
+                                        (conffile "build/_kernel/syntax/syntax")
+                                        (conffile "build/_kernel/syntax/runtime")
+                                        (conffile "build/_kernel/runtime/settings")
+                                        (conffile "build/_kernel/runtime/digest")
+                                        (conffile "build/_kernel/runtime/kernel")
+                                        (conffile "build/_kernel/runtime/main")
+                                        (appfile "app"))
+                                  output: (appfile (string-append appname ".c"))
+                                  base: "~~/lib/_gambcgsc")
+                #t)
+            #f)))
+      
+      (define (link-libraries)
+        (case platform
+          ((windows)
+           '("-lws2_32"))
+          (else
+           '())))
+      
+      (define (link-options)
+        (case platform
+          ((windows)
+           (if console?
+               '("-mconsole")
+             '("-mwindows")))
+          (else
+           '())))
+      
+      (define (link-kernel)
+        (jazz.feedback "; linking executable ...")
+        (jazz.open-process
+          "gcc"
+          `(,(appfile "architecture.c")
+            ,(conffile "build/_kernel/syntax/macros.c")
+            ,(conffile "build/_kernel/syntax/features.c")
+            ,(conffile "build/_kernel/syntax/primitives.c")
+            ,(conffile "build/_kernel/syntax/syntax.c")
+            ,(conffile "build/_kernel/syntax/runtime.c")
+            ,(conffile "build/_kernel/runtime/settings.c")
+            ,(conffile "build/_kernel/runtime/digest.c")
+            ,(conffile "build/_kernel/runtime/kernel.c")
+            ,(conffile "build/_kernel/runtime/main.c")
+            ,(appfile "app.c")
+            ,(appfile (string-append appname ".c"))
+            ,(string-append "-I" (path-expand "~~/include"))
+            ,(string-append "-L" (path-expand "~~/lib"))
+            "-lgambc" "-lgambcgsc" ,@(link-libraries)
+            ,@(link-options)
+            "-o" ,(conffile appname))))
+      
+      (define (executable-name)
+        (case platform
+          ((windows)
+           (conffile (string-append appname ".exe")))
+          (else
+           (conffile appname))))
+      
+      (jazz.create-directory "bin/")
+      (jazz.create-directory confdir)
+      (jazz.create-directory (conffile "build/"))
+      (jazz.create-directory (conffile "build/_app/"))
+      (jazz.create-directory appdir)
+      (jazz.create-directory (conffile "build/_kernel/"))
+      (jazz.create-directory (conffile "build/_kernel/syntax/"))
+      (jazz.create-directory (conffile "build/_kernel/runtime/"))
+      
+      (if (or (compile-kernel)
+              (not (file-exists? (executable-name))))
+          (link-kernel)))))
+
+
+;;;
 ;;;; Kernel
 ;;;
 
 
 (define (jazz.make-kernel configuration)
-  (jazz.print "making kernel")
+  (jazz.feedback "making kernel")
   (jazz.make-target-recursive 'kernel configuration))
 
 
 (define (jazz.make-kernel-recursive configuration)
-  (let ((system (jazz.configuration-system configuration))
-        (platform (jazz.configuration-platform configuration))
-        (safety (jazz.configuration-safety configuration))
+  (let ((platform (jazz.configuration-platform configuration))
         (options (jazz.configuration-options configuration))
-        (directory (jazz.effective-directory configuration)))
+        (confdir (jazz.effective-directory configuration)))
     (define (conffile path)
-      (string-append directory path))
-    
-    (define (create-confdir dir)
-      (jazz.create-directory (conffile dir)))
-    
-    (define (print line output)
-      (display line output)
-      (newline output))
-    
-    (define (print-variable variable value output)
-      (display "(define " output)
-      (display variable output)
-      (newline output)
-      (display "  '" output)
-      (write value output)
-      (display ")" output)
-      (newline output))
-    
-    (define (print-architecture output)
-      (print-variable 'jazz.system system output)
-      (newline output)
-      (print-variable 'jazz.platform platform output)
-      (newline output)
-      (print-variable 'jazz.safety safety output)
-      (newline output)
-      (print-variable 'jazz.options options output))
-    
-    (define (generate-architecture)
-      (let ((file (conffile "build/kernel/architecture.scm")))
-        (if (not (file-exists? file))
-            (begin
-              (jazz.print "; generating {a} ..." file)
-              (call-with-output-file file
-                print-architecture)
-              #t)
-          #f)))
-    
-    (define (compile-kernel)
-      (let ((architecture? (generate-architecture))
-            (needs-linking? #f))
-        (define (compile-file name dir output)
-          (let ((src (string-append dir name ".scm"))
-                (dst (string-append output name ".c")))
-            (if (jazz.target-needs-update? src dst)
-                (begin
-                  (let ((path (string-append dir name)))
-                    (jazz.print "; compiling {a} ..." path)
-                    (compile-file-to-c path output: output))
-                  (set! needs-linking? #t)))))
-        
-        (define (compile-kernel-file path name)
-          (compile-file name
-                        (string-append "kernel/" path)
-                        (conffile (string-append "build/kernel/" path))))
-        
-        (load (conffile "build/kernel/architecture"))
-        (load "kernel/syntax/macros")
-        (load "kernel/syntax/features")
-        (load "kernel/syntax/primitives")
-        (load "kernel/syntax/syntax")
-        (load "kernel/syntax/runtime")
-        
-        (if architecture?
-            (compile-file "architecture"
-                          (conffile "build/kernel/")
-                          (conffile "build/kernel/")))
-        (compile-kernel-file "syntax/" "macros")
-        (compile-kernel-file "syntax/" "features")
-        (compile-kernel-file "syntax/" "primitives")
-        (compile-kernel-file "syntax/" "syntax")
-        (compile-kernel-file "syntax/" "runtime")
-        (compile-kernel-file "runtime/" "config")
-        (compile-kernel-file "runtime/" "digest")
-        (compile-kernel-file "runtime/" "kernel")
-        (compile-kernel-file "runtime/" "main")
-            
-        (if needs-linking?
-            (begin
-              (jazz.print "; linking kernel ...")
-              (link-incremental (list (conffile "build/kernel/architecture")
-                                      (conffile "build/kernel/syntax/macros")
-                                      (conffile "build/kernel/syntax/features")
-                                      (conffile "build/kernel/syntax/primitives")
-                                      (conffile "build/kernel/syntax/syntax")
-                                      (conffile "build/kernel/syntax/runtime")
-                                      (conffile "build/kernel/runtime/config")
-                                      (conffile "build/kernel/runtime/digest")
-                                      (conffile "build/kernel/runtime/kernel")
-                                      (conffile "build/kernel/runtime/main"))
-                                output: (conffile "build/kernel/runtime/jazz.c")
-                                base: "~~/lib/_gambcgsc")
-              #t)
-          #f)))
-    
-    (define (link-libraries)
-      (case platform
-        ((windows)
-         "-lws2_32 ")
-        (else
-         "")))
-    
-    (define (link-options)
-      (case platform
-        ((windows)
-         "-mconsole ")
-        (else
-         "")))
-    
-    (define (link-kernel)
-      (jazz.print "; linking executable ...")
-      (jazz.shell-command
-        (string-append
-          "gcc "
-          (conffile "build/kernel/architecture.c ")
-          (conffile "build/kernel/syntax/macros.c ")
-          (conffile "build/kernel/syntax/features.c ")
-          (conffile "build/kernel/syntax/primitives.c ")
-          (conffile "build/kernel/syntax/syntax.c ")
-          (conffile "build/kernel/syntax/runtime.c ")
-          (conffile "build/kernel/runtime/config.c ")
-          (conffile "build/kernel/runtime/digest.c ")
-          (conffile "build/kernel/runtime/kernel.c ")
-          (conffile "build/kernel/runtime/main.c ")
-          (conffile "build/kernel/runtime/jazz.c ")
-          "-I" (path-expand "~~/include") " "
-          "-L" (path-expand "~~/lib") " "
-          "-lgambc -lgambcgsc " (link-libraries)
-          (link-options)
-          "-o " (conffile "jazz"))))
-    
-    (define (executable-name)
-      (case platform
-        ((windows)
-         (conffile "jazz.exe"))
-        (else
-         (conffile "jazz"))))
+      (string-append confdir path))
     
     (define (copy-platform-file src dst)
       (if (jazz.target-needs-update? src dst)
           (begin
-            (jazz.print "; copying {a} ..." src)
+            (jazz.feedback "; copying {a} ..." src)
             (copy-file src dst))))
     
     (define (copy-platform-files)
@@ -626,11 +725,15 @@
          (copy-platform-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
          (copy-platform-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))))
     
+    (define (print line output)
+      (display line output)
+      (newline output))
+    
     (define (generate-gambcini)
       (let ((file (conffile ".gambcini")))
         (if (not (file-exists? file))
             (begin
-              (jazz.print "; generating {a} ..." file)
+              (jazz.feedback "; generating {a} ..." file)
               (call-with-output-file file
                 (lambda (output)
                   (print ";;;" output)
@@ -648,17 +751,7 @@
                   (display "(load \"../../kernel/boot\")" output)
                   (newline output)))))))
     
-    (jazz.create-directory "bin/")
-    (jazz.create-directory directory)
-    
-    (create-confdir "build/")
-    (create-confdir "build/kernel/")
-    (create-confdir "build/kernel/syntax/")
-    (create-confdir "build/kernel/runtime/")
-    
-    (if (or (compile-kernel)
-            (not (file-exists? (executable-name))))
-        (link-kernel))
+    (jazz.build-app #f configuration)
     
     (copy-platform-files)
     
@@ -672,12 +765,12 @@
 
 
 (define (jazz.jazz-make target configuration)
-  (let ((directory (jazz.effective-directory configuration)))
+  (let ((confdir (jazz.effective-directory configuration)))
     (define (conffile path)
-      (string-append directory path))
+      (string-append confdir path))
     
-    (jazz.print "making {a}" target)
-    (jazz.shell-command (string-append "jazz -make " (symbol->string target)) directory)))
+    (jazz.feedback "making {a}" target)
+    (jazz.open-process (conffile "jazz") (list "-make" (symbol->string target)) confdir)))
 
 
 (define (jazz.make-core configuration)
@@ -690,9 +783,25 @@
   (jazz.jazz-make 'jazz configuration))
 
 
-(define (jazz.make-jedi configuration)
+(define (jazz.make-platform configuration)
   (jazz.make-jazz configuration)
-  (jazz.jazz-make 'jedi configuration))
+  (jazz.jazz-make 'platform configuration))
+
+
+;;;
+;;;; Jedi
+;;;
+
+
+(define (jazz.make-jedi configuration)
+  (jazz.make-platform configuration)
+  (jazz.jazz-make 'jedi configuration)
+  
+  (jazz.make-target-recursive 'jedi configuration))
+
+
+(define (jazz.make-jedi-recursive configuration)
+  (jazz.build-app 'jedi configuration console?: #f))
 
 
 ;;;
@@ -736,11 +845,11 @@
 
 
 ;;;
-;;;; Print
+;;;; Feedback
 ;;;
 
 
-(define (jazz.print fmt-string . rest)
+(define (jazz.feedback fmt-string . rest)
   (display (apply jazz.format fmt-string rest))
   (newline)
   (force-output))
@@ -767,7 +876,7 @@
 
 
 (define (jazz.error fmt-string . rest)
-  (apply jazz.print fmt-string rest)
+  (apply jazz.feedback fmt-string rest)
   (jazz.stop))
 
 
@@ -779,6 +888,52 @@
         (let ((stop (jazz.stop-continuation)))
           (if stop
               (stop #f)))))))
+
+
+;;;
+;;;; List
+;;;
+
+
+(define (jazz.filter pred lis)
+  (let recur ((lis lis))
+    (if (null? lis) lis
+	(let ((head (car lis))
+	      (tail (cdr lis)))
+	  (if (pred head)
+	      (let ((new-tail (recur tail)))
+		(if (eq? tail new-tail) lis
+		    (cons head new-tail)))
+	      (recur tail))))))
+
+
+(define (jazz.delete x lis test)
+  (jazz.filter (lambda (y) (not (test x y))) lis))
+
+
+(define (jazz.sort l smaller)
+  (define (merge-sort l)
+    (define (merge l1 l2)
+      (cond ((null? l1) l2)
+            ((null? l2) l1)
+            (else
+             (let ((e1 (car l1)) (e2 (car l2)))
+               (if (smaller e1 e2)
+                   (cons e1 (merge (cdr l1) l2))
+                 (cons e2 (merge l1 (cdr l2))))))))
+    
+    (define (split l)
+      (if (or (null? l) (null? (cdr l)))
+          l
+        (cons (car l) (split (cddr l)))))
+    
+    (if (or (null? l) (null? (cdr l)))
+        l
+      (let* ((l1 (merge-sort (split l)))
+             (l2 (merge-sort (split (cdr l)))))
+        (merge l1 l2))))
+  
+  (merge-sort l))
 
 
 ;;;
@@ -816,7 +971,7 @@
 (define (jazz.create-directory dir)
   (if (not (file-exists? dir))
       (begin
-        (jazz.print "; creating {a} ..." dir)
+        (jazz.feedback "; creating {a} ..." dir)
         (create-directory dir))))
 
 
@@ -825,10 +980,18 @@
 ;;;
 
 
-(define (jazz.shell-command command #!optional (directory #f))
-  (let ((code (shell-command command (or directory (current-directory)))))
-    (if (not (= code 0))
-        (jazz.stop))))
+(define (jazz.open-process path arguments #!optional (directory (current-directory)))
+  (let ((port (open-process
+                (list
+                  path: path
+                  arguments: arguments
+                  directory: directory
+                  stdin-redirection: #f
+                  stdout-redirection: #f
+                  stderr-redirection: #f))))
+    (let ((code (process-status port)))
+      (if (not (= code 0))
+          (jazz.stop)))))
 
 
 ;;;

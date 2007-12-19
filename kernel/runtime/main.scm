@@ -164,11 +164,13 @@
 (cond-expand
   (windows
     (define (bplatform)
+      (bjazz)
       (bcairo)
       (bfont)
       (bwindows)))
   (x11
     (define (bplatform)
+      (bjazz)
       (bcairo)
       (bfont)
       (bx11))))
@@ -192,7 +194,9 @@
   (case target
     ((core) (bcore))
     ((jazz) (bjazz))
-    ((jedi) (bjedi))))
+    ((platform) (bplatform))
+    ((jedi) (bjedi))
+    (else (jazz.error "Unknown target: {s}" target))))
 
 
 ;;;
@@ -399,13 +403,22 @@
   
   (split-command-line (%%cdr (command-line)) '() '("app" "make")
     (lambda (options remaining)
-      (let ((app (%%assoc "app" options)))
-        (if app
-            (boot-app (%%string->symbol (%%cdr app)))
-          (let ((make (%%assoc "make" options)))
-            (if make
-                (jazz.make (%%string->symbol (%%cdr make)))
-              (jazz.repl-main #f))))))))
+      (define (get-option name)
+        (let ((pair (%%assoc name options)))
+          (if pair
+              (%%cdr pair)
+            #f)))
+      
+      (let ((app (get-option "app"))
+            (make (get-option "make")))
+        (cond (app
+               (boot-app (%%string->symbol app)))
+              (jazz.default-app
+               (boot-app jazz.default-app))
+              (make
+               (jazz.make (%%string->symbol make)))
+              (else
+               (jazz.repl-main #f)))))))
 
 
 (define (jazz.repl-main warnings)

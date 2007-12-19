@@ -42,7 +42,7 @@
     "kernel/syntax/primitives"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"
-    "kernel/runtime/config"
+    "kernel/runtime/settings"
     "kernel/runtime/digest"
     "kernel/runtime/kernel"
     "kernel/runtime/main"))

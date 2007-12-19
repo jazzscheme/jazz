@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Config
+;;;; Runtime Settings
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -45,29 +45,6 @@
 
 
 ;;;
-;;;; Declare
-;;;
-
-
-(cond-expand
-  (gambit
-    (define (jazz.declares kind)
-      `((declare (block)
-                 (standard-bindings)
-                 (extended-bindings)
-                 ;; inlining can have a huge impact on compilation time
-                 ;; and really bloat the size of the generated .o1 file
-                 (not inline)
-                 ,@(if jazz.debug-user?
-                       ;; safe and inlining primitives at the same time
-                       ;; is really costly on compilation time
-                       '((not inline-primitives))
-                     `((not safe)))))))
-  
-  (else))
-
-
-;;;
 ;;;; Verbose
 ;;;
 
@@ -94,7 +71,6 @@
 (define jazz.warnings?
   #f)
 
-
 ;; Set to #f to debug the walker itself
 (define jazz.delay-reporting?
   #t)
@@ -108,24 +84,6 @@
 ;; Print Jazz objects by calling their print method?
 (define jazz.use-print?
   #t)
-
-;; Usefull to debug a recursive error occuring inside a print method
-(define jazz.debug-print?
-  #f)
-
-
-;;;
-;;;; Build
-;;;
-
-
-(cond-expand
-  (dbg
-    (define jazz.compile-options
-      '(debug)))
-  (else
-    (define jazz.compile-options
-      '())))
 
 
 ;;;
@@ -161,13 +119,18 @@
 
 
 ;;;
-;;;; Jedi
+;;;; App
 ;;;
+
+
+(define jazz.default-app
+  #f)
 
 
 (define jazz.default-username
   #f)
 
 
+;; to enable timing loading of jedi
 (define jazz.run-loop?
   #t)

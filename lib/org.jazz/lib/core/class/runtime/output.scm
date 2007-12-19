@@ -38,18 +38,6 @@
 (module core.class.runtime.output
 
 
-;; BIG TIME SECURITY
-(define primordial-exception-handler
-  (current-exception-handler))
-
-(if jazz.debug-print?
-    (current-exception-handler
-      (lambda (exc)
-        (if jazz.debug-print?
-            (set! jazz.use-print? #f))
-        (primordial-exception-handler exc))))
-
-
 (define jazz.dialect.language.Object.print
   #f)
 

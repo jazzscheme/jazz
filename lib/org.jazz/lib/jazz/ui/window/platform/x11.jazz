@@ -16,12 +16,11 @@
 ;;;
 ;;;  The Original Code is JazzScheme.
 ;;;
-;;;  The Initial Developer of the Original Code is Guillume Cartier.
+;;;  The Initial Developer of the Original Code is Jeremie Lasalle Ratelle.
 ;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Assem Hakmeh
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -257,6 +256,7 @@
          (parent    (if parent (get-handle~ parent) (XRootWindow default-x11-display screen-no)))
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
+    (XSetWindowAttributes-background_pixel-set! attr (XWhitePixel default-x11-display screen-no))
     (if (is? window Desktop)
         (platform-get-desktop)
         (XCreateWindow default-x11-display
@@ -269,7 +269,7 @@
                    CopyFromParent
                    InputOutput
                    visual
-                   0
+                   CWBackPixel
                    attr))))
 
 
@@ -310,11 +310,9 @@
   (XUnmapWindow default-x11-display (get-handle~ window)))
 
 
-(definition (destroy-window handle)
-  (table-set! expose-store (get-window handle) #f)
-  (window-destroy~ (get-window handle))
-  (on-nc-destroy~ (get-window handle) #f)
-  (XDestroyWindow default-x11-display handle))
+(definition (destroy-window window)
+  (table-set! expose-store window #f)
+  (XDestroyWindow default-x11-display (get-handle~ window)))
 
 
 (definition (platform-erase-background handle)
@@ -670,11 +668,9 @@
   (GetTopWindow handle))
 
 
-;; tofix : destroyed window
 (definition (acquire-point to-handle from-window shape)
-    (when (and to-handle (get-handle~ from-window))
       (receive (x y) (XTranslateCoordinates default-x11-display (get-handle~ from-window) to-handle (get-h~ shape) (get-v~ shape))
-        (new Point x y))))
+        (new Point x y)))
 
 
 (definition (acquire-rect handle window shape)
@@ -701,7 +697,7 @@
                (y (XWindowAttributes-y-ref infos)))
          (new Point x y))))
 
-;; tofix : This is an ugly hack because 1. popups are toplevel in windows and 2. 22 pixels are not accounted for in X11 in Mac OS X.
+
 (definition (platform-set-position handle pos)
     (if (is? (get-window handle) Popup)
               (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
@@ -709,12 +705,10 @@
               (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))))
 
 
-;; tofix : destroyed window
 (definition (platform-get-size handle)
-  (when handle
     (with ((infos (XWindowAttributes-make)))
       (XGetWindowAttributes default-x11-display handle infos)
-      (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
+      (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
 
 
 (definition (platform-get-window-size handle)

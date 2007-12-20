@@ -35,6 +35,18 @@
 ;;;  See www.jazzscheme.org for details.
 
 
+;; TODO
+;; - if the configuration directory is a subdir of the source directory, then
+;;   safe the jazz directory using .. parent syntax
+;; - how can we in Gambit specify runtime options like -:m500000 when building
+;;   an application?
+;; - finish the shell-command / open-process saga
+
+
+(define jazz.process-command
+  'shell-command)
+
+
 ;;;
 ;;;; Configuration
 ;;;
@@ -497,7 +509,11 @@
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (jazz.open-process "gsc" (list "-e" (string-append "(jazz.recursive-make '" target-argument " '" configuration-argument ")"))))))
+      (case jazz.process-command
+        ((shell-command)
+         (jazz.shell-command (string-append "gsc -e \"(jazz.recursive-make '" target-argument " '" configuration-argument ")\"")))
+        ((open-process)
+         (jazz.open-process "gsc" (list "-e" (string-append "(jazz.recursive-make '" target-argument " '" configuration-argument ")"))))))))
 
 
 (define (jazz.recursive-make target configuration-name)
@@ -542,7 +558,10 @@
         (display "(define " output)
         (display variable output)
         (newline output)
-        (display "  '" output)
+        (display "  " output)
+        (if (or (symbol? value)
+                (list? value))
+            (display "'" output))
         (write value output)
         (display ")" output)
         (newline output))
@@ -573,9 +592,14 @@
                 (jazz.feedback "; generating {a} ..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (print-variable 'jazz.default-app app output)))
+                    (print-variable 'jazz.app app output)
+                    (newline output)
+                    (print-variable 'jazz.jazz-directory (jazz-directory) output)))
                 #t)
             #f)))
+      
+      (define (jazz-directory)
+        (path-expand (current-directory)))
       
       (define (compile-kernel)
         (let ((architecture? (generate-architecture))
@@ -637,42 +661,83 @@
             #f)))
       
       (define (link-libraries)
-        (case platform
-          ((windows)
-           '("-lws2_32"))
-          (else
-           '())))
+        (case jazz.process-command
+          ((shell-command)
+           (case platform
+             ((windows)
+              "-lws2_32 ")
+             (else
+              "")))
+          ((open-process)
+           (case platform
+             ((windows)
+              '("-lws2_32"))
+             (else
+              '())))))
       
       (define (link-options)
-        (case platform
-          ((windows)
-           (if console?
-               '("-mconsole")
-             '("-mwindows")))
-          (else
-           '())))
+        (case jazz.process-command
+          ((shell-command)
+           (case platform
+             ((windows)
+              (if console?
+                  "-mconsole "
+                "-mwindows "))
+             (else
+              "")))
+          ((open-process)
+           (case platform
+             ((windows)
+              (if console?
+                  '("-mconsole")
+                '("-mwindows")))
+             (else
+              '())))))
       
       (define (link-kernel)
         (jazz.feedback "; linking executable ...")
-        (jazz.open-process
-          "gcc"
-          `(,(appfile "architecture.c")
-            ,(conffile "build/_kernel/syntax/macros.c")
-            ,(conffile "build/_kernel/syntax/features.c")
-            ,(conffile "build/_kernel/syntax/primitives.c")
-            ,(conffile "build/_kernel/syntax/syntax.c")
-            ,(conffile "build/_kernel/syntax/runtime.c")
-            ,(conffile "build/_kernel/runtime/settings.c")
-            ,(conffile "build/_kernel/runtime/digest.c")
-            ,(conffile "build/_kernel/runtime/kernel.c")
-            ,(conffile "build/_kernel/runtime/main.c")
-            ,(appfile "app.c")
-            ,(appfile (string-append appname ".c"))
-            ,(string-append "-I" (path-expand "~~/include"))
-            ,(string-append "-L" (path-expand "~~/lib"))
-            "-lgambc" "-lgambcgsc" ,@(link-libraries)
-            ,@(link-options)
-            "-o" ,(conffile appname))))
+        (case jazz.process-command
+          ((shell-command)
+           (jazz.shell-command
+             (string-append
+               "gcc" " "
+               (appfile "architecture.c") " "
+               (conffile "build/_kernel/syntax/macros.c") " "
+               (conffile "build/_kernel/syntax/features.c") " "
+               (conffile "build/_kernel/syntax/primitives.c") " "
+               (conffile "build/_kernel/syntax/syntax.c") " "
+               (conffile "build/_kernel/syntax/runtime.c") " "
+               (conffile "build/_kernel/runtime/settings.c") " "
+               (conffile "build/_kernel/runtime/digest.c") " "
+               (conffile "build/_kernel/runtime/kernel.c") " "
+               (conffile "build/_kernel/runtime/main.c") " "
+               (appfile "app.c") " "
+               (appfile (string-append appname ".c")) " "
+               (string-append "-I" (path-expand "~~/include")) " "
+               (string-append "-L" (path-expand "~~/lib")) " "
+               "-lgambc -lgambcgsc " (link-libraries)
+               (link-options)
+               "-o " (conffile appname))))
+          ((open-process)
+           (jazz.open-process
+             "gcc"
+             `(,(appfile "architecture.c")
+               ,(conffile "build/_kernel/syntax/macros.c")
+               ,(conffile "build/_kernel/syntax/features.c")
+               ,(conffile "build/_kernel/syntax/primitives.c")
+               ,(conffile "build/_kernel/syntax/syntax.c")
+               ,(conffile "build/_kernel/syntax/runtime.c")
+               ,(conffile "build/_kernel/runtime/settings.c")
+               ,(conffile "build/_kernel/runtime/digest.c")
+               ,(conffile "build/_kernel/runtime/kernel.c")
+               ,(conffile "build/_kernel/runtime/main.c")
+               ,(appfile "app.c")
+               ,(appfile (string-append appname ".c"))
+               ,(string-append "-I" (path-expand "~~/include"))
+               ,(string-append "-L" (path-expand "~~/lib"))
+               "-lgambc" "-lgambcgsc" ,@(link-libraries)
+               ,@(link-options)
+               "-o" ,(conffile appname))))))
       
       (define (executable-name)
         (case platform
@@ -769,8 +834,27 @@
     (define (conffile path)
       (string-append confdir path))
     
+    (define (jazz-path)
+      (case jazz.process-command
+        ((shell-command)
+         (case (jazz.configuration-platform configuration)
+           ((windows)
+            "jazz")
+           (else
+            "./jazz")))
+        ((open-process)
+         (case (jazz.configuration-platform configuration)
+           ((windows)
+            (conffile "jazz"))
+           (else
+            "./jazz")))))
+    
     (jazz.feedback "making {a}" target)
-    (jazz.open-process (conffile "jazz") (list "-make" (symbol->string target)) confdir)))
+    (case jazz.process-command
+      ((shell-command)
+       (jazz.shell-command (string-append (jazz-path) " -make " (symbol->string target)) confdir))
+      ((open-process)
+       (jazz.open-process (jazz-path) (list "-make" (symbol->string target)) confdir)))))
 
 
 (define (jazz.make-core configuration)
@@ -980,12 +1064,21 @@
 ;;;
 
 
-(define (jazz.open-process path arguments #!optional (directory (current-directory)))
+(define (jazz.shell-command cmd #!optional (directory #f))
+  (let ((code (if (not directory)
+                  (shell-command cmd)
+                (parameterize ((current-directory directory))
+                  (shell-command cmd)))))
+    (if (not (= code 0))
+        (jazz.stop))))
+
+
+(define (jazz.open-process path arguments #!optional (directory #f))
   (let ((port (open-process
                 (list
                   path: path
                   arguments: arguments
-                  directory: directory
+                  directory: (or directory (current-directory))
                   stdin-redirection: #f
                   stdout-redirection: #f
                   stderr-redirection: #f))))

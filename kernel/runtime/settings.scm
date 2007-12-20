@@ -123,11 +123,11 @@
 ;;;
 
 
-(define jazz.default-app
+(define jazz.app
   #f)
 
 
-(define jazz.default-username
+(define jazz.app-username
   #f)
 
 

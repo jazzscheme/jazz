@@ -413,8 +413,8 @@
             (make (get-option "make")))
         (cond (app
                (boot-app (%%string->symbol app)))
-              (jazz.default-app
-               (boot-app jazz.default-app))
+              (jazz.app
+               (boot-app jazz.app))
               (make
                (jazz.make (%%string->symbol make)))
               (else

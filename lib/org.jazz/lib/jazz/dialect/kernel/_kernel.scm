@@ -40,6 +40,14 @@
 
 
 ;;;
+;;;; App
+;;;
+
+
+(native jazz.app-username)
+
+
+;;;
 ;;;; Autoload
 ;;;
 
@@ -107,7 +115,6 @@
 ;;;
 
 
-(native jazz.default-username)
 (native jazz.run-loop?)
 (native jazz.debug)
 (native jazz.error)

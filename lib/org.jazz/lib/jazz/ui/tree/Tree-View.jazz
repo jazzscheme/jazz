@@ -1292,36 +1292,6 @@
   ;;;; Columns
   ;;;
   
-  @w
-  (method public (fill-column size)
-    (when (and filled-column (not-null? columns-borders))
-      (let* ((column (find-filled-column filled-column))
-             (rank (column-rank column)))
-        (when (< rank (length columns-borders))
-          (let* ((filled-borders (element columns-borders rank))
-                 (min-delta (- (get-width~ column) 10))
-                 (size-delta (- (get-width~ size) (space-after-column rank) (borders-right filled-borders)))
-                 (delta @w (max size-delta min-delta) size-delta)
-                 (old-right (cdr filled-borders))
-                 (new-right (+ old-right delta)))
-            (when (/= 0 delta)
-              (if #f @w (/= delta min-delta)
-                  (when (eq? self (get-%~ Development))
-                    (log-stack name: "fill-column" message: (format "size: {a}" size))
-                    @reset-scroller-width xxx)
-                (for-each (function (pair)
-                            (set-car! pair (+ (car pair) delta))
-                            (set-cdr! pair (+ (cdr pair) delta)))
-                          (tail columns-borders (+ rank 1)))
-                (set-cdr! filled-borders new-right)
-                (increase! columns-right delta)
-                (set-width~ column (+ (get-width~ column) delta))
-                (let ((rect (new Rect
-                              (- (min old-right new-right) 2) 0
-                              (get-width~ size) (get-height~ size))))
-                  (invalidate-rect rect))
-                (invalidate-header))))))))
-  
   
   (method public (fill-column size)
     (when (and filled-column (not-null? columns-borders))
@@ -1329,14 +1299,14 @@
              (rank (column-rank column)))
         (when (< rank (length columns-borders))
           (let* ((filled-borders (element columns-borders rank))
-                 (delta (- (get-width~ size) (space-after-column rank) (borders-right filled-borders)))
+                 (delta (max (- (borders-width filled-borders)) (- (get-width~ size) (space-after-column rank) (borders-right filled-borders))))
                  (old-right (cdr filled-borders))
                  (new-right (+ old-right delta)))
             (for-each (function (pair)
                         (set-car! pair (+ (car pair) delta))
                         (set-cdr! pair (+ (cdr pair) delta)))
                       (tail columns-borders (+ rank 1)))
-            (set-cdr! filled-borders new-right) 
+            (set-cdr! filled-borders new-right)
             (increase! columns-right delta)
             (set-width~ column (+ (get-width~ column) delta))
             (let ((rect (new Rect

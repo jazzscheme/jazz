@@ -57,6 +57,10 @@ Jedi IDE
 Launch
   The (jedi) command will launch the Jedi IDE.
 
+  PS: If you are launching Jedi using a platform: x11 build of Jazz, do not
+  forget to start X11, else the process will crash. We are looking at how to
+  detect from Jazz if X11 is running.
+
 Debugging
   At the current time, the IDE relies totally on the underlying Scheme for
   debugging. This is not as painfull as would appear as JazzScheme code is very

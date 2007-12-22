@@ -312,7 +312,8 @@
 
 
 (definition (destroy-window window)
-  (table-set! expose-store window #f)
+  (when use-expose-store?
+    (table-set! expose-store window #f))
   (XDestroyWindow default-x11-display (get-handle~ window)))
 
 
@@ -337,7 +338,7 @@
               (lparam 0))
           (when window
             (call-dispatch-message~ window msg wparam lparam))))
-     (when (= 0 (XPending default-x11-display))
+     (when (and use-expose-store? (= 0 (XPending default-x11-display)))
        (iterate-table expose-store
                              (function (win region)
                                (when region
@@ -363,6 +364,8 @@
 
 (definition expose-store (make-table))
 
+(definition use-expose-store? #t)
+
 (definition (process-window-message window msg)
    (let ((type (XEvent-type-ref msg)))
       (cond
@@ -374,9 +377,11 @@
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
                                         (region (new Rect left top right bottom))
                                         (old-region (table-ref expose-store window #f)))
+                                        (if use-expose-store?
                                           (if old-region
                                               (table-set! expose-store window (rect-union old-region region))
                                               (table-set! expose-store window region))
+                                          (paint~ window region)
                                           processed))
                                             
                                           

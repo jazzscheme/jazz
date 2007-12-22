@@ -257,6 +257,7 @@
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
     (XSetWindowAttributes-background_pixel-set! attr (XWhitePixel default-x11-display screen-no))
+    (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
     (if (is? window Desktop)
         (platform-get-desktop)
         (XCreateWindow default-x11-display
@@ -269,7 +270,7 @@
                    CopyFromParent
                    InputOutput
                    visual
-                   CWBackPixel
+                   CWBitGravity
                    attr))))
 
 
@@ -373,9 +374,6 @@
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
                                         (region (new Rect left top right bottom))
                                         (old-region (table-ref expose-store window #f)))
-@laLALA
-                                          (if (and old-region (> (get-right~ (rect-union old-region region)) 8000))
-                                              (debug region))
                                           (if old-region
                                               (table-set! expose-store window (rect-union old-region region))
                                               (table-set! expose-store window region))
@@ -464,8 +462,10 @@
                 (prev-size (get-previous-size~ window))
                 (prev-pos (get-previous-pos~ window)))
          (table-set! expose-store window #f)
-         (call-size-change~ window width height)
-         (call-position-change~ window x y)))
+         (unless (=? prev-size (new Dimension width height))
+           (call-size-change~ window width height))
+         (unless (=? prev-pos (new Point x y))
+           (call-position-change~ window x y))))
        (else                      unprocessed))))
 
 
@@ -686,6 +686,10 @@
        (let* ((x (XWindowAttributes-x-ref infos))
                (y (XWindowAttributes-y-ref infos)))
          (new Point x y))))
+
+
+(definition (platform-set-position-size handle pos size)
+  (XMoveResizeWindow default-x11-display handle (get-h~ pos) (get-v~ pos) (get-width~ size) (get-height~ size)))
 
 
 (definition (platform-set-position handle pos)

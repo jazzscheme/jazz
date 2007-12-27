@@ -86,12 +86,12 @@
 
 
 (cond-expand
-  (dbg
+  (release
     (define jazz.compile-options
-      '(debug)))
+      '()))
   (else
     (define jazz.compile-options
-      '())))
+      '(debug))))
 
 
 ;;;

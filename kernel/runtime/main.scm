@@ -116,12 +116,19 @@
       (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo")))
   (x11
     (define (bcairo)
-      (cmodule 'jazz.platform.cairo cc-options: "-I/opt/local/include/cairo -I/opt/local/include" ld-options: "-L/opt/local/lib -lcairo"))))
+      (define cairo-include-path      (path-expand "../../foreign/cairo/include/macosx"))
+      (define cairo-lib-path          (path-expand "../../foreign/cairo/lib/macosx"))
+      (define freetype-include-path   (path-expand "../../foreign/freetype/include/freetype2"))
+      (define fontconfig-include-path (path-expand "../../foreign/fontconfig/include"))
+      (cmodule 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
+      (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
+      (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: (string-append "-I" cairo-include-path " -I" freetype-include-path " -I" fontconfig-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
 
 
 (define (bfreetype)
-  (cmodule 'jazz.platform.freetype cc-options: "-I/opt/local/include -I/opt/local/include/freetype2" ld-options: "-L/opt/local/lib -lfreetype")
-  (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: "-I/opt/local/include -I/opt/local/include/freetype2 -I/opt/local/include/cairo" ld-options: "-L/opt/local/lib -lcairo"))
+  (define freetype-include-path (path-expand "../../foreign/freetype/include/freetype2"))
+  (define freetype-lib-path     (path-expand "../../foreign/freetype/lib/macosx"))
+  (cmodule 'jazz.platform.freetype cc-options: (string-append "-I" freetype-include-path) ld-options: (string-append "-L" freetype-lib-path " -lfreetype")))
 
 
 (define (blogfont)
@@ -156,11 +163,7 @@
 
 (define (bx11)
   (jazz.load-module 'core.module.build) 
-  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
-  (cmodule 'jazz.platform.freetype             cc-options: "-I/opt/local/include -I/opt/local/include/freetype2" ld-options: "-L/opt/local/lib -lfreetype")
-  (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: "-I/opt/local/include/cairo" ld-options: "-L/opt/local/lib -lcairo")
-  (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: "-I/opt/local/include/cairo -I/opt/local/include -I/opt/local/include/freetype2" ld-options: "-L/opt/local/lib -lcairo")
-  (cmodule 'jazz.platform.cairo                cc-options: "-I/opt/local/include/cairo" ld-options: "-L/opt/local/lib -lcairo"))
+  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11"))
 
 
 (cond-expand

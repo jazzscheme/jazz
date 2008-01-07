@@ -372,6 +372,14 @@
   "2.0a1")
 
 
+(cond-expand
+  (x11
+    (define (jazz.set-library-environment!)
+      (setenv "DYLD_LIBRARY_PATH" (path-expand "./"))))
+  (windows
+    (define (jazz.set-library-environment!)
+      #f)))
+
 (define (jazz.main)
   (define (warn-missing-argument-for-option opt)
     (jazz.repl-main

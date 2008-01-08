@@ -70,7 +70,7 @@
         (<Push-Tool>        name: terminate  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Toplevel" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-toplevel})
         (<Push-Tool>        name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
         (<Separator>                         size: {Dimension 5 0})
-        (<Toggle-Tool>      name: c++-frames size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show C++ Frames?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-c++-frames})
+        (<Toggle-Tool>      name: c-frames   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show C Frames?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-c-frames})
         (<Separator>                         size: {Dimension 3 0})
         (<Push-Tool>        name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
       (<Scroller-View>      name: scroller   location: center vscroll?: #t flat?: #t
@@ -143,8 +143,8 @@
     (set! snapshots value))
   
   
-  (method (show-c++-frames?)
-    (get-selected?~ (locate 'c++-frames)))
+  (method (show-c-frames?)
+    (get-selected?~ (locate 'c-frames)))
 
   
   ;;;
@@ -217,7 +217,7 @@
       (frame-change)))
   
   
-  (method (on-toggle-c++-frames evt)
+  (method (on-toggle-c-frames evt)
     (let ((tree (locate 'stack)))
       (with-preserved-selection~ tree
         (function ()
@@ -548,11 +548,11 @@
                                                                                 (bind (address . parameters) info
                                                                                   (get-frame-snapshot thread handler address parameters)))
                                                                               call-stack)))
-                                         (c++? (show-c++-frames?)))
+                                         (c? (show-c-frames?)))
                                     (for-each (function (frame)
                                                 (let ((title (present~ frame))
                                                       (image (get-image~ frame)))
-                                                  (when (or c++? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
+                                                  (when (or c? (is? frame Lisp-Frame-Snapshot) (is? frame Coalesced-Frames-Snapshot))
                                                     (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame))))
                                               frames)))
                                 threads)))))
@@ -562,19 +562,19 @@
   (method (get-frame-snapshot thread handler address parameters)
     @convert
     (let* ((address (->string address))
-           (kind (if (starts-with? address "#x") 'c++ 'lisp)))
+           (kind (if (starts-with? address "#x") 'c 'lisp)))
       (case kind
-        ((c++)
+        ((c)
          (let* ((addr (extract-address address))
                 (sym (get-sym-from-addr~ handler addr))
                 (title (standardize-sym sym)))
            (when title
              (let ((info (get-line-from-addr~ handler addr)))
                (if (null? info)
-                   (new Cpp-Frame-Snapshot thread title {} {} parameters)
+                   (new C-Frame-Snapshot thread title {} {} parameters)
                  (receive (filename line) info
                    (let ((file (new File (tokenise filename))))
-                     (new Cpp-Frame-Snapshot thread title file line parameters))))))))
+                     (new C-Frame-Snapshot thread title file line parameters))))))))
         ((lisp)
          (let* ((title address)
                 (pos (find title #\period)))
@@ -591,13 +591,13 @@
             (function (frame)
               (cond ((null? frame)
                      'none)
-                    ((and (is? frame Cpp-Frame-Snapshot)
+                    ((and (is? frame C-Frame-Snapshot)
                           (let ((title (get-title~ frame)))
                             (or (starts-with? title "JCompiledClosure::")
                                 (starts-with? title "JCompiledExternal::"))))
                      'eval)
-                    ((is? frame Cpp-Frame-Snapshot)
-                     'c++)
+                    ((is? frame C-Frame-Snapshot)
+                     'c)
                     ((is? frame Lisp-Frame-Snapshot)
                      'lisp)
                     (else
@@ -611,10 +611,10 @@
                    (f (get-type first))
                    (s (get-type second))
                    (t (get-type third)))
-              (cond ((and (eq? f 'lisp) (memq? s '(none c++)) (eq? t 'eval))
+              (cond ((and (eq? f 'lisp) (memq? s '(none c)) (eq? t 'eval))
                      (put~ fact (new Coalesced-Frames-Snapshot thread first second third))
                      (set! frames (cddr frames)))
-                    ((and (eq? f 'c++) (eq? s 'eval))
+                    ((and (eq? f 'c) (eq? s 'eval))
                      (put~ fact (new Coalesced-Frames-Snapshot thread {} first second))
                      (set! frames (cdr frames)))
                     (else

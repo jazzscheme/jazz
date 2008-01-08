@@ -2555,7 +2555,10 @@
       (jazz.error "Dialect name must be a symbol: {s}" dialect-name)
     (begin
       (if (%%neq? dialect-name 'core)
-          (jazz.load-module dialect-name))
+          (begin
+            ;; load dialect syntax even if dialect is compiled
+            (jazz.locate-library-declaration dialect-name)
+            (jazz.load-module dialect-name)))
       (jazz.require-dialect dialect-name))))
 
 

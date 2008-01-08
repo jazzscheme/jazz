@@ -39,7 +39,7 @@
 
 
 (require (core.library)
-         (jazz.dialect.core)
+         (jazz.dialect.core (phase syntax))
          (jazz.dialect.classes (phase syntax))
          (jazz.dialect.dialect))
 

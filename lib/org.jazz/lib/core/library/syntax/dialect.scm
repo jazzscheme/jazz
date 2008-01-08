@@ -66,7 +66,7 @@
 
 (define (jazz.require-dialect name)
   (or (jazz.get-dialect name)
-      (jazz.error "Unknown dialect: " name)))
+      (jazz.error "Unknown dialect: {s}" name)))
 
 
 (define (jazz.register-dialect name dialect)

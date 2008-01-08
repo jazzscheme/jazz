@@ -43,7 +43,7 @@
         (jazz.utilities))
 
 
-(class JavaExternal-Expander extends Object uses (Interpreter)
+(class JavaExternal-Expander extends Object
   
   
   @macro
@@ -54,6 +54,8 @@
                  {Ansi-String "executeQuery"}
                  {Ansi-String "(Ljava/lang/String;)Ljava/sql/ResultSet;"})
   
+  
+  @convert-meta
   (method meta public (expand form)
     (receive (meta? modifiers list) (parse-modifiers~ Interpreter form)
       (bind (return-type (name . parameter-types)) list
@@ -63,6 +65,7 @@
              (%javaexternal ,@modifiers ,return-type ,name ,parameter-types ,entry-name ,signature))))))
   
   
+  @convert-meta
   (method meta (compute-signature return-type parameter-types)
     (let ((printer (open-output-string)))
       (format printer "(")
@@ -74,10 +77,12 @@
       (get-output-string printer)))
   
   
+  @convert-meta
   (method meta (java-type specifier)
     (java-typeref (parse-specifier~ Interpreter specifier)))
   
   
+  @convert-meta
   (method meta (java-typeref typeref)
     (let ((reference (get-reference~ typeref)))
       (case reference
@@ -96,11 +101,13 @@
                       (error "Unknown java type: {t}" reference))))))
   
   
+  @convert-meta
   (method meta (java-array-type typeref)
     (let ((typeref (car (get-parameters~ typeref))))
       (format "[{a}" (java-typeref typeref))))
   
   
+  @convert-meta
   (method meta (java-reference-type reference)
     (when (symbol? reference)
       (format "L{a};" (period->slash-notation~ Java (symbol->string reference)))))))

@@ -137,6 +137,14 @@
           (for-each (lambda (require)
                       (jazz.parse-require require iter))
                     (%%get-module-declaration-requires declaration))
-        (for-each (lambda (require)
-                    (jazz.parse-require require iter))
-                  (%%get-library-declaration-requires declaration)))))))
+        (begin
+          (for-each (lambda (require)
+                      (jazz.parse-require require iter))
+                    (%%get-library-declaration-requires declaration))
+          (for-each (lambda (export)
+                      (let ((reference (%%get-library-invoice-library export)))
+                        (if reference
+                            (let ((name (%%get-declaration-reference-name reference))
+                                  (phase (%%get-library-invoice-phase export)))
+                              (iter name #f phase)))))
+                    (%%get-library-declaration-exports declaration))))))))

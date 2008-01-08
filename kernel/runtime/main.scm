@@ -144,6 +144,7 @@
   (cmodule 'jazz.platform.windows.WinNT       cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinKernel   cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinGDI      cc-options: "-DUNICODE" ld-options: "-mwindows")
+  (cmodule 'jazz.platform.windows.WinMM       cc-options: "-DUNICODE" ld-options: "-mwindows -lwinmm")
   (cmodule 'jazz.platform.windows.WinUser     cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
@@ -189,13 +190,13 @@
 ;;;
 
 
-
 (define (jazz.make target)
   (case target
     ((core) (bcore))
     ((jazz) (bjazz))
     ((platform) (bplatform))
     ((jedi) (bjedi))
+    ((p4) (bp4))
     (else (jazz.error "Unknown target: {s}" target))))
 
 
@@ -205,7 +206,7 @@
 
 
 (define (boot-app name)
-  (jazz.load-module 'core.library)
+  (lplatform)
   (jazz.load-module name)
   (jazz.system.boot-app name))
 
@@ -346,6 +347,16 @@
 
 (define (jedi)
   (boot-app 'jedi))
+
+
+;;;
+;;;; P4
+;;;
+
+
+(define (bp4)
+  (bjazz)
+  (bplatform))
 
 
 ;;;

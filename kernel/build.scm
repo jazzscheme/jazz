@@ -502,6 +502,7 @@
     ((jazz) (jazz.make-jazz configuration))
     ((platform) (jazz.make-platform configuration))
     ((jedi) (jazz.make-jedi configuration))
+    ((p4) (jazz.make-p4 configuration))
     (else (jazz.error "Unknown target: {s}" target))))
 
 
@@ -523,6 +524,7 @@
             (case target
               ((kernel) (jazz.make-kernel-recursive configuration))
               ((jedi) (jazz.make-jedi-recursive configuration))
+              ((p4) (jazz.make-p4-recursive configuration))
               (else (jazz.error "Unknown target: {s}" target))))
           #t))
       (exit)
@@ -540,6 +542,29 @@
 ;;;
 
 
+(define (print-architecture system platform safety options output)
+  (print-variable 'jazz.system system output)
+  (newline output)
+  (print-variable 'jazz.platform platform output)
+  (newline output)
+  (print-variable 'jazz.safety safety output)
+  (newline output)
+  (print-variable 'jazz.options options output))
+
+
+(define (print-variable variable value output)
+  (display "(define " output)
+  (display variable output)
+  (newline output)
+  (display "  " output)
+  (if (or (symbol? value)
+          (list? value))
+      (display "'" output))
+  (write value output)
+  (display ")" output)
+  (newline output))
+
+
 (define (jazz.build-app app configuration #!key (console? #t))
   (let ((system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
@@ -554,34 +579,14 @@
       (define (appfile path)
         (string-append appdir path))
       
-      (define (print-variable variable value output)
-        (display "(define " output)
-        (display variable output)
-        (newline output)
-        (display "  " output)
-        (if (or (symbol? value)
-                (list? value))
-            (display "'" output))
-        (write value output)
-        (display ")" output)
-        (newline output))
-      
-      (define (print-architecture output)
-        (print-variable 'jazz.system system output)
-        (newline output)
-        (print-variable 'jazz.platform platform output)
-        (newline output)
-        (print-variable 'jazz.safety safety output)
-        (newline output)
-        (print-variable 'jazz.options options output))
-      
       (define (generate-architecture)
         (let ((file (appfile "architecture.scm")))
           (if (not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a} ..." file)
                 (call-with-output-file file
-                  print-architecture)
+                  (lambda (output)
+                    (print-architecture system platform safety options output)))
                 #t)
             #f)))
       
@@ -771,7 +776,9 @@
 
 
 (define (jazz.make-kernel-recursive configuration)
-  (let ((platform (jazz.configuration-platform configuration))
+  (let ((system (jazz.configuration-system configuration))
+        (platform (jazz.configuration-platform configuration))
+        (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (confdir (jazz.effective-directory configuration)))
     (define (conffile path)
@@ -810,7 +817,7 @@
                   (print ";;;" output)
                   (newline output)
                   (newline output)
-                  (print-architecture output)
+                  (print-architecture system platform safety options output)
                   (newline output)
                   (newline output)
                   (display "(load \"../../kernel/boot\")" output)
@@ -886,6 +893,22 @@
 
 (define (jazz.make-jedi-recursive configuration)
   (jazz.build-app 'jedi configuration console?: #f))
+
+
+;;;
+;;;; P4
+;;;
+
+
+(define (jazz.make-p4 configuration)
+  (jazz.make-platform configuration)
+  (jazz.jazz-make 'p4 configuration)
+  
+  (jazz.make-target-recursive 'p4 configuration))
+
+
+(define (jazz.make-p4-recursive configuration)
+  (jazz.build-app 'p4 configuration console?: #f))
 
 
 ;;;

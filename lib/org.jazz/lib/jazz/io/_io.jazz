@@ -119,8 +119,7 @@
       (validate object))))
 
 
-;; quicky. this is not a good naming
-(definition public (extract-filename filename <string>) <string>
+(definition public (extract-name filename <string>) <string>
   (let ((pos (find filename #\/ reversed?: #t)))
     (if (not pos)
         filename
@@ -340,6 +339,15 @@
 
 (cond-expand
   (windows
+    (definition platform-separator
+      "\\"))
+  (else
+    (definition platform-separator
+      "/")))
+
+
+(cond-expand
+  (windows
     (definition root-prefix
       ""))
   (else
@@ -363,35 +371,40 @@
     (set-list lst))
   
   
-  (method public (parse)
-    (let ((printer (open-output-string))
-          (first? #t)
-          (aliases '()))
-      (letrec ((parse
-                 (function (path)
-                   (cond ((null? path))
-                         ((eq? path #t)
-                          (display root-prefix printer))
-                         ((string? path)
-                          (if first?
-                              (set! first? #f)
-                            (display "/" printer))
-                          (display path printer))
-                         ((symbol? path)
-                          (if (memq? path aliases)
-                              (error "Recursive alias {a} in {s}" path self)
-                            (set! aliases (cons path aliases))
-                            (if (is-alias? path)
-                                (parse (get-alias path))
-                              (error "Unknown alias: {s}" path))))
-                         ((pair? path)
-                          (parse (car path))
-                          (parse (cdr path)))
-                         (else
-                          (error "Bad pathname component {t}" path))))))
-        (parse (get-list)))
-      (add-suffix printer)
-      (get-output-string printer)))
+  (method public (parse . rest)
+    (bind-optionals ((separator "/")) rest
+      (let ((printer (open-output-string))
+            (first? #t)
+            (aliases '()))
+        (letrec ((parse
+                   (function (path)
+                     (cond ((null? path))
+                           ((eq? path #t)
+                            (display root-prefix printer))
+                           ((string? path)
+                            (if first?
+                                (set! first? #f)
+                              (display separator printer))
+                            (display path printer))
+                           ((symbol? path)
+                            (if (memq? path aliases)
+                                (error "Recursive alias {a} in {s}" path self)
+                              (set! aliases (cons path aliases))
+                              (if (is-alias? path)
+                                  (parse (get-alias path))
+                                (error "Unknown alias: {s}" path))))
+                           ((pair? path)
+                            (parse (car path))
+                            (parse (cdr path)))
+                           (else
+                            (error "Bad pathname component {t}" path))))))
+          (parse (get-list)))
+        (add-suffix printer)
+        (get-output-string printer))))
+  
+  
+  (method public (platform-parse)
+    (parse platform-separator))
   
   
   (method protected virtual (add-suffix printer)

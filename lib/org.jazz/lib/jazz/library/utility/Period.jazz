@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Child Processes
+;;;; Periods
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,72 +35,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.library.shell.Child-Process jazz
+(library jazz.library.utility.Period jazz
 
 
-(import (jazz.library)
-        (jazz.utilities))
-
-
-(class Child-Process extends Object uses (Utilities System WinDef WinBase WinKernel WinShell WinUser)
+(class Period extends Range
   
   
-  (slot process-id)
-  (slot process-handle)
-  (slot input-pipe)
-  (slot output-pipe)
-  (slot error-pipe)
+  @convert
+  (method public (get-duration field)
+    (let ((delta (- (get-elapse~ (get-time~ end)) (get-elapse~ (get-time~ start)))))
+      (get-duration~ (new Time delta) field)))
   
   
-  (method (initialize handle id input output error)
-    (nextmethod)
-    (set! process-handle handle)
-    (set! process-id id)
-    (set! input-pipe input)
-    (set! output-pipe output)
-    (set! error-pipe error)
-    (destroy-mandatory))
+  @convert
+  (method public (present)
+    (format :string "{a} {a} {a}"
+            (present-date~ start)
+            (localize {Locales :english "to" :french "au"})
+            (present-date~ end)))
   
   
-  (method (destroy)
-    (close~ input-pipe)
-    (close~ output-pipe)
-    (close~ error-pipe)
-    (nextmethod))
+  @convert
+  (method public (for-each-day proc)
+    (let ((date start))
+      (while (<= date end)
+        (proc date)
+        (set! date (add~ date 'day 1)))))
   
   
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-process-handle)
-    process-handle)
-  
-  
-  (method public (get-process-id)
-    process-id)
-  
-  
-  (method public (get-input-pipe)
-    input-pipe)
-  
-  
-  (method public (get-output-pipe)
-    output-pipe)
-  
-  
-  (method public (get-error-pipe)
-    error-pipe)
-  
-  
-  (method public (get-standard-input)
-    (get-printer~ input-pipe))
-  
-  
-  (method public (get-standard-output)
-    (get-reader~ output-pipe))
-  
-  
-  (method public (get-standard-error)
-    (get-reader~ error-pipe))))
+  @convert
+  (method public (includes-day-of-week? day)
+    (for-each-day
+      (function dynamic (date)
+        (when (= (symbolic-day-of-week~ Date (get-day-of-week~ date)) day)
+          (return #t))))
+    #f)))

@@ -628,7 +628,9 @@
   (let ((package (%%resource-package resource))
         (dir (jazz.pathname-dir (%%resource-path resource))))
     (jazz.repository-pathname jazz.Build-Repository
-      (%%string-append (%%package-path package) "/" dir))))
+      (if dir
+          (%%string-append (%%package-path package) "/" dir)
+        (%%package-path package)))))
 
 
 ;;;

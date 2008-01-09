@@ -722,6 +722,8 @@
            (case platform
              ((windows)
               "-lws2_32 ")
+	     ((x11)
+              "-lm -ldl -lutil ")
              (else
               "")))
           ((open-process)

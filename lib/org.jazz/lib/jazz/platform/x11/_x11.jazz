@@ -863,37 +863,73 @@
                    ___result_voidstar = ret;") display)))
     (values (int-array-ref ret 0) (int-array-ref ret 1))))
 
-;; Add timer
+
+(definition clipboard-string "")
+
+
+;; We must find a way to make this more elegant.
+;; The one million iteration is horrible. Plus we may still
+;; have a race condition.
 (definition (XGetClipboardString display window)
   ((c-function (Display* Window) void
      "Atom XA_CLIPBOARD = XInternAtom( ___arg1, \"CLIPBOARD\", 0);
       XConvertSelection(___arg1, XA_CLIPBOARD, XA_STRING, None, ___arg2, CurrentTime);")
       display window)
   ((c-function (Display* Window) char-string
-                     "
-                      Atom prop;
+                     "Atom prop;
                       XEvent ev_ret;
-                     char *val = \"\";
-                     unsigned char *ret;
-                     int i;
-                     int format;
-                     Atom type;
-                     unsigned long nitems;
-                     unsigned long bar;
-                     Bool retb = False;
-                     for( i = 0; i < 2000; i++ ) {
-                        retb = XCheckTypedEvent(___arg1,SelectionNotify,&ev_ret);
-                        if( retb == True ) break;
-                     }
-                     if( retb == True) {
-                        val = \"prop\";
-                        prop = ev_ret.xselection.property;
-                        if (prop != None)  {
-                          XGetWindowProperty( ___arg1, ___arg2, prop, 0, 100000, False, XA_STRING, &type, &format,&nitems, &bar, &ret);
-                          val = (char*)ret;
-                        }
-                     }
-                     ___result = val;")
+                      char *val = \"\";
+                      unsigned char *ret;
+                      int i;
+                      int format;
+                      Atom type;
+                      unsigned long nitems;
+                      unsigned long bar;
+                      Bool retb = False;
+                      for( i = 0; i < 1000000; i++ ) {
+                         retb = XCheckTypedEvent(___arg1,SelectionNotify,&ev_ret);
+                         if( retb == True ) break;
+                      }
+                      if( retb == True) {
+                         val = \"prop\";
+                         prop = ev_ret.xselection.property;
+                         if (prop != None)  {
+                           XGetWindowProperty( ___arg1, ___arg2, prop, 0, 100000, False, XA_STRING, &type, &format,&nitems, &bar, &ret);
+                           val = (char*)ret;
+                         }
+                      }
+                      ___result = val;")
        display window))
+
+
+(definition XSetClipboardString 
+  (c-function (Display* Window char-string) void
+    "Atom XA_CLIPBOARD = XInternAtom( ___arg1, \"CLIPBOARD\", 0);
+     XChangeProperty(___arg1,___arg2,XA_PRIMARY,XA_STRING,
+     8, PropModeReplace, (unsigned char *)___arg3,strlen(___arg3));
+     XSetSelectionOwner(___arg1,XA_CLIPBOARD,___arg2,CurrentTime);"))
+
+
+(definition XSendClipboardString
+  (c-function (Display* Window Window Atom Atom Atom) void
+    "Atom type;
+     int format;
+     unsigned long len;
+     unsigned long bytes_left;
+     unsigned char *data;
+     XEvent xev;
+     XGetWindowProperty(___arg1,___arg2,XA_PRIMARY,0,10000000L,0,XA_STRING,&type,&format,&len,&bytes_left,&data);
+     XChangeProperty(___arg1,___arg3,___arg6,___arg5,8,PropModeReplace,data,len);
+     xev.xselection.type = SelectionNotify;
+     xev.xselection.send_event = True;
+     xev.xselection.display = ___arg1;
+     xev.xselection.requestor = ___arg3;
+     xev.xselection.selection = ___arg4;
+     xev.xselection.target = ___arg5;
+     xev.xselection.property = ___arg6;
+     xev.xselection.time = CurrentTime;
+     XSendEvent( ___arg1, ___arg3, 0, 0L, &xev );"))
+     
+
 
 (definition default-x11-display (XOpenDisplay #f)))

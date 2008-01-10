@@ -39,7 +39,7 @@
 (library jazz.dialect.syntax.bind-keywords scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 ; @macro (bind-keywords ((a 2) (b 3)) rest (list b: 5))

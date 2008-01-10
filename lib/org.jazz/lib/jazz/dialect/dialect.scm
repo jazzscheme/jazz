@@ -777,6 +777,10 @@
   (jazz.allocate-jazz-dialect jazz.Jazz-Dialect))
 
 
+(jazz.define-method (jazz.dialect-name (jazz.Jazz-Dialect dialect))
+  'jazz)
+
+
 (jazz.define-method (jazz.dialect-walker (jazz.Jazz-Dialect dialect))
   (jazz.new-jazz-walker))
 

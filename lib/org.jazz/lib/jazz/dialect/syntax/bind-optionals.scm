@@ -39,7 +39,7 @@
 (library jazz.dialect.syntax.bind-optionals scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 ; @macro (bind-optionals ((a 2)) rest a)

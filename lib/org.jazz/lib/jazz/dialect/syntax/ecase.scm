@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.ecase scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 ;; @macro (ecase target ((a) 1) ((b c) 2) (else 3))

@@ -39,7 +39,7 @@
 (library jazz.dialect.syntax.while scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 (define-macro (while test . body)

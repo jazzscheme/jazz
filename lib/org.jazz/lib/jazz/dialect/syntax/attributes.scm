@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.attributes scheme
 
 
-(import (jazz.dialect.kernel)
+(import (jazz.dialect.kernel.boot)
         (jazz.dialect.syntax.macros))
 
 
@@ -97,7 +97,7 @@
                 (let ((name (car property)))
                   (parse-specifier (cdr property)
                     (lambda (specifier rest)
-                      (let ((init (getf rest 'initialize unspecified)))
+                      (let ((init (getf rest 'initialize not-found: unspecified)))
                         (if (eq? init unspecified)
                             `(slot ,name)
                           `(slot ,name initialize ,init)))))))

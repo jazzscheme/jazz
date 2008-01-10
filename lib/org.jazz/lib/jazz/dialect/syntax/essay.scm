@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.essay scheme
 
 
-(import (jazz.dialect.kernel)
+(import (jazz.dialect.kernel.boot)
         (jazz.dialect.syntax.macros))
 
 

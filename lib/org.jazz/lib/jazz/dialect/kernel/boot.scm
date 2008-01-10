@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Signals
+;;;; Jazz Kernel Boot
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -17,10 +17,11 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -35,15 +36,38 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.library.signal.Signal jazz
+(library jazz.dialect.kernel.boot scheme
 
 
-(import (jazz.library)
-        (jazz.utilities))
+(export (jazz.dialect.kernel))
 
 
-(class Signal extends Exception
-  
-  
-  (method public virtual (forwardable?)
-    #f)))
+;; These get redefined in jazz.dialect.language but are used by the syntax modules
+
+
+;;;
+;;;; Format
+;;;
+
+
+(native jazz.format)
+
+
+;;;
+;;;; List
+;;;
+
+
+(native jazz.last)
+(native jazz.butlast)
+(native jazz.last-tail)
+(native jazz.getprop)
+(native jazz.getf)
+
+
+;;;
+;;;; Output
+;;;
+
+
+(native jazz.->string))

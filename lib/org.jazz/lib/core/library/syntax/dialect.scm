@@ -41,7 +41,12 @@
 (jazz.define-class-runtime jazz.Dialect)
 
 
+(jazz.define-virtual-runtime (jazz.dialect-name (jazz.Dialect dialect)))
 (jazz.define-virtual-runtime (jazz.dialect-walker (jazz.Dialect dialect)))
+
+
+(jazz.define-method (jazz.dialect-name (jazz.Dialect dialect))
+  #f)
 
 
 (jazz.define-method (jazz.dialect-walker (jazz.Dialect dialect))

@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.loop scheme
 
 
-(import (jazz.dialect.kernel)
+(import (jazz.dialect.kernel.boot)
         (jazz.dialect.syntax.either (phase syntax))
         (jazz.dialect.syntax.increase (phase syntax))
         (jazz.dialect.syntax.bind (phase syntax))

@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.with scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 (syntax (with bindings . body)

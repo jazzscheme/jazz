@@ -42,4 +42,5 @@
   ())
 
 
+(jazz.define-virtual (jazz.dialect-name (jazz.Dialect dialect)))
 (jazz.define-virtual (jazz.dialect-walker (jazz.Dialect dialect))))

@@ -146,6 +146,10 @@
   (jazz.allocate-scheme-dialect jazz.Scheme-Dialect))
 
 
+(jazz.define-method (jazz.dialect-name (jazz.Scheme-Dialect dialect))
+  'scheme)
+
+
 (jazz.define-method (jazz.dialect-walker (jazz.Scheme-Dialect dialect))
   (jazz.new-scheme-walker))
 

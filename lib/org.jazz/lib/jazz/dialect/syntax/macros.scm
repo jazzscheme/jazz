@@ -38,7 +38,7 @@
 (library jazz.dialect.syntax.macros scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 (syntax (constant name value)

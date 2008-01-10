@@ -166,15 +166,16 @@
 
 
 (jazz.define-class jazz.Library-Declaration jazz.Namespace-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body) jazz.Object-Class jazz.allocate-library-declaration
-  ((dialect    %%get-library-declaration-dialect    ())
-   (requires   %%get-library-declaration-requires   ())
-   (exports    %%get-library-declaration-exports    %%set-library-declaration-exports)
-   (imports    %%get-library-declaration-imports    %%set-library-declaration-imports)
-   (declares   %%get-library-declaration-declares   %%set-library-declaration-declares)
-   (literals   %%get-library-declaration-literals   %%set-library-declaration-literals)
-   (variables  %%get-library-declaration-variables  %%set-library-declaration-variables)
-   (references %%get-library-declaration-references %%set-library-declaration-references)
-   (autoloads  %%get-library-declaration-autoloads  %%set-library-declaration-autoloads)))
+  ((dialect-name    %%get-library-declaration-dialect-name    ())
+   (dialect-invoice %%get-library-declaration-dialect-invoice ())
+   (requires        %%get-library-declaration-requires        ())
+   (exports         %%get-library-declaration-exports         %%set-library-declaration-exports)
+   (imports         %%get-library-declaration-imports         %%set-library-declaration-imports)
+   (declares        %%get-library-declaration-declares        %%set-library-declaration-declares)
+   (literals        %%get-library-declaration-literals        %%set-library-declaration-literals)
+   (variables       %%get-library-declaration-variables       %%set-library-declaration-variables)
+   (references      %%get-library-declaration-references      %%set-library-declaration-references)
+   (autoloads       %%get-library-declaration-autoloads       %%set-library-declaration-autoloads)))
 
 
 ;;;

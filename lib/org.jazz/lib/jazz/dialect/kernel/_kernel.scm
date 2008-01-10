@@ -90,7 +90,6 @@
 
 (native jazz.symbolic-char)
 (native jazz.char-symbol)
-(native jazz.whitespace?)
 
 
 ;;;
@@ -161,7 +160,6 @@
 (native jazz.with-default-exception-handler)
 (native jazz.with-jazz-exception-handler)
 (native jazz.dump-exception)
-(native jazz.call-with-catch)
 (native jazz.raise)
 
 
@@ -215,14 +213,6 @@
 (native jazz.still-obj-refcount-dec!)
 (native jazz.still-obj-refcount-inc!)
 ;;(native jazz.still-obj-refcount)
-
-
-;;;
-;;;; Format
-;;;
-
-
-(native jazz.format)
 
 
 ;;;
@@ -286,31 +276,10 @@
 
 
 (native jazz.not-null?)
-(native jazz.remove!)
-(native jazz.remove-duplicates)
-(native jazz.every?)
-(native jazz.find-if)
-(native jazz.collect-if)
-(native jazz.collect-type)
-(native jazz.partition)
-(native jazz.reverse!)
-(native jazz.last)
-(native jazz.butlast)
 (native jazz.listify)
 (native jazz.list-copy)
-(native jazz.last-tail)
 (native jazz.last-pair)
-(native jazz.getprop)
-(native jazz.getf)
 (native jazz.proper-list)
-
-
-;;;
-;;;; Number
-;;;
-
-
-(native jazz.naturals)
 
 
 ;;;
@@ -322,11 +291,9 @@
 (native jazz.class-of)
 (native jazz.object?)
 (native jazz.category?)
-(native jazz.class?)
 (native jazz.interface?)
 (native jazz.method?)
 (native jazz.is?)
-(native jazz.is-not?)
 (native jazz.subtype?)
 (native jazz.subcategory?)
 (native jazz.subclass?)
@@ -342,7 +309,6 @@
 (native jazz.print)
 (native jazz.pretty-print)
 (native force-output)
-(native jazz.->string)
 (native open-output-string)
 (native get-output-string)
 (native call-with-output-string)
@@ -425,7 +391,6 @@
 ;;;
 
 
-(native skip-whites)
 (native jazz.eof-object)
 (native jazz.gambit-read-line)
 
@@ -539,7 +504,6 @@
 (native table->list)
 (native list->table)
 (native jazz.table-clear)
-(native jazz.table-keys)
 (native jazz.table-length)
 (native jazz.iterate-table)
 (native jazz.table-entries)

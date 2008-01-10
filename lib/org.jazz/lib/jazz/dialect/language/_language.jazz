@@ -379,10 +379,6 @@
       (get-output~ fact))))
 
 
-(definition public inline (field? obj)
-  (is? obj Field))
-
-
 ;;;
 ;;;; Method
 ;;;
@@ -896,10 +892,94 @@
     (edit-error-child~ (process-class) self info)))
 
 
-(class Read-Error extends Error)
+(class Read-Error extends Error
+  
+  
+  (slot source)
+  (slot start)
+  (slot end)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((source {}) (start {}) (end {}) . others) rest
+      (apply nextmethod others)
+      (set! source~self source)
+      (set! start~self start)
+      (set! end~self end)))
+  
+  
+  (method public (get-source)
+    source)
+  
+  
+  (method public (get-start)
+    start)
+  
+  
+  (method public (get-end)
+    end)
+  
+  
+  (method public (get-range)
+    (new Range start end)))
 
 
-(class Convertion-Error extends Error)
+(class Parse-Error extends Error
+  
+  
+  (slot source)
+  (slot start)
+  (slot end)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((source {}) (start {}) (end {}) . others) rest
+      (apply nextmethod others)
+      (set! source~self source)
+      (set! start~self start)
+      (set! end~self end)))
+  
+  
+  (method public (get-source)
+    source)
+  
+  
+  (method public (get-start)
+    start)
+  
+  
+  (method public (get-end)
+    end))
+
+
+(class Convertion-Error extends Parse-Error
+  
+  
+  (slot object)
+  (slot type)
+  
+  
+  (method (initialize . rest)
+    (bind-keywords ((object {}) (type {}) . others) rest
+      (apply nextmethod others)
+      (set! object~self object)
+      (set! type~self type)))
+  
+  
+  (method public (get-object)
+    object)
+  
+  
+  (method public (get-type)
+    type)
+  
+  
+  (method (get-message)
+    (let ((type (if (string? type) type (type-name type))))
+      (format "Unable to convert \"{a}\" into {a} {a}"
+              object
+              (format-gender type)
+              type))))
 
 
 (class Signal extends Exception)
@@ -3154,17 +3234,13 @@
 
 
 (definition public (getprop plist <Object> target <Object> (key: key {}))
-  (call/ec
-    (function (return)
-      (let ((scan plist))
-        (while (not-null? scan)
-          (when (eqv? (apply-key key (car scan)) target)
-            (return scan))
-          (set! scan (cdr scan))
-          (when (not (pair? scan))
-            (error "Badly structured property list: {t}" plist))
-          (set! scan (cdr scan))))
-      #f)))
+  (let (iter (scan plist))
+    (cond ((null? scan)
+           #f)
+          ((eqv? (apply-key key (car scan)) target)
+           scan)
+          (else
+           (iter (cddr scan))))))
 
 
 (definition public (getf plist <Object> target <Object> (key: key {}) (not-found: not-found {}))
@@ -5616,6 +5692,53 @@
 
 
 ;;;
+;;;; Formatting
+;;;
+
+
+(definition public (format-cardinality n <fx>)
+  (if (= n 0)
+      "No"
+    (->string n)))
+
+
+(definition public (format-plural n <fx> (plural "s"))
+  (if (= n 1)
+      ""
+    plural))
+
+
+(definition public (format-gender word)
+  (if (vowel? (first word))
+      "an"
+    "a"))
+
+
+(definition public (format-is/are n <fx>)
+  (if (= n 1)
+      "is"
+    "are"))
+
+
+(definition public (format-was/were n <fx>)
+  (if (= n 1)
+      "was"
+    "were"))
+
+
+(definition public (format-y/ies n <fx>)
+  (if (= n 1)
+      "y"
+    "ies"))
+
+
+(definition public (format-following name <Object> n <fx>)
+  (if (= n 1)
+      (format "{a} was" name)
+    (format "{a} {a}s where" n name)))
+
+
+;;;
 ;;;; Function
 ;;;
 
@@ -5641,16 +5764,6 @@
 
 (definition (break . rest)
   (unimplemented 'break))
-
-
-;;;
-;;;; Localize
-;;;
-
-
-;; quicky as it is also defined in jazz.utilities
-(definition (localize obj)
-  obj)
 
 
 ;;;

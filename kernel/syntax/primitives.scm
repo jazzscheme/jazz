@@ -624,10 +624,10 @@
     (jazz.define-macro (%%iterate-table table proc)
       `(table-for-each ,proc ,table))
     
-    (jazz.define-macro (%%table-merge! into from)
+    (jazz.define-macro (%%table-merge! table additions #!optional (additions-takes-precedence? #f))
       (if jazz.debug-core?
-          `(table-merge! ,into ,from)
-        `(##table-merge! ,into ,from #f)))
+          `(table-merge! ,table ,additions ,additions-takes-precedence?)
+        `(##table-merge! ,table ,additions ,additions-takes-precedence?)))
     
     (jazz.define-macro (%%list->table alist test)
       `(list->table ,alist test: ,test))

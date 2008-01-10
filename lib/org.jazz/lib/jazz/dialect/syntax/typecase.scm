@@ -39,7 +39,7 @@
 (library jazz.dialect.syntax.typecase scheme
 
 
-(import (jazz.dialect.kernel))
+(import (jazz.dialect.kernel.boot))
 
 
 ; @macro (typecase target (a 1) ((b c) 2) (else 3))

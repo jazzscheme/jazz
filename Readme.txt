@@ -35,6 +35,7 @@ Distribution
 Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 .gambcini                :  Gambit code implementing the build system
+.configurations          :  Save file for configurations
 
 bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
@@ -51,11 +52,19 @@ Building
 Please see Install.txt for details and examples on building JazzScheme.
 
 
+Jazz
+====
+
+Once you have built Jazz you can run the jazz executable to load Jazz modules.
+
+<detail launch parameters>
+
+
 Jedi IDE
 ========
 
 Launch
-  The (jedi) command will launch the Jedi IDE.
+  If you have built Jedi you can run the jedi executable to launch the Jedi IDE.
 
   PS: If you are launching Jedi using a platform: x11 build of Jazz, do not
   forget to start X11, else the process will crash. We are looking at how to

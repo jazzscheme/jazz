@@ -169,5 +169,7 @@
 
 (define (jazz.implementation-locator generic-locator dynamic-signature)
   (let ((generic-string (%%symbol->string generic-locator))
-        (dynamic-signature-strings (map symbol->string dynamic-signature)))
+        (dynamic-signature-strings (map (lambda (class/call)
+                                          (symbol->string (if (%%pair? class/call) (car class/call) class/call)))
+                                        dynamic-signature)))
     (%%string->symbol (%%string-append generic-string ":implementation:" (jazz.join-strings dynamic-signature-strings "/"))))))

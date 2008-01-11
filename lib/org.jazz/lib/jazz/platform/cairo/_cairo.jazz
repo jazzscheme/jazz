@@ -172,50 +172,43 @@
       ___result_voidstar = point;"))
 
 
-(definition cairo_free_point
-  (c-function (double*) void "free(___arg1);"))
-
-
-(definition get-point-x
-  (c-function (double*) double
-     "___result = *___arg1;"))
-
-
-(definition get-point-y
-  (c-function (double*) double
-     "___result = *(___arg1+1);"))
-
-
 ;;;
 ;;;; Device to User
 ;;;
 
 
-(definition cairo_device_to_user
-  (c-function (cairo_t* double double) double*
-    "double* point = calloc(2,sizeof(double));
-     *point      = ___arg2;
-     *(point+1)  = ___arg3;
-     cairo_device_to_user(___arg1,point,point+1);
-     ___result_voidstar = point;"))
-     
-     
-(definition cairo_user_to_device
-  (c-function (cairo_t* double double) double*
-    "double* point = calloc(2,sizeof(double));
-     *point      = ___arg2;
-     *(point+1)  = ___arg3;
-     cairo_user_to_device(___arg1,point,point+1);
-     ___result_voidstar = point;"))
+(definition (cairo_device_to_user context x y)
+  (let* ((pt ((c-function (cairo_t* double double) double*
+                 "double* point = calloc(2,sizeof(double));
+                  *point      = ___arg2;
+                  *(point+1)  = ___arg3;
+                  cairo_device_to_user(___arg1,point,point+1);
+                  ___result_voidstar = point;") context x y))
+         (ret (new Point (double*-ref pt 0) (double*-ref pt 1))))
+    (free pt)
+    ret))
 
+     
+(definition (cairo_user_to_device context x y)
+  (let* ((pt ((c-function (cairo_t* double double) double*
+                 "double* point = calloc(2,sizeof(double));
+                  *point      = ___arg2;
+                  *(point+1)  = ___arg3;
+                  cairo_user_to_device(___arg1,point,point+1);
+                  ___result_voidstar = point;") context x y))
+         (ret (new Point (double*-ref pt 0) (double*-ref pt 1))))
+    (free pt)
+    ret))
+
+
+(definition free free)
 
 ;;;
 ;;;; Glyph Arrays
 ;;;
 
 
-(definition alloc-glyph-array (c-function (int) cairo_glyph_t* "___result_voidstar = calloc(___arg1,sizeof(cairo_glyph_t));"))
-(definition free-glyph-array  (c-function (cairo_glyph_t*) void "free(___arg1);"))
+(definition glyph-array-make  (c-function (int) cairo_glyph_t* "___result_voidstar = calloc(___arg1,sizeof(cairo_glyph_t));"))
 (definition glyph-array-ref   (c-function (cairo_glyph_t* int) cairo_glyph_t* "___result_voidstar = (void*)(___arg1+___arg2);"))
 
 
@@ -324,8 +317,8 @@
                       "double *arr = calloc(4,sizeof(double));
                        cairo_clip_extents(___arg1,arr,arr+1,arr+2,arr+3);
                        ___result_voidstar = arr;") context)))
-    (let ((left (double-array-ref array 0))
-           (top (double-array-ref array 1))
-           (right (double-array-ref array 2))
-           (bottom (double-array-ref array 3)))
+    (let ((left (double*-ref array 0))
+           (top (double*-ref array 1))
+           (right (double*-ref array 2))
+           (bottom (double*-ref array 3)))
       (new Rect left top right bottom)))))

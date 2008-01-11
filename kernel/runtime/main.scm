@@ -113,7 +113,7 @@
 (cond-expand
   (windows
     (define (bcairo)
-      (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo")))
+      (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo")))
   (x11
     (define (bcairo)
       (define cairo-include-path      (path-expand "../../foreign/cairo/include/macosx"))
@@ -132,7 +132,7 @@
 
 
 (define (blogfont)
-  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo"))
+  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo"))
 
 
 (cond-expand
@@ -157,7 +157,7 @@
   (cmodule 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib -lcairo")
+  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo")
   (cjazz 'jazz.system.platform.windows))
   
 
@@ -175,6 +175,7 @@
   (windows
     (define (bplatform)
       (bjazz)
+      (btypes)
       (bcairo)
       (bfont)
       (bwindows)))

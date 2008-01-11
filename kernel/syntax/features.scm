@@ -50,12 +50,14 @@
 
 
 (define-macro (jazz.install-features)
-  (let ((features (list jazz.system jazz.platform jazz.safety)))
+  (let ((features (list jazz.system jazz.platform jazz.windowing jazz.safety)))
     (for-each (lambda (feature)
-                (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+                (if feature
+                    (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
               features)
     `(for-each (lambda (feature)
-                 (set! ##cond-expand-features (##cons feature ##cond-expand-features)))
+                 (if feature
+                     (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
                ',features)))
 
 

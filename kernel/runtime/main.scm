@@ -163,7 +163,12 @@
 
 (define (bx11)
   (jazz.load-module 'core.module.build) 
-  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib64 -lX11"))
+  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib64 -lX11")
+  (cmodule 'jazz.platform.x11.x11-types))
+
+
+(define (btypes)
+  (cmodule 'jazz.platform.types))
 
 
 (cond-expand
@@ -176,6 +181,7 @@
   (x11
     (define (bplatform)
       (bjazz)
+      (btypes)
       (bcairo)
       (bfont)
       (bx11))))

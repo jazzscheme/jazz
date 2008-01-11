@@ -35,63 +35,68 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(in ?)
+(library jazz.dialect.syntax.tie scheme
 
 
-(class Tie-Expander extends Object
+(import (jazz.dialect.kernel.boot))
 
 
-  (method meta public (expand objects)
-    (typecase (car objects)
-      ((String) (tie-string objects))
-      @w
-      ((List)   (tie-list   objects))
-      (else   (error "Unable to tie: {t}" (car objects)))))
-  
-  
-  ;;;
-  ;;;; String
-  ;;;
-  
-  
-  (method meta (tie-string objects)
-    (call-with-input-string (apply append objects)
-      (lambda (control)
-        (let ((out (open-output-string))
-              (out-parameters (new List-Factory)))
-          (let (iterate)
-            (let ((c (read-char control)))
-              (when (not (eof-object? c))
-                    (case c
-                      ((#\~) (put (read-char control) out))
-                      ((#\{) (process-string control out out-parameters))
-                      (else (put c out)))
-                    (iterate))))
-          (cons 'format (cons :string (cons (get-output-string out) (get-output~ out-parameters))))))))
-  
-  
-  (method meta (process-string control out out-parameters)
-    (bind (command . arguments) (read-delimited control "tie parameter" #\})
-      (if (not (symbol? command))
-          (error "Sorry, tie currently only accepts variables as parameters: {t}" command)
-        (if (not arguments)
-            (display "{a}" out)
-          (format out "~{{l}}" arguments))
-        (put~ out-parameters command))))
-  
-  
-  (method meta (put c out)
+(define-macro (tie . rest)
+  `(unimplemented))
+
+
+@convert (
+(define-macro (tie . objects)
+  (typecase (car objects)
+    ((String) (tie-string objects))
     @w
-    (when (memq? c '(#\~ #\{))
-      (display "~" out))
-    (format out "{c}" c))
-  
-  
-  ;;;
-  ;;;; List
-  ;;;
-  
-  
-  (method meta public (tie-list objects)
-    (new Syntax-Expansion
-      (car objects))))
+    ((List)   (tie-list   objects))
+    (else   (error "Unable to tie: {t}" (car objects)))))
+
+
+;;;
+;;;; String
+;;;
+
+
+(method meta (tie-string objects)
+  (call-with-input-string (apply append objects)
+    (lambda (control)
+      (let ((out (open-output-string))
+            (out-parameters (new List-Factory)))
+        (let (iterate)
+          (let ((c (read-char control)))
+            (when (not (eof-object? c))
+                  (case c
+                    ((#\~) (put (read-char control) out))
+                    ((#\{) (process-string control out out-parameters))
+                    (else (put c out)))
+                  (iterate))))
+        (cons 'format (cons :string (cons (get-output-string out) (get-output~ out-parameters))))))))
+
+
+(method meta (process-string control out out-parameters)
+  (bind (command . arguments) (read-delimited control "tie parameter" #\})
+    (if (not (symbol? command))
+        (error "Sorry, tie currently only accepts variables as parameters: {t}" command)
+      (if (not arguments)
+          (display "{a}" out)
+        (format out "~{{l}}" arguments))
+      (put~ out-parameters command))))
+
+
+(method meta (put c out)
+  @w
+  (when (memq? c '(#\~ #\{))
+        (display "~" out))
+  (format out "{c}" c))
+
+
+;;;
+;;;; List
+;;;
+
+
+(method meta public (tie-list objects)
+  (new Syntax-Expansion
+       (car objects)))))

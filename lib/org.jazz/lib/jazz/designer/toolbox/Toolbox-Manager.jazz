@@ -39,6 +39,7 @@
 
 
 (import (jazz.designer)
+        (jazz.io)
         (jazz.jml)
         (jazz.literals)
         (jazz.library)
@@ -46,6 +47,29 @@
         (jazz.ui)
         (jazz.ui.view)
         (jazz.utilities))
+
+
+;;;
+;;;; Reading
+;;;
+
+
+(definition Toolbox-File
+  {File User "Settings" "Toolbox.jml"})
+
+
+(definition (read-toolbox)
+  (with-safe-execution "loading the toolbox"
+    (function ()
+      (let ((file Toolbox-File))
+        (when (exists?~ file)
+          (let ((process (get-process))
+                (toolbox (instantiate~ (read-from-file file))))
+            (install-context~ process toolbox)
+            toolbox))))
+    continue-handler:
+    (function (err)
+      )))
 
 
 (class Toolbox-Manager extends Editor-View
@@ -95,29 +119,6 @@
 
   
   ;;;
-  ;;;; Reading
-  ;;;
-  
-  
-  (definition Toolbox-File
-    {File User "Settings" "Toolbox.jml"})
-  
-  
-  (method meta (read-toolbox)
-    (with-safe-execution "loading the toolbox"
-      (function ()
-        (let ((file Toolbox-File))
-          (when (exists?~ file)
-            (let ((process (get-process))
-                  (toolbox (instantiate~ (read-from-file file))))
-              (install-context~ process toolbox)
-              toolbox))))
-      continue-handler:
-      (function (err)
-        )))
-
-  
-  ;;;
   ;;;; Component
   ;;;
 
@@ -144,6 +145,7 @@
   
   
   (method (on-new evt)
+    @convert-manifest
     (let ((name (request-name class: Symbol-Request)))
       (if (or (not name) (not (in-manifest? name)))
           (error "Unknown class: {t}" name)

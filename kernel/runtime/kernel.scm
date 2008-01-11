@@ -562,14 +562,14 @@
     (display action)
     (display " ")
     (display path)
-    (display " ...")
+    (display "...")
     (newline)
     (force-output))
   
   (define (verbose-done)
     (display (make-string (jazz.load-indent) #\space))
     (display "; done ")
-    (display " ...")
+    (display "...")
     (newline)
     (force-output))
   

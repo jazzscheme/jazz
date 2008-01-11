@@ -39,10 +39,16 @@
 
 
 (import (jazz.debugger)
-        (jazz.ui)
-        (jazz.literals)
         (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
         (jazz.utilities))
+
+
+(class Stack-Snapshot extends Object implements Viewable)
+
+
+@convert-thread (
 
 
 (class Stack-Snapshot extends Object implements Viewable
@@ -163,105 +169,105 @@
     @convert
     (map (function (variable)
            (cons variable (variable-value~ Interpreter variable frame)))
-         (frame-variables frame)))
+         (frame-variables frame))))
 
 
-  ;;;
-  ;;;; Viewer
-  ;;;
+;;;
+;;;; Viewer
+;;;
 
 
-  (class Stack-Viewer extends Layout-View
-
-
-    (form
-      (<install>                                           size: {Dimension 600 400} layout-type: fill
-        (<Splitter-View>                                   state: split orientation: horz mode: relative division: 40
-          (<Border-View>                                   location: first border-type: edge style: entry
-            (<Scroller-View>               name: scroller  location: center vscroll?: #t flat?: #t
-              (<!>                         name: content   layout-type: fill
-                (<Tree-Header>             name: header    shown?: #f
-                  (<!>                     name: content
-                    (<Stack-View>          name: stack     portfolio: :icons selection-handler: {Event-Handler :form on-select-stack} double-click-handler: {Event-Handler :form on-double-click}
-                      (<Tree-Node-Column>                  title: "Method" width: 258)))))))
-          (<Border-View>                                   location: second border-type: edge style: entry
-            (<Scroller-View>               name: scroller  vscroll?: #t hscroll?: #t flat?: #t
-              (<!>                         name: content   layout-type: fill
-                (<Tree-Header>                             flat?: #t
-                  (<!>                     name: content
-                    (<Variables-View>      name: variables portfolio: :icons selection-mode: row
-                      (<Tree-Node-Column>                  title: "Variable" width: 100 toplevel-controls?: #f display-images?: #f)
-                      (<Tree-Label-Column>                 title: "Value" width: 163))))))))))
-
-
-    (property client getter get-client setter set-client)
-    
-    
-    ;; to reverse and/or reduce stack
-    (method (effective-stack)
-      @w
-      (tail (reverse (get-stack~ client)) 26)
-      (get-stack~ client))
-
-
-    (method public (get-client)
-      client)
-
-
-    (method public (set-client clt)
-      (set! client clt)
-      (insert-stack~ (locate 'stack) (effective-stack)))
-
-
-    (method (on-select-stack evt)
-      (let* ((tree      (locate 'stack))
-             (selection (get-single-selection~ tree))
-             (frame     (element (effective-stack) selection))
-             (variables (locate 'variables)))
-        (present-frame~ variables frame)))
-    
-    
-    (method (on-double-click evt)
-      (let* ((tree (locate 'stack))
-             (selection (get-single-selection~ tree)))
-        (when selection
-          (let* ((row (get-row~ tree selection))
-                 (data (get-user-data~ row)))
-            (when data
-              (bind (class . name) data
-                (if (null? class)
-                    (edit-definition~ (get-application) data)
-                  (edit~ (new Jazz-Code-Location (list class name))))))))))
-
-
-    ;;;
-    ;;;; Stack
-    ;;;
-
-
-    (class Stack-View extends Tree-View
-
-
-      (method public (insert-stack stack)
-        (remove-every-row)
-        (for-each (function (frame)
-                    (bind ((image class name info) . variables) frame
-                      (add-row children: (list (new Tree-Node title: info image: image)) user-data: (cons class name))))
-                  stack)))
-
-
-    ;;;
-    ;;;; Variables
-    ;;;
-
-
-    (class Variables-View extends Tree-View
+(class Stack-Viewer extends Layout-View
   
   
-      (method public (present-frame frame)
-        (bind ((image class name info) . variables) frame
-          (remove-every-row)
-          (for-each (function (couple)
-                      (bind (variable . value) couple
-                        (add-row children: (list (new Tree-Node title: variable) (new Tree-Label title: (->string (cdr couple) :reader))))))
-                    variables)))))))
+  (form
+    (<install>                                           size: {Dimension 600 400} layout-type: fill
+      (<Splitter-View>                                   state: split orientation: horz mode: relative division: 40
+        (<Border-View>                                   location: first border-type: edge style: entry
+          (<Scroller-View>               name: scroller  location: center vscroll?: #t flat?: #t
+            (<!>                         name: content   layout-type: fill
+              (<Tree-Header>             name: header    shown?: #f
+                (<!>                     name: content
+                  (<Stack-View>          name: stack     portfolio: :icons selection-handler: {Event-Handler :form on-select-stack} double-click-handler: {Event-Handler :form on-double-click}
+                    (<Tree-Node-Column>                  title: "Method" width: 258)))))))
+        (<Border-View>                                   location: second border-type: edge style: entry
+          (<Scroller-View>               name: scroller  vscroll?: #t hscroll?: #t flat?: #t
+            (<!>                         name: content   layout-type: fill
+              (<Tree-Header>                             flat?: #t
+                (<!>                     name: content
+                  (<Variables-View>      name: variables portfolio: :icons selection-mode: row
+                    (<Tree-Node-Column>                  title: "Variable" width: 100 toplevel-controls?: #f display-images?: #f)
+                    (<Tree-Label-Column>                 title: "Value" width: 163))))))))))
+  
+  
+  (property client getter get-client setter set-client)
+  
+  
+  ;; to reverse and/or reduce stack
+  (method (effective-stack)
+    @w
+    (tail (reverse (get-stack~ client)) 26)
+    (get-stack~ client))
+  
+  
+  (method public (get-client)
+    client)
+  
+  
+  (method public (set-client clt)
+    (set! client clt)
+    (insert-stack~ (locate 'stack) (effective-stack)))
+  
+  
+  (method (on-select-stack evt)
+    (let* ((tree      (locate 'stack))
+           (selection (get-single-selection~ tree))
+           (frame     (element (effective-stack) selection))
+           (variables (locate 'variables)))
+      (present-frame~ variables frame)))
+  
+  
+  (method (on-double-click evt)
+    (let* ((tree (locate 'stack))
+           (selection (get-single-selection~ tree)))
+      (when selection
+        (let* ((row (get-row~ tree selection))
+               (data (get-user-data~ row)))
+          (when data
+            (bind (class . name) data
+              (if (null? class)
+                  (edit-definition~ (get-application) data)
+                (edit~ (new Jazz-Code-Location (list class name)))))))))))
+
+
+;;;
+;;;; Stack
+;;;
+
+
+(class Stack-View extends Tree-View
+  
+  
+  (method public (insert-stack stack)
+    (remove-every-row)
+    (for-each (function (frame)
+                (bind ((image class name info) . variables) frame
+                  (add-row children: (list (new Tree-Node title: info image: image)) user-data: (cons class name))))
+              stack)))
+
+
+;;;
+;;;; Variables
+;;;
+
+
+(class Variables-View extends Tree-View
+  
+  
+  (method public (present-frame frame)
+    (bind ((image class name info) . variables) frame
+      (remove-every-row)
+      (for-each (function (couple)
+                  (bind (variable . value) couple
+                    (add-row children: (list (new Tree-Node title: variable) (new Tree-Label title: (->string (cdr couple) :reader))))))
+                variables))))))

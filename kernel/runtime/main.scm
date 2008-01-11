@@ -66,7 +66,8 @@
 
 
 (define (cjazz module-name)
-  ;; seems the new gambit functionality has a bug
+  ;; Seems the new gambit functionality has a bug
+  ;; It will crash when compiling jazz.utilities
   (if #t ;; (memq 'debug jazz.compile-options)
       (cjazzmodule module-name)
     (cmodule module-name)))

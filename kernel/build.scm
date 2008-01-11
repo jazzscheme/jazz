@@ -38,13 +38,11 @@
 ;; TODO
 ;; - if the configuration directory is a subdir of the source directory, then
 ;;   safe the jazz directory using .. parent syntax
-;; - how can we in Gambit specify runtime options like -:m500000 when building
-;;   an application?
 ;; - finish the shell-command / open-process saga
 
 
 (define jazz.process-command
-  'shell-command)
+  'open-process)
 
 
 ;;;
@@ -52,8 +50,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform safety options directory)
-  (vector 'configuration name system platform safety options directory))
+(define (jazz.make-configuration name system platform windowing safety options directory)
+  (vector 'configuration name system platform windowing safety options directory))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -64,14 +62,17 @@
 (define (jazz.configuration-platform configuration)
   (vector-ref configuration 3))
 
-(define (jazz.configuration-safety configuration)
+(define (jazz.configuration-windowing configuration)
   (vector-ref configuration 4))
 
-(define (jazz.configuration-options configuration)
+(define (jazz.configuration-safety configuration)
   (vector-ref configuration 5))
 
-(define (jazz.configuration-directory configuration)
+(define (jazz.configuration-options configuration)
   (vector-ref configuration 6))
+
+(define (jazz.configuration-directory configuration)
+  (vector-ref configuration 7))
 
 
 (define (jazz.new-configuration
@@ -79,6 +80,7 @@
           (name #f)
           (system #f)
           (platform #f)
+          (windowing #f)
           (safety #f)
           (options '())
           (directory #f))
@@ -86,6 +88,7 @@
     (jazz.validate-name name)
     (jazz.validate-system system)
     (jazz.validate-platform platform)
+    (jazz.validate-windowing windowing)
     (jazz.validate-safety safety)
     (jazz.validate-options options)
     (jazz.validate-directory directory)))
@@ -214,6 +217,7 @@
         (let ((name (jazz.configuration-name configuration))
               (system (jazz.configuration-system configuration))
               (platform (jazz.configuration-platform configuration))
+              (windowing (jazz.configuration-windowing configuration))
               (safety (jazz.configuration-safety configuration))
               (options (jazz.configuration-options configuration))
               (directory (jazz.configuration-directory configuration)))
@@ -222,6 +226,7 @@
               (print-property name: name))
           (print-property system: system)
           (print-property platform: platform)
+          (print-property windowing: windowing)
           (print-property safety: safety)
           (if (not (null? options))
               (print-property options: options))
@@ -237,12 +242,15 @@
   (let ((name (jazz.configuration-name configuration))
         (system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
+        (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (directory (jazz.configuration-directory configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
     (jazz.feedback "  system: {s}" system)
     (jazz.feedback "  platform: {s}" platform)
+    (if windowing
+        (jazz.feedback "  windowing: {s}" windowing))
     (jazz.feedback "  safety: {s}" safety)
     (if (not (null? options))
         (jazz.feedback "  options: {s}" options))
@@ -255,12 +263,13 @@
 ;;;
 
 
-(define (jazz.configure name system platform safety options directory)
+(define (jazz.configure name system platform windowing safety options directory)
   (jazz.with-stop
     (lambda ()
       (let ((name (jazz.require-name name))
             (system (jazz.require-system system))
             (platform (jazz.require-platform platform))
+            (windowing (jazz.require-windowing windowing))
             (safety (jazz.require-safety safety))
             (options (jazz.require-options options))
             (directory (jazz.require-directory directory)))
@@ -269,6 +278,7 @@
                   name: name
                   system: system
                   platform: platform
+                  windowing: windowing
                   safety: safety
                   options: options
                   directory: directory)))
@@ -341,7 +351,7 @@
 (define jazz.valid-platforms
   '(mac
     windows
-    x11))
+    unix))
 
 
 (define (jazz.require-platform platform)
@@ -353,7 +363,7 @@
     ;; mac version not yet available
     ;; ((apple) 'mac)
     ((pc) 'windows)
-    (else 'x11)))
+    (else 'unix)))
 
 
 (define (jazz.validate-platform platform)
@@ -366,7 +376,43 @@
   (case platform
     ((mac) "Mac")
     ((windows) "Windows")
-    ((x11) "X11")))
+    ((unix) "Unix")))
+
+
+;;;
+;;;; Windowing
+;;;
+
+
+(define jazz.valid-windowings
+  '(quartz
+    #f
+    x11))
+
+
+(define (jazz.require-windowing windowing)
+  (or windowing (jazz.guess-windowing)))
+
+
+(define (jazz.guess-windowing)
+  (case (cadr (system-type))
+    ;; mac version not yet available
+    ;; ((apple) 'mac)
+    ((pc) #f)
+    (else 'x11)))
+
+
+(define (jazz.validate-windowing windowing)
+  (if (memq windowing jazz.valid-windowings)
+      windowing
+    (jazz.error "Invalid windowing: {s}" windowing)))
+
+
+(define (jazz.windowing-name windowing)
+  (case windowing
+    ((quartz) "")
+    ((x11) "X11")
+    (else "")))
 
 
 ;;;
@@ -457,6 +503,7 @@
       (string-append "bin/"
                      (jazz.system-name (jazz.configuration-system configuration))
                      (jazz.platform-name (jazz.configuration-platform configuration))
+                     (jazz.windowing-name (jazz.configuration-windowing configuration))
                      (jazz.safety-name (jazz.configuration-safety configuration))
                      (jazz.profile-name (jazz.configuration-options configuration))
                      "/")))
@@ -542,10 +589,12 @@
 ;;;
 
 
-(define (print-architecture system platform safety options output)
+(define (print-architecture system platform windowing safety options output)
   (print-variable 'jazz.system system output)
   (newline output)
   (print-variable 'jazz.platform platform output)
+  (newline output)
+  (print-variable 'jazz.windowing windowing output)
   (newline output)
   (print-variable 'jazz.safety safety output)
   (newline output)
@@ -568,6 +617,7 @@
 (define (jazz.build-app app configuration #!key (console? #t))
   (let ((system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
+        (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (confdir (jazz.effective-directory configuration))
@@ -583,10 +633,10 @@
         (let ((file (appfile "architecture.scm")))
           (if (not (file-exists? file))
               (begin
-                (jazz.feedback "; generating {a} ..." file)
+                (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (print-architecture system platform safety options output)))
+                    (print-architecture system platform windowing safety options output)))
                 #t)
             #f)))
       
@@ -594,7 +644,7 @@
         (let ((file (appfile "app.scm")))
           (if (not (file-exists? file))
               (begin
-                (jazz.feedback "; generating {a} ..." file)
+                (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
                     (print-variable 'jazz.app app output)
@@ -615,9 +665,10 @@
                   (dst (string-append output name ".c")))
               (if (jazz.target-needs-update? src dst)
                   (begin
-                    (let ((path (string-append dir name)))
-                      (jazz.feedback "; compiling {a} ..." path)
-                      (compile-file-to-c path output: output))
+                    (let ((path (string-append dir name))
+                          (options (if (eq? safety 'release) '() '(debug))))
+                      (jazz.feedback "; compiling {a}..." path)
+                      (compile-file-to-c path options: options output: output))
                     (set! needs-linking? #t)))))
           
           (define (compile-kernel-file path name)
@@ -648,7 +699,7 @@
           
           (if needs-linking?
               (begin
-                (jazz.feedback "; linking kernel ...")
+                (jazz.feedback "; linking kernel...")
                 (link-incremental (list (appfile "architecture")
                                         (conffile "build/_kernel/syntax/macros")
                                         (conffile "build/_kernel/syntax/features")
@@ -700,7 +751,7 @@
               '())))))
       
       (define (link-kernel)
-        (jazz.feedback "; linking executable ...")
+        (jazz.feedback "; linking executable...")
         (case jazz.process-command
           ((shell-command)
            (jazz.shell-command
@@ -778,6 +829,7 @@
 (define (jazz.make-kernel-recursive configuration)
   (let ((system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
+        (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (confdir (jazz.effective-directory configuration)))
@@ -787,7 +839,7 @@
     (define (copy-platform-file src dst)
       (if (jazz.target-needs-update? src dst)
           (begin
-            (jazz.feedback "; copying {a} ..." src)
+            (jazz.feedback "; copying {a}..." src)
             (copy-file src dst))))
     
     (define (copy-platform-files)
@@ -805,7 +857,7 @@
       (let ((file (conffile ".gambcini")))
         (if (not (file-exists? file))
             (begin
-              (jazz.feedback "; generating {a} ..." file)
+              (jazz.feedback "; generating {a}..." file)
               (call-with-output-file file
                 (lambda (output)
                   (print ";;;" output)
@@ -817,7 +869,7 @@
                   (print ";;;" output)
                   (newline output)
                   (newline output)
-                  (print-architecture system platform safety options output)
+                  (print-architecture system platform windowing safety options output)
                   (newline output)
                   (newline output)
                   (display "(load \"../../kernel/boot\")" output)
@@ -1078,7 +1130,7 @@
 (define (jazz.create-directory dir)
   (if (not (file-exists? dir))
       (begin
-        (jazz.feedback "; creating {a} ..." dir)
+        (jazz.feedback "; creating {a}..." dir)
         (create-directory dir))))
 
 

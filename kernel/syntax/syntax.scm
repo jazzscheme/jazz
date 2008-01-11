@@ -85,13 +85,10 @@
 ;;;
 
 
-(cond-expand
-  (release
-    (define jazz.compile-options
-      '()))
-  (else
-    (define jazz.compile-options
-      '(debug))))
+(define jazz.compile-options
+  (if (or (%%memq jazz.safety '(core debug)) (%%memq 'profile jazz.options))
+      '(debug-environments)
+    '()))
 
 
 ;;;

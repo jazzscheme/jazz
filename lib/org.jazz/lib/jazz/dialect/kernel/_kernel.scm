@@ -471,6 +471,7 @@
 
 (native jazz.start-statprof)
 (native jazz.stop-statprof)
+(native jazz.reset-statprof)
 (native jazz.report-statprof)
 
 

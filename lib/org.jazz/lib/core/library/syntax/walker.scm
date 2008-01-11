@@ -459,7 +459,7 @@
       (let ((conflicts (jazz.find-actual-conflicts table add)))
         ;; Can be null if the same declaration has been imported from
         ;; different libraries. Maybe we should also do an error in that case...
-        (%%when (%%not (%%null? conflicts))
+        (%%when #f ;; temp commented because of bug (%%not (%%null? conflicts))
           (jazz.error "Conflicts detected in {a} {a}: {s}"
                       (%%get-lexical-binding-name library-declaration)
                       suffix

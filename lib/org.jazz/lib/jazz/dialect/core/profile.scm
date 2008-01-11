@@ -83,5 +83,5 @@
         (set! n (+ n 1))
         (let ((pathname (get-output-string port)))
           (write-profile-report pathname)
-          pathname))
-      (profile-reset!)))))
+          (profile-reset!)
+          pathname))))))

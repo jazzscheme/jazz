@@ -68,6 +68,9 @@
 (define (cjazz module-name)
   ;; Seems the new gambit functionality has a bug
   ;; It will crash when compiling jazz.utilities
+  ;; Also not that until we have adapted the library
+  ;; macro to add source code annotations, this is
+  ;; very usefull for tools like statprof
   (if #t ;; (memq 'debug jazz.compile-options)
       (cjazzmodule module-name)
     (cmodule module-name)))
@@ -95,7 +98,8 @@
   (bmodule 'core.class)
   (bmodule 'core.generic)
   (bmodule 'core.library)
-  (bmodule 'core.module))
+  (bmodule 'core.module)
+  (bmodule 'statprof))
 
 
 (define (bjazz)

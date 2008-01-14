@@ -179,10 +179,17 @@
   (cjazz 'jazz.system.platform.windows))
   
 
-(define (bx11)
-  (jazz.load-module 'core.module.build) 
-  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib64 -lX11")
-  (cmodule 'jazz.platform.x11.x11-types))
+(cond-expand
+ (unix
+  (define (bx11)
+    (jazz.load-module 'core.module.build) 
+    (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib64 -lX11")
+    (cmodule 'jazz.platform.x11.x11-types)))
+ (mac
+  (define (bx11)
+    (jazz.load-module 'core.module.build) 
+    (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
+    (cmodule 'jazz.platform.x11.x11-types))))
 
 
 (define (btypes)

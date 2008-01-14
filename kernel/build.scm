@@ -42,7 +42,7 @@
 
 
 (define jazz.process-command
-  'open-process)
+  'shell-command)
 
 
 ;;;
@@ -850,7 +850,7 @@
          (copy-platform-file "foreign/cairo/lib/windows/libcairo-2.dll" (conffile "libcairo-2.dll"))
          (copy-platform-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
          (copy-platform-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))
-        ((x11)
+        ((mac)
          (copy-platform-file "foreign/cairo/lib/macosx/libcairo.2.dylib" (conffile "libcairo.2.dylib"))
          (copy-platform-file "foreign/freetype/lib/macosx/libfreetype.6.dylib" (conffile "libfreetype.6.dylib"))
 	 (copy-platform-file "foreign/fontconfig/lib/macosx/libfontconfig.1.dylib" (conffile "libfontconfig.1.dylib"))

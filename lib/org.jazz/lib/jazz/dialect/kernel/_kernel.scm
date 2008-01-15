@@ -332,6 +332,7 @@
 
 
 (native jazz.pathname-type)
+(native jazz.pathname-expand)
 (native jazz.pathname-normalize)
 (native jazz.file-exists?)
 (native jazz.file-delete)

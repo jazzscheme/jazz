@@ -114,39 +114,62 @@
 ;;;
 
 
+(define (pipe-no-return input output)
+  (let iterate ()
+    (let ((c (read-char input)))
+      (if (not (or (eof-object? c) (eq? #\newline c)))
+          (begin
+            (write-char c output)
+            (iterate))))))
+
+
 (cond-expand
   (windows
    (define (bcairo)
      (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo")))
-  ((and x11 unix)
+  (x11
    (define (bcairo)
-     (cmodule 'jazz.platform.cairo cc-options: "-I/u/lasallej/cairo/include -I/u/lasallej/cairo/include/cairo" ld-options: "-L/u/lasallej/cairo/lib -lcairo")
-     (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: "-I/u/lasallej/cairo/include -I/u/lasallej/cairo/include/cairo" ld-options: "-L/u/lasallej/cairo/lib -lcairo")
-     (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: "-I/usr/include/freetype2 -I/u/lasallej/cairo/include -I/u/lasallej/cairo/include/cairo" ld-options: "-L/u/lasallej/cairo/lib -lcairo")))
-  ((and x11 mac)
-   (define (bcairo)
-     (define cairo-include-path      (path-expand "../../foreign/cairo/include/macosx"))
-     (define cairo-lib-path          (path-expand "../../foreign/cairo/lib/macosx"))
-     (define png-lib-path            (path-expand "../../foreign/png/lib/macosx"))
-     (define xrender-lib-path        (path-expand "../../foreign/xrender/lib/macosx"))
-     (define freetype-lib-path       (path-expand "../../foreign/freetype/lib/macosx"))
-     (define freetype-include-path   (path-expand "../../foreign/freetype/include/freetype2"))
-     (define fontconfig-lib-path       (path-expand "../../foreign/fontconfig/lib/macosx"))
-     (define fontconfig-include-path (path-expand "../../foreign/fontconfig/include"))
-     (cmodule 'jazz.platform.cairo                cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo"))
-     (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo"))
-     (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: (string-append "-I" cairo-include-path " -I" freetype-include-path " -I" fontconfig-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo")))))
+     (let ((cc-flags-port (open-output-string))
+           (ld-flags-port (open-output-string)))
+       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "cairo"))) cc-flags-port)
+       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "cairo"))) ld-flags-port)
+       (let ((cc-flags (get-output-string cc-flags-port))
+	     (ld-flags (get-output-string ld-flags-port)))
+	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
+	 (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
+	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
 
 
-(cond-expand
- (unix
-  (define (bfreetype)
-    (cmodule 'jazz.platform.freetype cc-options: "-I/usr/include/freetype2" ld-options: "-lfreetype")))
- (mac
-  (define (bfreetype)
-    (define freetype-include-path (path-expand "../../foreign/freetype/include/freetype2"))
-    (define freetype-lib-path     (path-expand "../../foreign/freetype/lib/macosx"))
-    (cmodule 'jazz.platform.freetype cc-options: (string-append "-I" freetype-include-path) ld-options: (string-append "-L" freetype-lib-path " -lfreetype")))))
+;;  ((and x11 mac)
+;;   (define (bcairo)
+;;     (define cairo-include-path      (path-expand "../../foreign/cairo/include/macosx"))
+;;     (define cairo-lib-path          (path-expand "../../foreign/cairo/lib/macosx"))
+;;     (define png-lib-path            (path-expand "../../foreign/png/lib/macosx"))
+;;     (define xrender-lib-path        (path-expand "../../foreign/xrender/lib/macosx"))
+;;     (define freetype-lib-path       (path-expand "../../foreign/freetype/lib/macosx"))
+;;     (define freetype-include-path   (path-expand "../../foreign/freetype/include/freetype2"))
+;;     (define fontconfig-lib-path     (path-expand "../../foreign/fontconfig/lib/macosx"))
+;;     (define fontconfig-include-path (path-expand "../../foreign/fontconfig/include"))
+;;     (cmodule 'jazz.platform.cairo                cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo"))
+;;     (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo"))
+;;     (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: (string-append "-I" cairo-include-path " -I" freetype-include-path " -I" fontconfig-include-path) ld-options: (string-append "-L" cairo-lib-path " -L" freetype-lib-path " -L" png-lib-path " -L" xrender-lib-path " -L" fontconfig-lib-path " -lcairo")))))
+
+
+
+(define (bfreetype)
+  (let ((cc-flags-port (open-output-string))
+	(ld-flags-port (open-output-string)))
+    (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "freetype2"))) cc-flags-port)
+    (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "freetype2"))) ld-flags-port)
+    (let ((cc-flags (get-output-string cc-flags-port))
+	  (ld-flags (get-output-string ld-flags-port)))
+      (cmodule 'jazz.platform.freetype cc-options: cc-flags ld-options: ld-flags))))
+
+
+;;(define (bfreetype)
+;;  (define freetype-include-path (path-expand "../../foreign/freetype/include/freetype2"))
+;;  (define freetype-lib-path     (path-expand "../../foreign/freetype/lib/macosx"))
+;;  (cmodule 'jazz.platform.freetype cc-options: (string-append "-I" freetype-include-path) ld-options: (string-append "-L" freetype-lib-path " -lfreetype")))
 
 
 (define (blogfont)
@@ -179,17 +202,10 @@
   (cjazz 'jazz.system.platform.windows))
   
 
-(cond-expand
- (unix
-  (define (bx11)
-    (jazz.load-module 'core.module.build) 
-    (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib64 -lX11")
-    (cmodule 'jazz.platform.x11.x11-types)))
- (mac
-  (define (bx11)
-    (jazz.load-module 'core.module.build) 
-    (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
-    (cmodule 'jazz.platform.x11.x11-types))))
+(define (bx11)
+  (jazz.load-module 'core.module.build) 
+  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
+  (cmodule 'jazz.platform.x11.x11-types))
 
 
 (define (btypes)

@@ -343,14 +343,16 @@
 
 
 (definition (platform-process-one-message window)
-  (unimplemented 'platform-process-one-message)
-  @unimp
-  (with ((msg (MSG-make)))
-    (let ((hwnd (get-handle~ window)))
-      (when (GetMessage msg hwnd 0 0)
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg))))))
+  (let ((msg (XEvent-make)))
+    (XNextEvent default-x11-display msg)
+     (let* ((any-event (XEvent-xany-ref msg))
+             (handle (XAnyEvent-window-ref any-event)))
+        ;; tofix wparam and lparam should be removed
+        (let ((window (get-window handle))
+              (wparam 0)
+              (lparam 0))
+          (when window
+            (call-dispatch-message~ window msg wparam lparam))))))
 
 
 ;;;
@@ -373,12 +375,13 @@
                                         (bottom (+ top (XExposeEvent-height-ref msg)))
                                         (region (new Rect left top right bottom))
                                         (old-region (table-ref expose-store window #f)))
-                                        (if use-expose-store?
-                                          (if old-region
-                                              (table-set! expose-store window (rect-union old-region region))
-                                              (table-set! expose-store window region))
-                                          (paint~ window region)
-                                          processed)))
+                                        (unless (=? region {Rect 0 0 0 0})
+                                          (if use-expose-store?
+                                            (if old-region
+                                                (table-set! expose-store window (rect-union old-region region))
+                                                (table-set! expose-store window region))
+                                            (paint~ window region)
+                                            processed))))
                                             
                                           
        ((= type ButtonPress)
@@ -480,7 +483,7 @@
 
 
 (definition (translate-shortcut mods keycode)
-  (let ((key  (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) 1) Symbolic-Keys #f)))
+  (let ((key  (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) 0) Symbolic-Keys #f)))
     (if key
       (dispatch-shortcut~ (get-application) (new Shortcut mods key))
       #f)))
@@ -907,8 +910,12 @@
   (receive (win state) (XGetInputFocus default-x11-display)
     win))
 
+
 (definition (platform-set-focus handle)
-  (XSetInputFocus default-x11-display handle RevertToNone CurrentTime))
+  (if handle
+      (XSetInputFocus default-x11-display handle RevertToNone CurrentTime)
+    (debug "Warning: platform-set-focus called with false value")
+    #f))
 
 
 ;;;

@@ -731,7 +731,7 @@
            (case platform
              ((windows)
               "-lws2_32 ")
-             ((x11 unix)
+             ((unix)
               "-lm -ldl -lutil ")
              (else
               "")))

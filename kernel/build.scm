@@ -41,8 +41,17 @@
 ;; - finish the shell-command / open-process saga
 
 
+;; Quick fix until Gambit's open-process bug on Unix is fixed...
 (define jazz.process-command
-  'shell-command)
+  #f)
+
+
+(define (jazz.determine-process-command platform)
+  (case platform
+    ((windows)
+     'open-process)
+    (else
+     'shell-command)))
 
 
 ;;;
@@ -557,7 +566,7 @@
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (case jazz.process-command
+      (case (jazz.determine-process-command (jazz.configuration-platform configuration))
         ((shell-command)
          (jazz.shell-command (string-append "gsc -e \"(jazz.recursive-make '" target-argument " '" configuration-argument ")\"")))
         ((open-process)
@@ -717,7 +726,7 @@
             #f)))
       
       (define (link-libraries)
-        (case jazz.process-command
+        (case (jazz.determine-process-command platform)
           ((shell-command)
            (case platform
              ((windows)
@@ -734,7 +743,7 @@
               '())))))
       
       (define (link-options)
-        (case jazz.process-command
+        (case (jazz.determine-process-command platform)
           ((shell-command)
            (case platform
              ((windows)
@@ -754,7 +763,7 @@
       
       (define (link-kernel)
         (jazz.feedback "; linking executable...")
-        (case jazz.process-command
+        (case (jazz.determine-process-command platform)
           ((shell-command)
            (jazz.shell-command
              (string-append
@@ -897,27 +906,28 @@
 
 
 (define (jazz.jazz-make target configuration)
-  (let ((confdir (jazz.effective-directory configuration)))
+  (let ((confdir (jazz.effective-directory configuration))
+        (platform (jazz.configuration-platform configuration)))
     (define (conffile path)
       (string-append confdir path))
     
     (define (jazz-path)
-      (case jazz.process-command
+      (case (jazz.determine-process-command platform)
         ((shell-command)
-         (case (jazz.configuration-platform configuration)
+         (case platform
            ((windows)
             "jazz")
            (else
             "./jazz")))
         ((open-process)
-         (case (jazz.configuration-platform configuration)
+         (case platform
            ((windows)
             (conffile "jazz"))
            (else
             "./jazz")))))
     
     (jazz.feedback "making {a}" target)
-    (case jazz.process-command
+    (case (jazz.determine-process-command platform)
       ((shell-command)
        (jazz.shell-command (string-append (jazz-path) " -make " (symbol->string target)) confdir))
       ((open-process)

@@ -370,7 +370,7 @@
 (define (jazz.guess-platform)
   (case (cadr (system-type))
     ;; mac version not yet available
-    ;; ((apple) 'mac)
+    ((apple) 'mac)
     ((pc) 'windows)
     (else 'unix)))
 

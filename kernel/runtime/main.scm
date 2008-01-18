@@ -126,7 +126,9 @@
 (cond-expand
   (windows
    (define (bcairo)
-     (cmodule 'jazz.platform.cairo cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo")))
+     (define cairo-include-path (path-expand "../../foreign/cairo/include"))
+     (define cairo-lib-path     (path-expand "../../foreign/cairo/lib/windows"))
+     (cmodule 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
   (x11
    (define (bcairo)
      (let ((cc-flags-port (open-output-string))
@@ -137,7 +139,8 @@
 	     (ld-flags (get-output-string ld-flags-port)))
 	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
 	 (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
-	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
+	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))
+  (else))
 
 
 ;;  ((and x11 mac)
@@ -173,7 +176,9 @@
 
 
 (define (blogfont)
-  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo"))
+  (define cairo-include-path (path-expand "../../foreign/cairo/include"))
+  (define cairo-lib-path     (path-expand "../../foreign/cairo/lib/windows"))
+  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))
 
 
 (cond-expand
@@ -186,6 +191,8 @@
 
 
 (define (bwindows)
+  (define cairo-include-path (path-expand "../../foreign/cairo/include"))
+  (define cairo-lib-path     (path-expand "../../foreign/cairo/lib/windows"))
   (jazz.load-module 'core.module.build)
   (cmodule 'jazz.platform.windows.WinDef      cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinTypes    cc-options: "-DUNICODE" ld-options: "-mwindows")
@@ -198,7 +205,7 @@
   (cmodule 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: "-IC:/jazz/dev/jazz/foreign/cairo/include" ld-options: "-LC:/jazz/dev/jazz/foreign/cairo/lib/windows -lcairo")
+  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
   (cjazz 'jazz.system.platform.windows))
   
 
@@ -226,7 +233,11 @@
       (btypes)
       (bcairo)
       (bfont)
-      (bx11))))
+      (bx11)))
+  (unix
+    (define (bplatform)
+      (bjazz)
+      (btypes))))
 
 
 (define (lplatform)
@@ -386,7 +397,10 @@
       '(jazz.ui.window.platform.windows)))
   (x11
     (define Jedi-Critical-Platform-Modules
-      '(jazz.ui.window.platform.x11))))
+      '(jazz.ui.window.platform.x11)))
+  (else
+    (define Jedi-Critical-Platform-Modules
+      '())))
 
 
 (define (bjedi)
@@ -421,12 +435,12 @@
 
 
 (cond-expand
-  (x11
-    (define (jazz.set-library-environment!)
-      (setenv "DYLD_LIBRARY_PATH" (path-expand "./"))))
   (windows
     (define (jazz.set-library-environment!)
-      #f)))
+      #f))
+  ((or x11 unix)
+    (define (jazz.set-library-environment!)
+      (setenv "DYLD_LIBRARY_PATH" (path-expand "./")))))
 
 (define (jazz.main)
   (define (warn-missing-argument-for-option opt)

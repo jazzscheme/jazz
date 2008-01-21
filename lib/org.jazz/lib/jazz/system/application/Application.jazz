@@ -409,13 +409,21 @@
           (associations (list (cons 'module user-module) (cons 'user name)))
           (directory (new Directory (list 'Users name))))
       (create-directories~ directory)
+      (copy-users-package {File UsersPackage "users.pck"} expander associations)
       (copy-user-settings directory expander associations)
       (let ((file (new-file~ directory (format "_{a}.jazz" name))))
         (copy-user file expander associations))))
   
   
+  (method (copy-users-package file expander associations)
+    (when (not (exists?~ file))
+      (let ((template {File Launch "Defaults" "users" "users.pck"}))
+        (copy-template template file expander associations))
+      (reset-packages)))
+  
+  
   (method (copy-user-settings directory expander associations)
-    (let ((settings {Directory Launch "Defaults" "Settings"}))
+    (let ((settings {Directory Launch "Defaults" "users" "user" "username" "Settings"}))
       (copy-directory~ settings (new-directory~ directory "Settings")
         copier: (function (src dst)
                   (copy-template src dst expander associations))
@@ -423,8 +431,8 @@
   
   
   (method (copy-user file expander associations)
-    (let ((template {File Launch "Defaults" "User.jazz"}))
-      (copy-template {File Launch "Defaults" "User.jazz"} file expander associations)))
+    (let ((template {File Launch "Defaults" "users" "user" "username" "_username.jazz"}))
+      (copy-template template file expander associations)))
   
   
   (method (copy-template template destination expander associations)
@@ -1020,7 +1028,7 @@
   
   
   (method (save-bindings)
-    (when (and bindings-designer (get-modified?~ bindings-designer))
+    (when (and bindings-designer (get-modified?~ bindings-designer) (is-not? user Me))
       (save~ bindings-designer)))
   
   
@@ -2259,6 +2267,11 @@
   
   (method (default-preferences)
     (new Application-Preferences))
+  
+  
+  (method (close-preferences)
+    (when (and preferences-designer (is-not? user Me))
+      (save~ preferences-designer)))
 
   
   ;;;
@@ -2300,7 +2313,7 @@
   
   
   (method (save-page-setup)
-    (when Default-Page-Setup-Designer
+    (when (and Default-Page-Setup-Designer (is-not? user Me))
       (let ((form (get-form~ Default-Page-Setup-Designer)))
         (when (not (get-origin~ form))
           (set-origin~ form Default-Page-Setup-File)))

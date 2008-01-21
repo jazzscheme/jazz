@@ -409,6 +409,7 @@
 ;;;
 
 
+(native jazz.reset-packages)
 (native jazz.find-module-src)
 (native jazz.get-environment)
 (native jazz.get-catalog)

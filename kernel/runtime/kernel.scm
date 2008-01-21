@@ -342,6 +342,12 @@
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
+(define (jazz.reset-packages)
+  (for-each (lambda (repository)
+              (%%repository-packages-table-set! repository #f))
+            jazz.Repositories))
+
+
 ;;;
 ;;;; Package
 ;;;

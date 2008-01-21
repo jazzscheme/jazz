@@ -69,11 +69,20 @@
         (<Scroller-View>         name: scroller hscroll?: #f vscroll?: #t flat?: #t
           (<!>                   name: content  layout-type: fill
             (<Message-Text-View> name: text     background: {} left-padding: 2 top-padding: 0 editable?: #f))))))
+  
+  
+  (method (finish initargs)
+    (nextmethod initargs)
+    (set-client~ (locate 'text) self))
 
   
   ;;;
   ;;;; Dialog
   ;;;
+  
+  
+  (method (focus-default)
+    (acquire-focus~ (locate 'text)))
   
   
   @convert-dialog
@@ -150,7 +159,7 @@
                    (function (button)
                      (when (get-visible?~ button)
                        (bind (title name . optional) (get-user-data~ button)
-                         (let ((shortcut-key (if (not optional) {} (car optional))))
+                         (let ((shortcut-key (if (null? optional) {} (car optional))))
                            (let* ((result (get-name~ button))
                                   (title (localize (get-title~ button)))
                                   (first (either shortcut-key (element title 0))))
@@ -278,7 +287,7 @@
             (function (action)
               (bind (title button-name @w (shortcut-key {})) action
                 (increase! count)
-                (let* ((handler (new Event-Handler target-name: :guest method-name: 'on-select properties: (list :button button-name)))
+                (let* ((handler (new Event-Handler target-name: :guest method-name: 'on-select properties: (list button: button-name)))
                        (button (new Push-Button name: button-name parent: self position: (new Point (* count 75) 72) size: size user-data: action action-handler: handler default?: (eq? button-name default))))
                   (set-title~ button (localize title))
                   (let* ((size (preferred-size~ button))
@@ -311,23 +320,23 @@
 (class Message-Text-View extends Formatted-Text-View
   
   
+  (property client accessors generate)
+  
+  
   (method (get-context-menu)
     (new-text-context-menu))
   
   
   (method (return-press key)
-    @convert
-    (process-return))
+    (process-return~ client))
   
   
   (method (escape-press key)
-    @convert
-    (process-escape))
+    (process-escape~ client))
   
   
   (method (key-press key)
-    @convert
-    (process-key key)))
+    (process-key~ client key)))
 
 
 (register-autoclass Message-Text-View))

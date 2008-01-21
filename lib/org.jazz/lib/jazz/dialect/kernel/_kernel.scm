@@ -454,6 +454,7 @@
 
 
 (native jazz.open-tcp-client)
+(native jazz.open-tcp-server)
 
 
 ;;;

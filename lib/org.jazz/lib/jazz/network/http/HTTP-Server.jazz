@@ -43,12 +43,6 @@
         (jazz.utilities))
 
 
-(class HTTP-Server extends Object)
-
-
-@convert-tcp
-
-
 (class HTTP-Server extends Socket-Listener
   
   
@@ -97,11 +91,22 @@
   ;;;
     
   
+  @wait-socket-listener-converted
   (method (run)
     (set-name (server-name))
     (let ((host (server-host))
           (port (server-port)))
       (start-listener host: host port: port)))
+    
+  
+  ;; simple version for tests
+  (method (run)
+    (set-name (server-name))
+    (let ((host (server-host))
+          (port (server-port)))
+      (let ((server (open-tcp-server (list port-number: port eol-encoding: 'cr-lf))))
+        (let ((socket (read server)))
+          (accept-connection socket)))))
   
   
   ;;;
@@ -126,7 +131,6 @@
   ;;;
   
   
-  @wait-for-a-test
   (method (accept-connection socket)
     (server-hit)
     (unwind-protect
@@ -137,22 +141,6 @@
           (catch Socket-Error
             (send-response~ response socket)))
       (close~ socket)))
-  
-  
-  (method (accept-connection socket)
-    (server-hit)
-    (new Thread
-      name: "HTTP Connection"
-      context: self
-      execute: (function (thread)
-                 (unwind-protect
-                     (let ((response (request-html socket)))
-                       ;; should log intelligently the error
-                       ;; a WSAECONNRESET error can occur correctly if the user sends a request
-                       ;; before the browser has received the response from the active one
-                       (catch Socket-Error
-                         (send-message~ response socket)))
-                   (close~ socket)))))
   
   
   (method (server-hit)
@@ -463,4 +451,4 @@
                                          `(<tr>
                                             (<td> ,(->string property))
                                             (<td> ,(->string value))))
-                                       properties)))))))))))
+                                       properties))))))))))

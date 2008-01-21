@@ -1,0 +1,208 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Sockets
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(in library)
+
+
+;; Sockets now use SO_LINGER = {1, 5} option of setsockopt to make them send any unsent data
+;; in a blocking fashion when closesocket gets called. This makes JRM servers much easier to
+;; reason with and also more robust when the process is exited as any stub listener connection
+;; still pending will get a chance to close it's socket thus sending the result to the client.
+
+
+(class Socket extends Object uses (Language Utilities System WinDef WinBase WinKernel WinSock WinInet)
+  
+  
+  (definition Linger
+    5)
+
+
+  (slot name)
+  (slot handle)
+
+
+  (method (initialize . rest)
+    (bind-keywords ((name nil) (handle nil)) rest
+      ((super initialize))
+      (set! [name self] name)
+      (set! [handle self] (either handle (create-socket Linger)))
+      (destroy-mandatory)))
+
+
+  (method (destroy)
+    (close-socket handle)
+    ((super destroy)))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-name)
+    name)
+  
+  
+  (method public (set-name value)
+    (set! name value))
+
+
+  (method public (get-handle)
+    handle)
+  
+  
+  (method public (get-host)
+    (new Host :ip (get-socket-host handle)))
+  
+  
+  (method public (get-port)
+    (get-socket-port handle))
+  
+  
+  (method public (get-peer-host)
+    (new Host :ip (get-socket-peer-host handle)))
+  
+  
+  (method public (get-peer-port)
+    (get-socket-peer-port handle))
+
+  
+  ;;;
+  ;;;; Client
+  ;;;
+  
+  
+  (method public (connect host port)
+    (connect-socket handle (get-ip~ host) (get-port-number port)))
+
+  
+  ;;;
+  ;;;; Server
+  ;;;
+  
+  
+  (method public (listen . rest)
+    (bind-keywords ((host nil) (port 'any)) rest
+      (let ((host (either host {Host :name "localhost"})))
+        (bind-socket handle (get-ip~ host) (get-port-number port)))
+      (socket-listen handle)))
+  
+  
+  (method public (accept)
+    (socket-accept handle))
+
+  
+  ;;;
+  ;;;; I/O
+  ;;;
+  
+  
+  (method public (receive-raw)
+    (socket-receive-raw handle))
+  
+  
+  (method public (receive-string)
+    (socket-receive-string handle))
+  
+  
+  (method public (receive-object)
+    (read-string-element (receive-string)))
+  
+  
+  (method public (send-raw block)
+    (socket-send-raw handle block))
+  
+  
+  (method public (send-string string)
+    (socket-send-string handle string))
+  
+  
+  (method public (send-object object)
+    (send-string (->string object :reader)))
+
+  
+  ;;;
+  ;;;; Ports
+  ;;;
+  
+  
+  (definition meta Port-Numbers
+    '((any                  .     0)
+      (echo                 .     7)
+      (http                 .    80)
+      (router-stub-listener . 32000)))
+  
+  
+  (method meta public (get-port-number name)
+    (if (integer? name)
+        name
+      (cdr (assq name Port-Numbers))))
+
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public virtual (present-socket)
+    (format :string "{a} {a} {a} {a} {a}"
+            name
+            (get-host)
+            (get-port)
+            (get-peer-host)
+            (get-peer-port)))
+
+  
+  ;;;
+  ;;;; External
+  ;;;
+
+
+  (external Jazz int       (create-socket           Object)                 "JzCreateSocket")
+  (external Jazz void      (close-socket            int)                    "JzCloseSocket")
+  (external Jazz void      (connect-socket          int int int)            "JzConnectSocket")
+  (external Jazz void      (bind-socket             int int int)            "JzBindSocket")
+  (external Jazz int       (get-socket-host         int)                    "JzGetSocketHost")
+  (external Jazz int       (get-socket-port         int)                    "JzGetSocketPort")
+  (external Jazz int       (get-socket-peer-host    int)                    "JzGetSocketPeerHost")
+  (external Jazz int       (get-socket-peer-port    int)                    "JzGetSocketPeerPort")
+  (external Jazz void      (socket-listen           int)                    "JzSocketListen")
+  (external Jazz int       (socket-accept           int)                    "JzSocketAccept")
+  (external Jazz Object    (socket-receive-raw      int)                    "JzSocketReceiveRaw")
+  (external Jazz Object    (socket-receive-string   int)                    "JzSocketReceiveString")
+  (external Jazz int       (socket-send-raw         int Object)             "JzSocketSendRaw")
+  (external Jazz int       (socket-send-string      int string)             "JzSocketSendString"))

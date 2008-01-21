@@ -645,6 +645,33 @@
 
 
 ;;;
+;;;; Unspecified
+;;;
+
+
+(cond-expand
+  (gambit
+    (define jazz.Unspecified-Value
+      (void)))
+  
+  (else
+    (define jazz.Unspecified-Value
+      (%%list 'jazz.unspecified))))
+
+
+(jazz.define-macro (%%unspecified)
+  'jazz.Unspecified-Value)
+
+
+(jazz.define-macro (%%unspecified? value)
+  `(%%eq? ,value jazz.Unspecified-Value))
+
+
+(jazz.define-macro (%%specified? value)
+  `(%%neq? ,value jazz.Unspecified-Value))
+
+
+;;;
 ;;;; Values
 ;;;
 

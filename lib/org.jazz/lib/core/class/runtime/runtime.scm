@@ -562,24 +562,26 @@
 ;; Note that we need to implement every type that can potentially be used by Jazz code
 ;; so that really means every type if we want to be a superset of the underlying scheme
 (define (jazz.class-of-native expr)
-  (cond ((%%boolean? expr)   jazz.Boolean)
-        ((%%char? expr)      jazz.Char)
-        ((%%fixnum? expr)    jazz.Fixnum)
-        ((%%flonum? expr)    jazz.Flonum)
-        ((%%integer? expr)   jazz.Integer)
-        ((%%rational? expr)  jazz.Rational)
-        ((%%real? expr)      jazz.Real)
-        ((%%complex? expr)   jazz.Complex)
-        ((%%number? expr)    jazz.Number)
-        ((%%null? expr)      jazz.Null)
-        ((%%pair? expr)      jazz.Pair)
-        ((%%string? expr)    jazz.String)
-        ((%%vector? expr)    jazz.Vector)
-        ((%%symbol? expr)    jazz.Symbol)
-        ((%%keyword? expr)   jazz.Keyword)
-        ((%%port? expr)      jazz.Port)
-        ((%%procedure? expr) jazz.Procedure)
-        ((%%foreign? expr)   jazz.Foreign)
+  (cond ((%%boolean? expr)     jazz.Boolean)
+        ((%%char? expr)        jazz.Char)
+        ((%%fixnum? expr)      jazz.Fixnum)
+        ((%%flonum? expr)      jazz.Flonum)
+        ((%%integer? expr)     jazz.Integer)
+        ((%%rational? expr)    jazz.Rational)
+        ((%%real? expr)        jazz.Real)
+        ((%%complex? expr)     jazz.Complex)
+        ((%%number? expr)      jazz.Number)
+        ((%%null? expr)        jazz.Null)
+        ((%%pair? expr)        jazz.Pair)
+        ((%%string? expr)      jazz.String)
+        ((%%vector? expr)      jazz.Vector)
+        ((%%symbol? expr)      jazz.Symbol)
+        ((%%keyword? expr)     jazz.Keyword)
+        ((%%port? expr)        jazz.Port)
+        ((%%procedure? expr)   jazz.Procedure)
+        ((%%foreign? expr)     jazz.Foreign)
+        ((%%eof-object? expr)  jazz.EOF)
+        ((%%unspecified? expr) jazz.Unspecified)
         (else
          (jazz.error "Unable to get class of {s}" expr))))
 
@@ -1180,35 +1182,6 @@
 
 
 ;;;
-;;;; Foreign
-;;;
-
-
-(jazz.define-class-runtime jazz.Foreign-Class)
-
-
-(jazz.define-method (jazz.of-type? (jazz.Foreign-Class class) object)
-  (%%foreign? object))
-
-
-(jazz.define-method (jazz.emit-specifier (jazz.Foreign-Class class))
-  'foreign)
-
-
-(jazz.define-method (jazz.emit-test (jazz.Foreign-Class type) value source-declaration environment)
-  `(%%foreign? ,value))
-
-
-(jazz.encapsulate-class jazz.Foreign-Class)
-
-
-(jazz.define-class-runtime jazz.Foreign)
-
-
-(jazz.encapsulate-class jazz.Foreign)
-
-
-;;;
 ;;;; Symbol
 ;;;
 
@@ -1317,6 +1290,93 @@
 
 
 ;;;
+;;;; Foreign
+;;;
+
+
+(jazz.define-class-runtime jazz.Foreign-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Foreign-Class class) object)
+  (%%foreign? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Foreign-Class class))
+  'foreign)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Foreign-Class type) value source-declaration environment)
+  `(%%foreign? ,value))
+
+
+(jazz.encapsulate-class jazz.Foreign-Class)
+
+
+(jazz.define-class-runtime jazz.Foreign)
+
+
+(jazz.encapsulate-class jazz.Foreign)
+
+
+;;;
+;;;; EOF
+;;;
+
+
+(jazz.define-class-runtime jazz.EOF-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.EOF-Class class) object)
+  (%%eof-object? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.EOF-Class class))
+  'eof)
+
+
+(jazz.define-method (jazz.emit-test (jazz.EOF-Class type) value source-declaration environment)
+  `(%%eof-object? ,value))
+
+
+(jazz.encapsulate-class jazz.EOF-Class)
+
+
+(jazz.define-class-runtime jazz.EOF)
+
+
+(jazz.encapsulate-class jazz.EOF)
+
+
+;;;
+;;;; Unspecified
+;;;
+
+
+(jazz.define-class-runtime jazz.Unspecified-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Unspecified-Class class) object)
+  (%%unspecified? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Unspecified-Class class))
+  'unspecified)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Unspecified-Class type) value source-declaration environment)
+  `(%%unspecified? ,value))
+
+
+(jazz.encapsulate-class jazz.Unspecified-Class)
+
+
+(jazz.define-class-runtime jazz.Unspecified)
+
+
+(jazz.encapsulate-class jazz.Unspecified)
+
+
+;;;
 ;;;; Types
 ;;;
 
@@ -1344,18 +1404,16 @@
     (%%vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
     (%%vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
     (%%vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
-    (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
     (%%vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
     (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Flonum)
     (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Rational)
+    (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 2 jazz.Null)
-    ;;(%%vector-set! jazz.specialtypes 3 jazz.EOF)
-    ;;(%%vector-set! jazz.specialtypes 4 jazz.Void)
-    ;;(%%vector-set! jazz.specialtypes 4 jazz.Absent)
-    )
+    (%%vector-set! jazz.specialtypes 3 jazz.EOF)
+    (%%vector-set! jazz.specialtypes 4 jazz.Unspecified))
   
   (else))
 

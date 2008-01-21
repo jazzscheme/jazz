@@ -38,23 +38,13 @@
 (module core.base.runtime.unspecified
 
 
-(cond-expand
-  (gambit
-    (define jazz.Unspecified
-      (void)))
-  
-  (else
-    (define jazz.Unspecified
-      (%%list 'jazz.unspecified))))
-
-
 (define (jazz.unspecified)
-  jazz.Unspecified)
+  (%%unspecified))
 
 
 (define (jazz.unspecified? expr)
-  (%%eq? expr jazz.Unspecified))
+  (%%unspecified? expr))
 
 
 (define (jazz.specified? expr)
-  (%%neq? expr jazz.Unspecified)))
+  (%%not (%%unspecified? expr))))

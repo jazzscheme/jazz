@@ -235,7 +235,8 @@
               (print-property name: name))
           (print-property system: system)
           (print-property platform: platform)
-          (print-property windowing: windowing)
+          (if windowing
+              (print-property windowing: windowing))
           (print-property safety: safety)
           (if (not (null? options))
               (print-property options: options))

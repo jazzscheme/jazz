@@ -66,9 +66,9 @@ Jedi IDE
 Launch
   If you have built Jedi you can run the jedi executable to launch the Jedi IDE.
 
-  PS: If you are launching Jedi using a platform: x11 build of Jazz, do not
-  forget to start X11, else the process will crash. We are looking at how to
-  detect from Jazz if X11 is running.
+  PS: If you are launching Jedi using an X11 build of Jazz, do not forget to
+  start X11, else the process will crash. We are looking at how to detect from
+  Jazz if X11 is running.
 
 Debugging
   At the current time, the IDE relies totally on the underlying Scheme for
@@ -84,6 +84,11 @@ Debugging
   use all of Gambit's debugging command to debug your Jazz code and when you
   want to resume the IDE's message loop, just clear the error level using
   Gambit's ,d command and then execute the (resume) command.
+
+  If you launch jedi.exe directly, you will not get a debugging console should
+  an error occur. A Gambit runtime option that can be used for debugging is -:dr
+  With it, when an error occurs, Gambit will automatically open a console where
+  you can debug the error.
 
 
 Documentation

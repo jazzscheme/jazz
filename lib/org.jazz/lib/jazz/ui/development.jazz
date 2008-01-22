@@ -63,14 +63,14 @@
   (let ((view (find-drawing~ root pos)))
     (if (not view)
         (nextmethod pos)
-      (debug-view~ view (acquire~ view root pos)))))
+      (view-debug~ view (acquire~ view root pos)))))
 
 
 @convert
 (method (describe-window pos)
   (let ((view (find-drawing~ root pos)))
     (when view
-      (describe-view~ view (acquire~ view root pos)))))
+      (view-describe~ view (acquire~ view root pos)))))
 
 
 ;;;
@@ -83,11 +83,10 @@
          (player (get-player~ view))
          (guest (and (is? player View-Host) (get-guest~ player))))
     (set-% view)
-    @convert-inter-module-assignment (
-    (set! %m pos)
-    (set! %r root)
-    (set! %h player)
-    (set! %g guest))))
+    (set-%m pos)
+    (set-%r root)
+    (set-%h player)
+    (set-%g guest)))
 
 
 (generic (view-describe (<View> view) pos)
@@ -137,12 +136,11 @@
 ;;;
 
 
-@convert
 (specific (view-describe (<Image-Tool> view) pos)
   (append (nextmethod pos)
           (list
-            (list "Image Name" (get-image-name))
-            (list "Disabled Image Name" (get-disabled-image-name)))))
+            (list "Image Name" (get-image-name~ view))
+            (list "Disabled Image Name" (get-disabled-image-name~ view)))))
 
 
 ;;;
@@ -150,11 +148,10 @@
 ;;;
 
 
-@convert
 (specific (view-describe (<Label-Item> view) pos)
   (append (nextmethod pos)
           (list
-            (list "Icon" icon))))
+            (list "Icon" (get-icon~ view)))))
 
 
 ;;;
@@ -162,31 +159,24 @@
 ;;;
 
 
-@convert
-(specific (debug-view (<Outline-View> view) view)
-  (nextmethod view)
-  (let* ((v (get-v~ view))
-         (r (v->row v)))
+(specific (view-debug (<Outline-View> view) pos)
+  (nextmethod pos)
+  (let* ((v (get-v~ pos))
+         (r (v->row~ view v)))
     (when r
-      (let ((row (get-row r)))
-        (set-%r~ Development row)))))
+      (let ((row (get-row~ view r)))
+        (set-%r row)))))
 
 
-@convert
-(specific (describe-view (<Outline-View> view) pos)
+(specific (view-describe (<Outline-View> view) pos)
   (append (nextmethod pos)
           (list
-            (list "Visible Count" visible-count)
-            (list "Visible Width" visible-width)
-            (list "Visible Height" visible-height)
-            (list "First Displayed" first-displayed)
-            (list "First Displayed Rank" first-displayed-rank)
-            (list "First Displayed Offset" first-displayed-offset))))
-
-
-@convert
-(definition public (internal-fields)
-  (values visible-count visible-height first-displayed first-displayed-rank first-displayed-offset))
+            (list "Visible Count" (get-visible-count~ view))
+            (list "Visible Width" (get-visible-width~ view))
+            (list "Visible Height" (get-visible-height~ view))
+            (list "First Displayed" (get-first-displayed~ view))
+            (list "First Displayed Rank" (get-first-displayed-rank~ view))
+            (list "First Displayed Offset" (get-first-displayed-offset~ view)))))
 
 
 ;;;
@@ -194,28 +184,26 @@
 ;;;
 
 
-@convert
-(specific (debug-view (<Text-View> view) view)
-  (nextmethod view)
-  (let* ((start (get-start))
-         (end (get-end))
-         (paragraph (get-paragraph (get-row~ start))))
-    (set-%r~ Development selection)
-    (set-%s~ Development start)
-    (set-%e~ Development end)
-    (set-%p~ Development paragraph)
-    (set-%f~ Development (get-format~ paragraph))
-    (set-%n~ Development (get-line-at~ paragraph (get-col~ start)))
-    (set-%y~ Development (get-style-at start))
-    (set-%k~ Development (get-moniker))
-    (set-%c~ Development (get-controller))))
+(specific (view-debug (<Text-View> view) pos)
+  (nextmethod pos)
+  (let* ((start (get-start~ view))
+         (end (get-end~ view))
+         (paragraph (get-paragraph~ view (get-row~ start))))
+    (set-%r (get-selection~ view))
+    (set-%s start)
+    (set-%e end)
+    (set-%p paragraph)
+    (set-%f (get-format~ paragraph))
+    (set-%n (get-line-at~ paragraph (get-col~ start)))
+    (set-%y (get-style-at~ view start))
+    (set-%k (get-moniker~ view))
+    (set-%c (get-controller~ view))))
 
 
-@convert
-(specific (describe-view (<Text-View> view) pos)
+(specific (view-describe (<Text-View> view) pos)
   (append (nextmethod pos)
           (list
-            (list "Selection" (format "{s} {s}" (get-start) (get-end))))))
+            (list "Selection" (format "{s} {s}" (get-start~ view) (get-end~ view))))))
 
 
 ;;;
@@ -223,17 +211,16 @@
 ;;;
 
 
-@convert
-(specific (debug-view (<Code-Text-View> view) view)
-  (nextmethod view)
-  (let* ((range (get-selection))
-         (strings (range-strings range))
-         (string (car text))
-         (entries (get-parsed-entries))
+(specific (view-debug (<Code-Text-View> view) pos)
+  (nextmethod pos)
+  (let* ((range (get-selection~ view))
+         (strings (range-strings~ view range))
+         (string (car (get-text~ view)))
+         (entries (get-parsed-entries~ view))
          (entry (find-if (function (element)
                            (equal? string (get-name~ element)))
                          entries)))
-    (set-%t~ Development entry)))
+    (set-%t entry)))
 
 
 ;;;
@@ -241,42 +228,40 @@
 ;;;
 
 
-@convert
-(specific (debug-view (<Tree-View> view) view)
-  (nextmethod view)
-  (let ((cell (view->tree view)))
+(specific (view-debug (<Tree-View> view) pos)
+  (nextmethod pos)
+  (let ((cell (view->tree~ view pos)))
     (when cell
-      (let* ((pos (cell-coordinates cell view))
-             (column (get-column (get-col~ cell)))
-             (row (get-row (get-row~ cell)))
+      (let* ((pos (cell-coordinates~ view cell pos))
+             (column (get-column~ view (get-col~ cell)))
+             (row (get-row~ view (get-row~ cell)))
              (node (car (get-children~ row)))
              (user-data (get-user-data~ row)))
         (receive (cell part) (get-debugged~ column cell pos)
-          (let ((data (get-cell-data cell)))
-            (set-%c~ Development cell)
-            (set-%d~ Development data)
-            (set-%n~ Development node)
-            (set-%o~ Development column)
-            (set-%p~ Development part)
-            (set-%r~ Development row)
-            (set-%u~ Development user-data)))))))
+          (let ((data (get-cell-data~ view cell)))
+            (set-%c cell)
+            (set-%d data)
+            (set-%n node)
+            (set-%o column)
+            (set-%p part)
+            (set-%r row)
+            (set-%u user-data)))))))
 
 
-@convert
-(specific (describe-view (<Tree-View> view) view)
-  (append (nextmethod view)
-          (let ((cell (view->tree view)))
+(specific (view-describe (<Tree-View> view) pos)
+  (append (nextmethod pos)
+          (let ((cell (view->tree~ view pos)))
             (when cell
-              (let* ((pos (cell-coordinates cell view))
-                     (column (get-column (get-col~ cell)))
-                     (row (get-row (get-row~ cell)))
+              (let* ((pos (cell-coordinates~ view cell pos))
+                     (column (get-column~ view (get-col~ cell)))
+                     (row (get-row~ view (get-row~ cell)))
                      (node (car (get-children~ row)))
                      (user-data (get-user-data~ row)))
                 (receive (cell part) (get-debugged~ column cell pos)
-                  (let ((data (get-cell-data cell)))
+                  (let ((data (get-cell-data~ view cell)))
                     (list
-                      (list "Node Column" node-column)
-                      (list "Columns Borders" columns-borders)
-                      (list "Columns Right" columns-right)
+                      (list "Node Column" (get-node-column~ view))
+                      (list "Columns Borders" (get-columns-borders~ view))
+                      (list "Columns Right" (get-columns-right~ view))
                       (list "User Data" user-data)
                       (list "Image" (get-image~ node)))))))))))

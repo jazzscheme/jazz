@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Document Moniker
+;;;; Development Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,84 +35,17 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.document.Document-Moniker jazz
+(library jazz.development.syntax jazz
 
 
-(import (jazz.io)
-        (jazz.io.protocol)
-        (jazz.library)
-        (jazz.platform)
-        (jazz.ui)
-        (jazz.utilities))
-
-
-(class Document-Moniker-Class extends Moniker-Class
-  
-  
-  (method (get-protocol)
-    'doc))
-
-
-(class Document-Moniker metaclass Document-Moniker-Class extends Moniker
-  
-  
-  (slot pathname)
-  
-  
-  @convert-literal
-  (method meta (construct-literal context pathname)
-    (new self pathname))
-  
-  
-  (method (print printer readably)
-    (format printer "~{{a} {s}}"
-            (identifier-name (type-name (class-of self)))
-            pathname))
-  
-  
-  ;;;
-  ;;;; Protocol
-  ;;;
-  
-  
-  (method (present)
-    (format "{l}" (get-list~ pathname)))
-  
-  
-  ;;;
-  ;;;; Initialization
-  ;;;
-  
-  
-  (method (initialize path)
-    (nextmethod)
-    (set! pathname path))
-  
-  
-  ;;;
-  ;;;; Moniker
-  ;;;
-
-
-  (method public (get-name)
-    (get-name~ pathname))
-  
-  
-  (method public (get-document)
-    (let* ((appl (get-application))
-           (frame (find-document~ appl pathname)))
-      (if (null? frame)
-          (error "Unable to find document: {t}" pathname)
-        (get-guest~ frame))))
-  
-  
-  (method (load-lines)
-    (get-content~ (get-document)))
-  
-  
-  (method (load-form)
-    (get-form~ (get-designer~ (get-document)))))
-
-
-(specific (moniker-new (<Document-Moniker> class) parameters)
-  (new class (new File parameters))))
+(macro (global name)
+  (let ((getter (string->symbol (concatenate "get-" (symbol->string name))))
+        (setter (string->symbol (concatenate "set-" (symbol->string name))))
+        (value (generate-symbol "value")))
+    `(begin
+       (definition public ,name
+         {})
+       (definition public (,getter)
+         ,name)
+       (definition public (,setter ,value)
+         (set! ,name ,value))))))

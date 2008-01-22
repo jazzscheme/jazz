@@ -968,7 +968,8 @@
               (let ((class-expression (%%car arguments)))
                 (if (%%class-is? class-expression jazz.Reference)
                     (let ((binding (%%get-reference-binding class-expression)))
-                      (if (%%class-is? binding jazz.Class-Declaration)
+                      (if (or (%%class-is? binding jazz.Class-Declaration)
+                              (%%class-is? binding jazz.Autoload-Declaration))
                           (let ((values-codes (%%cdr arguments-codes)))
                             (jazz.new-code
                               (case (%%length values-codes)

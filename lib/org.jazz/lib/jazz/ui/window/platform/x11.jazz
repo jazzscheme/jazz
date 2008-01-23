@@ -259,7 +259,8 @@
 
 
 (definition (hide-window handle)
-  (XUnmapWindow default-x11-display handle))
+  (XUnmapWindow default-x11-display handle)
+  (XSync default-x11-display #f))
 
 
 (definition (minimize-window handle)
@@ -271,6 +272,8 @@
 (definition (destroy-window window)
   (when use-expose-store?
     (table-set! expose-store window #f))
+  (when (= (get-handle~ window) (platform-get-focus))
+    (call-focus-lose~ window #f))
   (XDestroyWindow default-x11-display (get-handle~ window)))
 
 
@@ -611,20 +614,30 @@
 
 
 (definition (platform-get-window-child-handle handle)
-  (let ((res (XGetChildHandle default-x11-display handle)))
-    (if (= 0 res) #f res)))
+  (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
+    (if (= 0 num-of-children)
+        #f
+        (XGetChildHandle default-x11-display handle 0))))
 
 
-(definition (platform-get-next-window-handle handle)
-  (unimplemented 'platform-get-next-window-handle)
-  @windows
-  (GetWindow handle GW_HWNDNEXT))
+(definition (platform-get-first-visible-child handle)
+  (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
+    (if (= 0 num-of-children) 
+        #f
+        (let loop ((n 0))
+          (if (= n num-of-children)
+              #f
+              (let ((child-handle (XGetChildHandle default-x11-display handle n)))
+                (debug "get-first-visible" (get-window child-handle))
+                (if (platform-is-window-visible? child-handle)
+                    child-handle
+                    (loop (+ n 1)))))))))
 
 
 (definition (platform-is-window-visible? handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
-    (not (= (XWindowAttributes-map_state-ref infos) IsUnmapped))))
+    (= (XWindowAttributes-map_state-ref infos) IsViewable)))
 
 
 (definition (get-top-window-handle handle)

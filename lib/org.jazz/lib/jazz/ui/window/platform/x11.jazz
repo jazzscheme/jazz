@@ -778,11 +778,19 @@
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
   (when handle
-    (let* ((x (get-left~ rect))
-             (y (get-top~ rect))
-             (w (- (get-right~ rect) x))
-             (h (- (get-bottom~ rect) y)))
-      (XInvalidateRect default-x11-display handle x y w h))))
+    (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
+          (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
+          (r (if (> (get-right~ rect) (get-width~ (get-window handle)))
+                 (get-width~ (get-window handle))
+                 (get-right~ rect)))
+          (b (if (> (get-bottom~ rect) (get-height~ (get-window handle)))
+                 (get-height~ (get-window handle))
+                 (get-bottom~ rect))))
+      (let ((w (- r l))
+            (h (- b t)))
+        (if (or (< w 0) (< h 0)) 
+            (debug "Negative width or height invalidate" w h))
+            (XInvalidateRect default-x11-display handle l t w h)))))
 
 
 (definition (platform-invalidate-region handle region erase?)

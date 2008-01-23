@@ -1519,12 +1519,14 @@
 (define (jazz.walk-specific walker resume declaration environment form)
   (receive (name parameters body) (jazz.parse-specific walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
-        (let* ((generic-declaration (jazz.lookup-declaration declaration name #f)))
-          (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-            (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
-              (%%set-specific-declaration-body new-declaration
-                (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
-              new-declaration)))
+        (let ((generic-declaration (jazz.lookup-declaration declaration name #f)))
+          (if (%%class-is? generic-declaration jazz.Generic-Declaration)
+                (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+                  (let ((new-declaration (jazz.new-specific-declaration name #f 'public 'uptodate '() declaration generic-declaration signature)))
+                    (%%set-specific-declaration-body new-declaration
+                      (jazz.walk-body walker resume declaration (%%cons (jazz.new-nextmethod-variable 'nextmethod #f) augmented-environment) body))
+                    new-declaration))
+              (jazz.walk-error walker resume declaration "Cannot find generic declaration for {s}" name)))
       (jazz.walk-error walker resume declaration "Specifics can only be defined inside libraries: {s}" name))))
 
 

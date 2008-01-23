@@ -107,6 +107,13 @@
 ;;;
 
 
+(definition (map-WCHAR-array buffer size)
+  (map (function dynamic (n)
+         (let ((char (WCHAR-array-ref buffer n)))
+           char))
+       (naturals 0 size)))
+
+
 (definition public (choose-new-file (directory: directory {})
                                     (initial-filename: initial-filename {})
                                     (default-extension: default-extension {})
@@ -115,8 +122,8 @@
   (close-all-popups)
   (when directory
     (create-directories~ directory))
-  (let ((r (OPENFILENAME-make))
-        (buffer (WCHAR-array-make MAX_PATH)))
+  (with ((r (OPENFILENAME-make))               ; not freed!
+         (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
     (if (not initial-filename)
         (WCHAR-array-set! buffer 0 #\nul)
       (WCHAR-copy buffer initial-filename MAX_PATH))
@@ -133,8 +140,10 @@
       (OPENFILENAME-lpstrDefExt-set! r     (either default-extension NULL))
       (OPENFILENAME-lCustData-set! r       0)
       (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc @w (get-dialog-proc)))
+    (debug 'before-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
     (if (GetSaveFileName r)
         (let ((filename (WCHAR-string buffer)))
+          (debug 'after-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
           (anchorize~ (new File (tokenise filename)) anchors: anchors))
       (let ((code (CommDlgExtendedError)))
         (if (= code 0)
@@ -150,30 +159,30 @@
 (definition public (choose-directory (title: title {})
                                      (directory: directory {})
                                      (anchors: anchors {}))
-  (unimplemented)
-  @convert (
   (close-all-popups)
-  (let ((preserved {}))
+  (let ((preserved #f @fake (get-current-directory)))
     (when directory
-      (set! preserved (get-current-directory))
+      @fake
       (set-current-directory (parse~ directory)))
-    (let ((r (BROWSEINFO-make)))
-      (BROWSEINFO-hwndOwner-set! (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-      (BROWSEINFO-pidlRoot-set!  NULL)
-      (BROWSEINFO-lpfn-set!      (get-browse-callback))
-      (BROWSEINFO-lpszTitle-set! (either title NULL))
-      (let ((items (SHBrowseForFolder r)))
-        (when preserved
+    (with ((r (BROWSEINFO-make))                 ; not freed!
+           (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
+      (WCHAR-array-set! buffer 0 #\nul)
+      (BROWSEINFO-hwndOwner-set! r (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+      (BROWSEINFO-pidlRoot-set! r NULL)
+      (BROWSEINFO-pszDisplayName-set! r buffer)
+      (BROWSEINFO-lpszTitle-set! r (either title NULL))
+      (BROWSEINFO-ulFlags-set! r 0)
+      (BROWSEINFO-lpfn-set! r NULL @fake (get-browse-callback))
+      (BROWSEINFO-lParam-set! r 0)
+      (BROWSEINFO-iImage-set! r 0)
+      (with ((items (SHBrowseForFolder r)))      ; not freed!
+        (when directory
+          @fake
           (set-current-directory preserved))
         (if (not items)
             (throw-cancel)
-          (let ((path (new Ansi-String size: MAX_PATH)))
-            (SHGetPathFromIDList items path)
-            (let ((string (coerce path String)))
-              (adjust-string string)
-              (let ((directory (anchorize~ (new Directory (tokenise string)) anchors: anchors)))
-                (set-current-directory (parse~ directory))
-                directory)))))))))
+          (let ((directory (WCHAR-string buffer)))
+            (anchorize~ (new Directory (tokenise directory)) anchors: anchors)))))))
 
 
 ;;;

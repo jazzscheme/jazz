@@ -546,6 +546,16 @@
 
 
 ;;;
+;;;; Time
+;;;
+
+
+(native jazz.process-times)
+(native jazz.cpu-time)
+(native jazz.real-time)
+
+
+;;;
 ;;;; Unspecified
 ;;;
 

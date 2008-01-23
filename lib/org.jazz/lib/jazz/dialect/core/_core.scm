@@ -52,4 +52,5 @@
          ; (jazz.dialect.core.stack)
          (jazz.dialect.core.system)
          (jazz.dialect.core.table)
-         (jazz.dialect.core.thread)))
+         (jazz.dialect.core.thread)
+         (jazz.dialect.core.time)))

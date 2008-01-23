@@ -65,7 +65,10 @@
 (cond-expand
   (gambit
     (define (jazz.declares kind)
-      `((declare (block)
+      `((declare ,@(if (or (eq? kind 'module)
+                           (eq? jazz.safety 'release))
+                       '((block))
+                     '())
                  (standard-bindings)
                  (extended-bindings)
                  ;; inlining can have a huge impact on compilation time
@@ -75,7 +78,7 @@
                        ;; safe and inlining primitives at the same time
                        ;; is really costly on compilation time
                        '((not inline-primitives))
-                     `((not safe)))))))
+                     '((not safe)))))))
   
   (else))
 

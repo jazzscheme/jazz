@@ -394,6 +394,7 @@
 
 (native jazz.eof-object)
 (native jazz.gambit-read-line)
+(native jazz.with-extension-reader)
 
 
 ;;;

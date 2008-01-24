@@ -129,22 +129,26 @@
                                 (partition (jazz.partition (%%get-specific-descendant-specifics ancestor)
                                                            (lambda (descendant)
                                                              (let ((descendant-signature (%%get-specific-dynamic-signature descendant)))
-                                                               (%%eq? 'ordered (jazz.dynamic-signature-compare descendant-signature dynamic-signature)))))))
+                                                               (%%eq? 'ordered (jazz.dynamic-signature-compare descendant-signature dynamic-signature))))))
+                                (descendant-partition (assq #t partition))
+                                (descendants (if descendant-partition (cdr descendant-partition) '()))
+                                (brother-partition (assq #f partition))
+                                (brothers (if brother-partition (cdr brother-partition) '())))
                            (for-each (lambda (descendant)
                                        (let ((best (%%car (%%get-specific-ancestor-specifics descendant))))
                                          (cond ((%%eq? ancestor best)
                                                 (%%set-specific-ancestor-specifics descendant
-                                                  (%%cons specific (%%cdr (%%get-specific-ancestor-specifics descendant)))))
+                                                                                   (%%cons specific (%%cdr (%%get-specific-ancestor-specifics descendant)))))
                                                ((jazz.specific-better? specific best)
                                                 (%%set-specific-ancestor-specifics descendant
-                                                  (%%cons specific (jazz.remove! ancestor (%%get-specific-ancestor-specifics descendant)))))
+                                                                                   (%%cons specific (jazz.remove! ancestor (%%get-specific-ancestor-specifics descendant)))))
                                                (else
                                                 (%%set-specific-ancestor-specifics descendant
-                                                  (%%cons best (%%cons specific (jazz.remove! ancestor (%%cdr (%%get-specific-ancestor-specifics descendant)))))))))
-                                       (%%when (%%not (%%assq descendant descendant-specifics))
+                                                                                   (%%cons best (%%cons specific (jazz.remove! ancestor (%%cdr (%%get-specific-ancestor-specifics descendant)))))))))
+                                       (%%when (%%not (%%memq descendant descendant-specifics))
                                          (set! descendant-specifics (%%cons descendant descendant-specifics))))
-                                     (or (assq #t partition) '()))
-                           (%%set-specific-descendant-specifics ancestor (%%cons specific (or (assq #f partition) '())))))
+                                     descendants)
+                           (%%set-specific-descendant-specifics ancestor (%%cons specific brothers))))
                        ancestors)
              (%%set-specific-descendant-specifics specific descendant-specifics)))
           (else

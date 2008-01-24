@@ -37,7 +37,7 @@
 
 ;; TODO
 ;; - if the configuration directory is a subdir of the source directory, then
-;;   safe the jazz directory using .. parent syntax
+;;   save the jazz directory using .. parent syntax
 ;; - finish the shell-command / open-process saga
 
 
@@ -659,7 +659,7 @@
                   (lambda (output)
                     (print-variable 'jazz.app app output)
                     (newline output)
-                    (print-variable 'jazz.jazz-directory (jazz-directory) output)))
+                    (print-variable 'jazz.directory (jazz-directory) output)))
                 #t)
             #f)))
       
@@ -696,6 +696,8 @@
           
           (if architecture?
               (compile-file "architecture" appdir appdir))
+          (if app?
+              (compile-file "app" appdir appdir))
           (compile-kernel-file "syntax/" "macros")
           (compile-kernel-file "syntax/" "features")
           (compile-kernel-file "syntax/" "primitives")
@@ -705,8 +707,6 @@
           (compile-kernel-file "runtime/" "digest")
           (compile-kernel-file "runtime/" "kernel")
           (compile-kernel-file "runtime/" "main")
-          (if app?
-              (compile-file "app" appdir appdir))
           
           (let ((link-file (appfile (string-append appname ".c"))))
             (if (or (not (file-exists? link-file))
@@ -714,6 +714,7 @@
                 (begin
                   (jazz.feedback "; linking kernel...")
                   (link-incremental (list (appfile "architecture")
+                                          (appfile "app")
                                           (conffile "build/_kernel/syntax/macros")
                                           (conffile "build/_kernel/syntax/features")
                                           (conffile "build/_kernel/syntax/primitives")
@@ -722,8 +723,7 @@
                                           (conffile "build/_kernel/runtime/settings")
                                           (conffile "build/_kernel/runtime/digest")
                                           (conffile "build/_kernel/runtime/kernel")
-                                          (conffile "build/_kernel/runtime/main")
-                                          (appfile "app"))
+                                          (conffile "build/_kernel/runtime/main"))
                                     output: link-file
                                     base: "~~/lib/_gambcgsc")
                   #t)
@@ -773,6 +773,7 @@
              (string-append
                "gcc" " "
                (appfile "architecture.c") " "
+               (appfile "app.c") " "
                (conffile "build/_kernel/syntax/macros.c") " "
                (conffile "build/_kernel/syntax/features.c") " "
                (conffile "build/_kernel/syntax/primitives.c") " "
@@ -782,7 +783,6 @@
                (conffile "build/_kernel/runtime/digest.c") " "
                (conffile "build/_kernel/runtime/kernel.c") " "
                (conffile "build/_kernel/runtime/main.c") " "
-               (appfile "app.c") " "
                (appfile (string-append appname ".c")) " "
                (string-append "-I" (path-expand "~~/include")) " "
                (string-append "-L" (path-expand "~~/lib")) " "
@@ -793,6 +793,7 @@
            (jazz.open-process
              "gcc"
              `(,(appfile "architecture.c")
+               ,(appfile "app.c")
                ,(conffile "build/_kernel/syntax/macros.c")
                ,(conffile "build/_kernel/syntax/features.c")
                ,(conffile "build/_kernel/syntax/primitives.c")
@@ -802,7 +803,6 @@
                ,(conffile "build/_kernel/runtime/digest.c")
                ,(conffile "build/_kernel/runtime/kernel.c")
                ,(conffile "build/_kernel/runtime/main.c")
-               ,(appfile "app.c")
                ,(appfile (string-append appname ".c"))
                ,(string-append "-I" (path-expand "~~/include"))
                ,(string-append "-L" (path-expand "~~/lib"))
@@ -886,9 +886,14 @@
                   (newline output)
                   (print-architecture system platform windowing safety options output)
                   (newline output)
+                  (print-variable 'jazz.directory (jazz-directory) output)
                   (newline output)
-                  (display "(load \"../../kernel/boot\")" output)
+                  (newline output)
+                  (display "(load (string-append jazz.directory \"kernel/boot\"))" output)
                   (newline output)))))))
+    
+    (define (jazz-directory)
+      (path-expand (current-directory)))
     
     (jazz.build-app #f configuration)
     

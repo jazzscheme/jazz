@@ -260,6 +260,10 @@
   (else))
 
 
+(define (jazz.jazz-directory)
+  jazz.directory)
+
+
 ;;;
 ;;;; Repository
 ;;;
@@ -272,7 +276,7 @@
   (%%make-repository 'app "./app/" #t))
 
 (define jazz.Lib-Repository
-  (%%make-repository 'lib "../../lib/" #f))
+  (%%make-repository 'lib (%%string-append jazz.directory "lib/") #f))
 
 (define jazz.User-Repository
   (%%make-repository 'user "~/jazz/lib/" #f))

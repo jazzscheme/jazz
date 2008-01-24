@@ -96,6 +96,7 @@
   (slot bindings-designer        initialize {})
   (slot shortcut-table           initialize {})
   (slot shortcut-hook            initialize {})
+  (slot resources                initialize (make-table test: equal?))
   
   
   (method (prepare-exit));;abstract
@@ -183,6 +184,7 @@
   (method (start-environment rest)
     (nextmethod rest)
     (setup-bindings)
+    (setup-resources)
     (initialize-toplevel)
     @unimplemented
     (setup-repositories)
@@ -1403,6 +1405,32 @@
   
   (method public virtual (get-text-class)
     Plain-Text-View)
+
+
+  ;;;
+  ;;;; Resources
+  ;;;
+  
+  
+  (method (setup-resources)
+    (setup-resources-directory 'bitmap {Directory Jazz "lib" "org.jazz" "lib" "jazz" "resources" "bitmaps"} "png")
+    (setup-resources-directory 'icon {Directory Jazz "lib" "org.jazz" "lib" "jazz" "resources" "icons"} "png"))
+  
+  
+  (method (setup-resources-directory type directory extension)
+    (iterate-directory~ directory
+      (function (file)
+        (when (ci=? (get-extension~ file) extension)
+          (register-resource type (get-base~ file) file)))))
+  
+  
+  (method public (register-resource type name file)
+    (table-set! resources (cons type name) file))
+  
+  
+  (method public (get-resource type name)
+    (or (table-ref resources (cons type name) #f)
+        (error "Unknown {a} resource: {s}" type name)))
 
 
   ;;;

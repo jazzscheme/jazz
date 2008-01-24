@@ -123,10 +123,6 @@
 ;;;
 
 
-(define jazz.app
-  #f)
-
-
 (define jazz.app-username
   #f)
 

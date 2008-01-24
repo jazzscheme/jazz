@@ -54,7 +54,7 @@
       (if (not loaded?)
           (begin
             (for-each (lambda (path)
-                        (load (string-append "../../" path)))
+                        (load (string-append jazz.directory path)))
                       jazz.Kernel)
             (set! loaded? #t))))))
 

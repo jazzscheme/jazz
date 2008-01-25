@@ -49,7 +49,7 @@
          (jazz.dialect.core.port)
          (jazz.dialect.core.profile)
          (jazz.dialect.core.reader)
-         ; (jazz.dialect.core.stack)
+         (jazz.dialect.core.stack)
          (jazz.dialect.core.system)
          (jazz.dialect.core.table)
          (jazz.dialect.core.thread)

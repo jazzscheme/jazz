@@ -172,8 +172,20 @@
     (define (jazz.eof-object)
       #!eof)
     
-    (define jazz.gambit-read-line
-      read-line))
+    (define jazz.read-line
+      read-line)
+    
+    (define (jazz.read-proper-line port)
+      (let ((line (read-line port #\newline #t)))
+        (if (eof-object? line)
+            (values #f #f)
+          (let ((len (%%string-length line)))
+            (if (and (%%fx> len 0) (%%eqv? (%%string-ref line (%%fx- len 1)) #\newline))
+                (values (##string-shrink! line (%%fx- len 1)) #t)
+              (values line #f))))))
+    
+    (define jazz.read-all
+      read-all))
   
   (else))
 

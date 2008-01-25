@@ -234,8 +234,10 @@
 (native open-input-string)
 (native call-with-input-string)
 (native with-input-from-string)
-(native read-line)
-(native read-all)
+(native jazz.read-line)
+(native jazz.read-proper-line)
+(native jazz.read-all)
+(native jazz.with-extension-reader)
 
 
 ;;;
@@ -385,16 +387,6 @@
 (native jazz.random-integer)
 (native jazz.random-source-pseudo-randomize!)
 (native jazz.default-random-source)
-
-
-;;;
-;;;; Reader
-;;;
-
-
-(native jazz.eof-object)
-(native jazz.gambit-read-line)
-(native jazz.with-extension-reader)
 
 
 ;;;

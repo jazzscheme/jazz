@@ -5041,71 +5041,17 @@
   (eqv? c #\double-quote))
 
 
-@gambit
-(definition public (read-line reader)
-  (let ((port (open-output-string)))
-    (let (iter (empty? #t))
-      (let ((c (read-char reader)))
-        (if (eof-object? c)
-            (if empty?
-                {}
-              (get-output-string port))
-          (case c
-            ((#\linefeed)
-             (get-output-string port))
-            ((#\return)
-             (let ((c (read-char reader)))
-               (get-output-string port)))
-            (else
-             (write-char c port)
-             (iter #f))))))))
-
-
-(definition (read-line-proper reader)
-  (let ((port (open-output-string)))
-    (let (iter (empty? #t))
-      (let ((c (read-char reader)))
-        (if (eof-object? c)
-            (if empty?
-                (values {} #f)
-              (values (get-output-string port) #f))
-          (case c
-            ((#\linefeed)
-             (values (get-output-string port) #t))
-            ((#\return)
-             (let ((c (read-char reader)))
-               (values (get-output-string port) #t)))
-            (else
-             (write-char c port)
-             (iter #f))))))))
-
-
-@a-try
 (definition (read-lines reader)
-  (let ((queue (new-queue))
-        (last-proper? #f))
-    (let (iterate)
-      (receive (line proper?) (read-line-proper reader)
+  (let ((queue (new-queue)))
+    (let (iterate (last-proper? #t))
+      (receive (line proper?) (read-proper-line reader)
         (if line
             (begin
               (enqueue queue line)
-              (set! last-proper? proper?)
-              (iterate))
+              (iterate proper?))
           (when last-proper?
             (enqueue queue ""))
           (queue-list queue))))))
-
-
-(definition (read-lines reader)
-  (let ((queue (new-queue)))
-    (let (iterate)
-      (let ((line (gambit-read-line reader)))
-        (if (eof-object? line)
-            (begin
-              (enqueue queue "")
-              (queue-list queue))
-          (enqueue queue line)
-          (iterate))))))
 
 
 (definition public (read-content-string reader)
@@ -5241,8 +5187,9 @@
 
 (definition public (write-lines printer lines platform use-utf8?)
   (loop (for line in lines remainder remain)
-        (do (unless (and (null? remain) (empty-string? line))
-              (write-line line printer)))))
+        (do (display line printer)
+            (unless (null? remain)
+              (newline printer)))))
 
 
 ;;;

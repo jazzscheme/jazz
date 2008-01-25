@@ -55,6 +55,33 @@
 
 
 ;;;
+;;;; Version
+;;;
+
+
+(define jazz.gambit-version
+  401002)
+
+
+(define jazz.gambit-stamp
+  1201234723)
+
+
+(define (jazz.validate-version)
+  (define (wrong-version message)
+    (display message)
+    (newline)
+    (exit 1))
+  
+  (if (not jazz.gambit-stamp)
+      (if (< (system-version) jazz.gambit-version)
+          (wrong-version (jazz.format "Jazz needs Gambit version {a} or higher{%}Please see Install.txt for details" jazz.gambit-version)))
+    (if (and (<= (system-version) jazz.gambit-version)
+             (< (system-stamp) jazz.gambit-stamp))
+        (wrong-version (jazz.format "Jazz needs Gambit version {a} stamp {a} or higher{%}Please see Install.txt for details" jazz.gambit-version jazz.gambit-stamp)))))
+
+
+;;;
 ;;;; Configuration
 ;;;
 
@@ -1184,8 +1211,9 @@
 
 
 ;;;
-;;;; Load
+;;;; Initialize
 ;;;
 
 
+(jazz.validate-version)
 (jazz.load-configurations)

@@ -60,7 +60,7 @@
                   (begin
                     (jazz.enqueue queue (jazz.get-frame cont))
                     (iter (+ depth 1)
-                          (##continuation-next-interesting cont)))))
+                          (##continuation-next-frame cont #f)))))
         (jazz.queue-list queue)))
     
     

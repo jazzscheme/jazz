@@ -1,0 +1,219 @@
+;;;
+;;;===============
+;;;  Jazz System
+;;;===============
+;;;
+;;;  Copyright 1996-2005 MetaScoop Inc.
+;;;  All rights reserved.
+;;;
+;;;; The Picolo Application
+;;;
+;;;  Filename: Picolo-Application.jazz
+;;;  Authors: Guillaume Cartier
+;;;
+
+
+(library picolo.application.Picolo-Application
+
+
+(import (jazz.system.application))
+
+
+(class Picolo-Application extends Application
+  
+  
+  (slot cataloguer initialize (new Cataloguer))
+
+  
+  (method (process-name)
+    "Picolo")
+
+
+  (method (process-version)
+    {Version 1 0 1})
+
+
+  (method (new-toplevel)
+    (new Picolo-Toplevel))
+  
+  
+  (method (start-process rest)
+    (nextmethod rest)
+    (set-application-accelerators (get-accelerator-table (class-of self))))
+  
+  
+  (method (finish-process rest)
+    (bind-optionals ((boot-time nil)) rest
+      (nextmethod rest)
+      (display-boot-time boot-time)))
+   
+
+  ;;;
+  ;;;; Actions
+  ;;;
+
+
+  (definition class-actions
+    {Form   (new     Action-List         ) ()
+      {Form   (new     Action-Item       ) (:shortcut (F2)                       :action-handler {Event-Handler :focus on-paste})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "A") :action-handler {Event-Handler :application on-open-favorite :char "A"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "B") :action-handler {Event-Handler :application on-open-favorite :char "B"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "C") :action-handler {Event-Handler :application on-open-favorite :char "C"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "D") :action-handler {Event-Handler :application on-open-favorite :char "D"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "E") :action-handler {Event-Handler :application on-open-favorite :char "E"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "F") :action-handler {Event-Handler :application on-open-favorite :char "F"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "G") :action-handler {Event-Handler :application on-open-favorite :char "G"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "H") :action-handler {Event-Handler :application on-open-favorite :char "H"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "I") :action-handler {Event-Handler :application on-open-favorite :char "I"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "J") :action-handler {Event-Handler :application on-open-favorite :char "J"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "K") :action-handler {Event-Handler :application on-open-favorite :char "K"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "L") :action-handler {Event-Handler :application on-open-favorite :char "L"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "M") :action-handler {Event-Handler :application on-open-favorite :char "M"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "N") :action-handler {Event-Handler :application on-open-favorite :char "N"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "O") :action-handler {Event-Handler :application on-open-favorite :char "O"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "P") :action-handler {Event-Handler :application on-open-favorite :char "P"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "Q") :action-handler {Event-Handler :application on-open-favorite :char "Q"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "R") :action-handler {Event-Handler :application on-open-favorite :char "R"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "S") :action-handler {Event-Handler :application on-open-favorite :char "S"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "T") :action-handler {Event-Handler :application on-open-favorite :char "T"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "U") :action-handler {Event-Handler :application on-open-favorite :char "U"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "V") :action-handler {Event-Handler :application on-open-favorite :char "V"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "W") :action-handler {Event-Handler :application on-open-favorite :char "W"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "X") :action-handler {Event-Handler :application on-open-favorite :char "X"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "Y") :action-handler {Event-Handler :application on-open-favorite :char "Y"})}
+      {Form   (new     Action-Item       ) (:shortcut (:control :shift :alt "Z") :action-handler {Event-Handler :application on-open-favorite :char "Z"})}})
+  
+  
+  ;;;
+  ;;;; Frames
+  ;;;
+
+
+  (method (base-frame-class)
+    Text-View)
+
+
+  (method (default-frame-class)
+    Jazz-Text-View)
+
+
+  (method (known-extension-frame-class ext)
+    (cond ((member? ext '("txt") :test ci=) Plain-Text-View)
+          ((member? ext '("jazz" "scm") :test ci=) Jazz-Text-View)
+          (else ((super known-extension-frame-class) ext))))
+  
+
+  ;;;
+  ;;;; Catalog
+  ;;;
+
+
+  (method (get-catalog-context)
+    'jazz)
+
+
+  ;;;
+  ;;;; Favorites
+  ;;;
+
+  
+  (method (on-open-favorite evt)
+    (let ((char [evt (get-property :char)])
+          (favorite (find-favorite char)))
+      (if (nil? favorite)
+          (error "No favorite defined for {t}" char)
+        (edit-document [favorite (get-file)]))))
+  
+  
+  (method (find-favorite char)
+    (let ((favorites [(get-preferences 'favorites) (get-children)]))
+      (find-if (function dynamic (favorite)
+                 (= [favorite (get-shortcut)] char))
+               favorites)))
+  
+  
+  ;;;
+  ;;;; Text
+  ;;;
+  
+  
+  (method (get-text-class)
+    Jazz-Text-View)
+
+
+  ;;;
+  ;;;; Definitions
+  ;;;
+
+  
+  (method (edit-definition object . rest)
+    (let ((definitions [cataloguer (get-coalesced-definitions object :context '(jazz))]))
+      (if (/= (length definitions) 1)
+          (bell)
+        [(car definitions) (edit)])))
+  
+  
+  ;;;
+  ;;;; Cataloguer
+  ;;;
+
+
+  (method (get-cataloguer)
+    cataloguer)
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+  
+  (method (on-page-setup evt)
+    (unimplemented))
+  
+  
+  (method (on-print evt)
+    (unimplemented))
+  
+  
+  (method (on-readme evt)
+    (edit-help-document {File Home "Readme.txt"}))
+  
+  
+  (method public (on-chapters evt)
+    (select-palette Chapters-Browser :focus? true))
+
+
+  (method (on-test evt)
+    )
+
+
+  (method public (on-test-shift evt)
+    )
+
+
+  (method public (on-debug-window evt)
+    (let ((window (mouse-window~ (get-desktop))))
+      (if (not window)
+          (bell)
+        (let ((pos [window (mouse-position)]))
+          [window (debug-window pos)]))))
+
+
+  (method public (on-describe-window evt)
+    (let ((window (mouse-window~ (get-desktop))))
+      (if (not window)
+          (bell)
+        (let ((pos [window (mouse-position)]))
+          [window (describe-window pos)]))))
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method (report-exception exception frame accountable)
+    (present-exception exception :type 'message :prefix? false)
+    (restore-debugger)
+    (restore-messaging)
+    (throw-stop))))

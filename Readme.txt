@@ -35,7 +35,7 @@ Distribution
 Readme.txt               :  Readme file
 Install.txt              :  Installation instructions
 .gambcini                :  Gambit code implementing the build system
-.configurations          :  Save file for configurations
+.configurations          :  Save file for build configurations
 
 bin                      :  Architecture binary directories
 doc                      :  Preliminary documentation
@@ -64,11 +64,7 @@ Jedi IDE
 ========
 
 Launch
-  If you have built Jedi you can run the jedi executable to launch the Jedi IDE.
-
-  PS: If you are launching Jedi using an X11 build of Jazz, do not forget to
-  start X11, else the process will crash. We are looking at how to detect from
-  Jazz if X11 is running.
+  If you have built the Jedi IDE you can launch it using the jedi executable.
 
 Debugging
   At the current time, the IDE relies totally on the underlying Scheme for

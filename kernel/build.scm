@@ -745,7 +745,9 @@
         (case platform
           ((windows)
            '("-lws2_32"))
-          (else
+          ((unix)
+	   '("-lm -ldl -lutil"))
+	  (else
            '())))
       
       (define (link-options)

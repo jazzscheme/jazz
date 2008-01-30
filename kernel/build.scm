@@ -572,8 +572,9 @@
     ((jazz) (jazz.make-jazz configuration))
     ((platform) (jazz.make-platform configuration))
     ((jedi) (jazz.make-jedi configuration))
-    ((all) (jazz.make-all configuration))
+    ((picolo) (jazz.make-picolo configuration))
     ((p4) (jazz.make-p4 configuration))
+    ((all) (jazz.make-all configuration))
     (else (jazz.error "Unknown target: {s}" target))))
 
 
@@ -591,6 +592,7 @@
             (case target
               ((kernel) (jazz.make-kernel-recursive configuration))
               ((jedi) (jazz.make-jedi-recursive configuration))
+              ((picolo) (jazz.make-picolo-recursive configuration))
               ((p4) (jazz.make-p4-recursive configuration))
               (else (jazz.error "Unknown target: {s}" target))))
           #t))
@@ -924,13 +926,19 @@
 
 
 ;;;
-;;;; All
+;;;; Picolo
 ;;;
 
 
-(define (jazz.make-all configuration)
-  (jazz.make-jedi configuration)
-  (jazz.jazz-make 'all configuration))
+(define (jazz.make-picolo configuration)
+  (jazz.make-platform configuration)
+  (jazz.jazz-make 'picolo configuration)
+  
+  (jazz.make-target-recursive 'picolo configuration))
+
+
+(define (jazz.make-picolo-recursive configuration)
+  (jazz.build-app 'picolo configuration console?: #f))
 
 
 ;;;
@@ -947,6 +955,15 @@
 
 (define (jazz.make-p4-recursive configuration)
   (jazz.build-app 'p4 configuration console?: #f))
+
+
+;;;
+;;;; All
+;;;
+
+
+(define (jazz.make-all configuration)
+  (jazz.jazz-make 'all configuration))
 
 
 ;;;

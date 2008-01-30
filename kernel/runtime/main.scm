@@ -235,9 +235,10 @@
   (case target
     ((core) (bcore))
     ((jazz) (bjazz))
+    ((all) (ball))
     ((platform) (bplatform))
     ((jedi) (bjedi))
-    ((all) (ball))
+    ((picolo) (bpicolo))
     ((p4) (bp4))
     (else (jazz.error "Unknown target: {s}" target))))
 
@@ -392,6 +393,16 @@
 
 (define (jedi)
   (boot-app 'jedi))
+
+
+(define (bpicolo)
+  (bjazz)
+  (bplatform)
+  (lplatform))
+
+
+(define (picolo)
+  (boot-app 'picolo))
 
 
 ;;;

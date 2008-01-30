@@ -52,15 +52,16 @@
       (##continuation-capture proc))
     
     
-    (define (jazz.get-continuation-stack cont)
+    (define (jazz.get-continuation-stack cont #!key (max-depth #f))
       (let ((queue (jazz.new-queue)))
         (let iter ((depth 0)
                    (cont cont))
-             (and cont
-                  (begin
-                    (jazz.enqueue queue (jazz.get-frame cont))
-                    (iter (+ depth 1)
-                          (##continuation-next-frame cont #f)))))
+	  (if (or (not max-depth) (< depth max-depth))
+              (and cont
+                   (begin
+                     (jazz.enqueue queue (jazz.get-frame cont))
+                     (iter (+ depth 1)
+                           (##continuation-next-frame cont #f))))))
         (jazz.queue-list queue)))
     
     

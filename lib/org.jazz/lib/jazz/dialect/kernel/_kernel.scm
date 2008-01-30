@@ -559,6 +559,14 @@
 
 
 ;;;
+;;;; Vector
+;;;
+
+
+(native jazz.vector-copy)
+
+
+;;;
 ;;;; Walker
 ;;;
 

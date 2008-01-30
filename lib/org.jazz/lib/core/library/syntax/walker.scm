@@ -4878,13 +4878,15 @@
                                  (let ((variable (%%car parameter)))
                                    (jazz.parse-specifier (%%cdr parameter)
                                      (lambda (specifier rest)
-                                       (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
-                                             (default (%%car rest)))
-                                         (set! section 'optional)
-                                         (let ((optional-parameter (jazz.new-optional-parameter variable type (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
-                                           (jazz.enqueue optional optional-parameter)
-                                           (%%when walk?
-                                             (set! augmented-environment (%%cons optional-parameter augmented-environment)))))))))))
+				       (if (null? (%%cdr rest))
+					   (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) #f))
+						 (default (%%car rest)))
+					     (set! section 'optional)
+					     (let ((optional-parameter (jazz.new-optional-parameter variable type (if walk? (jazz.walk walker resume declaration augmented-environment default) #f))))
+					       (jazz.enqueue optional optional-parameter)
+					       (%%when walk?
+						  (set! augmented-environment (%%cons optional-parameter augmented-environment)))))
+					   (jazz.walk-error walker resume declaration "Ill-formed optional parameter: {s}" parameter))))))))
                          (else
                           (jazz.walk-error walker resume declaration "Ill-formed lambda parameter: {s}" parameter)))
                    (iter rest)))))))

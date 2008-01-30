@@ -237,6 +237,7 @@
     ((jazz) (bjazz))
     ((platform) (bplatform))
     ((jedi) (bjedi))
+    ((all) (ball))
     ((p4) (bp4))
     (else (jazz.error "Unknown target: {s}" target))))
 
@@ -391,6 +392,79 @@
 
 (define (jedi)
   (boot-app 'jedi))
+
+
+;;;
+;;;; All
+;;;
+
+
+(define All
+  '(;;jazz.access
+    jazz.build
+    jazz.builder
+    jazz.catalog
+    jazz.console
+    jazz.debuggee
+    jazz.debugger
+    jazz.designer
+    jazz.development
+    jazz.dialect
+    jazz.groupware
+    jazz.ide
+    jazz.io
+    jazz.jml
+    jazz.language.c
+    jazz.language.clike
+    jazz.language.commonlisp
+    jazz.language.csharp
+    jazz.language.css
+    jazz.language.html
+    jazz.language.java
+    jazz.language.javascript
+    jazz.language.jazz
+    jazz.language.jml
+    jazz.language.lisp
+    jazz.language.lua
+    jazz.language.properties
+    jazz.language.python
+    jazz.language.scheme
+    jazz.language.sql
+    jazz.language.xml
+    jazz.library
+    jazz.license
+    jazz.media
+    jazz.network
+    jazz.platform
+    jazz.recorder
+    jazz.repository
+    jazz.resources
+    jazz.runtime
+    jazz.schema
+    jazz.snow
+    jazz.system
+    ;;jazz.system.process
+    jazz.test
+    jazz.ui
+    jazz.ui.clipboard
+    jazz.ui.image
+    jazz.ui.menu
+    jazz.ui.view
+    jazz.ui.window
+    jazz.user
+    jazz.utilities))
+
+
+(define (ball)
+  (define (compile module-name)
+    (jazz.for-each-submodule module-name
+      (lambda (module-name declaration phase)
+        (cjazz module-name))))
+  
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'core.module.build)
+  (lplatform)
+  (for-each compile All))
 
 
 ;;;

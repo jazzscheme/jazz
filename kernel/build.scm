@@ -572,6 +572,7 @@
     ((jazz) (jazz.make-jazz configuration))
     ((platform) (jazz.make-platform configuration))
     ((jedi) (jazz.make-jedi configuration))
+    ((all) (jazz.make-all configuration))
     ((p4) (jazz.make-p4 configuration))
     (else (jazz.error "Unknown target: {s}" target))))
 
@@ -920,6 +921,16 @@
 
 (define (jazz.make-jedi-recursive configuration)
   (jazz.build-app 'jedi configuration console?: #f))
+
+
+;;;
+;;;; All
+;;;
+
+
+(define (jazz.make-all configuration)
+  (jazz.make-jedi configuration)
+  (jazz.jazz-make 'all configuration))
 
 
 ;;;

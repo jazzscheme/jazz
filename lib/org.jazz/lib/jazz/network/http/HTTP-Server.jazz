@@ -38,12 +38,13 @@
 (library jazz.network.http.HTTP-Server jazz
 
 
-(import (jazz.library)
+(import (jazz.jml)
+        (jazz.library)
         (jazz.network)
         (jazz.utilities))
 
 
-(class HTTP-Server extends Socket-Listener
+(class HTTP-Server extends Object @convert Socket-Listener
   
   
   (slot host)
@@ -100,6 +101,7 @@
     
   
   ;; simple version for tests
+  @wait-socket-listener-converted
   (method (run)
     (set-name (server-name))
     (let ((host (server-host))
@@ -133,6 +135,7 @@
   
   (method (accept-connection socket)
     (server-hit)
+    @convert-Socket-Error
     (unwind-protect
         (let ((response (request-html socket)))
           ;; should log intelligently the error
@@ -165,7 +168,9 @@
   
   
   (method (with-error-reporting request proc)
-    (let ((html))
+    (proc)
+    @convert
+    (let ((html {}))
       (call-with-catch Exception
             (function (exc)
               (if (not debug?)
@@ -378,6 +383,7 @@
   
   
   (method (request-content request)
+    @convert-map-hash
     (let ((host (get-host~ request))
           (port (get-port~ request))
           (operation (get-operation~ request))
@@ -451,4 +457,4 @@
                                          `(<tr>
                                             (<td> ,(->string property))
                                             (<td> ,(->string value))))
-                                       properties))))))))))
+                                       properties)))))))))))

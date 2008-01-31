@@ -538,7 +538,7 @@
 
 
 (define jazz.default-target
-  'jazz)
+  'all)
 
 
 (define (jazz.make target)

@@ -58,6 +58,7 @@
         (cadr return))
     0))
 
+(definition *locked-update* #f)
 
 (cond-expand
   (mac
@@ -279,6 +280,7 @@
 (definition (destroy-window window)
   (when use-expose-store?
     (table-set! expose-store window #f))
+  (table-set! actions-store window #f)
   (when (= (get-handle~ window) (platform-get-focus))
     (call-focus-lose~ window #f))
   (XDestroyWindow default-x11-display (get-handle~ window)))
@@ -689,14 +691,16 @@
 
 
 (definition (platform-set-position handle pos)
-  (let ((visibility? (get-visible?~ (get-window handle))))
-    (when visibility? (hide-window handle))
-    (if (is? (get-window handle) Popup)
-              (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
-                (XMoveWindow default-x11-display handle h v))
-              (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))
-    (when visibility? (show-window handle))))
+  (if *locked-update*
+      (add-position-action (get-window handle) pos)
+      (if (is? (get-window handle) Popup)
+	  (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
+		   (XMoveWindow default-x11-display handle h v))
+	  (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
 
+(definition (platform-set-position-size handle pos size)
+  (XMoveResizeWindow default-x11-display handle (get-h~ pos) (get-v~ pos) (get-width~ size) (get-height~ size)))
+  
 
 (definition (platform-get-size handle)
       (with ((infos (XWindowAttributes-make)))
@@ -709,7 +713,9 @@
 
 
 (definition (platform-set-window-size handle size)
-    (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size)))
+  (if *locked-update*
+      (add-size-action (get-window handle) size)
+      (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))))
 
 
 (definition (platform-set-bounds handle rect)
@@ -886,11 +892,42 @@
   (XRaiseWindow default-x11-display handle))
 
 
-;; tofix
+;; table containing window + (cons position dimension)
+(definition actions-store (make-table))
+
+
+(definition (add-position-action window position)
+  (let ((action (table-ref actions-store window #f)))
+    (table-set! actions-store window (cons position (and action (cdr action))))))
+
+
+(definition (add-size-action window size)
+  (let ((action (table-ref actions-store window #f)))
+    (table-set! actions-store window (cons (and action (car action)) size))))
+
+
 (definition (platform-lock-window-update handle)
-  #t
-  @windows
-  (LockWindowUpdate handle))
+  (if handle
+      (set! *locked-update* #t)
+      (begin 
+	(set! *locked-update* #f)
+	(process-window-actions))))
+
+
+(definition (process-window-actions)
+  (iterate-table actions-store
+    (function (window action)
+       (when action
+	 (let ((handle (get-handle~ window)))
+	   (hide-window handle)
+           (let ((position (car action))
+	         (size     (cdr action)))
+	     (if (and position size)
+	         (platform-set-position-size handle position size)
+	         (when position (platform-set-position handle position))
+	         (when size     (platform-set-window-size handle size))))
+	   (show-window handle)))))
+  (set! actions-store (make-table)))
 
 
 ;;;

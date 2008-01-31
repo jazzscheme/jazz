@@ -47,6 +47,7 @@
         (time))
 
 
+
 (definition public unprocessed '(unprocessed))
 (definition public processed '(processed))
 
@@ -58,7 +59,9 @@
         (cadr return))
     0))
 
+
 (definition *locked-update* #f)
+
 
 (cond-expand
   (mac
@@ -133,7 +136,7 @@
     (cons XK_7                   #\7)
     (cons XK_8                   #\8)
     (cons XK_9                   #\9)
-    (cons XK_F1                  'F1 )
+    (cons XK_F1                  'F1)
     (cons XK_F2                  'F2)
     (cons XK_F3                  'F3)
     (cons XK_F4                  'F4)
@@ -151,7 +154,11 @@
     (cons XK_plus                #\+)
     (cons XK_comma               #\,)
     (cons XK_period              #\.)
+    (cons XK_colon               #\:)
     (cons XK_semicolon           #\;)
+    (cons XK_less                #\<)
+    (cons XK_equal               #\=)
+    (cons XK_greater             #\>)
     (cons XK_slash               #\/)
     (cons XK_asciitilde          #\~)
     (cons XK_bracketleft         #\[)
@@ -167,6 +174,14 @@
     (cons XK_parenleft           #\()
     (cons XK_parenright          #\))
     (cons XK_asterisk            #\*)
+    (cons XK_question            #\?)
+    (cons XK_at                  #\@)
+    (cons XK_braceleft           #\{)
+    (cons XK_braceright          #\})
+    (cons XK_bar                 #\|)
+    (cons XK_asciicircum         #\^)
+    (cons XK_underscore          #\_)
+    (cons XK_grave               #\`)
     (cons XK_Return              'Return)
     (cons XK_space               'Space)
     (cons XK_Tab                 'Tab)
@@ -186,30 +201,22 @@
     (cons XK_KP_Decimal          'Multiply)
     (cons XK_KP_Divide           'Divide)))
 
+
 ;;;
 ;;;; Window
 ;;;
 
 
-(definition last-click
-  (time->seconds (current-time)))
+(definition public Windows-Table
+  (make-table test: eqv?))
 
 
 (definition public Window-Title-Table
   (make-table test: eqv?))
 
 
-;; todo : change that ugly name and check the logic
-(definition public inline (platform-get-window-handle-title handle)
-  (table-ref Window-Title-Table handle #f))
-
-
-(definition public inline (set-window-title handle title)
-  (table-set! Window-Title-Table handle title))
-
-
-(definition public Windows-Table
-  (make-table test: eqv?))
+(definition last-click
+  (time->seconds (current-time)))
 
 
 (definition public inline (get-window handle)
@@ -220,28 +227,12 @@
   (table-set! Windows-Table handle window))
 
 
-(definition (create-handle window parent rest)
-  (let* ((screen-no (XDefaultScreen default-x11-display))
-         (screen    (XScreenOfDisplay default-x11-display screen-no))
-         (parent    (if parent (get-handle~ parent) (XRootWindow default-x11-display screen-no)))
-         (attr      (XSetWindowAttributes-make))
-         (visual    (XDefaultVisual default-x11-display screen-no)))
-    (XSetWindowAttributes-background_pixel-set! attr (XWhitePixel default-x11-display screen-no))
-    (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
-    (if (is? window Desktop)
-        (platform-get-desktop)
-      (XCreateWindow default-x11-display
-                   parent
-                   0
-                   0
-                   500
-                   500
-                   0
-                   CopyFromParent
-                   InputOutput
-                   visual
-                   CWBitGravity
-                   attr))))
+(definition public inline (platform-get-window-handle-title handle)
+  (table-ref Window-Title-Table handle #f))
+
+
+(definition public inline (set-window-title handle title)
+  (table-set! Window-Title-Table handle title))
 
 
 (definition (prepare-handle window parent rest)
@@ -249,32 +240,35 @@
     (let ((handle (create-handle window parent rest)))
       (if (not handle)
           (error "Unable to create x11 window")
-        @tofix-this-is-windows
-        (DragAcceptFiles hwnd #t)
-        (XSelectInput default-x11-display handle (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
+        (XSelectInput 
+          default-x11-display 
+          handle 
+          (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
         handle))))
 
 
-(definition (dispatch-message window msg wparam lparam)
-  (process-window-message window msg))
-
-
-(definition (bring-window-to-top handle)
-  (XRaiseWindow default-x11-display handle))
-
-
-(definition (show-window handle)
-  (XMapWindow default-x11-display handle))
-
-
-(definition (hide-window handle)
-  (XUnmapWindow default-x11-display handle))
- 
- 
-(definition (minimize-window handle)
-  (unimplemented 'minimize-window)
-  @windows
-  (ShowWindow handle SW_MINIMIZE))
+(definition (create-handle window parent rest)
+  (let* ((screen-no (XDefaultScreen default-x11-display))
+         (screen    (XScreenOfDisplay default-x11-display screen-no))
+         (parent    (if parent (get-handle~ parent) (XRootWindow default-x11-display screen-no)))
+         (attr      (XSetWindowAttributes-make))
+         (visual    (XDefaultVisual default-x11-display screen-no)))
+    (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
+    (if (is? window Desktop)
+        (platform-get-desktop)
+      (XCreateWindow 
+        default-x11-display
+        parent
+        0
+        0
+        500
+        500
+        0
+        CopyFromParent
+        InputOutput
+        visual
+        CWBitGravity
+        attr))))
 
 
 (definition (destroy-window window)
@@ -286,47 +280,28 @@
   (XDestroyWindow default-x11-display (get-handle~ window)))
 
 
+(definition (dispatch-message window msg wparam lparam)
+  (process-window-message window msg))
+
+
+(definition (show-window handle)
+  (XMapWindow default-x11-display handle))
+
+
+(definition (hide-window handle)
+  (XUnmapWindow default-x11-display handle))
+
+
+(definition (bring-window-to-top handle)
+  (XRaiseWindow default-x11-display handle))
+
+
+(definition (minimize-window handle)
+  (unimplemented 'minimize-window))
+
+
 (definition (platform-erase-background handle)
   (unimplemented 'platform-erase-background))
-
-
-;;;
-;;;; Loop
-;;;
-
-
-(definition (platform-process-messages)
-  (let ((msg (XEvent-make)))
-    (set! use-expose-store? #t)
-    ;; process messages from all windows
-    (while (XNextEvent default-x11-display msg)
-      (let* ((any-event (XEvent-xany-ref msg))
-             (handle (XAnyEvent-window-ref any-event)))
-        ;; tofix wparam and lparam should be removed
-        (let ((window (get-window handle))
-              (wparam 0)
-              (lparam 0))
-          (when window
-            (call-dispatch-message~ window msg wparam lparam))))
-     (when (and use-expose-store? (= 0 (XPending default-x11-display)))
-       (iterate-table expose-store
-                             (function (win region)
-                               (when region
-                                 (paint~ win region))))
-       (set! expose-store (make-table))))))
-
-
-(definition (platform-process-one-message window)
-  (let ((msg (XEvent-make)))
-    (XNextEvent default-x11-display msg)
-     (let* ((any-event (XEvent-xany-ref msg))
-             (handle (XAnyEvent-window-ref any-event)))
-        ;; tofix wparam and lparam should be removed
-        (let ((window (get-window handle))
-              (wparam 0)
-              (lparam 0))
-          (when window
-            (call-dispatch-message~ window msg wparam lparam))))))
 
 
 ;;;
@@ -336,7 +311,40 @@
 
 (definition expose-store (make-table))
 
+
 (definition use-expose-store? #f)
+
+
+(definition (platform-process-messages)
+  (let ((msg (XEvent-make)))
+    (set! use-expose-store? #t)
+    (while (XNextEvent default-x11-display msg)
+      (let* ((any-event (XEvent-xany-ref msg))
+             (handle (XAnyEvent-window-ref any-event)))
+        (let ((window (get-window handle))
+              (wparam 0)
+              (lparam 0))
+          (when window
+            (call-dispatch-message~ window msg wparam lparam))))
+      (when (and use-expose-store? (= 0 (XPending default-x11-display)))
+        (iterate-table expose-store
+                       (function (win region)
+                         (when region
+                           (paint~ win region))))
+        (set! expose-store (make-table))))))
+
+
+(definition (platform-process-one-message window)
+  (let ((msg (XEvent-make)))
+    (XNextEvent default-x11-display msg)
+    (let* ((any-event (XEvent-xany-ref msg))
+           (handle (XAnyEvent-window-ref any-event)))
+      (let ((window (get-window handle))
+            (wparam 0)
+            (lparam 0))
+        (when window
+          (call-dispatch-message~ window msg wparam lparam))))))
+
 
 (definition (process-window-message window msg)
   (let ((type (XEvent-type-ref msg)))
@@ -455,14 +463,6 @@
       
       (else                      unprocessed))))
 
-
-(definition (translate-shortcut mods keycode)
-  (let ((key  (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) 1) Symbolic-Keys #f))
-        (app  (get-application)))
-    (if (and key app)
-      (dispatch-shortcut~ app (new Shortcut mods key))
-      #f)))
-
 (definition (event-loop)
   (let ((ev (XEvent-make)))
     (let loop ()
@@ -482,6 +482,17 @@
             (error "Bad event handler response {t}" result)))))
         (loop))))
       'Finished)
+
+
+(definition (translate-shortcut mods keycode)
+  (let ((key  (assv-value (XKeycodeToKeysym default-x11-display (integer->char keycode) 1) Symbolic-Keys #f))
+        (app  (get-application)))
+    (if (and key app)
+      (dispatch-shortcut~ app (new Shortcut mods key))
+      #f)))
+
+
+
 
 
 ;; tofix

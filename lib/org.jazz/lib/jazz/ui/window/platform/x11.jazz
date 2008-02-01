@@ -492,15 +492,22 @@
       #f)))
 
 
+;;;
+;;;; Capture
+;;;
 
 
-
-;; tofix
 (definition (set-capture handle)
   #f)
 
+
 (definition (unset-capture)
   #f)
+
+
+;;;
+;;;; Painting
+;;;
 
 
 (definition (with-platform-painting window proc)
@@ -513,75 +520,6 @@
   processed)
 
 
-@old-reference
-(definition (paint-window window)
-  (let* ((screen-no (XDefaultScreen default-x11-display))
-         (visual    (XDefaultVisual default-x11-display screen-no)))
-    (with ((surface (new Surface (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual (get-height~ window) (get-width~ window)))))
-      (draw-placeholder~ window surface)
-      ;;(draw~ window surface ps)
-      (XFlush default-x11-display)
-      (close~ surface)))
-  processed)
-
-
-(definition public (get-window-surface window)
-  (unimplemented 'get-window-surface))
-
-
-;;;
-;;;; Style
-;;;
-
-
-(definition (get-style handle)
-  (unimplemented 'get-style)
-  @windows
-  (GetWindowLong handle GWL_STYLE))
-
-
-(definition (set-style handle style)
-  (unimplemented 'set-style)
-  @windows
-  (SetWindowLong handle GWL_STYLE style))
-
-
-(definition (get-ex-style handle)
-  (unimplemented 'get-ex-style)
-  @windows
-  (GetWindowLong handle GWL_EXSTYLE))
-
-
-(definition (set-ex-style handle style)
-  (unimplemented 'set-ex-style)
-  @windows
-  (SetWindowLong handle GWL_EXSTYLE style))
-
-
-(definition (child-window? handle)
-  (unimplemented 'child-window?)
-  @windows
-  (mask-bit-set? (get-style handle) WS_CHILD))
-
-
-;;;
-;;;; Layers
-;;;
-
-
-(definition (get-layered? handle)
-  (unimplemented 'get-layered?)
-  @windows
-  (mask-bit-set? (get-ex-style handle) WS_EX_LAYERED))
-
-
-(definition (set-layered? handle flag)
-  #t
-  @windows
-  (SetWindowLong handle GWL_EXSTYLE (mask-bit-set (GetWindowLong handle GWL_EXSTYLE) WS_EX_LAYERED flag)))
-
-
-;; tofix : this needs to use cairo...
 (definition (set-alpha-blending handle n)
   #f
   @windows (
@@ -591,50 +529,15 @@
 
 
 ;;;
-;;;; Tracking
-;;;
-
-;; Time was HOVER_DEFAULT
-(definition (track-mouse-event handle flags (time: time 0))
-  (unimplemented 'track-mouse-event)
-  @windows
-  (with ((rec (TRACKMOUSEEVENT-make)))
-    (TRACKMOUSEEVENT-cbSize-set! rec (size-of-TRACKMOUSEEVENT))
-    (TRACKMOUSEEVENT-dwFlags-set! rec flags)
-    (TRACKMOUSEEVENT-hwndTrack-set! rec handle)
-    (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
-    (TrackMouseEvent rec)))
-
-
-;;;
 ;;;; Management
 ;;;
-
-
-(definition (platform-send-message handle msg wparam lparam)
-  (unimplemented 'platform-send-message)
-  @windows
-    (SendMessage handle msg wparam lparam))
-
-
-(definition (platform-post-message handle msg wparam lparam)
-  (unimplemented 'platform-post-message)
-  @windows
-    (PostMessage handle msg wparam lparam))
 
 
 (definition (platform-set-parent handle parent)
   (XReparentWindow default-x11-display handle (get-handle~ parent) 0 0))
 
 
-  
-(definition (get-window-owner-handle handle)
-  (unimplemented 'get-window-owner-handle)
-  @windows
-  (GetWindow handle GW_OWNER))
-
-
-(definition (platform-get-window-child-handle handle)
+(definition (platform-get-first-child handle)
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
     (if (= 0 num-of-children)
         #f
@@ -649,26 +552,15 @@
           (if (= n num-of-children)
               #f
               (let ((child-handle (XGetChildHandle default-x11-display handle n)))
-                (debug "get-first-visible" (get-window child-handle))
                 (if (platform-is-window-visible? child-handle)
                     child-handle
                     (loop (+ n 1)))))))))
-
-
-(definition (platform-get-next-window-handle handle)
-  (unimplemented 'platform-get-next-window-handle))
 
 
 (definition (platform-is-window-visible? handle)
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (= (XWindowAttributes-map_state-ref infos) IsViewable)))
-
-
-(definition (get-top-window-handle handle)
-  (unimplemented 'get-top-window-handle)
-  @windows
-  (GetTopWindow handle))
 
 
 (definition (acquire-point to-handle from-window shape)
@@ -1084,4 +976,21 @@
              (let ((window (get-window hwnd)))
                (when (and window (or include-invisibles? (get-visible?~ window)))
                  window)))
-           (process-hwnds))))
+           (process-hwnds)))
+
+
+;;;
+;;;; Historic stuff
+;;;
+
+
+(definition (platform-send-message handle msg wparam lparam)
+  (unimplemented 'platform-send-message)
+  @windows
+    (SendMessage handle msg wparam lparam))
+
+
+(definition (platform-post-message handle msg wparam lparam)
+  (unimplemented 'platform-post-message)
+  @windows
+    (PostMessage handle msg wparam lparam)))

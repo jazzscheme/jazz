@@ -528,10 +528,10 @@
 
 (definition (set-alpha-blending handle n)
   #f
-  @windows (
-  (set-layered? handle #t)
-  (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
-  (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
+  @windows 
+  ((set-layered? handle #t)
+   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
+   (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
 
 
 ;;;
@@ -547,20 +547,20 @@
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
     (if (= 0 num-of-children)
         #f
-        (XGetChildHandle default-x11-display handle 0))))
+      (XGetChildHandle default-x11-display handle 0))))
 
 
 (definition (platform-get-first-visible-child handle)
   (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
     (if (= 0 num-of-children) 
         #f
-        (let loop ((n 0))
-          (if (= n num-of-children)
-              #f
-              (let ((child-handle (XGetChildHandle default-x11-display handle n)))
-                (if (platform-is-window-visible? child-handle)
-                    child-handle
-                    (loop (+ n 1)))))))))
+      (let loop ((n 0))
+           (if (= n num-of-children)
+               #f
+             (let ((child-handle (XGetChildHandle default-x11-display handle n)))
+               (if (platform-is-window-visible? child-handle)
+                   child-handle
+                 (loop (+ n 1)))))))))
 
 
 (definition (platform-is-window-visible? handle)
@@ -584,34 +584,34 @@
 
 (definition (platform-get-position-in-root handle)
   (let ((infos (XWindowAttributes-make)))
-         (XGetWindowAttributes default-x11-display handle infos)
-         (let* ((x (XWindowAttributes-x-ref infos))
-                 (y (XWindowAttributes-y-ref infos)))
-           (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) x y)
-             (new Point x y)))))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((x (XWindowAttributes-x-ref infos))
+           (y (XWindowAttributes-y-ref infos)))
+      (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) x y)
+        (new Point x y)))))
 
 
 (definition (platform-get-position handle parent-handle)
-   (let ((infos (XWindowAttributes-make)))
-       (XGetWindowAttributes default-x11-display handle infos)
-       (let* ((x (XWindowAttributes-x-ref infos))
-               (y (XWindowAttributes-y-ref infos)))
-         (new Point x y))))
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((x (XWindowAttributes-x-ref infos))
+           (y (XWindowAttributes-y-ref infos)))
+      (new Point x y))))
 
 
 (definition (platform-set-position handle pos)
   (if *locked-update*
       (add-position-action (get-window handle) pos)
-      (if (is? (get-window handle) Popup)
-	  (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
-		   (XMoveWindow default-x11-display handle h v))
-	  (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
+    (if (is? (get-window handle) Popup)
+        (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
+          (XMoveWindow default-x11-display handle h v))
+      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
   
 
 (definition (platform-get-size handle)
-      (with ((infos (XWindowAttributes-make)))
-        (XGetWindowAttributes default-x11-display handle infos)
-        (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+  (with ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
 
 
 (definition (platform-get-window-size handle)
@@ -621,7 +621,7 @@
 (definition (platform-set-window-size handle size)
   (if *locked-update*
       (add-size-action (get-window handle) size)
-      (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))))
+    (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))))
 
 
 (definition (platform-set-position-size handle pos size)
@@ -631,26 +631,26 @@
 (definition (platform-set-bounds handle rect)
   (unimplemented 'platform-set-bounds)
   @windows
-    (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+  (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
 
 
 (definition (platform-get-rect handle parent-handle)
   (let ((infos (XWindowAttributes-make)))
-       (XGetWindowAttributes default-x11-display handle infos)
-       (let* ((l (XWindowAttributes-x-ref infos))
-               (t (XWindowAttributes-y-ref infos))
-               (r (+ l (XWindowAttributes-width-ref infos)))
-               (b (+ t (XWindowAttributes-height-ref infos))))
-         (new Rect l t r b))))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((l (XWindowAttributes-x-ref infos))
+           (t (XWindowAttributes-y-ref infos))
+           (r (+ l (XWindowAttributes-width-ref infos)))
+           (b (+ t (XWindowAttributes-height-ref infos))))
+      (new Rect l t r b))))
 
 
 (definition (platform-get-bounds handle)
   (unimplemented 'platform-get-bounds)
   @windows
-    (with ((rect (RECT-make)))
-      (GetWindowRect handle rect)
-      (MapWindowPoints NULL handle rect 2)
-      (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+  (with ((rect (RECT-make)))
+    (GetWindowRect handle rect)
+    (MapWindowPoints NULL handle rect 2)
+    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
 
 
 (definition (platform-mouse-position)
@@ -702,9 +702,9 @@
 
 (definition (platform-get-client-rect handle)
   (let ((infos (XWindowAttributes-make)))
-       (XGetWindowAttributes default-x11-display handle infos)
-       (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
-  
+    (XGetWindowAttributes default-x11-display handle infos)
+    (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
   (platform-update-window handle)
@@ -722,10 +722,10 @@
           (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
           (r (if (> (get-right~ rect) (get-width~ (get-window handle)))
                  (get-width~ (get-window handle))
-                 (get-right~ rect)))
+               (get-right~ rect)))
           (b (if (> (get-bottom~ rect) (get-height~ (get-window handle)))
                  (get-height~ (get-window handle))
-                 (get-bottom~ rect))))
+               (get-bottom~ rect))))
       (let ((w (- r l))
             (h (- b t)))
         (unless (or (< w 0) (< h 0))
@@ -769,25 +769,19 @@
   (platform-update-window handle))
 
 
-;; tofix : destroyed window
 (definition (platform-update-window handle)
-  ;; is this test correct or was it a patch made during the port
   (when handle
     (let* ((size (platform-get-size handle))
-            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+           (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
       (platform-invalidate-rect handle rct #t))))
   
   
 (definition (platform-show-noactivate handle)
-  (show-window handle)
-  @windows
-  (SetWindowPos handle HWND_TOP 0 0 0 0 (bitwise-ior SWP_SHOWWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
-  
-  
+  (show-window handle))
+
+
 (definition (platform-hide-noactivate handle)
-  (hide-window handle)
-  @windows
-  (SetWindowPos handle 0 0 0 0 0 (bitwise-ior SWP_HIDEWINDOW SWP_NOACTIVATE SWP_NOMOVE SWP_NOSIZE)))
+  (hide-window handle))
 
 
 (definition (platform-bring-window-to-front handle)
@@ -823,24 +817,25 @@
 (definition (platform-lock-window-update handle)
   (if handle
       (set! *locked-update* #t)
-      (begin 
-	(set! *locked-update* #f)
-	(process-window-actions))))
+    (begin 
+      (set! *locked-update* #f)
+      (process-window-actions))))
 
 
 (definition (process-window-actions)
-  (iterate-table actions-store
+  (iterate-table 
+    actions-store
     (function (window action)
-       (when action
-	 (let ((handle (get-handle~ window)))
-	   (hide-window handle)
-           (let ((position (car action))
-	         (size     (cdr action)))
-	     (if (and position size)
-	         (platform-set-position-size handle position size)
-	         (when position (platform-set-position handle position))
-	         (when size     (platform-set-window-size handle size))))
-	   (show-window handle)))))
+      (when action
+        (let ((handle (get-handle~ window)))
+          (hide-window handle)
+          (let ((position (car action))
+                (size     (cdr action)))
+            (if (and position size)
+                (platform-set-position-size handle position size)
+              (when position (platform-set-position handle position))
+              (when size     (platform-set-window-size handle size))))
+          (show-window handle)))))
   (set! actions-store (make-table)))
 
 
@@ -869,7 +864,6 @@
   {})
 
 
-;; tofix Cursor-Resources were literals
 @unimplemented
 (definition public Cursors
   (list
@@ -980,10 +974,10 @@
 (definition (platform-send-message handle msg wparam lparam)
   (unimplemented 'platform-send-message)
   @windows
-    (SendMessage handle msg wparam lparam))
+  (SendMessage handle msg wparam lparam))
 
 
 (definition (platform-post-message handle msg wparam lparam)
   (unimplemented 'platform-post-message)
   @windows
-    (PostMessage handle msg wparam lparam)))
+  (PostMessage handle msg wparam lparam)))

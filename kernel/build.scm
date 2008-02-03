@@ -965,6 +965,7 @@
 
 
 (define (jazz.make-all configuration)
+  (jazz.make-kernel configuration)
   (jazz.jazz-make 'all configuration))
 
 

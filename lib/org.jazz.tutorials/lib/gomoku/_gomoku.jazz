@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Puissance 4
+;;;; Gomoku
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library p4 jazz
+(library gomoku jazz
 
 
 (import (jazz.io)
@@ -65,10 +65,10 @@
 
 
 (definition board-rows
-  6)
+  9)
 
 (definition board-columns
-  7)
+  9)
 
 (definition board-size
   #f)
@@ -117,9 +117,6 @@
 (definition last-move
   #f)
 
-(definition last-v
-  #f)
-
 
 ;;;
 ;;;; Square
@@ -132,8 +129,6 @@
   (slot row   <fx>      getter generate)
   (slot col   <fx>      getter generate)
   (slot token <fx>      accessors generate)
-  (slot up    <Square+> accessors generate)
-  (slot down  <Square+> accessors generate)
   (slot lines <list>    accessors generate)
   
   
@@ -150,11 +145,11 @@
         (format printer "{a} {a} {a}" row col token)))))
 
 
-(definition inline (column-move col) <Square>
-  (vector-ref board-moves col))
+(definition inline (board-unplay sqr)
+  (set! board-moves (cons sqr board-moves)))
 
-(definition inline (set-column-move col sqr)
-  (vector-set! board-moves col sqr))
+(definition inline (board-play sqr)
+  (set! board-moves (remove! sqr board-moves)))
 
 
 (definition inline (board-ref rank) <Square>
@@ -186,7 +181,6 @@
   (set! last-eval #f)
   (set! last-evaluations #f)
   (set! last-move #f)
-  (setup-squares)
   (setup-lines)
   (close-ambiance)
   (play-intro)
@@ -208,19 +202,7 @@
 
 
 (definition (make-moves)
-  (let ((moves (make-vector board-columns #f))
-        (bottom-row (- board-rows 1)))
-    (loop (for col from 0 below board-columns)
-          (vector-set! moves col (square bottom-row col)))
-    moves))
-
-
-(definition (setup-squares)
-  (loop (for row from 0 below board-rows)
-        (loop (for col from 0 below board-columns)
-              (let ((sqr (square row col)))
-                (set-up~ sqr (legal-square (- row 1) col))
-                (set-down~ sqr (legal-square (+ row 1) col))))))
+  (coerce board List))
 
 
 ;;;
@@ -228,34 +210,15 @@
 ;;;
 
 
-(definition fall-speed
-  25)
-
-
-(definition (play-at game who col)
-  (let ((sqr (column-move col))
-        (move current-next))
+(definition (play-at game who sqr)
+  (let ((move current-next))
     (set! last-move sqr)
-    (last-move-animation game)
     (set-token~ sqr move)
-    (set-column-move col (get-up~ sqr))
+    (board-play sqr)
     (set! current-next (* current-next -1))
     (set! current-eval (+ current-eval (evaluate-move-delta sqr who)))
     (check-victory who sqr)
     (invalidate-view~ game)))
-
-
-(definition (last-move-animation game)
-  (let ((end-v (+ 100 (* (get-row~ last-move) 70))))
-    (set! last-v 60)
-    (let (loop)
-      (when (< last-v end-v)
-        (redraw-view~ game)
-        (increase! last-v fall-speed)
-        (loop)))
-    (set! last-v end-v)
-    (redraw-view~ game)
-    (set! last-v #f)))
 
 
 (definition (check-victory who sqr)
@@ -263,7 +226,7 @@
     (some? line? (get-lines~ sqr)))
   
   (define (line? line)
-    (= (count-tokens who line) 4))
+    (= (count-tokens who line) 5))
   
   (when (victory?)
     (set! current-status who)
@@ -277,23 +240,23 @@
 
 
 (definition play-intro?
-  #t)
+  #f)
 
 (definition play-ambiance?
   #t)
 
 
 (definition intro-directory
-  {Directory Home "jazz" "app" "p4" "media" "intro"})
+  {Directory Home "jazz" "app" "gomoku" "media" "intro"})
 
 (definition ambiance-directory
-  {Directory Home "jazz" "app" "p4" "media" "ambiance"})
+  {Directory Home "jazz" "app" "gomoku" "media" "ambiance"})
 
 (definition victory-directory
-  {Directory Home "jazz" "app" "p4" "media" "victory"})
+  {Directory Home "jazz" "app" "gomoku" "media" "victory"})
 
 (definition defeat-directory
-  {Directory Home "jazz" "app" "p4" "media" "defeat"})
+  {Directory Home "jazz" "app" "gomoku" "media" "defeat"})
 
 
 (definition (play-intro)
@@ -346,7 +309,7 @@
 
 
 (definition search-depth <fx>
-  4)
+  1)
 
 
 (definition (computer-move)
@@ -363,26 +326,25 @@
         (best-eval #f)
         (best-test (if (= who COMPUTER) > <))
         (evals '()))
-    (loop (for col from 0 below board-columns)
-          (let ((sqr (column-move col)))
-            (let ((eval (and sqr (evaluate-move col sqr who current-eval depth))))
-              (set! evals (cons eval evals))
-              (when eval
-                (cond ;; as good
-                      ((and best-eval (= eval best-eval))
-                       (set! best (cons col best)))
-                      ;; better
-                      ((or (not best-eval) (best-test eval best-eval))
-                       (set! best (list col))
-                       (set! best-eval eval)))))))
+    (loop (for sqr in board-moves)
+          (let ((eval (and sqr (evaluate-move sqr who current-eval depth))))
+            (set! evals (cons eval evals))
+            (when eval
+              (cond ;; as good
+                    ((and best-eval (= eval best-eval))
+                     (set! best (cons sqr best)))
+                    ;; better
+                    ((or (not best-eval) (best-test eval best-eval))
+                     (set! best (list sqr))
+                     (set! best-eval eval))))))
     (set! last-eval best-eval)
     (set! last-evaluations (reverse evals))
     (random-element best)))
 
 
-(definition (evaluate-move col <fx> sqr <Square> who <fx> eval <fx> depth <fx>) <fx>
+(definition (evaluate-move sqr <Square> who <fx> eval <fx> depth <fx>) <fx>
   (set-token~ sqr who)
-  (set-column-move col (get-up~ sqr))
+  (board-play sqr)
   (increase! last-evaluations-count)
   (let ((delta (evaluate-move-delta sqr who)))
     (let ((new-eval (+ eval delta)))
@@ -393,7 +355,7 @@
               (if (> (* new-eval who) 900000)
                   new-eval
                 (evaluate who new-eval depth))))
-        (set-column-move col sqr)
+        (board-unplay sqr)
         (set-token~ sqr EMPTY)
         best-eval))))
 
@@ -406,14 +368,12 @@
 
 (definition (evaluate-best who <fx> eval <fx> depth <fx>) <fx>
   (let ((best-eval 10000000))
-    (loop (for col from 0 below board-columns)
-          (let ((sqr (column-move col)))
-            (when sqr
-              (let ((eval (evaluate-move col sqr (* who -1) eval (+ depth 1))))
-                (when eval
-                  (let ((normalized-eval (* (cast <fx> eval) who)))
-                    (when (< normalized-eval best-eval)
-                      (set! best-eval normalized-eval))))))))
+    (loop (for sqr in board-moves)
+          (let ((eval (evaluate-move sqr (* who -1) eval (+ depth 1))))
+            (when eval
+              (let ((normalized-eval (* (cast <fx> eval) who)))
+                (when (< normalized-eval best-eval)
+                  (set! best-eval normalized-eval))))))
     (* best-eval who)))
 
 
@@ -436,7 +396,8 @@
 
 (definition (evaluate-count count <fx> who <fx>) <fx>
   (* (cast <fx> (case count
-                  ((4) 1000000)
+                  ((5) 1000000)
+                  ((4) 10000)
                   ((3) 1000)
                   ((2) 100)
                   ((1) 10)
@@ -462,7 +423,8 @@
 
 (definition (evaluate-line-delta count <fx> who <fx>) <fx>
   (* (cast <fx> (case count
-                  ((4) 999000)
+                  ((5) 999000)
+                  ((4) 9000)
                   ((3) 900)
                   ((2) 90)
                   ((1) 10)))
@@ -473,14 +435,15 @@
   (+ (if (= (get-token~ (get-first~  line)) who) 1 0)
      (if (= (get-token~ (get-second~ line)) who) 1 0)
      (if (= (get-token~ (get-third~  line)) who) 1 0)
-     (if (= (get-token~ (get-fourth~ line)) who) 1 0)))
+     (if (= (get-token~ (get-fourth~ line)) who) 1 0)
+     (if (= (get-token~ (get-fifth~  line)) who) 1 0)))
 
 
 (proclaim (not optimize))
 
 
 ;;;
-;;;; Lines
+;;;; Line
 ;;;
 
 
@@ -498,21 +461,24 @@
   (slot second <Square> getter generate)
   (slot third  <Square> getter generate)
   (slot fourth <Square> getter generate)
+  (slot fifth  <Square> getter generate)
   
   
-  (method (initialize first second third fourth)
+  (method (initialize first second third fourth fifth)
     (nextmethod)
     (set! first~self first)
     (set! second~self second)
     (set! third~self third)
-    (set! fourth~self fourth)))
+    (set! fourth~self fourth)
+    (set! fifth~self fifth)))
 
 
 (definition (line=? l1 l2)
   (and (eq? (get-first~ l1) (get-first~ l2))
        (eq? (get-second~ l1) (get-second~ l2))
        (eq? (get-third~ l1) (get-third~ l2))
-       (eq? (get-fourth~ l1) (get-fourth~ l2))))
+       (eq? (get-fourth~ l1) (get-fourth~ l2))
+       (eq? (get-fifth~ l1) (get-fifth~ l2))))
 
 
 (definition (setup-lines)
@@ -532,13 +498,14 @@
         (col (get-col~ sqr))
         (lines '()))
     (loop (for dir in directions)
-          (loop (for n from -3 to 0)
+          (loop (for n from -4 to 0)
                 (let ((a (find-next dir row col (+ n 0)))
                       (b (find-next dir row col (+ n 1)))
                       (c (find-next dir row col (+ n 2)))
-                      (d (find-next dir row col (+ n 3))))
-                  (if (and a b c d)
-                      (set! lines (cons (new Line a b c d) lines))))))
+                      (d (find-next dir row col (+ n 3)))
+                      (e (find-next dir row col (+ n 4))))
+                  (if (and a b c d e)
+                      (set! lines (cons (new Line a b c d e) lines))))))
     lines))
 
 
@@ -559,7 +526,26 @@
 ;;;
 
 
-(class P4 extends View
+(definition square-offset
+  100)
+
+(definition square-width
+  50)
+
+(definition square-spacing
+  20)
+
+(definition line-pen
+  {Pen name: Black})
+
+(definition human-color
+  {Color name: Black})
+
+(definition computer-color
+  {Color name: White})
+
+    
+(class Gomoku extends View
   
   
   (method (focus-default)
@@ -576,40 +562,38 @@
       (fill-rect~ surface bounds {Color name: Dark-Blue}))
     (set-text-color~ surface {Color name: Yellow})
     (set-font~ surface {Font name: Heading0})
-    (draw-text~ surface 100 30 "Bienvenue sur puissance 4")
+    (draw-text~ surface square-offset 30 "Bienvenue sur Gomoku")
     (when current-status
-      (loop (for row from 0 below board-rows)
-            (loop (for col from 0 below board-columns)
-                  (let ((token (get-token~ (square row col)))
-                        (rect (new Rect (+ 100 (* col 70)) (+ 100 (* row 70)) (+ 100 (* col 70) 50) (+ 100 (* row 70) 50))))
-                    (cond ((eq? token EMPTY)
-                           (ellipse~ surface rect {Color name: Dark-Blue} {Color name: White}))
-                          ((eq? token HUMAN)
-                           (ellipse~ surface rect {Color name: Red} {Color name: Red}))
-                          (else
-                           (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
-      (when last-v
-        (let ((col (get-col~ last-move)))
-          (let ((rect (new Rect (+ 100 (* col 70)) last-v (+ 100 (* col 70) 50) (+ last-v 50))))
-            (cond ((eq? current-next HUMAN)
-                   (ellipse~ surface rect {Color name: Red} {Color name: Red}))
-                  (else
-                   (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
+      (let* ((total-width (+ square-width square-spacing))
+             (half-width (fxfloor/ square-width 2))
+             (total-board (- (* total-width board-rows) half-width square-spacing)))
+        (set-pen~ surface line-pen)
+        (loop (for n from 0 below board-rows)
+              (line~ surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
+              (line~ surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
+        (loop (for row from 0 below board-rows)
+              (loop (for col from 0 below board-columns)
+                    (let ((token (get-token~ (square row col)))
+                          (rect (new Rect (+ square-offset (* col total-width)) (+ square-offset (* row total-width)) (+ square-offset (* col total-width) square-width) (+ square-offset (* row total-width) square-width))))
+                      (cond ((eq? token HUMAN)
+                             (ellipse~ surface rect human-color human-color))
+                            ((eq? token COMPUTER)
+                             (ellipse~ surface rect computer-color computer-color)))))))
       (cond ((eq? current-status HUMAN)
-             (victory surface "Humain" {Color name: Red}))
+             (victory surface "Humain" human-color))
             ((eq? current-status COMPUTER)
-             (victory surface "Ordinateur" {Color name: Green})))
+             (victory surface "Ordinateur" computer-color)))
       (set-text-color~ surface {Color name: Ochre})
       (set-font~ surface {Font name: Heading2})
-      (draw-text~ surface 650 100 (format "depth: {a}" search-depth))
+      (draw-text~ surface 650 square-offset (format "depth: {a}" search-depth))
       (when (and display-evaluations? last-eval)
-        (draw-text~ surface 650 150 (format "count: {a}" last-evaluations-count))
-        (draw-text~ surface 650 175 (format "in: {a}s" last-time))
+        (draw-text~ surface 650 (+ square-offset 50) (format "count: {a}" last-evaluations-count))
+        (draw-text~ surface 650 (+ square-offset 75) (format "in: {a}s" last-time))
         (set-font~ surface (new Font font-name: "Arial" point-size: 12))
         (let ((c 0)
               (v 225))
           (for-each (lambda (eval)
-                      (set-text-color~ surface (if (= c (get-col~ last-move)) {Color name: Dark-Green} {Color name: Ochre}))
+                      (set-text-color~ surface (if (= c (get-col~ last-move)) computer-color {Color name: Ochre}))
                       (draw-text~ surface 650 v (format "{a}" eval))
                       (increase! c)
                       (increase! v 24))
@@ -619,7 +603,7 @@
   (method (victory surface who color)
     (set-text-color~ surface color)
     (set-font~ surface {Font name: Heading0})
-    (draw-text~ surface 100 525 (format "Victoire de l'{a}!!!" who)))
+    (draw-text~ surface square-offset 525 (format "Victoire de l'{a}!!!" who)))
   
   
   (method (play-move move place?)
@@ -630,30 +614,34 @@
   
   
   (method (cursor-update pos)
-    (let ((col (legal-column pos)))
-      (set-cursor (if col :finger :arrow))))
+    (let ((sqr (legal-sqr pos)))
+      (set-cursor (if sqr :finger :arrow))))
   
   
   (method (mouse-down pos)
-    (let ((col (legal-column pos)))
-      (when col
+    (let ((sqr (legal-sqr pos)))
+      (when sqr
         (let ((place? (control-down?)))
-          (play-move col place?)))))
+          (play-move sqr place?)))))
   
   
-  (method (legal-column pos)
+  (method (legal-sqr pos)
     (if (eq? current-status 'play)
         (let ((h (get-h~ pos))
-              (v (get-v~ pos)))
-          (if (and (>= h 100)
-                   (< h (+ 100 (* board-columns 70) -20))
-                   (>= v 100)
-                   (< v (+ 100 (* board-rows 70) -20)))
-              (let ((col (truncate (/ (- h 90) 70))))
-                (if (and (>= col 0)
-                         (< col board-columns))
-                    col
-                  #f))
+              (v (get-v~ pos))
+              (total-width (+ square-width square-spacing)))
+          (if (and (>= h square-offset)
+                   (< h (+ square-offset (* board-columns total-width) (- square-spacing)))
+                   (>= v square-offset)
+                   (< v (+ square-offset (* board-rows total-width) (- square-spacing))))
+              (let ((row (truncate (/ (- v 90) total-width)))
+                    (col (truncate (/ (- h 90) total-width))))
+                (let ((sqr (square row col)))
+                  (if sqr
+                      (if (eq? (get-token~ sqr) EMPTY)
+                          sqr
+                        #f)
+                    #f)))
             #f))
       #f))
   
@@ -673,10 +661,10 @@
       (let ((who (* current-next -1)))
         (let ((delta (evaluate-move-delta last-move who)))
           (set-token~ last-move EMPTY)
-          (set-column-move (get-col~ last-move) last-move)
+          (board-play last-move)
           (set! current-eval (- current-eval delta))
           (computer-move)
-          (set-column-move (get-col~ last-move) (get-up~ last-move))
+          (board-unplay last-move)
           (set-token~ last-move who)
           (set! current-eval (+ current-eval delta)))))
     (invalidate-view))
@@ -713,18 +701,14 @@
 ;;;
 
 
+@wait
 (definition saved-board
-  '((O O X)
-    (O X O O)
-    (O X O X X)
-    (X O X O X X)
-    ()
-    (X X O)
-    (O)))
+  '())
 
 
 (definition (load-board game)
   (initialize-game game HUMAN)
+  @wait
   (loop (for tokens in saved-board)
         (for col from 0 below board-columns)
         (loop (for token in tokens)
@@ -739,8 +723,8 @@
   (invalidate-view~ game))
 
 
-(definition (p4-ui)
-  (let ((frame (new-frame P4 host-title: "P4" host-size: {Dimension 884 624})))
+(definition (gomoku-ui)
+  (let ((frame (new-frame Gomoku host-title: "Gomoku" host-size: {Dimension 884 624})))
     (let ((game (get-guest~ frame)))
       (initialize-game game (or who-starts HUMAN)))))
 
@@ -766,26 +750,26 @@
 ;;;
 
 
-(class P4-Toplevel extends Toplevel
+(class Gomoku-Toplevel extends Toplevel
 
 
   (form
-    (<install> caption-base: "Puissance 4" position: {Point 100 100} size: {Dimension 800 625})))
+    (<install> caption-base: "Gomoku" position: {Point 100 100} size: {Dimension 800 625})))
 
 
-(class P4-Application extends Application
+(class Gomoku-Application extends Application
 
 
   (method (new-toplevel)
-    (new P4-Toplevel))
+    (new Gomoku-Toplevel))
   
   
   (method (finish-process rest)
     (nextmethod rest)
     (maximize~ (get-stage))
-    (p4-ui)))
+    (gomoku-ui)))
 
 
-(register-app 'p4
+(register-app 'gomoku
   (lambda ()
-    (boot-environment~ (new P4-Application) '()))))
+    (boot-environment~ (new Gomoku-Application) '()))))

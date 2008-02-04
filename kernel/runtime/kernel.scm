@@ -352,6 +352,28 @@
             jazz.Repositories))
 
 
+(define (jazz.inspect-install)
+  (define (inspect-path path)
+    `(:path ,path ,(path-expand path)))
+  
+  (define (inspect-repository repository)
+    `(:repository
+      ,(%%repository-name repository)
+      ,(%%repository-directory repository)
+      ,(%%repository-binary? repository)
+      ,@(map inspect-package (jazz.repository-packages repository))))
+  
+  (define (inspect-package package)
+    `(:package
+      ,(%%package-name package)
+      ,(%%package-root package)
+      ,(%%package-path package)))
+  
+  `(,(inspect-path "./")
+    ,(inspect-path "~/")
+    ,@(map inspect-repository jazz.Repositories)))
+
+
 ;;;
 ;;;; Package
 ;;;

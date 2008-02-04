@@ -241,7 +241,7 @@
             (left-margin 0)
             (right-margin 80)
             (column 0))
-        (define (render-node node)
+        (define (render node)
           (typecase node
             ((JML-Text)
              (render-text (get-text~ node)))
@@ -252,10 +252,12 @@
                  ((p) (render-paragraph node))
                  ((b) (render-bold node))
                  ((br) (render-break node))
+                 ((node) (render-node node))
+                 ((span) (render-span node))
                  (else (error "Unable to render tag: {s}" tag)))))))
         
         (define (render-children node)
-          (for-each render-node (get-children~ node)))
+          (for-each render (get-children~ node)))
         
         (define (render-text text)
           (let ((words (remove-empty-strings (split text " "))))
@@ -287,6 +289,18 @@
         
         (define (render-break node)
           (break))
+        
+        (define (render-node node)
+          (for-each (function (subnode)
+                      (print "-")
+                      (with-margins (+ left-margin 2) #f
+                        (function ()
+                          (render subnode)
+                          (break))))
+                    (get-children~ node)))
+        
+        (define (render-span node)
+          (render-children node))
         
         (define (with-margins left right thunk)
           (let ((old-left left-margin)

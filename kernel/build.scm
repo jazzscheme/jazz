@@ -35,11 +35,6 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; TODO
-;; - if the configuration directory is a subdir of the source directory, we
-;;   should save the jazz directory using .. parent syntax
-
-
 ;;;
 ;;;; Version
 ;;;
@@ -532,6 +527,12 @@
                      "/")))
 
 
+(define (jazz.source-directory configuration)
+  (if (jazz.configuration-directory configuration)
+      (path-expand (current-directory))
+    "../../"))
+
+
 ;;;
 ;;;; Make
 ;;;
@@ -671,12 +672,9 @@
                   (lambda (output)
                     (print-variable 'jazz.app app output)
                     (newline output)
-                    (print-variable 'jazz.directory (jazz-directory) output)))
+                    (print-variable 'jazz.directory (jazz.source-directory configuration) output)))
                 #t)
             #f)))
-      
-      (define (jazz-directory)
-        (path-expand (current-directory)))
       
       (define (compile-kernel)
         (let ((architecture? (generate-architecture))
@@ -857,14 +855,11 @@
                   (newline output)
                   (print-architecture system platform windowing safety options output)
                   (newline output)
-                  (print-variable 'jazz.directory (jazz-directory) output)
+                  (print-variable 'jazz.directory (jazz.source-directory configuration) output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.directory \"kernel/boot\"))" output)
                   (newline output)))))))
-    
-    (define (jazz-directory)
-      (path-expand (current-directory)))
     
     (jazz.build-app #f configuration)
     

@@ -2073,16 +2073,22 @@
 (define (jazz.inspect-annotated-variable variable)
   (let ((serial (jazz.object->serial-symbol variable)))
     (if (%%class-is? variable jazz.Restricted-Binding)
-        (list :restricted (%%get-lexical-binding-name (%%get-restricted-binding-binding variable)) (%%get-restricted-binding-type variable) serial)
-      (list :variable (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) (%%get-annotated-variable-type variable) serial))))
+        `(:restricted
+          ,(%%get-lexical-binding-name (%%get-restricted-binding-binding variable))
+          ,(%%get-restricted-binding-type variable) serial)
+      `(:variable
+        ,(%%get-lexical-binding-name (%%get-annotated-variable-variable variable))
+        ,(%%get-annotated-variable-type variable) serial))))
 
 
 (define (jazz.inspect-annotated-frame frame)
-  (cons :frame (map jazz.inspect-annotated-variable (%%get-annotated-frame-variables frame))))
+  `(:frame
+    ,@(map jazz.inspect-annotated-variable (%%get-annotated-frame-variables frame))))
 
 
 (define (jazz.inspect-annotated-environment environment)
-  (cons :environment (map jazz.inspect-annotated-frame environment)))
+  `(:environment
+    ,@(map jazz.inspect-annotated-frame environment)))
 
 
 ;;;

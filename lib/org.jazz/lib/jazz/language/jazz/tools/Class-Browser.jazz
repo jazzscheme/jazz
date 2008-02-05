@@ -137,10 +137,7 @@
   (method (on-browse evt)
     (with-cursor :wait
       (function ()
-        ;; overkill for the moment... especially since some modules still have
-        ;; references to classes not included in the JazzScheme distribution...
-        ;; (load-all)
-        (browse-inheritance-tree :root (get-root-class) :size-range #t))))
+        (browse-inheritance-tree root: (get-root-class)))))
   
   
   (method (on-return-press evt)
@@ -157,10 +154,6 @@
           (edit-definition~ appl (type-name type))))))
   
   
-  (method (on-touch-files evt)
-    (touch-selection))
-  
-  
   (method (get-root-class)
     (let* ((text (locate 'name))
            (string (get-string-content~ text)))
@@ -174,39 +167,29 @@
   ;;;
   
   
-  (method (browse-inheritance-tree (root: root Object) (size-range: size-range #t))
-    @convert-structure?-and-type-descendants
+  (method (browse-inheritance-tree (root: root Object))
     (let ((tree (locate 'classes)))
+      (define (upward type)
+        (let* ((state 'expanded)
+               (title (->string (type-name type)))
+               (ascendant (type-ascendant type))
+               (father (essay ascendant (upward ascendant))))
+          (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
+      
+      (define (downward type father)
+        (let* ((state 'expanded)
+               (title (->string (type-name type)))
+               (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
+          (for-each (function (subtype)
+                      (downward subtype father))
+                    (sort string<? (type-descendants type) key: (function (type)
+                                                                  (symbol->string (type-name type)))))))
+        
       (with-update-locked~ tree
         (function ()
           (remove-every-row~ tree)
-          (letrec ((get-size
-                     (function (type)
-                       (cond ((structure? type) (size-of type))
-                             ((class? type) (fourth (class-sizes type)))
-                             ((eq? type void) 0)
-                             (else (size-of type)))))
-                   (upward
-                     (function (type)
-                       (let* ((state 'expanded)
-                              (title (->string (type-name type)))
-                              (ascendant (type-ascendant type))
-                              (father (essay ascendant (upward ascendant))))
-                         (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type))))
-                   (proc
-                     (function (type father)
-                       (let ((size (get-size type)))
-                         (when (or (eq? size-range #t)
-                                   (and (>= size (get-start~ size-range))
-                                        (<= size (get-end~ size-range))))
-                           (let* ((state 'expanded @old (if (eq? type root) 'expanded 'collapsed))
-                                  (title (->string (type-name type)))
-                                  (father (add-row~ tree father: father state: state children: (list (new Tree-Node title: title image: {Bitmap-Resource "Class"})) user-data: type)))
-                             (for-each (function (subtype)
-                                         (proc subtype father))
-                                       (sort < (type-descendants type) key: type-name))))))))
-            (let ((ascendant (type-ascendant root)))
-              (proc root (essay ascendant (upward ascendant)))))))))
+          (let ((ascendant (type-ascendant root)))
+            (downward root (essay ascendant (upward ascendant))))))))
 
   
   ;;;
@@ -218,8 +201,7 @@
     (let* ((tree (locate 'classes))
            (selection (get-selection~ tree)))
       (map (function (rank)
-             (let ((category (get-user-data~ (get-row~ tree rank))))
-               category))
+             (get-user-data~ (get-row~ tree rank)))
            selection)))
   
   
@@ -227,18 +209,4 @@
     @convert
     (collect (function (category)
                (get-manifest-source (type-name category)))
-             (selected-categories)))
-
-  
-  ;;;
-  ;;;; Touch
-  ;;;
-  
-  
-  (method (touch-selection)
-    (let* ((files (selected-files))
-           (count (length files)))
-      (for-each (function (file)
-                  (touch~ file))
-                files)
-      (message-box (format "{a} file{a} touched" count (format-plural count)))))))
+             (selected-categories)))))

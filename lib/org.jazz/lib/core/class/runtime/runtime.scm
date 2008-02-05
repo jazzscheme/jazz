@@ -131,7 +131,7 @@
 
 
 ;;;
-;;;; Class
+;;;; Category
 ;;;
 
 
@@ -153,6 +153,10 @@
 
 (define (jazz.subclass? target class)
   (%%boolean (%%subclass? target class)))
+
+
+(define (jazz.get-category-descendants category)
+  (%%get-category-descendants category))
 
 
 (define (jazz.get-class-ascendant class)

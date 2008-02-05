@@ -80,6 +80,7 @@
 
 
 (native jazz.get-category-name)
+(native jazz.get-category-descendants)
 (native jazz.get-class-ascendant)
 
 
@@ -470,6 +471,14 @@
 (native jazz.stop-statprof)
 (native jazz.reset-statprof)
 (native jazz.report-statprof)
+
+
+;;;
+;;;; String
+;;;
+
+
+(native jazz.join-strings)
 
 
 ;;;

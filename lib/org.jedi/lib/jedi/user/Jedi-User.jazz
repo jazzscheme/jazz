@@ -97,8 +97,6 @@
       ((:expand) (expand (car arguments)))
       ((:expand-scheme) (expand-scheme (car arguments)))
       ;; Various
-      ((:touch) (touch arguments))
-      ((:touch-descendants) (touch-descendants arguments))
       ((:compile) (compile arguments))
       ((:edit) (edit arguments))
       ((:exit) (exit) #t)
@@ -136,42 +134,6 @@
         (cond ((syntax-macro? macro) (debug (apply macro arguments)))
               ((macro? macro) (debug (macro arguments))))
         #t)))
-  
-  
-  (method (touch classes)
-    (touch-classes #f classes))
-  
-  
-  (method (touch-descendants classes)
-    (touch-classes #t classes))
-
-
-  (method (touch-classes descendants? classes)
-    (unimplemented)
-    @convert
-    (let ((touched (new List-Factory)))
-      (letrec ((process
-                (function (model)
-                  (let* ((name (type-name model))
-                         (source (get-manifest-source name)))
-                    ;; because source can be {} for inner classes
-                    (when (and source (category-compiled? model))
-                      (touch~ source)
-                      (put~ touched name)
-                      (user-message "{s} touched" name))
-                    (when descendants?
-                      (for-each process (type-descendants model)))))))
-        (for-each (function (name)
-                    (process (autoload name)))
-                  classes)
-        (let* ((all (get-output~ touched))
-               (count (length all)))
-          (user-message "Touched {a} class{a}{a}"
-                        count
-                        (format-plural count "es")
-                        (if (null? all)
-                            ""
-                          (format ": {a}" (join (map ->string all) ", "))))))))
   
   
   (method (compile classes)

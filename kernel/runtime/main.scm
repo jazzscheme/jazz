@@ -238,8 +238,6 @@
     ((all) (ball))
     ((platform) (bplatform))
     ((jedi) (bjedi))
-    ((picolo) (bpicolo))
-    ((p4) (bp4))
     (else (jazz.error "Unknown target: {s}" target))))
 
 
@@ -395,16 +393,6 @@
   (boot-app 'jedi))
 
 
-(define (bpicolo)
-  (bjazz)
-  (bplatform)
-  (lplatform))
-
-
-(define (picolo)
-  (boot-app 'picolo))
-
-
 ;;;
 ;;;; All
 ;;;
@@ -476,16 +464,6 @@
   (jazz.load-module 'core.module.build)
   (lplatform)
   (for-each compile All))
-
-
-;;;
-;;;; P4
-;;;
-
-
-(define (bp4)
-  (bjazz)
-  (bplatform))
 
 
 ;;;

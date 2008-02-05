@@ -49,8 +49,21 @@
         (jazz.utilities))
 
 
-(definition public processed '(processed))
+;;;
+;;;; Processed
+;;;
+
+
 (definition public unprocessed '(unprocessed))
+(definition public processed '(processed))
+
+
+(definition (processed-result return)
+  (if (and (pair? return) (eq? (car return) 'processed))
+      (if (null? (cdr return))
+          0
+        (cadr return))
+    0))
 
 
 ;;;
@@ -97,9 +110,9 @@
 
 
 (definition (platform-erase-background handle)
-  (if (not (class-background))
-      processed
-    unprocessed))
+  (if (class-background)
+      unprocessed
+    processed))
 
 
 (definition (register-window-class)
@@ -230,9 +243,10 @@
 
 
 (definition (dispatch-message window msg <int> wparam <int> lparam <int>)
-  (if (eq? (process-window-message window msg wparam lparam) unprocessed)
-      (DefWindowProc (get-handle~ window) msg wparam lparam)
-    0))
+  (let ((return (process-window-message window msg wparam lparam)))
+    (if (eq? return unprocessed)
+        (DefWindowProc (get-handle~ window) msg wparam lparam)
+      (processed-result return))))
 
 
 ;;;
@@ -386,9 +400,12 @@
     ;; and the height equal to zero when minimizing a window...
     ((WM_SIZE)            (let ((width (loword lparam))
                                 (height (hiword lparam)))
-                            (when (or (/= width 0) (/= height 0))
-                              (call-size-change~ window width height))))
-    ((WM_MOUSEACTIVATE)   (on-mouse-activate~ window))
+                            (if (or (/= width 0) (/= height 0))
+                                (call-size-change~ window width height)
+                              unprocessed)))
+    ((WM_MOUSEACTIVATE)   (if (mouse-activate?~ window)
+                              (on-mouse-activate~ window)
+                            (list 'processed MA_NOACTIVATE)))
     ((WM_ACTIVATE)        (let ((kind (if (= (loword wparam) WA_INACTIVE) 'inactive 'active)))
                             (on-activate~ window kind)))
     ((WM_ACTIVATEAPP)     (on-activate-app~ window wparam))

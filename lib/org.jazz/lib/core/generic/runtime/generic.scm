@@ -196,7 +196,7 @@
                                                           partial-matches
                                                         (%%cons specific partial-matches)))))))
                      (else
-                      #f)))
+                      (iter (%%cdr specifics) partial-matches))))
                (if (%%null? partial-matches)
                    #f
                  partial-matches)))

@@ -44,7 +44,7 @@
 
 
 (jazz.define-variable jazz.dialect.language.get-process)
-(jazz.define-variable jazz.system.process.Process.Process.run-loop)
+(jazz.define-variable jazz.system.process.Process.Process.resume-loop)
 
 
 ;; resume the IDE message loop

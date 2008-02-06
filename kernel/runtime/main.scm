@@ -478,11 +478,11 @@
 
 (current-exception-handler
   (lambda (exc)
-    (jazz.bring-console-to-front)
+    (jazz.bring-terminal-to-front)
     (jazz.default-exception-handler exc)))
 
 
-(define (jazz.bring-console-to-front)
+(define (jazz.bring-terminal-to-front)
   (display "\033[5t"))
 
 

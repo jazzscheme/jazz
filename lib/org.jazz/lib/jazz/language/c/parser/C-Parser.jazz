@@ -63,16 +63,7 @@
                   (let ((include (find-include line n)))
                     (when include
                       (put~ fact include)))
-                  (let ((static (find-static line n)))
-                    (when static
-                      (put~ fact static)))
-                  (let ((extern (find-extern line n)))
-                    (when extern
-                      (put~ fact extern)))
-                  (let ((method (find-method line n)))
-                    (when method
-                      (put~ fact method)))
-                  (let ((export (find-export line n)))
+                  (let ((export (find-gambit-export line n)))
                     (when export
                       (put~ fact export))))
                 lines
@@ -117,145 +108,30 @@
       (when (search line include start: col)
         (let* ((start (+ col (string-length include)))
                (col (skip-whitespace line start: start)))
-          (when (and (> col start) (< col len) (= (element line col) #\double-quote))
+          (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
             (let* ((start (+ col 1))
                    (col (skip (function (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
-              (when (and (> col start) (< col len) (= (element line col) #\double-quote))
+              (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
                 (new C-Include-Entry (subseq line start col) n start))))))))
-  
+      
 
   ;;;
-  ;;;; Static
+  ;;;; ___EXP_FUNC
   ;;;
   
   
-  (constant Static
-    "STATIC")
+  (constant gambit-export
+    "___EXP_FUNC")
   
   
-  (method (find-static line n)
+  (method (find-gambit-export line n)
     (let ((len (string-length line))
           (col (skip-whitespace line)))
-      (when (search line Static start: col)
-        (let* ((start (+ col (string-length Static)))
-               (col (skip-whitespace line start: start)))
-          (when (> col start)
-            (let* ((start col)
-                   (col (skip c-constituent? line start: start)))
-              (when (> col start)
-                (let* ((start col)
-                       (col (skip-whitespace line start: start)))
-                  (when (> col start)
-                    (let* ((start col)
-                           (col (skip c-constituent? line start: start)))
-                      (when (> col start)
-                        (new C-Static-Entry (subseq line start col) n start))))))))))))
-  
-
-  ;;;
-  ;;;; Extern
-  ;;;
-  
-  
-  (constant Extern
-    "EXTERN")
-  
-  
-  (method (find-extern line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (search line Extern start: col)
-        (let* ((start (+ col (string-length Extern)))
-               (col (skip-whitespace line start: start)))
-          (when (> col start)
-            (let* ((start col)
-                   (col (skip c-constituent? line start: start)))
-              (when (> col start)
-                (let* ((start col)
-                       (col (skip-whitespace line start: start)))
-                  (when (> col start)
-                    (let* ((start col)
-                           (col (skip c-constituent? line start: start)))
-                      (when (> col start)
-                        (new C-Extern-Entry (subseq line start col) n start))))))))))))
-    
-
-  ;;;
-  ;;;; Method
-  ;;;
-  
-  
-  (constant Method
-    "METHOD")
-  
-  
-  (method (find-method line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (search line Method start: col)
-        (let* ((start (+ col (string-length Method)))
-               (col (skip-whitespace line start: start)))
-          (when (> col start)
-            (let* ((start col)
-                   (col (skip c-constituent? line start: start)))
-              (when (> col start)
-                (let* ((start col)
-                       (col (skip-whitespace line start: start)))
-                  (when (> col start)
-                    (let* ((start col)
-                           (col (skip c-constituent? line start: start)))
-                      (when (> col start)
-                        (let* ((class (subseq line start col))
-                               (start col)
-                               (col (skip (function (c) (eqv? c #\colon)) line start: start)))
-                          (when (> col start)
-                            (let* ((start col)
-                                   (col (skip c-constituent? line start: start)))
-                              (new C-Method-Entry class (subseq line start col) n start)))))))))))))))
-
-
-  ;;;
-  ;;;; Export
-  ;;;
-  
-  
-  ;; JAZZAPI jObject JAZZCALL JzGetProcess()
-  ;; JAZZAPI tBOOL JAZZCALL JzNot(tBOOL b)
-  ;; JAZZAPI void JAZZCALL JzSetupType(jType type, jObject name, jType ascendant)
-  
-  
-  (constant Export
-    "JAZZAPI")
-  
-  
-  (method (find-export line n)
-    (let ((len (string-length line))
-          (col (skip-whitespace line)))
-      (when (search line Export start: col)
-        (let* ((start (+ col (string-length Export)))
-               (col (skip-whitespace line start: start)))
-          (when (> col start)
-            ;; skip type
-            (let* ((start col)
-                   (col (skip c-constituent? line start: start)))
-              (when (> col start)
-                (let* ((start col)
-                       (col (skip-whitespace line start: start)))
-                  (when (> col start)
-                    ;; skip JAZZCALL
-                    (let* ((start col)
-                           (col (skip c-constituent? line start: start)))
-                      (when (> col start)
-                        (let* ((start col)
-                               (col (skip-whitespace line start: start)))
-                          (when (> col start)
-                            (let* ((start col)
-                                   (col (skip c-constituent? line start: start)))
-                              (when (> col start)
-                                (let* ((name (subseq line start col))
-                                       (col (skip c-constituent? line start: col))
-                                       (parameters (subseq line (+ col 1) (- len 1)))
-                                       (nb-parameters (if (whitespace? parameters)
-                                                          0
-                                                        (length (split parameters ",")))))
-                                  (new C-Export-Entry name nb-parameters n start)))))))))))))))))))
+      (when (search line gambit-export start: col)
+        (let* ((start (+ col (string-length gambit-export)))
+               (col (skip (function (c) (not (eqv? c #\comma))) line start: start)))
+          (when col
+            (let* ((start (skip-whitespace line start: (+ col 1)))
+                   (end (skip c-constituent? line start: start)))
+              (when (> end start)
+                (new C-Export-Entry (subseq line start end) n start))))))))))

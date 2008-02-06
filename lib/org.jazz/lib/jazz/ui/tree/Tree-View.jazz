@@ -100,7 +100,7 @@
   (slot protected cell-editor                   initialize {})
   (slot protected close-cell-editor?            initialize #t)
   (slot protected auto-expanded-row             initialize {})
-  (slot protected locator                       initialize (new Tree-Locator))
+  (slot protected locator                       initialize (new Tree-Locator self))
   (slot protected selection-manager             initialize (new Selection-Manager self))
     
   
@@ -2262,21 +2262,21 @@
 ;;;
 
 
-(class Tree-Locator extends Locator)
-
-
-@convert
-
-
 (class Tree-Locator extends Locator
   
   
+  (slot tree)
   (slot column initialize {})
+  
+  
+  (method (initialize tree . rest)
+    (set! tree~self tree)
+    (apply nextmethod rest))
   
   
   (method (iterate proc)
     (bind (row . proc2) (prepare-iterate)
-      (for-each-visible-row
+      (for-each-visible-row~ tree
         (function (row rank)
           (let* ((node (proc2 row))
                  (title (get-title~ node)))
@@ -2286,18 +2286,18 @@
   
   
   (method (select rank)
-    (case selection-mode
-      ((cell) (set-single-selection (new Cell rank column)))
-      (else (set-single-selection rank))))
+    (case (get-selection-mode~ tree)
+      ((cell) (set-single-selection~ tree (new Cell rank column)))
+      (else (set-single-selection~ tree rank))))
   
   
   (method (prepare-iterate)
-    (let ((sel (get-single-selection)))
-      (case selection-mode
+    (let ((sel (get-single-selection~ tree)))
+      (case (get-selection-mode~ tree)
         ((cell)
          (set! column (if sel (get-col~ sel) 0))
-         (cons (essay sel (get-row (get-row~ sel)))
+         (cons (essay sel (get-row~ tree (get-row~ sel)))
                (function (row) (element (get-children~ row) column))))
         (else
-         (cons (essay sel (get-row sel))
+         (cons (essay sel (get-row~ tree sel))
                (function (row) (car (get-children~ row))))))))))

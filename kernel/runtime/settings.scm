@@ -123,7 +123,7 @@
 ;;;
 
 
-(define jazz.app-username
+(define jazz.app-profile
   #f)
 
 

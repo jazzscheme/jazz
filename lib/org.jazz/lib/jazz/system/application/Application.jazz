@@ -53,6 +53,7 @@
         (jazz.library.listener)
         (jazz.literals)
         (jazz.platform)
+        (jazz.profile)
         (jazz.runtime)
         (jazz.system)
         (jazz.system.application)
@@ -65,7 +66,6 @@
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.ui.workspace)
-        (jazz.user)
         (jazz.utilities)
         (time))
 
@@ -77,8 +77,8 @@
   (slot stage                    initialize {})
   (slot menubar                  initialize {})
   (slot status-bar               initialize {})
-  (slot user-module              initialize {})
-  (slot user                     initialize {})
+  (slot profile-module           initialize {})
+  (slot profile                  initialize {})
   (slot focus-listeners          initialize '())
   (slot application-listeners    initialize (make-table test: eq?))
   (slot selected-owner           initialize {})
@@ -89,7 +89,7 @@
   (slot repositories-preferences initialize {})
   (slot active?                  initialize #f)
   (slot application-actions      initialize '())
-  (slot user-actions             initialize '())
+  (slot profile-actions          initialize '())
   (slot guest-actions            initialize '())
   (slot focus-actions            initialize '())
   (slot bindings                 initialize {})
@@ -136,12 +136,12 @@
     (set! status-bar status))
 
 
-  (method public (get-user-module)
-    user-module)
+  (method public (get-profile-module)
+    profile-module)
 
 
-  (method public (get-user)
-    user)
+  (method public (get-profile)
+    profile)
 
 
   ;;;
@@ -177,8 +177,8 @@
           (windows-look (new Windows-Look)))
       (set-looks (list flat-look windows-look))
       (set-look flat-look))
-    (when (use-user?)
-      (log-user)))
+    (when (use-profile?)
+      (log-profile)))
 
   
   (method (start-environment rest)
@@ -202,19 +202,19 @@
       (install-wallpaper~ stage)))
 
   
-  (method (setup-user rest)
-    (when (use-user?)
-      (create-user)
-      (set-user-actions (get-class-actions user))))
+  (method (setup-profile rest)
+    (when (use-profile?)
+      (create-profile)
+      (set-profile-actions (get-class-actions profile))))
   
   
   (method (finish-environment rest)
     (nextmethod rest)
     (add-save-environment-listener self)
-    (when user
-      (with-safe-execution "initing the user"
+    (when profile
+      (with-safe-execution "initing the profile"
         (function ()
-          (init~ user))
+          (init~ profile))
         continue-handler:
         (function (err)
           )))
@@ -228,10 +228,10 @@
     (set-visible?~ toplevel #t)
     (when run-loop?
       (select-foreground-window (get-handle~ toplevel)))
-    (when user
-      (with-safe-execution "finalizing the user"
+    (when profile
+      (with-safe-execution "finalizing the profile"
         (function ()
-          (finalize~ user))
+          (finalize~ profile))
         continue-handler:
         (function (err)
           ))))
@@ -370,80 +370,80 @@
 
 
   ;;;
-  ;;;; User
+  ;;;; Profile
   ;;;
   
   
-  (method protected virtual (use-user?)
+  (method protected virtual (use-profile?)
     #f)
   
   
-  (method protected virtual (use-user-logging?)
+  (method protected virtual (use-profile-logging?)
     #f)
   
   
-  (method (log-user)
-    (let ((user-arg (or app-username (command-argument "user"))))
-      (set! user-module (cond (user-arg (standard-user-module user-arg))
-                              ((use-user-logging?) (login-user))
-                              (else 'jazz.user.Me @convert (system-user-module))))
-      (install-user)))
+  (method (log-profile)
+    (let ((profile-arg (or app-profile (command-argument "profile"))))
+      (set! profile-module (cond (profile-arg (standard-profile-module profile-arg))
+                                 ((use-profile-logging?) (login-profile))
+                                 (else 'jazz.profile.Me @convert (system-profile-module))))
+      (install-profile)))
   
   
-  (method (standard-user-module name)
-    (compose-name 'user (string->symbol name)))
+  (method (standard-profile-module name)
+    (compose-name 'profile (string->symbol name)))
   
   
-  (method (system-user-module)
-    (standard-user-module (get-system-user-name)))
+  (method (system-profile-module)
+    (standard-profile-module (get-system-user-name)))
 
   
-  (method (login-user)
+  (method (login-profile)
     (if (or (command-argument "defaultstart") (get-system-property 'Default-Start?))
-        (let ((name (either (command-argument "defaultuser") (get-system-property 'Default-User))))
-          (standard-user-module name))
+        (let ((name (either (command-argument "defaultprofile") (get-system-property 'Default-Profile))))
+          (standard-profile-module name))
       (catch (Cancel-Signal signal
                (exit))
         (choose-login))))
   
   
-  (method (install-user)
-    (let ((source (find-module-source user-module)))
+  (method (install-profile)
+    (let ((source (find-module-source profile-module)))
       (if source
-          (set-alias 'User (get-list~ (get-parent~ source)))
-        (let ((name (symbol->string (identifier-name user-module))))
-          (set-alias 'User (list 'Users name))
-          (install-new-user name)))))
+          (set-alias 'Profile (get-list~ (get-parent~ source)))
+        (let ((name (symbol->string (identifier-name profile-module))))
+          (set-alias 'Profile (list 'Profiles name))
+          (install-new-profile name)))))
 
   
-  (method (install-new-user name)
+  (method (install-new-profile name)
     (let ((expander (new Template-Expander))
-          (associations (list (cons 'module user-module) (cons 'user name)))
-          (directory (new Directory (list 'Users name))))
+          (associations (list (cons 'module profile-module) (cons 'profile name)))
+          (directory (new Directory (list 'Profiles name))))
       (create-directories~ directory)
-      (copy-users-package {File UsersPackage "users.pck"} expander associations)
-      (copy-user-settings directory expander associations)
+      (copy-profiles-package {File Profiles "profiles.pck"} expander associations)
+      (copy-profile-settings directory expander associations)
       (let ((file (new-file~ directory (format "_{a}.jazz" name))))
-        (copy-user file expander associations))))
+        (copy-profile file expander associations))))
   
   
-  (method (copy-users-package file expander associations)
+  (method (copy-profiles-package file expander associations)
     (when (not (exists?~ file))
-      (let ((template {File Launch "Defaults" "users" "users.pck"}))
+      (let ((template {File Launch "Defaults" "profiles" "profiles.pck"}))
         (copy-template template file expander associations))
       (reset-packages)))
   
   
-  (method (copy-user-settings directory expander associations)
-    (let ((settings {Directory Launch "Defaults" "users" "user" "username" "Settings"}))
+  (method (copy-profile-settings directory expander associations)
+    (let ((settings {Directory Launch "Defaults" "profiles" "profile" "default" "Settings"}))
       (copy-directory~ settings (new-directory~ directory "Settings")
         copier: (function (src dst)
                   (copy-template src dst expander associations))
         touch-files?: #t)))
   
   
-  (method (copy-user file expander associations)
-    (let ((template {File Launch "Defaults" "users" "user" "username" "_username.jazz"}))
+  (method (copy-profile file expander associations)
+    (let ((template {File Launch "Defaults" "profiles" "profile" "default" "_default.jazz"}))
       (copy-template template file expander associations)))
   
   
@@ -453,14 +453,14 @@
         (expand~ expander template associations printer))))
 
   
-  (method (create-user)
-    (with-safe-execution "creating the user"
+  (method (create-profile)
+    (with-safe-execution "creating the profile"
       (function ()
-        (set! user (new (load-userclass user-module))))
-      continue-text: (list (format "Press Continue to bypass this problem by using the generic user class instead of {a} to instantiate your user" (identifier-name user-module)))
+        (set! profile (new (load-profile-class profile-module))))
+      continue-text: (list (format "Press Continue to bypass this problem by using the generic profile class instead of {a} to instantiate your profile" (identifier-name profile-module)))
       continue-handler:
       (function (err)
-        (set! user (new Me)))))
+        (set! profile (new Me)))))
 
 
   ;;;
@@ -861,14 +861,14 @@
   
   
   (method (repositories-file)
-    {File User "Settings" "Repositories.jml"})
+    {File Profile "Settings" "Repositories.jml"})
   
   
   (method (load-repositories-preferences)
     (with-safe-execution "loading the repositories"
       (function ()
         (let ((file (repositories-file)))
-          (when (and (is-alias? 'User) (exists?~ file))
+          (when (and (is-alias? 'Profile) (exists?~ file))
             (let ((preferences (instantiate~ (read-from-file file))))
               (install-context preferences)
               (set! repositories-preferences preferences)))))))
@@ -898,14 +898,14 @@
 
 
   (method public virtual (extension-frame-class ext)
-    (either (user-extension-frame-class ext)
+    (either (profile-extension-frame-class ext)
             (known-extension-frame-class ext)
             (unknown-extension-frame-class)))
   
   
-  (method (user-extension-frame-class ext)
-    (when user
-      (extension-frame-class~ user ext)))
+  (method (profile-extension-frame-class ext)
+    (when profile
+      (extension-frame-class~ profile ext)))
 
 
   (method public virtual (known-extension-frame-class ext)
@@ -1011,7 +1011,7 @@
   
   
   (definition Bindings-File
-    {File User "Settings" "Bindings.jml"})
+    {File Profile "Settings" "Bindings.jml"})
   
   
   (method (setup-bindings)
@@ -1019,7 +1019,7 @@
       (function ()
         (set! bindings (load-bindings))
         (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
-        (let ((branch (locate-component~ bindings 'user)))
+        (let ((branch (locate-component~ bindings 'profile)))
           (when (is? branch Branch)
             (set-active-branch~ bindings branch))))
       continue-handler:
@@ -1029,7 +1029,7 @@
   
   (method protected virtual (load-bindings)
     (let ((file Bindings-File))
-      (if (and (is-alias? 'User) (exists?~ file))
+      (if (and (is-alias? 'Profile) (exists?~ file))
           (instantiate~ (read-from-file file))
         (default-bindings))))
   
@@ -1039,7 +1039,7 @@
   
   
   (method (save-bindings)
-    (when (and bindings-designer (get-modified?~ bindings-designer) (is-not? user Me))
+    (when (and bindings-designer (get-modified?~ bindings-designer) (is-not? profile Me))
       (save~ bindings-designer)))
   
   
@@ -1061,9 +1061,9 @@
     (set! application-actions actions-list))
   
   
-  (method public (set-user-actions actions-list)
-    (register-actions-shortcuts user-actions actions-list)
-    (set! user-actions actions-list))
+  (method public (set-profile-actions actions-list)
+    (register-actions-shortcuts profile-actions actions-list)
+    (set! profile-actions actions-list))
 
 
   (method public (set-guest-actions actions-list)
@@ -1170,7 +1170,7 @@
       ((:guest)        (current-guest))
       ((:focus-guest)  (focus-guest))
       ((:focus)        (get-focus))
-      ((:user)         (get-user))
+      ((:profile)      (get-profile))
       ((:icons)        (get-icons-cache))
       ((:small-icons)  (get-small-icons-cache))
       ((:large-icons)  (get-large-icons-cache))
@@ -2255,7 +2255,7 @@
   (method (context-update)
     (nextmethod)
     (modify-catalogs)
-    (modify-user)
+    (modify-profile)
     (user-message "Context set to {a}" context))
   
   
@@ -2271,18 +2271,18 @@
                     (get-children~ pref))))))
 
   
-  (method (modify-user)
-    (when user
-      (close~ user))
+  (method (modify-profile)
+    (when profile
+      (close~ profile))
     (let ((pref (get-preferences {} error?: #f)))
       (when pref
-        (let ((class (either (get-user-class~ pref) User)))
+        (let ((class (either (get-profile-class~ pref) Profile)))
           (when class
-            (set! user (new (autoload class)))))))
-    (when user
-      (init~ user))
-    (when user
-      (finalize~ user)))
+            (set! profile (new (autoload class)))))))
+    (when profile
+      (init~ profile))
+    (when profile
+      (finalize~ profile)))
   
 
   ;;;
@@ -2307,7 +2307,7 @@
   
   
   (method (close-preferences)
-    (when (and preferences-designer (is-not? user Me))
+    (when (and preferences-designer (is-not? profile Me))
       (save~ preferences-designer)))
 
   
@@ -2327,7 +2327,7 @@
       (<Page-Setup>)))
   
   (definition Default-Page-Setup-File
-    {File User "Settings" "PageSetup.jml"})
+    {File Profile "Settings" "PageSetup.jml"})
   
   
   (method public (default-page-setup)
@@ -2344,13 +2344,13 @@
   
   (method (setup-page-setup)
     (let* ((file Default-Page-Setup-File)
-           (form (if (and (is-alias? 'User) (exists?~ file)) (read-from-file file) Default-Page-Setup-Form)))
+           (form (if (and (is-alias? 'Profile) (exists?~ file)) (read-from-file file) Default-Page-Setup-Form)))
       (set! Default-Page-Setup (instantiate~ form))
       (set! Default-Page-Setup-Designer (new Designer form: (get-form~ Default-Page-Setup) reference: Default-Page-Setup))))
   
   
   (method (save-page-setup)
-    (when (and Default-Page-Setup-Designer (is-not? user Me))
+    (when (and Default-Page-Setup-Designer (is-not? profile Me))
       (let ((form (get-form~ Default-Page-Setup-Designer)))
         (when (not (get-origin~ form))
           (set-origin~ form Default-Page-Setup-File)))

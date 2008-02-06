@@ -44,7 +44,7 @@
 ;;;
 
 
-(native jazz.app-username)
+(native jazz.app-profile)
 
 
 ;;;

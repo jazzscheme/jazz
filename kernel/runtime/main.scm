@@ -436,6 +436,7 @@
     jazz.media
     jazz.network
     jazz.platform
+    jazz.profile
     jazz.recorder
     jazz.repository
     jazz.resources
@@ -451,7 +452,6 @@
     jazz.ui.menu
     jazz.ui.view
     jazz.ui.window
-    jazz.user
     jazz.utilities))
 
 

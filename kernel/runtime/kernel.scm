@@ -279,7 +279,7 @@
   (%%make-repository 'lib (%%string-append jazz.directory "lib/") #f))
 
 (define jazz.User-Repository
-  (%%make-repository 'user "~/jazz/lib/" #f))
+  (%%make-repository 'user "~/jazz.user/lib/" #f))
 
 
 (define jazz.Repositories
@@ -796,5 +796,5 @@
 (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
 
 
-(if (file-exists? "~/jazz/.jazzini")
-    (jazz.load "~/jazz/.jazzini"))
+(if (file-exists? "~/jazz.user/.jazzini")
+    (jazz.load "~/jazz.user/.jazzini"))

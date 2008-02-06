@@ -54,22 +54,22 @@
   (form
     (<install>                                              size: {Dimension 400 206}
       (<Label-View>                 name: title             title: "Welcome to Jedi" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Label-Bold})
-      (<Label-View>                 name: description       title: "Please enter the user that will be used for this session" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Default-GUI})
-      (<Radio-Button>               name: default-button    title: "Default" position: {Point 25 76} tooltip?: #t tooltip-text: "Use default user" action-handler: {Event-Handler :form on-default})
-      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 99} tooltip?: #t tooltip-text: "Create a new user" action-handler: {Event-Handler :form on-new})
-      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 122} tooltip?: #t tooltip-text: "Open an existing user from the standard directories" action-handler: {Event-Handler :form on-existing})
+      (<Label-View>                 name: description       title: "Please enter the profile that will be used for this session" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Default-GUI})
+      (<Radio-Button>               name: default-button    title: "Default" position: {Point 25 76} tooltip?: #t tooltip-text: "Use default profile" action-handler: {Event-Handler :form on-default})
+      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 99} tooltip?: #t tooltip-text: "Create a new profile" action-handler: {Event-Handler :form on-new})
+      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 122} tooltip?: #t tooltip-text: "Open an existing profile from the standard directories" action-handler: {Event-Handler :form on-existing})
       (<Horizontal-Line>                                    position: {Point 0 48} size: {Dimension 400 8})
       (<Vertical-Line>                                      position: {Point 110 59} size: {Dimension 8 91})
       (<Label-View>                 name: new-label         title: "Name:" position: {Point 136 100} size: {Dimension 33 16} visible?: #f font: {Font name: Default-GUI})
       (<Border-View>                name: new-border        position: {Point 173 97} size: {Dimension 194 19} visible?: #f border-type: edge style: entry
         (<Scroller-View>                                    hscroll?: #f vscroll?: #f
           (<!>                      name: content           layout-type: fill
-            (<User-Text-View>       name: new-user          left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Ansi-Var}} tooltip?: #t tooltip-text: "Username. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
+            (<Profile-Text-View>    name: new-profile       left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Ansi-Var}} tooltip?: #t tooltip-text: "Profile name. Can contain letters, digits, dashes, underscores and periods" return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change}))))
       (<Border-View>                name: existing-border   position: {Point 140 64} size: {Dimension 251 82} visible?: #f border-type: edge style: entry
         (<Scroller-View>                                    vscroll?: #t style: document
           (<!>                      name: content           layout-type: fill
-            (<Tree-View>            name: users             show-header?: #f font: {Font name: Ansi-Var} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of users found in the standard directories" double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
-              (<Tree-Node-Column>                           title: "User" width: 176 toplevel-controls?: #f display-images?: #f)))))
+            (<Tree-View>            name: profiles          show-header?: #f font: {Font name: Ansi-Var} default-row-height: 15 selection-mode: row can-select-empty?: #f tooltip?: #t tooltip-text: "List of profiles found in the standard directories" double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>                           title: "Profile" width: 176 toplevel-controls?: #f display-images?: #f)))))
       (<Horizontal-Line>                                    position: {Point 0 160} size: {Dimension 400 8})
       (<Push-Button>                name: login             title: "Login" position: {Point 117 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
       (<Push-Button>                name: cancel            title: "Cancel" position: {Point 203 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
@@ -85,26 +85,26 @@
   
   (method (finish rest)
     (nextmethod rest)
-    (setup-default-user)
-    (setup-new-user)
-    (setup-existing-users))
+    (setup-default-profile)
+    (setup-new-profile)
+    (setup-existing-profiles))
   
   
-  (method (setup-default-user)
+  (method (setup-default-profile)
     )
   
   
-  (method (setup-new-user)
-    (set-string-content~ (locate 'new-user) "" @convert (get-system-user-name)))
+  (method (setup-new-profile)
+    (set-string-content~ (locate 'new-profile) "" @convert (get-system-user-name)))
   
   
-  (method (setup-existing-users)
-    (let ((users (collect-existing-users)))
-      (cond ((null? users)
+  (method (setup-existing-profiles)
+    (let ((profiles (collect-existing-profiles)))
+      (cond ((null? profiles)
              (install-default)
              (set-selected?~ (locate 'default-button) #t))
             (else
-             (install-existing users)
+             (install-existing profiles)
              (set-selected?~ (locate 'existing-button) #t)))))
   
 
@@ -114,7 +114,7 @@
   
   
   (method (validate-dialog)
-    (let ((message (validate-user)))
+    (let ((message (validate-profile)))
       (when message
         (message-box message)
         (throw-cancel))))
@@ -123,16 +123,16 @@
   (method (get-modal-result)
     (case (get-name~ branch)
       ((default)
-       'jazz.user.Me)
+       'jazz.profile.Me)
       ((new)
-       (let ((name (get-string-content~ (locate 'new-user))))
-         (compose-name 'user (string->symbol name))))
+       (let ((name (get-string-content~ (locate 'new-profile))))
+         (compose-name 'profile (string->symbol name))))
       ((existing)
-       (let* ((tree (locate 'users))
+       (let* ((tree (locate 'profiles))
               (rank (get-single-selection~ tree)))
          (when rank
            (let ((row (get-row~ tree rank)))
-             (compose-name 'user (get-user-data~ row))))))))
+             (compose-name 'profile (get-user-data~ row))))))))
   
 
   ;;;
@@ -164,7 +164,7 @@
   
   
   (method (on-existing evt)
-    (install-existing (collect-existing-users)))
+    (install-existing (collect-existing-profiles)))
   
   
   (method (on-content-change evt)
@@ -208,21 +208,21 @@
   
   (method (install-new)
     (set-active-branch (locate 'new))
-    (let ((text (locate 'new-user)))
+    (let ((text (locate 'new-profile)))
       (acquire-focus~ text)
       (select-all~ text))
     (update-login))
   
   
-  (method (install-existing users)
+  (method (install-existing profiles)
     (set-active-branch (locate 'existing))
-    (let ((tree (locate 'users))
-          (rank (either (find users (either (command-argument "defaultuser") (get-system-property 'Default-User)) test: equal?) (essay users 0))))
+    (let ((tree (locate 'profiles))
+          (rank (either (find profiles (either (command-argument "defaultprofile") (get-system-property 'Default-Profile)) test: equal?) (essay profiles 0))))
       (remove-every-row~ tree)
-      (for-each (function (user)
-                  (let ((name (string->symbol user)))
-                    (add-row~ tree children: (list (new Tree-Node title: user)) user-data: name)))
-                users)
+      (for-each (function (profile)
+                  (let ((name (string->symbol profile)))
+                    (add-row~ tree children: (list (new Tree-Node title: profile)) user-data: name)))
+                profiles)
       (when (and rank (< rank (get-visible-count~ tree)))
         (set-single-selection~ tree rank)
         (ensure-displayed~ tree))
@@ -230,7 +230,7 @@
     (update-login))
   
   
-  (method (collect-existing-users)
+  (method (collect-existing-profiles)
     (let ((lst '()))
       (define (collect-directory dir)
         (when (exists?~ dir)
@@ -239,13 +239,13 @@
               (let ((file (new-file~ dir (format "_{a}.jazz" (get-name~ dir)))))
                 (when (exists?~ file)
                   (let ((base (get-base~ file)))
-                    (let ((user (substring base 1 (string-length base))))
-                      (set! lst (cons user lst)))))))
+                    (let ((profile (substring base 1 (string-length base))))
+                      (set! lst (cons profile lst)))))))
             files?: #f
             directories?: #t
             recursive?: #f)))
       
-      (collect-directory {Directory Users})
+      (collect-directory {Directory Profiles})
       
       (sort ci<? lst)))
   
@@ -261,9 +261,9 @@
         ((default)
          (set-enabled?~ (locate 'login) #t))
         ((new)
-         (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-user))))))
+         (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-profile))))))
         ((existing)
-         (set-enabled?~ (locate 'login) (not-null? (get-selection~ (locate 'users))))))))
+         (set-enabled?~ (locate 'login) (not-null? (get-selection~ (locate 'profiles))))))))
   
 
   ;;;
@@ -271,29 +271,29 @@
   ;;;
   
   
-  (method (validate-user)
+  (method (validate-profile)
     (case (get-name~ branch)
       ((new)
-       (let ((username (get-string-content~ (locate 'new-user))))
-         (validate-new-user username)))
+       (let ((profile-name (get-string-content~ (locate 'new-profile))))
+         (validate-new-profile profile-name)))
       (else
        {})))
   
   
-  (method (validate-new-user username)
-    (cond ((let ((first (first username)))
+  (method (validate-new-profile profile-name)
+    (cond ((let ((first (first profile-name)))
              (not (or (eqv? first #\_)
                       (alphabetic? first))))
-           "Username must start with a letter or an underscore")
+           "Profile name must start with a letter or an underscore")
           ((not (every? (function (char)
                           (or (alphabetic? char)
                               (numeric? char)
                               (memv? char '(#\minus #\_ #\period))))
-                        username))
-           "Username can only contain letters, digits, dashes, underscores and periods")
-          ((let ((dir (new Directory (list 'Users username))))
+                        profile-name))
+           "Profile name can only contain letters, digits, dashes, underscores and periods")
+          ((let ((dir (new Directory (list 'Profiles profile-name))))
              (exists?~ dir))
-           (format "The username \"{a}\" already exists in your home library" username))
+           (format "The profile name \"{a}\" already exists in your home library" profile-name))
           (else
            {})))
   
@@ -313,15 +313,15 @@
 
 
 ;;;
-;;;; User-Text-View
+;;;; Profile-Text-View
 ;;;
 
 
-(class User-Text-View extends Plain-Text-View
+(class Profile-Text-View extends Plain-Text-View
   
   
   (method (get-context-menu)
     (new-text-context-menu)))
 
 
-(register-autoclass User-Text-View))
+(register-autoclass Profile-Text-View))

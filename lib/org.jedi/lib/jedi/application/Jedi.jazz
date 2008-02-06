@@ -334,7 +334,7 @@
   ;;;
 
 
-  (method public (launch project (configuration: configuration {}) (jazz-directory: jazz-directory {}) (home-directory: home-directory (project-home~ project)) (user: user (either (essay configuration (get-user~ configuration)) (project-user~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c?: debug-c? (either (essay configuration (get-debug-c?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
+  (method public (launch project (configuration: configuration {}) (jazz-directory: jazz-directory {}) (home-directory: home-directory (project-home~ project)) (profile: profile (either (essay configuration (get-profile~ configuration)) (project-profile~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c?: debug-c? (either (essay configuration (get-debug-c?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
     @convert/wait
     (let ((app-class (project-application~ project)))
       (if (not app-class)
@@ -347,13 +347,13 @@
                (app-arg            (format " /app {a}" app-class))
                (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
                (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Jazz})))
-               (user-arg           (if user (format " /user {a}" user) ""))
+               (profile-arg        (if profile (format " /profile {a}" profile) ""))
                (debug-arg          (if debug? (format " /debug #t") ""))
                (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ stub-listener))) ""))
                (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ stub-listener)) ""))
                (action-arg         (if command-action (format " {a}" command-action) ""))
                (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
-               (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg user-arg arguments-arg)))
+               (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg profile-arg arguments-arg)))
           (save-all)
           @w
           (debug-string command)
@@ -365,17 +365,17 @@
   ;;;
   
   
-  (method public (execute project (user: user (project-user~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? #f))
+  (method public (execute project (profile: profile (project-profile~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? #f))
     @convert/wait
     (let ((app-class (project-application~ project)))
       (if (not app-class)
           (error "{a} is not an executable project" (get-presentation~ project))
         (let* ((file          (outputed-file~ project))
                (filename      (parse~ file))
-               (user-arg      (if user (format " /user {a}" user) ""))
+               (profile-arg   (if profile (format " /profile {a}" profile) ""))
                (action-arg    (if command-action (format " {a}" command-action) ""))
                (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
-               (command       (format "\"{a}\"{a}{a}{a}" filename action-arg user-arg arguments-arg)))
+               (command       (format "\"{a}\"{a}{a}{a}" filename action-arg profile-arg arguments-arg)))
           @w
           (debug-string command)
           (create-process command wait?: wait?)))))

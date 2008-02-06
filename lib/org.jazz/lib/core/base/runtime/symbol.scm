@@ -102,6 +102,13 @@
   (%%string->symbol (%%string-append "<" (%%symbol->string name) ">")))
 
 
+(define (jazz.binding-specifier binding)
+  (let ((cdr-binding (cdr binding)))
+    (and (pair? cdr-binding)
+         (jazz.specifier? (car cdr-binding))
+         (car cdr-binding))))
+
+
 ;;;
 ;;;; Enumerator
 ;;;

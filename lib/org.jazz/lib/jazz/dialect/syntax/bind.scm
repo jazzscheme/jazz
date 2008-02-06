@@ -44,7 +44,7 @@
 
 ; @macro (bind ((a . r) b . c) tree (list a b c r))
 ; @expansion
-; (let ((tree0 tree))
+; (let ((val tree))
 ;   (let ((car1 (car tree0))
 ;         (cdr2 (cdr tree0)))
 ;     (let ((a (car car1))
@@ -62,6 +62,35 @@
 
 
 (define (expand-bind-car bindings tree body)
+  (let ((car-binding (car bindings))
+        (cdr-binding (cdr bindings)))
+    (cond ((symbol? car-binding)
+           (let ((specifier (binding-specifier bindings)))
+             (if specifier
+                 `((let ((,car-binding ,specifier (car ,tree)))
+                     ,@(expand-bind-cdr (cdr cdr-binding) tree body)))
+               `((let ((,car-binding (car ,tree)))
+                   ,@(expand-bind-cdr cdr-binding tree body))))))
+          ((pair? car-binding)
+           (let ((car-symbol (generate-symbol "car")))
+             `((let ((,car-symbol (car ,tree)))
+                 ,@(expand-bind-car car-binding car-symbol
+                     (expand-bind-cdr cdr-binding tree body)))))))))
+
+
+(define (expand-bind-cdr cdr-binding tree body)
+  (cond ((null? cdr-binding)
+         body)
+        ((symbol? cdr-binding)
+         `((let ((,cdr-binding (cdr ,tree)))
+             ,@body)))
+        ((pair? cdr-binding)
+         (let ((cdr-symbol (generate-symbol "cdr")))
+           `((let ((,cdr-symbol (cdr ,tree)))
+               ,@(expand-bind-car cdr-binding cdr-symbol body)))))))
+
+@w
+(define (expand-bind-car bindings tree body)
   (let ((car-binding (car bindings)))
     (cond ((symbol? car-binding)
            `((let ((,car-binding (car ,tree)))
@@ -72,7 +101,7 @@
                  ,@(expand-bind-car car-binding car-symbol
                      (expand-bind-cdr bindings tree body)))))))))
 
-
+@w
 (define (expand-bind-cdr bindings tree body)
   (let ((cdr-binding (cdr bindings)))
     (cond ((null? cdr-binding)

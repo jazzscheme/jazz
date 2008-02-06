@@ -60,6 +60,26 @@
 
 
 (define-macro (bind-optionals bindings rest . body)
+  (let ((scan (generate-symbol "scan"))
+        (prog (generate-symbol "prog")))
+    `(let ((,scan rest))
+       (let* ,(map (lambda (binding)
+                     (let* ((variable (car binding))
+                            (specific (binding-specifier binding))
+                            (default (if specific (caddr binding) (cadr binding)))
+                            (value `(if (null? ,scan) ,default (let ((,prog (car ,scan)))
+                                                                 (set! ,scan (cdr ,scan))
+                                                                 ,prog))))
+                       (if specific
+                           `(,variable ,specific ,value)
+                         `(,variable ,value))))
+                   (proper-list bindings))
+         (if (not-null? ,scan)
+             (error "Too many arguments for bind-optionals"))
+         ,@body))))
+
+@w
+(define-macro (bind-optionals bindings rest . body)
   (if (= 1 (length bindings))
       `(let ((,(caar bindings) (if (not-null? ,rest) (car ,rest) ,(cadar bindings))))
          ,@body)

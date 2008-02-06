@@ -583,5 +583,6 @@
 (native jazz.new-walk-context)
 (native jazz.register-literal-constructor)
 (native jazz.specifier?)
+(native jazz.binding-specifier)
 (native jazz.parse-specifier)
 (native jazz.requested-module-name))

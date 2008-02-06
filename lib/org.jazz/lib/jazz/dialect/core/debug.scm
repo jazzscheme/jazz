@@ -49,4 +49,4 @@
 
 ;; resume the IDE message loop
 (define (resume)
-  (jazz.system.process.Process.Process.run-loop (jazz.dialect.language.get-process))))
+  (jazz.system.process.Process.Process.resume-loop (jazz.dialect.language.get-process))))

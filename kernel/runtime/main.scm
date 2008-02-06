@@ -468,6 +468,25 @@
 
 
 ;;;
+;;;; Exception
+;;;
+
+
+(define jazz.default-exception-handler
+  (current-exception-handler))
+
+
+(current-exception-handler
+  (lambda (exc)
+    (jazz.bring-console-to-front)
+    (jazz.default-exception-handler exc)))
+
+
+(define (jazz.bring-console-to-front)
+  (display "\033[5t"))
+
+
+;;;
 ;;;; Main
 ;;;
 

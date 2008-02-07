@@ -884,7 +884,7 @@
          "./jazz")))
     
     (jazz.feedback "making {a}" target)
-    (jazz.open-process (jazz-path) (list "-make" (symbol->string target)) confdir)))
+    (jazz.open-process (jazz-path) (list "-:dq-" "-make" (symbol->string target)) confdir)))
 
 
 (define (jazz.make-core configuration)
@@ -1113,6 +1113,28 @@
                   stdin-redirection: #f
                   stdout-redirection: #f
                   stderr-redirection: #f))))
+    (let ((code (process-status port)))
+      (if (not (= code 0))
+          (jazz.stop)))))
+
+
+#; ;; a try with marc to handle the ctrl-c correctly
+(define (jazz.open-process path arguments #!optional (directory #f))
+  (let ((port (open-process
+                (list
+                  path: path
+                  arguments: arguments
+                  directory: (or directory (current-directory))
+                  stdin-redirection: #t
+                  stdout-redirection: #t
+                  stderr-redirection: #t))))
+    (close-output-port port)
+    (let loop ()
+      (let ((c (read-char port)))
+        (if (char? c)
+            (begin
+              (write-char c)
+              (loop)))))
     (let ((code (process-status port)))
       (if (not (= code 0))
           (jazz.stop)))))

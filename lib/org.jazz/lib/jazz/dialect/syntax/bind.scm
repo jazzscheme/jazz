@@ -87,29 +87,4 @@
         ((pair? cdr-binding)
          (let ((cdr-symbol (generate-symbol "cdr")))
            `((let ((,cdr-symbol (cdr ,tree)))
-               ,@(expand-bind-car cdr-binding cdr-symbol body)))))))
-
-@w
-(define (expand-bind-car bindings tree body)
-  (let ((car-binding (car bindings)))
-    (cond ((symbol? car-binding)
-           `((let ((,car-binding (car ,tree)))
-               ,@(expand-bind-cdr bindings tree body))))
-          ((pair? car-binding)
-           (let ((car-symbol (generate-symbol "car")))
-             `((let ((,car-symbol (car ,tree)))
-                 ,@(expand-bind-car car-binding car-symbol
-                     (expand-bind-cdr bindings tree body)))))))))
-
-@w
-(define (expand-bind-cdr bindings tree body)
-  (let ((cdr-binding (cdr bindings)))
-    (cond ((null? cdr-binding)
-           body)
-          ((symbol? cdr-binding)
-           `((let ((,cdr-binding (cdr ,tree)))
-               ,@body)))
-          ((pair? cdr-binding)
-           (let ((cdr-symbol (generate-symbol "cdr")))
-             `((let ((,cdr-symbol (cdr ,tree)))
-                 ,@(expand-bind-car cdr-binding cdr-symbol body)))))))))
+               ,@(expand-bind-car cdr-binding cdr-symbol body))))))))

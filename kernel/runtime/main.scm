@@ -232,6 +232,18 @@
 ;;;
 
 
+(define (jazz.make-target target)
+  (call/cc
+    (lambda (stop)
+      (with-exception-handler
+        (lambda (exc)
+          (##display-exception exc (current-output-port))
+          (stop #f))
+        (lambda ()
+          (jazz.make target)
+          #t)))))
+
+
 (define (jazz.make target)
   (case target
     ((core) (bcore))
@@ -562,7 +574,10 @@
               (jazz.app
                (boot-app jazz.app))
               (make
-               (jazz.make (%%string->symbol make)))
+               (exit
+                 (if (jazz.make-target (%%string->symbol make))
+                     0
+                   1)))
               (else
                (jazz.repl-main #f)))))))
 

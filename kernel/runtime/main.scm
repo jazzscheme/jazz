@@ -183,21 +183,21 @@
 (cond-expand
   (windows
     (define (bplatform)
-      (bjazz)
+      (jazz.load-module 'core.library)
       (btypes)
       (bcairo)
       (bfont)
       (bwindows)))
   (x11
     (define (bplatform)
-      (bjazz)
+      (jazz.load-module 'core.library)
       (btypes)
       (bcairo)
       (bfont)
       (bx11)))
   (unix
     (define (bplatform)
-      (bjazz)
+      (jazz.load-module 'core.library)
       (btypes))))
 
 

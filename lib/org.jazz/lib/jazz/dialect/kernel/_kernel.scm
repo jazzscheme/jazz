@@ -459,6 +459,9 @@
 
 (native jazz.continuation-capture)
 (native jazz.get-continuation-stack)
+(native jazz.repl)
+(native jazz.current-repl)
+(native jazz.repl-continuation)
 
 
 ;;;

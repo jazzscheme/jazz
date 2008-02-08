@@ -158,6 +158,20 @@
                      (macro-code-cte $code))
                  ##interaction-cte)
                queue))
-        (jazz.queue-list queue))))
+        (jazz.queue-list queue)))
+    
+    
+    (define (jazz.repl)
+      (begin
+        (##repl)
+        #f))
+    
+    
+    (define (jazz.current-repl)
+      (macro-current-repl-context))
+    
+    
+    (define (jazz.repl-continuation context)
+      (macro-repl-context-initial-cont context)))
   
   (else)))

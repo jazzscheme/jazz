@@ -51,7 +51,6 @@
 
 
 (jazz.define-variable jazz.compile-module)
-(jazz.define-variable jazz.compile-jazz-module)
 (jazz.define-variable jazz.build-module)
 (jazz.define-variable jazz.system.boot-app)
 
@@ -64,23 +63,6 @@
 (define (cmodule module-name #!key (cc-options #f) (ld-options #f))
   (jazz.load-module 'core.module.build)
   (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
-
-
-(define (cjazz module-name)
-  ;; Seems the new gambit functionality has a bug
-  ;; It will crash when compiling jazz.utilities
-  ;; Also not that until we have adapted the library
-  ;; macro to add source code annotations, this is
-  ;; very usefull for tools like statprof
-  (if #t ;; (memq 'debug jazz.compile-options)
-      (cjazzmodule module-name)
-    (cmodule module-name)))
-
-
-(define (cjazzmodule module-name)
-  (jazz.load-module 'core.module.build)
-  (jazz.load-module 'jazz.build)
-  (jazz.compile-jazz-module module-name))
 
 
 ;;;
@@ -107,7 +89,7 @@
   (bcore)
   (bmodule 'scheme.dialect)
   (bmodule 'jazz.dialect)
-  (cjazz 'jazz.dialect.language))
+  (cmodule 'jazz.dialect.language))
 
 
 ;;;
@@ -185,7 +167,7 @@
   (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
   (cmodule 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
-  (cjazz 'jazz.system.platform.windows))
+  (cmodule 'jazz.system.platform.windows))
   
 
 (define (bx11)
@@ -398,8 +380,8 @@
   (bjazz)
   (bplatform)
   (lplatform)
-  (for-each cjazz Jedi-Critical-Modules)
-  (for-each cjazz Jedi-Critical-Platform-Modules))
+  (for-each cmodule Jedi-Critical-Modules)
+  (for-each cmodule Jedi-Critical-Platform-Modules))
 
 
 (define (jedi)
@@ -471,7 +453,7 @@
   (define (compile module-name)
     (jazz.for-each-submodule module-name
       (lambda (module-name declaration phase)
-        (cjazz module-name))))
+        (cmodule module-name))))
   
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)

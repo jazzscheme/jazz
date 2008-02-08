@@ -143,7 +143,7 @@
                     ((and (%%eqv? c #\")
                           (%%eqv? (peek-char port) #\#))
                      (read-char port)
-                     (get-output-string output))
+                     (macro-readenv-wrap re (get-output-string output)))
                     (else
                      (write-char c output)
                      (iter))))))))

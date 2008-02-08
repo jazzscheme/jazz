@@ -70,7 +70,6 @@
 
 
 (native jazz.compile-module)
-(native jazz.compile-jazz-module)
 (native jazz.for-each-submodule)
 
 

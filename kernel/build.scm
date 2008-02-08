@@ -377,11 +377,12 @@
 
 
 (define (jazz.guess-platform)
-  (case (cadr (system-type))
-    ;; mac version not yet available
-    ((apple) 'mac)
-    ((pc) 'windows)
-    (else 'unix)))
+  (let ((system (cadr  (system-type)))
+	(os     (caddr (system-type))))
+    (cond
+     ((eq? system 'apple) 'mac)
+     ((eq? os 'linux-gnu) 'unix)
+     (else 'windows))))
 
 
 (define (jazz.validate-platform platform)

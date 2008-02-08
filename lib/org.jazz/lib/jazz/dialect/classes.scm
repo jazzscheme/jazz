@@ -96,8 +96,10 @@
 
 
 (jazz.define-class jazz.Class-Declaration jazz.Category-Declaration (name type access compatibility attributes toplevel parent locator lookups children-lookup children body implementor metaclass) jazz.Object-Class jazz.allocate-class-declaration
-  ((ascendant  %%get-class-declaration-ascendant  ())
-   (interfaces %%get-class-declaration-interfaces ())))
+  ((ascendant          %%get-class-declaration-ascendant          ())
+   (ascendant-relation %%get-class-declaration-ascendant-relation ())
+   (ascendant-base     %%get-class-declaration-ascendant-base     ())
+   (interfaces         %%get-class-declaration-interfaces         ())))
 
 
 ;;;

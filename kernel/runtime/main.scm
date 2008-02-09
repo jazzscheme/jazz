@@ -184,6 +184,7 @@
   (windows
     (define (bplatform)
       (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
       (btypes)
       (bcairo)
       (bfont)
@@ -191,6 +192,7 @@
   (x11
     (define (bplatform)
       (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
       (btypes)
       (bcairo)
       (bfont)
@@ -198,6 +200,7 @@
   (unix
     (define (bplatform)
       (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
       (btypes))))
 
 

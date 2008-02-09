@@ -826,7 +826,8 @@
     (jazz.new-special-form 'definition    jazz.walk-definition)
     (jazz.new-special-form 'generic       jazz.walk-generic)
     (jazz.new-special-form 'specific      jazz.walk-specific)
-    (jazz.new-special-form 'class         jazz.walk-class)
+    (jazz.new-macro-form   'class         jazz.expand-class)
+    (jazz.new-special-form '%class        jazz.walk-%class)
     (jazz.new-special-form 'interface     jazz.walk-interface)
     (jazz.new-macro-form   'slot          jazz.expand-slot)
     (jazz.new-macro-form   'property      jazz.expand-property)
@@ -887,7 +888,7 @@
           ((%specialize)     (jazz.walk-specialize-declaration     walker resume declaration environment form))
           ((generic)         (jazz.walk-generic-declaration        walker resume declaration environment form))
           ((specific)        #f)
-          ((class)           (jazz.walk-class-declaration          walker resume declaration environment form))
+          ((%class)          (jazz.walk-%class-declaration         walker resume declaration environment form))
           ((interface)       (jazz.walk-interface-declaration      walker resume declaration environment form))
           ((%slot %property) (jazz.walk-%slot-declaration          walker resume declaration environment form))
           ((method)          (jazz.walk-method-declaration         walker resume declaration environment form))
@@ -1566,7 +1567,37 @@
         (values name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body)))))
 
 
-(define (jazz.walk-class-declaration walker resume declaration environment form)
+(define (jazz.expand-class walker resume declaration environment . rest)
+  (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration rest)
+    (receive (metaclass-body class-body) (jazz.preprocess-meta body)
+      (cond ((%%null? metaclass-body)
+             `(%class ,@rest))
+            ((%%specified? metaclass-name)
+             (jazz.walk-error walker resume declaration "Ambiguous use of both the metaclass and meta keywords"))
+            (else
+             (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
+               `(begin
+                  (%class ,metaclass-name extends (:class ,ascendant-name)
+                    ,@metaclass-body)
+                  (%class ,access ,name metaclass ,metaclass-name extends ,ascendant-name implements ,interface-names
+                    ,@class-body))))))))
+
+
+(define (jazz.preprocess-meta body)
+  (let ((metaclass (jazz.new-queue))
+        (class (jazz.new-queue)))
+    (for-each (lambda (expr)
+                (if (and (%%pair? expr)
+                         (%%pair? (%%cdr expr))
+                         (%%eq? (%%cadr expr) 'meta))
+                    (jazz.enqueue metaclass (%%cons (%%car expr) (%%cddr expr)))
+                  (jazz.enqueue class expr)))
+              body)
+    (values (jazz.queue-list metaclass)
+            (jazz.queue-list class))))
+
+
+(define (jazz.walk-%class-declaration walker resume declaration environment form)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
         ;; explicit test on Object-Class is to break circularity
@@ -1582,7 +1613,7 @@
       (jazz.walk-error walker resume declaration "Classes can only be defined at the library level: {s}" name))))
 
 
-(define (jazz.walk-class walker resume declaration environment form)
+(define (jazz.walk-%class walker resume declaration environment form)
   (receive (name type access abstraction compatibility implementor metaclass-name ascendant-name interface-names attributes body) (jazz.parse-class walker resume declaration (%%cdr form))
     (let* ((new-declaration (jazz.find-form-declaration declaration name))
            (new-environment (%%cons new-declaration environment))

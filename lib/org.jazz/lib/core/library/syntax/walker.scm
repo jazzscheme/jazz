@@ -2569,7 +2569,7 @@
         declaration))))
 
 
-(define (jazz.cond-expand form)
+(define (jazz.cond-expand form cont)
   (if (and (%%pair? form)
            (%%eq? (%%car form) 'cond-expand))
       (let iter ((scan (%%cdr form)))
@@ -2582,9 +2582,11 @@
               (let ((feature-requirement (%%car clause)))
                 (if (or (jazz.feature-safisfied? feature-requirement)
                         (%%eq? feature-requirement 'else))
-                    (%%cadr clause)
+                    (if (%%null? (%%cdr clause))
+                        (cont #f #f)
+                      (cont (%%cadr clause) #t))
                   (iter (%%cdr scan))))))))
-    form))
+    (cont form #t)))
 
 
 (define (jazz.walk-namespace walker resume declaration environment form-list)
@@ -2592,7 +2594,10 @@
     (for-each (lambda (form)
                 (call/cc
                   (lambda (resume)
-                    (jazz.enqueue queue (jazz.walk walker resume declaration environment (jazz.cond-expand form))))))
+                    (jazz.cond-expand form
+                      (lambda (expr expr?)
+                        (%%when expr?
+                          (jazz.enqueue queue (jazz.walk walker resume declaration environment expr))))))))
               form-list)
     (jazz.queue-list queue)))
 
@@ -2703,10 +2708,13 @@
     (for-each (lambda (form)
                 (call/cc
                   (lambda (resume)
-                    (let ((expansion (jazz.expand-macros walker resume declaration environment (jazz.cond-expand form))))
-                      (if (jazz.begin-form? expansion)
-                          (walk (%%cdr expansion))
-                        (jazz.walk-declaration walker resume declaration environment expansion))))))
+                    (jazz.cond-expand form
+                      (lambda (expr expr?)
+                        (%%when expr?
+                          (let ((expansion (jazz.expand-macros walker resume declaration environment expr)))
+                            (if (jazz.begin-form? expansion)
+                                (walk (%%cdr expansion))
+                              (jazz.walk-declaration walker resume declaration environment expansion)))))))))
               forms))
   
   (walk forms))

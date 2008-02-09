@@ -144,20 +144,20 @@
 
 
 (definition public (tokenise filename <string>)
-  (cons 'Root (remove-empty-strings (split filename "/"))))
+  (remove-empty-strings (split filename "/")))
 
 
 ;; will not be necessary when we can ask Gambit to always use /
 (definition public (tokenise-patch filename <string>)
-  (cons 'Root (apply append (map (function (name)
-                                   (remove-empty-strings (split name "\\")))
-                                 (remove-empty-strings (split filename "/"))))))
+  (apply append (map (function (name)
+                       (remove-empty-strings (split name "\\")))
+                     (remove-empty-strings (split filename "/")))))
 
 
 (definition public (tokenise-windows filename <string>)
   (if (starts-with? filename "\\\\")
       (cons 'Network (remove-empty-strings (split (subseq filename 2 (cardinality filename)) "\\")))
-    (cons 'Root (remove-empty-strings (split filename "\\")))))
+    (remove-empty-strings (split filename "\\"))))
 
 
 (definition public (get-tmp-directory)
@@ -372,7 +372,7 @@
         (letrec ((parse
                    (function (path)
                      (cond ((null? path))
-                           ((eq? path #t)
+                           ((eq? path 'Root)
                             (display root-prefix printer))
                            ((string? path)
                             (if first?
@@ -393,11 +393,11 @@
                             (error "Bad pathname component {t}" path))))))
           (parse (get-list)))
         (add-suffix printer)
-        (get-output-string printer))))
+        (pathname-expand (get-output-string printer)))))
   
   
   (method public (platform-parse)
-    (pathname-expand (parse platform-separator)))
+    (parse platform-separator))
   
   
   (method protected virtual (add-suffix printer)

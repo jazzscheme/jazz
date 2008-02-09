@@ -187,6 +187,15 @@
 
 
 ;;;
+;;;; Guest
+;;;
+
+
+(definition (new-guest guest-class rest)
+  (apply new guest-class rest))
+
+
+;;;
 ;;;; Dialog
 ;;;
 
@@ -199,11 +208,11 @@
 
 
 (definition public (new-dialog guest-class . rest)
-  (bind-keywords ((host-title (host-title~ guest-class)) (host-sizable? (dialog-sizable?)) (host-closable? (dialog-closable?)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let* ((host (new (dialog-class) in-parent?: #f sizable?: host-sizable? closable?: host-closable? visible?: #f))
+  (bind-keywords ((host-title (host-title~ guest-class)) (host-sizable? #f) (host-closable? #t) (host-visible? #t) (guest {}) (initialize {}) . others) rest
+    (let* ((host (new (dialog-class~ guest-class) in-parent?: #f sizable?: host-sizable? closable?: host-closable? visible?: #f))
            (guest (either guest (new-guest guest-class others)))
-           (size (either (dialog-size) (get-size~ guest)))
-           (pos (either (dialog-position) (center-dialog size))))
+           (size (either (host-size~ guest-class) (get-size~ guest)))
+           (pos (either (host-position~ guest-class) (center-dialog size))))
       (set-title~ host (either host-title "Dialog"))
       (set-size~ host size)
       (set-position~ host pos)
@@ -223,13 +232,10 @@
         (values #t host)))))
 
 
-;;;
-;;;; Guest
-;;;
-
-
-(definition (new-guest guest-class rest)
-  (apply new guest-class rest))
+(definition public (center-dialog inner)
+  (let* ((outer (get-size~ (get-desktop)))
+         (pos (center inner outer)))
+    (new Point (get-h~ pos) (- (get-v~ pos) 50))))
 
 
 ;;;
@@ -242,8 +248,8 @@
 
 
 (definition public (new-frame guest-class . rest)
-  (bind-keywords ((host-title (host-title~ guest-class)) (host-position (frame-position)) (host-size (frame-size)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (frame-class) in-parent?: #f visible?: #f)))
+  (bind-keywords ((host-title (host-title~ guest-class)) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
+    (let ((host (new (frame-class~ guest-class) in-parent?: #f visible?: #f)))
       (set-title~ host (either host-title "Frame"))
       (when host-position
         (set-position~ host host-position))
@@ -271,26 +277,6 @@
         host))))
 
 
-(definition public (frame-class)
-  Host-Frame)
-
-
-(definition public (frame-icon)
-  {Bitmap-Resource "Window"})
-
-
-(definition public (frame-title)
-  {})
-
-
-(definition public (frame-position)
-  {})
-
-
-(definition public (frame-size)
-  {})
-
-
 ;;;
 ;;;; Palette
 ;;;
@@ -313,8 +299,8 @@
 
 
 (definition public (new-palette guest-class . rest)
-  (bind-keywords ((host-title (host-title~ guest-class)) (host-position (palette-position)) (host-size (palette-size)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new Host-Palette in-parent?: #f visible?: #f)))
+  (bind-keywords ((host-title (host-title~ guest-class)) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
+    (let ((host (new (palette-class~ guest-class) in-parent?: #f visible?: #f)))
       (set-title~ host (either host-title "Palette"))
       (when host-position
         (set-position~ host host-position))
@@ -354,23 +340,6 @@
         palette))))
 
 
-(definition public (view-icon)
-  {Bitmap-Resource "Window"})
-
-
-;; tofix : this was {}
-(definition public (palette-title)
-  "Palette")
-
-
-(definition public (palette-position)
-  {})
-
-
-(definition public (palette-size)
-  {})
-
-
 ;;;
 ;;;; Docked
 ;;;
@@ -386,7 +355,7 @@
 
 (definition public (new-docked guest-class . rest)
   (bind-keywords ((host-title (host-title~ guest-class)) (host-location {}) . others) rest
-    (let ((host (new (docked-class) parent: (get-orphanage) visible?: #f)))
+    (let ((host (new (docked-class~ guest-class) parent: (get-orphanage) visible?: #f)))
       (set-title~ host (either host-title "Docked"))
       (when host-location
         (set-location~ host host-location))
@@ -394,8 +363,27 @@
       host)))
 
 
-(definition public (docked-class)
-  Host-Docked)
+;;;
+;;;; Toolbar
+;;;
+
+
+(definition public (singleton-toolbar guest-class name . rest)
+  (let ((ref (either name (type-name guest-class))))
+    (either (table-ref Palettes ref #f)
+            (let ((palette (new-toolbar guest-class name: name)))
+              (table-set! Palettes ref palette)
+              palette))))
+
+
+(definition public (new-toolbar guest-class . rest)
+  (bind-keywords ((host-title (host-title~ guest-class)) (host-location {}) . others) rest
+    (let ((host (new (toolbar-class~ guest-class) parent: (get-orphanage) visible?: #f)))
+      (set-title~ host (either host-title "Toolbar"))
+      (when host-location
+        (set-location~ host host-location))
+      (set-guest~ host (new-guest guest-class others))
+      host)))
 
 
 ;;;
@@ -414,68 +402,6 @@
 
 (definition public (set-focused-root focused-root)
   (set! *focused-root* focused-root))
-
-
-;;;
-;;;; Toolbar
-;;;
-
-
-(definition public (singleton-toolbar guest-class name . rest)
-  (let ((ref (either name (type-name guest-class))))
-    (either (table-ref Palettes ref #f)
-            (let ((palette (new-toolbar guest-class name: name)))
-              (table-set! Palettes ref palette)
-              palette))))
-
-
-(definition public (new-toolbar guest-class . rest)
-  (bind-keywords ((host-title (host-title~ guest-class)) (host-location {}) . others) rest
-    (let ((host (new (toolbar-class) parent: (get-orphanage) visible?: #f)))
-      (set-title~ host (either host-title "Toolbar"))
-      (when host-location
-        (set-location~ host host-location))
-      (set-guest~ host (new-guest guest-class others))
-      host)))
-
-
-(definition public (toolbar-class)
-  Host-Toolbar)
-
-
-;;;
-;;;; Dialog
-;;;
-
-
-(definition public (dialog-class)
-  Host-Dialog)
-
-
-(definition public (dialog-title)
-  {})
-
-
-(definition public (dialog-position)
-  {})
-
-
-(definition public (dialog-size)
-  {})
-
-
-(definition public (dialog-sizable?)
-  #f)
-
-
-(definition public (dialog-closable?)
-  #t)
-
-
-(definition public (center-dialog inner)
-  (let* ((outer (get-size~ (get-desktop)))
-         (pos (center inner outer)))
-    (new Point (get-h~ pos) (- (get-v~ pos) 50))))
 
 
 ;;;

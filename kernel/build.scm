@@ -741,7 +741,7 @@
           ((windows)
            '("-lws2_32"))
           ((unix)
-	   '("-lm -ldl -lutil"))
+	   '("-lm" "-ldl" "-lutil"))
 	  (else
            '())))
       

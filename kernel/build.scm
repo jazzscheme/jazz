@@ -414,11 +414,14 @@
 
 
 (define (jazz.guess-windowing)
-  (case (cadr (system-type))
-    ;; mac version not yet available
-    ;; ((apple) 'mac)
-    ((pc) #f)
-    (else 'x11)))
+  (let ((system (cadr  (system-type)))
+	(os (caddr (system-type))))
+    (cond
+     ;; mac version not yet available
+     ;; ((apple) 'mac)
+     ((eq? os 'linux-gnu) 'x11)
+     ((eq? system 'pc) #f)
+     (else 'x11))))
 
 
 (define (jazz.validate-windowing windowing)

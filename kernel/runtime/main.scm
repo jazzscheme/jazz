@@ -112,7 +112,7 @@
      (define cairo-include-path (path-expand (string-append jazz.directory "foreign/cairo/include")))
      (define cairo-lib-path     (path-expand (string-append jazz.directory "foreign/cairo/lib/windows")))
      (cmodule 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
-  ((or x11 unix)
+  (x11
    (define (bcairo)
      (let ((cc-flags-port (open-output-string))
            (ld-flags-port (open-output-string)))
@@ -189,7 +189,7 @@
       (bcairo)
       (bfont)
       (bwindows)))
-  ((or x11 unix)
+  (x11
     (define (bplatform)
       (jazz.load-module 'core.library)
       (jazz.load-module 'scheme.dialect)
@@ -494,7 +494,6 @@
   ((or x11 unix)
     (define (jazz.set-library-environment!)
       (setenv "DYLD_LIBRARY_PATH" (path-expand "./")))))
-
 (define (jazz.main)
   (define (warn-missing-argument-for-option opt)
     (jazz.repl-main

@@ -10,11 +10,28 @@
 ;;;
 
 
+(definition Symbolic-Sounds
+  (list
+    (cons :asterisk "SystemAsterisk")
+    (cons :exclamation "SystemExclamation")
+    (cons :hand "SystemHand")))
+
+
+(definition (symbolic-sound sound)
+  (let ((pair (assv sound Symbolic-Sounds)))
+    (if (not pair)
+        (error "Unknown symbolic sound: {s}")
+      (cdr pair))))
+
+
 (definition public (play-sound sound (asynchronous?: asynchronous? #t))
   (let ((async-bit (if asynchronous? SND_ASYNC SND_SYNC)))
-    (if (file? sound)
-        (PlaySound (platform-parse~ sound) NULL (bitwise-ior SND_FILENAME async-bit))
-      (PlaySound sound NULL async-bit))))
+    (cond ((file? sound)
+           (PlaySound (platform-parse~ sound) NULL (bitwise-ior SND_FILENAME async-bit)))
+          ((symbol? sound)
+           (PlaySound (symbolic-sound sound) NULL async-bit))
+          (else
+           (PlaySound sound NULL async-bit)))))
 
 
 ;;;

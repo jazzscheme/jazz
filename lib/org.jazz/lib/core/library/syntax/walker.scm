@@ -3885,15 +3885,6 @@
   (jazz.allocate-cond jazz.Cond #f clauses))
 
 
-(define (k x)
-  (cond ((not (list? x))
-         #f)
-        ((null? x)
-         #f)
-        (else
-         (car x))))
-
-
 (jazz.define-method (jazz.emit-expression (jazz.Cond expression) declaration environment)
   (jazz.new-code
     `(cond ,@(map (lambda (clause)

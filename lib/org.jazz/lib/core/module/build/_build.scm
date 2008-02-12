@@ -54,7 +54,7 @@
       (jazz.compile-source src module-name options: options cc-options: cc-options ld-options: ld-options force?: force?))))
 
 
-(define (jazz.compile-source src manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (digest #f) (force? #f))
+(define (jazz.compile-source src manifest-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((options (or options jazz.compile-options))
         (cc-options (or cc-options ""))
         (ld-options (or ld-options "")))
@@ -77,8 +77,7 @@
                       (parameterize ((jazz.walk-for 'compile))
                         (compile-file pathname output: bindir options: options cc-options: cc-options ld-options: ld-options))))
                   (let ((manifest-resource (%%make-resource build-package path jazz.Manifest-Extension))
-                        ;; remove explicit digest passing when gambit bug that forces us to generate a jscm is fixed
-                        (manifest-digest (or digest (jazz.resource-digest src))))
+                        (manifest-digest (jazz.resource-digest src)))
                     (jazz.save-manifest manifest-resource (%%make-manifest manifest-name manifest-digest)))))
               
               (if jazz.compile-verbose?

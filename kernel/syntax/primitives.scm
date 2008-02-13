@@ -645,6 +645,19 @@
 
 
 ;;;
+;;;; Thread
+;;;
+
+
+(cond-expand
+  (gambit
+    (jazz.define-macro (%%thread? obj)
+      `(thread? ,obj)))
+  
+  (else))
+
+
+;;;
 ;;;; Unspecified
 ;;;
 

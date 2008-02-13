@@ -1273,6 +1273,35 @@
 
 
 ;;;
+;;;; Thread
+;;;
+
+
+(jazz.define-class-runtime jazz.Thread-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Thread-Class class) object)
+  (%%thread? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Thread-Class class))
+  'thread)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Thread-Class type) value source-declaration environment)
+  `(%%thread? ,value))
+
+
+(jazz.encapsulate-class jazz.Thread-Class)
+
+
+(jazz.define-class-runtime jazz.Thread)
+
+
+(jazz.encapsulate-class jazz.Thread)
+
+
+;;;
 ;;;; Promise
 ;;;
 
@@ -1400,6 +1429,10 @@
     ;; quicky until we find a clean solution with Marc
     (define jazz.port-type
       (##structure-type (open-output-string)))
+    
+    ;; quicky until we find a clean solution with Marc
+    (define jazz.thread-type
+      (##structure-type (current-thread)))
     
     (%%vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
     (%%vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)

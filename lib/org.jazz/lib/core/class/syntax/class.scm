@@ -263,8 +263,12 @@
             ___SCMOBJ type = ___VECTORREF(obj,0);
             if (type == ___ARG6)
                 ___RESULT = ___ARG7;
-            else
+            else if (type == ___ARG8)
                 ___RESULT = ___ARG9;
+            else if (type == ___ARG10)
+                ___RESULT = ___ARG11;
+            else
+                ___RESULT = FALSE;
         }
         else
             ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
@@ -286,6 +290,8 @@ end-of-c-code
     jazz.Table          ;; ___ARG7
     jazz.port-type      ;; ___ARG8
     jazz.Port           ;; ___ARG9
+    jazz.thread-type    ;; ___ARG10
+    jazz.Thread         ;; ___ARG11
     ))
     
     (jazz.define-macro (%%class-of obj)

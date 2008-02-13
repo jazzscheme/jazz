@@ -1322,6 +1322,7 @@
 (%%table-set! jazz.primitive-types 'keyword     jazz.Keyword)
 (%%table-set! jazz.primitive-types 'vector      jazz.Vector)
 (%%table-set! jazz.primitive-types 'table       jazz.Table)
+(%%table-set! jazz.primitive-types 'thread      jazz.Thread)
 (%%table-set! jazz.primitive-types 'promise     jazz.Promise)
 (%%table-set! jazz.primitive-types 'foreign     jazz.Foreign)
 (%%table-set! jazz.primitive-types 'eof         jazz.EOF)
@@ -1355,6 +1356,7 @@
     (cons jazz.Keyword     'Keyword)
     (cons jazz.Vector      'Vector)
     (cons jazz.Table       'Table)
+    (cons jazz.Thread      'Thread)
     (cons jazz.Promise     'Promise)
     (cons jazz.Foreign     'Foreign)
     (cons jazz.EOF         'EOF)
@@ -3710,6 +3712,7 @@
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.slot?          jazz.Slot)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.method?        jazz.Method)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.table?         jazz.Table)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.thread?        jazz.Thread)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.foreign?       jazz.Foreign)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.unspecified?   jazz.Unspecified)
 

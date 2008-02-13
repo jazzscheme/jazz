@@ -285,6 +285,15 @@
 
 
 ;;;
+;;;; Network
+;;;
+
+
+(native jazz.open-tcp-client)
+(native jazz.open-tcp-server)
+
+
+;;;
 ;;;; Object
 ;;;
 
@@ -443,15 +452,6 @@
 (native jazz.slot? <object:bool>)
 (native jazz.slot-value)
 (native jazz.set-slot-value)
-
-
-;;;
-;;;; Socket
-;;;
-
-
-(native jazz.open-tcp-client)
-(native jazz.open-tcp-server)
 
 
 ;;;

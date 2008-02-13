@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Jazz Core
+;;;; Network
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.dialect.core scheme
+(module jazz.dialect.core.network
 
 
-(require (jazz.dialect.core.continuation)
-         (jazz.dialect.core.debug)
-         ; (jazz.dialect.core.exception)
-         (jazz.dialect.core.foreign)
-         (jazz.dialect.core.list)
-         (jazz.dialect.core.memory)
-         (jazz.dialect.core.network)
-         (jazz.dialect.core.number)
-         (jazz.dialect.core.pathname)
-         (jazz.dialect.core.port)
-         (jazz.dialect.core.profile)
-         (jazz.dialect.core.reader)
-         (jazz.dialect.core.stack)
-         (jazz.dialect.core.system)
-         (jazz.dialect.core.table)
-         (jazz.dialect.core.thread)
-         (jazz.dialect.core.time)
-         (jazz.dialect.core.vector)))
+(cond-expand
+  (gambit
+    (define jazz.open-tcp-client open-tcp-client)
+    (define jazz.open-tcp-server open-tcp-server))
+  
+  (else)))

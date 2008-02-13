@@ -5,11 +5,19 @@
 	(jazz.platform.carbon.carbon-types))
 
 
-(definition (event-loop)
-  (let ((record (EventRecord-make))
-	(mask (bitwise-ior updateMask))
-    (let loop ()
-      (WaitNextEvent (
+(definition (process handle event data)
+  (let ((type (GetEventKind event)))
+    (cond
+     ((= type kEventWindowClose)
+      (QuitApplicationEventLoop)
+      noErr)
+     ((= type kEventWindowBoundsChanged)
+      noErr)
+     (else
+      eventNotHandledErr))))
+
+
+(set-process-window-message process)
 
 
 (definition (test)
@@ -18,5 +26,12 @@
     (Rect-top-set! rect 100)
     (Rect-bottom-set! rect 500)
     (Rect-right-set! rect 500)
-    (let ((win (CreateNewWindow kDocumentWindowClass kWindowStandardDocumentAttributes rect)))
-      (ShowWindow win)))))
+    (TransformProcessType)
+    (let ((win (CreateNewWindow kDocumentWindowClass 
+				(bitwise-ior kWindowStandardDocumentAttributes
+					     kWindowStandardHandlerAttribute
+					     kWindowLiveResizeAttribute)
+				rect)))
+      (ShowWindow win)
+      (InstallWindowEventHandler win)
+      (RunApplicationEventLoop)))))

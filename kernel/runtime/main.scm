@@ -123,7 +123,17 @@
 	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
 	 (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
 	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))
-  (else))
+  (carbon
+   (define (bcairo)
+     (let ((cc-flags-port (open-output-string))
+           (ld-flags-port (open-output-string)))
+       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "cairo"))) cc-flags-port)
+       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "cairo"))) ld-flags-port)
+       (let ((cc-flags (get-output-string cc-flags-port))
+	     (ld-flags (get-output-string ld-flags-port)))
+	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
+	 (cmodule 'jazz.platform.cairo.cairo-carbon      cc-options: cc-flags ld-options: ld-flags)
+	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
 
 
 (define (bfreetype)
@@ -171,10 +181,16 @@
   
 
 (define (bx11)
-  (jazz.load-module 'core.module.build) 
+  (jazz.load-module 'core.module.build)
   (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
   (cmodule 'jazz.platform.x11.x11-types))
 
+
+(define (bcarbon)
+  (jazz.load-module 'core.module.build)
+  (cmodule 'jazz.platform.carbon                ld-options: "-framework Carbon")
+  (cmodule 'jazz.platform.carbon.carbon-types   ld-options: "-framework Carbon"))
+  
 
 (define (btypes)
   (cmodule 'jazz.platform.types))
@@ -196,7 +212,15 @@
       (btypes)
       (bcairo)
       (bfont)
-      (bx11))))
+      (bx11)))
+  (carbon
+    (define (bplatform)
+      (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
+      (btypes)
+      (bcairo)
+      (bfont)
+      (bcarbon))))
 
 
 (define (lplatform)

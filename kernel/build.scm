@@ -404,7 +404,7 @@
 
 
 (define jazz.valid-windowings
-  '(quartz
+  '(carbon
     #f
     x11))
 
@@ -432,7 +432,7 @@
 
 (define (jazz.windowing-name windowing)
   (case windowing
-    ((quartz) "")
+    ((carbon) "Carbon")
     ((x11) "X11")
     (else "")))
 

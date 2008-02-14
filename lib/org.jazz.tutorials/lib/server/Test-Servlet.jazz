@@ -1,0 +1,231 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Test Servlet
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.tutorials.server.Test-Servlet
+
+
+(import (jazz.network))
+
+
+(class Test-Servlet extends HTTP-Servlet
+  
+  
+  (definition Pattern-Associations
+    '(("Test/Menu"  (<test-menu>))
+      ("Test/CSS"   (<test-css>))
+      ("Test/Test"  (<test-test>))
+      ("Test/A"     (<test-a>))
+      ("Test/B"     (<test-b>))
+      ("Test/C"     (<test-c>))
+      ("Test/D"     (<test-d>))
+      ("Test/E"     (<test-e>))
+      ("Test/Error" (<test-error>))))
+  
+  
+  (method (get-pattern-associations)
+    Pattern-Associations)
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (pattern (test-menu node)
+    (bind (tag) node
+      `(<html>
+         (<head>
+           (<title> "Test"))
+         (<body>
+           (<h3> "Test")
+           (<ul>
+             (<li> (<a> href: "CSS" "CSS")))
+           (<ul>
+             (<li> (<a> href: "Test" "Test")))
+           (<ul>
+             (<li> (<a> href: "/Website" "Website")))))))
+  
+  
+  ;;;
+  ;;;; CSS
+  ;;;
+  
+  
+  (pattern (test-css node)
+    (bind (tag) node
+      (let ((file-entries (gather-ccs-file-entries)))
+        `(<html>
+           (<head>
+             ,@(map (function dynamic (file-entry)
+                      (let ((file (get-file~ file-entry)))
+                        `(<link> rel: "stylesheet" type: "text/css" href: ,(join (expand~ file) "/"))))
+                    file-entries))
+           (<body>
+             (<h3> "CSS")
+             ,@(map (function dynamic (file-entry)
+                      (let ((file (get-file~ file-entry))
+                            (entries (get-definitions~ file-entry))
+                            (sort? false))
+                        (when sort?
+                          (set! entries (sort < entries :key (function dynamic (entry) (get-name~ entry)))))
+                        `((<h3> ,(get-name~ file))
+                          (<table>
+                            ,@(map (function dynamic (entry)
+                                     (let ((name (get-name~ entry)))
+                                       `(<tr>
+                                          (<td> class: ,name ,name)
+                                          (<td> ""))))
+                                   entries)))))
+                    file-entries))))))
+  
+  
+  (method (gather-ccs-file-entries)
+    (let* ((appl (get-application))
+           (catalog (get-catalog~ (get-cataloguer~ appl) 'com.cn))
+           (content (get-content~ catalog))
+           (fact (new List-Factory)))
+      (for-each-hash (function dynamic (key value)
+                       (put-sequence~ fact value))
+                     content)
+      (sort < (get-output~ fact) :key (function dynamic (file-entry)
+                                         (get-name~ (get-file~ file-entry))))))
+  
+  
+  ;;;
+  ;;;; Test
+  ;;;
+  
+  
+  (pattern (test-test node)
+    `(<html>
+       (<head>
+         (<title> "Test"))
+       (<body>
+         (<h3> "Test")
+         (<ul>
+           (<li> (<a> href: "A" "A"))
+           (<li> (<a> href: "B" "B"))
+           (<li> (<a> href: "C" "C"))
+           (<li> (<a> href: "D" "D"))
+           (<li> (<a> href: "E" "E"))
+           (<li> (<a> href: "Error" "Error"))))))
+  
+  
+  (pattern (test-a node)
+    (bind (tag) node
+      `(<html>
+         (<head>
+           (<title> "A"))
+         (<body>
+           (<h3> "GET")
+           (<form> action: "B" method: "GET"
+             (<input> type: "hidden" name: "h1" value: "v1")
+             (<input> type: "checkbox" name: "c1" checked)
+             (<input> type: "text" name: "t1" value: "Some text")
+             (<br>)
+             (<br>)
+             (<input> type: "submit"))
+           (<h3> "POST")
+           (<form> action: "B" method: "POST"
+             ,@(map (function dynamic (n)
+                      `(<input> type: "hidden" name: ,(format :string "big{a}" n) value: ,(format :string "Hello{a}" n)))
+                    (naturals 0 1000))
+             (<input> type: "hidden" name: "h1" value: "v1")
+             (<input> type: "checkbox" name: "c1" checked)
+             (<input> type: "text" name: "t1" value: "Some text")
+             (<br>)
+             (<br>)
+             (<input> type: "submit"))
+           ,@(debug-info)))))
+  
+  
+  (pattern (test-b node)
+    (bind (tag) node
+      `(<html>
+         (<head>
+           (<title> "B"))
+         (<body>
+           (<h3> "B")
+           ,@(debug-info)))))
+  
+  
+  (pattern (test-c node)
+    (bind (tag) node
+      `(<html>
+         (<head>
+           (<title> "C"))
+         (<body>
+           (<h3> "C")
+           (<table> cellspacing: "0" style: "border: blue solid 1px;" cell-border: "red solid 1px"
+             (<tr>
+               (<td> "a1")
+               (<td> "a2")
+               (<td> "a3"))
+             (<tr>
+               (<td> "b1")
+               (<td> "b2")
+               (<td> "b3")))
+           ,@(debug-info)))))
+  
+  
+  (pattern (test-d node)
+    (bind (tag) node
+      (sleep 2000)
+      `(HTML-Page
+         (<html>
+           (<head>
+             (<title> "D"))
+           (<body>
+             (<h3> "D")
+             ,@(debug-info))))))
+  
+  
+  (pattern (test-e node)
+    (bind (tag) node
+      (sleep 2000)
+      `(HTML-Page
+         (<html>
+           (<head>
+             (<title> "E"))
+           (<body>
+             (<h3> "E")
+             ,@(debug-info))))))
+  
+  
+  (pattern (test-error node)
+    (bind (tag) node
+      (car 1)))))

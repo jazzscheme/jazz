@@ -1001,26 +1001,12 @@
   
   
   (method (iterate-content-unsorted base kind ignored-directories proc)
-    ;; SIMPLIFIED VERSION FOR NOW
     (for-each (function (name)
                 (let ((type (pathname-type (string-append base "/" name))))
                   (when (or (and (eq? kind 'files) (eq? type 'regular))
-                            (and (eq? kind 'directories) (eq? type 'directory)))
+                            (and (eq? kind 'directories) (eq? type 'directory) (not (member? name ignored-directories))))
                     (proc name))))
-              (directory-content base))
-    @windows-specific
-    (let* ((find-data (new WIN32_FIND_DATA))
-           (handle (FindFirstFile (concatenate base "/*.*") find-data)))
-      (when (/= handle INVALID_HANDLE_VALUE)
-        (while (FindNextFile handle find-data)
-          (let ((name (get-string find-data 'cFileName)))
-            (unless (member? name '("." ".."))
-              (let* ((attributes (get find-data 'dwFileAttributes))
-                     (directory? (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY)))
-                (when (or (and (= kind 'files) (not directory?))
-                          (and (= kind 'directories) directory? (not (member? name ignored-directories))))
-                  (proc name))))))
-        (FindClose handle))))
+              (directory-content base)))
   
   
   (method public (count-files (filter: filter {}) (max-count: max-count #f))

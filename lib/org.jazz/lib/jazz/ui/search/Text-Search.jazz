@@ -57,7 +57,15 @@
       (<!>              name: domain         title: "Recherche de textes"
         (<Radio-Button> name: active-window  title: "Active Window" position: {Point 15 26} size: {Dimension 120 18})
         (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 15 46} size: {Dimension 120 18})
-        (<Radio-Button> name: c-files        title: "C Files" position: {Point 15 66} size: {Dimension 120 18}))))
+        (<Radio-Button> name: user-files     title: "User Files" position: {Point 15 66} size: {Dimension 120 18}))))
+  
+
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((pref (get-preferences '(tools search-manager))))
+      (let ((label (get-user-label~ pref)))
+        (when label
+          (set-title~ (locate 'user-files) label)))))
   
 
   ;;;
@@ -68,7 +76,7 @@
   (method (get-search-domains)
     '(active-window
       jazz-files
-      c-files))
+      user-files))
   
   
   (method (get-active-window-domain)
@@ -110,13 +118,13 @@
   (method (search targets reporter)
     (case (get-search-domain)
       ((jazz-files) (search-jazz-files targets reporter))
-      ((c-files) (search-c-files targets reporter))))
+      ((user-files) (search-user-files targets reporter))))
   
   
   (method (get-constituent-test)
     (case (get-search-domain)
       ((jazz-files) jazz-constituent?)
-      ((c-files) c-constituent?)
+      ((user-files) c-constituent?)
       (else (nextmethod))))
 
 
@@ -135,63 +143,73 @@
   ;;;
   
   
-  (method (count-files)
-    (case (get-search-domain)
-      ((jazz-files) (count-jazz-files))
-      ((c-files) (count-c-files))))
-  
-  
   (definition Jazz-Count
     {})
   
   
   (method (count-jazz-files)
     (unless Jazz-Count
-      (set! Jazz-Count (count-jazz-directories (jazz-search-directories))))
+      (set! Jazz-Count (count-jazz-directories)))
     Jazz-Count)
   
   
-  (method (count-jazz-directories directories)
-    (let ((count 0))
+  (method (count-jazz-directories)
+    (let ((count 0)
+          (directories (default-search-directories))
+          (extensions (default-search-extensions)))
       (for-each (function (directory)
                   (iterate-directory~ directory
                     (function (file)
-                      (when (member? (get-extension~ file) '("jazz") test: ci=?)
+                      (when (member? (get-extension~ file) extensions test: ci=?)
                         (increase! count)))
-                    ignored-directories: '("Debug" "Release" "Work")))
+                    ignored-directories: '(".git" "bin")))
                 directories)
       count))
   
   
-  (method (jazz-search-directories)
-    (list (cond @wait
-                ((is-alias? 'Jazz-Branch)
-                 {Directory Jazz-Branch})
-                ((is-alias? 'Jazz)
+  (definition User-Count
+    {})
+  
+  
+  (method (count-user-files)
+    (let ((pref (get-preferences '(tools search-manager))))
+      (let ((directories (either (get-user-directories~ pref) (default-search-directories)))
+            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
+        (let ((count
+                (function ()
+                  (let ((count 0))
+                    (for-each (function (directory)
+                                (iterate-directory~ directory
+                                  (function (file)
+                                    (when (member? (get-extension~ file) extensions)
+                                      (increase! count)))))
+                              directories)
+                    count))))
+          (unless User-Count
+            (set! User-Count (count)))
+          User-Count))))
+  
+  
+  (method (count-files)
+    (case (get-search-domain)
+      ((jazz-files) (count-jazz-files))
+      ((user-files) (count-user-files))))
+  
+  
+  (method (default-search-directories)
+    (list (cond ((is-alias? 'Jazz)
                  {Directory Jazz})
                 (else
                  {Directory Launch}))
           {Directory Home "jazz.user"}))
   
   
-  (definition C-Count
-    {})
-  
-  
-  (method (count-c-files)
-    (let ((count
-           (function ()
-             (let ((count 0))
-               (for-each (function (directory)
-                           (iterate-directory~ directory
-                             (function (file)
-                               (when (member? (get-extension~ file) '("c" "cpp" "h" "java"))
-                                 (increase! count)))))
-                         (get-c-directories~ (get-preferences '(tools search-manager))))
-               count))))
-      (unless C-Count
-        (set! C-Count (count)))
-      C-Count))
+  (method (default-search-extensions)
+    '("scm" "ss" "gambcini" "jazzini"
+      "lisp"
+      "jazz" "jml" "pck"
+      "c" "cpp" "h" "hpp"
+      "java"))
   
   
   (method (setup-search-reporter reporter count)
@@ -220,12 +238,14 @@
   
   (method (search-jazz-files targets reporter)
     (let ((factory (new List-Factory)))
-      (search-in-directories targets (jazz-search-directories) '("scm" "jazz" "jml") (get-expression?) factory reporter)
+      (search-in-directories targets (default-search-directories) (default-search-extensions) (get-expression?) factory reporter)
       (get-output~ factory)))
   
   
-  (method (search-c-files targets reporter)
+  (method (search-user-files targets reporter)
     (let ((factory (new List-Factory))
-          (directories (get-c-directories~ (get-preferences '(tools search-manager)))))
-      (search-in-directories targets directories '("c" "cpp" "h" "java") (get-expression?) factory reporter)
-      (get-output~ factory)))))
+          (pref (get-preferences '(tools search-manager))))
+      (let ((directories (either (get-user-directories~ pref) (default-search-directories)))
+            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
+        (search-in-directories targets directories extensions (get-expression?) factory reporter)
+        (get-output~ factory))))))

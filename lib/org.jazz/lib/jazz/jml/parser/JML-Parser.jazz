@@ -43,33 +43,7 @@
         (jazz.library))
 
 
-(class JML-Parser-Class extends Class
-  
-   
-  (slot patterns initialize '())
-  
-  
-  (method public (get-patterns)
-    patterns)
-  
-  
-  (method public (add-pattern pattern)
-    (unless (memq? pattern patterns)
-      (set! patterns (cons pattern patterns))))
-  
-  
-  (method public (has-pattern? tag)
-    (let ((class self)
-          (found? #f))
-      (while (and (not found?) (neq? class JML-Parser))
-        (let ((patterns (get-patterns~ class)))
-          (if (memq? tag patterns)
-              (set! found? #t)
-            (set! class (type-ascendant class)))))
-      found?)))
-
-
-(class JML-Parser metaclass JML-Parser-Class extends Object
+(class JML-Parser extends Object
   
   
   ;;;
@@ -114,9 +88,7 @@
   
   
   (method (parse-any parent object)
-    (if (pattern-expr? object)
-        (parse-pattern parent object)
-      (parse-noexpand parent object)))
+    (parse-noexpand parent object))
   
   
   (method (parse-noexpand parent object)
@@ -135,15 +107,6 @@
                 object))
           (else
            (error "Unable to parse: {s}" object))))
-  
-  
-  (method (parse-pattern parent pattern)
-    (let* ((first (car pattern))
-           (tag (tag->name first))
-           (expansion (expand-pattern pattern tag)))
-      (if (and (pair? expansion) (eq? (car expansion) first))
-          (parse-noexpand parent expansion)
-        (parse-any parent expansion))))
   
   
   (method (parse-node parent expr)
@@ -256,24 +219,10 @@
       expr))
   
   
-  (method (pattern-expr? expr)
-    (and (pair? expr)
-         (let ((first (car expr)))
-           (and (tag? first)
-                (let ((class (class-of self))
-                      (tag (tag->name first)))
-                  (has-pattern?~ class tag))))))
-  
-  
   (method (tagged-expr? expr)
     (and (pair? expr)
          (let ((first (car expr)))
            (tag? first))))
-  
-  
-  (method (expand-pattern tree tag)
-    (let ((proc (dispatch self tag)))
-      (proc~ self tree)))
   
   
   ;;;

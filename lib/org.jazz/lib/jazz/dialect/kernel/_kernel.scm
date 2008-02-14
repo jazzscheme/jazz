@@ -365,6 +365,8 @@
 
 (native port?)
 (native jazz.close-port)
+(native jazz.input-port-timeout-set!)
+(native jazz.output-port-timeout-set!)
 
 
 ;;;

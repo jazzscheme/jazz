@@ -4432,7 +4432,7 @@
       (info              . #x05)
       (backspace         . #x08)
       (tab               . #x09)
-      (line-feed         . #x0A)
+      (linefeed          . #x0A)
       (page-up           . #x0B)
       (page-down         . #x0C)
       (return            . #x0D)

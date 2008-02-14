@@ -63,7 +63,7 @@
   #f)
 
 ;; make it available at compile-time
-(compile-time-load "~~/lib/termite/match-support.scm")
+(compile-time-load "match-support.scm")
 
 ;; make it available at run-time
 (##include "match-support.scm")

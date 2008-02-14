@@ -52,7 +52,7 @@
   
   
   (slot host)
-  (slot port)
+  (slot service)
   (slot operation)
   (slot resource)
   (slot version)
@@ -61,15 +61,17 @@
   (slot session    initialize {})
   
   
-  (method (initialize (operation: operation {}) (resource: resource {}) (parameters: parameters '()) (socket: socket {}))
+  (method (initialize (operation: operation {}) (resource: resource {}) (parameters: parameters '()) (port: port {}))
     (nextmethod)
     (set! operation~self operation)
     (set! resource~self resource)
     (set! parameters~self parameters)
-    (when socket
-      (set! host (get-host~ socket))
-      (set! port (get-port~ socket))
-      (parse-request socket)))
+    (when port
+      @convert
+      (set! host (get-host~ port))
+      @convert
+      (set! service (get-service~ port))
+      (parse-request port)))
   
   
   ;;;
@@ -111,9 +113,8 @@ Cookie: SessionID=nil
 "
   
   
-  (method (parse-request socket)
-    (let* ((block (receive-raw~ socket))
-           (message (coerce block String)))
+  (method (parse-request port)
+    (let ((message (receive-string port)))
       (receive (head body) (split-message message)
         (bind (line . headers) (split-head head)
           (bind (operation resource version) (split line " ")
@@ -123,13 +124,13 @@ Cookie: SessionID=nil
               (set! version~self version)
               (parse-headers headers)
               (parse-cookies Cookie-Header)
-              (let ((body (receive-body socket body)))
+              (let ((body (receive-body port body)))
                 (set! parameters~self (parse-parameters (either fragment body))))))))))
   
   
   (method (parse-resource resource)
     (let ((pos (find resource #\question-mark)))
-      (if (null? pos)
+      (if (not pos)
           (values (url-decode (subseq resource 1))
                   {})
         (values (url-decode (subseq resource 1 pos))
@@ -160,8 +161,8 @@ Cookie: SessionID=nil
     host)
 
 
-  (method public (get-port)
-    port)
+  (method public (get-service)
+    service)
 
 
   (method public (get-operation)

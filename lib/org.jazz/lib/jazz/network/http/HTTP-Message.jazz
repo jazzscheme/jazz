@@ -56,19 +56,19 @@
   
   
   (definition Header-End
-    (string #\return #\line-feed #\return #\line-feed))
+    (string #\newline #\newline))
     
   
   (definition Line-Separator
-    (string #\return #\line-feed))
+    (string #\newline))
 
   
   (method (split-message message)
     (let ((end (search message Header-End)))
-      (if (null? end)
+      (if (not end)
           (values message {})
         (values (subseq message 0 end)
-                (subseq message (+ end (length Header-End)))))))
+                (subseq message (+ end (cardinality Header-End)))))))
   
   
   ;; First approximation not taking into account
@@ -88,7 +88,9 @@
   
   
   (method (parse-cookies header)
-    (for-each parse-cookie (get-list-header header error?: #f)))
+    (let ((headers (get-list-header header error?: #f)))
+      (when headers
+        (for-each parse-cookie headers))))
   
   
   (method (parse-cookie cookie-value)
@@ -99,21 +101,32 @@
       (add-cookie (new HTTP-Cookie name value))))
   
   
+  ;; temp quick conversion
+  (method (receive-string port)
+    (let ((output (open-output-string)))
+      (input-port-timeout-set! port 0.1)
+      (let (loop)
+        (let ((c (read-char port)))
+          (when (not (eof-object? c))
+            (write-char c output)
+            (loop))))
+      (get-output-string output)))
+  
+  
   ;; I think this is generic for both request and response
-  (method (receive-body socket body)
+  (method (receive-body port body)
     (let ((content-length (get-header "Content-Length" error?: #f)))
-      (if (null? content-length)
+      (if (not content-length)
           body
         (let ((content-length (parse-integer content-length))
-              (body-length (length body)))
+              (body-length (cardinality body)))
           (if (= content-length body-length)
               body
             (let ((printer (open-output-string))
                   (total body-length))
               (format printer "{a}" body)
               (while (< total content-length)
-                (let* ((block (receive-raw~ socket))
-                       (string (coerce block String)))
+                (let ((string (receive-string port)))
                   (format printer "{a}" string)
                   (increase! total (cardinality string))))
               (get-output-string printer)))))))
@@ -183,12 +196,9 @@
   ;;;
   
   
-  (method public virtual (send-message socket)
-    (unimplemented 'send-message)
-    @windows-specific
-    (let* ((string (message-string))
-           (block (coerce string Heap-Block)))
-      (send-raw~ socket block)))
+  (method public virtual (send-message port)
+    (let ((string (message-string)))
+      (display string port)))
   
   
   (method protected virtual (message-string)

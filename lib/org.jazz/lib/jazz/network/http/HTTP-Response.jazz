@@ -55,12 +55,12 @@
   (slot body)
   
   
-  (method (initialize (code: code {}) (body: body {}) (socket: socket {}))
+  (method (initialize (code: code {}) (body: body {}) (port: port {}))
     (nextmethod)
     (set! code~self (either code 'ok))
     (set! body~self body)
-    (when socket
-      (parse-response socket)))
+    (when port
+      (parse-response port)))
   
   
   ;;;
@@ -92,9 +92,8 @@ Set-Cookie: SessionID=nil
 ..."
   
   
-  (method (parse-response socket)
-    (let* ((block (receive-raw~ socket))
-           (message (coerce block String)))
+  (method (parse-response port)
+    (let ((message (receive-string port)))
       (receive (head body) (split-message message)
         (bind (line . headers) (split-head head)
           (bind (version code code-text) (split line " ")
@@ -102,7 +101,7 @@ Set-Cookie: SessionID=nil
             (set! code~self (parse-code code))
             (parse-headers headers)
             (parse-cookies Cookie-Header)
-            (set! body~self (receive-body socket body)))))))
+            (set! body~self (receive-body port body)))))))
   
   
   ;;;

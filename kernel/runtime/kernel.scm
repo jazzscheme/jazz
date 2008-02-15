@@ -706,15 +706,15 @@
 ;;;
 
 
-(define jazz.LoadMutex
-  (make-mutex 'LoadMutex))
+(define jazz.Load-Mutex
+  (make-mutex 'Load-Mutex))
 
 
-(define jazz.LoadThread
+(define jazz.Load-Thread
   #f)
 
 
-(define jazz.LoadStack
+(define jazz.Load-Stack
   '())
 
 
@@ -727,18 +727,18 @@
     (cond ((%%eq? module-state jazz.Loaded-State)
            ;; nothing to do
            )
-          ((%%eq? jazz.LoadThread (current-thread))
+          ((%%eq? jazz.Load-Thread (current-thread))
            (jazz.load-module-impl module-name))
           (else
-           (if (mutex-lock! jazz.LoadMutex)
+           (if (mutex-lock! jazz.Load-Mutex)
                (dynamic-wind
                  (lambda ()
-                   (set! jazz.LoadThread (current-thread)))
+                   (set! jazz.Load-Thread (current-thread)))
                  (lambda ()
                    (jazz.load-module-impl module-name))
                  (lambda ()
-                   (set! jazz.LoadThread #f)
-                   (mutex-unlock! jazz.LoadMutex)))
+                   (set! jazz.Load-Thread #f)
+                   (mutex-unlock! jazz.Load-Mutex)))
              ;; reacquire mutex
              (jazz.load-module module-name))))))
 
@@ -751,12 +751,12 @@
            (dynamic-wind
              (lambda ()
                (jazz.set-environment-module module-name jazz.Loading-State)
-               (set! jazz.LoadStack (cons module-name jazz.LoadStack)))
+               (set! jazz.Load-Stack (cons module-name jazz.Load-Stack)))
              (lambda ()
                (parameterize ((jazz.requested-module-name module-name))
                  (jazz.load-source (jazz.find-module-src module-name))))
              (lambda ()
-               (set! jazz.LoadStack (cdr jazz.LoadStack))
+               (set! jazz.Load-Stack (cdr jazz.Load-Stack))
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                    (jazz.set-environment-module module-name jazz.Unloaded-State))))))))
 
@@ -766,10 +766,10 @@
 
 
 (define (jazz.unload-module module-name)
-  (if (mutex-lock! jazz.LoadMutex)
+  (if (mutex-lock! jazz.Load-Mutex)
       (begin
         (jazz.set-environment-module module-name jazz.Unloaded-State)
-        (mutex-unlock! jazz.LoadMutex))
+        (mutex-unlock! jazz.Load-Mutex))
     ;; reacquire mutex
     (jazz.unload-module module-name)))
 

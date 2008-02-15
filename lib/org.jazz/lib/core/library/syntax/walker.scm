@@ -541,7 +541,11 @@
                                  (let ((module-name (%%get-declaration-reference-name (%%get-library-invoice-library library-invoice))))
                                    (for-each (lambda (decl)
                                                (let ((name (jazz.identifier-name (%%get-declaration-reference-name decl))))
-                                                 (jazz.enqueue queue `(jazz.register-autoload ',name ',module-name))))
+                                                 (let ((symbol-name (jazz.compose-name module-name name)))
+                                                   (jazz.enqueue queue `(jazz.register-autoload ',name ',module-name
+                                                                          (lambda ()
+                                                                            (jazz.load-module ',module-name)
+                                                                            ,symbol-name))))))
                                              autoload)))
                                (else
                                 (let ((library-declaration (jazz.resolve-reference (%%get-library-invoice-library library-invoice) declaration))
@@ -5013,22 +5017,25 @@
 
 
 (define (jazz.load-toplevel-declaration module-name)
-  (let ((source (jazz.resource-pathname (jazz.find-module-src module-name))))
-    (define (load-declaration)
-      (let ((form (jazz.read-toplevel-form source)))
-        (parameterize ((jazz.requested-module-name module-name))
-          (case (%%car form)
-            ((module)
-             (jazz.parse-module-declaration (%%cdr form)))
-            ((library)
-             (jazz.parse-library-declaration (%%cdr form)))))))
-    
-    (jazz.with-verbose jazz.parse-verbose? "parsing" source
-      (lambda ()
-        (load-declaration)))))
+  (let ((src (jazz.find-module-src module-name)))
+    (let ((source (jazz.resource-pathname src)))
+      (define (load-declaration)
+        (let ((form (jazz.read-toplevel-form source)))
+          (parameterize ((jazz.requested-module-name module-name)
+                         (jazz.requested-module-resource src))
+            (case (%%car form)
+              ((module)
+               (jazz.parse-module-declaration (%%cdr form)))
+              ((library)
+               (jazz.parse-library-declaration (%%cdr form)))))))
+      
+      (jazz.with-verbose jazz.parse-verbose? "parsing" source
+        (lambda ()
+          (load-declaration))))))
 
 
-(define jazz.parse-read? (make-parameter #f))
+(define jazz.parse-read?
+  (make-parameter #f))
 
 
 (define (jazz.read-toplevel-form source . rest)

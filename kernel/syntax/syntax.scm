@@ -150,7 +150,7 @@
 
 
 (jazz.define-macro (%%make-package repository name root path)
-  `(%%vector 'package ,repository ,name ,root ,path))
+  `(%%vector 'package ,repository ,name ,root ,path (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -164,6 +164,9 @@
 
 (jazz.define-macro (%%package-path package)
   `(%%vector-ref ,package 4))
+
+(jazz.define-macro (%%package-autoloads package)
+  `(%%vector-ref ,package 5))
 
 
 ;;;

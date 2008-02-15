@@ -463,6 +463,36 @@
             (%%make-resource package path last-extension)))))))
 
 
+(define (jazz.get-package-autoload package name)
+  (%%table-ref (%%package-autoloads package) name #f))
+
+
+(define (jazz.set-package-autoload package name module-name loader)
+  (%%table-set! (%%package-autoloads package) name (%%cons module-name loader)))
+
+
+(define (jazz.require-package-autoload package name)
+  (or (jazz.get-package-autoload package name)
+      (jazz.error "Unable to find autoload {s} in package {s}" name (%%package-name package))))
+
+
+(define (jazz.register-package-autoload package name module-name loader)
+  (let ((actual (jazz.get-package-autoload package name)))
+    (if (or (%%not actual) (%%eq? (%%car actual) module-name))
+        (jazz.set-package-autoload package name module-name loader)
+      (jazz.error "Conflict detected for autoload {s} in package {s} between {s} and {s}" name (%%package-name package) (%%car actual) module-name))))
+
+
+(define (jazz.package-autoload package name)
+  (let ((autoload-info (jazz.require-package-autoload package name)))
+    ((%%cdr autoload-info))))
+
+
+(define (jazz.module-autoload module-name name)
+  (let ((src (jazz.find-module-src module-name)))
+    (jazz.package-autoload (%%resource-package src) name)))
+
+
 ;;;
 ;;;; Resource
 ;;;
@@ -709,16 +739,17 @@
 (define jazz.Load-Mutex
   (make-mutex 'Load-Mutex))
 
-
 (define jazz.Load-Thread
   #f)
-
 
 (define jazz.Load-Stack
   '())
 
 
 (define jazz.requested-module-name
+  (make-parameter #f))
+
+(define jazz.requested-module-resource
   (make-parameter #f))
 
 
@@ -753,8 +784,10 @@
                (jazz.set-environment-module module-name jazz.Loading-State)
                (set! jazz.Load-Stack (cons module-name jazz.Load-Stack)))
              (lambda ()
-               (parameterize ((jazz.requested-module-name module-name))
-                 (jazz.load-source (jazz.find-module-src module-name))))
+               (let ((src (jazz.find-module-src module-name)))
+                 (parameterize ((jazz.requested-module-name module-name)
+                                (jazz.requested-module-resource src))
+                   (jazz.load-source src))))
              (lambda ()
                (set! jazz.Load-Stack (cdr jazz.Load-Stack))
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)

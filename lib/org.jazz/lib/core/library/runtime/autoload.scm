@@ -35,8 +35,8 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;; This is a temporary solution to Jazz needing global access to classes by name
-;; Because of forms, it is not a simple problem and has to be well thought out...
+;; The global autoload table is a temporary solution to Jazz needing global access
+;; to classes by name for forms. This problem has to be well thought out...
 
 
 (module core.library.runtime.autoload
@@ -54,8 +54,8 @@
   (%%table-ref jazz.Autoloads name #f))
 
 
-(define (jazz.set-autoload name module-name)
-  (%%table-set! jazz.Autoloads name module-name))
+(define (jazz.set-autoload name module-name loader)
+  (%%table-set! jazz.Autoloads name (%%cons module-name loader)))
 
 
 (define (jazz.require-autoload name)
@@ -63,20 +63,21 @@
       (jazz.error "Unable to find autoload {s}" name)))
 
 
-(define (jazz.register-autoload name module-name)
+(define (jazz.register-autoload name module-name loader)
   (let ((actual (jazz.get-autoload name)))
-    (if (or (%%not actual) (%%eq? actual module-name))
-        (jazz.set-autoload name module-name)
-      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name actual module-name))))
+    (if (or (%%not actual) (%%eq? (%%car actual) module-name))
+        (jazz.set-autoload name module-name loader)
+      (jazz.error "Conflict detected for autoload {s} between {s} and {s}" name (%%car actual) module-name)))
+  (let ((package (%%resource-package (jazz.requested-module-resource))))
+    (jazz.register-package-autoload package name module-name loader)))
 
 
 (define (jazz.autoload name)
-  (let ((module-name (jazz.require-autoload name)))
-    (jazz.load-module module-name)
-    (jazz.global-value (%%compose-name module-name name))))
+  (let ((autoload-info (jazz.require-autoload name)))
+    ((%%cdr autoload-info))))
 
 
 (define (jazz.autoreload name)
-  (let ((module-name (jazz.require-autoload name)))
-    (jazz.reload-module module-name)
-    (jazz.global-value (%%compose-name module-name name)))))
+  (let ((autoload-info (jazz.require-autoload name)))
+    (jazz.reload-module (%%car autoload-info))
+    ((%%cdr autoload-info)))))

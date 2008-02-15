@@ -108,7 +108,8 @@
         ("copyright"            . #\xA9)))
     
     
-    (define jazz.in-expression-comment? (make-parameter #f))
+    (define jazz.in-expression-comment?
+      (make-parameter #f))
     
     
     (define (jazz.read-literal re c)

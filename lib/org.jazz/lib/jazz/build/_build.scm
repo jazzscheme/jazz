@@ -56,12 +56,14 @@
 
 
 (define (expand-to-port library-name port)
-  (let ((source (jazz.resource-pathname (jazz.find-module-src library-name))))
-    (let ((form (jazz.read-toplevel-form source #f)))
-      (let ((kind (car form))
-            (rest (cdr form)))
-        (pretty-print (parameterize ((jazz.requested-module-name library-name))
-                        (case kind
-                          ((module) (jazz.expand-module (car rest) (cdr rest)))
-                          ((library) (jazz.expand-library rest))))
-                      port))))))
+  (let* ((src (jazz.find-module-src library-name))
+         (source (jazz.resource-pathname src))
+         (form (jazz.read-toplevel-form source #f))
+         (kind (car form))
+         (rest (cdr form)))
+    (pretty-print (parameterize ((jazz.requested-module-name library-name)
+                                 (jazz.requested-module-resource src))
+                    (case kind
+                      ((module) (jazz.expand-module (car rest) (cdr rest)))
+                      ((library) (jazz.expand-library rest))))
+                  port))))

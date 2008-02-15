@@ -50,7 +50,8 @@
 
 (define (jazz.compile-module module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (let ((src (jazz.find-module-src module-name)))
-    (parameterize ((jazz.requested-module-name module-name))
+    (parameterize ((jazz.requested-module-name module-name)
+                   (jazz.requested-module-resource src))
       (jazz.compile-source src module-name options: options cc-options: cc-options ld-options: ld-options force?: force?))))
 
 

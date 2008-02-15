@@ -43,6 +43,7 @@
         (jazz.io)
         (jazz.platform)
         (jazz.platform.cairo)
+	(jazz.platform.carbon)
         (jazz.ui)
         (time))
 
@@ -82,12 +83,78 @@
 
 
 (definition (prepare-handle window parent rest)
-  (bind-keywords ((handle {}) . others) rest
-    (let ((handle (create-handle window parent rest)))
-      (if (not handle)
-          (error "Unable to create x11 window")
-        (XSelectInput 
-          default-x11-display 
-          handle 
-          (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
-        handle)))))
+  (let ((handle (if (is? window Toplevel)
+		    (create-window-handle window parent rest)
+		    (create-HIView-handle window parent rest))))))
+
+
+(definition (create-HIView-handle window parent rest)
+  (let ((parent-handle (HIViewGetContent parent))
+	(new-handle (HIViewCreate)))
+    (HIViewAddSubview parent-handle new-handle)
+    (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
+    (InstallControlEventHandler new-handle)
+    new-handle))
+
+
+(definition (create-window-handle window parent rest)
+    (let ((handle (CreateNewWindow kDocumentWindowClass
+				   (bitwise-ior kWindowStandardDocumentAttributes
+						kWindowStandardHandlerAttribute
+						kWindowLiveResizeAttribute
+						kWindowCompositingAttribute)
+				   100
+				   100
+				   600
+				   600)))
+      (InstallWindowEventHandler handle)
+      handle))
+
+
+(definition (process-window-messages)
+  (RunApplicationEventLoop))
+  
+
+
+(definition (process-window-message handler event userdata)
+  (let ((type (GetEventKind event)))
+    (cond
+     ((= type kEventWindowClose)
+      (QuitApplicationEventLoop)
+      noErr)
+     ((= type kEventWindowBoundsChanged)
+      noErr)
+     (else
+      eventNotHandledErr))))
+
+(set-process-window-message process-window-message)
+
+(definition (process-control-message handler event userdata)
+  (let ((type (GetEventKind event)))
+    (cond
+     ((= type kEventControlDraw)
+      (let ((context (EventCGContext event))
+	    (handle (void*->HIViewRef userdata)))
+	(receive (left top width height) (HIViewGetBounds handle)
+	   (let ((surface (new Surface (cairo_quartz_surface_create_for_cg_context context (inexact->exact width) (inexact->exact height)))))
+	     (set-color~ surface (new Color red: 255 green: 0 blue: 0))
+	     (paint~ surface)
+	     (set-color~ surface (new Color red: 0 green: 0 blue: 255))
+	     (line~ surface 10 10 250 250)
+	     (line~ surface 250 250 10 490)
+	     (stroke~ surface))))
+      noErr)
+     (else
+      eventNotHandledErr))))
+
+(set-process-control-message process-control-message)
+
+
+(definition (show-view handle)
+  (HIViewSetVisible handle #t))
+
+
+(definition (show-window handle)
+  (ShowWindow handle)))
+    
+		       

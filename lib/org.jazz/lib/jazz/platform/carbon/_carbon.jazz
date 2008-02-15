@@ -38,7 +38,8 @@
 (library jazz.platform.carbon jazz
 
 
-(import (jazz.platform.types)
+(import 
+        (jazz.platform.types)
         (jazz.platform.carbon.carbon-types))
 
 
@@ -78,6 +79,7 @@
 							 kWindowFullZoomAttribute
 							 kWindowCollapseBoxAttribute
 							 kWindowResizableAttribute))
+(constant kWindowCompositingAttribute       (arithmetic-shift 1 19))
 (constant kWindowStandardHandlerAttribute   (arithmetic-shift 1 25))
 (constant kWindowLiveResizeAttribute        (arithmetic-shift 1 28))
 
@@ -90,6 +92,14 @@
 
 
 ;;;
+;;;; Control Events
+;;;
+
+
+(constant kEventControlDraw 4)
+
+
+;;;
 ;;;; Window Events
 ;;;
 
@@ -98,6 +108,14 @@
 (constant kEventWindowShowing 22)
 (constant kEventWindowClose   72)
 (constant kEventWindowBoundsChanged 27)
+
+
+;;;
+;;;; HIObject Classes
+;;;
+
+
+(constant kHIViewClassID ((c-function () CFStringRef "___result_voidstar = kHIViewClassID;")))
 
 
 ;;;
@@ -125,6 +143,41 @@
 (c-external void (RunApplicationEventLoop))
 (c-external void (QuitApplicationEventLoop))
 (c-external EventKind (GetEventKind EventRef))
+(c-external HIViewRef (HIViewGetRoot WindowRef))
+(c-external OSStatus  (HIViewAddSubview HIViewRef HIViewRef))
+(c-external void      (HIViewSetVisible HIViewRef Bool))
+
+
+(definition HIViewGetContent
+  (c-function (WindowRef) HIViewRef
+     "HIViewRef content = NULL;
+      HIViewFindByID( HIViewGetRoot( ___arg1 ), kHIViewWindowContentID, &content );
+      ___result_voidstar = content;"))
+
+
+(definition HIViewSetFrame
+  (c-function (HIViewRef double double double double) OSStatus
+     "HIRect rect = { {___arg2, ___arg3}, {___arg4, ___arg5}};
+      ___result = HIViewSetFrame(___arg1, &rect);"))
+
+
+(definition (HIViewGetBounds view)
+  (let* ((carbon-rect ((c-function (HIViewRef) CGRect*
+                          "CGRect *rect = malloc(sizeof(CGRect));
+                           HIViewGetBounds( ___arg1, rect );
+                           ___result_voidstar = rect;")
+                       view))
+	 (left (CGPoint-x-ref (CGRect-origin-ref carbon-rect)))
+	 (top  (CGPoint-y-ref (CGRect-origin-ref carbon-rect)))
+	 (width (CGSize-width-ref (CGRect-size-ref carbon-rect)))
+	 (height (CGSize-height-ref (CGRect-size-ref carbon-rect))))
+    (CGRect-free carbon-rect)
+    (values left top width height)))
+
+
+(definition void*->HIViewRef
+  (c-function (void*) HIViewRef
+     "___result_voidstar = (HIViewRef)___arg1;"))
 
 
 (definition TransformProcessType
@@ -134,22 +187,59 @@
 
 
 (definition CreateNewWindow 
-  (c-function (WindowClass WindowAttributes Rect*) WindowRef
+  (c-function (WindowClass WindowAttributes short short short short) WindowRef
       "WindowRef ret;
-       CreateNewWindow (___arg1,___arg2,___arg3,&ret);
+       Rect bounds;
+       bounds.top = ___arg3;
+       bounds.left = ___arg4;
+       bounds.bottom = ___arg5;
+       bounds.right = ___arg6;
+       CreateNewWindow (___arg1,___arg2,&bounds,&ret);
        ___result_voidstar = ret;"))
 
+
+(definition HIViewCreate
+  (c-function () HIViewRef
+     "HIObjectRef obj;
+      HIObjectCreate( kHIViewClassID, NULL, &obj );
+      ___result_voidstar = (HIViewRef)obj;"))
+
+
+(definition EventCGContext
+  (c-function (EventRef) CGContextRef
+     "CGContextRef ref;
+      GetEventParameter( ___arg1, kEventParamCGContextRef, typeCGContextRef, NULL, sizeof(CGContextRef), NULL, &ref );
+      ___result_voidstar = ref;"))
 
 (definition process-window-message
   #f)
 
+(definition process-control-message
+  #f)
 
 (definition public (set-process-window-message proc)
   (set! process-window-message proc))
 
 
+(definition public (set-process-control-message proc)
+  (set! process-control-message proc))
+
+
 (c-definition (call-process-window-message myHandler theEvent userdata) (EventHandlerCallRef EventRef void*) OSStatus "call_process_window_message" ""
    (process-window-message myHandler theEvent userdata))
+
+
+(c-definition (call-process-control-message myHandler theEvent userdata) (EventHandlerCallRef EventRef void*) OSStatus "call_process_control_message" ""
+   (process-control-message myHandler theEvent userdata))
+
+
+(definition InstallControlEventHandler
+  (c-function (ControlRef) OSStatus
+    "EventTypeSpec standard[] = {
+       {kEventClassControl, kEventControlDraw}
+     };
+
+     ___result = InstallControlEventHandler( ___arg1, NewEventHandlerUPP(call_process_control_message), GetEventTypeCount(standard), standard, ___arg1, NULL);"))
 
 
 (definition InstallWindowEventHandler

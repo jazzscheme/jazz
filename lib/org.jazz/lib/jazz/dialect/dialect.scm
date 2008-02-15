@@ -1134,7 +1134,7 @@
 (define (jazz.cache-dispatch-interpreted object name setter ignore)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
-      (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
+      (%%debug-assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
         (let ((field (%%get-category-field category name)))
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
@@ -1153,7 +1153,7 @@
 (define (jazz.cache-dispatch-compiled object name setter ignore)
   (let ((class (%%class-of object)))
     (let ((category (jazz.locate-method-owner class name)))
-      (%%assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
+      (%%debug-assertion category (jazz.error "Unable to find method {s} in: {s}" name object)
         (let ((field (%%get-category-field category name)))
           (define (dispatch proc)
             (case (%%get-method-dispatch-type field)
@@ -1170,17 +1170,17 @@
 
 
 (define (jazz.final-dispatch object field ignore type)
-  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
     (%%final-dispatch object (%%get-method-implementation field))))
 
 
 (define (jazz.class-dispatch object class-level implementation-rank type)
-  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
     (%%class-dispatch object class-level implementation-rank)))
 
 
 (define (jazz.interface-dispatch object interface-rank implementation-rank type)
-  (%%assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
     (%%interface-dispatch object interface-rank implementation-rank)))
 
 

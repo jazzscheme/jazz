@@ -604,7 +604,7 @@
 
 
 (define (jazz.new class . rest)
-  (%%assert (%%class? class)
+  (%%debug-assert (%%class? class)
     (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
@@ -613,7 +613,7 @@
 
 
 (define (jazz.new0 class)
-  (%%assert (%%class? class)
+  (%%debug-assert (%%class? class)
     (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
@@ -622,7 +622,7 @@
 
 
 (define (jazz.new1 class arg1)
-  (%%assert (%%class? class)
+  (%%debug-assert (%%class? class)
     (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
@@ -631,7 +631,7 @@
 
 
 (define (jazz.new2 class arg1 arg2)
-  (%%assert (%%class? class)
+  (%%debug-assert (%%class? class)
     (let ((object (%%make-object (%%get-class-instance-size class))))
       (%%set-object-class object class)
       (jazz.initialize-slots object)
@@ -1603,13 +1603,13 @@
 
 
 (define (jazz.slot-value object slot-name)
-  (%%assert (%%object? object)
+  (%%debug-assert (%%object? object)
     (let ((slot (jazz.require-object-field object slot-name)))
       (%%get-object-slot object (%%get-slot-offset slot)))))
 
 
 (define (jazz.set-slot-value object slot-name value)
-  (%%assert (%%object? object)
+  (%%debug-assert (%%object? object)
     (let ((slot (jazz.require-object-field object slot-name)))
       (%%set-object-slot object (%%get-slot-offset slot) value))))
 

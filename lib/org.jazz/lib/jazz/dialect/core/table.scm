@@ -39,22 +39,22 @@
 
 
 (define (jazz.table-clear table key)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%table-clear table key)))
 
 
 (define (jazz.table-keys table)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%table-keys table)))
 
 
 (define (jazz.table-length table)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%table-length table)))
 
 
 (define (jazz.iterate-table table proc)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%iterate-table table proc)))
 
 
@@ -63,12 +63,12 @@
 
 
 (define (jazz.table->list table)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%table->list table)))
 
 
 (define (jazz.table-entries table)
-  (%%assert (%%table? table)
+  (%%debug-assert (%%table? table)
     (%%table-entries table)))
 
 

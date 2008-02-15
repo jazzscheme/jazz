@@ -706,30 +706,59 @@
 ;;;
 
 
+(define jazz.LoadMutex
+  (make-mutex 'LoadMutex))
+
+
+(define jazz.LoadThread
+  #f)
+
+
+(define jazz.LoadStack
+  '())
+
+
 (define jazz.requested-module-name
   (make-parameter #f))
 
 
 (define (jazz.load-module module-name)
   (let ((module-state (jazz.get-environment-module module-name)))
-    (cond ((%%eq? module-state jazz.Unloaded-State)
+    (cond ((%%eq? module-state jazz.Loaded-State)
+           ;; nothing to do
+           )
+          ((%%eq? jazz.LoadThread (current-thread))
+           (jazz.load-module-impl module-name))
+          (else
+           (if (mutex-lock! jazz.LoadMutex)
+               (dynamic-wind
+                 (lambda ()
+                   (set! jazz.LoadThread (current-thread)))
+                 (lambda ()
+                   (jazz.load-module-impl module-name))
+                 (lambda ()
+                   (set! jazz.LoadThread #f)
+                   (mutex-unlock! jazz.LoadMutex)))
+             ;; reacquire mutex
+             (jazz.load-module module-name))))))
+
+
+(define (jazz.load-module-impl module-name)
+  (let ((module-state (jazz.get-environment-module module-name)))
+    (cond ((%%eq? module-state jazz.Loading-State)
+           (jazz.error "Circular loading of module: {s}" module-name))
+          ((%%eq? module-state jazz.Unloaded-State)
            (dynamic-wind
              (lambda ()
-               (jazz.set-environment-module module-name jazz.Loading-State))
+               (jazz.set-environment-module module-name jazz.Loading-State)
+               (set! jazz.LoadStack (cons module-name jazz.LoadStack)))
              (lambda ()
                (parameterize ((jazz.requested-module-name module-name))
-                 (block-tail-call
-                   (jazz.load-source (jazz.find-module-src module-name)))))
+                 (jazz.load-source (jazz.find-module-src module-name))))
              (lambda ()
+               (set! jazz.LoadStack (cdr jazz.LoadStack))
                (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
-                   (jazz.set-environment-module module-name jazz.Unloaded-State)))))
-          ((%%eq? module-state jazz.Loading-State)
-           (jazz.error "Circular loading of module: {s}" module-name)))))
-
-
-(define (jazz.module-loaded? module-name)
-  (let ((module (jazz.get-environment-module module-name)))
-    (and module (%%neq? module ':loading))))
+                   (jazz.set-environment-module module-name jazz.Unloaded-State))))))))
 
 
 (define (jazz.module-loaded module-name)
@@ -737,7 +766,12 @@
 
 
 (define (jazz.unload-module module-name)
-  (jazz.set-environment-module module-name jazz.Unloaded-State))
+  (if (mutex-lock! jazz.LoadMutex)
+      (begin
+        (jazz.set-environment-module module-name jazz.Unloaded-State)
+        (mutex-unlock! jazz.LoadMutex))
+    ;; reacquire mutex
+    (jazz.unload-module module-name)))
 
 
 (define (jazz.reload-module module-name)

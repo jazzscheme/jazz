@@ -92,7 +92,7 @@
 (cond-expand
   (gambit
     (define jazz.mutex? mutex?)
-    (define jazz.make-thread make-thread)
+    (define jazz.make-mutex make-mutex)
     (define jazz.mutex-name mutex-name)
     (define jazz.mutex-specific mutex-specific)
     (define jazz.mutex-specific-set! mutex-specific-set!)

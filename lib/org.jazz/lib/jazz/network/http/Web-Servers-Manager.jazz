@@ -38,14 +38,15 @@
 (library jazz.network.http.Web-Servers-Manager jazz
 
 
-(import (jazz.jml)
-        (jazz.io)
+(import (jazz.io)
+        (jazz.jml)
         (jazz.library)
         (jazz.library.component)
+        (jazz.literals)
         (jazz.network)
         (jazz.platform)
         (jazz.ui)
-        (jazz.literals)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
@@ -140,23 +141,31 @@
   
   
   (method (on-edit-server evt)
-    (edit-server (selected-configuration)))
+    (with-cursor :wait
+      (function ()
+        (edit-server (selected-configuration)))))
   
   
   (method (on-start-server evt)
-    (start-server (selected-configuration))
+    (with-cursor :wait
+      (function ()
+        (start-server (selected-configuration))))
     (update-tools)
     (update-states))
   
   
   (method (on-stop-server evt)
-    (stop-server (selected-configuration))
+    (with-cursor :wait
+      (function ()
+        (stop-server (selected-configuration))))
     (update-tools)
     (update-states))
   
   
   (method (on-restart-server evt)
-    (restart-server (selected-configuration))
+    (with-cursor :wait
+      (function ()
+        (restart-server (selected-configuration))))
     (update-tools)
     (update-states))
   
@@ -191,7 +200,9 @@
   
   
   (method (on-double-click evt)
-    (start/stop-server (selected-configuration))
+    (with-cursor :wait
+      (function ()
+        (start/stop-server (selected-configuration))))
     (update-tools)
     (update-states))
   
@@ -306,8 +317,6 @@
            (default-resource (get-default-resource~ config))
            (unauthentified-resource (get-unauthentified-resource~ config))
            (debug? (get-debug?~ config))
-           (server (new (module-autoload 'jazz.tutorials 'Test-Server) service: 8080))
-           @w
            (server (new (module-autoload module class) host: host service: service root-directory: root-directory default-resource: default-resource unauthentified-resource: unauthentified-resource debug?: debug?)))
       (run~ server)
       (if (not (wait-started~ server error?: #f))
@@ -320,7 +329,9 @@
            (server (find-server name)))
       (when server
         (stop-listener~ server)
-        (table-set! servers name {}))))
+        (if (not (wait-stopped~ server error?: #f))
+            (error "Unable to stop server")
+          (table-set! servers name {})))))
   
   
   (method (restart-server config)

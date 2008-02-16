@@ -249,14 +249,26 @@
 ;;;
 
 
+(definition Threads-Wakeup-Quantum
+  10)
+
+
+(definition (install-threads-wakeup)
+  (SetTimer (get-handle~ (get-toplevel~ (get-application))) 0 Threads-Wakeup-Quantum NULL))
+
+
+(definition (wakeup-threads)
+  (thread-yield!))
+
+
 (definition (platform-process-messages)
+  (install-threads-wakeup)
   (with ((msg (MSG-make)))
-    (let ((hwnd (get-handle~ (get-toplevel~ (get-application)))))
-      ;; get messages from all windows
-      (while (GetMessage msg NULL 0 0)
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg))))))
+    ;; get messages from all windows
+    (while (GetMessage msg NULL 0 0)
+      (unless (translate-shortcut msg)
+        (TranslateMessage msg)
+        (DispatchMessage msg)))))
 
 
 (definition (platform-process-one-message window)
@@ -409,11 +421,8 @@
     ((WM_SETFOCUS)        (call-focus-gain~ window))
     ((WM_KILLFOCUS)       (call-focus-lose~ window wparam))
     ((WM_DROPFILES)       (drop-files~ window wparam))
-    ((WM_SETTINGCHANGE)   (ecase wparam
-                            ((SPI_SETWORKAREA)
-                             @not-correct-to-call-set-fullscreen?
-                             (when (is? window Toplevel)
-                               (set-fullscreen?~ window #t)))))
+    ((WM_SETTINGCHANGE)   (settings-change window wparam))
+    ((WM_TIMER)           (timer wparam))
     (else                 unprocessed)))
 
 
@@ -439,6 +448,18 @@
 
 (definition public (get-window-surface window)
   (cairo_win32_surface_create (GetDC (get-handle~ window))))
+
+
+(definition (settings-change window wparam)
+  (ecase wparam
+    ((SPI_SETWORKAREA)
+     @not-correct-to-call-set-fullscreen?
+     (when (is? window Toplevel)
+       (set-fullscreen?~ window #t)))))
+
+
+(definition (timer wparam)
+  (wakeup-threads))
 
 
 ;;;

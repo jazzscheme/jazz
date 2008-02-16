@@ -551,6 +551,13 @@
 (native jazz.mutex-state)
 (native jazz.mutex-lock!)
 (native jazz.mutex-unlock!)
+(native jazz.condition?)
+(native jazz.make-condition)
+(native jazz.condition-name)
+(native jazz.condition-specific)
+(native jazz.condition-specific-set!)
+(native jazz.condition-signal!)
+(native jazz.condition-broadcast!)
 
 
 ;;;

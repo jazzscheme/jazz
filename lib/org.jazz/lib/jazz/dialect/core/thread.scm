@@ -100,4 +100,22 @@
     (define jazz.mutex-lock! mutex-lock!)
     (define jazz.mutex-unlock! mutex-unlock!))
   
+  (else))
+
+
+;;;
+;;;; Condition
+;;;
+
+
+(cond-expand
+  (gambit
+    (define jazz.condition? condition-variable?)
+    (define jazz.make-condition make-condition-variable)
+    (define jazz.condition-name condition-variable-name)
+    (define jazz.condition-specific condition-variable-specific)
+    (define jazz.condition-specific-set! condition-variable-specific-set!)
+    (define jazz.condition-signal! condition-variable-signal!)
+    (define jazz.condition-broadcast! condition-variable-broadcast!))
+  
   (else)))

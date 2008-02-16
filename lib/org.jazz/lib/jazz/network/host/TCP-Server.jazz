@@ -47,6 +47,7 @@
   
   (slot host)
   (slot service)
+  (slot started-condition)
   (slot state initialize 'stopped)
   
   
@@ -54,7 +55,8 @@
     (bind-keywords ((host {}) (service {})) rest
       (nextmethod)
       (set! host~self host)
-      (set! service~self service)))
+      (set! service~self service)
+      (set! started-condition~self (make-condition))))
 
   
   ;;;
@@ -91,9 +93,14 @@
           (start-listener)))))
   
   
-  ;; convert but is it necessary anymore in gambit?
   (method (wait-started (error?: error? #f))
-    #t)
+    ;; braindead quicky
+    (thread-sleep! 0.25))
+  
+  
+  (method (wait-stopped (error?: error? #f))
+    ;; braindead quicky
+    (thread-sleep! 0.25))
   
   
   ;;;
@@ -123,6 +130,7 @@
       (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf))))
         (input-port-timeout-set! server-port Server-Timeout)
         (set-state 'started)
+        ;;(condition-broadcast! started-condition)
         (let (loop)
           (when (neq? state 'stopping)
             (let ((port (read server-port)))

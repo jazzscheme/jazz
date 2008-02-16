@@ -321,7 +321,55 @@
     (let* ((exception (case exception-handler ((:repl) "r") ((:exit) "q")))
            (command (format "gsc -:da{a},h{a}{a} -" exception maximum-heapsize (if expr (format " -e \"{a}\"" expr) ""))))
       (create-process command directory: {Directory jazz} capture-input?: #f capture-output?: #f capture-error?: #f wait?: #f size: {Dimension 900 500} visible?: #t)))
+    
   
+  ;;;
+  ;;;; ImageMagick
+  ;;;
+  
+  
+  (method (generate-disabled image)
+    (define (convert cmd)
+      (let ((status (shell-command (format "convert {a}" cmd))))
+        (when (/= status 0)
+          (error "Shell command returned ({a})" status))))
+    
+    (let ((directory (get-parent~ image))
+          (name (get-name~ image))
+          (base (get-base~ image))
+          (extension (get-extension~ image)))
+      (let ((grayscale (format "_grayscale_.{a}" extension))
+            (disabled (format "{a}_.{a}" base extension)))
+        (parameterize ((current-directory (parse~ directory)))
+          (unwind-protect
+              (begin
+                (convert (format "-fx G {a} {a}" name grayscale))
+                (convert (format "-channel alpha -fx u-0.6 {a} {a}" grayscale disabled)))
+            (let ((grayscale (new-brother~ image grayscale)))
+              (when (exists?~ grayscale)
+                (delete-file~ grayscale))))))))
+  
+  
+  (method (generate-all-disabled directory extensions)
+    (iterate~ directory
+      (function (file)
+        (when (member (get-extension~ file) extensions test: ci=?)
+          (user-message "Generating disabled for {a}..." (get-name~ file))
+          (generate-disabled file))))
+    (user-message "Done"))
+  
+  
+  (method (buggy-generate-disabled image)
+    (let ((directory (get-parent~ image))
+          (name (get-name~ image))
+          (base (get-base~ image))
+          (extension (get-extension~ image)))
+      (let ((grayscale (format "_grayscale_.{a}" extension))
+            (disabled (format "{a}_.{a}" base extension)))
+        (debug directory name base extension grayscale disabled)
+        (debug (process-status (open-process (list path: "convert" arguments: (list "-fx" "G" name grayscale) directory: (parse~ directory) stdin-redirection: #f stdout-redirection: #f stderr-redirection: #f))))
+        (open-process (list path: "convert" arguments: (list "-channel" "alpha" "-fx" "u-0.6" grayscale disabled) directory: (parse~ directory))))))
+
   
   ;;;
   ;;;; Templates

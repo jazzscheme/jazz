@@ -354,7 +354,7 @@
       (let* ((name (%%get-declaration-reference-name declaration-reference))
              (type jazz.Any)
              (declaration (jazz.new-autoload-declaration name type #f library-declaration exported-library-reference)))
-        (%%debug-assert declaration
+        (%%assert declaration
           (%%set-declaration-reference-declaration declaration-reference declaration)
           declaration))))
 
@@ -687,7 +687,7 @@
              (name (%%get-lexical-binding-name declaration))
              (decl (jazz.lookup-declaration exported-library name #t)))
         (%%set-autoload-declaration-declaration declaration decl)
-        (%%debug-assertion decl (jazz.error "Unable to find autoload: {s}" name)
+        (%%assertion decl (jazz.error "Unable to find autoload: {s}" name)
           decl))))
 
 
@@ -1726,7 +1726,7 @@
 
 
 (define (jazz.new-variable name type)
-  (%%debug-assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-variable jazz.Variable name type 0)))
 
 
@@ -1771,7 +1771,7 @@
 
 
 (define (jazz.new-nextmethod-variable name type)
-  (%%debug-assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-nextmethod-variable jazz.NextMethod-Variable name type 0)))
 
 
@@ -1813,7 +1813,7 @@
 
 
 (define (jazz.new-parameter name type)
-  (%%debug-assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
+  (%%assertion (jazz.variable-name-valid? name) (jazz.error "Invalid variable name: {s}" name)
     (jazz.allocate-parameter jazz.Parameter name type 0)))
 
 
@@ -2428,7 +2428,7 @@
 
 
 (define (jazz.parse-library-invoice specification)
-  (%%debug-assertion (%%pair? specification) (jazz.error "Ill-formed library invoice: {s}" specification)
+  (%%assertion (%%pair? specification) (jazz.error "Ill-formed library invoice: {s}" specification)
     (let ((name (%%car specification))
           (scan (%%cdr specification))
           (version '())
@@ -2749,7 +2749,7 @@
 
 (define (jazz.find-form-declaration namespace-declaration name)
   (let ((declaration (jazz.find-declaration namespace-declaration name)))
-    (%%debug-assertion declaration (jazz.error "Unable to find declaration: {a}" name)
+    (%%assertion declaration (jazz.error "Unable to find declaration: {a}" name)
       declaration)))
 
 
@@ -4690,7 +4690,7 @@
 
 ;; quick first draft
 (define (jazz.parse-proclaim walker resume declaration rest)
-  (%%debug-assert (and (%%pair? rest) (%%null? (%%cdr rest)))
+  (%%assert (and (%%pair? rest) (%%null? (%%cdr rest)))
     (let ((declare (%%car rest)))
       (cond ((%%equal? declare '(optimize))
              (values #t))
@@ -4723,7 +4723,7 @@
     (let ((name (%%car rest)))
       (jazz.parse-specifier (%%cdr rest)
         (lambda (specifier rest)
-          (%%debug-assert (%%null? rest)
+          (%%assert (%%null? rest)
             (values name specifier access compatibility)))))))
 
 
@@ -4995,7 +4995,7 @@
 
 (define (jazz.locate-library-declaration module-name #!optional (error? #t))
   (let ((declaration (jazz.locate-toplevel-declaration module-name error?)))
-    (%%debug-assert (%%class-is? declaration jazz.Library-Declaration)
+    (%%assert (%%class-is? declaration jazz.Library-Declaration)
       declaration)))
 
 

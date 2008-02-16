@@ -350,12 +350,10 @@
 (native jazz.file-copy)
 (native jazz.file-modification-time)
 (native jazz.file-rename)
+(native jazz.current-directory)
 (native jazz.directory-create)
 (native jazz.directory-content)
 (native jazz.directory-delete)
-(native jazz.get-current-directory)
-(native jazz.set-current-directory)
-(native jazz.with-current-directory)
 
 
 ;;;
@@ -502,7 +500,8 @@
 ;;;
 
 
-(native open-process)
+(native jazz.open-process)
+(native jazz.process-status)
 (native jazz.exit)
 
 

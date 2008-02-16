@@ -47,7 +47,7 @@
   
   (slot host)
   (slot service)
-  (slot state initialize {})
+  (slot state initialize 'stopped)
   
   
   (method (initialize . rest)
@@ -74,18 +74,26 @@
     state)
   
   
+  (method (set-state value)
+    (set! state value))
+  
+  
   ;;;
   ;;;; Run
   ;;;
     
   
   (method (run)
-    (start-listener)
-    @wait
+    (set-state 'starting)
     (thread-start!
       (make-thread
         (lambda ()
           (start-listener)))))
+  
+  
+  ;; convert but is it necessary anymore in gambit?
+  (method (wait-started (error?: error? #f))
+    #t)
   
   
   ;;;
@@ -94,7 +102,7 @@
   
   
   (definition Server-Timeout
-    0.1)
+    0.5)
   
   
   (method protected virtual (server-name)
@@ -112,27 +120,22 @@
   (method (start-listener)
     (let ((address (resolve-host (server-host)))
           (number (resolve-service (server-service))))
-      (debug 'start-listener address service)
       (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf))))
-        (accept-connection (read server-port))
-        @wait (
         (input-port-timeout-set! server-port Server-Timeout)
-        (debug 'before-loop)
+        (set-state 'started)
         (let (loop)
           (when (neq? state 'stopping)
-            (debug 'before-read)
             (let ((port (read server-port)))
-              (debug 'read port)
               (unless (eof-object? port)
                 (thread-start!
                   (make-thread
                     (lambda ()
                       (accept-connection port)))))
-              (loop))))))))
+              (loop)))))))
   
   
   (method public virtual (stop-listener)
-    (set! state 'stopping))
+    (set-state 'stopping))
   
   
   ;;;

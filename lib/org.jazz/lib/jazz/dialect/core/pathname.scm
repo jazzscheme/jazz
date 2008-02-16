@@ -44,6 +44,7 @@
     (define jazz.pathname-normalize path-normalize)
     (define jazz.file-delete delete-file)
     (define jazz.file-rename rename-file)
+    (define jazz.current-directory current-directory)
     (define jazz.directory-delete delete-directory))
   
   (else)))

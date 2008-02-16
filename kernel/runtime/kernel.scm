@@ -489,6 +489,7 @@
 
 
 (define (jazz.module-autoload module-name name)
+  (jazz.load-module module-name)
   (let ((src (jazz.find-module-src module-name)))
     (jazz.package-autoload (%%resource-package src) name)))
 

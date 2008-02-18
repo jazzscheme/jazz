@@ -88,7 +88,9 @@
   
   
   (method (parse-any parent object)
-    (parse-noexpand parent object))
+    (if (pattern-expr? object)
+        (parse-pattern parent object)
+      (parse-noexpand parent object)))
   
   
   (method (parse-noexpand parent object)
@@ -107,6 +109,15 @@
                 object))
           (else
            (error "Unable to parse: {s}" object))))
+  
+  
+  (method (parse-pattern parent pattern)
+    (let* ((first (car pattern))
+           (tag (tag->name first))
+           (expansion (expand-pattern pattern tag)))
+      (if (and (pair? expansion) (eq? (car expansion) first))
+          (parse-noexpand parent expansion)
+        (parse-any parent expansion))))
   
   
   (method (parse-node parent expr)
@@ -223,6 +234,19 @@
     (and (pair? expr)
          (let ((first (car expr)))
            (tag? first))))
+  
+  
+  (method (pattern-expr? expr)
+    (and (pair? expr)
+         (let ((first (car expr)))
+           (and (tag? first)
+                (let ((tag (tag->name first)))
+                  (find-dispatch self tag))))))
+  
+  
+  (method (expand-pattern tree tag)
+    (let ((pattern (find-dispatch self tag)))
+      (pattern self tree)))
   
   
   ;;;

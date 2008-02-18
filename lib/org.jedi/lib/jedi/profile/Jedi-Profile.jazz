@@ -328,12 +328,19 @@
   ;;;
   
   
+  (method (image-convert cmd)
+    (let ((status (shell-command (format "convert {a}" cmd))))
+      (when (/= status 0)
+        (error "Shell command returned ({a})" status))))
+  
+  
+  (method (image-composite cmd)
+    (let ((status (shell-command (format "composite {a}" cmd))))
+      (when (/= status 0)
+        (error "Shell command returned ({a})" status))))
+  
+  
   (method (generate-disabled image)
-    (define (convert cmd)
-      (let ((status (shell-command (format "convert {a}" cmd))))
-        (when (/= status 0)
-          (error "Shell command returned ({a})" status))))
-    
     (let ((directory (get-parent~ image))
           (name (get-name~ image))
           (base (get-base~ image))
@@ -343,8 +350,8 @@
         (parameterize ((current-directory (parse~ directory)))
           (unwind-protect
               (begin
-                (convert (format "-fx G {a} {a}" name grayscale))
-                (convert (format "-channel alpha -fx u-0.6 {a} {a}" grayscale disabled)))
+                (image-convert (format "-fx G {a} {a}" name grayscale))
+                (image-convert (format "-channel alpha -fx u-0.6 {a} {a}" grayscale disabled)))
             (let ((grayscale (new-brother~ image grayscale)))
               (when (exists?~ grayscale)
                 (delete-file~ grayscale))))))))

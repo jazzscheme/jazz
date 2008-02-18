@@ -1856,25 +1856,29 @@
   
   
   (method public (on-find evt)
-    (update-search (function (search) (next-tab~ search)) 'active-window))
+    (update-search 'tab 'active-window))
   
   
   (method public (on-find-in-files evt)
-    (update-search (function (search) (next-radio~ search)) 'jazz-files))
+    (update-search 'radio 'jazz-files))
   
   
-  (method (update-search proc domain)
+  (method (update-search navigate domain)
     (let* ((focus (get-focus))
            (internal? (is? focus Tree-Embedded-Search-Text-View))
            (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) {}))
            (palette (get-search-manager))
            (manager (get-guest~ palette))
            (search (get-search~ manager)))
-      (when internal?
+      (when (eq? navigate 'tab)
         (let ((tree (get-targets-tree~ search)))
           (end-edition~ tree)))
       (when (eq? (get-window-focus) palette)
-        (proc search))
+        (case navigate
+          ((tab)
+           (next-tab~ search))
+          ((radio)
+           (next-radio~ search))))
       (when (not (get-visible?~ palette))
         (bring-search-with-domain palette manager 'text domain))
       (for-each (function (search)
@@ -1884,7 +1888,8 @@
                                      (equal? string (first (first targets)))))
                       (set-search-targets~ search (list (list string ""))))))
                 (get-searches~ manager))
-      (select-search~ (get-search~ manager))))
+      (when (or (not internal?) (eq? navigate 'tab))
+        (select-search~ (get-search~ manager)))))
   
   
   (method public (end-search-edition)

@@ -38,22 +38,27 @@
 (library jazz.tutorials.server.Test-Servlet jazz
 
 
-(import (jazz.network))
+(import (jazz.jml)
+        (jazz.network)
+        (jazz.utilities))
 
 
 (class Test-Servlet extends HTTP-Servlet
   
   
   (definition Pattern-Associations
-    '(("Test/Menu"  (<test-menu>))
-      ("Test/CSS"   (<test-css>))
-      ("Test/Test"  (<test-test>))
-      ("Test/A"     (<test-a>))
-      ("Test/B"     (<test-b>))
-      ("Test/C"     (<test-c>))
-      ("Test/D"     (<test-d>))
-      ("Test/E"     (<test-e>))
-      ("Test/Error" (<test-error>))))
+    '(("Test/Menu"   (<test-menu>))
+      ("Test/P4"     (<test-p4>))
+      ("Test/Gomoku" (<test-gomoku>))
+      @convert
+      ("Test/CSS"    (<test-css>))
+      ("Test/Test"   (<test-test>))
+      ("Test/A"      (<test-a>))
+      ("Test/B"      (<test-b>))
+      ("Test/C"      (<test-c>))
+      ("Test/D"      (<test-d>))
+      ("Test/E"      (<test-e>))
+      ("Test/Error"  (<test-error>))))
   
   
   (method (get-pattern-associations)
@@ -73,6 +78,11 @@
          (<body>
            (<h3> "Test")
            (<ul>
+             (<li> (<a> href: "P4" "P4")))
+           (<ul>
+             (<li> (<a> href: "Gomoku" "Gomoku")))
+           @convert
+           (<ul>
              (<li> (<a> href: "CSS" "CSS")))
            (<ul>
              (<li> (<a> href: "Test" "Test")))
@@ -81,10 +91,50 @@
   
   
   ;;;
+  ;;;; P4
+  ;;;
+  
+  
+  (pattern (test-p4 node)
+    `(<html>
+       (<head>
+         (<title> "Puissance 4"))
+       (<body>
+         (<h3> "P4")
+         (<table>
+           (<tr>
+             (<td>)
+             (<td>)
+             (<td> "X"))
+           (<tr>
+             (<td> "X")
+             (<td>)
+             (<td> "O"))
+           (<tr>
+             (<td> "X")
+             (<td> "X")
+             (<td> "O"))))))
+  
+  
+  ;;;
+  ;;;; Gomoku
+  ;;;
+  
+  
+  (pattern (test-gomoku node)
+    `(<html>
+       (<head>
+         (<title> "Gomoku"))
+       (<body>
+         (<h3> "Gomoku"))))
+  
+  
+  ;;;
   ;;;; CSS
   ;;;
   
   
+  @convert
   (pattern (test-css node)
     (bind (tag) node
       (let ((file-entries (gather-ccs-file-entries)))
@@ -99,7 +149,7 @@
              ,@(map (function dynamic (file-entry)
                       (let ((file (get-file~ file-entry))
                             (entries (get-definitions~ file-entry))
-                            (sort? false))
+                            (sort? #f))
                         (when sort?
                           (set! entries (sort < entries :key (function dynamic (entry) (get-name~ entry)))))
                         `((<h3> ,(get-name~ file))
@@ -113,6 +163,7 @@
                     file-entries))))))
   
   
+  @convert
   (method (gather-ccs-file-entries)
     (let* ((appl (get-application))
            (catalog (get-catalog~ (get-cataloguer~ appl) 'com.cn))
@@ -140,7 +191,9 @@
            (<li> (<a> href: "A" "A"))
            (<li> (<a> href: "B" "B"))
            (<li> (<a> href: "C" "C"))
+           @wait
            (<li> (<a> href: "D" "D"))
+           @wait
            (<li> (<a> href: "E" "E"))
            (<li> (<a> href: "Error" "Error"))))))
   
@@ -154,7 +207,7 @@
            (<h3> "GET")
            (<form> action: "B" method: "GET"
              (<input> type: "hidden" name: "h1" value: "v1")
-             (<input> type: "checkbox" name: "c1" checked)
+             (<input> type: "checkbox" name: "c1" checked: "checked")
              (<input> type: "text" name: "t1" value: "Some text")
              (<br>)
              (<br>)
@@ -165,7 +218,7 @@
                       `(<input> type: "hidden" name: ,(format :string "big{a}" n) value: ,(format :string "Hello{a}" n)))
                     (naturals 0 1000))
              (<input> type: "hidden" name: "h1" value: "v1")
-             (<input> type: "checkbox" name: "c1" checked)
+             (<input> type: "checkbox" name: "c1" checked: "checked")
              (<input> type: "text" name: "t1" value: "Some text")
              (<br>)
              (<br>)
@@ -202,9 +255,10 @@
            ,@(debug-info)))))
   
   
+  @wait
   (pattern (test-d node)
     (bind (tag) node
-      (sleep 2000)
+      (sleep 2)
       `(HTML-Page
          (<html>
            (<head>
@@ -214,9 +268,10 @@
              ,@(debug-info))))))
   
   
+  @wait
   (pattern (test-e node)
     (bind (tag) node
-      (sleep 2000)
+      (sleep 2)
       `(HTML-Page
          (<html>
            (<head>

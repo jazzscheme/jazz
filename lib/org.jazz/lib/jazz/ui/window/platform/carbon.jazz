@@ -61,6 +61,10 @@
     0))
 
 
+(definition (is-window-HIView? window)
+    (not (is? window Toplevel)))
+
+
 ;;;
 ;;;; Window
 ;;;
@@ -82,14 +86,26 @@
   (table-set! Windows-Table handle window))
 
 
+(definition public inline (platform-get-window-handle-title handle)
+  (table-ref Window-Title-Table handle #f))
+
+
+(definition public inline (set-window-title handle title)
+  (table-set! Window-Title-Table handle title))
+
+
 (definition (prepare-handle window parent rest)
-  (let ((handle (if (is? window Toplevel)
-		    (create-window-handle window parent rest)
-		    (create-HIView-handle window parent rest))))))
+  (if (is? window Desktop)
+      #f
+      (if (is-window-HIView? window)
+	  (create-HIView-handle window parent rest)
+	  (create-window-handle window parent rest))))
 
 
 (definition (create-HIView-handle window parent rest)
-  (let ((parent-handle (HIViewGetContent parent))
+  (let ((parent-handle (if (is-window-HIView? parent)
+			   (get-handle~ parent)
+			   (HIViewGetContent (get-handle~ parent))))
 	(new-handle (HIViewCreate)))
     (HIViewAddSubview parent-handle new-handle)
     (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
@@ -111,9 +127,53 @@
       handle))
 
 
-(definition (process-window-messages)
+(definition (destroy-window window)
+  (unimplemented 'destroy)
+  @lala
+  ((when use-expose-store?
+    (table-set! expose-store window #f))
+  (table-set! actions-store window #f)
+  (when (= (get-handle~ window) (platform-get-focus))
+    (call-focus-lose~ window #f))
+  (XDestroyWindow default-x11-display (get-handle~ window))))
+
+
+(definition (dispatch-message window msg wparam lparam)
+  (process-window-message window msg))
+
+
+(definition (platform-process-messages)
   (RunApplicationEventLoop))
+
+
+(definition (platform-process-one-message)
+  (unimplemented 'platform-process-one-message))
   
+
+(definition (show-window handle)
+  (if (is-window-HIView? (get-window handle))
+      (HIViewSetVisible handle #t)
+      (ShowWindow handle)))
+
+
+(definition (hide-window handle)
+  (if (is-window-HIView? (get-window handle))
+      (HIViewSetVisible handle #f)
+      (HideWindow handle)))
+
+
+(definition (bring-window-to-top handle)
+  (unimplemented 'bring)
+  @lalala
+  (XRaiseWindow default-x11-display handle))
+
+
+(definition (minimize-window handle)
+  (unimplemented 'minimize-window))
+
+
+(definition (platform-erase-background handle)
+  (unimplemented 'platform-erase-background))
 
 
 (definition (process-window-message handler event userdata)
@@ -135,14 +195,7 @@
      ((= type kEventControlDraw)
       (let ((context (EventCGContext event))
 	    (handle (void*->HIViewRef userdata)))
-	(receive (left top width height) (HIViewGetBounds handle)
-	   (let ((surface (new Surface (cairo_quartz_surface_create_for_cg_context context (inexact->exact width) (inexact->exact height)))))
-	     (set-color~ surface (new Color red: 255 green: 0 blue: 0))
-	     (paint~ surface)
-	     (set-color~ surface (new Color red: 0 green: 0 blue: 255))
-	     (line~ surface 10 10 250 250)
-	     (line~ surface 250 250 10 490)
-	     (stroke~ surface))))
+	(paint~ (get-window handle) #f (cons context)))
       noErr)
      (else
       eventNotHandledErr))))
@@ -150,11 +203,549 @@
 (set-process-control-message process-control-message)
 
 
-(definition (show-view handle)
-  (HIViewSetVisible handle #t))
+;;;
+;;;; Capture
+;;;
 
 
-(definition (show-window handle)
-  (ShowWindow handle)))
+(definition (set-capture handle)
+  #f)
+
+
+(definition (unset-capture)
+  #f)
+
+
+(definition (with-platform-painting window platform-data proc)
+  (let* ((context (car platform-data))
+	 (surface (new Surface (cairo_quartz_surface_create_for_cg_context context (get-width~ window) (get-height~ window)))))
+    (unwind-protect
+        (proc surface)
+      (close~ surface))))
+
+
+(definition public (get-window-surface window)
+  (unimplemented 'get-window-surface)
+  @lala
+  (let* ((screen-no (XDefaultScreen default-x11-display))
+         (visual    (XDefaultVisual default-x11-display screen-no)))
+    (cairo_xlib_surface_create default-x11-display (get-handle~ window) visual (get-width~ window) (get-height~ window))))
+
+
+(definition (set-alpha-blending handle n)
+  #f
+  @windows 
+  ((set-layered? handle #t)
+   (SetLayeredWindowAttributes handle 0 n LWA_ALPHA)
+   (RedrawWindow handle NULL NULL (bitwise-ior RDW_ERASE RDW_INVALIDATE))))
+
+
+;;;
+;;;; Management
+;;;
+
+
+(definition (platform-set-parent handle parent)
+  (let ((parent-handle (if (is-window-HIView? parent)
+			   (get-handle~ parent)
+			   (HIViewGetContent (get-handle~ parent)))))
+    (HIViewAddSubview handle parent-handle)))
+
+
+(definition (platform-get-first-child handle)
+  (unimplemented 'platform-get-first-child)
+  @lala
+  (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
+    (if (= 0 num-of-children)
+        #f
+      (XGetChildHandle default-x11-display handle 0))))
+
+
+(definition (platform-get-first-visible-child handle)
+  (unimplemented 'platform-get-first-visible-child)
+  @lala
+  (let ((num-of-children (XNumberOfChildren default-x11-display handle)))
+    (if (= 0 num-of-children) 
+        #f
+      (let loop ((n 0))
+           (if (= n num-of-children)
+               #f
+             (let ((child-handle (XGetChildHandle default-x11-display handle n)))
+               (if (platform-is-window-visible? child-handle)
+                   child-handle
+                 (loop (+ n 1)))))))))
+
+
+(definition (platform-is-window-visible? handle)
+  (unimplemented 'platform-is-window-visible?)
+  @lala
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (= (XWindowAttributes-map_state-ref infos) IsViewable)))
+
+
+(definition (acquire-point to-handle from-window shape)
+  (unimplemented 'acquire-point)
+  @lala
+  (receive (x y) (XTranslateCoordinates default-x11-display (get-handle~ from-window) to-handle (get-h~ shape) (get-v~ shape))
+    (new Point x y)))
+
+
+(definition (acquire-rect handle window shape)
+  (unimplemented 'acquire-rect)
+  @windows
+  (let ((acquired (rect->RECT shape)))
+    (MapWindowPoints (get-handle~ window) handle (RECT->POINTS acquired) 2)
+    (RECT->rect acquired)))
+
+
+(definition (platform-get-position-in-root handle)
+  (unimplemented 'platform-get-position-in-root)
+  @lala
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((x (XWindowAttributes-x-ref infos))
+           (y (XWindowAttributes-y-ref infos)))
+      (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) x y)
+        (new Point x y)))))
+
+
+(definition (platform-get-position handle parent-handle)
+  (receive (left top width height) (if (is-window-HIView? (get-window handle))
+				       (HIViewGetBounds handle)
+				       (WindowGetContentBounds handle))
+     (new Point (inexact->exact left) (inexact->exact top))))
+
+
+(definition (platform-set-position handle pos)
+  (let ((h (get-h~ pos))
+	(v (get-v~ pos)))
+    (if (is-window-HIView? (get-window handle))
+	(HIViewPlaceInSuperviewAt handle (exact->inexact h) (exact->inexact v))
+	(MoveWindowStructure handle h v)))
+  @X11-code
+  (if *locked-update*
+      (add-position-action (get-window handle) pos)
+    (if (is? (get-window handle) Popup)
+        (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
+          (XMoveWindow default-x11-display handle h v))
+      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
+  
+
+(definition (platform-get-size handle)
+  (receive (left top width height) (if (is-window-HIView? (get-window handle))
+				       (HIViewGetBounds handle)
+				       (WindowGetContentBounds handle))
+     (new Dimension (inexact->exact width) (inexact->exact height))))
+
+
+(definition (platform-get-window-size handle)
+  (platform-get-size handle))
+
+
+(definition (platform-set-window-size handle size)
+  (receive (left top width height) (if (is-window-HIView? (get-window handle))
+				       (HIViewGetBounds handle)
+				       (WindowGetContentBounds handle))
+     (let ((width (get-width~ size))
+	   (height (get-height~ size)))
+       (if (is-window-HIView? (get-window handle))
+	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
+	   (WindowSetContentBounds handle left top width height)))))
+
+
+(definition (platform-set-position-size handle pos size)
+  (unimplemented 'platform-set-position-size)
+  @lala
+  (XMoveResizeWindow default-x11-display handle (get-h~ pos) (get-v~ pos) (get-width~ size) (get-height~ size)))
+
+
+(definition (platform-set-bounds handle rect)
+  (unimplemented 'platform-set-bounds)
+  @windows
+  (SetWindowPos handle NULL (get-left~ rect) (get-top~ rect) (rect-width rect) (rect-height rect) (bitwise-ior SWP_NOZORDER SWP_NOACTIVATE)))
+
+
+(definition (platform-get-rect handle parent-handle)
+  (unimplemented 'platform-get-rect)
+  @lala
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((l (XWindowAttributes-x-ref infos))
+           (t (XWindowAttributes-y-ref infos))
+           (r (+ l (XWindowAttributes-width-ref infos)))
+           (b (+ t (XWindowAttributes-height-ref infos))))
+      (new Rect l t r b))))
+
+
+(definition (platform-get-bounds handle)
+  (unimplemented 'platform-get-bounds)
+  @windows
+  (with ((rect (RECT-make)))
+    (GetWindowRect handle rect)
+    (MapWindowPoints NULL handle rect 2)
+    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+
+
+(definition (platform-mouse-position)
+  (unimplemented 'platform-mouse-position)
+  @lala
+  (receive (x y) (XQueryPointer default-x11-display (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
+    (new Point x y)))
+
+
+(definition (platform-window-from-point point)
+  (unimplemented 'platform-window-from-point)
+  @windows
+  (with ((pt (POINT-make)))
+    (POINT-x-set! pt (get-h~ point))
+    (POINT-y-set! pt (get-v~ point))
+    (WindowFromPoint pt)))
+
+
+(definition (platform-child-window-from-point handle point)
+  (unimplemented 'platform-child-window-from-point)
+  @windows
+  (with ((pt (POINT-make)))
+    (POINT-x-set! pt (get-h~ point))
+    (POINT-y-set! pt (get-v~ point))
+    (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
+
+
+(definition (platform-move-window handle x y cx cy)
+  (unimplemented 'platform-move-window)
+  @windows
+  (MoveWindow handle x y cx cy #t))
+
+
+(definition (platform-window-enabled? handle)
+  (unimplemented 'platform-window-enabled?)
+  @windows
+  (IsWindowEnabled handle))
+
+
+(definition (platform-enable-window handle)
+  (warn-unimplemented 'platform-enable-window))
+
+
+(definition (platform-disable-window handle)
+  (warn-unimplemented 'platform-disable-window))
+
+
+(definition (platform-get-client-rect handle)
+  (unimplemented 'platform-get-client-rect)
+  @lala
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+
+
+(definition (platform-scroll-window handle dh dv rect clip-rect erase?)
+  (platform-update-window handle)
+  @windows
+  (let ((flags (bitwise-ior (if erase? SW_ERASE 0) SW_INVALIDATE)))
+    (with ((rect (rect->RECT rect))
+           (clip-rect (rect->RECT clip-rect)))
+      (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
+
+
+;; Correct this to really invalidate the Rect
+(definition (platform-invalidate-rect handle rect erase?)
+  (HIViewSetNeedsDisplay (if (is-window-HIView? (get-window handle)) handle (HIViewGetContent handle)) #t)
+  @lala
+  (when handle
+    (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
+          (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
+          (r (if (> (get-right~ rect) (get-width~ (get-window handle)))
+                 (get-width~ (get-window handle))
+               (get-right~ rect)))
+          (b (if (> (get-bottom~ rect) (get-height~ (get-window handle)))
+                 (get-height~ (get-window handle))
+               (get-bottom~ rect))))
+      (let ((w (- r l))
+            (h (- b t)))
+        (unless (or (< w 0) (< h 0))
+          (XInvalidateRect default-x11-display handle l t w h))))))
+
+
+;; Correct this to really invalidate the Region
+(definition (platform-invalidate-region handle region erase?)
+  (platform-invalidate-rect handle region erase?)
+  @lala
+  (for-each (function (rect)
+              (platform-invalidate-rect handle rect erase?))
+            (get-rectangles~ region)))
+
+
+(definition (platform-invalidate-window handle erase?)
+  (unimplemented 'platform-invalidate-window)
+  @windows
+  (when handle
+    (InvalidateRect handle NULL erase?)))
+
+
+(definition (platform-redraw-window handle rect region)
+  (unimplemented 'platform-redraw-window)
+  @lala
+  (platform-update-window handle))
+
+
+(definition (platform-get-update-rect handle)
+  (unimplemented 'platform-get-update-rect)
+  @windows
+  (with ((rect (RECT-make)))
+    (GetUpdateRect handle rect #f)
+    (RECT->rect rect)))
+
+
+(definition (platform-get-update-region handle)
+  (unimplemented 'platform-get-update-region)
+  @windows
+  (let ((region (new Region)))
+    (GetUpdateRgn handle (get-handle~ region) #f)
+    region))
+
+
+(definition (platform-redraw-view-only view handle)
+  (unimplemented 'platform-redraw-view-only)
+  @lala
+  (platform-update-window handle))
+
+
+(definition (platform-update-window handle)
+  (unimplemented 'platform-update-window)
+  @lala
+  (when handle
+    (let* ((size (platform-get-size handle))
+           (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+      (platform-invalidate-rect handle rct #t))))
+  
+  
+(definition (platform-show-noactivate handle)
+  (unimplemented 'platform-show-noactivate)
+  @lala
+  (show-window handle))
+
+
+(definition (platform-hide-noactivate handle)
+  (unimplemented 'platform-hide-noactivate)
+  @lala
+  (hide-window handle))
+
+
+(definition (platform-bring-window-to-front handle)
+  (unimplemented 'platform-bring-window-to-front)
+  @lala
+  (XRaiseWindow default-x11-display handle))
+
+
+(definition (platform-send-window-to-back handle)
+  (unimplemented 'platform-send-window-to-back)
+  @lala
+  (XLowerWindow default-x11-display handle))
+
+
+(definition public (platform-select-foreground-window handle)
+  (unimplemented 'platform-select-foreground-window)
+  @lala
+  (XRaiseWindow default-x11-display handle))
+
+
+;;;
+;;;; Locking
+;;;
+
+
+(definition actions-store (make-table))
+
+
+(definition (add-position-action window position)
+  (let ((action (table-ref actions-store window #f)))
+    (table-set! actions-store window (cons position (and action (cdr action))))))
+
+
+(definition (add-size-action window size)
+  (let ((action (table-ref actions-store window #f)))
+    (table-set! actions-store window (cons (and action (car action)) size))))
+
+
+(definition (platform-lock-window-update handle)
+  (unimplemented 'platform-lock-window-update)
+  @lala
+  (if handle
+      (set! *locked-update* #t)
+    (begin 
+      (set! *locked-update* #f)
+      (process-window-actions))))
+
+
+(definition (process-window-actions)
+  (iterate-table 
+    actions-store
+    (function (window action)
+      (when action
+        (let ((handle (get-handle~ window)))
+          (hide-window handle)
+          (let ((position (car action))
+                (size     (cdr action)))
+            (if (and position size)
+                (platform-set-position-size handle position size)
+              (when position (platform-set-position handle position))
+              (when size     (platform-set-window-size handle size))))
+          (show-window handle)))))
+  (set! actions-store (make-table)))
+
+
+;;;
+;;;; Focus
+;;;
+
+
+(definition (platform-get-focus)
+  (unimplemented 'platform-get-focus)
+  @lala
+  (receive (win state) (XGetInputFocus default-x11-display)
+    win))
+
+
+(definition (platform-set-focus handle)
+  (unimplemented 'platform-set-focus)
+  @lala
+  ((XFlush default-x11-display)
+  (when handle
+    (XSetInputFocus default-x11-display handle RevertToNone CurrentTime))))
+
+
+;;;
+;;;; Cursor
+;;;
+
+
+(definition public Current-Cursor
+  {})
+
+
+@unimplemented
+(definition public Cursors
+  (list
+    (list :arrow               IDC_ARROW)
+    (list :wait                IDC_WAIT)
+    (list :ibeam               IDC_IBEAM)
+    (list :cross               IDC_CROSS)
+    (list :finger              IDC_HAND)
+    (list :all                 IDC_SIZEALL)
+    (list :west-east           IDC_SIZEWE)
+    (list :no                  IDC_NO)
+    (list :move                (new Cursor-Resource "Move"))
+    (list :opened-hand         (new Cursor-Resource "OpenedHand"))
+    (list :closed-hand         (new Cursor-Resource "ClosedHand"))
+    (list :zoom                (new Cursor-Resource "Zoom"))
+    (list :zoom-in             (new Cursor-Resource "ZoomIn"))
+    (list :zoom-out            (new Cursor-Resource "ZoomOut"))
+    (list :spy                 (new Cursor-Resource "Spy"))
+    (list :left-arrow          (new Cursor-Resource "LeftArrow"))
+    (list :vertical-splitter   (new Cursor-Resource "VerticalSplitter"))
+    (list :horizontal-splitter (new Cursor-Resource "HorizontalSplitter"))))
+
+
+(definition (load-cursor cursor)
+  (unimplemented 'load-cursor)
+  @unimp
+  (if (number? cursor)
+      (LoadCursorInt cursor)
+    (let* ((cursor  (if (file? cursor) cursor (find-cursor-file cursor)))
+           (ident   (parse~ cursor)))
+      (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
+
+
+(definition (get-named-cursor name)
+  (unimplemented 'get-named-cursor)
+  @unimp
+  (let ((info (assq name Cursors)))
+    (if (not info)
+        (error "Unknown cursor: {t}" name)
+      (cadr info))))
+
+
+(definition public (get-cursor)
+  Current-Cursor)
+
+
+(definition public (set-cursor cursor)
+  #f
+  @unimp
+  (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
+          (set! Current-Cursor cursor)
+          (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
+            (SetCursor (load-cursor cursor)))))
+
+
+(definition public (hide-cursor)
+  #f)
+
+
+(definition public (show-cursor)
+  #f)
+
+
+;;;
+;;;; Desktop
+;;;
+
+
+(definition (platform-get-desktop)
+  (unimplemented 'platform-get-desktop)
+  @lala
+  (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
+
+
+(definition public (get-work-area) <Rect>
+  (unimplemented 'get-work-area)
+  @lala
+  (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
+    (new Rect 0 0 (get-width~ size) (get-height~ size))))
+
+
+;;;
+;;;; Drag and Drop
+;;;
+
+
+(definition (platform-drop-files temp)
+  (unimplemented 'platform-drop-files))
+
+
+;;;
+;;;; Window processing
+;;;
+
+
+(definition public (process-windows (include-invisibles?: include-invisibles? #f))
+  ;; quicky
+  (list (get-toplevel~ (get-application)))
+  @convert
+  (collect (function (hwnd)
+             (let ((window (get-window hwnd)))
+               (when (and window (or include-invisibles? (get-visible?~ window)))
+                 window)))
+           (process-hwnds)))
+
+
+;;;
+;;;; Historic stuff
+;;;
+
+
+(definition (platform-send-message handle msg wparam lparam)
+  (unimplemented 'platform-send-message)
+  @windows
+  (SendMessage handle msg wparam lparam))
+
+
+(definition (platform-post-message handle msg wparam lparam)
+  (unimplemented 'platform-post-message)
+  @windows
+  (PostMessage handle msg wparam lparam)))
+
     
 		       

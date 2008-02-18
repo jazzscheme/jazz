@@ -140,12 +140,16 @@
 
 
 (c-external void (ShowWindow WindowRef))
+(c-external void (HideWindow WindowRef))
 (c-external void (RunApplicationEventLoop))
 (c-external void (QuitApplicationEventLoop))
 (c-external EventKind (GetEventKind EventRef))
 (c-external HIViewRef (HIViewGetRoot WindowRef))
 (c-external OSStatus  (HIViewAddSubview HIViewRef HIViewRef))
 (c-external void      (HIViewSetVisible HIViewRef Bool))
+(c-external void      (HIViewSetNeedsDisplay HIViewRef Bool))
+(c-external OSStatus  (HIViewPlaceInSuperviewAt HIViewRef float float))
+(c-external OSStatus  (MoveWindowStructure WindowRef short short))
 
 
 (definition HIViewGetContent
@@ -159,6 +163,26 @@
   (c-function (HIViewRef double double double double) OSStatus
      "HIRect rect = { {___arg2, ___arg3}, {___arg4, ___arg5}};
       ___result = HIViewSetFrame(___arg1, &rect);"))
+
+
+(definition WindowSetContentBounds
+  (c-function (WindowRef short short short short) OSStatus
+      "Rect rect = { ___arg2, ___arg3, ___arg2+___arg4, ___arg3+___arg5 };
+       ___result = SetWindowBounds(___arg1, kWindowContentRgn, &rect);"))
+
+
+(definition (WindowGetContentBounds window)
+  (let* ((carbon-rect ((c-function (WindowRef) Rect*
+                          "Rect *rect = malloc(sizeof(CGRect));
+                           GetWindowBounds( ___arg1, kWindowContentRgn, rect );
+                           ___result_voidstar = rect;")
+                       window))
+	 (left (Rect-left-ref carbon-rect))
+	 (top  (Rect-top-ref carbon-rect))
+	 (width (- (Rect-right-ref carbon-rect) left))
+	 (height (- (Rect-bottom-ref carbon-rect) top)))
+    (Rect-free carbon-rect)
+    (values left top width height)))
 
 
 (definition (HIViewGetBounds view)

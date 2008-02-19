@@ -591,6 +591,10 @@
 
 
 (native jazz.vector-copy)
+(native jazz.make-u8vector)
+(native jazz.u8vector-length)
+(native jazz.u8vector-ref)
+(native jazz.u8vector-set!)
 
 
 ;;;

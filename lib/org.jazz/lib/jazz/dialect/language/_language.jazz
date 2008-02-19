@@ -4936,6 +4936,42 @@
     (parse~ file)))
 
 
+(definition Chunk-Size
+  1024)
+
+
+(definition (make-u8-content size content)
+  (cons size content))
+
+(definition (u8-content-size content)
+  (car content))
+
+(definition (iterate-u8-content content proc)
+  (for-each (function (chunk)
+              (bind (u8vector . size) chunk
+                (proc u8vector size)))
+            (cdr content)))
+
+
+(definition (read-u8-content port)
+  (let ((size 0)
+        (fact (new List-Factory)))
+    (let (loop)
+      (let ((u8vector (make-u8vector Chunk-Size)))
+        (let ((read (read-subu8vector u8vector 0 Chunk-Size port)))
+          (if (= read 0)
+              (make-u8-content size (get-output~ fact))
+            (increase! size read)
+            (put~ fact (cons u8vector read))
+            (loop)))))))
+
+
+(definition (write-u8-content content port)
+  (iterate-u8-content content
+    (function (u8vector size)
+      (write-subu8vector u8vector 0 size port))))
+
+
 ;;;
 ;;;; Input
 ;;;

@@ -436,7 +436,7 @@
     jazz.schema
     jazz.snow
     jazz.system
-    ;;jazz.system.process
+    jazz.system.process
     jazz.test
     jazz.ui
     jazz.ui.clipboard

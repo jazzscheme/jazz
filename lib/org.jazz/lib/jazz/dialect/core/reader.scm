@@ -171,6 +171,11 @@
     (define (jazz.eof-object)
       #!eof)
     
+    (define jazz.read-u8 read-u8)
+    (define jazz.write-u8 write-u8)
+    (define jazz.read-subu8vector read-subu8vector)
+    (define jazz.write-subu8vector write-subu8vector)
+    
     (define jazz.read-line
       read-line)
     

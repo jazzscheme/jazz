@@ -464,14 +464,14 @@
 ;;;
 
 
-(define jazz.default-exception-handler
+(define jazz.primordial-exception-handler
   (current-exception-handler))
 
 
 (current-exception-handler
   (lambda (exc)
     (jazz.bring-terminal-to-front)
-    (jazz.default-exception-handler exc)))
+    (jazz.primordial-exception-handler exc)))
 
 
 (define (jazz.bring-terminal-to-front)

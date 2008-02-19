@@ -52,24 +52,23 @@
       (##continuation-capture proc))
     
     
-    (define (jazz.get-continuation-stack cont #!key (max-depth #f))
+    (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))
-        (let iter ((depth 0)
+        (let iter ((d 0)
                    (cont cont))
-	  (if (or (not max-depth) (< depth max-depth))
+	  (if (or (not depth) (< d depth))
               (and cont
                    (begin
                      (jazz.enqueue queue (jazz.get-frame cont))
-                     (iter (+ depth 1)
+                     (iter (+ d 1)
                            (##continuation-next-frame cont #f))))))
         (jazz.queue-list queue)))
     
     
     (define (jazz.get-frame cont)
-      (list ':lambda
-            (jazz.get-frame-name cont)
-            (jazz.get-frame-variables cont)
-            (jazz.get-frame-environment cont)))
+      (list (jazz.get-frame-name cont)
+            (jazz.get-frame-environment cont)
+            (jazz.get-frame-variables cont)))
     
     
     (define (jazz.get-frame-name cont)
@@ -85,6 +84,33 @@
                           (if (##cte-top? cte)
                               (##inverse-eval-in-env val cte)
                             (##inverse-eval-in-env val (##cte-parent-cte cte))))))
+    
+    
+    (define (jazz.get-frame-environment cont)
+      
+      (define (collect-parameters lst cte queue)
+        (let iter ((lst lst))
+             (if (##pair? lst)
+                 (let* ((param-val (##car lst))
+                        (param (##car param-val))
+                        (val (##cdr param-val)))
+                   (if (##not (##hidden-parameter? param))
+                       (let ((x
+                               (##inverse-eval-in-env param cte)))
+                         (jazz.collect-var-val (##list x) val cte queue)))
+                   (iter (##cdr lst))))))
+      
+      (let ((queue (jazz.new-queue)))
+        (and cont
+             (collect-parameters
+               (##dynamic-env->list (macro-continuation-denv cont))
+               (if (##interp-continuation? cont)
+                   (let (($code (##interp-continuation-code cont))
+                         (rte (##interp-continuation-rte cont)))
+                     (macro-code-cte $code))
+                 ##interaction-cte)
+               queue))
+        (jazz.queue-list queue)))
     
     
     (define (jazz.get-frame-variables cont)
@@ -131,33 +157,6 @@
                (begin
                  (collect-locals (##continuation-locals cont) ##interaction-cte queue)
                  ##interaction-cte)))
-        (jazz.queue-list queue)))
-    
-    
-    (define (jazz.get-frame-environment cont)
-      
-      (define (collect-parameters lst cte queue)
-        (let iter ((lst lst))
-             (if (##pair? lst)
-                 (let* ((param-val (##car lst))
-                        (param (##car param-val))
-                        (val (##cdr param-val)))
-                   (if (##not (##hidden-parameter? param))
-                       (let ((x
-                               (##inverse-eval-in-env param cte)))
-                         (jazz.collect-var-val (##list x) val cte queue)))
-                   (iter (##cdr lst))))))
-      
-      (let ((queue (jazz.new-queue)))
-        (and cont
-             (collect-parameters
-               (##dynamic-env->list (macro-continuation-denv cont))
-               (if (##interp-continuation? cont)
-                   (let (($code (##interp-continuation-code cont))
-                         (rte (##interp-continuation-rte cont)))
-                     (macro-code-cte $code))
-                 ##interaction-cte)
-               queue))
         (jazz.queue-list queue)))
     
     

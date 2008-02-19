@@ -36,19 +36,21 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.jazz.runtime.exception
+(module jazz.dialect.core.exception
 
 
 (define jazz.default-exception-handler
   (jazz.current-exception-handler))
 
 
+#;
 (define (jazz.with-default-exception-handler thunk)
   (jazz.with-exception-handler
     jazz.default-exception-handler
     thunk))
 
 
+#;
 (define (jazz.with-safe-exception-handler thunk)
   (call/cc
     (lambda (recursive-error)
@@ -58,6 +60,7 @@
         thunk))))
 
 
+#;
 (define (jazz.with-jazz-exception-handler thunk)
   (jazz.with-exception-handler
     (lambda (exc)
@@ -68,12 +71,14 @@
     thunk))
 
 
+#;
 (define (jazz.break #!optional (reason #f))
   (jazz.continuation-capture
     (lambda (continuation)
       (jazz.invoke-debugger 'jazz.debugger-break 'break reason continuation))))
   
 
+#;
 (define (jazz.invoke-debugger message kind reason continuation)
   (jazz.with-default-exception-handler
     (lambda ()

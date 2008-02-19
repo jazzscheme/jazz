@@ -762,17 +762,15 @@
           ((%%eq? jazz.Load-Thread (current-thread))
            (jazz.load-module-impl module-name))
           (else
-           (if (mutex-lock! jazz.Load-Mutex)
-               (dynamic-wind
-                 (lambda ()
-                   (set! jazz.Load-Thread (current-thread)))
-                 (lambda ()
-                   (jazz.load-module-impl module-name))
-                 (lambda ()
-                   (set! jazz.Load-Thread #f)
-                   (mutex-unlock! jazz.Load-Mutex)))
-             ;; reacquire mutex
-             (jazz.load-module module-name))))))
+           (dynamic-wind
+             (lambda ()
+               (mutex-lock! jazz.Load-Mutex)
+               (set! jazz.Load-Thread (current-thread)))
+             (lambda ()
+               (jazz.load-module-impl module-name))
+             (lambda ()
+               (set! jazz.Load-Thread #f)
+               (mutex-unlock! jazz.Load-Mutex)))))))
 
 
 (define (jazz.load-module-impl module-name)

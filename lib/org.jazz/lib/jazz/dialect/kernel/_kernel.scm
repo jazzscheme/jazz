@@ -154,6 +154,7 @@
 ;;;
 
 (native jazz.exception-reason)
+(native jazz.default-exception-handler)
 (native jazz.current-exception-handler)
 (native jazz.with-exception-handler)
 (native jazz.with-exception-catcher)

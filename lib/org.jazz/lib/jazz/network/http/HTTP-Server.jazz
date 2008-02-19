@@ -118,22 +118,24 @@
                   (if response/html
                       (request-response request response/html)
                     (request-response request (generate-not-found request) code: 'not-found))))
-            (debug (message-string~ response))
             (call-listeners-process-request request response)
             response)))))
   
   
-  (method (with-error-reporting request proc)
-    (with-exception-handler
-      (function (exc)
-        '(<html>
-           (<head>
-             (<title> "Error"))
-           (<body>
-             "Some error")))
-      proc)
-    @wait
-    (proc)
+  (method (with-error-reporting request thunk)
+    (call/cc
+      (function (exit)
+        (with-exception-handler
+          (function (exc)
+            (display (exception-reason exc))
+            (pp (execution-stack depth: 5 variables?: #t))
+            (exit (let ((html '(<html>
+                                 (<head>
+                                   (<title> "Error"))
+                                 (<body>
+                                   (<h3> "Error")))))
+                    (request-response request html code: 'server-error))))
+          thunk)))
     @convert
     (let ((html {}))
       (call-with-catch Exception
@@ -151,7 +153,7 @@
                           (select-workspace~ appl 'debugger))))))))
           (function (exc)
             (request-response request html code: 'server-error))
-        proc)))
+        thunk)))
   
   
   (method (present-error err stack)
@@ -220,7 +222,9 @@
     (cond ((string? html)
            html)
           ((pair? html)
-           (process-jml request html))))
+           (process-jml request html))
+          (else
+           (error "Unable to process: {s}" html))))
   
   
   (method (add-connection-close response)

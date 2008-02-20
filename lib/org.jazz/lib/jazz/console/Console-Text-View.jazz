@@ -130,7 +130,16 @@
   
   (method (on-evaluate evt)
     (set! completion-active? #f)
-    (console-evaluate))
+    (let* ((pos (get-start))
+           (prompt (previous-prompt pos)))
+      (if (not prompt)
+          (fresh-prompt)
+        (let ((last (last-prompt)))
+          (if (=? prompt last)
+              (console-evaluate)
+            (fresh-prompt)
+            (when (= (get-row~ pos) (get-row~ prompt))
+              (insert-string (prompt-command prompt))))))))
   
   
   (method (on-insert-previous evt)
@@ -148,20 +157,6 @@
   (method (mouse-down pos)
     (nextmethod pos)
     (prompt-at-end))
-
-  
-  (method (return-press key)
-    (set! completion-active? #f)
-    (let* ((pos (get-start))
-           (prompt (previous-prompt pos)))
-      (if (not prompt)
-          (fresh-prompt)
-        (let ((last (last-prompt)))
-          (if (=? prompt last)
-              (console-evaluate)
-            (fresh-prompt)
-            (when (= (get-row~ pos) (get-row~ prompt))
-              (insert-string (prompt-command prompt))))))))
 
 
   (method (tab-press key modifiers)

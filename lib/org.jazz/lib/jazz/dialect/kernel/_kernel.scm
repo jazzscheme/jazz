@@ -186,6 +186,8 @@
 (native fx+ <fx^fx:fx>)
 (native fx- <fx^fx:fx>)
 (native fx* <fx^fx:fx>)
+(native jazz.+infinity)
+(native jazz.-infinity)
 
 
 ;;;

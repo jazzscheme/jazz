@@ -39,7 +39,8 @@
 
 
 (import (jazz.library)
-        (jazz.network))
+        (jazz.network)
+        (jazz.utilities))
 
 
 (class TCP-Server extends Object
@@ -83,14 +84,18 @@
   ;;;
   ;;;; Run
   ;;;
+  
+  
+  (slot TOTO)
     
   
   (method (run)
     (set-state 'starting)
+    (set! TOTO
     (thread-start!
       (make-thread
         (lambda ()
-          (start-listener)))))
+          (startlistener))))))
   
   
   (method (wait-started (error?: error? #f))
@@ -124,27 +129,68 @@
     (get-service))
   
   
-  (method (start-listener)
+  (method (startlistener)
     (let ((address (resolve-host (server-host)))
           (number (resolve-service (server-service))))
-      (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf))))
-        (set-state 'started)
-        ;;(condition-broadcast! started-condition)
-        (input-port-timeout-set! server-port Server-Timeout)
-        (let (loop)
-          (when (neq? state 'stopping)
-            (let ((port (read server-port)))
-              (unless (eof-object? port)
-                (thread-start!
-                  (make-thread
-                    (lambda ()
-                      (accept-connection port)))))
-              (loop))))
-        (set-state 'stopped))))
+      (pp (list 'open-tcp-server number))
+      (let ((server-port (open-tcp-server (list @w-server-address: address port-number: number eol-encoding: 'cr-lf))))
+        (pp 'listening)
+        (unwind-protect
+            (begin
+              (set-state 'started)
+              ;;(condition-broadcast! started-condition)
+              ;;(input-port-timeout-set! server-port Server-Timeout)
+              (let (loop)
+                (when (neq? state 'stopping)
+                  (debug 'read)
+                  (let ((port (read server-port)))
+                    (debug 'read-returned)
+                    (unless (eof-object? port)
+                      (thread-start!
+                        (make-thread
+                          (lambda ()
+                            (acceptconnection port)))))
+                    (loop)))))
+          (close-port server-port)
+          (set-state 'stopped)))))
   
   
   (method public virtual (stop-listener)
     (set-state 'stopping))
+
+  
+  ;;;
+  ;;;; TESTING THE BUG
+  ;;;
+  
+  
+  (method (acceptconnection port)
+    (debug 'connection)
+    (input-port-timeout-set! port 0.1)
+    (let loop ()
+         (let ((c (read-char port)))
+           (if (not (eof-object? c))
+               (loop))))
+    (unwind-protect
+        (generateresponse port)
+      (debug 'sent)
+      (close-port port)))
+  
+  
+  (method (generateresponse port)
+    (display "HTTP/1.1 200 OK\n" port)
+    (display "Connection: close\n" port)
+    (display "Content-Type: text/html\n\n" port)
+    (display "<html>\n<body>\n" port)
+    (display "<input type=checkbox> hello <br>\n" port)
+    (display "<input type=checkbox> les <br>\n" port)
+    (let loop ((n 1))
+         (if (< n 1000)
+             (begin
+               (display "<input type=hidden>\n" port)
+               (loop (+ n 1)))))
+    (display "<input type=checkbox> copains <br>\n" port)
+    (display "</body>\n</html>\n" port))
   
   
   ;;;

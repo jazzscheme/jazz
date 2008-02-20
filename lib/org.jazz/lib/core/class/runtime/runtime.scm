@@ -1815,7 +1815,7 @@
                                                    start-node end-nodes)
                           start-node))))
                    ((jazz.final-method? field)
-                    (jazz.error "Cannot remove final method: {a}" method-implementation))
+                    (jazz.error "Overriding final method: {a}" method-implementation))
                    (else
                     (error "Method jazz.add-method-node unimplemented for Interface"))))))))
 

@@ -62,7 +62,8 @@
 
 
 (definition (is-window-HIView? window)
-    (not (is? window Toplevel)))
+  (not (or (is? window Toplevel)
+	   (is? window Orphanage-Window))))
 
 
 ;;;
@@ -78,12 +79,14 @@
   (make-table test: eqv?))
 
 
-(definition public inline (get-window handle)
-  (table-ref Windows-Table handle #f))
+(definition public inline (get-window hwnd)
+  (let ((hwnd (if (foreign? hwnd) (foreign-address hwnd) hwnd)))
+    (table-ref Windows-Table hwnd #f)))
 
 
-(definition public inline (set-window handle window)
-  (table-set! Windows-Table handle window))
+(definition public inline (set-window hwnd window)
+  (when (not (is? window Desktop))
+	(table-set! Windows-Table (foreign-address hwnd) window)))
 
 
 (definition public inline (platform-get-window-handle-title handle)
@@ -343,10 +346,14 @@
   (platform-get-size handle))
 
 
+(definition (platform-get-system-rect handle)
+  (if (is-window-HIView? (get-window handle))
+      (HIViewGetBounds handle)
+      (WindowGetContentBounds handle)))
+
+
 (definition (platform-set-window-size handle size)
-  (receive (left top width height) (if (is-window-HIView? (get-window handle))
-				       (HIViewGetBounds handle)
-				       (WindowGetContentBounds handle))
+  (receive (left top width height) (platform-get-system-rect handle)
      (let ((width (get-width~ size))
 	   (height (get-height~ size)))
        (if (is-window-HIView? (get-window handle))
@@ -367,15 +374,8 @@
 
 
 (definition (platform-get-rect handle parent-handle)
-  (unimplemented 'platform-get-rect)
-  @lala
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (let* ((l (XWindowAttributes-x-ref infos))
-           (t (XWindowAttributes-y-ref infos))
-           (r (+ l (XWindowAttributes-width-ref infos)))
-           (b (+ t (XWindowAttributes-height-ref infos))))
-      (new Rect l t r b))))
+  (receive (left top width height) (platform-get-system-rect handle)
+      (new Rect left top (+ left width) (+ top height))))
 
 
 (definition (platform-get-bounds handle)
@@ -478,14 +478,14 @@
 
 
 (definition (platform-invalidate-window handle erase?)
-  (unimplemented 'platform-invalidate-window)
+  (platform-invalidate-rect handle #f #f)
   @windows
   (when handle
     (InvalidateRect handle NULL erase?)))
 
 
 (definition (platform-redraw-window handle rect region)
-  (unimplemented 'platform-redraw-window)
+  (platform-invalidate-rect handle #f #f)
   @lala
   (platform-update-window handle))
 
@@ -513,7 +513,7 @@
 
 
 (definition (platform-update-window handle)
-  (unimplemented 'platform-update-window)
+  (platform-invalidate-rect handle #f #f)
   @lala
   (when handle
     (let* ((size (platform-get-size handle))
@@ -570,7 +570,7 @@
 
 
 (definition (platform-lock-window-update handle)
-  (unimplemented 'platform-lock-window-update)
+  #f
   @lala
   (if handle
       (set! *locked-update* #t)
@@ -699,8 +699,9 @@
   (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
 
 
+;; We need to find what is the correct approach to this.
 (definition public (get-work-area) <Rect>
-  (unimplemented 'get-work-area)
+  (new Rect 0 0 800 700)
   @lala
   (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
     (new Rect 0 0 (get-width~ size) (get-height~ size))))

@@ -85,40 +85,10 @@
 
   
   ;;;
-  ;;;; TESTING THE BUG
-  ;;;
-  
-  
-  (method (accept-connection port)
-    (debug 'connection)
-    (unwind-protect
-        (generateresponse2 port)
-      (debug 'sent)
-      (close-port port)))
-  
-  
-  (method (generateresponse2 port)
-    (display "HTTP/1.1 200 OK\n" port)
-    (display "Connection: close\n" port)
-    (display "Content-Type: text/html\n\n" port)
-    (display "<html>\n<body>\n" port)
-    (display "<input type=checkbox> hello <br>\n" port)
-    (display "<input type=checkbox> les <br>\n" port)
-    (let loop ((n 1))
-         (if (< n 1000)
-             (begin
-               (display "<input type=hidden>\n" port)
-               (loop (+ n 1)))))
-    (display "<input type=checkbox> copains <br>\n" port)
-    (display "</body>\n</html>\n" port))
-
-  
-  ;;;
   ;;;; Connection
   ;;;
   
   
-  @w
   (method (accept-connection port)
     (server-hit)
     (unwind-protect
@@ -138,7 +108,6 @@
   
   (method (request-html port)
     (let ((request (new HTTP-Request port: port)))
-      (debug 'request (get-operation~ request) (get-resource~ request))
       (call-listeners-receive-request request)
       (with-error-reporting request
         (function ()
@@ -159,7 +128,7 @@
         (with-exception-handler
           (function (exc)
             (display (exception-reason exc))
-            (pp (execution-stack depth: 5 variables?: #t))
+            (pretty-print (execution-stack depth: 5 variables?: #t))
             (exit (let ((html '(<html>
                                  (<head>
                                    (<title> "Error"))

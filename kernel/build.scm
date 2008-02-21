@@ -41,11 +41,11 @@
 
 
 (define jazz.gambit-version
-  402000)
+  402002)
 
 
 (define jazz.gambit-stamp
-  1202071464)
+  1203267649)
 
 
 (define (jazz.validate-version)
@@ -443,7 +443,7 @@
 
 
 (define jazz.default-safety
-  'debug)
+  'release)
 
 (define jazz.valid-safeties
   '(core
@@ -543,7 +543,7 @@
 
 
 (define jazz.default-target
-  'all)
+  'jedi)
 
 
 (define (jazz.make target)

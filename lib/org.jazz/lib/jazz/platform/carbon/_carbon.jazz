@@ -97,6 +97,7 @@
 
 
 (constant kEventControlDraw 4)
+(constant kEventControlBoundsChanged 154)
 
 
 ;;;
@@ -145,6 +146,23 @@
 
 
 ;;;
+;;;; HIView Z Order
+;;;
+
+
+(constant kHIViewZOrderAbove 1)
+(constant kHIViewZOrderBelow 2)
+
+
+;;;
+;;;; HIView features
+;;;
+
+
+(constant kHIViewFeatureAllowsSubviews 2)
+
+
+;;;
 ;;;; Functions
 ;;;
 
@@ -156,11 +174,21 @@
 (c-external EventKind (GetEventKind EventRef))
 (c-external HIViewRef (HIViewGetRoot WindowRef))
 (c-external OSStatus  (HIViewAddSubview HIViewRef HIViewRef))
-(c-external void      (HIViewSetVisible HIViewRef Bool))
+(c-external OSStatus  (HIViewSetVisible HIViewRef Bool))
 (c-external void      (HIViewSetNeedsDisplay HIViewRef Bool))
 (c-external OSStatus  (HIViewPlaceInSuperviewAt HIViewRef float float))
 (c-external OSStatus  (MoveWindowStructure WindowRef short short))
 (c-external UInt32    (GetCurrentEventKeyModifiers))
+(c-external HIViewRef (HIViewGetSuperview HIViewRef))
+(c-external OSStatus  (HIViewRemoveFromSuperview HIViewRef))
+(c-external HIViewRef (HIViewGetFirstSubview HIViewRef))
+(c-external OSStatus  (HIViewSetZOrder HIViewRef HIViewZOrderOp HIViewRef))
+(c-external void      (BringToFront WindowRef))
+(c-external WindowRef (HIViewGetWindow HIViewRef))
+(c-external OSStatus  (HIViewSetActivated HIViewRef Bool))
+(c-external HIViewRef (HIViewGetFirstSubview HIViewRef))
+(c-external OSStatus  (HIViewChangeFeatures HIViewRef HIViewFeatures HIViewFeatures))
+(c-external Bool      (HIViewIsValid HIViewRef))
 
 
 (definition HIViewGetContent
@@ -184,7 +212,7 @@
 
 (definition (WindowGetContentBounds window)
   (let* ((carbon-rect ((c-function (WindowRef) Rect*
-                          "Rect *rect = malloc(sizeof(CGRect));
+                          "Rect *rect = malloc(sizeof(Rect));
                            GetWindowBounds( ___arg1, kWindowContentRgn, rect );
                            ___result_voidstar = rect;")
                        window))
@@ -193,6 +221,20 @@
 	 (width (- (Rect-right-ref carbon-rect) left))
 	 (height (- (Rect-bottom-ref carbon-rect) top)))
     (Rect-free carbon-rect)
+    (values left top width height)))
+
+
+(definition (HIViewGetFrame view)
+  (let* ((carbon-rect ((c-function (HIViewRef) CGRect*
+                          "HIRect *rect = malloc(sizeof(HIRect));
+                           HIViewGetFrame( ___arg1, rect );
+                           ___result_voidstar = rect;")
+                       view))
+	 (left (CGPoint-x-ref (CGRect-origin-ref carbon-rect)))
+	 (top  (CGPoint-y-ref (CGRect-origin-ref carbon-rect)))
+	 (width (CGSize-width-ref (CGRect-size-ref carbon-rect)))
+	 (height (CGSize-height-ref (CGRect-size-ref carbon-rect))))
+    (CGRect-free carbon-rect)
     (values left top width height)))
 
 
@@ -271,7 +313,10 @@
 (definition InstallControlEventHandler
   (c-function (ControlRef) OSStatus
     "EventTypeSpec standard[] = {
-       {kEventClassControl, kEventControlDraw}
+       {kEventClassControl, kEventControlDraw},
+       {kEventClassControl, kEventControlBoundsChanged},
+       {kEventClassControl, kEventControlInvalidateForSizeChange},
+       {kEventClassControl, kEventControlApplyBackground}
      };
 
      ___result = InstallControlEventHandler( ___arg1, NewEventHandlerUPP(call_process_control_message), GetEventTypeCount(standard), standard, ___arg1, NULL);"))

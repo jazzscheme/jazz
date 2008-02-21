@@ -63,6 +63,7 @@
 
 (definition (is-window-HIView? window)
   (not (or (is? window Toplevel)
+	   (is? window Desktop)
 	   (is? window Orphanage-Window))))
 
 
@@ -85,8 +86,7 @@
 
 
 (definition public inline (set-window hwnd window)
-  (when (not (is? window Desktop))
-	(table-set! Windows-Table (foreign-address hwnd) window)))
+  (table-set! Windows-Table (foreign-address hwnd) window))
 
 
 (definition public inline (platform-get-window-handle-title handle)
@@ -98,36 +98,41 @@
 
 
 (definition (prepare-handle window parent rest)
-  (if (is? window Desktop)
-      #f
-      (if (is-window-HIView? window)
-	  (create-HIView-handle window parent rest)
-	  (create-window-handle window parent rest))))
+  (if (is-window-HIView? window)
+      (create-HIView-handle window parent rest)
+      (let* ((window-handle (create-window-handle window parent rest))
+	     (handle (HIViewGetContent window-handle)))
+	(InstallControlEventHandler handle)
+	handle)))
 
 
 (definition (create-HIView-handle window parent rest)
-  (let ((parent-handle (if (is-window-HIView? parent)
-			   (get-handle~ parent)
-			   (HIViewGetContent (get-handle~ parent))))
-	(new-handle (HIViewCreate)))
+  (let* ((parent-handle (get-handle~ parent))
+	 (new-handle (HIViewCreate)))
+    (debug window parent)
     (HIViewAddSubview parent-handle new-handle)
+    (HIViewChangeFeatures new-handle kHIViewFeatureAllowsSubviews 0)
     (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
     (InstallControlEventHandler new-handle)
     new-handle))
 
 
 (definition (create-window-handle window parent rest)
+  (let ((x (if (is? window Desktop) 0 500))
+	(y (if (is? window Desktop) 0 500))
+	(w (if (is? window Desktop) 1000 500))
+	(h (if (is? window Desktop) 1000 500)))
     (let ((handle (CreateNewWindow kDocumentWindowClass
 				   (bitwise-ior kWindowStandardDocumentAttributes
 						kWindowStandardHandlerAttribute
 						kWindowLiveResizeAttribute
 						kWindowCompositingAttribute)
-				   100
-				   100
-				   600
-				   600)))
+				   x
+				   y
+				   w
+				   h)))
       (InstallWindowEventHandler handle)
-      handle))
+      handle)))
 
 
 (definition (destroy-window window)
@@ -154,15 +159,18 @@
   
 
 (definition (show-window handle)
-  (if (is-window-HIView? (get-window handle))
-      (HIViewSetVisible handle #t)
-      (ShowWindow handle)))
+  ;; We must fix this.
+  (if (is? (get-window handle) Desktop)
+      #f
+      (if (is-window-HIView? (get-window handle))
+	  (HIViewSetVisible handle #t)
+	  (ShowWindow (HIViewGetWindow handle)))))
 
 
 (definition (hide-window handle)
   (if (is-window-HIView? (get-window handle))
       (HIViewSetVisible handle #f)
-      (HideWindow handle)))
+      (HideWindow (HIViewGetWindow handle))))
 
 
 (definition (bring-window-to-top handle)
@@ -193,12 +201,18 @@
 (set-process-window-message process-window-message)
 
 (definition (process-control-message handler event userdata)
-  (let ((type (GetEventKind event)))
+  (let ((type (GetEventKind event))
+	(handle (void*->HIViewRef userdata)))
     (cond
      ((= type kEventControlDraw)
-      (let ((context (EventCGContext event))
-	    (handle (void*->HIViewRef userdata)))
-	(paint~ (get-window handle) #f (cons context)))
+      (let ((context (EventCGContext event)))
+	(paint~ (get-window handle) #f context))
+      noErr)
+     ((= type kEventControlBoundsChanged)
+      (receive (left top width height) (HIViewGetBounds handle)
+	(if (is? (get-window handle) Host-Docked) (show-window handle))
+        (call-size-change~ (get-window handle) (inexact->exact width) (inexact->exact height))
+	(call-position-change~ (get-window handle) (inexact->exact left) (inexact->exact top)))
       noErr)
      (else
       eventNotHandledErr))))
@@ -249,10 +263,10 @@
 
 
 (definition (platform-set-parent handle parent)
-  (let ((parent-handle (if (is-window-HIView? parent)
-			   (get-handle~ parent)
-			   (HIViewGetContent (get-handle~ parent)))))
-    (HIViewAddSubview handle parent-handle)))
+  (debug (get-window handle) parent)
+    (when (HIViewGetSuperview handle)
+	  (HIViewRemoveFromSuperview handle))
+    (HIViewAddSubview (get-handle~ parent) handle))
 
 
 (definition (platform-get-first-child handle)
@@ -314,18 +328,17 @@
 
 
 (definition (platform-get-position handle parent-handle)
-  (receive (left top width height) (if (is-window-HIView? (get-window handle))
-				       (HIViewGetBounds handle)
-				       (WindowGetContentBounds handle))
+  (receive (left top width height) (platform-get-system-rect handle)
      (new Point (inexact->exact left) (inexact->exact top))))
 
 
 (definition (platform-set-position handle pos)
-  (let ((h (get-h~ pos))
-	(v (get-v~ pos)))
-    (if (is-window-HIView? (get-window handle))
-	(HIViewPlaceInSuperviewAt handle (exact->inexact h) (exact->inexact v))
-	(MoveWindowStructure handle h v)))
+  (receive (left top width height) (platform-get-system-rect handle)
+     (let ((left (get-h~ pos))
+	   (top (get-v~ pos)))
+       (if (is-window-HIView? (get-window handle))
+	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
+	   (WindowSetContentBounds (HIViewGetWindow handle) left top width height))))
   @X11-code
   (if *locked-update*
       (add-position-action (get-window handle) pos)
@@ -336,10 +349,8 @@
   
 
 (definition (platform-get-size handle)
-  (receive (left top width height) (if (is-window-HIView? (get-window handle))
-				       (HIViewGetBounds handle)
-				       (WindowGetContentBounds handle))
-     (new Dimension (inexact->exact width) (inexact->exact height))))
+  (receive (left top width height) (platform-get-system-rect handle)
+	   (new Dimension (inexact->exact width) (inexact->exact height))))
 
 
 (definition (platform-get-window-size handle)
@@ -348,8 +359,8 @@
 
 (definition (platform-get-system-rect handle)
   (if (is-window-HIView? (get-window handle))
-      (HIViewGetBounds handle)
-      (WindowGetContentBounds handle)))
+      (HIViewGetFrame handle)
+      (WindowGetContentBounds (HIViewGetWindow handle))))
 
 
 (definition (platform-set-window-size handle size)
@@ -358,7 +369,7 @@
 	   (height (get-height~ size)))
        (if (is-window-HIView? (get-window handle))
 	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-	   (WindowSetContentBounds handle left top width height)))))
+	   (WindowSetContentBounds (HIViewGetWindow handle) left top width height)))))
 
 
 (definition (platform-set-position-size handle pos size)
@@ -433,11 +444,8 @@
 
 
 (definition (platform-get-client-rect handle)
-  (unimplemented 'platform-get-client-rect)
-  @lala
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (new Rect 0 0 (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+  (let ((size (platform-get-size handle)))
+    (new Rect 0 0 (get-width~ size) (get-height~ size))))
 
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
@@ -451,7 +459,7 @@
 
 ;; Correct this to really invalidate the Rect
 (definition (platform-invalidate-rect handle rect erase?)
-  (HIViewSetNeedsDisplay (if (is-window-HIView? (get-window handle)) handle (HIViewGetContent handle)) #t)
+  (HIViewSetNeedsDisplay handle #t)
   @lala
   (when handle
     (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
@@ -546,9 +554,11 @@
 
 
 (definition public (platform-select-foreground-window handle)
-  (unimplemented 'platform-select-foreground-window)
-  @lala
-  (XRaiseWindow default-x11-display handle))
+  (if (is-window-HIView? (get-window handle))
+      (let* ((parent-view (HIViewGetSuperview handle))
+	     (top-view    (HIViewGetFirstSubview handle)))
+	(HIViewSetZOrder handle kHIViewZOrderAbove top-view))
+      (BringToFront (HIViewGetWindow handle))))
 
 
 ;;;

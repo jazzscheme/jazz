@@ -372,6 +372,7 @@
 (native jazz.close-port)
 (native jazz.input-port-timeout-set!)
 (native jazz.output-port-timeout-set!)
+(native open-event-queue)
 
 
 ;;;
@@ -526,6 +527,7 @@
 (native jazz.table-clear)
 (native jazz.table-length)
 (native jazz.iterate-table)
+(native jazz.map-table)
 (native jazz.table-entries)
 (native jazz.eq-hash)
 (native jazz.eqv-hash)

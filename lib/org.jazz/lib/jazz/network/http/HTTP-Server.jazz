@@ -351,10 +351,8 @@
   
   
   (method (request-content request)
-    "Content"
-    @convert-map-hash
-    (let ((host (get-host~ request))
-          (port (get-port~ request))
+    (let (@convert (host (get-host~ request))
+          @convert (port (get-port~ request))
           (operation (get-operation~ request))
           (resource (get-resource~ request))
           (version (get-version~ request))
@@ -362,9 +360,11 @@
           (cookies (get-cookies~ request))
           (parameters (get-parameters~ request)))
       `(<table> border: "1"
+         @convert
          (<tr>
            (<td> "host")
            (<td> ,(->string host)))
+         @convert
          (<tr>
            (<td> "port")
            (<td> ,(->string port)))
@@ -380,50 +380,53 @@
          (<tr>
            (<td> "headers")
            (<td> (<table>
-                   ,@(map-hash (function (name value)
-                                 `(<tr>
-                                    (<td> ,name)
-                                    (<td> ,value)))
-                               headers))))
+                   ,@(map-table headers
+                                (function (name value)
+                                  `(<tr>
+                                     (<td> ,name)
+                                     (<td> ,value)))))))
          (<tr>
            (<td> "cookies")
            (<td> (<table>
-                   ,@(map-hash (function (name cookie)
-                                 (let ((value (get-value~ cookie)))
-                                   `(<tr>
-                                      (<td> ,name)
-                                      (<td> ,value))))
-                               cookies))))
-         (<tr>
-           (<td> "parameters")
-           (<td> (<table>
-                   ,@(map (function (parameter)
-                            (bind (name . value) parameter
-                              `(<tr>
-                                 (<td> ,name)
-                                 (<td> ,value))))
-                          parameters)))))))
+                   ,@(map-table cookies
+                                (function (name cookie)
+                                  (let ((value (get-value~ cookie)))
+                                    `(<tr>
+                                       (<td> ,name)
+                                       (<td> ,value))))))))
+         ,@(if (not parameters)
+               '()
+             `((<tr>
+                 (<td> "parameters")
+                 (<td> (<table>
+                         ,@(map (function (parameter)
+                                  (bind (name . value) parameter
+                                    `(<tr>
+                                       (<td> ,name)
+                                       (<td> ,value))))
+                                parameters)))))))))
   
   
   (method (session-details request)
-    `((<h3> "Session")
-      ,(session-content request)))
-  
-  
-  (method (session-content request)
     (let ((session (get-session~ request)))
-      (when session
-        (let ((id (get-id~ session))
-              (properties (get-properties~ session)))
-          `(<table> border: "1"
-             (<tr>
-               (<td> "id")
-               (<td> ,(->string id)))
-             (<tr>
-               (<td> "properties")
-               (<td> (<table>
-                       ,@(map-property (function (property value)
-                                         `(<tr>
-                                            (<td> ,(->string property))
-                                            (<td> ,(->string value))))
-                                       properties)))))))))))
+      (if (not session)
+          '()
+        `((<h3> "Session")
+          ,(session-content request session)))))
+  
+  
+  (method (session-content request session)
+    (let ((id (get-id~ session))
+          (properties (get-properties~ session)))
+      `(<table> border: "1"
+         (<tr>
+           (<td> "id")
+           (<td> ,(->string id)))
+         (<tr>
+           (<td> "properties")
+           (<td> (<table>
+                   ,@(map-property (function (property value)
+                                     `(<tr>
+                                        (<td> ,(->string property))
+                                        (<td> ,(->string value))))
+                                   properties)))))))))

@@ -40,6 +40,7 @@
 
 (import (jazz.jml)
         (jazz.network)
+        (jazz.tutorials.gomoku)
         (jazz.utilities))
 
 
@@ -60,30 +61,35 @@
   
   
   (pattern (gomoku node)
-    (let ((a 2))
-    `(<html>
-       (<head>
-         (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
-         (<script> type: "text/javascript" src: "scripts/client.js")
-         (<title> "Gomoku"))
-       (<body> background: "backgrounds/wood.jpg"
-         (<h3> "Gomoku")
-         @w
-         (<form> name: "Form" method: "POST"
-           (<input> type: "hidden" name: "h1" value: "v1")
-           (<input> type: "submit"))
-         (<table> cellspacing: "0" cellpadding: "0"
-           (<tr>
-             (<td> (<a> href: "#" onclick: "submitForm('Form', 'Gomoku');" (<img> src: "images/white_lefttop.png")))
-             (<td> (<a> href: "Gomoku" (<img> src: "images/black_top.png")))
-             (<td> (<a> href: "Gomoku" (<img> src: "images/black_righttop.png"))))
-           (<tr>
-             (<td> (<img> src: "images/black_left.png"))
-             (<td> (<img> src: "images/empty_center.png"))
-             (<td> (<img> src: "images/white_right.png")))
-           (<tr>
-             (<td> (<img> src: "images/white_leftbottom.png"))
-             (<td> (<img> src: "images/white_bottom.png"))
-             (<td> (<img> src: "images/black_rightbottom.png"))))
-         @w
-         ,@(debug-info)))))))
+    (let ((game (new Gomoku HUMAN)))
+      `(<html>
+         (<head>
+           (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
+           (<script> type: "text/javascript" src: "scripts/client.js")
+           (<title> "Gomoku"))
+         (<body> background: "backgrounds/wood.jpg"
+           (<h3> "Gomoku")
+           @w
+           (<form> name: "Form" method: "POST"
+             (<input> type: "hidden" name: "h1" value: "v1")
+             (<input> type: "submit"))
+           (<table> cellspacing: "0" cellpadding: "0"
+             (let ((last-row (- (get-board-rows~ game) 1))
+                   (last-col (- (get-board-columns~ game) 1)))
+               ,@(loop (for row from 0 to last-row)
+                       (with vert (cond ((= row 0) "top")
+                                        ((= row last-row) "bottom")
+                                        (else "center")))
+                       (collect
+                         `(<tr>
+                            ,@(loop (for col from 0 to last-col)
+                                    (with horz (cond ((= col 0) "left")
+                                                     ((= col last-col) "right")
+                                                     (else "center")))
+                                    (collect
+                                      (let ((token (get-token~ (square~ game row col))))
+                                        `(<td>
+                                           (<a> href: "#" onclick: "submitForm('Form', 'Gomoku');"
+                                             (<img> src: "images/white_lefttop.png")))))))))))
+           @debug
+           ,@(debug-info)))))))

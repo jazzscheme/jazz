@@ -114,18 +114,15 @@ Cookie: SessionID=nil
   
   
   (method (parse-request port)
-    (let ((message (receive-string port)))
-      (receive (head body) (split-message message)
-        (bind (line . headers) (split-head head)
-          (bind (operation resource version) (split line " ")
-            (receive (resource fragment) (parse-resource resource)
-              (set! operation~self operation)
-              (set! resource~self resource)
-              (set! version~self version)
-              (parse-headers headers)
-              (parse-cookies Cookie-Header)
-              (let ((body (receive-body port body)))
-                (set! parameters~self (parse-parameters (either fragment body))))))))))
+    (receive (line headers) (read-line/headers port)
+      (bind (operation resource version) (split line " ")
+        (receive (resource fragment) (parse-resource resource)
+          (set! operation~self operation)
+          (set! resource~self resource)
+          (set! version~self version)
+          (parse-headers headers)
+          (parse-cookies Cookie-Header)
+          (parse-parameters fragment port)))))
   
   
   (method (parse-resource resource)
@@ -137,15 +134,25 @@ Cookie: SessionID=nil
                 (subseq resource (+ pos 1))))))
   
   
-  (method (parse-parameters parameters)
-    (unless (whitespace? parameters)
-      (let ((parameters (split parameters "&")))
+  (method (parse-parameters fragment port)
+    (define (split-parameters port)
+      (let ((parameters (read-all port (function (port) (read-line port #\&)))))
         (map (function (parameter)
                (let* ((pos (find parameter #\=))
                       (name (subseq parameter 0 pos))
                       (value (parse-value (subseq parameter (+ pos 1)))))
                  (cons (url-decode name) (url-decode value))))
-             parameters))))
+             parameters)))
+    
+    (if fragment
+        (call-with-input-string fragment
+          (lambda (port)
+            (set! parameters~self (split-parameters port))))
+      (let ((body (read-body port)))
+        (when body
+          (call-with-input-u8vector body
+            (lambda (port)
+              (set! parameters~self (split-parameters port))))))))
   
   
   (method (parse-value value)

@@ -229,25 +229,6 @@
 
 
 ;;;
-;;;; Input
-;;;
-
-
-(native jazz.eof-object)
-(native open-input-string)
-(native call-with-input-string)
-(native with-input-from-string)
-(native jazz.read-u8)
-(native jazz.write-u8)
-(native jazz.read-subu8vector)
-(native jazz.write-subu8vector)
-(native jazz.read-line)
-(native jazz.read-proper-line)
-(native jazz.read-all)
-(native jazz.with-extension-reader)
-
-
-;;;
 ;;;; Instance
 ;;;
 
@@ -320,22 +301,6 @@
 
 
 ;;;
-;;;; Output
-;;;
-
-
-(native jazz.print)
-(native jazz.pretty-print)
-(native force-output)
-(native open-output-string)
-(native get-output-string)
-(native call-with-output-string)
-(native current-error-port)
-(native with-output-to-port)
-(native write-u8)
-
-
-;;;
 ;;;; Parameters
 ;;;
 
@@ -373,6 +338,30 @@
 (native jazz.input-port-timeout-set!)
 (native jazz.output-port-timeout-set!)
 (native open-event-queue)
+(native jazz.eof-object)
+(native open-input-string)
+(native open-output-string)
+(native get-output-string)
+(native call-with-input-string)
+(native with-input-from-string)
+(native call-with-output-string)
+(native call-with-input-u8vector)
+(native open-output-u8vector)
+(native get-output-u8vector)
+(native jazz.read-u8)
+(native jazz.write-u8)
+(native jazz.read-subu8vector)
+(native jazz.write-subu8vector)
+(native jazz.read-line)
+(native jazz.read-proper-line)
+(native jazz.read-all)
+(native jazz.with-extension-reader)
+(native jazz.print)
+(native jazz.pretty-print)
+(native force-output)
+(native current-error-port)
+(native with-output-to-port)
+(native write-u8)
 
 
 ;;;

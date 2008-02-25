@@ -24,6 +24,7 @@
           jazz.language.sql
           jazz.library
           jazz.platform
+          jazz.profile
           jazz.recorder
           jazz.repository
           jazz.resources
@@ -33,6 +34,5 @@
           jazz.ui.clipboard
           jazz.ui.view
           jazz.ui.window
-          jazz.user
           jazz.utilities
           scheme))

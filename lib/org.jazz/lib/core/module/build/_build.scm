@@ -104,6 +104,8 @@
         (jazz.repository-find-package jazz.Build-Repository name)
       (begin
         (jazz.create-directories (jazz.repository-pathname jazz.Build-Repository dir))
+        (if (jazz.file-exists? dst)
+            (jazz.file-delete dst))
         (jazz.file-copy src dst)
         (let ((package (jazz.load-package jazz.Build-Repository name dst)))
           (%%table-set! (%%repository-packages-table jazz.Build-Repository)

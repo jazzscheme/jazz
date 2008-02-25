@@ -235,6 +235,9 @@
     (define (jazz.file-modification-time pathname)
       (time->seconds (file-last-modification-time pathname)))
     
+    (define jazz.file-delete
+      delete-file)
+    
     (define jazz.file-copy
       copy-file)
     
@@ -279,7 +282,7 @@
   (%%make-repository 'lib (%%string-append jazz.directory "lib/") #f))
 
 (define jazz.User-Repository
-  (%%make-repository 'user "~/jazz.user/lib/" #f))
+  (%%make-repository 'user "~/.jazz/lib/" #f))
 
 
 (define jazz.Repositories
@@ -290,8 +293,8 @@
     jazz.User-Repository))
 
 
-(define (jazz.register-repository)
-  #f)
+(define (jazz.register-repository directory #!key (name #f) (binary? #f))
+  (%%make-repository name directory binary?))
 
 
 (define (jazz.repository-pathname repository path)
@@ -866,5 +869,5 @@
 (jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
 
 
-(if (file-exists? "~/jazz.user/.jazzini")
-    (jazz.load "~/jazz.user/.jazzini"))
+(if (file-exists? "~/.jazz/.jazzini")
+    (jazz.load "~/.jazz/.jazzini"))

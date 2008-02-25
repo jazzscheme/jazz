@@ -538,9 +538,13 @@
       (let ((app (get-option "app"))
             (make (get-option "make")))
         (cond (app
-               (boot-app (%%string->symbol app)))
+               (##repl-debug
+                 (lambda (first output-port)
+                   (boot-app (%%string->symbol app)))))
               (jazz.app
-               (boot-app jazz.app))
+               (##repl-debug
+                 (lambda (first output-port)
+                   (boot-app jazz.app))))
               (make
                (exit
                  (if (jazz.make-target (%%string->symbol make))

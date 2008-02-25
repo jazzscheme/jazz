@@ -40,6 +40,7 @@
 
 (import (jazz.jml)
         (jazz.network)
+        (jazz.tutorials.p4)
         (jazz.utilities))
 
 
@@ -60,21 +61,110 @@
   
   
   (pattern (p4 node)
-    `(<html>
-       (<head>
-         (<title> "Puissance 4"))
-       (<body>
-         (<h3> "P4")
-         (<table>
-           (<tr>
-             (<td>)
-             (<td>)
-             (<td> "X"))
-           (<tr>
-             (<td> "X")
-             (<td>)
-             (<td> "O"))
-           (<tr>
-             (<td> "X")
-             (<td> "X")
-             (<td> "O"))))))))
+    (let ((request (get-request)))
+      (let ((game (new P4 HUMAN)))
+        (when (=? (get-operation~ request) "POST")
+          (deserialize-game request game)
+          (let ((move (deserialize-square game (get-parameter~ request "move"))))
+            (play-move game move)))
+        (let ((status (get-current-status~ game)))
+        `(<html>
+           (<head>
+             (<link> type: "text/css" href: "css/master.css" rel: "stylesheet")
+             (<script> type: "text/javascript" src: "scripts/client.js")
+             (<script> type: "text/javascript" src: "scripts/p4.js")
+             (<title> "Puissance 4"))
+           (<body> bgcolor: "blue"
+             (<h2> "Puissance 4 par Joel et Guillaume Cartier")
+             (<form> name: "Form" method: "POST"
+               (<input> type: "hidden" name: "move")
+               ,@(serialize-game game))
+             (<table>
+               (<tr>
+                 (<td> width: 30)
+                 (<td>
+                   (<table> cellspacing: "0" cellpadding: "0"
+                     ,@(loop (for row from 0 below (get-board-rows~ game))
+                             (collect
+                               `(<tr>
+                                  ,@(loop (for col from 0 below (get-board-columns~ game))
+                                          (collect
+                                            (let* ((sqr (square~ game row col))
+                                                   (token (get-token~ sqr))
+                                                   (image (format "images/p4/{a}.png"
+                                                                  (cond ((= token EMPTY) "empty")
+                                                                        ((= token COMPUTER) "green")
+                                                                        ((= token HUMAN) "red")))))
+                                              `(<td>
+                                                 ,(if (and (eqv? status 'play) (= token EMPTY))
+                                                      `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'P4');" (serialize-square sqr))
+                                                         (<img> src: ,image))
+                                                    `(<img> src: ,image)))))))))))
+                 (<td> width: 10)
+                 (<td> valign: "top"
+                   (<span>
+                     (<br>)
+                     (<br>)
+                     (<a> href: "P4" "Nouvelle partie")))))
+             ,@(cond ((eqv? status HUMAN)
+                      `((<h2> "Victoire de l'humain!!!")))
+                     ((eqv? status COMPUTER)
+                      `((<h2> "Victoire de l'ordinateur!!!")))
+                     (else
+                      '()))
+             @debug
+             ,@(debug-info)))))))
+  
+  
+  (method (play-move game move)
+    (play-at~ game (get-current-next~ game) (get-col~ move))
+    (when (eq? (get-current-status~ game) 'play)
+      (let ((move (computer-move~ game)))
+        (play-at~ game (get-current-next~ game) move))))
+  
+  
+  (method (serialize-square sqr)
+    (let ((row (get-row~ sqr))
+          (col (get-col~ sqr)))
+      (format "{s},{s}" row col)))
+  
+  
+  (method (deserialize-square game value)
+    (let ((pos (search value ",")))
+      (let ((row (string->number (substring value 0 pos)))
+            (col (string->number (substring value (+ pos 1) (cardinality value)))))
+        (square~ game row col))))
+  
+  
+  (method (serialize-token token)
+    (cond ((= token EMPTY) "empty")
+          ((= token COMPUTER) "computer")
+          ((= token HUMAN) "human")))
+  
+  
+  (method (deserialize-token value)
+    (cond ((=? value "empty") EMPTY)
+          ((=? value "computer") COMPUTER)
+          ((=? value "human") HUMAN)))
+  
+  
+  (method (serialize-game game)
+    (let ((fact (new List-Factory)))
+      (iterate-board~ game
+        (function (sqr)
+          (let ((token (get-token~ sqr)))
+            (put~ fact `(<input> type: "hidden" name: ,(serialize-square sqr) value: ,(serialize-token token))))))
+      (get-output~ fact)))
+  
+  
+  (method (deserialize-game request game)
+    (iterate-board~ game
+      (function (sqr)
+        (let ((row (get-row~ sqr))
+              (col (get-col~ sqr)))
+          (let ((token (deserialize-token (get-parameter~ request (serialize-square sqr)))))
+            (set-token~ sqr token)
+            ;; quick hack
+            @w
+            (when (/= token EMPTY)
+              (board-play~ game sqr)))))))))

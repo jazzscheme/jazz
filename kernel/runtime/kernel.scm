@@ -290,6 +290,10 @@
     jazz.User-Repository))
 
 
+(define (jazz.register-repository)
+  #f)
+
+
 (define (jazz.repository-pathname repository path)
   (%%string-append (%%repository-directory repository)
                    path))

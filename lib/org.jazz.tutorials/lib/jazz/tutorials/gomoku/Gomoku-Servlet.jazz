@@ -60,36 +60,159 @@
   ;;;
   
   
+  (method (effective-size size)
+    (if (not size)
+        'medium
+      (cond ((=? size "small")
+             'small)
+            ((=? size "medium")
+             'medium)
+            ((=? size "large")
+             'large))))
+  
+  
+  (method (new-game size)
+    (case size
+      ((small) (new Gomoku HUMAN rows: 9 columns: 9))
+      ((medium) (new Gomoku HUMAN rows: 13 columns: 13))
+      ((large) (new Gomoku HUMAN rows: 19 columns: 19))))
+  
+  
   (pattern (gomoku node)
-    (let ((game (new Gomoku HUMAN)))
-      `(<html>
-         (<head>
-           (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
-           (<script> type: "text/javascript" src: "scripts/client.js")
-           (<title> "Gomoku"))
-         (<body> background: "backgrounds/wood.jpg"
-           (<h3> "Gomoku")
-           @w
-           (<form> name: "Form" method: "POST"
-             (<input> type: "hidden" name: "h1" value: "v1")
-             (<input> type: "submit"))
-           (<table> cellspacing: "0" cellpadding: "0"
-             (let ((last-row (- (get-board-rows~ game) 1))
-                   (last-col (- (get-board-columns~ game) 1)))
-               ,@(loop (for row from 0 to last-row)
-                       (with vert (cond ((= row 0) "top")
-                                        ((= row last-row) "bottom")
-                                        (else "center")))
-                       (collect
-                         `(<tr>
-                            ,@(loop (for col from 0 to last-col)
-                                    (with horz (cond ((= col 0) "left")
-                                                     ((= col last-col) "right")
-                                                     (else "center")))
-                                    (collect
-                                      (let ((token (get-token~ (square~ game row col))))
-                                        `(<td>
-                                           (<a> href: "#" onclick: "submitForm('Form', 'Gomoku');"
-                                             (<img> src: "images/white_lefttop.png")))))))))))
-           @debug
-           ,@(debug-info)))))))
+    (let ((request (get-request)))
+      (let ((size (effective-size (get-parameter~ request "size" error?: #f))))
+        (let ((game (new-game size)))
+          (when (=? (get-operation~ request) "POST")
+            (deserialize-game request game)
+            (let ((move (deserialize-square game (get-parameter~ request "move"))))
+              (play-move game move)))
+      (let ((status (get-current-status~ game))
+            (prefix (case size
+                      ((small) "large")
+                      ((medium) "medium")
+                      ((large) "small"))))
+        `(<html>
+           (<head>
+             (<link> type: "text/css" href: "css/master.css" rel: "stylesheet")
+             (<script> type: "text/javascript" src: "scripts/client.js")
+             (<script> type: "text/javascript" src: "scripts/gomoku.js")
+             (<title> "Gomoku"))
+           (<body> background: "backgrounds/wood.jpg"
+             (<h2> "Gomoku par Joel et Guillaume Cartier")
+             (<form> name: "Form" method: "POST"
+               (<input> type: "hidden" name: "move")
+               (<input> type: "hidden" name: "size" value: ,(symbol->string size))
+               ,@(serialize-game game))
+             (<table>
+               (<tr>
+                 (<td> width: 30)
+                 (<td>
+                   (<table> cellspacing: "0" cellpadding: "0"
+                     ,@(let ((last-row (- (get-board-rows~ game) 1))
+                             (last-col (- (get-board-columns~ game) 1)))
+                         (loop (for row from 0 to last-row)
+                               (with vert (cond ((= row 0) "top")
+                                                ((= row last-row) "bottom")
+                                                (else "center")))
+                               (collect
+                                 `(<tr>
+                                    ,@(loop (for col from 0 to last-col)
+                                            (with horz (cond ((= col 0) "left")
+                                                             ((= col last-col) "right")
+                                                             (else "center")))
+                                            (collect
+                                              (let* ((sqr (square~ game row col))
+                                                     (token (get-token~ sqr))
+                                                     (name (if (and (moku? size row col) (= token EMPTY)) "moku" (format "{a}{a}" vert horz)))
+                                                     (image (format "images/gomoku/{a}/{a}_{a}.png"
+                                                                    prefix
+                                                                    (cond ((= token EMPTY) "empty")
+                                                                          ((= token COMPUTER) "white")
+                                                                          ((= token HUMAN) "black"))
+                                                                    name)))
+                                                `(<td>
+                                                   ,(if (and (eqv? status 'play) (= token EMPTY))
+                                                        `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'Gomoku');" (serialize-square sqr))
+                                                           (<img> src: ,image))
+                                                      `(<img> src: ,image))))))))))))
+                 (<td> width: 10)
+                 (<td> valign: "top"
+                   (<span>
+                     (<br>)
+                     (<br>)
+                     (<a> href: ,(format "Gomoku?size={a}" size) "Nouvelle partie")
+                     (<br>)
+                     (<a> href: "Gomoku?size=small" "9x9")
+                     (<a> href: "Gomoku?size=medium" "13x13")
+                     (<a> href: "Gomoku?size=large" "19x19")))))
+             ,@(cond ((eqv? status HUMAN)
+                      `((<h2> "Victoire de l'humain!!!")))
+                     ((eqv? status COMPUTER)
+                      `((<h2> "Victoire de l'ordinateur!!!")))
+                     (else
+                      '()))
+             @debug
+             ,@(debug-info))))))))
+  
+  
+  (method (moku? size row col)
+    (let ((border (if (eq? size 'large) 4 3))
+          (width (case size ((small) 9) ((medium) 13) (else 19))))
+      (let ((a (- border 1))
+            (b (/ (- width 1) 2))
+            (c (- width border)))
+        (and (or (= row a) (= row b) (= row c))
+             (or (= col a) (= col b) (= col c))))))
+  
+  
+  (method (play-move game move)
+    (play-at~ game (get-current-next~ game) move)
+    (when (eq? (get-current-status~ game) 'play)
+      (let ((move (computer-move~ game)))
+        (play-at~ game (get-current-next~ game) move))))
+  
+  
+  (method (serialize-square sqr)
+    (let ((row (get-row~ sqr))
+          (col (get-col~ sqr)))
+      (format "{s},{s}" row col)))
+  
+  
+  (method (deserialize-square game value)
+    (let ((pos (search value ",")))
+      (let ((row (string->number (substring value 0 pos)))
+            (col (string->number (substring value (+ pos 1) (cardinality value)))))
+        (square~ game row col))))
+  
+  
+  (method (serialize-token token)
+    (cond ((= token EMPTY) "empty")
+          ((= token COMPUTER) "computer")
+          ((= token HUMAN) "human")))
+  
+  
+  (method (deserialize-token value)
+    (cond ((=? value "empty") EMPTY)
+          ((=? value "computer") COMPUTER)
+          ((=? value "human") HUMAN)))
+  
+  
+  (method (serialize-game game)
+    (let ((fact (new List-Factory)))
+      (iterate-board~ game
+        (function (sqr)
+          (let ((token (get-token~ sqr)))
+            (put~ fact `(<input> type: "hidden" name: ,(serialize-square sqr) value: ,(serialize-token token))))))
+      (get-output~ fact)))
+  
+  
+  (method (deserialize-game request game)
+    (iterate-board~ game
+      (function (sqr)
+        (let ((row (get-row~ sqr))
+              (col (get-col~ sqr)))
+          (let ((token (deserialize-token (get-parameter~ request (serialize-square sqr)))))
+            (set-token~ sqr token)
+            ;; quick hack
+            (when (/= token EMPTY)
+              (board-play~ game sqr)))))))))

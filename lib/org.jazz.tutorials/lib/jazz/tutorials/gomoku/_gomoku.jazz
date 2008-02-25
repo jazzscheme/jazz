@@ -117,15 +117,15 @@
 
 
 ;;;
-;;;; Gomoku
+;;;; Game
 ;;;
 
 
 (class Gomoku extends Object
 
 
-  (slot board-rows                  initialize 9  accessors generate)
-  (slot board-columns               initialize 9  accessors generate)
+  (slot board-rows                  initialize #f accessors generate)
+  (slot board-columns               initialize #f accessors generate)
   (slot board-size                  initialize #f accessors generate)
   (slot board                       initialize #f accessors generate)
   (slot board-moves                 initialize #f accessors generate)
@@ -152,26 +152,29 @@
   ;;;
   
   
-  (method (initialize who)
-    (nextmethod)
-    (set! board-size (* board-rows board-columns))
-    (set! board (make-board))
-    (set! board-moves (make-moves))
-    (set! who-starts who)
-    (set! current-status 'play)
-    (set! current-next who)
-    (set! current-eval 0)
-    (set! moves '())
-    (set! last-eval #f)
-    (set! last-evaluations #f)
-    (set! last-move #f)
-    (setup-lines)
-    @move-to-board
-    (close-ambiance)
-    @move-to-board
-    (play-intro)
-    @move-to-board
-    (play-ambiance))
+  (method (initialize who . rest)
+    (bind-keywords ((rows 19) (columns 19)) rest
+      (nextmethod)
+      (set! board-rows rows)
+      (set! board-columns columns)
+      (set! board-size (* board-rows board-columns))
+      (set! board (make-board))
+      (set! board-moves (make-moves))
+      (set! who-starts who)
+      (set! current-status 'play)
+      (set! current-next who)
+      (set! current-eval 0)
+      (set! moves '())
+      (set! last-eval #f)
+      (set! last-evaluations #f)
+      (set! last-move #f)
+      (setup-lines)
+      @move-to-board
+      (close-ambiance)
+      @move-to-board
+      (play-intro)
+      @move-to-board
+      (play-ambiance)))
   
   
   (method (make-board)
@@ -227,7 +230,7 @@
   ;;;
   
   
-  (method (play-at board who sqr)
+  (method (play-at @bad board who sqr)
     (let ((move current-next))
       (set! last-move sqr)
       (set-token~ sqr move)
@@ -235,6 +238,7 @@
       (set! current-next (* current-next -1))
       (set! current-eval (+ current-eval (evaluate-move-delta sqr who)))
       (check-victory who sqr)
+      @w
       (invalidate-view~ board)))
   
   
@@ -482,11 +486,10 @@
 ;;;
 
 
-@wait
-(definition (inspect-board)
+(definition (inspect-board game)
   (loop (for row from 0 below (get-board-rows~ game))
         (loop (for col from 0 below (get-board-columns~ game))
-              (let ((token (get-token~ (square row col))))
+              (let ((token (get-token~ (square~ game row col))))
                 (display (cond ((eq? token EMPTY) ".")
                                ((eq? token HUMAN) "X")
                                ((eq? token COMPUTER) "O")))

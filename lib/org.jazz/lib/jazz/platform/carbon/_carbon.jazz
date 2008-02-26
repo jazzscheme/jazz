@@ -105,6 +105,9 @@
 ;;;
 
 
+(constant kEventMouseMoved 5)
+
+
 (constant kEventWindowUpdate  1)
 (constant kEventWindowShowing 22)
 (constant kEventWindowClose   72)
@@ -189,6 +192,45 @@
 (c-external HIViewRef (HIViewGetFirstSubview HIViewRef))
 (c-external OSStatus  (HIViewChangeFeatures HIViewRef HIViewFeatures HIViewFeatures))
 (c-external Bool      (HIViewIsValid HIViewRef))
+
+
+(definition (convertCoordinates sourceView destView x y)
+  (let* ((pt ((c-function (HIViewRef HIViewRef float float) CGPoint*
+	        "HIPoint *pt = malloc(sizeof(HIPoint));
+                 pt->x = ___arg3;
+                 pt->y = ___arg4;
+                 HIViewConvertPoint (pt, ___arg1, ___arg2);
+                 ___result_voidstar = pt;") sourceView destView x y))
+	 (x (CGPoint-x-ref pt))
+	 (y (CGPoint-y-ref pt)))
+    (CGPoint-free pt)
+    (values x y)))
+
+
+(definition eventWindowRef
+  (c-function (EventRef) WindowRef
+     "WindowRef ref = NULL;
+      GetEventParameter( ___arg1, kEventParamWindowRef, typeWindowRef, NULL, sizeof(WindowRef), NULL, &ref);
+      ___result_voidstar = ref;"))
+
+
+(definition (eventMouseLocation ev)
+  (let* ((pt ((c-function (EventRef) CGPoint*
+                "HIPoint *pt = malloc(sizeof(HIPoint));
+                 GetEventParameter( ___arg1, kEventParamWindowMouseLocation, typeHIPoint, NULL, sizeof(HIPoint), NULL, pt);
+                 ___result_voidstar = pt;") ev))
+	 (x (CGPoint-x-ref pt))
+	 (y (CGPoint-y-ref pt)))
+    (CGPoint-free pt)
+    (values x y)))
+
+
+(definition HIViewForPoint
+  (c-function (WindowRef float float) HIViewRef
+    "HIViewRef res = NULL;
+     const HIPoint pt = {___arg2, ___arg3};
+     HIViewGetSubviewHit (HIViewGetRoot( ___arg1 ), &pt, 1, &res);
+     ___result_voidstar = res;"))
 
 
 (definition HIViewGetContent
@@ -326,7 +368,8 @@
   (c-function (WindowRef) OSStatus
      "EventTypeSpec standard[] = {
          {kEventClassWindow, kEventWindowClose},
-         {kEventClassWindow, kEventWindowBoundsChanged}
+         {kEventClassWindow, kEventWindowBoundsChanged},
+         {kEventClassMouse, kEventMouseMoved}
       };
 
       ___result = InstallWindowEventHandler( ___arg1, NewEventHandlerUPP(call_process_window_message), GetEventTypeCount(standard), standard, ___arg1, NULL );"))

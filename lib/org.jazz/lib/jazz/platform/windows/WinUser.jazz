@@ -38,7 +38,8 @@
 (library jazz.platform.windows.WinUser jazz
 
 
-(import (jazz.platform.windows.WinTypes)
+(import (jazz.platform.types)
+        (jazz.platform.windows.WinTypes)
         (jazz.platform.windows.WinBase)
         (jazz.platform.windows.WinDef)
         (jazz.library))
@@ -870,22 +871,38 @@
 
 
 (definition public GetClipboardText
-  (c-function () STR
-    "char *str = NULL;
-     HANDLE data;
-     int data_size;
-     HANDLE copy;
-     int len;
-     data = GetClipboardData(CF_TEXT);
-     if( data != NULL ) { 
-       data_size = HeapSize(GetProcessHeap(), 0, data);
-       copy = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, data_size);
-       memcpy(copy,data,data_size);
-       len = strlen((char *) copy);
-       str = malloc((len+1) * sizeof(char));
-       strcpy(str, (char *)copy);
+  (c-function () scheme-object
+    "___SCMOBJ r = ___FIX(___UNKNOWN_ERR);
+     HGLOBAL global_copy = GetClipboardData (CF_UNICODETEXT);
+
+     if (global_copy != NULL)
+     {
+         ___U16 *locked_copy = GlobalLock (global_copy);
+
+         if (locked_copy != NULL)
+         {
+             int i;
+             ___U16 *vec;
+             int len = 0;
+
+             while (locked_copy[len] != 0)
+                 len++;
+
+             r = ___EXT(___alloc_scmobj) (___sU8VECTOR, len * sizeof (___U16), ___STILL);
+             
+             if (___FIXNUMP(r))
+                 r = ___FIX(___HEAP_OVERFLOW_ERR);
+             else
+             {
+                 vec = ___CAST(___U16*, ___BODY_AS(r, ___tSUBTYPED));
+
+                 while (len-- > 0)
+                     vec[len] = locked_copy[len];
+             }
+             GlobalUnlock (locked_copy);
+         }
      }
-     ___result = str;"))
+     ___result = r;"))
 
 
 (definition public SetClipboardText

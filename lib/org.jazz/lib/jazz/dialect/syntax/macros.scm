@@ -78,6 +78,9 @@
                  (function () ,@protection)))
 
 
+;; @macro (catch X (f)) @expansion (call-with-catch X (lambda (x) x) (lambda () (f)))
+;; @macro (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
+
 (syntax (catch type . body)
   (cond ((symbol? type)
          `(call-with-catch ,type (lambda (x) x)

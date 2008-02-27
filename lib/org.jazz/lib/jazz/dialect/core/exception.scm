@@ -39,6 +39,49 @@
 (module jazz.dialect.core.exception
 
 
+;;;
+;;;; Control
+;;;
+
+
+(define (jazz.with-jazz-exception-catcher handler thunk)
+  ;; Calls "thunk" and returns whatever "thunk" returns, unless
+  ;; it raises an exception. In that case the handler is called
+  ;; with 3 arguments:
+  ;; 1 - the exception that was raised
+  ;; 2 - the propagate procedure
+  ;; 3 - the debug procedure
+  (##continuation-capture
+    (lambda (catcher-cont)
+      (with-exception-handler
+        (lambda (exc)
+          (##continuation-capture
+            (lambda (raise-cont)
+              (##continuation-graft
+                catcher-cont
+                (lambda ()
+                  (handler exc
+                           (lambda ()
+                             (let ((eh (current-exception-handler)))
+                               (##continuation-graft
+                                 raise-cont
+                                 (lambda () (eh exc)))))
+                           (lambda ()
+                             (##display-exception-in-context
+                               exc
+                               raise-cont
+                               (repl-output-port))
+                             (##continuation-graft
+                               raise-cont
+                               ##repl))))))))
+        thunk))))
+
+
+;;;
+;;;; Control
+;;;
+
+
 (define jazz.default-exception-handler
   (jazz.current-exception-handler))
 

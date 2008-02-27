@@ -48,6 +48,8 @@
         (jazz.platform.literals)
         (jazz.system)
         (jazz.system.application)
+        (jazz.tutorials)
+        (jazz.tutorials.game)
         (jazz.tutorials.gomoku)
         (jazz.ui)
         (jazz.ui.view)
@@ -60,31 +62,20 @@
 ;;;; Board
 ;;;
 
-
-(definition square-offset
-  100)
-
-(definition square-width
-  50)
-
-(definition square-spacing
-  20)
-
-(definition line-pen
-  {Pen name: Black})
-
-(definition human-color
-  {Color name: Black})
-
-(definition computer-color
-  {Color name: White})
-
     
 (class Gomoku-Board extends View
   
   
-  (slot game)
-    
+  (slot game           getter generate)
+
+  ;; drawing
+  (slot square-offset  initialize 100)
+  (slot square-width   initialize 50)
+  (slot square-spacing initialize 20)
+  (slot line-pen       initialize {Pen name: Black})
+  (slot black-color    initialize {Color name: Black})
+  (slot white-color    initialize {Color name: White})
+
   
   (method meta (host-icon)
     {Bitmap-Resource "MsgUser"})
@@ -108,8 +99,9 @@
   
   (method (finish rest)
     (nextmethod rest)
-    (set! game (new Gomoku HUMAN @w (or who-starts HUMAN)))
-    (initialize-board game HUMAN))
+    (set! game (new Gomoku-Game))
+    (register-players~ game (list (new Gomoku-Human) (new Gomoku-AI game WHITE)))
+    (initialize-board))
   
   
   (method (destroy)
@@ -117,84 +109,86 @@
     (nextmethod))
   
   
-  (method (initialize-board game who)
+  (method (initialize-board)
+    (invalidate-view)
+    @wait
     (cond ((eq? who HUMAN)
            (invalidate-view))
           ((eq? who COMPUTER)
            (let ((move (computer-move~ game)))
-             (play-at~ game COMPUTER move)))))
+             (play-move game move)))))
+  
+  
+  ;;;
+  ;;;; Play
+  ;;;
+  
+  
+  (method (play-move move)
+    (board-play move)
+    (when (eq? (get-status~ game) 'play)
+      (let ((player (get-next-player~ game)))
+        (when (is? player Computer-Player)
+          (let ((move (computer-move~ player)))
+            (board-play move)))))
+    @move-to-board
+    (cond ((eq? who HUMAN) (play-victory))
+          ((eq? who COMPUTER) (play-defeat))))
+  
+  
+  (method (board-play move)
+    (play-move~ game move)
+    (invalidate-view))
   
   
   (method (draw surface context update lh lv)
-    (let ((bounds (get-bounds)))
-      (fill-rect~ surface bounds {Color name: Dark-Blue}))
+    (fill-rect~ surface (get-bounds) {Color name: Dark-Blue})
     (set-text-color~ surface {Color name: Yellow})
     (set-font~ surface {Font name: Heading0})
     (draw-text~ surface square-offset 30 "Bienvenue sur Gomoku")
-    (when (get-current-status~ game)
-      (let* ((total-width (+ square-width square-spacing))
-             (half-width (fxfloor/ square-width 2))
-             (total-board (- (* total-width (get-board-rows~ game)) half-width square-spacing)))
-        (set-pen~ surface line-pen)
-        (loop (for n from 0 below (get-board-rows~ game))
-              (line~ surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
-              (line~ surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
-        (loop (for row from 0 below (get-board-rows~ game))
-              (loop (for col from 0 below (get-board-columns~ game))
-                    (let ((token (get-token~ (square~ game row col)))
-                          (rect (new Rect (+ square-offset (* col total-width)) (+ square-offset (* row total-width)) (+ square-offset (* col total-width) square-width) (+ square-offset (* row total-width) square-width))))
-                      (cond ((eq? token HUMAN)
-                             (ellipse~ surface rect human-color human-color))
-                            ((eq? token COMPUTER)
-                             (ellipse~ surface rect computer-color computer-color)))))))
-      (cond ((eq? (get-current-status~ game) HUMAN)
-             (victory surface "Humain" human-color))
-            ((eq? (get-current-status~ game) COMPUTER)
-             (victory surface "Ordinateur" computer-color)))
-      (set-text-color~ surface {Color name: Ochre})
-      (set-font~ surface {Font name: Heading2})
-      (draw-text~ surface 650 square-offset (format "depth: {a}" (get-search-depth~ game)))
-      (when (and (get-display-evaluations?~ game) (get-last-eval~ game))
-        (draw-text~ surface 650 (+ square-offset 50) (format "count: {a}" (get-last-evaluations-count~ game)))
-        (draw-text~ surface 650 (+ square-offset 75) (format "in: {a}s" (get-last-time~ game)))
-        (set-font~ surface (new Font font-name: "Arial" point-size: 12))
-        (let ((c 0)
-              (v 225))
-          (for-each (lambda (eval)
-                      (set-text-color~ surface (if (= c (get-col~ (get-last-move~ game))) computer-color {Color name: Ochre}))
-                      (draw-text~ surface 650 v (format "{a}" eval))
-                      (increase! c)
-                      (increase! v 24))
-                    (get-last-evaluations~ game))))))
+    (let ((status (get-status~ game)))
+      (when status
+        (let* ((total-width (+ square-width square-spacing))
+               (half-width (fxfloor/ square-width 2))
+               (total-board (- (* total-width (get-board-rows~ game)) half-width square-spacing)))
+          (set-pen~ surface line-pen)
+          (loop (for n from 0 below (get-board-rows~ game))
+                (line~ surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
+                (line~ surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
+          (loop (for row from 0 below (get-board-rows~ game))
+                (loop (for col from 0 below (get-board-columns~ game))
+                      (let ((token (get-token~ (get-square~ game row col)))
+                            (rect (new Rect (+ square-offset (* col total-width)) (+ square-offset (* row total-width)) (+ square-offset (* col total-width) square-width) (+ square-offset (* row total-width) square-width))))
+                        (cond ((eq? token BLACK)
+                               (ellipse~ surface rect black-color black-color))
+                              ((eq? token WHITE)
+                               (ellipse~ surface rect white-color white-color)))))))
+        (case status
+          ((win)
+           (draw-status surface (format "Victoire de l'{a}!!!" (get-name~ (get-winner~ game))) {Color name: Yellow}))
+          ((draw)
+           (draw-status surface "Partie nulle!" {Color name: Yellow}))))))
   
   
-  (method (victory surface who color)
+  (method (draw-status surface message color)
     (set-text-color~ surface color)
     (set-font~ surface {Font name: Heading0})
-    (draw-text~ surface square-offset 525 (format "Victoire de l'{a}!!!" who)))
-  
-  
-  (method (play-move move place?)
-    (play-at~ game (get-current-next~ game) move)
-    (when (and (eq? (get-current-status~ game) 'play) (not place?))
-      (let ((move (computer-move~ game)))
-        (play-at~ game (get-current-next~ game) move))))
+    (draw-text~ surface 100 725 message))
   
   
   (method (cursor-update pos)
-    (let ((sqr (legal-sqr pos)))
-      (set-cursor (if sqr :finger :arrow))))
+    (let ((square (legal-sqr pos)))
+      (set-cursor (if square :finger :arrow))))
   
   
   (method (mouse-down pos)
-    (let ((sqr (legal-sqr pos)))
-      (when sqr
-        (let ((place? (control-down?)))
-          (play-move sqr place?)))))
+    (let ((square (legal-sqr pos)))
+      (when square
+        (play-move square))))
   
   
   (method (legal-sqr pos)
-    (if (eq? (get-current-status~ game) 'play)
+    (if (eq? (get-status~ game) 'play)
         (let ((h (get-h~ pos))
               (v (get-v~ pos))
               (total-width (+ square-width square-spacing)))
@@ -204,10 +198,10 @@
                    (< v (+ square-offset (* (get-board-rows~ game) total-width) (- square-spacing))))
               (let ((row (truncate (/ (- v 90) total-width)))
                     (col (truncate (/ (- h 90) total-width))))
-                (let ((sqr (square~ game row col)))
-                  (if sqr
-                      (if (eq? (get-token~ sqr) EMPTY)
-                          sqr
+                (let ((square (get-square~ game row col)))
+                  (if square
+                      (if (eq? (get-token~ square) EMPTY)
+                          square
                         #f)
                     #f)))
             #f))
@@ -217,11 +211,6 @@
   @wait
   (method (restart-game who)
     (initialize-game self who))
-  
-  
-  (method (toggle-evaluations)
-    (set-display-evaluations?~ game (not (get-display-evaluations?~ game)))
-    (invalidate-view))
   
   
   (method (set-search-depth depth)
@@ -240,9 +229,9 @@
   
   
   (method (play-computer)
-    (when (eq? (get-current-status~ game) 'play)
+    (when (eq? (get-status~ game) 'play)
       (let ((move (computer-move~ game)))
-        (play-at~ game (get-current-next~ game) move))))
+        (play-move~ game move))))
   
   
   (method (key-press c)
@@ -253,7 +242,6 @@
       ((#\h) (restart-game HUMAN))
       @wait
       ((#\c) (restart-game COMPUTER))
-      ((#\e) (toggle-evaluations))
       @wait
       ((#\l) (load-board self))
       ((#\q) (exit))

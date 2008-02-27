@@ -40,6 +40,8 @@
 
 (import (jazz.jml)
         (jazz.network)
+        (jazz.tutorials)
+        (jazz.tutorials.game)
         (jazz.tutorials.p4)
         (jazz.utilities))
 
@@ -62,109 +64,107 @@
   
   (pattern (p4 node)
     (let ((request (get-request)))
-      (let ((game (new P4 HUMAN)))
+      (let ((game (new P4-Game)))
+          (register-players~ game (list (new P4-Human) (new P4-AI game RED)))
         (when (=? (get-operation~ request) "POST")
           (deserialize-game request game)
-          (let ((move (deserialize-square game (get-parameter~ request "move"))))
+          (let ((move (deserialize-move game (get-parameter~ request "move"))))
             (play-move game move)))
-        (let ((status (get-current-status~ game)))
-        `(<html>
-           (<head>
-             (<link> type: "text/css" href: "css/master.css" rel: "stylesheet")
-             (<script> type: "text/javascript" src: "scripts/client.js")
-             (<script> type: "text/javascript" src: "scripts/p4.js")
-             (<title> "Puissance 4"))
-           (<body> bgcolor: "blue"
-             (<h2> "Puissance 4 par Joel et Guillaume Cartier")
-             (<form> name: "Form" method: "POST"
-               (<input> type: "hidden" name: "move")
-               ,@(serialize-game game))
-             (<table>
-               (<tr>
-                 (<td> width: 30)
-                 (<td>
-                   (<table> cellspacing: "0" cellpadding: "0"
-                     ,@(loop (for row from 0 below (get-board-rows~ game))
-                             (collect
-                               `(<tr>
-                                  ,@(loop (for col from 0 below (get-board-columns~ game))
-                                          (collect
-                                            (let* ((sqr (square~ game row col))
-                                                   (token (get-token~ sqr))
-                                                   (image (format "images/p4/{a}.png"
-                                                                  (cond ((= token EMPTY) "empty")
-                                                                        ((= token COMPUTER) "green")
-                                                                        ((= token HUMAN) "red")))))
-                                              `(<td>
-                                                 ,(if (and (eqv? status 'play) (= token EMPTY))
-                                                      `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'P4');" (serialize-square sqr))
-                                                         (<img> src: ,image))
-                                                    `(<img> src: ,image)))))))))))
-                 (<td> width: 10)
-                 (<td> valign: "top"
-                   (<span>
-                     (<br>)
-                     (<br>)
-                     (<a> href: "P4" "Nouvelle partie")))))
-             ,@(cond ((eqv? status HUMAN)
-                      `((<h2> "Victoire de l'humain!!!")))
-                     ((eqv? status COMPUTER)
-                      `((<h2> "Victoire de l'ordinateur!!!")))
-                     (else
-                      '()))
-             @debug
-             ,@(debug-info)))))))
+        (let ((status (get-status~ game)))
+          `(<html>
+             (<head>
+               (<link> type: "text/css" href: "css/p4.css" rel: "stylesheet")
+               (<script> type: "text/javascript" src: "scripts/client.js")
+               (<script> type: "text/javascript" src: "scripts/p4.js")
+               (<title> "Puissance 4"))
+             (<body> background: "backgrounds/britestar.jpg"
+               (<h2> "Bienvenue sur puissance 4")
+               (<form> name: "Form" method: "POST"
+                 ,@(serialize-game game)
+                 (<input> type: "hidden" name: "move"))
+               (<center>
+                 (<table> id: "maintable"
+                   (<tr>
+                     (<td> width: 30)
+                     (<td>
+                       (<table> cellspacing: "0" cellpadding: "0"
+                         ,@(loop (for row from 0 below (get-board-rows~ game))
+                                 (collect
+                                   `(<tr>
+                                      ,@(loop (for col from 0 below (get-board-columns~ game))
+                                              (collect
+                                                (let* ((square (get-square~ game row col))
+                                                       (token (get-token~ square))
+                                                       (image (format "images/p4/{a}.png"
+                                                                      (cond ((= token EMPTY) "empty")
+                                                                            ((= token GREEN) "green")
+                                                                            ((= token RED) "red")))))
+                                                  `(<td>
+                                                     ,(if (and (eqv? status 'play) (= token EMPTY))
+                                                          `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'P4');" (serialize-move col))
+                                                             (<img> src: ,image))
+                                                        `(<img> src: ,image)))))))))))
+                     (<td> width: 30)
+                     (<td> valign: "top"
+                       (<span>
+                         (<br>)
+                         (<a> href: "P4" "Nouvelle partie"))))))
+               ,@(case status
+                   ((win)
+                    `((<h2> ,(format "Victoire de l'{a}!!!" (get-name~ (get-winner~ game))))))
+                   ((draw)
+                    `((<h2> "Partie nulle!")))
+                   (else
+                    '()))
+               ,@(debug-info)))))))
+  
+  
+  ;;;
+  ;;;; Play
+  ;;;
   
   
   (method (play-move game move)
-    (play-at~ game (get-current-next~ game) (get-col~ move))
-    (when (eq? (get-current-status~ game) 'play)
-      (let ((move (computer-move~ game)))
-        (play-at~ game (get-current-next~ game) move))))
+    (play-move~ game move)
+    (when (eq? (get-status~ game) 'play)
+      (let ((player (get-next-player~ game)))
+        (when (is? player Computer-Player)
+          (let ((move (computer-move~ player)))
+            (play-move~ game move))))))
   
   
-  (method (serialize-square sqr)
-    (let ((row (get-row~ sqr))
-          (col (get-col~ sqr)))
-      (format "{s},{s}" row col)))
-  
-  
-  (method (deserialize-square game value)
-    (let ((pos (search value ",")))
-      (let ((row (string->number (substring value 0 pos)))
-            (col (string->number (substring value (+ pos 1) (cardinality value)))))
-        (square~ game row col))))
-  
-  
-  (method (serialize-token token)
-    (cond ((= token EMPTY) "empty")
-          ((= token COMPUTER) "computer")
-          ((= token HUMAN) "human")))
-  
-  
-  (method (deserialize-token value)
-    (cond ((=? value "empty") EMPTY)
-          ((=? value "computer") COMPUTER)
-          ((=? value "human") HUMAN)))
+  ;;;
+  ;;;; Serialization
+  ;;;
   
   
   (method (serialize-game game)
-    (let ((fact (new List-Factory)))
-      (iterate-board~ game
-        (function (sqr)
-          (let ((token (get-token~ sqr)))
-            (put~ fact `(<input> type: "hidden" name: ,(serialize-square sqr) value: ,(serialize-token token))))))
-      (get-output~ fact)))
+    (serialize-moves game))
   
   
   (method (deserialize-game request game)
-    (iterate-board~ game
-      (function (sqr)
-        (let ((row (get-row~ sqr))
-              (col (get-col~ sqr)))
-          (let ((token (deserialize-token (get-parameter~ request (serialize-square sqr)))))
-            (set-token~ sqr token)
-            ;; quick hack
-            @w
-            (when (/= token EMPTY)
-              (board-play~ game sqr)))))))))
+    (deserialize-moves request game))
+  
+  
+  (method (serialize-moves game)
+    (loop (for move in (get-moves~ game))
+          (for rank from 0)
+          (collect
+            `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
+  
+  
+  (method (deserialize-moves request game)
+    (let (loop (rank 0))
+      (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
+        (when value
+          (let ((move (deserialize-move game value)))
+            (play-move~ game move))
+          (loop (+ rank 1))))))
+  
+  
+  (method (serialize-move move)
+    (number->string move))
+  
+  
+  (method (deserialize-move game value)
+    (string->number value))))

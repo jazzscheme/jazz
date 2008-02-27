@@ -40,29 +40,17 @@
 
 
 (import (jazz.io)
-        (jazz.jml)
-        (jazz.library)
-        (jazz.literals)
-        (jazz.media)
-        (jazz.platform)
-        (jazz.platform.literals)
-        (jazz.system)
-        (jazz.system.application)
-        (jazz.ui)
-        (jazz.ui.view)
-        (jazz.ui.window)
-        (jazz.utilities)
-        (time))
+        (jazz.tutorials.game))
 
 
 (definition EMPTY <fx>
   0)
 
-(definition COMPUTER <fx>
-  1)
-
-(definition HUMAN <fx>
+(definition GREEN <fx>
   -1)
+
+(definition RED <fx>
+  1)
 
 
 ;;;
@@ -113,71 +101,69 @@
     (set! first~self first)
     (set! second~self second)
     (set! third~self third)
-    (set! fourth~self fourth)))
+    (set! fourth~self fourth))
+  
+  
+  (method (count-token token <fx>) <fx>
+    (+ (if (= (get-token~ first) token) 1 0)
+       (if (= (get-token~ second) token) 1 0)
+       (if (= (get-token~ third) token) 1 0)
+       (if (= (get-token~ fourth) token) 1 0))))
+
+
+(definition (line=? l1 l2)
+  (and (eq? (get-first~ l1) (get-first~ l2))
+       (eq? (get-second~ l1) (get-second~ l2))
+       (eq? (get-third~ l1) (get-third~ l2))
+       (eq? (get-fourth~ l1) (get-fourth~ l2))))
+
+
+;;;
+;;;; Human
+;;;
+
+
+(class P4-Human extends Human-Player)
+
+
+;;;
+;;;; Computer
+;;;
+
+
+(class P4-Computer extends Computer-Player)
 
 
 ;;;
 ;;;; Game
 ;;;
 
-hello
-(class P4 extends Object
+
+(class P4-Game extends Game
   
   
-  (slot board-rows                  initialize #f accessors generate)
-  (slot board-columns               initialize #f accessors generate)
-  (slot board-size                  initialize #f accessors generate)
-  (slot board                       initialize #f accessors generate)
-  (slot board-moves                 initialize #f accessors generate)
-  (slot board-lines                 initialize #f accessors generate)
+  ;; board
+  (slot board-rows       initialize #f accessors generate)
+  (slot board-columns    initialize #f accessors generate)
+  (slot board-size       initialize #f accessors generate)
+  (slot board            initialize #f accessors generate)
   
-  (slot who-starts                  initialize #f accessors generate)
-  (slot current-status              initialize #f accessors generate)
-  (slot current-next                initialize #f accessors generate)
-  (slot current-eval                initialize #f accessors generate)
-  (slot moves                       initialize #f accessors generate)
-  
-  (slot display-evaluations?        initialize #f accessors generate)
-  (slot last-eval                   initialize #f accessors generate)
-  (slot last-evaluations            initialize #f accessors generate)
-  (slot last-evaluations-count <fx> initialize 0  accessors generate)
-  (slot last-time                   initialize #f accessors generate)
-  (slot last-move                   initialize #f accessors generate)
-  (slot last-v                      initialize #f accessors generate)
-    
-  (slot search-depth <fx>           initialize 4  accessors generate)
+  ;; play
+  (slot next-token       initialize #f accessors generate)
+  (slot available-moves  initialize #f accessors generate)
 
   
-  (method (initialize who . rest)
+  (method (initialize . rest)
     (bind-keywords ((rows 6) (columns 7)) rest
       (nextmethod)
       (set! board-rows rows)
       (set! board-columns columns)
       (set! board-size (* board-rows board-columns))
       (set! board (make-board))
-      (set! board-moves (make-moves))
-      (set! who-starts who)
-      (set! current-status 'play)
-      (set! current-next who)
-      (set! current-eval 0)
-      (set! moves '())
-      (set! last-eval #f)
-      (set! last-evaluations #f)
-      (set! last-move #f)
+      (set! next-token GREEN)
+      (set! available-moves (make-availables))
       (setup-squares)
-      (setup-lines)
-      @move-to-board
-      (close-ambiance)
-      @move-to-board
-      (play-intro)
-      @move-to-board
-      (play-ambiance)
-      @move-to-board
-      (cond ((eq? who HUMAN)
-             (invalidate-view~ game))
-            ((eq? who COMPUTER)
-             (let ((move (computer-move)))
-               (play-at game COMPUTER move))))))
+      (setup-lines)))
   
   
   (method (make-board)
@@ -189,245 +175,20 @@ hello
       board))
   
   
-  (method (make-moves)
+  (method (make-availables)
     (let ((moves (make-vector board-columns #f))
           (bottom-row (- board-rows 1)))
       (loop (for col from 0 below board-columns)
-            (vector-set! moves col (square bottom-row col)))
+            (vector-set! moves col (get-square bottom-row col)))
       moves))
   
   
   (method (setup-squares)
     (loop (for row from 0 below board-rows)
           (loop (for col from 0 below board-columns)
-                (let ((sqr (square row col)))
-                  (set-up~ sqr (legal-square (- row 1) col))
-                  (set-down~ sqr (legal-square (+ row 1) col))))))
-  
-  
-  ;;;
-  ;;;; Board
-  ;;;
-  
-  
-  (method public (iterate-board proc)
-    (loop (for row from 0 below board-rows)
-          (loop (for col from 0 below board-columns)
-                (do (proc (square row col))))))
-  
-  
-  ;;;
-  ;;;; Move
-  ;;;
-  
-  
-  (method inline (column-move col) <Square>
-    (vector-ref board-moves col))
-  
-  (method inline (set-column-move col sqr)
-    (vector-set! board-moves col sqr))
-  
-  
-  (method inline (board-ref rank) <Square>
-    (vector-ref board rank))
-  
-  
-  (method inline (square-rank row col) <fx>
-    (+ (* row board-columns) col))
-  
-  
-  (method inline (square row col) <Square>
-    (board-ref (square-rank row col)))
-  
-  
-  ;;;
-  ;;;; Play
-  ;;;
-  
-  
-  (definition fall-speed
-    25)
-  
-  
-  (method (play-at @bad game who col)
-    (let ((sqr (column-move col))
-          (move current-next))
-      (set! last-move sqr)
-      @move-to-board
-      (last-move-animation game)
-      (set-token~ sqr move)
-      (set-column-move col (get-up~ sqr))
-      (set! current-next (* current-next -1))
-      (set! current-eval (+ current-eval (evaluate-move-delta sqr who)))
-      (check-victory who sqr)
-      @w
-      (invalidate-view~ game)))
-  
-  
-  @move-to-board
-  (method (last-move-animation game)
-    (let ((end-v (+ 100 (* (get-row~ last-move) 70))))
-      (set! last-v 60)
-      (let (loop)
-        (when (< last-v end-v)
-          (redraw-view~ game)
-          (increase! last-v fall-speed)
-          (loop)))
-      (set! last-v end-v)
-      (redraw-view~ game)
-      (set! last-v #f)))
-  
-  
-  (method (check-victory who sqr)
-    (define (victory?)
-      (some? line? (get-lines~ sqr)))
-    
-    (define (line? line)
-      (= (count-tokens who line) 4))
-    
-    (when (victory?)
-      (set! current-status who)
-      @move-to-board
-      (cond ((eq? who HUMAN) (play-victory))
-            ((eq? who COMPUTER) (play-defeat)))))
-  
-  
-  ;;;
-  ;;;; Computer
-  ;;;
-  
-  
-  (proclaim (optimize))
-  
-  
-  (method (computer-move)
-    (let ((before (time->seconds (current-time))))
-      (let ((move (best-move COMPUTER 1)))
-        (let ((after (time->seconds (current-time))))
-          (set! last-time (- after before)))
-        move)))
-  
-  
-  (method (best-move who depth)
-    (set! last-evaluations-count 0)
-    (let ((best '())
-          (best-eval #f)
-          (best-test (if (= who COMPUTER) > <))
-          (evals '()))
-      (loop (for col from 0 below board-columns)
-            (let ((sqr (column-move col)))
-              (let ((eval (and sqr (evaluate-move col sqr who current-eval depth))))
-                (set! evals (cons eval evals))
-                (when eval
-                  (cond ;; as good
-                    ((and best-eval (= eval best-eval))
-                     (set! best (cons col best)))
-                    ;; better
-                    ((or (not best-eval) (best-test eval best-eval))
-                     (set! best (list col))
-                     (set! best-eval eval)))))))
-      (set! last-eval best-eval)
-      (set! last-evaluations (reverse evals))
-      (random-element best)))
-  
-  
-  (method (evaluate-move col <fx> sqr <Square> who <fx> eval <fx> depth <fx>) <fx>
-    (set-token~ sqr who)
-    (set-column-move col (get-up~ sqr))
-    (increase! last-evaluations-count)
-    (let ((delta (evaluate-move-delta sqr who)))
-      (let ((new-eval (+ eval delta)))
-        @sanity-check
-        (if (/= new-eval (evaluate-board))
-            (error "Invalid incremental eval: new={a}, board={a}" new-eval board-eval))
-        (let ((best-eval
-                (if (> (* new-eval who) 900000)
-                    new-eval
-                  (evaluate who new-eval depth))))
-          (set-column-move col sqr)
-          (set-token~ sqr EMPTY)
-          best-eval))))
-  
-  
-  (method (evaluate who <fx> eval <fx> depth <fx>) <fx>
-    (if (= depth search-depth)
-        eval
-      (evaluate-best who eval depth)))
-  
-  
-  (method (evaluate-best who <fx> eval <fx> depth <fx>) <fx>
-    (let ((best-eval 10000000))
-      (loop (for col from 0 below board-columns)
-            (let ((sqr (column-move col)))
-              (when sqr
-                (let ((eval (evaluate-move col sqr (* who -1) eval (+ depth 1))))
-                  (when eval
-                    (let ((normalized-eval (* (cast <fx> eval) who)))
-                      (when (< normalized-eval best-eval)
-                        (set! best-eval normalized-eval))))))))
-      (* best-eval who)))
-  
-  
-  (method (evaluate-board) <fx>
-    (let ((total 0))
-      (loop (for line in board-lines)
-            (increase! total (evaluate-line line)))
-      total))
-  
-  
-  (method (evaluate-line line <Line>) <fx>
-    (let ((computer-count (count-tokens COMPUTER line))
-          (human-count (count-tokens HUMAN line)))
-      (if (and (> computer-count 0)
-               (> human-count 0))
-          0
-        (+ (evaluate-count computer-count COMPUTER)
-           (evaluate-count human-count HUMAN)))))
-  
-  
-  (method (evaluate-count count <fx> who <fx>) <fx>
-    (* (cast <fx> (case count
-                    ((4) 1000000)
-                    ((3) 1000)
-                    ((2) 100)
-                    ((1) 10)
-                    ((0) 0)))
-       who))
-  
-  
-  (method (evaluate-move-delta sqr <Square> who <fx>) <fx>
-    (let ((total 0))
-      (loop (for line in (get-lines~ sqr))
-            (let ((who-count (count-tokens who line))
-                  (other-count (count-tokens (* who -1) line)))
-              (let ((delta <fx>
-                      (cond ((and (> who-count 1) (> other-count 0))
-                             0)
-                            ((= other-count 0)
-                             (evaluate-line-delta who-count who))
-                            (else
-                             (evaluate-count other-count who)))))
-                (set! total (+ total delta)))))
-      total))
-  
-  
-  (method (evaluate-line-delta count <fx> who <fx>) <fx>
-    (* (cast <fx> (case count
-                    ((4) 999000)
-                    ((3) 900)
-                    ((2) 90)
-                    ((1) 10)))
-       who))
-  
-  
-  (method (count-tokens who <fx> line <Line>) <fx>
-    (+ (if (= (get-token~ (get-first~  line)) who) 1 0)
-       (if (= (get-token~ (get-second~ line)) who) 1 0)
-       (if (= (get-token~ (get-third~  line)) who) 1 0)
-       (if (= (get-token~ (get-fourth~ line)) who) 1 0)))
-  
-  
-  (proclaim (not optimize))
+                (let ((square (get-square row col)))
+                  (set-up~ square (find-square (- row 1) col))
+                  (set-down~ square (find-square (+ row 1) col))))))
   
   
   ;;;
@@ -442,28 +203,15 @@ hello
       (1 . -1)))
   
   
-  (method (line=? l1 l2)
-    (and (eq? (get-first~ l1) (get-first~ l2))
-         (eq? (get-second~ l1) (get-second~ l2))
-         (eq? (get-third~ l1) (get-third~ l2))
-         (eq? (get-fourth~ l1) (get-fourth~ l2))))
-  
-  
   (method (setup-lines)
-    (set! board-lines '())
     (loop (for rank from 0 below board-size)
-          (let ((sqr (board-ref rank)))
-            (let ((square-lines (compute-square-lines sqr)))
-              (set-lines~ sqr square-lines)
-              (for-each (lambda (line)
-                          (when (not (member? line board-lines test: line=?))
-                            (set! board-lines (cons line board-lines))))
-                        square-lines)))))
+          (let ((square (board-ref rank)))
+            (set-lines~ square (compute-lines square)))))
   
   
-  (method (compute-square-lines sqr)
-    (let ((row (get-row~ sqr))
-          (col (get-col~ sqr))
+  (method (compute-lines square)
+    (let ((row (get-row~ square))
+          (col (get-col~ square))
           (lines '()))
       (loop (for dir in directions)
             (loop (for n from -3 to 0)
@@ -477,62 +225,131 @@ hello
   
   
   (method (find-next dir row col n)
-    (legal-square (+ row (* n (car dir)))
-                  (+ col (* n (cdr dir)))))
+    (find-square
+      (+ row (* n (car dir)))
+      (+ col (* n (cdr dir)))))
   
   
-  (method (legal-square row col)
+  ;;;
+  ;;;; Board
+  ;;;
+  
+  
+  (method public (iterate-board proc)
+    (loop (for row from 0 below board-rows)
+          (loop (for col from 0 below board-columns)
+                (do (proc (get-square row col))))))
+  
+  
+  (method inline (board-ref rank) <Square>
+    (vector-ref board rank))
+  
+  
+  (method inline (square-rank row col) <fx>
+    (+ (* row board-columns) col))
+  
+  
+  (method inline (get-square row col) <Square>
+    (board-ref (square-rank row col)))
+  
+  
+  (method (find-square row col) <Square+>
     (if (and (>= row 0) (< row board-rows)
-          (>= col 0) (< col board-columns))
-        (square row col)
-      #f)))
-
-
-;;;
-;;;; I/O
-;;;
-
-
-@wait
-(definition saved-board
-  '((O O X)
-    (O X O O)
-    (O X O X X)
-    (X O X O X X)
-    ()
-    (X X O)
-    (O)))
-
-
-@wait
-(definition (load-board game)
-  (initialize-game game HUMAN)
-  (loop (for tokens in saved-board)
-        (for col from 0 below board-columns)
-        (loop (for token in tokens)
-              (for row from (- board-rows 1) downto 0)
-              (let ((sqr (square row col)))
-                (set-token~ sqr
-                  (case token
-                    ((X) HUMAN)
-                    ((O) COMPUTER)))))
-        (let ((move (- board-rows (length tokens) 1)))
-          (set-column-move col (if (>= move 0) (square move col) #f))))
-  (invalidate-view~ game))
-
-
-;;;
-;;;; Debug
-;;;
-
-
-@wait
-(definition (inspect-board)
-  (loop (for row from 0 below board-rows)
-        (loop (for col from 0 below board-columns)
-              (let ((token (get-token~ (square row col))))
-                (display (cond ((eq? token EMPTY) ".")
-                               ((eq? token HUMAN) "X")
-                               ((eq? token COMPUTER) "O")))
-                (display " ")))
-        (newline))))
+             (>= col 0) (< col board-columns))
+        (get-square row col)
+      #f))
+  
+  
+  ;;;
+  ;;;; Move
+  ;;;
+  
+  
+  (method inline (available-move col) <Square>
+    (vector-ref available-moves col))
+  
+  
+  (method inline (set-available-move col square) <void>
+    (vector-set! available-moves col square))
+  
+  
+  (method (play move token)
+    (let ((square (available-move move)))
+      (set-token~ square token)
+      (set-available-move move (get-up~ square))
+      square))
+  
+  
+  (method (unplay move square)
+    (set-available-move move square)
+    (set-token~ square EMPTY))
+  
+  
+  (method (next-token!)
+    (set! next-token (* next-token -1)))
+  
+  
+  ;;;
+  ;;;; Play
+  ;;;
+  
+  
+  (method (play-move move)
+    (let ((player (next-player!))
+          (token next-token))
+      (let ((square (play move token)))
+        (add-move move)
+        (next-token!)
+        (inform-players move square token)
+        (check-status square player token))))
+  
+  
+  (method (win? square token)
+    (define (line? line)
+      (= (count-token~ line token) 4))
+    
+    (some? line? (get-lines~ square)))
+  
+  
+  (method (draw? square token)
+    (not (loop (for col from 0 below board-columns)
+               (some (available-move col)))))
+  
+  
+  ;;;
+  ;;;; I/O
+  ;;;
+  
+  
+  @wait
+  (method (load-board game)
+    (initialize-game game HUMAN)
+    (loop (for tokens in saved-board)
+          (for col from 0 below board-columns)
+          (loop (for token in tokens)
+                (for row from (- board-rows 1) downto 0)
+                (let ((square (get-square row col)))
+                  (set-token~ square
+                    (case token
+                      ((X) HUMAN)
+                      ((O) COMPUTER)))))
+          (let ((move (- board-rows (length tokens) 1)))
+            (set-available-move col (if (>= move 0) (get-square move col) #f))))
+    (invalidate-view~ game))
+  
+  
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  @wait
+  (method (inspect-board)
+    (loop (for row from 0 below board-rows)
+          (loop (for col from 0 below board-columns)
+                (let ((token (get-token~ (get-square row col))))
+                  (display (cond ((eq? token EMPTY) ".")
+                                 ((eq? token HUMAN) "X")
+                                 ((eq? token COMPUTER) "O")))
+                  (display " ")))
+          (newline)))))

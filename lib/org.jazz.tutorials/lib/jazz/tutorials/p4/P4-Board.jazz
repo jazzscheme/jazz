@@ -47,32 +47,37 @@
         (jazz.platform)
         (jazz.platform.literals)
         (jazz.system)
-        (jazz.system.application)
+        (jazz.tutorials)
+        (jazz.tutorials.game)
         (jazz.tutorials.p4)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window)
-        (jazz.utilities)
-        (time))
-
-
-;;;
-;;;; Board
-;;;
+        (jazz.utilities))
 
 
 (class P4-Board extends View
   
   
-  (slot game)
-    
+  (slot game                               getter generate)
+  
+  (slot display-evaluations? initialize #f accessors generate)
+  (slot last-move            initialize #f accessors generate)
+  (slot last-token           initialize #f accessors generate)
+  (slot last-v               initialize #f accessors generate)
+  
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
   
   (method meta (host-icon)
     {Bitmap-Resource "MsgUser"})
   
   
   (method meta (host-title)
-    "P4")
+    "Puissance 4")
   
   
   (method meta (host-position)
@@ -89,8 +94,9 @@
   
   (method (finish rest)
     (nextmethod rest)
-    (set! game (new P4 HUMAN @w (or who-starts HUMAN)))
-    (initialize-board game HUMAN))
+    (set! game (new P4-Game))
+    (register-players~ game (list (new P4-Human) (new P4-AI game RED)))
+    (initialize-board))
   
   
   (method (destroy)
@@ -98,70 +104,132 @@
     (nextmethod))
   
   
-  (method (initialize-board game who)
+  (method (initialize-board)
+    @wait
+    (close-ambiance)
+    @wait
+    (play-intro)
+    @wait
+    (play-ambiance)
+    (invalidate-view)
+    @wait
+    (cond ((eq? who HUMAN)
+           (invalidate-view~ game))
+          ((eq? who COMPUTER)
+           (let ((move (computer-move)))
+             (play-move~ game move))))
+    @wait
     (cond ((eq? who HUMAN)
            (invalidate-view))
           ((eq? who COMPUTER)
            (let ((move (computer-move~ game)))
-             (play-at~ game COMPUTER move)))))
+             (play-move~ game move)))))
+  
+  
+  ;;;
+  ;;;; Play
+  ;;;
+  
+  
+  (method (play-move move)
+    (board-play move)
+    (when (eq? (get-status~ game) 'play)
+      (let ((player (get-next-player~ game)))
+        (when (is? player Computer-Player)
+          (let ((move (computer-move~ player)))
+            (board-play move)))))
+    @move-to-board
+    (cond ((eq? who HUMAN) (play-victory))
+          ((eq? who COMPUTER) (play-defeat))))
+  
+  
+  (method (board-play move)
+    (move-animation (available-move~ game move))
+    (play-move~ game move)
+    (invalidate-view))
+  
+  
+  ;;;
+  ;;;; Animation
+  ;;;
+  
+  
+  (definition fall-speed
+    25)
+  
+  
+  (method (move-animation move)
+    (let ((end-v (+ 100 (* (get-row~ move) 70))))
+      (set! last-move move)
+      (set! last-token (get-next-token~ game))
+      (set! last-v 60)
+      (let (loop)
+        (when (< last-v end-v)
+          (redraw-view)
+          (increase! last-v fall-speed)
+          (loop)))
+      (set! last-v end-v)
+      (redraw-view)
+      (set! last-v #f)))
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
   
   
   (method (draw surface context update lh lv)
-    (let ((bounds (get-bounds)))
-      (fill-rect~ surface bounds {Color name: Dark-Blue}))
+    (fill-rect~ surface (get-bounds) {Color name: Dark-Blue})
     (set-text-color~ surface {Color name: Yellow})
     (set-font~ surface {Font name: Heading0})
     (draw-text~ surface 100 30 "Bienvenue sur puissance 4")
-    (when (get-current-status~ game)
-      (loop (for row from 0 below (get-board-rows~ game))
-            (loop (for col from 0 below (get-board-columns~ game))
-                  (let ((token (get-token~ (square~ game row col)))
-                        (rect (new Rect (+ 100 (* col 70)) (+ 100 (* row 70)) (+ 100 (* col 70) 50) (+ 100 (* row 70) 50))))
-                    (cond ((eq? token EMPTY)
-                           (ellipse~ surface rect {Color name: Dark-Blue} {Color name: White}))
-                          ((eq? token HUMAN)
-                           (ellipse~ surface rect {Color name: Red} {Color name: Red}))
-                          (else
-                           (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
-      (when (get-last-v~ game)
-        (let ((col (get-col~ (get-last-move~ game))))
-          (let ((rect (new Rect (+ 100 (* col 70)) (get-last-v~ game) (+ 100 (* col 70) 50) (+ (get-last-v~ game) 50))))
-            (cond ((eq? (get-current-next~ game) HUMAN)
-                   (ellipse~ surface rect {Color name: Red} {Color name: Red}))
-                  (else
-                   (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
-      (cond ((eq? (get-current-status~ game) HUMAN)
-             (victory surface "Humain" {Color name: Red}))
-            ((eq? (get-current-status~ game) COMPUTER)
-             (victory surface "Ordinateur" {Color name: Green})))
-      (set-text-color~ surface {Color name: Ochre})
-      (set-font~ surface {Font name: Heading2})
-      (draw-text~ surface 650 100 (format "depth: {a}" (get-search-depth~ game)))
-      (when (and (get-display-evaluations?~ game) (get-last-eval~ game))
-        (draw-text~ surface 650 150 (format "count: {a}" (get-last-evaluations-count~ game)))
-        (draw-text~ surface 650 175 (format "in: {a}s" (get-last-time~ game)))
-        (set-font~ surface (new Font font-name: "Arial" point-size: 12))
-        (let ((c 0)
-              (v 225))
-          (for-each (lambda (eval)
-                      (set-text-color~ surface (if (= c (get-col~ (get-last-move~ game))) {Color name: Dark-Green} {Color name: Ochre}))
-                      (draw-text~ surface 650 v (format "{a}" eval))
-                      (increase! c)
-                      (increase! v 24))
-                    (get-last-evaluations~ game))))))
+    (let ((status (get-status~ game)))
+      (when status
+        (loop (for row from 0 below (get-board-rows~ game))
+              (loop (for col from 0 below (get-board-columns~ game))
+                    (let ((token (get-token~ (get-square~ game row col)))
+                          (rect (new Rect (+ 100 (* col 70)) (+ 100 (* row 70)) (+ 100 (* col 70) 50) (+ 100 (* row 70) 50))))
+                      (cond ((eq? token EMPTY)
+                             (ellipse~ surface rect {Color name: Dark-Blue} {Color name: White}))
+                            ((eq? token RED)
+                             (ellipse~ surface rect {Color name: Red} {Color name: Red}))
+                            (else
+                             (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
+        (when last-v
+          (let ((col (get-col~ last-move)))
+            (let ((rect (new Rect (+ 100 (* col 70)) last-v (+ 100 (* col 70) 50) (+ last-v 50))))
+              (cond ((eq? last-token RED)
+                     (ellipse~ surface rect {Color name: Red} {Color name: Red}))
+                    (else
+                     (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
+        (case status
+          ((win)
+           (draw-status surface (format "Victoire de l'{a}!!!" (get-name~ (get-winner~ game))) {Color name: Yellow}))
+          ((draw)
+           (draw-status surface "Partie nulle!" {Color name: Yellow})))
+        (set-text-color~ surface {Color name: Ochre})
+        (set-font~ surface {Font name: Heading2})
+        @convert
+        (draw-text~ surface 650 100 (format "depth: {a}" (get-search-depth~ game)))
+        @convert
+        (when (and display-evaluations? (get-last-eval~ game))
+          (draw-text~ surface 650 150 (format "count: {a}" (get-last-evaluations-count~ game)))
+          (draw-text~ surface 650 175 (format "in: {a}s" (get-last-time~ game)))
+          (set-font~ surface (new Font font-name: "Arial" point-size: 12))
+          (let ((c 0)
+                (v 225))
+            (for-each (lambda (eval)
+                        (set-text-color~ surface (if (= c (get-col~ (get-last-move~ game))) {Color name: Dark-Green} {Color name: Ochre}))
+                        (draw-text~ surface 650 v (format "{a}" eval))
+                        (increase! c)
+                        (increase! v 24))
+                      (get-last-evaluations~ game)))))))
   
   
-  (method (victory surface who color)
+  (method (draw-status surface message color)
     (set-text-color~ surface color)
     (set-font~ surface {Font name: Heading0})
-    (draw-text~ surface 100 525 (format "Victoire de l'{a}!!!" who)))
-  
-  
-  (method (play-move move place?)
-    (play-at~ game (get-current-next~ game) move)
-    (when (and (eq? (get-current-status~ game) 'play) (not place?))
-      (let ((move (computer-move~ game)))
-        (play-at~ game (get-current-next~ game) move))))
+    (draw-text~ surface 100 525 message))
   
   
   (method (cursor-update pos)
@@ -172,12 +240,11 @@
   (method (mouse-down pos)
     (let ((col (legal-column pos)))
       (when col
-        (let ((place? (control-down?)))
-          (play-move col place?)))))
+        (play-move col))))
   
   
   (method (legal-column pos)
-    (if (eq? (get-current-status~ game) 'play)
+    (if (eq? (get-status~ game) 'play)
         (let ((h (get-h~ pos))
               (v (get-v~ pos)))
           (if (and (>= h 100)
@@ -186,7 +253,8 @@
                    (< v (+ 100 (* (get-board-rows~ game) 70) -20)))
               (let ((col (truncate (/ (- h 90) 70))))
                 (if (and (>= col 0)
-                         (< col (get-board-columns~ game)))
+                         (< col (get-board-columns~ game))
+                         (available-move~ game col))
                     col
                   #f))
             #f))
@@ -199,14 +267,14 @@
   
   
   (method (toggle-evaluations)
-    (set-display-evaluations?~ game (not (get-display-evaluations?~ game)))
+    (set! display-evaluations? (not display-evaluations?))
     (invalidate-view))
   
   
   (method (set-search-depth depth)
     (set-search-depth~ game depth)
     (when (get-last-move~ game)
-      (let ((who (* (get-current-next~ game) -1)))
+      (let ((who (* (get-next-player~ game) -1)))
         (let ((delta (evaluate-move-delta~ game (get-last-move~ game) who)))
           (set-token~ (get-last-move~ game) EMPTY)
           (set-column-move~ game (get-col~ (get-last-move~ game)) (get-last-move~ game))
@@ -219,9 +287,14 @@
   
   
   (method (play-computer)
-    (when (eq? (get-current-status~ game) 'play)
+    (when (eq? (get-status~ game) 'play)
       (let ((move (computer-move~ game)))
-        (play-at~ game (get-current-next~ game) move))))
+        (play-move move))))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
   
   
   (method (key-press c)
@@ -320,10 +393,11 @@
 ;;;
 
 
+@wait
 (definition (inspect-board game)
   (loop (for row from 0 below (get-board-rows~ game))
         (loop (for col from 0 below (get-board-columns~ game))
-              (let ((token (get-token~ (square~ game row col))))
+              (let ((token (get-token~ (get-square~ game row col))))
                 (display (cond ((eq? token EMPTY) ".")
                                ((eq? token HUMAN) "X")
                                ((eq? token COMPUTER) "O")))

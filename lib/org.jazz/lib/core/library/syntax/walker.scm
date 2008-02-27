@@ -2563,7 +2563,7 @@
              (walker (jazz.dialect-walker dialect))
              (resume #f)
              (actual (jazz.get-catalog-entry name))
-             (declaration (jazz.call-with-validate-circularity name
+             (declaration (jazz.call-with-catalog-entry-lock name
                             (lambda ()
                               (let ((declaration (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice requires exports imports body)))
                                 (jazz.set-catalog-entry name declaration)
@@ -4980,40 +4980,40 @@
   (%%table-set! jazz.Catalog module-name entry))
 
 
+(define (jazz.call-with-catalog-entry-lock module-name thunk)
+  (jazz.call-with-load-lock
+    (lambda ()
+      (dynamic-wind
+        (lambda ()
+          (jazz.set-catalog-entry module-name ':loading))
+        thunk
+        (lambda ()
+          (if (%%eq? (jazz.get-catalog-entry module-name) ':loading)
+              (jazz.set-catalog-entry module-name #f)))))))
+
+
 (define (jazz.locate-toplevel-declaration module-name #!optional (error? #t))
-  (let ((entry (jazz.get-validated-catalog-entry module-name)))
-    (or (jazz.get-catalog-entry module-name)
-        (jazz.call-with-validate-circularity module-name
-          (lambda ()
-            (let ((declaration (jazz.load-toplevel-declaration module-name)))
-              (if (%%not declaration)
-                  (if error?
-                      (jazz.error "Unable to locate module declaration: {s}" module-name))
-                (jazz.set-catalog-entry module-name declaration))
-              declaration))))))
+  (let ((entry (jazz.get-catalog-entry module-name)))
+    (case entry
+      ((:loading)
+       (jazz.error "Circular dependency detected with {s}" module-name))
+      ((#f)
+       (jazz.call-with-catalog-entry-lock module-name
+         (lambda ()
+           (let ((declaration (jazz.load-toplevel-declaration module-name)))
+             (if (%%not declaration)
+                 (if error?
+                     (jazz.error "Unable to locate module declaration: {s}" module-name))
+               (jazz.set-catalog-entry module-name declaration))
+             declaration))))
+      (else
+       entry))))
 
 
 (define (jazz.locate-library-declaration module-name #!optional (error? #t))
   (let ((declaration (jazz.locate-toplevel-declaration module-name error?)))
     (%%assert (%%class-is? declaration jazz.Library-Declaration)
       declaration)))
-
-
-(define (jazz.call-with-validate-circularity module-name thunk)
-  (dynamic-wind
-    (lambda ()
-      (jazz.set-catalog-entry module-name ':loading))
-    thunk
-    (lambda ()
-      (if (%%eq? (jazz.get-catalog-entry module-name) ':loading)
-          (jazz.set-catalog-entry module-name #f)))))
-
-
-(define (jazz.get-validated-catalog-entry module-name)
-  (let ((entry (jazz.get-catalog-entry module-name)))
-    (if (%%eq? entry ':loading)
-        (jazz.error "Circular dependency detected with {s}" module-name)
-      entry)))
 
 
 (define (jazz.load-toplevel-declaration module-name)

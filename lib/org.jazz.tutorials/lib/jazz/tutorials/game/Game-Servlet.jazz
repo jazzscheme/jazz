@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Menu Servlet
+;;;; Game Servlet
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,45 +35,65 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.tutorials.server.Menu-Servlet jazz
+(library jazz.tutorials.game.Game-Servlet jazz
 
 
 (import (jazz.jml)
         (jazz.network)
+        (jazz.tutorials)
+        (jazz.tutorials.game)
         (jazz.utilities))
 
 
-(class Menu-Servlet extends HTTP-Servlet
-  
-  
-  (definition Pattern-Associations
-    '(("Menu" (<menu>))))
-  
-  
-  (method (get-pattern-associations)
-    Pattern-Associations)
+(class Game-Servlet extends HTTP-Servlet
   
   
   ;;;
-  ;;;; Menu
+  ;;;; Play
   ;;;
   
   
-  (pattern (menu node)
-    (bind (tag) node
-      `(<html>
-         (<head>
-           (<title> "Menu"))
-         (<body>
-           (<h3> "Menu")
-           (<ul>
-             (<li> (<a> href: "C4" "C4")))
-           (<ul>
-             (<li> (<a> href: "Gomoku" "Gomoku")))
-           @convert
-           (<ul>
-             (<li> (<a> href: "CSS" "CSS")))
-           (<ul>
-             (<li> (<a> href: "Test" "Test")))
-           (<ul>
-             (<li> (<a> href: "Website" "Website")))))))))
+  (method (play-move game move)
+    (play-move~ game move)
+    (when (eq? (get-status~ game) 'play)
+      (let ((player (get-next-player~ game)))
+        (when (eq? (player-kind~ player) 'computer)
+          (let ((move (computer-move~ player)))
+            (play-move~ game move))))))
+  
+  
+  ;;;
+  ;;;; Serialization
+  ;;;
+  
+  
+  (method (serialize-game game)
+    (serialize-moves game))
+  
+  
+  (method (deserialize-game request game)
+    (deserialize-moves request game))
+  
+  
+  (method (serialize-moves game)
+    (loop (for move in (get-moves~ game))
+          (for rank from 0)
+          (collect
+            `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
+  
+  
+  (method (deserialize-moves request game)
+    (let (loop (rank 0))
+      (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
+        (when value
+          (let ((move (deserialize-move game value)))
+            (play-move~ game move))
+          (loop (+ rank 1))))))
+  
+  
+  (method protected virtual (serialize-move move)
+    )
+  
+  
+  (method protected virtual (deserialize-move game value)
+    )))

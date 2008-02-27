@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; P4 Servlet
+;;;; C4 Servlet
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,22 +35,22 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.tutorials.p4.P4-Servlet jazz
+(library jazz.tutorials.c4.C4-Servlet jazz
 
 
 (import (jazz.jml)
         (jazz.network)
         (jazz.tutorials)
+        (jazz.tutorials.c4)
         (jazz.tutorials.game)
-        (jazz.tutorials.p4)
         (jazz.utilities))
 
 
-(class P4-Servlet extends HTTP-Servlet
+(class C4-Servlet extends Game-Servlet
   
   
   (definition Pattern-Associations
-    '(("P4" (<p4>))))
+    '(("C4" (<c4>))))
   
   
   (method (get-pattern-associations)
@@ -58,14 +58,14 @@
   
   
   ;;;
-  ;;;; P4
+  ;;;; C4
   ;;;
   
   
-  (pattern (p4 node)
+  (pattern (c4 node)
     (let ((request (get-request)))
-      (let ((game (new P4-Game)))
-          (register-players~ game (list (new P4-Human) (new P4-AI game RED)))
+      (let ((game (new C4-Game)))
+          (register-players~ game (list (new C4-Human game GREEN) (new C4-AI game RED)))
         (when (=? (get-operation~ request) "POST")
           (deserialize-game request game)
           (let ((move (deserialize-move game (get-parameter~ request "move"))))
@@ -73,12 +73,12 @@
         (let ((status (get-status~ game)))
           `(<html>
              (<head>
-               (<link> type: "text/css" href: "css/p4.css" rel: "stylesheet")
+               (<link> type: "text/css" href: "css/c4.css" rel: "stylesheet")
                (<script> type: "text/javascript" src: "scripts/client.js")
-               (<script> type: "text/javascript" src: "scripts/p4.js")
-               (<title> "Puissance 4"))
+               (<script> type: "text/javascript" src: "scripts/c4.js")
+               (<title> "Connect 4"))
              (<body> background: "backgrounds/britestar.jpg"
-               (<h2> "Bienvenue sur puissance 4")
+               (<h2> "Welcome to Connect 4")
                (<form> name: "Form" method: "POST"
                  ,@(serialize-game game)
                  (<input> type: "hidden" name: "move"))
@@ -95,71 +95,33 @@
                                               (collect
                                                 (let* ((square (get-square~ game row col))
                                                        (token (get-token~ square))
-                                                       (image (format "images/p4/{a}.png"
+                                                       (image (format "images/c4/{a}.png"
                                                                       (cond ((= token EMPTY) "empty")
                                                                             ((= token GREEN) "green")
                                                                             ((= token RED) "red")))))
                                                   `(<td>
                                                      ,(if (and (eqv? status 'play) (= token EMPTY))
-                                                          `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'P4');" (serialize-move col))
+                                                          `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'C4');" (serialize-move col))
                                                              (<img> src: ,image))
                                                         `(<img> src: ,image)))))))))))
                      (<td> width: 30)
                      (<td> valign: "top"
                        (<span>
                          (<br>)
-                         (<a> href: "P4" "Nouvelle partie"))))))
+                         (<a> href: "C4" "New game"))))))
                ,@(case status
                    ((win)
-                    `((<h2> ,(format "Victoire de l'{a}!!!" (get-name~ (get-winner~ game))))))
+                    `((<h2> ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
                    ((draw)
-                    `((<h2> "Partie nulle!")))
+                    `((<h2> "Draw!")))
                    (else
                     '()))
                ,@(debug-info)))))))
   
   
   ;;;
-  ;;;; Play
-  ;;;
-  
-  
-  (method (play-move game move)
-    (play-move~ game move)
-    (when (eq? (get-status~ game) 'play)
-      (let ((player (get-next-player~ game)))
-        (when (is? player Computer-Player)
-          (let ((move (computer-move~ player)))
-            (play-move~ game move))))))
-  
-  
-  ;;;
   ;;;; Serialization
   ;;;
-  
-  
-  (method (serialize-game game)
-    (serialize-moves game))
-  
-  
-  (method (deserialize-game request game)
-    (deserialize-moves request game))
-  
-  
-  (method (serialize-moves game)
-    (loop (for move in (get-moves~ game))
-          (for rank from 0)
-          (collect
-            `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
-  
-  
-  (method (deserialize-moves request game)
-    (let (loop (rank 0))
-      (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
-        (when value
-          (let ((move (deserialize-move game value)))
-            (play-move~ game move))
-          (loop (+ rank 1))))))
   
   
   (method (serialize-move move)

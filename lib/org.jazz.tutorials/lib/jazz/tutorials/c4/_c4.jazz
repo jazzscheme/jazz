@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Puissance 4
+;;;; Connect 4
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.tutorials.p4 jazz
+(library jazz.tutorials.c4 jazz
 
 
 (import (jazz.io)
@@ -51,6 +51,50 @@
 
 (definition RED <fx>
   1)
+
+
+;;;
+;;;; Player
+;;;
+
+
+(class C4-Player extends Player
+  
+  
+  (slot game     getter generate)
+  (slot me       getter generate)
+  (slot opponent getter generate)
+  
+  
+  (method (initialize game me)
+    (nextmethod)
+    (set! game~self game)
+    (set! me~self me)
+    (set! opponent~self (* me -1)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{a}" me))))
+  
+  
+  (method (present)
+    (if (eq? me GREEN)
+        "Green"
+      "Red")))
+
+
+;;;
+;;;; Human
+;;;
+
+
+(class C4-Human extends C4-Player
+  
+  
+  (method (player-kind)
+    'human))
 
 
 ;;;
@@ -119,27 +163,11 @@
 
 
 ;;;
-;;;; Human
-;;;
-
-
-(class P4-Human extends Human-Player)
-
-
-;;;
-;;;; Computer
-;;;
-
-
-(class P4-Computer extends Computer-Player)
-
-
-;;;
 ;;;; Game
 ;;;
 
 
-(class P4-Game extends Game
+(class C4-Game extends Game
   
   
   ;; board
@@ -274,19 +302,18 @@
   
   
   (method (play move token)
-    (let ((square (available-move move)))
-      (set-token~ square token)
-      (set-available-move move (get-up~ square))
-      square))
+    (set-token~ move token)
+    (set-available-move (get-col~ move) (get-up~ move)))
   
   
-  (method (unplay move square)
-    (set-available-move move square)
-    (set-token~ square EMPTY))
+  (method (unplay move)
+    (set-available-move (get-col~ move) move)
+    (set-token~ move EMPTY))
   
   
   (method (next-token!)
-    (set! next-token (* next-token -1)))
+    (prog1 next-token
+      (set! next-token (* next-token -1))))
   
   
   ;;;
@@ -296,22 +323,21 @@
   
   (method (play-move move)
     (let ((player (next-player!))
-          (token next-token))
-      (let ((square (play move token)))
-        (add-move move)
-        (next-token!)
-        (inform-players move square token)
-        (check-status square player token))))
+          (token (next-token!)))
+      (play move token)
+      (add-move move)
+      (inform-players move token)
+      (check-status player move token)))
   
   
-  (method (win? square token)
+  (method (win? move token)
     (define (line? line)
       (= (count-token~ line token) 4))
     
-    (some? line? (get-lines~ square)))
+    (some? line? (get-lines~ move)))
   
   
-  (method (draw? square token)
+  (method (draw? move token)
     (not (loop (for col from 0 below board-columns)
                (some (available-move col)))))
   

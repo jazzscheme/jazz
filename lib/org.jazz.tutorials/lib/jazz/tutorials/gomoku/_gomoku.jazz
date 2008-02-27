@@ -54,6 +54,50 @@
 
 
 ;;;
+;;;; Player
+;;;
+
+
+(class Gomoku-Player extends Player
+  
+  
+  (slot game     getter generate)
+  (slot me       getter generate)
+  (slot opponent getter generate)
+  
+  
+  (method (initialize game me)
+    (nextmethod)
+    (set! game~self game)
+    (set! me~self me)
+    (set! opponent~self (* me -1)))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{a}" me))))
+  
+  
+  (method (present)
+    (if (eq? me BLACK)
+        "Black"
+      "White")))
+
+
+;;;
+;;;; Human
+;;;
+
+
+(class Gomoku-Human extends Gomoku-Player
+  
+  
+  (method (player-kind)
+    'human))
+
+
+;;;
 ;;;; Square
 ;;;
 
@@ -118,22 +162,6 @@
        (eq? (get-third~ l1) (get-third~ l2))
        (eq? (get-fourth~ l1) (get-fourth~ l2))
        (eq? (get-fifth~ l1) (get-fifth~ l2))))
-
-
-;;;
-;;;; Human
-;;;
-
-
-(class Gomoku-Human extends Human-Player)
-
-
-;;;
-;;;; Computer
-;;;
-
-
-(class Gomoku-Computer extends Computer-Player)
 
 
 ;;;
@@ -261,17 +289,17 @@
   
   (method (play move token)
     (set-token~ move token)
-    (set! available-moves (remove! move available-moves))
-    move)
+    (set! available-moves (remove! move available-moves)))
   
   
-  (method (unplay move ignore)
+  (method (unplay move)
     (set! available-moves (cons move available-moves))
     (set-token~ move EMPTY))
   
   
   (method (next-token!)
-    (set! next-token (* next-token -1)))
+    (prog1 next-token
+      (set! next-token (* next-token -1))))
   
   
   ;;;
@@ -281,22 +309,21 @@
   
   (method (play-move move)
     (let ((player (next-player!))
-          (token next-token))
-      (let ((square (play move token)))
-        (add-move move)
-        (next-token!)
-        (inform-players move square token)
-        (check-status square player token))))
+          (token (next-token!)))
+      (play move token)
+      (add-move move)
+      (inform-players move token)
+      (check-status player move token)))
   
   
-  (method (win? square token)
+  (method (win? move token)
     (define (line? line)
       (= (count-token~ line token) 5))
     
-    (some? line? (get-lines~ square)))
+    (some? line? (get-lines~ move)))
   
   
-  (method (draw? square token)
+  (method (draw? move token)
     (null? available-moves))
   
   

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Puissance 4
+;;;; Connect 4
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -36,7 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.tutorials.p4.P4-Board jazz
+(library jazz.tutorials.c4.C4-Board jazz
 
 
 (import (jazz.io)
@@ -48,15 +48,15 @@
         (jazz.platform.literals)
         (jazz.system)
         (jazz.tutorials)
+        (jazz.tutorials.c4)
         (jazz.tutorials.game)
-        (jazz.tutorials.p4)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
 
-(class P4-Board extends View
+(class C4-Board extends View
   
   
   (slot game                               getter generate)
@@ -77,7 +77,7 @@
   
   
   (method meta (host-title)
-    "Puissance 4")
+    "Connect 4")
   
   
   (method meta (host-position)
@@ -94,8 +94,8 @@
   
   (method (finish rest)
     (nextmethod rest)
-    (set! game (new P4-Game))
-    (register-players~ game (list (new P4-Human) (new P4-AI game RED)))
+    (set! game (new C4-Game))
+    (register-players~ game (list (new C4-Human game GREEN) (new C4-AI game RED)))
     (initialize-board))
   
   
@@ -132,21 +132,20 @@
   
   
   (method (play-move move)
+    (define (board-play move)
+      (move-animation move)
+      (play-move~ game move)
+      (invalidate-view))
+    
     (board-play move)
     (when (eq? (get-status~ game) 'play)
       (let ((player (get-next-player~ game)))
-        (when (is? player Computer-Player)
+        (when (eq? (player-kind~ player) 'computer)
           (let ((move (computer-move~ player)))
             (board-play move)))))
     @move-to-board
     (cond ((eq? who HUMAN) (play-victory))
           ((eq? who COMPUTER) (play-defeat))))
-  
-  
-  (method (board-play move)
-    (move-animation (available-move~ game move))
-    (play-move~ game move)
-    (invalidate-view))
   
   
   ;;;
@@ -182,7 +181,7 @@
     (fill-rect~ surface (get-bounds) {Color name: Dark-Blue})
     (set-text-color~ surface {Color name: Yellow})
     (set-font~ surface {Font name: Heading0})
-    (draw-text~ surface 100 30 "Bienvenue sur puissance 4")
+    (draw-text~ surface 100 30 "Welcome to Connect 4")
     (let ((status (get-status~ game)))
       (when status
         (loop (for row from 0 below (get-board-rows~ game))
@@ -204,9 +203,9 @@
                      (ellipse~ surface rect {Color name: Green} {Color name: Green}))))))
         (case status
           ((win)
-           (draw-status surface (format "Victoire de l'{a}!!!" (get-name~ (get-winner~ game))) {Color name: Yellow}))
+           (draw-status surface (format "{a} wins!!!" (present~ (get-winner~ game))) {Color name: Yellow}))
           ((draw)
-           (draw-status surface "Partie nulle!" {Color name: Yellow})))
+           (draw-status surface "Draw!" {Color name: Yellow})))
         (set-text-color~ surface {Color name: Ochre})
         (set-font~ surface {Font name: Heading2})
         @convert
@@ -240,7 +239,7 @@
   (method (mouse-down pos)
     (let ((col (legal-column pos)))
       (when col
-        (play-move col))))
+        (play-move (available-move~ game col)))))
   
   
   (method (legal-column pos)
@@ -335,16 +334,16 @@
 
 
 (definition intro-directory
-  {Directory Home "jazz" "app" "p4" "media" "intro"})
+  {Directory Home "jazz" "app" "c4" "media" "intro"})
 
 (definition ambiance-directory
-  {Directory Home "jazz" "app" "p4" "media" "ambiance"})
+  {Directory Home "jazz" "app" "c4" "media" "ambiance"})
 
 (definition victory-directory
-  {Directory Home "jazz" "app" "p4" "media" "victory"})
+  {Directory Home "jazz" "app" "c4" "media" "victory"})
 
 (definition defeat-directory
-  {Directory Home "jazz" "app" "p4" "media" "defeat"})
+  {Directory Home "jazz" "app" "c4" "media" "defeat"})
 
 
 (definition (play-intro)

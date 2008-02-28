@@ -47,7 +47,7 @@
         (jazz.utilities))
 
 
-(class File-Request extends Layout-View
+(class File-Request extends Layout-View implements History-Provider
   
   
   (form
@@ -74,15 +74,25 @@
   (property directory initialize #f accessors generate)
   
   
+  (slot history-manager initialize (new History-Manager self))
+  
+  
   (method meta (host-title)
     "Open")
   
   
   (method (finish rest)
     (nextmethod rest)
-    (set-editable?~ (get-body~ (locate 'hierarchy)) #f)
+    (setup-directory)
+    (set-editable?~ (get-body~ (get-hierarchy)) #f)
+    (set-selectable?~ (get-body~ (get-hierarchy)) #f)
     (acquire-focus~ (get-tree))
     (update))
+  
+  
+  (method (setup-directory)
+    (when (not directory)
+      (set! directory (new Directory (tokenise-patch (pathname-normalize "."))))))
   
 
   ;;;
@@ -94,8 +104,22 @@
     (locate 'content))
   
   
-  (method (effective-directory)
-    (either directory {Directory "."}))
+  (method (get-hierarchy)
+    (locate 'hierarchy))
+  
+  
+  (method public (get-directory)
+    directory)
+  
+  
+  (method public (set-directory dir)
+    (set! directory dir))
+  
+  
+  (method public (install-directory dir)
+    (add-history~ history-manager (new History-Directory directory))
+    (set-directory dir)
+    (update))
   
 
   ;;;
@@ -105,38 +129,40 @@
   
   (method (update)
     (update-hierarchy)
+    (update-history)
     (update-content)
     (update-open))
   
   
   (method (update-hierarchy)
-    (let ((directory (effective-directory))
-          (combo (locate 'hierarchy)))
-      (set-choices~ combo (list (list 1 "a") (list 2 "b")))
-      (set-value~ combo 1)
-      @w
+    (let ((combo (locate 'hierarchy)))
       (set-choices~ combo (map (function (pathname)
-                                 (cons pathname (get-name~ pathname)))
-                               (get-hierarchy~ directory)))
-      @w
+                                 (list pathname (get-name~ pathname)))
+                               (reverse (get-hierarchy~ directory))))
       (set-value~ combo directory)))
   
   
+  (method (update-history)
+    (let ((backward (get-backward-history~ history-manager))
+          (forward (get-forward-history~ history-manager)))
+      (set-enabled?~ (locate 'backward) (not-null? backward))
+      (set-enabled?~ (locate 'forward) (not-null? forward))))
+  
+  
   (method (update-content)
-    (let ((directory (effective-directory)))
-      (let ((directories (get-content~ directory nodes?: #t leaves?: #f))
-            (files (get-content~ directory nodes?: #f leaves?: #t)))
-        (let ((tree (get-tree)))
-          (define (add-pathname pathname)
-            (let ((title (get-name~ pathname))
-                  (image (if (directory? pathname) {Bitmap-Resource "ClosedFolder"} {Bitmap-Resource "Document"})))
-              (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: pathname)))
-          
-          (with-update-locked~ tree
-            (function ()
-              (remove-every-row~ tree)
-              (for-each add-pathname directories)
-              (for-each add-pathname files)))))))
+    (let ((directories (get-content~ directory nodes?: #t leaves?: #f))
+          (files (get-content~ directory nodes?: #f leaves?: #t)))
+      (let ((tree (get-tree)))
+        (define (add-pathname pathname)
+          (let ((title (get-name~ pathname))
+                (image (if (directory? pathname) {Bitmap-Resource "ClosedFolder"} {Bitmap-Resource "Document"})))
+            (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: pathname)))
+        
+        (with-update-locked~ tree
+          (function ()
+            (remove-every-row~ tree)
+            (for-each add-pathname directories)
+            (for-each add-pathname files))))))
   
   
   (method (update-open)
@@ -159,13 +185,35 @@
   
   
   (method (down dir)
-    (set! directory dir)
-    (update))
+    (install-directory dir))
+
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method (current-history-item)
+    (new History-Directory directory))
   
 
   ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (on-backward evt)
+    (set-directory (get-directory~ (go-backward-history~ history-manager)))
+    (update))
+  
+  
+  (method (on-forward evt)
+    (set-directory (get-directory~ (go-forward-history~ history-manager)))
+    (update))
+  
+  
+  (method (hierarchy-change dir)
+    (install-directory dir))
   
   
   (method (selection-change)
@@ -213,11 +261,32 @@
   
   
   (method (content-change origin)
-    @convert
-    (set-results (get-value))))
+    (hierarchy-change~ (get-guest~ (get-host)) (get-value))))
 
 
 (register-autoclass Hierarchy-Combo)
+
+
+;;;
+;;;; History
+;;;
+
+
+(class History-Directory extends History-Item
+  
+  
+  (slot directory getter generate)
+  
+  
+  (method (initialize directory)
+    (nextmethod)
+    (set! directory~self directory))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{s}" directory)))))
 
 
 ;;;

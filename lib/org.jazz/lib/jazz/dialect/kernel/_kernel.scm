@@ -590,6 +590,7 @@
 (native jazz.u8vector-length)
 (native jazz.u8vector-ref)
 (native jazz.u8vector-set!)
+(native u8vector?)
 
 
 ;;;

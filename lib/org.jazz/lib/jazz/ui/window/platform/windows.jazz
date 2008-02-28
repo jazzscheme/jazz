@@ -184,9 +184,14 @@
 
 
 (definition (window-parent window parent)
-  (if (not parent)
-      NULL
-    (get-handle~ parent)))
+  (typecase window
+    ((Popup)            NULL)
+    ((Toplevel)         NULL)
+    ((Dialog)           (either (get-toplevel-hwnd) NULL))
+    ((Orphanage-Window) NULL)
+    (else               (if (not parent)
+                            NULL
+                          (get-handle~ parent)))))
 
 
 (definition (create-handle window parent rest)
@@ -254,7 +259,7 @@
 
 
 (definition (install-threads-wakeup)
-  (SetTimer (get-handle~ (get-toplevel~ (get-application))) 0 Threads-Wakeup-Quantum NULL))
+  (SetTimer (get-toplevel-hwnd) 0 Threads-Wakeup-Quantum NULL))
 
 
 (definition (wakeup-threads)
@@ -271,14 +276,13 @@
         (DispatchMessage msg)))))
 
 
-(definition (platform-process-one-message window)
+(definition (platform-process-one-message)
   (with ((msg (MSG-make)))
-    (let ((hwnd (get-handle~ window)))
-      ;; get only messages from window
-      (when (GetMessage msg hwnd 0 0)
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg))))))
+    ;; get messages from all windows
+    (when (GetMessage msg NULL 0 0)
+      (unless (translate-shortcut msg)
+        (TranslateMessage msg)
+        (DispatchMessage msg)))))
 
 
 ;;;
@@ -503,6 +507,19 @@
 
 (definition (child-window? handle)
   (mask-bit-set? (get-style handle) WS_CHILD))
+
+
+;;;
+;;;; Toplevel
+;;;
+
+
+(definition (get-toplevel-hwnd)
+  (let ((appl (get-application)))
+    (when appl
+      (let ((toplevel (get-toplevel~ appl)))
+        (when toplevel
+          (get-handle~ toplevel))))))
 
 
 ;;;
@@ -948,7 +965,7 @@
     (DragFinish wparam)
     (let ((pos (POINT->point pt)))
       (receive-files~ window pos files))
-    (platform-select-foreground-window (get-handle~ (get-toplevel~ (get-application))))))
+    (platform-select-foreground-window (get-toplevel-hwnd))))
 
 
 (definition (received-files wparam)

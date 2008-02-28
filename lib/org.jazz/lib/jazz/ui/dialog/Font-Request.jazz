@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Password Box
+;;;; Font Request
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,18 +35,32 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.dialog.Password-Dialog jazz
+(library jazz.ui.dialog.Font-Request jazz
 
 
-(import (jazz.jml)
-        (jazz.ui)
+(import (jazz.literals)
         (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
-(class Password-Dialog extends String-Request
-
-
-  (form
-    (<install>              title: "Enter Password"
-      (<!>     name: prefix title: "Password:")))))
+(class Font-Request extends Dialog
+    
+  
+  @convert-dialog
+  (method meta (get-modal (initial-font: initial-font {}) (initial-color: initial-color {Color name: Black}))
+    (close-all-popups)
+    (let ((r (new CHOOSEFONT))
+          (logfont (if initial-font (get-logfont~ initial-font) (new LOGFONT))))
+      (set r 'lStructSize (size-of CHOOSEFONT))
+      (set r 'hwndOwner   (get-handle~ (get-toplevel)))
+      (set r 'lpLogFont   logfont)
+      (set r 'rgbColors   (get-ref~ initial-color))
+      (set r 'Flags       (bitwise-ior CF_SCREENFONTS CF_EFFECTS CF_NOSCRIPTSEL (if initial-font CF_INITTOLOGFONTSTRUCT 0)))
+      (if (ChooseFont r)
+          (new Font logfont: logfont)
+        (let ((code (CommDlgExtendedError)))
+          (if (= code 0)
+              (throw-cancel)
+            (error "Dialog error: {t}" code))))))))

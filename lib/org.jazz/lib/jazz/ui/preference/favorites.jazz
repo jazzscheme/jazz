@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Wallpaper Preferences
+;;;; Favorites Preferences
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,26 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.preference.Wallpaper-Preferences jazz
+(library jazz.ui.preference.favorites jazz
 
 
-(import (jazz.jml)
-        (jazz.ui)
+(import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
+        (jazz.ui)
         (jazz.utilities))
 
 
-(class Wallpaper-Preferences extends Preferences
-  
-  
-  (property active initialize {} accessors generate)
+;;;
+;;;; Preferences
+;;;
 
 
+(class Favorites-Preferences extends Preferences
+  
+  
   (form
-    (<install> title: "Wallpaper"))
+    (<install> title: "Favorites"))
   
   
   ;;;
@@ -77,16 +80,77 @@
   
   (method (get-addable-classes)
     (list
-      Wallpaper-Configuration))
+      Favorite-Configuration))
   
   
   (method (get-addable-details)
-    '((name-info 100 #t)
-      (directory 100 #f)
-      (mode 100 #f)
-      (startup 100 #f)
-      (favorites 100 #f)
-      (period 100 #f)
-      (recursive? 100 #f)
-      (random? 100 #f)
-      (active? 100 #f)))))
+    '((shortcut 100 #f) (file 300 #t))))
+
+
+;;;
+;;;; Configuration
+;;;
+
+
+(class Favorite-Configuration extends Preferences
+
+
+  (property shortcut initialize {} accessors generate)
+  (property file     initialize {} accessors generate)
+  
+  
+  (form
+    (<install> icon: {Bitmap-Resource "Link"}))
+  
+  
+  ;;;
+  ;;;; Domain
+  ;;;
+  
+  
+  @convert
+  (method meta (get-domain property)
+    (case (field-name property)
+      ((shortcut) (new String-Domain))
+      (else (nextmethod property))))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  @convert-descriptor
+  (method meta (get-class-presentation)
+    "Favorite")
+
+  
+  @convert-descriptor
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((shortcut) "Shortcut")
+      ((file) "File")
+      (else (nextmethod property))))
+  
+  
+  (method (presentation-property? property)
+    (memq? (field-name property) '(shortcut)))
+  
+  
+  (method (get-presentation)
+    shortcut)
+  
+  
+  (method (set-presentation designer shortcut)
+    (set-property~ designer self shortcut: shortcut))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((shortcut) (new String-Row))
+      ((file) (new File-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(shortcut file))))

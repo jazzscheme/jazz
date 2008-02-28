@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Alias Configuration
+;;;; Wallpaper Preferences
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,25 +35,88 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.preference.Alias-Configuration jazz
+(library jazz.ui.preference.wallpaper jazz
 
 
-(import (jazz.designer)
-        (jazz.jml)
-        (jazz.library)
+(import (jazz.jml)
         (jazz.ui)
+        (jazz.library)
         (jazz.utilities))
 
 
-(class Alias-Configuration extends Preferences
+;;;
+;;;; Preferences
+;;;
+
+
+(class Wallpaper-Preferences extends Preferences
   
   
-  (property alias     initialize {} accessors generate)
-  (property directory initialize {} accessors generate)
+  (property active initialize {} accessors generate)
+
+
+  (form
+    (<install> title: "Wallpaper"))
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method (can-rename-component?)
+    #f)
+  
+  
+  (method (can-delete-component?)
+    #f)
+  
+  
+  (method (can-move-component?)
+    #f)
+  
+  
+  (method (can-copy-component?)
+    #f)
+  
+  
+  (method (get-addable-classes)
+    (list
+      Wallpaper-Configuration))
+  
+  
+  (method (get-addable-details)
+    '((name-info 100 #t)
+      (directory 100 #f)
+      (mode 100 #f)
+      (startup 100 #f)
+      (favorites 100 #f)
+      (period 100 #f)
+      (recursive? 100 #f)
+      (random? 100 #f)
+      (active? 100 #f))))
+
+
+;;;
+;;;; Configuration
+;;;
+
+
+(class Wallpaper-Configuration extends Preferences
+
+
+  (property directory  initialize {}    accessors generate)
+  (property mode       initialize {}    accessors generate)
+  (property startup    initialize {}    accessors generate)
+  (property favorites  initialize '()   accessors generate)
+  (property period     initialize {}    accessors generate)
+  (property recursive? initialize #f accessors generate)
+  (property random?    initialize #f accessors generate)
+  (property active?    initialize #t  accessors generate)
   
   
   (form
-    (<install> icon: {Bitmap-Resource "Link"}))
+    (<install> icon: {Bitmap-Resource "Link"} startup: () favorites: () period: 300000))
   
   
   ;;;
@@ -61,9 +124,10 @@
   ;;;
   
   
-  @convert-descriptor
+  @convert
   (method meta (get-domain property)
     (case (field-name property)
+      ((recursive? random? active?) (new Boolean-Domain))
       (else (nextmethod property))))
   
   
@@ -74,35 +138,31 @@
   
   @convert-descriptor
   (method meta (get-class-presentation)
-    "Alias")
+    "Wallpaper")
 
   
   @convert-descriptor
   (method meta (property-presentation property)
     (case (field-name property)
-      ((alias) "Alias")
       ((directory) "Directory")
+      ((mode) "Mode")
+      ((startup) "Startup")
+      ((favorites) "Favorites")
+      ((period) "Period")
+      ((recursive?) "Recursive?")
+      ((random?) "Random?")
+      ((active?) "Active?")
       (else (nextmethod property))))
-  
-  
-  (method (presentation-property? property)
-    (memq? (field-name property) '(alias)))
-  
-  
-  (method (get-presentation)
-    alias)
-  
-  
-  (method (set-presentation designer presentation)
-    (set-property~ designer self :alias (string->symbol presentation)))
   
   
   @convert-descriptor
   (method (get-row-instance property)
     (case (field-name property)
       ((directory) (new Directory-Row))
+      ((recursive? random? active?) (new Boolean-Row))
       (else (nextmethod property))))
   
   
   (method (get-categorized-properties)
-    '(alias directory))))
+    '(directory mode startup favorites period
+      recursive? random? active?))))

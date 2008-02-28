@@ -68,8 +68,9 @@
           (register-players~ game (list (new C4-Human game GREEN) (new C4-AI game RED)))
         (when (=? (get-operation~ request) "POST")
           (deserialize-game request game)
-          (let ((move (deserialize-move game (get-parameter~ request "move"))))
-            (play-move game move)))
+          (let ((col (deserialize-col game (get-parameter~ request "col"))))
+            (let ((move (available-move~ game col)))
+              (play-move game move))))
         (let ((status (get-status~ game)))
           `(<html>
              (<head>
@@ -81,7 +82,7 @@
                (<h2> "Welcome to Connect 4")
                (<form> name: "Form" method: "POST"
                  ,@(serialize-game game)
-                 (<input> type: "hidden" name: "move"))
+                 (<input> type: "hidden" name: "col"))
                (<center>
                  (<table> id: "maintable"
                    (<tr>
@@ -101,7 +102,7 @@
                                                                             ((= token RED) "red")))))
                                                   `(<td>
                                                      ,(if (and (eqv? status 'play) (= token EMPTY))
-                                                          `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'C4');" (serialize-move col))
+                                                          `(<a> href: "#" onclick: ,(format "playCol('{a}', 'Form', 'C4');" (serialize-col col))
                                                              (<img> src: ,image))
                                                         `(<img> src: ,image)))))))))))
                      (<td> width: 30)
@@ -124,9 +125,22 @@
   ;;;
   
   
+  (method (serialize-col col)
+    (number->string col))
+  
+  
+  (method (deserialize-col game value)
+    (string->number value))
+  
+  
   (method (serialize-move move)
-    (number->string move))
+    (let ((row (get-row~ move))
+          (col (get-col~ move)))
+      (format "{s},{s}" row col)))
   
   
   (method (deserialize-move game value)
-    (string->number value))))
+    (let ((pos (search value ",")))
+      (let ((row (string->number (substring value 0 pos)))
+            (col (string->number (substring value (+ pos 1) (cardinality value)))))
+        (get-square~ game row col))))))

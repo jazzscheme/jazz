@@ -42,6 +42,7 @@
         (jazz.library)
         (jazz.platform)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -57,6 +58,10 @@
                                 (extensions: extensions '())
                                 (multiple-selection?: multiple-selection? #f)
                                 (anchors: anchors {}))
+  (if #f
+  (if multiple-selection?
+      (list (get-modal File-Request))
+  (get-modal File-Request))
   (close-all-popups)
   (let ((size (if multiple-selection? (+ MAX_PATH (* 64 50)) MAX_PATH)))
     (with ((r (OPENFILENAME-make))
@@ -86,19 +91,19 @@
               (if (not multiple-selection?)
                   (let ((filename (WCHAR-string buffer)))
                     (anchorize (new File (tokenise-windows filename))))
-                (let ((tokens (tokenise-choose-file-string buffer)))
+                (let ((tokens (parse-choose-file-string buffer)))
                   (if (= (length tokens) 1)
                       (let ((filename (WCHAR-string buffer)))
-                        (list (anchorize (new File (tokenise filename)))))
+                        (list (anchorize (new File (tokenise-windows filename)))))
                     (bind (dir . filenames) tokens
-                      (let ((dirlist (tokenise dir)))
+                      (let ((dirlist (tokenise-windows dir)))
                         (map (function (filename)
                                (anchorize (new File (append dirlist (list filename)))))
                              filenames)))))))
           (let ((code (CommDlgExtendedError)))
             (if (= code 0)
                 (throw-cancel)
-              (error "Dialog error: {t}" code))))))))
+              (error "Dialog error: {t}" code)))))))))
 
 
 ;;;
@@ -147,7 +152,7 @@
         (let ((filename (WCHAR-string buffer)))
           @debug-bug
           (debug 'after-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
-          (anchorize~ (new File (tokenise filename)) anchors: anchors))
+          (anchorize~ (new File (tokenise-windows filename)) anchors: anchors))
       (let ((code (CommDlgExtendedError)))
         (if (= code 0)
             (throw-cancel)
@@ -185,7 +190,7 @@
         (if (not items)
             (throw-cancel)
           (let ((directory (WCHAR-string buffer)))
-            (anchorize~ (new Directory (tokenise directory)) anchors: anchors)))))))
+            (anchorize~ (new Directory (tokenise-windows directory)) anchors: anchors)))))))
 
 
 ;;;
@@ -193,7 +198,7 @@
 ;;;
 
 
-(definition (tokenise-choose-file-string buffer)
+(definition (parse-choose-file-string buffer)
   (let loop ((offset 0)
              (start-of-string? #t))
        (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))

@@ -741,7 +741,12 @@
    (jazz.define-macro (%%vector->list vector)
      (if jazz.debug-core?
          `(vector->list ,vector)
-       `(##vector->list ,vector))))
+       `(##vector->list ,vector)))
+   
+   (jazz.define-macro (%%u8vector? obj)
+     (if jazz.debug-core?
+         `(u8vector? ,obj)
+       `(##u8vector? ,obj))))
 
   (else
    (jazz.define-macro (%%vector? obj)

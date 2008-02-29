@@ -182,6 +182,7 @@
 (jazz.define-class jazz.Thread-Class      jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Promise-Class     jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Foreign-Class     jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
+(jazz.define-class jazz.U8Vector-Class    jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.EOF-Class         jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 (jazz.define-class jazz.Unspecified-Class jazz.Class          (name fields virtual-size ancestors descendants ascendant interfaces slots instance-size level dispatch-table core-method-alist core-virtual-alist core-virtual-names core-vtable class-table interface-table) jazz.Class () ())
 
@@ -210,6 +211,7 @@
 (jazz.define-class jazz.Thread      jazz.Object   () jazz.Thread-Class      () ())
 (jazz.define-class jazz.Promise     jazz.Object   () jazz.Promise-Class     () ())
 (jazz.define-class jazz.Foreign     jazz.Object   () jazz.Foreign-Class     () ())
+(jazz.define-class jazz.U8Vector    jazz.Object   () jazz.U8Vector-Class    () ())
 (jazz.define-class jazz.EOF         jazz.Object   () jazz.EOF-Class         () ())
 (jazz.define-class jazz.Unspecified jazz.Object   () jazz.Unspecified-Class () ())
 

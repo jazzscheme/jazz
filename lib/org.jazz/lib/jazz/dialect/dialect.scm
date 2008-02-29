@@ -962,7 +962,9 @@
 
 (define (jazz.emit-specialized-class-of object environment)
   (jazz.new-code
-    `(%%class-of ,(%%get-code-form object))
+    (if jazz.debug-user?
+        `(jazz.class-of ,(%%get-code-form object))
+      `(%%class-of ,(%%get-code-form object)))
     (let ((type (%%get-code-type object)))
       (if (%%class-is? type jazz.Class-Declaration)
           (%%get-category-declaration-metaclass type)

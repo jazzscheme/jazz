@@ -584,6 +584,7 @@
         ((%%port? expr)        jazz.Port)
         ((%%procedure? expr)   jazz.Procedure)
         ((%%foreign? expr)     jazz.Foreign)
+        ((%%u8vector? expr)    jazz.U8Vector)
         ((%%eof-object? expr)  jazz.EOF)
         ((%%unspecified? expr) jazz.Unspecified)
         (else
@@ -1352,6 +1353,35 @@
 
 
 ;;;
+;;;; U8Vector
+;;;
+
+
+(jazz.define-class-runtime jazz.U8Vector-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.U8Vector-Class class) object)
+  (%%u8vector? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.U8Vector-Class class))
+  'u8vector)
+
+
+(jazz.define-method (jazz.emit-test (jazz.U8Vector-Class type) value source-declaration environment)
+  `(%%u8vector? ,value))
+
+
+(jazz.encapsulate-class jazz.U8Vector-Class)
+
+
+(jazz.define-class-runtime jazz.U8Vector)
+
+
+(jazz.encapsulate-class jazz.U8Vector)
+
+
+;;;
 ;;;; EOF
 ;;;
 
@@ -1445,6 +1475,7 @@
     (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Flonum)
     (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Rational)
     (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
+    (%%vector-set! jazz.subtypes (macro-subtype-u8vector)  jazz.U8Vector)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)

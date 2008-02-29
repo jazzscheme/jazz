@@ -1,0 +1,285 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Base Class for Pathname Requests
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.dialog.Pathname-Request jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class Pathname-Request extends Layout-View implements History-Provider
+  
+  
+  (form
+    (<install>                                               size: {Dimension 500 300} layout-type: border
+      (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Tool>                   name: backward        size: {Dimension 22 22} tooltip?: #t tooltip-text: "Backward" image-name: {Bitmap-Resource "Backward"} portfolio: :icons action-handler: {Event-Handler :form on-backward})
+        (<Push-Tool>                   name: forward         size: {Dimension 22 22} tooltip?: #t tooltip-text: "Forward" image-name: {Bitmap-Resource "Forward"} portfolio: :icons action-handler: {Event-Handler :form on-forward})
+        (<Separator>                                         size: {Dimension 2 0})
+        (<Border-View>                                       size: {Dimension 200 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
+          (<Border-View>                                     border-color: {Color red: 200 green: 188 blue: 166}
+            (<Hierarchy-Combo>         name: hierarchy))))
+      (<Border-View>                   name: content-border  location: center border-type: edge style: entry
+        (<Scroller-View>                                     style: document hscroll?: #t vscroll?: #t
+          (<content!>                                        layout-type: fill
+            (<Content-Tree>            name: content         portfolio: :icons filled-column: name double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
+              (<Tree-Node-Column>      name: name            title: "Name" width: 235 toplevel-controls?: #f)))))
+      (<Layout-View>                                         size: {Dimension 300 36} location: south layout-type: flow layout-insets: {Rect 0 6 0 0}
+        (<Push-Button>                 name: cancel          title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
+        (<Separator>                                         size: {Dimension 3 0} location: tail)
+        (<Push-Button>                 name: open            title: "Open" location: tail size: {Dimension 80 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
+        (<Separator>                                         size: {Dimension 5 0} location: tail))))
+  
+  
+  (property directory initialize #f accessors generate)
+  
+  
+  (slot history-manager initialize (new History-Manager self))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-directory)
+    (set-editable?~ (get-body~ (get-hierarchy)) #f)
+    (set-selectable?~ (get-body~ (get-hierarchy)) #f)
+    (acquire-focus~ (get-tree))
+    (update))
+  
+  
+  (method (setup-directory)
+    (when (not directory)
+      (set! directory (new Directory (tokenise-patch (pathname-normalize "."))))))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'content))
+  
+  
+  (method (get-hierarchy)
+    (locate 'hierarchy))
+  
+  
+  (method public (get-directory)
+    directory)
+  
+  
+  (method public (set-directory dir)
+    (set! directory dir))
+  
+  
+  (method public (install-directory dir)
+    (add-history~ history-manager (new History-Directory directory))
+    (set-directory dir)
+    (update))
+  
+
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (update)
+    (update-hierarchy)
+    (update-history)
+    (update-content)
+    (update-open))
+  
+  
+  (method (update-hierarchy)
+    (let ((combo (locate 'hierarchy)))
+      (set-choices~ combo (map (function (pathname)
+                                 (list pathname (get-name~ pathname)))
+                               (reverse (get-hierarchy~ directory))))
+      (set-value~ combo directory)))
+  
+  
+  (method (update-history)
+    (let ((backward (get-backward-history~ history-manager))
+          (forward (get-forward-history~ history-manager)))
+      (set-enabled?~ (locate 'backward) (not-null? backward))
+      (set-enabled?~ (locate 'forward) (not-null? forward))))
+  
+  
+  (method protected virtual (update-content)
+    )
+  
+  
+  (method protected virtual (update-open)
+    )
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (let ((pathname (selected-pathname)))
+      (current-directory (parse~ (get-parent~ pathname)))
+      pathname))
+  
+
+  ;;;
+  ;;;; Navigation
+  ;;;
+  
+  
+  (method (down dir)
+    (install-directory dir))
+
+  
+  ;;;
+  ;;;; History
+  ;;;
+  
+  
+  (method (current-history-item)
+    (new History-Directory directory))
+  
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-backward evt)
+    (set-directory (get-directory~ (go-backward-history~ history-manager)))
+    (update))
+  
+  
+  (method (on-forward evt)
+    (set-directory (get-directory~ (go-forward-history~ history-manager)))
+    (update))
+  
+  
+  (method (hierarchy-change dir)
+    (install-directory dir))
+  
+  
+  (method (selection-change)
+    (update-open))
+  
+  
+  (method protected virtual (default-action)
+    )
+  
+  
+  (method (on-double-click evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-return-press evt)
+    (default-action))
+  
+  
+  ;; Should really be generic in the Dialog class
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+
+  ;;;
+  ;;;; Utility
+  ;;;
+  
+  
+  (method (selected-pathname)
+    (get-single-selected-data~ (get-tree))))
+
+
+;;;
+;;;; Hierarchy
+;;;
+
+
+(class Hierarchy-Combo extends Combo-Box
+  
+  
+  (method (content-change origin)
+    (hierarchy-change~ (get-guest~ (get-host)) (get-value))))
+
+
+(register-autoclass Hierarchy-Combo)
+
+
+;;;
+;;;; History
+;;;
+
+
+(class History-Directory extends History-Item
+  
+  
+  (slot directory getter generate)
+  
+  
+  (method (initialize directory)
+    (nextmethod)
+    (set! directory~self directory))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{s}" directory)))))
+
+
+;;;
+;;;; Content
+;;;
+
+
+(class Content-Tree extends Tree-View
+  
+  
+  (method (selection-change old-selection force? user-origin?)
+    (selection-change~ (get-guest~ (get-host)))))
+
+
+(register-autoclass Content-Tree))

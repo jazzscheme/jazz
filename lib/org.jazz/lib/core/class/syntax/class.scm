@@ -249,7 +249,7 @@
 (cond-expand
   (gambit
     (jazz.define-macro (%%c-class-of obj)
-      `(##c-code #<<end-of-c-code
+      `(or (##c-code #<<end-of-c-code
 {
     ___SCMOBJ obj = ___ARG1;
     if (___MEM_ALLOCATED(obj))
@@ -265,10 +265,8 @@
                 ___RESULT = ___ARG7;
             else if (type == ___ARG8)
                 ___RESULT = ___ARG9;
-            else if (type == ___ARG10)
-                ___RESULT = ___ARG11;
             else
-                ___RESULT = FALSE;
+                ___RESULT = ___FAL;
         }
         else
             ___RESULT = ___BODY_AS(___ARG2,___tSUBTYPED)[subtyp];
@@ -281,18 +279,17 @@
         ___RESULT = ___BODY_AS(___ARG5,___tSUBTYPED)[___INT(___FAL-obj)];
 }
 end-of-c-code
-    ,obj                ;; ___ARG1
-    jazz.subtypes       ;; ___ARG2
-    jazz.Fixnum         ;; ___ARG3
-    jazz.Char           ;; ___ARG4
-    jazz.specialtypes   ;; ___ARG5
-    jazz.table-type     ;; ___ARG6
-    jazz.Table          ;; ___ARG7
-    jazz.port-type      ;; ___ARG8
-    jazz.Port           ;; ___ARG9
-    jazz.thread-type    ;; ___ARG10
-    jazz.Thread         ;; ___ARG11
-    ))
+    ,obj                    ;; ___ARG1
+    jazz.subtypes           ;; ___ARG2
+    jazz.Fixnum             ;; ___ARG3
+    jazz.Char               ;; ___ARG4
+    jazz.specialtypes       ;; ___ARG5
+    jazz.table-type         ;; ___ARG6
+    jazz.Table              ;; ___ARG7
+    jazz.thread-type        ;; ___ARG8
+    jazz.Thread             ;; ___ARG9
+    )
+           (if (%%port? ,obj) jazz.Port #f)))
     
     (jazz.define-macro (%%class-of obj)
       (jazz.with-expression-value obj

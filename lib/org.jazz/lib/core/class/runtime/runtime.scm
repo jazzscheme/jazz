@@ -585,6 +585,7 @@
         ((%%procedure? expr)   jazz.Procedure)
         ((%%foreign? expr)     jazz.Foreign)
         ((%%u8vector? expr)    jazz.U8Vector)
+        ((%%values? expr)      jazz.Values)
         ((%%eof-object? expr)  jazz.EOF)
         ((%%unspecified? expr) jazz.Unspecified)
         (else
@@ -1382,6 +1383,35 @@
 
 
 ;;;
+;;;; Values
+;;;
+
+
+(jazz.define-class-runtime jazz.Values-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Values-Class class) object)
+  (%%values? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Values-Class class))
+  'values)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Values-Class type) value source-declaration environment)
+  `(%%values? ,value))
+
+
+(jazz.encapsulate-class jazz.Values-Class)
+
+
+(jazz.define-class-runtime jazz.Values)
+
+
+(jazz.encapsulate-class jazz.Values)
+
+
+;;;
 ;;;; EOF
 ;;;
 
@@ -1476,6 +1506,7 @@
     (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Rational)
     (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
     (%%vector-set! jazz.subtypes (macro-subtype-u8vector)  jazz.U8Vector)
+    (%%vector-set! jazz.subtypes (macro-subtype-boxvalues) jazz.Values)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)

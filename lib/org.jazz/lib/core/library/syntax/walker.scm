@@ -1330,6 +1330,7 @@
 (%%table-set! jazz.primitive-types 'promise     jazz.Promise)
 (%%table-set! jazz.primitive-types 'foreign     jazz.Foreign)
 (%%table-set! jazz.primitive-types 'u8vector    jazz.U8Vector)
+(%%table-set! jazz.primitive-types 'values      jazz.Values)
 (%%table-set! jazz.primitive-types 'eof         jazz.EOF)
 (%%table-set! jazz.primitive-types 'unspecified jazz.Unspecified)
 (%%table-set! jazz.primitive-types 'void        jazz.Void)
@@ -1365,6 +1366,7 @@
     (cons jazz.Promise     'Promise)
     (cons jazz.Foreign     'Foreign)
     (cons jazz.U8Vector    'U8Vector)
+    (cons jazz.Values      'Values)
     (cons jazz.EOF         'EOF)
     (cons jazz.Unspecified 'Unspecified)))
 
@@ -3721,6 +3723,7 @@
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.thread?        jazz.Thread)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.foreign?       jazz.Foreign)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.u8vector?      jazz.U8Vector)
+(%%table-set! jazz.type-tests 'jazz.dialect.kernel.values?        jazz.Values)
 (%%table-set! jazz.type-tests 'jazz.dialect.kernel.unspecified?   jazz.Unspecified)
 
 
@@ -4343,6 +4346,8 @@
          (jazz.new-constant `(quote ,form) jazz.Vector))
         ((%%u8vector? form)
          (jazz.new-constant `(quote ,form) jazz.U8Vector))
+        ((%%values? form)
+         (jazz.new-constant `(quote ,form) jazz.Values))
         ((%%null? form)
          (jazz.new-constant `(quote ,form) jazz.Null))
         ((jazz.scheme-pair-literal? form)

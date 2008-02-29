@@ -41,7 +41,6 @@
 (cond-expand
   (gambit
     (define jazz.pathname-expand path-expand)
-    (define jazz.pathname-normalize path-normalize)
     (define jazz.file-rename rename-file)
     (define jazz.current-directory current-directory)
     (define jazz.directory-delete delete-directory))

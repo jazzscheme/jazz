@@ -190,6 +190,10 @@
     cpy))
 
 
+(define (jazz.string-ends-with? str c)
+  (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) c))
+
+
 ;;;
 ;;;; Pathname
 ;;;
@@ -229,6 +233,15 @@
     (define jazz.pathname-type
       file-type)
     
+    (define (jazz.pathname-normalize path)
+      (let ((len (%%string-length path)))
+        (let ((dir? (jazz.string-ends-with? path #\/)))
+          (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
+            (let ((slashified (jazz.string-replace normalized #\\ #\/)))
+              (if (and dir? (%%not (jazz.string-ends-with? slashified #\/)))
+                  (%%string-append slashified "/")
+                slashified))))))
+    
     (define jazz.file-exists?
       file-exists?)
     
@@ -263,8 +276,10 @@
   (else))
 
 
-(define (jazz.jazz-directory)
-  jazz.directory)
+(define jazz.jazz-directory
+  (let ((normalized-directory (jazz.pathname-normalize jazz.directory)))
+    (lambda ()
+      normalized-directory)))
 
 
 ;;;
@@ -273,16 +288,16 @@
 
 
 (define jazz.Build-Repository
-  (%%make-repository 'build "./build/" #t))
+  (%%make-repository 'build (jazz.pathname-normalize "./build/") #t))
 
 (define jazz.App-Repository
-  (%%make-repository 'app "./app/" #t))
+  (%%make-repository 'app (jazz.pathname-normalize "./app/") #t))
 
 (define jazz.Lib-Repository
-  (%%make-repository 'lib (%%string-append jazz.directory "lib/") #f))
+  (%%make-repository 'lib (%%string-append (jazz.jazz-directory) "lib/") #f))
 
 (define jazz.User-Repository
-  (%%make-repository 'user "~/.jazz/lib/" #f))
+  (%%make-repository 'user (jazz.pathname-normalize "~/.jazz/lib/") #f))
 
 
 (define jazz.Repositories

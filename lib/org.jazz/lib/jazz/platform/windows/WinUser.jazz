@@ -45,6 +45,7 @@
         (jazz.library))
 
 
+(c-declare "#include <stdio.h>")
 (c-declare "WINUSERAPI BOOL WINAPI SetLayeredWindowAttributes(HWND,COLORREF,BYTE,DWORD);")
 
 
@@ -872,7 +873,8 @@
 
 (definition public GetClipboardText
   (c-function () scheme-object
-    "___SCMOBJ r = ___FIX(___UNKNOWN_ERR);
+    #<<end-of-c-code
+    ___SCMOBJ r = ___FIX(___UNKNOWN_ERR);
      HGLOBAL global_copy = GetClipboardData (CF_UNICODETEXT);
 
      if (global_copy != NULL)
@@ -902,22 +904,17 @@
              GlobalUnlock (locked_copy);
          }
      }
-     ___result = r;"))
+     ___result = r;
+end-of-c-code
+))
 
 
 (definition public SetClipboardText
-  (c-function (STR) VOID
-    "HANDLE copy;
-     int size = strlen(___arg1)+1;
-     copy = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS, size);
-     memcpy(copy, ___arg1, size);
-     SetClipboardData(CF_TEXT, copy);"))
-
-
-@wait
-(definition public SetClipboardText2
-  (c-function (scheme-object) VOID
-    "HGLOBAL global_copy = GlobalAlloc (GMEM_MOVEABLE, (len+1) * sizeof(___U16));
+  (c-function (scheme-object) void
+    #<<end-of-c-code
+    int len = (___INT(___U8VECTORLENGTH(___arg1))/2);
+     ___U16 *vec = ___CAST(___U16*, ___BODY_AS(___arg1, ___tSUBTYPED));
+     HGLOBAL global_copy = GlobalAlloc (GMEM_MOVEABLE, (len+1) * sizeof(___U16));
 
      if (global_copy != NULL)
      {
@@ -930,7 +927,7 @@
              int i;
 
              for (i=0; i<len; i++)
-                 locked_copy[i] = buf[i];
+                 locked_copy[i] = vec[i];
              locked_copy[len] = 0;
 
              GlobalUnlock (global_copy);
@@ -940,7 +937,9 @@
              if (!SetClipboardData (CF_UNICODETEXT, global_copy))
                  GlobalFree (global_copy);
          }
-     }"))
+     }
+end-of-c-code
+))
 
 
 ;;;

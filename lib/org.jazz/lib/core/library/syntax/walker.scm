@@ -4341,6 +4341,8 @@
          (jazz.new-constant `(quote ,form) jazz.Symbol))
         ((%%vector? form)
          (jazz.new-constant `(quote ,form) jazz.Vector))
+        ((%%u8vector? form)
+         (jazz.new-constant `(quote ,form) jazz.U8Vector))
         ((%%null? form)
          (jazz.new-constant `(quote ,form) jazz.Null))
         ((jazz.scheme-pair-literal? form)

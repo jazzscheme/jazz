@@ -67,7 +67,7 @@
       (<Layout-View>                   name: buttonbar       size: {Dimension 300 36} location: south layout-type: flow layout-insets: {Rect 0 6 0 0}
         (<Push-Button>                 name: cancel          title: "Cancel" location: tail size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
         (<Separator>                                         size: {Dimension 3 0} location: tail)
-        (<Push-Button>                 name: open            title: "Open" location: tail size: {Dimension 80 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
+        (<Push-Button>                 name: ok              title: "OK" location: tail size: {Dimension 80 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
         (<Separator>                                         size: {Dimension 5 0} location: tail))))
   
   
@@ -82,13 +82,17 @@
     (setup-directory)
     (set-editable?~ (get-body~ (get-hierarchy)) #f)
     (set-selectable?~ (get-body~ (get-hierarchy)) #f)
-    (acquire-focus~ (get-tree))
+    (focus-default)
     (update))
   
   
   (method (setup-directory)
     (when (not directory)
       (set! directory (new Directory (tokenise-patch (pathname-normalize "."))))))
+  
+  
+  (method (focus-default)
+    (acquire-focus~ (get-tree)))
   
 
   ;;;
@@ -123,11 +127,11 @@
   ;;;
   
   
-  (method (update)
+  (method protected virtual (update)
     (update-hierarchy)
     (update-history)
     (update-content)
-    (update-open))
+    (update-buttons))
   
   
   (method (update-hierarchy)
@@ -149,7 +153,7 @@
     )
   
   
-  (method protected virtual (update-open)
+  (method protected virtual (update-buttons)
     )
   
 
@@ -197,16 +201,20 @@
     (update))
   
   
-  (method (hierarchy-change dir)
+  (method protected virtual (hierarchy-change dir)
     (install-directory dir))
   
   
-  (method (selection-change)
-    (update-open))
+  (method protected virtual (selection-change)
+    (update-buttons))
   
   
   (method protected virtual (default-action)
     )
+  
+  
+  (method (ok-enabled?)
+    (get-enabled?~ (locate 'ok)))
   
   
   (method (on-double-click evt)

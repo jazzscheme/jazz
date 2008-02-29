@@ -50,13 +50,37 @@
 (class NewFile-Request extends Pathname-Request
   
   
+  (form
+    (<install>
+      (<!>                         name: buttonbar
+        (<Separator>                                 size: {Dimension 4 0})
+        (<Layout-View>                               layout-type: fill layout-insets: {Rect 0 3 0 0} size: {Dimension 288 22}
+          (<Border-View>                             border-type: solid border-color: {Color name: Entry-Border}
+            (<Scroller-View>                         hscroll?: #f vscroll?: #f
+              (<!>                 name: content     layout-type: fill
+                (<Plain-Text-View> name: filename    accepts-returns?: #f left-padding: 2 top-padding: 2 show-unfocused-selection?: #f default-style: {Text-Style name: Default font: {Font name: Ansi-Var}} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press} content-change-handler: {Event-Handler :form on-content-change})))))
+        (<!>                       name: ok          title: "Save"))))
+  
+  
   (method meta (host-title)
     "Choose New File")
+  
+  
+  (method (focus-default)
+    (acquire-focus~ (locate 'filename)))
   
 
   ;;;
   ;;;; Update
   ;;;
+  
+  
+  (method (update)
+    (update-hierarchy)
+    (update-history)
+    (update-content)
+    (update-filename)
+    (update-buttons))
   
   
   (method (update-content)
@@ -75,9 +99,23 @@
             (for-each add-pathname files))))))
   
   
-  (method (update-open)
-    (let ((pathname (selected-pathname)))
-      (set-enabled?~ (locate 'open) (file? pathname))))
+  (method (update-filename)
+    (set-string-content~ (locate 'filename) ""))
+  
+  
+  (method (update-buttons)
+    (let ((text (locate 'filename)))
+      (set-enabled?~ (locate 'ok) (not (empty-string? (get-string-content~ text))))))
+  
+
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (current-directory (parse~ directory))
+    (new-file~ directory (get-string-content~ (locate 'filename))))
   
 
   ;;;
@@ -85,9 +123,20 @@
   ;;;
   
   
+  (method (selection-change)
+    (let ((pathname (selected-pathname)))
+      (when (file? pathname)
+        (set-string-content~ (locate 'filename) (get-name~ pathname))
+        (update-buttons))))
+  
+  
+  (method (on-content-change evt)
+    (update-buttons))
+  
+  
   (method (default-action)
     (let ((pathname (selected-pathname)))
       (cond ((directory? pathname)
              (down pathname))
-            ((file? pathname)
+            ((ok-enabled?)
              (end-modal~ (get-host) (get-modal-result))))))))

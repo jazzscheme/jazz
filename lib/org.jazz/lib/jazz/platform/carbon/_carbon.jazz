@@ -105,6 +105,7 @@
 ;;;
 
 
+(constant kEventMouseDown  1)
 (constant kEventMouseMoved 5)
 
 
@@ -266,6 +267,20 @@
     (values left top width height)))
 
 
+(definition (WindowGetRootBounds window)
+  (let* ((carbon-rect ((c-function (WindowRef) Rect*
+                          "Rect *rect = malloc(sizeof(Rect));
+                           GetWindowBounds( ___arg1, kWindowStructureRgn, rect );
+                           ___result_voidstar = rect;")
+                       window))
+	 (left (Rect-left-ref carbon-rect))
+	 (top  (Rect-top-ref carbon-rect))
+	 (width (- (Rect-right-ref carbon-rect) left))
+	 (height (- (Rect-bottom-ref carbon-rect) top)))
+    (Rect-free carbon-rect)
+    (values left top width height)))
+
+
 (definition (HIViewGetFrame view)
   (let* ((carbon-rect ((c-function (HIViewRef) CGRect*
                           "HIRect *rect = malloc(sizeof(HIRect));
@@ -369,10 +384,21 @@
      "EventTypeSpec standard[] = {
          {kEventClassWindow, kEventWindowClose},
          {kEventClassWindow, kEventWindowBoundsChanged},
-         {kEventClassMouse, kEventMouseMoved}
+         {kEventClassMouse,  kEventMouseMoved},
+         {kEventClassMouse,  kEventMouseDown}
       };
 
       ___result = InstallWindowEventHandler( ___arg1, NewEventHandlerUPP(call_process_window_message), GetEventTypeCount(standard), standard, ___arg1, NULL );"))
+
+
+(definition DestroyWindow
+  (c-function (WindowRef) void
+     "CFRelease(___arg1);"))
+
+
+(definition DestroyView
+  (c-function (HIViewRef) void
+     "CFRelease(___arg1);"))
 
 
 (definition (relinquish-process))

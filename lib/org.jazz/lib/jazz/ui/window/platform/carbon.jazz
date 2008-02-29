@@ -107,9 +107,9 @@
 
 
 (definition (create-HIView-handle window parent rest)
-  (let* ((parent-handle (get-handle~ parent))
+  (let* ((parent (or parent (get-toplevel~ (get-application))))
+	 (parent-handle (get-handle~ parent))
 	 (new-handle (HIViewCreate)))
-    (debug window parent)
     (HIViewAddSubview parent-handle new-handle)
     (HIViewChangeFeatures new-handle kHIViewFeatureAllowsSubviews 0)
     (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
@@ -136,14 +136,12 @@
 
 
 (definition (destroy-window window)
-  (unimplemented 'destroy)
-  @lala
-  ((when use-expose-store?
-    (table-set! expose-store window #f))
-  (table-set! actions-store window #f)
+  @with-x11
   (when (= (get-handle~ window) (platform-get-focus))
     (call-focus-lose~ window #f))
-  (XDestroyWindow default-x11-display (get-handle~ window))))
+  (if (is-window-HIView? window)
+      (DestroyView (get-handle~ window))
+      (DestroyWindow (HIViewGetWindow (get-handle~ window)))))
 
 
 (definition (dispatch-message window msg wparam lparam)
@@ -203,6 +201,16 @@
 	    (if win
 		(receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
 	           (mouse-move~ win (inexact->exact x) (inexact->exact y))
+		   noErr)
+		eventNotHandledErr)))))
+     ((= type kEventMouseDown)
+      (let ((window (eventWindowRef event)))
+	(receive (x y) (eventMouseLocation event)
+	  (let* ((view (HIViewForPoint window x y))
+		 (win (get-window view)))
+	    (if win
+		(receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
+	           (mouse-down~ win (inexact->exact x) (inexact->exact y))
 		   noErr)
 		eventNotHandledErr)))))
      (else
@@ -273,10 +281,9 @@
 
 
 (definition (platform-set-parent handle parent)
-  (debug (get-window handle) parent)
-    (when (HIViewGetSuperview handle)
-	  (HIViewRemoveFromSuperview handle))
-    (HIViewAddSubview (get-handle~ parent) handle))
+  (when (HIViewGetSuperview handle)
+	(HIViewRemoveFromSuperview handle))
+  (HIViewAddSubview (get-handle~ parent) handle))
 
 
 (definition (platform-get-first-child handle)
@@ -310,12 +317,18 @@
     (XGetWindowAttributes default-x11-display handle infos)
     (= (XWindowAttributes-map_state-ref infos) IsViewable)))
 
+@old
+(definition (acquire-point to-handle from-window shape)
+  (let ((x (get-h~ shape))
+	(y (get-v~ shape)))
+    (convertCoordinates (get-handle~ from-window) to-handle (exact->inexact x) (exact->inexact y))))
+
 
 (definition (acquire-point to-handle from-window shape)
-  (unimplemented 'acquire-point)
-  @lala
-  (receive (x y) (XTranslateCoordinates default-x11-display (get-handle~ from-window) to-handle (get-h~ shape) (get-v~ shape))
-    (new Point x y)))
+  (let ((x (get-h~ shape))
+	(y (get-v~ shape)))
+    (receive (x y) (convertCoordinates (get-handle~ from-window) to-handle (exact->inexact x) (exact->inexact y))
+             (new Point (inexact->exact x) (inexact->exact y)))))
 
 
 (definition (acquire-rect handle window shape)
@@ -327,15 +340,11 @@
 
 
 (definition (platform-get-position-in-root handle)
-  (unimplemented 'platform-get-position-in-root)
-  @lala
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (let* ((x (XWindowAttributes-x-ref infos))
-           (y (XWindowAttributes-y-ref infos)))
-      (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) x y)
-        (new Point x y)))))
-
+  (let* ((window (HIViewGetWindow handle))
+	 (root   (HIViewGetRoot window)))
+    (receive (x y) (convertCoordinates handle root 0.0 0.0)
+       (receive (l t w h) (WindowGetRootBounds window)
+          (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
 
 (definition (platform-get-position handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
@@ -540,14 +549,10 @@
   
   
 (definition (platform-show-noactivate handle)
-  (unimplemented 'platform-show-noactivate)
-  @lala
   (show-window handle))
 
 
 (definition (platform-hide-noactivate handle)
-  (unimplemented 'platform-hide-noactivate)
-  @lala
   (hide-window handle))
 
 

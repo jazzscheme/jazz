@@ -56,10 +56,10 @@
   
   (if (not jazz.gambit-stamp)
       (if (< (system-version) jazz.gambit-version)
-          (wrong-version (jazz.format "Jazz needs Gambit version {a} or higher{%}Please see Install.txt for details" jazz.gambit-version)))
+          (wrong-version (jazz.format "Jazz needs Gambit version {a} or higher{%}Please see INSTALL for details" jazz.gambit-version)))
     (if (and (<= (system-version) jazz.gambit-version)
              (< (system-stamp) jazz.gambit-stamp))
-        (wrong-version (jazz.format "Jazz needs Gambit version {a} stamp {a} or higher{%}Please see Install.txt for details" jazz.gambit-version jazz.gambit-stamp)))))
+        (wrong-version (jazz.format "Jazz needs Gambit version {a} stamp {a} or higher{%}Please see INSTALL for details" jazz.gambit-version jazz.gambit-stamp)))))
 
 
 ;;;
@@ -475,8 +475,8 @@
 
 
 (define jazz.valid-options
-  '(interpret
-    profile))
+  '(source
+    interpret))
 
 
 (define (jazz.require-options options)
@@ -494,9 +494,9 @@
     (jazz.error "Invalid options: {s}" options)))
 
 
-(define (jazz.profile-name options)
-  (if (memq 'profile options)
-      "Profile"
+(define (jazz.source-option-name options)
+  (if (memq 'source options)
+      "Source"
     ""))
 
 
@@ -528,7 +528,7 @@
                      (jazz.platform-name (jazz.configuration-platform configuration))
                      (jazz.windowing-name (jazz.configuration-windowing configuration))
                      (jazz.safety-name (jazz.configuration-safety configuration))
-                     (jazz.profile-name (jazz.configuration-options configuration))
+                     (jazz.source-option-name (jazz.configuration-options configuration))
                      "/")))
 
 

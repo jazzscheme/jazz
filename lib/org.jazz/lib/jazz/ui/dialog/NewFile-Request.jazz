@@ -66,6 +66,22 @@
     "Choose New File")
   
   
+  (property initial-filename  initialize #f)
+  (property default-extension initialize #f)
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (when initial-filename
+      (let ((text (locate 'filename)))
+        (let ((content
+                (if (and default-extension (ends-with? initial-filename (concatenate "." default-extension)))
+                    (subseq initial-filename 0 (- (cardinality initial-filename) (cardinality default-extension) 1))
+                  initial-filename)))
+          (set-string-content~ text content)
+          (select-all~ text)))))
+  
+  
   (method (focus-default)
     (acquire-focus~ (locate 'filename)))
   
@@ -115,7 +131,12 @@
   
   (method (get-modal-result)
     (current-directory (parse~ directory))
-    (new-file~ directory (get-string-content~ (locate 'filename))))
+    (let ((content (get-string-content~ (locate 'filename))))
+      (let ((filename
+              (if (and default-extension (not (search content ".")))
+                  (concatenate content "." default-extension)
+                content)))
+        (new-file~ directory filename))))
   
 
   ;;;

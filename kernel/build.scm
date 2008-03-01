@@ -117,7 +117,7 @@
 
 
 (define jazz.configurations-file
-  ".configurations")
+  "~/.jazz/.configurations")
 
 
 (define jazz.configurations
@@ -217,6 +217,7 @@
 
 
 (define (jazz.save-configurations)
+  (jazz.create-directories "~/.jazz")
   (call-with-output-file jazz.configurations-file
     (lambda (output)
       (define (print-configuration configuration)
@@ -315,7 +316,7 @@
 
 
 (define (jazz.validate-name name)
-  (if (or (not name) (and (symbol? name) (string-alphanumeric? (symbol->string name))))
+  (if (or (not name) (and (symbol? name) (jazz.string-alphanumeric? (symbol->string name))))
       name
     (jazz.error "Invalid name: {s}" name)))
 
@@ -1080,7 +1081,7 @@
              (iter (+ n 1)))))))
 
 
-(define (string-alphanumeric? str)
+(define (jazz.string-alphanumeric? str)
   (let iter ((n (- (string-length str) 1)))
     (if (< n 0)
         #t
@@ -1089,6 +1090,30 @@
                 (char-numeric? c))
             (iter (- n 1))
           #f)))))
+
+
+(define (jazz.split-string str separator)
+  (let ((lst '())
+        (end (string-length str)))
+    (let iter ((pos (- end 1)))
+      (if (> pos 0)
+          (begin
+            (if (eqv? (string-ref str pos) separator)
+                (begin
+                  (set! lst (cons (substring str (+ pos 1) end) lst))
+                  (set! end pos)))
+            (iter (- pos 1))))
+        (cons (substring str 0 end) lst))))
+
+
+(define (jazz.join-strings strings separator)
+  (let ((output (open-output-string)))
+    (display (car strings) output)
+    (for-each (lambda (string)
+                (display separator output)
+                (display string output))
+              (cdr strings))
+    (get-output-string output)))
 
 
 ;;;
@@ -1101,6 +1126,16 @@
       (begin
         (jazz.feedback "; creating {a}..." dir)
         (create-directory dir))))
+
+
+(define (jazz.create-directories dir)
+  (let ((path (reverse (jazz.split-string dir #\/))))
+    (let iter ((scan (if (equal? (car path) "") (cdr path) path)))
+      (if (not (null? scan))
+          (begin
+            (iter (cdr scan))
+            (let ((subdir (jazz.join-strings (reverse scan) "/")))
+              (jazz.create-directory subdir)))))))
 
 
 ;;;

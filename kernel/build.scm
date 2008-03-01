@@ -378,12 +378,11 @@
 
 
 (define (jazz.guess-platform)
-  (let ((system (cadr  (system-type)))
-	(os     (caddr (system-type))))
-    (cond
-     ((eq? system 'apple) 'mac)
-     ((eq? os 'linux-gnu) 'unix)
-     (else 'windows))))
+  (let ((system (cadr (system-type)))
+        (os (caddr (system-type))))
+    (cond ((eq? system 'apple) 'mac)
+          ((eq? os 'linux-gnu) 'unix)
+          (else 'windows))))
 
 
 (define (jazz.validate-platform platform)
@@ -406,8 +405,8 @@
 
 (define jazz.valid-windowings
   '(carbon
-    #f
-    x11))
+    x11
+    #f))
 
 
 (define (jazz.require-windowing windowing)
@@ -415,14 +414,13 @@
 
 
 (define (jazz.guess-windowing)
-  (let ((system (cadr  (system-type)))
-	(os (caddr (system-type))))
-    (cond
-     ;; mac version not yet available
-     ;; ((apple) 'mac)
-     ((eq? os 'linux-gnu) 'x11)
-     ((eq? system 'pc) #f)
-     (else 'x11))))
+  (let ((system (cadr (system-type)))
+        (os (caddr (system-type))))
+    (cond ;; mac version not yet available
+          ;; ((apple) 'carbon)
+          ((eq? os 'linux-gnu) 'x11)
+          ((eq? system 'pc) #f)
+          (else 'x11))))
 
 
 (define (jazz.validate-windowing windowing)

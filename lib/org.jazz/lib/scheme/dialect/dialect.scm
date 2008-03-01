@@ -241,11 +241,12 @@
 
 (define (jazz.walk-define walker resume declaration environment form)
   (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
-    (let* ((new-declaration (jazz.find-form-declaration declaration name))
-           (new-environment (%%cons new-declaration environment)))
-      (%%set-define-declaration-value new-declaration
-        (jazz.walk walker resume new-declaration new-environment value))
-      new-declaration)))
+    (%%assert (%%class-is? declaration jazz.Namespace-Declaration)
+      (let* ((new-declaration (jazz.find-form-declaration declaration name))
+             (new-environment (%%cons new-declaration environment)))
+        (%%set-define-declaration-value new-declaration
+          (jazz.walk walker resume new-declaration new-environment value))
+        new-declaration))))
 
 
 ;;;

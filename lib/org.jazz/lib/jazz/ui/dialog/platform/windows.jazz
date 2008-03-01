@@ -47,6 +47,10 @@
         (jazz.utilities))
 
 
+(definition Use-Generic?
+  #t)
+
+
 ;;;
 ;;;; File
 ;;;
@@ -54,56 +58,54 @@
 
 (definition public (choose-file (title: title {})
                                 (directory: directory {})
-                                (initial-filename: initial-filename {})
-                                (extensions: extensions '())
+                                (extensions: extensions {})
                                 (multiple-selection?: multiple-selection? #f)
                                 (anchors: anchors {}))
-  (if #t
-  (if multiple-selection?
-      (list (get-modal File-Request))
-  (get-modal File-Request))
-  (close-all-popups)
-  (let ((size (if multiple-selection? (+ MAX_PATH (* 64 50)) MAX_PATH)))
-    (with ((r (OPENFILENAME-make))
-           (buffer (WCHAR-array-make size)))
-      (if (not initial-filename)
-          (WCHAR-array-set! buffer 0 #\nul)
-        (WCHAR-copy buffer initial-filename size))
-      (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
-            (fake-current-directory @fake (get-current-directory) NULL)
-            (fake-dialog-proc @fake (get-dialog-proc) NULL))
-        (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
-        (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-        (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter)
-        (OPENFILENAME-lpstrFile-set! r       buffer)
-        (OPENFILENAME-nMaxFile-set! r        size)
-        (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory))
-        (OPENFILENAME-lpstrTitle-set! r      (either title NULL))
-        (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER (if multiple-selection? OFN_ALLOWMULTISELECT 0) OFN_HIDEREADONLY OFN_ENABLEHOOK OFN_FILEMUSTEXIST OFN_ENABLESIZING))
-        (OPENFILENAME-lpstrDefExt-set! r     NULL)
-        (OPENFILENAME-lCustData-set! r       0)
-        (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc))
-      (let ((anchorize
-              (function (pathname)
-                (anchorize~ pathname anchors: anchors))))
-        (if (GetOpenFileName r)
-            (begin
-              (if (not multiple-selection?)
-                  (let ((filename (WCHAR-string buffer)))
-                    (anchorize (new File (tokenise-windows filename))))
-                (let ((tokens (parse-choose-file-string buffer)))
-                  (if (= (length tokens) 1)
-                      (let ((filename (WCHAR-string buffer)))
-                        (list (anchorize (new File (tokenise-windows filename)))))
-                    (bind (dir . filenames) tokens
-                      (let ((dirlist (tokenise-windows dir)))
-                        (map (function (filename)
-                               (anchorize (new File (append dirlist (list filename)))))
-                             filenames)))))))
-          (let ((code (CommDlgExtendedError)))
-            (if (= code 0)
-                (throw-cancel)
-              (error "Dialog error: {t}" code)))))))))
+  (if Use-Generic?
+      (get-modal File-Request
+                 host-title: title
+                 directory: directory
+                 extensions: extensions
+                 multiple-selection?: multiple-selection?)
+    (let ((size (if multiple-selection? (+ MAX_PATH (* 64 50)) MAX_PATH)))
+      (with ((r (OPENFILENAME-make))
+             (buffer (WCHAR-array-make size)))
+        (WCHAR-array-set! buffer 0 #\nul)
+        (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
+              (fake-current-directory @fake (get-current-directory) NULL)
+              (fake-dialog-proc @fake (get-dialog-proc) NULL))
+          (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
+          (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+          (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter)
+          (OPENFILENAME-lpstrFile-set! r       buffer)
+          (OPENFILENAME-nMaxFile-set! r        size)
+          (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory))
+          (OPENFILENAME-lpstrTitle-set! r      NULL @buggy (either title NULL))
+          (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER (if multiple-selection? OFN_ALLOWMULTISELECT 0) OFN_HIDEREADONLY OFN_ENABLEHOOK OFN_FILEMUSTEXIST OFN_ENABLESIZING))
+          (OPENFILENAME-lpstrDefExt-set! r     NULL)
+          (OPENFILENAME-lCustData-set! r       0)
+          (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc))
+        (let ((anchorize
+                (function (pathname)
+                  (anchorize~ pathname anchors: anchors))))
+          (if (GetOpenFileName r)
+              (begin
+                (if (not multiple-selection?)
+                    (let ((filename (WCHAR-string buffer)))
+                      (anchorize (new File (tokenise-windows filename))))
+                  (let ((tokens (parse-choose-file-string buffer)))
+                    (if (= (length tokens) 1)
+                        (let ((filename (WCHAR-string buffer)))
+                          (list (anchorize (new File (tokenise-windows filename)))))
+                      (bind (dir . filenames) tokens
+                        (let ((dirlist (tokenise-windows dir)))
+                          (map (function (filename)
+                                 (anchorize (new File (append dirlist (list filename)))))
+                               filenames)))))))
+            (let ((code (CommDlgExtendedError)))
+              (if (= code 0)
+                  (throw-cancel)
+                (error "Dialog error: {t}" code)))))))))
 
 
 ;;;
@@ -118,47 +120,50 @@
        (naturals 0 size)))
 
 
-(definition public (choose-new-file (directory: directory {})
+(definition public (choose-new-file (title: title {})
+                                    (directory: directory {})
+                                    (extensions: extensions {})
                                     (initial-filename: initial-filename {})
                                     (default-extension: default-extension {})
-                                    (extensions: extensions '())
                                     (anchors: anchors {}))
-  ;; (debug directory initial-filename default-extension extensions anchors)
-  ;; #f "New" "jazz" (("Jazz Texts (*.jazz)" . "*.jazz")) #f
-  (if #t
-      (get-modal NewFile-Request initial-filename: initial-filename default-extension: default-extension)
-  (close-all-popups)
-  (when directory
-    (create-directories~ directory))
-  (with ((r (OPENFILENAME-make))               ; not freed!
-         (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
-    (if (not initial-filename)
-        (WCHAR-array-set! buffer 0 #\nul)
-      (WCHAR-copy buffer initial-filename MAX_PATH))
-    (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
-          (fake-current-directory @fake (get-current-directory) NULL)
-          (fake-dialog-proc @fake (get-dialog-proc) NULL))
-      (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
-      (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-      (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter @w (extensions-filter extensions))
-      (OPENFILENAME-lpstrFile-set! r       buffer)
-      (OPENFILENAME-nMaxFile-set! r        MAX_PATH)
-      (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory @w (get-current-directory)))
-      (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER OFN_ENABLEHOOK @w OFN_FILEMUSTEXIST OFN_ENABLESIZING OFN_OVERWRITEPROMPT))
-      (OPENFILENAME-lpstrDefExt-set! r     (either default-extension NULL))
-      (OPENFILENAME-lCustData-set! r       0)
-      (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc @w (get-dialog-proc)))
-    @debug-bug
-    (debug 'before-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
-    (if (GetSaveFileName r)
-        (let ((filename (WCHAR-string buffer)))
-          @debug-bug
-          (debug 'after-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
-          (anchorize~ (new File (tokenise-windows filename)) anchors: anchors))
-      (let ((code (CommDlgExtendedError)))
-        (if (= code 0)
-            (throw-cancel)
-          (error "Dialog error: {t}" code)))))))
+  (if Use-Generic?
+      (get-modal NewFile-Request
+                 host-title: title
+                 directory: directory
+                 extensions: extensions
+                 initial-filename: initial-filename
+                 default-extension: default-extension)
+    (when directory
+      (create-directories~ directory))
+    (with ((r (OPENFILENAME-make))               ; not freed!
+           (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
+      (if (not initial-filename)
+          (WCHAR-array-set! buffer 0 #\nul)
+        (WCHAR-copy buffer initial-filename MAX_PATH))
+      (let ((fake-extensions-filter @fake (extensions-filter extensions) NULL)
+            (fake-current-directory @fake (get-current-directory) NULL)
+            (fake-dialog-proc @fake (get-dialog-proc) NULL))
+        (OPENFILENAME-lStructSize-set! r     (OPENFILENAME-sizeof))
+        (OPENFILENAME-hwndOwner-set! r       (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+        (OPENFILENAME-lpstrFilter-set! r     fake-extensions-filter @w (extensions-filter extensions))
+        (OPENFILENAME-lpstrFile-set! r       buffer)
+        (OPENFILENAME-nMaxFile-set! r        MAX_PATH)
+        (OPENFILENAME-lpstrInitialDir-set! r (if directory (parse~ directory) fake-current-directory @w (get-current-directory)))
+        (OPENFILENAME-Flags-set! r           (bitwise-ior OFN_EXPLORER OFN_ENABLEHOOK @w OFN_FILEMUSTEXIST OFN_ENABLESIZING OFN_OVERWRITEPROMPT))
+        (OPENFILENAME-lpstrDefExt-set! r     (either default-extension NULL))
+        (OPENFILENAME-lCustData-set! r       0)
+        (OPENFILENAME-lpfnHook-set! r        fake-dialog-proc @w (get-dialog-proc)))
+      @debug-bug
+      (debug 'before-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
+      (if (GetSaveFileName r)
+          (let ((filename (WCHAR-string buffer)))
+            @debug-bug
+            (debug 'after-GetSaveFileName (map-WCHAR-array buffer MAX_PATH))
+            (anchorize~ (new File (tokenise-windows filename)) anchors: anchors))
+        (let ((code (CommDlgExtendedError)))
+          (if (= code 0)
+              (throw-cancel)
+            (error "Dialog error: {t}" code)))))))
 
 
 ;;;
@@ -169,32 +174,33 @@
 (definition public (choose-directory (title: title {})
                                      (directory: directory {})
                                      (anchors: anchors {}))
-  (if #t
-      (get-modal Directory-Request)
-  (close-all-popups)
-  (let ((preserved #f @fake (get-current-directory)))
-    (when directory
-      @fake
-      (current-directory (parse~ directory)))
-    (with ((r (BROWSEINFO-make))                 ; not freed!
-           (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
-      (WCHAR-array-set! buffer 0 #\nul)
-      (BROWSEINFO-hwndOwner-set! r (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
-      (BROWSEINFO-pidlRoot-set! r NULL)
-      (BROWSEINFO-pszDisplayName-set! r buffer)
-      (BROWSEINFO-lpszTitle-set! r (either title NULL))
-      (BROWSEINFO-ulFlags-set! r 0)
-      (BROWSEINFO-lpfn-set! r NULL @fake (get-browse-callback))
-      (BROWSEINFO-lParam-set! r 0)
-      (BROWSEINFO-iImage-set! r 0)
-      (with ((items (SHBrowseForFolder r)))      ; not freed!
-        (when directory
-          @fake
-          (current-directory preserved))
-        (if (not items)
-            (throw-cancel)
-          (let ((directory (WCHAR-string buffer)))
-            (anchorize~ (new Directory (tokenise-windows directory)) anchors: anchors))))))))
+  (if Use-Generic?
+      (get-modal Directory-Request
+                 host-title: title
+                 directory: directory)
+    (let ((preserved #f @fake (get-current-directory)))
+      (when directory
+        @fake
+        (current-directory (parse~ directory)))
+      (with ((r (BROWSEINFO-make))                 ; not freed!
+             (buffer (WCHAR-array-make MAX_PATH))) ; not freed!
+        (WCHAR-array-set! buffer 0 #\nul)
+        (BROWSEINFO-hwndOwner-set! r (let ((toplevel (get-toplevel))) (if toplevel (get-handle~ toplevel) NULL)))
+        (BROWSEINFO-pidlRoot-set! r NULL)
+        (BROWSEINFO-pszDisplayName-set! r buffer)
+        (BROWSEINFO-lpszTitle-set! r NULL @buggy (either title NULL))
+        (BROWSEINFO-ulFlags-set! r 0)
+        (BROWSEINFO-lpfn-set! r NULL @fake (get-browse-callback))
+        (BROWSEINFO-lParam-set! r 0)
+        (BROWSEINFO-iImage-set! r 0)
+        (with ((items (SHBrowseForFolder r)))      ; not freed!
+          (when directory
+            @fake
+            (current-directory preserved))
+          (if (not items)
+              (throw-cancel)
+            (let ((directory (WCHAR-string buffer)))
+              (anchorize~ (new Directory (tokenise-windows directory)) anchors: anchors))))))))
 
 
 ;;;
@@ -219,7 +225,7 @@
 (definition public (extensions-filter extensions)
   NULL
   @convert
-  (if (null? extensions)
+  (if (not extensions)
       NULL
     (let ((dst (new List-Factory))
           (separator (make-string 1 #\nul)))

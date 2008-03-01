@@ -59,6 +59,14 @@
   (method meta (host-title)
     "Choose File")
   
+  
+  (property multiple-selection? initialize #f)
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (set-multiple-selection?~ (get-tree) multiple-selection?))
+  
 
   ;;;
   ;;;; Update
@@ -69,22 +77,32 @@
     (let ((directories (get-content~ directory nodes?: #t leaves?: #f))
           (files (get-content~ directory nodes?: #f leaves?: #t)))
       (let ((tree (get-tree)))
-        (define (add-pathname pathname)
-          (let ((title (get-name~ pathname))
-                (image (if (directory? pathname) {Bitmap-Resource "ClosedFolder"} {Bitmap-Resource "Document"})))
-            (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: pathname)))
+        (define (add pathname)
+          (add-pathname tree pathname))
         
         (with-update-locked~ tree
           (function ()
             (remove-every-row~ tree)
-            (for-each add-pathname directories)
-            (for-each add-pathname files))))))
+            (for-each add directories)
+            (for-each add files))))))
   
   
   (method (update-buttons)
-    (let ((pathname (selected-pathname)))
-      (set-enabled?~ (locate 'ok) (file? pathname))))
+    (let ((pathnames (selected-pathnames)))
+      (set-enabled?~ (locate 'ok) (and (not-null? pathnames) (every? file? pathnames)))))
+    
+
+  ;;;
+  ;;;; Modal
+  ;;;
   
+  
+  (method (get-modal-result)
+    (current-directory (parse~ directory))
+    (if multiple-selection?
+        (selected-pathnames)
+      (selected-pathname)))
+
 
   ;;;
   ;;;; Events
@@ -92,8 +110,17 @@
   
   
   (method (default-action)
-    (let ((pathname (selected-pathname)))
-      (cond ((directory? pathname)
-             (down pathname))
+    (let ((pathnames (selected-pathnames)))
+      (cond ((and (= (length pathnames) 1) (directory? (car pathnames)))
+             (down (car pathnames)))
             ((ok-enabled?)
-             (end-modal~ (get-host) (get-modal-result))))))))
+             (end-modal~ (get-host) (get-modal-result))))))
+  
+
+  ;;;
+  ;;;; Utility
+  ;;;
+  
+  
+  (method (selected-pathnames)
+    (get-selected-data~ (get-tree)))))

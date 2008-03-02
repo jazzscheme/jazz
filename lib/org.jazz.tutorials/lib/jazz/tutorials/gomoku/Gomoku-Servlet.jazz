@@ -62,6 +62,13 @@
   ;;;
   
   
+  (method (new-game size)
+    (case size
+      ((small) (new Gomoku-Game rows: 9 columns: 9))
+      ((medium) (new Gomoku-Game rows: 13 columns: 13))
+      ((large) (new Gomoku-Game rows: 19 columns: 19))))
+  
+  
   (method (effective-size size)
     (if (not size)
         'medium
@@ -73,89 +80,103 @@
              'large))))
   
   
-  (method (new-game size)
-    (case size
-      ((small) (new Gomoku-Game rows: 9 columns: 9))
-      ((medium) (new Gomoku-Game rows: 13 columns: 13))
-      ((large) (new Gomoku-Game rows: 19 columns: 19))))
+  (method (effective-move game move)
+    (if (not move)
+        #f
+      (deserialize-move game move)))
+
   
+  (method (create-players game players)
+    (cond ((=? players "hh") (list (new Gomoku-Human game BLACK) (new Gomoku-Human game WHITE)))
+          ((=? players "hc") (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
+          ((=? players "ch") (list (new Gomoku-AI game BLACK) (new Gomoku-Human game WHITE)))
+          ((=? players "cc") (list (new Gomoku-AI game BLACK) (new Gomoku-AI game WHITE)))))
+
   
   (pattern (gomoku node)
     (let ((request (get-request)))
-      (let ((size (effective-size (get-parameter~ request "size" error?: #f))))
+      (let ((size (effective-size (get-parameter~ request "size" error?: #f)))
+            (players (effective-players (get-parameter~ request "players" error?: #f))))
         (let ((game (new-game size)))
-          (register-players~ game (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
-          (when (=? (get-operation~ request) "POST")
+          (let ((move (effective-move game (get-parameter~ request "move" error?: #f))))
+            (register-players~ game (create-players game players))
             (deserialize-game request game)
-            (let ((move (deserialize-move game (get-parameter~ request "move"))))
-              (play-move game move)))
-          (let ((status (get-status~ game))
-                (prefix (case size
-                          ((small) "large")
-                          ((medium) "medium")
-                          ((large) "small"))))
-            `(<html>
-               (<head>
-                 (<link> type: "text/css" href: "css/master.css" rel: "stylesheet")
-                 (<script> type: "text/javascript" src: "scripts/client.js")
-                 (<script> type: "text/javascript" src: "scripts/gomoku.js")
-                 (<title> "Gomoku"))
-               (<body> background: "backgrounds/wood.jpg"
-                 (<h2> "Welcome to Gomoku")
-                 (<form> name: "Form" method: "POST"
-                   (<input> type: "hidden" name: "size" value: ,(symbol->string size))
-                   ,@(serialize-game game)
-                   (<input> type: "hidden" name: "move"))
-                 (<table>
-                   (<tr>
-                     (<td> width: 30)
-                     (<td>
-                       (<table> cellspacing: "0" cellpadding: "0"
-                         ,@(let ((last-row (- (get-board-rows~ game) 1))
-                                 (last-col (- (get-board-columns~ game) 1)))
-                             (loop (for row from 0 to last-row)
-                                   (with vert (cond ((= row 0) "top")
-                                                    ((= row last-row) "bottom")
-                                                    (else "center")))
-                                   (collect
-                                     `(<tr>
-                                        ,@(loop (for col from 0 to last-col)
-                                                (with horz (cond ((= col 0) "left")
-                                                                 ((= col last-col) "right")
-                                                                 (else "center")))
-                                                (collect
-                                                  (let* ((square (get-square~ game row col))
-                                                         (token (get-token~ square))
-                                                         (name (if (and (moku-square? size row col) (= token EMPTY)) "moku" (format "{a}{a}" vert horz)))
-                                                         (image (format "images/gomoku/{a}/{a}_{a}.png"
-                                                                        prefix
-                                                                        (cond ((= token EMPTY) "empty")
-                                                                              ((= token WHITE) "white")
-                                                                              ((= token BLACK) "black"))
-                                                                        name)))
-                                                    `(<td>
-                                                       ,(if (and (eqv? status 'play) (= token EMPTY))
-                                                            `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'Gomoku');" (serialize-move square))
-                                                               (<img> src: ,image))
-                                                          `(<img> src: ,image))))))))))))
-                     (<td> width: 10)
-                     (<td> valign: "top"
-                       (<span>
-                         (<br>)
-                         (<br>)
-                         (<a> href: ,(format "Gomoku?size={a}" size) "New game")
-                         (<br>)
-                         (<a> href: "Gomoku?size=small" "9x9")
-                         (<a> href: "Gomoku?size=medium" "13x13")
-                         (<a> href: "Gomoku?size=large" "19x19")))))
-                 ,@(case status
-                     ((win)
-                      `((<h2> ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
-                     ((draw)
-                      `((<h2> "Draw!")))
-                     (else
-                      '()))
-                 ,@(debug-info))))))))
+            (play-players game move)
+            (let ((status (get-status~ game))
+                  (prefix (case size
+                            ((small) "large")
+                            ((medium) "medium")
+                            ((large) "small"))))
+              `(<html>
+                 (<head>
+                   (<link> type: "text/css" href: "css/gomoku.css" rel: "stylesheet")
+                   (<script> type: "text/javascript" src: "scripts/client.js")
+                   (<script> type: "text/javascript" src: "scripts/gomoku.js")
+                   (<title> "Gomoku"))
+                 (<body> background: "backgrounds/wood.jpg"
+                   (<h2> "Welcome to Gomoku")
+                   (<form> name: "Form" method: "POST"
+                     (<input> type: "hidden" name: "size" value: ,(symbol->string size))
+                     (<input> type: "hidden" name: "players" value: ,players)
+                     ,@(serialize-game game)
+                     (<input> type: "hidden" name: "move"))
+                   (<table>
+                     (<tr>
+                       (<td> width: 30)
+                       (<td>
+                         (<table> cellspacing: "0" cellpadding: "0"
+                           ,@(let ((last-row (- (get-board-rows~ game) 1))
+                                   (last-col (- (get-board-columns~ game) 1)))
+                               (loop (for row from 0 to last-row)
+                                     (with vert (cond ((= row 0) "top")
+                                                      ((= row last-row) "bottom")
+                                                      (else "center")))
+                                     (collect
+                                       `(<tr>
+                                          ,@(loop (for col from 0 to last-col)
+                                                  (with horz (cond ((= col 0) "left")
+                                                                   ((= col last-col) "right")
+                                                                   (else "center")))
+                                                  (collect
+                                                    (let* ((square (get-square~ game row col))
+                                                           (token (get-token~ square))
+                                                           (name (if (and (moku-square? size row col) (= token EMPTY)) "moku" (format "{a}{a}" vert horz)))
+                                                           (image (format "images/gomoku/{a}/{a}_{a}.png"
+                                                                          prefix
+                                                                          (cond ((= token EMPTY) "empty")
+                                                                                ((= token WHITE) "white")
+                                                                                ((= token BLACK) "black"))
+                                                                          name)))
+                                                      `(<td>
+                                                         ,(if (and (eqv? status 'play) (= token EMPTY))
+                                                              `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'Gomoku');" (serialize-move square))
+                                                                 (<img> src: ,image))
+                                                            `(<img> src: ,image))))))))))))
+                       (<td> width: 10)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           (<br>)
+                           (<a> class: "new_game" href: ,(format "Gomoku?size={a}&players={a}" size players) "New game")
+                           (<br>)
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=small&players={a}" players) "9x9")
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=medium&players={a}" players) "13x13")
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=large&players={a}" players) "19x19")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Players")
+                           (<a> href: ,(format "Gomoku?size={a}&players=hh" size) "Human vs Human") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=hc" size) "Human vs Computer") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=ch" size) "Computer vs Human") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=cc" size) "Computer vs Computer")))))
+                   ,@(case status
+                       ((win)
+                        `((<h2> ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                       ((draw)
+                        `((<h2> "Draw!")))
+                       (else
+                        '()))
+                   ,@(debug-info)))))))))
   
   
   ;;;

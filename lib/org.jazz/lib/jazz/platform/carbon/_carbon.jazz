@@ -87,7 +87,9 @@
 ;;;
 
 
-(constant kEventClassWindow ((c-function () OSType "___result = kEventClassWindow;")))
+(constant kEventClassWindow   ((c-function () OSType "___result = kEventClassWindow;")))
+(constant kEventClassMouse    ((c-function () OSType "___result = kEventClassMouse;")))
+(constant kEventClassKeyboard ((c-function () OSType "___result = kEventClassKeyboard;")))
 
 
 ;;;
@@ -105,8 +107,10 @@
 
 
 (constant kEventMouseDown  1)
+(constant kEventMouseUp    2)
 (constant kEventMouseMoved 5)
 
+(constant kEventRawKeyDown 1)
 
 (constant kEventWindowUpdate  1)
 (constant kEventWindowShowing 22)
@@ -143,6 +147,7 @@
 ;;;
 
 
+(constant cmdKeyBit     8)
 (constant shiftKeyBit   9)
 (constant optionKeyBit  11)
 (constant controlKeyBit 12)
@@ -170,11 +175,13 @@
 ;;;
 
 
+(c-external OSStatus (SetUserFocusWindow WindowRef))
 (c-external void (ShowWindow WindowRef))
 (c-external void (HideWindow WindowRef))
 (c-external void (RunApplicationEventLoop))
 (c-external void (QuitApplicationEventLoop))
-(c-external EventKind (GetEventKind EventRef))
+(c-external EventKind  (GetEventKind EventRef))
+(c-external OSType (GetEventClass EventRef))
 (c-external HIViewRef (HIViewGetRoot WindowRef))
 (c-external OSStatus  (HIViewAddSubview HIViewRef HIViewRef))
 (c-external OSStatus  (HIViewSetVisible HIViewRef Bool))
@@ -212,6 +219,54 @@
      "WindowRef ref = NULL;
       GetEventParameter( ___arg1, kEventParamWindowRef, typeWindowRef, NULL, sizeof(WindowRef), NULL, &ref);
       ___result_voidstar = ref;"))
+
+
+(definition eventKeyCode
+  (c-function (EventRef) UInt32
+    "UInt32 key;
+     GetEventParameter(___arg1, kEventParamKeyCode, typeUInt32, NULL, sizeof(key), NULL, &key);
+     ___result = key;"))
+
+
+(definition eventKeyChar
+  (c-function (EventRef) char
+    "char ch;
+     GetEventParameter(___arg1, kEventParamKeyMacCharCodes, typeChar, NULL, sizeof(ch), NULL, &ch);
+     ___result = ch;"))
+
+
+(definition eventKeyUnicode
+  (c-function (EventRef) UniChar
+    "UniChar ch;
+     GetEventParameter(___arg1, kEventParamKeyUnicodes, typeUnicodeText, NULL, sizeof(ch), NULL, &ch);
+     ___result = ch;"))
+
+
+(definition eventKeyboardType
+  (c-function (EventRef) UInt32
+    "UInt32 type;
+     GetEventParameter(___arg1, kEventParamKeyboardType, typeUInt32, NULL, sizeof(type), NULL, &type);
+     ___result = type;"))
+
+
+(definition eventKeyMods
+  (c-function (EventRef) UInt32
+    "UInt32 mods;
+     GetEventParameter(___arg1, kEventParamKeyModifiers, typeUInt32, NULL, sizeof(mods), NULL, &mods);
+     ___result = mods;"))
+
+
+(definition unmodifiedKey
+  (c-function (UInt16 UInt32 UInt32) UniChar
+    "UniChar ch;
+     UCKeyboardLayout *layout;
+     KeyboardLayoutRef layoutRef;
+     UInt32 dummy = 0;
+     KLGetCurrentKeyboardLayout (&layoutRef);
+     KLGetKeyboardLayoutProperty (layoutRef, kKLuchrData, (const void**)&layout);
+     UCKeyTranslate(layout, ___arg1, kUCKeyActionDisplay, (___arg3 & ~controlKey & ~optionKey) >> 8,
+                    ___arg2, kUCKeyTranslateNoDeadKeysMask, &dummy, 1, &dummy, &ch);
+     ___result = ch;"))
 
 
 (definition (eventMouseLocation ev)
@@ -381,10 +436,12 @@
 (definition InstallWindowEventHandler
   (c-function (WindowRef) OSStatus
      "EventTypeSpec standard[] = {
-         {kEventClassWindow, kEventWindowClose},
-         {kEventClassWindow, kEventWindowBoundsChanged},
-         {kEventClassMouse,  kEventMouseMoved},
-         {kEventClassMouse,  kEventMouseDown}
+         {kEventClassWindow,   kEventWindowClose},
+         {kEventClassWindow,   kEventWindowBoundsChanged},
+         {kEventClassMouse,    kEventMouseMoved},
+         {kEventClassMouse,    kEventMouseDown},
+         {kEventClassMouse,    kEventMouseUp},
+         {kEventClassKeyboard, kEventRawKeyDown}
       };
 
       ___result = InstallWindowEventHandler( ___arg1, NewEventHandlerUPP(call_process_window_message), GetEventTypeCount(standard), standard, ___arg1, NULL );"))

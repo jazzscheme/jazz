@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform-dependant Window Definitions (X11)
+;;;; Platform-dependant Window Definitions (Carbon)
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -185,36 +185,96 @@
   (unimplemented 'platform-erase-background))
 
 
+(definition (convert-key char keycode)
+  (case char
+    ((#\x10) (case keycode
+	       ((122) 'F1)
+	       ((120) 'F2)
+	       ((99)  'F3)
+	       ((118) 'F4)
+	       ((96)  'F5)
+	       ((97)  'F6)
+	       ((98)  'F7)
+	       ((100) 'F8)))
+    ((#\esc) 'Escape)
+    ((#\backspace) 'Backspace)
+    ((#\return) 'Return)
+    ((#\space)  'Space)
+    ((#\tab) 'Tab)
+    ((#\x1c) 'Left)
+    ((#\x1d) 'Right)
+    ((#\x1e) 'Top)
+    ((#\x1f) 'Down)
+    (else    char)))
+	       
+
+
 (definition (process-window-message handler event userdata)
-  (let ((type (GetEventKind event)))
+  (let ((class (GetEventClass event))
+	(type  (GetEventKind event)))
     (cond
-     ((= type kEventWindowClose)
-      (QuitApplicationEventLoop)
-      noErr)
-     ((= type kEventWindowBoundsChanged)
-      noErr)
-     ((= type kEventMouseMoved)
-      (let ((window (eventWindowRef event)))
-	(receive (x y) (eventMouseLocation event)
-	  (let* ((view (HIViewForPoint window x y))
-		 (win (get-window view)))
-	    (if win
-		(receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-	           (mouse-move~ win (inexact->exact x) (inexact->exact y))
-		   noErr)
-		eventNotHandledErr)))))
-     ((= type kEventMouseDown)
-      (let ((window (eventWindowRef event)))
-	(receive (x y) (eventMouseLocation event)
-	  (let* ((view (HIViewForPoint window x y))
-		 (win (get-window view)))
-	    (if win
-		(receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
-	           (mouse-down~ win (inexact->exact x) (inexact->exact y))
-		   noErr)
-		eventNotHandledErr)))))
-     (else
-      eventNotHandledErr))))
+     ((= class kEventClassWindow)
+      (cond
+       ((= type kEventWindowClose)
+	(QuitApplicationEventLoop)
+	noErr)
+       ((= type kEventWindowBoundsChanged)
+	noErr)
+       (else eventNotHandledErr)))
+     ((= class kEventClassMouse)
+      (cond
+       ((= type kEventMouseMoved)
+	(let ((window (eventWindowRef event)))
+	  (receive (x y) (eventMouseLocation event)
+		   (let* ((view (HIViewForPoint window x y))
+			  (win (get-window view)))
+		     (if win
+			 (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
+				  (mouse-move~ win (inexact->exact x) (inexact->exact y))
+				  noErr)
+			 eventNotHandledErr)))))
+       ((= type kEventMouseUp)
+	(let ((window (eventWindowRef event)))
+	  (receive (x y) (eventMouseLocation event)
+		   (let* ((view (HIViewForPoint window x y))
+			  (win (get-window view)))
+		     (if win
+			 (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
+				  (mouse-up~ win (inexact->exact x) (inexact->exact y))
+				  noErr)
+			 eventNotHandledErr)))))
+       ((= type kEventMouseDown)
+	(let ((window (eventWindowRef event)))
+	  (receive (x y) (eventMouseLocation event)
+		   (let* ((view (HIViewForPoint window x y))
+			  (win (get-window view)))
+		     (if win
+			 (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
+				  (mouse-down~ win (inexact->exact x) (inexact->exact y))
+				  noErr)
+			 eventNotHandledErr)))))
+       (else eventNotHandledErr)))
+     ((= class kEventClassKeyboard)
+      (cond
+       ((= type kEventRawKeyDown)
+	(let* ((keycode (eventKeyCode event))
+	       (keyboard (eventKeyboardType event))
+	       (state   (eventKeyMods    event))
+	       (unmodified (unmodifiedKey keycode keyboard state))
+	       (unicode (eventKeyUnicode event)))
+	  (let ((unmodified (convert-key unmodified keycode))
+		(unicode (convert-key unicode keycode))
+                (mods '()))
+	    (when (bit-set? shiftKeyBit state)   (set! mods (cons :shift mods)))
+	    (when (bit-set? controlKeyBit state) (set! mods (cons :control mods)))
+	    (when (bit-set? optionKeyBit state)  (set! mods (cons :alt mods)))
+	    (when (not (dispatch-shortcut~ (get-application) (new Shortcut mods unmodified)))
+		  (let ((unicode (if (eq? unicode 'Space) #\space unicode)))
+		    (when (and unicode (char? unicode))
+			  (call-key-press~ (get-current-focus) unicode))))))
+	noErr)
+       (else eventNotHandledErr)))
+     (else eventNotHandledErr))))
 
 (set-process-window-message process-window-message)
 
@@ -633,12 +693,16 @@
     win))
 
 
+(definition current-focus #f)
+
+(definition (get-current-focus)
+  (unless current-focus
+    (set! current-focus (get-toplevel~ (get-application))))
+  current-focus)
+
 (definition (platform-set-focus handle)
-  (unimplemented 'platform-set-focus)
-  @lala
-  ((XFlush default-x11-display)
-  (when handle
-    (XSetInputFocus default-x11-display handle RevertToNone CurrentTime))))
+  (set! current-focus (get-window handle))
+  (SetUserFocusWindow (HIViewGetWindow handle)))
 
 
 ;;;

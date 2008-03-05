@@ -5050,15 +5050,19 @@
 
 (define (jazz.read-toplevel-form source . rest)
   (let ((parse-read? (if (%%null? rest) #t (%%car rest))))
-    (let ((form
-            (jazz.with-extension-reader (jazz.pathname-extension source)
-              (lambda ()
-                (call-with-input-file source
-                  (lambda (port)
-                    (parameterize ((jazz.parse-read? parse-read?))
-                      (read port))))))))
-      (if (and (%%not (%%eof-object? form)) (%%memq (%%car form) '(module library)))
-          form
+    (receive (form extraneous)
+        (jazz.with-extension-reader (jazz.pathname-extension source)
+          (lambda ()
+            (call-with-input-file source
+              (lambda (port)
+                (parameterize ((jazz.parse-read? parse-read?))
+                  (let ((form (read port))
+                        (extraneous (read port)))
+                    (values form extraneous)))))))
+      (if (and (%%pair? form) (%%memq (%%car form) '(module library)))
+          (if (eof-object? extraneous)
+              form
+            (jazz.error "Found extraneous expressions after {a} definition in: {a}" (%%car form) source))
         (jazz.error "Invalid module declaration in {a}: {s}" source form)))))
 
 

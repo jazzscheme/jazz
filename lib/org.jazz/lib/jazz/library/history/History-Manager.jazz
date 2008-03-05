@@ -35,30 +35,28 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.history.History-Manager jazz
+(library jazz.library.history.History-Manager jazz
 
 
-(import (jazz.platform)
-        (jazz.ui)
-        (jazz.library)
+(import (jazz.library)
+        (jazz.platform)
         (jazz.utilities))
 
 
 (class History-Manager extends Object
-    
-  
-  (definition Max-History
-    8)
 
   
   (slot history-provider)
   (slot backward-history initialize '())
   (slot forward-history  initialize '())
+  (slot max-history      initialize {})
   
   
-  (method (initialize provider)
-    (nextmethod)
-    (set! history-provider provider))
+  (method (initialize provider . rest)
+    (bind-keywords ((max-history {})) rest
+      (nextmethod)
+      (set! history-provider provider)
+      (set! max-history~self max-history)))
 
   
   ;;;
@@ -90,10 +88,10 @@
   (method public (add-history item)
     (when item
       (add-backward-history item)
-      (when (> (length backward-history) Max-History)
-        (set-cdr! (tail backward-history (- Max-History 1)) '()))
+      (when (and max-history (> (length backward-history) max-history))
+        (set-cdr! (tail backward-history (- max-history 1)) '()))
       (set! forward-history '())
-      (update-history-actions~ (get-application))))
+      (update-history-actions)))
   
   
   (method (add-backward-history item)
@@ -104,6 +102,11 @@
   (method (add-forward-history item)
     (when item
       (set! forward-history (cons item forward-history))))
+  
+  
+  (method (append-forward-history item)
+    (when item
+      (set! forward-history (append forward-history (list item)))))
   
   
   (method public (go-backward-history (rank: rank 0))
@@ -119,7 +122,7 @@
           (set! backward-history (cdr backward-history))
           (decrease! rank))
         (open-item~ item)
-        (update-history-actions~ (get-application))
+        (update-history-actions)
         item)))
   
   
@@ -136,7 +139,7 @@
           (set! forward-history (cdr forward-history))
           (decrease! rank))
         (open-item~ item)
-        (update-history-actions~ (get-application))
+        (update-history-actions)
         item)))
   
   
@@ -151,4 +154,16 @@
   
   
   (method (cleanup-forward-history)
-    (set! forward-history (cleanup-history forward-history)))))
+    (set! forward-history (cleanup-history forward-history)))
+
+  
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+  
+  ;; really not correct to always do this
+  (method (update-history-actions)
+    (let ((appl (get-application)))
+      (when appl
+        (update-history-actions~ appl))))))

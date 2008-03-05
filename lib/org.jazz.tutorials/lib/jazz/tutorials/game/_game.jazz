@@ -39,6 +39,9 @@
 (library jazz.tutorials.game jazz
 
 
+(import (jazz.library))
+
+
 ;;;
 ;;;; Player
 ;;;
@@ -49,6 +52,14 @@
   
   (method protected virtual (player-kind)
     )
+  
+  
+  (method protected virtual (human?)
+    (eq? (player-kind) 'human))
+  
+  
+  (method protected virtual (computer?)
+    (eq? (player-kind) 'computer))
   
   
   (method protected virtual (computer-move)
@@ -72,9 +83,9 @@
   (slot players          initialize #f accessors generate)
   (slot next-player-rank initialize #f accessors generate)
   
-  ;; moves
-  (slot moves            initialize #f)
-    
+  ;; history
+  (slot history-manager  initialize #f)
+  
   ;; status
   (slot status           initialize #f accessors generate)
   (slot winner           initialize #f accessors generate)
@@ -88,7 +99,7 @@
   (method (initialize)
     (nextmethod)
     (set! next-player-rank 0)
-    (set! moves (new List-Factory))
+    (set! history-manager (new History-Manager self))
     (set! status 'play)
     (set! winner #f))
 
@@ -106,9 +117,17 @@
     (vector-ref players next-player-rank))
   
   
+  (method public (get-second-player)
+    (vector-ref players (modulo-players (+ next-player-rank 1))))
+  
+  
   (method protected (next-player!)
     (prog1 (get-next-player)
-      (set! next-player-rank (modulo (+ next-player-rank 1) (vector-length players)))))
+      (set! next-player-rank (modulo-players (+ next-player-rank 1)))))
+  
+  
+  (method (modulo-players rank)
+    (modulo rank (vector-length players)))
   
   
   ;;;
@@ -117,11 +136,28 @@
   
   
   (method protected (add-move move)
-    (put~ moves move))
+    (add-history~ history-manager (new History-Move move)))
+  
+  
+  (method protected (append-forward-history move)
+    (append-forward-history~ history-manager (new History-Move move)))
   
   
   (method public (get-moves)
-    (get-output~ moves))
+    (append (get-backward-moves)
+            (get-forward-moves)))
+  
+  
+  (method public (get-backward-moves)
+    (map (function (history-move)
+           (get-move~ history-move))
+         (reverse (get-backward-history~ history-manager))))
+  
+  
+  (method public (get-forward-moves)
+    (map (function (history-move)
+           (get-move~ history-move))
+         (get-forward-history~ history-manager)))
   
   
   ;;;
@@ -186,4 +222,26 @@
   
   
   (method public virtual (inspect)
-    )))
+    ))
+
+
+;;;
+;;;; History
+;;;
+
+
+(class History-Move extends History-Item
+  
+  
+  (slot move getter generate)
+  
+  
+  (method (initialize move)
+    (nextmethod)
+    (set! move~self move))
+  
+  
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "{s}" move))))))

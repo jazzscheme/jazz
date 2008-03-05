@@ -57,17 +57,18 @@
     (let (loop (move move))
       (when (eq? (get-status~ game) 'play)
         (let ((player (get-next-player~ game)))
-          (if (eq? (player-kind~ player) 'computer)
+          (if (computer?~ player)
               (begin
                 (play-move~ game (computer-move~ player))
-                (loop move))
+                (unless (eq? move 'one)
+                  (loop move)))
             (when move
               (play-move~ game move)
               (loop {})))))))
 
   
   ;;;
-  ;;;; Serialization
+  ;;;; Parameters
   ;;;
     
   
@@ -75,12 +76,29 @@
     (either players "hc"))
   
   
+  (method (effective-current value)
+    (if (or (not value) (empty-string? value))
+        #f
+      (string->number value)))
+  
+  
+  (method (effective-goto game value)
+    (if (or (not value) (empty-string? value))
+        #f
+      (string->number value)))
+
+  
+  ;;;
+  ;;;; Serialization
+  ;;;
+  
+  
   (method (serialize-game game)
     (serialize-moves game))
   
   
-  (method (deserialize-game request game)
-    (deserialize-moves request game))
+  (method (deserialize-game request game goto current)
+    (deserialize-moves request game goto current))
   
   
   (method (serialize-moves game)
@@ -90,13 +108,16 @@
             `(<input> type: "hidden" name: ,(format "move{a}" rank) value: ,(serialize-move move)))))
   
   
-  (method (deserialize-moves request game)
+  (method (deserialize-moves request game goto current)
     (let (loop (rank 0))
       (let ((value (get-parameter~ request (format "move{a}" rank) error?: #f)))
         (when value
           (let ((move (deserialize-move game value)))
-            (play-move~ game move))
-          (loop (+ rank 1))))))
+            (if (or (not goto) (<= rank goto))
+                (play-move~ game move)
+              (append-forward-history~ game move)))
+          (when (or goto (< rank current))
+            (loop (+ rank 1)))))))
   
   
   (method protected virtual (serialize-move move)

@@ -63,10 +63,19 @@
   ;;;
   
   
-  (method (effective-move game col)
-    (if (not col)
-        #f
-      (available-move~ game (deserialize-col game col))))
+  (method (new-game)
+    (new C4-Game))
+  
+  
+  (method (effective-move game value)
+    (cond ((or (not value) (empty-string? value))
+           #f)
+          ((equal? value "one")
+           'one)
+          ((equal? value "all")
+           'all)
+          (else
+           (available-move~ game (deserialize-col game value)))))
 
   
   (method (create-players game players)
@@ -78,14 +87,21 @@
 
   (pattern (c4 node)
     (let ((request (get-request)))
-      (let ((players (effective-players (get-parameter~ request "players" error?: #f))))
-        (let ((game (new C4-Game)))
-          (register-players~ game (create-players game players))
-          (deserialize-game request game)
-          (let ((move (effective-move game (get-parameter~ request "col" error?: #f))))
-            (play-players game move)
-            (let ((status (get-status~ game)))
-              (set-% game)
+      (let ((players (effective-players (get-parameter~ request "players" error?: #f)))
+            (current (effective-current (get-parameter~ request "current" error?: #f))))
+        (let ((game (new-game)))
+          (let ((goto (effective-goto game (get-parameter~ request "goto" error?: #f))))
+            (register-players~ game (create-players game players))
+            (deserialize-game request game goto current)
+            (let ((move (effective-move game (get-parameter~ request "move" error?: #f)))
+                  (all-computers? (every? (function (player) (computer?~ player)) (get-players~ game))))
+              (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
+                (play-players game move)))
+            (let ((status (get-status~ game))
+                  (backward (get-backward-moves~ game))
+                  (forward (get-forward-moves~ game))
+                  (next-player (get-next-player~ game))
+                  (second-player (get-second-player~ game)))
               `(<html>
                  (<head>
                    (<link> type: "text/css" href: "css/c4.css" rel: "stylesheet")
@@ -93,53 +109,99 @@
                    (<script> type: "text/javascript" src: "scripts/c4.js")
                    (<title> "Connect 4"))
                  (<body> background: "backgrounds/britestar.jpg"
-                   (<h2> "Welcome to Connect 4")
                    (<form> name: "Form" method: "POST"
                      (<input> type: "hidden" name: "players" value: ,players)
+                     (<input> type: "hidden" name: "current" value: ,(->string (- (length backward) 1)))
                      ,@(serialize-game game)
-                     (<input> type: "hidden" name: "col"))
-                   (<center>
-                     (<table> id: "maintable"
-                       (<tr>
-                         (<td> width: 30)
-                         (<td>
-                           (<table> cellspacing: "0" cellpadding: "0"
-                             ,@(loop (for row from 0 below (get-board-rows~ game))
+                     (<input> type: "hidden" name: "move")
+                     (<input> type: "hidden" name: "goto"))
+                   (<table> id: "maintable"
+                     (<tr>
+                       (<td> width: 30)
+                       (<td>
+                         (<center> (<h2> "Welcome to Connect 4")))
+                       (<td> width: 30)
+                       (<td>)
+                       (<td> width: 26)
+                       (<td>
+                         (<a> class: "games" href: "/" "Back to Games")))
+                     (<tr>
+                       (<td>)
+                       (<td> valign: "top"
+                         (<table> cellspacing: "0" cellpadding: "0"
+                           ,@(loop (for row from 0 below (get-board-rows~ game))
+                                   (collect
+                                     `(<tr>
+                                        ,@(cons `(<td> ,(present-row game row))
+                                                (loop (for col from 0 below (get-board-columns~ game))
+                                                      (collect
+                                                        (let* ((square (get-square~ game row col))
+                                                               (token (get-token~ square))
+                                                               (image (format "images/c4/{a}.png"
+                                                                              (cond ((= token EMPTY) "empty")
+                                                                                    ((= token GREEN) "green")
+                                                                                    ((= token RED) "red")))))
+                                                          `(<td>
+                                                             ,(if (and (eqv? status 'play) (= token EMPTY) (human?~ next-player))
+                                                                  `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'C4');" (serialize-col col))
+                                                                     (<img> src: ,image))
+                                                                `(<img> src: ,image))))))))))
+                           (<tr>
+                             (<td>)
+                             ,@(loop (for col from 0 below (get-board-columns~ game))
                                      (collect
-                                       `(<tr>
-                                          ,@(loop (for col from 0 below (get-board-columns~ game))
-                                                  (collect
-                                                    (let* ((square (get-square~ game row col))
-                                                           (token (get-token~ square))
-                                                           (image (format "images/c4/{a}.png"
-                                                                          (cond ((= token EMPTY) "empty")
-                                                                                ((= token GREEN) "green")
-                                                                                ((= token RED) "red")))))
-                                                      `(<td>
-                                                         ,(if (and (eqv? status 'play) (= token EMPTY))
-                                                              `(<a> href: "#" onclick: ,(format "playCol('{a}', 'Form', 'C4');" (serialize-col col))
-                                                                 (<img> src: ,image))
-                                                            `(<img> src: ,image)))))))))))
-                         (<td> width: 30)
-                         (<td> valign: "top"
-                           (<span>
-                             (<br>)
-                             (<a> class: "new_game" href: ,(format "C4?players={a}" players) "New game")
-                             (<br>)
-                             (<br>)
-                             (<h2> "Players")
-                             (<a> href: "C4?players=hh" "Human vs Human") (<br>)
-                             (<a> href: "C4?players=hc" "Human vs Computer") (<br>)
-                             (<a> href: "C4?players=ch" "Computer vs Human") (<br>)
-                             (<a> href: "C4?players=cc" "Computer vs Computer"))))))
-                   ,@(case status
-                       ((win)
-                        `((<h2> ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
-                       ((draw)
-                        `((<h2> "Draw!")))
-                       (else
-                        '()))
-                   ,@(debug-info)))))))))
+                                       `(<td> align: "center" valign: "top" ,(present-col game col)))))
+                           (<tr>
+                             (<td> align: "center" colspan: "8"
+                               ,@(case status
+                                   ((win)
+                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                                   ((draw)
+                                    `((<h2> class: "status" "Draw!")))
+                                   (else
+                                    '()))))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<a> href: "#" onclick: "playMove('one', 'Form', 'C4');" "Play One")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player) (computer?~ second-player))
+                                 `((<a> href: "#" onclick: "playMove('all', 'Form', 'C4');" "Play All")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<br>))
+                               '())
+                           ,@(let ((rank 0)
+                                   (current (- (length backward) 1)))
+                               (map (function (move)
+                                      (prog1 `(<span>
+                                                (<a> href: "#" onclick: ,(format "gotoMove('{a}', 'Form', 'C4');" rank)
+                                                  ,(let ((text (present-move game move)))
+                                                     (if (= rank current)
+                                                         `(<b> ,text)
+                                                       text)))
+                                                ,@(if (= (modulo rank 2) 1)
+                                                      `((<br>))
+                                                    `("&nbsp;")))
+                                        (increase! rank)))
+                                    (append backward forward)))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           (<a> class: "new_game" href: ,(format "C4?players={a}" players) "New game")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Players")
+                           (<a> href: "C4?players=hh" "Human vs Human") (<br>)
+                           (<a> href: "C4?players=hc" "Human vs Computer") (<br>)
+                           (<a> href: "C4?players=ch" "Computer vs Human") (<br>)
+                           (<a> href: "C4?players=cc" "Computer vs Computer"))))))
+                   ,@(debug-info))))))))
   
   
   ;;;

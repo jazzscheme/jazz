@@ -88,7 +88,7 @@
             (best-eval #f)
             (best-test (if (= me 1) > <))
             (evals '()))
-        (iterate-candidates
+        (iterate-candidates me gather-candidates
           (function (move)
             (let ((eval (evaluate-move move me current-eval 1)))
               (set! evals (cons eval evals))
@@ -102,6 +102,19 @@
         (set-last-eval~ statistics best-eval)
         (set-last-evaluations~ statistics (reverse evals))
         (random-element best)))
+    
+    
+    (define (gather-candidates token iterate-moves max-candidates)
+      (let ((all '())
+            (nb 0))
+        (iterate-moves
+          (function (move)
+            (play move token)
+            (set! all (cons (cons move (evaluate-move-delta move token)) all))
+            (set! nb (+ nb 1))
+            (unplay move)))
+        (let ((best-test (if (= token 1) > <)))
+          (map car (subseq (sort best-test all key: cdr) 0 (min max-candidates nb))))))
   
     
     (define (evaluate-move move token <fx> eval <fx> depth <fx>) <fx>
@@ -129,7 +142,7 @@
     
     (define (evaluate-best token <fx> eval <fx> depth <fx>) <fx>
       (let ((best-eval 10000000))
-        (iterate-candidates
+        (iterate-candidates token gather-candidates
           (function (move)
             (let ((eval (evaluate-move move (* token -1) eval (+ depth 1))))
               (let ((normalized-eval (* (cast <fx> eval) token)))

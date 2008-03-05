@@ -287,17 +287,24 @@
 ;;;
 
 
+(define (jazz.make-repository name dirname dir subdir binary?)
+  (if (jazz.directory-exists? dir)
+      (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
+        (%%make-repository name directory binary?))
+    (jazz.error "{a} directory is inexistant: {a}" dirname dir)))
+
+
 (define jazz.Build-Repository
-  (%%make-repository 'build (%%string-append (jazz.pathname-normalize "./") "build/") #t))
+  (jazz.make-repository 'build "Current" "./" "build/" #t))
 
 (define jazz.App-Repository
-  (%%make-repository 'app (%%string-append (jazz.pathname-normalize "./") "app/") #t))
+  (jazz.make-repository 'app "Current" "./" "app/" #t))
 
 (define jazz.Lib-Repository
-  (%%make-repository 'lib (%%string-append (jazz.jazz-directory) "lib/") #f))
+  (jazz.make-repository 'lib "Jazz" (jazz.jazz-directory) "lib/" #f))
 
 (define jazz.User-Repository
-  (%%make-repository 'user (%%string-append (jazz.pathname-normalize "~/") ".jazz/lib/") #f))
+  (jazz.make-repository 'user "Home" "~/" ".jazz/lib/" #f))
 
 
 (define jazz.Repositories

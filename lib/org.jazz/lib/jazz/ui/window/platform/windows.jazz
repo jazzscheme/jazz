@@ -183,18 +183,21 @@
                    (else        0)))))
 
 
-(definition (window-parent window parent)
+(definition (window-parent window)
+  (let ((parent (get-parent~ window)))
+    (if parent
+        (get-handle~ parent)
+      NULL)))
+
+
+(definition (window-default-parent window)
   (typecase window
-    ((Popup)            NULL)
-    ((Toplevel)         NULL)
-    ((Dialog)           (either (get-toplevel-hwnd) NULL))
-    ((Orphanage-Window) NULL)
-    (else               (if (not parent)
-                            NULL
-                          (get-handle~ parent)))))
+    ((Frame) (get-stage))
+    ((Dialog) (get-toplevel))
+    (else #f)))
 
 
-(definition (create-handle window parent rest)
+(definition (create-handle window rest)
   (typecase window
     ((Desktop) (GetDesktopWindow))
     (else
@@ -204,19 +207,19 @@
        NULL
        (window-style window rest)
        0 0 500 500
-       (window-parent window parent)
+       (window-parent window)
        NULL
        (current-instance)
        NULL))))
 
 
-(definition (prepare-handle window parent rest)
+(definition (prepare-handle window rest)
   (bind-keywords ((hwnd {}) . others) rest
     (set-in-creation window)
-    (let ((hwnd (create-handle window parent rest)))
+    (let ((hwnd (create-handle window rest)))
       (if (not hwnd)
           (error "Unable to create window {t} error {t}"
-                 (list class: (window-class) style: (window-style window rest) ex-style: (window-ex-style window rest) parent: (window-parent window parent))
+                 (list class: (window-class) style: (window-style window rest) ex-style: (window-ex-style window rest) parent: (window-parent window))
                  (GetLastError))
         (DragAcceptFiles hwnd #t)
         hwnd))))
@@ -514,12 +517,27 @@
 ;;;
 
 
-(definition (get-toplevel-hwnd)
+(definition (get-toplevel)
   (let ((appl (get-application)))
     (when appl
-      (let ((toplevel (get-toplevel~ appl)))
-        (when toplevel
-          (get-handle~ toplevel))))))
+      (get-toplevel~ appl))))
+
+
+(definition (get-toplevel-hwnd)
+  (let ((toplevel (get-toplevel)))
+    (when toplevel
+      (get-handle~ toplevel))))
+
+
+;;;
+;;;; Stage
+;;;
+
+
+(definition (get-stage)
+  (let ((appl (get-application)))
+    (when appl
+      (get-stage~ appl))))
 
 
 ;;;
@@ -996,7 +1014,7 @@
 
 (definition public (process-windows (include-invisibles?: include-invisibles? #f))
   ;; quicky
-  (list (get-toplevel~ (get-application)))
+  (list (get-toplevel))
   @convert
   (collect (function (hwnd)
              (let ((window (get-window hwnd)))

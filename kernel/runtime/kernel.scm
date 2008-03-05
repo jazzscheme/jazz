@@ -288,16 +288,16 @@
 
 
 (define jazz.Build-Repository
-  (%%make-repository 'build (jazz.pathname-normalize "./build/") #t))
+  (%%make-repository 'build (%%string-append (jazz.pathname-normalize "./") "build/") #t))
 
 (define jazz.App-Repository
-  (%%make-repository 'app (jazz.pathname-normalize "./app/") #t))
+  (%%make-repository 'app (%%string-append (jazz.pathname-normalize "./") "app/") #t))
 
 (define jazz.Lib-Repository
   (%%make-repository 'lib (%%string-append (jazz.jazz-directory) "lib/") #f))
 
 (define jazz.User-Repository
-  (%%make-repository 'user (jazz.pathname-normalize "~/.jazz/lib/") #f))
+  (%%make-repository 'user (%%string-append (jazz.pathname-normalize "~/") ".jazz/lib/") #f))
 
 
 (define jazz.Repositories

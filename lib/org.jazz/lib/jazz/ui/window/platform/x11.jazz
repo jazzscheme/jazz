@@ -235,9 +235,15 @@
   (table-set! Window-Title-Table handle title))
 
 
-(definition (prepare-handle window parent rest)
+(definition (window-parent window screen-no)
+  (if parent
+      (get-handle~ parent)
+    (XRootWindow default-x11-display screen-no)))
+
+
+(definition (prepare-handle window rest)
   (bind-keywords ((handle {}) . others) rest
-    (let ((handle (create-handle window parent rest)))
+    (let ((handle (create-handle window rest)))
       (if (not handle)
           (error "Unable to create x11 window")
         (XSelectInput 
@@ -247,10 +253,10 @@
         handle))))
 
 
-(definition (create-handle window parent rest)
+(definition (create-handle window rest)
   (let* ((screen-no (XDefaultScreen default-x11-display))
          (screen    (XScreenOfDisplay default-x11-display screen-no))
-         (parent    (if parent (get-handle~ parent) (XRootWindow default-x11-display screen-no)))
+         (parent    (window-parent window screen-no))
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
     (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)

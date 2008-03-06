@@ -257,26 +257,22 @@
 ;;;
 
 
-(definition Threads-Wakeup-Quantum
-  10)
-
-
-(definition (install-threads-wakeup)
-  (SetTimer (get-toplevel-hwnd) 0 Threads-Wakeup-Quantum NULL))
-
-
-(definition (wakeup-threads)
-  (thread-yield!))
-
-
 (definition (platform-process-messages)
-  (install-threads-wakeup)
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
+  
+  ;; because MsgWaitForMultipleObjects will *not* remove messages already present
+  ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
-    ;; get messages from all windows
-    (while (GetMessage msg NULL 0 0)
-      (unless (translate-shortcut msg)
-        (TranslateMessage msg)
-        (DispatchMessage msg)))))
+    (while (PeekMessage msg NULL 0 0 PM_REMOVE)
+      (process-message msg)))
+  
+  (let ((port (open-event-queue QS_ALLINPUT)))
+    (let (loop)
+      (process-message (read port))
+      (loop))))
 
 
 (definition (platform-process-one-message)
@@ -429,7 +425,6 @@
     ((WM_KILLFOCUS)       (call-focus-lose~ window wparam))
     ((WM_DROPFILES)       (drop-files~ window wparam))
     ((WM_SETTINGCHANGE)   (settings-change window wparam))
-    ((WM_TIMER)           (timer wparam))
     (else                 unprocessed)))
 
 
@@ -463,10 +458,6 @@
      @not-correct-to-call-set-fullscreen?
      (when (is? window Toplevel)
        (set-fullscreen?~ window #t)))))
-
-
-(definition (timer wparam)
-  (wakeup-threads))
 
 
 ;;;

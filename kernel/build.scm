@@ -40,6 +40,10 @@
 ;;;
 
 
+(define jazz.version
+  "2.0a1")
+
+
 (define jazz.gambit-version
   402003)
 
@@ -670,6 +674,8 @@
                 (call-with-output-file file
                   (lambda (output)
                     (print-variable 'jazz.app app output)
+                    (newline output)
+                    (print-variable 'jazz.version jazz.version output)
                     (newline output)
                     (print-variable 'jazz.directory (jazz.source-directory configuration) output)))
                 #t)

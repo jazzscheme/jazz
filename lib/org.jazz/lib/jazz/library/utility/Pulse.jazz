@@ -59,12 +59,10 @@
       (set! period~self period)
       (set! repeat~self repeat)
       (set! execute~self execute)
-      @w
       (start-loop)))
   
   
   (method (destroy)
-    @w
     (stop-loop)
     (nextmethod))
   
@@ -100,13 +98,14 @@
         (function ()
           (set-state 'idle)
           (let (loop)
-            ;; lock so a change from idle to pulsing will have to
-            ;; wait and so will sleep at least period before a pulse
-            (mutex-lock! mutex)
             (sleep period)
-            (when (eq? state 'pulsing)
-              (execute))
-            (mutex-unlock! mutex)
+            ;; if the start occured during the sleep we do not pulse
+            ;; immediatly as we may not have waited the full period...
+            (case state
+              ((starting)
+               (set-state 'pulsing))
+              ((pulsing)
+               (execute)))
             (when (and (neq? (get-state) 'stopping) (eq? repeat 'always))
               (loop)))
           (set-state 'stopped)))))
@@ -122,7 +121,7 @@
   
   
   (method public (start)
-    (set-state 'pulsing))
+    (set-state 'starting))
   
   
   (method public (stop)

@@ -498,9 +498,6 @@
 ;;;
 
 
-(define jazz.version
-  "2.0a1")
-
 (define (jazz.main)
   (define (warn-missing-argument-for-option opt)
     (jazz.repl-main

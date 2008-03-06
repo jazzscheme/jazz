@@ -41,11 +41,11 @@
 
 
 (define jazz.gambit-version
-  402002)
+  402003)
 
 
 (define jazz.gambit-stamp
-  1203267649)
+  1204240411)
 
 
 (define (jazz.validate-version)
@@ -584,7 +584,7 @@
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (jazz.open-process "gsc" (list "-e" (string-append "(jazz.recursive-make '" target-argument " '" configuration-argument ")"))))))
+      (jazz.open-process "gsc" (list "-e" (string-append "\"(jazz.recursive-make '" target-argument " '" configuration-argument ")\""))))))
 
 
 (define (jazz.recursive-make target configuration-name)

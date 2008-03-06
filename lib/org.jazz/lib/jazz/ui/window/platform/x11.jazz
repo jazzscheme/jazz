@@ -199,7 +199,18 @@
     (cons XK_KP_Add              'Add)
     (cons XK_KP_Subtract         'Subtract)
     (cons XK_KP_Decimal          'Multiply)
-    (cons XK_KP_Divide           'Divide)))
+    (cons XK_KP_Divide           'Divide)
+    (cons XK_Shift_L             'Shift)
+    (cons XK_Shift_R             'Shift)
+    (cons XK_Control_L           'Control)
+    (cons XK_Control_R           'Control)
+    (cons XK_Caps_Lock           'Capslock)
+    (cons XK_Shift_Lock          'Shiftlock)
+    (cons XK_Meta_L              'Meta)
+    (cons XK_Meta_R              'Meta)
+    (cons XK_Alt_R               'Alt)
+    (cons XK_Alt_L               'Alt)
+    (cons XK_Mode_switch         'Mode)))
 
 
 ;;;
@@ -235,10 +246,17 @@
   (table-set! Window-Title-Table handle title))
 
 
-(definition (window-parent window screen-no)
-  (if parent
-      (get-handle~ parent)
-    (XRootWindow default-x11-display screen-no)))
+(definition (window-parent window)
+  (let ((parent (get-parent~ window)))
+    (if parent
+	(get-handle~ parent)
+	(XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
+
+
+(definition (window-default-parent window)
+  (typecase window
+    ((Popup) (get-toplevel))
+    (else #f)))
 
 
 (definition (prepare-handle window rest)
@@ -256,7 +274,7 @@
 (definition (create-handle window rest)
   (let* ((screen-no (XDefaultScreen default-x11-display))
          (screen    (XScreenOfDisplay default-x11-display screen-no))
-         (parent    (window-parent window screen-no))
+         (parent    (window-parent window))
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
     (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
@@ -498,6 +516,34 @@
     (if (and key app)
       (dispatch-shortcut~ app (new Shortcut mods key))
       #f)))
+
+
+;;;
+;;;; Toplevel
+;;;
+
+
+(definition (get-toplevel)
+  (let ((appl (get-application)))
+    (when appl
+      (get-toplevel~ appl))))
+
+
+(definition (get-toplevel-hwnd)
+  (let ((toplevel (get-toplevel)))
+    (when toplevel
+      (get-handle~ toplevel))))
+
+
+;;;
+;;;; Stage
+;;;
+
+
+(definition (get-stage)
+  (let ((appl (get-application)))
+    (when appl
+      (get-stage~ appl))))
 
 
 ;;;

@@ -97,6 +97,18 @@
   (table-set! Window-Title-Table handle title))
 
 
+(definition (window-parent window)
+  (let ((parent (get-parent~ window)))
+    (and parent
+	 (get-handle~ parent))))
+
+
+(definition (window-default-parent window)
+  (typecase window
+    ((Popup) (get-toplevel))
+    (else #f)))
+
+
 (definition (prepare-handle window parent rest)
   (if (is-window-HIView? window)
       (create-HIView-handle window parent rest)
@@ -107,10 +119,9 @@
 
 
 (definition (create-HIView-handle window parent rest)
-  (let* ((parent (or parent (get-toplevel~ (get-application))))
-	 (parent-handle (get-handle~ parent))
+  (let* ((parent (window-parent window))
 	 (new-handle (HIViewCreate)))
-    (HIViewAddSubview parent-handle new-handle)
+    (HIViewAddSubview parent new-handle)
     (HIViewChangeFeatures new-handle kHIViewFeatureAllowsSubviews 0)
     (HIViewSetFrame new-handle 0.0 0.0 500.0 500.0)
     (InstallControlEventHandler new-handle)

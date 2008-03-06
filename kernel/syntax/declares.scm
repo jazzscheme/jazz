@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Kernel Features
+;;;; Declares
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,33 +35,35 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-;;;
-;;;; Features
-;;;
+(cond-expand
+  (gambit
+    (jazz.define-macro (jazz.kernel-declare)
+      `(declare (block)
+                (standard-bindings)
+                (extended-bindings)
+                 ,@(if jazz.debug-user?
+                       '()
+                     '((not safe))))))
+  
+  (else))
 
 
-(define-macro (jazz.install-features)
-  (let ((features (list jazz.system jazz.platform jazz.windowing jazz.safety)))
-    (for-each (lambda (feature)
-                (if feature
-                    (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
-              features)
-    `(for-each (lambda (feature)
-                 (if feature
-                     (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
-               ',features)))
-
-
-(jazz.install-features)
-
-
-;;;
-;;;; Safety
-;;;
-
-
-(define jazz.debug-core?
-  (eq? jazz.safety 'core))
-
-(define jazz.debug-user?
-  (not (eq? jazz.safety 'release)))
+(cond-expand
+  (gambit
+    (define (jazz.declares kind)
+      `((declare ,@(if (or (eq? kind 'module)
+                           (eq? jazz.safety 'release))
+                       '((block))
+                     '())
+                 (standard-bindings)
+                 (extended-bindings)
+                 ;; inlining can have a huge impact on compilation time
+                 ;; and really bloat the size of the generated .o1 file
+                 (not inline)
+                 ,@(if jazz.debug-user?
+                       ;; safe and inlining primitives at the same time
+                       ;; is really costly on compilation time
+                       '((not inline-primitives))
+                     '((not safe)))))))
+  
+  (else))

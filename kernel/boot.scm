@@ -39,6 +39,7 @@
   (list
     "kernel/syntax/macros"
     "kernel/syntax/features"
+    "kernel/syntax/declares"
     "kernel/syntax/primitives"
     "kernel/syntax/syntax"
     "kernel/syntax/runtime"

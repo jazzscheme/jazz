@@ -35,13 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (declare (block)
-             (standard-bindings)
-             (extended-bindings)
-             (not safe)))
-  (else))
+(jazz.kernel-declare)
 
 
 ;;;
@@ -55,32 +49,6 @@
          ,form
          #f)
     form))
-
-
-;;;
-;;;; Declares
-;;;
-
-
-(cond-expand
-  (gambit
-    (define (jazz.declares kind)
-      `((declare ,@(if (or (eq? kind 'module)
-                           (eq? jazz.safety 'release))
-                       '((block))
-                     '())
-                 (standard-bindings)
-                 (extended-bindings)
-                 ;; inlining can have a huge impact on compilation time
-                 ;; and really bloat the size of the generated .o1 file
-                 (not inline)
-                 ,@(if jazz.debug-user?
-                       ;; safe and inlining primitives at the same time
-                       ;; is really costly on compilation time
-                       '((not inline-primitives))
-                     '((not safe)))))))
-  
-  (else))
 
 
 ;;;

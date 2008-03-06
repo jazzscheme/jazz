@@ -36,13 +36,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(cond-expand
-  (gambit
-    (declare (block)
-             (standard-bindings)
-             (extended-bindings)
-             (not safe)))
-  (else))
+(jazz.kernel-declare)
 
 
 ;;;

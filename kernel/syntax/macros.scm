@@ -38,15 +38,6 @@
 (include "~~/lib/_gambit#.scm")
 
 
-(cond-expand
-  (gambit
-    (declare (block)
-             (standard-bindings)
-             (extended-bindings)
-             (not safe)))
-  (else))
-
-
 (define jazz.Macros
   (make-table test: eq?))
 

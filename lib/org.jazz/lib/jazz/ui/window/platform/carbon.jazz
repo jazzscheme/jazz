@@ -168,9 +168,7 @@
 
 
 (definition (bring-window-to-top handle)
-  (unimplemented 'bring)
-  @lalala
-  (XRaiseWindow default-x11-display handle))
+  (platform-bring-window-to-front handle))
 
 
 (definition (minimize-window handle)
@@ -203,7 +201,8 @@
     ((#\x1f) 'Down)
     (else    char)))
 	       
-
+(definition current-mouse-x 0)
+(definition current-mouse-y 0)
 
 (definition (process-window-message handler event userdata)
   (let ((class (GetEventClass event))
@@ -222,13 +221,16 @@
        ((= type kEventMouseMoved)
 	(let ((window (eventWindowRef event)))
 	  (receive (x y) (eventMouseLocation event)
+	    (receive (glo-x glo-y) (convertPointToGlobal window x y) 
+		   (set! current-mouse-x glo-x)
+		   (set! current-mouse-y glo-y)
 		   (let* ((view (HIViewForPoint window x y))
 			  (win (get-window view)))
 		     (if win
 			 (receive (x y) (convertCoordinates (HIViewGetRoot window) view x y)
 				  (mouse-move~ win (inexact->exact x) (inexact->exact y))
 				  noErr)
-			 eventNotHandledErr)))))
+			 eventNotHandledErr))))))
        ((= type kEventMouseUp)
 	(let ((window (eventWindowRef event)))
 	  (receive (x y) (eventMouseLocation event)
@@ -470,10 +472,7 @@
 
 
 (definition (platform-mouse-position)
-  (unimplemented 'platform-mouse-position)
-  @lala
-  (receive (x y) (XQueryPointer default-x11-display (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
-    (new Point x y)))
+  (new Point current-mouse-x current-mouse-y))
 
 
 (definition (platform-window-from-point point)
@@ -609,15 +608,13 @@
 
 
 (definition (platform-bring-window-to-front handle)
-  (unimplemented 'platform-bring-window-to-front)
-  @lala
-  (XRaiseWindow default-x11-display handle))
+  (when (is-window-HIView? (get-window handle))
+	(HIViewSetZOrder handle kHIViewZOrderAbove #f)))
 
 
 (definition (platform-send-window-to-back handle)
-  (unimplemented 'platform-send-window-to-back)
-  @lala
-  (XLowerWindow default-x11-display handle))
+  (when (is-window-HIView? (get-window handle))
+	(HIViewSetZOrder handle kHIViewZOrderBelow #f)))
 
 
 (definition public (platform-select-foreground-window handle)

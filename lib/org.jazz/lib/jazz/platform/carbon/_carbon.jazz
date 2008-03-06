@@ -178,6 +178,7 @@
 (c-external OSStatus (SetUserFocusWindow WindowRef))
 (c-external void (ShowWindow WindowRef))
 (c-external void (HideWindow WindowRef))
+(c-external OSStatus (MoveWindowStructure WindowRef short short))
 (c-external void (RunApplicationEventLoop))
 (c-external void (QuitApplicationEventLoop))
 (c-external EventKind  (GetEventKind EventRef))
@@ -199,6 +200,20 @@
 (c-external HIViewRef (HIViewGetFirstSubview HIViewRef))
 (c-external OSStatus  (HIViewChangeFeatures HIViewRef HIViewFeatures HIViewFeatures))
 (c-external Bool      (HIViewIsValid HIViewRef))
+
+
+(definition (HIWindowGetAvailablePositioningBounds)
+  (let* ((bounds ((c-function () CGRect*
+	            "CGRect *bounds = malloc(sizeof(CGRect));
+                     HIWindowGetAvailablePositioningBounds( kCGNullDirectDisplay, kHICoordSpace72DPIGlobal, bounds );
+                     ___result_voidstar = bounds;")))
+	 (x (CGPoint-x-ref (CGRect-origin-ref bounds)))
+	 (y (CGPoint-y-ref (CGRect-origin-ref bounds)))
+	 (w (CGSize-width-ref (CGRect-size-ref bounds)))
+	 (h (CGSize-height-ref (CGRect-size-ref bounds))))
+    (CGRect-free bounds)
+    (values x y w h)))
+    
 
 
 (definition (convertCoordinates sourceView destView x y)
@@ -303,14 +318,14 @@
 
 (definition WindowSetContentBounds
   (c-function (WindowRef short short short short) OSStatus
-      "Rect rect = { ___arg2, ___arg3, ___arg2+___arg4, ___arg3+___arg5 };
-       ___result = SetWindowBounds(___arg1, kWindowContentRgn, &rect);"))
+      "Rect rect = { ___arg3, ___arg2, ___arg3+___arg5, ___arg2+___arg4 };
+       ___result = SetWindowBounds(___arg1, kWindowStructureRgn, &rect);"))
 
 
 (definition (WindowGetContentBounds window)
   (let* ((carbon-rect ((c-function (WindowRef) Rect*
                           "Rect *rect = malloc(sizeof(Rect));
-                           GetWindowBounds( ___arg1, kWindowContentRgn, rect );
+                           GetWindowBounds( ___arg1, kWindowStructureRgn, rect );
                            ___result_voidstar = rect;")
                        window))
 	 (left (Rect-left-ref carbon-rect))

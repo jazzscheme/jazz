@@ -118,21 +118,17 @@
 
 
 (definition (create-window-handle window parent rest)
-  (let ((x (if (is? window Desktop) 0 500))
-	(y (if (is? window Desktop) 0 500))
-	(w (if (is? window Desktop) 1000 500))
-	(h (if (is? window Desktop) 1000 500)))
     (let ((handle (CreateNewWindow kDocumentWindowClass
 				   (bitwise-ior kWindowStandardDocumentAttributes
 						kWindowStandardHandlerAttribute
 						kWindowLiveResizeAttribute
 						kWindowCompositingAttribute)
-				   x
-				   y
-				   w
-				   h)))
+				   0
+				   0
+				   500
+				   500)))
       (InstallWindowEventHandler handle)
-      handle)))
+      handle))
 
 
 (definition (destroy-window window)
@@ -417,14 +413,7 @@
 	   (top (get-v~ pos)))
        (if (is-window-HIView? (get-window handle))
 	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-	   (WindowSetContentBounds (HIViewGetWindow handle) left top width height))))
-  @X11-code
-  (if *locked-update*
-      (add-position-action (get-window handle) pos)
-    (if (is? (get-window handle) Popup)
-        (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
-          (XMoveWindow default-x11-display handle h v))
-      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
+	   (MoveWindowStructure (HIViewGetWindow handle) left top)))))
   
 
 (definition (platform-get-size handle)
@@ -437,9 +426,12 @@
 
 
 (definition (platform-get-system-rect handle)
-  (if (is-window-HIView? (get-window handle))
-      (HIViewGetFrame handle)
-      (WindowGetContentBounds (HIViewGetWindow handle))))
+  (cond ((is-window-HIView? (get-window handle))
+	 (HIViewGetFrame handle))
+	((is? (get-window handle) Desktop)
+	 (HIWindowGetAvailablePositioningBounds))
+	(else
+	 (WindowGetContentBounds (HIViewGetWindow handle)))))
 
 
 (definition (platform-set-window-size handle size)
@@ -790,10 +782,8 @@
 
 ;; We need to find what is the correct approach to this.
 (definition public (get-work-area) <Rect>
-  (new Rect 0 0 800 700)
-  @lala
-  (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
-    (new Rect 0 0 (get-width~ size) (get-height~ size))))
+  (receive (x y w h) (HIWindowGetAvailablePositioningBounds)
+    (new Rect (inexact->exact x) (inexact->exact y) (inexact->exact (+ x w)) (inexact->exact (+ y h)))))
 
 
 ;;;

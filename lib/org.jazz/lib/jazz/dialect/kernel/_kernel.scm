@@ -544,7 +544,7 @@
 (native jazz.thread-send)
 (native jazz.thread-receive)
 (native jazz.mutex?)
-(native jazz.make-thread)
+(native jazz.make-mutex)
 (native jazz.mutex-name)
 (native jazz.mutex-specific)
 (native jazz.mutex-specific-set!)

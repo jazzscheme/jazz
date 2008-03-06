@@ -42,16 +42,78 @@
         (jazz.utilities))
 
 
-(class Pulse extends Component implements Pulsable
+(class Pulse extends Object
   
   
-  (property owner         initialize {} accessors generate)
-  (property period        initialize {} accessors generate)
-  (property pulse-handler initialize {} accessors generate)
-
-
-  (slot window     initialize {})
-  (slot identifier initialize {})
+  (property period  initialize {} accessors generate)
+  (property repeat  initialize {} accessors generate)
+  (property execute initialize {} accessors generate)
+  
+  
+  (slot state initialize 'stopped)
+  (slot mutex initialize (make-mutex))
+  
+  
+  (method (initialize period execute . rest)
+    (bind-keywords ((repeat 'once)) rest
+      (set! period~self period)
+      (set! repeat~self repeat)
+      (set! execute~self execute)
+      @w
+      (start-loop)))
+  
+  
+  (method (destroy)
+    @w
+    (stop-loop)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; State
+  ;;;
+  
+  
+  ;; stopped idle pulsing stopping
+  
+  
+  (method (get-state)
+    (mutex-lock! mutex)
+    (prog1 state
+      (mutex-unlock! mutex)))
+  
+  
+  (method (set-state value)
+    (mutex-lock! mutex)
+    (set! state value)
+    (mutex-unlock! mutex))
+  
+  
+  ;;;
+  ;;;; Loop
+  ;;;
+  
+  
+  (method (start-loop)
+    (thread-start!
+      (make-thread
+        (function ()
+          (set-state 'idle)
+          (let (loop)
+            ;; lock so a change from idle to pulsing will have to
+            ;; wait and so will sleep at least period before a pulse
+            (mutex-lock! mutex)
+            (sleep period)
+            (when (eq? state 'pulsing)
+              (execute))
+            (mutex-unlock! mutex)
+            (when (and (neq? (get-state) 'stopping) (eq? repeat 'always))
+              (loop)))
+          (set-state 'stopped)))))
+  
+  
+  (method (stop-loop)
+    (set-state 'stopping))
   
   
   ;;;
@@ -60,30 +122,8 @@
   
   
   (method public (start)
-    @windows-specific
-    (when (null? identifier)
-      (set! window (get-player~ owner))
-      (set! identifier (SetTimer (get-handle~ window) (object-address self) period NULL))))
+    (set-state 'pulsing))
   
   
   (method public (stop)
-    @windows-specific
-    (when identifier
-      (KillTimer (get-handle~ window) identifier)
-      (set! window {})
-      (set! identifier {})))
-  
-  
-  ;;;
-  ;;;; Pulse
-  ;;;
-  
-  
-  (method (call-pulse)
-    (if pulse-handler
-        (invoke~ pulse-handler self (new Event :mouse-down self))
-      (pulse)))
-
-
-  (method (pulse)
-    )))
+    (set-state 'idle))))

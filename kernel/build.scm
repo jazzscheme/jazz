@@ -276,13 +276,13 @@
           (safety #f)
           (options '())
           (directory #f))
-  (let ((name (jazz.require-name name))
-        (system (jazz.require-system system))
-        (platform (jazz.require-platform platform))
-        (windowing (jazz.require-windowing windowing))
-        (safety (jazz.require-safety safety))
-        (options (jazz.require-options options))
-        (directory (jazz.require-directory directory)))
+  (let* ((name (jazz.require-name name))
+         (system (jazz.require-system system))
+         (platform (jazz.require-platform platform))
+         (windowing (jazz.require-windowing platform windowing))
+         (safety (jazz.require-safety safety))
+         (options (jazz.require-options options))
+         (directory (jazz.require-directory directory)))
     (let ((configuration
             (jazz.new-configuration
               name: name
@@ -399,18 +399,15 @@
     x11))
 
 
-(define (jazz.require-windowing windowing)
-  (or windowing (jazz.guess-windowing)))
+(define (jazz.require-windowing platform windowing)
+  (or windowing (jazz.guess-windowing platform)))
 
 
-(define (jazz.guess-windowing)
-  (let ((system (cadr (system-type)))
-        (os (caddr (system-type))))
-    (cond ;; mac version not yet available
-          ;; ((apple) 'carbon)
-          ((eq? os 'linux-gnu) 'x11)
-          ((eq? system 'pc) #f)
-          (else 'x11))))
+(define (jazz.guess-windowing platform)
+  (case platform
+    ((mac) 'carbon)
+    ((windows) #f)
+    ((unix) 'x11)))
 
 
 (define (jazz.validate-windowing windowing)
@@ -420,10 +417,11 @@
 
 
 (define (jazz.windowing-name windowing)
-  (case windowing
-    ((carbon) "Carbon")
-    ((x11) "X11")
-    (else "")))
+  (if (not windowing)
+      ""
+    (case windowing
+      ((carbon) "Carbon")
+      ((x11) "X11"))))
 
 
 ;;;

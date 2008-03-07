@@ -777,6 +777,14 @@
   (make-parameter #f))
 
 
+(define (jazz.push-load-stack mode module-name)
+  (set! jazz.Load-Stack (cons (cons mode module-name) jazz.Load-Stack)))
+
+
+(define (jazz.pop-load-stack)
+  (set! jazz.Load-Stack (cdr jazz.Load-Stack)))
+
+
 (define (jazz.call-with-load-lock thunk)
   (if (%%eq? jazz.Load-Thread (current-thread))
       (thunk)
@@ -802,14 +810,14 @@
                      (dynamic-wind
                        (lambda ()
                          (jazz.set-environment-module module-name jazz.Loading-State)
-                         (set! jazz.Load-Stack (cons module-name jazz.Load-Stack)))
+                         (jazz.push-load-stack ':load module-name))
                        (lambda ()
                          (let ((src (jazz.find-module-src module-name)))
                            (parameterize ((jazz.requested-module-name module-name)
                                           (jazz.requested-module-resource src))
                              (jazz.load-source src))))
                        (lambda ()
-                         (set! jazz.Load-Stack (cdr jazz.Load-Stack))
+                         (jazz.pop-load-stack)
                          (if (%%eq? (jazz.get-environment-module module-name) jazz.Loading-State)
                              (jazz.set-environment-module module-name jazz.Unloaded-State))))))))))))
 

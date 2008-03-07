@@ -4995,9 +4995,11 @@
     (lambda ()
       (dynamic-wind
         (lambda ()
-          (jazz.set-catalog-entry module-name ':loading))
+          (jazz.set-catalog-entry module-name ':loading)
+          (jazz.push-load-stack ':walk module-name))
         thunk
         (lambda ()
+          (jazz.pop-load-stack)
           (if (%%eq? (jazz.get-catalog-entry module-name) ':loading)
               (jazz.set-catalog-entry module-name #f)))))))
 

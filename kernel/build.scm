@@ -128,25 +128,6 @@
   '())
 
 
-(define (jazz.manage-configurations rest)
-  (jazz.with-stop
-    (lambda ()
-      (let ((action
-              (if (null? rest)
-                  'list
-                (car rest))))
-        (case action
-          ((list)
-           (jazz.list-configurations))
-          ((delete)
-           (let ((name (if (null? (cdr rest)) #f (cadr rest))))
-             (jazz.delete-configuration (jazz.require-configuration name))
-             (jazz.list-configurations)))
-          (else
-           (jazz.error "Unknown cfg command: {s}" (car rest)))))))
-  (void))
-
-
 (define (jazz.list-configurations)
   (for-each jazz.describe-configuration (jazz.sorted-configurations)))
 
@@ -286,28 +267,33 @@
 ;;;
 
 
-(define (jazz.configure name system platform windowing safety options directory)
-  (jazz.with-stop
-    (lambda ()
-      (let ((name (jazz.require-name name))
-            (system (jazz.require-system system))
-            (platform (jazz.require-platform platform))
-            (windowing (jazz.require-windowing windowing))
-            (safety (jazz.require-safety safety))
-            (options (jazz.require-options options))
-            (directory (jazz.require-directory directory)))
-        (let ((configuration
-                (jazz.new-configuration
-                  name: name
-                  system: system
-                  platform: platform
-                  windowing: windowing
-                  safety: safety
-                  options: options
-                  directory: directory)))
-          (jazz.register-configuration configuration)
-          (jazz.describe-configuration configuration)))))
-  (void))
+(define (jazz.configure
+          #!key
+          (name #f)
+          (system #f)
+          (platform #f)
+          (windowing #f)
+          (safety #f)
+          (options '())
+          (directory #f))
+  (let ((name (jazz.require-name name))
+        (system (jazz.require-system system))
+        (platform (jazz.require-platform platform))
+        (windowing (jazz.require-windowing windowing))
+        (safety (jazz.require-safety safety))
+        (options (jazz.require-options options))
+        (directory (jazz.require-directory directory)))
+    (let ((configuration
+            (jazz.new-configuration
+              name: name
+              system: system
+              platform: platform
+              windowing: windowing
+              safety: safety
+              options: options
+              directory: directory)))
+      (jazz.register-configuration configuration)
+      (jazz.describe-configuration configuration))))
 
 
 ;;;
@@ -549,28 +535,21 @@
   'jedi)
 
 
-(define (jazz.make target)
-  (if (jazz.with-stop
-        (lambda ()
-          (let ((target (or target jazz.default-target)))
-            (let ((name (symbol->string target)))
-              (let ((pos (jazz.string-find name #\@)))
-                (if (not pos)
-                    (jazz.make-target target (jazz.require-default-configuration))
-                  (let ((target
-                          (if (= pos 0)
-                              jazz.default-target
-                            (string->symbol (substring name 0 pos))))
-                        (configuration
-                          (if (= (+ pos 1) (string-length name))
-                              (jazz.require-default-configuration)
-                            (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
-                    (jazz.make-target target configuration))))))
-          #t))
-      (void)
-    (begin
-      (jazz.feedback "failed")
-      (void))))
+(define (jazz.make #!optional (target #f))
+  (let ((target (or target jazz.default-target)))
+    (let ((name (symbol->string target)))
+      (let ((pos (jazz.string-find name #\@)))
+        (if (not pos)
+            (jazz.make-target target (jazz.require-default-configuration))
+          (let ((target
+                  (if (= pos 0)
+                      jazz.default-target
+                    (string->symbol (substring name 0 pos))))
+                (configuration
+                  (if (= (+ pos 1) (string-length name))
+                      (jazz.require-default-configuration)
+                    (jazz.require-configuration (string->symbol (substring name (+ pos 1) (string-length name)))))))
+            (jazz.make-target target configuration)))))))
 
 
 (define (jazz.make-target target configuration)
@@ -584,24 +563,25 @@
     (else (jazz.error "Unknown target: {s}" target))))
 
 
-(define (jazz.make-target-recursive target configuration)
+;;;
+;;;; Build
+;;;
+
+
+(define (jazz.build-recursive target configuration)
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (jazz.open-process "gsc" (list "-e" (string-append "\"(jazz.recursive-make '" target-argument " '" configuration-argument ")\""))))))
+      (jazz.open-process "gsc" (list "-:dq-" "build" target-argument configuration-argument)))))
 
 
-(define (jazz.recursive-make target configuration-name)
-  (if (jazz.with-stop
-        (lambda ()
-          (let ((configuration (jazz.require-configuration configuration-name)))
-            (case target
-              ((kernel) (jazz.make-kernel-recursive configuration))
-              ((jedi) (jazz.make-jedi-recursive configuration))
-              (else (jazz.error "Unknown target: {s}" target))))
-          #t))
-      (exit)
-    (exit 1)))
+(define (jazz.build target configuration-name)
+  (let ((configuration (jazz.require-configuration configuration-name)))
+    (case target
+      ((kernel) (jazz.build-kernel configuration))
+      ((jedi) (jazz.build-jedi configuration))
+      (else (jazz.error "Unknown build target: {s}" target))))
+  (exit))
 
 
 (define (jazz.target-needs-update? src dst)
@@ -816,10 +796,10 @@
 
 (define (jazz.make-kernel configuration)
   (jazz.feedback "making kernel")
-  (jazz.make-target-recursive 'kernel configuration))
+  (jazz.build-recursive 'kernel configuration))
 
 
-(define (jazz.make-kernel-recursive configuration)
+(define (jazz.build-kernel configuration)
   (let ((system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
         (windowing (jazz.configuration-windowing configuration))
@@ -842,10 +822,6 @@
          (copy-platform-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
          (copy-platform-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))))
     
-    (define (print line output)
-      (display line output)
-      (newline output))
-    
     (define (generate-gambcini)
       (let ((file (conffile ".gambcini")))
         (if (not (file-exists? file))
@@ -853,13 +829,13 @@
               (jazz.feedback "; generating {a}..." file)
               (call-with-output-file file
                 (lambda (output)
-                  (print ";;;" output)
-                  (print ";;;===============" output)
-                  (print ";;;  Jazz System" output)
-                  (print ";;;===============" output)
-                  (print ";;;" output)
-                  (print ";;;; Gambit Ini" output)
-                  (print ";;;" output)
+                  (jazz.print ";;;" output)
+                  (jazz.print ";;;===============" output)
+                  (jazz.print ";;;  Jazz System" output)
+                  (jazz.print ";;;===============" output)
+                  (jazz.print ";;;" output)
+                  (jazz.print ";;;; Gambit Ini" output)
+                  (jazz.print ";;;" output)
                   (newline output)
                   (newline output)
                   (print-architecture system platform windowing safety options output)
@@ -923,11 +899,10 @@
 (define (jazz.make-jedi configuration)
   (jazz.make-platform configuration)
   (jazz.jazz-make 'jedi configuration)
-  
-  (jazz.make-target-recursive 'jedi configuration))
+  (jazz.build-recursive 'jedi configuration))
 
 
-(define (jazz.make-jedi-recursive configuration)
+(define (jazz.build-jedi configuration)
   (jazz.build-app 'jedi configuration console?: #f))
 
 
@@ -939,6 +914,20 @@
 (define (jazz.make-all configuration)
   (jazz.make-jedi configuration)
   (jazz.jazz-make 'all configuration))
+
+
+;;;
+;;;; Output
+;;;
+
+
+(define (jazz.print line output)
+  (display line output)
+  (newline output))
+
+
+(define (jazz.debug . rest)
+  (jazz.print rest (console-port)))
 
 
 ;;;
@@ -990,41 +979,6 @@
   (display (apply jazz.format fmt-string rest))
   (newline)
   (force-output))
-
-
-;;;
-;;;; Error
-;;;
-
-
-(define jazz.stop-continuation
-  (make-parameter #f))
-
-
-(define (jazz.with-stop thunk)
-  (call/cc
-    (lambda (stop)
-      (parameterize ((jazz.stop-continuation stop))
-        (thunk)))))
-
-
-(define (jazz.stop)
-  ((jazz.stop-continuation) #f))
-
-
-(define (jazz.error fmt-string . rest)
-  (apply jazz.feedback fmt-string rest)
-  (jazz.stop))
-
-
-(cond-expand
-  (gambit
-    (current-exception-handler
-      (lambda (exc)
-        (##display-exception exc (current-output-port))
-        (let ((stop (jazz.stop-continuation)))
-          (if stop
-              (stop #f)))))))
 
 
 ;;;
@@ -1162,29 +1116,121 @@
                   stderr-redirection: #f))))
     (let ((code (process-status port)))
       (if (not (= code 0))
-          (jazz.stop)))))
+          (jazz.error "failed")))))
 
 
-#; ;; a try with marc to handle the ctrl-c correctly
-(define (jazz.open-process path arguments #!optional (directory #f))
-  (let ((port (open-process
-                (list
-                  path: path
-                  arguments: arguments
-                  directory: (or directory (current-directory))
-                  stdin-redirection: #t
-                  stdout-redirection: #t
-                  stderr-redirection: #t))))
-    (close-output-port port)
+;;;
+;;;; Error
+;;;
+
+
+(define (jazz.error fmt-string . rest)
+  (let ((error-string (apply jazz.format fmt-string rest)))
+    (error error-string)))
+
+
+;;;
+;;;; Repl
+;;;
+
+
+(define jazz.prompt
+  "$ ")
+
+
+(define (jazz.build-system-repl)
+  (let ((console (console-port)))
+    (jazz.print (jazz.format "Jazz {a} Build System" jazz.version) console)
+    (newline console)
+    (force-output console)
     (let loop ()
-      (let ((c (read-char port)))
-        (if (char? c)
-            (begin
-              (write-char c)
-              (loop)))))
-    (let ((code (process-status port)))
-      (if (not (= code 0))
-          (jazz.stop)))))
+      (display jazz.prompt console)
+      (force-output console)
+      (let ((command (read-line console)))
+        (call/cc
+          (lambda (stop)
+            (with-exception-handler
+              (lambda (exc)
+                (##display-exception exc console)
+                (stop #f))
+              (lambda ()
+                (jazz.process-command command console)))))
+        (loop)))))
+
+
+(define (jazz.process-command command output)
+  (call-with-input-string command
+    (lambda (input)
+      (let ((command (read input))
+            (arguments (read-all input read)))
+        (case command
+          ((list) (jazz.list-command arguments output))
+          ((delete) (jazz.delete-command arguments output))
+          ((configure) (jazz.configure-command arguments output))
+          ((make) (jazz.make-command arguments output))
+          ((help ?) (jazz.help-command arguments output))
+          ((quit) (jazz.quit-command arguments output))
+          (else (jazz.error "Unknown command: {s}" command)))))))
+
+
+(define (jazz.list-command arguments output)
+  (jazz.list-configurations))
+
+
+(define (jazz.delete-command arguments output)
+  (let ((name (car arguments)))
+    (jazz.delete-configuration (jazz.require-configuration name))
+    (jazz.list-configurations)))
+
+
+(define (jazz.configure-command arguments output)
+  (apply jazz.configure arguments))
+
+
+(define (jazz.make-command arguments output)
+  (apply jazz.make arguments))
+
+
+(define (jazz.help-command arguments output)
+  (jazz.print "Commands are" output)
+  (jazz.print "  list" output)
+  (jazz.print "  delete" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [directory:]" output)
+  (jazz.print "  make [target]" output)
+  (jazz.print "  help or ?" output)
+  (jazz.print "  quit" output))
+
+
+(define (jazz.quit-command arguments output)
+  (exit))
+
+
+;;;
+;;;; Boot
+;;;
+
+
+(define (jazz.build-system-boot)
+  (define (fatal message)
+    (display message)
+    (newline)
+    (force-output)
+    (exit 1))
+  
+  (let ((command-arguments (cdr (command-line))))
+    (if (null? command-arguments)
+        (jazz.build-system-repl)
+      (let ((command (car command-arguments)))
+        (if (equal? command "build")
+            (let ((arguments (cdr command-arguments)))
+              (if (= (length arguments) 2)
+                  (let ((target-argument (car arguments))
+                        (configuration-argument (cadr arguments)))
+                    (let ((target (string->symbol target-argument))
+                          (configuration-name (if (equal? configuration-argument "#f") #f (string->symbol configuration-argument))))
+                      (jazz.build target configuration-name)))
+                (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))
+          (fatal (jazz.format "Unknown build system command: {s}" command)))))))
 
 
 ;;;
@@ -1194,3 +1240,4 @@
 
 (jazz.validate-version)
 (jazz.load-configurations)
+(jazz.build-system-boot)

@@ -214,6 +214,43 @@
 (c-external void      (BringToFront WindowRef))
 (c-external void      (SendBehind WindowRef WindowRef))
 (c-external void      (SelectWindow WindowRef))
+(c-external RgnHandle (NewRgn))
+(c-external void      (DisposeRgn RgnHandle))
+(c-external void      (OffsetRgn RgnHandle short short))
+(c-external void      (UnionRgn RgnHandle RgnHandle RgnHandle))
+
+
+(definition HIViewSetNeedsDisplayInRect
+  (c-function (HIViewRef float float float float) void
+    "CGRect rect = {{___arg2, ___arg3}, {___arg4, ___arg5}};
+     HIViewSetNeedsDisplayInRect( ___arg1, &rect, 1 );"))
+
+
+(definition (GetRegionBounds region)
+  (let* ((rect ((c-function (RgnHandle) Rect*
+                  "Rect *rect = malloc(sizeof(rect));
+                   GetRegionBounds( ___arg1, rect);
+                   ___result_voidstar = rect;") region))
+	 (l (Rect-left-ref rect))
+	 (t (Rect-top-ref rect))
+	 (b (Rect-bottom-ref rect))
+	 (r (Rect-right-ref rect)))
+    (Rect-free rect)
+    (new Rect l t r b)))
+
+
+(definition RectRgn
+  (c-function (short short short short) RgnHandle
+    "RgnHandle reg = NewRgn();
+     Rect rect = {___arg2, ___arg1,  ___arg4, ___arg3};
+     RectRgn( reg, &rect );
+     ___result_voidstar = reg;"))
+
+
+(definition RectInRgn
+  (c-function (short short short short RgnHandle) Bool
+    "Rect rect = {___arg2, ___arg1,  ___arg4, ___arg3};
+     ___result = RectInRgn( &rect, ___arg5 );"))
 
 
 (definition makeFrontProcess
@@ -260,6 +297,13 @@
  (y (CGPoint-y-ref pt)))
     (CGPoint-free pt)
     (values x y)))
+
+
+(definition eventControlRgn
+  (c-function (EventRef) RgnHandle
+     "RgnHandle inv;
+      GetEventParameter( ___arg1, kEventParamRgnHandle, typeQDRgnHandle, NULL, sizeof(inv), NULL, &inv);
+      ___result_voidstar = inv;"))
 
 
 (definition eventWindowRef

@@ -308,7 +308,7 @@
     (cond
      ((= type kEventControlDraw)
       (let ((context (EventCGContext event)))
-(paint~ (get-window handle) #f context))
+	(paint~ (get-window handle) (new Region handle: (eventControlRgn event)) context))
       noErr)
      ((= type kEventControlBoundsChanged)
       (receive (left top width height) (HIViewGetBounds handle)
@@ -582,30 +582,20 @@
 
 ;; Correct this to really invalidate the Rect
 (definition (platform-invalidate-rect handle rect erase?)
-  (HIViewSetNeedsDisplay handle #t)
-  @lala
-  (when handle
-    (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
-          (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
-          (r (if (> (get-right~ rect) (get-width~ (get-window handle)))
-                 (get-width~ (get-window handle))
-               (get-right~ rect)))
-          (b (if (> (get-bottom~ rect) (get-height~ (get-window handle)))
-                 (get-height~ (get-window handle))
-               (get-bottom~ rect))))
-      (let ((w (- r l))
-            (h (- b t)))
-        (unless (or (< w 0) (< h 0))
-          (XInvalidateRect default-x11-display handle l t w h))))))
+  (if rect
+  (let ((left (exact->inexact (get-left~ rect)))
+	(top (exact->inexact (get-top~ rect)))
+	(right (exact->inexact (get-right~ rect)))
+	(bottom (exact->inexact (get-bottom~ rect))))
+    (unless (and (= 0 left) (= 0 top) (= 0 right) (= 0 bottom))
+    (HIViewSetNeedsDisplayInRect handle left top (- right left) (- bottom top))))))
 
 
 ;; Correct this to really invalidate the Region
 (definition (platform-invalidate-region handle region erase?)
-  (platform-invalidate-rect handle region erase?)
-  @lala
   (for-each (function (rect)
-              (platform-invalidate-rect handle rect erase?))
-            (get-rectangles~ region)))
+               (platform-invalidate-rect handle rect erase?))
+	    (get-rectangles~ region)))
 
 
 (definition (platform-invalidate-window handle erase?)

@@ -52,6 +52,9 @@
 (definition public processed '(processed))
 
 
+(definition desktop #f)
+
+
 (definition (processed-result return)
   (if (and (pair? return) (eq? (car return) 'processed))
       (if (null? (cdr return))
@@ -139,6 +142,10 @@
                   500
                   500)))
     (InstallWindowEventHandler handle)
+    (when (is? window Desktop) 
+      (set! desktop window)
+      (receive (x y w h) (HIWindowGetAvailablePositioningBounds)
+        (WindowSetBounds handle kWindowStructureRgn (inexact->exact x) (inexact->exact y) (inexact->exact w) (inexact->exact h))))
     handle))
 
 
@@ -449,8 +456,8 @@
   (let* ((window (HIViewGetWindow handle))
          (root   (HIViewGetRoot window)))
     (receive (x y) (convertCoordinates handle root 0.0 0.0)
-      (receive (l t w h) (WindowGetRootBounds window)
-        (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
+       (receive (l t w h) (WindowGetBounds window kWindowContentRgn)
+          (new Point (inexact->exact (+ l x)) (inexact->exact (+ t y)))))))
 
 (definition (platform-get-position handle parent-handle)
   (receive (left top width height) (platform-get-system-rect handle)
@@ -459,11 +466,11 @@
 
 (definition (platform-set-position handle pos)
   (receive (left top width height) (platform-get-system-rect handle)
-    (let ((left (get-h~ pos))
-          (top (get-v~ pos)))
-      (if (is-window-HIView? (get-window handle))
-          (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-        (MoveWindowStructure (HIViewGetWindow handle) left top)))))
+     (let ((left (get-h~ pos))
+	   (top (get-v~ pos)))
+       (if (is-window-HIView? (get-window handle))
+	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
+	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
   
 
 (definition (platform-get-size handle)
@@ -477,20 +484,18 @@
 
 (definition (platform-get-system-rect handle)
   (cond ((is-window-HIView? (get-window handle))
-         (HIViewGetFrame handle))
-        ((is? (get-window handle) Desktop)
-         (HIWindowGetAvailablePositioningBounds))
-        (else
-         (WindowGetContentBounds (HIViewGetWindow handle)))))
+	 (HIViewGetFrame handle))
+	(else
+	 (WindowGetBounds (HIViewGetWindow handle) kWindowContentRgn))))
 
 
 (definition (platform-set-window-size handle size)
   (receive (left top width height) (platform-get-system-rect handle)
-    (let ((width (get-width~ size))
-          (height (get-height~ size)))
-      (if (is-window-HIView? (get-window handle))
-          (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
-        (WindowSetContentBounds (HIViewGetWindow handle) left top width height)))))
+     (let ((width (get-width~ size))
+	   (height (get-height~ size)))
+       (if (is-window-HIView? (get-window handle))
+	   (HIViewSetFrame handle (exact->inexact left) (exact->inexact top) (exact->inexact width) (exact->inexact height))
+	 (WindowSetBounds (HIViewGetWindow handle) kWindowContentRgn left top width height)))))
 
 
 (definition (platform-set-position-size handle pos size)
@@ -820,8 +825,7 @@
 
 ;; We need to find what is the correct approach to this.
 (definition public (get-work-area) <Rect>
-  (receive (x y w h) (HIWindowGetAvailablePositioningBounds)
-    (new Rect (inexact->exact x) (inexact->exact y) (inexact->exact (+ x w)) (inexact->exact (+ y h)))))
+  (platform-get-rect (get-handle~ desktop) #f))
 
 
 ;;;

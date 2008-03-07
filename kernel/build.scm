@@ -395,8 +395,8 @@
 
 (define jazz.valid-windowings
   '(carbon
-    x11
-    #f))
+    #f
+    x11))
 
 
 (define (jazz.require-windowing windowing)
@@ -595,19 +595,19 @@
 ;;;
 
 
-(define (print-architecture system platform windowing safety options output)
-  (print-variable 'jazz.system system output)
+(define (jazz.print-architecture system platform windowing safety options output)
+  (jazz.print-variable 'jazz.system system output)
   (newline output)
-  (print-variable 'jazz.platform platform output)
+  (jazz.print-variable 'jazz.platform platform output)
   (newline output)
-  (print-variable 'jazz.windowing windowing output)
+  (jazz.print-variable 'jazz.windowing windowing output)
   (newline output)
-  (print-variable 'jazz.safety safety output)
+  (jazz.print-variable 'jazz.safety safety output)
   (newline output)
-  (print-variable 'jazz.options options output))
+  (jazz.print-variable 'jazz.options options output))
 
 
-(define (print-variable variable value output)
+(define (jazz.print-variable variable value output)
   (display "(define " output)
   (display variable output)
   (newline output)
@@ -642,7 +642,7 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (print-architecture system platform windowing safety options output)))
+                    (jazz.print-architecture system platform windowing safety options output)))
                 #t)
             #f)))
       
@@ -653,11 +653,11 @@
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (print-variable 'jazz.app app output)
+                    (jazz.print-variable 'jazz.app app output)
                     (newline output)
-                    (print-variable 'jazz.version jazz.version output)
+                    (jazz.print-variable 'jazz.version jazz.version output)
                     (newline output)
-                    (print-variable 'jazz.directory (jazz.source-directory configuration) output)))
+                    (jazz.print-variable 'jazz.directory (jazz.source-directory configuration) output)))
                 #t)
             #f)))
       
@@ -838,9 +838,9 @@
                   (jazz.print ";;;" output)
                   (newline output)
                   (newline output)
-                  (print-architecture system platform windowing safety options output)
+                  (jazz.print-architecture system platform windowing safety options output)
                   (newline output)
-                  (print-variable 'jazz.directory (jazz.source-directory configuration) output)
+                  (jazz.print-variable 'jazz.directory (jazz.source-directory configuration) output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.directory \"kernel/boot\"))" output)

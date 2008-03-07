@@ -44,185 +44,192 @@
 ;;;
 
 
-(jazz.define-variable jazz.compile-module)
-(jazz.define-variable jazz.build-module)
+(jazz.define-variable jazz.compile-module
+  (lambda rest
+    (jazz.load-module 'core.module.build)
+    (apply jazz.compile-module rest)))
+
+(jazz.define-variable jazz.build-module
+  (lambda rest
+    (jazz.load-module 'core.module.build)
+    (apply jazz.build-module rest)))
+
 (jazz.define-variable jazz.system.boot-app)
 
 
 ;;;
-;;;; Compile
+;;;; Core
 ;;;
 
 
-(define (cmodule module-name #!key (cc-options #f) (ld-options #f))
-  (jazz.load-module 'core.module.build)
-  (jazz.compile-module module-name cc-options: cc-options ld-options: ld-options))
-
-
-;;;
-;;;; Build
-;;;
-
-
-(define (bmodule module-name)
-  (jazz.load-module 'core.module.build)
-  (jazz.build-module module-name))
-
-
-(define (bcore)
+(define (jazz.build-core)
   (jazz.load-module 'core.library)
-  (bmodule 'core.base)
-  (bmodule 'core.class)
-  (bmodule 'core.generic)
-  (bmodule 'core.library)
-  (bmodule 'core.module)
-  (bmodule 'statprof))
+  (jazz.build-module 'core.base)
+  (jazz.build-module 'core.class)
+  (jazz.build-module 'core.generic)
+  (jazz.build-module 'core.library)
+  (jazz.build-module 'core.module)
+  (jazz.build-module 'statprof))
 
 
-(define (bjazz)
-  (bcore)
-  (bmodule 'scheme.dialect)
-  (bmodule 'jazz.dialect)
-  (cmodule 'jazz.dialect.language))
+;;;
+;;;; Jazz
+;;;
+
+
+(define (jazz.build-jazz)
+  (jazz.build-core)
+  (jazz.build-module 'scheme.dialect)
+  (jazz.build-module 'jazz.dialect)
+  (jazz.compile-module 'jazz.dialect.language))
 
 
 ;;;
 ;;;; Platform
 ;;;
+  
+
+(define (jazz.build-types)
+  (jazz.compile-module 'jazz.platform.types))
 
 
-(define (pipe-no-return input output)
+(cond-expand
+  (carbon
+   (define (jazz.build-cairo)
+     (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+           (ld-flags (jazz.pkg-config-libs "cairo")))
+       (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+       (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
+       (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))
+  (windows
+   (define (jazz.build-cairo)
+     (let ((cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
+           (cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows"))))
+       (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
+  (x11
+   (define (jazz.build-cairo)
+     (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+           (ld-flags (jazz.pkg-config-libs "cairo")))
+       (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+       (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
+       (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))
+
+
+(cond-expand
+  (windows
+    (define (jazz.build-font)
+      (jazz.build-logfont)))
+  (else
+    (define (jazz.build-font)
+      (jazz.build-freetype))))
+
+
+(define (jazz.build-freetype)
+  (let ((cc-flags (jazz.pkg-config-cflags "freetype2"))
+        (ld-flags (jazz.pkg-config-libs "freetype2")))
+    (jazz.compile-module 'jazz.platform.freetype cc-options: cc-flags ld-options: ld-flags)))
+
+
+(define (jazz.build-logfont)
+  (let ((cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
+        (cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows"))))
+    (jazz.compile-module 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
+
+
+(define (jazz.build-carbon)
+  (jazz.load-module 'core.module.build)
+  (jazz.compile-module 'jazz.platform.carbon              ld-options: "-framework Carbon")
+  (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon"))
+
+
+(define (jazz.build-windows)
+  (let ((cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
+        (cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows"))))
+    (jazz.load-module 'core.module.build)
+    (jazz.compile-module 'jazz.platform.windows.WinDef      cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinTypes    cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinBase     cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinNT       cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinKernel   cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinGDI      cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinMM       cc-options: "-DUNICODE" ld-options: "-mwindows -lwinmm")
+    (jazz.compile-module 'jazz.platform.windows.WinUser     cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
+    (jazz.compile-module 'jazz.system.platform.windows)))
+  
+
+(define (jazz.build-x11)
+  (jazz.load-module 'core.module.build)
+  (jazz.compile-module 'jazz.platform.x11 cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
+  (jazz.compile-module 'jazz.platform.x11.x11-types))
+
+
+(cond-expand
+  (carbon
+    (define (jazz.build-platform)
+      (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
+      (jazz.build-types)
+      (jazz.build-cairo)
+      (jazz.build-font)
+      (jazz.build-carbon)))
+  (windows
+    (define (jazz.build-platform)
+      (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
+      (jazz.build-types)
+      (jazz.build-cairo)
+      (jazz.build-font)
+      (jazz.build-windows)))
+  (x11
+    (define (jazz.build-platform)
+      (jazz.load-module 'core.library)
+      (jazz.load-module 'scheme.dialect)
+      (jazz.build-types)
+      (jazz.build-cairo)
+      (jazz.build-font)
+      (jazz.build-x11))))
+
+
+(define (jazz.load-platform)
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'jazz)
+  (jazz.load-module 'jazz.literals)
+  (jazz.load-module 'jazz.platform)
+  (jazz.load-module 'jazz.platform.literals))
+
+
+(cond-expand
+  (windows
+    (define (jazz.quote-pathname pathname)
+      (string-append "\"" pathname "\"")))
+  (else
+    (define (jazz.quote-pathname pathname)
+      (string-append "'" pathname "'"))))
+
+
+(define (jazz.pkg-config what libname)
+  (let ((port (open-output-string)))
+    (jazz.pipe-no-return (open-process (list path: "pkg-config" arguments: (list what libname))) port)
+    (get-output-string port)))
+
+(define (jazz.pkg-config-cflags libname)
+  (jazz.pkg-config "--cflags" libname))
+
+(define (jazz.pkg-config-libs libname)
+  (jazz.pkg-config "--libs" libname))
+
+
+(define (jazz.pipe-no-return input output)
   (let iterate ()
     (let ((c (read-char input)))
       (if (not (or (eof-object? c) (eq? #\newline c)))
           (begin
             (write-char c output)
             (iterate))))))
-
-
-(cond-expand
-  (windows
-   (define (bcairo)
-     (define cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
-     (define cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows")))
-     (cmodule 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
-  (x11
-   (define (bcairo)
-     (let ((cc-flags-port (open-output-string))
-           (ld-flags-port (open-output-string)))
-       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "cairo"))) cc-flags-port)
-       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "cairo"))) ld-flags-port)
-       (let ((cc-flags (get-output-string cc-flags-port))
-	     (ld-flags (get-output-string ld-flags-port)))
-	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
-	 (cmodule 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
-	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))
-  (carbon
-   (define (bcairo)
-     (let ((cc-flags-port (open-output-string))
-           (ld-flags-port (open-output-string)))
-       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "cairo"))) cc-flags-port)
-       (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "cairo"))) ld-flags-port)
-       (let ((cc-flags (get-output-string cc-flags-port))
-	     (ld-flags (get-output-string ld-flags-port)))
-	 (cmodule 'jazz.platform.cairo cc-options: cc-flags ld-options: ld-flags)
-	 (cmodule 'jazz.platform.cairo.cairo-carbon      cc-options: cc-flags ld-options: ld-flags)
-	 (cmodule 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
-
-
-(define (bfreetype)
-  (let ((cc-flags-port (open-output-string))
-	(ld-flags-port (open-output-string)))
-    (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--cflags" "freetype2"))) cc-flags-port)
-    (pipe-no-return (open-process (list path: "pkg-config" arguments: (list "--libs" "freetype2"))) ld-flags-port)
-    (let ((cc-flags (get-output-string cc-flags-port))
-	  (ld-flags (get-output-string ld-flags-port)))
-      (cmodule 'jazz.platform.freetype cc-options: cc-flags ld-options: ld-flags))))
-
-
-(define (blogfont)
-  (define cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
-  (define cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows")))
-  (cmodule 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))
-
-
-(cond-expand
-  (windows
-    (define (bfont)
-      (blogfont)))
-  (else
-    (define (bfont)
-      (bfreetype))))
-
-
-(define (bwindows)
-  (define cairo-include-path (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/include")))
-  (define cairo-lib-path     (path-expand (string-append (jazz.jazz-directory) "foreign/cairo/lib/windows")))
-  (jazz.load-module 'core.module.build)
-  (cmodule 'jazz.platform.windows.WinDef      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinTypes    cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinBase     cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinNT       cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinKernel   cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinGDI      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinMM       cc-options: "-DUNICODE" ld-options: "-mwindows -lwinmm")
-  (cmodule 'jazz.platform.windows.WinUser     cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinShell    cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinCtrl     cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.windows.WinDlg      cc-options: "-DUNICODE" ld-options: "-mwindows")
-  (cmodule 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
-  (cmodule 'jazz.system.platform.windows))
-  
-
-(define (bx11)
-  (jazz.load-module 'core.module.build)
-  (cmodule 'jazz.platform.x11                  cc-options: "-I/usr/X11R6/include" ld-options: "-L/usr/X11R6/lib -lX11")
-  (cmodule 'jazz.platform.x11.x11-types))
-
-
-(define (bcarbon)
-  (jazz.load-module 'core.module.build)
-  (cmodule 'jazz.platform.carbon                ld-options: "-framework Carbon")
-  (cmodule 'jazz.platform.carbon.carbon-types   ld-options: "-framework Carbon"))
-  
-
-(define (btypes)
-  (cmodule 'jazz.platform.types))
-
-
-(cond-expand
-  (windows
-    (define (bplatform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
-      (btypes)
-      (bcairo)
-      (bfont)
-      (bwindows)))
-  (x11
-    (define (bplatform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
-      (btypes)
-      (bcairo)
-      (bfont)
-      (bx11)))
-  (carbon
-    (define (bplatform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
-      (btypes)
-      (bcairo)
-      (bfont)
-      (bcarbon))))
-
-
-(define (lplatform)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.literals)
-  (jazz.load-module 'jazz.platform)
-  (jazz.load-module 'jazz.platform.literals))
 
 
 ;;;
@@ -244,11 +251,11 @@
 
 (define (jazz.make target)
   (case target
-    ((core) (bcore))
-    ((jazz) (bjazz))
-    ((all) (ball))
-    ((platform) (bplatform))
-    ((jedi) (bjedi))
+    ((core) (jazz.build-core))
+    ((jazz) (jazz.build-jazz))
+    ((all) (jazz.build-all))
+    ((platform) (jazz.build-platform))
+    ((jedi) (jazz.build-jedi))
     (else (jazz.error "Unknown target: {s}" target))))
 
 
@@ -257,8 +264,8 @@
 ;;;
 
 
-(define (boot-app name)
-  (lplatform)
+(define (jazz.boot-app name)
+  (jazz.load-platform)
   (jazz.load-module name)
   (jazz.system.boot-app name))
 
@@ -268,7 +275,7 @@
 ;;;
 
 
-(define Jedi-Critical-Modules
+(define jazz.Jedi-Critical-Modules
   '(;; utilities
     jazz.io
     jazz.literals
@@ -382,26 +389,26 @@
 
 (cond-expand
   (windows
-    (define Jedi-Critical-Platform-Modules
+    (define jazz.Jedi-Critical-Platform-Modules
       '(jazz.ui.window.platform.windows)))
   (x11
-    (define Jedi-Critical-Platform-Modules
+    (define jazz.Jedi-Critical-Platform-Modules
       '(jazz.ui.window.platform.x11)))
   (else
-    (define Jedi-Critical-Platform-Modules
+    (define jazz.Jedi-Critical-Platform-Modules
       '())))
 
 
-(define (bjedi)
-  (bjazz)
-  (bplatform)
-  (lplatform)
-  (for-each cmodule Jedi-Critical-Modules)
-  (for-each cmodule Jedi-Critical-Platform-Modules))
+(define (jazz.build-jedi)
+  (jazz.build-jazz)
+  (jazz.build-platform)
+  (jazz.load-platform)
+  (for-each jazz.compile-module jazz.Jedi-Critical-Modules)
+  (for-each jazz.compile-module jazz.Jedi-Critical-Platform-Modules))
 
 
 (define (jedi)
-  (boot-app 'jedi))
+  (jazz.boot-app 'jedi))
 
 
 ;;;
@@ -409,7 +416,7 @@
 ;;;
 
 
-(define All
+(define jazz.All-Modules
   '(;;jazz.access
     jazz.build
     jazz.builder
@@ -465,16 +472,16 @@
     jazz.utilities))
 
 
-(define (ball)
+(define (jazz.build-all)
   (define (compile module-name)
     (jazz.for-each-submodule module-name
       (lambda (module-name declaration phase)
-        (cmodule module-name))))
+        (jazz.compile-module module-name))))
   
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
-  (lplatform)
-  (for-each compile All))
+  (jazz.load-platform)
+  (for-each compile jazz.All-Modules))
 
 
 ;;;
@@ -555,11 +562,11 @@
         (cond (app
                (##repl-debug
                  (lambda (first output-port)
-                   (boot-app (%%string->symbol app)))))
+                   (jazz.boot-app (%%string->symbol app)))))
               (jazz.app
                (##repl-debug
                  (lambda (first output-port)
-                   (boot-app jazz.app))))
+                   (jazz.boot-app jazz.app))))
               (make
                (exit
                  (if (jazz.make-target (%%string->symbol make))

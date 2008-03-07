@@ -124,7 +124,7 @@
 
 (define (jazz.error fmt-string . rest)
   (let ((error-string (apply jazz.format fmt-string rest)))
-    (block-tail-call
+    (jazz.block-tail-call
       (error error-string))))
 
 

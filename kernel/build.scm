@@ -1176,7 +1176,7 @@
 
 
 (define (jazz.delete-command arguments output)
-  (let ((name (car arguments)))
+  (let ((name (if (null? arguments) #f (car arguments))))
     (jazz.delete-configuration (jazz.require-configuration name))
     (jazz.list-configurations)))
 
@@ -1192,7 +1192,7 @@
 (define (jazz.help-command arguments output)
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
-  (jazz.print "  delete" output)
+  (jazz.print "  delete [configuration]" output)
   (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [directory:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)

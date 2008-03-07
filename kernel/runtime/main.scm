@@ -235,18 +235,6 @@
 ;;;
 
 
-(define (jazz.make-target target)
-  (call/cc
-    (lambda (stop)
-      (with-exception-handler
-        (lambda (exc)
-          (##display-exception exc (current-output-port))
-          (stop #f))
-        (lambda ()
-          (jazz.make target)
-          #t)))))
-
-
 (define (jazz.make target)
   (case target
     ((core) (jazz.build-core))
@@ -490,7 +478,8 @@
 (let ((default-exception-handler (current-exception-handler)))
   (current-exception-handler
     (lambda (exc)
-      (jazz.bring-terminal-to-front)
+      (if (tty? (current-output-port))
+          (jazz.bring-terminal-to-front))
       (default-exception-handler exc))))
 
 
@@ -566,10 +555,7 @@
                  (lambda (first output-port)
                    (jazz.boot-app jazz.app))))
               (make
-               (exit
-                 (if (jazz.make-target (%%string->symbol make))
-                     0
-                   1)))
+               (jazz.make (%%string->symbol make)))
               (else
                (jazz.repl-main #f)))))))
 

@@ -113,7 +113,7 @@
   (if (is-window-HIView? window)
       (create-HIView-handle window rest)
     (let* ((window-handle (create-window-handle window rest))
-           (handle (HIViewGetContent window-handle)))
+	   (handle (HIViewGetContent window-handle)))
       (InstallControlEventHandler handle)
       handle)))
 
@@ -172,9 +172,10 @@
   ;; We must fix this.
   (if (is? (get-window handle) Desktop)
       #f
-    (if (is-window-HIView? (get-window handle))
-        (HIViewSetVisible handle #t)
-      (ShowWindow (HIViewGetWindow handle)))))
+      (if (is-window-HIView? (get-window handle))
+	  (HIViewSetVisible handle #t)
+	(ShowWindow (HIViewGetWindow handle))
+	(SelectWindow (HIViewGetWindow handle)))))
 
 
 (definition (hide-window handle)
@@ -313,6 +314,34 @@
 
 
 (set-process-control-message process-control-message)
+
+
+;;;
+;;;; Toplevel
+;;;
+
+
+(definition (get-toplevel)
+  (let ((appl (get-application)))
+    (when appl
+      (get-toplevel~ appl))))
+
+
+(definition (get-toplevel-hwnd)
+  (let ((toplevel (get-toplevel)))
+    (when toplevel
+      (get-handle~ toplevel))))
+
+
+;;;
+;;;; Stage
+;;;
+
+
+(definition (get-stage)
+  (let ((appl (get-application)))
+    (when appl
+      (get-stage~ appl))))
 
 
 ;;;
@@ -627,49 +656,20 @@
 
 
 (definition (platform-bring-window-to-front handle)
-  (when (is-window-HIView? (get-window handle))
-(HIViewSetZOrder handle kHIViewZOrderAbove #f)))
+  (if (is-window-HIView? (get-window handle))
+      (HIViewSetZOrder handle kHIViewZOrderAbove #f)
+    (SelectWindow (HIViewGetWindow handle))))
 
 
 (definition (platform-send-window-to-back handle)
-  (when (is-window-HIView? (get-window handle))
-    (HIViewSetZOrder handle kHIViewZOrderBelow #f)))
+  (if (is-window-HIView? (get-window handle))
+      (HIViewSetZOrder handle kHIViewZOrderBelow #f)
+    (SendBehind (HIViewGetWindow handle) #f)))
 
 
 (definition public (platform-select-foreground-window handle)
-  (if (is-window-HIView? (get-window handle))
-      (let* ((parent-view (HIViewGetSuperview handle))
-             (top-view    (HIViewGetFirstSubview handle)))
-        (HIViewSetZOrder handle kHIViewZOrderAbove top-view))
-    (BringToFront (HIViewGetWindow handle))))
-
-
-;;;
-;;;; Toplevel
-;;;
-
-
-(definition (get-toplevel)
-  (let ((appl (get-application)))
-    (when appl
-      (get-toplevel~ appl))))
-
-
-(definition (get-toplevel-hwnd)
-  (let ((toplevel (get-toplevel)))
-    (when toplevel
-      (get-handle~ toplevel))))
-
-
-;;;
-;;;; Stage
-;;;
-
-
-(definition (get-stage)
-  (let ((appl (get-application)))
-    (when appl
-      (get-stage~ appl))))
+  (makeFrontProcess)
+  (SelectWindow (HIViewGetWindow handle)))
 
 
 ;;;

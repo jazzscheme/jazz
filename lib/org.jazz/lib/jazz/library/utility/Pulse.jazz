@@ -55,11 +55,12 @@
   
   
   (method (initialize period execute . rest)
-    (bind-keywords ((repeat 'once)) rest
+    (bind-keywords ((repeat 'always) (start? #t)) rest
+      (nextmethod)
       (set! period~self period)
       (set! repeat~self repeat)
       (set! execute~self execute)
-      (start-loop)))
+      (start-loop start?)))
   
   
   (method (destroy)
@@ -72,7 +73,7 @@
   ;;;
   
   
-  ;; stopped idle pulsing stopping
+  ;; stopped idle starting pulsing stopping
   
   
   (method (get-state)
@@ -92,11 +93,11 @@
   ;;;
   
   
-  (method (start-loop)
+  (method (start-loop start?)
     (thread-start!
       (make-thread
         (function ()
-          (set-state 'idle)
+          (set-state (if start? 'pulsing 'idle))
           (let (loop)
             (sleep period)
             ;; if the start occured during the sleep we do not pulse

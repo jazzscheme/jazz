@@ -272,6 +272,9 @@
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
       (process-message (read port))
+      (let ((event (read-event-no-wait)))
+        (when (not (eof-object? event))
+          (event)))
       (loop))))
 
 
@@ -282,6 +285,28 @@
       (unless (translate-shortcut msg)
         (TranslateMessage msg)
         (DispatchMessage msg)))))
+
+
+;;;
+;;;; Events
+;;;
+
+
+(definition window-events
+  (open-vector))
+
+
+(definition public (read-event)
+  (read window-events))
+
+
+(definition public (read-event-no-wait)
+  (input-port-timeout-set! window-events -inf.0)
+  (read window-events))
+
+
+(definition public (write-event event)
+  (write event window-events))
 
 
 ;;;

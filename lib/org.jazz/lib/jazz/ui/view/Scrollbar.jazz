@@ -43,6 +43,7 @@
         (jazz.library)
         (jazz.ui)
         (jazz.ui.look)
+        (jazz.ui.window)
         (jazz.utilities))
 
 
@@ -53,7 +54,7 @@
     0.3)
   
   (definition autorepeat-period
-    0.01)
+    0.001)
   
   
   (property orientation         initialize 'vert       getter get-orientation setter set-orientation)
@@ -68,9 +69,7 @@
   (slot tracking?          initialize #f)
   (slot tracking-start     initialize {})
   (slot tracking-start-pos initialize {})
-  (slot autorepeat-pulse   initialize {})
-  (slot autorepeat-verb    initialize {})
-  (slot autorepeat-action  initialize {})
+  (slot autorepeat?        initialize #f)
 
   
   (method (print printer readably)
@@ -218,26 +217,6 @@
   (method (page-down)
     (call-scroll 'page-down)
     (setup-autorepeat 'page-down))
-  
-  
-  ;;;
-  ;;;; Pulse
-  ;;;
-  
-  
-  (method (pulse)
-    @convert
-    (case autorepeat-verb
-      ((setup)
-        (set! autorepeat-verb 'action)
-        (unregister-pulse autorepeat-pulse)
-        (register-pulse autorepeat-period))
-      ((action)
-        (case autorepeat-action
-          ((line-up)   (line-up))
-          ((line-down) (line-down))
-          ((page-up)   (page-up))
-          ((page-down) (page-down))))))
 
   
   ;;;
@@ -455,20 +434,37 @@
 
 
   (method (setup-autorepeat action)
-    @convert
-    (when (not autorepeat-pulse)
-      (set! autorepeat-pulse (register-pulse autorepeat-delay))
-      (set! autorepeat-verb 'setup)
-      (set! autorepeat-action action)))
+    (when (not autorepeat?)
+      (set! autorepeat? #t)
+      (write-event
+        (function ()
+          (when autorepeat?
+            (sleep autorepeat-delay)
+            (pulse-action action))))))
 
 
   (method (kill-autorepeat)
-    @convert
-    (when autorepeat-pulse
-      (unregister-pulse autorepeat-pulse)
-      (set! autorepeat-pulse {})
-      (set! autorepeat-verb {})
-      (set! autorepeat-action {})))
+    (set! autorepeat? #f))
+  
+  
+  ;;;
+  ;;;; Pulse
+  ;;;
+  
+  
+  (method (pulse-action action)
+    (when autorepeat?
+      (case action
+        ((line-up)   (line-up))
+        ((line-down) (line-down))
+        ((page-up)   (page-up))
+        ((page-down) (page-down))))
+    (when autorepeat?
+      (write-event
+        (function ()
+          (when autorepeat?
+            (sleep autorepeat-period)
+            (pulse-action action))))))
   
   
   ;;;

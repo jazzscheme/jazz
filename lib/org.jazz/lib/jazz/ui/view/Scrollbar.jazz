@@ -436,9 +436,9 @@
   (method (setup-autorepeat action)
     (when (not autorepeat?)
       (set! autorepeat? #t)
-      (write-event
-        (function ()
-          (when autorepeat?
+      (thread-start!
+        (make-thread
+          (function ()
             (sleep autorepeat-delay)
             (pulse-action action))))))
 
@@ -454,15 +454,17 @@
   
   (method (pulse-action action)
     (when autorepeat?
-      (case action
-        ((line-up)   (line-up))
-        ((line-down) (line-down))
-        ((page-up)   (page-up))
-        ((page-down) (page-down))))
-    (when autorepeat?
-      (write-event
+      (with-event-mutex
         (function ()
-          (when autorepeat?
+          (case action
+            ((line-up)   (line-up))
+            ((line-down) (line-down))
+            ((page-up)   (page-up))
+            ((page-down) (page-down))))))
+    (when autorepeat?
+      (thread-start!
+        (make-thread
+          (function ()
             (sleep autorepeat-period)
             (pulse-action action))))))
   

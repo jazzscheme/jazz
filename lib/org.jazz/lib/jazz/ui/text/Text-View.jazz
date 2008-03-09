@@ -106,10 +106,9 @@
   (slot protected selecting?            initialize #f)
   (slot protected selection-mode        initialize 'char)
   (slot protected virtual-h             initialize {})
-  (slot protected caret-visible?        initialize #f)
   (slot protected caret-position        initialize {})
   (slot protected caret-pulse           initialize {})
-  (slot protected caret-pulsed?         initialize #f)
+  (slot protected caret-visible?        initialize #f)
   (slot protected has-focus?            initialize #f)
   (slot protected text-listeners        initialize '())
   (slot protected undoer                initialize (new Undoer self))
@@ -120,8 +119,7 @@
   (slot protected styles                initialize (new Exemplar-Domain))
   (slot protected controller            initialize {})
   (slot protected previous-pos          initialize {})
-  (slot protected autoscroll-pulse      initialize {})
-  (slot protected autoscroll-amount)
+  (slot protected autoscroll?           initialize #f)
   (slot protected wrap-width            initialize {})
   (slot protected wrap-patch            initialize {})
   (slot protected contiguous-undo-range initialize {})
@@ -154,8 +152,6 @@
     (nextmethod rest)
     (when (not text)
       (set-content (empty-content)))
-    (when editable?
-      (set! caret-pulse (new Pulse 0.5 pulse-caret start?: #f)))
     (set! tabs (make-tabs)))
   
   
@@ -854,34 +850,34 @@
   
   (method (pulse-caret)
     (when editable?
-      (set! caret-pulsed? (not caret-pulsed?))
+      (set! caret-visible? (not caret-visible?))
       (invalidate-caret)))
   
   
   (method (show-caret)
-    (unless (or (not has-focus?) (not editable?) caret-visible?)
+    (when (and editable? has-focus? (not caret-pulse))
       (set! caret-visible? #t)
-      (set! caret-pulsed? #f)
-      (start~ caret-pulse)
+      (set! caret-pulse (new Pulse 0.5 pulse-caret))
       (invalidate-caret)))
   
   
   (method (hide-caret)
-    (when (and editable? caret-visible?)
+    (when (and editable? caret-pulse)
+      (close~ caret-pulse)
       (set! caret-visible? #f)
-      (stop~ caret-pulse)
+      (set! caret-pulse #f)
       (invalidate-caret)))
   
   
   (method (without-caret proc)
-    (if (or (not editable?) (not caret-pulse) (not caret-visible?))
+    (if (or (not editable?) (not caret-pulse))
         (proc)
-      (let ((visible? caret-visible?))
+      (let ((shown? caret-pulse))
         (unwind-protect
             (begin
               (hide-caret)
               (proc))
-          (when visible?
+          (when shown?
             (update-caret))))))
   
   
@@ -971,8 +967,7 @@
   (method (drag-move-action view)
     (drag-select view #f)
     (when (get-scroller)
-      (set! autoscroll-amount (calculate-autoscroll-amount view))
-      (setup-autoscroll-pulse)))
+      (setup-autoscroll (calculate-autoscroll-amount view))))
   
   
   (method (drag-up view . rest)
@@ -982,7 +977,7 @@
             (shift?   (shift-down?))
             (appl     (get-application)))
         (release-capture)
-        (kill-autoscroll-pulse)
+        (kill-autoscroll)
         (drag-select view #t)
         (set! selecting? #f)
         (set! previous-pos {})
@@ -1159,25 +1154,34 @@
       (new Point ah av)))
   
   
-  (method (setup-autoscroll-pulse)
-    @convert
-    (if (= autoscroll-amount {Point 0 0})
-        (kill-autoscroll-pulse)
-      (when (not autoscroll-pulse)
-        (set! autoscroll-pulse (register-pulse 40)))))
+  (method (setup-autoscroll amount)
+    (if (=? amount {Point 0 0})
+        (kill-autoscroll)
+      (when (not autoscroll?)
+        (set! autoscroll? #t)
+        (thread-start!
+          (make-thread
+            (function ()
+              (autoscroll-action amount)))))))
   
   
-  (method (kill-autoscroll-pulse)
-    @convert
-    (when autoscroll-pulse
-      (unregister-pulse autoscroll-pulse)
-      (set! autoscroll-pulse {})))
+  (method (kill-autoscroll)
+    (set! autoscroll? #f))
   
   
-  (method (pulse)
-    (drag-move-action (mouse-position))
-    (scroll autoscroll-amount)
-    (update-view))
+  (method (autoscroll-action amount)
+    (when autoscroll?
+      (with-event-mutex
+        (function ()
+          (drag-move-action (mouse-position))
+          (scroll amount)
+          (update-view))))
+    (when autoscroll?
+      (thread-start!
+        (make-thread
+          (function ()
+            (sleep 0.01)
+            (autoscroll-action amount))))))
   
   
   ;;;
@@ -2044,7 +2048,7 @@
   
   
   (method (draw-caret surface sc <fl> sc? <bool>)
-    (when (and caret-visible? (not caret-pulsed?) (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
+    (when (and caret-visible? (empty-selection?) (or (not mouse-down?) (not (alt-down?))))
       (let ((proc
              (function (rect)
                (set-pen~ surface caret-pen)

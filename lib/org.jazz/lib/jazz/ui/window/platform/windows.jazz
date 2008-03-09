@@ -257,11 +257,26 @@
 ;;;
 
 
+(definition event-mutex
+  (make-mutex))
+
+
+(definition (with-event-mutex thunk)
+  (dynamic-wind
+    (function ()
+      (mutex-lock! event-mutex))
+    thunk
+    (function ()
+      (mutex-unlock! event-mutex))))
+
+
 (definition (platform-process-messages)
   (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (DispatchMessage msg)))
+    (with-event-mutex
+      (function ()
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg)))))
   
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
@@ -272,9 +287,6 @@
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
       (process-message (read port))
-      (let ((event (read-event-no-wait)))
-        (when (not (eof-object? event))
-          (event)))
       (loop))))
 
 
@@ -285,28 +297,6 @@
       (unless (translate-shortcut msg)
         (TranslateMessage msg)
         (DispatchMessage msg)))))
-
-
-;;;
-;;;; Events
-;;;
-
-
-(definition window-events
-  (open-vector))
-
-
-(definition public (read-event)
-  (read window-events))
-
-
-(definition public (read-event-no-wait)
-  (input-port-timeout-set! window-events -inf.0)
-  (read window-events))
-
-
-(definition public (write-event event)
-  (write event window-events))
 
 
 ;;;

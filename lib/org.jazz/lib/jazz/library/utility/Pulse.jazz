@@ -46,6 +46,7 @@
   
   
   (property period  initialize {} accessors generate)
+  (property delay   initialize {} accessors generate)
   (property repeat  initialize {} accessors generate)
   (property execute initialize {} accessors generate)
   
@@ -55,12 +56,13 @@
   
   
   (method (initialize period execute . rest)
-    (bind-keywords ((repeat 'always) (start? #t)) rest
+    (bind-keywords ((delay #f) (repeat 'always)) rest
       (nextmethod)
       (set! period~self period)
+      (set! delay~self delay)
       (set! repeat~self repeat)
       (set! execute~self execute)
-      (start-loop start?)))
+      (start-loop)))
   
   
   (method (destroy)
@@ -73,7 +75,7 @@
   ;;;
   
   
-  ;; stopped idle starting pulsing stopping
+  ;; stopped pulsing stopping
   
   
   (method (get-state)
@@ -93,37 +95,20 @@
   ;;;
   
   
-  (method (start-loop start?)
+  (method (start-loop)
     (thread-start!
       (make-thread
         (function ()
-          (set-state (if start? 'pulsing 'idle))
-          (let (loop)
-            (sleep period)
-            ;; if the start occured during the sleep we do not pulse
-            ;; immediatly as we may not have waited the full period...
-            (case state
-              ((starting)
-               (set-state 'pulsing))
-              ((pulsing)
-               (execute)))
-            (when (and (neq? (get-state) 'stopping) (eq? repeat 'always))
-              (loop)))
-          (set-state 'stopped)))))
+          (when (neq? (get-state) 'stopping)
+            (set-state 'pulsing)
+            (let (loop (timeout (either delay period)))
+              (sleep timeout)
+              (when (neq? (get-state) 'stopping)
+                (execute)
+                (when (eq? repeat 'always)
+                  (loop period))))
+            (set-state 'stopped))))))
   
   
   (method (stop-loop)
-    (set-state 'stopping))
-  
-  
-  ;;;
-  ;;;; Start/Stop
-  ;;;
-  
-  
-  (method public (start)
-    (set-state 'starting))
-  
-  
-  (method public (stop)
-    (set-state 'idle))))
+    (set-state 'stopping))))

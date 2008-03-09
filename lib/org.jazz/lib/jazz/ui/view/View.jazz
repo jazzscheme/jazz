@@ -195,7 +195,9 @@
   (slot update-locked?              <bool>       initialize #f)
   (slot scrollee-locked?            <bool>       initialize #f)
   (slot modified?                   <bool>       initialize #f)
+  (slot hovering-pulse                           initialize {})
   (slot tools-info                               initialize {})
+  
   
   (definition inhibit-context-menu?
     #f)
@@ -1912,20 +1914,12 @@
     (set! double-click-handler handler))
   
   
-  (method protected (dispatch-mouse-hover h v)
-    (let* ((pos (new Point h v))
-           (view (find-mouse-view pos)))
-      (when view
-        (let ((view-pos (acquire~ view self pos)))
-          (call-mouse-hover~ view view-pos)
-          (when (get-tooltip?~ view)
-            (popup-tooltip~ view view-pos))))))
-  
-  
   (method (call-mouse-hover pos)
     (if mouse-hover-handler
         (invoke~ mouse-hover-handler self (new Mouse-Event :mouse-hover self pos))
-      (mouse-hover pos)))
+      (mouse-hover pos))
+    (when (get-tooltip?)
+      (popup-tooltip pos)))
   
   
   (method protected (dispatch-mouse-wheel delta)
@@ -1966,9 +1960,9 @@
                 (cancel-tooltip-tracking~ (get-mouse-in))))
             (set-mouse-in view)
             (when (get-mouse-in)
-              (unless (current-drag-drop)
-                (track-tooltip~ (get-mouse-in)))
               (call-mouse-enter~ (get-mouse-in))))
+          (unless (or Current-Tooltip-Context (current-drag-drop))
+            (track-tooltip~ (get-mouse-in)))
           (if mouse-down?
               (let ((acquired (acquire~ mouse-down-view self pos)))
                 (call-cursor-update~ mouse-down-view acquired)
@@ -2215,20 +2209,27 @@
   ;;;
   
   
-  ;; tofix : time was HOVE_DEFAULT
-  (method public (track-hovering (time: time 0))
-    @windows-specific
-    (let ((player (get-player)))
-      (when player
-        (track-mouse-event~ player TME_HOVER time: time))))
+  (definition Hovering-Tolerance
+    3)
+  
+  
+  (method public (track-hovering (time: time 0.5))
+    (cancel-hovering)
+    (let ((start (mouse-position)))
+      (set! hovering-pulse (new Pulse time (function () (check-hovering start)) repeat: 'once))))
   
   
   (method public (cancel-hovering)
-    @windows-specific
-    (let ((player (get-player)))
-      (when player
-        (track-mouse-event~ player (bitwise-ior TME_CANCEL TME_HOVER)))))
-
+    (when hovering-pulse
+      (close~ hovering-pulse)
+      (set! hovering-pulse #f)))
+  
+  
+  (method (check-hovering start)
+    (let ((pos (mouse-position)))
+      (when (< (distance start pos) Hovering-Tolerance)
+        (call-mouse-hover pos))))
+  
 
   ;;;
   ;;;; Tooltip
@@ -2246,7 +2247,6 @@
   
   
   (method (track-tooltip)
-    @convert
     (when (get-tooltip?)
       (let ((player (get-player)))
         (when player
@@ -2256,20 +2256,12 @@
   
   
   (method (cancel-tooltip-tracking)
-    @convert
     (cancel-hovering)
     (close-tooltip))
   
   
   (method public (reset-tooltip)
-    (cancel-tooltip-tracking)
-    @convert
-    ;; This is crazy, but calling track-tooltip in a thread is necessary else TrackMouseEvent doesn't work!!
-    (new Thread
-      name: "Tooltip Reseter"
-      context: self
-      execute: (function (thread)
-                 (track-tooltip))))
+    (cancel-tooltip-tracking))
   
   
   (method (in-tooltip? pos)
@@ -2291,7 +2283,7 @@
   (method (popup-tooltip pos)
     (unless (or mouse-down? (current-drag-drop) (in-tooltip? pos))
       (close-tooltip)
-      (let ((context (essay (/= pos Last-Tooltip-Context-Pos) (get-tooltip-context pos))))
+      (let ((context (essay (or (not Last-Tooltip-Context-Pos) (/=? pos Last-Tooltip-Context-Pos)) (get-tooltip-context pos))))
         (set! Current-Tooltip-Context context)
         (if (not context)
             (begin
@@ -2309,7 +2301,7 @@
         (set-font~ view font))
       (set-preferred-size~ view)
       (let* ((height (get-cursor-height))
-             (tooltip (popup view (either (get-position~ context) (+ pos (new Dimension 0 height))) class: Tooltip border: border)))
+             (tooltip (popup view (either (get-position~ context) (add pos (new Dimension 0 height))) class: Tooltip border: border)))
         (set-tooltip~ Current-Tooltip-Context tooltip))))
   
   
@@ -2318,14 +2310,16 @@
         (let* ((view (new Tooltip-Text size: {Dimension 400 100}))
                (text-view (get-text~ view)))
           (set-text~ text-view text)
-          (set-size~ view (+ (get-size~ text-view) {Dimension 2 2}))
+          (set-size~ view (add (get-size~ text-view) {Dimension 2 2}))
           view)
       (new Tooltip-Label title: text)))
   
   
   (method (close-tooltip)
     (when Current-Tooltip-Context
-      (close-popup~ View-Player (get-tooltip~ Current-Tooltip-Context))
+      (let ((tooltip (get-tooltip~ Current-Tooltip-Context)))
+        (when (opened?~ tooltip)
+          (close-popup tooltip)))
       (set! Current-Tooltip-Context {})
       (set! Last-Tooltip-Time (time->seconds (current-time)))))
   
@@ -2870,7 +2864,6 @@
     (if (and (current-drag-drop) (= key #\escape))
         (begin
           (drag-end)
-          @convert
           (complete-drag-up #t))
       (let ((view (get-focus)))
         (when view

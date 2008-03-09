@@ -38,14 +38,16 @@
 (library jazz.language.jazz.debuggee jazz
 
 
-(import (jazz.language.jazz)
+(import (jazz.jml)
+        (jazz.language.jazz)
+        (jazz.library)
+        (jazz.literals)
         (jazz.platform)
         (jazz.ui)
+        (jazz.ui.development)
         (jazz.ui.offscreen)
         (jazz.ui.view)
         (jazz.ui.window)
-        (jazz.literals)
-        (jazz.library)
         (jazz.utilities))
 
 
@@ -297,7 +299,6 @@
   ;;;
   
   
-  @convert
   (method (new-root)
     (new Figure-Picker-Root))
   
@@ -382,7 +383,6 @@
 ;;;
 
 
-@convert
 (class Figure-Picker-Root extends Root-View
   
   
@@ -397,12 +397,11 @@
 ;;;
 
 
-@convert
 (class Figure-Picker-View extends View
   
   
   (method (cursor-update pos)
-    (set-cursor (if excluded? :no :spy)))
+    (set-cursor (if (get-excluded?~ (get-player)) :no :finger @convert :spy)))
   
   
   ;;;
@@ -411,7 +410,7 @@
   
   
   (method (get-tooltip?)
-    tooltips?)
+    (get-tooltips?~ (get-player)))
   
   
   (method (get-formatted-tooltip?)
@@ -419,20 +418,21 @@
   
   
   (method (get-tooltip-context pos)
-    (receive (window position view pos) (mouse-figure (get-h~ pos) (get-v~ pos))
-      (when view
-        (let* ((view-player (get-player~ view))
-               (view-root (get-root~ view))
-               (view-bounds (get-bounds~ view))
-               (root (get-root))
-               (row-rect (determine-row-rect-aux root view pos))
-               (rect (acquire~ view-root view (either row-rect view-bounds)))
-               (bounds (acquire~ player view-player rect)))
-          (new Tooltip-Context
-            view: self
-            text: (display-description (describe-view~ view pos))
-            bounds: bounds
-            font: {Font name: Ansi-Var})))))
+    (let ((player (get-player)))
+      (receive (window position view pos) (mouse-figure~ player (get-h~ pos) (get-v~ pos))
+        (when view
+          (let* ((view-player (get-player~ view))
+                 (view-root (get-root~ view))
+                 (view-bounds (get-bounds~ view))
+                 (root (get-root))
+                 (row-rect (determine-row-rect-aux~ player root view pos))
+                 (rect (acquire~ view-root view (either row-rect view-bounds)))
+                 (bounds (acquire~ player view-player rect)))
+            (new Tooltip-Context
+              view: self
+              text: (display-description (view-describe view pos))
+              bounds: bounds
+              font: {Font name: Ansi-Var}))))))
   
   
   (method (display-description description)
@@ -443,5 +443,4 @@
                description))))
 
 
-@convert
 (register-autoclass Figure-Picker-View))

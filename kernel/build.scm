@@ -725,6 +725,16 @@
                   #t)
               #f))))
       
+      (define (resource-files)
+        (case platform
+          ((windows)
+           (let ((file (string-append "etc/resources/windows/" appname "res.o")))
+             (if (file-exists? file)
+                 (list file)
+               '())))
+          (else
+           '())))
+      
       (define (link-libraries)
         (case platform
           ((windows)
@@ -760,6 +770,7 @@
             ,(conffile "build/_kernel/runtime/kernel.c")
             ,(conffile "build/_kernel/runtime/main.c")
             ,(appfile (string-append appname ".c"))
+            ,@(resource-files)
             ,(string-append "-I" (path-expand "~~/include"))
             ,(string-append "-L" (path-expand "~~/lib"))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)

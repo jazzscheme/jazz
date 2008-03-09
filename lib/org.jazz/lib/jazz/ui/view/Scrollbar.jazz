@@ -69,7 +69,7 @@
   (slot tracking?          initialize #f)
   (slot tracking-start     initialize {})
   (slot tracking-start-pos initialize {})
-  (slot autorepeat?        initialize #f)
+  (slot autorepeat-pulse   initialize #f)
 
   
   (method (print printer readably)
@@ -434,17 +434,14 @@
 
 
   (method (setup-autorepeat action)
-    (when (not autorepeat?)
-      (set! autorepeat? #t)
-      (thread-start!
-        (make-thread
-          (function ()
-            (sleep autorepeat-delay)
-            (pulse-action action))))))
+    (when (not autorepeat-pulse)
+      (set! autorepeat-pulse (new Pulse autorepeat-period (function () (pulse-action action)) delay: autorepeat-delay))))
 
 
   (method (kill-autorepeat)
-    (set! autorepeat? #f))
+    (when autorepeat-pulse
+      (close~ autorepeat-pulse)
+      (set! autorepeat-pulse #f)))
   
   
   ;;;
@@ -453,20 +450,13 @@
   
   
   (method (pulse-action action)
-    (when autorepeat?
-      (with-event-mutex
-        (function ()
-          (case action
-            ((line-up)   (line-up))
-            ((line-down) (line-down))
-            ((page-up)   (page-up))
-            ((page-down) (page-down))))))
-    (when autorepeat?
-      (thread-start!
-        (make-thread
-          (function ()
-            (sleep autorepeat-period)
-            (pulse-action action))))))
+    (with-event-mutex
+      (function ()
+        (case action
+          ((line-up)   (line-up))
+          ((line-down) (line-down))
+          ((page-up)   (page-up))
+          ((page-down) (page-down))))))
   
   
   ;;;

@@ -119,7 +119,7 @@
   (slot protected styles                initialize (new Exemplar-Domain))
   (slot protected controller            initialize {})
   (slot protected previous-pos          initialize {})
-  (slot protected autoscroll?           initialize #f)
+  (slot protected autoscroll-pulse      initialize #f)
   (slot protected wrap-width            initialize {})
   (slot protected wrap-patch            initialize {})
   (slot protected contiguous-undo-range initialize {})
@@ -1157,31 +1157,21 @@
   (method (setup-autoscroll amount)
     (if (=? amount {Point 0 0})
         (kill-autoscroll)
-      (when (not autoscroll?)
-        (set! autoscroll? #t)
-        (thread-start!
-          (make-thread
-            (function ()
-              (autoscroll-action amount)))))))
+      (when (not autoscroll-pulse)
+        (set! autoscroll-pulse (new Pulse 0.01 (function () (autoscroll-action amount)) delay: 0)))))
   
   
   (method (kill-autoscroll)
-    (set! autoscroll? #f))
+    (close~ autoscroll-pulse)
+    (set! autoscroll-pulse #f))
   
   
   (method (autoscroll-action amount)
-    (when autoscroll?
-      (with-event-mutex
-        (function ()
-          (drag-move-action (mouse-position))
-          (scroll amount)
-          (update-view))))
-    (when autoscroll?
-      (thread-start!
-        (make-thread
-          (function ()
-            (sleep 0.01)
-            (autoscroll-action amount))))))
+    (with-event-mutex
+      (function ()
+        (drag-move-action (mouse-position))
+        (scroll amount)
+        (update-view))))
   
   
   ;;;

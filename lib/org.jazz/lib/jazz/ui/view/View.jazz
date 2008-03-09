@@ -195,7 +195,8 @@
   (slot update-locked?              <bool>       initialize #f)
   (slot scrollee-locked?            <bool>       initialize #f)
   (slot modified?                   <bool>       initialize #f)
-  (slot hovering-pulse                           initialize {})
+  (slot hover-history                            initialize {})
+  (slot hover-pulse                              initialize {})
   (slot tools-info                               initialize {})
   
   
@@ -2118,6 +2119,7 @@
   
   
   (method (call-mouse-leave)
+    (cancel-hovering)
     (if mouse-leave-handler
         (invoke~ mouse-leave-handler self (new Mouse-Event :mouse-leave self {}))
       (mouse-leave)))
@@ -2212,23 +2214,42 @@
   (definition Hovering-Tolerance
     3)
   
+  (definition Hovering-Time
+    0.5)
   
-  (method public (track-hovering (time: time 0.5))
+  (definition Hovering-Steps
+    5)
+  
+  
+  (method public (track-hovering (time: time Hovering-Time))
     (cancel-hovering)
-    (let ((start (mouse-position)))
-      (set! hovering-pulse (new Pulse time (function () (check-hovering start)) repeat: 'once))))
+    (let ((start (mouse-position))
+          (period (/ time Hovering-Steps)))
+      (set! hover-history '())
+      (set! hover-pulse (new Pulse period (function () (check-hovering start)) delay: 0))))
   
   
   (method public (cancel-hovering)
-    (when hovering-pulse
-      (close~ hovering-pulse)
-      (set! hovering-pulse #f)))
+    (when hover-pulse
+      (close~ hover-pulse)
+      (set! hover-history {})
+      (set! hover-pulse {})))
   
   
   (method (check-hovering start)
-    (let ((pos (mouse-position)))
-      (when (< (distance start pos) Hovering-Tolerance)
-        (call-mouse-hover pos))))
+    (if (neq? (mouse-view) self)
+        (cancel-hovering)
+      (let ((pos (mouse-position)))
+        (if (< (length hover-history) Hovering-Steps)
+            (set! hover-history (cons pos hover-history))
+          (if (every? (function (point)
+                        (< (distance point pos) Hovering-Tolerance))
+                      hover-history)
+              (begin
+                (cancel-hovering)
+                (call-mouse-hover pos))
+            (set! hover-history (cons pos hover-history))
+            (set-cdr! (tail hover-history (- Hovering-Steps 1)) '()))))))
   
 
   ;;;
@@ -2318,7 +2339,7 @@
   (method (close-tooltip)
     (when Current-Tooltip-Context
       (let ((tooltip (get-tooltip~ Current-Tooltip-Context)))
-        (when (opened?~ tooltip)
+        (when (and tooltip (opened?~ tooltip))
           (close-popup tooltip)))
       (set! Current-Tooltip-Context {})
       (set! Last-Tooltip-Time (time->seconds (current-time)))))

@@ -270,14 +270,15 @@
       (mutex-unlock! event-mutex))))
 
 
+(definition (process-message msg)
+  (with-event-mutex
+    (function ()
+      (unless (translate-shortcut msg)
+        (TranslateMessage msg)
+        (DispatchMessage msg)))))
+
+
 (definition (platform-process-messages)
-  (define (process-message msg)
-    (with-event-mutex
-      (function ()
-        (unless (translate-shortcut msg)
-          (TranslateMessage msg)
-          (DispatchMessage msg)))))
-  
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
@@ -292,11 +293,11 @@
 
 (definition (platform-process-one-message)
   (with ((msg (MSG-make)))
-    ;; get messages from all windows
-    (when (GetMessage msg NULL 0 0)
-      (unless (translate-shortcut msg)
-        (TranslateMessage msg)
-        (DispatchMessage msg)))))
+    (when (PeekMessage msg NULL 0 0 PM_REMOVE)
+      (process-message msg)))
+  
+  (let ((port (open-event-queue QS_ALLINPUT)))
+    (process-message (read port))))
 
 
 ;;;

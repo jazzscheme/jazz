@@ -292,6 +292,14 @@
 
 
 (definition (platform-process-one-message)
+  ;; because of modal dialog doing their processing inside an event we have to be
+  ;; carefull not to deadlock as gambit doesn't implement recursive mutex semantics
+  ;; note that this solution is not ideal and could be improved
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
+  
   (with ((msg (MSG-make)))
     (when (PeekMessage msg NULL 0 0 PM_REMOVE)
       (process-message msg)))

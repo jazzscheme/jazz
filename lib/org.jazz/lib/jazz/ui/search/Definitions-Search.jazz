@@ -72,7 +72,52 @@
 
   
   (method (search-targets targets)
-    (bell))
+    (case (get-selected-element~ (locate 'domain))
+      ((definitions)
+       (search-targets-definitions targets))
+      ((references)
+       (search-targets-references targets))))
+
+  
+  (method (search-targets-definitions targets)
+    (let ((cataloguer (get-cataloguer~ (get-application))))
+      (define (search-target target)
+        (let ((name (string->symbol (get-target~ target))))
+          (get-coalesced-definitions~ cataloguer name)))
+      
+      (let ((definitions (apply append (map search-target targets))))
+        (if (null? definitions)
+            (bell)
+          (case (length definitions)
+            ((1) (edit~ (car definitions)))
+            (else (let ((results (get-results)))
+                    (set-mode~ results 'definitions)
+                    (set-references-target~ results {})
+                    (add-results~ results definitions targets)
+                    (select-results~ results))))))))
+
+  
+  (method (search-targets-references targets)
+    (if (> (length targets) 1)
+        (message-box "Unimplemented functionality")
+    (let ((cataloguer (get-cataloguer~ (get-application))))
+      (define (search-target target)
+        (let ((name (string->symbol (get-target~ target))))
+          (get-references~ cataloguer name)))
+      
+      (let ((references (apply append (map search-target targets))))
+        (if (null? references)
+            (bell)
+          ;; quicky for now until search results are generalized
+          (let ((name (string->symbol (get-target~ (car targets)))))
+            (case (length references)
+              ((1) (edit-reference~ (car references) name))
+              (else (let ((results (get-results)))
+                      (set-mode~ results 'references)
+                      (set-context~ results {})
+                      (set-references-target~ results name)
+                      (add-results~ results references (get-search-targets) name)
+                      (select-results~ results))))))))))
 
   
   ;;;

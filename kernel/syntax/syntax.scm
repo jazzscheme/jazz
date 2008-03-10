@@ -118,8 +118,8 @@
 ;; discovered automatically and their order within their repository should not be relevant.
 
 
-(jazz.define-macro (%%make-package repository name root path)
-  `(%%vector 'package ,repository ,name ,root ,path (%%make-table test: eq?)))
+(jazz.define-macro (%%make-package repository name root path products)
+  `(%%vector 'package ,repository ,name ,root ,path ,products (%%make-table test: eq?)))
 
 
 (jazz.define-macro (%%package-repository package)
@@ -134,8 +134,34 @@
 (jazz.define-macro (%%package-path package)
   `(%%vector-ref ,package 4))
 
-(jazz.define-macro (%%package-autoloads package)
+(jazz.define-macro (%%package-products package)
   `(%%vector-ref ,package 5))
+
+(jazz.define-macro (%%package-autoloads package)
+  `(%%vector-ref ,package 6))
+
+
+;;;
+;;;; Product
+;;;
+
+
+;; A product is the runtime implementation of some user level product. A product can be
+;; loaded, run and built.
+
+
+(jazz.define-macro (%%make-product name run build)
+  `(%%vector 'product ,name ,run ,build))
+
+
+(jazz.define-macro (%%product-name product)
+  `(%%vector-ref ,product 1))
+
+(jazz.define-macro (%%product-run product)
+  `(%%vector-ref ,product 2))
+
+(jazz.define-macro (%%product-build product)
+  `(%%vector-ref ,product 3))
 
 
 ;;;

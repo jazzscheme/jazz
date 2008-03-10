@@ -556,9 +556,9 @@
     ((core) (jazz.make-core configuration))
     ((jazz) (jazz.make-jazz configuration))
     ((platform) (jazz.make-platform configuration))
-    ((jedi) (jazz.make-jedi configuration))
     ((all) (jazz.make-all configuration))
-    (else (jazz.error "Unknown target: {s}" target))))
+    ((jedi) (jazz.make-jedi configuration))
+    (else (jazz.jazz-make target configuration))))
 
 
 ;;;
@@ -596,7 +596,7 @@
 
 
 ;;;
-;;;; App
+;;;; Product
 ;;;
 
 
@@ -625,23 +625,23 @@
   (newline output))
 
 
-(define (jazz.build-app app configuration #!key (console? #t))
+(define (jazz.build-product product configuration #!key (console? #t))
   (let ((system (jazz.configuration-system configuration))
         (platform (jazz.configuration-platform configuration))
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (confdir (jazz.effective-directory configuration))
-        (appname (if (not app) "jazz" (symbol->string app))))
-    (let ((appdir (string-append confdir "build/_app/" appname "/")))
+        (prodname (if (not product) "jazz" (symbol->string product))))
+    (let ((proddir (string-append confdir "build/_products/" prodname "/")))
       (define (conffile path)
         (string-append confdir path))
       
-      (define (appfile path)
-        (string-append appdir path))
+      (define (prodfile path)
+        (string-append proddir path))
       
       (define (generate-architecture)
-        (let ((file (appfile "architecture.scm")))
+        (let ((file (prodfile "architecture.scm")))
           (if (not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
@@ -651,14 +651,14 @@
                 #t)
             #f)))
       
-      (define (generate-app)
-        (let ((file (appfile "app.scm")))
+      (define (generate-product)
+        (let ((file (prodfile "product.scm")))
           (if (not (file-exists? file))
               (begin
                 (jazz.feedback "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-variable 'jazz.app app output)
+                    (jazz.print-variable 'jazz.product product output)
                     (newline output)
                     (jazz.print-variable 'jazz.version jazz.version output)
                     (newline output)
@@ -669,7 +669,7 @@
       (define (generate-resources)
         (case platform
           ((windows)
-           (let ((file (appfile (string-append appname ".ico"))))
+           (let ((file (prodfile (string-append prodname ".ico"))))
              (if (not (file-exists? file))
                  (begin
                    (jazz.copy-file "etc/resources/windows/jazz.ico" file)
@@ -680,7 +680,7 @@
       
       (define (compile-kernel)
         (let ((architecture? (generate-architecture))
-              (app? (generate-app))
+              (product? (generate-product))
               (latest #f))
           (define (compile-file name dir output)
             (let ((src (string-append dir name ".scm"))
@@ -701,7 +701,7 @@
           
           (generate-resources)
           
-          (load (appfile "architecture"))
+          (load (prodfile "architecture"))
           (load "kernel/syntax/macros")
           (load "kernel/syntax/declares")
           (load "kernel/syntax/features")
@@ -710,9 +710,9 @@
           (load "kernel/syntax/runtime")
           
           (if architecture?
-              (compile-file "architecture" appdir appdir))
-          (if app?
-              (compile-file "app" appdir appdir))
+              (compile-file "architecture" proddir proddir))
+          (if product?
+              (compile-file "product" proddir proddir))
           (compile-kernel-file "syntax/" "macros")
           (compile-kernel-file "syntax/" "features")
           (compile-kernel-file "syntax/" "declares")
@@ -724,13 +724,13 @@
           (compile-kernel-file "runtime/" "kernel")
           (compile-kernel-file "runtime/" "main")
           
-          (let ((link-file (appfile (string-append appname ".c"))))
+          (let ((link-file (prodfile (string-append prodname ".c"))))
             (if (or (not (file-exists? link-file))
                     (> latest (time->seconds (file-last-modification-time link-file))))
                 (begin
                   (jazz.feedback "; linking kernel...")
-                  (link-incremental (list (appfile "architecture")
-                                          (appfile "app")
+                  (link-incremental (list (prodfile "architecture")
+                                          (prodfile "product")
                                           (conffile "build/_kernel/syntax/macros")
                                           (conffile "build/_kernel/syntax/features")
                                           (conffile "build/_kernel/syntax/declares")
@@ -749,7 +749,7 @@
       (define (resource-files)
         (case platform
           ((windows)
-           (let ((file (string-append "etc/resources/windows/" appname "res.o")))
+           (let ((file (string-append "etc/resources/windows/" prodname "res.o")))
              (if (file-exists? file)
                  (list file)
                '())))
@@ -778,8 +778,8 @@
         (jazz.feedback "; linking executable...")
         (jazz.open-process
           "gcc"
-          `(,(appfile "architecture.c")
-            ,(appfile "app.c")
+          `(,(prodfile "architecture.c")
+            ,(prodfile "product.c")
             ,(conffile "build/_kernel/syntax/macros.c")
             ,(conffile "build/_kernel/syntax/features.c")
             ,(conffile "build/_kernel/syntax/declares.c")
@@ -790,26 +790,26 @@
             ,(conffile "build/_kernel/runtime/digest.c")
             ,(conffile "build/_kernel/runtime/kernel.c")
             ,(conffile "build/_kernel/runtime/main.c")
-            ,(appfile (string-append appname ".c"))
+            ,(prodfile (string-append prodname ".c"))
             ,@(resource-files)
             ,(string-append "-I" (path-expand "~~/include"))
             ,(string-append "-L" (path-expand "~~/lib"))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(conffile appname))))
+            "-o" ,(conffile prodname))))
       
       (define (executable-name)
         (case platform
           ((windows)
-           (conffile (string-append appname ".exe")))
+           (conffile (string-append prodname ".exe")))
           (else
-           (conffile appname))))
+           (conffile prodname))))
       
       (jazz.create-directory "bin/")
       (jazz.create-directory confdir)
       (jazz.create-directory (conffile "build/"))
-      (jazz.create-directory (conffile "build/_app/"))
-      (jazz.create-directory appdir)
+      (jazz.create-directory (conffile "build/_products/"))
+      (jazz.create-directory proddir)
       (jazz.create-directory (conffile "build/_kernel/"))
       (jazz.create-directory (conffile "build/_kernel/syntax/"))
       (jazz.create-directory (conffile "build/_kernel/runtime/"))
@@ -870,7 +870,7 @@
                   (display "(load (string-append jazz.directory \"kernel/boot\"))" output)
                   (newline output)))))))
     
-    (jazz.build-app #f configuration)
+    (jazz.build-product #f configuration)
     
     (copy-platform-files)
     
@@ -897,7 +897,7 @@
          "./jazz")))
     
     (jazz.feedback "making {a}" target)
-    (jazz.open-process (jazz-path) (list "-:dq-" "-make" (symbol->string target)) confdir)))
+    (jazz.open-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) confdir)))
 
 
 (define (jazz.make-core configuration)
@@ -927,7 +927,7 @@
 
 
 (define (jazz.build-jedi configuration)
-  (jazz.build-app 'jedi configuration console?: #f))
+  (jazz.build-product 'jedi configuration console?: #f))
 
 
 ;;;

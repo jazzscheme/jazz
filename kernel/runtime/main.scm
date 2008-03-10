@@ -54,7 +54,7 @@
     (jazz.load-module 'core.module.build)
     (apply jazz.build-module rest)))
 
-(jazz.define-variable jazz.system.boot-app)
+(jazz.define-variable jazz.system.run-product)
 
 
 ;;;
@@ -231,29 +231,17 @@
 
 
 ;;;
-;;;; Make
+;;;; Build
 ;;;
 
 
-(define (jazz.make target)
-  (case target
+(define (jazz.build name)
+  (case name
     ((core) (jazz.build-core))
     ((jazz) (jazz.build-jazz))
-    ((all) (jazz.build-all))
     ((platform) (jazz.build-platform))
-    ((jedi) (jazz.build-jedi))
-    (else (jazz.error "Unknown target: {s}" target))))
-
-
-;;;
-;;;; App
-;;;
-
-
-(define (jazz.boot-app name)
-  (jazz.load-platform)
-  (jazz.load-module name)
-  (jazz.system.boot-app name))
+    ((all) (jazz.build-all))
+    (else (jazz.build-product name))))
 
 
 ;;;
@@ -261,140 +249,8 @@
 ;;;
 
 
-(define jazz.Jedi-Critical-Modules
-  '(;; utilities
-    jazz.io
-    jazz.literals
-    jazz.utilities
-    time.implementation
-    
-    ;; component
-    jazz.library.component.Component
-    jazz.library.component.Branch
-    jazz.library.component.Form
-    
-    ;; view
-    jazz.ui.dialog
-    jazz.ui.view
-    jazz.ui.layout.Figure
-    jazz.ui.view.Drawing
-    jazz.ui.view.View
-    jazz.ui.view.Scrollbar
-    jazz.ui.view.Layout-View
-    jazz.ui.view.Container
-    jazz.ui.view.Root-View
-    jazz.ui.view.Caption-Root
-    jazz.ui.view.Frame-Root
-    jazz.ui.view.Docked-Root
-    jazz.ui.view.Toplevel-Root
-    jazz.ui.view.Image-Tool
-    jazz.ui.view.Tool-Button
-    jazz.ui.window
-    jazz.ui.window.Window
-    jazz.ui.window.View-Player
-    jazz.ui.window.Frame
-    jazz.ui.window.Stage
-    jazz.ui.window.Pad-Window
-    jazz.ui.offscreen
-    jazz.ui.graphic.Color
-    jazz.ui.graphic.Pen
-    jazz.ui.graphic.Surface
-    jazz.ui.image.Image
-    jazz.ui.image.Portfolio
-    jazz.platform
-    
-    ;; explorer
-    jazz.ui.text.Text-Explorer
-    jazz.ui.text.Code-Explorer
-    jazz.language.jazz.text.Jazz-Explorer
-    jazz.language.lisp.text.Lisp-Explorer
-    jazz.language.scheme.text.Scheme-Explorer
-    
-    ;; text
-    jazz.ui.graphic.font.Font
-    jazz.ui.graphic.Font-Metrics
-    jazz.library.node
-    jazz.library.exemplar
-    jazz.ui.text.Format
-    jazz.ui.text.Paragraph
-    jazz.ui.text.Line
-    jazz.ui.text.Run
-    jazz.ui.text.Style
-    jazz.ui.text.Text-Style
-    jazz.ui.outline.Outline-Row
-    jazz.ui.outline.Outline-View
-    jazz.ui.text.Text-View
-    jazz.ui.text.Code-Text-View
-    jazz.ui.text.Text-Colorizer
-    jazz.language.jazz.text.Jazz-Text-View
-    jazz.language.lisp.text.Lisp-Text-View
-    
-    ;; catalog
-    jazz.catalog.catalog.Catalog
-    jazz.catalog.catalog.Filing-Catalog
-    jazz.catalog.catalog.Indexed-Catalog
-    jazz.catalog.entry.Catalog-Entry
-    jazz.catalog.entry.Indexed-Entry
-    jazz.catalog.entry.File-Entry
-    jazz.catalog.parser.File-Parser
-    jazz.language.lisp.catalog.Lisp-Entry
-    jazz.language.lisp.catalog.Lisp-File-Entry
-    jazz.language.lisp.parser.Lisp-Parser
-    jazz.language.scheme.parser.Scheme-Parser
-    jazz.language.jazz.parser.Jazz-Parser
-    
-    ;; tree
-    jazz.ui.tree.Tree-View
-    jazz.ui.tree.Tree-Column
-    jazz.ui.tree.Tree-Row
-    
-    ;; application
-    jazz.system.process.Process
-    jazz.system.application.Application
-    jazz.ui.workspace
-    jazz.ui.workspace.Workspace-Preferences
-    jazz.ide.IDE
-    jedi.application.Jedi
-    
-    ;; jml
-    jazz.jml
-    jazz.jml.parser.JML-Parser
-    jazz.jml.model.JML-Node
-    jazz.jml.model.JML-Element
-    jazz.jml.model.JML-Text
-    
-    ;; compare
-    jazz.groupware.compare.Compare-Directories
-    jazz.groupware.compare.Compare-Text-View
-    jazz.groupware.compare.Compare-Texts
-    jazz.groupware.compare.Compare-Trees
-    jazz.groupware.compare.Directory-Comparer
-    jazz.groupware.compare.Text-Comparer
-    jazz.groupware.compare.Tree-Comparer))
-
-
-(cond-expand
-  (windows
-    (define jazz.Jedi-Critical-Platform-Modules
-      '(jazz.ui.window.platform.windows)))
-  (x11
-    (define jazz.Jedi-Critical-Platform-Modules
-      '(jazz.ui.window.platform.x11)))
-  (else
-    (define jazz.Jedi-Critical-Platform-Modules
-      '())))
-
-
-(define (jazz.build-jedi)
-  (jazz.build-jazz)
-  (jazz.build-platform)
-  (jazz.load-platform)
-  (for-each jazz.compile-module jazz.Jedi-Critical-Modules)
-  (for-each jazz.compile-module jazz.Jedi-Critical-Platform-Modules))
-
-
 (define (jedi)
-  (jazz.boot-app 'jedi))
+  (jazz.run-product 'jedi))
 
 
 ;;;
@@ -536,7 +392,7 @@
                    (cont (##reverse rev-options) args))))
         (cont (##reverse rev-options) args))))
   
-  (split-command-line (%%cdr (command-line)) '() '("app" "make")
+  (split-command-line (%%cdr (command-line)) '() '("run" "build")
     (lambda (options remaining)
       (define (get-option name)
         (let ((pair (%%assoc name options)))
@@ -544,18 +400,18 @@
               (%%cdr pair)
             #f)))
       
-      (let ((app (get-option "app"))
-            (make (get-option "make")))
-        (cond (app
+      (let ((run (get-option "run"))
+            (build (get-option "build")))
+        (cond (run
                (##repl-debug
                  (lambda (first output-port)
-                   (jazz.boot-app (%%string->symbol app)))))
-              (jazz.app
+                   (jazz.run-product (%%string->symbol run)))))
+              (jazz.product
                (##repl-debug
                  (lambda (first output-port)
-                   (jazz.boot-app jazz.app))))
-              (make
-               (jazz.make (%%string->symbol make)))
+                   (jazz.run-product jazz.product))))
+              (build
+               (jazz.build (%%string->symbol build)))
               (else
                (jazz.repl-main #f)))))))
 

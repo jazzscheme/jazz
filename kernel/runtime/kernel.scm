@@ -271,12 +271,8 @@
 
 
 ;;;
-;;;; App
+;;;; Product
 ;;;
-
-
-(define (jazz.jazz-app)
-  jazz.app)
 
 
 (define (jazz.jazz-version)
@@ -287,6 +283,14 @@
   (let ((normalized-directory (jazz.pathname-normalize jazz.directory)))
     (lambda ()
       normalized-directory)))
+
+
+(define (jazz.jazz-product)
+  jazz.product)
+
+
+(define (jazz.jazz-profile)
+  jazz.profile)
 
 
 ;;;
@@ -377,8 +381,11 @@
         (let ((name (%%cadr form))
               (alist (%%cddr form)))
           (if (%%eq? name package-name)
-              (let ((root (assq 'root alist)))
-                (jazz.make-package repository name (if root (%%cadr root) #f)))
+              (let ((root (assq 'root alist))
+                    (products (assq 'products alist)))
+                (jazz.make-package repository name
+                  (if root (%%cadr root) #f)
+                  (if products (%%cdr products) '())))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
 
 
@@ -419,11 +426,11 @@
   "pck")
 
 
-(define (jazz.make-package repository name root)
+(define (jazz.make-package repository name root products)
   (let ((path (if (%%not root)
                   (%%symbol->string name)
                 (%%string-append (%%symbol->string name) "/" root))))
-    (%%make-package repository name root path)))
+    (%%make-package repository name root path products)))
 
 
 (define (jazz.package-pathname package path)
@@ -528,6 +535,60 @@
   (jazz.load-module module-name)
   (let ((src (jazz.find-module-src module-name)))
     (jazz.package-autoload (%%resource-package src) name)))
+
+
+;;;
+;;;; Product
+;;;
+
+
+(define (jazz.find-product-module name)
+  (let iter-repo ((repositories jazz.Repositories))
+    (if (%%null? repositories)
+        #f
+      (let iter ((packages (jazz.repository-packages (%%car repositories))))
+        (if (%%null? packages)
+            (iter-repo (%%cdr repositories))
+          (let ((package (%%car packages)))
+            (let ((pair (%%assq name (%%package-products package))))
+              (if pair
+                  (%%cadr pair)
+                (iter (%%cdr packages))))))))))
+
+
+(define jazz.Products-Table
+  (make-table test: eq?))
+
+
+(define (jazz.register-product name run build)
+  (table-set! jazz.Products-Table name (%%make-product name run build)))
+
+
+(define (jazz.get-registered-product name)
+  (or (table-ref jazz.Products-Table name #f)
+      (error "Unable to find registered product: {s}" name)))
+
+
+(define (jazz.load-product-definition name)
+  (let ((module (jazz.find-product-module name)))
+    (if module
+        (begin
+          ;; not 100% correct quicky
+          (jazz.load-platform)
+          (jazz.load-module module))
+      (jazz.error "Unable to find product: {s}" name))))
+
+
+(define (jazz.run-product name)
+  (jazz.load-product-definition name)
+  (let ((product (jazz.get-registered-product name)))
+    ((%%product-run product))))
+
+
+(define (jazz.build-product name)
+  (jazz.load-product-definition name)
+  (let ((product (jazz.get-registered-product name)))
+    ((%%product-build product))))
 
 
 ;;;

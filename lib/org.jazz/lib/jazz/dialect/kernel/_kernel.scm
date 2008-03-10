@@ -40,14 +40,6 @@
 
 
 ;;;
-;;;; App
-;;;
-
-
-(native jazz.app-profile)
-
-
-;;;
 ;;;; Autoload
 ;;;
 
@@ -253,6 +245,25 @@
 
 
 ;;;
+;;;; Kernel
+;;;
+
+
+(native jazz.jazz-version)
+(native jazz.jazz-directory)
+(native jazz.jazz-product)
+(native jazz.jazz-profile)
+(native jazz.reset-packages)
+(native jazz.register-product)
+(native jazz.get-registered-product)
+(native jazz.run-product)
+(native jazz.find-module-src)
+(native jazz.module-autoload)
+(native jazz.get-environment)
+(native jazz.get-environment-module)
+
+
+;;;
 ;;;; Keyword
 ;;;
 
@@ -411,14 +422,6 @@
 ;;;
 
 
-(native jazz.jazz-app)
-(native jazz.jazz-version)
-(native jazz.jazz-directory)
-(native jazz.reset-packages)
-(native jazz.find-module-src)
-(native jazz.module-autoload)
-(native jazz.get-environment)
-(native jazz.get-environment-module)
 (native jazz.get-catalog)
 (native jazz.get-catalog-entry)
 (native jazz.locate-library-declaration)

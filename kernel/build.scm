@@ -588,6 +588,13 @@
          (time->seconds (file-last-modification-time dst)))))
 
 
+(define (jazz.copy-file src dst)
+  (if (jazz.target-needs-update? src dst)
+      (begin
+        (jazz.feedback "; copying {a}..." src)
+        (copy-file src dst))))
+
+
 ;;;
 ;;;; App
 ;;;
@@ -659,6 +666,18 @@
                 #t)
             #f)))
       
+      (define (generate-resources)
+        (case platform
+          ((windows)
+           (let ((file (appfile (string-append appname ".ico"))))
+             (if (not (file-exists? file))
+                 (begin
+                   (jazz.copy-file "etc/resources/windows/jazz.ico" file)
+                   #t)
+               #f)))
+          (else
+           #f)))
+      
       (define (compile-kernel)
         (let ((architecture? (generate-architecture))
               (app? (generate-app))
@@ -679,6 +698,8 @@
             (compile-file name
                           (string-append "kernel/" path)
                           (conffile (string-append "build/_kernel/" path))))
+          
+          (generate-resources)
           
           (load (appfile "architecture"))
           (load "kernel/syntax/macros")
@@ -818,18 +839,12 @@
     (define (conffile path)
       (string-append confdir path))
     
-    (define (copy-platform-file src dst)
-      (if (jazz.target-needs-update? src dst)
-          (begin
-            (jazz.feedback "; copying {a}..." src)
-            (copy-file src dst))))
-    
     (define (copy-platform-files)
       (case platform
         ((windows)
-         (copy-platform-file "foreign/cairo/lib/windows/libcairo-2.dll" (conffile "libcairo-2.dll"))
-         (copy-platform-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
-         (copy-platform-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))))
+         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (conffile "libcairo-2.dll"))
+         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
+         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))))
     
     (define (generate-gambcini)
       (let ((file (conffile ".gambcini")))

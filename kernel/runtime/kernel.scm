@@ -270,6 +270,19 @@
   (else))
 
 
+;;;
+;;;; App
+;;;
+
+
+(define (jazz.jazz-app)
+  jazz.app)
+
+
+(define (jazz.jazz-version)
+  jazz.version)
+
+
 (define jazz.jazz-directory
   (let ((normalized-directory (jazz.pathname-normalize jazz.directory)))
     (lambda ()

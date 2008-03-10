@@ -411,6 +411,8 @@
 ;;;
 
 
+(native jazz.jazz-app)
+(native jazz.jazz-version)
 (native jazz.jazz-directory)
 (native jazz.reset-packages)
 (native jazz.find-module-src)

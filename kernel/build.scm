@@ -202,7 +202,7 @@
 
 
 (define (jazz.save-configurations)
-  (jazz.create-directories "~/.jazz" jazz.feedback)
+  (jazz.create-directories "~/.jazz" feedback: jazz.feedback)
   (call-with-output-file jazz.configurations-file
     (lambda (output)
       (define (print-configuration configuration)

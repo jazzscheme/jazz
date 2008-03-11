@@ -46,28 +46,4 @@
             ((%%eqv? (%%string-ref string n) char)
              #t)
             (else
-             (iter (%%fx+ n 1)))))))
-
-
-(define (jazz.split-string str separator)
-  (let ((lst '())
-        (end (%%string-length str)))
-    (let iter ((pos (%%fx- end 1)))
-      (if (%%fx> pos 0)
-          (begin
-            (if (%%eqv? (%%string-ref str pos) separator)
-                (begin
-                  (set! lst (%%cons (%%substring str (%%fx+ pos 1) end) lst))
-                  (set! end pos)))
-            (iter (%%fx- pos 1))))
-        (%%cons (%%substring str 0 end) lst))))
-
-
-(define (jazz.join-strings strings separator)
-  (let ((output (open-output-string)))
-    (display (%%car strings) output)
-    (for-each (lambda (string)
-                (display separator output)
-                (display string output))
-              (%%cdr strings))
-    (get-output-string output))))
+             (iter (%%fx+ n 1))))))))

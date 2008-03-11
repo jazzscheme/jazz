@@ -47,5 +47,4 @@
          (core.base.runtime.string)
          (core.base.runtime.symbol)
          (core.base.runtime.unspecified)
-         (core.base.runtime.vector)
-         (core.base.runtime.pathname)))
+         (core.base.runtime.vector)))

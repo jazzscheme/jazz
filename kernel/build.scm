@@ -202,7 +202,7 @@
 
 
 (define (jazz.save-configurations)
-  (jazz.create-directories "~/.jazz")
+  (jazz.create-directories "~/.jazz" jazz.feedback)
   (call-with-output-file jazz.configurations-file
     (lambda (output)
       (define (print-configuration configuration)
@@ -507,7 +507,7 @@
          (jazz.error "Invalid directory: {s}" directory))))
 
 
-(define (jazz.effective-directory configuration)
+(define (jazz.executable-directory configuration)
   (or (jazz.configuration-directory configuration)
       (string-append "bin/"
                      (jazz.system-name (jazz.configuration-system configuration))
@@ -516,12 +516,6 @@
                      (jazz.safety-name (jazz.configuration-safety configuration))
                      (jazz.source-option-name (jazz.configuration-options configuration))
                      "/")))
-
-
-(define (jazz.source-directory configuration)
-  (if (jazz.configuration-directory configuration)
-      (path-expand (current-directory))
-    "../../"))
 
 
 ;;;
@@ -557,8 +551,7 @@
     ((jazz) (jazz.make-jazz configuration))
     ((platform) (jazz.make-platform configuration))
     ((all) (jazz.make-all configuration))
-    ((jedi) (jazz.make-jedi configuration))
-    (else (jazz.jazz-make target configuration))))
+    (else (jazz.make-product target configuration))))
 
 
 ;;;
@@ -570,253 +563,15 @@
   (let ((configuration-name (jazz.configuration-name configuration)))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
-      (jazz.open-process "gsc" (list "-:dq-" "build" target-argument configuration-argument)))))
+      (jazz.execute-process "gsc" (list "-:dq-" "build" target-argument configuration-argument)))))
 
 
 (define (jazz.build target configuration-name)
   (let ((configuration (jazz.require-configuration configuration-name)))
     (case target
       ((kernel) (jazz.build-kernel configuration))
-      ((jedi) (jazz.build-jedi configuration))
       (else (jazz.error "Unknown build target: {s}" target))))
   (exit))
-
-
-(define (jazz.target-needs-update? src dst)
-  (or (not (file-exists? dst))
-      (> (time->seconds (file-last-modification-time src))
-         (time->seconds (file-last-modification-time dst)))))
-
-
-(define (jazz.copy-file src dst)
-  (if (jazz.target-needs-update? src dst)
-      (begin
-        (jazz.feedback "; copying {a}..." src)
-        (copy-file src dst))))
-
-
-;;;
-;;;; Product
-;;;
-
-
-(define (jazz.print-architecture system platform windowing safety options output)
-  (jazz.print-variable 'jazz.system system output)
-  (newline output)
-  (jazz.print-variable 'jazz.platform platform output)
-  (newline output)
-  (jazz.print-variable 'jazz.windowing windowing output)
-  (newline output)
-  (jazz.print-variable 'jazz.safety safety output)
-  (newline output)
-  (jazz.print-variable 'jazz.options options output))
-
-
-(define (jazz.print-variable variable value output)
-  (display "(define " output)
-  (display variable output)
-  (newline output)
-  (display "  " output)
-  (if (or (symbol? value)
-          (list? value))
-      (display "'" output))
-  (write value output)
-  (display ")" output)
-  (newline output))
-
-
-(define (jazz.build-product product configuration #!key (console? #t))
-  (let ((system (jazz.configuration-system configuration))
-        (platform (jazz.configuration-platform configuration))
-        (windowing (jazz.configuration-windowing configuration))
-        (safety (jazz.configuration-safety configuration))
-        (options (jazz.configuration-options configuration))
-        (confdir (jazz.effective-directory configuration))
-        (prodname (if (not product) "jazz" (symbol->string product))))
-    (let ((proddir (string-append confdir "build/_products/" prodname "/")))
-      (define (conffile path)
-        (string-append confdir path))
-      
-      (define (prodfile path)
-        (string-append proddir path))
-      
-      (define (generate-architecture)
-        (let ((file (prodfile "architecture.scm")))
-          (if (not (file-exists? file))
-              (begin
-                (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file file
-                  (lambda (output)
-                    (jazz.print-architecture system platform windowing safety options output)))
-                #t)
-            #f)))
-      
-      (define (generate-product)
-        (let ((file (prodfile "product.scm")))
-          (if (not (file-exists? file))
-              (begin
-                (jazz.feedback "; generating {a}..." file)
-                (call-with-output-file file
-                  (lambda (output)
-                    (jazz.print-variable 'jazz.product product output)
-                    (newline output)
-                    (jazz.print-variable 'jazz.version jazz.version output)
-                    (newline output)
-                    (jazz.print-variable 'jazz.directory (jazz.source-directory configuration) output)))
-                #t)
-            #f)))
-      
-      (define (generate-resources)
-        (case platform
-          ((windows)
-           (let ((file (prodfile (string-append prodname ".ico"))))
-             (if (not (file-exists? file))
-                 (begin
-                   (jazz.copy-file "etc/resources/windows/jazz.ico" file)
-                   #t)
-               #f)))
-          (else
-           #f)))
-      
-      (define (compile-kernel)
-        (let ((architecture? (generate-architecture))
-              (product? (generate-product))
-              (latest #f))
-          (define (compile-file name dir output)
-            (let ((src (string-append dir name ".scm"))
-                  (dst (string-append output name ".c")))
-              (if (jazz.target-needs-update? src dst)
-                  (let ((path (string-append dir name))
-                        (options (if (eq? safety 'release) '() '(debug))))
-                    (jazz.feedback "; compiling {a}..." path)
-                    (compile-file-to-c path options: options output: output)))
-              (let ((seconds (time->seconds (file-last-modification-time dst))))
-                (if (or (not latest) (> seconds latest))
-                    (set! latest seconds)))))
-          
-          (define (compile-kernel-file path name)
-            (compile-file name
-                          (string-append "kernel/" path)
-                          (conffile (string-append "build/_kernel/" path))))
-          
-          (generate-resources)
-          
-          (load (prodfile "architecture"))
-          (load "kernel/syntax/macros")
-          (load "kernel/syntax/declares")
-          (load "kernel/syntax/features")
-          (load "kernel/syntax/primitives")
-          (load "kernel/syntax/syntax")
-          (load "kernel/syntax/runtime")
-          
-          (if architecture?
-              (compile-file "architecture" proddir proddir))
-          (if product?
-              (compile-file "product" proddir proddir))
-          (compile-kernel-file "syntax/" "macros")
-          (compile-kernel-file "syntax/" "features")
-          (compile-kernel-file "syntax/" "declares")
-          (compile-kernel-file "syntax/" "primitives")
-          (compile-kernel-file "syntax/" "syntax")
-          (compile-kernel-file "syntax/" "runtime")
-          (compile-kernel-file "runtime/" "settings")
-          (compile-kernel-file "runtime/" "digest")
-          (compile-kernel-file "runtime/" "kernel")
-          (compile-kernel-file "runtime/" "main")
-          
-          (let ((link-file (prodfile (string-append prodname ".c"))))
-            (if (or (not (file-exists? link-file))
-                    (> latest (time->seconds (file-last-modification-time link-file))))
-                (begin
-                  (jazz.feedback "; linking kernel...")
-                  (link-incremental (list (prodfile "architecture")
-                                          (prodfile "product")
-                                          (conffile "build/_kernel/syntax/macros")
-                                          (conffile "build/_kernel/syntax/features")
-                                          (conffile "build/_kernel/syntax/declares")
-                                          (conffile "build/_kernel/syntax/primitives")
-                                          (conffile "build/_kernel/syntax/syntax")
-                                          (conffile "build/_kernel/syntax/runtime")
-                                          (conffile "build/_kernel/runtime/settings")
-                                          (conffile "build/_kernel/runtime/digest")
-                                          (conffile "build/_kernel/runtime/kernel")
-                                          (conffile "build/_kernel/runtime/main"))
-                                    output: link-file
-                                    base: "~~/lib/_gambcgsc")
-                  #t)
-              #f))))
-      
-      (define (resource-files)
-        (case platform
-          ((windows)
-           (let ((file (string-append "etc/resources/windows/" prodname "res.o")))
-             (if (file-exists? file)
-                 (list file)
-               '())))
-          (else
-           '())))
-      
-      (define (link-libraries)
-        (case platform
-          ((windows)
-           '("-lws2_32"))
-          ((unix)
-	   '("-lm" "-ldl" "-lutil"))
-	  (else
-           '())))
-      
-      (define (link-options)
-        (case platform
-          ((windows)
-           (if console?
-               '("-mconsole")
-             '("-mwindows")))
-          (else
-           '())))
-      
-      (define (link-kernel)
-        (jazz.feedback "; linking executable...")
-        (jazz.open-process
-          "gcc"
-          `(,(prodfile "architecture.c")
-            ,(prodfile "product.c")
-            ,(conffile "build/_kernel/syntax/macros.c")
-            ,(conffile "build/_kernel/syntax/features.c")
-            ,(conffile "build/_kernel/syntax/declares.c")
-            ,(conffile "build/_kernel/syntax/primitives.c")
-            ,(conffile "build/_kernel/syntax/syntax.c")
-            ,(conffile "build/_kernel/syntax/runtime.c")
-            ,(conffile "build/_kernel/runtime/settings.c")
-            ,(conffile "build/_kernel/runtime/digest.c")
-            ,(conffile "build/_kernel/runtime/kernel.c")
-            ,(conffile "build/_kernel/runtime/main.c")
-            ,(prodfile (string-append prodname ".c"))
-            ,@(resource-files)
-            ,(string-append "-I" (path-expand "~~/include"))
-            ,(string-append "-L" (path-expand "~~/lib"))
-            "-lgambc" "-lgambcgsc" ,@(link-libraries)
-            ,@(link-options)
-            "-o" ,(conffile prodname))))
-      
-      (define (executable-name)
-        (case platform
-          ((windows)
-           (conffile (string-append prodname ".exe")))
-          (else
-           (conffile prodname))))
-      
-      (jazz.create-directory "bin/")
-      (jazz.create-directory confdir)
-      (jazz.create-directory (conffile "build/"))
-      (jazz.create-directory (conffile "build/_products/"))
-      (jazz.create-directory proddir)
-      (jazz.create-directory (conffile "build/_kernel/"))
-      (jazz.create-directory (conffile "build/_kernel/syntax/"))
-      (jazz.create-directory (conffile "build/_kernel/runtime/"))
-      
-      (if (or (compile-kernel)
-              (not (file-exists? (executable-name))))
-          (link-kernel)))))
 
 
 ;;;
@@ -835,19 +590,20 @@
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
-        (confdir (jazz.effective-directory configuration)))
-    (define (conffile path)
-      (string-append confdir path))
+        (exedir (jazz.executable-directory configuration))
+        (srcdir "./"))
+    (define (exefile path)
+      (string-append exedir path))
     
     (define (copy-platform-files)
       (case platform
         ((windows)
-         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (conffile "libcairo-2.dll"))
-         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (conffile "libpng13.dll"))
-         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (conffile "zlib1.dll")))))
+         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (exefile "libcairo-2.dll") feedback: jazz.feedback)
+         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (exefile "libpng13.dll") feedback: jazz.feedback)
+         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (exefile "zlib1.dll") feedback: jazz.feedback))))
     
     (define (generate-gambcini)
-      (let ((file (conffile ".gambcini")))
+      (let ((file (exefile ".gambcini")))
         (if (not (file-exists? file))
             (begin
               (jazz.feedback "; generating {a}..." file)
@@ -864,13 +620,22 @@
                   (newline output)
                   (jazz.print-architecture system platform windowing safety options output)
                   (newline output)
-                  (jazz.print-variable 'jazz.directory (jazz.source-directory configuration) output)
+                  (jazz.print-variable 'jazz.directory (jazz.relativise-directory srcdir exedir) output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.directory \"kernel/boot\"))" output)
                   (newline output)))))))
     
-    (jazz.build-product #f configuration)
+    (jazz.build-executable #f
+      system:        system
+      platform:      platform
+      windowing:     windowing
+      safety:        safety
+      options:       options
+      exedir:        exedir
+      srcdir:        srcdir
+      kernel?:       #t
+      console?:      #t)
     
     (copy-platform-files)
     
@@ -884,20 +649,20 @@
 
 
 (define (jazz.jazz-make target configuration)
-  (let ((confdir (jazz.effective-directory configuration))
+  (let ((exedir (jazz.executable-directory configuration))
         (platform (jazz.configuration-platform configuration)))
-    (define (conffile path)
-      (string-append confdir path))
+    (define (exefile path)
+      (string-append exedir path))
     
     (define (jazz-path)
       (case platform
         ((windows)
-         (conffile "jazz"))
+         (exefile "jazz"))
         (else
          "./jazz")))
     
     (jazz.feedback "making {a}" target)
-    (jazz.open-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) confdir)))
+    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) exedir)))
 
 
 (define (jazz.make-core configuration)
@@ -915,19 +680,9 @@
   (jazz.jazz-make 'platform configuration))
 
 
-;;;
-;;;; Jedi
-;;;
-
-
-(define (jazz.make-jedi configuration)
-  (jazz.make-platform configuration)
-  (jazz.jazz-make 'jedi configuration)
-  (jazz.build-recursive 'jedi configuration))
-
-
-(define (jazz.build-jedi configuration)
-  (jazz.build-product 'jedi configuration console?: #f))
+(define (jazz.make-product target configuration)
+  (jazz.make-jazz configuration)
+  (jazz.jazz-make target configuration))
 
 
 ;;;
@@ -936,7 +691,7 @@
 
 
 (define (jazz.make-all configuration)
-  (jazz.make-jedi configuration)
+  (jazz.make-platform configuration)
   (jazz.jazz-make 'all configuration))
 
 
@@ -992,17 +747,6 @@
                     (else
                      (write-char c output)))
               (iter)))))))
-
-
-;;;
-;;;; Feedback
-;;;
-
-
-(define (jazz.feedback fmt-string . rest)
-  (display (apply jazz.format fmt-string rest))
-  (newline)
-  (force-output))
 
 
 ;;;
@@ -1076,71 +820,6 @@
                 (char-numeric? c))
             (iter (- n 1))
           #f)))))
-
-
-(define (jazz.split-string str separator)
-  (let ((lst '())
-        (end (string-length str)))
-    (let iter ((pos (- end 1)))
-      (if (> pos 0)
-          (begin
-            (if (eqv? (string-ref str pos) separator)
-                (begin
-                  (set! lst (cons (substring str (+ pos 1) end) lst))
-                  (set! end pos)))
-            (iter (- pos 1))))
-        (cons (substring str 0 end) lst))))
-
-
-(define (jazz.join-strings strings separator)
-  (let ((output (open-output-string)))
-    (display (car strings) output)
-    (for-each (lambda (string)
-                (display separator output)
-                (display string output))
-              (cdr strings))
-    (get-output-string output)))
-
-
-;;;
-;;;; Pathname
-;;;
-
-
-(define (jazz.create-directory dir)
-  (if (not (file-exists? dir))
-      (begin
-        (jazz.feedback "; creating {a}..." dir)
-        (create-directory dir))))
-
-
-(define (jazz.create-directories dir)
-  (let ((path (reverse (jazz.split-string dir #\/))))
-    (let iter ((scan (if (equal? (car path) "") (cdr path) path)))
-      (if (not (null? scan))
-          (begin
-            (iter (cdr scan))
-            (let ((subdir (jazz.join-strings (reverse scan) "/")))
-              (jazz.create-directory subdir)))))))
-
-
-;;;
-;;;; Process
-;;;
-
-
-(define (jazz.open-process path arguments #!optional (directory #f))
-  (let ((port (open-process
-                (list
-                  path: path
-                  arguments: arguments
-                  directory: (or directory (current-directory))
-                  stdin-redirection: #f
-                  stdout-redirection: #f
-                  stderr-redirection: #f))))
-    (let ((code (process-status port)))
-      (if (not (= code 0))
-          (jazz.error "failed")))))
 
 
 ;;;
@@ -1255,6 +934,31 @@
                       (jazz.build target configuration-name)))
                 (fatal (jazz.format "Ill-formed build command: {s}" command-arguments))))
           (fatal (jazz.format "Unknown build system command: {s}" command)))))))
+
+
+;;;
+;;;; Kernel
+;;;
+
+
+(define jazz.system
+  'gambit)
+
+(define jazz.platform
+  #f)
+
+(define jazz.windowing
+  #f)
+
+(define jazz.safety
+  'debug)
+
+
+(load "kernel/syntax/macros")
+(load "kernel/syntax/features")
+(load "kernel/syntax/declares")
+(load "kernel/syntax/primitives")
+(load "kernel/runtime/build")
 
 
 ;;;

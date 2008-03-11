@@ -173,21 +173,6 @@
            (iter (%%fx- n 1))))))
 
 
-(define (jazz.string-replace str old new)
-  (let ((cpy (string-copy str)))
-    (let iter ((n (%%fx- (%%string-length cpy) 1)))
-      (if (%%fx>= n 0)
-          (begin
-            (if (%%eqv? (%%string-ref cpy n) old)
-                (%%string-set! cpy n new))
-            (iter (%%fx- n 1)))))
-    cpy))
-
-
-(define (jazz.string-ends-with? str c)
-  (%%eqv? (%%string-ref str (%%fx- (%%string-length str) 1)) c))
-
-
 ;;;
 ;;;; Pathname
 ;;;
@@ -226,15 +211,6 @@
   (gambit
     (define jazz.pathname-type
       file-type)
-    
-    (define (jazz.pathname-normalize path)
-      (let ((len (%%string-length path)))
-        (let ((dir? (jazz.string-ends-with? path #\/)))
-          (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
-            (let ((slashified (jazz.string-replace normalized #\\ #\/)))
-              (if (and dir? (%%not (jazz.string-ends-with? slashified #\/)))
-                  (%%string-append slashified "/")
-                slashified))))))
     
     (define jazz.file-exists?
       file-exists?)

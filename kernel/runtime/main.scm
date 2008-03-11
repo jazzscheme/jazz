@@ -202,9 +202,6 @@
   (jazz.load-module 'jazz.platform.literals))
 
 
-(define (jazz.quote-pathname pathname)
-  (string-append "\"" pathname "\""))
-
 (define (jazz.quote-jazz-pathname suffix)
   (jazz.quote-pathname (path-expand (string-append (jazz.jazz-directory) suffix))))
 

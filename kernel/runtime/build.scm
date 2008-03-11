@@ -133,7 +133,11 @@
                 ;; load architecture
                 (load (prodfile "architecture"))
                 
-                ;; load remaining syntax
+                ;; load syntax
+                (load (srcfile "kernel/syntax/macros"))
+                (load (srcfile "kernel/syntax/features"))
+                (load (srcfile "kernel/syntax/declares"))
+                (load (srcfile "kernel/syntax/primitives"))
                 (load (srcfile "kernel/syntax/syntax"))
                 (load (srcfile "kernel/syntax/runtime"))))
           
@@ -185,8 +189,8 @@
              
              (let ((file (resfile prodname)))
                (if (file-exists? file)
-                   (list file)
-                 (list (resfile "jazz"))))))
+                   (list (jazz.quote-pathname file))
+                 (list (jazz.quote-pathname (resfile "jazz")))))))
           (else
            '())))
       
@@ -212,26 +216,26 @@
         (feedback-message "; linking executable...")
         (jazz.execute-process
           "gcc"
-          `(,(prodfile "architecture.c")
-            ,(prodfile "product.c")
-            ,(exefile "build/_kernel/syntax/macros.c")
-            ,(exefile "build/_kernel/syntax/features.c")
-            ,(exefile "build/_kernel/syntax/declares.c")
-            ,(exefile "build/_kernel/syntax/primitives.c")
-            ,(exefile "build/_kernel/syntax/syntax.c")
-            ,(exefile "build/_kernel/syntax/runtime.c")
-            ,(exefile "build/_kernel/runtime/build.c")
-            ,(exefile "build/_kernel/runtime/settings.c")
-            ,(exefile "build/_kernel/runtime/digest.c")
-            ,(exefile "build/_kernel/runtime/kernel.c")
-            ,(exefile "build/_kernel/runtime/main.c")
-            ,(prodfile (string-append prodname ".c"))
+          `(,(jazz.quote-pathname (prodfile "architecture.c"))
+            ,(jazz.quote-pathname (prodfile "product.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/macros.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/features.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/declares.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/primitives.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/syntax.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/syntax/runtime.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/runtime/build.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/runtime/settings.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/runtime/digest.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/runtime/kernel.c"))
+            ,(jazz.quote-pathname (exefile "build/_kernel/runtime/main.c"))
+            ,(jazz.quote-pathname (prodfile (string-append prodname ".c")))
             ,@(resource-files)
-            ,(string-append "-I" (path-expand "~~/include"))
-            ,(string-append "-L" (path-expand "~~/lib"))
+            ,(string-append "-I" (jazz.quote-pathname (path-expand "~~/include")))
+            ,(string-append "-L" (jazz.quote-pathname (path-expand "~~/lib")))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(exefile prodname))))
+            "-o" ,(jazz.quote-pathname (exefile prodname)))))
       
       (define (executable-name)
         (case platform
@@ -394,6 +398,10 @@
                     (iter (%%fx- n 1)))))
             relative-dir)
         dir))))
+
+
+(define (jazz.quote-pathname pathname)
+  (string-append "\"" pathname "\""))
 
 
 ;;;

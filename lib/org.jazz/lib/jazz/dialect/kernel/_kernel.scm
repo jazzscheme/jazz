@@ -61,8 +61,11 @@
 ;;;
 
 
-(native jazz.compile-module)
+(native jazz.build-core)
+(native jazz.build-jazz)
+(native jazz.build-platform)
 (native jazz.build-module)
+(native jazz.compile-module)
 (native jazz.for-each-submodule)
 
 

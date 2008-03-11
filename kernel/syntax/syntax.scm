@@ -146,8 +146,7 @@
 ;;;
 
 
-;; A product is the runtime implementation of some user level product. A product can be
-;; loaded, run and built.
+;; A product is the runtime implementation of some user level entity that can be run and built.
 
 
 (jazz.define-macro (%%make-product name run build)

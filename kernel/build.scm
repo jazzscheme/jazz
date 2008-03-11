@@ -681,7 +681,9 @@
 
 
 (define (jazz.make-product target configuration)
-  (jazz.make-jazz configuration)
+  ;; not 100% correct as it should really be jazz.make-jazz but this has to be
+  ;; consistent with jazz.load-product-definition which is temporarely patched
+  (jazz.make-platform configuration)
   (jazz.jazz-make target configuration))
 
 

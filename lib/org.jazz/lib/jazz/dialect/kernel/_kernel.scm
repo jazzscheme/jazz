@@ -224,6 +224,7 @@
 
 
 (native command-line)
+(native user-name)
 
 
 ;;;
@@ -263,6 +264,7 @@
 ;;;
 
 
+(native jazz.boot-directory)
 (native jazz.jazz-version)
 (native jazz.jazz-directory)
 (native jazz.jazz-product)

@@ -247,6 +247,16 @@
 
 
 ;;;
+;;;; Boot
+;;;
+
+
+#; ;; DAMN! almost works but breaks if we do an open-process with an explicit directory:
+(define jazz.boot-directory
+  (jazz.pathname-normalize (path-directory (%%car (command-line)))))
+
+
+;;;
 ;;;; Product
 ;;;
 
@@ -256,9 +266,7 @@
 
 
 (define jazz.jazz-directory
-  (let ((normalized-directory (jazz.pathname-normalize jazz.directory)))
-    (lambda ()
-      normalized-directory)))
+  (jazz.pathname-normalize jazz.directory))
 
 
 (define (jazz.jazz-product)
@@ -288,7 +296,7 @@
   (jazz.make-repository 'app "Current" "./" "app/" #t))
 
 (define jazz.Lib-Repository
-  (jazz.make-repository 'lib "Jazz" (jazz.jazz-directory) "lib/" #f))
+  (jazz.make-repository 'lib "Jazz" jazz.jazz-directory "lib/" #f))
 
 (define jazz.User-Repository
   (jazz.make-repository 'user "Home" "~/" ".jazz/lib/" #f))

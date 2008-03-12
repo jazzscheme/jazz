@@ -265,8 +265,15 @@
   jazz.version)
 
 
-(define jazz.jazz-directory
-  (jazz.pathname-normalize jazz.directory))
+(define jazz.jazz-install
+  (jazz.pathname-normalize jazz.install))
+
+
+(define jazz.jazz-source
+  (if (and (%%fx>= (%%string-length jazz.source) 3)
+           (%%string=? (%%substring jazz.source 0 3) "../"))
+      (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source))
+    (jazz.pathname-normalize jazz.source)))
 
 
 (define (jazz.jazz-product)
@@ -290,13 +297,13 @@
 
 
 (define jazz.Build-Repository
-  (jazz.make-repository 'build "Current" "./" "build/" #t))
+  (jazz.make-repository 'build "Install" jazz.jazz-install "build/" #t))
 
 (define jazz.App-Repository
-  (jazz.make-repository 'app "Current" "./" "app/" #t))
+  (jazz.make-repository 'app "Install" jazz.jazz-install "app/" #t))
 
 (define jazz.Lib-Repository
-  (jazz.make-repository 'lib "Jazz" jazz.jazz-directory "lib/" #f))
+  (jazz.make-repository 'lib "Jazz" jazz.jazz-source "lib/" #f))
 
 (define jazz.User-Repository
   (jazz.make-repository 'user "Home" "~/" ".jazz/lib/" #f))

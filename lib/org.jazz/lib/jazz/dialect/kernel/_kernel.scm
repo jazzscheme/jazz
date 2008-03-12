@@ -266,7 +266,8 @@
 
 (native jazz.boot-directory)
 (native jazz.jazz-version)
-(native jazz.jazz-directory)
+(native jazz.jazz-install)
+(native jazz.jazz-source)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
 (native jazz.reset-packages)

@@ -203,7 +203,7 @@
 
 
 (define (jazz.quote-jazz-gcc-pathname suffix)
-  (jazz.quote-gcc-pathname (path-expand (string-append jazz.jazz-directory suffix)) jazz.platform))
+  (jazz.quote-gcc-pathname (path-expand (string-append jazz.jazz-source suffix)) jazz.platform))
 
 
 (define (jazz.pkg-config what libname)

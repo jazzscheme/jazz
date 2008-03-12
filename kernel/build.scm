@@ -507,7 +507,7 @@
          (jazz.error "Invalid directory: {s}" directory))))
 
 
-(define (jazz.executable-directory configuration)
+(define (jazz.install-directory configuration)
   (or (jazz.configuration-directory configuration)
       (string-append "bin/"
                      (jazz.system-name (jazz.configuration-system configuration))
@@ -590,20 +590,20 @@
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
-        (exedir (jazz.executable-directory configuration))
+        (insdir (jazz.install-directory configuration))
         (srcdir "./"))
-    (define (exefile path)
-      (string-append exedir path))
+    (define (insfile path)
+      (string-append insdir path))
     
     (define (copy-platform-files)
       (case platform
         ((windows)
-         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (exefile "libcairo-2.dll") feedback: jazz.feedback)
-         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (exefile "libpng13.dll") feedback: jazz.feedback)
-         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (exefile "zlib1.dll") feedback: jazz.feedback))))
+         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (insfile "libcairo-2.dll") feedback: jazz.feedback)
+         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (insfile "libpng13.dll") feedback: jazz.feedback)
+         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (insfile "zlib1.dll") feedback: jazz.feedback))))
     
     (define (generate-gambcini)
-      (let ((file (exefile ".gambcini")))
+      (let ((file (insfile ".gambcini")))
         (if (not (file-exists? file))
             (begin
               (jazz.feedback "; generating {a}..." file)
@@ -620,10 +620,12 @@
                   (newline output)
                   (jazz.print-architecture system platform windowing safety options output)
                   (newline output)
-                  (jazz.print-variable 'jazz.directory (jazz.relativise-directory srcdir exedir) output)
+                  (jazz.print-variable 'jazz.install (jazz.pathname-normalize insdir) output)
+                  (newline output)
+                  (jazz.print-variable 'jazz.source (jazz.relativise-directory srcdir insdir) output)
                   (newline output)
                   (newline output)
-                  (display "(load (string-append jazz.directory \"kernel/boot\"))" output)
+                  (display "(load (string-append jazz.source \"kernel/boot\"))" output)
                   (newline output)))))))
     
     (jazz.build-executable #f
@@ -632,7 +634,7 @@
       windowing:     windowing
       safety:        safety
       options:       options
-      exedir:        exedir
+      insdir:        insdir
       srcdir:        srcdir
       kernel?:       #t
       console?:      #t)
@@ -649,20 +651,20 @@
 
 
 (define (jazz.jazz-make target configuration)
-  (let ((exedir (jazz.executable-directory configuration))
+  (let ((insdir (jazz.install-directory configuration))
         (platform (jazz.configuration-platform configuration)))
-    (define (exefile path)
-      (string-append exedir path))
+    (define (insfile path)
+      (string-append insdir path))
     
     (define (jazz-path)
       (case platform
         ((windows)
-         (exefile "jazz"))
+         (insfile "jazz"))
         (else
          "./jazz")))
     
     (jazz.feedback "making {a}" target)
-    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) exedir)))
+    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) insdir)))
 
 
 (define (jazz.make-core configuration)

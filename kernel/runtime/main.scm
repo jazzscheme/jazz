@@ -332,9 +332,14 @@
   (current-exception-handler
     (lambda (exc)
       (if (tty? (current-output-port))
-          (jazz.bring-terminal-to-front))
+          (begin
+            (jazz.set-terminal-title)
+            (jazz.bring-terminal-to-front)))
       (default-exception-handler exc))))
 
+
+(define (jazz.set-terminal-title)
+  (display "\033]0;Terminal\007"))
 
 (define (jazz.bring-terminal-to-front)
   (display "\033[5t"))

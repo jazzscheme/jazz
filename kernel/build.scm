@@ -842,6 +842,9 @@
 (define jazz.prompt
   "$ ")
 
+(define jazz.display-backtrace?
+  #f)
+
 
 (define (jazz.build-system-repl)
   (let ((console (console-port)))
@@ -856,7 +859,11 @@
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
-                (##display-exception exc console)
+                (display-exception exc console)
+                (if jazz.display-backtrace?
+                    (continuation-capture
+                      (lambda (cont)
+                        (display-continuation-backtrace cont))))
                 (stop #f))
               (lambda ()
                 (jazz.process-command command console)))))

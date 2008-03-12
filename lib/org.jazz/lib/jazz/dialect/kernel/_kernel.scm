@@ -151,6 +151,8 @@
 ;;;
 
 (native jazz.exception-reason)
+(native display-exception)
+(native display-continuation-backtrace)
 (native jazz.default-exception-handler)
 (native jazz.current-exception-handler)
 (native jazz.with-jazz-exception-catcher)
@@ -214,6 +216,14 @@
 (native jazz.still-obj-refcount-dec!)
 (native jazz.still-obj-refcount-inc!)
 ;;(native jazz.still-obj-refcount)
+
+
+;;;
+;;;; Host
+;;;
+
+
+(native command-line)
 
 
 ;;;

@@ -318,7 +318,7 @@
            (unauthentified-resource (get-unauthentified-resource~ config))
            (debug? (get-debug?~ config))
            (server (new (module-autoload module class) host: host service: service root-directory: root-directory default-resource: default-resource unauthentified-resource: unauthentified-resource debug?: debug?)))
-      (run~ server)
+      (start~ server)
       (if (not (wait-started~ server error?: #f))
           (error "Unable to start server")
         (table-set! servers name server))))
@@ -328,7 +328,7 @@
     (let* ((name (get-name~ config))
            (server (find-server name)))
       (when server
-        (stop-listener~ server)
+        (stop~ server)
         (if (not (wait-stopped~ server error?: #f))
             (error "Unable to stop server")
           (table-set! servers name {})))))
@@ -354,23 +354,6 @@
            (server (find-server name)))
       (when server
         (set-debug?~ server (get-debug?~ config)))))
-  
-  
-  @this-should-go-elsewhere
-  (method (ping-server config)
-    (let* ((name (get-name~ config))
-           (server (find-server name))
-           (host {Host name: "localhost"})
-           (service (get-service~ server))
-           (timer (new Timer)))
-      (with-closed ((socket (new Socket)))
-        (connect~ socket host service)
-        (send-string~ socket "Hello")
-        (let ((data (receive-string socket)))
-          (user-message "Pinged Server on {s} in {a}s received {s}"
-                        (get-name~ host)
-                        (get-duration-in-seconds~ timer)
-                        data)))))
   
   
   (method (edit-server config)

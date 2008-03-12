@@ -48,17 +48,15 @@
   
   (slot host)
   (slot service)
-  (slot threaded?)
   (slot started-condition)
   (slot state initialize 'stopped)
   
   
   (method (initialize . rest)
-    (bind-keywords ((host {}) (service {}) (threaded? #t)) rest
+    (bind-keywords ((host {}) (service {})) rest
       (nextmethod)
       (set! host~self host)
       (set! service~self service)
-      (set! threaded?~self threaded?)
       (set! started-condition~self (make-condition))))
 
   
@@ -84,18 +82,26 @@
   
   
   ;;;
-  ;;;; Run
+  ;;;; Start/Stop
   ;;;
     
   
-  (method (run)
+  (method (start)
     (set-state 'starting)
-    (if (not threaded?)
-        (start-listener)
-      (thread-start!
-        (make-thread
-          (lambda ()
-            (start-listener))))))
+    (thread-start!
+      (make-thread
+        (lambda ()
+          (start-listener)))))
+  
+  
+  (method (stop)
+    (set-state 'stopping))
+  
+  
+  (method (restart)
+    (stop)
+    (wait-stopped)
+    (start))
   
   
   (method (wait-started (error?: error? #f))
@@ -149,10 +155,6 @@
                     (loop)))))
           (close-port server-port)
           (set-state 'stopped)))))
-  
-  
-  (method public virtual (stop-listener)
-    (set-state 'stopping))
   
   
   ;;;

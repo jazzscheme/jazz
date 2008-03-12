@@ -235,12 +235,12 @@
     
     (define (jazz.directory-files directory)
       (jazz.collect-if (lambda (name)
-                         (eq? (jazz.pathname-type (%%string-append directory name)) 'regular))
+                         (%%eq? (jazz.pathname-type (%%string-append directory name)) 'regular))
                        (jazz.directory-content directory)))
     
     (define (jazz.directory-directories directory)
       (jazz.collect-if (lambda (name)
-                         (eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
+                         (%%eq? (jazz.pathname-type (%%string-append directory name)) 'directory))
                        (jazz.directory-content directory))))
   
   (else))

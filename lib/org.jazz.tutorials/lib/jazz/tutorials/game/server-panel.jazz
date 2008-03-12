@@ -89,6 +89,7 @@
             ((stop) (stop-command arguments))
             ((restart) (restart-command arguments))
             ((info) (info-command arguments))
+            ((pages) (pages-command arguments))
             ((debug) (debug-command arguments))
             ((help ?) (help-command arguments))
             ((quit) (quit-command arguments))
@@ -106,6 +107,9 @@
   (define (info-command arguments)
     (server-info server))
   
+  (define (pages-command arguments)
+    (server-pages server))
+  
   (define (debug-command arguments)
     (server-debug server
                   (if (null? arguments)
@@ -118,6 +122,7 @@
     (format :console "  stop         : Stop the server{%}")
     (format :console "  restart      : Restart the server{%}")
     (format :console "  info         : Show server information{%}")
+    (format :console "  pages        : Show dynamic pages associations{%}")
     (format :console "  debug [flag] : Toggle or set debugging to flag{%}")
     (format :console "  help or ?    : Display available commands{%}")
     (format :console "  quit         : Quit the server panel{%}")
@@ -198,6 +203,7 @@
 (definition (server-info server)
   (format :console "Server {a}{%}" (get-state~ server))
   (format :console "  name                    : {a}{%}" (server-name~ server))
+  (format :console "  class                   : {a}{%}" (type-name (class-of server)))
   (format :console "  host                    : {a}{%}" (server-host~ server))
   (format :console "  service                 : {a}{%}" (server-service~ server))
   (format :console "  root-directory          : {a}{%}" (get-root-directory~ server))
@@ -205,6 +211,20 @@
   (format :console "  unauthentified-resource : {a}{%}" (get-unauthentified-resource~ server))
   (format :console "  hits                    : {a}{%}" (get-hits~ server))
   (format :console "  debug?                  : {a}{%}" (get-debug?~ server)))
+
+
+(definition (server-pages server)
+  (format :console "Dynamic pages associations{%}")
+  (let ((associations (get-servlet-associations~ server)))
+    (when (not-null? associations)
+      (let ((max (apply max (map string-length (map car associations)))))
+        (for-each (lambda (info)
+                    (bind (resource class) info
+                      (format :console "  {a}{a} : {a}{%}"
+                        resource
+                        (make-string (- max (string-length resource)) #\space)
+                        class)))
+                  associations)))))
 
 
 (definition (server-debug server debug?)

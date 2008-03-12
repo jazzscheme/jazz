@@ -343,6 +343,8 @@
       (begin
         (if feedback
             (feedback "; copying {a}..." src))
+        (if (file-exists? dst)
+            (delete-file dst))
         (copy-file src dst))))
 
 

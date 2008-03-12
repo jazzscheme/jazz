@@ -58,7 +58,7 @@
   (let ((command-arguments (cdr (command-line))))
     (if (or (null? command-arguments)
             (equal? (car command-arguments) "-run"))
-        (let ((server (new Game-Server service: 8080 root-directory: {Directory Jazz "lib" "org.jazz.tutorials" "site" "content"} default-resource: "/Games")))
+        (let ((server (new Game-Server name: "Game" service: 8080 root-directory: {Directory Jazz "lib" "org.jazz.tutorials" "site" "content"} default-resource: "/Games")))
           (panel-loop server))
       (fatal (format "Command-line parameters not yet supported: {s}" command-arguments)))))
 
@@ -107,7 +107,10 @@
     (server-info server))
   
   (define (debug-command arguments)
-    (server-debug server))
+    (server-debug server
+                  (if (null? arguments)
+                      (not (get-debug?~ server))
+                    (car arguments))))
   
   (define (help-command arguments)
     (format :console "Commands are{%}")
@@ -115,8 +118,8 @@
     (format :console "  stop         : Stop the server{%}")
     (format :console "  restart      : Restart the server{%}")
     (format :console "  info         : Show server information{%}")
-    (format :console "  debug [flag] : Toggle or turn on/off debugging{%}")
-    (format :console "  help or ?    : Display this help{%}")
+    (format :console "  debug [flag] : Toggle or set debugging to flag{%}")
+    (format :console "  help or ?    : Display available commands{%}")
     (format :console "  quit         : Quit the server panel{%}")
     (force-output))
   
@@ -128,24 +131,27 @@
   
   (start-server server)
   
-  (let (loop)
+  (let (loop (newline? #t))
+    (when newline?
+      (newline))
     (display prompt)
     (force-output)
     (let ((command (read-line)))
-      (call/cc
-        (lambda (stop)
-          (with-exception-handler
-            (lambda (exc)
-              (display-exception exc)
-              (if display-backtrace?
-                  (continuation-capture
-                    (lambda (cont)
-                      (display-continuation-backtrace cont))))
-              (stop #f))
-            (lambda ()
-              (unless (eof-object? command)
-              (process-command command))))))
-      (loop))))
+      (if (empty-string? command)
+          (loop #f)
+        (call/cc
+          (lambda (stop)
+            (with-exception-handler
+              (lambda (exc)
+                (display-exception exc)
+                (if display-backtrace?
+                    (continuation-capture
+                      (lambda (cont)
+                        (display-continuation-backtrace cont))))
+                (stop #f))
+              (lambda ()
+                (process-command command)))))
+        (loop #t)))))
 
 
 ;;;
@@ -154,31 +160,53 @@
 
 
 (definition (start-server server)
-  (start~ server)
-  (if (not (wait-started~ server error?: #f))
-      (error "Unable to start server")
-    (format :console "Server started{%}")))
+  (let ((state (get-state~ server)))
+    (case state
+      ((stopped)
+       (start~ server)
+       (if (not (wait-started~ server error?: #f))
+           (error "Unable to start server")
+         (format :console "Server started{%}")))
+      (else
+       (format :console "Server is {s}{%}" state)))))
 
 
 (definition (stop-server server)
-  (stop~ server)
-  (if (not (wait-stopped~ server error?: #f))
-      (error "Unable to stop server")
-    (format :console "Server stopped{%}")))
+  (let ((state (get-state~ server)))
+    (case state
+      ((started)
+       (stop~ server)
+       (if (not (wait-stopped~ server error?: #f))
+           (error "Unable to stop server")
+         (format :console "Server stopped{%}")))
+      (else
+       (format :console "Server is {s}{%}" state)))))
 
 
 (definition (restart-server server)
-  (restart~ server)
-  (if (not (wait-started~ server error?: #f))
-      (error "Unable to restart server")
-    (format :console "Server restarted{%}")))
+  (let ((state (get-state~ server)))
+    (case state
+      ((stopped started)
+       (restart~ server)
+       (if (not (wait-started~ server error?: #f))
+           (error "Unable to restart server")
+         (format :console "Server restarted{%}")))
+      (else
+       (format :console "Server is {s}{%}" state)))))
 
 
 (definition (server-info server)
-  (format :console "Server {a}{%}" (get-state~ server)))
+  (format :console "Server {a}{%}" (get-state~ server))
+  (format :console "  name                    : {a}{%}" (server-name~ server))
+  (format :console "  host                    : {a}{%}" (server-host~ server))
+  (format :console "  service                 : {a}{%}" (server-service~ server))
+  (format :console "  root-directory          : {a}{%}" (get-root-directory~ server))
+  (format :console "  default-resource        : {a}{%}" (get-default-resource~ server))
+  (format :console "  unauthentified-resource : {a}{%}" (get-unauthentified-resource~ server))
+  (format :console "  hits                    : {a}{%}" (get-hits~ server))
+  (format :console "  debug?                  : {a}{%}" (get-debug?~ server)))
 
 
-(definition (server-debug server)
-  (let ((debug? (not (get-debug?~ server))))
-    (set-debug?~ server debug?)
-    (format :console "Server {a}being debugged{%}" (if debug? "" "not ")))))
+(definition (server-debug server debug?)
+  (set-debug?~ server debug?)
+  (format :console "Server {a}being debugged{%}" (if debug? "" "not "))))

@@ -147,10 +147,10 @@
             ((%%pair? car-binding)
              (let ((car-symbol (jazz.generate-symbol "car")))
                `((if (%%null? ,tree)
-		     (jazz.error "Unable to bind")
-		     (let ((,car-symbol (%%car ,tree)))
-		       ,@(expand-car car-binding car-symbol
-                           (expand-cdr bindings tree body))))))))))
+                     (jazz.error "Unable to bind")
+                   (let ((,car-symbol (%%car ,tree)))
+                     ,@(expand-car car-binding car-symbol
+                         (expand-cdr bindings tree body))))))))))
 
   (define (expand-cdr bindings tree body)
     (let ((cdr-binding (%%cdr bindings)))

@@ -56,7 +56,7 @@
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)
                    (cont cont))
-	  (if (or (not depth) (< d depth))
+          (if (or (not depth) (< d depth))
               (and cont
                    (begin
                      (jazz.enqueue queue (jazz.get-frame cont))

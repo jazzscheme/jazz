@@ -407,7 +407,7 @@
     ((windows)
      (string-append "\"" pathname "\""))
     (else
-     ;; need to find the right quoting on non-windows platforms
+     ;; quoting is only necessary on windows as arguments are passed explicitly in unix
      pathname)))
 
 

@@ -103,8 +103,8 @@
        (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))
   (windows
    (define (jazz.build-cairo)
-     (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
-           (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
+     (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
+           (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
        (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
   (x11
    (define (jazz.build-cairo)
@@ -131,8 +131,8 @@
 
 
 (define (jazz.build-logfont)
-  (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
+  (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
+        (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
     (jazz.compile-module 'jazz.platform.cairo.cairo-logfont cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))))
 
 
@@ -143,8 +143,8 @@
 
 
 (define (jazz.build-windows)
-  (let ((cairo-include-path (jazz.quote-jazz-pathname "foreign/cairo/include"))
-        (cairo-lib-path     (jazz.quote-jazz-pathname "foreign/cairo/lib/windows")))
+  (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
+        (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
     (jazz.load-module 'core.module.build)
     (jazz.compile-module 'jazz.platform.windows.WinDef      cc-options: "-DUNICODE" ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinTypes    cc-options: "-DUNICODE" ld-options: "-mwindows")
@@ -202,8 +202,8 @@
   (jazz.load-module 'jazz.platform.literals))
 
 
-(define (jazz.quote-jazz-pathname suffix)
-  (jazz.quote-pathname (path-expand (string-append (jazz.jazz-directory) suffix))))
+(define (jazz.quote-jazz-gcc-pathname suffix)
+  (jazz.quote-gcc-pathname (path-expand (string-append (jazz.jazz-directory) suffix)) jazz.platform))
 
 
 (define (jazz.pkg-config what libname)

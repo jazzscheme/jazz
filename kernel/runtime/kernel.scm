@@ -289,10 +289,10 @@
 ;;;
 
 
-(define (jazz.make-repository name dirname dir subdir binary?)
+(define (jazz.make-repository name dirname dir subdir build?)
   (if (jazz.directory-exists? dir)
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
-        (%%make-repository name directory binary?))
+        (%%make-repository name directory build?))
     (jazz.error "{a} directory is inexistant: {a}" dirname dir)))
 
 
@@ -317,8 +317,8 @@
     jazz.User-Repository))
 
 
-(define (jazz.register-repository directory #!key (name #f) (binary? #f))
-  (%%make-repository name directory binary?))
+(define (jazz.register-repository directory #!key (name #f) (build? #f))
+  (%%make-repository name directory build?))
 
 
 (define (jazz.repository-pathname repository path)
@@ -394,7 +394,7 @@
     `(:repository
       ,(%%repository-name repository)
       ,(%%repository-directory repository)
-      ,(%%repository-binary? repository)
+      ,(%%repository-build? repository)
       ,@(map inspect-package (jazz.repository-packages repository))))
   
   (define (inspect-package package)

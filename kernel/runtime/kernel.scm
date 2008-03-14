@@ -247,16 +247,6 @@
 
 
 ;;;
-;;;; Boot
-;;;
-
-
-#; ;; DAMN! almost works but breaks if we do an open-process with an explicit directory:
-(define jazz.boot-directory
-  (jazz.pathname-normalize (path-directory (%%car (command-line)))))
-
-
-;;;
 ;;;; Product
 ;;;
 
@@ -270,10 +260,13 @@
 
 
 (define jazz.jazz-source
+  ;; temporary to test running without the source repository
+  (if (equal? jazz.install "c:/Test/")
+      "c:/some/inexistant/"
   (if (and (%%fx>= (%%string-length jazz.source) 3)
            (%%string=? (%%substring jazz.source 0 3) "../"))
       (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source))
-    (jazz.pathname-normalize jazz.source)))
+    (jazz.pathname-normalize jazz.source))))
 
 
 (define (jazz.jazz-product)
@@ -289,32 +282,42 @@
 ;;;
 
 
-(define (jazz.make-repository name dirname dir subdir build?)
+(define (jazz.make-repository name dirname dir subdir build? #!key (error? #t))
   (if (jazz.directory-exists? dir)
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
         (%%make-repository name directory build?))
-    (jazz.error "{a} directory is inexistant: {a}" dirname dir)))
+    (if error?
+        (jazz.error "{a} directory is inexistant: {a}" dirname dir)
+      #f)))
 
 
 (define jazz.Build-Repository
-  (jazz.make-repository 'build "Install" jazz.jazz-install "build/" #t))
+  (jazz.make-repository 'build "Build" jazz.jazz-install "build/" #t))
 
 (define jazz.App-Repository
-  (jazz.make-repository 'app "Install" jazz.jazz-install "app/" #t))
+  (jazz.make-repository 'app "App" jazz.jazz-install "app/" #t))
 
-(define jazz.Lib-Repository
-  (jazz.make-repository 'lib "Jazz" jazz.jazz-source "lib/" #f))
+(define jazz.Jazz-Repository
+  (jazz.make-repository 'lib "Jazz" jazz.jazz-source "lib/" #f error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'user "Home" "~/" ".jazz/lib/" #f))
+  (jazz.make-repository 'user "User" "~/" ".jazz/lib/" #f))
+
+
+(define (jazz.make-repositories)
+  (define (listify repository)
+    (if repository
+        (%%list repository)
+      '()))
+  
+  `(,@(listify jazz.Build-Repository)
+    ,@(listify jazz.App-Repository)
+    ,@(listify jazz.Jazz-Repository)
+    ,@(listify jazz.User-Repository)))
 
 
 (define jazz.Repositories
-  (%%list
-    jazz.Build-Repository
-    jazz.App-Repository
-    jazz.Lib-Repository
-    jazz.User-Repository))
+  (jazz.make-repositories))
 
 
 (define (jazz.register-repository directory #!key (name #f) (build? #f))

@@ -109,6 +109,7 @@
 (definition (window-default-parent window)
   (typecase window
     ((Popup) (get-toplevel))
+    ((Frame) (get-stage))
     (else #f)))
 
 
@@ -606,7 +607,11 @@
 
 
 (definition (platform-redraw-window handle rect region)
-  (platform-invalidate-rect handle #f #f)
+  (if rect
+      (platform-invalidate-rect handle rect #t)
+      (platform-invalidate-region handle region #t))
+  (HIViewRender handle)
+  (HIWindowFlush (HIViewGetWindow handle))
   @lala
   (platform-update-window handle))
 
@@ -634,7 +639,9 @@
 
 
 (definition (platform-update-window handle)
-  (platform-invalidate-rect handle #f #f)
+  (HIViewSetNeedsDisplay handle #t)
+  (HIViewRender handle)
+  (HIWindowFlush (HIViewGetWindow handle))
   @lala
   (when handle
     (let* ((size (platform-get-size handle))

@@ -255,6 +255,7 @@
 
 (definition (window-default-parent window)
   (typecase window
+    ((Frame) (get-stage))
     ((Popup) (get-toplevel))
     (else #f)))
 
@@ -762,12 +763,7 @@
 
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
-  (platform-update-window handle)
-  @windows
-  (let ((flags (bitwise-ior (if erase? SW_ERASE 0) SW_INVALIDATE)))
-    (with ((rect (rect->RECT rect))
-           (clip-rect (rect->RECT clip-rect)))
-      (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
+  (platform-update-window handle))
 
 
 (definition (platform-invalidate-rect handle rect erase?)
@@ -801,7 +797,10 @@
 
 
 (definition (platform-redraw-window handle rect region)
-  (platform-update-window handle))
+  (if rect
+      (paint~ (get-window handle) rect)
+      (for-each (function (rect) (paint~ (get-window handle) rect))
+		(get-rectangles~ region))))
 
 
 (definition (platform-get-update-rect handle)
@@ -821,10 +820,14 @@
 
 
 (definition (platform-redraw-view-only view handle)
-  (platform-update-window handle))
+  (let* ((size (platform-get-size handle))
+	 (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))
+      (platform-invalidate-rect handle rct #t)))
 
 
 (definition (platform-update-window handle)
+  (paint~ (get-window handle) #f)
+  @old
   (when handle
     (let* ((size (platform-get-size handle))
            (rct (new Rect 0 0 (get-width~ size) (get-height~ size))))

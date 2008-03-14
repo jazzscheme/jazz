@@ -1,3 +1,4 @@
 (package org.jazz.samples
   
-  (root "lib"))
+  (root "lib")
+  (products (world world)))

@@ -551,7 +551,7 @@
   (make-table test: eq?))
 
 
-(define (jazz.register-product name run build)
+(define (jazz.register-product name #!key (run #f) (build #f))
   (table-set! jazz.Products-Table name (%%make-product name run build)))
 
 
@@ -572,14 +572,18 @@
 
 (define (jazz.run-product name)
   (jazz.load-product-definition name)
-  (let ((product (jazz.get-registered-product name)))
-    ((%%product-run product))))
+  (let ((run (%%product-run (jazz.get-registered-product name))))
+    (if run
+        (run)
+      (jazz.error "Product is not runnable: {s}" name))))
 
 
 (define (jazz.build-product name)
   (jazz.load-product-definition name)
-  (let ((product (jazz.get-registered-product name)))
-    ((%%product-build product))))
+  (let ((build (%%product-build (jazz.get-registered-product name))))
+    (if build
+        (build)
+      (jazz.error "Product is not buildable: {s}" name))))
 
 
 ;;;

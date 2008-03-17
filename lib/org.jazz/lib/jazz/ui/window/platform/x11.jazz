@@ -297,9 +297,9 @@
 
 
 (definition (destroy-window window)
-  (when use-expose-store?
-    (table-set! expose-store window #f))
-  (table-set! actions-store window #f)
+  (table-set! expose-store window)
+  (table-set! position-store window)
+  (table-set! size-store window)
   (when (= (get-handle~ window) (platform-get-focus))
     (call-focus-lose~ window #f))
   (XDestroyWindow default-x11-display (get-handle~ window)))
@@ -337,9 +337,6 @@
 (definition expose-store (make-table))
 
 
-(definition use-expose-store? #f)
-
-
 ;; this needs to be completed
 (definition (with-event-mutex thunk)
   (thunk))
@@ -347,7 +344,6 @@
 
 (definition (platform-process-messages)
   (let ((msg (XEvent-make)))
-    (set! use-expose-store? #t)
     (while (XNextEvent default-x11-display msg)
       (let* ((any-event (XEvent-xany-ref msg))
              (handle (XAnyEvent-window-ref any-event)))
@@ -356,13 +352,17 @@
               (lparam 0))
           (when window
             (call-dispatch-message~ window msg wparam lparam))))
-      (when (and use-expose-store? (= 0 (XPending default-x11-display)))
-        (iterate-table expose-store
-                       (function (win region)
-                         (when region
-                           (paint~ win region))))
-        (set! expose-store (make-table))))))
+      (when (= 0 (XPending default-x11-display))
+        (process-expose)))))
 
+
+(definition (process-expose)
+  (iterate-table expose-store
+    (function (win region)
+      (table-set! expose-store win)
+      (when region
+        (paint~ win region)))))
+  
 
 (definition (platform-process-one-message)
   (let ((msg (XEvent-make)))
@@ -388,12 +388,10 @@
               (region (new Rect left top right bottom))
               (old-region (table-ref expose-store window #f)))
          (unless (nu=? region {Rect 0 0 0 0})
-           (if use-expose-store?
-               (if old-region
-                   (table-set! expose-store window (rect-union old-region region))
-                 (table-set! expose-store window region))
-             (paint~ window region)
-             processed))))
+	     (if old-region
+                 (table-set! expose-store window (rect-union old-region region))
+               (table-set! expose-store window region))
+             processed)))
       
       
       ((= type ButtonPress)
@@ -440,6 +438,7 @@
                    (= detail NotifyNonlinear))
            (call-focus-gain~ window))))
       
+
       ((= type FocusOut)
        (let* ((msg (XEvent-xfocus-ref msg))
               (detail (XFocusChangeEvent-detail-ref msg)))
@@ -448,12 +447,14 @@
                    (= detail NotifyNonlinear))
            (call-focus-lose~ window #f))))
       
+
       ((= type MotionNotify)
        (let* ((msg (XEvent-xmotion-ref msg))
               (h (XMotionEvent-x-ref msg))
               (v (XMotionEvent-y-ref msg)))
          (mouse-move~ window h v)))
       
+
       ((= type KeyPress)
        (let* ((msg (XEvent-xkey-ref msg))
               (keycode (XKeyEvent-keycode-ref msg))
@@ -469,7 +470,8 @@
                (if (and key (char? key))
                    (call-key-press~ window key)
                  unprocessed))))))
-      
+
+
       ((= type ConfigureNotify)
        (let* ((msg (XEvent-xconfigure-ref msg))
               (width (XConfigureEvent-width-ref msg))
@@ -479,11 +481,12 @@
               (prev-size (get-previous-size~ window))
               (prev-pos (get-previous-pos~ window)))
          (unless (nu=? prev-size (new Dimension width height))
-           (table-set! expose-store window #f)
+           (table-set! expose-store window)
            (call-size-change~ window width height))
          (unless (nu=? prev-pos (new Point x y))
            (call-position-change~ window x y))))
       
+
       ((= type SelectionRequest)
        (let* ((msg (XEvent-xselectionrequest-ref msg))
               (requestor (XSelectionRequestEvent-requestor-ref msg))
@@ -493,26 +496,6 @@
          (XSendClipboardString default-x11-display (get-handle~ window) requestor selection target property)))
       
       (else                      unprocessed))))
-
-(definition (event-loop)
-  (let ((ev (XEvent-make)))
-    (let loop ()
-      (XNextEvent default-x11-display ev)
-      (let ((win (get-window (XAnyEvent-window-ref (XEvent-xany-ref ev)))))
-        (if win
-        (let ((result (process-window-message win ev)))
-          (cond
-           ((eq? result unprocessed) 
-            (begin (format ':console "Unprocessed event {s}.\n" (XEvent-type-ref ev))
-               (loop)))
-           ((eq? result processed)
-            (loop))
-           ((eq? result 'exit)
-            (destroy-window~ win))
-           (else                     
-            (error "Bad event handler response {t}" result)))))
-        (loop))))
-      'Finished)
 
 
 (definition (translate-shortcut mods keycode)
@@ -859,17 +842,16 @@
 ;;;
 
 
-(definition actions-store (make-table))
+(definition size-store (make-table))
+(definition position-store (make-table))
 
 
 (definition (add-position-action window position)
-  (let ((action (table-ref actions-store window #f)))
-    (table-set! actions-store window (cons position (and action (cdr action))))))
+  (table-set! position-store window position))
 
 
 (definition (add-size-action window size)
-  (let ((action (table-ref actions-store window #f)))
-    (table-set! actions-store window (cons (and action (car action)) size))))
+  (table-set! size-store window size))
 
 
 (definition (platform-lock-window-update handle)
@@ -882,19 +864,26 @@
 
 (definition (process-window-actions)
   (iterate-table 
-    actions-store
-    (function (window action)
-      (when action
+    position-store
+    (function (window position)
         (let ((handle (get-handle~ window)))
           (hide-window handle)
-          (let ((position (car action))
-                (size     (cdr action)))
-            (if (and position size)
-                (platform-set-position-size handle position size)
-              (when position (platform-set-position handle position))
-              (when size     (platform-set-window-size handle size))))
+	  (let ((size (table-ref size-store window #f)))
+            (if size
+		(begin
+                  (platform-set-position-size handle position size)
+		  (table-set! size-store window))
+              (platform-set-position handle position)))
+	  (table-set! position-store window)
+          (show-window handle))))
+  (iterate-table 
+    size-store
+    (function (window size)
+        (let ((handle (get-handle~ window)))
+          (hide-window handle)
+	  (platform-set-window-size handle size)
+	  (table-set! size-store window)
           (show-window handle)))))
-  (set! actions-store (make-table)))
 
 
 ;;;

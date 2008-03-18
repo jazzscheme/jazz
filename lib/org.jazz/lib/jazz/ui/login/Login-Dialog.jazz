@@ -56,9 +56,8 @@
     (<install>                                              size: {Dimension 400 206} return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press}
       (<Label-View>                 name: title             title: "Welcome to Jedi" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Label-Bold})
       (<Label-View>                 name: description       title: "Please enter the profile that will be used for this session" position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Default-GUI})
-      (<Radio-Button>               name: default-button    title: "Default" position: {Point 25 76} tooltip?: #t tooltip-text: "Use default profile" action-handler: {Event-Handler :form on-default})
-      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 99} tooltip?: #t tooltip-text: "Create a new profile" action-handler: {Event-Handler :form on-new})
-      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 122} tooltip?: #t tooltip-text: "Open an existing profile from the standard directories" action-handler: {Event-Handler :form on-existing})
+      (<Radio-Button>               name: new-button        title: "New" position: {Point 25 83} tooltip?: #t tooltip-text: "Create a new profile" action-handler: {Event-Handler :form on-new})
+      (<Radio-Button>               name: existing-button   title: "Existing" position: {Point 25 109} tooltip?: #t tooltip-text: "Open an existing profile from the standard directories" action-handler: {Event-Handler :form on-existing})
       (<Horizontal-Line>                                    position: {Point 0 48} size: {Dimension 400 8})
       (<Vertical-Line>                                      position: {Point 110 59} size: {Dimension 8 91})
       (<Label-View>                 name: new-label         title: "Name:" position: {Point 136 100} size: {Dimension 33 16} visible?: #f font: {Font name: Default-GUI})
@@ -74,7 +73,6 @@
       (<Horizontal-Line>                                    position: {Point 0 160} size: {Dimension 400 8})
       (<Push-Button>                name: login             title: "Login" position: {Point 117 172} size: {Dimension 80 24} default?: #t action-handler: {Event-Handler :host on-ok})
       (<Push-Button>                name: cancel            title: "Cancel" position: {Point 203 172} size: {Dimension 80 24} action-handler: {Event-Handler :host on-cancel})
-      (<Branch>                     name: default)
       (<Branch>                     name: new
         (<install>
           (<!>                      name: new-label         visible?: #t)
@@ -90,13 +88,8 @@
   
   (method (finish rest)
     (nextmethod rest)
-    (setup-default-profile)
     (setup-new-profile)
     (setup-existing-profiles))
-  
-  
-  (method (setup-default-profile)
-    )
   
   
   (method (setup-new-profile)
@@ -106,8 +99,8 @@
   (method (setup-existing-profiles)
     (let ((profiles (collect-existing-profiles)))
       (cond ((null? profiles)
-             (install-default)
-             (set-selected?~ (locate 'default-button) #t))
+             (install-new)
+             (set-selected?~ (locate 'new-button) #t))
             (else
              (install-existing profiles)
              (set-selected?~ (locate 'existing-button) #t)))))
@@ -127,8 +120,6 @@
   
   (method (get-modal-result)
     (case (get-name~ branch)
-      ((default)
-       'jazz.profile.Me)
       ((new)
        (let ((name (get-string-content~ (locate 'new-profile))))
          (compose-name 'profile (string->symbol name))))
@@ -147,8 +138,6 @@
   
   (method (get-tab-stops)
     (case (get-name~ branch)
-      ((default)
-       '())
       ((new)
        '())
       ((existing)
@@ -158,10 +147,6 @@
   ;;;
   ;;;; Events
   ;;;
-  
-  
-  (method (on-default evt)
-    (install-default))
   
   
   (method (on-new evt)
@@ -204,12 +189,6 @@
   ;;;
   ;;;; Branches
   ;;;
-  
-  
-  (method (install-default)
-    (set-active-branch (locate 'default))
-    (acquire-focus~ self)
-    (update-login))
   
   
   (method (install-new)
@@ -264,8 +243,6 @@
   (method (update-login)
     (when branch
       (case (get-name~ branch)
-        ((default)
-         (set-enabled?~ (locate 'login) #t))
         ((new)
          (set-enabled?~ (locate 'login) (not (empty-string? (get-string-content~ (locate 'new-profile))))))
         ((existing)

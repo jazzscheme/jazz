@@ -524,7 +524,7 @@
 
 
 (define jazz.default-target
-  'jedi)
+  'jazz)
 
 
 (define (jazz.make #!optional (target #f))

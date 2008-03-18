@@ -382,24 +382,26 @@
   
   
   (method public (on-update-catalog evt)
-    (unless (update-catalog)
-      (bell)))
+    (update-catalog))
   
   
   (method (update-catalog)
-    (let ((catalog (require-catalog)))
-      (when catalog
-        (update-file~ catalog (get-moniker))
-        (user-message "Done")
-        #t)))
+    (let ((catalog (find-catalog)))
+      (if (not catalog)
+          (bell)
+        (if (update-file~ catalog (get-moniker))
+            (user-message "Updated")
+          (user-message "Already up-to-date")))))
   
   
-  (method (require-catalog)
+  (method (find-catalog)
     (let ((moniker (get-moniker)))
       (when moniker
-        (let ((entry (get-source-entry~ (get-workbench) moniker)))
-          (when entry
-            (require-catalog~ entry))))))
+        (let ((entries (get-file-entries~ (get-cataloguer~ (get-application)) moniker)))
+          (when (not-null? entries)
+            ;; quicky until we check for catalogs overlapping
+            (let ((entry (car entries)))
+              (get-catalog~ entry)))))))
 
   
   ;;;

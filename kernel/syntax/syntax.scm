@@ -146,11 +146,11 @@
 ;;;
 
 
-;; A product is the runtime implementation of some user level entity that can be run and built.
+;; A product is the runtime implementation of some user level entity that can be run and updated / built.
 
 
-(jazz.define-macro (%%make-product name run build)
-  `(%%vector 'product ,name ,run ,build))
+(jazz.define-macro (%%make-product name run update build)
+  `(%%vector 'product ,name ,run ,update ,build))
 
 
 (jazz.define-macro (%%product-name product)
@@ -159,8 +159,11 @@
 (jazz.define-macro (%%product-run product)
   `(%%vector-ref ,product 2))
 
-(jazz.define-macro (%%product-build product)
+(jazz.define-macro (%%product-update product)
   `(%%vector-ref ,product 3))
+
+(jazz.define-macro (%%product-build product)
+  `(%%vector-ref ,product 4))
 
 
 ;;;

@@ -554,8 +554,8 @@
   (make-table test: eq?))
 
 
-(define (jazz.register-product name #!key (run #f) (build #f))
-  (table-set! jazz.Products-Table name (%%make-product name run build)))
+(define (jazz.register-product name #!key (run #f) (update #f) (build #f))
+  (table-set! jazz.Products-Table name (%%make-product name run update build)))
 
 
 (define (jazz.get-registered-product name)
@@ -579,6 +579,14 @@
     (if run
         (run)
       (jazz.error "Product is not runnable: {s}" name))))
+
+
+(define (jazz.update-product name)
+  (jazz.load-product-definition name)
+  (let ((update (%%product-update (jazz.get-registered-product name))))
+    (if update
+        (update)
+      (jazz.error "Product is not updateable: {s}" name))))
 
 
 (define (jazz.build-product name)

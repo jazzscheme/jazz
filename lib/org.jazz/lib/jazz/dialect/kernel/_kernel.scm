@@ -275,6 +275,8 @@
 (native jazz.register-product)
 (native jazz.get-registered-product)
 (native jazz.run-product)
+(native jazz.update-product)
+(native jazz.build-product)
 (native jazz.find-module-src)
 (native jazz.module-autoload)
 (native jazz.get-environment)

@@ -173,18 +173,24 @@
   (method (update-selection)
     (let* ((tree (locate 'catalogs))
            (selection (get-selection~ tree)))
-      (for-each (function (r)
-                  (let ((catalog (get-user-data~ (get-row~ tree r))))
+      (define (effective-selection selection)
+        (if (null? selection)
+            (naturals 0 (get-row-count~ tree))
+          selection))
+      
+      (for-each (function (row)
+                  (let ((catalog (get-user-data~ (get-row~ tree row))))
                     (update~ catalog)
-                    (let ((cell (new Cell r 2)))
+                    (let ((cell (new Cell row 2)))
                       (set-title~ (get-cell-data~ tree cell) (get-statistics~ catalog))
                       (invalidate-cell~ tree cell))))
-                selection)))
+                (effective-selection selection))))
   
   
   (method (update-buttons)
-    (let ((selection (get-selection~ (locate 'catalogs))))
-      (set-enabled?~ (locate 'update) (not-null? selection))))
+    (let ((tree (locate 'catalogs)))
+      (let ((count (get-row-count~ tree)))
+        (set-enabled?~ (locate 'update) (> count 0)))))
   
 
   ;;;

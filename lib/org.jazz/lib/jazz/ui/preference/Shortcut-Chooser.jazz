@@ -95,18 +95,8 @@
     {Dimension 408 249})
   
   
-  @convert-dialog
   (method meta (dialog-class)
     Shortcut-Chooser-Host-Dialog)
-  
-
-  @convert-dialog
-  (class meta Shortcut-Chooser-Host-Dialog extends Host-Dialog
-    
-    
-    (method (destroy)
-      (set-shortcut-hook~ (get-application) {})
-      (nextmethod)))
   
   
   ;;;
@@ -175,14 +165,7 @@
         (set! selected-shortcut shortcut)
         (let ((designer (get-bindings-designer~ (get-application)))
               (tree (get-tree)))
-          (view-bindings~ tree designer conflicts 'list)
-          @old
-          (with-update-locked~ tree
-            (function ()
-              (remove-every-row~ tree)
-              (for-each (function (action)
-                          (add-row~ tree children: (list (new Tree-Node title: (format "{a}.{a}" (get-name~ (get-parent~ action)) (get-name~ action)) image: {Bitmap-Resource "Link"}) (new Tree-Label title: (present~ shortcut))) user-data: action))
-                        conflicts))))
+          (view-bindings~ tree designer conflicts 'list))
         (set-enabled?~ (locate 'choose) #t)
         (set-enabled?~ (locate 'accept) #t))))
   
@@ -192,11 +175,24 @@
       (for-each (function (actions)
                   (for-each (function (action)
                               (let ((action-shortcut (get-shortcut~ action)))
-                                (when (equal? action-shortcut shortcut)
+                                (when (and action-shortcut (shortcut=? action-shortcut shortcut))
                                   (put~ fact action))))
                             (get-children~ actions)))
                 (get-children~ (get-bindings~ (get-application))))
       (get-output~ fact))))
+
+
+;;;
+;;;; Host-Dialog
+;;;
+
+
+(class Shortcut-Chooser-Host-Dialog extends Host-Dialog
+  
+  
+  (method (destroy)
+    (set-shortcut-hook~ (get-application) {})
+    (nextmethod)))
 
 
 ;;;

@@ -60,8 +60,8 @@
         (<Separator>                                         size: {Dimension 32 0})
         (<Push-Tool>                   name: unbind-key      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Key Unbound" image-name: {Bitmap-Resource "Cancel"} portfolio: :icons action-handler: {Event-Handler :form on-unbind-key})
         (<Separator>                                         size: {Dimension 2 0})
-        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "TypeConflicts"} portfolio: :icons action-handler: {Event-Handler :form on-restore-key})
-        (<Separator>                                         size: {Dimension 24 0})
+        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "Link"} portfolio: :icons action-handler: {Event-Handler :form on-restore-key})
+        (<Separator>                                         size: {Dimension 26 0})
         (<Push-Tool>                   name: edit-action     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Action" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler :form on-edit-action})
         (<Push-Button>                 name: bind-key        location: tail title: "Bind" size: {Dimension 100 22} action-handler: {Event-Handler :form on-bind-key} default?: #t))
       (<Border-View>                   name: bindings-border location: center border-type: edge style: entry
@@ -69,12 +69,13 @@
           (<content!>                                        layout-type: fill
             (<Tree-Header>                                   style: document
               (<content!>
-                (<Bindings-Tree>       name: bindings        double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
+                (<Bindings-Tree>       name: bindings        selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} return-press-handler: {Event-Handler :form on-return-press}))))))))
 
 
   (method (conclude initargs)
     (nextmethod initargs)
-    (view-bindings))
+    (view-bindings)
+    (update-buttons))
   
   
   ;;;
@@ -100,6 +101,10 @@
   
   (method (host-workspaces)
     '(home))
+  
+  
+  (method (focus-default)
+    (acquire-focus~ (get-tree)))
   
   
   ;;;
@@ -150,6 +155,10 @@
     (edit-action))
   
   
+  (method (on-selection-change evt)
+    (update-buttons))
+  
+  
   ;;;
   ;;;; Binding
   ;;;
@@ -157,44 +166,35 @@
   
   (method (unbind-key)
     (let ((appl (get-application))
-          (tree (get-tree))
-          (info (selected-action-item)))
-      (if (null? info)
-          (bell)
-        (receive (action-item rank) info
-          (let ((designer (get-bindings-designer~ appl))
-                (old (get-shortcut~ action-item)))
-            (set-property~ designer action-item 'shortcut {})
-            (update-shortcut~ appl action-item old (get-shortcut~ action-item))
-            (update-action-item tree designer action-item rank))))))
+          (tree (get-tree)))
+      (receive (action-item rank) (selected-action-item/rank)
+        (let ((designer (get-bindings-designer~ appl))
+              (old (get-shortcut~ action-item)))
+          (set-property~ designer action-item 'shortcut {})
+          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (update-action-item tree designer action-item rank)))))
   
   
   (method (restore-key)
     (let ((appl (get-application))
-          (tree (get-tree))
-          (info (selected-action-item)))
-      (if (null? info)
-          (bell)
-        (receive (action-item rank) info
-          (let ((designer (get-bindings-designer~ appl))
-                (old (get-shortcut~ action-item)))
-            (remove-property~ designer action-item 'shortcut {})
-            (update-shortcut~ appl action-item old (get-shortcut~ action-item))
-            (update-action-item tree designer action-item rank))))))
+          (tree (get-tree)))
+      (receive (action-item rank) (selected-action-item/rank)
+        (let ((designer (get-bindings-designer~ appl))
+              (old (get-shortcut~ action-item)))
+          (remove-property~ designer action-item 'shortcut {})
+          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (update-action-item tree designer action-item rank)))))
   
   
   (method (bind-key)
     (let ((appl (get-application))
-          (tree (get-tree))
-          (info (selected-action-item)))
-      (if (null? info)
-          (bell)
-        (receive (action-item rank) info
-          (let ((designer (get-bindings-designer~ appl))
-                (old (get-shortcut~ action-item)))
-            (set-property~ designer action-item 'shortcut (get-modal Shortcut-Chooser))
-            (update-shortcut~ appl action-item old (get-shortcut~ action-item))
-            (update-action-item tree designer action-item rank))))))
+          (tree (get-tree)))
+      (receive (action-item rank) (selected-action-item/rank)
+        (let ((designer (get-bindings-designer~ appl))
+              (old (get-shortcut~ action-item)))
+          (set-property~ designer action-item 'shortcut (get-modal Shortcut-Chooser))
+          (update-shortcut~ appl action-item old (get-shortcut~ action-item))
+          (update-action-item tree designer action-item rank)))))
   
   
   (method (update-action-item tree designer action-item rank)
@@ -212,15 +212,10 @@
   
   
   (method (edit-action)
-    (let ((appl (get-application))
-          (info (selected-action-item)))
-      (if (null? info)
+    (let ((action-handler (get-action-handler~ (selected-action-item))))
+      (if (not action-handler)
           (bell)
-        (receive (action-item rank) info
-          (let ((action-handler (get-action-handler~ action-item)))
-            (if (null? action-handler)
-                (bell)
-              (edit-definition~ appl (get-method-name~ action-handler))))))))
+        (edit-definition~ (get-application) (get-method-name~ action-handler)))))
   
   
   ;;;
@@ -228,14 +223,20 @@
   ;;;
   
   
-  (method (selected-action-item)
+  (method (selected-action-item/rank)
     (let* ((tree (get-tree))
            (rank (get-single-selection~ tree)))
       (when rank
-        (let* ((row (get-row~ tree rank))
-               (data (get-user-data~ row)))
-          (when (is? data Action-Item)
-            (values data rank))))))
+        (let ((data (get-user-data~ (get-row~ tree rank))))
+          (values data rank)))))
+  
+  
+  (method (selected-action-item)
+    (let ((info (selected-action-item/rank)))
+      (if (not info)
+          #f
+        (receive (action-item rank) info
+          action-item))))
   
   
   ;;;
@@ -249,4 +250,12 @@
             (bindings (get-bindings~ appl))
             (kind (if categorized? 'categorized 'flat))
             (tree (get-tree)))
-        (view-bindings~ tree designer bindings kind))))))
+        (view-bindings~ tree designer bindings kind))))
+  
+  
+  (method (update-buttons)
+    (let ((action-item (selected-action-item)))
+      (set-enabled?~ (locate 'unbind-key) action-item)
+      (set-enabled?~ (locate 'restore-key) action-item)
+      (set-enabled?~ (locate 'edit-action) action-item)
+      (set-enabled?~ (locate 'bind-key) action-item)))))

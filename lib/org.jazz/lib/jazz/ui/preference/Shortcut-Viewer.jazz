@@ -1,0 +1,211 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Shortcut Viewer
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.preference.Shortcut-Viewer jazz
+
+
+(import (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Shortcut-Viewer extends Layout-View
+  
+  
+  (slot selected-shortcut initialize {})
+  
+  
+  (form
+    (<install>                                           layout-type: border
+      (<Header-View>               name: header          size: {Dimension 100 56} location: north
+        (<Label-View>              name: title           title: "View bindings" position: {Point 10 9} size: {Dimension 350 16} font: {Font name: Label-Bold})
+        (<Label-View>              name: description     position: {Point 30 27} size: {Dimension 350 16} font: {Font name: Default-GUI}))
+      (<Horizontal-Line>                                 position: {Point 0 54} size: {Dimension 408 2})
+      (<View>                      name: bindings-view   location: center
+        (<Label-View>              name: title           title: "Bindings:" position: {Point 6 6} size: {Dimension 350 16})
+        (<Border-View>             name: bindings-border position: {Point 6 24} size: {Dimension 396 124} border-type: edge style: entry
+          (<Scroller-View>                               style: document hscroll?: #t vscroll?: #t
+            (<!>                   name: content         layout-type: fill
+              (<Tree-Header>                             style: document
+                (<!>               name: content
+                  (<Bindings-Tree> name: bindings        return-press-handler: {Event-Handler :form on-return-press} escape-press-handler: {Event-Handler :form on-escape-press})))))))
+      (<Horizontal-Line>                                 position: {Point 0 210} size: {Dimension 408 2})
+      (<View>                      name: buttons         size: {Dimension 100 40} location: south
+        (<Push-Button>             name: choose          title: "Choose Again" position: {Point 7 9} size: {Dimension 120 24} enabled?: #f action-handler: {Event-Handler :form on-choose})
+        (<Push-Button>             name: ok              title: "OK" position: {Point 215 9} size: {Dimension 90 24} enabled?: #f default?: #t action-handler: {Event-Handler :host on-ok})
+        (<Push-Button>             name: cancel          title: "Cancel" position: {Point 311 9} size: {Dimension 90 24} action-handler: {Event-Handler :host on-cancel}))))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (setup-description)
+    (setup-chooser)
+    (acquire-focus~ (get-tree)))
+    
+  
+  ;;;
+  ;;;; Host
+  ;;;
+
+  
+  (method meta (host-title)
+    "Bindings")
+  
+  
+  (method meta (host-size)
+    {Dimension 408 249})
+  
+  
+  (method meta (dialog-class)
+    Shortcut-Chooser-Host-Dialog)
+  
+  
+  ;;;
+  ;;;; Setup
+  ;;;
+  
+  
+  (method virtual (setup-description)
+    (set-title~ (locate 'description)
+      "Please press the shortcut whose bindings who wish to view"))
+  
+  
+  (method (setup-chooser)
+    (set-shortcut-hook~ (get-application)
+      (function (shortcut)
+        (set-shortcut-hook~ (get-application) {})
+        (choose shortcut))))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method (get-tree)
+    (locate 'bindings))
+    
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (on-choose evt)
+    (set! selected-shortcut {})
+    (remove-every-row~ (get-tree))
+    (set-enabled?~ (locate 'choose) #f)
+    (set-enabled?~ (locate 'ok) #f)
+    (setup-chooser))
+  
+  
+  (method (on-return-press evt)
+    (when (get-enabled?~ (locate 'ok))
+      (let ((dialog (get-host)))
+        (end-modal~ dialog (get-modal-result)))))
+  
+  
+  (method (on-escape-press evt)
+    (let ((dialog (get-host)))
+      (cancel-modal~ dialog)))
+  
+  
+  (method (get-modal-result)
+    selected-shortcut)
+    
+  
+  ;;;
+  ;;;; Choose
+  ;;;
+  
+  
+  (method (choose shortcut)
+    (let ((bindings (gather-bindings shortcut)))
+      (when (choose-hook shortcut bindings)
+        (set! selected-shortcut shortcut)
+        (let ((designer (get-bindings-designer~ (get-application)))
+              (tree (get-tree)))
+          (view-bindings~ tree designer bindings 'list))
+        (set-enabled?~ (locate 'choose) #t)
+        (set-enabled?~ (locate 'ok) #t))))
+  
+  
+  (method protected virtual (choose-hook shortcut bindings)
+    #t)
+  
+  
+  (method (gather-bindings shortcut)
+    (let ((fact (new List-Factory)))
+      (for-each (function (actions)
+                  (for-each (function (action)
+                              (let ((action-shortcut (get-shortcut~ action)))
+                                (when (and action-shortcut (shortcut=? action-shortcut shortcut))
+                                  (put~ fact action))))
+                            (get-children~ actions)))
+                (get-children~ (get-bindings~ (get-application))))
+      (get-output~ fact))))
+
+
+;;;
+;;;; Host-Dialog
+;;;
+
+
+(class Shortcut-Chooser-Host-Dialog extends Host-Dialog
+  
+  
+  (method (destroy)
+    (set-shortcut-hook~ (get-application) {})
+    (nextmethod)))
+
+
+;;;
+;;;; Header-View
+;;;
+
+
+(class Header-View extends View
+  
+  
+  (definition Header-Color
+    (new Color red: 120 green: 120 blue: 255))
+  
+  
+  (method (draw surface context update lh lv)
+    (gradient-fill~ surface (get-bounds) {Color name: White} Header-Color))))

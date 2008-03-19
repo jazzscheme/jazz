@@ -57,11 +57,15 @@
     (<install>                                               size: {Dimension 420 639} layout-type: border
       (<Layout-View>                   name: toolbar         size: {Dimension 300 33} location: north layout-type: flow layout-insets: {Rect 0 6 0 0}
         (<Toggle-Tool>                 name: categorize      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Categorize / Flatten" image-name: {Bitmap-Resource "Tree"} portfolio: :icons action-handler: {Event-Handler :form on-categorize})
-        (<Separator>                                         size: {Dimension 32 0})
-        (<Push-Tool>                   name: unbind-key      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Key Unbound" image-name: {Bitmap-Resource "Cancel"} portfolio: :icons action-handler: {Event-Handler :form on-unbind-key})
+        (<Separator>                                         size: {Dimension 16 0})
+        (<Border-View>                                       size: {Dimension 140 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
+          (<Border-View>                                     border-color: {Color red: 200 green: 188 blue: 166}
+            (<Branches-Combo>          name: branches)))
+        (<Separator>                                         size: {Dimension 16 0})
+        (<Push-Tool>                   name: unbind-key      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Make Key Unbound" image-name: {Bitmap-Resource "Empty"} portfolio: :icons action-handler: {Event-Handler :form on-unbind-key})
         (<Separator>                                         size: {Dimension 2 0})
-        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "Link"} portfolio: :icons action-handler: {Event-Handler :form on-restore-key})
-        (<Separator>                                         size: {Dimension 26 0})
+        (<Push-Tool>                   name: restore-key     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restore to Default" image-name: {Bitmap-Resource "FindBackward"} portfolio: :icons action-handler: {Event-Handler :form on-restore-key})
+        (<Separator>                                         size: {Dimension 16 0})
         (<Push-Tool>                   name: edit-action     size: {Dimension 22 22} tooltip?: #t tooltip-text: "Edit Action" image-name: {Bitmap-Resource "Edit"} portfolio: :icons action-handler: {Event-Handler :form on-edit-action})
         (<Push-Button>                 name: bind-key        location: tail title: "Bind" size: {Dimension 100 22} action-handler: {Event-Handler :form on-bind-key} default?: #t))
       (<Border-View>                   name: bindings-border location: center border-type: edge style: entry
@@ -75,6 +79,7 @@
   (method (conclude initargs)
     (nextmethod initargs)
     (view-bindings)
+    (update-branches)
     (update-buttons))
   
   
@@ -96,7 +101,7 @@
   
   
   (method meta (host-size)
-    {Dimension 416 635})
+    {Dimension 466 635})
   
   
   (method (host-workspaces)
@@ -157,6 +162,18 @@
   
   (method (on-selection-change evt)
     (update-buttons))
+  
+  
+  (method (branch-change branch)
+    (let ((appl (get-application)))
+      (let ((bindings (get-bindings~ appl)))
+        (when (neq? branch (get-active-branch~ bindings))
+          (with-cursor :wait
+            (function ()
+              (set-active-branch~ bindings branch)
+              (set-preferences-property~ appl (get-preferences #f) 'active-bindings (get-name~ branch))
+              (view-bindings)
+              (update-buttons)))))))
   
   
   ;;;
@@ -253,9 +270,33 @@
         (view-bindings~ tree designer bindings kind))))
   
   
+  (method (update-branches)
+    (let ((bindings (get-bindings~ (get-application)))
+          (combo (locate 'branches)))
+      (set-choices~ combo (map (function (branch)
+                                 (list branch (->string (get-name~ branch))))
+                               (get-branches~ bindings)))
+      (set-value~ combo (get-branch~ bindings))))
+  
+  
   (method (update-buttons)
     (let ((action-item (selected-action-item)))
       (set-enabled?~ (locate 'unbind-key) action-item)
       (set-enabled?~ (locate 'restore-key) action-item)
       (set-enabled?~ (locate 'edit-action) action-item)
-      (set-enabled?~ (locate 'bind-key) action-item)))))
+      (set-enabled?~ (locate 'bind-key) action-item))))
+
+
+;;;
+;;;; Branches
+;;;
+
+
+(class Branches-Combo extends Combo-Box
+  
+  
+  (method (content-change origin)
+    (branch-change~ (get-guest~ (get-host)) (get-value))))
+
+
+(register-autoclass Branches-Combo))

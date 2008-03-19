@@ -977,7 +977,8 @@
       (for-each (function (actions)
                   (for-each (function (action-item)
                               (let ((shortcut (get-shortcut~ action-item)))
-                                (when shortcut
+                                ;; the second test is necessary because bindings can be changed on-the-fly in the ide
+                                (when (and shortcut (table-ref shortcut-table shortcut #f))
                                   (table-remove! shortcut-table shortcut action-item))))
                             (get-children~ actions)))
                 old-actions)
@@ -1032,9 +1033,10 @@
       (function ()
         (set! bindings (load-bindings))
         (set! bindings-designer (new Designer form: (get-form~ bindings) reference: bindings))
-        (let ((branch (locate-component~ bindings 'default)))
-          (when (is? branch Branch)
-            (set-active-branch~ bindings branch))))
+        (let ((active (either (get-active-bindings~ (get-preferences #f)) 'standard)))
+          (let ((branch (locate-component~ bindings active)))
+            (when (is? branch Branch)
+              (set-active-branch~ bindings branch)))))
       continue-handler:
       (function (err)
         )))

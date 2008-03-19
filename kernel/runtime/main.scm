@@ -194,10 +194,14 @@
       (jazz.build-x11))))
 
 
-(define (jazz.load-platform)
+(define (jazz.load-literals)
   (jazz.load-module 'core.library)
   (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.literals)
+  (jazz.load-module 'jazz.literals))
+
+
+(define (jazz.load-platform)
+  (jazz.load-literals)
   (jazz.load-module 'jazz.platform)
   (jazz.load-module 'jazz.platform.literals))
 

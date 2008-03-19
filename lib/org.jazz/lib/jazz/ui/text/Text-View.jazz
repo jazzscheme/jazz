@@ -606,6 +606,11 @@
     (backspace word?))
   
   
+  (method (on-delete-action evt)
+    (let ((word? (get-property~ evt word?:)))
+      (delete-action word?)))
+  
+  
   (method (delete-press key (word?: word? #f))
     (delete-action word?))
   
@@ -1220,57 +1225,65 @@
       (if extend-selection?
           (change-selection end)
         (set-caret end))))
+    
+  
+  (method (on-move evt)
+    (let ((direction (get-property~ evt direction:))
+          (extend? (get-property~ evt extend?:))
+          (word? (get-property~ evt word?:))
+          (scroll? (get-property~ evt scroll?:)))
+      (case direction
+        ((left) (left-arrow-move  extend? word?))
+        ((right) (right-arrow-move extend? scroll?))
+        ((up) (up-arrow-move extend? word?))
+        ((down) (down-arrow-move extend? scroll?)))))
   
   
-  (method (left-arrow-press modifiers)
+  (method (left-arrow-move extend? word?)
     (reset-virtual)
-    (if (shift-key? modifiers)
-        (change-selection (move-backward (selection-tail 'backward) (control-key? modifiers)))
+    (if extend?
+        (change-selection (move-backward (selection-tail 'backward) word?))
       (if (empty-selection?)
-          (set-caret (move-backward (selection-tail 'backward) (control-key? modifiers)))
+          (set-caret (move-backward (selection-tail 'backward) word?))
         (set-caret (get-start))))
     (process-selection-change))
   
   
-  (method (up-arrow-press modifiers)
-    (let* ((shift? (shift-key? modifiers))
-           (control? (control-key? modifiers))
-           (pos (if shift? (selection-tail 'backward) (get-start)))
+  (method (up-arrow-move extend? scroll?)
+    (let* ((pos (if extend? (selection-tail 'backward) (get-start)))
            (row (get-row~ pos))
            (col (get-col~ pos)))
-      (cond (control?
+      (cond (scroll?
               (let ((height (get-default-height)))
                 (scroll (new Point 0 height))))
             (else
              (if (> row 0)
-                 (move-verticaly row col -1 'backward shift?)
-               (unless shift? (reset-selection (get-start))))
+                 (move-verticaly row col -1 'backward extend?)
+               (unless extend? (reset-selection (get-start))))
              (process-selection-change)))))
   
   
-  (method (right-arrow-press modifiers)
+  (method (right-arrow-move extend? word?)
     (reset-virtual)
-    (if (shift-key? modifiers)
-        (change-selection (move-forward (selection-tail 'forward) (control-key? modifiers)))
+    (if extend?
+        (change-selection (move-forward (selection-tail 'forward) word?))
       (if (empty-selection?)
-          (set-caret (move-forward (selection-tail 'forward) (control-key? modifiers)))
+          (set-caret (move-forward (selection-tail 'forward) word?))
         (set-caret (get-end))))
     (process-selection-change))
   
   
-  (method (down-arrow-press modifiers)
-    (let* ((shift? (shift-key? modifiers))
-           (control? (control-key? modifiers))
-           (pos (if shift? (selection-tail 'forward) (get-end)))
+  (method (down-arrow-move extend? scroll?)
+    (let* ((pos (if extend? (selection-tail 'forward) (get-end)))
            (row (get-row~ pos))
            (col (get-col~ pos)))
-      (cond (control?
+      (cond (scroll?
               (let ((height (get-default-height)))
                 (scroll (new Point 0 (- height)))))
             (else
              (if (< row (get-limit))
-                 (move-verticaly row col 1 'forward shift?)
-               (unless shift? (reset-selection (get-end))))
+                 (move-verticaly row col 1 'forward extend?)
+               (unless extend? (reset-selection (get-end))))
              (process-selection-change)))))
   
   

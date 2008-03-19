@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; History-Menu
+;;;; History
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,46 +35,27 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.history.History-Menu jazz
+(library jazz.ui.history jazz
 
 
-(import (jazz.library)
-        (jazz.platform)
-        (jazz.ui)
-        (jazz.ui.history)
+(import (jazz.ui)
         (jazz.utilities))
 
 
-(class History-Menu extends Context-Menu
-  
-  
-  (property manager   accessors generate)
-  (property direction accessors generate)
-  
-  
-  ;;;
-  ;;;; Setup
-  ;;;
-  
-  
-  (method (finish rest)
-    (nextmethod rest)
-    (let ((rank 0))
-      (for-each (function (item)
-                  (let ((title (present~ item)))
-                    (new Label-Item parent: self title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list rank: rank)))
-                    (increase! rank)))
-                (get-history manager direction))))
-  
-  
-  ;;;
-  ;;;; Action
-  ;;;
-  
-  
-  (method (on-action evt)
-    (let ((appl (get-application))
-          (rank (get-property~ evt rank:)))
-      (case direction
-        ((backward) (go-backward-history~ manager rank: rank))
-        ((forward)  (go-forward-history~ manager rank: rank)))))))
+;;;
+;;;; Tracking
+;;;
+
+
+(definition public (track-history sender initiator manager direction)
+  (let ((pos (new Point 0 (get-height~ (get-size~ sender))))
+        (history (get-history manager direction)))
+    (if (null? history)
+        (bell)
+      (track-popup-menu~ sender (new History-Menu manager: manager direction: direction) pos initiator: initiator))))
+
+
+(definition (get-history manager direction)
+  (case direction
+    ((backward) (get-backward-history~ manager))
+    ((forward)  (get-forward-history~ manager)))))

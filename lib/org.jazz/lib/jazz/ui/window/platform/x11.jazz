@@ -256,7 +256,6 @@
 (definition (window-default-parent window)
   (typecase window
     ((Frame) (get-stage))
-    ((Popup) (get-toplevel))
     (else #f)))
 
 
@@ -279,6 +278,7 @@
          (attr      (XSetWindowAttributes-make))
          (visual    (XDefaultVisual default-x11-display screen-no)))
     (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
+    (XSetWindowAttributes-override_redirect-set! attr (is? window Popup))
     (if (is? window Desktop)
         (platform-get-desktop)
       (XCreateWindow 
@@ -292,7 +292,7 @@
         CopyFromParent
         InputOutput
         visual
-        CWBitGravity
+        (+ CWBitGravity CWOverrideRedirect)
         attr))))
 
 
@@ -635,10 +635,7 @@
 (definition (platform-set-position handle pos)
   (if *locked-update*
       (add-position-action (get-window handle) pos)
-    (if (is? (get-window handle) Popup)
-        (receive (h v) (XTranslateCoordinates default-x11-display (platform-get-desktop) (get-handle~ (get-parent~ (get-window handle))) (get-h~ pos) (get-v~ pos))
-          (XMoveWindow default-x11-display handle h v))
-      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos)))))
+      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))))
   
 
 (definition (platform-get-size handle)

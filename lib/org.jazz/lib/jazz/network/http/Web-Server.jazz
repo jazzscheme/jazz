@@ -112,11 +112,11 @@
         (let ((generator (find-generator request resource)))
           (if generator
               (generator request)
-            (let ((servlet-info (find-servlet-info resource)))
-              (if servlet-info
-                  (bind (resource servlet-class . rest) servlet-info
+            (let ((pages-info (find-pages-info resource)))
+              (if pages-info
+                  (bind (resource pages-class . rest) pages-info
                     (bind-optionals ((needs-authentification? #f)) rest
-                      (process-servlet request resource servlet-class needs-authentification?)))
+                      (process-pages request resource pages-class needs-authentification?)))
                 (let ((file (find-file-resource resource)))
                   (if (not file)
                       (nextmethod request)
@@ -139,52 +139,52 @@
 
   
   ;;;
-  ;;;; Servlet
+  ;;;; Pages
   ;;;
   
   
-  (method (find-servlet-info resource)
-    (let ((associations (get-servlet-associations)))
+  (method (find-pages-info resource)
+    (let ((associations (get-pages-associations)))
       (assoc resource associations)))
   
   
-  (method protected virtual (get-servlet-associations)
+  (method protected virtual (get-pages-associations)
     '())
   
   
-  (method (process-servlet request resource servlet-class needs-authentification?)
+  (method (process-pages request resource pages-class needs-authentification?)
     (catch (HTTP-Redirect redirect
              (redirect-response request (get-resource~ redirect)))
       (validate-authentification request needs-authentification?)
-      (generate-servlet request resource servlet-class)))
+      (generate-pages request resource pages-class)))
   
   
   (method (validate-authentification request needs-authentification?)
     (when (and needs-authentification? (null? (get-session~ request)))
-      (redirect-servlet unauthentified-resource)))
+      (redirect-pages unauthentified-resource)))
   
   
-  (method (generate-servlet request resource servlet-class)
+  (method (generate-pages request resource pages-class)
     (when html-generator
-      (generate-static-page request resource servlet-class html-generator))
-    (call-listeners-receive-servlet-request request resource servlet-class)
+      (generate-static-page request resource pages-class html-generator))
+    (call-listeners-receive-pages-request request resource pages-class)
     (let* ((pref (jml-preferences))
-           (servlet (new (autoload servlet-class) self request {} pref))
+           (pages (new (autoload pages-class) self request {} pref))
            (renderer (jml-renderer pref))
-           (jml (process-request~ servlet request resource))
+           (jml (process-request~ pages request resource))
            (printer (open-output-string)))
       (render~ renderer jml printer)
       (get-output-string printer)))
   
   
-  (method (generate-static-page request resource servlet-class html-generator)
+  (method (generate-static-page request resource pages-class html-generator)
     (let* ((pref (jml-preferences))
-           (servlet (new (autoload servlet-class) self request html-generator pref)))
-      (when (generate-page?~ html-generator resource servlet)
-        (setup-directory~ html-generator request resource servlet)
+           (pages (new (autoload pages-class) self request html-generator pref)))
+      (when (generate-page?~ html-generator resource pages)
+        (setup-directory~ html-generator request resource pages)
         (let ((renderer (jml-renderer pref))
-              (jml (process-request~ servlet request resource))
-              (static-file (generated-page~ html-generator request root-directory resource servlet)))
+              (jml (process-request~ pages request resource))
+              (static-file (generated-page~ html-generator request root-directory resource pages)))
           (create-directories~ static-file)
           (call-with-output-file (parse~ static-file)
             (function (printer)
@@ -196,7 +196,7 @@
   ;;;
   
   
-  (method public (redirect-servlet resource)
+  (method public (redirect-pages resource)
     (throw (new HTTP-Redirect resource)))
   
   

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Menu Servlet
+;;;; HTTP Pages
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,42 +35,101 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.tutorials.server.Menu-Servlet jazz
+(library jazz.network.http.HTTP-Pages jazz
 
 
 (import (jazz.jml)
+        (jazz.library)
         (jazz.network)
         (jazz.utilities))
 
 
-(class Menu-Servlet extends HTTP-Servlet
+(class HTTP-Pages extends XHTML-Parser
   
   
-  (definition Pattern-Associations
-    '(("Menu" (<menu>))))
+  (slot server)
+  (slot request)
+  (slot generator)
   
   
-  (method (get-pattern-associations)
-    Pattern-Associations)
-  
+  (method (initialize server request generator preferences)
+    (nextmethod preferences: preferences)
+    (set! server~self server)
+    (set! request~self request)
+    (set! generator~self generator))
+
   
   ;;;
-  ;;;; Menu
+  ;;;; Access
   ;;;
   
   
-  (pattern (menu node)
-    (bind (tag) node
-      `(<html>
-         (<head>
-           (<title> "Menu"))
-         (<body>
-           (<h3> "Menu")
-           @convert
-           (<ul>
-             (<li> (<a> href: "CSS" "CSS")))
-           (<ul>
-             (<li> (<a> href: "Test" "Test")))
-           @convert
-           (<ul>
-             (<li> (<a> href: "Website" "Website")))))))))
+  (method public (get-server)
+    server)
+  
+  
+  (method public (get-request)
+    request)
+  
+  
+  (method public (get-generator)
+    generator)
+
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method public (process-request request resource)
+    (parse
+      (invoke-pages request resource)))
+  
+  
+  (method virtual (invoke-pages request resource)
+    (either (find-pattern request resource)
+            (error "Unable to find pages for {s}" resource)))
+
+  
+  ;;;
+  ;;;; Pattern
+  ;;;
+  
+  
+  (method (find-pattern request resource)
+    (let ((associations (get-pattern-associations)))
+      (cadr (assoc resource associations))))
+  
+  
+  (method protected virtual (get-pattern-associations)
+    '())
+
+  
+  ;;;
+  ;;;; Pattern
+  ;;;
+  
+  
+  (method public (forward-pages)
+    )
+
+  
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method (debug-info)
+    (if (not (get-debug?~ server))
+        '()
+      `((<hr>)
+        ,@(all-details~ server request))))
+  
+  
+  (method (debug-values . values)
+    (when (get-debug?~ server)
+      `(<table> border: "1"
+         (<tr>
+           ,@(map (function (value)
+                    `(<td> ,(->string value)))
+                  values)))))))

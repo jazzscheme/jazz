@@ -337,9 +337,17 @@
 (definition expose-store (make-table))
 
 
-;; this needs to be completed
+(definition event-mutex
+  (make-mutex))
+
+
 (definition (with-event-mutex thunk)
-  (thunk))
+  (dynamic-wind
+    (function ()
+      (mutex-lock! event-mutex))
+    thunk
+    (function ()
+      (mutex-unlock! event-mutex))))
 
 
 (definition (platform-process-messages lock?)
@@ -350,8 +358,13 @@
         (let ((window (get-window handle))
               (wparam 0)
               (lparam 0))
-          (when window
-            (call-dispatch-message~ window msg wparam lparam))))
+	  (if lock?
+	      (with-event-mutex
+	       (function ()
+	          (when window
+		     (call-dispatch-message~ window msg wparam lparam))))
+	      (when window
+		(call-dispatch-message~ window msg wparam lparam)))))
       (when (= 0 (XPending default-x11-display))
         (process-expose)))))
 

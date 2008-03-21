@@ -409,10 +409,14 @@
       (let ((run (get-option "run"))
             (build (get-option "build")))
         (cond (run
+               #; ;; a test
+               (jazz.run-product (%%string->symbol run))
                (##repl-debug
                  (lambda (first output-port)
                    (jazz.run-product (%%string->symbol run)))))
               (jazz.product
+               #; ;; a test
+               (jazz.run-product jazz.product)
                (##repl-debug
                  (lambda (first output-port)
                    (jazz.run-product jazz.product))))

@@ -305,7 +305,7 @@
       (inexact->exact (floor (time->seconds (current-time)))))
     
     (define (current-milliseconds)
-      0)
+      (inexact->exact (floor (* 1000 (time->seconds (current-time))))))
     
     (define (current-process-milliseconds)
       0)
@@ -314,17 +314,19 @@
       0)))
 
 (define (tm:get-time-of-day)
-  (values (current-seconds)
-	  (abs (remainder (current-milliseconds) 1000))))
+  (let* ((time (time->seconds (current-time)))
+	 (seconds (inexact->exact (floor (time->seconds (current-time)))))
+	 (milliseconds (inexact->exact (floor (* (- time seconds) 1000)))))
+    (values seconds milliseconds)))
 
 (define (tm:current-time-utc)
   (receive (seconds ms) (tm:get-time-of-day)
-	   (make-time  time-utc (* ms 10000) seconds )))
+	   (make-time  time-utc (* ms 1000000) seconds)))
 
 (define (tm:current-time-tai)
   (receive (seconds ms) (tm:get-time-of-day)
 	   (make-time time-tai
-		      (* ms 10000)
+		      (* ms 1000000)
 		      (+ seconds (tm:leap-second-delta seconds))
 		      )))
 
@@ -333,8 +335,8 @@
 (define (tm:current-time-ms-time time-type proc)
   (let ((current-ms (proc)))
     (make-time time-type 
-	       (* (remainder current-ms 1000) 10000)
-	       (quotient current-ms 10000)
+	       (* (remainder current-ms 1000) 1000000)
+	       (quotient current-ms 1000000)
 	       )))
 
 ;; -- we define it to be the same as tai.
@@ -345,7 +347,7 @@
 (define (tm:current-time-monotonic)
   (receive (seconds ms) (tm:get-time-of-day)
 	   (make-time time-monotonic
-		      (* ms 10000)
+		      (* ms 1000000)
 		      (+ seconds (tm:leap-second-delta seconds))
 		      )))
 
@@ -379,12 +381,12 @@
 (define (time-resolution . clock-type)
   (let ((clock-type (:optional clock-type time-utc)))
     (cond
-      ((eq? clock-type time-tai) 10000)
-      ((eq? clock-type time-utc) 10000)
-      ((eq? clock-type time-monotonic) 10000)
-      ((eq? clock-type time-thread) 10000)
-      ((eq? clock-type time-process) 10000)
-      ((eq? clock-type time-gc) 10000)
+      ((eq? clock-type time-tai) 1000000)
+      ((eq? clock-type time-utc) 1000000)
+      ((eq? clock-type time-monotonic) 1000000)
+      ((eq? clock-type time-thread) 1000000)
+      ((eq? clock-type time-process) 1000000)
+      ((eq? clock-type time-gc) 1000000)
       (else (tm:time-error 'time-resolution 'invalid-clock-type clock-type)))))
 
 ;; -- time comparisons

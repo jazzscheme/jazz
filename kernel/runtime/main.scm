@@ -96,11 +96,14 @@
 (cond-expand
   (carbon
    (define (jazz.build-cairo)
-     (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-           (ld-flags (jazz.pkg-config-libs "cairo")))
-       (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-       (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
-       (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))
+     (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+       (if (< minor 4)
+	   (jazz.error "Cairo >=1.4 needed")
+	   (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+		 (ld-flags (jazz.pkg-config-libs "cairo")))
+	     (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+	     (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
+	     (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
   (windows
    (define (jazz.build-cairo)
      (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
@@ -108,11 +111,14 @@
        (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
   (x11
    (define (jazz.build-cairo)
-     (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-           (ld-flags (jazz.pkg-config-libs "cairo")))
-       (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-       (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
-       (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))
+     (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+       (if (< minor 4)
+	   (jazz.error "Cairo >=1.4 needed")
+	   (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+		 (ld-flags (jazz.pkg-config-libs "cairo")))
+	     (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+	     (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
+	     (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
 
 
 (cond-expand
@@ -210,10 +216,22 @@
   (jazz.quote-gcc-pathname (path-expand (string-append jazz.jazz-source suffix)) jazz.platform))
 
 
+(define (jazz.parse-dot-version version)
+  (let* ((version (map string->number (jazz.split-string (jazz.pkg-config-version "cairo") #\.)))
+	 (major (car version))
+	 (minor (cadr version))
+	 (build (caddr version)))
+    (values major minor build)))
+
+
 (define (jazz.pkg-config what libname)
-  (let ((port (open-output-string)))
-    (jazz.pipe-no-return (open-process (list path: "pkg-config" arguments: (list what libname))) port)
-    (get-output-string port)))
+  (let ((string-port (open-output-string))
+	(process-port (open-process (list path: "pkg-config" arguments: (list what libname)))))
+    (if (%%fx= (process-status process-port) 0)
+	(begin
+	  (jazz.pipe-no-return process-port string-port)
+	  (get-output-string string-port))
+	(jazz.error "failed"))))
 
 (define (jazz.pkg-config-cflags libname)
   (jazz.pkg-config "--cflags" libname))
@@ -221,6 +239,8 @@
 (define (jazz.pkg-config-libs libname)
   (jazz.pkg-config "--libs" libname))
 
+(define (jazz.pkg-config-version libname)
+  (jazz.pkg-config "--modversion" libname))
 
 (define (jazz.pipe-no-return input output)
   (let iterate ()

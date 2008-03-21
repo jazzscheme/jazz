@@ -279,14 +279,12 @@
 
 
 (definition (process-message msg)
-  (with-event-mutex
-    (function ()
-      (unless (translate-shortcut msg)
-        (TranslateMessage msg)
-        (DispatchMessage msg)))))
+  (unless (translate-shortcut msg)
+    (TranslateMessage msg)
+    (DispatchMessage msg)))
 
 
-(definition (platform-process-messages)
+(definition (platform-process-messages lock?)
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
@@ -295,25 +293,16 @@
   
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
-      (process-message (read port))
+      (let ((msg (read port)))
+        ;; because of modal dialog doing their processing inside an event we have to be
+        ;; carefull not to deadlock as gambit doesn't implement recursive mutex semantics
+        ;; note that this solution is not ideal and could be improved
+        (if lock?
+            (with-event-mutex
+              (function ()
+                (process-message msg)))
+          (process-message msg)))
       (loop))))
-
-
-(definition (platform-process-one-message)
-  ;; because of modal dialog doing their processing inside an event we have to be
-  ;; carefull not to deadlock as gambit doesn't implement recursive mutex semantics
-  ;; note that this solution is not ideal and could be improved
-  (define (process-message msg)
-    (unless (translate-shortcut msg)
-      (TranslateMessage msg)
-      (DispatchMessage msg)))
-  
-  (with ((msg (MSG-make)))
-    (when (PeekMessage msg NULL 0 0 PM_REMOVE)
-      (process-message msg)))
-  
-  (let ((port (open-event-queue QS_ALLINPUT)))
-    (process-message (read port))))
 
 
 ;;;

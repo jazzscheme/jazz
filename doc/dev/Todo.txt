@@ -1,50 +1,108 @@
 ;;;
-;;;; High
+;;;; Todo
 ;;;
 
 
-JEREMIE
-- Investigate the segmentation fault when leaving Gambit in Mac OS with X11
-- Check logic of X11 events. Especially the fact that the window element in events refer to the window attached to the event and not to the
-   window receiving the event. This is especially bad when combined with (get-in-creation) because some window may get the handle of a des
-   troyed window.
-- Is there a dotted line mode in Cairo for the tree?
-- I changed in jazz.platform.cairo, string to cairo_string... (GC)
-- We have to think about and go through the code for what happens if we make for unix but no windowing
-- Fix build on Cygwin / Windows that fails i think because Cygwin doesn't like just "jazz" just like unix
-- Confirm that on mac x11 starts automatically on launching jedi
-- Shouldn't Windows do the same logic as X11 in destroy-window of calling call-focus-lose
-- Check platform-erase-background
-- Remove all references to lparam and wparam in non platform-specific packages
-- Find memory leaks
-- Unify platform-process-messages and platform-process-one-message
-- Find better names for set-capture and unset-capture
+GC Guillaume Cartier
+SLC Stephane Le Cornec
+JLR Jeremie Lasalle Ratelle
+
+
+;;;
+;;;; Build
+;;;
+
+
+HIGH
+- Fix pipe-no-return to wait for the return value. (Check execute-process)
+- Standardize pkg-config code and add version checking
+
+
+;;;
+;;;; Platform
+;;;
+
+
+HIGH
+- Remove all lparams and wparams in platform-independant packages.
+- Find memory leaks in FFI packages.
+- We should investigate every platform function beginning by "(When handle" for logic errors.
+- Remove stupid or vulgar comments, dead code, etc. General cleanup.
+- Correctly implement the FFI in the walker. It still uses the old macros style. It should be able
+  to know which types are pointers, structures, etc.
+- exact->inexact and inexact->exact.
+- Implement a standard FFI construct to get the c constant value. (c-constant type name . c-name)
+
+MEDIUM
 - Decide if we are going to keep the platform-... naming scheme or if we are going to
   rename all that to better names
-- Fix alpha-blending to use cairo
-- Check if we can remove these methods
-  - get-root-owner in Window
-  - get-front-frame in window
-  - get-top-window in Window
-- Implement acquire-rect in X11 and check if it shouldn't be put elsewhere as it is really acquiring 2 points
-- Check if platform-get-size and platform-get-window-size do the same thing in windows because the do the same in X11
-- I think that all the size and position functions could easily be condensed. (get-bounds, get-rectangle, set-bounds, etc.)
-- Implement cursors in X11
-- In every function where we check "(when handle" we should ask ourselves if it is really needed. If some logic is missing
-- show-noactivate and hide-noactivate in X11
-- Implement process-windows in x11. This could even be platform-independant as we get the handles in the window-table
-- Can we remove unused event types completely? Event from the Union?
-- Remove polling and find elegant solution for clipboard in X11
-- Check why message-box do not process exposes correctly
-- Implement redraw-view correctly to get status-bar updates and flashing parentheses correctly.
+- Reduce the number of methods in platform packages and Window class. Remove old ones, merge others. 
+  (Ex. get-root-owner, get-front-frame,  get-top-window)
+  (get-bounds, get-rectangle, set-bounds, etc.)
+- Check platform packages for internal c-functions that could be written as c-code
+- Implement play-sound in X11 and Carbon.
+
+
+;;;
+;;;; Cairo
+;;;
+
+
+HIGH
+- Check if there is a dotted line mode in cairo and change the tree accordingly.
+- Implement highlight-color.
+- Classbrowser tree lines have some missing pixels
+
+MEDIUM
+- Reimplement zoom and scaling in cairo.
+- Use cairo to do the alpha blending.
+- Check if it could be better to use native bitmaps instead of pixman surfaces in cairo.
+- Try to remove all cairo-save and cairo-restore. This is a major problem because we need to work
+  on a lot of painting logic to properly restore the states. (Is it even a good idea?)
+
+
+;;;
+;;;; Carbon
+;;;
+
+
+HIGH
+- Investigate why the carbon port is so slow.
+
+
+;;;
+;;;; X11
+;;;
+
+
+HIGH
+- Implement cursors
+- Implement show-noactivate and hide-noactivate
+- Remove polling and find elegant solution for clipboard
 - Find why the window is scrolled after an F12
-- Check if we should return a pair when a c-function returns an error code and put the result in a pointer
-- Fix the unviewable characters in the text and characters like the e accent aigue
+- Investigate and fix the problems with selection
+
+MEDIUM
+- Fix the workspace switching in X11 to eliminate the glitches. This is a complex problem that is
+  related to windows moving and sizing in X11. We must understand how it is related to flushing,
+  the event loop and painting. The temporary solution is a action-store used when in locked-update.
+  This should also fix the white toplevel at load time.
+- Check if it would be possible to receive mouse events only when we have the focus
+- Implement the expose-store as an inval-store instead. Cache the invals and then only generate
+  one expose event when we get back to the loop. (As gtk does)
+
+
+;;;
+;;;; Windows
+;;;
+
+MEDIUM
+- Find how to fix the ascent hack in Windows. (Use freetype in windows?)
 
 
 STEPHANE
 - Look at SRFI-19 which does seems buggy with using sometimes 1000 and sometimes 10000
-  for milli->nano. Also copy-time seems bugged.
+  for milli->nano. Also copy-time seems bugged (SLC)
 - Implement type inference for the <X+> type
 - Use Marc's catcher to implement exceptions
 - It would seem that with Y extends X and foo a non virtual method in Y. If Y is compiled and we add in X
@@ -70,20 +128,20 @@ GUILLAUME
   - Copy the resources so that a binary release of Jazz can be 100% standalone and not require the source files
   - Remove the test patch in jazz.jazz-source
   - Be able to compile and build without Gambit installed
-  - Jeremie should add pkg-config version number of libs checking
+  + Jeremie should add pkg-config version number of libs checking
   - Jeremie should doc everything relevant to Git ports problems
   - Could we use git on the repo through http?
+- We have to think about and go through the code for what happens if we make for unix but no windowing
++ Need to integrate Jeremie's todo list in here
 - Marcel
-  - Classbrowser tree lines have some missing pixels
-  - 2007 -> 2008 everywhere
+  + 2007 -> 2008 everywhere
 - Rename Servlet to Pages and Pages-Server
-- Font and other literals should not repend on the platform at readtime but only at runtime
++ Font and other literals should not repend on the platform at readtime but only at runtime
   - With that cleanly separate platform build from windowing
     - Be able to build the game server using only jazz and maybe platform
 - The bindings format needs to be improved as it forces us to unbind left-arrow to bind ctrl-a!
-- Need to integrate Jeremie's todo list in here
-- Put a binary build on the website for Marcel
-- Send Marc a good screenshot of Jazz and some basic info like line-of-code, ...
++ Put a binary build on the website for Marcel
++ Send Marc a good screenshot of Jazz and some basic info like line-of-code, ...
 - Verify that the save-as dialog pops a warning if overriding an existing file
 - Marc
   - Fix the first error never having a stack
@@ -101,13 +159,6 @@ GUILLAUME
 ;;;
 ;;;; Medium
 ;;;
-
-
-JEREMIE
-- See http://cairographics.org/cookbook/win32quickstart/ for an example of using Cairo in
-  Python where they use BitBlt directly to copy Cairo's work
-- I read somewhere that show_text cached the glyphs... Aren't we redoing the job then?
-- put rect-intersects-region? at the right place
 
 
 GUILLAUME
@@ -176,7 +227,11 @@ GUILLAUME
 - For embeding views in texts, we need a rendering algo like html that goes botton-up as well as top-down
 
 
-TERMITE
+;;;
+;;;; Termite
+;;;
+
+
 - Not clear in documentation that there is a primordial process that is not the direct result of a spawn
 - node-init is not in the doc
 - Does termite implement message passing in a way that no tcp/ip is used for intra-node calls?
@@ -186,7 +241,11 @@ TERMITE
 - What does guillaume think about an RMI layer on top of termite
 
 
-R4RS
+;;;
+;;;; R4RS
+;;;
+
+
 - r4rstest.scm
 - f1.0 notation
 - internal defines
@@ -198,7 +257,11 @@ R4RS
   and jazz semantics for definition which seems very consistant with both names
 
 
-NOTES
+;;;
+;;;; Notes
+;;;
+
+
 - Thoughts: having a module hierarchy can be confusing if for instance some files under jazz.ui are part of the jazz.ui
   module and others like jazz.ui.clipboard are not... This seems to talk in favor of having jazz.ui.clipboard at the
   package toplevel!?
@@ -233,9 +296,35 @@ NOTES
 - MVC Designer optimisation maybe could be done by registering the actions when locked?=#t and replaying them afterwards.
   That way we would be guarantied to have the exact same behavior and before playing them, an optimisation could be performed
   to do things like removing duplicate actions
+- Now that we do not need [] anymore, it could be used as an autoquoted version of () to enable elegant pattern matching. The
+  only problem remaining would be quoting symbols that could be done like erlang with a naming convention (!?)
 
 
-OPTIMIZE
+;;;
+;;;; Language
+;;;
+
+
+- Looking at how to implement the enumeration macro cleanly make me think that a declare special form is to moving alot
+  of code from the walker to high level macros
+  - define
+  - declare
+  - annotate (!?)
+  - relocate (!?)
+
+  - (definition D expr)
+  - (declare D <Definition-Declaration>
+      (define D
+        expr))
+  
+  - maybe definitions could even know their declaration which would unify the duplication between the 2
+
+
+;;;
+;;;; Optimize
+;;;
+
+
 - why are WinUser, ... appearing as .jazz in statprof??
 - optimize the interpreted caching would seem to be very critical
   - ahhh not really... why does it get always called is the right question!
@@ -243,7 +332,11 @@ OPTIMIZE
     when it is even called! is it because of how we set! the dispatcher that gambit gets mixed up?
 
 
-STATPROF
+;;;
+;;;; Statprof
+;;;
+
+
 - should not index the buckets on file/line/col but rather on the continuation-code object itself
   so that 2 expressions on the same line are treated separately
 - should keep the stack of callers so that in the report I can show that the 16% is divided between
@@ -251,14 +344,37 @@ STATPROF
 - the key is what gambit object represent static code and are stable?
 
 
-SNOW
+;;;
+;;;; Debugger
+;;;
+
+
+- Debugging-Environment as the top object!?
+- Debuggers must integrate with
+  - console
+  - stack
+  - variables
+  - break points
+  - tooltip debugging
+  - memory inspector
+
+
+;;;
+;;;; Snow
+;;;
+
+
 - Can we work around the fact that the snow package* form doesn't enclose the whole file content?
 - Need a solution to snow's name including the version and having periods in it
 - The snow packages need to be jazz modules to include any kind of scheme code but they also need to
   be jazz libraries for optional / named parameters and name scoping...
 
 
-EMACS
+;;;
+;;;; Emacs
+;;;
+
+
 - ctrl-K kill to end (augment progressively)
 - ctrl-S-R search incremental
 - ctrl-W kill region cut from mark to cursor
@@ -266,7 +382,11 @@ EMACS
 - ctrl-Z suspend and iconify
 
 
-INTERPRETER
+;;;
+;;;; Interpreter
+;;;
+
+
 - Determine the exact redefinition rules
   - Jazz -> Blues -> C++ -> Compiled Code
   - Jazz -> Blues -> Interpreted Code
@@ -287,7 +407,11 @@ INTERPRETER
   - change definition -> slot
 
 
-RMI
+;;;
+;;;; RMI
+;;;
+
+
 - An interesting concept is to extend the RMI concept to inter-thread communication which would result in
   calling a thread connector through a proxy. What is nice is that the thread could be included in the IOR
   and the call be made directly even from another process. On the other hand it is very heavy to have to
@@ -303,7 +427,11 @@ RMI
   la nouvelle version de Java)
 
 
-JAVA 1.5
+;;;
+;;;; Java 1.5
+;;;
+
+
 - Unicode
 - Primitive datatypes
 - Exceptions

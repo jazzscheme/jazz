@@ -157,10 +157,11 @@
                    (when toplevel
                      (update-windowing-actions~ application))
                    (show)
-                   (while (not modal-done?)
-                     (catch Cancel-Signal
-                       (process-one-message~ application)
-                       (relinquish-process)))
+                   (catch Modal-Done
+                     (while #t
+                       (catch Cancel-Signal
+                         (process-messages~ application #f)
+                         (relinquish-process))))
                    (cond (modal-closed? (throw-cancel))
                          (modal-signal (signal modal-signal))
                          (else modal-result)))
@@ -183,12 +184,12 @@
   (method public (end-modal result)
     (set! modal-closed? #f)
     (set! modal-result result)
-    (set! modal-done? #t))
+    (modal-done))
   
   
   (method public (signal-modal signal)
     (set! modal-signal signal)
-    (set! modal-done? #t))
+    (modal-done))
   
   
   (method public (cancel-modal)
@@ -199,4 +200,11 @@
     (set! modal-closed? #f)
     (set! modal-result {})
     (set! modal-action action)
-    (set! modal-done? #t))))
+    (modal-done)))
+
+
+(class Modal-Done extends Signal)
+
+
+(definition (modal-done)
+  (throw (new Modal-Done))))

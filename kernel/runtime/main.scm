@@ -95,30 +95,30 @@
 
 (cond-expand
   (carbon
-   (define (jazz.build-cairo)
-     (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
-       (if (< minor 4)
-	   (jazz.error "Cairo >=1.4 needed")
-	   (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-		 (ld-flags (jazz.pkg-config-libs "cairo")))
-	     (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-	     (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
-	     (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
+    (define (jazz.build-cairo)
+      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+        (if (< minor 4)
+            (jazz.error "Cairo 1.4 or higher needed")
+          (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+                (ld-flags (jazz.pkg-config-libs "cairo")))
+            (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
   (windows
-   (define (jazz.build-cairo)
-     (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
-           (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
-       (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
+    (define (jazz.build-cairo)
+      (let ((cairo-include-path (jazz.quote-jazz-gcc-pathname "foreign/cairo/include"))
+            (cairo-lib-path     (jazz.quote-jazz-gcc-pathname "foreign/cairo/lib/windows")))
+        (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
   (x11
-   (define (jazz.build-cairo)
-     (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
-       (if (< minor 4)
-	   (jazz.error "Cairo >=1.4 needed")
-	   (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-		 (ld-flags (jazz.pkg-config-libs "cairo")))
-	     (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
-	     (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
-	     (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
+    (define (jazz.build-cairo)
+      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+        (if (< minor 4)
+            (jazz.error "Cairo 1.4 or higher needed")
+          (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
+                (ld-flags (jazz.pkg-config-libs "cairo")))
+            (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
+            (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
 
 
 (cond-expand
@@ -217,21 +217,21 @@
 
 
 (define (jazz.parse-dot-version version)
-  (let* ((version (map string->number (jazz.split-string (jazz.pkg-config-version "cairo") #\.)))
-	 (major (car version))
-	 (minor (cadr version))
-	 (build (caddr version)))
-    (values major minor build)))
+  (let ((version (map string->number (jazz.split-string (jazz.pkg-config-version "cairo") #\.))))
+    (let ((major (car version))
+          (minor (cadr version))
+          (build (caddr version)))
+      (values major minor build))))
 
 
 (define (jazz.pkg-config what libname)
   (let ((string-port (open-output-string))
-	(process-port (open-process (list path: "pkg-config" arguments: (list what libname)))))
+        (process-port (open-process (list path: "pkg-config" arguments: (list what libname)))))
     (if (%%fx= (process-status process-port) 0)
-	(begin
-	  (jazz.pipe-no-return process-port string-port)
-	  (get-output-string string-port))
-	(jazz.error "failed"))))
+        (begin
+          (jazz.pipe-no-return process-port string-port)
+          (get-output-string string-port))
+      (jazz.error "failed"))))
 
 (define (jazz.pkg-config-cflags libname)
   (jazz.pkg-config "--cflags" libname))

@@ -256,7 +256,9 @@
 
 
 (define jazz.jazz-install
-  (jazz.pathname-normalize jazz.install))
+  (if jazz.executable-directory
+      (jazz.executable-directory)
+    (jazz.pathname-normalize jazz.install)))
 
 
 (define jazz.jazz-source

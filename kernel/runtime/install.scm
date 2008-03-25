@@ -39,7 +39,7 @@
 
 
 (cond-expand
-  (carbon
+  (mac
     (define jazz.executable-directory
       #f))
   (windows
@@ -57,7 +57,7 @@
 
 (cond-expand
   #; ;; to complete
-  (carbon
+  (mac
     (define ExecutablePath
       (c-lambda () char-string
         "ProcessInfoRec info;

@@ -595,13 +595,6 @@
     (define (install-file path)
       (string-append install path))
     
-    (define (copy-platform-files)
-      (case platform
-        ((windows)
-         (jazz.copy-file "foreign/cairo/lib/windows/libcairo-2.dll" (install-file "libcairo-2.dll") feedback: jazz.feedback)
-         (jazz.copy-file "foreign/png/lib/windows/libpng13.dll" (install-file "libpng13.dll") feedback: jazz.feedback)
-         (jazz.copy-file "foreign/zlib/lib/windows/zlib1.dll" (install-file "zlib1.dll") feedback: jazz.feedback))))
-    
     (define (generate-gambcini)
       (let ((file (install-file ".gambcini")))
         (if (not (file-exists? file))
@@ -638,8 +631,6 @@
       source:    source
       kernel?:   #t
       console?:  #t)
-    
-    (copy-platform-files)
     
     (if (memq 'interpret options)
         (generate-gambcini))))

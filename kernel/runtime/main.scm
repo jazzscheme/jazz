@@ -184,12 +184,26 @@
       (jazz.build-carbon)))
   (windows
     (define (jazz.build-platform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
-      (jazz.build-types)
-      (jazz.build-cairo)
-      (jazz.build-font)
-      (jazz.build-windows)))
+      (let ((install jazz.install)
+            (source jazz.source))
+        (define (install-file path)
+          (string-append install path))
+        
+        (define (source-file path)
+          (string-append source path))
+        
+        (define (copy-platform-files)
+          (jazz.copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (install-file "libcairo-2.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (install-file "libpng13.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (install-file "zlib1.dll") feedback: jazz.feedback))
+        
+        (copy-platform-files)
+        (jazz.load-module 'core.library)
+        (jazz.load-module 'scheme.dialect)
+        (jazz.build-types)
+        (jazz.build-cairo)
+        (jazz.build-font)
+        (jazz.build-windows))))
   (x11
     (define (jazz.build-platform)
       (jazz.load-module 'core.library)

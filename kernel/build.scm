@@ -71,8 +71,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety options directory)
-  (vector 'configuration name system platform windowing safety options directory))
+(define (jazz.make-configuration name system platform windowing safety options install)
+  (vector 'configuration name system platform windowing safety options install))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -92,7 +92,7 @@
 (define (jazz.configuration-options configuration)
   (vector-ref configuration 6))
 
-(define (jazz.configuration-directory configuration)
+(define (jazz.configuration-install configuration)
   (vector-ref configuration 7))
 
 
@@ -104,7 +104,7 @@
           (windowing #f)
           (safety #f)
           (options '())
-          (directory #f))
+          (install #f))
   (jazz.make-configuration
     (jazz.validate-name name)
     (jazz.validate-system system)
@@ -112,7 +112,7 @@
     (jazz.validate-windowing windowing)
     (jazz.validate-safety safety)
     (jazz.validate-options options)
-    (jazz.validate-directory directory)))
+    (jazz.validate-install install)))
 
 
 ;;;
@@ -223,7 +223,7 @@
               (windowing (jazz.configuration-windowing configuration))
               (safety (jazz.configuration-safety configuration))
               (options (jazz.configuration-options configuration))
-              (directory (jazz.configuration-directory configuration)))
+              (install (jazz.configuration-install configuration)))
           (display "(" output)
           (if name
               (print-property name: name))
@@ -234,8 +234,8 @@
           (print-property safety: safety)
           (if (not (null? options))
               (print-property options: options))
-          (if directory
-              (print-property directory: directory))
+          (if install
+              (print-property install: install))
           (display ")" output)
           (newline output)))
       
@@ -249,7 +249,7 @@
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
-        (directory (jazz.configuration-directory configuration)))
+        (install (jazz.configuration-install configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
     (jazz.feedback "  system: {s}" system)
     (jazz.feedback "  platform: {s}" platform)
@@ -258,8 +258,8 @@
     (jazz.feedback "  safety: {s}" safety)
     (if (not (null? options))
         (jazz.feedback "  options: {s}" options))
-    (if directory
-        (jazz.feedback "  directory: {s}" directory))))
+    (if install
+        (jazz.feedback "  install: {s}" install))))
 
 
 ;;;
@@ -275,14 +275,14 @@
           (windowing #f)
           (safety #f)
           (options '())
-          (directory #f))
+          (install #f))
   (let* ((name (jazz.require-name name))
          (system (jazz.require-system system))
          (platform (jazz.require-platform platform))
          (windowing (jazz.require-windowing platform windowing))
          (safety (jazz.require-safety safety))
          (options (jazz.require-options options))
-         (directory (jazz.require-directory directory)))
+         (install (jazz.require-install install)))
     (let ((configuration
             (jazz.new-configuration
               name: name
@@ -291,7 +291,7 @@
               windowing: windowing
               safety: safety
               options: options
-              directory: directory)))
+              install: install)))
       (jazz.register-configuration configuration)
       (jazz.describe-configuration configuration))))
 
@@ -487,28 +487,28 @@
 
 
 ;;;
-;;;; Directory
+;;;; Install
 ;;;
 
 
-(define (jazz.require-directory directory)
-  directory)
+(define (jazz.require-install install)
+  install)
 
 
-(define (jazz.validate-directory directory)
-  (cond ((not directory)
+(define (jazz.validate-install install)
+  (cond ((not install)
          #f)
-        ((and (string? directory) (> (string-length directory) 0))
-         (let ((len (string-length directory)))
-           (if (eqv? (string-ref directory (- len 1)) #\/)
-               directory
-             (string-append directory "/"))))
+        ((and (string? install) (> (string-length install) 0))
+         (let ((len (string-length install)))
+           (if (eqv? (string-ref install (- len 1)) #\/)
+               install
+             (string-append install "/"))))
         (else
-         (jazz.error "Invalid directory: {s}" directory))))
+         (jazz.error "Invalid install: {s}" install))))
 
 
 (define (jazz.install-directory configuration)
-  (or (jazz.configuration-directory configuration)
+  (or (jazz.configuration-install configuration)
       (string-append "bin/"
                      (jazz.system-name (jazz.configuration-system configuration))
                      (jazz.platform-name (jazz.configuration-platform configuration))
@@ -909,7 +909,7 @@
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
   (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [directory:]" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [install:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)
   (jazz.print "  quit" output))

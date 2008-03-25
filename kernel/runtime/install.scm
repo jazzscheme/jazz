@@ -56,8 +56,9 @@
 
 
 (cond-expand
+  #; ;; to complete
   (carbon
-    (define exe-path
+    (define ExecutablePath
       (c-lambda () char-string
         "ProcessInfoRec info;
          ProcessSerialNumber serial;

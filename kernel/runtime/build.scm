@@ -47,28 +47,28 @@
           (windowing jazz.windowing)
           (safety jazz.safety)
           (options jazz.options)
-          (insdir jazz.install)
-          (srcdir jazz.source)
+          (install jazz.install)
+          (source jazz.source)
           (kernel? #f)
           (console? #f)
           (feedback jazz.feedback))
-  (let ((prodname (if (not product) "jazz" (symbol->string product))))
-    (let ((proddir (string-append insdir "build/_products/" prodname "/")))
-      (define (srcfile path)
-        (string-append srcdir path))
+  (let ((product-name (if (not product) "jazz" (symbol->string product))))
+    (let ((product-dir (string-append install "build/_products/" product-name "/")))
+      (define (source-file path)
+        (string-append source path))
       
-      (define (insfile path)
-        (string-append insdir path))
+      (define (install-file path)
+        (string-append install path))
       
-      (define (prodfile path)
-        (string-append proddir path))
+      (define (product-file path)
+        (string-append product-dir path))
       
       (define (feedback-message fmt-string . rest)
         (if feedback
             (apply feedback fmt-string rest)))
       
       (define (generate-architecture)
-        (let ((file (prodfile "architecture.scm")))
+        (let ((file (product-file "architecture.scm")))
           (if (not (file-exists? file))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -79,7 +79,7 @@
             #f)))
       
       (define (generate-product)
-        (let ((file (prodfile "product.scm")))
+        (let ((file (product-file "product.scm")))
           (if (not (file-exists? file))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -89,19 +89,19 @@
                     (newline output)
                     (jazz.print-variable 'jazz.version jazz.version output)
                     (newline output)
-                    (jazz.print-variable 'jazz.install (jazz.pathname-normalize insdir) output)
+                    (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory srcdir insdir) output)))
+                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)))
                 #t)
             #f)))
       
       (define (generate-resources)
         (case platform
           ((windows)
-           (let ((file (prodfile (string-append prodname ".ico"))))
+           (let ((file (product-file (string-append product-name ".ico"))))
              (if (not (file-exists? file))
                  (begin
-                   (jazz.copy-file (srcfile "etc/resources/windows/jazz.ico") file feedback: feedback)
+                   (jazz.copy-file (source-file "etc/resources/windows/jazz.ico") file feedback: feedback)
                    #t)
                #f)))
           (else
@@ -125,28 +125,28 @@
           
           (define (compile-kernel-file path name)
             (compile-file name
-                          (string-append (srcfile "kernel/") path)
-                          (insfile (string-append "build/_kernel/" path))))
+                          (string-append (source-file "kernel/") path)
+                          (install-file (string-append "build/_kernel/" path))))
           
           (generate-resources)
           
           (if kernel?
               (begin
                 ;; load architecture
-                (load (prodfile "architecture"))
+                (load (product-file "architecture"))
                 
                 ;; load syntax
-                (load (srcfile "kernel/syntax/macros"))
-                (load (srcfile "kernel/syntax/features"))
-                (load (srcfile "kernel/syntax/declares"))
-                (load (srcfile "kernel/syntax/primitives"))
-                (load (srcfile "kernel/syntax/syntax"))
-                (load (srcfile "kernel/syntax/runtime"))))
+                (load (source-file "kernel/syntax/macros"))
+                (load (source-file "kernel/syntax/features"))
+                (load (source-file "kernel/syntax/declares"))
+                (load (source-file "kernel/syntax/primitives"))
+                (load (source-file "kernel/syntax/syntax"))
+                (load (source-file "kernel/syntax/runtime"))))
           
           (if architecture?
-              (compile-file "architecture" proddir proddir))
+              (compile-file "architecture" product-dir product-dir))
           (if product?
-              (compile-file "product" proddir proddir))
+              (compile-file "product" product-dir product-dir))
           (compile-kernel-file "syntax/" "macros")
           (compile-kernel-file "syntax/" "features")
           (compile-kernel-file "syntax/" "declares")
@@ -159,24 +159,24 @@
           (compile-kernel-file "runtime/" "kernel")
           (compile-kernel-file "runtime/" "main")
           
-          (let ((link-file (prodfile (string-append prodname ".c"))))
+          (let ((link-file (product-file (string-append product-name ".c"))))
             (if (or (not (file-exists? link-file))
                     (> latest (time->seconds (file-last-modification-time link-file))))
                 (begin
                   (feedback-message "; linking kernel...")
-                  (link-incremental (list (prodfile "architecture")
-                                          (prodfile "product")
-                                          (insfile "build/_kernel/syntax/macros")
-                                          (insfile "build/_kernel/syntax/features")
-                                          (insfile "build/_kernel/syntax/declares")
-                                          (insfile "build/_kernel/syntax/primitives")
-                                          (insfile "build/_kernel/syntax/syntax")
-                                          (insfile "build/_kernel/syntax/runtime")
-                                          (insfile "build/_kernel/runtime/build")
-                                          (insfile "build/_kernel/runtime/settings")
-                                          (insfile "build/_kernel/runtime/digest")
-                                          (insfile "build/_kernel/runtime/kernel")
-                                          (insfile "build/_kernel/runtime/main"))
+                  (link-incremental (list (product-file "architecture")
+                                          (product-file "product")
+                                          (install-file "build/_kernel/syntax/macros")
+                                          (install-file "build/_kernel/syntax/features")
+                                          (install-file "build/_kernel/syntax/declares")
+                                          (install-file "build/_kernel/syntax/primitives")
+                                          (install-file "build/_kernel/syntax/syntax")
+                                          (install-file "build/_kernel/syntax/runtime")
+                                          (install-file "build/_kernel/runtime/build")
+                                          (install-file "build/_kernel/runtime/settings")
+                                          (install-file "build/_kernel/runtime/digest")
+                                          (install-file "build/_kernel/runtime/kernel")
+                                          (install-file "build/_kernel/runtime/main"))
                                     output: link-file
                                     base: "~~/lib/_gambcgsc")
                   #t)
@@ -186,13 +186,13 @@
         (case platform
           ((windows)
            (let ()
-             (define (resfile name)
-               (string-append (srcfile "etc/resources/windows/") name "res.o"))
+             (define (resource-file name)
+               (string-append (source-file "etc/resources/windows/") name "res.o"))
              
-             (let ((file (resfile prodname)))
+             (let ((file (resource-file product-name)))
                (if (file-exists? file)
                    (list (jazz.quote-gcc-pathname file platform))
-                 (list (jazz.quote-gcc-pathname (resfile "jazz") platform))))))
+                 (list (jazz.quote-gcc-pathname (resource-file "jazz") platform))))))
           (else
            '())))
       
@@ -218,37 +218,37 @@
         (feedback-message "; linking executable...")
         (jazz.execute-process
           "gcc"
-          `(,(jazz.quote-gcc-pathname (prodfile "architecture.c") platform)
-            ,(jazz.quote-gcc-pathname (prodfile "product.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/macros.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/features.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/declares.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/primitives.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/syntax.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/syntax/runtime.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/runtime/build.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/runtime/settings.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/runtime/digest.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/runtime/kernel.c") platform)
-            ,(jazz.quote-gcc-pathname (insfile "build/_kernel/runtime/main.c") platform)
-            ,(jazz.quote-gcc-pathname (prodfile (string-append prodname ".c")) platform)
+          `(,(jazz.quote-gcc-pathname (product-file "architecture.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file "product.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/macros.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/features.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/declares.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/primitives.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/syntax.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/runtime.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/build.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/settings.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/digest.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/kernel.c") platform)
+            ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/main.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file (string-append product-name ".c")) platform)
             ,@(resource-files)
             ,(string-append "-I" (jazz.quote-gcc-pathname (path-expand "~~/include") platform))
             ,(string-append "-L" (jazz.quote-gcc-pathname (path-expand "~~/lib") platform))
             "-lgambc" "-lgambcgsc" ,@(link-libraries)
             ,@(link-options)
-            "-o" ,(jazz.quote-gcc-pathname (insfile prodname) platform))))
+            "-o" ,(jazz.quote-gcc-pathname (install-file product-name) platform))))
       
       (define (executable-name)
         (case platform
           ((windows)
-           (insfile (string-append prodname ".exe")))
+           (install-file (string-append product-name ".exe")))
           (else
-           (insfile prodname))))
+           (install-file product-name))))
       
-      (jazz.create-directories proddir feedback: feedback)
-      (jazz.create-directories (insfile "build/_kernel/syntax/") feedback: feedback)
-      (jazz.create-directories (insfile "build/_kernel/runtime/") feedback: feedback)
+      (jazz.create-directories product-dir feedback: feedback)
+      (jazz.create-directories (install-file "build/_kernel/syntax/") feedback: feedback)
+      (jazz.create-directories (install-file "build/_kernel/runtime/") feedback: feedback)
       
       (if (or (compile-kernel)
               (not (file-exists? (executable-name))))

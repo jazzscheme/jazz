@@ -856,7 +856,7 @@
                 (if jazz.display-backtrace?
                     (continuation-capture
                       (lambda (cont)
-                        (display-continuation-backtrace cont))))
+                        (display-continuation-backtrace cont console #t #t 0 30))))
                 (stop #f))
               (lambda ()
                 (jazz.process-command command console)))))

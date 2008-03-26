@@ -262,13 +262,10 @@
 
 
 (define jazz.jazz-source
-  ;; temporary to test running without the source repository
-  (if (equal? jazz.install "c:/Test/")
-      "c:/some/inexistant/"
   (if (and (%%fx>= (%%string-length jazz.source) 3)
            (%%string=? (%%substring jazz.source 0 3) "../"))
       (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source))
-    (jazz.pathname-normalize jazz.source))))
+    (jazz.pathname-normalize jazz.source)))
 
 
 (define (jazz.jazz-product)

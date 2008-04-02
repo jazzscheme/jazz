@@ -160,17 +160,62 @@
         (jazz.queue-list queue)))
     
     
+    (define (jazz.current-repl-context)
+      (macro-current-repl-context))
+    
+    
+    (define (jazz.repl-context-level context)
+      (macro-repl-context-level context))
+    
+    (define (jazz.repl-context-depth context)
+      (macro-repl-context-depth context))
+    
+    (define (jazz.repl-context-cont context)
+      (macro-repl-context-cont context))
+    
+    (define (jazz.repl-context-initial-cont context)
+      (macro-repl-context-initial-cont context))
+        
+    (define (jazz.repl-context-prev-level context)
+      (macro-repl-context-prev-level context))
+    
+    (define (jazz.repl-context-prev-depth context)
+      (macro-repl-context-prev-depth context))
+
+    
+    (define (jazz.with-repl-context cont thunk)
+      (let ((prev-context (##thread-repl-context-get!)))
+        (let ((context
+                (macro-make-repl-context
+                  (##fixnum.+ (macro-repl-context-level prev-context) 1)
+                  0
+                  cont
+                  cont
+                  prev-context
+                  #f)))
+          (macro-dynamic-bind repl-context
+            context
+            thunk))))
+    
+    
     (define (jazz.repl)
       (begin
         (##repl)
         #f))
     
     
-    (define (jazz.current-repl)
-      (macro-current-repl-context))
+    ;;;
+    ;;;; Debugging
+    ;;;
     
     
-    (define (jazz.repl-continuation context)
-      (macro-repl-context-initial-cont context)))
+    (define (jazz.inspect-repl-context context)
+      `(:repl-context
+        ,(jazz.repl-context-level context)
+        ,(jazz.repl-context-depth context)
+        ,(jazz.repl-context-cont context)
+        ,(jazz.repl-context-initial-cont context)
+        ,(jazz.repl-context-prev-level context)
+        ,(jazz.repl-context-prev-depth context))))
   
   (else)))

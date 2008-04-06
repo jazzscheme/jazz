@@ -343,6 +343,10 @@
 ;;;
 
 
+(define jazz.executable-directory
+  #f)
+
+
 (define (jazz.copy-file src dst #!key (feedback #f))
   (if (jazz.file-needs-update? src dst)
       (begin

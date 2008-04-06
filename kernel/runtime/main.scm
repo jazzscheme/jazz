@@ -280,6 +280,16 @@
 
 
 ;;;
+;;;; Jazz
+;;;
+
+
+(define (jazz)
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'jazz))
+
+
+;;;
 ;;;; Jedi
 ;;;
 

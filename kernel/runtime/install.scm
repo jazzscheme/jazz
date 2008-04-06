@@ -39,15 +39,12 @@
 
 
 (cond-expand
-  (mac
-    (define jazz.executable-directory
-      #f))
+  (mac)
   (windows
-    (define (jazz.executable-directory)
-      (jazz.pathname-dir (jazz.pathname-normalize (GetModuleFileName)))))
-  (else
-    (define jazz.executable-directory
-      #f)))
+    (set! jazz.executable-directory
+          (lambda ()
+            (jazz.pathname-dir (jazz.pathname-normalize (GetModuleFileName))))))
+  (else))
 
 
 ;;;

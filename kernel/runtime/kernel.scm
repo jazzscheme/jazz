@@ -433,19 +433,38 @@
                      path)))
 
 
+;; work in progress
+(define (jazz.find-resources module-name source-proc binary-proc . rest)
+  (let ((error? (if (%%null? rest) #t (%%car rest)))
+        (path (jazz.name->path module-name))
+        (resources (%%cons '() '())))
+    (let iter-repo ((repositories jazz.Repositories))
+      (if (%%null? repositories)
+          resources
+        (let iter ((packages (jazz.repository-packages (%%car repositories))))
+          (if (%%null? packages)
+              (iter-repo (%%cdr repositories))
+            (let ((package (%%car packages)))
+              (if source-proc
+                  (source-proc package path))
+              (if binary-proc
+                  (binary-proc package path))
+              (iter (%%cdr packages)))))))))
+
+
 (define (jazz.find-module-src module-name . rest)
-  (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (let ((path (jazz.name->path module-name)))
-      (let iter-repo ((repositories jazz.Repositories))
-        (if (%%null? repositories)
-            (if error?
-                (jazz.error "Unable to find module: {s}" module-name)
-              #f)
-          (let iter ((packages (jazz.repository-packages (%%car repositories))))
-            (if (%%null? packages)
-                (iter-repo (%%cdr repositories))
-              (or (jazz.package-find-src (%%car packages) path)
-                  (iter (%%cdr packages))))))))))
+  (let ((error? (if (%%null? rest) #t (%%car rest)))
+        (path (jazz.name->path module-name)))
+    (let iter-repo ((repositories jazz.Repositories))
+      (if (%%null? repositories)
+          (if error?
+              (jazz.error "Unable to find module: {s}" module-name)
+            #f)
+        (let iter ((packages (jazz.repository-packages (%%car repositories))))
+          (if (%%null? packages)
+              (iter-repo (%%cdr repositories))
+            (or (jazz.package-find-src (%%car packages) path)
+                (iter (%%cdr packages)))))))))
 
 
 (define (jazz.package-find-src package path)
@@ -492,11 +511,11 @@
     (if (%%not (exists? o1))
         #f
       (let iter ((next 2)
-                 (last-extension o1))
+                 (previous-extension o1))
         (let ((next-extension (try next)))
           (if (exists? next-extension)
               (iter (%%fx+ next 1) next-extension)
-            (%%make-resource package path last-extension)))))))
+            (%%make-resource package path previous-extension)))))))
 
 
 (define (jazz.get-package-autoload package name)

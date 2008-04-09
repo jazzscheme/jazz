@@ -38,4 +38,5 @@
 (library scheme core
 
 
-(export (scheme.dialect (phase syntax))))
+(export (scheme.dialect)
+        (scheme.dialect (phase syntax))))

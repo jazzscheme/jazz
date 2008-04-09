@@ -79,9 +79,7 @@
 
 (define (jazz.build-jazz)
   (jazz.build-core)
-  (jazz.build-module 'scheme.dialect)
-  (jazz.build-module 'jazz.dialect)
-  (jazz.compile-module 'jazz.dialect.language))
+  (jazz.build-module 'jazz))
 
 
 ;;;
@@ -304,7 +302,7 @@
 
 
 (define jazz.All-Modules
-  '(;;jazz.access
+  '(jazz.access
     jazz.build
     jazz.builder
     jazz.catalog
@@ -313,11 +311,13 @@
     jazz.debugger
     jazz.designer
     jazz.development
+    jazz.doc
     jazz.dialect
     jazz.groupware
     jazz.ide
     jazz.io
     jazz.jml
+    jazz.jrm
     jazz.language.c
     jazz.language.clike
     jazz.language.commonlisp
@@ -327,6 +327,7 @@
     jazz.language.java
     jazz.language.javascript
     jazz.language.jazz
+    jazz.language.jazz.debuggee
     jazz.language.jml
     jazz.language.lisp
     jazz.language.lua
@@ -336,10 +337,15 @@
     jazz.language.sql
     jazz.language.xml
     jazz.library
+    jazz.library.component
+    jazz.library.listener
+    jazz.library.node
+    jazz.library.shell
     jazz.license
     jazz.media
     jazz.network
     jazz.platform
+    jazz.platform.literals
     jazz.profile
     jazz.recorder
     jazz.repository
@@ -348,15 +354,28 @@
     jazz.schema
     jazz.snow
     jazz.system
+    jazz.system.application
     jazz.system.process
     jazz.test
     jazz.ui
+    jazz.ui.activity
     jazz.ui.clipboard
+    jazz.ui.development
+    jazz.ui.dialog
+    jazz.ui.graphic.font
+    jazz.ui.history
     jazz.ui.image
+    jazz.ui.login
+    jazz.ui.look
     jazz.ui.menu
+    jazz.ui.offscreen
+    jazz.ui.resizer
     jazz.ui.view
     jazz.ui.window
-    jazz.utilities))
+    jazz.ui.workspace
+    jazz.utilities
+    jazz.xml
+    time))
 
 
 (define (jazz.build-all)

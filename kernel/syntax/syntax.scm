@@ -84,13 +84,14 @@
 ;;;
 
 
-;; A repository is where packages are located. For now there are only a fixed hardcoded
-;; number of repositories: build, app, lib and user. Note that repository order is important
-;; as it defines search precedence.
+;; A repository is where packages are located. The system comes with the following already
+;; present repositories: build, install, source and user. Note that repository order is important
+;; as it defines search precedence. The built? property can be used to force resource search
+;; to continue for a 'source' resource.
 
 
-(jazz.define-macro (%%make-repository name directory build?)
-  `(%%vector 'repository ,name ,directory ,build? #f))
+(jazz.define-macro (%%make-repository name directory built?)
+  `(%%vector 'repository ,name ,directory ,built? #f))
 
 
 (jazz.define-macro (%%repository-name repository)
@@ -99,7 +100,7 @@
 (jazz.define-macro (%%repository-directory repository)
   `(%%vector-ref ,repository 2))
 
-(jazz.define-macro (%%repository-build? repository)
+(jazz.define-macro (%%repository-built? repository)
   `(%%vector-ref ,repository 3))
 
 (jazz.define-macro (%%repository-packages-table repository)

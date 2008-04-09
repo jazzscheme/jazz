@@ -163,8 +163,9 @@
   (%%get-class-ascendant class))
 
 
-(define (jazz.object-of-class? object class)
-  (%%subclass? (%%get-object-class object) class))
+(set! jazz.object-of-class?
+      (lambda (object class)
+        (%%subclass? (%%get-object-class object) class)))
 
 
 (define (jazz.collect-type type lst)

@@ -48,12 +48,14 @@
   ':reader)
 
 
-(define (jazz.display value output)
-  (jazz.output-value value output ':human))
+(set! jazz.display
+      (lambda (value output)
+        (jazz.output-value value output ':human)))
 
 
-(define (jazz.write value output)
-  (jazz.output-value value output ':reader))
+(set! jazz.write
+      (lambda (value output)
+        (jazz.output-value value output ':reader)))
 
 
 (define (jazz.print value output detail)

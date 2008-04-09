@@ -38,10 +38,7 @@
 (module core.class.syntax.error
 
 
-(cond-expand
-  (core
-    (jazz.define-variable jazz.object-of-class?))
-  (else))
+(jazz.define-variable jazz.object-of-class?)
 
 
 (define (jazz.not-object-error obj)

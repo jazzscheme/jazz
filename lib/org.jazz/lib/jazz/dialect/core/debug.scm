@@ -43,10 +43,8 @@
   (jazz.inspect-object (if (integer? obj) (jazz.serial-number->object obj) obj)))
 
 
-(jazz.define-variable jazz.dialect.language.get-process)
-(jazz.define-variable jazz.system.process.Process.Process.resume-loop)
-
-
 ;; resume the IDE message loop
 (define (resume)
-  (jazz.system.process.Process.Process.resume-loop (jazz.dialect.language.get-process))))
+  (let ((get-process (jazz.global-value 'jazz.dialect.language.get-process))
+        (resume-loop (jazz.global-value 'jazz.system.process.Process.Process.resume-loop)))
+    (resume-loop (get-process)))))

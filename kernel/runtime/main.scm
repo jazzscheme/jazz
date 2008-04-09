@@ -44,17 +44,17 @@
 ;;;
 
 
-(jazz.define-variable jazz.compile-module
-  (lambda rest
-    (jazz.load-module 'core.module.build)
-    (apply jazz.compile-module rest)))
+(jazz.define-variable jazz.compile-module-internal)
+(jazz.define-variable jazz.build-module-internal)
 
-(jazz.define-variable jazz.build-module
-  (lambda rest
-    (jazz.load-module 'core.module.build)
-    (apply jazz.build-module rest)))
 
-(jazz.define-variable jazz.system.run-product)
+(define (jazz.compile-module . rest)
+  (jazz.load-module 'core.module.build)
+  (apply jazz.compile-module-internal rest))
+
+(define (jazz.build-module . rest)
+  (jazz.load-module 'core.module.build)
+  (apply jazz.build-module-internal rest))
 
 
 ;;;

@@ -48,7 +48,7 @@
 ;;;
 
 
-(define (jazz.compile-module module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
+(define (jazz.compile-module-internal module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
   (jazz.with-module-src/bin module-name
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-module-name module-name)
@@ -117,7 +117,7 @@
 ;;;
 
 
-(define (jazz.build-module module-name)
+(define (jazz.build-module-internal module-name)
   (jazz.for-each-submodule module-name
     (lambda (module-name declaration phase)
       (jazz.compile-module module-name))))
@@ -128,24 +128,25 @@
 ;;;
 
 
-(define (jazz.for-each-submodule module-name proc)
-  (let iter ((module-name module-name)
-             (feature-requirement #f)
-             (phase #f))
-    (let ((declaration (jazz.locate-toplevel-declaration module-name)))
-      (proc module-name declaration phase)
-      (if (jazz.is? declaration jazz.Module-Declaration)
-          (for-each (lambda (require)
-                      (jazz.parse-require require iter))
-                    (%%get-module-declaration-requires declaration))
-        (begin
-          (for-each (lambda (require)
-                      (jazz.parse-require require iter))
-                    (%%get-library-declaration-requires declaration))
-          (for-each (lambda (export)
-                      (let ((reference (%%get-library-invoice-library export)))
-                        (if reference
-                            (let ((name (%%get-declaration-reference-name reference))
-                                  (phase (%%get-library-invoice-phase export)))
-                              (iter name #f phase)))))
-                    (%%get-library-declaration-exports declaration))))))))
+(set! jazz.for-each-submodule
+     (lambda (module-name proc)
+       (let iter ((module-name module-name)
+                  (feature-requirement #f)
+                  (phase #f))
+         (let ((declaration (jazz.locate-toplevel-declaration module-name)))
+           (proc module-name declaration phase)
+           (if (jazz.is? declaration jazz.Module-Declaration)
+               (for-each (lambda (require)
+                           (jazz.parse-require require iter))
+                         (%%get-module-declaration-requires declaration))
+             (begin
+               (for-each (lambda (require)
+                           (jazz.parse-require require iter))
+                         (%%get-library-declaration-requires declaration))
+               (for-each (lambda (export)
+                           (let ((reference (%%get-library-invoice-library export)))
+                             (if reference
+                                 (let ((name (%%get-declaration-reference-name reference))
+                                       (phase (%%get-library-invoice-phase export)))
+                                   (iter name #f phase)))))
+                         (%%get-library-declaration-exports declaration)))))))))

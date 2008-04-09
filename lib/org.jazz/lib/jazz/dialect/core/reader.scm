@@ -148,8 +148,7 @@
                      (iter))))))))
     
     
-    (define jazz.jazz-readtable
-      (jazz.make-jazz-readtable))
+    (set! jazz.jazz-readtable (jazz.make-jazz-readtable))
     
     
     (define (jazz.char-symbol char)

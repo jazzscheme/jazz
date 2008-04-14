@@ -67,6 +67,9 @@
   
   (slot glyph-array          initialize {})
   (slot array-length    <fx> initialize 0)
+  
+  
+  (slot landscape?           initialize #f)
 
   
   (method (initialize surface . rest)
@@ -201,6 +204,22 @@
   
   
   ;;;
+  ;;;; Landscape
+  ;;;
+  
+  @wait
+  (method public (with-landscape rotation page proc)
+    (let ((preserved landscape?))
+      (unwind-protect
+          (begin
+            (set! landscape? true)
+            (set! landscape-rotation rotation)
+            (set! landscape-page page)
+            (proc))
+        (set! landscape? preserved))))
+  
+  
+  ;;;
   ;;;; Transform
   ;;;
   
@@ -212,29 +231,47 @@
   ;; cwidth cheight : size of the clipper in device coordinates
     
   
-  (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool>)
+  (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl>)
     (let* ((dh (- lh sh))
            (dv (- lv sv))
-           (ch (if (not sc?) lh (floor (+ sh (* dh sc))))) 
-           (cv (if (not sc?) lv (floor (+ sv (* dv sc)))))
-           (cwidth (if (not sc?) width (+ 1 (fxceiling (* width sc)))))
-           (cheight (if (not sc?) height (+ 1 (fxceiling (* height sc))))))
-      (let ((old-matrix (cairo_matrix_t-make)))
+           (dx (+ sh (* dh sc)))
+           (dy (+ sv (* dv sc)))
+           (ch (round dx))
+           (cv (round dy))
+           (cwidth (fxceiling (* width sc)))
+           (cheight (fxceiling (* height sc))))
+      (let ((old-matrix (cairo_matrix_t-make))
+            (new-matrix (cairo_matrix_t-make)))
         (cairo_get_matrix context old-matrix)
         (cairo_identity_matrix context)
         (let* ((clipper (new Rect ch cv (+ ch cwidth) (+ cv cheight)))
                (old-clipper (get-clipper))
                (new-clipper (rect-intersection old-clipper clipper)))
           (set-clipper new-clipper)
-          (when sc?
-            (cairo_translate context (cast <fl> (- sh)) (cast <fl> (- sv)))
-            (cairo_scale context sc sc))
-          (cairo_translate context (cast <fl> lh) (cast <fl> lv))
+          (cairo_matrix_t-xx-set! new-matrix sc)
+          (cairo_matrix_t-xy-set! new-matrix 0.0)
+          (cairo_matrix_t-yx-set! new-matrix 0.0)
+          (cairo_matrix_t-yy-set! new-matrix sc)
+          (cairo_matrix_t-x0-set! new-matrix (exact->inexact dx))
+          (cairo_matrix_t-y0-set! new-matrix (exact->inexact dy))
+          (cairo_set_matrix context new-matrix)
           (values old-clipper old-matrix)))))
-
+  
+  
+  (method public (set-transform-shortcut drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl>)
+    (let ((old-matrix (cairo_matrix_t-make)))
+      (cairo_get_matrix context old-matrix)
+      (cairo_identity_matrix context)
+      (let* ((clipper (new Rect lh lv (+ lh width) (+ lv height)))
+             (old-clipper (get-clipper))
+             (new-clipper (rect-intersection old-clipper clipper)))
+        (set-clipper new-clipper)
+        (cairo_translate context (cast <fl> lh) (cast <fl> lv))
+        (values old-clipper old-matrix))))
+        
   
   (method public (with-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl> sc? <bool> proc <procedure>)
-    (receive (old-clipper old-matrix) (set-transform drawing lh lv width height sh sv sc sc?)
+    (receive (old-clipper old-matrix) ((if sc? set-transform set-transform-shortcut) drawing lh lv width height sh sv sc)
       (proc)
       (cairo_identity_matrix context)
       (set-clipper old-clipper)

@@ -736,13 +736,33 @@
   ;;;
   
   
+  (definition Highlight-Styles
+    '(Reference Walk-Warning Walk-Fatal Break))
+  
+  
+  (method (highlight-style? style)
+    (some? (function (style-name)
+             (inherits?~ style style-name))
+           Highlight-Styles))
+  
+  
+  (method public (constant? expr)
+    (or (number? expr)
+        (boolean? expr)
+        (char? expr)
+        (symbol? expr)
+        (keyword? expr)))
+  
+  
   (method (on-highlight-selection evt)
     (let ((range (definition-range (get-start)))
-          (symbol (current-expr)))
-      (if (or (not range) (not (symbol? symbol)))
+          (constant (current-expr)))
+      (if (or (not range) (not (constant? constant)))
           (bell)
-        (remove-highlights range)
-        (highlight-expression range symbol))))
+        (let ((style (get-style-at (get-end))))
+          (if (highlight-style? style)
+              (unhighlight-expression range constant)
+            (highlight-expression range constant))))))
   
   
   (method (on-remove-highlights evt)
@@ -752,20 +772,38 @@
         (remove-highlights range))))
   
   
-  (method public (highlight-expression range symbol)
+  (method public (find-expression range constant)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
+      (call/ec
+        (lambda (return)
+          (iterate-expression~ expl
+            (function (mode)
+              (when (and (constant?~ expl) (eqv? (get-constant~ expl) constant))
+                (return (get-range~ expl)))))
+          {}))))
+  
+  
+  (method public (highlight-expression range constant)
     (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
       (iterate-expression~ expl
         (function (mode)
-          (when (and (eq? (get-kind~ expl) 'symbol) (eq? (find-marked-symbol~ expl) symbol))
+          (when (and (constant?~ expl) (eqv? (get-constant~ expl) constant))
             (apply-style 'Reference (get-start~ expl) (get-end~ expl)))))))
+  
+  
+  (method public (unhighlight-expression range constant)
+    (let ((expl <Text-Explorer> (new (explorer-class) self start: (get-start~ range) end: (get-start~ range))))
+      (iterate-expression~ expl
+        (function (mode)
+          (when (and (constant?~ expl) (eqv? (get-constant~ expl) constant))
+            (apply-style default-style (get-start~ expl) (get-end~ expl)))))))
   
   
   (method public (remove-highlights range)
     (for-each-paragraph (function (row <fx> paragraph <Paragraph>)
                           (for-each (function (run)
-                                      (let* ((style (get-style~ run))
-                                             (style-name (get-name~ (get-style~ run))))
-                                        (when (memq? style-name '(Reference Walk-Warning Walk-Fatal Break))
+                                      (let ((style (get-style~ run)))
+                                        (when (highlight-style? style)
                                           (set-style~ run default-style)
                                           (invalidate-paragraph paragraph))))
                                     (get-runs~ paragraph)))

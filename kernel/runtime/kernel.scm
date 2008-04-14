@@ -262,6 +262,7 @@
 
 
 (define jazz.jazz-source
+  ;; when the install directory is a subdirectory of the source use a .. notation
   (if (and (%%fx>= (%%string-length jazz.source) 3)
            (%%string=? (%%substring jazz.source 0 3) "../"))
       (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source))

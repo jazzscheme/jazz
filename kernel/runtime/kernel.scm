@@ -321,7 +321,8 @@
 
 
 (define (jazz.register-repository directory #!key (name #f) (built? #f))
-  (%%make-repository name directory built?))
+  (let ((repository (%%make-repository name (jazz.pathname-normalize directory) built?)))
+    (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))))
 
 
 (define (jazz.repository-pathname repository path)

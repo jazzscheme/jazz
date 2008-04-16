@@ -136,8 +136,8 @@
                   (function ()
                     (print-page surface 0 0 page no))))
               pages
-              (naturals (if (null? from) 0 (- from 1))
-                        (if (null? to) (length pages) to))))
+              (naturals (if from (- from 1) 0)
+                        (if to to (length pages)))))
   
   
   (method (with-orientation surface page clipper proc)
@@ -147,14 +147,12 @@
               (with-clipper~ surface (if landscape? (inverse-rect clipper) clipper)
                 (function ()
                   (proc))))))
-      (with-world~ surface
-        (function ()
-          (if (not landscape?)
-              (proc)
-            (let ((orientation 'counterclockwise)
-                   (page-size (rect-size page)))
-              (with-landscape~ surface
-                orientation page-size proc)))))))
+      (if (not landscape?)
+          (proc)
+        (let ((orientation 'counterclockwise)
+              (page-size (rect-size page)))
+          (with-landscape~ surface
+            orientation page-size proc)))))
   
   
   (method public (print-page surface lh lv page no)
@@ -191,7 +189,6 @@
   
   
   (method (print-context no)
-    @convert-date
     (list
       printing?: #t
       ;; metamodeler-extra : should get this setting from the page-setup
@@ -200,8 +197,9 @@
       filename: (either (client-filename) "New")
       page-no: no
       page-count: (length pages)
+      @convert-date(
       print-date: (present-date-day (local-date))
-      print-time: (present-date-time (local-date))))
+      print-time: (present-date-time (local-date)))))
   
   
   (method (client-filename)
@@ -221,8 +219,8 @@
     (let* ((content (get-content~ page-setup))
            (width (get-width~ content))
            (height (get-height~ content))
-           (paginate-width (fxceiling (/ (/ (* width resolution) 60) scaling)))
-           (paginate-height (fxceiling (/ (/ (* height resolution) 60) scaling))))
+           (paginate-width (ceiling (/ (/ (* width resolution) 60) scaling)))
+           (paginate-height (ceiling (/ (/ (* height resolution) 60) scaling))))
       (paginate~ client paginate-width paginate-height)))
   
   

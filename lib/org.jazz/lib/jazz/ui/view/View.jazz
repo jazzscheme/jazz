@@ -43,11 +43,13 @@
         (jazz.library)
         (jazz.literals)
         (jazz.platform)
+        (jazz.platform.cairo)
         (jazz.recorder)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.clipboard)
         (jazz.ui.dialog)
+        (jazz.ui.print)
         (jazz.ui.window)
         (jazz.ui.view)
         (jazz.ui.workspace)
@@ -979,39 +981,11 @@
   
   
   (method public virtual (print-document)
-    (unimplemented 'print-document)
-    @Print-Dialog
-    (receive (hdc print-to-file? selection? pages? from to nb-copies orientation) (get-modal Print-Dialog)
-      (if print-to-file?
-          (print-picture)
-        (let* ((surface (new Surface hdc))
-               (page-setup (get-page-setup-for 'printer))
-               (resolution (get-caps~ surface LOGPIXELSX)))
-          (setup-clipper~ surface (new Rect 0 0 10000 10000))
-          (let ((job (new Printer-Job surface self page-setup resolution selection?: selection? from: (essay pages? from) to: (essay pages? to) nb-copies: nb-copies)))
-            (print-job~ job))))))
+    (platform-print-document self))
   
   
   (method public virtual (print-picture)
-    (unimplemented 'print-picture)
-    @convert
-    (let ((directory (choose-directory))
-          (filename "page"))
-      (delete-existing directory filename)
-      (let* ((page-setup (get-page-setup-for 'file))
-             (resolution (get-caps~ (desktop-dc) LOGPIXELSX))
-             (job (new Picture-Job directory filename self page-setup resolution)))
-        (print-job~ job))
-      (message-box "Print done")))
-  
-  
-  (method (delete-existing directory filename)
-    (let ((regexp (new Regular-Expression (format "{a}*.emf" filename))))
-      (iterate-directory~ directory
-        (function (file)
-          (when (matches?~ regexp (get-name~ file))
-            (delete-file~ file)))
-        recursive?: #f)))
+    (platform-print-picture self))
 
   
   (method public virtual (print-layout (from-preview?: from-preview? #f))

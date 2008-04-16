@@ -39,12 +39,14 @@
 (library jazz.ui.graphic.Surface jazz
 
 
-(import (jazz.library)
+(import (jazz.development)
+        (jazz.library)
         (jazz.ui)
         (jazz.ui.graphic.font)
         (jazz.platform.cairo)
         (jazz.literals)
-        (jazz.utilities))
+        (jazz.utilities)
+        (jazz.platform.windows (cond windows)))
 
 
 ;; origin  -> origin used by the view painting algorithm
@@ -70,6 +72,8 @@
   
   
   (slot landscape?           initialize #f)
+  (slot landscape-rotation   initialize {})
+  (slot landscape-page   initialize {})
 
   
   (method (initialize surface . rest)
@@ -119,6 +123,9 @@
   
   (method public (get-surface)
     surface)
+  
+  
+  
   
   
   ;;;
@@ -189,8 +196,6 @@
   
   
   (method public (with-clipper clip-rect <Rect> proc <procedure>)
-    (unimplemented 'with-clipper)
-    @rect-intersection
     (let* ((old-clipper (get-clipper))
            (new-clipper (rect-intersection old-clipper clip-rect)))
       (let ((selected? #f))
@@ -207,12 +212,12 @@
   ;;;; Landscape
   ;;;
   
-  @wait
+  
   (method public (with-landscape rotation page proc)
     (let ((preserved landscape?))
       (unwind-protect
           (begin
-            (set! landscape? true)
+            (set! landscape? #t)
             (set! landscape-rotation rotation)
             (set! landscape-page page)
             (proc))
@@ -231,11 +236,11 @@
   ;; cwidth cheight : size of the clipper in device coordinates
     
   
-  (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl>)
+  (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl>) 
     (let* ((dh (- lh sh))
            (dv (- lv sv))
-           (dx (+ sh (* dh sc)))
-           (dy (+ sv (* dv sc)))
+           (dx (if (not landscape?) (+ sh (* dh sc)) (+ sv (* (case landscape-rotation ((clockwise) (- (get-height~ landscape-page) dv)) (else dv)) sc))))
+           (dy (if (not landscape?) (+ sv (* dv sc)) (+ sh (* (case landscape-rotation ((clockwise) dh) (else (- (get-width~ landscape-page) dh))) sc))))
            (ch (round dx))
            (cv (round dy))
            (cwidth (fxceiling (* width sc)))
@@ -244,14 +249,26 @@
             (new-matrix (cairo_matrix_t-make)))
         (cairo_get_matrix context old-matrix)
         (cairo_identity_matrix context)
-        (let* ((clipper (new Rect ch cv (+ ch cwidth) (+ cv cheight)))
+        (let* ((clipper (if #f
+                            (case landscape-rotation
+                              ((clockwise) (new Rect (- ch cheight) cv ch (+ cv cwidth)))
+                              ((counterclockwise) (new Rect ch (- cv cwidth) (+ ch cheight) cv)))
+                          (new Rect ch cv (+ ch cwidth) (+ cv cheight))))
                (old-clipper (get-clipper))
                (new-clipper (rect-intersection old-clipper clipper)))
           (set-clipper new-clipper)
-          (cairo_matrix_t-xx-set! new-matrix sc)
-          (cairo_matrix_t-xy-set! new-matrix 0.0)
-          (cairo_matrix_t-yx-set! new-matrix 0.0)
-          (cairo_matrix_t-yy-set! new-matrix sc)
+          (if landscape?
+              (case landscape-rotation
+                ((clockwise)
+                 (cairo_matrix_t-xx-set! new-matrix 0.0) (cairo_matrix_t-xy-set! new-matrix sc)
+                 (cairo_matrix_t-yx-set! new-matrix (- sc)) (cairo_matrix_t-yy-set! new-matrix 0.0))
+                ((counterclockwise)
+                 (cairo_matrix_t-xx-set! new-matrix 0.0) (cairo_matrix_t-xy-set! new-matrix (- sc))
+                 (cairo_matrix_t-yx-set! new-matrix sc) (cairo_matrix_t-yy-set! new-matrix 0.0)))
+            (cairo_matrix_t-xx-set! new-matrix sc)
+            (cairo_matrix_t-xy-set! new-matrix 0.0)
+            (cairo_matrix_t-yx-set! new-matrix 0.0)
+            (cairo_matrix_t-yy-set! new-matrix sc))
           (cairo_matrix_t-x0-set! new-matrix (exact->inexact dx))
           (cairo_matrix_t-y0-set! new-matrix (exact->inexact dy))
           (cairo_set_matrix context new-matrix)
@@ -838,6 +855,32 @@
                          (increase! v)
                          (decrease! height 2))
                        (naturals 0 size))))))))
+  
+  
+  ;;;
+  ;;;; Printing
+  ;;;
+  
+  (cond-expand
+    (windows
+      (method public (start-doc rec)
+        (StartDoc (cairo_win32_surface_get_dc surface) rec))
+  
+  
+      (method public (end-doc)
+        (EndDoc (cairo_win32_surface_get_dc surface)))
+  
+  
+      (method public (start-page)
+        (StartPage (cairo_win32_surface_get_dc surface)))
+  
+  
+      (method public (end-page)
+        (EndPage (cairo_win32_surface_get_dc surface))))
+    (else))
+  
+  
+  
   
   
   (method (with-outside/inside outside inside procedure)

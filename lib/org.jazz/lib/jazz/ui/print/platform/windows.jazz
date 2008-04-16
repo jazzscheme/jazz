@@ -1,0 +1,46 @@
+(library jazz.ui.print.platform.windows jazz
+
+
+(import (jazz.library)
+        (jazz.platform.windows)
+        (jazz.platform.cairo.cairo-windows)
+        (jazz.ui)
+        (jazz.ui.dialog))
+
+
+;;;
+;;;; Print
+;;;
+
+
+(definition public (platform-print-document view)
+  (receive (hdc print-to-file? selection? pages? from to nb-copies orientation) (print-dialog)
+    (if print-to-file?
+        (print-picture~ view)
+      (let* ((surface (new Surface (cairo_win32_surface_create hdc)))
+             (page-setup (get-page-setup-for~ view 'printer))
+             (resolution (GetDeviceCaps hdc LOGPIXELSX)))
+        (setup-clipper~ surface (new Rect 0 0 10000 10000))
+        (let ((job (new Printer-Job surface view page-setup resolution selection?: selection? from: (essay pages? from) to: (essay pages? to) nb-copies: nb-copies)))
+          (print-job~ job))))))
+  
+  
+(definition (delete-existing directory filename)
+  (let ((regexp (new Regular-Expression (format "{a}*.emf" filename))))
+    (iterate-directory~ directory
+      (function (file)
+        (when (matches?~ regexp (get-name~ file))
+          (delete-file~ file)))
+      recursive?: #f)))
+
+
+(definition public (platform-print-picture view)
+  @wait
+  (let ((directory (choose-directory))
+        (filename "page"))
+    (delete-existing directory filename)
+    (let* ((page-setup (get-page-setup-for~ view 'file))
+           (resolution (GetDeviceCaps (desktop-dc) LOGPIXELSX))
+           (job (new Picture-Job directory filename view page-setup resolution)))
+      (print-job~ job))
+    (message-box "Print done"))))

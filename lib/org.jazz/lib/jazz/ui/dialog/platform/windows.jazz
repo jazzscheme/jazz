@@ -52,6 +52,34 @@
 
 
 ;;;
+;;;; Print
+;;;
+
+
+(definition public (print-dialog . rest)
+    (close-all-popups)
+    (let ((rec (PRINTDLG-make)))
+      (PRINTDLG-lStructSize-set! rec (PRINTDLG-sizeof))
+      (PRINTDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+      (PRINTDLG-Flags-set! rec (bitwise-ior PD_HIDEPRINTTOFILE PD_NOSELECTION PD_USEDEVMODECOPIESANDCOLLATE PD_RETURNDC))
+      (PRINTDLG-nFromPage-set! rec 0)
+      (PRINTDLG-nToPage-set! rec 0)
+      (PRINTDLG-nMinPage-set! rec 1)
+      (PRINTDLG-nMaxPage-set! rec 10)
+      (if (PrintDlg rec)
+          (let* ((flags (PRINTDLG-Flags-ref rec))
+                 (handle (PRINTDLG-hDevMode-ref rec))
+                 (pointer (GlobalLock handle))
+                 (devmode (VOID*->DEVMODE pointer)))
+            (values (PRINTDLG-hDC-ref rec) (mask-bit-set? flags PD_PRINTTOFILE) (mask-bit-set? flags PD_SELECTION) (mask-bit-set? flags PD_PAGENUMS) (PRINTDLG-nFromPage-ref rec) (PRINTDLG-nToPage-ref rec) (PRINTDLG-nCopies-ref rec) (DEVMODE-dmOrientation-ref devmode)))
+        (let ((code (CommDlgExtendedError)))
+          (if (= code 0)
+              (throw-cancel)
+            (error "Print dialog error: {t}" code))))))
+
+
+
+;;;
 ;;;; File
 ;;;
 

@@ -417,6 +417,10 @@
 ;;;
 
 
+(define jazz.debug-build?
+  #f)
+
+
 (define (jazz.main)
   (define (warn-missing-argument-for-option opt)
     (jazz.repl-main
@@ -476,7 +480,13 @@
               (jazz.product
                (jazz.run-product jazz.product))
               (build
-               (jazz.build (%%string->symbol build)))
+                (let ((current-handler (current-exception-handler)))
+                  (with-exception-handler
+                    (lambda (exc)
+                      (jazz.debug-exception exc (console-port) jazz.debug-build?)
+                      (current-handler exc))
+                    (lambda ()
+                      (jazz.build (%%string->symbol build))))))
               (else
                (jazz.repl-main #f)))))))
 

@@ -297,8 +297,8 @@
 (define jazz.Install-Repository
   (jazz.make-repository 'install "Install" jazz.jazz-install "lib/" #f))
 
-(define jazz.Source-Repository
-  (jazz.make-repository 'source "Source" jazz.jazz-source "lib/" #f error?: #f))
+(define jazz.Jazz-Repository
+  (jazz.make-repository 'source "Jazz" jazz.jazz-source "lib/" #f error?: #f))
 
 (define jazz.User-Repository
   (jazz.make-repository 'user "User" "~/" ".jazz/lib/" #f))
@@ -312,7 +312,7 @@
   
   `(,@(listify jazz.Build-Repository)
     ,@(listify jazz.Install-Repository)
-    ,@(listify jazz.Source-Repository)
+    ,@(listify jazz.Jazz-Repository)
     ,@(listify jazz.User-Repository)))
 
 

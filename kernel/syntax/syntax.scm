@@ -85,7 +85,7 @@
 
 
 ;; A repository is where packages are located. The system comes with the following already
-;; present repositories: build, install, source and user. Note that repository order is important
+;; present repositories: build, install, jazz and user. Note that repository order is important
 ;; as it defines search precedence. The built? property can be used to force resource search
 ;; to continue for a 'source' resource.
 

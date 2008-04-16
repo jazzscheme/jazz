@@ -837,7 +837,7 @@
 (define jazz.prompt
   "$ ")
 
-(define jazz.display-backtrace?
+(define jazz.debug-build-system?
   #f)
 
 
@@ -854,11 +854,7 @@
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
-                (display-exception exc console)
-                (if jazz.display-backtrace?
-                    (continuation-capture
-                      (lambda (cont)
-                        (display-continuation-backtrace cont console #t #t 0 30))))
+                (jazz.debug-exception exc console jazz.debug-build-system?)
                 (stop #f))
               (lambda ()
                 (jazz.process-command command console)))))

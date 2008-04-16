@@ -437,3 +437,16 @@
     (let ((code (process-status port)))
       (if (%%not (%%fx= code 0))
           (jazz.error "failed")))))
+
+
+;;;
+;;;; Debug
+;;;
+
+
+(define (jazz.debug-exception exc console display-backtrace?)
+  (display-exception exc console)
+  (if display-backtrace?
+      (continuation-capture
+        (lambda (cont)
+          (display-continuation-backtrace cont console #t #t 0 30)))))

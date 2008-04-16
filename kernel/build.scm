@@ -854,7 +854,7 @@
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
-                (jazz.debug-exception exc console jazz.debug-build-system?)
+                (jazz.debug-exception exc console #t jazz.debug-build-system?)
                 (stop #f))
               (lambda ()
                 (jazz.process-command command console)))))

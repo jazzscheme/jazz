@@ -302,7 +302,8 @@
 
 
 (define jazz.All-Modules
-  '(jazz.access
+  '(jazz
+    jazz.access
     jazz.build
     jazz.builder
     jazz.catalog
@@ -483,7 +484,7 @@
                 (let ((current-handler (current-exception-handler)))
                   (with-exception-handler
                     (lambda (exc)
-                      (jazz.debug-exception exc (console-port) jazz.debug-build?)
+                      (jazz.debug-exception exc (console-port) jazz.debug-build? jazz.debug-build?)
                       (current-handler exc))
                     (lambda ()
                       (jazz.build (%%string->symbol build))))))

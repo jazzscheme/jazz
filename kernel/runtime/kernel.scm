@@ -282,26 +282,26 @@
 ;;;
 
 
-(define (jazz.make-repository name dirname dir subdir built? #!key (error? #t))
+(define (jazz.make-repository name dirname dir subdir #!key (error? #t))
   (if (jazz.directory-exists? dir)
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
-        (%%make-repository name directory built?))
+        (%%make-repository name directory))
     (if error?
         (jazz.error "{a} directory is inexistant: {a}" dirname dir)
       #f)))
 
 
 (define jazz.Build-Repository
-  (jazz.make-repository 'build "Build" jazz.jazz-install "build/" #t))
+  (jazz.make-repository 'build "Build" jazz.jazz-install "build/"))
 
 (define jazz.Install-Repository
-  (jazz.make-repository 'install "Install" jazz.jazz-install "lib/" #f))
+  (jazz.make-repository 'install "Install" jazz.jazz-install "lib/"))
 
 (define jazz.Jazz-Repository
-  (jazz.make-repository 'source "Jazz" jazz.jazz-source "lib/" #f error?: #f))
+  (jazz.make-repository 'jazz "Jazz" jazz.jazz-source "lib/" error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'user "User" "~/" ".jazz/lib/" #f))
+  (jazz.make-repository 'user "User" "~/" ".jazz/lib/"))
 
 
 (define (jazz.make-repositories)
@@ -320,9 +320,19 @@
   (jazz.make-repositories))
 
 
-(define (jazz.register-repository directory #!key (name #f) (built? #f))
-  (let ((repository (%%make-repository name (jazz.pathname-normalize directory) built?)))
+(define (jazz.register-repository directory #!key (name #f))
+  (let ((repository (%%make-repository name (jazz.pathname-normalize directory))))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))))
+
+
+(define (jazz.find-repository name)
+  (let iter ((repositories jazz.Repositories))
+    (if (%%null? repositories)
+        #f
+      (let ((repository (%%car repositories)))
+        (if (eq? (%%repository-name repository) name)
+            repository
+          (iter (%%cdr repositories)))))))
 
 
 (define (jazz.repository-pathname repository path)
@@ -398,7 +408,6 @@
     `(:repository
       ,(%%repository-name repository)
       ,(%%repository-directory repository)
-      ,(%%repository-built? repository)
       ,@(map inspect-package (jazz.repository-packages repository))))
   
   (define (inspect-package package)
@@ -435,27 +444,16 @@
                      path)))
 
 
-(define (jazz.find-resource module-name source-proc built-proc)
-  (let ((path (jazz.name->path module-name))
-        (source #f)
-        (built #f))
+(define (jazz.iterate-resources module-name proc)
+  (let ((path (jazz.name->path module-name)))
     (let iter-repo ((repositories jazz.Repositories))
-      (if (%%null? repositories)
-          (values source built)
-        (let iter ((packages (jazz.repository-packages (%%car repositories))))
-          (if (%%null? packages)
-              (iter-repo (%%cdr repositories))
-            (let ((built? (%%repository-built? (%%car repositories)))
-                  (package (%%car packages)))
-              (cond ((and (not built?) source-proc (not source))
-                     (let ((resource (source-proc package path)))
-                       (if resource 
-                           (set! source resource))))
-                    ((and built? built-proc (not built))
-                     (let ((resource (built-proc package path)))
-                       (if resource 
-                           (set! built resource)))))
-              (iter (%%cdr packages)))))))))
+      (if (%%not (%%null? repositories))
+          (let iter ((packages (jazz.repository-packages (%%car repositories))))
+            (if (%%null? packages)
+                (iter-repo (%%cdr repositories))
+              (let ((package (%%car packages)))
+                (proc package path)
+                (iter (%%cdr packages)))))))))
 
 
 (define (jazz.get-package-autoload package name)
@@ -540,15 +538,31 @@
 
 (define (jazz.find-module-src module-name . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (receive (src bin) (jazz.find-resource module-name jazz.package-find-src #f)
-      (or src
-          (if error?
-              (jazz.error "Unable to find module: {s}" module-name)
-            #f)))))
+    (call/cc
+      (lambda (return)
+        (jazz.iterate-resources module-name
+          (lambda (package path)
+            (let ((src (jazz.package-find-src package path)))
+              (if src
+                  (return src)))))
+        (if error?
+            (jazz.error "Unable to find module: {s}" module-name)
+          #f)))))
 
 
 (define (jazz.with-module-src/bin module-name proc)
-  (receive (src bin) (jazz.find-resource module-name jazz.package-find-src jazz.package-find-bin)
+  (let ((src #f)
+        (bin #f))
+    (call/cc
+      (lambda (return)
+        (jazz.iterate-resources module-name
+          (lambda (package path)
+            (if (%%not bin)
+                (set! bin (jazz.package-find-bin package path)))
+            (if (%%not src)
+                (set! src (jazz.package-find-src package path)))
+            (if src
+                (return #f))))))
     (let ((manifest (and bin (jazz.load-manifest bin))))
       (let ((bin-uptodate?
               (and bin (or (%%not src)

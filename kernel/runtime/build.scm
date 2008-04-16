@@ -444,8 +444,9 @@
 ;;;
 
 
-(define (jazz.debug-exception exc console display-backtrace?)
-  (display-exception exc console)
+(define (jazz.debug-exception exc console display-exception? display-backtrace?)
+  (if display-exception?
+      (display-exception exc console))
   (if display-backtrace?
       (continuation-capture
         (lambda (cont)

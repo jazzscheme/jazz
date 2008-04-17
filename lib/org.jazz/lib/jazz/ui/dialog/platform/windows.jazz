@@ -78,6 +78,42 @@
             (error "Print dialog error: {t}" code))))))
 
 
+(definition public (page-setup-dialog (margins: margins '()) (orientation: orientation {}) (paper-size: paper-size {}) (paper-source: paper-source {}))
+    (close-all-popups)
+    (let ((rec (PAGESETUPDLG-make))
+          (devmode (DEVMODE-make)))
+      (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
+      (DEVMODE-dmOrientation-set! devmode orientation)
+      (DEVMODE-dmPaperSize-set! devmode paper-size)
+      (DEVMODE-dmDefaultSource-set! devmode paper-source)
+      (DEVMODE-dmFields-set! devmode (bitwise-ior DM_ORIENTATION DM_PAPERSIZE DM_DEFAULTSOURCE))
+      (PAGESETUPDLG-lStructSize-set! rec (PAGESETUPDLG-sizeof))
+      (PAGESETUPDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+      (PAGESETUPDLG-hDevMode-set! rec (DEVMODE->HANDLE devmode))
+      (PAGESETUPDLG-Flags-set! rec (bitwise-ior PSD_INTHOUSANDTHSOFINCHES (if margins PSD_MARGINS 0) PSD_DISABLEPRINTER))
+      (when margins
+        (RECT-left-set! (PAGESETUPDLG-rtMargin-ref rec) (get-left~ margins))
+        (RECT-top-set! (PAGESETUPDLG-rtMargin-ref rec) (get-top~ margins))
+        (RECT-right-set! (PAGESETUPDLG-rtMargin-ref rec) (get-right~ margins))
+        (RECT-bottom-set! (PAGESETUPDLG-rtMargin-ref rec) (get-bottom~ margins)))
+      (if (PageSetupDlg rec)
+          (let* ((handle (PAGESETUPDLG-hDevMode-ref rec))
+                 (pointer (GlobalLock handle))
+                 (devmode (VOID*->DEVMODE pointer)))
+            (prog1
+                (values (POINT->dimension (PAGESETUPDLG-ptPaperSize-ref rec))
+                        (RECT->rect (PAGESETUPDLG-rtMinMargin-ref rec))
+                        (RECT->rect (PAGESETUPDLG-rtMargin-ref rec))
+                        (DEVMODE-dmOrientation-ref devmode)
+                        (DEVMODE-dmPaperSize-ref devmode)
+                        (DEVMODE-dmDefaultSource-ref devmode))
+              (GlobalUnlock handle)))
+        (let ((code (CommDlgExtendedError)))
+          (if (= code 0)
+              (throw-cancel)
+            (error "Print dialog error: {t}" code))))))
+
+
 
 ;;;
 ;;;; File

@@ -193,7 +193,8 @@
         (define (copy-platform-files)
           (jazz.copy-file (source-file "foreign/cairo/lib/windows/libcairo-2.dll") (install-file "libcairo-2.dll") feedback: jazz.feedback)
           (jazz.copy-file (source-file "foreign/png/lib/windows/libpng13.dll") (install-file "libpng13.dll") feedback: jazz.feedback)
-          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (install-file "zlib1.dll") feedback: jazz.feedback))
+          (jazz.copy-file (source-file "foreign/zlib/lib/windows/zlib1.dll") (install-file "zlib1.dll") feedback: jazz.feedback)
+          (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (copy-platform-files)
         (jazz.load-module 'core.library)

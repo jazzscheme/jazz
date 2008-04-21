@@ -154,41 +154,6 @@
                 (new-frame editor-class client: component)))))))
   
   
-  @old
-  (method (on-design-form evt)
-    (let* ((name (current-category-name))
-           (class (autoload name))
-           (metaclass (class-of class)))
-      (if (not (subtype? class Component))
-          (error "Only Component classes can be designed")
-        (let* ((definition (category-field metaclass 'class-form))
-               (owner? (eq? (field-creator definition) metaclass)))
-          (when (not owner?)
-            (install-class-form definition name)
-            (set! definition (category-field metaclass 'class-form)))
-          (let* ((form (definition-value definition))
-                 (frame (find-editor form)))
-            (if frame
-                (begin
-                  (bring-to-front~ frame)
-                  (set-visible?~ frame #t))
-              (let* ((component (new class))
-                     (editor-class (if (is? component View) View-Editor Manager-View)))
-                (new-frame editor-class client: component))))))))
-  
-  
-  (method (install-class-form definition model-name)
-    (unimplemented 'install-class-form)
-    @convert
-    (receive (in category-info) (current-toplevel-info)
-      (bind (category kind meta? name keywords) category-info
-        (let ((imports (getf keywords 'uses))
-              (form (new Form action: 'new model-name: model-name)))
-          (evaluate~ Interpreter (list '(form (<install>))) {} category imports)
-          @old
-          (evaluate-code (list (list 'definition 'meta 'class-form form)) category imports)))))
-  
-  
   (method (find-editor form)
     (let ((stage (get-stage)))
       (call/ec

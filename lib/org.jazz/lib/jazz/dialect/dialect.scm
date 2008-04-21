@@ -2641,8 +2641,17 @@
 (define (jazz.expand-form walker resume declaration environment form)
   (let* ((class-declaration declaration)
          (class-locator (%%get-declaration-locator class-declaration)))
-    `(method (get-class-forms)
-       (cons (jml->form>> ',form ,class-locator) (nextmethod)))))
+    `(begin
+       (definition class-form
+         (jml->form>> ',form ,class-locator))
+       
+       (register-form ',class-locator class-form)
+
+       (method (get-class-form)
+         class-form)
+       
+       (method (get-class-forms)
+         (cons class-form (nextmethod))))))
 
 
 (jazz.encapsulate-class jazz.Jazz-Walker)

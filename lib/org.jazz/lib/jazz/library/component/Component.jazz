@@ -38,8 +38,8 @@
 (library jazz.library.component.Component jazz
 
 
-(import (jazz.library)
-        (jazz.designer)
+(import (jazz.designer)
+        (jazz.library)
         (jazz.utilities))
 
 
@@ -936,16 +936,10 @@
   ;;;
   ;;;; Descriptor
   ;;;
-  
-  
-  @YOOO
-  (definition meta protected virtual class-descriptor
-    nil)
 
 
-  @YOOO
   (method meta public virtual (get-class-descriptor)
-    class-descriptor)
+    #f)
 
 
   ;;;
@@ -1179,7 +1173,9 @@
   
   
   (method meta public virtual (name->presentation name)
-    (->string name))
+    (if (not name)
+        "{}"
+      (->string name)))
   
   
   (method meta public virtual (property-presentation property)
@@ -1218,18 +1214,11 @@
   
   
   (method public virtual (get-presentation)
-    ;; temp fix
-    (if (symbol? name)
-        (symbol->string name)
-      name)
-    @convert
-    (name->presentation name))
+    (name->presentation~ (class-of self) name))
   
   
   (method public virtual (set-presentation designer presentation)
-    (unimplemented)
-    @convert
-    (set-name~ designer self (presentation->name presentation)))
+    (set-name~ designer self (presentation->name~ (class-of self) presentation)))
   
   
   (method protected (get-string-presentation)
@@ -1256,8 +1245,6 @@
   
   
   (method public virtual (get-component-image)
-    {Bitmap-Resource "Document"}
-    @convert
     (get-class-image~ (class-of self)))
   
   
@@ -1298,7 +1285,7 @@
   
   (method public (determine-paster (try-parent? #t))
     #f
-    @unimplemented
+    @convert
     (when (and (can-paste-component?) (clipboard-format-available? :jazz-parcels))
       (let* ((parcels (read-string-element (get-jazz-clipboard :jazz-parcels)))
              (models (remove-duplicates (map (function (parcel) (get-master-model~ parcel)) parcels))))

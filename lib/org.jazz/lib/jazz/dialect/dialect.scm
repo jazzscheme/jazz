@@ -1575,7 +1575,7 @@
       (cond ((%%null? metaclass-body)
              `(%class ,@rest))
             ((%%specified? metaclass-name)
-             (jazz.walk-error walker resume declaration "Ambiguous use of both the metaclass and meta keywords"))
+             (jazz.walk-error walker resume declaration "Ambiguous use of both metaclass and meta keywords"))
             (else
              (let ((metaclass-name (%%string->symbol (%%string-append (%%symbol->string name) "~Class"))))
                `(begin
@@ -1643,7 +1643,9 @@
               (%%eq? (%%car ascendant-name) ':class))
          (let ((relation (%%car ascendant-name))
                (base (jazz.lookup-reference walker resume declaration environment (%%cadr ascendant-name))))
-           (values (jazz.effective-class-declaration-metaclass base)
+           (values (or (jazz.effective-class-declaration-metaclass base)
+                       ;; need to do this because Object-Class is a special case to break circularity
+                       (jazz.lookup-reference walker resume declaration environment 'Object-Class))
                    relation
                    base)))
         (else

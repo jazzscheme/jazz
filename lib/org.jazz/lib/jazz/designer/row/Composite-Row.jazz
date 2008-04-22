@@ -39,18 +39,13 @@
 
 
 (import (jazz.designer)
-        (jazz.platform)
-        (jazz.literals)
+        (jazz.jml)
         (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
         (jazz.system)
         (jazz.ui)
         (jazz.utilities))
-
-
-(class Composite-Row extends String-Row)
-
-
-@convert (
 
 
 (class Composite-Row extends String-Row
@@ -111,7 +106,7 @@
   
   
   (method (present value)
-    (if (null? value)
+    (if (not value)
         "{}"
       (format "{l detail: :human separator: \", \"}"
               (present-value value))))
@@ -134,7 +129,7 @@
     (let* ((entries (current-entries))
            (pos (get-col~ (get-start~ editor)))
            (part (pos->part entries pos)))
-      (if (null? part)
+      (if (not part)
           (bell)
         (let ((previous (- (get-rank~ part) 1)))
           (for-each-part entries
@@ -147,7 +142,7 @@
     (let* ((entries (current-entries))
            (pos (get-col~ (get-end~ editor)))
            (part (pos->part entries pos)))
-      (if (null? part)
+      (if (not part)
           (bell)
         (let ((next (+ (get-rank~ part) 1)))
           (for-each-part entries
@@ -228,17 +223,17 @@
   
   (method (view-completions)
     (let ((info (find-to-complete)))
-      (if (null? info)
+      (if (not info)
           (bell)
         (receive (position text start end) info
           (let ((domain (part-domain position)))
-            (if (null? domain)
+            (if (not domain)
                 (bell)
               (let* ((height (* (length domain) 17))
                      (border (new Border-View name: 'border border-type: 'solid border-color: {Color red: 128 green: 128 blue: 128}))
                      (scroller (new Scroller-View size: (new Dimension 150 (max 50 (min height 250))) flat?: #t vscroll?: #t))
                      (content (get-content~ scroller))
-                     (tree (new Completion-Tree selected: (get-selection~ editor) start: start end: end)))
+                     (tree (new Completion-Tree value-row: self selected: (get-selection~ editor) start: start end: end)))
                 (set-layout-type~ content 'fill)
                 (set-parent~ tree content)
                 (set-client~ scroller tree)
@@ -252,7 +247,7 @@
                        (pos (+ view (new Dimension -10 (+ (get-height~ par) 2))))
                        (alternate (+ view (new Dimension -10 -2))))
                   (popup~ editor scroller pos alternate-position: alternate border: border)
-                  (if (null? text)
+                  (if (not text)
                       (set-selection~ tree (list 0))
                     (locate-prefix~ tree text))
                   (acquire-focus~ tree)))))))))
@@ -261,7 +256,7 @@
   (method (find-to-complete)
     (let* ((entries (current-entries))
            (part (current-part entries)))
-      (if (null? part)
+      (if (not part)
           (let ((position (current-position entries)))
             (when position
               (values position {} (get-col~ (get-start~ editor)) (get-col~ (get-end~ editor)))))
@@ -270,7 +265,7 @@
   
   (method (complete-part start end tree)
     (let ((rank (get-single-selection~ tree)))
-      (if (null? rank)
+      (if (not rank)
           (bell)
         (let ((string (get-user-data~ (get-row~ tree rank))))
           (close-popups~ (get-player~ parent) all?: #t)
@@ -313,7 +308,7 @@
             (for n from 0)
             (if (and (accepts-spaces?) (eqv? c #\space))
                 (end-part)
-              (if (null? start)
+              (if (not start)
                   (begin
                     (set! start n)
                     (set! end n))
@@ -395,9 +390,9 @@
   
   (method (tab-press key modifiers)
     (cond ((has-completion?) (end-completion))
-          ((control-key? modifiers) (view-completions))
-          ((shift-key? modifiers) (navigate-backward))
-          (else (navigate-forward))))
+          ((control-key? modifiers) (view-completions~ value-row))
+          ((shift-key? modifiers) (navigate-backward~ value-row))
+          (else (navigate-forward~ value-row))))
   
   
   (method (get-context-menu)
@@ -405,15 +400,15 @@
   
   
   (method (on-navigate-backward evt)
-    (navigate-backward))
+    (navigate-backward~ value-row))
   
   
   (method (on-navigate-forward evt)
-    (navigate-forward))
+    (navigate-forward~ value-row))
   
   
   (method (on-view-completions evt)
-    (view-completions))
+    (view-completions~ value-row))
   
   
   ;;;
@@ -440,10 +435,10 @@
   
   
   (method (symbol-completions name favorites)
-    (let* ((entries (current-entries))
-           (position (current-position entries)))
+    (let* ((entries (current-entries~ value-row))
+           (position (current-position~ value-row entries)))
       (when position
-        (let ((domain (part-domain position)))
+        (let ((domain (part-domain~ value-row position)))
           (when domain
             (let ((completer (new Symbol-Completer domain)))
               (complete~ completer name))))))))
@@ -477,44 +472,21 @@
   (form
     (<install>            portfolio: :icons selection-mode: node
       (<Tree-Node-Column> width: 200 toplevel-controls?: #f)))
-  
-  
-  (property selected initialize {} getter get-selected setter set-selected)
-  (property start    initialize {} getter get-start    setter set-start)
-  (property end      initialize {} getter get-end      setter set-end)
-  
-  
-  (method public (get-selected)
-    selected)
-  
-  
-  (method public (set-selected value)
-    (set! selected value))
-  
-  
-  (method public (get-start)
-    start)
-  
-  
-  (method public (set-start value)
-    (set! start value))
-  
-  
-  (method public (get-end)
-    end)
-  
-  
-  (method public (set-end value)
-    (set! end value))
+
+
+  (property value-row initialize {} accessors generate)
+  (property selected  initialize {} accessors generate)
+  (property start     initialize {} accessors generate)
+  (property end       initialize {} accessors generate)
   
   
   (method (return-press key)
-    (complete-part start end self))
+    (complete-part~ value-row start end self))
   
   
   (method (tab-press key modifiers)
-    (complete-part start end self))
+    (complete-part~ value-row start end self))
   
   
   (method (double-click pos)
-    (complete-part start end self)))))
+    (complete-part~ value-row start end self))))

@@ -83,17 +83,14 @@
   ;;;
   
   
-  @convert
   (method meta public virtual (get-filter-name)
     'properties)
   
   
-  @convert
   (method meta public virtual (get-filter-rank)
     1)
   
   
-  @convert
   (method meta public virtual (get-filter-image)
     {Bitmap-Resource "Property"})
   
@@ -205,7 +202,7 @@
   (method public virtual (enter-value v)
     (set! value v)
     (set-modified? #t)
-    (if (null? property_)
+    (if (not property_)
         (update value)
       (enter-value~ (get-card~ (get-tree)) property_ value)))
   
@@ -317,7 +314,7 @@
     (let ((tree (get-tree)))
       (and (in-edition?~ tree)
            (let ((row (row-rank~ tree self)))
-             (= (get-edited-cell~ tree) (new Cell row 1))))))
+             (nu=? (get-edited-cell~ tree) (new Cell row 1))))))
   
   
   ;;;
@@ -405,8 +402,8 @@
     (let ((editor (focused-editor)))
       (when editor
         (acquire-focus~ editor)
-        (cond ((null? start) (when select-all? (select-all~ editor)))
-              ((null? end) (set-caret~ editor start))
+        (cond ((not start) (when select-all? (select-all~ editor)))
+              ((not end) (set-caret~ editor start))
               (else (set-selection~ editor (new Range start end)))))))
   
   
@@ -523,7 +520,7 @@
            (node (new Tree-Node title: title image: {Bitmap-Resource "Item"}))
            (label (new Tree-Label))
            (row (new class parent: tree row-height: 17 children: (list node label) user-data: user-data))
-           (value (if (= value 'unspecified) (default-value~ row) value))
+           (value (if (eq? value 'unspecified) (default-value~ row) value))
            (presented (present~ row value)))
       (set-value~ row value)
       (set-title~ label presented)
@@ -595,7 +592,7 @@
       (with-context-click~ tree pos
         (function ()
           (let ((class (get-menu-class)))
-            (if (null? class)
+            (if (not class)
                 (bell)
               (let ((menu (new class value-row: self)))
                 (update-menu menu)
@@ -626,7 +623,7 @@
   (method public (show-property)
     (let* ((client (get-client))
            (surrogate (get-surrogate~ client)))
-      (if (null? surrogate)
+      (if (not surrogate)
           (bell)
         (let ((editor (get-editor~ surrogate)))
           (if (is-not? editor View-Editor)
@@ -648,47 +645,4 @@
   
   
   (method public virtual (draw-cell surface context value column row cell width height)
-    (draw-at~ column surface context row cell 1 0 width height)))
-
-
-;;;
-;;;; Value-Menu
-;;;
-
-
-(class Value-Menu extends Context-Menu
-  
-  
-  (property value-row initialize {} getter get-value-row setter set-value-row)
-  
-  
-  (form
-    (<install>))
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-value-row)
-    value-row)
-  
-  
-  (method public (set-value-row value)
-    (set! value-row value))
-  
-  
-  ;;;
-  ;;;; Events
-  ;;;
-  
-  
-  @commented-for-metamodeler
-  (method (on-show evt)
-    (show-property~ value-row))
-  
-  
-  @is-this-really-usefull
-  (method (on-revert evt)
-    (revert-property~ value-row))))
+    (draw-at~ column surface context row cell 1 0 width height))))

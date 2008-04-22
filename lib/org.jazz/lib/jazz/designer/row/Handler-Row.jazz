@@ -39,15 +39,10 @@
 
 
 (import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
         (jazz.platform)
         (jazz.utilities))
-
-
-(class Handler-Row extends Value-Row)
-
-
-@wait (
 
 
 (class Handler-Row extends Value-Row
@@ -89,11 +84,11 @@
   
   
   (method (present-handler handler)
-    (if (null? handler)
+    (if (not handler)
         "{}"
       (let ((target (get-target-name~ handler))
             (method (get-method-name~ handler)))
-        (if (= target :form)
+        (if (eq? target :form)
             (->string method)
           (format "{s} {s}" target method)))))
   
@@ -105,7 +100,7 @@
   
   (method (get-edited-value)
     (let ((content (get-string-content~ editor)))
-      (if (= content "{}")
+      (if (string=? content "{}")
           {}
         (let ((list (read-string-content content)))
           (case (length list)
@@ -123,12 +118,12 @@
     @need-completion
     (let* ((client (car (get-client)))
            (handler (read-property client property)))
-      (if (null? handler)
+      (if (not handler)
           (bell)
         (let* ((target (find-target~ handler client))
                (class (find-target-type~ handler client))
                (field (category-field class (get-method-name~ handler))))
-          (if (null? field)
+          (if (not field)
               (let ((location (new Jazz-Code-Location (get-category-location~ Jazz-Entry class))))
                 (edit~ location))
             (let ((entry (new Jazz-Field-Entry field)))
@@ -141,22 +136,21 @@
   
   
   (method (get-menu-class)
-    Handler-Menu)
+    Handler-Menu))
+
+
+;;;
+;;;; Handler-Menu
+;;;
+
+
+(class Handler-Menu extends Value-Menu
   
   
-  ;;;
-  ;;;; Handler-Menu
-  ;;;
+  (form
+    (<install>
+      (<Label-Item> name: edit title: "&Edit" icon: {Bitmap-Resource "Edit"} action-handler: {Event-Handler :form on-edit})))
   
   
-  (class Handler-Menu extends Value-Menu
-  
-  
-    (form
-      (<install>
-        (<Label-Item> name: edit title: "&Edit" icon: {Bitmap-Resource "Edit"} action-handler: {Event-Handler :form on-edit})))
-    
-    
-    (method (on-edit evt)
-      (edit-definition~ value-row)))))
-)
+  (method (on-edit evt)
+    (edit-definition~ value-row))))

@@ -462,12 +462,11 @@
   ;;;
   
   
-  @convert
   (method meta public (get-properties)
     (collect-if (function (property)
                   (and (property? property)
                        (property-getter property)))
-                (all-fields self)))
+                (all-slots self)))
   
   
   (method (component-property category <Object> name <Object>)
@@ -517,11 +516,11 @@
                       (yr (get-filter-rank~ (get-row-class y))))
                   (or (< xr yr)
                       (and (= xr yr)
-                           (< (field-name x) (field-name y)))))
-              (< (field-name x) (field-name y))))
+                           (string<? (symbol->string (field-name x)) (symbol->string (field-name y))))))
+              (string<? (symbol->string (field-name x)) (symbol->string (field-name y)))))
           (collect-if (function (property)
                         (display-filtered-property? property filter))
-                      (all-fields (class-of self)))))
+                      (all-slots (class-of self)))))
   
   
   (method (display-filtered-property? property filter)
@@ -1095,8 +1094,6 @@
   
   
   (method meta public virtual (get-domain property)
-    #f
-    @convert
     (case (field-name property)
       ((name-info) (new Name-Domain))
       ((presentation-info) (new Presentation-Domain))
@@ -1105,10 +1102,10 @@
   
   
   (method public virtual (property-domain property)
-    (unimplemented 'property-domain)
-    @descriptor-domain
-    (let* ((descriptor (get-property-descriptor~ (class-of (class-of self) (field-name property)))
-           (descriptor-domain (essay descriptor (get-domain~ descriptor)))))
+    #f
+    @convert-get-property-domain
+    (let* ((descriptor (get-property-descriptor~ (class-of (class-of self)) (field-name property)))
+           (descriptor-domain (essay descriptor (get-domain~ descriptor))))
       (either descriptor-domain
               (get-property-domain property)
               (let* ((class (field-creator property))
@@ -1181,8 +1178,6 @@
   
   
   (method meta public virtual (property-presentation property)
-    (unimplemented 'property-presentation)
-    @Locales
     (let ((name (field-name property)))
       (case name
         ((class-info) "class")
@@ -1198,8 +1193,6 @@
   
   
   (method meta public virtual (detail-presentation property)
-    (unimplemented 'detail-presentation)
-    @Locales
     (case (field-name property)
       ((class-info) "Class")
       ((name-info) "Name")
@@ -1263,10 +1256,7 @@
   
   
   (method public virtual (can-rename-component?)
-    #f
-    ;;(unimplemented 'can-rename-component?)
-    @convert-get-name-prohibited?
-    (not (get-name-prohibited?)))
+    (not (get-name-prohibited?~ (class-of self))))
   
   
   (method public virtual (can-delete-component?)

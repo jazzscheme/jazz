@@ -358,24 +358,8 @@
   (find-field category field-name))
 
 
-(definition public (all-fields model)
-  (unimplemented 'all-fields)
-  @unimplemented
-  (if (not model)
-      {}
-    (append! (gather (category-fields model)) (all-fields (type-ascendant model)))))
-
-
 (definition public (all-slots model)
-  (unimplemented 'all-slots)
-  @unimplemented
-  (let ((fact (new List-Factory)))
-    (letrec ((add (function (model)
-                    (when model
-                      (put-sequence~ fact (class-slots model))
-                      (add (type-ascendant model))))))
-      (add model)
-      (get-output~ fact))))
+  (get-slots~ model))
 
 
 ;;;
@@ -2291,16 +2275,17 @@
 
 
 (definition public (apply-intersection lst (test: test {}))
-  (when lst
+  (if (null? lst)
+      '()
     (let ((first (car lst))
           (lst (cdr lst))
           (dst (new List-Factory)))
-      (for-each (function (object)
-                  (when (every? (function (set)
-                                  (member? object set test: test))
-                                lst)
-                    (put~ dst object)))
-                (iterate-sequence first))
+      (iterate (iterate-sequence first)
+               (function (object)
+                 (when (every? (function (set)
+                                 (member? object set test: test))
+                               lst)
+                   (put~ dst object))))
       (coerce (get-output~ dst) (class-of first)))))
 
 

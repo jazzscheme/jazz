@@ -168,23 +168,27 @@
   
   
   (method (save-to-class class)
-    @convert-get-self-form
     (let* ((appl (get-application))
            (class-name (type-name class))
-           (where (if (eq? form (get-self-form~ class)) form: :new-form))
+           (where (if (eq? form (get-self-form~ class)) :form :new-form))
            (location (list class-name where))
            (code-location (new Jazz-Code-Location location))
            (code-source (find-source~ code-location))
            (being-edited? (find-document~ appl code-source))
            (output (saved-form #t 2)))
+      ;; quicky until catalog locations are functional again
+      (set-clipboard-text output)
+      (user-message "Clipboard set to form")
+      @w(
       ;; Invoking the Interpreter is the simplest way of creating
       ;; the new definition that did not already exist in the class...
       @convert
       (when (eq? where :new-form)
         (evaluate~ Interpreter (list '(form (<install>))) {} class (list Language)))
+      @convert
       (set-class-form~ class form)
       (catch (Location-Error err
-                             (error (get-message~ err)))
+               (error (get-message~ err)))
         (receive (frame text range) (find-location~ code-location)
           (with-update-locked~ text
             (function ()
@@ -198,7 +202,7 @@
                 (close~ frame))
             (set-visible?~ frame #t)
             (bring-to-front~ frame)
-            (acquire-focus~ frame))))))
+            (acquire-focus~ frame)))))))
   
   
   (method (save-to-file file)

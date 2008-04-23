@@ -35,108 +35,111 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(in library)
+(library jazz.system.performance.platform.windows jazz
+  
+
+(import (jazz.jml)
+        (jazz.platform.windows)
+        (jazz.system.performance.platform.windows.Performance-Query))
 
 
-(package Performance extends Common uses (Language Utilities System Windows WinBase WinNT WinKernel WinUser)
+;;;
+;;;; Performance
+;;;
   
-  
-  ;;;
-  ;;;; Performance
-  ;;;
-  
-  
-  (method public (performance-snapshot . rest)
-    (bind-keywords ((name nil)) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((creation-time (new FILETIME))
-              (exit-time (new FILETIME))
-              (kernel-time (new FILETIME))
-              (user-time (new FILETIME)))
-          (GetProcessTimes handle creation-time exit-time kernel-time user-time)
-          (let ((time (function dynamic (filetime)
-                        (make-long (get filetime 'dwLowDateTime)
-                                   (get filetime 'dwHighDateTime)))))
-            (parse~ JML
-              `(<performance>
-                 name: ,name
-                 kernel-time: ,(time kernel-time)
-                 user-time: ,(time user-time))))))))
-  
-  
-  ;;;
-  ;;;; Resources
-  ;;;
-  
-  
-  (method public (resources-snapshot . rest)
-    (bind-keywords ((name nil)) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((private-bytes (get-private-bytes)))
-          (let ((gui-gdi-objects (GetGuiResources handle GR_GDIOBJECTS))
-                (gui-user-objects (GetGuiResources handle GR_USEROBJECTS)))
-            (bind-values (ok? handles) (GetProcessHandleCount handle)
-              (let ((undestroyed (gc-undestroyed-count)))
-                (parse~ JML
-                  `(<resources>
-                     name: ,name
-                     private-bytes: ,private-bytes
-                     gui-gdi-objects: ,gui-gdi-objects
-                     gui-user-objects: ,gui-user-objects
-                     handles: ,handles
-                     undestroyed: ,undestroyed)))))))))
-  
-  
-  ;; All this could probably be encapsulated by caching the query and/or counter
-  ;; in the query and/or counter class like .net most probably does...
-  
-  
-  (definition Private-Bytes-Query
-    nil)
-  
-  (definition Private-Bytes-Counter
-    nil)
-  
-  
-  (method (get-private-bytes-query)
-    (when (nil? Private-Bytes-Query)
-      (setup-private-bytes))
-    Private-Bytes-Query)
-  
-  
-  (method (get-private-bytes-counter)
-    (when (nil? Private-Bytes-Counter)
-      (setup-private-bytes))
-    Private-Bytes-Counter)
-  
-  
-  (method (setup-private-bytes)
-    (let* ((query (new Performance-Query))
-           (counter (add-counter~ query :object-name "Process" :counter-name "Private Bytes")))
-      (set! Private-Bytes-Query query)
-      (set! Private-Bytes-Counter counter)))
-  
-  
-  (method public (get-private-bytes)
-    (let ((query (get-private-bytes-query))
-           (counter (get-private-bytes-counter)))
-      (collect-data~ query)
-      (get-counter-value~ query counter)))
-  
-  
-  ;;;
-  ;;;; I/O
-  ;;;
-  
-  
-  (method public (i/o-snapshot . rest)
-    (bind-keywords ((name nil)) rest
-      (let ((handle (GetCurrentProcess)))
-        (let ((io (new IO_COUNTERS)))
-          (GetProcessIoCounters handle io)
-          (parse~ JML
-            `(<i/o>
+
+@wait
+(definition public (performance-snapshot . rest)
+  (bind-keywords ((name nil)) rest
+    (let ((handle (GetCurrentProcess)))
+      (let ((creation-time (new FILETIME))
+            (exit-time (new FILETIME))
+            (kernel-time (new FILETIME))
+            (user-time (new FILETIME)))
+        (GetProcessTimes handle creation-time exit-time kernel-time user-time)
+        (let ((time (function dynamic (filetime)
+                      (make-long (get filetime 'dwLowDateTime)
+                                 (get filetime 'dwHighDateTime)))))
+          (parse-jml
+            `(<performance>
                name: ,name
-               read-bytes: ,(get io 'ReadTransferCount)
-               write-bytes: ,(get io 'WriteTransferCount)
-               other-bytes: ,(get io 'OtherTransferCount))))))))
+               kernel-time: ,(time kernel-time)
+               user-time: ,(time user-time))))))))
+  
+  
+;;;
+;;;; Resources
+;;;
+
+
+(definition public (resources-snapshot . rest)
+  (bind-keywords ((name #f)) rest
+    (let ((handle (GetCurrentProcess)))
+      (let ((private-bytes (get-private-bytes)))
+        (let ((gui-gdi-objects (GetGuiResources handle GR_GDIOBJECTS))
+              (gui-user-objects (GetGuiResources handle GR_USEROBJECTS)))
+            (let ((handles (GetProcessHandleCount handle))
+                  (undestroyed 0 @wait (gc-undestroyed-count)))
+              (parse-jml
+                `(<resources>
+                   name: ,name
+                   private-bytes: ,private-bytes
+                   gui-gdi-objects: ,gui-gdi-objects
+                   gui-user-objects: ,gui-user-objects
+                   handles: ,handles
+                   undestroyed: ,undestroyed))))))))
+  
+  
+;; All this could probably be encapsulated by caching the query and/or counter
+;; in the query and/or counter class like .net most probably does...
+  
+  
+(definition Private-Bytes-Query
+  #f)
+
+(definition Private-Bytes-Counter
+  #f)
+
+
+(definition (get-private-bytes-query)
+  (when (not Private-Bytes-Query)
+    (setup-private-bytes))
+  Private-Bytes-Query)
+
+
+(definition (get-private-bytes-counter)
+  (when (not Private-Bytes-Counter)
+    (setup-private-bytes))
+  Private-Bytes-Counter)
+
+
+(definition (setup-private-bytes)
+  (let* ((query (new Performance-Query))
+         (counter (add-counter~ query object-name: "Process" counter-name: "Private bytes")))
+    (set! Private-Bytes-Query query)
+    (set! Private-Bytes-Counter counter)))
+
+
+(definition public (get-private-bytes)
+  (let ((query (get-private-bytes-query))
+        (counter (get-private-bytes-counter)))
+    (collect-data~ query)
+    (get-counter-value~ query counter)))
+  
+
+;;;
+;;;; I/O
+;;;
+
+@wait
+(method public (i/o-snapshot . rest)
+  (bind-keywords ((name nil)) rest
+    (let ((handle (GetCurrentProcess)))
+      (let ((io (new IO_COUNTERS)))
+        (GetProcessIoCounters handle io)
+        (parse~ JML
+          `(<i/o>
+             name: ,name
+             read-bytes: ,(get io 'ReadTransferCount)
+             write-bytes: ,(get io 'WriteTransferCount)
+             other-bytes: ,(get io 'OtherTransferCount))))))))

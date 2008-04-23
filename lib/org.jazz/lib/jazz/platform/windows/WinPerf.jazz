@@ -1,0 +1,231 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Windows Performance Data
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2007
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform.windows.WinPerf jazz
+
+
+(import (jazz.platform.types)
+        (jazz.platform.windows.WinTypes)
+        (jazz.platform.windows.WinBase)
+        (jazz.platform.windows.WinDef))
+
+
+(c-include "<specstrings.h>")
+(c-include "<Pdh.h>")
+
+
+;;;
+;;;; Constants
+;;;
+
+
+(constant PDH_MAX_COUNTER_NAME      1024)
+(constant PDH_MAX_INSTANCE_NAME     1024)
+(constant PDH_MAX_COUNTER_PATH      2048)
+(constant PDH_MAX_DATASOURCE_PATH   1024)
+
+(constant PDH_FMT_RAW               #x00000010)
+(constant PDH_FMT_ANSI              #x00000020)
+(constant PDH_FMT_UNICODE           #x00000040)
+(constant PDH_FMT_LONG              #x00000100)
+(constant PDH_FMT_DOUBLE            #x00000200)
+(constant PDH_FMT_LARGE             #x00000400)
+(constant PDH_FMT_NOSCALE           #x00001000)
+(constant PDH_FMT_1000              #x00002000)
+(constant PDH_FMT_NODATA            #x00004000)
+(constant PDH_FMT_NOCAP100          #x00008000)
+
+(constant PERF_DETAIL_NOVICE        100)
+(constant PERF_DETAIL_ADVANCED      200)
+(constant PERF_DETAIL_EXPERT        300)
+(constant PERF_DETAIL_WIZARD        400)
+
+
+;;;
+;;;; Types
+;;;
+
+
+(c-type PDH_HQUERY HANDLE)
+(c-type PDH_HQUERY* (pointer PDH_HQUERY))
+(c-type PDH_HCOUNTER HANDLE)
+(c-type PDH_HCOUNTER* (pointer PDH_HCOUNTER))
+(c-type PDH_STATUS LONG)
+
+
+;;;
+;;;; Structures
+;;;
+
+
+(c-structure PDH_FMT_COUNTERVALUE
+  (DWORD CStatus)
+  ;; UNION
+  (LONG longValue))
+
+
+(c-type PPDH_FMT_COUNTERVALUE PDH_FMT_COUNTERVALUE*)
+
+
+@a
+(structure PDH_COUNTER_PATH_ELEMENTS
+  (string szMachineName)
+  (string szObjectName)
+  (string szInstanceName)
+  (string szParentInstance)
+  (int    dwInstanceIndex)
+  (string szCounterName))
+
+
+(constant PDH_BROWSE_DLG_CONFIG_bIncludeInstanceIndex    #x00000001)
+(constant PDH_BROWSE_DLG_CONFIG_bSingleCounterPerAdd     #x00000002)
+(constant PDH_BROWSE_DLG_CONFIG_bSingleCounterPerDialog  #x00000004)
+(constant PDH_BROWSE_DLG_CONFIG_bLocalCountersOnly       #x00000008)
+(constant PDH_BROWSE_DLG_CONFIG_bWildCardInstances       #x00000010)
+(constant PDH_BROWSE_DLG_CONFIG_bHideDetailBox           #x00000020)
+(constant PDH_BROWSE_DLG_CONFIG_bInitializePath          #x00000040)
+(constant PDH_BROWSE_DLG_CONFIG_bDisableMachineSelection #x00000080)
+(constant PDH_BROWSE_DLG_CONFIG_bIncludeCostlyObjects    #x00000100)
+(constant PDH_BROWSE_DLG_CONFIG_bShowObjectBrowser       #x00000200)
+
+
+@wait
+(structure PDH_BROWSE_DLG_CONFIG
+  (DWORD configurationFlags)
+  (HWND hWndOwner)
+  (LPTSTR szDataSource)
+  (LPTSTR szReturnPathBuffer)
+  (DWORD cchReturnPathLength)
+  (int pCallBack)
+  (int dwCallBackArg)
+  (int CallBackStatus)
+  (int dwDefaultDetailLevel)
+  (string szDialogBoxCaption))
+
+
+(definition BrowseCounterPath
+  (c-function () LPTSTR
+    "wchar_t path[PDH_MAX_COUNTER_PATH];
+     PDH_BROWSE_DLG_CONFIG conf;
+     conf.bIncludeInstanceIndex = 1;
+     conf.bSingleCounterPerAdd = 0;
+     conf.bSingleCounterPerDialog = 1;
+     conf.bLocalCountersOnly = 1;
+     conf.bWildCardInstances = 0;
+     conf.bHideDetailBox = 0;
+     conf.bInitializePath = 0;
+     conf.bDisableMachineSelection = 0;
+     conf.bIncludeCostlyObjects = 0;
+     conf.bShowObjectBrowser = 0;
+     conf.hWndOwner = NULL;
+     conf.szDataSource = NULL;
+     conf.szReturnPathBuffer = path;
+     conf.cchReturnPathLength = PDH_MAX_COUNTER_PATH;
+     conf.pCallBack = NULL;
+     conf.dwCallBackArg = 0;
+     conf.CallBackStatus = 0;
+     conf.dwDefaultDetailLevel = PERF_DETAIL_WIZARD;
+     PdhBrowseCounters(&conf);
+     ___result = conf.szReturnPathBuffer;"))
+     
+
+;;;
+;;;; Externals
+;;;
+
+
+(definition PDH_HCOUNTER-ref
+  (c-function (PDH_HCOUNTER*) PDH_HCOUNTER
+    "___result_voidstar = *___arg1;"))
+
+     
+(definition PDH_HCOUNTER-alloc
+  (c-function () PDH_HCOUNTER*
+    "___result_voidstar = malloc(sizeof(PDH_HCOUNTER));"))
+
+
+(definition PDH_HCOUNTER-free
+  (c-function (PDH_HCOUNTER*) void
+    "free(___arg1);"))
+
+
+(definition PDH_HQUERY-ref
+  (c-function (PDH_HQUERY*) PDH_HQUERY
+    "___result_voidstar = *___arg1;"))
+  
+
+(definition PDH_HQUERY-alloc
+  (c-function () PDH_HQUERY*
+    "___result_voidstar = malloc(sizeof(PDH_HQUERY));"))
+
+
+(definition PDH_HQUERY-free
+  (c-function (PDH_HQUERY*) void
+    "free(___arg1);"))
+
+
+;; dwUserData devrait etre un buffer
+;; On devrait renvoyer l'erreur...
+(definition (PdhOpenQuery szDataSource dwUserData)
+  (let* ((query*  (PDH_HQUERY-alloc))
+         (result  ((c-function (PDH_HQUERY*) PDH_STATUS
+                     "___result = PdhOpenQuery(NULL, 0, ___arg1);")
+                   query*))
+         (query   (PDH_HQUERY-ref query*)))
+    (PDH_HQUERY-free query*)
+    (values result query)))
+
+
+(definition (PdhAddCounter hQuery szFullCounterPath dwUserData)
+  (let* ((counter* (PDH_HCOUNTER-alloc))
+         (result ((c-function (PDH_HQUERY LPCTSTR DWORD_PTR PDH_HCOUNTER*) PDH_STATUS
+                    "___result = PdhAdd009CounterW( ___arg1, ___arg2, ___arg3, ___arg4 );")
+                  hQuery szFullCounterPath dwUserData counter*))
+         (counter (PDH_HCOUNTER-ref counter*)))
+    (PDH_HCOUNTER-free counter*)
+    (values result counter)))
+
+
+(c-external PDH_STATUS  (PdhCloseQuery                 PDH_HQUERY))
+(c-external PDH_STATUS  (PdhCollectQueryData           PDH_HQUERY))
+(c-external PDH_STATUS  (PdhGetFormattedCounterValue   PDH_HCOUNTER DWORD LPDWORD PPDH_FMT_COUNTERVALUE))
+
+@a(
+(c-external PDH_STATUS  (PdhOpenQuery                  LPCTSTR DWORD_PTR PDH_HQUERY*))
+(c-external PDH_STATUS  (PdhMakeCounterPath            PDH_COUNTER_PATH_ELEMENTS* LPTSTR LPDWORD DWORD))
+(c-external PDH_STATUS  (PdhAddCounter                 PDH_HQUERY LPCTSTR DWORD_PTR PDH_HCOUNTER*))
+(c-external PDH_STATUS  (PdhBrowseCounters             PPDH_BROWSE_DLG_CONFIG))))

@@ -35,32 +35,36 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(in library)
+(library jazz.system.performance.platform.windows.Performance-Query jazz
 
 
-(class Performance-Query extends Object uses (Language Utilities WinDef WinPerf)
+(import (jazz.platform.windows)
+        (jazz.system))
+
+
+(class Performance-Query extends Object
 
 
   (slot query)
 
 
   (method (initialize)
-    ((super initialize))
-    (bind-values (status query) (PdhOpenQuery NULL 0)
+    (nextmethod)
+    (receive (status query) (PdhOpenQuery NULL 0)
       (validate-status status)
-      (set! [query self] query)
+      (set! query~self query)
       (destroy-mandatory)))
 
 
   (method (destroy)
     (validate-status (PdhCloseQuery query))
-    ((super destroy)))
+    (nextmethod))
   
   
   (method public (add-counter . rest)
-    (bind-keywords ((path nil) (object-name nil) (counter-name nil) (browse? false)) rest
+    (bind-keywords ((path #f) (object-name #f) (counter-name #f) (browse? #f)) rest
       (let ((path (counter-path path object-name counter-name browse?)))
-        (bind-values (status counter) (PdhAddCounter query path 0)
+        (receive (status counter) (PdhAddCounter query path 0)
           (validate-status status)
           counter))))
   
@@ -68,7 +72,9 @@
   (method (counter-path path object-name counter-name browse?)
     (cond (path path)
           (browse? (browse-counter-path))
-          ((and object-name counter-name) (format :string "\\{a}({a}#{a})\\{a}" object-name (module-base) (guess-process-instance) counter-name))
+          ((and object-name counter-name) 
+           (format :string "\\{a}({a})\\{a}" object-name (module-base) counter-name))
+           @old (format :string "\\{a}({a}#{a})\\{a}" object-name (module-base) (guess-process-instance) counter-name)
           (else (error "One of :path, :object-name and :counter-name, or :browse? must be specified"))))
   
   
@@ -77,28 +83,16 @@
   
   
   (method public (get-counter-value counter)
-    (let ((value (new PDH_FMT_COUNTERVALUE)))
+    (let ((value (PDH_FMT_COUNTERVALUE-make)))
       (validate-status (PdhGetFormattedCounterValue counter PDH_FMT_LONG NULL value))
-      (get value 'longValue)))
+      (prog1 (PDH_FMT_COUNTERVALUE-longValue-ref value)
+        (PDH_FMT_COUNTERVALUE-free value))))
   
 
   (method (browse-counter-path)
-    (let ((path (new String :size PDH_MAX_COUNTER_PATH))
-          (conf (new PDH_BROWSE_DLG_CONFIG)))
-      (set conf 'configurationFlags (bit-or PDH_BROWSE_DLG_CONFIG_bIncludeInstanceIndex PDH_BROWSE_DLG_CONFIG_bSingleCounterPerDialog PDH_BROWSE_DLG_CONFIG_bLocalCountersOnly))
-      (set conf 'hWndOwner 0)
-      (set conf 'szDataSource 0)
-      (set conf 'szReturnPathBuffer path)
-      (set conf 'cchReturnPathLength (length path))
-      (set conf 'pCallBack 0)
-      (set conf 'dwCallBackArg 0)
-      (set conf 'CallBackStatus 0)
-      (set conf 'dwDefaultDetailLevel PERF_DETAIL_WIZARD)
-      (PdhBrowseCounters conf)
-      (adjust-string path)
-      path))
+    (BrowseCounterPath))
   
   
   (method (validate-status status)
     (when (/= status 0)
-      (error "Performance query error (#x{x})" status))))
+      (error "Performance query error ({t})" status)))))

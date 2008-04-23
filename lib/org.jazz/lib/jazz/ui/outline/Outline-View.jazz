@@ -173,7 +173,7 @@
                    (let ((title (get-title~ (first-child~ row)))
                          (state (get-state~ row))
                          (sons (get-sons~ row)))
-                     (when (or (and include-invisibles? sons) (eq? state 'expanded))
+                     (when (or (and include-invisibles? (> (cardinality sons) 0)) (eq? state 'expanded))
                        (cons title
                              (cons state
                                    (collect proc sons))))))))
@@ -458,7 +458,7 @@
           (decrease! visible-count (+ 1 (count-visible~ row)))
           (decrease! visible-height height))
         (remove-son~ father row)
-        (when (null? (get-sons~ father))
+        (when (= (cardinality (get-sons~ father)) 0)
           (set-state~ father 'collapsed))
         (when rank
           (removed-update-selection rank 1))
@@ -734,17 +734,17 @@
   
   
   (method public (for-each-row proc)
-    (letrec ((rank 0)
-             (recurse
-              (function (row visible?)
-                (let* ((visible? (and visible? (get-visible-flag~ row)))
-                       (son-visible? (and visible? (expanded?~ row))))
-                  (proc row (essay visible? rank))
-                  (when visible?
-                    (increase! rank))
-                  (for-each (function (row)
-                              (recurse row son-visible?))
-                            (get-sons~ row))))))
+    (let ((rank 0))
+      (define (recurse row visible?)
+        (let* ((visible? (and visible? (get-visible-flag~ row)))
+               (son-visible? (and visible? (expanded?~ row))))
+          (proc row (essay visible? rank))
+          (when visible?
+            (increase! rank))
+          (iterate (get-sons~ row)
+                   (function (row)
+                     (recurse row son-visible?)))))
+      
       (recurse root-row (row-visible?~ root-row))))
   
   
@@ -860,7 +860,7 @@
       (function ()
         (unless (eq? (get-state~ row) 'expanded)
           (expand/collapse row))
-        (for-each expand-all (get-sons~ row)))))
+        (iterate (get-sons~ row) expand-all))))
   
   
   (method public (collapse row)
@@ -888,7 +888,7 @@
   (method public (collapse-all row)
     (with-update-locked
       (function ()
-        (for-each collapse-all (get-sons~ row))
+        (iterate (get-sons~ row) collapse-all)
         (when (eq? (get-state~ row) 'expanded)
           (expand/collapse row)))))
   
@@ -928,12 +928,12 @@
   ;; this will currently only work with flat outlines
   (method public (set-visibilities predicate)
     (let ((previous root-row))
-      (for-each (function (row)
-                  (let ((visible? (predicate row)))
-                    (when visible?
-                      (link-rows previous row)
-                      (set! previous row))))
-                (get-sons~ root-row))))
+      (iterate (get-sons~ root-row)
+               (function (row)
+                 (let ((visible? (predicate row)))
+                   (when visible?
+                     (link-rows previous row)
+                     (set! previous row)))))))
   
   
   (method public (show-rows first last previous next visible? in-expand? dynamic?)

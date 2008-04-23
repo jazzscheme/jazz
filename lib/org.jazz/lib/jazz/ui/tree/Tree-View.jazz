@@ -866,26 +866,26 @@
   
   (method public (flatten)
     (let ((sons (get-sons~ root-row)))
-      (for-each (function (son)
-                  (if (flatten-row? son)
-                      (disconnect~ son)
-                    (flatten~ son root-row)))
-                sons)
-      (for-each (function (son)
-                  (unless (disconnected?~ son)
-                    (set-visible?~ son #f)))
-                sons)))
+      (iterate sons
+               (function (son)
+                 (if (flatten-row? son)
+                     (disconnect~ son)
+                   (flatten~ son root-row))))
+      (iterate sons
+               (function (son)
+                 (unless (disconnected?~ son)
+                   (set-visible?~ son #f))))))
   
   
   (method public (unflatten)
-    (for-each (function (son)
-                (when (disconnected?~ son)
-                  (reconnect~ son)))
-              (get-sons~ root-row))
-    (for-each (function (son)
-                (unless (get-visible?~ son)
-                  (set-visible?~ son #t)))
-              (get-sons~ root-row)))
+    (iterate (get-sons~ root-row)
+             (function (son)
+               (when (disconnected?~ son)
+                 (reconnect~ son))))
+    (iterate (get-sons~ root-row)
+             (function (son)
+               (unless (get-visible?~ son)
+                 (set-visible?~ son #t)))))
   
 
   ;;;
@@ -1581,7 +1581,7 @@
   
   (method (invalidate-expand row top dynamic?)
     (invalidate-rect (image-rect~ node-column row top))
-    (if (and dynamic? (null? (get-sons~ row)))
+    (if (and dynamic? (= (cardinality (get-sons~ row)) 0))
         (invalidate-rect (control-rect~ node-column row top))
       (invalidate-rect (plus/minus-rect~ node-column row top))))
   

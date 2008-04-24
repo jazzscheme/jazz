@@ -464,7 +464,8 @@
           (unwind-protect
               (proc surface) 
             (close~ surface) 
-            (EndPaint handle ps))))))
+            (EndPaint handle ps))))
+      (PAINTSTRUCT-free ps)))
   processed)
 
 
@@ -651,7 +652,8 @@
     (GetWindowRect handle rect)
     (when (and parent-handle (child-window? handle))
       (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
-    (new Point (RECT-left-ref rect) (RECT-top-ref rect))))
+    (prog1 (new Point (RECT-left-ref rect) (RECT-top-ref rect))
+      (RECT-free rect))))
 
 
 (definition (platform-set-position handle pos)
@@ -661,14 +663,16 @@
 (definition (platform-get-size handle) <Dimension>
   (with ((rect (RECT-make)))
     (GetClientRect handle rect)
-    (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (prog1 (new Dimension (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
 
 
 (definition (platform-get-window-size handle) <Dimension>
   (let ((rect (RECT-make)))
     (GetWindowRect handle rect)
-    (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
-                   (- (RECT-bottom-ref rect) (RECT-top-ref rect)))))
+    (prog1 (new Dimension (- (RECT-right-ref rect)  (RECT-left-ref rect))
+                          (- (RECT-bottom-ref rect) (RECT-top-ref rect)))
+      (RECT-free rect))))
 
 
 (definition (platform-set-window-size handle size)
@@ -684,34 +688,39 @@
     (GetWindowRect handle rect)
     (when parent-handle
       (MapWindowPoints NULL parent-handle (RECT->POINTS rect) 2))
-    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
 
 
 (definition (platform-get-bounds handle) <Rect>
   (with ((rect (RECT-make)))
     (GetWindowRect handle rect)
     (MapWindowPoints NULL handle rect 2)
-    (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))))
+    (prog1 (new Rect (RECT-left-ref rect) (RECT-top-ref rect) (RECT-right-ref rect) (RECT-bottom-ref rect))
+      (RECT-free rect))))
 
 
 (definition (platform-mouse-position) <Point>
   (with ((point (POINT-make)))
     (GetCursorPos point)
-    (new Point (POINT-x-ref point) (POINT-y-ref point))))
+    (prog1 (new Point (POINT-x-ref point) (POINT-y-ref point))
+      (POINT-free point))))
 
 
 (definition (platform-window-from-point point)
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (WindowFromPoint pt)))
+    (prog1 (WindowFromPoint pt)
+      (POINT-free pt))))
 
 
 (definition (platform-child-window-from-point handle point)
   (with ((pt (POINT-make)))
     (POINT-x-set! pt (get-h~ point))
     (POINT-y-set! pt (get-v~ point))
-    (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))))
+    (prog1 (ChildWindowFromPointEx handle pt (bitwise-ior CWP_SKIPINVISIBLE CWP_SKIPDISABLED CWP_SKIPTRANSPARENT))
+      (POINT-free pt))))
 
 
 (definition (platform-move-window handle x y cx cy)
@@ -733,7 +742,8 @@
 (definition (platform-get-client-rect handle)
   (with ((rect (RECT-make)))
     (GetClientRect handle rect)
-    (RECT->rect rect)))
+    (prog1 (RECT->rect rect)
+      (RECT-free rect))))
 
 
 (definition (platform-scroll-window handle dh dv rect clip-rect erase?)
@@ -775,7 +785,8 @@
 (definition (platform-get-update-rect handle)
   (with ((rect (RECT-make)))
     (GetUpdateRect handle rect #f)
-    (RECT->rect rect)))
+    (prog1 (RECT->rect rect)
+      (RECT-free rect))))
 
 
 (definition (platform-get-update-region handle)
@@ -934,7 +945,8 @@
 (definition public (get-work-area) <Rect>
   (with ((area (RECT-make)))
     (SystemParametersInfo SPI_GETWORKAREA 0 area 0)
-    (adjust-work-area-with-taskbar (RECT->rect area))))
+    (prog1 (adjust-work-area-with-taskbar (RECT->rect area))
+      (RECT-free area))))
 
 
 ;; Because fucking Window's SPI_GETWORKAREA doesn't take autohide into account!
@@ -981,7 +993,8 @@
     (DragFinish wparam)
     (let ((pos (POINT->point pt)))
       (receive-files~ window pos files))
-    (platform-select-foreground-window (get-toplevel-hwnd))))
+    (prog1 (platform-select-foreground-window (get-toplevel-hwnd))
+      (POINT-free pt))))
 
 
 (definition (received-files wparam)
@@ -995,5 +1008,6 @@
                     (attributes #f @w (GetFileAttributes filename))
                     (directory? #f @w (mask-bit-set? attributes FILE_ATTRIBUTE_DIRECTORY))
                     (pathname (new (if directory? Directory File) (tokenise-windows filename))))
-               (anchorize~ pathname))))
+               (prog1 (anchorize~ pathname)
+                 (WCHAR-array-free buffer)))))
          (naturals 0 count)))))

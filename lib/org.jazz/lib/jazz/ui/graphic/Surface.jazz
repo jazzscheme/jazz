@@ -278,6 +278,7 @@
           (cairo_matrix_t-x0-set! new-matrix (exact->inexact dx))
           (cairo_matrix_t-y0-set! new-matrix (exact->inexact dy))
           (cairo_set_matrix context new-matrix)
+          (cairo_matrix_t-free new-matrix)
           (values old-clipper old-matrix)))))
   
   
@@ -298,7 +299,8 @@
       (proc)
       (cairo_identity_matrix context)
       (set-clipper old-clipper)
-      (cairo_set_matrix context old-matrix)))
+      (cairo_set_matrix context old-matrix)
+      (cairo_matrix_t-free old-matrix)))
 
   
   ;;;
@@ -347,15 +349,18 @@
     (with ((extents (cairo_text_extents_t-make))
            (metrics (get-text-metrics)))
       (cairo_text_extents context text extents)
-      (new Dimension 
-        (fxround (cairo_text_extents_t-x_advance-ref extents)) 
-        (fxround (cairo_font_extents_t-height-ref metrics)))))
+      (prog1 (new Dimension 
+               (fxround (cairo_text_extents_t-x_advance-ref extents)) 
+               (fxround (cairo_font_extents_t-height-ref metrics)))
+        (cairo_text_extents_t-free extents)
+        (cairo_font_extents_t-free metrics))))
     
   
   (method public (get-font-height)
     (with ((extents (cairo_font_extents_t-make)))
       (cairo_font_extents context extents)
-      (fxround (cairo_font_extents_t-height-ref extents))))
+      (prog1 (fxround (cairo_font_extents_t-height-ref extents))
+        (cairo_font_extents_t-free extents))))
   
   
   (method public (get-text-metrics)
@@ -373,7 +378,8 @@
   (method public (get-text-width text <string>)
     (with ((extents (cairo_text_extents_t-make)))
       (cairo_text_extents context text extents)
-      (fxceiling (cairo_text_extents_t-x_advance-ref extents))))
+      (prog1 (fxceiling (cairo_text_extents_t-x_advance-ref extents))
+        (cairo_text_extents_t-free extents))))
   
   
   (method public (with-highlight-color color proc)
@@ -412,6 +418,8 @@
         (when highlight-color
           (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
         (cairo_show_glyphs context glyph-array lgt)
+        (cairo_font_extents_t-free font-ext)
+        (cairo_text_extents_t-free extents)
         (- uph h))))
   
   
@@ -447,6 +455,8 @@
         (when highlight-color
           (fill-rect (new Rect h y uph (get font-ext 'height)) highlight-color))
         (cairo_show_glyphs context glyph-array lgt)
+        (cairo_font_extents_t-free font-ext)
+        (cairo_text_extents_t-free extents)
         (- uph h))))
   
   

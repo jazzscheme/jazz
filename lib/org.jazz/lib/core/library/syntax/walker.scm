@@ -3763,56 +3763,59 @@
             (iter (%%cdr scan) (%%cons (%%car newenv) (%%cdr env))))))))
   
   (define (process-or expr-list env)
-    env)
+    (let iter ((scan expr-list) (augmented env))
+      (if (%%null? scan)
+          augmented
+        (let ((expr (%%car scan)))
+          (let ((newenv (process-expr expr augmented)))
+            (iter (%%cdr scan) (%%cons (%%car env) (%%cdr newenv))))))))
   
   (define (process-is expr type-expr env)
+    (receive (origin actual-type) (extract-binding expr env)
+      (if origin
+          (let ((yes-type (cond ((jazz.type? type-expr)
+                                 type-expr)
+                                ((%%class-is? type-expr jazz.Reference)
+                                 (let ((binding (%%get-reference-binding type-expr)))
+                                   (if (%%class-is? binding jazz.Declaration)
+                                       (jazz.resolve-declaration binding)
+                                     #f)))
+                                (else
+                                 #f))))
+            ;; quick try for fun
+            (let ((no-type
+                    (if (%%eq? actual-type jazz.List)
+                        (cond ((%%eq? yes-type jazz.Null)
+                               jazz.Pair)
+                              ((%%eq? yes-type jazz.Pair)
+                               jazz.Null)
+                              (else
+                               #f))
+                      #f)))
+              (let ((yes
+                      (if yes-type
+                          (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin yes-type)) #f) (%%car env))
+                        (%%car env)))
+                    (no
+                      (if no-type
+                          (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin no-type)) #f) (%%cdr env))
+                        (%%cdr env))))
+                (%%cons yes no))))
+        env)))
+  
+  (define (extract-binding expr env)
     (if (%%class-is? expr jazz.Reference)
         (let ((binding (%%get-reference-binding expr)))
-          ;; all this needs bigtime cleanup
-          (let ((extract-binding
-                  (lambda ()
-                    (cond ((%%class-is? binding jazz.Variable)
-                           (receive (frame actual-variable actual-type) (jazz.find-annotated binding (%%car env))
-                             (let ((origin (%%get-annotated-variable-variable actual-variable)))
-                               (values origin actual-type))))
-                          ;; this is really for slots so i need to think about this
-                          ((%%class-is? binding jazz.Declaration)
-                           (values binding (%%get-lexical-binding-type binding)))
-                          (else
-                           #f)))))
-            (let ((info (extract-binding)))
-              (if info
-                  (receive (origin actual-type) info
-                    (let ((yes-type (cond ((jazz.type? type-expr)
-                                           type-expr)
-                                          ((%%class-is? type-expr jazz.Reference)
-                                           (let ((binding (%%get-reference-binding type-expr)))
-                                             (if (%%class-is? binding jazz.Declaration)
-                                                 (jazz.resolve-declaration binding)
-                                               #f)))
-                                          (else
-                                           #f))))
-                      ;; quick try for fun
-                      (let ((no-type
-                              (if (%%eq? actual-type jazz.List)
-                                  (cond ((%%eq? yes-type jazz.Null)
-                                         jazz.Pair)
-                                        ((%%eq? yes-type jazz.Pair)
-                                         jazz.Null)
-                                        (else
-                                         #f))
-                                #f)))
-                        (let ((yes
-                                (if yes-type
-                                    (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin yes-type)) #f) (%%car env))
-                                  (%%car env)))
-                              (no
-                                (if no-type
-                                    (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin no-type)) #f) (%%cdr env))
-                                  (%%cdr env))))
-                          (%%cons yes no)))))
-                env))))
-      env))
+          (cond ((%%class-is? binding jazz.Variable)
+                 (receive (frame actual-variable actual-type) (jazz.find-annotated binding (%%car env))
+                   (let ((origin (%%get-annotated-variable-variable actual-variable)))
+                     (values origin actual-type))))
+                ;; this is really for slots so i need to think about this
+                ((%%class-is? binding jazz.Declaration)
+                 (values binding (%%get-lexical-binding-type binding)))
+                (else
+                 (values #f #f))))
+      (values #f #f)))
   
   (define (revenv env)
     (%%cons (%%cdr env) (%%car env)))
@@ -3822,8 +3825,6 @@
            (process-and (%%get-and-expressions expr) env))
           ((%%class-is? expr jazz.Or)
            (process-or (%%get-or-expressions expr) env))
-          ((%%class-is? expr jazz.Lexical-Binding)
-           )
           ((%%class-is? expr jazz.Call)
            (let ((operator (%%get-call-operator expr)))
              (if (%%class-is? operator jazz.Reference)
@@ -3858,7 +3859,14 @@
                      env))
                env)))
           (else
-           env)))
+           (receive (origin actual-type) (extract-binding expr env)
+             (if origin
+                 (if (%%class-is? actual-type jazz.Nillable-Type)
+                     (let ((yes (cons (jazz.new-annotated-frame (list (jazz.new-restricted-binding origin (%%get-nillable-type-type actual-type))) #f) (%%car env)))
+                           (no (%%cdr env)))
+                       (%%cons yes no))
+                   env)
+               env)))))
   
   (process-expr test (cons environment environment)))
 

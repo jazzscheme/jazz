@@ -2352,7 +2352,7 @@
       (jazz.walk-error walker resume declaration "{s} did not resolve to a c-type: {s}" symbol (%%get-declaration-locator c-type-declaration)))))
 
 
-(define (jazz.expand-c-type-access walker resume declaration environment type)
+(define (jazz.expand-c-type-reference walker resume declaration environment type)
   (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment type)
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (%%set-library-declaration-references library-declaration (%%append (%%get-library-declaration-references library-declaration) references))
@@ -2366,7 +2366,7 @@
 
 (define (jazz.walk-c-function walker resume declaration environment form)
   (jazz.bind (types result-type c-name-or-code) (%%cdr form)
-    (let ((resolve-access (lambda (type) (jazz.expand-c-type-access walker resume declaration environment type))))
+    (let ((resolve-access (lambda (type) (jazz.expand-c-type-reference walker resume declaration environment type))))
       (jazz.new-c-function
         `(c-lambda ,(map resolve-access types) ,(resolve-access result-type) ,c-name-or-code)))))
 
@@ -2392,7 +2392,7 @@
 
 (define (jazz.walk-c-definition-declaration walker resume declaration environment form)
   (receive (name type access compatibility parameters parameter-types result-type c-name scope body) (jazz.parse-c-definition walker resume declaration (%%cdr form))
-    (let ((resolve-access (lambda (type) (jazz.expand-c-type-access walker resume declaration environment type)))
+    (let ((resolve-access (lambda (type) (jazz.expand-c-type-reference walker resume declaration environment type)))
           (signature (jazz.walk-parameters walker resume declaration environment parameters #f #f)))
       (let ((new-declaration (jazz.new-c-definition-declaration name type access compatibility '() declaration signature (map resolve-access parameter-types) (resolve-access result-type) c-name scope)))
         (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))

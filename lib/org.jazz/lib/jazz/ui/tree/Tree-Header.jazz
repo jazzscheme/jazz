@@ -54,10 +54,10 @@
 (class Tree-Header extends Header-View
     
   
-  (slot protected resizing?               initialize #f)
-  (slot protected resize-last-h           initialize {})
-  (slot protected resized-column          initialize {})
-  (slot protected resized-column-ref      initialize 0)
+  (slot protected resizing?          initialize #f)
+  (slot protected resize-last-h      initialize {})
+  (slot protected resized-column     initialize {})
+  (slot protected resized-column-ref initialize 0)
 
   
   (method (finish rest)
@@ -187,20 +187,21 @@
       (let ((height (get-header-height)))
         (when (or (not update-rect) (< (get-top~ update-rect) height))
           (fill-rect~ surface update-rect {Color name: Dark})
-          (let* ((h (get-hscroll-amount))
-                 (cs (get-column-spacing~ client))
-                 (sorted-column (get-sorted-column~ client))
-                 (sort-ascending? (get-sort-ascending?~ client))
-                 (spaced? (/= cs 0))
-                 (flat? (flat-look?))
-                 (rank 0))
-            (for-each (function (column)
-                        (let ((width (get-width~ column))
-                              (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {})))
-                          (draw-header~ column surface context h 0 width height sorted spaced? flat?)
-                          (increase! h (+ width cs))
-                          (increase! rank)))
-                      (get-columns)))))))
+          (when client
+            (let* ((h (get-hscroll-amount))
+                   (cs (get-column-spacing~ client))
+                   (sorted-column (get-sorted-column~ client))
+                   (sort-ascending? (get-sort-ascending?~ client))
+                   (spaced? (/= cs 0))
+                   (flat? (flat-look?))
+                   (rank 0))
+              (for-each (function (column)
+                          (let ((width (get-width~ column))
+                                (sorted (if (and sorted-column (= rank sorted-column)) (if sort-ascending? 'ascending 'descending) {})))
+                            (draw-header~ column surface context h 0 width height sorted spaced? flat?)
+                            (increase! h (+ width cs))
+                            (increase! rank)))
+                        (get-columns))))))))
 
 
   ;;;
@@ -220,18 +221,19 @@
   
   
   (method (get-tooltip-context client)
-    (let* ((hscrolled (get-hscroll-amount))
-           (h (- (get-h~ client) hscrolled))
-           (col (h->col h)))
-      (when col
-        (let ((column (get-column col)))
-          (let ((text (get-header-tooltip~ column)))
-            (when text
-              (let ((rect (offset-rect (header-rect column) hscrolled 0)))
-                (new Tooltip-Context
-                  view: self
-                  text: text
-                  bounds: rect))))))))
+    (when client
+      (let* ((hscrolled (get-hscroll-amount))
+             (h (- (get-h~ client) hscrolled))
+             (col (h->col h)))
+        (when col
+          (let ((column (get-column col)))
+            (let ((text (get-header-tooltip~ column)))
+              (when text
+                (let ((rect (offset-rect (header-rect column) hscrolled 0)))
+                  (new Tooltip-Context
+                    view: self
+                    text: text
+                    bounds: rect)))))))))
 
 
   ;;;
@@ -240,65 +242,69 @@
   
   
   (method (mouse-down client)
-    (acquire-capture)
-    (let ((h (- (get-h~ client) (get-hscroll-amount)))
-          (v (get-v~ client)))
-      (let ((col (resized-col h)))
-        (if (not col)
-            (let ((col (h->col h)))
-              (when col
-                (let ((column (get-column col)))
-                  (header-down~ column (header-coordinates col client)))))
-          (set! resizing? #t)
-          (set! resize-last-h h)
-          (set! resized-column (get-column col))
-          (set! resized-column-ref col)))))
+    (when client
+      (acquire-capture)
+      (let ((h (- (get-h~ client) (get-hscroll-amount)))
+            (v (get-v~ client)))
+        (let ((col (resized-col h)))
+          (if (not col)
+              (let ((col (h->col h)))
+                (when col
+                  (let ((column (get-column col)))
+                    (header-down~ column (header-coordinates col client)))))
+            (set! resizing? #t)
+            (set! resize-last-h h)
+            (set! resized-column (get-column col))
+            (set! resized-column-ref col))))))
   
   
   (method (drag-move client)
-    (let ((h (- (get-h~ client) (get-hscroll-amount)))
-          (v (get-v~ client)))
-      (if (not resizing?)
-          (let ((col (h->col h)))
-            (when col
-              (let ((column (get-column col)))
-                (header-move~ column (header-coordinates col client)))))
-        (let ((delta (- h resize-last-h))
-              (left (+ (borders-right (get-borders resized-column-ref)) (get-hscroll-amount))))
-          (when (/= delta 0)
-            (set! resize-last-h h)
-            (let ((new-width (+ (get-width~ resized-column) delta)))
-              (when (>= new-width 0)
-                (set-width~ resized-column (+ (get-width~ resized-column) delta))
-                (invalidate-columns)
-                (invalidate-borders)
-                (layout-column resized-column)
-                (scroll-view delta 0 (new Rect (- left 2) 0 (get-width) (get-height)) erase?: #f)
-                (update-view))))))))
+    (when client
+      (let ((h (- (get-h~ client) (get-hscroll-amount)))
+            (v (get-v~ client)))
+        (if (not resizing?)
+            (let ((col (h->col h)))
+              (when col
+                (let ((column (get-column col)))
+                  (header-move~ column (header-coordinates col client)))))
+          (let ((delta (- h resize-last-h))
+                (left (+ (borders-right (get-borders resized-column-ref)) (get-hscroll-amount))))
+            (when (/= delta 0)
+              (set! resize-last-h h)
+              (let ((new-width (+ (get-width~ resized-column) delta)))
+                (when (>= new-width 0)
+                  (set-width~ resized-column (+ (get-width~ resized-column) delta))
+                  (invalidate-columns)
+                  (invalidate-borders)
+                  (layout-column resized-column)
+                  (scroll-view delta 0 (new Rect (- left 2) 0 (get-width) (get-height)) erase?: #f)
+                  (update-view)))))))))
   
   
   (method (drag-up client . rest)
-    (let ((h (- (get-h~ client) (get-hscroll-amount)))
-          (v (get-v~ client)))
-      (if (not resizing?)
-          (let ((col (h->col h)))
-            (when col
-              (let ((column (get-column col)))
-                (header-up~ column (header-coordinates col client)))))
-        (set! resizing? #f)
-        (set! resized-column {})
-        (set-filled-column~ (get-client) #f)
-        (end-resizing))
-      (release-capture)))
+    (when client
+      (let ((h (- (get-h~ client) (get-hscroll-amount)))
+            (v (get-v~ client)))
+        (if (not resizing?)
+            (let ((col (h->col h)))
+              (when col
+                (let ((column (get-column col)))
+                  (header-up~ column (header-coordinates col client)))))
+          (set! resizing? #f)
+          (set! resized-column {})
+          (set-filled-column~ (get-client) #f)
+          (end-resizing))
+        (release-capture))))
   
   
   (method (double-click client)
-    (let ((h (- (get-h~ client) (get-hscroll-amount)))
-          (v (get-v~ client)))
-      (let ((col (h->col h)))
-        (when col
-          (let ((column (get-column col)))
-            (header-double-click~ column (header-coordinates col client)))))))
+    (when client
+      (let ((h (- (get-h~ client) (get-hscroll-amount)))
+            (v (get-v~ client)))
+        (let ((col (h->col h)))
+          (when col
+            (let ((column (get-column col)))
+              (header-double-click~ column (header-coordinates col client))))))))
   
   
   (method (header-coordinates col pos)

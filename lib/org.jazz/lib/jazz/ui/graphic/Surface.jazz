@@ -56,7 +56,7 @@
 (class Surface extends Object
   
   
-  (slot clipper)
+  (slot clipper <Rect> initialize (new Rect 0 0 0 0))
   
   (slot surface)
   (slot hdc)
@@ -71,9 +71,9 @@
   (slot array-length    <fx> initialize 0)
   
   
-  (slot landscape?           initialize #f)
-  (slot landscape-rotation   initialize {})
-  (slot landscape-page   initialize {})
+  (slot landscape?         <bool>       initialize #f)
+  (slot landscape-rotation <symbol+>    initialize {})
+  (slot landscape-page     <Dimension+> initialize {})
 
   
   (method (initialize surface . rest)
@@ -132,7 +132,7 @@
     surface)
   
   
-  
+  (proclaim (optimize))
   
   
   ;;;
@@ -140,10 +140,8 @@
   ;;;
 
 
-  (method public (logical->device shape <Object>)
-    (typecase shape
-      ((Point)
-       (cairo_user_to_device context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape))))))
+  (method public (logical->device shape <Point>)
+    (cairo_user_to_device context (cast <fl> (get-h~ shape)) (cast <fl> (get-v~ shape))))
   
   
   (method public (device->logical shape <Object>)
@@ -161,14 +159,10 @@
   ;;;
   
   
-  (method (with-saved-context thunk)
+  (method (with-saved-context thunk <procedure>)
     (cairo_save context)
-    (let ((result (thunk)))
-          (let ((status (cairo-status)))
-            (when (/= status 0)
-              (error "cairo error")))
-      (cairo_restore context)
-      result))
+    (prog1 (thunk)
+      (cairo_restore context)))
   
   
   ;;;
@@ -177,11 +171,10 @@
   
   
   (method public (setup-clipper clipper <Rect>)
-    (set! clipper~self clipper)
-    (select-clipper clipper))
+    (set-clipper clipper))
   
   
-  (method public (get-clipper)
+  (method public (get-clipper) <Rect>
     (new Rect (get-left~ clipper)
               (get-top~ clipper)
               (get-right~ clipper)
@@ -220,7 +213,7 @@
   ;;;
   
   
-  (method public (with-landscape rotation page proc)
+  (method public (with-landscape rotation <symbol> page <Dimension> proc <procedure>)
     (let ((preserved landscape?))
       (unwind-protect
           (begin
@@ -246,8 +239,8 @@
   (method public (set-transform drawing <Drawing> lh <fx> lv <fx> width <fx> height <fx> sh <fx> sv <fx> sc <fl>) 
     (let* ((dh (- lh sh))
            (dv (- lv sv))
-           (dx (if (not landscape?) (+ sh (* dh sc)) (+ sv (* (case landscape-rotation ((clockwise) (- (get-height~ landscape-page) dv)) (else dv)) sc))))
-           (dy (if (not landscape?) (+ sv (* dv sc)) (+ sh (* (case landscape-rotation ((clockwise) dh) (else (- (get-width~ landscape-page) dh))) sc))))
+           (dx (if (not landscape?) (+ sh (* dh sc)) (+ sv (* (case landscape-rotation ((clockwise) (- (get-height~ (cast <Dimension> landscape-page)) dv)) (else dv)) sc))))
+           (dy (if (not landscape?) (+ sv (* dv sc)) (+ sh (* (case landscape-rotation ((clockwise) dh) (else (- (get-width~ (cast <Dimension> landscape-page)) dh))) sc))))
            (ch (round dx))
            (cv (round dy))
            (cwidth (fxceiling (* width sc)))
@@ -313,7 +306,7 @@
     (set-color color))
   
   
-  (method public (get-char-width n)
+  (method public (get-char-width n <fx>)
     (let ((ext (cairo_text_extents_t-make))
           (gly (cairo_glyph_t-make)))
       (let* ((handle (get-handle~ (cairo-get-font (cairo_get_font_face context))))
@@ -424,9 +417,6 @@
         (- uph h))))
   
   
-  (proclaim (optimize))
-  
-  
   ;; temp copy/pasted from above until templates
   (method (draw-substring h <fx> v <fx> str <Subseq$string$>) <fx>
     (let ((uph h)
@@ -477,9 +467,6 @@
               (set! stops (cdr stops))))
       (- (+ uph (draw-substring uph v (subseq! str beginning (cardinality str))))
          h)))
-  
-  
-  (proclaim (not optimize))
 
   
   ;;;
@@ -1081,4 +1068,7 @@
   
   
   (method public (cairo-surface-status)
-    (cairo_surface_status surface))))
+    (cairo_surface_status surface))
+  
+  
+  (proclaim (not optimize))))

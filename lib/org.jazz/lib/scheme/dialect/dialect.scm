@@ -455,7 +455,7 @@
                                  (body (%%cdr clause))
                                  (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                             (if (or (%%eq? tries 'else) (%%pair? tries))
-                                (cons tries (jazz.walk-list walker resume declaration environment effective-body))
+                                (cons tries (jazz.new-begin (jazz.walk-list walker resume declaration environment effective-body)))
                               (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries))))
                         clauses))))
 

@@ -2273,6 +2273,20 @@
          jazz.Any)))
 
 
+(define (jazz.extend-types type1 . types)
+  (if (null? types)
+      type1
+    (let ((type2 (car types)))
+      (cond ((or (%%not type1) (%%not type2))
+             jazz.Any)
+            ((%%subtype? type1 type2)
+             (apply jazz.extend-types type2 (cdr types)))
+            ((%%subtype? type2 type1)
+             (apply jazz.extend-types type1 (cdr types)))
+            (else
+             jazz.Any)))))
+
+
 (define (jazz.type-union types)
   (jazz.new-union-type types))
 
@@ -3945,14 +3959,20 @@
 (jazz.define-method (jazz.emit-expression (jazz.Case expression) declaration environment)
   (let ((target (%%get-case-target expression))
         (clauses (%%get-case-clauses expression)))
-    (jazz.new-code
-      `(case ,(%%get-code-form (jazz.emit-expression target declaration environment))
-         ,@(map (lambda (clause)
-                  (let* ((tries (%%car clause))
-                         (body (%%cdr clause)))
-                    `(,tries ,@(jazz.codes-forms (jazz.emit-expressions body declaration environment)))))
-                clauses))
-      jazz.Any)))
+    (let ((emited-clauses (map (lambda (clause)
+                                 (let ((body (%%cdr clause)))
+                                   (jazz.emit-expression body declaration environment)))
+                               clauses)))
+      (jazz.new-code
+        `(case ,(%%get-code-form (jazz.emit-expression target declaration environment))
+           ,@(map (lambda (clause emited-clause)
+                    (let ((tries (%%car clause)))
+                      `(,tries ,(%%get-code-form emited-clause))))
+                  clauses
+                  emited-clauses))
+        (apply jazz.extend-types (map (lambda (emited-clause)
+                                        (%%get-code-type emited-clause))
+                                      emited-clauses))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Case expression) f k s)

@@ -442,7 +442,7 @@
                             (cons (if (%%eq? test 'else)
                                       #f
                                     (jazz.walk walker resume declaration environment test))
-                                  (jazz.walk-list walker resume declaration environment body))))
+                                  (jazz.walk-implicit-begin walker resume declaration environment body))))
                         clauses))))
 
 
@@ -455,7 +455,7 @@
                                  (body (%%cdr clause))
                                  (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
                             (if (or (%%eq? tries 'else) (%%pair? tries))
-                                (cons tries (jazz.new-begin (jazz.walk-list walker resume declaration environment effective-body)))
+                                (cons tries (jazz.walk-implicit-begin walker resume declaration environment effective-body))
                               (jazz.walk-error walker resume declaration "Ill-formed selector list: {s}" tries))))
                         clauses))))
 
@@ -476,6 +476,12 @@
 (define (jazz.walk-begin walker resume declaration environment form)
   (let ((body (%%cdr form)))
     (jazz.new-begin (jazz.walk-list walker resume declaration environment body))))
+
+
+(define (jazz.walk-implicit-begin walker resume declaration environment form-list)
+  (if (%%null? form-list)
+      (jazz.walk walker resume declaration environment '(unspecified))
+    (jazz.new-begin (jazz.walk-list walker resume declaration environment form-list))))
 
 
 ;;;

@@ -3921,20 +3921,26 @@
 
 
 (jazz.define-method (jazz.emit-expression (jazz.Cond expression) declaration environment)
-  (jazz.new-code
-    `(cond ,@(map (lambda (clause)
-                    (let ((test (%%car clause))
-                          (body (%%cdr clause)))
-                      (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
-                        (let ((output
-                                `(,(if (%%not test)
-                                       'else
-                                     (%%get-code-form (jazz.emit-expression test declaration environment)))
-                                  ,@(jazz.codes-forms (jazz.emit-expressions body declaration yes-environment)))))
-                          (set! environment no-environment)
-                          output))))
-                  (%%get-cond-clauses expression)))
-    jazz.Any))
+  (let ((clauses (%%get-cond-clauses expression)))
+    (jazz.new-code
+      `(cond ,@(let recurse ((clauses clauses)
+                             (environment environment))
+                    (if (null? clauses) '()
+                      (let ((clause (car clauses)))
+                        (let ((test (%%car clause))
+                              (body (%%cdr clause)))
+                          (jazz.bind (yes-environment . no-environment) (jazz.branch-types test environment)
+                            (let ((output
+                                    `(,(if (%%not test)
+                                           'else
+                                         (%%get-code-form (jazz.emit-expression test declaration environment)))
+                                      ,(%%get-code-form (jazz.emit-expression body declaration yes-environment)))))
+                              (cons output (recurse (cdr clauses) no-environment)))))))))
+      (apply jazz.extend-types (map (lambda (clause)
+                                      (%%get-code-type
+                                        (let ((body (%%cdr clause)))
+                                          (jazz.emit-expression body declaration environment))))
+                                    clauses)))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Cond expression) f k s)

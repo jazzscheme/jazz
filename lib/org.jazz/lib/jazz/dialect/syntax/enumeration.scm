@@ -38,7 +38,7 @@
 (in ?)
 
 
-(class Enumeration-Expander extends Object uses (Interpreter)
+(class Enumeration-Expander extends Object
   
   
   @macro

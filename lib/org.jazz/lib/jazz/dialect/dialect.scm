@@ -759,14 +759,16 @@
                  `(begin
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                       ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                      ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment)))
+                      (let ()
+                        ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))
                     (define ,method-rank-locator
                       (,method-call ,class-locator ',name ,method-locator)))))
               ((jazz.add-final-method)
                `(begin
                   (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                     ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                    ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment)))
+                    (let ()
+                      ,(%%get-code-form (jazz.emit-expression body declaration augmented-environment))))
                   (,method-call ,class-locator ',name ,method-locator))))))))))
 
 

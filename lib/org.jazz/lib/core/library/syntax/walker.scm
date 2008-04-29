@@ -3020,7 +3020,8 @@
               (jazz.new-code
                 `(lambda ,signature-output
                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                   ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type declaration environment)))
+                   (let ()
+                     ,(jazz.simplify-begin (jazz.emit-type-cast (jazz.new-code `(begin ,@(%%get-code-form body-code)) (%%get-code-type body-code)) type declaration environment))))
                 (jazz.new-function-type '() '() '() #f (%%get-code-type body-code))))))))))
 
 
@@ -4970,7 +4971,7 @@
     (for-each process (%%get-signature-optional signature))
     (for-each process (%%get-signature-named signature))
     (if (%%not queue)
-        '()
+        #f
       (jazz.queue-list queue))))
 
 

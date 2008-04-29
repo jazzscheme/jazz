@@ -2264,27 +2264,21 @@
 (define (jazz.extend-type type1 type2)
   (cond ((or (%%not type1) (%%not type2))
          jazz.Any)
-        ((%%subtype? type1 type2)
+        ;; the void test should be integrated in the type framework
+        ((or (%%eq? type1 jazz.Void) (%%subtype? type1 type2))
          type2)
-        ((%%subtype? type2 type1)
+        ;; the void test should be integrated in the type framework
+        ((or (%%eq? type2 jazz.Void) (%%subtype? type2 type1))
          type1)
         (else
          ;; should find the most specific common supertype
          jazz.Any)))
 
 
-(define (jazz.extend-types type1 . types)
-  (if (null? types)
-      type1
-    (let ((type2 (car types)))
-      (cond ((or (%%not type1) (%%not type2))
-             jazz.Any)
-            ((%%subtype? type1 type2)
-             (apply jazz.extend-types type2 (cdr types)))
-            ((%%subtype? type2 type1)
-             (apply jazz.extend-types type1 (cdr types)))
-            (else
-             jazz.Any)))))
+(define (jazz.extend-types types)
+  (if (%%null? types)
+      jazz.Void
+    (jazz.extend-type (%%car types) (jazz.extend-types (%%cdr types)))))
 
 
 (define (jazz.type-union types)
@@ -3936,11 +3930,11 @@
                                          (%%get-code-form (jazz.emit-expression test declaration environment)))
                                       ,(%%get-code-form (jazz.emit-expression body declaration yes-environment)))))
                               (cons output (recurse (cdr clauses) no-environment)))))))))
-      (apply jazz.extend-types (map (lambda (clause)
-                                      (%%get-code-type
-                                        (let ((body (%%cdr clause)))
-                                          (jazz.emit-expression body declaration environment))))
-                                    clauses)))))
+      (jazz.extend-types (map (lambda (clause)
+                                (%%get-code-type
+                                  (let ((body (%%cdr clause)))
+                                    (jazz.emit-expression body declaration environment))))
+                              clauses)))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Cond expression) f k s)
@@ -3976,9 +3970,9 @@
                       `(,tries ,(%%get-code-form emited-clause))))
                   clauses
                   emited-clauses))
-        (apply jazz.extend-types (map (lambda (emited-clause)
-                                        (%%get-code-type emited-clause))
-                                      emited-clauses))))))
+        (jazz.extend-types (map (lambda (emited-clause)
+                                  (%%get-code-type emited-clause))
+                                emited-clauses))))))
 
 
 (jazz.define-method (jazz.fold-expression (jazz.Case expression) f k s)

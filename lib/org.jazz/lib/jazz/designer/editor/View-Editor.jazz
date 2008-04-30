@@ -52,15 +52,14 @@
 (class View-Editor extends Editor-View
 
 
-  (property mode initialize 'select getter get-mode setter set-mode)
+  (property mode initialize 'select accessors generate)
   
   
-  (slot protected showed-property  initialize {})
-  (slot protected rubber-band?     initialize #f)
-  (slot protected base-view        initialize {})
-  (slot protected base-position    initialize {})
-  (slot protected old-position     initialize {})
-  (slot protected overlay          initialize {})
+  (slot protected showed-property  initialize {} getter generate)
+  (slot protected rubber-band?     initialize #f getter generate)
+  (slot protected base-view        initialize {} getter generate)
+  (slot protected base-position    initialize {} getter generate)
+  (slot protected current-position initialize {} getter generate)
   (slot protected preserved-client initialize {})
   
 
@@ -130,23 +129,6 @@
   (method (guest-actions)
     (cons (find-actions 'view-editor)
           (nextmethod)))
-
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-
-  (method public (get-mode)
-    mode)
-
-
-  (method public (set-mode value)
-    (set! mode value))
-  
-
-  (method public (get-rubber-band?)
-    rubber-band?)
 
   
   ;;;
@@ -238,10 +220,6 @@
   ;;;
   
   
-  (method protected (get-showed-property)
-    showed-property)
-  
-  
   (method protected (set-showed-property property)
     (set! showed-property property)
     (invalidate-view~ client))
@@ -281,16 +259,6 @@
   ;;;
   
   
-  ;; Live is not 100% completed. Because the overlay doesn't draw the rubber band, the invalidation
-  ;; that results from setting the selection will erase parts of the rubber band making it look bad
-  (definition Live?
-    #f)
-  
-  
-  (definition RubberBand-Pen
-    (new Pen style: 'alternate color: {Color name: White}))
-  
-  
   (method protected virtual (rubber-band-base)
     (car selection))
   
@@ -299,48 +267,39 @@
     (set! rubber-band? #t)
     (set! base-view (rubber-band-base))
     (set! base-position pos)
-    (set! old-position {})
+    (set! current-position {})
     (acquire-capture~ base-view)
     (setup-overlay))
   
   
   (method protected (process-rubber-band pos)
     (when rubber-band?
-      (with-closed ((surface (get-surface~ overlay)))
-        @windows
-        (set-rop~ surface R2_XORPEN)
-        (when old-position
-          (let ((rect (corners->rect base-position old-position)))
-            (rectangle~ surface rect RubberBand-Pen {})))
-        (let ((rect (corners->rect base-position pos)))
-          (rectangle~ surface rect RubberBand-Pen {})
-          (when Live?
-            (select-rubber-banded rect)))
-        @windows
-        (set-rop~ surface R2_COPYPEN)
-        (set! old-position pos))))
+      (let ((old current-position))
+        (set! current-position pos)
+        (when old
+          (invalidate-rect~ client (corners->rect base-position old)))
+        (let ((rect (corners->rect base-position current-position)))
+          (invalidate-rect~ client rect)
+          (select-rubber-banded rect)))))
   
   
   (method (select-rubber-banded rect)
-    (when rubber-band?
-      (let* ((r (normalize-rect rect))
-             (p (rect-position r))
-             (s (rect-size r))
-             (selection (new List-Factory)))
-        (for-each-view~ base-view
-          (function (view)
-            (when (neq? view overlay)
-              (let* ((b (get-bounds~ view))
-                     (r (acquire~ client view b)))
-                (when (rects-intersect? r p s)
-                  (put~ selection view))))))
-        (let ((lst (get-output~ selection)))
-          (set-selection lst)))))
+    (let* ((r (normalize-rect rect))
+           (p (rect-position r))
+           (s (rect-size r))
+           (selection (new List-Factory)))
+      (for-each-view~ base-view
+        (function (view)
+          (let* ((b (get-bounds~ view))
+                 (r (acquire~ client view b)))
+            (when (rects-intersect? r p s)
+              (put~ selection view)))))
+      (let ((lst (get-output~ selection)))
+        (set-selection lst))))
   
   
   (method protected (end-rubber-band pos)
-    (when (not Live?)
-      (select-rubber-banded (corners->rect base-position pos)))
+    (process-rubber-band pos)
     (remove-overlay)
     (release-capture~ base-view)
     (set! rubber-band? #f))
@@ -352,12 +311,11 @@
   
   
   (method (setup-overlay)
-    (set! overlay (new View parent: client position: {Point 0 0} size: (get-size~ client))))
+    (set-overlay~ client (new Client-Overlay self)))
   
   
   (method (remove-overlay)
-    (close~ overlay)
-    (set! overlay {}))
+    (set-overlay~ client {}))
 
 
   ;;;
@@ -526,4 +484,32 @@
   
   (method (set-view-lie view lie)
     (set-lie~ view lie)
-    (set-property~ designer view 'position (get-position~ view)))))
+    (set-property~ designer view 'position (get-position~ view))))
+
+
+;;;
+;;;; Overlay
+;;;
+
+
+(definition Overlay-Outside
+  {Color red: 96 green: 158 blue: 234 alpha: 0.8})
+
+(definition Overlay-Inside
+  {Color red: 96 green: 158 blue: 234 alpha: 0.4})
+
+
+(class Client-Overlay extends Overlay
+  
+  
+  (slot editor)
+  
+  
+  (method (initialize editor)
+    (nextmethod)
+    (set! editor~self editor))
+  
+  
+  (method (draw-overlay view surface width height)
+    (let ((rect (corners->rect (get-base-position~ editor) (get-current-position~ editor))))
+      (rectangle~ surface rect Overlay-Outside Overlay-Inside)))))

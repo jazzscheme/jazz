@@ -155,16 +155,21 @@
   (table-set! Colors name color))
 
 
-(definition (registered-color name)
-  (either (table-ref Colors name #f)
-          (error "Unknown color: {s}" name)))
+(definition (registered-color name (alpha {}))
+  (let ((color (either (table-ref Colors name #f)
+                       (error "Unknown color: {s}" name))))
+    (if alpha
+        (let ((color (copy (registered-color name))))
+          (set-alpha~ color alpha)
+          color)
+      color)))
 
 
 (register-literal-constructor 'Color
   (function rest
     (bind-keywords ((name {}) . others) rest
       (if name
-          (registered-color name)
+          (registered-color name (getf others alpha:))
         (apply new Color rest)))))
 
 
@@ -262,7 +267,7 @@
 ;;;
 
 
-@WAIT
+@convert
 (register-literal-constructor 'Datatype
   (function rest
     (new Datatype)))
@@ -273,7 +278,7 @@
 ;;;
 
 
-@WAIT
+@convert
 (register-literal-constructor 'Systype
   (function (name size precision scale default-value)
     (new Systype name size precision scale default-value)))
@@ -295,8 +300,6 @@
 
 
 ;; convert
-
-
 (register-literal-constructor 'GUID
   (function rest
     (new GUID)))

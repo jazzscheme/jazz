@@ -793,14 +793,6 @@
         (draw-rectangle rect)
         (fill))))
   
-
-  (method public (fill-rect-alpha rect <Rect> color alpha)
-    (with-saved-context
-      (function ()
-        (set-color-alpha color alpha)
-        (draw-rectangle rect)
-        (fill))))
-  
   
   (method public (draw-check h <fx> v <fx>)
     (line (+ h 0) (+ v 2) (+ h 0) (+ v 5))
@@ -872,6 +864,7 @@
   ;;;; Printing
   ;;;
   
+  
   (cond-expand
     (windows
       (method public (start-doc rec)
@@ -891,28 +884,24 @@
     (else))
   
   
-  
-  
-  
-  (method (with-outside/inside outside inside procedure)
+  (method (with-outside/inside outside inside outside-proc inside-proc)
     (with-saved-context
       (function ()
-        (procedure)
-        (if outside
-            (begin
-              (set-color (if (is? outside Color)
-                             outside
-                           (get-color-for-object outside)))
-              (set-line-width (if (and (is? outside Pen) (get-width~ outside))
-                                  (get-width~ outside)
-                                1))
-              (stroke-preserve)))
-        (if inside
-            (begin
-              (set-color (if (is? inside Color)
-                             inside
-                           (get-color-for-object inside)))
-              (fill))))))
+        (when inside
+          (inside-proc)
+          (set-color (if (is? inside Color)
+                         inside
+                       (get-color-for-object inside)))
+          (fill))
+        (when outside
+          (outside-proc)
+          (set-color (if (is? outside Color)
+                         outside
+                       (get-color-for-object outside)))
+          (set-line-width (if (and (is? outside Pen) (get-width~ outside))
+                              (get-width~ outside)
+                            1))
+          (stroke-preserve)))))
   
   
   (method public (frame-rect rect <Rect> color)
@@ -931,6 +920,8 @@
   
   (method public (rectangle rect <Rect> outside inside)
     (with-outside/inside outside inside
+      (function ()
+        (draw-rectangle (inflate-rect rect -0.5 -0.5)))
       (function ()
         (draw-rectangle rect))))
   
@@ -1038,25 +1029,14 @@
                       (cast <fl> h))))
   
   
-  (method public (set-color color <Color>)    
-    (let ((r (/ (get-red~ color) 255.0))
-          (g (/ (get-green~ color) 255.0))
-          (b (/ (get-blue~ color) 255.0)))  
-      (cairo_set_source_rgb context 
-                            (exact->inexact r) 
-                            (exact->inexact g) 
-                            (exact->inexact b))))
-  
-  
-  (method public (set-color-alpha color <Color> a)    
-    (let ((r (/ (get-red~ color) 255.0))
-          (g (/ (get-green~ color) 255.0))
-          (b (/ (get-blue~ color) 255.0)))
-      (cairo_set_source_rgba context
-        (exact->inexact r)
-        (exact->inexact g)
-        (exact->inexact b)
-        (exact->inexact a))))
+  (method public (set-color color <Color>)
+    (let ((r (exact->inexact (/ (get-red~ color) 255.0)))
+          (g (exact->inexact (/ (get-green~ color) 255.0)))
+          (b (exact->inexact (/ (get-blue~ color) 255.0)))
+          (a (get-alpha~ color)))
+      (if (not a)
+          (cairo_set_source_rgb context r g b)
+        (cairo_set_source_rgba context r g b a))))
   
   
   (method (add-color-stop-rgb pattern offset color)

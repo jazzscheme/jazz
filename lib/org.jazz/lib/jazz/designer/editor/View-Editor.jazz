@@ -259,13 +259,9 @@
   ;;;
   
   
-  (method protected virtual (rubber-band-base)
-    (car selection))
-  
-  
-  (method protected (start-rubber-band pos)
+  (method protected (start-rubber-band view pos)
     (set! rubber-band? #t)
-    (set! base-view (rubber-band-base))
+    (set! base-view view)
     (set! base-position pos)
     (set! current-position {})
     (acquire-capture~ base-view)
@@ -278,9 +274,10 @@
         (set! current-position pos)
         (when old
           (invalidate-rect~ client (corners->rect base-position old)))
-        (let ((rect (corners->rect base-position current-position)))
-          (invalidate-rect~ client rect)
-          (select-rubber-banded rect)))))
+        (when current-position
+          (let ((rect (corners->rect base-position current-position)))
+            (invalidate-rect~ client rect)
+            (select-rubber-banded rect))))))
   
   
   (method (select-rubber-banded rect)
@@ -299,7 +296,8 @@
   
   
   (method protected (end-rubber-band pos)
-    (process-rubber-band pos)
+    (process-rubber-band #f)
+    (select-rubber-banded (corners->rect base-position pos))
     (remove-overlay)
     (release-capture~ base-view)
     (set! rubber-band? #f))
@@ -511,5 +509,8 @@
   
   
   (method (draw-overlay view surface width height)
-    (let ((rect (corners->rect (get-base-position~ editor) (get-current-position~ editor))))
-      (rectangle~ surface rect Overlay-Outside Overlay-Inside)))))
+    (let ((base (get-base-position~ editor))
+          (current (get-current-position~ editor)))
+      (when current
+        (let ((rect (corners->rect base current)))
+          (rectangle~ surface rect Overlay-Outside Overlay-Inside)))))))

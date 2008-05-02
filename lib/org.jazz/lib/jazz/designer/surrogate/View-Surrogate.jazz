@@ -304,21 +304,23 @@
   
   
   (method public virtual (cursor-update pos)
-    (let ((mode (get-mode~ editor))
-          (part (if (size-client?) (find-resize-part pos (get-size~ client)) {})))
-      (if (not part)
-          (if (eq? client (get-client~ editor))
-              (if (get-mouse-down?)
-                  (if dragging?
-                      (set-cursor :closed-hand)
-                    (set-cursor :cross))
-                (case mode
-                  ((select) (set-cursor :arrow))
-                  ((grab) (set-cursor :opened-hand))))
-            (if (move-client?)
-                (set-cursor :all)
-              (set-cursor :arrow)))
-       (set-cursor (get-resize-cursor part)))))
+    (let ((mode (get-mode~ editor)))
+      (if (eq? mode 'rect)
+          (set-cursor :cross)
+        (let ((part (if (size-client?) (find-resize-part pos (get-size~ client)) {})))
+          (if (not part)
+              (if (eq? client (get-client~ editor))
+                  (if (get-mouse-down?)
+                      (if dragging?
+                          (set-cursor :closed-hand)
+                        (set-cursor :cross))
+                    (case mode
+                      ((select) (set-cursor :arrow))
+                      ((grab) (set-cursor :opened-hand))))
+                (if (move-client?)
+                    (set-cursor :all)
+                  (set-cursor :arrow)))
+            (set-cursor (get-resize-cursor part)))))))
 
 
   ;;;
@@ -339,7 +341,9 @@
              (mouse-down pos)
            (when (select?)
              (select-in-editor))
-           (start-rubber-band~ editor (acquire~ (get-client~ editor) client pos))))
+           (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos))))
+        ((rect)
+         (start-rubber-band~ editor client (acquire~ (get-client~ editor) client pos)))
         ((grab)
          (mouse-down pos)))))
   

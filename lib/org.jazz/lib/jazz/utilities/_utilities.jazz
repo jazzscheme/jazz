@@ -809,6 +809,12 @@
 (definition public C-Extensions
   '("c" "cpp" "h" "hpp"))
 
+(definition public Text-Extensions
+  (append Scheme-Extensions
+          CommonLisp-Extensions
+          Jazz-Extensions
+          C-Extensions
+          '("css" "ftx" "htm" "java" "js" "lua" "mnf" "pck" "prop" "properties" "sql" "txt")))
 
 ;;;
 ;;;; Pathname
@@ -1849,23 +1855,31 @@
 
 
 (definition (different-file-content? file1 file2)
-  (call-with-input-file (parse~ file1)
-    (function (input1)
-      (call-with-input-file (parse~ file2)
-        (function (input2)
-          (or @convert
-              (/= (get-size~ input1)
-                  (get-size~ input2))
-              (let (iterate)
-                (let ((c1 (read-char input1))
-                      (c2 (read-char input2)))
-                  (cond ((and (eof-object? c1)
-                              (eof-object? c2))
-                         #f)
-                        ((eqv? c1 c2)
-                         (iterate))
-                        (else
-                         #t))))))))))
+  (if (and (member? (get-extension~ file1) Text-Extensions test: ci=?)
+           (member? (get-extension~ file2) Text-Extensions test: ci=?))
+      (different-text-file-content? file1 file2)
+    (call-with-input-file (parse~ file1)
+      (function (input1)
+        (call-with-input-file (parse~ file2)
+          (function (input2)
+            (or @convert
+                (/= (get-size~ input1)
+                    (get-size~ input2))
+                (let (iterate)
+                  (let ((c1 (read-char input1))
+                        (c2 (read-char input2)))
+                    (cond ((and (eof-object? c1)
+                                (eof-object? c2))
+                           #f)
+                          ((eqv? c1 c2)
+                           (iterate))
+                          (else
+                           #t)))))))))))
+
+
+(definition (different-text-file-content? file1 file2)
+  (not (equal? (load-lines~ file1)
+               (load-lines~ file2))))
 
 
 (definition (different-file-content-no-whitespace? file1 file2)

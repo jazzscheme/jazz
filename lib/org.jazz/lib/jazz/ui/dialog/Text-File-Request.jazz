@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Dialogs
+;;;; Text-File Request
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,44 +35,63 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.dialog jazz
+(library jazz.ui.dialog.Text-File-Request jazz
 
 
-(export (jazz.ui.dialog.platform.carbon  (cond carbon))
-        (jazz.ui.dialog.platform.windows (cond windows))
-        (jazz.ui.dialog.platform.x11     (cond x11)))
-
-(import (jazz.library)
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
         (jazz.ui)
-        (jazz.ui.window)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
-;;;
-;;;; Modal
-;;;
+(class Text-File-Request extends File-Request
+  
+  
+  (form
+    (<install>
+      (<!>               name: buttonbar
+        (<Label-View>                        position: {Point 0 0} size: {Dimension 
+        (<Border-View>                       position: {Point 0 0} size: {Dimension 200 22} border-insets: {Rect 2 3 2 2} border-color: {Color name: Medium}
+          (<Border-View>                     border-color: {Color red: 200 green: 188 blue: 166}
+            (<Combo-Box> name: char-encoding))))))
+  
+  
+  (method meta (host-title)
+    "Choose Text File")
+  
+  
+  (property multiple-selection? initialize #f)
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (update-char-encoding))
+  
+  
+  ;;;
+  ;;;; Char Encoding
+  ;;;
+  
+  
+  (definition Char-Encodings
+    '((UTF-8 "UTF-8")
+      (UTF-16 "UTF-16")
+      (ISO-8859-1 "ISO")))
+  
+  
+  (method (update-char-encoding)
+    (let ((combo (locate 'char-encoding)))
+      (set-choices~ combo Char-Encodings)
+      (set-value~ combo 'ISO-8859-1)))
+    
 
-
-(definition *current-modal*
-  {})
-
-
-(definition public (current-modal)
-  *current-modal*)
-
-(definition public (set-current-modal dialog)
-  (set! *current-modal* dialog))
-
-
-(definition public (in-modal?)
-  (current-modal))
-
-
-(definition public (end-modal-dialog result)
-  (end-modal~ (current-modal) result))
-
-
-(definition public (close-modal-dialog (action {}))
-  (let ((dialog (current-modal)))
-    (when dialog
-      (close-modal~ dialog action)))))
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (get-modal-result)
+    (values (nextmethod) 'UTF-8))))

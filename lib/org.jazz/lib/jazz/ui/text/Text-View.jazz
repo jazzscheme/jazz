@@ -95,7 +95,7 @@
   (property protected active-selection-color         initialize Active-Selection-Color   getter get-active-selection-color    setter set-active-selection-color)
   (property protected inactive-selection-color       initialize Inactive-Selection-Color getter get-inactive-selection-color  setter set-inactive-selection-color)
   (property protected caret-pen                      initialize Caret-Pen                getter get-caret-pen                 setter set-caret-pen)
-  (property protected platform                       initialize {}                       getter get-platform                  setter set-platform)
+  (property protected char-encoding                  initialize {}                       getter get-char-encoding             setter set-char-encoding)
   ;; this property is a temp optimisation because the lisp explorer does its job by creating a jazz text-view
   ;; and colorizing a hidden text is kinda braindead!!!
   (property protected colorize?                      initialize #t                       getter get-colorize?                 setter set-colorize?)
@@ -737,7 +737,7 @@
   
   
   (method protected virtual (read-moniker moniker)
-    (load-lines~ moniker))
+    (load-lines~ moniker char-encoding: char-encoding))
   
   
   (method (save-content moniker)
@@ -752,14 +752,16 @@
   (method (save-to moniker)
     (let* ((content (get-content))
            (limit (get-limit))
-           (use-utf8? (determine-use-utf8? content)))
-      (save-lines~ moniker content platform: platform use-utf8?: use-utf8?)))
+           (use-utf8? (determine-use-utf8? content))
+           (char-encoding (if use-utf8? 'UTF-8 char-encoding)))
+      (save-lines~ moniker content char-encoding: char-encoding)))
   
   
   (method (determine-use-utf8? content)
+    ;; default encoding is ISO-8859-1 so can accomodate chars up to 255
     (some? (function (line)
              (some? (function (char)
-                      (>= (char->integer char) 128))
+                      (> (char->integer char) 255))
                     line))
            content))
   
@@ -920,16 +922,16 @@
   
   
   ;;;
-  ;;;; Platform
+  ;;;; Encoding
   ;;;
   
   
-  (method public (get-platform)
-    platform)
+  (method public (get-char-encoding)
+    char-encoding)
   
   
-  (method public (set-platform value)
-    (set! platform value))
+  (method public (set-char-encoding value)
+    (set! char-encoding value))
   
   
   ;;;

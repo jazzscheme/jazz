@@ -41,14 +41,11 @@
 (import (jazz.io)
         (jazz.library)
         (jazz.platform)
+        (jazz.system)
         (jazz.ui)
         (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
-
-
-(definition Use-Generic?
-  #t)
 
 
 ;;;
@@ -57,61 +54,61 @@
 
 
 (definition public (print-dialog . rest)
-    (close-all-popups)
-    (let ((rec (PRINTDLG-make)))
-      (PRINTDLG-lStructSize-set! rec (PRINTDLG-sizeof))
-      (PRINTDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
-      (PRINTDLG-Flags-set! rec (bitwise-ior PD_HIDEPRINTTOFILE PD_NOSELECTION PD_USEDEVMODECOPIESANDCOLLATE PD_RETURNDC))
-      (PRINTDLG-nFromPage-set! rec 0)
-      (PRINTDLG-nToPage-set! rec 0)
-      (PRINTDLG-nMinPage-set! rec 1)
-      (PRINTDLG-nMaxPage-set! rec 10)
-      (if (PrintDlg rec)
-          (let* ((flags (PRINTDLG-Flags-ref rec))
-                 (handle (PRINTDLG-hDevMode-ref rec))
-                 (pointer (GlobalLock handle))
-                 (devmode (VOID*->DEVMODE pointer)))
-            (values (PRINTDLG-hDC-ref rec) (mask-bit-set? flags PD_PRINTTOFILE) (mask-bit-set? flags PD_SELECTION) (mask-bit-set? flags PD_PAGENUMS) (PRINTDLG-nFromPage-ref rec) (PRINTDLG-nToPage-ref rec) (PRINTDLG-nCopies-ref rec) (DEVMODE-dmOrientation-ref devmode)))
-        (let ((code (CommDlgExtendedError)))
-          (if (= code 0)
-              (throw-cancel)
-            (error "Print dialog error: {t}" code))))))
+  (close-all-popups)
+  (let ((rec (PRINTDLG-make)))
+    (PRINTDLG-lStructSize-set! rec (PRINTDLG-sizeof))
+    (PRINTDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+    (PRINTDLG-Flags-set! rec (bitwise-ior PD_HIDEPRINTTOFILE PD_NOSELECTION PD_USEDEVMODECOPIESANDCOLLATE PD_RETURNDC))
+    (PRINTDLG-nFromPage-set! rec 0)
+    (PRINTDLG-nToPage-set! rec 0)
+    (PRINTDLG-nMinPage-set! rec 1)
+    (PRINTDLG-nMaxPage-set! rec 10)
+    (if (PrintDlg rec)
+        (let* ((flags (PRINTDLG-Flags-ref rec))
+               (handle (PRINTDLG-hDevMode-ref rec))
+               (pointer (GlobalLock handle))
+               (devmode (VOID*->DEVMODE pointer)))
+          (values (PRINTDLG-hDC-ref rec) (mask-bit-set? flags PD_PRINTTOFILE) (mask-bit-set? flags PD_SELECTION) (mask-bit-set? flags PD_PAGENUMS) (PRINTDLG-nFromPage-ref rec) (PRINTDLG-nToPage-ref rec) (PRINTDLG-nCopies-ref rec) (DEVMODE-dmOrientation-ref devmode)))
+      (let ((code (CommDlgExtendedError)))
+        (if (= code 0)
+            (throw-cancel)
+          (error "Print dialog error: {t}" code))))))
 
 
 (definition public (page-setup-dialog (margins: margins '()) (orientation: orientation {}) (paper-size: paper-size {}) (paper-source: paper-source {}))
-    (close-all-popups)
-    (let ((rec (PAGESETUPDLG-make))
-          (devmode (DEVMODE-make)))
-      (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
-      (DEVMODE-dmOrientation-set! devmode orientation)
-      (DEVMODE-dmPaperSize-set! devmode paper-size)
-      (DEVMODE-dmDefaultSource-set! devmode paper-source)
-      (DEVMODE-dmFields-set! devmode (bitwise-ior DM_ORIENTATION DM_PAPERSIZE DM_DEFAULTSOURCE))
-      (PAGESETUPDLG-lStructSize-set! rec (PAGESETUPDLG-sizeof))
-      (PAGESETUPDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
-      (PAGESETUPDLG-hDevMode-set! rec (DEVMODE->HANDLE devmode))
-      (PAGESETUPDLG-Flags-set! rec (bitwise-ior PSD_INTHOUSANDTHSOFINCHES (if margins PSD_MARGINS 0) PSD_DISABLEPRINTER))
-      (when margins
-        (RECT-left-set! (PAGESETUPDLG-rtMargin-ref rec) (get-left~ margins))
-        (RECT-top-set! (PAGESETUPDLG-rtMargin-ref rec) (get-top~ margins))
-        (RECT-right-set! (PAGESETUPDLG-rtMargin-ref rec) (get-right~ margins))
-        (RECT-bottom-set! (PAGESETUPDLG-rtMargin-ref rec) (get-bottom~ margins)))
-      (if (PageSetupDlg rec)
-          (let* ((handle (PAGESETUPDLG-hDevMode-ref rec))
-                 (pointer (GlobalLock handle))
-                 (devmode (VOID*->DEVMODE pointer)))
-            (prog1
-                (values (POINT->dimension (PAGESETUPDLG-ptPaperSize-ref rec))
-                        (RECT->rect (PAGESETUPDLG-rtMinMargin-ref rec))
-                        (RECT->rect (PAGESETUPDLG-rtMargin-ref rec))
-                        (DEVMODE-dmOrientation-ref devmode)
-                        (DEVMODE-dmPaperSize-ref devmode)
-                        (DEVMODE-dmDefaultSource-ref devmode))
-              (GlobalUnlock handle)))
-        (let ((code (CommDlgExtendedError)))
-          (if (= code 0)
-              (throw-cancel)
-            (error "Print dialog error: {t}" code))))))
+  (close-all-popups)
+  (let ((rec (PAGESETUPDLG-make))
+        (devmode (DEVMODE-make)))
+    (DEVMODE-dmSize-set! devmode (DEVMODE-sizeof))
+    (DEVMODE-dmOrientation-set! devmode orientation)
+    (DEVMODE-dmPaperSize-set! devmode paper-size)
+    (DEVMODE-dmDefaultSource-set! devmode paper-source)
+    (DEVMODE-dmFields-set! devmode (bitwise-ior DM_ORIENTATION DM_PAPERSIZE DM_DEFAULTSOURCE))
+    (PAGESETUPDLG-lStructSize-set! rec (PAGESETUPDLG-sizeof))
+    (PAGESETUPDLG-hwndOwner-set! rec (get-handle~ (get-toplevel~ (get-application))))
+    (PAGESETUPDLG-hDevMode-set! rec (DEVMODE->HANDLE devmode))
+    (PAGESETUPDLG-Flags-set! rec (bitwise-ior PSD_INTHOUSANDTHSOFINCHES (if margins PSD_MARGINS 0) PSD_DISABLEPRINTER))
+    (when margins
+      (RECT-left-set! (PAGESETUPDLG-rtMargin-ref rec) (get-left~ margins))
+      (RECT-top-set! (PAGESETUPDLG-rtMargin-ref rec) (get-top~ margins))
+      (RECT-right-set! (PAGESETUPDLG-rtMargin-ref rec) (get-right~ margins))
+      (RECT-bottom-set! (PAGESETUPDLG-rtMargin-ref rec) (get-bottom~ margins)))
+    (if (PageSetupDlg rec)
+        (let* ((handle (PAGESETUPDLG-hDevMode-ref rec))
+               (pointer (GlobalLock handle))
+               (devmode (VOID*->DEVMODE pointer)))
+          (prog1
+              (values (POINT->dimension (PAGESETUPDLG-ptPaperSize-ref rec))
+                      (RECT->rect (PAGESETUPDLG-rtMinMargin-ref rec))
+                      (RECT->rect (PAGESETUPDLG-rtMargin-ref rec))
+                      (DEVMODE-dmOrientation-ref devmode)
+                      (DEVMODE-dmPaperSize-ref devmode)
+                      (DEVMODE-dmDefaultSource-ref devmode))
+            (GlobalUnlock handle)))
+      (let ((code (CommDlgExtendedError)))
+        (if (= code 0)
+            (throw-cancel)
+          (error "Print dialog error: {t}" code))))))
 
 
 
@@ -124,9 +121,10 @@
                                 (directory: directory {})
                                 (extensions: extensions {})
                                 (multiple-selection?: multiple-selection? #f)
-                                (anchors: anchors {}))
-  (if Use-Generic?
-      (get-modal File-Request
+                                (anchors: anchors {})
+                                (text?: text? #f))
+  (if (use-generic-dialogs?)
+      (get-modal (if text? Text-File-Request File-Request)
                  host-title: title
                  directory: directory
                  extensions: extensions
@@ -191,7 +189,7 @@
                                     (initial-filename: initial-filename {})
                                     (default-extension: default-extension {})
                                     (anchors: anchors {}))
-  (if Use-Generic?
+  (if (use-generic-dialogs?)
       (get-modal NewFile-Request
                  host-title: title
                  directory: directory
@@ -240,7 +238,7 @@
 (definition public (choose-directory (title: title {})
                                      (directory: directory {})
                                      (anchors: anchors {}))
-  (if Use-Generic?
+  (if (use-generic-dialogs?)
       (get-modal Directory-Request
                  host-title: title
                  directory: directory
@@ -276,15 +274,15 @@
 
 
 (definition (parse-choose-file-string buffer)
-  (let loop ((offset 0)
-             (start-of-string? #t))
-       (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))
-         (if start-of-string?
-             (if end-of-string?
-                 '()
-               (cons (WCHAR-string (WCHAR-subarray buffer offset))
-                     (loop (+ offset 1) end-of-string?)))
-           (loop (+ offset 1) end-of-string?)))))
+  (let (iterate (offset 0)
+                (start-of-string? #t))
+    (let ((end-of-string? (eq? #\nul (WCHAR-array-ref buffer offset))))
+      (if start-of-string?
+          (if end-of-string?
+              '()
+            (cons (WCHAR-string (WCHAR-subarray buffer offset))
+                  (loop (+ offset 1) end-of-string?)))
+        (iterate (+ offset 1) end-of-string?)))))
 
 
 ;; Returns NULL used by file dialogs. Windows specific.

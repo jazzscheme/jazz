@@ -46,9 +46,11 @@
         (jazz.groupware)
         (jazz.ide)
         (jazz.io)
+        (jazz.jml)
         (jazz.language.jazz)
         (jazz.library)
         (jazz.library.component)
+        (jazz.literals)
         (jazz.network)
         (jazz.platform)
         (jazz.recorder)
@@ -518,22 +520,13 @@
   ;;;; Events
   ;;;
   
-  
-  (method public (on-open evt)
-    (cond ((get-alt?~ evt)
-           (on-open-text evt))
-          ((get-shift?~ evt)
-           (on-open-jazz-text evt))
-          (else
-           (nextmethod evt))))
-    
 
   (method public (on-open-text evt)
-    (let ((files (choose-file multiple-selection?: #t)))
+    (receive (files char-encoding) (choose-file multiple-selection?: #t text?: #t)
       (for-each (function (file)
-                  (edit-document file class: Jazz-Plain-Text-View))
+                  (edit-document file class: Jazz-Plain-Text-View char-encoding: char-encoding))
                 (sort > files key: (function (file) (get-name~ file))))))
-    
+
 
   (method public (on-open-jazz-text evt)
     (let ((files (choose-file multiple-selection?: #t)))
@@ -750,7 +743,6 @@
 
 
   (method public (on-refresh-window evt)
-    @convert/wait
     (let ((window (first-window~ stage)))
       (if (not window)
           (redraw-window~ stage)
@@ -758,7 +750,6 @@
   
   
   (method public (on-save-profile evt)
-    @convert/wait
     (with-cursor :wait
       (function ()
         (user-message "Saving profile...")

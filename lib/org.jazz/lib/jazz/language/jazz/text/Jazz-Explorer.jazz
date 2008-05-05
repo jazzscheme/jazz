@@ -390,6 +390,7 @@
                 ((intrinsic)       (walk-intrinsic     context declaration keyword expression doc line walk-expressions?))
                 ((external)        (walk-external      context declaration keyword expression doc line walk-expressions?))
                 ((c-external)      (walk-external      context declaration keyword expression doc line walk-expressions?))
+                ((coexternal)      (walk-coexternal    context declaration keyword expression doc line walk-expressions?))
                 ((javaexternal)    (walk-javaexternal  context declaration keyword expression doc line walk-expressions?))
                 ((javamethod)      (walk-javamethod    context declaration keyword expression doc line walk-expressions?))
                 ((datacontainer)   (walk-datacontainer context declaration keyword expression doc line walk-expressions?))
@@ -742,6 +743,23 @@
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (when (forward-expr)
+        (let ((entered? (enter-list)))
+          (when (and (forward-expr) (eq? kind 'symbol))
+            (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+          (when entered?
+            (walk-parameters entry declaration keyword expression doc line))
+          (when entered?
+            (exit-list))))
+      (when walk-expressions?
+        (walk-expressions entry expression))
+      entry))
+
+  
+  (method (walk-coexternal context declaration keyword expression doc line walk-expressions?)
+    (let ((entry context))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
+      (when (and (forward-expr) (forward-expr)) ; skip vtable offset
         (let ((entered? (enter-list)))
           (when (and (forward-expr) (eq? kind 'symbol))
             (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))

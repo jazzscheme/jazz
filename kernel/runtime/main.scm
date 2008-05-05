@@ -167,6 +167,12 @@
     (jazz.compile-module 'jazz.platform.windows.WinPerf     cc-options: (string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: (string-append "-L" windows-lib-path " -mwindows -lpdh"))
     (jazz.compile-module 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
     (jazz.compile-module 'jazz.system.platform.windows)))
+
+
+(define (jazz.build-com)
+  (jazz.compile-module 'jazz.platform.windows.com.ComTypes options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -loleaut32")
+  (jazz.compile-module 'jazz.platform.windows.com.ComUtils options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+  (jazz.compile-module 'jazz.platform.windows.com.DAO options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")) ; -u CoCreateInstance
   
 
 (define (jazz.build-x11)
@@ -206,7 +212,8 @@
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
-        (jazz.build-windows))))
+        (jazz.build-windows)
+        (jazz.build-com))))
   (x11
     (define (jazz.build-platform)
       (jazz.load-module 'core.library)

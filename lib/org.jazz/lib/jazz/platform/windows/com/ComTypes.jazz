@@ -1,0 +1,269 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; COM Types
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Stephane Le Cornec.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.platform.windows.com.ComTypes jazz
+
+
+(import (jazz.library)
+        (jazz.platform.types)
+        (jazz.platform.windows.WinTypes))
+
+
+(c-type wchar_t-string (native wchar_t-string))
+
+
+(c-type HRESULT (native unsigned-long))
+(c-type BSTR (pointer (native wchar_t)))
+(c-type IUnknown* (pointer (native void)))
+(c-type LPVOID* (pointer IUnknown*))
+
+
+;;;
+;;;; IUnknown*
+;;;
+
+
+(definition IUnknown**-make
+  (c-function () LPVOID*
+    "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
+
+
+(definition IUnknown**-free
+  (c-function (LPVOID*) void
+    "free(___arg1);"))
+
+
+(definition IUnknown**-ref
+  (c-function (LPVOID*) IUnknown*
+    "___result = *___arg1;"))
+
+
+(definition IUnknown**-set!
+  (c-function (LPVOID* IUnknown*) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (IUnknown*-enref coptr)
+  (let ((ptr (IUnknown**-make)))
+    (IUnknown**-set! ptr coptr)
+    ptr))
+
+
+(definition (IUnknown*-deref coptr*)
+  (let ((coptr (IUnknown**-ref coptr*)))
+    (IUnknown**-free coptr*)
+    coptr))
+
+
+;;;
+;;;; BSTR
+;;;
+
+
+;; BSTR-make undefined
+;; BSTR-set! undefined
+
+(definition BSTR-free
+  (let ((SysFreeString (c-function (BSTR) void "SysFreeString")))
+    (lambda (bstr)
+      (SysFreeString bstr))))
+
+
+(definition BSTR-ref
+  (let ((cast (c-function (BSTR) wchar_t-string "___result = (wchar_t*)___arg1;")))
+    (lambda (bstr)
+      (cast bstr))))
+
+
+(definition BSTR-encode
+  (let ((SysAllocString (c-function (wchar_t-string) BSTR "SysAllocString")))
+    (lambda (str)
+      (SysAllocString str))))
+
+
+(definition (BSTR-decode bstr)
+  (let ((str (BSTR-ref bstr)))
+    (BSTR-free bstr)
+    str))
+
+
+;;;
+;;;; GUID
+;;;
+
+
+(define (zero-fill str n)
+  (let ((len (string-length str)))
+    (if (> n len)
+        (string-append (make-string (- n len) #\0) str)
+      str)))
+
+
+(c-structure GUID
+  (DWORD Data1)
+  (WORD Data2)
+  (WORD Data3)
+  (byte Data4 8))
+
+
+(definition (GUID-set! guid str)
+  (GUID-Data1-set! guid (string->number (substring str 0 8) 16))
+  (GUID-Data2-set! guid (string->number (substring str 9 13) 16))
+  (GUID-Data3-set! guid (string->number (substring str 14 18) 16))
+  (let ((data4+ (GUID-Data4-ref guid))
+        (string->byte (lambda (offset)
+                        (string->number (substring str offset (+ 2 offset)) 16))))
+    (for-each (lambda (n byte) (byte*-set! data4+ n byte))
+              (naturals 0 8)
+              (map string->byte '(19 21 24 26 28 30 32 34)))))
+
+
+(definition (GUID-ref guid)
+  (let* ((proc (lambda (i n)
+                 (zero-fill (number->string i 16) n)))
+         (data4+ (GUID-Data4-ref guid))
+         (proc4 (lambda (n) (proc (byte*-ref data4+ n) 2))))
+    (apply string-append
+           (proc (GUID-Data1-ref guid) 8) "-"
+           (proc (GUID-Data2-ref guid) 4) "-"
+           (proc (GUID-Data3-ref guid) 4) "-"
+           (proc4 0) (proc4 1) "-"
+           (map proc4 (naturals 2 8)))))
+
+
+(definition (GUID-encode str)
+  (let ((guid (GUID-make)))
+    (GUID-set! guid str)
+    guid))
+
+
+(definition (GUID-decode guid)
+  (let ((str (GUID-ref guid)))
+    (GUID-free guid)
+    str))
+
+;;;
+;;;; VARIANT
+;;;
+
+
+(c-type VARTYPE (native unsigned-short))
+(c-type VARIANT_BOOL (native short))
+(c-type VARIANT_BOOL* (pointer VARIANT_BOOL))
+(c-type SCODE (native long))
+(c-structure VARIANT
+  (VARTYPE vt)
+  (long lVal)
+  (short iVal)
+  (float fltVal)
+  (double dblVal)
+  (VARIANT_BOOL boolVal)
+  (SCODE scode)
+  (BSTR bstrVal)
+  (IUnknown* punkVal)
+  (VARIANT_BOOL* pboolVal)
+  (INT intVal))
+
+
+(definition VariantInit
+  (c-function (VARIANT*) void "VariantInit"))
+
+
+(definition VariantClear
+  (c-function (VARIANT*) HRESULT "VariantClear"))
+
+
+(definition (VARIANT-set! variant value)
+  (cond
+    ((null? value)
+     (VARIANT-vt-set! variant 10)
+     (VARIANT-scode-set! variant -1))
+    ((boolean? value)
+     (VARIANT-vt-set! variant 11)
+     (VARIANT-boolVal-set! variant (if value -1 0)))
+    ((integer? value)
+     (VARIANT-vt-set! variant 3)
+     (VARIANT-lVal-set! variant value))
+    ((real? value)
+     (VARIANT-vt-set! variant 5)
+     (VARIANT-dblVal-set! variant value))
+    ((string? value)
+     (VARIANT-vt-set! variant 8)
+     (VARIANT-bstrVal-set! variant (BSTR-encode value)))
+    (else
+     (VARIANT-vt-set! variant 13)
+     (VARIANT-punkVal-set! variant value))))
+
+
+(definition (VARIANT-ref variant)
+  (case (VARIANT-vt-ref variant)
+    ((0) ; VT_EMPTY
+     #f)
+    ((1) ; VT_NULL
+     '())
+    ((2) ; VT_I2
+     (VARIANT-iVal-ref variant))
+    ((3) ; VT_I4
+     (VARIANT-lVal-ref variant))
+    ((4) ; VT_R4
+     (VARIANT-fltVal-ref variant))
+    ((5) ; VT_R8
+     (VARIANT-dblVal-ref variant))
+    ((8) ; VT_BSTR
+     (BSTR-ref (VARIANT-bstrVal-ref variant)))
+    ((11) ; VT_BOOL
+     (not (eqv? 0 (VARIANT-boolVal-ref variant))))
+    ((22) ; VT_INT
+     (VARIANT-intVal-ref variant))
+    ((#x400B) ; VT_BOOL + VT_BYREF
+     (not (eqv? 0 (short*-ref (VARIANT-pboolVal-ref variant) 0))))
+    (else
+     (error "unknown variant"))))
+
+
+(definition (VARIANT-encode data)
+  (let ((variant (VARIANT-make)))
+    (VariantInit variant)
+    (VARIANT-set! variant data)
+    variant))
+
+
+(definition (VARIANT-decode variant)
+  (let ((data (VARIANT-ref variant)))
+    (VariantClear variant)
+    (VARIANT-free variant)
+    data)))

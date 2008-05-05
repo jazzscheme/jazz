@@ -858,6 +858,7 @@
     (jazz.new-macro-form   'remote-proxy  jazz.expand-remote-proxy)
     (jazz.new-macro-form   'coclass       jazz.expand-coclass)
     (jazz.new-macro-form   'cointerface   jazz.expand-cointerface)
+    (jazz.new-macro-form   'coexternal    jazz.expand-coexternal)
     (jazz.new-macro-form   'assert        jazz.expand-assert)
     (jazz.new-macro-form   'c-structure   jazz.expand-c-structure)
     (jazz.new-macro-form   'c-union       jazz.expand-c-union)
@@ -2127,7 +2128,8 @@
 
 
 (define (jazz.expand-cointerface walker resume declaration environment . rest)
-  `(begin)
+  (receive (name type access ascendant-name on-name body) (jazz.parse-cointerface walker resume declaration rest)
+    `(definition name '(type access ascendant-name on-name body)))
   #; ;; waiting
   (receive (name type access ascendant-name on-name body) (jazz.parse-cointerface walker resume declaration rest)
     (let ((interface-class (%%string->symbol (%%string-append (%%symbol->string name) "-Interface")))
@@ -2169,6 +2171,51 @@
              (case ,method-name-variable
                ,@(jazz.queue-list dispatchs)
                (else (nextmethod ,dispatcher-variable ,method-name-variable ,local-object-variable ,arguments-variable)))))))))
+
+
+;;;
+;;;; CoExternal 
+;;;
+
+
+;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature)
+  (let ((name (car signature))
+        (resolve-declaration (lambda (type) (if (symbol? type)
+                                                (jazz.resolve-c-type-reference walker resume declaration environment type)
+                                              (jazz.walk-error walker resume declaration "Illegal parameter type in coexternal {s}: {s}" (car signature) type))))
+        (fix-locator (lambda (declaration) (if (eq? (%%get-c-type-declaration-kind declaration) 'type)
+                                               (string->symbol (string-append (symbol->string (%%get-declaration-locator declaration)) "*"))
+                                             (%%get-declaration-locator declaration)))))
+    ;; we assume coparam-types are symbols that exactly match the c type
+    (let ((resolved-result (resolve-declaration result-type))
+          (resolved-params (map resolve-declaration (map cadr (cdr signature)))))
+      @debug
+      (apply jazz.debug name resolved-result resolved-params)
+      (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
+          `(definition ,name
+                       (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+                                   ,(%%get-declaration-locator resolved-result)
+                                   ,(string-append
+                                      "{typedef "
+                                      (jazz.->string (%%get-lexical-binding-name resolved-result))
+                                      " (*ProcType)(IUnknown*"
+                                      (apply string-append (let iter-arg ((resolved-params resolved-params))
+                                                                (if (pair? resolved-params)
+                                                                    (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
+                                                                                     (iter-arg (cdr resolved-params))))
+                                                                  '())))
+                                      "); ProcType fn = (*(ProcType**)___arg1)["
+                                      (number->string offset)
+                                      "]; ___result = (*fn)(___arg1"
+                                      (apply string-append (let iter-arg ((resolved-params resolved-params)
+                                                                          (order 2))
+                                                                (if (pair? resolved-params)
+                                                                    (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                                          (cons (number->string order)
+                                                                                (iter-arg (cdr resolved-params) (+ order 1))))
+                                                                  '())))
+                                      ");}")))))))
 
 
 ;;;

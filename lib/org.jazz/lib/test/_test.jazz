@@ -37,6 +37,78 @@
 
 (library test jazz
 
+(import (jazz.platform.types)
+        (jazz.platform.windows.WinTypes)
+        (jazz.platform.windows.com.ComTypes)
+        (jazz.platform.windows.com.ComUtils)
+        (jazz.platform.windows.com.DAO))
+
+
+;;;
+;;;; calls
+;;;
+
+;; jazz.platform.windows.com.ComTypes.IUnknown*-
+
+
+(definition (get-Workspaces$ coptr) ; _DBEngine
+  (let ((p1 (IUnknown*-enref #f)))
+    (let ((res (get-Workspaces coptr p1)))
+      (validate-hresult res)
+      (IUnknown*-deref p1))))
+
+
+(definition (get-Item$ coptr in1) ; Workspaces
+  (let ((p1 (VARIANT-encode in1))
+        (p2 (IUnknown*-enref #f)))
+    (let ((res (get-Item coptr p1 p2)))
+      (validate-hresult res)
+      (VARIANT-free p1)
+      (IUnknown*-deref p2))))
+
+
+(definition (OpenDatabase$ coptr in1 in2 in3 in4) ; Workspace
+  (let ((p1 (BSTR-encode in1))
+        (p2 (VARIANT-encode in2))
+        (p3 (VARIANT-encode in3))
+        (p4 (VARIANT-encode in4))
+        (p5 (IUnknown*-enref #f)))
+    (let ((res (OpenDatabase coptr p1 p2 p3 p4 p5)))
+      (validate-hresult res)
+      (BSTR-free p1)
+      (VARIANT-free p2)
+      (VARIANT-free p3)
+      (VARIANT-free p4)
+      (IUnknown*-deref p5))))
+
+
+(definition (Close$ coptr) ; Database
+  (let ((res (Close coptr)))
+    (validate-hresult res)))
+
+
+;;;
+;;;; calls
+;;;
+
+
+(definition (f)
+  (debug 'test (initialize-com))
+  (let ((engine (CoCreateInstance DAO-DBEngine-class DAO-DBEngine-interface)))
+    (debug engine)
+    (let ((workspaces (get-Workspaces$ engine)))
+      (debug workspaces)
+      (let ((item (get-Item$ workspaces 0)))
+        (debug item)
+        @w
+        (let ((db (OpenDatabase$ (car zz3) "c:/dev/db.mdb" 0 #f "")))
+          (debug db)
+          (Close$ db)
+          (CoRelease db))
+        (debug 'item (CoRelease item)))
+      (debug 'workspaces (CoRelease workspaces)))
+    (debug 'engine (CoRelease engine))))
+
 
 ;;;
 ;;;; Exception

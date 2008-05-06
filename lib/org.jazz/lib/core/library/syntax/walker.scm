@@ -2483,10 +2483,11 @@
   (receive (name dialect-name requires exports imports body) (jazz.parse-library partial-form)
     (if (%%neq? name (jazz.requested-module-name))
         (jazz.error "Library at {s} is defining {s}" (jazz.requested-module-name) name)
-      (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
-             (dialect (jazz.require-dialect dialect-name))
-             (walker (jazz.dialect-walker dialect)))
-        (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice requires exports imports body)))))
+      (parameterize ((jazz.walk-context (jazz.new-walk-context #f name #f)))
+        (let* ((dialect-invoice (jazz.load-dialect-invoice dialect-name))
+               (dialect (jazz.require-dialect dialect-name))
+               (walker (jazz.dialect-walker dialect)))
+          (jazz.walk-library-declaration walker #f name dialect-name dialect-invoice requires exports imports body))))))
 
 
 (define (jazz.walk-library-declaration walker actual name dialect-name dialect-invoice requires exports imports body)

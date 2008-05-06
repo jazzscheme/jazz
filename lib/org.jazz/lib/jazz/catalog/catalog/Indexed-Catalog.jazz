@@ -49,6 +49,7 @@
 
   (slot directories)
   (slot extensions)
+  (slot char-encoding)
   (slot recursive?)
   (slot references?)
   (slot content)
@@ -56,10 +57,11 @@
   (slot references-index)
 
 
-  (method (initialize name file directories extensions recursive? active? references? (report?: report? #t))
+  (method (initialize name file directories extensions char-encoding recursive? active? references? (report?: report? #t))
     (nextmethod name file active?)
     (set! directories~self directories)
     (set! extensions~self extensions)
+    (set! char-encoding~self char-encoding)
     (set! recursive?~self recursive?)
     (set! references?~self references?)
     (set! content~self (make-table test: equal?))
@@ -78,6 +80,10 @@
   
   (method public virtual (get-extensions)
     extensions)
+  
+  
+  (method public virtual (get-char-encoding)
+    char-encoding)
   
   
   (method public (get-recursive?)
@@ -123,8 +129,8 @@
   (method (count-file-entries content)
     (let ((count 0))
       (iterate-table content
-                     (function (name file-entries)
-                       (increase! count (length file-entries))))
+        (function (name file-entries)
+          (increase! count (length file-entries))))
       count))
   
   
@@ -178,11 +184,11 @@
     (when report?
       (user-message "Updating Indexes..."))
     (iterate-table content
-                   (function (class-name definitions)
-                     (for-each (function (file-definition)
-                                 (set-catalog~ file-definition self)
-                                 (update-indexes~ file-definition definitions-index references-index))
-                               definitions))))
+      (function (class-name definitions)
+        (for-each (function (file-definition)
+                    (set-catalog~ file-definition self)
+                    (update-indexes~ file-definition definitions-index references-index))
+                  definitions))))
 
 
   ;;;
@@ -253,10 +259,10 @@
   
   (method (reset-marks)
     (iterate-table content
-                   (function (class-name definitions)
-                     (for-each (function (file-definition)
-                                 (set-marked?~ file-definition #f))
-                               definitions))))
+      (function (class-name definitions)
+        (for-each (function (file-definition)
+                    (set-marked?~ file-definition #f))
+                  definitions))))
   
 
   ;;;
@@ -305,7 +311,7 @@
   (method (get-parser extension)
     (let ((class (get-parser-class extension)))
       (when class
-        (new class self references?: references?))))
+        (new class self char-encoding: char-encoding references?: references?))))
 
   
   (method (scan-file? file)
@@ -355,23 +361,23 @@
   
   (method (sweep-table table marked? reset?)
     (iterate-table table
-                   (function (class-name definitions)
-                     (when (not-null? definitions)
-                       (let ((previous definitions)
-                             (list (cdr definitions)))
-                         (while (not-null? list)
-                           (let ((definition (car list)))
-                             (if (marked? definition)
-                                 (begin
-                                   (set! previous list)
-                                   (set! list (cdr list)))
-                               (when reset?
-                                 (set-marked?~ definition #f))
-                               (set-cdr! previous (cddr previous))
-                               (set! list (cdr previous))))))
-                       (when (not (marked? (car definitions)))
-                         (set-modified? #t)
-                         (table-set! table class-name (cdr definitions)))))))
+      (function (class-name definitions)
+        (when (not-null? definitions)
+          (let ((previous definitions)
+                (list (cdr definitions)))
+            (while (not-null? list)
+              (let ((definition (car list)))
+                (if (marked? definition)
+                    (begin
+                      (set! previous list)
+                      (set! list (cdr list)))
+                  (when reset?
+                    (set-marked?~ definition #f))
+                  (set-cdr! previous (cddr previous))
+                  (set! list (cdr previous))))))
+          (when (not (marked? (car definitions)))
+            (set-modified? #t)
+            (table-set! table class-name (cdr definitions)))))))
 
 
   ;;;
@@ -424,7 +430,7 @@
     (let ((length (cardinality string))
           (result '()))
       (iterate-table table
-                     (function (name value)
-                       (when (compare-n name string length)
-                         (set! result (cons name result)))))
+        (function (name value)
+          (when (compare-n name string length)
+            (set! result (cons name result)))))
       result))))

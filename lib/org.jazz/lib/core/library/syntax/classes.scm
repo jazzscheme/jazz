@@ -385,6 +385,15 @@
 
 
 ;;;
+;;;; Named C Declare
+;;;
+
+
+(jazz.define-class jazz.Named-C-Declare-Declaration jazz.Declaration (name type access compatibility code) jazz.Object-Class jazz.allocate-named-c-declare-declaration
+  ((code       %%get-named-c-declare-declaration-code       ())))
+
+
+;;;
 ;;;; C Type
 ;;;
 

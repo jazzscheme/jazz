@@ -837,22 +837,23 @@
     (jazz.new-special-form '%property     jazz.walk-%slot)
     (jazz.new-special-form 'method        jazz.walk-method)
 
-    (jazz.new-special-form 'atomic-region jazz.walk-atomic-region)
-    (jazz.new-special-form 'c-include     jazz.walk-c-include)
-    (jazz.new-special-form 'c-declare     jazz.walk-c-declare)
-    (jazz.new-special-form 'c-initialize  jazz.walk-c-initialize)
-    (jazz.new-special-form 'c-function    jazz.walk-c-function)
-    (jazz.new-special-form 'c-type        jazz.walk-c-type)
-    (jazz.new-special-form 'c-definition  jazz.walk-c-definition)
-    (jazz.new-special-form 'function      jazz.walk-function)
-    (jazz.new-macro-form   'specialize    jazz.expand-specialize)
-    (jazz.new-special-form '%specialize   jazz.walk-specialize)
-    (jazz.new-special-form 'parameterize  jazz.walk-parameterize)
-    (jazz.new-special-form 'with-slots    jazz.walk-with-slots)
-    (jazz.new-special-form 'with-self     jazz.walk-with-self)
-    (jazz.new-special-form 'cast          jazz.walk-cast)
-    (jazz.new-special-form 'construct     jazz.walk-construct)
-    (jazz.new-special-form 'time          jazz.walk-time)
+    (jazz.new-special-form 'atomic-region   jazz.walk-atomic-region)
+    (jazz.new-special-form 'c-include       jazz.walk-c-include)
+    (jazz.new-special-form 'c-declare       jazz.walk-c-declare)
+    (jazz.new-special-form 'c-initialize    jazz.walk-c-initialize)
+    (jazz.new-special-form 'c-function      jazz.walk-c-function)
+    (jazz.new-special-form 'named-c-declare jazz.walk-named-c-declare)
+    (jazz.new-special-form 'c-type          jazz.walk-c-type)
+    (jazz.new-special-form 'c-definition    jazz.walk-c-definition)
+    (jazz.new-special-form 'function        jazz.walk-function)
+    (jazz.new-macro-form   'specialize      jazz.expand-specialize)
+    (jazz.new-special-form '%specialize     jazz.walk-specialize)
+    (jazz.new-special-form 'parameterize    jazz.walk-parameterize)
+    (jazz.new-special-form 'with-slots      jazz.walk-with-slots)
+    (jazz.new-special-form 'with-self       jazz.walk-with-self)
+    (jazz.new-special-form 'cast            jazz.walk-cast)
+    (jazz.new-special-form 'construct       jazz.walk-construct)
+    (jazz.new-special-form 'time            jazz.walk-time)
     
     (jazz.new-macro-form   'optimize      jazz.expand-optimize)
     (jazz.new-macro-form   'remote-proxy  jazz.expand-remote-proxy)
@@ -2313,6 +2314,37 @@
 (define (jazz.walk-c-declare walker resume declaration environment form)
   (jazz.bind (code) (%%cdr form)
     (jazz.new-c-declare code)))
+
+
+;;;
+;;;; named-C-Declare
+;;;
+
+
+(define jazz.named-c-declare-modifiers
+  '(((private protected public) . public)
+    ((deprecated uptodate) . uptodate)))
+
+
+(define (jazz.parse-named-c-declare walker resume declaration rest)
+  (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.named-c-declare-modifiers rest)
+    (jazz.bind (name code) rest
+      (let ((type jazz.Any))
+        (values name type access compatibility code)))))
+
+
+(define (jazz.walk-named-c-declare-declaration walker resume declaration environment form)
+  (receive (name type access compatibility code) (jazz.parse-named-c-declare walker resume declaration (%%cdr form))
+    (let ((new-declaration (jazz.new-named-c-declare-declaration name type access compatibility '() declaration code)))
+        (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
+          effective-declaration))))
+
+
+(define (jazz.walk-named-c-declare walker resume declaration environment form)
+  (receive (name type access compatibility code) (jazz.parse-named-c-declare walker resume declaration (%%cdr form))
+    (let ((new-declaration (jazz.find-form-declaration declaration name)))
+      new-declaration)))
+
 
 
 ;;;

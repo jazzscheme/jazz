@@ -1481,6 +1481,32 @@
 
 
 ;;;
+;;;; Named C Declare
+;;;
+
+
+(jazz.define-class-runtime jazz.Named-C-Declare-Declaration)
+
+
+(define (jazz.new-named-c-declare-declaration name type access compatibility code)
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.Named-C-Declare-Declaration name type access compatibility code)))
+    (jazz.setup-declaration new-declaration)
+    new-declaration))
+
+
+(jazz.define-method (jazz.emit-declaration (jazz.Named-C-Declare-Declaration declaration) environment)
+  `(begin))
+
+
+(jazz.define-method (jazz.expand-referenced-declaration (jazz.Named-C-Declare-Declaration declaration))
+  (let ((code (%%get-named-c-declare-declaration-code declaration)))
+    `(c-declare ,code)))
+
+
+(jazz.encapsulate-class jazz.Named-C-Declare-Declaration)
+
+
+;;;
 ;;;; C Type
 ;;;
 

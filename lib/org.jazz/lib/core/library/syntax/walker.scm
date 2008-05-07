@@ -1488,8 +1488,8 @@
 (jazz.define-class-runtime jazz.Named-C-Declare-Declaration)
 
 
-(define (jazz.new-named-c-declare-declaration name type access compatibility code)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.Named-C-Declare-Declaration name type access compatibility code)))
+(define (jazz.new-named-c-declare-declaration name type access compatibility attributes parent code)
+  (let ((new-declaration (jazz.allocate-named-c-declare-declaration jazz.Named-C-Declare-Declaration name type access compatibility attributes #f parent #f code)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 

@@ -888,17 +888,18 @@
   (if (%%pair? form)
       (let ((first (%%car form)))
         (case first
-          ((definition)      (jazz.walk-definition-declaration     walker resume declaration environment form))
-          ((%specialize)     (jazz.walk-specialize-declaration     walker resume declaration environment form))
-          ((generic)         (jazz.walk-generic-declaration        walker resume declaration environment form))
+          ((definition)      (jazz.walk-definition-declaration      walker resume declaration environment form))
+          ((%specialize)     (jazz.walk-specialize-declaration      walker resume declaration environment form))
+          ((generic)         (jazz.walk-generic-declaration         walker resume declaration environment form))
           ((specific)        #f)
-          ((%class)          (jazz.walk-%class-declaration         walker resume declaration environment form))
-          ((interface)       (jazz.walk-interface-declaration      walker resume declaration environment form))
-          ((%slot %property) (jazz.walk-%slot-declaration          walker resume declaration environment form))
-          ((method)          (jazz.walk-method-declaration         walker resume declaration environment form))
+          ((%class)          (jazz.walk-%class-declaration          walker resume declaration environment form))
+          ((interface)       (jazz.walk-interface-declaration       walker resume declaration environment form))
+          ((%slot %property) (jazz.walk-%slot-declaration           walker resume declaration environment form))
+          ((method)          (jazz.walk-method-declaration          walker resume declaration environment form))
           ((c-include)       #f)
-          ((c-type)          (jazz.walk-c-type-declaration         walker resume declaration environment form))
-          ((c-definition)    (jazz.walk-c-definition-declaration   walker resume declaration environment form))
+          ((named-c-declare) (jazz.walk-named-c-declare-declaration walker resume declaration environment form))
+          ((c-type)          (jazz.walk-c-type-declaration          walker resume declaration environment form))
+          ((c-definition)    (jazz.walk-c-definition-declaration    walker resume declaration environment form))
           (else              (nextmethod walker resume declaration environment form))))
     #f))
 
@@ -2404,7 +2405,12 @@
                 (values 'native (%%cadr type)))
                ((type)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  (values 'type `(type ,c-string ,@tag-rest))))
+                  (if (null? tag-rest)
+                      (values 'type `(type ,c-string ,@tag-rest))
+                    (jazz.bind (scheme-to-c c-to-scheme . rst) tag-rest
+                      (resolve-accumulate scheme-to-c)
+                      (resolve-accumulate c-to-scheme)
+                      (values 'type `(type ,c-string ,(symbol->string scheme-to-c) ,(symbol->string c-to-scheme) ,@rst))))))
                ((pointer)
                 (jazz.bind (base-type . tag-rest) (%%cdr type)
                   (values 'pointer `(pointer ,(resolve-expansion base-type) ,@tag-rest))))
@@ -2420,6 +2426,10 @@
             (else
              (jazz.error "Ill-formed c-type: {s}" type))))
     
+    (define (resolve-accumulate declare)
+      (let ((named-c-declare-declaration (jazz.resolve-named-c-declare-reference walker resume declaration environment declare)))
+        (jazz.enqueue queue named-c-declare-declaration)))
+                
     (define (resolve-expansion type)
       (receive (kind expansion) (resolve type)
         expansion))
@@ -2427,6 +2437,12 @@
     (receive (kind expansion) (resolve type)
       (values kind expansion (jazz.queue-list queue)))))
 
+               
+(define (jazz.resolve-named-c-declare-reference walker resume declaration environment symbol)
+  (let ((named-c-declare-declaration (jazz.lookup-reference walker resume declaration environment symbol)))
+    (if (%%class-is? named-c-declare-declaration jazz.Named-C-Declare-Declaration)
+        named-c-declare-declaration
+      (jazz.walk-error walker resume declaration "{s} did not resolve to a named-c-declare: {s}" symbol (%%get-declaration-locator named-c-declare-declaration)))))
 
 (define (jazz.resolve-c-type-reference walker resume declaration environment symbol)
   (let ((c-type-declaration (jazz.lookup-reference walker resume declaration environment symbol)))

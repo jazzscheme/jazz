@@ -389,7 +389,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-C-Declare-Declaration jazz.Declaration (name type access compatibility code) jazz.Object-Class jazz.allocate-named-c-declare-declaration
+(jazz.define-class jazz.Named-C-Declare-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class jazz.allocate-named-c-declare-declaration
   ((code       %%get-named-c-declare-declaration-code       ())))
 
 

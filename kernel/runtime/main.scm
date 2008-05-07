@@ -170,9 +170,10 @@
 
 
 (define (jazz.build-com)
-  (jazz.compile-module 'jazz.platform.windows.com.ComTypes options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -loleaut32")
-  (jazz.compile-module 'jazz.platform.windows.com.ComUtils options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
-  (jazz.compile-module 'jazz.platform.windows.com.DAO options: '(keep-c) cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")) ; -u CoCreateInstance
+  (jazz.compile-module 'jazz.platform.windows.com.ComTypes cc-options: "-DUNICODE" ld-options: "-mwindows -loleaut32")
+  (jazz.compile-module 'jazz.platform.windows.com.ComUtils cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+  (jazz.compile-module 'jazz.platform.windows.com.DAO cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+  (jazz.compile-module 'jazz.platform.windows.com.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")) ; -u CoCreateInstance
   
 
 (define (jazz.build-x11)

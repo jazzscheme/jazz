@@ -37,16 +37,44 @@
 
 (library test jazz
 
-(import (jazz.platform.types)
-        (jazz.platform.windows.WinTypes)
-        (jazz.platform.windows.com.ComTypes)
-        (jazz.platform.windows.com.ComUtils)
-        (jazz.platform.windows.com.DAO))
+
+(import (jazz.platform.windows.com)
+        (jazz.platform.windows.com.ADODB))
 
 
 ;;;
-;;;; calls
+;;;; ADO
 ;;;
+
+
+(definition (ado)
+  (initialize-com)
+  (let ((cmd "select * from orders")
+        (connection (cocreate Connection-class))
+        (connection-string "driver={SQL Server};server=(local)\\SQLEXPRESS;database=Northwind;uid=jazz;pwd=emehcs"))
+    (Connection$Open connection connection-string "" "" adConnectUnspecified)
+    (let ((recordset (cocreate Recordset-class)))
+      (Recordset$Open recordset cmd connection adOpenForwardOnly adLockReadOnly adCmdText)
+      (let ((count 0))
+        (while (not (Recordset$get-EOF recordset))
+          (Recordset$MoveNext recordset)
+          (increase! count))
+        (debug count))
+      (when (and recordset (/= (Recordset$get-State recordset) adStateClosed))
+        (Recordset$Close recordset)
+        (corelease recordset)))
+    (when connection
+      (Connection$Close connection)
+      (corelease connection))))
+
+
+;;;
+;;;; DAO
+;;;
+
+
+@W (
+
 
 ;; jazz.platform.windows.com.ComTypes.IUnknown*-
 
@@ -107,7 +135,7 @@
           (CoRelease db))
         (debug 'item (CoRelease item)))
       (debug 'workspaces (CoRelease workspaces)))
-    (debug 'engine (CoRelease engine))))
+    (debug 'engine (CoRelease engine)))))
 
 
 ;;;

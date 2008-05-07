@@ -2189,33 +2189,34 @@
                                              (%%get-declaration-locator declaration)))))
     ;; we assume coparam-types are symbols that exactly match the c type
     (let ((resolved-result (resolve-declaration result-type))
-          (resolved-params (map resolve-declaration (map cadr (cdr signature)))))
+          (resolved-params (map resolve-declaration (map cadr (cdr signature))))
+          (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
       @debug
       (apply jazz.debug name resolved-result resolved-params)
       (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
-          `(definition ,name
-                       (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
-                                   ,(%%get-declaration-locator resolved-result)
-                                   ,(string-append
-                                      "{typedef "
-                                      (jazz.->string (%%get-lexical-binding-name resolved-result))
-                                      " (*ProcType)(IUnknown*"
-                                      (apply string-append (let iter-arg ((resolved-params resolved-params))
-                                                                (if (pair? resolved-params)
-                                                                    (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
-                                                                                     (iter-arg (cdr resolved-params))))
-                                                                  '())))
-                                      "); ProcType fn = (*(ProcType**)___arg1)["
-                                      (number->string offset)
-                                      "]; ___result = (*fn)(___arg1"
-                                      (apply string-append (let iter-arg ((resolved-params resolved-params)
-                                                                          (order 2))
-                                                                (if (pair? resolved-params)
-                                                                    (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
-                                                                          (cons (number->string order)
-                                                                                (iter-arg (cdr resolved-params) (+ order 1))))
-                                                                  '())))
-                                      ");}")))))))
+          `(definition ,lowlevel-name
+             (c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+                         ,(%%get-declaration-locator resolved-result)
+                         ,(string-append
+                            "{typedef "
+                            (jazz.->string (%%get-lexical-binding-name resolved-result))
+                            " (*ProcType)(IUnknown*"
+                            (apply string-append (let iter-arg ((resolved-params resolved-params))
+                                                      (if (pair? resolved-params)
+                                                          (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
+                                                                           (iter-arg (cdr resolved-params))))
+                                                        '())))
+                            "); ProcType fn = (*(ProcType**)___arg1)["
+                            (number->string offset)
+                            "]; ___result = (*fn)(___arg1"
+                            (apply string-append (let iter-arg ((resolved-params resolved-params)
+                                                                (order 2))
+                                                      (if (pair? resolved-params)
+                                                          (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                                (cons (number->string order)
+                                                                      (iter-arg (cdr resolved-params) (+ order 1))))
+                                                        '())))
+                            ");}")))))))
 
 
 ;;;

@@ -53,43 +53,6 @@
 
 
 ;;;
-;;;; IUnknown*
-;;;
-
-
-(definition IUnknown**-make
-  (c-function () LPVOID*
-    "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
-
-
-(definition IUnknown**-free
-  (c-function (LPVOID*) void
-    "free(___arg1);"))
-
-
-(definition IUnknown**-ref
-  (c-function (LPVOID*) IUnknown*
-    "___result = *___arg1;"))
-
-
-(definition IUnknown**-set!
-  (c-function (LPVOID* IUnknown*) void
-    "*___arg1 = ___arg2;"))
-
-
-(definition (IUnknown*-enref coptr)
-  (let ((ptr (IUnknown**-make)))
-    (IUnknown**-set! ptr coptr)
-    ptr))
-
-
-(definition (IUnknown*-deref coptr*)
-  (let ((coptr (IUnknown**-ref coptr*)))
-    (IUnknown**-free coptr*)
-    coptr))
-
-
-;;;
 ;;;; BSTR
 ;;;
 
@@ -176,14 +139,95 @@
     (GUID-free guid)
     str))
 
+
+;;;
+;;;; INT
+;;;
+
+
+(c-type INT (native int))
+(c-type INT* (pointer INT))
+
+
+(definition INT*-make
+  (c-function () INT*
+    "___result = (INT*) malloc(sizeof(INT));"))
+
+
+(definition INT*-free
+  (c-function (INT*) void
+    "free(___arg1);"))
+
+
+(definition INT*-ref
+  (c-function (INT*) INT
+    "___result = *___arg1;"))
+
+
+(definition INT*-set!
+  (c-function (INT* INT) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (INT-enref int)
+  (let ((ptr (INT*-make)))
+    (INT*-set! ptr int)
+    ptr))
+
+
+(definition (INT-deref int*)
+  (let ((int (INT*-ref int*)))
+    (INT*-free int*)
+    int))
+
+
+;;;
+;;;; VARIANT_BOOL
+;;;
+
+
+(c-type VARIANT_BOOL (native short))
+(c-type VARIANT_BOOL* (pointer VARIANT_BOOL))
+
+
+(definition VARIANT_BOOL*-make
+  (c-function () VARIANT_BOOL*
+    "___result = (VARIANT_BOOL*) malloc(sizeof(VARIANT_BOOL));"))
+
+
+(definition VARIANT_BOOL*-free
+  (c-function (VARIANT_BOOL*) void
+    "free(___arg1);"))
+
+
+(definition VARIANT_BOOL*-ref
+  (c-function (VARIANT_BOOL*) VARIANT_BOOL
+    "___result = *___arg1;"))
+
+
+(definition VARIANT_BOOL*-set!
+  (c-function (VARIANT_BOOL* VARIANT_BOOL) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (VARIANT_BOOL-enref vtbool)
+  (let ((ptr (VARIANT_BOOL*-make)))
+    (VARIANT_BOOL*-set! ptr (if vtbool -1 0))
+    ptr))
+
+
+(definition (VARIANT_BOOL-deref vtbool*)
+  (let ((vtbool (VARIANT_BOOL*-ref vtbool*)))
+    (VARIANT_BOOL*-free vtbool*)
+    (/= 0 vtbool)))
+
+
 ;;;
 ;;;; VARIANT
 ;;;
 
 
 (c-type VARTYPE (native unsigned-short))
-(c-type VARIANT_BOOL (native short))
-(c-type VARIANT_BOOL* (pointer VARIANT_BOOL))
 (c-type SCODE (native long))
 (c-structure VARIANT
   (VARTYPE vt)
@@ -246,11 +290,11 @@
     ((8) ; VT_BSTR
      (BSTR-ref (VARIANT-bstrVal-ref variant)))
     ((11) ; VT_BOOL
-     (not (eqv? 0 (VARIANT-boolVal-ref variant))))
+     (/= 0 (VARIANT-boolVal-ref variant)))
     ((22) ; VT_INT
      (VARIANT-intVal-ref variant))
     ((#x400B) ; VT_BOOL + VT_BYREF
-     (not (eqv? 0 (short*-ref (VARIANT-pboolVal-ref variant) 0))))
+     (/= 0 (short*-ref (VARIANT-pboolVal-ref variant) 0)))
     (else
      (error "unknown variant"))))
 
@@ -266,4 +310,46 @@
   (let ((data (VARIANT-ref variant)))
     (VariantClear variant)
     (VARIANT-free variant)
-    data)))
+    data))
+
+
+;;;
+;;;; IUnknown*
+;;;
+
+
+(definition IUnknown**-make
+  (c-function () LPVOID*
+    "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
+
+
+(definition IUnknown**-free
+  (c-function (LPVOID*) void
+    "free(___arg1);"))
+
+
+(definition IUnknown**-ref
+  (c-function (LPVOID*) IUnknown*
+    "___result = *___arg1;"))
+
+
+(definition IUnknown**-set!
+  (c-function (LPVOID* IUnknown*) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (IUnknown*-enref coptr)
+  (let ((ptr (IUnknown**-make)))
+    (IUnknown**-set! ptr coptr)
+    ptr))
+
+
+(definition (IUnknown*-deref coptr*)
+  (let ((coptr (IUnknown**-ref coptr*)))
+    (IUnknown**-free coptr*)
+    coptr))
+
+
+(coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown*)))
+(coexternal 1 ULONG (CoAddRef))
+(coexternal 2 ULONG (CoRelease)))

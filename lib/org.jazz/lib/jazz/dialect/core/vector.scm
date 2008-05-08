@@ -43,16 +43,4 @@
 ;;;
 
 
-(define jazz.vector-copy vector-copy)
-
-
-;;;
-;;;; U8 Vector
-;;;
-
-
-(define jazz.make-u8vector make-u8vector)
-(define jazz.u8vector-length u8vector-length)
-(define jazz.u8vector-ref u8vector-ref)
-(define jazz.u8vector-set! u8vector-set!)
-(define jazz.u8vector? u8vector?))
+(define jazz.vector-copy vector-copy))

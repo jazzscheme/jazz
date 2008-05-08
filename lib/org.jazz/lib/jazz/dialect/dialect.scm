@@ -2378,32 +2378,30 @@
 (define (jazz.parse-c-type walker resume declaration rest)
   (receive (access compatibility rest) (jazz.parse-modifiers walker resume declaration jazz.c-type-modifiers rest)
     (jazz.bind (name c-type . conversions) rest
-      (let ((type jazz.Any)
-            (c-to-scheme (and (%%not-null? conversions) (%%car conversions)))
-            (scheme-to-c (and (%%not-null? conversions) (%%cadr conversions))))
-        (values name type access compatibility c-type c-to-scheme scheme-to-c)))))
+      (let ((type jazz.Any))
+        (if (%%null? conversions)
+            (values name type access compatibility c-type #f #f #f)
+          (jazz.bind (c-to-scheme scheme-to-c declare) conversions
+            (values name type access compatibility c-type c-to-scheme scheme-to-c declare)))))))
 
 
 (define (jazz.walk-c-type-declaration walker resume declaration environment form)
-  (receive (name type access compatibility c-type c-to-scheme scheme-to-c) (jazz.parse-c-type walker resume declaration (%%cdr form))
+  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
         (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment c-type)
-          (let ((references (if (and c-to-scheme scheme-to-c)
+          (let ((references (if declare
                                 (if (%%string? expansion)
-                                    (%%append references 
-                                              (map (lambda (symbol)
-                                                     (jazz.resolve-named-c-declare-reference walker resume declaration environment symbol))
-                                                   (%%list c-to-scheme scheme-to-c)))
+                                    (%%cons (jazz.resolve-named-c-declare-reference walker resume declaration environment declare) references)
                                   (jazz.walk-error walker resume declaration "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               references)))
-            (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion references c-to-scheme scheme-to-c)))
+            (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion references c-to-scheme scheme-to-c declare)))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 effective-declaration))))
       (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name))))
 
 
 (define (jazz.walk-c-type walker resume declaration environment form)
-  (receive (name type access compatibility c-type c-to-scheme scheme-to-c) (jazz.parse-c-type walker resume declaration (%%cdr form))
+  (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
     (jazz.find-form-declaration declaration name)))
   
 

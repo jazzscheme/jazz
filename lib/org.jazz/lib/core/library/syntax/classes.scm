@@ -403,7 +403,8 @@
    (expansion    %%get-c-type-declaration-expansion   ())
    (references   %%get-c-type-declaration-references  ())
    (c-to-scheme  %%get-c-type-declaration-c-to-scheme ())
-   (scheme-to-c  %%get-c-type-declaration-scheme-to-c ())))
+   (scheme-to-c  %%get-c-type-declaration-scheme-to-c ())
+   (declare      %%get-c-type-declaration-declare     ())))
 
 
 ;;;

@@ -1514,8 +1514,8 @@
 (jazz.define-class-runtime jazz.C-Type-Declaration)
 
 
-(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion references c-to-scheme scheme-to-c)
-  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f kind expansion references c-to-scheme scheme-to-c)))
+(define (jazz.new-c-type-declaration name type access compatibility attributes parent kind expansion references c-to-scheme scheme-to-c declare)
+  (let ((new-declaration (jazz.allocate-c-type-declaration jazz.C-Type-Declaration name type access compatibility attributes #f parent #f kind expansion references c-to-scheme scheme-to-c declare)))
     (jazz.setup-declaration new-declaration)
     new-declaration))
 
@@ -1534,7 +1534,7 @@
         (c-to-scheme (%%get-c-type-declaration-c-to-scheme declaration))
         (scheme-to-c (%%get-c-type-declaration-scheme-to-c declaration)))
     `(c-define-type ,locator ,expansion ,@(if (and c-to-scheme scheme-to-c)
-                                              (list (%%symbol->string c-to-scheme) (%%symbol->string scheme-to-c) #f)
+                                              (list c-to-scheme scheme-to-c #f)
                                             '()))))
 
 

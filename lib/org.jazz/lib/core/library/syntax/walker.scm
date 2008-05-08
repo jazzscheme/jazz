@@ -5086,7 +5086,7 @@
     (receive (form extraneous)
         (jazz.with-extension-reader (jazz.pathname-extension source)
           (lambda ()
-            (call-with-input-file source
+            (call-with-input-file (list path: source eol-encoding: 'cr-lf)
               (lambda (port)
                 (parameterize ((jazz.parse-read? parse-read?))
                   (let ((form (read port))

@@ -49,7 +49,8 @@
 (c-type HRESULT (native unsigned-long))
 (c-type BSTR (pointer (native wchar_t)))
 (c-type IUnknown* (pointer (native void)))
-(c-type LPVOID* (pointer IUnknown*))
+(c-type IUnknown** (pointer IUnknown*))
+(c-type LPVOID* IUnknown**)
 
 
 ;;;
@@ -89,7 +90,7 @@
 ;;;
 
 
-(define (zero-fill str n)
+(definition (zero-fill str n)
   (let ((len (string-length str)))
     (if (> n len)
         (string-append (make-string (- n len) #\0) str)
@@ -287,6 +288,10 @@
      (VARIANT-fltVal-ref variant))
     ((5) ; VT_R8
      (VARIANT-dblVal-ref variant))
+    ((6)
+     (list 'unimplemented 'VT_CY))
+    ((7)
+     (list 'unimplemented 'VT_DATE))
     ((8) ; VT_BSTR
      (BSTR-ref (VARIANT-bstrVal-ref variant)))
     ((11) ; VT_BOOL
@@ -296,7 +301,7 @@
     ((#x400B) ; VT_BOOL + VT_BYREF
      (/= 0 (short*-ref (VARIANT-pboolVal-ref variant) 0)))
     (else
-     (error "unknown variant"))))
+     (error "Unknown variant type: {s}" (VARIANT-vt-ref variant)))))
 
 
 (definition (VARIANT-encode data)

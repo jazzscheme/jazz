@@ -404,6 +404,18 @@
   (for-each compile jazz.All-Modules))
 
 
+(define (jazz.load-all)
+  (define (load module-name)
+    (jazz.for-each-submodule module-name
+      (lambda (module-name declaration phase)
+        (jazz.load-module module-name))))
+  
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'core.module.build)
+  (jazz.load-platform)
+  (for-each load jazz.All-Modules))
+
+
 ;;;
 ;;;; Exception
 ;;;

@@ -190,7 +190,7 @@
 
 (define (jazz.load-configurations)
   (if (file-exists? jazz.configurations-file)
-      (call-with-input-file jazz.configurations-file
+      (call-with-input-file (list path: jazz.configurations-file eol-encoding: 'cr-lf)
         (lambda (input)
           (define (read-configuration input)
             (let ((list (read input)))

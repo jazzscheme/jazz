@@ -1,0 +1,146 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Combo-Row Editor
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.designer.row.Combo-Row-Editor jazz
+
+
+(import (jazz.designer)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Combo-Row-Editor extends Combo-Box
+  
+  
+  (property value-row initialize {} getter get-value-row setter set-value-row)
+  
+  
+  (method (form-model form)
+    (case (get-name~ form)
+      ((body) Combo-Value-Text-View)
+      (else (nextmethod form))))
+  
+  
+  (method public (get-value-row)
+    value-row)
+  
+  
+  (method public (set-value-row value)
+    (set! value-row value)
+    (set-value-row~ (locate 'body) value-row))
+  
+  
+  (method (button-action)
+    (unless (combo-choose~ value-row)
+      (nextmethod)))
+  
+  
+  (method (content-change origin)
+    (case origin
+      ((return) (when (and (get-limit-to-list?~ value-row) (validate-value~ value-row)) (editor-return~ value-row)))
+      ((popup) (enter-edited-value~ value-row)))
+    (nextmethod origin))
+  
+  
+  (method (combo-choice)
+    (enter-combo-choice~ value-row)))
+
+
+;;;
+;;;; Text
+;;;
+
+
+(class Combo-Value-Text-View extends Combo-Text-View
+  
+  
+  (property value-row initialize {} getter get-value-row setter set-value-row)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-value-row)
+    value-row)
+  
+  
+  (method public (set-value-row value)
+    (set! value-row value))
+  
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (up-arrow-move extend? scroll?)
+    (editor-up-arrow~ value-row))
+  
+  
+  (method (down-arrow-move extend? scroll?)
+    (editor-down-arrow~ value-row))
+  
+  
+  (method (tab-press key modifiers)
+    (if (has-completion?)
+        (end-completion)
+      (editor-tab~ value-row)))
+  
+  
+  (method (document-menu)
+    {})
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-validate view)
+    (editor-focus-validate~ value-row view))
+  
+  
+  (method (focus-lose window view)
+    (nextmethod window view)
+    (editor-focus-lose~ value-row window view))
+  
+  
+  (method (focus-master)
+    (get-tree~ value-row))))

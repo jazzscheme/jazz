@@ -380,7 +380,7 @@
 
 
 (define (jazz.load-package repository package-name package-pathname)
-  (call-with-input-file package-pathname
+  (call-with-input-file (list path: package-pathname eol-encoding: 'cr-lf)
     (lambda (input)
       (let ((form (read input)))
         (let ((name (%%cadr form))
@@ -701,7 +701,7 @@
   (let ((resource (%%make-resource (%%resource-package bin) (%%resource-path bin) jazz.Manifest-Extension)))
     (let ((pathname (jazz.resource-pathname resource)))
       (if (jazz.file-exists? pathname)
-          (call-with-input-file pathname
+          (call-with-input-file (list path: pathname eol-encoding: 'cr-lf)
             (lambda (input)
               (let ((form (read input)))
                 (let ((name (%%cadr form))

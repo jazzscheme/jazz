@@ -49,31 +49,68 @@
   (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance"))
 
 
+@w(
+
+
 ;;;
 ;;;; DAO
 ;;;
 
 
-(definition DAO-DBEngine-class
-  "00000100-0000-0010-8000-00aa006d2ea4")
-(definition DAO-DBEngine-interface
-  "00000021-0000-0010-8000-00aa006d2ea4")
+(definition DBEngine-class
+  (cons "00000100-0000-0010-8000-00aa006d2ea4" "00000021-0000-0010-8000-00aa006d2ea4"))
 
 
 ; _DBEngine
-(coexternal 15 HRESULT (get-Workspaces (out LPVOID*)))
+(coexternal 15 HRESULT (get-Workspaces$ (out LPVOID*)))
 ;(get-Workspaces coptr)
 
 ; Workspaces
-(coexternal 12 HRESULT (get-Item (in VARIANT) (out LPVOID*)))
+(coexternal 12 HRESULT (get-Item$ (in VARIANT) (out LPVOID*)))
 ;(get-Item coptr n)
 
 ; Workspace
-(coexternal 22 HRESULT (OpenDatabase (in BSTR) (in VARIANT) (in VARIANT) (in VARIANT) (out LPVOID*)))
+(coexternal 22 HRESULT (OpenDatabase$ (in BSTR) (in VARIANT) (in VARIANT) (in VARIANT) (out LPVOID*)))
 ;(OpenDatabase coptr name options read-only connect-string)
 
 ; Database
-(coexternal 22 HRESULT (Close))
+(coexternal 22 HRESULT (Close$))
 ;(Close coptr)
 
-)
+
+(definition (get-Workspaces coptr) ; _DBEngine
+  (let ((p1 (IUnknown*-enref #f)))
+    (let ((res (get-Workspaces$ coptr p1)))
+      (validate-hresult res)
+      (IUnknown*-deref p1))))
+
+
+(definition (get-Item coptr in1) ; Workspaces
+  (let ((p1 (VARIANT-encode in1))
+        (p2 (IUnknown*-enref #f)))
+    (let ((res (get-Item$ coptr p1 p2)))
+      (validate-hresult res)
+      (VARIANT-free p1)
+      (IUnknown*-deref p2))))
+
+
+(definition (OpenDatabase coptr in1 in2 in3 in4) ; Workspace
+  (let ((p1 (BSTR-encode in1))
+        (p2 (VARIANT-encode in2))
+        (p3 (VARIANT-encode in3))
+        (p4 (VARIANT-encode in4))
+        (p5 (IUnknown*-enref #f)))
+    (let ((res (OpenDatabase$ coptr p1 p2 p3 p4 p5)))
+      (validate-hresult res)
+      (BSTR-free p1)
+      (VARIANT-free p2)
+      (VARIANT-free p3)
+      (VARIANT-free p4)
+      (IUnknown*-deref p5))))
+
+
+(definition (Close coptr) ; Database
+  (let ((res (Close$ coptr)))
+    (validate-hresult res)))
+
+))

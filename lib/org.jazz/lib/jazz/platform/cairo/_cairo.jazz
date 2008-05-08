@@ -171,14 +171,11 @@
 
 
 (definition (cairo_current_point context)
-  (let* ((pt ((c-function (cairo_t*) double* 
-                "double* point = calloc(2,sizeof(double));
-                 cairo_get_current_point(___arg1, point, point+1);
-                 ___result_voidstar = point;")
-              context))
-         (ret (new Point (fxfloor (double*-ref pt 0)) (fxfloor (double*-ref pt 1)))))
-    (double*-free pt)
-    ret))
+  (let ((fn (c-function (cairo_t* F64PTR) void 
+              "cairo_get_current_point(___arg1, ___arg2, ___arg2+1);"))
+        (pt (make-f64vector 2)))
+    (fn context pt)
+    (new Point (fxfloor (f64vector-ref pt 0)) (fxfloor (f64vector-ref pt 1)))))
 
 
 ;;;
@@ -186,28 +183,21 @@
 ;;;
 
 
-(definition (cairo_device_to_user context x y)
-  (let* ((pt ((c-function (cairo_t* double double) double*
-                 "double* point = calloc(2,sizeof(double));
-                  *point      = ___arg2;
-                  *(point+1)  = ___arg3;
-                  cairo_device_to_user(___arg1,point,point+1);
-                  ___result_voidstar = point;") context x y))
-         (ret (new Point (fxfloor (double*-ref pt 0)) (fxfloor (double*-ref pt 1)))))
-    (double*-free pt)
-    ret))
+
+(definition (cairo_device_to_user context pt)
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_device_to_user(___arg1,___arg2,___arg2+1);"))
+        (vec (f64vector (cast <fl> (get-h~ pt)) (cast <fl> (get-v~ pt)))))
+    (fn context vec)
+    (new Point (fxfloor (f64vector-ref vec 0)) (fxfloor (f64vector-ref vec 1)))))
 
      
-(definition (cairo_user_to_device context x y)
-  (let* ((pt ((c-function (cairo_t* double double) double*
-                 "double* point = calloc(2,sizeof(double));
-                  *point      = ___arg2;
-                  *(point+1)  = ___arg3;
-                  cairo_user_to_device(___arg1,point,point+1);
-                  ___result_voidstar = point;") context x y))
-         (ret (new Point (fxfloor (double*-ref pt 0)) (fxfloor (double*-ref pt 1)))))
-    (double*-free pt)
-    ret))
+(definition (cairo_user_to_device context pt)
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_user_to_device(___arg1,___arg2,___arg2+1);"))
+        (vec (f64vector (cast <fl> (get-h~ pt)) (cast <fl> (get-v~ pt)))))
+    (fn context vec)
+    (new Point (fxfloor (f64vector-ref vec 0)) (fxfloor (f64vector-ref vec 1)))))
 
 
 ;;;
@@ -335,12 +325,12 @@
 
 
 (definition (cairo_get_clipper context)
-  (let ((array ((c-function (cairo_t*) double*
-                      "double *arr = calloc(4,sizeof(double));
-                       cairo_clip_extents(___arg1,arr,arr+1,arr+2,arr+3);
-                       ___result_voidstar = arr;") context)))
-    (let ((left (double*-ref array 0))
-           (top (double*-ref array 1))
-           (right (double*-ref array 2))
-           (bottom (double*-ref array 3)))
+  (let ((fn (c-function (cairo_t* F64PTR) void
+              "cairo_clip_extents(___arg1,___arg2,___arg2+1,___arg2+2,___arg2+3);"))
+        (vec (make-f64vector 4)))
+    (fn context vec)
+    (let ((left   (f64vector-ref vec 0))
+          (top    (f64vector-ref vec 1))
+          (right  (f64vector-ref vec 2))
+          (bottom (f64vector-ref vec 3)))
       (new Rect left top right bottom)))))

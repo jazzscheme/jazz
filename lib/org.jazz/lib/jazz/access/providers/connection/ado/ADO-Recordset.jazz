@@ -57,8 +57,8 @@
   
   
   (method (destroy-recordset)
-    (when (and handle (/= (get-State~ handle) adStateClosed))
-      (Close~ handle)
+    (when (and handle (/= (Recordset$get-State handle) adStateClosed))
+      (Recordset$Close handle)
       (corelease handle)
       (set! handle {}))
     (nextmethod))
@@ -92,11 +92,12 @@
     (let ((connection (cond (connection (get-handle~ connection))
                             (data-source (format "Data Source={a};" data-source))
                             (else {}))))
+      @convert
       (when (neq? max-load #t)
         ;; the + 1 is because the get-rows algorithm uses next
         ;; to figure out if some rows where not retrieved...
         (put-MaxRecords~ handle (+ max-load 1)))
-      (Open~ handle command connection cursor-type lock-type options)))
+      (Recordset$Open handle command connection cursor-type lock-type options)))
   
   
   ;;;
@@ -105,7 +106,7 @@
   
   
   (method (get-state)
-    (let ((state (get-State~ handle)))
+    (let ((state (Recordset$get-State handle)))
       (cond ((= state adStateOpen) 'open)
             ((= state adStateClosed) 'closed)
             (else 'unknown))))
@@ -117,7 +118,7 @@
   
   
   (method (new-recordset-metadata)
-    (new ADO-Recordset-Metadata (get-Fields~ handle)))
+    (new ADO-Recordset-Metadata (Recordset$get-Fields handle)))
   
   
   (method (get-field-type metadata field)
@@ -125,10 +126,12 @@
   
   
   (method (get-field-value metadata field)
-    (get-Value~ field))
+    (Field$get-Value field))
   
   
   (method (safe-field-value metadata field)
+    (get-field-value metadata field)
+    @convert
     (ecase (get-field-type metadata field)
       ((adLongVarBinary) "<adLongVarBinary>")
       ((adVarBinary) "<sql_variant>")
@@ -160,7 +163,7 @@
   
   
   (method (move-next)
-    (MoveNext~ handle))
+    (Recordset$MoveNext handle))
   
   
   (method (move-previous)
@@ -172,7 +175,7 @@
   
   
   (method (at-eof?)
-    (get-EOF~ handle))
+    (Recordset$get-EOF handle))
   
   
   (method (iterate-records proc)

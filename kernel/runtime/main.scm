@@ -316,11 +316,11 @@
 
 (define jazz.All-Modules
   '(jazz
-    jazz.access
     jazz.build
     jazz.builder
     jazz.catalog
     jazz.console
+    jazz.database
     jazz.debuggee
     jazz.debugger
     jazz.designer

@@ -1,0 +1,114 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; SQLServer Database Browser
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.database.providers.inventory.sqlserver.SQLServer-Database-Browser jazz
+
+
+(import (jazz.database)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.utilities))
+
+
+(class SQLServer-Database-Browser extends Combo-Box
+  
+  
+  (property data-source initialize {} getter get-data-source setter set-data-source)
+  
+  
+  (slot database-names)
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-data-source)
+    data-source)
+
+
+  (method public (set-data-source value)
+    (set! data-source value)
+    (update-database-names))
+  
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (constant Unable-To-Connect
+    #x80040000)
+  
+  (constant Login-Failed
+    #x80044818)
+  
+  
+  (method (update-database-names)
+    (setup-database-names)
+    (set-choices (map list database-names))
+    (set-condensed? (>= (length choices) 20))
+    (when (null? choices)
+      (set-entry {})))
+  
+  
+  (method (setup-database-names)
+    (with-cursor :wait
+      (function ()
+        (if (null? data-source)
+            (set! database-names '())
+          (let ((servername (get-server~ data-source)))
+            (with-closed ((server (cocreate SQLDMO.SQLServer)))
+              (if (null? server)
+                  (begin
+                    (set! database-names '())
+                    (message-box "Unable to locate SQLServer"))
+                (put-LoginTimeout~ server 1)
+                (cotry (begin
+                         (Connect~ server servername (get-username~ data-source) (get-password~ data-source))
+                         (with-closed ((databases (get-Databases~ server)))
+                           (set! database-names (loop (for n from 1 to (get-Count~ databases))
+                                                      (collect (get-Name~ (Item~ databases n {})))))))
+                  (Unable-To-Connect
+                   (set! database-names '())
+                   (message-box (format "Unable to connect to server: {a}" servername)))
+                  (Login-Failed
+                   (set! database-names '())
+                   (message-box (format "Login failed to server: {a}" servername))))
+                (DisConnect~ server))))))))))

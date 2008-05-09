@@ -46,12 +46,18 @@
      ,@body))
 
 
-#; ;; todo
+@buggy
 (syntax (with bindings . body)
-  `(let* ,bindings
-     (prog1
-         (begin
-           ,@body)
+  `(let (,@(map (lambda (binding)
+                  (let ((specifier (or (binding-specifier binding) '<Object>)))
+                    `(,(car binding) ,specifier #f)))
+                bindings))
+     ,@(map (lambda (binding)
+              (if (binding-specifier binding)
+                  `(set! ,(car binding) ,(caddr binding))
+                `(set! ,(car binding) ,(cadr binding))))
+            bindings)
+     (prog1 (begin ,@body)
        ,@(map (lambda (binding)
                 `(release~ ,(car binding)))
               (reverse bindings)))))
@@ -59,10 +65,13 @@
 
 (syntax (with-closed bindings . body)
   `(let (,@(map (lambda (binding)
-                  `(,(car binding) <Object> #f))
+                  (let ((specifier (or (binding-specifier binding) '<Object>)))
+                    `(,(car binding) ,specifier #f)))
                 bindings))
      ,@(map (lambda (binding)
-              `(set! ,(car binding) ,(cadr binding)))
+              (if (binding-specifier binding)
+                  `(set! ,(car binding) ,(caddr binding))
+                `(set! ,(car binding) ,(cadr binding))))
             bindings)
      (dynamic-wind (function () #f)
                    (function () ,@body)

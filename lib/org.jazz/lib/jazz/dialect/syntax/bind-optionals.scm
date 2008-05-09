@@ -65,13 +65,13 @@
     `(let ((,scan ,rest))
        (let* ,(map (lambda (binding)
                      (let* ((variable (car binding))
-                            (specific (binding-specifier binding))
-                            (default (if specific (caddr binding) (cadr binding)))
+                            (specifier (binding-specifier binding))
+                            (default (if specifier (caddr binding) (cadr binding)))
                             (value `(if (null? ,scan) ,default (let ((,prog (car ,scan)))
                                                                  (set! ,scan (cdr ,scan))
                                                                  ,prog))))
-                       (if specific
-                           `(,variable ,specific ,value)
+                       (if specifier
+                           `(,variable ,specifier ,value)
                          `(,variable ,value))))
                    (proper-list bindings))
          (if (not-null? ,scan)

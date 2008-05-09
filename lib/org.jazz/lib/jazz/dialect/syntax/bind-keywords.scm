@@ -59,10 +59,10 @@
     `(let ((,box (box-list ,rest)))
        (let* ,(map (lambda (binding)
                      (let* ((variable (car binding))
-                            (specific (binding-specifier binding))
-                            (default (if specific (caddr binding) (cadr binding))))
-                       (if specific
-                           `(,variable ,specific (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default))))
+                            (specifier (binding-specifier binding))
+                            (default (if specifier (caddr binding) (cadr binding))))
+                       (if specifier
+                           `(,variable ,specifier (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default))))
                        `(,variable (find-keyword ',(string->keyword (symbol->string variable)) ,box (lambda () ,default)))))
                    (proper-list bindings))
          ,@(if (symbol? oth)

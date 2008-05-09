@@ -41,12 +41,12 @@
 (import (jazz.dialect.kernel.boot))
 
 
+@w
 (syntax (with bindings . body)
   `(let* ,bindings
      ,@body))
 
 
-@buggy
 (syntax (with bindings . body)
   `(let (,@(map (lambda (binding)
                   (let ((specifier (or (binding-specifier binding) '<Object>)))

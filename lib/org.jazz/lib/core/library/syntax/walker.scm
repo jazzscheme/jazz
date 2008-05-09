@@ -2212,7 +2212,7 @@
                     (if (%%class-is? annotated-variable jazz.Restricted-Binding)
                         (let ((binding (%%get-restricted-binding-binding annotated-variable)))
                           ;; this is really for slots so i need to think about this
-                          (if (%%class-is? binding jazz.Declaration)
+                          (if (and (%%class-is? binding jazz.Declaration) (%%eq? binding variable))
                               (values #f annotated-variable (%%get-restricted-binding-type annotated-variable))
                             (begin
                               ;; keep outermost type

@@ -41,28 +41,17 @@
 (import (jazz.dialect.kernel.boot))
 
 
-@w
+;; should prolly expand into a let to be consistant with the naming
 (syntax (with bindings . body)
   `(let* ,bindings
-     ,@body))
-
-
-(syntax (with bindings . body)
-  `(let (,@(map (lambda (binding)
-                  (let ((specifier (or (binding-specifier binding) '<Object>)))
-                    `(,(car binding) ,specifier #f)))
-                bindings))
-     ,@(map (lambda (binding)
-              (if (binding-specifier binding)
-                  `(set! ,(car binding) ,(caddr binding))
-                `(set! ,(car binding) ,(cadr binding))))
-            bindings)
      (prog1 (begin ,@body)
        ,@(map (lambda (binding)
                 `(release~ ,(car binding)))
               (reverse bindings)))))
 
 
+;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
+;; the second rect will incorrectly refer to the first rect
 (syntax (with-closed bindings . body)
   `(let (,@(map (lambda (binding)
                   (let ((specifier (or (binding-specifier binding) '<Object>)))

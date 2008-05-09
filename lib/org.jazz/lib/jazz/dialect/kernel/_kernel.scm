@@ -281,6 +281,7 @@
 (native jazz.module-autoload)
 (native jazz.get-environment)
 (native jazz.get-environment-module)
+(native jazz.load-all)
 
 
 ;;;

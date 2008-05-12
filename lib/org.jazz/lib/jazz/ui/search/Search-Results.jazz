@@ -174,20 +174,23 @@
   
 
   (method (edit-selection forward?)
-    (let* ((tree (get-tree))
-           (selection (get-selection~ tree)))
-      (when (not-null? selection)
-        (with-locked-update
-          (function ()
-            (for-each (function (item)
-                        (edit-item item forward? #t))
-                      selection)
-            (acquire-focus~ (first-window~ (get-stage))))))))
+    (let ((selection (get-selection~ (get-tree))))
+      (define (edit)
+        (for-each (function (item)
+                    (edit-item item forward? #t))
+                  selection)
+        (acquire-focus~ (first-window~ (get-stage))))
+      
+      (case (length selection)
+        ((0))
+        ((1) (edit))
+        (else (with-locked-update
+                (function ()
+                  (edit)))))))
 
 
   (method public (edit-item item forward? focus?)
-    (let* ((tree (get-tree))
-           (definition (get-user-data~ (get-row~ tree item))))
+    (let ((definition (get-user-data~ (get-row~ (get-tree) item))))
       (edit-document definition forward? focus?)))
 
 

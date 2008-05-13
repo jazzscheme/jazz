@@ -45,7 +45,7 @@
 
 
 ;;;
-;;;; COM Functions
+;;;; Initialize
 ;;;
 
 
@@ -56,6 +56,23 @@
         (LoadLibrary "ole32")
         (CoInitializeEx #f COINIT_APARTMENTTHREADED)
         (set! initialized? #t)))))
+
+
+(definition COINIT_APARTMENTTHREADED 2)
+(definition CLSCTX_SERVER (+ 1 4 16))
+
+
+(definition (CoInitializeEx n/a flags)
+  (let ((proc (c-function (VOID* DWORD) HRESULT "CoInitializeEx")))
+    (validate-hresult (proc #f flags))))
+
+
+;;;
+;;;; HRESULT
+;;;
+
+
+(c-type HRESULT (native unsigned-long))
 
 
 (definition (validate-hresult hresult)
@@ -76,49 +93,12 @@
      (error (string-append "ERROR - " (number->string hresult 16))))))
 
 
-(definition COINIT_APARTMENTTHREADED 2)
-(definition CLSCTX_SERVER (+ 1 4 16))
-
-
-(definition (CoInitializeEx n/a flags)
-  (let ((proc (c-function (VOID* DWORD) HRESULT "CoInitializeEx")))
-    (validate-hresult (proc #f flags))))
-
-
-(definition (CoCreateInstance class interface)
-  (let ((class-guid (GUID-encode class))
-        (interface-guid (GUID-encode interface))
-        (coptr* (IUnknown*-enref #f))
-        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
-    (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
-    (GUID-free class-guid)
-    (GUID-free interface-guid)
-    (IUnknown*-deref coptr*)))
-
-
-(definition public (cocreate coclass)
-  (let ((class-guid (car coclass))
-        (interface-guid (cdr coclass)))
-    (CoCreateInstance class-guid interface-guid)))
-
-
-(definition public (corelease coptr)
-  (CoRelease$ coptr))
-
-
-(c-type wchar_t-string (native wchar_t-string))
-
-
-(c-type HRESULT (native unsigned-long))
-(c-type BSTR (pointer (native wchar_t)))
-(c-type IUnknown* (pointer (native void)))
-(c-type IUnknown** (pointer IUnknown*))
-(c-type LPVOID* IUnknown**)
-
-
 ;;;
 ;;;; BSTR
 ;;;
+
+
+(c-type BSTR (pointer (native wchar_t)))
 
 
 ;; BSTR-make undefined
@@ -246,7 +226,7 @@
 
 
 ;;;
-;;;; VARIANT_BOOL
+;;;; VTBOOL
 ;;;
 
 
@@ -304,6 +284,8 @@
 
 (c-type VARTYPE (native unsigned-short))
 (c-type SCODE (native long))
+
+
 (c-structure VARIANT
   (VARTYPE vt)
   (long lVal)
@@ -401,6 +383,11 @@
 ;;;
 
 
+(c-type IUnknown* (pointer (native void)))
+(c-type IUnknown** (pointer IUnknown*))
+(c-type LPVOID* IUnknown**)
+
+
 (definition IUnknown**-make
   (c-function () LPVOID*
     "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
@@ -435,4 +422,25 @@
 
 (coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown**)))
 (coexternal 1 ULONG (CoAddRef))
-(coexternal 2 ULONG (CoRelease)))
+(coexternal 2 ULONG (CoRelease))
+
+
+(definition (CoCreateInstance class interface)
+  (let ((class-guid (GUID-encode class))
+        (interface-guid (GUID-encode interface))
+        (coptr* (IUnknown*-enref #f))
+        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
+    (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
+    (GUID-free class-guid)
+    (GUID-free interface-guid)
+    (IUnknown*-deref coptr*)))
+
+
+(definition public (cocreate coclass)
+  (let ((class-guid (car coclass))
+        (interface-guid (cdr coclass)))
+    (CoCreateInstance class-guid interface-guid)))
+
+
+(definition public (corelease coptr)
+  (CoRelease$ coptr)))

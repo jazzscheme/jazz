@@ -459,8 +459,12 @@
 ;;;
 
 
-(native jazz.object->serial-number)
-(native jazz.serial-number->object)
+(native jazz.object->serial)
+(native jazz.serial->object)
+
+;; the -number versions are necessary to support the expansion of the # reader construct
+(native object->serial-number)
+(native serial-number->object)
 
 
 ;;;

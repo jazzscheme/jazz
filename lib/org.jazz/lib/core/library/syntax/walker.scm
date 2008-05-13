@@ -4264,7 +4264,7 @@
            (jazz.identifier-name (%%get-category-name (%%class-of sta))))))
   
   (pp
-    (jazz.fold-statement (if (integer? statement) (jazz.serial-number->object statement) statement)
+    (jazz.fold-statement (if (integer? statement) (jazz.serial->object statement) statement)
       (lambda (sta s)
         (let ((info (cond ((%%class-is? sta jazz.Declaration)
                            (present-declaration sta))

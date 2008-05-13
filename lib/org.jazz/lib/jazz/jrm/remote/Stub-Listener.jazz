@@ -104,7 +104,7 @@
     (let ((info (receive-object~ socket)))
       (if (eq? info Liveliness-Test)
           (close~ socket)
-        (bind (stub-address method-name marshalled-arguments) info
+        (bind (stub-serial method-name marshalled-arguments) info
           (new Thread
             name: (format "Stub Listener Connection Thread for {a}" method-name)
             context: self
@@ -113,12 +113,12 @@
                            (begin
                              (set! connection-threads (cons thread connection-threads))
                              (let ((arguments (map unmarshal marshalled-arguments))
-                                   (stub (stub-from-address stub-address)))
+                                   (stub (stub-from-serial stub-serial)))
                                (catch (Error err
                                              (let ((info (collect-error-info err)))
                                                (send-object~ socket (cons {} info))))
                                  (if (null? stub)
-                                     (error "Unable to find object stub from address: {t}" stub-address)
+                                     (error "Unable to find object stub from serial: {t}" stub-serial)
                                    (let ((result (invoke~ stub method-name arguments)))
                                      (send-object~ socket (cons (marshal result) {})))))))
                          (close~ socket)
@@ -129,10 +129,10 @@
     (list (get-message~ err) (print-stack :string exception: err)))
   
   
-  (method (stub-from-address stub-address)
-    (if (null? stub-address)
+  (method (stub-from-serial stub-serial)
+    (if (null? stub-serial)
         (get-process-stub)
-      (address-object stub-address)))
+      (serial->object stub-serial)))
   
   
   (method (get-process-stub)
@@ -173,5 +173,5 @@
            (host (listening-host~ stub-listener))
            (port (listening-port~ stub-listener))
            (remotable (type-name remotable-class))
-           (reference (object-address stub)))
+           (reference (object->serial stub)))
       (new IOR host port remotable reference)))))

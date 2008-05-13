@@ -467,7 +467,8 @@
 
 
 (define (jazz.category? object)
-  (jazz.category-type? object))
+  (and (jazz.type? object)
+       (jazz.category-type? object)))
 
 
 (jazz.define-method (jazz.of-subtype? (jazz.Category type) subtype)
@@ -689,7 +690,7 @@
 
 
 (jazz.define-method (jazz.of-type? (jazz.Boolean-Class class) object)
-  #t)
+  (%%boolean? object))
 
 
 (jazz.define-method (jazz.emit-specifier (jazz.Boolean-Class class))

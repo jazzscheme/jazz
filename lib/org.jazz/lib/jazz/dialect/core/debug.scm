@@ -40,7 +40,7 @@
 
 ;; inspect a Jazz object
 (define (inspect obj)
-  (jazz.inspect-object (if (integer? obj) (jazz.serial-number->object obj) obj)))
+  (jazz.inspect-object (if (integer? obj) (jazz.serial->object obj) obj)))
 
 
 ;; resume the IDE message loop

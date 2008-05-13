@@ -40,34 +40,34 @@
 
 (cond-expand
   (gambit
-    (define (jazz.object->serial-number obj)
+    (define (jazz.object->serial obj)
       (object->serial-number obj))
     
-    (define (jazz.serial-number->object number)
+    (define (jazz.serial->object number)
       (serial-number->object number))
     
     ;; for debugging
     (define (jazz.object->serial-symbol obj)
-      (string->symbol (string-append "#" (number->string (jazz.object->serial-number obj))))))
+      (string->symbol (string-append "#" (number->string (jazz.object->serial obj))))))
   
   (else
    ;; Incorrect implementation that will not let the serialized objects be
    ;; garbage collected. Weak tables are needed for a correct implementation...
    
-   (define serial-number
+   (define jazz.serial-number
      1)
    
    (define jazz.serialized-objects
      (%%make-table test: equal?))
    
-   (define (jazz.object->serial-number obj)
+   (define (jazz.object->serial obj)
      (or (%%table-ref jazz.serialized-objects obj #f)
-         (let ((number serial-number))
-           (set! serial-number (%%fx+ serial-number 1))
+         (let ((number jazz.serial-number))
+           (set! jazz.serial-number (%%fx+ jazz.serial-number 1))
            (%%table-set! jazz.serialized-objects obj number)
            number)))
    
-   (define (jazz.serial-number->object number . rest)
+   (define (jazz.serial->object number . rest)
      (call/cc
        (lambda (return)
          (%%iterate-table jazz.serialized-objects

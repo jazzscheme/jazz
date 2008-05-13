@@ -131,9 +131,9 @@
             (if (and jazz.use-print? jazz.dialect.language.Object.print)
                 ;; the rank of print is known to be 2 as it is the third method of Object
                 ((%%class-dispatch obj 0 2) obj port ':reader)
-              (let ((serial-number (object->serial-number obj)))
+              (let ((serial (object->serial-number obj)))
                 (display "#<jazz #" port)
-                (display serial-number port)
+                (display serial port)
                 (display ">" port))))))
   (else))
 

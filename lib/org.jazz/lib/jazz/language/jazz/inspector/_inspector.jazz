@@ -56,12 +56,12 @@
 
 (definition public (package-info name value (kind :value))
   (let* ((unbound? (eq? value Unbound))
-         (address (object->serial-number value))
+         (serial (object->serial value))
          (presented (cond (unbound? "<unbound>") (else (->string value :reader))))
          (more? (if unbound? #f (or (memq? kind '(frame: context:)) (more-value? value)))))
-    (when (> (length presented) 512)
-      (set! presented (append (subseq presented 0 128) "...")))
-    (list name address presented more? kind)))
+    (when (> (cardinality presented) 512)
+      (set! presented (concatenate (subseq presented 0 128) "...")))
+    (list name serial presented more? kind)))
 
 
 (definition (more-value? value)
@@ -85,8 +85,6 @@
     ((List) (inspect-list value))
     ((Table) (inspect-table value))
     ((Sequence) (inspect-sequence value))
-    @obsolete?
-    ((Record) (inspect-record value))
     (else (inspect-slots value))))
 
 
@@ -113,17 +111,7 @@
 
 
 (definition (inspect-sequence seq)
-  (map package-info (naturals 0 (length seq)) seq))
-
-
-@obsolete?
-(definition (inspect-record record)
-  (let* ((structure (class-of record))
-         (parts (structure-form structure)))
-    (map (function (info)
-           (let ((name (second info)))
-             (package-info name (get record name))))
-         parts)))
+  (map package-info (naturals 0 (cardinality seq)) (coerce seq List)))
 
 
 (definition (inspect-slots object)
@@ -134,11 +122,8 @@
                   (package-info (field-name slot)
                                 (cond ((property? slot)
                                        (read-property object slot))
-                                      @convert
-                                      ((bound? object slot)
-                                       (get-value object slot))
                                       (else
-                                       Unbound))))
+                                       (slot-value object (field-name slot))))))
                 slots)))
     (if #t
         infos

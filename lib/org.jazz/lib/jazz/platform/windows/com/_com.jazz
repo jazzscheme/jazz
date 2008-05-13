@@ -40,6 +40,7 @@
 
 (import (jazz.library)
         (jazz.platform.types)
+        (jazz.platform.windows.WinBase)
         (jazz.platform.windows.WinTypes)
         (jazz.platform.windows.WinKernel))
 
@@ -98,22 +99,42 @@
 ;;;
 
 
-(c-type BSTR (pointer (native wchar_t)))
+(c-type BSTR  (pointer (native wchar_t)))
+(c-type BSTR* (pointer BSTR))
 
 
-(definition (BSTR-deref bstr*)
+(definition BSTR*-make
+  (c-function () BSTR*
+    "___result_voidstar = malloc(sizeof(BSTR));"))
+
+
+(definition BSTR*-ref
+  (c-function (BSTR*) BSTR
+    "___result_voidstar = *___arg1;"))
+
+
+(definition BSTR*-free
+  (c-function (BSTR*) void
+    "free(___arg1);"))
+
+
+(definition BSTR*-set!
+  (c-function (BSTR* BSTR) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (BSTR*-deref bstr*)
   (let ((bstr (BSTR*-ref bstr*)))
     (BSTR*-free bstr*)
     (BSTR-decode bstr)))
 
 
-(definition (BSTR-enref bstr)
+(definition (BSTR*-enref bstr)
   (let ((ptr (BSTR*-make)))
     (BSTR*-set! ptr (BSTR-encode bstr))
     ptr))
 
-
-;; BSTR-make undefined
+  
 ;; BSTR-set! undefined
 
 (definition BSTR-free
@@ -305,6 +326,74 @@
 
 
 ;;;
+;;;; IUnknown*
+;;;
+
+
+(c-type IUnknown* (pointer (native void)))
+(c-type IUnknown** (pointer IUnknown*))
+(c-type LPVOID* IUnknown**)
+
+
+(definition IUnknown**-make
+  (c-function () LPVOID*
+    "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
+
+
+(definition IUnknown**-free
+  (c-function (LPVOID*) void
+    "free(___arg1);"))
+
+
+(definition IUnknown**-ref
+  (c-function (LPVOID*) IUnknown*
+    "___result = *___arg1;"))
+
+
+(definition IUnknown**-set!
+  (c-function (LPVOID* IUnknown*) void
+    "*___arg1 = ___arg2;"))
+
+
+(definition (IUnknown*-enref coptr)
+  (let ((ptr (IUnknown**-make)))
+    (IUnknown**-set! ptr coptr)
+    ptr))
+
+
+(definition (IUnknown*-deref coptr*)
+  (let ((coptr (IUnknown**-ref coptr*)))
+    (IUnknown**-free coptr*)
+    coptr))
+
+
+(coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown**)))
+(coexternal 1 ULONG (CoAddRef))
+(coexternal 2 ULONG (CoRelease))
+
+
+(definition (CoCreateInstance class interface)
+  (let ((class-guid (GUID-encode class))
+        (interface-guid (GUID-encode interface))
+        (coptr* (IUnknown*-enref #f))
+        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
+    (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
+    (GUID-free class-guid)
+    (GUID-free interface-guid)
+    (IUnknown*-deref coptr*)))
+
+
+(definition public (cocreate coclass)
+  (let ((class-guid (car coclass))
+        (interface-guid (cdr coclass)))
+    (CoCreateInstance class-guid interface-guid)))
+
+
+(definition public (corelease coptr)
+  (CoRelease$ coptr))
+
+
+;;;
 ;;;; VARIANT
 ;;;
 
@@ -404,74 +493,6 @@
     (VariantClear variant)
     (VARIANT-free variant)
     data))
-
-
-;;;
-;;;; IUnknown*
-;;;
-
-
-(c-type IUnknown* (pointer (native void)))
-(c-type IUnknown** (pointer IUnknown*))
-(c-type LPVOID* IUnknown**)
-
-
-(definition IUnknown**-make
-  (c-function () LPVOID*
-    "___result = (LPVOID*) malloc(sizeof(IUnknown*));"))
-
-
-(definition IUnknown**-free
-  (c-function (LPVOID*) void
-    "free(___arg1);"))
-
-
-(definition IUnknown**-ref
-  (c-function (LPVOID*) IUnknown*
-    "___result = *___arg1;"))
-
-
-(definition IUnknown**-set!
-  (c-function (LPVOID* IUnknown*) void
-    "*___arg1 = ___arg2;"))
-
-
-(definition (IUnknown*-enref coptr)
-  (let ((ptr (IUnknown**-make)))
-    (IUnknown**-set! ptr coptr)
-    ptr))
-
-
-(definition (IUnknown*-deref coptr*)
-  (let ((coptr (IUnknown**-ref coptr*)))
-    (IUnknown**-free coptr*)
-    coptr))
-
-
-(coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown**)))
-(coexternal 1 ULONG (CoAddRef))
-(coexternal 2 ULONG (CoRelease))
-
-
-(definition (CoCreateInstance class interface)
-  (let ((class-guid (GUID-encode class))
-        (interface-guid (GUID-encode interface))
-        (coptr* (IUnknown*-enref #f))
-        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
-    (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
-    (GUID-free class-guid)
-    (GUID-free interface-guid)
-    (IUnknown*-deref coptr*)))
-
-
-(definition public (cocreate coclass)
-  (let ((class-guid (car coclass))
-        (interface-guid (cdr coclass)))
-    (CoCreateInstance class-guid interface-guid)))
-
-
-(definition public (corelease coptr)
-  (CoRelease$ coptr))
 
 
 (definition (VariantTimeToSystemTime variant-time)

@@ -2181,6 +2181,7 @@
 
 
 ;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+@w
 (define (jazz.expand-coexternal walker resume declaration environment offset result-type signature)
   (let ((name (car signature))
         (resolve-declaration (lambda (type) (if (symbol? type)
@@ -2219,6 +2220,230 @@
                                                                       (iter-arg (cdr resolved-params) (+ order 1))))
                                                         '())))
                             ");}")))))))
+
+
+;;;
+;;;; CoExternal 
+;;;
+
+
+;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
+(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature)
+  (let* ((name (car signature))
+         (resolve-declaration (lambda (type) (if (symbol? type)
+                                                 (jazz.resolve-c-type-reference walker resume declaration environment type)
+                                               (jazz.walk-error walker resume declaration "Illegal parameter type in coexternal {s}: {s}" name type)))))
+    (let ((resolved-result (resolve-declaration result-type))
+          (resolved-params (map resolve-declaration (map cadr (cdr signature))))
+          (resolved-directions (map car (cdr signature)))
+          (lowlevel-name (%%string->symbol (%%string-append (%%symbol->string name) "$"))))
+      (let ((hresult? (eq? (%%get-declaration-locator resolved-result) 'jazz.platform.windows.com.ComTypes.HRESULT)))
+        (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
+            `(begin
+               (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
+               (definition ,name ,(jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions))))))))
+
+
+(define (jazz.emit-com-function offset resolved-result resolved-params)
+  (define (fix-locator declaration)
+    (if (eq? (%%get-c-type-declaration-kind declaration) 'type)
+        (string->symbol (string-append (symbol->string (%%get-declaration-locator declaration)) "*"))
+      (%%get-declaration-locator declaration)))
+  ;; we assume lexical-binding-name exactly matches the c type
+  `(c-function ,(cons 'IUnknown* (map fix-locator resolved-params))
+               ,(%%get-declaration-locator resolved-result)
+               ,(string-append
+                  "{typedef "
+                  (jazz.->string (%%get-lexical-binding-name resolved-result))
+                  " (*ProcType)(IUnknown*"
+                  (apply string-append (let iter ((resolved-params resolved-params))
+                                            (if (pair? resolved-params)
+                                                (cons ", " (cons (jazz.->string (%%get-lexical-binding-name (car resolved-params)))
+                                                                 (iter (cdr resolved-params))))
+                                              '())))
+                  "); ProcType fn = (*(ProcType**)___arg1)["
+                  (number->string offset)
+                  "]; ___result = (*fn)(___arg1"
+                  (apply string-append (let iter ((resolved-params resolved-params)
+                                                  (order 2))
+                                            (if (pair? resolved-params)
+                                                (cons (if (eq? (%%get-c-type-declaration-kind (car resolved-params)) 'type) ", *___arg" ", ___arg")
+                                                      (cons (number->string order)
+                                                            (iter (cdr resolved-params) (+ order 1))))
+                                              '())))
+                  ");}")))
+
+
+(define (jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions)
+  (define (generate-in resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'out)
+        #f
+      (%%string->symbol (%%string-append "in$" (%%number->string order)))))
+  (define (generate-low resolved-param resolved-direction order)
+    (%%string->symbol (%%string-append "low$" (%%number->string order))))
+  (define (generate-out resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'in)
+        #f
+      (%%string->symbol (%%string-append "out$" (%%number->string order)))))
+  (define (generate-encode/enref resolved-param resolved-direction order)
+    (let ((binding (generate-low resolved-param resolved-direction order))
+          (encode/enref (get-cotype-encode/enref resolved-param))
+          (value (if (eq? resolved-direction 'out)
+                     (get-cotype-default-value resolved-param)
+                   (generate-in resolved-param resolved-direction order))))
+      (if encode/enref
+          `(,binding (,encode/enref ,value))
+        `(,binding ,value))))
+  (define (generate-ref resolved-param resolved-direction order)
+    (if (eq? resolved-direction 'in)
+        #f
+      (let ((binding (generate-out resolved-param resolved-direction order))
+            (ref (get-cotype-ref resolved-param))
+            (value (generate-low resolved-param resolved-direction order)))
+        (if ref
+            `(,binding (,ref ,value))
+          `(,binding ,value)))))
+  (define (generate-free resolved-param resolved-direction order)
+    (let ((free (get-cotype-free resolved-param))
+          (value (generate-low resolved-param resolved-direction order)))
+      (if free
+          `(,free ,value)
+        #f)))
+  (define (generate-cotype-transform generator)
+    (let iter ((resolved-params resolved-params)
+               (resolved-directions resolved-directions)
+               (order 1))
+         (if (pair? resolved-directions)
+             (let ((generated (generator (car resolved-params) (car resolved-directions) order)))
+               (if generated
+                   (cons generated (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1)))
+                 (iter (cdr resolved-params) (cdr resolved-directions) (+ order 1))))
+           '())))
+  (let ((out-list (generate-cotype-transform generate-out)))
+    `(function (coptr ,@(generate-cotype-transform generate-in))
+               (let (,@(generate-cotype-transform generate-encode/enref))
+                 (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
+                   ,(if hresult?
+                        '(validate-hresult result)
+                      '(begin))
+                   (let (,@(generate-cotype-transform generate-ref))
+                     (begin
+                       ,@(generate-cotype-transform generate-free))
+                     ,(if hresult?
+                          (case (length out-list)
+                            ((0)
+                             '(unspecified))
+                            ((1)
+                             (car out-list))
+                            (else
+                             `(values ,@out-list)))
+                        (if (= (length out-list) 0)
+                            'result
+                          `(values result ,@out-list)))))))))
+
+
+(define (get-cotype-default-value cotype)
+  (case (%%get-declaration-locator cotype)
+    ((jazz.platform.windows.com.ComTypes.BSTR)
+     (error "cotype BSTR has no default value"))
+    ((jazz.platform.windows.com.ComTypes.BSTR*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.GUID)
+     (error "cotype GUID has no default value"))
+    ((jazz.platform.windows.com.ComTypes.GUID*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL)
+     (error "cotype VARIANT_BOOL has no default value"))
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.VARIANT)
+     (error "cotype VARIANT has no default value"))
+    ((jazz.platform.windows.com.ComTypes.VARIANT*)
+     '())
+    ((jazz.platform.windows.com.ComTypes.IUnknown*)
+     (error "cotype IUnknown* has no default value"))
+    ((jazz.platform.windows.com.ComTypes.IUnknown**)
+     #f)
+    (else
+     0)))
+
+
+(define (get-cotype-encode/enref cotype)
+  (case (%%get-declaration-locator cotype)
+    ((jazz.platform.windows.com.ComTypes.BSTR)
+     'BSTR-encode)
+    ((jazz.platform.windows.com.ComTypes.BSTR*)
+     'BSTR*-enref)
+    ((jazz.platform.windows.com.ComTypes.GUID)
+     'GUID-encode)
+    ((jazz.platform.windows.com.ComTypes.GUID*)
+     'GUID-encode)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL)
+     'VARIANT_BOOL-encode)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL*)
+     'VARIANT_BOOL-enref)
+    ((jazz.platform.windows.com.ComTypes.VARIANT)
+     'VARIANT-encode)
+    ((jazz.platform.windows.com.ComTypes.VARIANT*)
+     'VARIANT-encode)
+    ((jazz.platform.windows.com.ComTypes.IUnknown*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.IUnknown**)
+     'IUnknown*-enref)
+    (else
+     #f)))
+
+
+(define (get-cotype-ref cotype)
+  (case (%%get-declaration-locator cotype)
+    ((jazz.platform.windows.com.ComTypes.BSTR)
+     'BSTR-ref)
+    ((jazz.platform.windows.com.ComTypes.BSTR*)
+     'BSTR*-ref)
+    ((jazz.platform.windows.com.ComTypes.GUID)
+     'GUID-ref)
+    ((jazz.platform.windows.com.ComTypes.GUID*)
+     'GUID-ref)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL)
+     'VARIANT_BOOL-decode)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL*)
+     'VARIANT_BOOL*-ref)
+    ((jazz.platform.windows.com.ComTypes.VARIANT)
+     'VARIANT-ref)
+    ((jazz.platform.windows.com.ComTypes.VARIANT*)
+     'VARIANT-ref)
+    ((jazz.platform.windows.com.ComTypes.IUnknown*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.IUnknown**)
+     'IUnknown**-ref)
+    (else
+     #f)))
+
+
+(define (get-cotype-free cotype)
+  (case (%%get-declaration-locator cotype)
+    ((jazz.platform.windows.com.ComTypes.BSTR)
+     'BSTR-free)
+    ((jazz.platform.windows.com.ComTypes.BSTR*)
+     'BSTR*-free)
+    ((jazz.platform.windows.com.ComTypes.GUID)
+     'GUID-free)
+    ((jazz.platform.windows.com.ComTypes.GUID*)
+     'GUID-free)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.VARIANT_BOOL*)
+     'VARIANT_BOOL*-free)
+    ((jazz.platform.windows.com.ComTypes.VARIANT)
+     'VARIANT-decode)
+    ((jazz.platform.windows.com.ComTypes.VARIANT*)
+     'VARIANT-decode)
+    ((jazz.platform.windows.com.ComTypes.IUnknown*)
+     #f)
+    ((jazz.platform.windows.com.ComTypes.IUnknown**)
+     'IUnknown**-free)
+    (else
+     #f)))
 
 
 ;;;
@@ -2403,7 +2628,6 @@
 (define (jazz.walk-c-type walker resume declaration environment form)
   (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
     (jazz.find-form-declaration declaration name)))
-  
 
 
 (define (jazz.resolve-c-type walker resume declaration environment type)

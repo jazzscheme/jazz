@@ -211,16 +211,24 @@
     "*___arg1 = ___arg2;"))
 
 
-(definition (VARIANT_BOOL-enref vtbool)
+(definition (VARIANT_BOOL-encode boolean)
+  (if boolean -1 0))
+
+
+(definition (VARIANT_BOOL-decode vtbool)
+  (/= 0 vtbool))
+
+
+(definition (VARIANT_BOOL-enref boolean)
   (let ((ptr (VARIANT_BOOL*-make)))
-    (VARIANT_BOOL*-set! ptr (if vtbool -1 0))
+    (VARIANT_BOOL*-set! ptr (VARIANT_BOOL-encode boolean))
     ptr))
 
 
 (definition (VARIANT_BOOL-deref vtbool*)
   (let ((vtbool (VARIANT_BOOL*-ref vtbool*)))
     (VARIANT_BOOL*-free vtbool*)
-    (/= 0 vtbool)))
+    (VARIANT_BOOL-decode vtbool)))
 
 
 ;;;
@@ -296,6 +304,8 @@
      (BSTR-ref (VARIANT-bstrVal-ref variant)))
     ((11) ; VT_BOOL
      (/= 0 (VARIANT-boolVal-ref variant)))
+    ((13)
+     (list 'unimplemented 13))
     ((22) ; VT_INT
      (VARIANT-intVal-ref variant))
     ((#x400B) ; VT_BOOL + VT_BYREF
@@ -352,9 +362,4 @@
 (definition (IUnknown*-deref coptr*)
   (let ((coptr (IUnknown**-ref coptr*)))
     (IUnknown**-free coptr*)
-    coptr))
-
-
-(coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown*)))
-(coexternal 1 ULONG (CoAddRef))
-(coexternal 2 ULONG (CoRelease)))
+    coptr)))

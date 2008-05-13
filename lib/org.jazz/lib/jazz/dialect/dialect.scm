@@ -2767,7 +2767,8 @@
                                    ;; We need to adjust this to get the real c-type in the expansion
                                    (%%string-append "memcpy(___arg1->" id-string ", ___arg2, " size-string "*" "sizeof(" (%%symbol->string type) "));")))))
                         ((or (%%eq? kind 'struct)
-                             (%%eq? kind 'union))
+                             (%%eq? kind 'union)
+                             (%%eq? kind 'type))
                          #f)
                         (else
                          (%%string-append "___arg1->" id-string " = ___arg2;")))))
@@ -2777,7 +2778,7 @@
                    (type (cond ((and size (%%eq? expansion 'char)) '(native char-string))
                                ((and size (%%eq? expansion 'wchar_t)) '(native wchar_t-string))
                                (size type*) 
-                               ((%%memq type '(type struct union)) type*)
+                               ((%%memq kind '(type struct union)) type*)
                                (else type))))
               (let ((getter `(definition ,(jazz.build-method-symbol struct-string id '-ref)
                                          (c-function (,struct*) ,type ,getter-string)))

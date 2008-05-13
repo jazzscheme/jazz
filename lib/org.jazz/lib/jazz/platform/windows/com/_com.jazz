@@ -101,6 +101,18 @@
 (c-type BSTR (pointer (native wchar_t)))
 
 
+(definition (BSTR-deref bstr*)
+  (let ((bstr (BSTR*-ref bstr*)))
+    (BSTR*-free bstr*)
+    (BSTR-decode bstr)))
+
+
+(definition (BSTR-enref bstr)
+  (let ((ptr (BSTR*-make)))
+    (BSTR*-set! ptr (BSTR-encode bstr))
+    ptr))
+
+
 ;; BSTR-make undefined
 ;; BSTR-set! undefined
 
@@ -348,7 +360,7 @@
     ((6)
      (list 'unimplemented 'VT_CY))
     ((7)
-     (list 'unimplemented 'VT_DATE))
+     (VariantTimeToSystemTime (VARIANT-dblVal-ref variant)))
     ((8) ; VT_BSTR
      (BSTR-ref (VARIANT-bstrVal-ref variant)))
     ((11) ; VT_BOOL
@@ -443,4 +455,20 @@
 
 
 (definition public (corelease coptr)
-  (CoRelease$ coptr)))
+  (CoRelease$ coptr))
+
+
+(definition (VariantTimeToSystemTime variant-time)
+  (let ((system-time (SYSTEMTIME-make))
+        (fun (c-function (double SYSTEMTIME*) void "VariantTimeToSystemTime")))
+    (fun variant-time system-time)
+    (let ((year (SYSTEMTIME-wYear-ref system-time))
+          (month (SYSTEMTIME-wMonth-ref system-time))
+          (day-of-week (SYSTEMTIME-wDayOfWeek-ref system-time))
+          (day (SYSTEMTIME-wDay-ref system-time))
+          (hour (SYSTEMTIME-wHour-ref system-time))
+          (minute (SYSTEMTIME-wMinute-ref system-time))
+          (second (SYSTEMTIME-wSecond-ref system-time))
+          (milliseconds (SYSTEMTIME-wMilliseconds-ref system-time)))
+      (SYSTEMTIME-free system-time)
+      (list 'Date year month day-of-week day hour minute second milliseconds)))))

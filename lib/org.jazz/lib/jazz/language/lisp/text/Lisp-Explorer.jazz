@@ -67,9 +67,9 @@
   
   
   (constant Composites
-    '((#\open-parenthesis . #\close-parenthesis)
-      (#\open-bracket     . #\close-bracket)
-      (#\open-brace       . #\close-brace)))
+    '((#\open-parenthesis #\close-parenthesis list)
+      (#\open-bracket     #\close-bracket     reference)
+      (#\open-brace       #\close-brace       literal)))
   
   
   (constant Open-Composites
@@ -689,11 +689,15 @@
                           (set-end e)
                           (let ((pc (previous-char start 0))
                                 (nc (next-char end 0)))
-                            (when (and (open-composite? pc)
-                                       (eqv? nc (cdr (assq pc Composites))))
-                              (backward)
-                              (forward)
-                              skipped)))))))))))
+                            (when (open-composite? pc)
+                              (let ((info (assq pc Composites)))
+                                (when info
+                                  (bind (open close knd) info
+                                    (when (eqv? nc close)
+                                      (backward)
+                                      (forward)
+                                      (set! kind knd)
+                                      skipped)))))))))))))))
 
 
   (method public (form-expr)

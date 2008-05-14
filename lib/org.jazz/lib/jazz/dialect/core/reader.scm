@@ -151,6 +151,11 @@
     (set! jazz.jazz-readtable (jazz.make-jazz-readtable))
     
     
+    (define (jazz.with-jazz-readtable thunk)
+      (parameterize ((current-readtable jazz.jazz-readtable))
+        (thunk)))
+    
+    
     (define (jazz.char-symbol char)
       (let ((table (macro-readtable-named-char-table jazz.jazz-readtable)))
         (let ((res (jazz.rassq char table)))

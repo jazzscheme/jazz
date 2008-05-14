@@ -174,12 +174,20 @@
                    lst))
 
 
-(define (jazz.get-core-class-all-slot-names core-class)
-  (let ((slot-names (%%get-class-slots core-class))
+(define (jazz.get-core-class-all-slots core-class)
+  (let ((slots (%%get-class-slots core-class))
         (ascendant (%%get-class-ascendant core-class)))
     (if (%%not ascendant)
-        slot-names
-      (%%append (jazz.get-core-class-all-slot-names ascendant) slot-names))))
+        slots
+      (%%append (jazz.get-core-class-all-slots ascendant) slots))))
+
+
+(define (jazz.get-core-class-all-slot-names core-class)
+  (map (lambda (name/slot)
+         (if (%%symbol? name/slot)
+             name/slot
+           (%%get-field-name name/slot)))
+       (jazz.get-core-class-all-slots core-class)))
 
 
 (define (jazz.create-class-tables class)

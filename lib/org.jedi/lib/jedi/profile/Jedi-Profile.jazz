@@ -54,10 +54,29 @@
         (jazz.ui.view)
         (jazz.utilities)
         (jazz.website)
-        (jedi))
+        (jedi)
+        (time))
 
 
 (class Jedi-Profile extends IDE-Profile
+  
+  
+  (method (recent-files . rest)
+    (bind-keywords ((directory {Directory Jazz}) (elapse {})) rest
+      (let ((from (subtract-duration (current-time) (either elapse (make-time time-duration 0 3600))))
+            (ignored-extensions '("obj" "o" "o1" "o2" "o3" "o4" "o5" "o6" "o7" "o8" "o9" "a" "dll" "exe" "mnf")))
+        (iterate-directory~ directory
+          (function (file)
+            (when (and (not (member? (get-extension~ file) ignored-extensions test: ci=?))
+                       (time>? (get-modification-time~ file) from))
+              (debug file)))))
+      (user-message "Done")))
+  
+  
+  (method (inspect-binary file)
+    (call-with-input-file (parse~ file)
+      (function (port)
+        (debug (read-all port read-u8)))))
 
   
   ;;;

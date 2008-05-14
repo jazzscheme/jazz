@@ -431,6 +431,23 @@
 
 
 ;;;
+;;;; Repl
+;;;
+
+
+(native jazz.current-repl-context)
+(native jazz.repl-context-level)
+(native jazz.repl-context-depth)
+(native jazz.repl-context-cont)
+(native jazz.repl-context-initial-cont)
+(native jazz.repl-context-prev-level)
+(native jazz.repl-context-prev-depth)
+(native jazz.with-repl-context)
+(native jazz.inspect-repl-context)
+(native jazz.repl)
+
+
+;;;
 ;;;; Resource
 ;;;
 
@@ -492,16 +509,6 @@
 
 (native jazz.continuation-capture)
 (native jazz.get-continuation-stack)
-(native jazz.current-repl-context)
-(native jazz.repl-context-level)
-(native jazz.repl-context-depth)
-(native jazz.repl-context-cont)
-(native jazz.repl-context-initial-cont)
-(native jazz.repl-context-prev-level)
-(native jazz.repl-context-prev-depth)
-(native jazz.with-repl-context)
-(native jazz.inspect-repl-context)
-(native jazz.repl)
 
 
 ;;;

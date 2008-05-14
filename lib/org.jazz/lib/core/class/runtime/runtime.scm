@@ -599,7 +599,8 @@
         ((%%eof-object? expr)  jazz.EOF)
         ((%%unspecified? expr) jazz.Unspecified)
         (else
-         (jazz.error "Unable to get class of {s}" expr))))
+         (or (jazz.usertype expr)
+             (jazz.error "Unable to get class of {s}" expr)))))
 
 
 (define (jazz.class-subtype? target class)
@@ -1525,6 +1526,26 @@
     (%%vector-set! jazz.specialtypes 4 jazz.Unspecified))
   
   (else))
+
+
+(define jazz.usertypes
+  '())
+
+
+(define (jazz.register-usertype test type)
+  (set! jazz.usertypes (%%cons (%%cons test type) jazz.usertypes)))
+
+
+(define (jazz.usertype object)
+  (let iter ((scan jazz.usertypes))
+    (if (%%null? scan)
+        #f
+      (if ((%%caar scan) object)
+          (%%cdar scan)
+        (iter (%%cdr scan))))))
+
+
+(jazz.register-usertype port? jazz.Port)
 
 
 ;;;

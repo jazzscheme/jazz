@@ -289,7 +289,7 @@ end-of-c-code
     jazz.thread-type        ;; ___ARG8
     jazz.Thread             ;; ___ARG9
     )
-           (if (%%port? ,obj) jazz.Port #f)))
+           (jazz.usertype ,obj)))
     
     (jazz.define-macro (%%class-of obj)
       (jazz.with-expression-value obj

@@ -46,13 +46,13 @@
         (jazz.utilities))
 
 
-(class Group-Box extends Layout-View
+(class Group-Box extends Container
 
-
+  
   (property flat? initialize #f getter get-flat? setter set-flat?)
   (property style initialize {} getter get-style setter set-style)
-
-
+  
+  
   ;;;
   ;;;; Access
   ;;;
@@ -86,7 +86,26 @@
       ((styled) (get-element~ (get-look) 'group/border/flat?))
       (else flat?)))
 
-
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (let* ((size (get-size))
+           (box-width (get-width~ size))
+           (box-height (get-height~ size))
+           (metrics (get-metrics~ font))
+           (ascent (get-ascent~ metrics))
+           (left (if flat? 1 2))
+           (top (cond (title (+ ascent 1)) (flat? 1) (else 2)))
+           (width (- box-width (if flat? 2 4)))
+           (height (- box-height (if title (+ ascent 1) (if flat? 1 2)) (if flat? 1 2))))
+      (set-position~ (get-content) (new Point left top))
+      (set-size~ (get-content) (new Dimension width height))))
+      
+  
   ;;;
   ;;;; Drawing
   ;;;
@@ -104,7 +123,7 @@
            (rect (get-bounds)))  
       (let* ((metrics (get-text-metrics~ surface))
              (extent (and title (get-text-extent~ surface title)))
-             (top (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2))))
+             (top (if title (fxceiling (/ (cairo_font_extents_t-ascent-ref metrics) 2)) 0)))
         (if flat?
             (frame-rect~ surface (new Rect 0 top width height) frame-color)
           (draw-edge~ surface (new Rect 0 top width height) inner: 'raised outer: 'sunken edges: 'rectangle))

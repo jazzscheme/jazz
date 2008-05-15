@@ -363,6 +363,14 @@
 
 
 ;;;
+;;;; Pipe
+;;;
+
+
+(native open-string-pipe)
+
+
+;;;
 ;;;; Port
 ;;;
 

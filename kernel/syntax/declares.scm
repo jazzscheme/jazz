@@ -51,8 +51,9 @@
 (cond-expand
   (gambit
     (define (jazz.declares kind)
-      `((declare ,@(if (or (eq? kind 'module)
-                           (eq? jazz.safety 'release))
+      `((declare ;; block is only really usefull for modules coded in a
+                 ;; style where control remains mostly inside the module
+                 ,@(if (eq? kind 'module)
                        '((block))
                      '())
                  (standard-bindings)

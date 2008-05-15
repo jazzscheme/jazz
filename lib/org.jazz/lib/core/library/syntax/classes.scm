@@ -941,12 +941,12 @@
 
 
 ;;;
-;;;; Time
+;;;; Time Special
 ;;;
 
 
-(jazz.define-class jazz.Time jazz.Expression (type) jazz.Object-Class jazz.allocate-time
-  ((expression %%get-time-expression ())))
+(jazz.define-class jazz.Time-Special jazz.Expression (type) jazz.Object-Class jazz.allocate-time
+  ((expression %%get-time-special-expression ())))
 
 
 ;;;

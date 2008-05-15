@@ -4173,30 +4173,30 @@
 
 
 ;;;
-;;;; Time
+;;;; Time Special
 ;;;
 
 
-(jazz.define-class-runtime jazz.Time)
+(jazz.define-class-runtime jazz.Time-Special)
 
 
-(define (jazz.new-time expression)
-  (jazz.allocate-time jazz.Time #f expression))
+(define (jazz.new-time-special expression)
+  (jazz.allocate-time jazz.Time-Special #f expression))
 
 
-(jazz.define-method (jazz.emit-expression (jazz.Time expression) declaration environment)
-  (let ((expression (%%get-time-expression expression)))
+(jazz.define-method (jazz.emit-expression (jazz.Time-Special expression) declaration environment)
+  (let ((expression (%%get-time-special-expression expression)))
     (jazz.new-code
       `(time
          ,(%%get-code-form (jazz.emit-expression expression declaration environment)))
       jazz.Any)))
 
 
-(jazz.define-method (jazz.fold-expression (jazz.Time expression) f k s)
+(jazz.define-method (jazz.fold-expression (jazz.Time-Special expression) f k s)
   #f)
 
 
-(jazz.encapsulate-class jazz.Time)
+(jazz.encapsulate-class jazz.Time-Special)
 
 
 ;;;

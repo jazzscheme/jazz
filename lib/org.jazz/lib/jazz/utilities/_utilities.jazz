@@ -175,34 +175,20 @@
 ;;;
 
 
-(definition public Debug-Color
-  {})
-
-
-(definition (get-debug-color)
-  (unimplemented 'get-debug-color)
-  @unimplemented
-  (unless Debug-Color
-    (set! Debug-Color (new Color red: 90 green: 90 blue: 90)))
-  Debug-Color)
-
-@old-debug
 (definition public (debug . rest)
   (debug-string (format "{l detail: :describe}" rest)))
 
 
 (definition public (debug-string string (color: color {}))
-  (unimplemented 'debug-string)
-  @get-application
-  (let ((appl (get-application)))
-    (when (and appl (get-loop-running?~ appl))
-      (let ((text (get-console-text)))
-        (when text
-          (fresh-line)
-          (with-colored-output~ text (either color (get-debug-color))
-            (function ()
-              (display string)))
-          (fresh-prompt~ text)))))
+  (let ((output (console-output-port)))
+    (when output
+      (write-char #\esc output) (write-char #\$ output)
+      (write-char #\esc output) (write-char #\c output)
+      (display string output)
+      (newline output)
+      (write-char #\esc output) (write-char #\> output)
+      (newline output)
+      (force-output output)))
   {})
 
 

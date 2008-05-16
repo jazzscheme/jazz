@@ -38,7 +38,8 @@
 (library jedi.application.Jedi jazz
 
 
-(import (jazz.ide)
+(import (jazz.console)
+        (jazz.ide)
         (jazz.io)
         (jazz.language.jazz)
         (jazz.library)
@@ -138,6 +139,11 @@
       (nextmethod rest)
       @convert/wait
       (display-boot-time launch-time)))
+  
+  
+  (method (conclude-process rest)
+    (nextmethod rest)
+    (setup-console-ports))
 
   
   ;;;
@@ -151,6 +157,59 @@
   
   (method (default-bindings)
     (new Jedi-Bindings))
+
+  
+  ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (definition public Debug-Color
+    {Color red: 90 green: 90 blue: 90})
+  
+  
+  (method (setup-console-ports)
+    (receive (head tail) (open-string-pipe)
+      (start-console-pump tail)
+      (set! console-input {})
+      (set! console-output head)))
+  
+  
+  (method (start-console-pump port)
+    (thread-start!
+      (make-thread
+        (function ()
+          (let ((text (get-console-text)))
+            (let (iterate)
+              (let ((line (read-line port)))
+                (let ((len (string-length line)))
+                  (let (process (pos 0) (color {}))
+                    (if (and (not (empty-string? line))
+                             (eqv? (string-ref line pos) #\esc))
+                        (let ((escape (string-ref line (+ pos 1))))
+                          (case escape
+                            ((#\$)
+                             (unless (at-line-start?~ text)
+                               (insert-newline~ text))
+                             (process (+ pos 2) color))
+                            ((#\c)
+                             (process (+ pos 2) Debug-Color))
+                            ((#\>)
+                             (fresh-prompt~ text))
+                            (else
+                             (error "Unknown console escape: {s}" escape))))
+                      (let ((insert
+                              (function ()
+                                (insert-line~ text
+                                  (if (= pos 0)
+                                      line
+                                    (substring line pos len))))))
+                        (if color
+                            (with-colored-output~ text color
+                              (function ()
+                                (insert)))
+                          (insert)))))))
+              (iterate)))))))
 
   
   ;;;

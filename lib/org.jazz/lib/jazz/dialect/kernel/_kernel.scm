@@ -114,7 +114,7 @@
 
 
 (native jazz.run-loop?)
-(native jazz.debug)
+(native jazz.terminal)
 (native jazz.error)
 (native jazz.unimplemented)
 (native jazz.dump-stack)
@@ -398,8 +398,8 @@
 (native jazz.read-line)
 (native jazz.read-proper-line)
 (native jazz.read-all)
+(native jazz.jazz-readtable)
 (native jazz.with-jazz-readtable)
-(native jazz.with-extension-reader)
 (native jazz.print)
 (native jazz.pretty-print)
 (native force-output)

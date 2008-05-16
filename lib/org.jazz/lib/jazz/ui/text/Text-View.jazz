@@ -2643,10 +2643,6 @@
   ;;;
   
   
-  (definition public Debug-Color
-    {Color red: 90 green: 90 blue: 90})
-  
-  
   (method (insert-formatted-line line)
     (call-with-input-string line
       (function (input)
@@ -2656,7 +2652,7 @@
               (let ((c (peek-char input)))
                 (if (or (eof-object? c)
                         (eqv? c #\esc))
-                    (insert-string (get-output-string output))
+                    (insert-formatted (get-output-string output))
                   (write-char (read-char input) output)
                   (iterate))))))
         
@@ -2666,7 +2662,7 @@
               (case c
                 ((#\esc)
                  (read-char input)
-                 (insert-formatted-directive (read input)))
+                 (insert-formatted (read input)))
                 (else
                  (process-string)))
               (process))))
@@ -2674,7 +2670,19 @@
         (process))))
   
   
+  (method (insert-formatted form)
+    (if (string? form)
+        (insert-styled form 'Default)
+      (insert-formatted-directive form)))
+  
+  
   (method protected virtual (insert-formatted-directive form)
+    (define (with-insert insert proc)
+      (let ((start (get-start)))
+        (insert)
+        (let ((end (get-start)))
+          (proc (new Range$Cell$ start end)))))
+    
     (bind (directive . arguments) form
       (case directive
         ((%)
@@ -2682,11 +2690,31 @@
         (($)
          (unless (at-line-start?)
            (insert-newline)))
+        ((bold)
+         (bind (string) arguments
+           (with-insert (function () (insert-formatted string))
+             (function (range)
+               (toggle-bold range)))))
+        ((italic)
+         (bind (string) arguments
+           (with-insert (function () (insert-formatted string))
+             (function (range)
+               (toggle-italic range)))))
+        ((underline)
+         (bind (string) arguments
+           (with-insert (function () (insert-formatted string))
+             (function (range)
+               (toggle-underline range)))))
         ((color)
-         (let ((start (get-start)))
-           (insert-string (car arguments))
-           (let ((end (get-start)))
-             (set-text-color (new Range$Cell$ start end) Debug-Color))))
+         (bind (color string) arguments
+           (with-insert (function () (insert-formatted string))
+             (function (range)
+               (set-text-color range (registered-color color))))))
+        ((font)
+         (bind (font string) arguments
+           (with-insert (function () (insert-formatted string))
+             (function (range)
+               (set-text-font range (registered-color font))))))
         (else
          (error "Unknown text directive: {s}" directive)))))
   

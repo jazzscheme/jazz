@@ -2639,6 +2639,59 @@
   
   
   ;;;
+  ;;;; Text Formatted
+  ;;;
+  
+  
+  (definition public Debug-Color
+    {Color red: 90 green: 90 blue: 90})
+  
+  
+  (method (insert-formatted-line line)
+    (call-with-input-string line
+      (function (input)
+        (define (process-string)
+          (let ((output (open-output-string)))
+            (let (iterate)
+              (let ((c (peek-char input)))
+                (if (or (eof-object? c)
+                        (eqv? c #\esc))
+                    (insert-string (get-output-string output))
+                  (write-char (read-char input) output)
+                  (iterate))))))
+        
+        (define (process)
+          (let ((c (peek-char input)))
+            (when (not (eof-object? c))
+              (case c
+                ((#\esc)
+                 (read-char input)
+                 (insert-formatted-directive (read input)))
+                (else
+                 (process-string)))
+              (process))))
+        
+        (process))))
+  
+  
+  (method protected virtual (insert-formatted-directive form)
+    (bind (directive . arguments) form
+      (case directive
+        ((%)
+         (insert-newline))
+        (($)
+         (unless (at-line-start?)
+           (insert-newline)))
+        ((color)
+         (let ((start (get-start)))
+           (insert-string (car arguments))
+           (let ((end (get-start)))
+             (set-text-color (new Range$Cell$ start end) Debug-Color))))
+        (else
+         (error "Unknown text directive: {s}" directive)))))
+  
+  
+  ;;;
   ;;;; Text JML
   ;;;
   

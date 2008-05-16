@@ -139,6 +139,16 @@
             (let ((c (read-char port)))
               (cond ((%%eof-object? c)
                      #f)
+                    ((%%eqv? c #\\)
+                     (let ((escaped (read-char port)))
+                       (case escaped
+                         ((#\()
+                          (write-char #\esc output)
+                          (write-char escaped output)
+                          (iter))
+                         (else
+                          (write-char escaped output)
+                          (iter)))))
                     ((and (%%eqv? c #\")
                           (%%eqv? (peek-char port) #\#))
                      (read-char port)

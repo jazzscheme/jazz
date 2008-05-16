@@ -48,6 +48,7 @@
         (jazz.ui)
         (jazz.ui.development)
         (jazz.ui.view)
+        (jazz.ui.window)
         (jazz.utilities)
         (jedi))
 
@@ -164,10 +165,6 @@
   ;;;
   
   
-  (definition public Debug-Color
-    {Color red: 90 green: 90 blue: 90})
-  
-  
   (method (setup-console-ports)
     (receive (head tail) (open-string-pipe)
       (start-console-pump tail)
@@ -181,38 +178,8 @@
         (function ()
           (let ((text (get-console-text)))
             (let (iterate)
-              (process-control-line text (read-line port))
+              (insert-formatted-line~ text (read-line port))
               (iterate)))))))
-  
-  
-  (method (process-control-line text line)
-    (let ((len (string-length line)))
-      (let (process (pos 0) (color {}))
-        (if (and (not (empty-string? line))
-                 (eqv? (string-ref line pos) #\esc))
-            (let ((escape (string-ref line (+ pos 1))))
-              (case escape
-                ((#\$)
-                 (unless (at-line-start?~ text)
-                   (insert-newline~ text))
-                 (process (+ pos 2) color))
-                ((#\c)
-                 (process (+ pos 2) Debug-Color))
-                ((#\>)
-                 (fresh-prompt~ text))
-                (else
-                 (error "Unknown console escape: {s}" escape))))
-          (let ((insert
-                  (function ()
-                    (insert-line~ text
-                      (if (= pos 0)
-                          line
-                        (substring line pos len))))))
-            (if color
-                (with-colored-output~ text color
-                  (function ()
-                    (insert)))
-              (insert)))))))
 
   
   ;;;

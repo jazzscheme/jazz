@@ -53,7 +53,8 @@
     (define (jazz.declares kind)
       `((declare ;; block is only really usefull for modules coded in a
                  ;; style where control remains mostly inside the module
-                 ,@(if (eq? kind 'module)
+                 ,@(if (and (eq? kind 'module)
+                            (eq? jazz.safety 'release))
                        '((block))
                      '())
                  (standard-bindings)

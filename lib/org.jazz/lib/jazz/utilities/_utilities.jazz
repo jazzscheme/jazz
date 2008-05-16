@@ -57,13 +57,13 @@
 ;;;
 
 
-(definition public (cn)
-  (string #\newline))
-
-
 (definition public (split-lines string)
   (call-with-input-string string
     read-lines))
+
+
+(definition public (join-lines lines)
+  (join lines "\n"))
 
 
 ;;;
@@ -175,10 +175,12 @@
 ;;;
 
 
+@wait-fix-threading-access-to-painting
 (definition public (debug . rest)
   (debug-string (format "{l detail: :describe}" rest)))
 
 
+@wait-fix-threading-access-to-painting
 (definition public (debug-string string (color: color {}))
   (let ((output (console-output-port)))
     (when output
@@ -215,14 +217,14 @@
 (definition public (get-execution-context)
   (unimplemented 'get-execution-context)
   @active-thread
-  (let ((thread (active-thread)))
+  (let ((thread (current-thread)))
     (get-active-context~ thread)))
 
 
 (definition public (get-execution-stack)
   (unimplemented 'get-execution-stack)
   @active-thread
-  (let* ((thread (active-thread))
+  (let* ((thread (current-thread))
          (node (get-active-node~ thread))
          (lst '()))
     (while node
@@ -245,14 +247,14 @@
     (set! title~self title)
     (set! details~self details)
     (set! reporter~self reporter)
-    (let ((thread (active-thread)))
+    (let ((thread (current-thread)))
       (set! previous-node~self (get-active-node~ thread))
       (set-active-node~ thread self))
     (destroy-mandatory))
   
   
   (definition (destroy)
-    (let ((thread (active-thread)))
+    (let ((thread (current-thread)))
       (set-active-node~ thread previous-node))
     (nextmethod))
   
@@ -279,14 +281,14 @@
   
   (definition (initialize . rest)
     (apply nextmethod rest)
-    (let ((thread (active-thread)))
+    (let ((thread (current-thread)))
       (set! previous-context~self (get-active-context~ thread))
       (set-active-context~ thread self))
     (destroy-mandatory))
   
   
   (definition (destroy)
-    (let ((thread (active-thread)))
+    (let ((thread (current-thread)))
       (set-active-context~ thread previous-context))
     (nextmethod))
   

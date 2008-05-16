@@ -115,6 +115,8 @@
 
 (native jazz.run-loop?)
 (native jazz.terminal)
+;; until fixed in jazz
+(native jazz.debug)
 (native jazz.error)
 (native jazz.unimplemented)
 (native jazz.dump-stack)

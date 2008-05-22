@@ -825,17 +825,17 @@
 
 (define (jazz.jazz-bindings)
   (%%list
-    (jazz.new-special-form 'definition    jazz.walk-definition)
-    (jazz.new-special-form 'generic       jazz.walk-generic)
-    (jazz.new-special-form 'specific      jazz.walk-specific)
-    (jazz.new-macro-form   'class         jazz.expand-class)
-    (jazz.new-special-form '%class        jazz.walk-%class)
-    (jazz.new-special-form 'interface     jazz.walk-interface)
-    (jazz.new-macro-form   'slot          jazz.expand-slot)
-    (jazz.new-macro-form   'property      jazz.expand-property)
-    (jazz.new-special-form '%slot         jazz.walk-%slot)
-    (jazz.new-special-form '%property     jazz.walk-%slot)
-    (jazz.new-special-form 'method        jazz.walk-method)
+    (jazz.new-special-form 'definition      jazz.walk-definition)
+    (jazz.new-special-form 'generic         jazz.walk-generic)
+    (jazz.new-special-form 'specific        jazz.walk-specific)
+    (jazz.new-macro-form   'class           jazz.expand-class)
+    (jazz.new-special-form '%class          jazz.walk-%class)
+    (jazz.new-special-form 'interface       jazz.walk-interface)
+    (jazz.new-macro-form   'slot            jazz.expand-slot)
+    (jazz.new-macro-form   'property        jazz.expand-property)
+    (jazz.new-special-form '%slot           jazz.walk-%slot)
+    (jazz.new-special-form '%property       jazz.walk-%slot)
+    (jazz.new-special-form 'method          jazz.walk-method)
 
     (jazz.new-special-form 'atomic-region   jazz.walk-atomic-region)
     (jazz.new-special-form 'c-include       jazz.walk-c-include)
@@ -855,17 +855,15 @@
     (jazz.new-special-form 'construct       jazz.walk-construct)
     (jazz.new-special-form 'time            jazz.walk-time)
     
-    (jazz.new-macro-form   'optimize      jazz.expand-optimize)
-    (jazz.new-macro-form   'remote-proxy  jazz.expand-remote-proxy)
-    (jazz.new-macro-form   'coclass       jazz.expand-coclass)
-    (jazz.new-macro-form   'cointerface   jazz.expand-cointerface)
-    (jazz.new-macro-form   'coexternal    jazz.expand-coexternal)
-    (jazz.new-macro-form   'assert        jazz.expand-assert)
-    (jazz.new-macro-form   'c-structure   jazz.expand-c-structure)
-    (jazz.new-macro-form   'c-union       jazz.expand-c-union)
-    (jazz.new-macro-form   'c-external    jazz.expand-c-external)
-    (jazz.new-macro-form   'c-external-so jazz.expand-c-external-so)
-    (jazz.new-macro-form   'form          jazz.expand-form)))
+    (jazz.new-macro-form   'optimize        jazz.expand-optimize)
+    (jazz.new-macro-form   'remote-proxy    jazz.expand-remote-proxy)
+    (jazz.new-macro-form   'coexternal      jazz.expand-coexternal)
+    (jazz.new-macro-form   'assert          jazz.expand-assert)
+    (jazz.new-macro-form   'c-structure     jazz.expand-c-structure)
+    (jazz.new-macro-form   'c-union         jazz.expand-c-union)
+    (jazz.new-macro-form   'c-external      jazz.expand-c-external)
+    (jazz.new-macro-form   'c-external-so   jazz.expand-c-external-so)
+    (jazz.new-macro-form   'form            jazz.expand-form)))
 
 
 (define jazz.jazz-environment
@@ -2031,15 +2029,15 @@
   '(((private protected public) . public)))
 
 (define jazz.remote-proxy-keywords
-  '(extends on))
+  '(extends))
 
 
 (define (jazz.parse-remote-proxy walker resume declaration rest)
   (receive (access rest) (jazz.parse-modifiers walker resume declaration jazz.remote-proxy-modifiers rest)
     (let ((name (%%car rest))
           (rest (%%cdr rest)))
-      (receive (ascendant-name on-name body) (jazz.parse-keywords jazz.remote-proxy-keywords rest)
-        (values name #f access ascendant-name on-name body)))))
+      (receive (ascendant-name body) (jazz.parse-keywords jazz.remote-proxy-keywords rest)
+        (values name #f access ascendant-name body)))))
 
 
 (define jazz.method-proxy-modifiers
@@ -2056,123 +2054,41 @@
 
 
 (define (jazz.expand-remote-proxy walker resume declaration environment . rest)
-  (receive (name type access ascendant-name on-name body) (jazz.parse-remote-proxy walker resume declaration rest)
+  (receive (name type access ascendant-name body) (jazz.parse-remote-proxy walker resume declaration rest)
     (let ((interface-class (%%string->symbol (%%string-append (%%symbol->string name) "-Interface")))
+          (local-class (%%string->symbol (%%string-append (%%symbol->string name) "-Local")))
           (remote-class (%%string->symbol (%%string-append (%%symbol->string name) "-Remote")))
-          (dispatcher-class (%%string->symbol (%%string-append (%%symbol->string name) "-Dispatcher")))
-          (dispatcher-variable (jazz.generate-symbol "dispatcher"))
           (method-name-variable (jazz.generate-symbol "method-name"))
           (local-object-variable (jazz.generate-symbol "local-object"))
           (arguments-variable (jazz.generate-symbol "arguments"))
           (proxies (jazz.new-queue))
+          (locals (jazz.new-queue))
           (remotes (jazz.new-queue))
           (dispatchs (jazz.new-queue)))
       (for-each (lambda (method-form)
                   (%%assert (%%eq? (%%car method-form) 'method)
                     (receive (name type access invocation parameters) (jazz.parse-method-proxy walker resume declaration (%%cdr method-form))
-                      (let ((invoker (case invocation ((send) 'jazz.rmi.send-rmi) ((post) 'jazz.rmi.post-rmi)))
-                            (proxy-parameter (%%car parameters))
-                            (other-parameters (%%cdr parameters))
-                            (implementation-name (%%compose-name on-name name)))
+                      (let ((invoker (case invocation ((send) 'send-rmi) ((post) 'post-rmi))))
                         (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
-                        (jazz.enqueue remotes `(method (,name ,@parameters)
-                                                       (,invoker ',name ,proxy-parameter ,@other-parameters)))
-                        (jazz.enqueue dispatchs `((,name) (apply ,implementation-name ,local-object-variable ,arguments-variable)))))))
+                        (jazz.enqueue locals `(method (,name ,@parameters) (,invoker ',name ,@parameters)))
+                        (jazz.enqueue remotes `(method (,name ,@parameters) (,invoker ',name ,@parameters)))
+                        (jazz.enqueue dispatchs `((,name) (apply (~ ,name ,local-object-variable) ,arguments-variable)))))))
                 body)
+      (let ((x
       `(begin
-         (class private ,interface-class extends jazz.rmi.Proxy-Interface
+         (class private ,interface-class extends Proxy-Interface
            (method (remote-class interface)
-             ,remote-class)
-           (method (dispatcher-class interface)
-             ,dispatcher-class))
-         (interface ,access ,name extends jazz.rmi.Proxy metaclass ,interface-class ,@(if (jazz.specified? ascendant-name) (%%list ascendant-name) '())
+             ,remote-class))
+         (interface ,access ,name extends Proxy metaclass ,interface-class ,@(if (jazz.specified? ascendant-name) (%%list ascendant-name) '())
            (method (proxy-interface proxy)
              ,name)
            ,@(jazz.queue-list proxies))
-         (class private ,remote-class extends jazz.rmi.Remote-Proxy implements ,name
+         (class private ,local-class extends Local-Proxy implements ,name
            ,@(jazz.queue-list remotes))
-         (class private ,dispatcher-class extends jazz.rmi.Method-Dispatcher
-           (method (dispatch ,dispatcher-variable ,method-name-variable ,local-object-variable ,arguments-variable)
-             (case ,method-name-variable
-               ,@(jazz.queue-list dispatchs)
-               (else (nextmethod ,dispatcher-variable ,method-name-variable ,local-object-variable ,arguments-variable)))))))))
-
-
-;;;
-;;;; Coclass
-;;;
-
-
-(define (jazz.expand-coclass walker resume declaration environment . rest)
-  `(begin)
-  #; ;; waiting
-  (apply jazz.expand-class walker resume declaration environment rest))
-
-
-;;;
-;;;; Cointerface
-;;;
-
-
-(define jazz.cointerface-modifiers
-  '(((private protected public) . public)))
-
-(define jazz.cointerface-keywords
-  '(extends on))
-
-
-(define (jazz.parse-cointerface walker resume declaration rest)
-  (receive (access rest) (jazz.parse-modifiers walker resume declaration jazz.cointerface-modifiers rest)
-    (let ((name (%%car rest))
-          (rest (%%cdr rest)))
-      (receive (ascendant-name on-name body) (jazz.parse-keywords jazz.cointerface-keywords rest)
-        (values name jazz.Any access ascendant-name on-name body)))))
-
-
-(define (jazz.expand-cointerface walker resume declaration environment . rest)
-  (receive (name type access ascendant-name on-name body) (jazz.parse-cointerface walker resume declaration rest)
-    `(definition name '(type access ascendant-name on-name body)))
-  #; ;; waiting
-  (receive (name type access ascendant-name on-name body) (jazz.parse-cointerface walker resume declaration rest)
-    (let ((interface-class (%%string->symbol (%%string-append (%%symbol->string name) "-Interface")))
-          (remote-class (%%string->symbol (%%string-append (%%symbol->string name) "-Remote")))
-          (dispatcher-class (%%string->symbol (%%string-append (%%symbol->string name) "-Dispatcher")))
-          (dispatcher-variable (jazz.generate-symbol "dispatcher"))
-          (method-name-variable (jazz.generate-symbol "method-name"))
-          (local-object-variable (jazz.generate-symbol "local-object"))
-          (arguments-variable (jazz.generate-symbol "arguments"))
-          (proxies (jazz.new-queue))
-          (remotes (jazz.new-queue))
-          (dispatchs (jazz.new-queue)))
-      (for-each (lambda (method-form)
-                  (%%assert (%%eq? (%%car method-form) 'method)
-                    (receive (name type access invocation parameters) (jazz.parse-method-proxy walker resume declaration (%%cdr method-form))
-                      (let ((invoker (case invocation ((send) 'jazz.rmi.send-rmi) ((post) 'jazz.rmi.post-rmi)))
-                            (proxy-parameter (%%car parameters))
-                            (other-parameters (%%cdr parameters))
-                            (implementation-name (%%compose-name on-name name)))
-                        (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
-                        (jazz.enqueue remotes `(method (,name ,@parameters)
-                                                       (,invoker ',name ,proxy-parameter ,@other-parameters)))
-                        (jazz.enqueue dispatchs `((,name) (apply ,implementation-name ,local-object-variable ,arguments-variable)))))))
-                body)
-      `(begin
-         (class private ,interface-class extends jazz.rmi.Proxy-Interface
-           (method (remote-class interface)
-             ,remote-class)
-           (method (dispatcher-class interface)
-             ,dispatcher-class))
-         (interface ,access ,name extends jazz.rmi.Proxy metaclass ,interface-class ,@(if (jazz.specified? ascendant-name) (%%list ascendant-name) '())
-           (method (proxy-interface proxy)
-             ,name)
-           ,@(jazz.queue-list proxies))
-         (class private ,remote-class extends jazz.rmi.Remote-Proxy implements ,name
-           ,@(jazz.queue-list remotes))
-         (class private ,dispatcher-class extends jazz.rmi.Method-Dispatcher
-           (method (dispatch ,dispatcher-variable ,method-name-variable ,local-object-variable ,arguments-variable)
-             (case ,method-name-variable
-               ,@(jazz.queue-list dispatchs)
-               (else (nextmethod ,dispatcher-variable ,method-name-variable ,local-object-variable ,arguments-variable)))))))))
+         (class private ,remote-class extends Remote-Proxy implements ,name
+           ,@(jazz.queue-list remotes)))))
+        (pp x)
+        x))))
 
 
 ;;;

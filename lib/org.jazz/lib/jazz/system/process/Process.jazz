@@ -59,8 +59,7 @@
   (slot loop                        initialize {})
   (slot loop-running?               initialize #f)
   (slot loop-exit                   initialize #f)
-  (slot stub-listener               initialize {})
-  (slot proxy-dispatcher            initialize {})
+  (slot remoting-server             initialize {})
   (slot local-process-server        initialize {})
   (slot local-directory-server      initialize {})
   (slot local-debuggee              initialize {})
@@ -639,73 +638,50 @@
   ;;;
   
   
-  ;; For some users, starting the stub listener can trigger a firewall that will
+  ;; For some users, starting the remoting server can trigger a firewall that will
   ;; pop a dialog asking for user confirmation (even when listening to localhost!).
-  (method protected virtual (start-stub-listener?)
+  (method protected virtual (start-remoting-server?)
     #f)
   
   
   (method protected virtual (start-servers)
-    ;;@threads-commented-for-simpler-c-threading-debugging
-    (when (or (start-stub-listener?) (command-argument "debug"))
-      (start-stub-listener)))
+    (when (or (start-remoting-server?) (command-argument "debug"))
+      (start-remoting-server)))
   
   
   (method protected virtual (stop-servers)
-    (stop-stub-listener)
-    (stop-proxy-dispatcher))
+    (stop-remoting-server))
   
   
   ;;;
-  ;;;; Stub Listener
+  ;;;; Remoting Server
   ;;;
   
   
-  (method public virtual (stub-listener-host)
+  (method public virtual (remoting-server-host)
     {})
   
-  (method public virtual (stub-listener-port)
+  (method public virtual (remoting-server-port)
     {})
   
   
-  (method public (get-stub-listener)
-    stub-listener)
+  (method public (get-remoting-server)
+    remoting-server)
   
   
-  (method protected (start-stub-listener)
-    @convert-socket
-    (unless stub-listener
-      (set! stub-listener (new Stub-Listener))
-      (unless (wait-started~ stub-listener error?: #f)
-        (error "Unable to start stub listener"))))
+  (method protected (start-remoting-server)
+    (unless remoting-server
+      (let ((server (new Remoting-Server name: "Remote" service: Remoting-Service)))
+        (start~ server)
+        (if (wait-started~ server error?: #f)
+            (set! remoting-server server)
+          (error "Unable to start remoting server")))))
   
   
-  (method protected (stop-stub-listener)
-    @convert-socket
-    (when stub-listener
-      (stop~ stub-listener)
-      (set! stub-listener {})))
-  
-  
-  ;;;
-  ;;;; Proxy Dispatcher
-  ;;;
-  
-  
-  (method public (get-proxy-dispatcher)
-    (when (not proxy-dispatcher)
-      (start-proxy-dispatcher))
-    proxy-dispatcher)
-  
-  
-  (method protected (start-proxy-dispatcher)
-    (set! proxy-dispatcher (new Proxy-Dispatcher)))
-  
-  
-  (method protected (stop-proxy-dispatcher)
-    (when proxy-dispatcher
-      (stop-dispatcher~ proxy-dispatcher)
-      (set! proxy-dispatcher {})))
+  (method protected (stop-remoting-server)
+    (when remoting-server
+      (stop~ remoting-server)
+      (set! remoting-server {})))
 
 
   ;;;
@@ -760,7 +736,7 @@
   
   
   (method (locate-router-server)
-    (let ((server (unmarshal {IOR {Host name: "localhost"} router-stub-listener Router-Server-Remotable ()})))
+    (let ((server (unmarshall {IOR {Host name: "localhost"} router-remoting-server Router-Server-Remotable ()})))
       (when (not (live?~ server))
         (unless (launch-router-server interpreted?: #t)
           (error "Unable to launch router process")))
@@ -796,7 +772,7 @@
            (port (parse-integer (command-argument "controllerport")))
            (remotable 'Process-Server-Remotable)
            (ior (new IOR host port remotable {})))
-      (unmarshal ior)))
+      (unmarshall ior)))
 
   
   (method public (attach-to-controller ct)

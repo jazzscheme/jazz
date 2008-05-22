@@ -369,16 +369,15 @@
           (error "{a} is not a launchable project" (get-name~ project))
         (export-manifest~ project)
         (when debug?
-          (start-stub-listener)
-          (start-proxy-dispatcher))
+          (start-remoting-server))
         (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c? {File Install "InterpreterDebug.exe"} {File Install "Interpreter.exe"})) ((launcher) (if debug-c? {File Install "LauncherDebug.exe"} {File Install "Launcher.exe"})))))
                (app-arg            (format " /app {a}" app-class))
                (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
                (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Jazz})))
                (profile-arg        (if profile (format " /profile {a}" profile) ""))
                (debug-arg          (if debug? (format " /debug #t") ""))
-               (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ stub-listener))) ""))
-               (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ stub-listener)) ""))
+               (controllerhost-arg (if debug? (format " /controllerhost {u}" (get-ip~ (listening-host~ remoting-server))) ""))
+               (controllerport-arg (if debug? (format " /controllerport {a}" (listening-port~ remoting-server)) ""))
                (action-arg         (if command-action (format " {a}" command-action) ""))
                (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
                (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg profile-arg arguments-arg)))
@@ -586,11 +585,6 @@
   (method (on-run-smoker evt)
     @convert/wait
     (build/run~ (new Smoker-Builder)))
-  
-  
-  (method (on-update-remotable-code evt)
-    @convert/wait
-    (update~ (new Remotable-Updater) force?: (get-shift?~ evt)))
   
   
   (method (on-toolbox evt)

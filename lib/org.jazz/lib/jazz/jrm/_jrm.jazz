@@ -1,4 +1,467 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Remote Method Invocation
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
 (library jazz.jrm jazz
 
 
-(export (jazz.jrm.autoload)))
+(export (jazz.jrm.autoload))
+(import (jazz.jrm.autoload)
+        (jazz.io))
+
+
+;;;
+;;;; Server
+;;;
+
+
+(definition Remoting-Host
+  {})
+
+(definition Remoting-Service
+  32000)
+
+
+;;;
+;;;; Invoke
+;;;
+
+
+(definition public (send-remote method-name remote-proxy . arguments)
+  (invoke-remote 'send method-name remote-proxy arguments))
+
+
+(definition public (post-remote method-name remote-proxy . arguments)
+  (invoke-remote 'post method-name remote-proxy arguments))
+
+
+(definition (invoke-remote kind method-name remote-proxy arguments)
+  (with-default-exception-handler
+    (function ()
+      (let ((method-name (marshall method-name))
+            (proxy-ior (marshall remote-proxy))
+            (arguments (marshall arguments)))
+        (let ((host (get-host~ proxy-ior))
+              (service (get-service~ proxy-ior)))
+          (let ((port (open-tcp-client (list server-address: host port-number: service))))
+            (write-remote-message (list kind method-name proxy-ior arguments) port)
+            (case kind
+              ((send)
+               (bind (err result) (read-remote-result port)
+                 (if (not-null? err)
+                     (error "Remote error while executing {s}: {a}" method-name err)
+                   (unmarshall result))))
+              ((post)
+               (unspecified)))))))))
+
+
+(definition (write-remote-message info port)
+  (write-port port info))
+
+
+(definition (read-remote-result port)
+  (let ((info (read-port port)))
+    (if (eof-object? info)
+        (error "Remote server unexpectedly closed connection")
+      info)))
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition (process-remote port)
+  (bind (kind method-name proxy-ior arguments) (read-remote-message port)
+    (case kind
+      ((send)
+       (write-remote-result (execute-remote method-name proxy-ior arguments) port))
+      ((post)
+       (dispatch-remote
+         (unmarshall method-name)
+         (unmarshall proxy-ior)
+         (unmarshall arguments))))))
+
+
+(definition (read-remote-message port)
+  (read-port port))
+
+
+(definition (execute-remote method-name proxy-ior arguments)
+  (with-exception-handler
+    (function (exc)
+      (dump-exception exc)
+      (continuation-capture
+        (function (cont)
+          (list (exception-reason exc) '()))))
+    (function ()
+      (list '() (marshall (dispatch-remote
+                            (unmarshall method-name)
+                            (unmarshall proxy-ior)
+                            (unmarshall arguments)))))))
+
+
+(definition (dispatch-remote method-name local-object arguments)
+  (let ((dispatcher (new (dispatcher-class~ (proxy-interface~ local-object)))))
+    (dispatch~ dispatcher method-name local-object arguments)))
+
+
+(definition (write-remote-result info port)
+  (write-port port info))
+
+
+;;;
+;;;; Proxy
+;;;
+
+
+(definition public (proxy? object)
+  (is? object Proxy))
+
+
+(definition public (proxy=? x y)
+  (if (and (remote-proxy? x) (remote-proxy? y))
+      (remote-proxy=? x y)
+    (eq? x y)))
+
+
+(definition (remote-proxy=? x y)
+  (ior=? (get-ior~ x)
+         (get-ior~ y)))
+
+
+(definition (marshall-proxy proxy)
+  (if (remote-proxy? proxy)
+      (marshall-remote-proxy proxy)
+    (marshall-local-object proxy)))
+
+
+;;;
+;;;; Local Proxy
+;;;
+
+
+(definition (local-proxy? object)
+  (is? object Local-Proxy))
+
+
+(definition (marshall-local-object object)
+  (new IOR
+    {}
+    {}
+    (identifier-name (get-name~ (stub-interface~ object)))
+    (object->reference object)))
+
+
+(definition (unmarshall-local-proxy stub-interface ior)
+  (let ((local-class (local-class~ stub-interface)))
+    (new local-class (get-reference~ ior))))
+
+
+;;;
+;;;; Remote Proxy
+;;;
+
+
+(definition (remote-proxy? object)
+  (is? object Remote-Proxy))
+
+
+(definition (marshall-remote-proxy proxy)
+  (marshall (get-ior~ proxy)))
+
+
+(definition (unmarshall-remote-proxy stub-interface ior)
+  (let ((remote-class (remote-class~ stub-interface)))
+    (new remote-class ior)))
+
+
+;;;
+;;;; IOR
+;;;
+
+
+(definition (object->reference object)
+  (let ((process (get-process)))
+    (cond ;((eq? object process) 'process)
+          ;((eq? object (get-local-debugger~ process)) 'debugger)
+          (else (object->serial-number object)))))
+
+
+(definition (reference->object reference)
+  (let ((process (get-process)))
+    (cond ;((eq? reference 'process) process)
+          ;((eq? reference 'debugger) (get-local-debugger~ process))
+          (else (serial-number->object reference)))))
+
+
+(definition public (ior? object)
+  (is? object IOR))
+
+
+(definition public (local-ior? ior)
+  (let ((process (get-process)))
+    (and (not (get-host~ ior))
+         (not (get-service~ ior)))))
+
+
+(definition public (ior=? x y)
+  (and (host=? (get-host~ x) (get-host~ y))
+       (service=? (get-service~ x) (get-service~ y))
+       (reference=? (get-reference~ x) (get-reference~ y))))
+
+
+(definition (host=? x y)
+  (string=? x y))
+
+
+(definition (service=? x y)
+  (= x y))
+
+
+(definition (reference=? x y)
+  (eqv? x y))
+
+
+(definition public (unmarshall-ior ior)
+  (let ((stub-interface (load-stub-interface ior)))
+    (if (local-ior? ior)
+        (unmarshall-local-proxy stub-interface ior)
+      (unmarshall-remote-proxy stub-interface ior))))
+
+
+(definition (load-stub-interface ior)
+  (autoload (get-stub-interface~ ior)))
+
+
+;;;
+;;;; Marshall
+;;;
+
+
+(definition (validate-marshallable object)
+  (cond ((null? object)
+         )
+        ((number? object)
+         )
+        ((string? object)
+         )
+        ((symbol? object)
+         )
+        ((keyword? object)
+         )
+        ((eq? object #f)
+         )
+        ((eq? object #t)
+         )
+        ((unspecified? object)
+         )
+        ((ior? object)
+         )
+        ((proxy? object)
+         )
+        ((pair? object)
+         (validate-marshallable (car object))
+         (validate-marshallable (cdr object)))
+        (else
+         (error "Unable to marshall: {s}" object))))
+
+
+(definition (marshall object)
+  (cond ((null? object)
+         object)
+        ((number? object)
+         object)
+        ((string? object)
+         object)
+        ((symbol? object)
+         object)
+        ((keyword? object)
+         object)
+        ((eq? object #f)
+         object)
+        ((eq? object #t)
+         object)
+        ((unspecified? object)
+         object)
+        ((ior? object)
+         object)
+        ((proxy? object)
+         (marshall-proxy object))
+        ((pair? object)
+         (cons (marshall (car object))
+               (marshall (cdr object))))
+        (else
+         (error "Unable to marshall: {s}" object))))
+
+
+;;;
+;;;; Unmarshall
+;;;
+
+
+(definition (unmarshall object)
+  (cond ((null? object)
+         object)
+        ((number? object)
+         object)
+        ((string? object)
+         object)
+        ((symbol? object)
+         object)
+        ((keyword? object)
+         object)
+        ((eq? object #f)
+         object)
+        ((eq? object #t)
+         object)
+        ((unspecified? object)
+         object)
+        ((ior? object)
+         (unmarshall-ior object))
+        ((pair? object)
+         (cons (unmarshall (car object))
+               (unmarshall (cdr object))))
+        (else
+         (error "Unable to unmarshall: {s}" object))))
+
+
+;;;
+;;;; Port
+;;;
+
+
+(definition (write-port port info)
+  (write (encode info) port)
+  (newline port)
+  (force-output port))
+
+
+(definition (read-port port)
+  (decode (read port)))
+
+
+;;;
+;;;; Encode
+;;;
+
+
+(definition (encode object)
+  (cond ((null? object)
+         object)
+        ((number? object)
+         object)
+        ((string? object)
+         object)
+        ((symbol? object)
+         object)
+        ((keyword? object)
+         object)
+        ((eq? object #f)
+         (encode-info 'false))
+        ((eq? object #t)
+         (encode-info 'true))
+        ((unspecified? object)
+         (encode-info 'unspecified))
+        ((ior? object)
+         (encode-ior object))
+        ((pair? object)
+         (cons (encode (car object))
+               (encode (cdr object))))
+        (else
+         (error "Unable to encode: {s}" object))))
+
+
+(definition encoded-marker
+  'ENCODED)
+
+
+(definition (encoded? object)
+  (and (pair? object)
+       (eq? (car object) encoded-marker)))
+
+
+(definition (encode-info kind . info)
+  (cons encoded-marker (cons kind info)))
+
+
+(definition (encode-ior ior)
+  (encode-info 'IOR
+               (get-host~ ior)
+               (get-service~ ior)
+               (get-stub-interface~ ior)
+               (get-reference~ ior)))
+
+
+;;;
+;;;; Decode
+;;;
+
+
+(definition (decode object)
+  (cond ((eof-object? object)
+         object)
+        ((number? object)
+         object)
+        ((string? object)
+         object)
+        ((symbol? object)
+         object)
+        ((keyword? object)
+         object)
+        ((null? object)
+         object)
+        ((encoded? object)
+         (receive (kind info) (decode-info object)
+           (case kind
+             ((false) #f)
+             ((true) #t)
+             ((unspecified) (unspecified))
+             ((IOR) (decode-ior info)))))
+        ((pair? object)
+         (cons (decode (car object))
+               (decode (cdr object))))
+        (else
+         (error "Unable to decode: {s}" object))))
+
+
+(definition (decode-info encoded)
+  (values (cadr encoded) (cddr encoded)))
+
+
+(definition (decode-ior info)
+  (bind (host service stub-interface reference) info
+    (new IOR host service stub-interface reference))))

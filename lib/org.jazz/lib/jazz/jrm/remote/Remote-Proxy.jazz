@@ -38,87 +38,15 @@
 (library jazz.jrm.remote.Remote-Proxy jazz
 
 
-(import (jazz.jrm)
-        (jazz.library)
-        (jazz.utilities))
+(import (jazz.jrm))
 
 
-(class Remote-Proxy extends Object-Proxy)
-
-
-@convert
-
-
-(class Remote-Proxy extends Object-Proxy
+(class Remote-Proxy extends Proxy
 
   
-  (slot ior initialize {})
+  (slot ior accessors generate)
   
   
   (method (initialize ior)
     (nextmethod)
-    (set! ior~self ior))
-
-
-  (method (compare-object target)
-    (if (is-not? target Remote-Proxy)
-        :incompatible
-      (compare-object~ ior (get-ior~ target))))
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-ior)
-    ior)
-  
-  
-  ;;;
-  ;;;; Marshal
-  ;;;
-  
-  
-  (method (object-marshal)
-    ior)
-  
-  
-  ;;;
-  ;;;; Send
-  ;;;
-  
-  
-  (method (send-to-stub method-name . arguments)
-    (let ((host (get-host~ ior))
-          (port (get-port~ ior))
-          (reference (get-reference~ ior))
-          (marshalled (map marshal arguments)))
-      (with-closed ((socket (new Socket name: (format "Proxy Socket for {a}" method-name))))
-        (connect~ socket host port)
-        (send-object~ socket (list reference method-name marshalled))
-        (let* ((info (unmarshal (receive-object~ socket)))
-               (result (car info))
-               (exception-info (cdr info)))
-          (if (null? exception-info)
-              result
-            (bind (message stack) exception-info
-              (error "A remote error occured while executing {t}: {a}{%}{%}{a}" method-name message stack)))))))
-  
-  
-  ;;;
-  ;;;; Liveliness
-  ;;;
-  
-  
-  (method (live?)
-    (let ((host (get-host~ ior))
-          (port (get-port~ ior)))
-      (with-closed ((socket (new Socket name: "liveliness test")))
-        (catch (Server-Error err
-                 (if (= (get-no~ err) WSAECONNREFUSED)
-                     #f
-                   (signal err)))
-          (connect~ socket host port)
-          (send-object~ socket {})
-          #t))))))
+    (set! ior~self ior))))

@@ -81,9 +81,29 @@
 ;;;
 
 
-;; convert
+(definition (switch? arg)
+  (and (>= (cardinality arg) 2)
+       (or (eqv? (element arg 0) #\-)
+           (eqv? (element arg 0) #\/))))
+
+
+(definition (switch-name arg)
+  (substring arg 1 (string-length arg)))
+
+
 (definition public (command-argument name)
-  #f)
+  (let ((all (cdr (command-line))))
+    (let (iterate (arguments all))
+      (if (null? arguments)
+          {}
+        (let ((arg (car arguments)))
+          (cond ((or (not (switch? arg))
+                     (null? (cdr arguments)))
+                 (error "Unable to parse command line: {a}" all))
+                ((equal? name (switch-name arg))
+                 (cadr arguments))
+                (else
+                 (iterate (cddr arguments)))))))))
 
 
 (definition public (pathname-argument name)

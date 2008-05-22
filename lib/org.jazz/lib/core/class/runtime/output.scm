@@ -120,8 +120,18 @@
   (force-output))
 
 
+(define (jazz.debug-string str)
+  (display str)
+  (newline)
+  (force-output))
+
+
 (define jazz.terminal
   jazz.debug)
+
+
+(define jazz.terminal-string
+  jazz.debug-string)
 
 
 (define (jazz.bootstrap-output-value value output)

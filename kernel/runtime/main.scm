@@ -173,8 +173,7 @@
   (jazz.compile-module 'jazz.platform.windows.com cc-options: "-DUNICODE" ld-options: "-mwindows -lole32 -loleaut32")
   (jazz.compile-module 'jazz.platform.windows.com.DAO cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
   (jazz.compile-module 'jazz.platform.windows.com.ADODB cc-options: "-DUNICODE" ld-options: "-mwindows -lole32") ; -u CoCreateInstance
-  ;; for tests
-  ;; (jazz.compile-module 'jazz.platform.windows.com.ADODB2 cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
+  ;; for test (jazz.compile-module 'jazz.platform.windows.com.ADODB2 cc-options: "-DUNICODE" ld-options: "-mwindows -lole32")
   )
 
 

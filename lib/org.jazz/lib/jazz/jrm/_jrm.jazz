@@ -49,10 +49,17 @@
 
 
 (definition Remoting-Host
-  {})
+  "localhost")
 
 (definition Remoting-Service
   32000)
+
+
+(definition public (require-remoting-server)
+  (let ((server (get-remoting-server~ (get-process))))
+    (if (not server)
+        (error "Unable to complete operation because the remoting server is not running")
+      server)))
 
 
 ;;;
@@ -69,7 +76,7 @@
 
 
 (definition (invoke-remote kind method-name remote-proxy arguments)
-  (with-default-exception-handler
+  (;with-default-exception-handler
     (function ()
       (let ((method-name (marshall method-name))
             (proxy-ior (marshall remote-proxy))
@@ -179,11 +186,12 @@
 
 
 (definition (marshall-local-object object)
-  (new IOR
-    {}
-    {}
-    (identifier-name (get-name~ (stub-interface~ object)))
-    (object->reference object)))
+  (let ((server (require-remoting-server)))
+    (new IOR
+      (get-host~ server)
+      (get-service~ server)
+      (identifier-name (get-name~ (stub-interface~ object)))
+      (object->reference object))))
 
 
 (definition (unmarshall-local-proxy stub-interface ior)
@@ -233,9 +241,9 @@
 
 
 (definition public (local-ior? ior)
-  (let ((process (get-process)))
-    (and (not (get-host~ ior))
-         (not (get-service~ ior)))))
+  (let ((server (require-remoting-server)))
+    (and (host=? (get-host~ ior) (get-host~ server))
+         (service=? (get-service~ ior) (get-service~ server)))))
 
 
 (definition public (ior=? x y)
@@ -245,11 +253,11 @@
 
 
 (definition (host=? x y)
-  (string=? x y))
+  (equal? x y))
 
 
 (definition (service=? x y)
-  (= x y))
+  (eqv? x y))
 
 
 (definition (reference=? x y)

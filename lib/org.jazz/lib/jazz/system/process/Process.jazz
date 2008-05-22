@@ -45,7 +45,6 @@
         (jazz.jrm)
         (jazz.library)
         (jazz.library.component)
-        (jazz.library.shell)
         (jazz.network)
         (jazz.platform)
         (jazz.system)
@@ -200,10 +199,8 @@
     )
   
   
-  ;; tofix
   (method (finalize-phase rest)
     (finalize-environment rest)
-    @unimplemented
     (start-servers)
     (setup-loop)
     (finalize-process rest)
@@ -227,10 +224,8 @@
     (finish-process rest))
   
   
-  ;; tofix
   (method protected virtual (finish-environment rest)
     (register-base-objects)
-    @unimplemented
     (setup-controller))
   
   
@@ -671,11 +666,14 @@
   
   (method protected (start-remoting-server)
     (unless remoting-server
-      (let ((server (new Remoting-Server name: "Remote" service: Remoting-Service)))
-        (start~ server)
-        (if (wait-started~ server error?: #f)
-            (set! remoting-server server)
-          (error "Unable to start remoting server")))))
+      ;; for tests
+      (let ((host Remoting-Host)
+            (service (if (command-argument "debug") 32001 Remoting-Service)))
+        (let ((server (new Remoting-Server name: "Remote" host: host service: service)))
+          (start~ server)
+          (if (wait-started~ server error?: #f)
+              (set! remoting-server server)
+            (error "Unable to start remoting server"))))))
   
   
   (method protected (stop-remoting-server)
@@ -846,6 +844,7 @@
                                  (debug?: debug? #f)
                                  (wait-ready: wait-ready {})
                                  (wait-ready-timeout: wait-ready-timeout 5000))
+    @convert
     (let* ((root          (parse~ {Directory Jazz}))
            (launcher      (parse~ {File Install "Launcher.exe"}))
            (homedir-arg   (if homedir (format " /homedir \"{a}/{a}\"" root homedir) ""))

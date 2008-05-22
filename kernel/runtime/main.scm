@@ -355,7 +355,6 @@
     jazz.library.component
     jazz.library.listener
     jazz.library.node
-    jazz.library.shell
     jazz.license
     jazz.media
     jazz.network

@@ -265,32 +265,29 @@
 ;;;
 
 
-@w
 (definition event-thread
-  (make-thread
-    (function ()
-      (process-events))))
+  (thread-start!
+    (make-thread
+      (function ()
+        (process-events)))))
 
 
-@w
 (definition (process-events)
   (let (loop)
-    (let ((thunk (thread-receive)))
-      (thunk)
+    (let ((msg (thread-receive)))
+      (debug (MSG-message-ref msg))
+      (process-message msg)
       (loop))))
 
 
-(definition event-mutex
-  (make-mutex))
+(definition (post-event msg)
+  ;;(thread-send event-thread msg)
+  )
 
 
-(definition (with-event-mutex thunk)
-  (dynamic-wind
-    (function ()
-      (mutex-lock! event-mutex))
-    thunk
-    (function ()
-      (mutex-unlock! event-mutex))))
+(definition (send-event msg)
+  (thread-send event-thread msg)
+  )
 
 
 (definition (process-message msg)
@@ -299,7 +296,7 @@
     (DispatchMessage msg)))
 
 
-(definition (platform-process-messages lock?)
+(definition (platform-process-messages)
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
@@ -308,15 +305,15 @@
   
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
-      (let ((msg (read port)))
-        ;; because of modal dialog doing their processing inside an event we have to be
-        ;; carefull not to deadlock as gambit doesn't implement recursive mutex semantics
-        ;; note that this solution is not ideal and could be improved
-        (if lock?
-            (with-event-mutex
-              (function ()
-                (process-message msg)))
-          (process-message msg)))
+      (let ((msg (read port))
+            (use-event-thread? #t))
+        (cond (use-event-thread?
+               (thread-send event-thread msg))
+              (else
+               (debug (MSG-message-ref msg))
+               (process-message msg)))
+        ;;(post-event msg)
+        )
       (loop))))
 
 

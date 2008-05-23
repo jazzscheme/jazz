@@ -356,6 +356,7 @@
     jazz.library.listener
     jazz.library.node
     jazz.license
+    jazz.literals
     jazz.media
     jazz.network
     jazz.platform

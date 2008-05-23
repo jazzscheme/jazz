@@ -55,26 +55,26 @@
 (class Process extends Object
 
 
-  (slot loop                        initialize {})
-  (slot loop-running?               initialize #f)
-  (slot loop-exit                   initialize #f)
-  (slot remoting-server             initialize {})
-  (slot local-process-server        initialize {})
-  (slot local-directory-server      initialize {})
-  (slot local-debuggee              initialize {})
-  (slot controller-process-server   initialize {})
-  (slot controller-directory-server initialize {})
-  (slot controller-debugger-server  initialize {})
-  (slot router-server               initialize {})
-  (slot standard-input              initialize {})
-  (slot standard-output             initialize {})
-  (slot standard-error              initialize {})
-  (slot console-input               initialize {})
-  (slot console-output              initialize {})
-  (slot preferences-root            initialize {})
-  (slot preferences-designer        initialize {})
-  (slot context                     initialize {})
-  (slot logger                      initialize {})
+  (slot loop                 initialize {})
+  (slot loop-running?        initialize #f)
+  (slot loop-exit            initialize {})
+  (slot remoting-server      initialize {})
+  (slot local-process        initialize {})
+  (slot local-directory      initialize {})
+  (slot local-debuggee       initialize {})
+  (slot controller-process   initialize {})
+  (slot controller-directory initialize {})
+  (slot controller-debugger  initialize {})
+  (slot router-server        initialize {})
+  (slot standard-input       initialize {})
+  (slot standard-output      initialize {})
+  (slot standard-error       initialize {})
+  (slot console-input        initialize {})
+  (slot console-output       initialize {})
+  (slot preferences-root     initialize {})
+  (slot preferences-designer initialize {})
+  (slot context              initialize {})
+  (slot logger               initialize {})
 
   
   ;;;
@@ -670,34 +670,34 @@
 
 
   ;;;
-  ;;;; Process Server
+  ;;;; Local Process
   ;;;
   
   
-  (method public (get-local-process-server)
-    (when (not local-process-server)
-      (set! local-process-server (new-local-process-server)))
-    local-process-server)
+  (method public (get-local-process)
+    (when (not local-process)
+      (set! local-process (new-local-process)))
+    local-process)
 
   
-  (method protected virtual (new-local-process-server)
+  (method protected virtual (new-local-process)
     #f
     @convert
     (new Process-Server-Local-Proxy (new Process-Server self)))
 
 
   ;;;
-  ;;;; Directory Server
+  ;;;; Local Directory
   ;;;
   
   
-  (method public (get-local-directory-server)
-    (when (not local-directory-server)
-      (set! local-directory-server (new-local-directory-server)))
-    local-directory-server)
+  (method public (get-local-directory)
+    (when (not local-directory)
+      (set! local-directory (new-local-directory)))
+    local-directory)
 
   
-  (method protected virtual (new-local-directory-server)
+  (method protected virtual (new-local-directory)
     #f
     @convert
     (new Directory-Server-Local-Proxy (new Directory-Server)))
@@ -739,20 +739,20 @@
   ;;;
   
 
-  (method public (get-controller-process-server)
-    controller-process-server)
+  (method public (get-controller-process)
+    controller-process)
   
 
-  (method public (get-controller-directory-server)
-    controller-directory-server)
+  (method public (get-controller-directory)
+    controller-directory)
   
   
   (method protected virtual (setup-controller)
     (when (command-argument "controllerhost")
-      (attach-to-controller (new-controller-process-server))))
+      (attach-to-controller (new-controller-process))))
   
   
-  (method protected virtual (new-controller-process-server)
+  (method protected virtual (new-controller-process)
     (let* ((host (new Host ip: (parse-integer (command-argument "controllerhost"))))
            (port (parse-integer (command-argument "controllerport")))
            (remotable 'Process-Server-Remotable)
@@ -762,11 +762,11 @@
   
   (method public (attach-to-controller ct)
     (detach-from-controller reattach-local?: #f)
-    (set! controller-process-server ct)
-    (set! controller-directory-server (get-directory-server~ controller-process-server))
-    (set! controller-debugger-server (find-object~ controller-directory-server 'debugger))
+    (set! controller-process ct)
+    (set! controller-directory (get-directory-server~ controller-process))
+    (set! controller-debugger (find-object~ controller-directory 'debugger))
     (setup-local-debuggee)
-    (attach-debuggee~ controller-debugger-server local-debuggee))
+    (attach-debuggee~ controller-debugger local-debuggee))
   
   
   (method public (setup-local-debuggee)
@@ -776,10 +776,10 @@
   
   
   (method public (detach-from-controller (reattach-local?: reattach-local? #t))
-    (when controller-process-server
+    (when controller-process
       (detach-from-debugger)
-      (set! controller-process-server {})
-      (set! controller-directory-server {})
+      (set! controller-process {})
+      (set! controller-directory {})
       (set! local-debuggee {})
       (when reattach-local?
         (reattach-local-controller))))
@@ -794,8 +794,8 @@
   ;;;
 
 
-  (method public (get-controller-debugger-server)
-    controller-debugger-server)
+  (method public (get-controller-debugger)
+    controller-debugger)
   
   
   (method public virtual (get-local-debugger-server)
@@ -803,10 +803,10 @@
   
   
   (method public (detach-from-debugger)
-    (when controller-debugger-server
-      (when (live?~ controller-debugger-server)
-        (detach-debuggee~ controller-debugger-server local-debuggee))
-      (set! controller-debugger-server {})))
+    (when controller-debugger
+      (when (live?~ controller-debugger)
+        (detach-debuggee~ controller-debugger local-debuggee))
+      (set! controller-debugger {})))
 
 
   ;;;
@@ -999,7 +999,7 @@
          ((cancel)
           (stop-debugging))
          ((yes)
-          (cond ((not controller-debugger-server)
+          (cond ((not controller-debugger)
                  (dump-stack exception: exception)
                  (throw-stop))
                 ((not (primordial-thread?))

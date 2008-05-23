@@ -337,20 +337,7 @@
 (definition expose-store (make-table))
 
 
-(definition event-mutex
-  (make-mutex))
-
-
-(definition (with-event-mutex thunk)
-  (dynamic-wind
-    (function ()
-      (mutex-lock! event-mutex))
-    thunk
-    (function ()
-      (mutex-unlock! event-mutex))))
-
-
-(definition (platform-process-messages lock?)
+(definition (platform-process-messages)
   (let ((msg (XEvent-make)))
     (while (XNextEvent default-x11-display msg)
       (let* ((any-event (XEvent-xany-ref msg))
@@ -358,13 +345,8 @@
         (let ((window (get-window handle))
               (wparam 0)
               (lparam 0))
-	  (if lock?
-	      (with-event-mutex
-	       (function ()
-	          (when window
-		     (call-dispatch-message~ window msg wparam lparam))))
-	      (when window
-		(call-dispatch-message~ window msg wparam lparam)))))
+          (when window
+            (call-dispatch-message~ window msg wparam lparam))))
       (when (= 0 (XPending default-x11-display))
         (process-expose)))))
 

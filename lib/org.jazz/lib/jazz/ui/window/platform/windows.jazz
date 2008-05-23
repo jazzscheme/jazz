@@ -265,41 +265,24 @@
 ;;;
 
 
-@w
-(definition event-thread
-  (make-thread
-    (function ()
-      (process-events))))
+(definition (make-message-thread)
+  (let ((thread
+          (make-thread
+            (function ()
+              (process-messages))
+            'message)))
+    (thread-specific-set! thread #t)
+    thread))
 
 
-@w
-(definition (process-events)
-  (let (loop)
-    (let ((thunk (thread-receive)))
-      (thunk)
-      (loop))))
-
-
-(definition event-mutex
-  (make-mutex))
-
-
-(definition (with-event-mutex thunk)
-  (dynamic-wind
-    (function ()
-      (mutex-lock! event-mutex))
-    thunk
-    (function ()
-      (mutex-unlock! event-mutex))))
-
-
-(definition (process-message msg)
-  (unless (translate-shortcut msg)
-    (TranslateMessage msg)
-    (DispatchMessage msg)))
-
-
-(definition (platform-process-messages lock?)
+(definition (process-messages)
+  (define (process-message msg)
+    (send-event
+      (function ()
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg)))))
+  
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
@@ -309,15 +292,46 @@
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
       (let ((msg (read port)))
-        ;; because of modal dialog doing their processing inside an event we have to be
-        ;; carefull not to deadlock as gambit doesn't implement recursive mutex semantics
-        ;; note that this solution is not ideal and could be improved
-        (if lock?
-            (with-event-mutex
-              (function ()
-                (process-message msg)))
-          (process-message msg)))
-      (loop))))
+        (process-message msg))
+      (when (thread-specific (current-thread))
+        (loop)))))
+
+
+(definition event-thread
+  (primordial-thread))
+
+
+(definition (event-thread?)
+  (eq? (current-thread) event-thread))
+
+
+(definition (setup-event-thread)
+  (thread-priority-boost-set! event-thread 1))
+
+
+(definition (process-events)
+  (setup-event-thread)
+  (let ((thread (make-message-thread)))
+    (thread-start! thread)
+    (unwind-protect
+        (let (loop)
+          (let ((thunk (thread-receive)))
+            (thunk)
+            (loop)))
+      (thread-specific-set! thread #f))))
+
+
+(definition (send-event thunk)
+  (if (event-thread?)
+      (thunk)
+    (let ((mutex (make-mutex)))
+      (mutex-lock! mutex)
+      (thread-send event-thread
+        (function ()
+          (unwind-protect
+              (thunk)
+            (mutex-unlock! mutex))))
+      (mutex-lock! mutex))))
 
 
 ;;;
@@ -897,8 +911,8 @@
 (definition (load-cursor cursor)
   (if (number? cursor)
       (LoadCursorInt cursor)
-    (let* ((cursor  (if (file? cursor) cursor (get-resource~ (get-application) 'cursor (get-name~ cursor))))
-           (ident   (parse~ cursor)))
+    (let* ((cursor (if (file? cursor) cursor (get-resource~ (get-application) 'cursor (get-name~ cursor))))
+           (ident (parse~ cursor)))
       (LoadImage NULL ident IMAGE_CURSOR 0 0 LR_LOADFROMFILE))))
 
 

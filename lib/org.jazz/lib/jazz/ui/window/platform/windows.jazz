@@ -265,38 +265,29 @@
 ;;;
 
 
-(definition event-thread
+(definition message-thread
+  {})
+
+
+(definition (platform-start-message-thread)
+  (set! message-thread (make-message-thread)))
+
+
+(definition (make-message-thread)
   (thread-start!
     (make-thread
       (function ()
-        (process-events)))))
+        (process-messages)))))
 
 
-(definition (process-events)
-  (let (loop)
-    (let ((msg (thread-receive)))
-      (debug (MSG-message-ref msg))
-      (process-message msg)
-      (loop))))
-
-
-(definition (post-event msg)
-  ;;(thread-send event-thread msg)
-  )
-
-
-(definition (send-event msg)
-  (thread-send event-thread msg)
-  )
-
-
-(definition (process-message msg)
-  (unless (translate-shortcut msg)
-    (TranslateMessage msg)
-    (DispatchMessage msg)))
-
-
-(definition (platform-process-messages)
+(definition (process-messages)
+  (define (process-message msg)
+    (send-event
+      (function ()
+        (unless (translate-shortcut msg)
+          (TranslateMessage msg)
+          (DispatchMessage msg)))))
+  
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
@@ -305,16 +296,34 @@
   
   (let ((port (open-event-queue QS_ALLINPUT)))
     (let (loop)
-      (let ((msg (read port))
-            (use-event-thread? #t))
-        (cond (use-event-thread?
-               (thread-send event-thread msg))
-              (else
-               (debug (MSG-message-ref msg))
-               (process-message msg)))
-        ;;(post-event msg)
-        )
+      (let ((msg (read port)))
+        (process-message msg))
       (loop))))
+
+
+(definition event-thread
+  (primary-thread))
+
+
+(definition (platform-process-events)
+  (let (loop)
+    (let ((thunk (thread-receive)))
+      (thunk)
+      (loop))))
+
+
+(definition (send-event thunk)
+  (let ((mutex (make-mutex)))
+    (mutex-lock! mutex)
+    (thread-send event-thread
+      (function ()
+        (dynamic-wind
+          (function ()
+            )
+          thunk
+          (function ()
+            (mutex-unlock! mutex)))))
+    (mutex-lock! mutex)))
 
 
 ;;;

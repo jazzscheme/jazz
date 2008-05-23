@@ -41,7 +41,7 @@
 
 
 (define jazz.version
-  "2.0a1")
+  "2.0b1")
 
 
 (define jazz.gambit-version
@@ -49,7 +49,7 @@
 
 
 (define jazz.gambit-stamp
-  1210706839)
+  1211568896)
 
 
 (define (jazz.validate-version)

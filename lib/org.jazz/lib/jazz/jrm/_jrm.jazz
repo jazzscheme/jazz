@@ -76,23 +76,21 @@
 
 
 (definition (invoke-remote kind method-name remote-proxy arguments)
-  (;with-default-exception-handler
-    (function ()
-      (let ((method-name (marshall method-name))
-            (proxy-ior (marshall remote-proxy))
-            (arguments (marshall arguments)))
-        (let ((host (get-host~ proxy-ior))
-              (service (get-service~ proxy-ior)))
-          (let ((port (open-tcp-client (list server-address: host port-number: service))))
-            (write-remote-message (list kind method-name proxy-ior arguments) port)
-            (case kind
-              ((send)
-               (bind (err result) (read-remote-result port)
-                 (if (not-null? err)
-                     (error "Remote error while executing {s}: {a}" method-name err)
-                   (unmarshall result))))
-              ((post)
-               (unspecified)))))))))
+  (let ((method-name (marshall method-name))
+        (proxy-ior (marshall remote-proxy))
+        (arguments (marshall arguments)))
+    (let ((host (get-host~ proxy-ior))
+          (service (get-service~ proxy-ior)))
+      (let ((port (open-tcp-client (list server-address: host port-number: service))))
+        (write-remote-message (list kind method-name proxy-ior arguments) port)
+        (case kind
+          ((send)
+           (bind (err result) (read-remote-result port)
+             (if err
+                 (error "Remote error while executing {s}: {a}" method-name err)
+               (unmarshall result))))
+          ((post)
+           (unspecified)))))))
 
 
 (definition (write-remote-message info port)
@@ -117,10 +115,7 @@
       ((send)
        (write-remote-result (execute-remote method-name proxy-ior arguments) port))
       ((post)
-       (dispatch-remote
-         (unmarshall method-name)
-         (unmarshall proxy-ior)
-         (unmarshall arguments))))))
+       (dispatch-remote method-name proxy-ior arguments)))))
 
 
 (definition (read-remote-message port)
@@ -130,20 +125,18 @@
 (definition (execute-remote method-name proxy-ior arguments)
   (with-exception-handler
     (function (exc)
-      (dump-exception exc)
       (continuation-capture
         (function (cont)
-          (list (exception-reason exc) '()))))
+          (list (exception-reason exc) #f))))
     (function ()
-      (list '() (marshall (dispatch-remote
-                            (unmarshall method-name)
-                            (unmarshall proxy-ior)
-                            (unmarshall arguments)))))))
+      (list #f (marshall (dispatch-remote method-name proxy-ior arguments))))))
 
 
-(definition (dispatch-remote method-name local-object arguments)
-  (let ((dispatcher (new (dispatcher-class~ (proxy-interface~ local-object)))))
-    (dispatch~ dispatcher method-name local-object arguments)))
+(definition (dispatch-remote method-name proxy-ior arguments)
+  (let ((method-name (unmarshall method-name))
+        (local-proxy (unmarshall proxy-ior))
+        (arguments (unmarshall arguments)))
+    (apply (dispatch local-proxy method-name) local-proxy arguments)))
 
 
 (definition (write-remote-result info port)
@@ -173,7 +166,7 @@
 (definition (marshall-proxy proxy)
   (if (remote-proxy? proxy)
       (marshall-remote-proxy proxy)
-    (marshall-local-object proxy)))
+    (marshall-local-proxy proxy)))
 
 
 ;;;
@@ -185,13 +178,13 @@
   (is? object Local-Proxy))
 
 
-(definition (marshall-local-object object)
+(definition (marshall-local-proxy proxy)
   (let ((server (require-remoting-server)))
     (new IOR
       (get-host~ server)
       (get-service~ server)
-      (identifier-name (get-name~ (stub-interface~ object)))
-      (object->reference object))))
+      (identifier-name (get-name~ (stub-interface~ proxy)))
+      (object->reference proxy))))
 
 
 (definition (unmarshall-local-proxy stub-interface ior)
@@ -265,14 +258,10 @@
 
 
 (definition public (unmarshall-ior ior)
-  (let ((stub-interface (load-stub-interface ior)))
+  (let ((stub-interface (autoload (get-stub-interface~ ior))))
     (if (local-ior? ior)
         (unmarshall-local-proxy stub-interface ior)
       (unmarshall-remote-proxy stub-interface ior))))
-
-
-(definition (load-stub-interface ior)
-  (autoload (get-stub-interface~ ior)))
 
 
 ;;;
@@ -440,7 +429,7 @@
 
 
 (definition (decode object)
-  (cond ((eof-object? object)
+  (cond ((null? object)
          object)
         ((number? object)
          object)
@@ -450,7 +439,7 @@
          object)
         ((keyword? object)
          object)
-        ((null? object)
+        ((eof-object? object)
          object)
         ((encoded? object)
          (receive (kind info) (decode-info object)

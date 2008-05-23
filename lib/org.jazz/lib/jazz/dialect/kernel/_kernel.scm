@@ -602,6 +602,7 @@
 (native jazz.thread-join!)
 (native jazz.thread-send)
 (native jazz.thread-receive)
+(native jazz.thread-thread-group)
 (native jazz.thread-group->thread-group-list)
 (native jazz.thread-group->thread-group-vector)
 (native jazz.thread-group->thread-list)

@@ -142,8 +142,6 @@
   
   
   (method public (process-modal)
-    (when (not (primordial-thread?))
-      (error "Modals not yet supported in threads"))
     (close-popups)
     (release-captured-view)
     (prog1 (let* ((application (get-application))
@@ -159,11 +157,11 @@
                    (when toplevel
                      (update-windowing-actions~ application))
                    (show)
-                   (catch Modal-Done
-                     (while #t
-                       (catch Cancel-Signal
-                         (make-message-thread)
-                         (process-events))))
+                   (send-event
+                     (function ()
+                       (catch Modal-Done
+                         (catch Cancel-Signal
+                           (process-events)))))
                    (cond (modal-closed? (throw-cancel))
                          (modal-signal (signal modal-signal))
                          (else modal-result)))

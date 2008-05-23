@@ -322,14 +322,16 @@
 
 
 (definition (send-event thunk)
-  (let ((mutex (make-mutex)))
-    (mutex-lock! mutex)
-    (thread-send event-thread
-      (function ()
-        (unwind-protect
-            (thunk)
-          (mutex-unlock! mutex))))
-    (mutex-lock! mutex)))
+  (if (event-thread?)
+      (thunk)
+    (let ((mutex (make-mutex)))
+      (mutex-lock! mutex)
+      (thread-send event-thread
+        (function ()
+          (unwind-protect
+              (thunk)
+            (mutex-unlock! mutex))))
+      (mutex-lock! mutex))))
 
 
 ;;;

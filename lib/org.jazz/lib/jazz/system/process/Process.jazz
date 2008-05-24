@@ -38,7 +38,9 @@
 (library jazz.system.process.Process jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.debugger)
         (jazz.designer)
         (jazz.development)
         (jazz.io)
@@ -68,9 +70,6 @@
   (slot controller-register  initialize {})
   (slot controller-debugger  initialize {})
   (slot router-server        initialize {})
-  (slot standard-input       initialize {})
-  (slot standard-output      initialize {})
-  (slot standard-error       initialize {})
   (slot console-input        initialize {})
   (slot console-output       initialize {})
   (slot preferences-root     initialize {})
@@ -340,7 +339,7 @@
   
   
   (method (modify-connections)
-    @windows-specific
+    @wait
     (when (in-manifest? 'SQL-Connections-Manager)
       (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
   
@@ -364,43 +363,6 @@
       (let ((branch (find-child~ component context)))
         (when branch
           (set-active-branch~ component branch)))))
-  
-  
-  ;;;
-  ;;;; Input/Output
-  ;;;
-  
-  
-  @windows-specific
-  (method (setup-standard-input/output-handles)
-    (let ((si (new STARTUPINFO)))
-      (GetStartupInfo si)
-      (if (not (mask-bit-set? (get si 'dwFlags) STARTF_USESTDHANDLES))
-          (error "Process is not bound to standard input/output handles")
-        (set! standard-input  (new Pipe-Reader  (get si 'hStdInput)))
-        (set! standard-output (new Pipe-Printer (get si 'hStdOutput)))
-        (set! standard-error  (new Pipe-Printer (get si 'hStdError))))))
-  
-  
-  @windows-specific
-  (method public (get-standard-input)
-    (when (not standard-input)
-      (setup-standard-input/output-handles))
-    standard-input)
-  
-  
-  @windows-specific
-  (method public (get-standard-output)
-    (when (not standard-output)
-      (setup-standard-input/output-handles))
-    standard-output)
-  
-  
-  @windows-specific
-  (method public (get-standard-error)
-    (when (not standard-error)
-      (setup-standard-input/output-handles))
-    standard-error)
   
   
   ;;;
@@ -781,7 +743,6 @@
   
   
   (method public (setup-local-debuggee)
-    @convert
     (when (not local-debuggee)
       (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee self)))))
   
@@ -809,7 +770,7 @@
     controller-debugger)
   
   
-  (method public virtual (get-local-debugger-server)
+  (method public virtual (get-local-debugger)
     {})
   
   

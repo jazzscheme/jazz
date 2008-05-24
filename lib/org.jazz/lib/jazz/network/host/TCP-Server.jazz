@@ -49,6 +49,7 @@
   (slot name)
   (slot host)
   (slot service)
+  (slot socket-info)
   (slot started-condition)
   (slot state initialize 'stopped)
   
@@ -59,6 +60,7 @@
       (set! name~self name)
       (set! host~self host)
       (set! service~self service)
+      (set! socket-info~self {})
       (set! started-condition~self (make-condition))))
 
   
@@ -77,6 +79,10 @@
   
   (method public (get-service)
     service)
+  
+  
+  (method public (get-socket-info)
+    socket-info)
   
   
   (method public (get-state)
@@ -148,6 +154,7 @@
       (let ((server-port (open-tcp-server (list server-address: address port-number: number eol-encoding: 'cr-lf))))
         (unwind-protect
             (begin
+              (set! socket-info (tcp-server-socket-info server-port))
               (set-state 'started)
               ;;(condition-broadcast! started-condition)
               (let (loop)
@@ -162,7 +169,16 @@
                           'tcp-connection)))
                     (loop)))))
           (close-port server-port)
-          (set-state 'stopped)))))
+          (set-state 'stopped)
+          (set! socket-info {})))))
+  
+  
+  (method (listening-host)
+    (essay socket-info (socket-info-address socket-info)))
+  
+  
+  (method (listening-port)
+    (essay socket-info (socket-info-port-number socket-info)))
   
   
   ;;;

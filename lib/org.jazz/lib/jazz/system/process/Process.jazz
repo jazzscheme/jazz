@@ -38,43 +38,44 @@
 (library jazz.system.process.Process jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.debugger)
         (jazz.designer)
         (jazz.development)
         (jazz.io)
         (jazz.jrm)
+        (jazz.jrm.register.stub)
         (jazz.library)
         (jazz.library.component)
         (jazz.network)
         (jazz.platform)
         (jazz.system)
         (jazz.system.process)
+        (jazz.system.process.stub)
         (jazz.utilities))
 
 
 (class Process extends Object
 
 
-  (slot loop                        initialize {})
-  (slot loop-running?               initialize #f)
-  (slot loop-exit                   initialize #f)
-  (slot remoting-server             initialize {})
-  (slot local-process-server        initialize {})
-  (slot local-directory-server      initialize {})
-  (slot local-debuggee              initialize {})
-  (slot controller-process-server   initialize {})
-  (slot controller-directory-server initialize {})
-  (slot controller-debugger-server  initialize {})
-  (slot router-server               initialize {})
-  (slot standard-input              initialize {})
-  (slot standard-output             initialize {})
-  (slot standard-error              initialize {})
-  (slot console-input               initialize {})
-  (slot console-output              initialize {})
-  (slot preferences-root            initialize {})
-  (slot preferences-designer        initialize {})
-  (slot context                     initialize {})
-  (slot logger                      initialize {})
+  (slot loop                 initialize {})
+  (slot loop-running?        initialize #f)
+  (slot loop-exit            initialize {})
+  (slot remoting-server      initialize {})
+  (slot local-process        initialize {})
+  (slot local-register       initialize {})
+  (slot local-debuggee       initialize {})
+  (slot controller-process   initialize {})
+  (slot controller-register  initialize {})
+  (slot controller-debugger  initialize {})
+  (slot router-server        initialize {})
+  (slot console-input        initialize {})
+  (slot console-output       initialize {})
+  (slot preferences-root     initialize {})
+  (slot preferences-designer initialize {})
+  (slot context              initialize {})
+  (slot logger               initialize {})
 
   
   ;;;
@@ -146,7 +147,6 @@
   
   (method public virtual (boot-environment rest)
     (initialize-aliases)
-    @unimplemented
     (register-versions)
     (prepare-phase rest)
     (start-phase rest)
@@ -159,7 +159,6 @@
   
   
   (method (register-versions)
-    (unimplemented 'register-versions)
     @unimplemented
     (register-crash-info windows-version: {} (present~ (get-windows-version))))
   
@@ -258,9 +257,7 @@
   (method public virtual (close-environment)
     (close-preferences)
     (detach-from-controller)
-    (stop-servers)
-    @windows-specific
-    (stop-winsock))
+    (stop-servers))
   
   
   (method virtual (close-preferences)
@@ -342,7 +339,7 @@
   
   
   (method (modify-connections)
-    @windows-specific
+    @wait
     (when (in-manifest? 'SQL-Connections-Manager)
       (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
   
@@ -366,43 +363,6 @@
       (let ((branch (find-child~ component context)))
         (when branch
           (set-active-branch~ component branch)))))
-  
-  
-  ;;;
-  ;;;; Input/Output
-  ;;;
-  
-  
-  @windows-specific
-  (method (setup-standard-input/output-handles)
-    (let ((si (new STARTUPINFO)))
-      (GetStartupInfo si)
-      (if (not (mask-bit-set? (get si 'dwFlags) STARTF_USESTDHANDLES))
-          (error "Process is not bound to standard input/output handles")
-        (set! standard-input  (new Pipe-Reader  (get si 'hStdInput)))
-        (set! standard-output (new Pipe-Printer (get si 'hStdOutput)))
-        (set! standard-error  (new Pipe-Printer (get si 'hStdError))))))
-  
-  
-  @windows-specific
-  (method public (get-standard-input)
-    (when (not standard-input)
-      (setup-standard-input/output-handles))
-    standard-input)
-  
-  
-  @windows-specific
-  (method public (get-standard-output)
-    (when (not standard-output)
-      (setup-standard-input/output-handles))
-    standard-output)
-  
-  
-  @windows-specific
-  (method public (get-standard-error)
-    (when (not standard-error)
-      (setup-standard-input/output-handles))
-    standard-error)
   
   
   ;;;
@@ -653,14 +613,11 @@
   
   (method protected (start-remoting-server)
     (unless remoting-server
-      (let ((host Remoting-Host)
-            ;; for tests
-            (service (if (command-argument "debug") 32001 Remoting-Service)))
-        (let ((server (new Remoting-Server name: "Remote" host: host service: service)))
-          (start~ server)
-          (if (wait-started~ server error?: #f)
-              (set! remoting-server server)
-            (error "Unable to start remoting server"))))))
+      (let ((server (new Remoting-Server name: "Remoting" host: Remoting-Host service: Remoting-Service)))
+        (start~ server)
+        (if (wait-started~ server error?: #f)
+            (set! remoting-server server)
+          (error "Unable to start remoting server")))))
   
   
   (method protected (stop-remoting-server)
@@ -670,37 +627,50 @@
 
 
   ;;;
-  ;;;; Process Server
+  ;;;; Stub
   ;;;
   
   
-  (method public (get-local-process-server)
-    (when (not local-process-server)
-      (set! local-process-server (new-local-process-server)))
-    local-process-server)
-
+  (method public (get-name)
+    (process-name))
   
-  (method protected virtual (new-local-process-server)
-    #f
-    @convert
-    (new Process-Server-Local-Proxy (new Process-Server self)))
+  
+  (method public (get-icon)
+    (process-icon))
+  
+  
+  (method public (get-register)
+    local-register)
 
 
   ;;;
-  ;;;; Directory Server
+  ;;;; Local Process
   ;;;
   
   
-  (method public (get-local-directory-server)
-    (when (not local-directory-server)
-      (set! local-directory-server (new-local-directory-server)))
-    local-directory-server)
+  (method public (get-local-process)
+    (when (not local-process)
+      (set! local-process (new-local-process)))
+    local-process)
 
   
-  (method protected virtual (new-local-directory-server)
-    #f
-    @convert
-    (new Directory-Server-Local-Proxy (new Directory-Server)))
+  (method protected virtual (new-local-process)
+    (new Process-Local-Proxy self))
+
+
+  ;;;
+  ;;;; Local Register
+  ;;;
+  
+  
+  (method public (get-local-register)
+    (when (not local-register)
+      (set! local-register (new-local-register)))
+    local-register)
+
+  
+  (method protected virtual (new-local-register)
+    (new Register-Local-Proxy (new Register)))
   
   
   (method protected virtual (register-base-objects)
@@ -739,47 +709,46 @@
   ;;;
   
 
-  (method public (get-controller-process-server)
-    controller-process-server)
+  (method public (get-controller-process)
+    controller-process)
   
 
-  (method public (get-controller-directory-server)
-    controller-directory-server)
+  (method public (get-controller-register)
+    controller-register)
   
   
   (method protected virtual (setup-controller)
     (when (command-argument "controllerhost")
-      (attach-to-controller (new-controller-process-server))))
+      (attach-to-controller (new-controller-process))))
   
   
-  (method protected virtual (new-controller-process-server)
-    (let* ((host (new Host ip: (parse-integer (command-argument "controllerhost"))))
-           (port (parse-integer (command-argument "controllerport")))
-           (remotable 'Process-Server-Remotable)
-           (ior (new IOR host port remotable {})))
+  (method protected virtual (new-controller-process)
+    (let* ((host (string->host (command-argument "controllerhost")))
+           (port (string->port (command-argument "controllerport")))
+           (stub 'Process-Stub)
+           (ior (new IOR host port stub 'process)))
       (unmarshall ior)))
 
   
   (method public (attach-to-controller ct)
     (detach-from-controller reattach-local?: #f)
-    (set! controller-process-server ct)
-    (set! controller-directory-server (get-directory-server~ controller-process-server))
-    (set! controller-debugger-server (find-object~ controller-directory-server 'debugger))
+    (set! controller-process ct)
+    (set! controller-register (get-register~ controller-process))
+    (set! controller-debugger (find-object~ controller-register 'debugger))
     (setup-local-debuggee)
-    (attach-debuggee~ controller-debugger-server local-debuggee))
+    (attach-debuggee~ controller-debugger local-debuggee))
   
   
   (method public (setup-local-debuggee)
-    @convert
     (when (not local-debuggee)
       (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee self)))))
   
   
   (method public (detach-from-controller (reattach-local?: reattach-local? #t))
-    (when controller-process-server
+    (when controller-process
       (detach-from-debugger)
-      (set! controller-process-server {})
-      (set! controller-directory-server {})
+      (set! controller-process {})
+      (set! controller-register {})
       (set! local-debuggee {})
       (when reattach-local?
         (reattach-local-controller))))
@@ -794,19 +763,19 @@
   ;;;
 
 
-  (method public (get-controller-debugger-server)
-    controller-debugger-server)
+  (method public (get-controller-debugger)
+    controller-debugger)
   
   
-  (method public virtual (get-local-debugger-server)
+  (method public virtual (get-local-debugger)
     {})
   
   
   (method public (detach-from-debugger)
-    (when controller-debugger-server
-      (when (live?~ controller-debugger-server)
-        (detach-debuggee~ controller-debugger-server local-debuggee))
-      (set! controller-debugger-server {})))
+    (when controller-debugger
+      (when (live?~ controller-debugger)
+        (detach-debuggee~ controller-debugger local-debuggee))
+      (set! controller-debugger {})))
 
 
   ;;;
@@ -999,7 +968,7 @@
          ((cancel)
           (stop-debugging))
          ((yes)
-          (cond ((not controller-debugger-server)
+          (cond ((not controller-debugger)
                  (dump-stack exception: exception)
                  (throw-stop))
                 ((not (primordial-thread?))

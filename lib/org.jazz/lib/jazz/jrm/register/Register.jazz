@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; IDE File-Menu
+;;;; Register
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,45 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ide.IDE-File-Menu jazz
+(library jazz.jrm.register.Register jazz
 
 
-(import (jazz.ide)
-        (jazz.jml)
+(import (jazz.jrm)
         (jazz.library)
-        (jazz.ui)
         (jazz.utilities))
 
 
-(class IDE-File-Menu extends File-Menu
+(class Register extends Object
   
   
-  (form
-    (<install>
-      (<Label-Item>     name: on-open-text         title: "Open As Text..." before: on-close action: {Action jedi open-text})
-      (<Label-Item>     name: on-open-jazz-text    title: "Open As &Jazz Text..." before: on-close action: {Action jedi open-jazz-text})
-      (<Label-Item>     name: on-save-workspace    title: "Save &Workspace" before: on-exit-application action: {Action jedi save-workspace})
-      (<Label-Item>     name: on-exit-without-save title: "Exit &Without Saving" before: on-exit-application action: {Action jedi exit-without-save})
-      (<Separator-Item>                            before: on-exit-application)))))
+  (slot objects initialize '())
+  
+  
+  (method public (find-object name (error?: error? #t))
+    (let ((info (assq name objects)))
+      (if info
+          (cdr info)
+        (when error?
+          (error "Unable to find {t} in register" name)))))
+  
+  
+  ;;;
+  ;;;; Registration
+  ;;;
+  
+  
+  (method public (register-object name object (error?: error? #t))
+    (if (find-object name error?: #f)
+        (when error?
+          (error "Object {t} is already registered" name))
+      (set! objects (cons (cons name object) objects))
+      name))
+  
+  
+  (method public (unregister-object name (error?: error? #t))
+    (let ((pair (assq name objects)))
+      (if (not pair)
+          (when error?
+            (error "Object {t} is not registered" name))
+        (set! objects (remove! pair objects))
+        name)))))

@@ -38,7 +38,9 @@
 (library jazz.debugger.debugger.Debuggers-View jazz
 
 
-(import (jazz.debugger)
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.debugger)
         (jazz.io)
         (jazz.jml)
         (jazz.language.jazz)
@@ -63,15 +65,13 @@
 
   (form
     (<install>                               layout-type: border
-      (<Layout-View>        name: tools      size: {Dimension 100 33} layout-type: flow layout-insets: {Rect 0 6 0 0} location: north
+      (<Layout-View>        name: tools
         (<Push-Tool>        name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler :form on-open-snapshot})
-        (<Separator>                         size: {Dimension 5 0})
+        (<Separator>                         size: {Dimension 8 0})
         (<Push-Tool>        name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
         (<Push-Tool>        name: terminate  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Toplevel" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-toplevel})
         (<Push-Tool>        name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
-        (<Separator>                         size: {Dimension 5 0})
-        (<Toggle-Tool>      name: c-frames   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show C Frames?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-c-frames})
-        (<Separator>                         size: {Dimension 3 0})
+        (<Separator>                         size: {Dimension 2 0})
         (<Push-Tool>        name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
       (<Scroller-View>      name: scroller   location: center vscroll?: #t flat?: #t
         (<!>                name: content    layout-type: fill
@@ -407,14 +407,15 @@
   
   
   (method (new-context-menu object)
-    {}
-    @convert/wait
     (typecase object
-      ((Debuggee-Remotable) (new Debuggee-Menu))
+      ((Debuggee-Stub) (new Debuggee-Menu client: self))
       @waiting-as-the-only-item-is-not-implemented-atm
       ((Debuggee-Thread-Remotable) (new Thread-Menu))
+      @convert/wait
       ((Execution-Frame) (new Frame-Menu))
+      @convert/wait
       ((Frame-Snapshot) (new Frame-Menu))
+      @convert/wait
       ((Pair) (new Snapshot-Menu))
       (else {})))
   
@@ -478,13 +479,15 @@
   
   
   (method (update-debuggees)
-    @convert
     (let* ((appl (get-application))
-           (debuggees (get-debuggees~ (get-local-debugger-server~ appl))))
+           (debuggees (get-debuggees~ (get-local-debugger~ appl))))
       (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
+                         @convert
                          (threads (reverse! (get-process-threads~ debuggee)))
                          (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
+                    #f
+                    @convert
                     (for-each (function (thread)
                                 (let* ((title (present~ thread))
                                        (state (get-state~ thread))
@@ -628,6 +631,9 @@
 (class Debuggee-Menu extends Context-Menu
   
   
+  (property client accessors generate)
+  
+  
   (form
     (<install>
       (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler :form on-select})
@@ -636,13 +642,11 @@
   
   
   (method (on-select evt)
-    @convert
-    (select-debuggee-toplevel))
+    (select-debuggee-toplevel~ client))
   
   
   (method (on-exit evt)
-    @convert
-    (exit-selected-debuggee)))
+    (exit-selected-debuggee~ client)))
 
 
 ;;;

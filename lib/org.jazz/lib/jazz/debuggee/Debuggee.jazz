@@ -35,20 +35,12 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.debugger.debuggee.Debuggee jazz
+(library jazz.debuggee.Debuggee jazz
 
 
-(import (jazz.debugger)
-        (jazz.language.jazz.inspector)
-        (jazz.library)
+(import (jazz.library)
         (jazz.platform)
         (jazz.utilities))
-
-
-(class Debuggee extends Object)
-
-
-@convert
 
 
 (class Debuggee extends Object
@@ -62,11 +54,11 @@
     (set! process~self process))
   
   
-  (method public remote (get-name)
+  (method public (get-name)
     (process-name~ process))
   
   
-  (method public remote (get-icon)
+  (method public (get-icon)
     (process-icon~ process))
   
   
@@ -75,20 +67,13 @@
   ;;;
   
   
-  (method public remote (detach-from-controller)
+  (method public (detach-from-controller)
     (detach-from-controller~ process)
     {})
   
   
-  (method public remote (exit)
-    (unimplemented)
-    @convert-thread
-    (new Thread
-      name: "Process Exiter"
-      context: self
-      execute: (function (thread)
-                 (exit-process~ process)))
-    {})
+  (method public (exit)
+    (exit-process~ process))
   
   
   ;;;
@@ -96,11 +81,12 @@
   ;;;
   
   
-  (method public remote (get-process-server)
-    (get-local-process-server~ process))
+  (method public (get-process)
+    (get-local-process~ process))
   
   
-  (method public remote (get-toplevel-hwnd)
+  (method public (get-toplevel-hwnd)
+    @convert
     (get-handle~ (get-toplevel)))
   
   
@@ -109,15 +95,18 @@
   ;;;
   
   
-  (method public remote (get-process-threads)
+  (method public (get-process-threads)
+    @convert
     (map new-thread (get-threads)))
   
   
-  (method public remote (get-main-thread)
+  (method public (get-primordial-thread)
+    @convert
     (new-thread (primordial-thread)))
   
   
   (method (new-thread thread)
+    @convert
     (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread (new Debuggee-Local-Proxy self) thread)))
   
   
@@ -126,6 +115,7 @@
   ;;;
   
   
+  @convert
   (method public remote (execute command object package-names variables frame)
     (let* ((form (read-string-element command))
            (packages (filter-packages package-names))
@@ -137,6 +127,7 @@
         (->string result :describe))))
   
   
+  @convert
   (method (filter-packages package-names)
     (unimplemented 'filter-packages)
     @convert-manifest
@@ -148,6 +139,7 @@
       (get-output~ fact)))
   
   
+  @convert
   (method (execute-command form process packages variables frame)
     (if (is? process Application)
         (privileged-execute form process packages variables frame)
@@ -159,6 +151,7 @@
   ;;;
   
   
+  @convert
   (method public remote (inspect serial kind)
     (inspect-value (serial->object serial)))
   
@@ -168,10 +161,12 @@
   ;;;
   
   
+  @convert
   (method public remote (memory-statistics)
     (statistics))
   
   
+  @convert
   (method public remote (trigger-gc)
     (gc)
     {})))

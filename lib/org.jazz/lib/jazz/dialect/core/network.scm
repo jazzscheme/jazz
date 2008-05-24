@@ -41,6 +41,10 @@
 (cond-expand
   (gambit
     (define jazz.open-tcp-client open-tcp-client)
-    (define jazz.open-tcp-server open-tcp-server))
+    (define jazz.open-tcp-server open-tcp-server)
+    (define jazz.tcp-server-socket-info tcp-server-socket-info)
+    
+    (define jazz.socket-info-address socket-info-address)
+    (define jazz.socket-info-port-number socket-info-port-number))
   
   (else)))

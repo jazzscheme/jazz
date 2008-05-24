@@ -58,17 +58,17 @@
   ;;;
   
   
-  (method public remote (get-debuggees (validate?: validate? #f))
+  (method public (get-debuggees (validate?: validate? #f))
     (when validate?
       (validate-debuggees))
     debuggees)
   
   
-  (method public remote (get-selected-debuggee)
+  (method public (get-selected-debuggee)
     selected-debuggee)
   
   
-  (method public remote (set-selected-debuggee debuggee)
+  (method public (set-selected-debuggee debuggee)
     (set! selected-debuggee debuggee)
     {})
   
@@ -78,7 +78,7 @@
   ;;;
   
   
-  (method public remote (get-toplevel-hwnd)
+  (method public (get-toplevel-hwnd)
     (get-handle~ (get-toplevel)))
   
   
@@ -87,19 +87,19 @@
   ;;;
 
 
-  (method public remote (attach-debuggee debuggee)
-    (unless (member? debuggee debuggees)
+  (method public (attach-debuggee debuggee)
+    (unless (member? debuggee debuggees test: proxy=?)
       (set! debuggees (append! debuggees (list debuggee)))
-      (when (null? selected-debuggee)
+      (when (not selected-debuggee)
         (select-debuggee debuggee))
       {}))
 
 
-  (method public remote (detach-debuggee debuggee)
-    (when (member? debuggee debuggees)
-      (set! debuggees (remove! debuggee debuggees test: =))
-      (when (eq? debuggee selected-debuggee)
-        (select-debuggee (car debuggees)))
+  (method public (detach-debuggee debuggee)
+    (when (member? debuggee debuggees test: proxy=?)
+      (set! debuggees (remove! debuggee debuggees test: proxy=?))
+      (when (proxy=? debuggee selected-debuggee)
+        (select-debuggee (and (not-null? debuggees) (car debuggees))))
       {}))
   
   
@@ -108,8 +108,8 @@
   ;;;
   
   
-  (method public remote (select-debuggee debuggee)
-    (when (neq? debuggee selected-debuggee)
+  (method public (select-debuggee debuggee)
+    (when (not (proxy=? debuggee selected-debuggee))
       (set! selected-debuggee debuggee)
       (let* ((appl (get-application))
              (icon (essay debuggee (get-icon~ debuggee)))
@@ -119,12 +119,12 @@
             (when item
               (set-icon~ item icon))))
         (let ((presented (essay debuggee (present-debuggee~ appl debuggee))))
-          (user-message (format "{a} selected" (if (null? debuggee) "None" presented)))))
+          (user-message (format "{a} selected" (if (not debuggee) "None" presented)))))
       {}))
   
   
-  (method public remote (select-next)
-    (let* ((rank (find debuggees selected-debuggee))
+  (method public (select-next)
+    (let* ((rank (find debuggees selected-debuggee test: proxy=?))
            (debuggee (element debuggees (modulo (+ rank 1) (length debuggees)))))
       (select-debuggee debuggee)
       {}))
@@ -140,8 +140,8 @@
                                   (or (is? debuggee Local-Proxy)
                                       (live?~ debuggee)))
                                 debuggees))
-    (when (not (member? selected-debuggee debuggees))
-      (select-debuggee (car debuggees))))
+    (when (not (member? selected-debuggee debuggees test: proxy=?))
+      (select-debuggee (and (not-null? debuggees) (car debuggees)))))
   
   
   ;;;
@@ -149,12 +149,11 @@
   ;;;
   
   
-  (method public remote (detach-debuggees)
+  (method public (detach-debuggees)
     (validate-debuggees)
-    (let* ((appl (get-application))
-           (jedi (get-local-debuggee~ appl)))
+    (let ((local-debuggee (get-local-debuggee~ (get-application))))
       (for-each (function (debuggee)
-                  (when (neq? debuggee jedi)
+                  (when (not (proxy=? debuggee local-debuggee))
                     (detach-from-controller~ debuggee)))
                 debuggees))
     {})
@@ -165,12 +164,12 @@
   ;;;
   
   
-  (method public remote (debug-message message)
+  (method public (debug-message message)
     (debug message)
     {})
   
   
-  (method public remote (status-message message)
+  (method public (status-message message)
     (user-message message)
     {})
   
@@ -180,7 +179,7 @@
   ;;;
 
 
-  (method public remote (debug-exception type message stack)
+  (method public (debug-exception type message stack)
     (when (eq? (present-exception type message) 'yes)
       (message-box stack)
       {}))

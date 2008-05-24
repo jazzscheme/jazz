@@ -314,6 +314,7 @@
 
 (native jazz.open-tcp-client)
 (native jazz.open-tcp-server)
+(native jazz.tcp-server-socket-info)
 
 
 ;;;
@@ -513,6 +514,15 @@
 
 
 ;;;
+;;;; Socket
+;;;
+
+
+(native jazz.socket-info-address)
+(native jazz.socket-info-port-number)
+
+
+;;;
 ;;;; Stack
 ;;;
 
@@ -602,6 +612,11 @@
 (native jazz.thread-join!)
 (native jazz.thread-send)
 (native jazz.thread-receive)
+(native jazz.thread-thread-group)
+(native jazz.thread-group->thread-group-list)
+(native jazz.thread-group->thread-group-vector)
+(native jazz.thread-group->thread-list)
+(native jazz.thread-group->thread-vector)
 (native jazz.mutex?)
 (native jazz.make-mutex)
 (native jazz.mutex-name)

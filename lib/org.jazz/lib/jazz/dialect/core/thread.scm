@@ -61,7 +61,12 @@
     (define jazz.thread-terminate! thread-terminate!)
     (define jazz.thread-join! thread-join!)
     (define jazz.thread-send thread-send)
-    (define jazz.thread-receive thread-receive))
+    (define jazz.thread-receive thread-receive)
+    (define jazz.thread-thread-group thread-thread-group)
+    (define jazz.thread-group->thread-group-list thread-group->thread-group-list)
+    (define jazz.thread-group->thread-group-vector thread-group->thread-group-vector)
+    (define jazz.thread-group->thread-list thread-group->thread-list)
+    (define jazz.thread-group->thread-vector thread-group->thread-vector))
   
   (else))
 

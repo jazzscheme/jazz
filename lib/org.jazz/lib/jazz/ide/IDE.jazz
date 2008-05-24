@@ -42,11 +42,13 @@
         (jazz.catalog)
         (jazz.debuggee)
         (jazz.debugger)
+        (jazz.debugger.server.stub)
         (jazz.designer)
         (jazz.groupware)
         (jazz.ide)
         (jazz.io)
         (jazz.jml)
+        (jazz.jrm)
         (jazz.language.jazz)
         (jazz.library)
         (jazz.library.component)
@@ -67,12 +69,12 @@
 (class IDE extends Application
 
 
-  (slot local-debugger-server initialize {})
-  (slot cataloguer            initialize {})
-  (slot catalog-context       initialize {})
-  (slot catalog-file          initialize {})
-  (slot search                initialize {})
-  (slot recorder              initialize (new Macro-Recorder))
+  (slot local-debugger  initialize {})
+  (slot cataloguer      initialize {})
+  (slot catalog-context initialize {})
+  (slot catalog-file    initialize {})
+  (slot search          initialize {})
+  (slot recorder        initialize (new Macro-Recorder))
   
   
   (method (start-process rest)
@@ -94,11 +96,7 @@
   
   (method (workspace-installed)
     (nextmethod)
-    (update-catalog-context)
-    @convert-this-happens-too-soon
-    (let ((text (get-text~ (locate-component~ (find-palette~ (get-workspace-splitter~ toplevel) IDE-Toolbar) 'quick-find))))
-      (when text
-        (acquire-focus~ text))))
+    (update-catalog-context))
 
 
   (method (close-environment)
@@ -157,17 +155,13 @@
   (method (known-extension-frame-class ext)
     (cond ((member? ext '("txt" "text") test: ci=?) Plain-Text-View)
           ((member? ext '("ftx") test: ci=?) Plain-Formatted-Text-View)
-          @wait
-          ((member? ext '("dbs") test: ci=?) Database-Manager)
-          @wait
-          ((member? ext '("jdy") test: ci=?) Diary-Manager)
           ((member? ext '("prop") test: ci=?) (module-autoload 'jazz.language.prop 'Prop-Text-View))
           ((member? ext '("java") test: ci=?) (module-autoload 'jazz.language.java 'Java-Text-View))
           ((member? ext '("c" "cp" "cpp" "cxx" "h" "hpp" "rc" "i") test: ci=?) (module-autoload 'jazz.language.c 'C-Text-View))
           ((member? ext '("cs") test: ci=?) (module-autoload 'jazz.language.csharp 'CSharp-Text-View))
           @wait
           ((member? ext '("html" "htm")) (module-autoload 'jazz.language.html 'HTML-Text-View))
-          ((member? ext '("xml")) Plain-Text-View @w XML-Text-View)
+          ((member? ext '("xml")) Plain-Text-View @wait XML-Text-View)
           ((member? ext '("sql")) (module-autoload 'jazz.language.sql 'SQL-Text-View))
           ((member? ext '("css")) (module-autoload 'jazz.language.css 'CSS-Text-View))
           ((member? ext '("properties")) (module-autoload 'jazz.language.properties 'Properties-Text-View))
@@ -176,10 +170,6 @@
           ((member? ext '("py")) (module-autoload 'jazz.language.python 'Python-Text-View))
           @wait
           ((member? ext '("bmp" "wmf" "emf" "jpg" "jpeg" "png" "tif" "tiff") test: ci=?) (module-autoload 'jazz.ui 'Image-View))
-          @wait
-          ((member? ext '("dsg")) Design-Book-View)
-          @wait
-          ((member? ext '("arv")) Archive-Manager)
           (else (nextmethod ext))))
   
   
@@ -342,30 +332,13 @@
   
   
   ;;;
-  ;;;; Process Server
-  ;;;
-  
-  
-  (method public (present-debuggee debuggee)
-    (let ((jedi (get-local-process-server))
-          (name (get-name~ debuggee)))
-      (if (= (get-process-server~ debuggee) jedi)
-          name
-        (let ((host (get-host~ (get-ior~ debuggee))))
-          (if (= host (listening-host~ remoting-server))
-              (format "{a} on localhost" name)
-            (format "{a} at {a}" name (present~ host)))))))
-  
-  
-  ;;;
-  ;;;; Directory Server
+  ;;;; Register
   ;;;
   
   
   (method (register-base-objects)
     (nextmethod)
-    @convert/wait
-    (register-object~ (get-local-directory-server) 'debugger local-debugger-server))
+    (register-object~ (get-local-register) 'debugger local-debugger))
 
   
   ;;;
@@ -376,32 +349,29 @@
   (method (setup-controller)
     (if (command-argument "controllerhost")
         (nextmethod)
-      @convert
-      (attach-to-controller (get-local-process-server))))
+      (attach-to-controller (get-local-process))))
   
   
   (method (reattach-local-controller)
-    (attach-to-controller (get-local-process-server)))
+    (attach-to-controller (get-local-process)))
 
   
   ;;;
-  ;;;; Debugger Server
+  ;;;; Debugger
   ;;;
     
   
-  (method (get-local-debugger-server)
-    local-debugger-server)
+  (method (get-local-debugger)
+    local-debugger)
 
   
   (method (setup-debugger-server)
-    @convert
-    (set! local-debugger-server (new Debugger-Server-Local-Proxy (new Debugger-Server))))
+    (set! local-debugger (new Debugger-Server-Local-Proxy (new Debugger-Server))))
   
   
   (method (detach-debugger-processes)
-    @convert
-    (when local-debugger-server
-      (detach-debuggees~ local-debugger-server)))
+    (when local-debugger
+      (detach-debuggees~ local-debugger)))
   
   
   (method (present-thread-stack file)
@@ -411,6 +381,20 @@
   
   (method (select-debugger)
     (apply-preferences~ (get-preferences '(workspaces debugger))))
+  
+  
+  ;;;
+  ;;;; Debuggee
+  ;;;
+  
+  
+  (method public (present-debuggee debuggee)
+    (let ((local-process (get-local-process))
+          (name (get-name~ debuggee)))
+      (if (proxy=? (get-process~ debuggee) local-process)
+          name
+        (let ((host (get-host~ (get-ior~ debuggee))))
+          (format "{a} at {a}" name host)))))
 
 
   ;;;
@@ -750,10 +734,10 @@
         (redraw-window~ window))))
   
   
-  (method public (on-save-profile evt)
+  (method public (on-save-workspace evt)
     (with-cursor :wait
       (function ()
-        (user-message "Saving profile...")
+        (user-message "Saving workspace...")
         (call-save-environment-listeners)
         (call-exit-listeners)
         (user-message "Done"))))

@@ -43,6 +43,7 @@
         (jazz.development)
         (jazz.io)
         (jazz.jrm)
+        (jazz.jrm.register.stub)
         (jazz.library)
         (jazz.library.component)
         (jazz.network)
@@ -61,10 +62,10 @@
   (slot loop-exit            initialize {})
   (slot remoting-server      initialize {})
   (slot local-process        initialize {})
-  (slot local-directory      initialize {})
+  (slot local-register       initialize {})
   (slot local-debuggee       initialize {})
   (slot controller-process   initialize {})
-  (slot controller-directory initialize {})
+  (slot controller-register  initialize {})
   (slot controller-debugger  initialize {})
   (slot router-server        initialize {})
   (slot standard-input       initialize {})
@@ -147,7 +148,6 @@
   
   (method public virtual (boot-environment rest)
     (initialize-aliases)
-    @unimplemented
     (register-versions)
     (prepare-phase rest)
     (start-phase rest)
@@ -160,7 +160,6 @@
   
   
   (method (register-versions)
-    (unimplemented 'register-versions)
     @unimplemented
     (register-crash-info windows-version: {} (present~ (get-windows-version))))
   
@@ -259,9 +258,7 @@
   (method public virtual (close-environment)
     (close-preferences)
     (detach-from-controller)
-    (stop-servers)
-    @windows-specific
-    (stop-winsock))
+    (stop-servers))
   
   
   (method virtual (close-preferences)
@@ -683,8 +680,8 @@
     (process-icon))
   
   
-  (method public (get-directory-server)
-    local-directory)
+  (method public (get-register)
+    local-register)
 
 
   ;;;
@@ -703,20 +700,18 @@
 
 
   ;;;
-  ;;;; Local Directory
+  ;;;; Local Register
   ;;;
   
   
-  (method public (get-local-directory)
-    (when (not local-directory)
-      (set! local-directory (new-local-directory)))
-    local-directory)
+  (method public (get-local-register)
+    (when (not local-register)
+      (set! local-register (new-local-register)))
+    local-register)
 
   
-  (method protected virtual (new-local-directory)
-    #f
-    @convert
-    (new Directory-Server-Local-Proxy (new Directory-Server)))
+  (method protected virtual (new-local-register)
+    (new Register-Local-Proxy (new Register)))
   
   
   (method protected virtual (register-base-objects)
@@ -759,8 +754,8 @@
     controller-process)
   
 
-  (method public (get-controller-directory)
-    controller-directory)
+  (method public (get-controller-register)
+    controller-register)
   
   
   (method protected virtual (setup-controller)
@@ -779,8 +774,8 @@
   (method public (attach-to-controller ct)
     (detach-from-controller reattach-local?: #f)
     (set! controller-process ct)
-    (set! controller-directory (get-directory-server~ controller-process))
-    (set! controller-debugger (find-object~ controller-directory 'debugger))
+    (set! controller-register (get-register~ controller-process))
+    (set! controller-debugger (find-object~ controller-register 'debugger))
     (setup-local-debuggee)
     (attach-debuggee~ controller-debugger local-debuggee))
   
@@ -795,7 +790,7 @@
     (when controller-process
       (detach-from-debugger)
       (set! controller-process {})
-      (set! controller-directory {})
+      (set! controller-register {})
       (set! local-debuggee {})
       (when reattach-local?
         (reattach-local-controller))))

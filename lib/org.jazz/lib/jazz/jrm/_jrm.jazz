@@ -52,7 +52,7 @@
   "localhost")
 
 (definition Remoting-Service
-  32000)
+  'any)
 
 
 (definition public (require-remoting-server)
@@ -191,18 +191,18 @@
        (get-object~ y)))
 
 
-(definition (marshall-local-proxy proxy)
-  (let ((server (require-remoting-server)))
+(definition (marshall-local-proxy local-proxy)
+  (let ((server-socket-info (get-socket-info~ (require-remoting-server))))
     (new IOR
-      (get-host~ server)
-      (get-service~ server)
-      (identifier-name (get-name~ (stub-interface~ proxy)))
-      (object->reference proxy))))
+      (socket-info-address server-socket-info)
+      (socket-info-port-number server-socket-info)
+      (identifier-name (get-name~ (stub-interface~ local-proxy)))
+      (object->reference (get-object~ local-proxy)))))
 
 
 (definition (unmarshall-local-proxy stub-interface ior)
   (let ((local-class (local-class~ stub-interface)))
-    (new local-class (get-reference~ ior))))
+    (new local-class (reference->object (get-reference~ ior)))))
 
 
 ;;;
@@ -235,15 +235,17 @@
 
 (definition (object->reference object)
   (let ((process (get-process)))
-    (cond ;((eq? object process) 'process)
-          ;((eq? object (get-local-debugger~ process)) 'debugger)
+    (cond ((proxy=? object (get-local-process~ process)) 'process)
+          ((proxy=? object (get-local-register~ process)) 'register)
+          ((proxy=? object (get-local-debugger~ process)) 'debugger)
           (else (object->serial-number object)))))
 
 
 (definition (reference->object reference)
   (let ((process (get-process)))
-    (cond ;((eq? reference 'process) process)
-          ;((eq? reference 'debugger) (get-local-debugger~ process))
+    (cond ((eq? reference 'process) (get-local-process~ process))
+          ((eq? reference 'register) (get-local-register~ process))
+          ((eq? reference 'debugger) (get-local-debugger~ process))
           (else (serial-number->object reference)))))
 
 
@@ -252,9 +254,9 @@
 
 
 (definition public (local-ior? ior)
-  (let ((server (require-remoting-server)))
-    (and (host=? (get-host~ ior) (get-host~ server))
-         (service=? (get-service~ ior) (get-service~ server)))))
+  (let ((server-socket-info (get-socket-info~ (require-remoting-server))))
+    (and (host=? (get-host~ ior) (socket-info-address server-socket-info))
+         (service=? (get-service~ ior) (socket-info-port-number server-socket-info)))))
 
 
 (definition public (ior=? x y)

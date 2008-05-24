@@ -314,6 +314,7 @@
 
 (native jazz.open-tcp-client)
 (native jazz.open-tcp-server)
+(native jazz.tcp-server-socket-info)
 
 
 ;;;
@@ -510,6 +511,15 @@
 (native jazz.slot? <object:bool>)
 (native jazz.slot-value)
 (native jazz.set-slot-value)
+
+
+;;;
+;;;; Socket
+;;;
+
+
+(native jazz.socket-info-address)
+(native jazz.socket-info-port-number)
 
 
 ;;;

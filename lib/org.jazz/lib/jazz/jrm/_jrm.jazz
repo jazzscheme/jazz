@@ -43,6 +43,13 @@
         (jazz.io))
 
 
+(definition *debug?*
+  #f)
+
+(definition *debug-locally?*
+  #f)
+
+
 ;;;
 ;;;; Server
 ;;;
@@ -91,14 +98,19 @@
         (arguments (marshall arguments)))
     (let ((host (get-host~ proxy-ior))
           (service (get-service~ proxy-ior)))
+      (when *debug?*
+        (terminal '***remoting*** 'invoke kind method-name remote-proxy arguments))
       (let ((port (open-tcp-client (list server-address: host port-number: service))))
         (write-remote-message (list kind method-name proxy-ior arguments) port)
         (case kind
           ((send)
-           (bind (err result) (read-remote-result port)
-             (if err
-                 (error "Remote error while executing {s}: {a}" method-name err)
-               (unmarshall result))))
+           (let ((err/result (read-remote-result port)))
+             (when *debug?*
+               (terminal '***remoting*** 'received kind method-name '-> err/result))
+             (bind (err result) err/result
+               (if err
+                   (error "Remote error while executing {s}: {a}" method-name err)
+                 (unmarshall result)))))
           ((post)
            (unspecified)))))))
 
@@ -121,9 +133,14 @@
 
 (definition (process-remote port)
   (bind (kind method-name proxy-ior arguments) (read-remote-message port)
+    (when *debug?*
+      (terminal '***remoting*** 'process kind method-name proxy-ior arguments))
     (case kind
       ((send)
-       (write-remote-result (execute-remote method-name proxy-ior arguments) port))
+       (let ((err/result (execute-remote method-name proxy-ior arguments)))
+         (when *debug?*
+           (terminal '***remoting*** 'return kind method-name err/result))
+         (write-remote-result err/result port)))
       ((post)
        (dispatch-remote method-name proxy-ior arguments)))))
 
@@ -133,13 +150,19 @@
 
 
 (definition (execute-remote method-name proxy-ior arguments)
-  (with-exception-handler
-    (function (exc)
-      (continuation-capture
-        (function (cont)
-          (list (exception-reason exc) #f))))
-    (function ()
-      (list #f (marshall (dispatch-remote method-name proxy-ior arguments))))))
+  (if *debug-locally?*
+      (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))
+    (with-exception-catcher
+      (function (exc)
+        (continuation-capture
+          (function (cont)
+            (when *debug?*
+              (terminal '***remoting*** 'exception)
+              (display-exception exc)
+              (display-continuation-backtrace cont))
+            (list (exception-reason exc) #f))))
+      (function ()
+        (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))))))
 
 
 (definition (dispatch-remote method-name proxy-ior arguments)
@@ -192,17 +215,16 @@
 
 
 (definition (marshall-local-proxy local-proxy)
-  (let ((server-socket-info (get-socket-info~ (require-remoting-server))))
+  (let ((server (require-remoting-server)))
     (new IOR
-      (socket-info-address server-socket-info)
-      (socket-info-port-number server-socket-info)
+      (listening-host~ server)
+      (listening-port~ server)
       (identifier-name (get-name~ (stub-interface~ local-proxy)))
-      (object->reference (get-object~ local-proxy)))))
+      (local-proxy->reference local-proxy))))
 
 
-(definition (unmarshall-local-proxy stub-interface ior)
-  (let ((local-class (local-class~ stub-interface)))
-    (new local-class (reference->object (get-reference~ ior)))))
+(definition (unmarshall-local-ior stub-interface ior)
+  (reference->local-proxy stub-interface (get-reference~ ior)))
 
 
 ;;;
@@ -223,7 +245,7 @@
   (marshall (get-ior~ proxy)))
 
 
-(definition (unmarshall-remote-proxy stub-interface ior)
+(definition (unmarshall-remote-ior stub-interface ior)
   (let ((remote-class (remote-class~ stub-interface)))
     (new remote-class ior)))
 
@@ -233,20 +255,20 @@
 ;;;
 
 
-(definition (object->reference object)
+(definition (local-proxy->reference local-proxy)
   (let ((process (get-process)))
-    (cond ((proxy=? object (get-local-process~ process)) 'process)
-          ((proxy=? object (get-local-register~ process)) 'register)
-          ((proxy=? object (get-local-debugger~ process)) 'debugger)
-          (else (object->serial-number object)))))
+    (cond ((proxy=? local-proxy (get-local-process~ process)) 'process)
+          ((proxy=? local-proxy (get-local-register~ process)) 'register)
+          ((proxy=? local-proxy (get-local-debugger~ process)) 'debugger)
+          (else (object->serial-number (get-object~ local-proxy))))))
 
 
-(definition (reference->object reference)
+(definition (reference->local-proxy stub-interface reference)
   (let ((process (get-process)))
     (cond ((eq? reference 'process) (get-local-process~ process))
           ((eq? reference 'register) (get-local-register~ process))
           ((eq? reference 'debugger) (get-local-debugger~ process))
-          (else (serial-number->object reference)))))
+          (else (new (local-class~ stub-interface) (serial-number->object reference))))))
 
 
 (definition public (ior? object)
@@ -254,9 +276,9 @@
 
 
 (definition public (local-ior? ior)
-  (let ((server-socket-info (get-socket-info~ (require-remoting-server))))
-    (and (host=? (get-host~ ior) (socket-info-address server-socket-info))
-         (service=? (get-service~ ior) (socket-info-port-number server-socket-info)))))
+  (let ((server (require-remoting-server)))
+    (and (host=? (get-host~ ior) (listening-host~ server))
+         (service=? (get-service~ ior) (listening-port~ server)))))
 
 
 (definition public (ior=? x y)
@@ -280,8 +302,28 @@
 (definition public (unmarshall-ior ior)
   (let ((stub-interface (autoload (get-stub-interface~ ior))))
     (if (local-ior? ior)
-        (unmarshall-local-proxy stub-interface ior)
-      (unmarshall-remote-proxy stub-interface ior))))
+        (unmarshall-local-ior stub-interface ior)
+      (unmarshall-remote-ior stub-interface ior))))
+
+
+(definition public (host->string host)
+  (format "{a}.{a}.{a}.{a}"
+          (u8vector-ref host 0)
+          (u8vector-ref host 1)
+          (u8vector-ref host 2)
+          (u8vector-ref host 3)))
+
+
+(definition public (string->host string)
+  (apply u8vector (map string->number (split string "."))))
+
+
+(definition public (port->string port)
+  (number->string port))
+
+
+(definition public (string->port string)
+  (string->number string))
 
 
 ;;;
@@ -342,7 +384,7 @@
          (cons (marshall (car object))
                (marshall (cdr object))))
         (else
-         (error "Unable to marshall: {s}" object))))
+         object)))
 
 
 ;;;
@@ -373,7 +415,7 @@
          (cons (unmarshall (car object))
                (unmarshall (cdr object))))
         (else
-         (error "Unable to unmarshall: {s}" object))))
+         object)))
 
 
 ;;;
@@ -419,7 +461,7 @@
          (cons (encode (car object))
                (encode (cdr object))))
         (else
-         (error "Unable to encode: {s}" object))))
+         (encode-info #f (->string object :reader)))))
 
 
 (definition encoded-marker
@@ -463,11 +505,15 @@
          object)
         ((encoded? object)
          (receive (kind info) (decode-info object)
-           (case kind
-             ((false) #f)
-             ((true) #t)
-             ((unspecified) (unspecified))
-             ((IOR) (decode-ior info)))))
+           (if (not kind)
+               (with-jazz-readtable
+                 (function ()
+                   (read-string-element (car info))))
+             (case kind
+               ((false) #f)
+               ((true) #t)
+               ((unspecified) (unspecified))
+               ((IOR) (decode-ior info))))))
         ((pair? object)
          (cons (decode (car object))
                (decode (cdr object))))

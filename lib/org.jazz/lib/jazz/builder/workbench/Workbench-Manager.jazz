@@ -39,6 +39,7 @@
 
 
 (import (jazz.builder)
+        (jazz.builder.workbench)
         (jazz.designer)
         (jazz.groupware)
         (jazz.io)
@@ -54,40 +55,6 @@
         (jazz.ui.dialog)
         (jazz.ui.view)
         (jazz.utilities))
-
-
-(definition active-product
-  {})
-
-
-(definition public (get-active-product)
-  active-product)
-
-
-;;;
-;;;; Policy
-;;;
-
-
-(definition public Current-Policy
-  'Distribution)
-
-
-(definition public (get-current-policy)
-  Current-Policy)
-
-
-(definition public (set-current-policy policy)
-  (set! Current-Policy policy))
-
-
-(definition public (current-policy)
-  (get-preferences (list 'build 'policies Current-Policy)))
-
-
-;;;
-;;;; Manager
-;;;
 
 
 (class Workbench-Manager extends Editor-View implements Exit-Listener
@@ -258,10 +225,6 @@
     (add-group))
   
   
-  (method (on-add-dependency evt)
-    (add-dependency))
-  
-  
   (method (on-install-project evt)
     (let* ((default-directory? (get-shift?~ evt))
            (parent (selected-object))
@@ -299,8 +262,8 @@
     (launch-selection))
   
   
-  (method (on-execute evt)
-    (execute-selection))
+  (method (on-run evt)
+    (run-selection))
   
   
   (method (on-distribute evt)
@@ -411,12 +374,6 @@
       (when (or (is? parent Project-Group)
                 (is? parent Project))
         (add-component-class~ (get-tree) Project-Group parent: parent))))
-  
-  
-  (method protected (add-dependency)
-    @obsolete
-    (let ((parent (selected-object)))
-      (add-component-class~ (get-tree) Product-Dependency parent: parent)))
 
   
   ;;;
@@ -638,7 +595,7 @@
             (fold object directory '())
             (let ((out-of-synch (get-output~ fact)))
               (if (null? out-of-synch)
-                  (message-box "Content is synchronized")
+                  (message-box "Content is already synchronized")
                 (let* ((border (new Synchronize-Border size: {Dimension 500 200}))
                        (tree (locate~ border 'tree))
                        (add
@@ -730,7 +687,6 @@
   
   
   (method (activate-object object)
-    @obsolete
     (if (is-not? object Product)
         (bell)
       (activate-product object)))
@@ -741,7 +697,7 @@
       (let ((tree (get-tree)))
         (when active-product
           (unhighlight-component~ tree active-product))
-        (set! active-product product)
+        (set-active-product product)
         (when active-product
           (let ((row (user-data-row~ tree active-product visible?: #f)))
             (when row
@@ -763,7 +719,7 @@
         (let ((catalog (require-catalog~ (selected-project))))
           (load-content~ catalog)
           (update~ catalog)))))
-    
+  
   
   ;;;
   ;;;; Launch
@@ -771,7 +727,7 @@
   
   
   (method public (launch-current)
-    (launch-product (current-product)))
+    (debug-product (current-product)))
   
   
   (method public (launch-selection)
@@ -779,9 +735,8 @@
           (tree (get-tree)))
       (for-each (function (component)
                   (typecase component
-                    @obsolete-Product!?
                     ((Product)
-                     (launch-product component))
+                     (debug-product component))
                     ((Project-File)
                      (let* ((file (get-effective-source~ component))
                             (ext (get-extension~ file)))
@@ -789,26 +744,26 @@
                 (selected-components~ tree))))
       
   
-  (method (launch-product product)
-    (launch~ (get-application) product))
+  (method (debug-product product)
+    (debug-product~ (get-application) (get-name~ product) configuration: 'release))
   
   
   ;;;
-  ;;;; Execute
+  ;;;; Run
   ;;;
   
   
-  (method public (execute-current)
+  (method public (run-current)
     (let ((product (current-product)))
-      (execute-product product)))
+      (run-product product)))
 
 
-  (method public (execute-selection)
+  (method public (run-selection)
     )
 
   
-  (method (execute-product product)
-    (execute~ (get-application) product))
+  (method (run-product product)
+    (run-product~ (get-application) (get-name~ product) configuration: 'release))
   
   
   ;;;
@@ -912,7 +867,6 @@
   
   
   (method (build-product product)
-    @obsolete-Product!?
     (if (is-not? product Product)
         (bell)
       (let ((log? #t @wait (get-selected?~ (locate 'log?)))
@@ -931,64 +885,10 @@
   
   
   (method (clean-product product)
-    @obsolete-Product!?
     (if (is-not? product Product)
         (bell)
       ;; to complete
       {}))
-    
-  
-  ;;;
-  ;;;; Options
-  ;;;
-  
-  
-  (method public (options-current)
-    (let ((product (current-product)))
-      (options-product product)))
-  
-  
-  (method (options-product product)
-    @obsolete-Product!?
-    (if (is-not? product Product)
-        (bell)
-      ;; to complete
-      {}))
-  
-  
-  ;;;
-  ;;;; References
-  ;;;
-  
-  
-  (method public (references-current)
-    (let ((product (current-product)))
-      (references-product product)))
-
-
-  (method (references-product product)
-    @obsolete-Product!?
-    (if (is-not? product Product)
-        (bell)
-      (new-frame Reference-Finder product: (type-name (class-of product)))))
-  
-  
-  ;;;
-  ;;;; Log
-  ;;;
-  
-  
-  (method public (view-log)
-    (let ((product (current-product)))
-      (view-product-log product)))
-  
-  
-  (method (view-product-log product)
-    (let ((appl (get-application))
-          (file (log-file~ product)))
-      (if (not file)
-          (bell)
-        (edit-document~ appl file wrap?: #t))))
 
   
   ;;;
@@ -1050,7 +950,6 @@
   
   
   (method (selected-product)
-    @obsolete-Product!?
     (let ((object (selected-object)))
       (when (is? object Product)
         object)))
@@ -1068,16 +967,12 @@
   
   
   (method public (new-menu)
-    #f
-    @convert
     (let ((object (selected-object)))
       (when object
         (typecase object
           ((Project-Group) (new-group-menu object))
-          @obsolete-Product!?
           ((Product) (new-product-menu object))
           ((Project) (new-project-menu object))
-          ((Product-Dependencies) (new-dependencies-menu object))
           (else (new Element-Menu client: (get-tree)))))))
   
   
@@ -1107,11 +1002,6 @@
       menu))
   
   
-  (method (new-dependencies-menu object)
-    (let ((menu (new Dependencies-Menu client: (get-tree))))
-      menu))
-  
-  
   (method (update-group/project-menu menu)
     (let ((tree (get-tree)))
       (when (> (length (get-selection~ tree)) 1)
@@ -1121,7 +1011,7 @@
   
   
   (method (install-policy policy)
-    (set! Current-Policy policy)
+    (set-current-policy policy)
     (let* ((tree (get-tree))
            (cell {Cell 0 0})
            (node (get-cell-data~ tree cell)))
@@ -1285,20 +1175,6 @@
     (<install>
       (<Label-Item>     name: activate title: "&Set as Active Product" before: cut default?: #t action: {Action workbench-manager activate})
       (<Separator-Item>                before: cut))))
-
-
-;;;
-;;;; Dependencies-Menu
-;;;
-
-
-(class Dependencies-Menu extends Component-Menu
-  
-  
-  (form
-    (<install>
-      (<Label-Item>     name: add-dependency title: "Add &Dependency..." before: add-item icon: {Bitmap-Resource "Added"} action: {Action workbench-manager add-dependency})
-      (<Separator-Item>                      before: cut))))
 
 
 ;;;

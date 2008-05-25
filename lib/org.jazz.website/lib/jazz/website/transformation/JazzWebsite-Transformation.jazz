@@ -216,30 +216,30 @@
   
   
   (method (manual-output section)
-    (let* ((paths (get-property~ section 'products))
-           (products (apply append (map find-docs paths)))
+    (let* ((paths (get-property~ section 'projects))
+           (projects (apply append (map find-docs paths)))
            (toc-anchors (make-table test: eq?))
-           (content (manual-content-output products))
+           (content (manual-content-output projects))
            (index (index-output))
-           (toc (toc-output products toc-anchors))
-           (summary (summary-output products toc-anchors)))
+           (toc (toc-output projects toc-anchors))
+           (summary (summary-output projects toc-anchors)))
       (append summary
               toc
               index
               content)))
   
   
-  (method (manual-content-output products)
+  (method (manual-content-output projects)
     (let ((output (new List-Factory)))
-      (for-each (function (product)
-                  (output-manual-doc product output))
-                products)
+      (for-each (function (project)
+                  (output-manual-doc project output))
+                projects)
       (get-output~ output)))
   
   
   (method (output-manual-doc doc output)
     (typecase doc
-      ((Product-Doc)   (output-manual-product   doc output))
+      ((Project-Doc)   (output-manual-project   doc output))
       ((Section-Doc)   (output-manual-section   doc output))
       ((Concept-Doc)   (output-manual-concept   doc output))
       ((Package-Doc)   (output-manual-package   doc output))
@@ -255,7 +255,7 @@
     (output-manual-doc-children doc output))
   
   
-  (method (output-manual-product doc output)
+  (method (output-manual-project doc output)
     (output-anchor doc output)
     (put~ output `(<h3> ,(get-effective-title~ doc)))
     (output-doc-description doc output))
@@ -398,9 +398,9 @@
           (cond ((null? rest)
                  (put~ docs (get-client~ catalog)))
                 ((equal? rest '(*))
-                 (let ((parent (get-product~ catalog)))
+                 (let ((parent (get-project~ catalog)))
                    (for-each (function (catalog)
-                               (when (eq? (get-parent-product~ (get-product~ catalog)) parent)
+                               (when (eq? (get-parent-project~ (get-project~ catalog)) parent)
                                  (put~ docs (get-client~ catalog))))
                              (get-catalogs~ cataloguer))))
                 (else
@@ -427,17 +427,17 @@
   ;;;
   
   
-  (method (summary-output products toc-anchors)
+  (method (summary-output projects toc-anchors)
     (user-message "Generating Summary...")
     `((<div> style: "margin-top: 22;"
         (<b> "Note that this manual is absolutely not complete and even contains obsolete or even wrong information. It is a work in progress. Consult at your own risk!!!"))
       (<h3> "Summary")
       (<div> class: "summary_toc" (<a> href: "#TOC" "Table of Contents"))
       (<div> class: "summary_index" (<a> href: "#INDEX" "Index"))
-      ,@(map (function (product rank)
-               (doc-summary-output toc-anchors product 1 (list (+ rank 1))))
-             products
-             (naturals 0 (length products)))))
+      ,@(map (function (project rank)
+               (doc-summary-output toc-anchors project 1 (list (+ rank 1))))
+             projects
+             (naturals 0 (length projects)))))
   
   
   (method (doc-summary-output toc-anchors doc level path)
@@ -459,18 +459,18 @@
   (method (collect-summary-children doc)
     (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
           (children (effective-manual-doc-children doc)))
-      (collect-if has-product-descendant?
+      (collect-if has-project-descendant?
                   (if sort?
                       (sort < children key: (function (child) (get-name~ child)))
                     children))))
   
   
-  (method (has-product-descendant? doc)
+  (method (has-project-descendant? doc)
     (let ((has? #f))
       (letrec ((iter
                 (function (doc)
                   (typecase doc
-                    ((Product-Doc) (set! has? #t))
+                    ((Project-Doc) (set! has? #t))
                     ((Section-Doc) (for-each iter (effective-manual-doc-children doc)))))))
        (iter doc))
       has?))
@@ -481,13 +481,13 @@
   ;;;
   
   
-  (method (toc-output products toc-anchors)
+  (method (toc-output projects toc-anchors)
     (user-message "Generating Table of Contents...")
     `((<a> name: "TOC" (<h3> "Table of Contents"))
-      ,@(map (function (product rank)
-               (doc-toc-output toc-anchors product 1 (list (+ rank 1))))
-             products
-             (naturals 0 (length products)))))
+      ,@(map (function (project rank)
+               (doc-toc-output toc-anchors project 1 (list (+ rank 1))))
+             projects
+             (naturals 0 (length projects)))))
   
   
   (method (doc-toc-output toc-anchors doc level path)
@@ -521,7 +521,7 @@
     (let ((sort? (and (is? doc Section-Doc) (get-sort?~ doc)))
           (children (effective-manual-doc-children doc)))
       (collect-if (function (child)
-                    (or (is? child Product-Doc)
+                    (or (is? child Project-Doc)
                         (is? child Section-Doc)
                         (is? child Concept-Doc)
                         (is? child Package-Doc)

@@ -48,10 +48,10 @@
         (jazz.utilities))
 
 
-(class Workbench extends Product
+(class Workbench extends Project
   
   
-  (slot products-table   initialize (make-table test: eq?))
+  (slot projects-table   initialize (make-table test: eq?))
   (slot categories-table initialize (make-table test: eq?))
   (slot resources-table  initialize (make-table test: equal?))
   ;; this is clearly not maintained up to date perfectly but it'll do for now
@@ -59,30 +59,30 @@
 
 
   ;;;
-  ;;;; Products
+  ;;;; Projects
   ;;;
   
   
-  (method public (get-products-table)
-    products-table)
-  
-  
-  (method public (find-product type-name)
-    (table-ref products-table type-name #f))
+  (method public (get-projects-table)
+    projects-table)
   
   
   (method public (find-project type-name)
+    (table-ref projects-table type-name #f))
+  
+  
+  (method public (find-product type-name)
     {}
     @obsolete
-    (let ((product (find-product type-name)))
-      (if (is? product Project)
-          product
+    (let ((project (find-project type-name)))
+      (if (is? product Product)
+          project
         {})))
   
   
-  (method public (require-project type-name)
-    (either (find-project type-name)
-            (error "Unable to find project: {s}" type-name)))
+  (method public (require-product type-name)
+    (either (find-product type-name)
+            (error "Unable to find product: {s}" type-name)))
 
 
   ;;;
@@ -97,7 +97,7 @@
   (method public (find-filename filename)
     (call/ec
       (function (return)
-        (for-each-product-file
+        (for-each-project-file
           (function (descendant)
             (when (ci=? (get-name~ (get-effective-source~ descendant)) filename)
               (return descendant))))
@@ -117,10 +117,10 @@
     (with-cursor :wait
       (function ()
         (user-message "Loading catalogs...")
-        (for-each-product
-          (function (product)
-            (when (get-catalog?~ product)
-              (load-content~ (require-catalog~ product))))
+        (for-each-project
+          (function (project)
+            (when (get-catalog?~ project)
+              (load-content~ (require-catalog~ project))))
           include-self?: #t)
         (user-message "Done"))))
 
@@ -139,14 +139,14 @@
   ;;;
   
   
-  (method protected (add-to-product product name component)
+  (method protected (add-to-project project name component)
     (typecase component
-      ((Product-File)
-       (when (is? component Product)
+      ((Project-File)
+       (when (is? component Project)
          (set-workbench~ component self)
-         (set-parent-product~ component product)
-         (table-set! products-table (type-name (class-of component)) component))
-       (set-product~ component product)
+         (set-parent-project~ component project)
+         (table-set! projects-table (type-name (class-of component)) component))
+       (set-project~ component project)
        (let ((source (get-source~ component)))
          (add-source source component)
          (typecase component
@@ -157,11 +157,11 @@
             (add-entry name component)))))))
   
   
-  (method protected (remove-from-product product name component)
+  (method protected (remove-from-project project name component)
     (typecase component
-      ((Product-File)
-       (when (is? component Product)
-         (table-clear products-table (type-name (class-of component))))
+      ((Project-File)
+       (when (is? component Project)
+         (table-clear projects-table (type-name (class-of component))))
        (let ((source (get-source~ component)))
          (remove-source source component)
          (typecase component
@@ -177,18 +177,18 @@
   ;;;
   
   
-  (method public (for-each-product proc (include-self?: include-self? #f))
+  (method public (for-each-project proc (include-self?: include-self? #f))
     (for-each-descendant
       (function (descendant level)
-        (when (is? descendant Product)
+        (when (is? descendant Project)
           (proc descendant)))
       include-self?: include-self?))
   
   
-  (method public (for-each-product-file proc (include-self?: include-self? #f))
+  (method public (for-each-project-file proc (include-self?: include-self? #f))
     (for-each-descendant
       (function (descendant level)
-        (when (is? descendant Product-File)
+        (when (is? descendant Project-File)
           (proc descendant)))
       include-self?: include-self?))
   
@@ -281,7 +281,7 @@
   
   
   (method public (update)
-    (empty-table products-table)
+    (empty-table projects-table)
     (empty-table sources-table)
     (empty-table categories-table)
     (empty-table resources-table))
@@ -325,4 +325,4 @@
   
   (method (get-addable-classes)
     (list
-      Product-Group))))
+      Project-Group))))

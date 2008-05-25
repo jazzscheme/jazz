@@ -47,7 +47,7 @@
 (class Workbench-Designer extends Designer
   
   
-  (slot product-designers initialize '())
+  (slot project-designers initialize '())
 
   
   ;;;
@@ -57,23 +57,23 @@
   
   (method (initialize . rest)
     (apply nextmethod rest)
-    (install-products-designers))
+    (install-projects-designers))
   
   
-  (method (install-products-designers)
-    (for-each-product~ reference
+  (method (install-projects-designers)
+    (for-each-project~ reference
       add-designer))
   
   
-  (method (cleanup-product-designers)
+  (method (cleanup-project-designers)
     (let ((fact (new List-Factory)))
       (for-each-designer
-        (function (product designer)
-          (if (find-product~ reference (type-name (class-of product)))
-              (put~ fact (cons product designer))
+        (function (project designer)
+          (if (find-project~ reference (type-name (class-of project)))
+              (put~ fact (cons project designer))
             (when (get-modified?~ designer)
               (save~ designer)))))
-      (set! product-designers (get-output~ fact))))
+      (set! project-designers (get-output~ fact))))
 
   
   ;;;
@@ -86,7 +86,7 @@
       (let ((owner (find-modification-owner component)))
         (if (or (not use-owner?) (eq? owner reference))
             (apply nextmethod component name others)
-          (let ((designer (get-product-designer owner)))
+          (let ((designer (get-project-designer owner)))
             (apply (~ set-name designer) component name others))))))
   
   
@@ -95,7 +95,7 @@
       (let ((owner (find-modification-owner component)))
         (if (or (not use-owner?) (eq? owner reference))
             (apply nextmethod component property value others)
-          (let ((designer (get-product-designer owner)))
+          (let ((designer (get-project-designer owner)))
             (apply (~ set-property designer) component property value others))))))
   
   
@@ -104,7 +104,7 @@
       (let ((owner (find-modification-owner parent)))
         (if (or (not use-owner?) (eq? owner reference))
             (apply nextmethod child parent others)
-          (let ((designer (get-product-designer owner)))
+          (let ((designer (get-project-designer owner)))
             (apply (~ add-child designer) child parent others))))))
   
   
@@ -113,7 +113,7 @@
            (owner (find-modification-owner parent)))
       (if (eq? owner reference)
           (apply nextmethod child rest)
-        (let ((designer (get-product-designer owner)))
+        (let ((designer (get-project-designer owner)))
           (apply (~ remove-child designer) child rest)))))
   
   
@@ -131,7 +131,7 @@
            (owner (find-modification-owner parents)))
       (if (eq? owner reference)
           (nextmethod components)
-        (let ((designer (get-product-designer owner)))
+        (let ((designer (get-project-designer owner)))
           (cut-components~ designer components)))))
   
   
@@ -140,7 +140,7 @@
            (owner (find-modification-owner parents)))
       (if (eq? owner reference)
           (nextmethod components)
-        (let ((designer (get-product-designer owner)))
+        (let ((designer (get-project-designer owner)))
           (copy-components~ designer components)))))
   
   
@@ -148,7 +148,7 @@
     (let ((owner (find-modification-owner parent)))
       (if (eq? owner reference)
           (apply nextmethod parent rest)
-        (let ((designer (get-product-designer owner)))
+        (let ((designer (get-project-designer owner)))
           (apply (~ paste-clipboard designer) parent rest)))))
   
   
@@ -166,22 +166,22 @@
   (method (find-modification-owner components)
     (let ((owner (find-components-owner components)))
       (if (not (get-effective-editable?~ owner))
-          (error "Product {a} is not editable"  (get-presentation~ owner))
+          (error "Project {a} is not editable"  (get-presentation~ owner))
         owner)))
   
   
   (method (find-components-owner components)
-    (letrec ((find-owner-product
+    (letrec ((find-owner-project
               (function (component)
-                (if (or (eq? component reference) (is? component Product))
+                (if (or (eq? component reference) (is? component Project))
                     component
-                  (find-owner-product (get-parent~ component))))))
+                  (find-owner-project (get-parent~ component))))))
       (if (pair? components)
-          (let ((owners (remove-duplicates (map find-owner-product components))))
+          (let ((owners (remove-duplicates (map find-owner-project components))))
             (if (> (length owners) 1)
-                (error "Sorry, this operation is not yet supported accross multiple products")
+                (error "Sorry, this operation is not yet supported accross multiple projects")
               (car owners)))
-        (find-owner-product components))))
+        (find-owner-project components))))
 
   
   ;;;
@@ -189,44 +189,44 @@
   ;;;
   
   
-  (method (add-designer product)
-    (let* ((class (class-of product))
+  (method (add-designer project)
+    (let* ((class (class-of project))
            (form (get-self-form~ class))
-           (designer (new Product-Designer form: form reference: product)))
-      (add-product-designer product designer)))
+           (designer (new Project-Designer form: form reference: project)))
+      (add-project-designer project designer)))
   
   
-  (method (add-product-designer product designer)
-    (set! product-designers (cons (cons product designer) product-designers)))
+  (method (add-project-designer project designer)
+    (set! project-designers (cons (cons project designer) project-designers)))
   
   
-  (method (remove-designer product)
-    (set! product-designers (remove! (assq product product-designers) product-designers)))
+  (method (remove-designer project)
+    (set! project-designers (remove! (assq project project-designers) project-designers)))
   
   
-  (method protected (get-product-designer product)
-    (assq-value product product-designers #f))
+  (method protected (get-project-designer project)
+    (assq-value project project-designers #f))
   
   
   (method (for-each-designer proc)
     (for-each (function (pair)
-                (bind (product . designer) pair
-                  (proc product designer)))
-              product-designers))
+                (bind (project . designer) pair
+                  (proc project designer)))
+              project-designers))
   
   
-  (method protected (product-add product)
-    (for-each-descendant~ product
+  (method protected (project-add project)
+    (for-each-descendant~ project
       (function (descendant level)
-        (when (is? descendant Product)
+        (when (is? descendant Project)
           (add-designer descendant)))))
   
   
-  (method protected (product-remove product)
+  (method protected (project-remove project)
     ;; This a bit strange way of doing is necessary because when we get notified,
-    ;; the descendants of product have already been removed and so we cannot know
+    ;; the descendants of project have already been removed and so we cannot know
     ;; which designers to remove
-    (cleanup-product-designers))
+    (cleanup-project-designers))
 
   
   ;;;
@@ -240,7 +240,7 @@
         (set! some-modified? #t)
         (save))
       (for-each-designer
-        (function (product designer)
+        (function (project designer)
           (when (get-modified?~ designer)
             (set! some-modified? #t)
             (save~ designer))))

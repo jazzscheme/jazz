@@ -363,12 +363,12 @@
   ;;;
 
 
-  (method public (launch project (configuration: configuration {}) (jazz-source: jazz-source {}) (home-directory: home-directory (project-home~ project)) (profile: profile (either (essay configuration (get-profile~ configuration)) (project-profile~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c?: debug-c? (either (essay configuration (get-debug-c?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
+  (method public (launch product (configuration: configuration {}) (jazz-source: jazz-source {}) (home-directory: home-directory (product-home~ product)) (profile: profile (either (essay configuration (get-profile~ configuration)) (product-profile~ product))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (product-debug?~ product))) (debug-c?: debug-c? (either (essay configuration (get-debug-c?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (product-command-action~ product))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (product-command-arguments~ product))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
     @convert/wait
-    (let ((app-class (project-application~ project)))
+    (let ((app-class (product-application~ product)))
       (if (not app-class)
-          (error "{a} is not a launchable project" (get-name~ project))
-        (export-manifest~ project)
+          (error "{a} is not a launchable product" (get-name~ product))
+        (export-manifest~ product)
         (when debug?
           (start-remoting-server))
         (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c? {File Install "InterpreterDebug.exe"} {File Install "Interpreter.exe"})) ((launcher) (if debug-c? {File Install "LauncherDebug.exe"} {File Install "Launcher.exe"})))))
@@ -393,12 +393,12 @@
   ;;;
   
   
-  (method public (execute project (profile: profile (project-profile~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? #f))
+  (method public (execute product (profile: profile (product-profile~ product)) (command-action: command-action (product-command-action~ product)) (command-arguments: command-arguments (product-command-arguments~ product)) (wait?: wait? #f))
     @convert/wait
-    (let ((app-class (project-application~ project)))
+    (let ((app-class (product-application~ product)))
       (if (not app-class)
-          (error "{a} is not an executable project" (get-presentation~ project))
-        (let* ((file          (outputed-file~ project))
+          (error "{a} is not an executable product" (get-presentation~ product))
+        (let* ((file          (outputed-file~ product))
                (filename      (parse~ file))
                (profile-arg   (if profile (format " /profile {a}" profile) ""))
                (action-arg    (if command-action (format " {a}" command-action) ""))
@@ -447,7 +447,7 @@
   (method (new-documentation-cataloguer)
     (let ((cataloguer (new Cataloguer))
           (workbench (get-workbench)))
-      (for-each-product~ workbench
+      (for-each-project~ workbench
         (function (descendant)
           (let ((file (get-documentation~ descendant)))
             (when file
@@ -479,36 +479,36 @@
   
   
   ;;;
-  ;;;; Projects
+  ;;;; Products
   ;;;
   
   
   ;; quicky for now
-  (method public (update-project-titles)
+  (method public (update-product-titles)
     @convert/wait
     (when menubar
-      (let* ((project (get-active-project~ Workbench-Manager))
-             (title (if (not project) "Edit" (format "Edit {a}" (get-presentation~ project)))))
-        (set-title~ (locate~ (get-content~ (child~ menubar 'project)) 'edit) title))))
+      (let* ((product (get-active-product~ Workbench-Manager))
+             (title (if (not product) "Edit" (format "Edit {a}" (get-presentation~ product)))))
+        (set-title~ (locate~ (get-content~ (child~ menubar 'product)) 'edit) title))))
   
   
-  (method public (update-project-actions)
+  (method public (update-product-actions)
     @convert/wait
-    (let ((project (get-active-project~ Workbench-Manager))
-          (product-file (let ((guest (current-document)))
+    (let ((product (get-active-product~ Workbench-Manager))
+          (project-file (let ((guest (current-document)))
                           (when (and guest (is? guest Document))
                             (let ((moniker (get-moniker~ (get-controller~ guest))))
                               (when moniker
                                 (let ((workbench (get-workbench)))
                                   (find-source~ workbench moniker))))))))
-      (set-action-enabled? {Action jedi edit-project} project)
-      (set-action-enabled? {Action jedi compile-file} (and project product-file))
-      (set-action-enabled? {Action jedi build-project} project)
-      (set-action-enabled? {Action jedi view-project-log} project)
-      (set-action-enabled? {Action jedi analyse-project-references} project)
-      (set-action-enabled? {Action jedi export-project-manifest} project)
-      (set-action-enabled? {Action jedi execute-project} project)
-      (set-action-enabled? {Action jedi launch-project} project)))
+      (set-action-enabled? {Action jedi edit-product} product)
+      (set-action-enabled? {Action jedi compile-file} (and product project-file))
+      (set-action-enabled? {Action jedi build-product} product)
+      (set-action-enabled? {Action jedi view-product-log} product)
+      (set-action-enabled? {Action jedi analyse-product-references} product)
+      (set-action-enabled? {Action jedi export-product-manifest} product)
+      (set-action-enabled? {Action jedi execute-product} product)
+      (set-action-enabled? {Action jedi launch-product} product)))
 
 
   ;;;
@@ -519,7 +519,7 @@
   (method (update-windowing-actions)
     (update-history-actions)
     (update-search-actions)
-    (update-project-actions)
+    (update-product-actions)
     (update-window-actions)
     (update-menubar-buttons))
   

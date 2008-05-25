@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Projects
+;;;; Project Catalogs
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,62 +35,71 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.builder.project.Project jazz
+(library jazz.builder.project.Project-Catalog jazz
 
 
 (import (jazz.builder)
-        (jazz.designer)
+        (jazz.catalog)
         (jazz.library)
         (jazz.utilities))
 
 
-(class Project extends Product
+(class Project-Catalog extends Indexed-Catalog
+  
+  
+  (slot project)
+  
+  
+  (method (initialize project . rest)
+    (apply nextmethod rest)
+    (set! project~self project))
   
 
-  (property icon      initialize {} accessors generate)
-  (property owner     initialize {} accessors generate)
-  (property copyright initialize {} accessors generate)
-  (property version   initialize {} accessors generate)
-
-
   ;;;
-  ;;;; Build
-  ;;;
-
-
-  (method public (build)
-    )
-
-
-  ;;;
-  ;;;; Clean
-  ;;;
-
-
-  (method public (clean)
-    )
-
-
-  ;;;
-  ;;;; Designer
+  ;;;; Access
   ;;;
   
   
-  (method meta (get-class-image)
-    {Bitmap-Resource "MsgUser"})
+  (method public (get-project)
+    project)
   
   
-  (method meta (property-presentation property)
-    (case (field-name property)
-      ((icon) "Icon")
-      ((owner) "Owner")
-      ((copyright) "Copyright")
-      ((version) "Version")
-      (else ((super property-presentation) property))))
+  (method (get-extensions)
+    (get-catalog-extensions~ project))
+
+
+  ;;;
+  ;;;; Activation
+  ;;;
+
+  
+  (method (get-active?)
+    (get-active?~ project))
   
   
-  (method (get-categorized-properties)
-    '(title
-      include-extensions catalog-extensions
-      documentation
-      icon owner copyright version))))
+  (method (set-active? flag)
+    (when (neq? flag (get-active?~ project))
+      (set-active?~ project flag)
+      (if (get-active?)
+          (activate)
+        (deactivate))))
+  
+
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  (method (scan-directories)
+    (let ((processed 0)
+          (extensions (get-extensions)))
+      (fold-files~ project
+        (function (project-file seed)
+          (if (and (neq? project-file project) (is? project-file Project) (get-catalog?~ project-file))
+              :skip
+            (when (get-catalog?~ project-file)
+              (let ((file (get-effective-source~ project-file)))
+                (when (and file (process-file file))
+                  (increase! processed))))))
+        {})
+      processed))))

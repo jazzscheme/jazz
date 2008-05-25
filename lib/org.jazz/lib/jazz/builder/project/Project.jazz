@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Products
+;;;; Projects
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.builder.product.Product jazz
+(library jazz.builder.project.Project jazz
 
 
 (import (jazz.builder)
@@ -45,7 +45,7 @@
         (jazz.utilities))
 
 
-(class Product extends Product-File
+(class Project extends Project-File
   
   
   (property title              initialize {} accessors generate)
@@ -58,7 +58,7 @@
 
 
   (slot workbench)
-  (slot parent-product initialize {})
+  (slot parent-project initialize {})
   (slot catalog        initialize {})
   
   
@@ -102,15 +102,15 @@
     (set! workbench value))
 
 
-  (method public (get-parent-product)
-    parent-product)
+  (method public (get-parent-project)
+    parent-project)
 
 
-  (method public (set-parent-product value)
-    (set! parent-product value))
+  (method public (set-parent-project value)
+    (set! parent-project value))
   
   
-  (method public virtual (product-title)
+  (method public virtual (project-title)
     (either title (->string (type-name (class-of self)))))
 
 
@@ -143,7 +143,7 @@
           (unless catalog
             (set! catalog (create/register-catalog)))
           catalog)
-      (require-catalog~ parent-product)))
+      (require-catalog~ parent-project)))
   
   
   (method (create/register-catalog)
@@ -156,7 +156,7 @@
     #f
     @convert
     (let ((output (catalog-output)))
-      (new Product-Catalog self name output {} {} {} #t #t {} {} {})))
+      (new Project-Catalog self name output {} {} {} #t #t {} {} {})))
   
   
   @convert
@@ -171,7 +171,7 @@
   
   (method public virtual (get-effective-editable?)
     (if (not editable?)
-        (get-effective-editable?~ parent-product)
+        (get-effective-editable?~ parent-project)
       editable?))
 
 
@@ -180,14 +180,14 @@
   ;;;
   
   
-  (method public (for-each-file proc (type Product-File))
+  (method public (for-each-file proc (type Project-File))
     (for-each-descendant
       (function (descendant level)
         (when (is? descendant type)
           (proc descendant)))))
 
 
-  (method public (collect-files (type Product-File))
+  (method public (collect-files (type Project-File))
     (let ((fact (new List-Factory)))
       (for-each-file
         (function (file)
@@ -196,7 +196,7 @@
       (get-output~ fact)))
   
   
-  (method public (fold-files proc seed (type Product-File))
+  (method public (fold-files proc seed (type Project-File))
     (letrec ((fold
                (function (x f s)
                  (let ((ps (if (is? x type)
@@ -218,17 +218,17 @@
   
   (method (add-to-index name component)
     (set-workbench (find-workbench))
-    (add-to-product~ workbench self name component))
+    (add-to-project~ workbench self name component))
   
   
   (method (remove-from-index name component)
-    (remove-from-product~ workbench self name component))
+    (remove-from-project~ workbench self name component))
   
   
   (method protected virtual (find-workbench)
-    (let ((product (either creator workbench)))
-      (if (is? product Workbench)
-          product
+    (let ((project (either creator workbench)))
+      (if (is? project Workbench)
+          project
         (find-ascendant Workbench))))
 
 
@@ -266,15 +266,15 @@
   
   
   (method (addable-class? class)
-    (or (subtype? class Product-File)
-        (subtype? class Product-Group)))
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
   
   
   (method (get-addable-classes)
     (list
-      Product-Group
+      Project-Group
       ;{}
-      ;Project-Dependency
+      ;Product-Dependency
       ;{}
       ;Jazz-File
       ;C-File

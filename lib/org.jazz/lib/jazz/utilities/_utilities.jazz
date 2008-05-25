@@ -53,20 +53,6 @@
 
 
 ;;;
-;;;; Constants
-;;;
-
-
-(definition public (split-lines string)
-  (call-with-input-string string
-    read-lines))
-
-
-(definition public (join-lines lines)
-  (join lines "\n"))
-
-
-;;;
 ;;;; Actions
 ;;;
 
@@ -112,6 +98,20 @@
 
 (definition public Pi
   3.14159)
+
+
+;;;
+;;;; Lines
+;;;
+
+
+(definition public (split-lines string)
+  (call-with-input-string string
+    read-lines))
+
+
+(definition public (join-lines lines)
+  (join lines "\n"))
 
 
 ;;;
@@ -200,9 +200,6 @@
 ;;;
 ;;;; Execution
 ;;;
-
-
-;; Does this have to do with debugging?
 
 
 (definition public (with-execution-context proc (title: title {}) (details: details '()) (reporter: reporter {}))
@@ -687,31 +684,6 @@
       (set! children (cons child children))
       (set! child (profile-previous-brother child)))
     children))
-
-
-;;;
-;;;; Manifest
-;;;
-
-
-(definition public (for-each-source proc)
-  (unimplemented 'for-each-source)
-  @Workbench
-  (let ((workbench (get-workbench))
-        (manifest (get-manifest)))
-    (cond (workbench
-            (for-each-jazz-file~ workbench
-              (function (file)
-                (proc (get-name~ file) (get-source~ file) (manifest-properties~ file)))))
-          (manifest
-            (iterate-table (get-manifest)
-              (function (category-name properties)
-                (proc category-name (getf properties source:) properties))))
-          (else
-           (iterate-table (get-compiled-categories)
-             (function (name value)
-               (bind (ignore time . properties) value
-                 (proc name {} properties))))))))
 
 
 ;;;
@@ -1233,17 +1205,19 @@
     (get-output~ fact)))
 
 
-(definition public (fit pos <fx> alternate <fx> size <fx> max <fx>)
+(definition public (fit pos <fx> alternate <fx> size <fx> max <fx> padding <fx>)
   (cond ((> size max) 0)
-        ((<= (+ pos size) max) pos)
-        ((>= (- alternate size) 0) (- alternate size))
+        ((<= (+ pos size padding) max) (+ pos padding))
+        ((and alternate (<= (+ alternate size padding) max)) (+ alternate padding))
+        ((>= (- pos size) 0) (- pos size))
+        ((and alternate (>= (- alternate size) 0)) (- alternate size))
         (else (- max size))))
 
 
-(definition public (fit-point pos <Point> alternate <Point> size <Dimension> max <Dimension>)
+(definition public (fit-point pos <Point> alternate <Point> size <Dimension> max <Dimension> padding <Dimension>)
   (new Point
-    (fit (get-h~ pos) (get-h~ alternate) (get-width~ size) (get-width~ max))
-    (fit (get-v~ pos) (get-v~ alternate) (get-height~ size) (get-height~ max))))
+    (fit (get-h~ pos) (essay alternate (get-h~ alternate)) (get-width~ size) (get-width~ max) (get-width~ padding))
+    (fit (get-v~ pos) (essay alternate (get-v~ alternate)) (get-height~ size) (get-height~ max) (get-height~ padding))))
 
 
 (definition public (scalar-product a <Point> b <Point>)

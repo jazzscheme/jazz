@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Product Designer
+;;;; Project Catalogs
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,19 +35,71 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.builder.product.Product-Designer jazz
+(library jazz.builder.project.Project-Catalog jazz
 
 
 (import (jazz.builder)
-        (jazz.designer)
+        (jazz.catalog)
         (jazz.library)
         (jazz.utilities))
 
 
-(class Product-Designer extends Designer
+(class Project-Catalog extends Indexed-Catalog
   
   
-  (method (print printer readably)
-    (print-unreadable self printer
-      (function (printer)
-        (format printer "on {p}" reference readably))))))
+  (slot project)
+  
+  
+  (method (initialize project . rest)
+    (apply nextmethod rest)
+    (set! project~self project))
+  
+
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-project)
+    project)
+  
+  
+  (method (get-extensions)
+    (get-catalog-extensions~ project))
+
+
+  ;;;
+  ;;;; Activation
+  ;;;
+
+  
+  (method (get-active?)
+    (get-active?~ project))
+  
+  
+  (method (set-active? flag)
+    (when (neq? flag (get-active?~ project))
+      (set-active?~ project flag)
+      (if (get-active?)
+          (activate)
+        (deactivate))))
+  
+
+  ;;;
+  ;;;; Scan
+  ;;;
+  
+  
+  (method (scan-directories)
+    (let ((processed 0)
+          (extensions (get-extensions)))
+      (fold-files~ project
+        (function (project-file seed)
+          (if (and (neq? project-file project) (is? project-file Project) (get-catalog?~ project-file))
+              :skip
+            (when (get-catalog?~ project-file)
+              (let ((file (get-effective-source~ project-file)))
+                (when (and file (process-file file))
+                  (increase! processed))))))
+        {})
+      processed))))

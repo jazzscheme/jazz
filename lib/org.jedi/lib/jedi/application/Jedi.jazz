@@ -38,9 +38,12 @@
 (library jedi.application.Jedi jazz
 
 
-(import (jazz.console)
+(import (jazz.builder)
+        (jazz.builder.workbench)
+        (jazz.console)
         (jazz.ide)
         (jazz.io)
+        (jazz.jrm)
         (jazz.language.jazz)
         (jazz.library)
         (jazz.library.component)
@@ -359,54 +362,65 @@
 
   
   ;;;
+  ;;;; Run
+  ;;;
+  
+  
+  (method public (run-product product (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (wait?: wait? #f))
+    ;; should probably try and launch a built executable of the product if present
+    (launch-product product
+      configuration: configuration
+      debug?: #f
+      profile: profile
+      command-action: command-action
+      command-arguments: command-arguments
+      wait?: wait))
+
+  
+  ;;;
+  ;;;; Debug
+  ;;;
+
+
+  (method public (debug-product product (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (wait?: wait? #f))
+    (launch-product product
+      configuration: configuration
+      debug?: #t
+      profile: profile
+      command-action: command-action
+      command-arguments: command-arguments
+      wait?: wait))
+
+  
+  ;;;
   ;;;; Launch
   ;;;
-
-
-  (method public (launch project (configuration: configuration {}) (jazz-source: jazz-source {}) (home-directory: home-directory (project-home~ project)) (profile: profile (either (essay configuration (get-profile~ configuration)) (project-profile~ project))) (debug?: debug? (either (essay configuration (get-debug?~ configuration)) (project-debug?~ project))) (debug-c?: debug-c? (either (essay configuration (get-debug-c?~ configuration)) #f)) (wait?: wait? #f) (command-action: command-action (either (essay configuration (get-action~ configuration)) (project-command-action~ project))) (command-arguments: command-arguments (either (essay configuration (get-arguments~ configuration)) (project-command-arguments~ project))) (runtime: runtime (either (essay configuration (get-runtime~ configuration)) 'launcher)))
-    @convert/wait
-    (let ((app-class (project-application~ project)))
-      (if (not app-class)
-          (error "{a} is not a launchable project" (get-name~ project))
-        (export-manifest~ project)
-        (when debug?
-          (start-remoting-server))
-        (let* ((filename           (parse~ (case runtime ((interpreter) (if debug-c? {File Install "InterpreterDebug.exe"} {File Install "Interpreter.exe"})) ((launcher) (if debug-c? {File Install "LauncherDebug.exe"} {File Install "Launcher.exe"})))))
-               (app-arg            (format " /app {a}" app-class))
-               (homedir-arg        (if home-directory (format " /homedir \"{a}\"" (parse~ home-directory)) ""))
-               (rootdir-arg        (format " /rootdir \"{a}\"" (parse~ {Directory Jazz})))
-               (profile-arg        (if profile (format " /profile {a}" profile) ""))
-               (debug-arg          (if debug? (format " /debug #t") ""))
-               (controllerhost-arg (if debug? (format " /controllerhost {a}" (host->string (listening-host~ remoting-server))) ""))
-               (controllerport-arg (if debug? (format " /controllerport {a}" (port->string (listening-port~ remoting-server))) ""))
-               (action-arg         (if command-action (format " {a}" command-action) ""))
-               (arguments-arg      (if command-arguments (format " {a}" command-arguments) ""))
-               (command            (format "\"{a}\"{a}{a}{a}{a}{a}{a}{a}{a}{a}" filename action-arg app-arg debug-arg controllerhost-arg controllerport-arg homedir-arg rootdir-arg profile-arg arguments-arg)))
-          (save-all)
-          @w
-          (debug-string command)
-          (create-process command directory: home-directory wait?: wait?)))))
-
-  
-  ;;;
-  ;;;; Execute
-  ;;;
   
   
-  (method public (execute project (profile: profile (project-profile~ project)) (command-action: command-action (project-command-action~ project)) (command-arguments: command-arguments (project-command-arguments~ project)) (wait?: wait? #f))
-    @convert/wait
-    (let ((app-class (project-application~ project)))
-      (if (not app-class)
-          (error "{a} is not an executable project" (get-presentation~ project))
-        (let* ((file          (outputed-file~ project))
-               (filename      (parse~ file))
-               (profile-arg   (if profile (format " /profile {a}" profile) ""))
-               (action-arg    (if command-action (format " {a}" command-action) ""))
-               (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
-               (command       (format "\"{a}\"{a}{a}{a}" filename action-arg profile-arg arguments-arg)))
-          @w
-          (debug-string command)
-          (create-process command wait?: wait?)))))
+  (method public (launch-product product (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (wait?: wait? #f))
+    (when debug?
+      (start-remoting-server))
+    (let* ((runtime-arg        (list "-:m500000,h1000000"))
+           (product-arg        (list "-run" (->string product)))
+           (debug-arg          (if debug? (list "-debug" "#t") '()))
+           (controllerhost-arg (if debug? (list "-controllerhost" (host->string (listening-host~ remoting-server))) '()))
+           (controllerport-arg (if debug? (list "-controllerport" (port->string (listening-port~ remoting-server))) '()))
+           (profile-arg        (if profile (list "-profile" (->string profile)) '()))
+           (action-arg         (if command-action (list command-action) '()))
+           (arguments-arg      (if command-arguments command-arguments '()))
+           (arguments          (append runtime-arg action-arg product-arg debug-arg controllerhost-arg controllerport-arg profile-arg arguments-arg))
+           (executable         (case configuration
+                                 ((core) {File Jazz "bin" "GambitWindowsCore" "jazz"})
+                                 ((debug) {File Jazz "bin" "GambitWindowsDebug" "jazz"})
+                                 ((release) {File Jazz "bin" "GambitWindowsRelease" "jazz"}))))
+      (save-all)
+      @debug
+      (debug executable arguments)
+      (open-process
+        (list
+          path: (parse~ executable)
+          arguments: arguments
+          show-console: #f))))
 
 
   ;;;
@@ -447,7 +461,7 @@
   (method (new-documentation-cataloguer)
     (let ((cataloguer (new Cataloguer))
           (workbench (get-workbench)))
-      (for-each-product~ workbench
+      (for-each-project~ workbench
         (function (descendant)
           (let ((file (get-documentation~ descendant)))
             (when file
@@ -479,36 +493,32 @@
   
   
   ;;;
-  ;;;; Projects
+  ;;;; Products
   ;;;
   
   
   ;; quicky for now
-  (method public (update-project-titles)
-    @convert/wait
+  (method public (update-product-titles)
     (when menubar
-      (let* ((project (get-active-project~ Workbench-Manager))
-             (title (if (not project) "Edit" (format "Edit {a}" (get-presentation~ project)))))
-        (set-title~ (locate~ (get-content~ (child~ menubar 'project)) 'edit) title))))
+      (let* ((product (get-active-product))
+             (title (if (not product) "Edit" (format "Edit {a}" (get-presentation~ product)))))
+        (set-title~ (locate~ (get-content~ (child~ menubar 'product)) 'edit) title))))
   
   
-  (method public (update-project-actions)
-    @convert/wait
-    (let ((project (get-active-project~ Workbench-Manager))
-          (product-file (let ((guest (current-document)))
+  (method public (update-product-actions)
+    (let ((product (get-active-product))
+          (project-file (let ((guest (current-document)))
                           (when (and guest (is? guest Document))
                             (let ((moniker (get-moniker~ (get-controller~ guest))))
                               (when moniker
                                 (let ((workbench (get-workbench)))
                                   (find-source~ workbench moniker))))))))
-      (set-action-enabled? {Action jedi edit-project} project)
-      (set-action-enabled? {Action jedi compile-file} (and project product-file))
-      (set-action-enabled? {Action jedi build-project} project)
-      (set-action-enabled? {Action jedi view-project-log} project)
-      (set-action-enabled? {Action jedi analyse-project-references} project)
-      (set-action-enabled? {Action jedi export-project-manifest} project)
-      (set-action-enabled? {Action jedi execute-project} project)
-      (set-action-enabled? {Action jedi launch-project} project)))
+      (set-action-enabled? {Action jedi edit-product} product)
+      (set-action-enabled? {Action jedi compile-file} (and product project-file))
+      (set-action-enabled? {Action jedi build-product} product)
+      (set-action-enabled? {Action jedi view-product-log} product)
+      (set-action-enabled? {Action jedi run-product} product)
+      (set-action-enabled? {Action jedi debug-product} product)))
 
 
   ;;;
@@ -519,7 +529,7 @@
   (method (update-windowing-actions)
     (update-history-actions)
     (update-search-actions)
-    (update-project-actions)
+    (update-product-actions)
     (update-window-actions)
     (update-menubar-buttons))
   

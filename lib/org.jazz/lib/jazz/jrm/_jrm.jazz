@@ -17,7 +17,7 @@
 ;;;  The Original Code is JazzScheme.
 ;;;
 ;;;  The Initial Developer of the Original Code is Guillaume Cartier.
-;;;  Portions created by the Initial Developer are Copyright (C) 1996-2006
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
@@ -70,13 +70,31 @@
 
 
 ;;;
-;;;; Live
+;;;; Liveliness
 ;;;
 
 
-;; todo
+(definition live-request
+  'live?)
+
+(definition live-response
+  'live)
+
+
 (definition (remote-proxy-live? remote-proxy)
-  #t)
+  (let ((proxy-ior (marshall remote-proxy)))
+    (let ((host (get-host~ proxy-ior))
+          (service (get-service~ proxy-ior)))
+      (when *debug?*
+        (terminal '***remoting*** 'live? remote-proxy))
+      (call-with-tcp-client (list server-address: host port-number: service)
+        (function (port)
+          (with-exception-catcher
+            (function (exc)
+              #f)
+            (function ()
+              (write-remote-message live-request port)
+              (eq? (read-remote-result port) live-response))))))))
 
 
 ;;;
@@ -100,19 +118,20 @@
           (service (get-service~ proxy-ior)))
       (when *debug?*
         (terminal '***remoting*** 'invoke kind method-name remote-proxy arguments))
-      (let ((port (open-tcp-client (list server-address: host port-number: service))))
-        (write-remote-message (list kind method-name proxy-ior arguments) port)
-        (case kind
-          ((send)
-           (let ((err/result (read-remote-result port)))
-             (when *debug?*
-               (terminal '***remoting*** 'received kind method-name '-> err/result))
-             (bind (err result) err/result
-               (if err
-                   (error "Remote error while executing {s}: {a}" method-name err)
-                 (unmarshall result)))))
-          ((post)
-           (unspecified)))))))
+      (call-with-tcp-client (list server-address: host port-number: service)
+        (function (port)
+          (write-remote-message (list kind method-name proxy-ior arguments) port)
+          (case kind
+            ((send)
+             (let ((err/result (read-remote-result port)))
+               (when *debug?*
+                 (terminal '***remoting*** 'received kind method-name '-> err/result))
+               (bind (err result) err/result
+                 (if err
+                     (error "Remote error while executing {s}: {a}" method-name err)
+                   (unmarshall result)))))
+            ((post)
+             (unspecified))))))))
 
 
 (definition (write-remote-message info port)
@@ -132,17 +151,20 @@
 
 
 (definition (process-remote port)
-  (bind (kind method-name proxy-ior arguments) (read-remote-message port)
-    (when *debug?*
-      (terminal '***remoting*** 'process kind method-name proxy-ior arguments))
-    (case kind
-      ((send)
-       (let ((err/result (execute-remote method-name proxy-ior arguments)))
-         (when *debug?*
-           (terminal '***remoting*** 'return kind method-name err/result))
-         (write-remote-result err/result port)))
-      ((post)
-       (dispatch-remote method-name proxy-ior arguments)))))
+  (let ((message (read-remote-message port)))
+    (if (eq? message live-request)
+        (write-remote-result live-response port)
+      (bind (kind method-name proxy-ior arguments) message
+        (when *debug?*
+          (terminal '***remoting*** 'process kind method-name proxy-ior arguments))
+        (case kind
+          ((send)
+           (let ((err/result (execute-remote method-name proxy-ior arguments)))
+             (when *debug?*
+               (terminal '***remoting*** 'return kind method-name err/result))
+             (write-remote-result err/result port)))
+          ((post)
+           (dispatch-remote method-name proxy-ior arguments)))))))
 
 
 (definition (read-remote-message port)

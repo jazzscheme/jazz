@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Network
+;;;; Project Groups
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,27 +35,62 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.dialect.core.network
+(library jazz.builder.file.Project-Group jazz
 
 
-(cond-expand
-  (gambit
-    (define jazz.open-tcp-client open-tcp-client)
-    (define jazz.open-tcp-server open-tcp-server)
-    (define jazz.tcp-server-socket-info tcp-server-socket-info)
-    
-    (define (jazz.call-with-tcp-client settings proc)
-      (let ((port #f))
-        (dynamic-wind
-          (lambda ()
-            (set! port (open-tcp-client settings)))
-          (lambda ()
-            (proc port))
-          (lambda ()
-            (if port
-                (close-port port))))))
-    
-    (define jazz.socket-info-address socket-info-address)
-    (define jazz.socket-info-port-number socket-info-port-number))
+(import (jazz.builder)
+        (jazz.designer)
+        (jazz.library)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Project-Group extends Group
   
-  (else)))
+  
+  (property directory initialize {} accessors generate)
+  
+  
+  ;;;
+  ;;;; Designer
+  ;;;
+  
+  
+  (method meta (presentation->name presentation)
+    presentation)
+  
+  
+  (method meta (name->presentation name)
+    name)
+
+  
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((directory) "Directory")
+      (else (nextmethod property))))
+  
+  
+  @convert
+  (method (sort-components components)
+    (sort < components key: (function (component)
+                              (cons (if (is? component Project-Group) 0 1)
+                                    (get-presentation~ component)))))
+  
+  
+  (method (addable-class? class)
+    (or (subtype? class Project-File)
+        (subtype? class Project-Group)))
+  
+  
+  (method (get-addable-classes)
+    (list Project-Group))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((directory) (new Directory-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(directory))))

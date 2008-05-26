@@ -104,6 +104,19 @@
 
 
 ;;;
+;;;; Management
+;;;
+
+
+(definition public (select-foreground-window handle)
+  (platform-select-foreground-window handle))
+
+
+(definition public (get-window-handle-title handle)
+  (platform-get-window-handle-title handle))
+
+
+;;;
 ;;;; Loop
 ;;;
 
@@ -116,14 +129,6 @@
             'message)))
     (thread-specific-set! thread #t)
     thread))
-
-
-(definition event-thread
-  (primordial-thread))
-
-
-(definition (event-thread?)
-  (eq? (current-thread) event-thread))
 
 
 (definition (setup-event-thread)
@@ -140,32 +145,6 @@
             (thunk)
             (loop)))
       (thread-specific-set! thread #f))))
-
-
-(definition (send-event thunk)
-  (if (event-thread?)
-      (thunk)
-    (let ((mutex (make-mutex)))
-      (mutex-lock! mutex)
-      (thread-send event-thread
-        (function ()
-          (unwind-protect
-              (thunk)
-            (mutex-unlock! mutex))))
-      (mutex-lock! mutex))))
-
-
-;;;
-;;;; Management
-;;;
-
-
-(definition public (select-foreground-window handle)
-  (platform-select-foreground-window handle))
-
-
-(definition public (get-window-handle-title handle)
-  (platform-get-window-handle-title handle))
 
 
 ;;;

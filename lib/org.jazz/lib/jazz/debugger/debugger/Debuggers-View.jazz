@@ -344,21 +344,23 @@
   
   
   (method public (selected-thread)
-    @convert/wait
     (let ((object (selected-object)))
-      (typecase object
-        ((Debuggee-Thread-Remotable) object)
-        ((Execution-Frame) (get-thread~ object))
-        ((Frame-Snapshot) (get-thread~ object))
-        (else {}))))
+      (when (and (is? object JML-Node)
+                 (eq? (get-tag~ object) 'thread))
+        object)))
+  
+  
+  (method public (selected-stop)
+    (let ((object (selected-object)))
+      (when (and (is? object JML-Node)
+                 (eq? (get-tag~ object) 'stop))
+        object)))
   
   
   (method public (selected-frame)
-    (selected-object)
-    @convert/wait
     (let ((object (selected-object)))
-      (when (or (is? object Execution-Frame)
-                (is? object Frame-Snapshot))
+      (when (and (is? object JML-Node)
+                 (eq? (get-tag~ object) 'frame))
         object)))
   
   
@@ -489,14 +491,17 @@
                                 (let* ((title (->string (get-property~ thread 'name)))
                                        (state 'error (get-state~ thread))
                                        (primordial? #t @wait (get-primordial?~ thread))
-                                       (image (case state ((break) {Bitmap-Resource "ThreadBreak"}) ((error) {Bitmap-Resource "ThreadError"}) (else {Bitmap-Resource "ThreadRun"})))
+                                       (image {Bitmap-Resource "Person"})
                                        (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
                                   (for-each (function (stop)
-                                              (for-each (function (frame)
-                                                          (let ((title (->string (get-property~ frame 'name)))
-                                                                (image {Bitmap-Resource "FrameLexical"}))
-                                                            (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
-                                                        (get-children~ stop)))
+                                              (let* ((title "Stop")
+                                                     (image {Bitmap-Resource "Exception"})
+                                                     (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                                (for-each (function (frame)
+                                                            (let ((title (->string (identifier-name (get-property~ frame 'name))))
+                                                                  (image {Bitmap-Resource "Link"}))
+                                                              (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
+                                                          (get-children~ stop))))
                                             (get-children~ thread))))
                               (get-children~ state))))
                 debuggees)))

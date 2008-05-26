@@ -107,7 +107,11 @@
     (define jazz.mutex-specific-set! mutex-specific-set!)
     (define jazz.mutex-state mutex-state)
     (define jazz.mutex-lock! mutex-lock!)
-    (define jazz.mutex-unlock! mutex-unlock!))
+    (define jazz.mutex-unlock! mutex-unlock!)
+    
+    (define (jazz.mutex-wait mutex)
+      (mutex-lock! mutex)
+      (mutex-unlock! mutex)))
   
   (else))
 

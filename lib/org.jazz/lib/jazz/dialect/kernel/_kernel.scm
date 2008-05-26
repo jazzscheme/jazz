@@ -625,6 +625,7 @@
 (native jazz.mutex-state)
 (native jazz.mutex-lock!)
 (native jazz.mutex-unlock!)
+(native jazz.mutex-wait)
 (native jazz.condition?)
 (native jazz.make-condition)
 (native jazz.condition-name)

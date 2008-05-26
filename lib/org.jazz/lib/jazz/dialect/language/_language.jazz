@@ -969,7 +969,7 @@
   (call/ec
     (function (cont)
       (with-jazz-exception-catcher
-        (lambda (exception propagate debug)
+        (function (exception propagate debug)
           (if (is? exception type)
               (cont (handler exception))
             (propagate)))
@@ -983,6 +983,36 @@
 
 (definition public inline (catched? exception)
   (boolean (find-catch exception)))
+
+
+@convert/wait
+(definition (with-safe-exception-handler thunk)
+  (call/cc
+    (function (recursive-error)
+      (with-exception-handler
+        (function (exc)
+          (recursive-error (format "Recursive error: {a}" (exception-reason exc))))
+        thunk))))
+
+
+(definition (with-debuggee-exception-handler thunk)
+  (with-exception-handler
+    (function (exc)
+      (let* ((process (get-process))
+             (debugger (and process (get-controller-debugger~ process))))
+        (if (not debugger)
+            (default-exception-handler exc)
+          (continuation-capture
+            (function (continuation)
+              (let ((reason (exception-reason exc)))
+                (invoke-controller-debugger~ process 'exception reason continuation)))))))
+    thunk))
+
+
+(definition (break (reason #f))
+  (continuation-capture
+    (function (continuation)
+      (invoke-controller-debugger~ (get-process) 'break reason continuation))))
 
 
 ;;;
@@ -4480,6 +4510,45 @@
   (eq? (current-thread) (primordial-thread)))
 
 
+(definition public (thread-loop)
+  (let (loop)
+    (let ((thunk (thread-receive)))
+      (thunk)
+      (loop))))
+
+
+(definition public (thread-execute thread thunk)
+  (if (eq? thread (current-thread))
+      (thunk)
+    (let ((mutex (make-mutex)))
+      (mutex-lock! mutex)
+      (thread-send thread
+        (function ()
+          (unwind-protect
+              (thunk)
+            (mutex-unlock! mutex))))
+      (mutex-lock! mutex))))
+
+
+(definition public (thread-delegate thread thunk)
+  (let ((delegator (current-thread)))
+    (if (eq? thread delegator)
+        (thunk)
+      (let ((mutex (make-mutex)))
+        (mutex-lock! mutex)
+        (thread-send thread
+          (function ()
+              (unwind-protect
+                  (thread-send delegator
+                    (with-exception-catcher
+                      (function (exc)
+                        (exception-reason exc))
+                      thunk))
+                (mutex-unlock! mutex))))
+        (mutex-lock! mutex)
+        (thread-receive)))))
+
+
 ;;;
 ;;;; Time
 ;;;
@@ -5706,24 +5775,11 @@
 
 
 ;;;
-;;;; Interpreter
-;;;
-
-
-(definition (interpreter-present?)
-  ;; for now
-  #t)
-
-
-(definition (break . rest)
-  (unimplemented 'break))
-
-
-;;;
 ;;;; Profiler
 ;;;
 
 
+@convert
 (syntax public (profile . expressions)
   (let ((control (car expressions))
         (body (cdr expressions)))

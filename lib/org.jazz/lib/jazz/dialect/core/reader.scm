@@ -143,8 +143,10 @@
                      (let ((escaped (read-char port)))
                        (case escaped
                          ((#\()
-                          (write-char #\esc output)
-                          (write-char escaped output)
+                          (write-char #\x02 output)
+                          (iter))
+                         ((#\))
+                          (write-char #\x03 output)
                           (iter))
                          (else
                           (write-char escaped output)

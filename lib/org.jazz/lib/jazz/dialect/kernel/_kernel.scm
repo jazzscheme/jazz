@@ -153,15 +153,14 @@
 ;;;
 
 (native jazz.exception-reason)
-(native display-exception)
-(native display-continuation-backtrace)
+(native jazz.display-exception)
+(native jazz.display-continuation-backtrace)
 (native jazz.default-exception-handler)
 (native jazz.current-exception-handler)
-(native jazz.with-jazz-exception-catcher)
 (native jazz.with-exception-handler)
 (native jazz.with-exception-catcher)
 (native jazz.with-default-exception-handler)
-(native jazz.with-jazz-exception-handler)
+(native jazz.with-propagatable-exception-catcher)
 (native jazz.dump-exception)
 (native jazz.raise)
 

@@ -2643,80 +2643,90 @@
   ;;;
   
   
+  (definition formatted-start-delimiter
+    #\x02)
+  
+  (definition formatted-end-delimiter
+    #\x03)
+  
+  
   (method (insert-formatted-line line)
     (call-with-input-string line
-      (function (input)
-        (define (process-string)
-          (let ((output (open-output-string)))
-            (let (iterate)
-              (let ((c (peek-char input)))
-                (if (or (eof-object? c)
-                        (eqv? c #\esc))
-                    (insert-formatted (get-output-string output))
-                  (write-char (read-char input) output)
-                  (iterate))))))
-        
-        (define (process)
+      process-formatted))
+  
+  
+  (method (process-formatted input)
+    (define (process-string)
+      (let ((output (open-output-string)))
+        (let (iterate)
           (let ((c (peek-char input)))
-            (when (not (eof-object? c))
-              (case c
-                ((#\esc)
+            (if (or (eof-object? c)
+                    (eqv? c formatted-start-delimiter)
+                    (eqv? c formatted-end-delimiter))
+                (insert-styled (get-output-string output) 'Default)
+              (write-char (read-char input) output)
+              (iterate))))))
+    
+    (define (process)
+      (let ((c (peek-char input)))
+        (when (and (not (eof-object? c))
+                   (not (eqv? c formatted-end-delimiter)))
+          (cond ((eqv? c formatted-start-delimiter)
                  (read-char input)
-                 (insert-formatted (read input)))
+                 (let ((directive (read-formatted-parameter input)))
+                   (process-formatted-directive directive input)))
                 (else
                  (process-string)))
-              (process))))
-        
-        (process))))
-  
-  
-  (method (insert-formatted form)
-    (if (string? form)
-        (insert-styled form 'Default)
-      (insert-formatted-directive form)))
-  
-  
-  (method protected virtual (insert-formatted-directive form)
-    (define (with-insert insert proc)
-      (let ((start (get-start)))
-        (insert)
-        (let ((end (get-start)))
-          (proc (new Range$Cell$ start end)))))
+          (process))))
     
-    (bind (directive . arguments) form
-      (case directive
-        ((%)
-         (insert-newline))
-        (($)
-         (unless (at-line-start?)
-           (insert-newline)))
-        ((bold)
-         (bind (string) arguments
-           (with-insert (function () (insert-formatted string))
-             (function (range)
-               (toggle-bold range)))))
-        ((italic)
-         (bind (string) arguments
-           (with-insert (function () (insert-formatted string))
-             (function (range)
-               (toggle-italic range)))))
-        ((underline)
-         (bind (string) arguments
-           (with-insert (function () (insert-formatted string))
-             (function (range)
-               (toggle-underline range)))))
-        ((color)
-         (bind (color string) arguments
-           (with-insert (function () (insert-formatted string))
-             (function (range)
-               (set-text-color range (registered-color color))))))
-        ((font)
-         (bind (font string) arguments
-           (with-insert (function () (insert-formatted string))
-             (function (range)
-               (set-text-font range (registered-font font))))))
-        (else
-         (error "Unknown text directive: {s}" directive)))))
+    (process))
+  
+  
+  (method protected virtual (process-formatted-directive directive input)
+    (define (with-processed-range proc)
+      (let ((start (get-start)))
+        (process-formatted input)
+        (let ((end-char (read-char input)))
+          (if (eof-object? end-char)
+              (error "Incomplete formatted input, EOF reached")
+            (let ((end (get-start)))
+              (proc (new Range$Cell$ start end)))))))
+    
+    (case directive
+      ((%)
+       (insert-newline))
+      (($)
+       (unless (at-line-start?)
+         (insert-newline)))
+      ((bold)
+       (with-processed-range
+         (function (range)
+           (toggle-bold range))))
+      ((italic)
+       (with-processed-range
+         (function (range)
+           (toggle-italic range))))
+      ((underline)
+       (with-processed-range
+         (function (range)
+           (toggle-underline range))))
+      ((color)
+       (let ((color (read-formatted-parameter input)))
+         (with-processed-range
+           (function (range)
+             (set-text-color range (registered-color color))))))
+      ((font)
+       (let ((font (read-formatted-parameter input)))
+         (with-processed-range
+           (function (range)
+             (set-text-font range (registered-font font))))))
+      (else
+       (error "Unknown text directive: {s}" directive))))
+  
+  
+  (method (read-formatted-parameter input)
+    (prog1 (read input)
+      (read-char input)))
   
   
   ;;;

@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Marc Feeley
 ;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
@@ -40,11 +41,26 @@
 
 
 ;;;
-;;;; Control
+;;;; Default
 ;;;
 
 
-(define (jazz.with-jazz-exception-catcher handler thunk)
+(define jazz.default-exception-handler
+  (jazz.current-exception-handler))
+
+
+(define (jazz.with-default-exception-handler thunk)
+  (jazz.with-exception-handler
+    jazz.default-exception-handler
+    thunk))
+
+
+;;;
+;;;; Propagatable
+;;;
+
+
+(define (jazz.with-propagatable-exception-catcher handler thunk)
   ;; Calls "thunk" and returns whatever "thunk" returns, unless
   ;; it raises an exception. In that case the handler is called
   ;; with 3 arguments:
@@ -74,59 +90,4 @@
                              (##continuation-graft
                                raise-cont
                                ##repl))))))))
-        thunk))))
-
-
-;;;
-;;;; Control
-;;;
-
-
-(define jazz.default-exception-handler
-  (jazz.current-exception-handler))
-
-
-#;
-(define (jazz.with-default-exception-handler thunk)
-  (jazz.with-exception-handler
-    jazz.default-exception-handler
-    thunk))
-
-
-#;
-(define (jazz.with-safe-exception-handler thunk)
-  (call/cc
-    (lambda (recursive-error)
-      (jazz.with-exception-handler
-        (lambda (exc)
-          (recursive-error (jazz.format "Recursive error: {a}" (jazz.exception-reason exc))))
-        thunk))))
-
-
-#;
-(define (jazz.with-jazz-exception-handler thunk)
-  (jazz.with-exception-handler
-    (lambda (exc)
-      (jazz.continuation-capture
-        (lambda (continuation)
-          (let ((reason (jazz.exception-reason exc)))
-            (jazz.invoke-debugger 'jazz.debugger-error 'error reason continuation)))))
-    thunk))
-
-
-#;
-(define (jazz.break #!optional (reason #f))
-  (jazz.continuation-capture
-    (lambda (continuation)
-      (jazz.invoke-debugger 'jazz.debugger-break 'break reason continuation))))
-  
-
-#;
-(define (jazz.invoke-debugger message kind reason continuation)
-  (jazz.with-default-exception-handler
-    (lambda ()
-      (let* ((process (jazz.system.process.get-process))
-             (debugger (and process (jazz.system.process.Process.get-debugger process))))
-        (if (not debugger)
-            (jazz.raise (list kind reason))
-          (jazz.debug.invoke-debugger kind reason continuation)))))))
+        thunk)))))

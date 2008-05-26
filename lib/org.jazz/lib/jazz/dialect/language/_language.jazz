@@ -968,8 +968,8 @@
 (definition (call-with-catch type handler thunk)
   (call/ec
     (function (cont)
-      (with-jazz-exception-catcher
-        (lambda (exception propagate debug)
+      (with-propagatable-exception-catcher
+        (function (exception propagate debug)
           (if (is? exception type)
               (cont (handler exception))
             (propagate)))
@@ -983,6 +983,22 @@
 
 (definition public inline (catched? exception)
   (boolean (find-catch exception)))
+
+
+@convert/wait
+(definition (with-safe-exception-handler thunk)
+  (call/cc
+    (function (recursive-error)
+      (with-exception-handler
+        (function (exc)
+          (recursive-error (format "Recursive error: {a}" (exception-reason exc))))
+        thunk))))
+
+
+(definition (break (reason #f))
+  (continuation-capture
+    (function (continuation)
+      (invoke-controller-debugger~ (get-process) 'break reason continuation))))
 
 
 ;;;
@@ -4480,6 +4496,45 @@
   (eq? (current-thread) (primordial-thread)))
 
 
+(definition public (thread-loop)
+  (let (loop)
+    (let ((thunk (thread-receive)))
+      (thunk)
+      (loop))))
+
+
+(definition public (thread-execute thread thunk)
+  (if (eq? thread (current-thread))
+      (thunk)
+    (let ((mutex (make-mutex)))
+      (mutex-lock! mutex)
+      (thread-send thread
+        (function ()
+          (unwind-protect
+              (thunk)
+            (mutex-unlock! mutex))))
+      (mutex-lock! mutex))))
+
+
+(definition public (thread-delegate thread thunk)
+  (let ((delegator (current-thread)))
+    (if (eq? thread delegator)
+        (thunk)
+      (let ((mutex (make-mutex)))
+        (mutex-lock! mutex)
+        (thread-send thread
+          (function ()
+              (unwind-protect
+                  (thread-send delegator
+                    (with-exception-catcher
+                      (function (exc)
+                        (exception-reason exc))
+                      thunk))
+                (mutex-unlock! mutex))))
+        (mutex-lock! mutex)
+        (thread-receive)))))
+
+
 ;;;
 ;;;; Time
 ;;;
@@ -5282,6 +5337,7 @@
                         ((&) (tab-directive parameters output?))
                         ((%) (newline-directive parameters output?))
                         (($) (freshline-directive parameters output?))
+                        ((!) (force-directive parameters output?))
                         ((z) (localize-directive parameters output?))
                         (else (error "Unknown format directive ~{{t}}" directive))))))))
               (else
@@ -5475,6 +5531,11 @@
         (fresh-line out)
         (loop (repeat (- count 1))
               (do (newline out))))))
+  
+  
+  (method (force-directive parameters output?)
+    (when output?
+      (force-output out)))
   
   
   (method (localize-directive parameters output?)
@@ -5706,24 +5767,11 @@
 
 
 ;;;
-;;;; Interpreter
-;;;
-
-
-(definition (interpreter-present?)
-  ;; for now
-  #t)
-
-
-(definition (break . rest)
-  (unimplemented 'break))
-
-
-;;;
 ;;;; Profiler
 ;;;
 
 
+@convert
 (syntax public (profile . expressions)
   (let ((control (car expressions))
         (body (cdr expressions)))

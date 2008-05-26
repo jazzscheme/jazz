@@ -290,6 +290,7 @@
   
   
   (method (frame-change)
+    (process-frame-change (selected-frame))
     @convert
     (let ((frame (selected-frame)))
       (when (or (null? frame)
@@ -353,6 +354,7 @@
   
   
   (method public (selected-frame)
+    (selected-object)
     @convert/wait
     (let ((object (selected-object)))
       (when (or (is? object Execution-Frame)
@@ -478,29 +480,25 @@
   
   
   (method (update-debuggees)
-    (let* ((appl (get-application))
-           (debuggees (get-debuggees~ (get-local-debugger~ appl))))
+    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)))))
       (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
-                         @convert
-                         (threads (reverse! (get-process-threads~ debuggee)))
+                         (state (parse-jml (get-state~ debuggee)))
                          (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
-                    #f
-                    @convert
                     (for-each (function (thread)
-                                (let* ((title (present~ thread))
-                                       (state (get-state~ thread))
-                                       (primordial? (get-primordial?~ thread))
+                                (let* ((title (->string (get-property~ thread 'name)))
+                                       (state 'error (get-state~ thread))
+                                       (primordial? #t @wait (get-primordial?~ thread))
                                        (image (case state ((break) {Bitmap-Resource "ThreadBreak"}) ((error) {Bitmap-Resource "ThreadError"}) (else {Bitmap-Resource "ThreadRun"})))
                                        (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                                  (when primordial?
-                                    (let* ((stack (get-breaked-stack~ thread))
-                                           (presented (present-stack (collect-presented stack))))
-                                      (for-each (function (info)
-                                                  (bind (frame image text) info
-                                                    (add-row father: thread-row children: (list (new Tree-Node title: text image: image)) user-data: frame)))
-                                                presented)))))
-                              threads)))
+                                  (for-each (function (stop)
+                                              (for-each (function (frame)
+                                                          (let ((title (->string (get-property~ frame 'name)))
+                                                                (image {Bitmap-Resource "FrameLexical"}))
+                                                            (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
+                                                        (get-children~ stop)))
+                                            (get-children~ thread))))
+                              (get-children~ state))))
                 debuggees)))
   
   

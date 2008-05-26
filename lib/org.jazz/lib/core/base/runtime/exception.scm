@@ -41,8 +41,8 @@
 
 (cond-expand
   (chicken
-    (define (jazz.current-exception-handler)
-      (current-exception-handler))
+    (define jazz.current-exception-handler
+      current-exception-handler)
     
     (define (jazz.with-exception-handler proc thunk)
       (call/cc
@@ -61,8 +61,8 @@
           (jazz.format "({a}) {a}: {l}" location message arguments)))))
   
   (gambit
-    (define (jazz.current-exception-handler)
-      (current-exception-handler))
+    (define jazz.current-exception-handler
+      current-exception-handler)
     
     (define (jazz.with-exception-handler proc thunk)
       (with-exception-handler
@@ -80,6 +80,12 @@
         (display " -- " output)
         (##display-exception exc output)
         (get-output-string output)))
+    
+    (define jazz.display-exception
+      display-exception)
+    
+    (define jazz.display-continuation-backtrace
+      display-continuation-backtrace)
     
     (define (jazz.raise obj)
       (raise obj)))

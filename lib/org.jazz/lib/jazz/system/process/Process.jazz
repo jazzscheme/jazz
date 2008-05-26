@@ -892,13 +892,15 @@
   
   
   (method public (invoke-controller-debugger kind reason continuation)
-    (let* ((thread (new Debuggee-Thread-Local-Proxy (current-thread)))
-           (stop (new Debuggee-Stop-Local-Proxy (new Debuggee-Stop thread kind reason continuation))))
+    (let* ((thread (current-thread))
+           (stop (new Debuggee-Stop thread kind reason continuation)))
       (dynamic-wind
         (function ()
           (register-stop~ local-debuggee stop))
         (function ()
-          (debuggee-stop~ controller-debugger local-debuggee thread stop)
+          (let ((thread-proxy (new Debuggee-Thread-Local-Proxy thread))
+                (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
+            (debuggee-stop~ controller-debugger local-debuggee thread-proxy stop-proxy))
           (loop~ stop))
         (function ()
           (unregister-stop~ local-debuggee stop)))))

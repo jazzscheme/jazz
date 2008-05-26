@@ -337,26 +337,34 @@
 (definition expose-store (make-table))
 
 
-(definition (platform-process-messages)
-  (let ((msg (XEvent-make)))
-    (while (XNextEvent default-x11-display msg)
-      (let* ((any-event (XEvent-xany-ref msg))
-             (handle (XAnyEvent-window-ref any-event)))
-        (let ((window (get-window handle))
-              (wparam 0)
-              (lparam 0))
-          (when window
-            (call-dispatch-message~ window msg wparam lparam))))
+(definition (process-messages)
+  (define (process-message msg)
+    (send-event
+      (function ()
+        (let* ((any-event (XEvent-xany-ref msg))
+               (handle (XAnyEvent-window-ref any-event)))
+          (let ((window (get-window handle))
+                (wparam 0)
+                (lparam 0))
+            (when window
+              (call-dispatch-message~ window msg wparam lparam)))))))
+  
+  (define (process-expose)
+    (send-event
+      (function ()
+        (iterate-table expose-store
+           (function (win region)
+             (table-set! expose-store win)
+             (when region
+               (paint~ win region)))))))
+  
+  (with ((msg (XEvent-make)))
+    (let loop ()
+      (XNextEvent default-x11-display msg)
       (when (= 0 (XPending default-x11-display))
-        (process-expose)))))
-
-
-(definition (process-expose)
-  (iterate-table expose-store
-    (function (win region)
-      (table-set! expose-store win)
-      (when region
-        (paint~ win region)))))
+        (process-expose))
+      (when (thread-specific (current-thread))
+        (loop)))))
 
 
 (definition (process-window-message window msg)

@@ -104,6 +104,58 @@
 
 
 ;;;
+;;;; Loop
+;;;
+
+
+(definition (make-message-thread)
+  (let ((thread
+          (make-thread
+            (function ()
+              (process-messages))
+            'message)))
+    (thread-specific-set! thread #t)
+    thread))
+
+
+(definition event-thread
+  (primordial-thread))
+
+
+(definition (event-thread?)
+  (eq? (current-thread) event-thread))
+
+
+(definition (setup-event-thread)
+  (thread-priority-boost-set! event-thread 1))
+
+
+(definition (process-events)
+  (setup-event-thread)
+  (let ((thread (make-message-thread)))
+    (thread-start! thread)
+    (unwind-protect
+        (let (loop)
+          (let ((thunk (thread-receive)))
+            (thunk)
+            (loop)))
+      (thread-specific-set! thread #f))))
+
+
+(definition (send-event thunk)
+  (if (event-thread?)
+      (thunk)
+    (let ((mutex (make-mutex)))
+      (mutex-lock! mutex)
+      (thread-send event-thread
+        (function ()
+          (unwind-protect
+              (thunk)
+            (mutex-unlock! mutex))))
+      (mutex-lock! mutex))))
+
+
+;;;
 ;;;; Management
 ;;;
 

@@ -265,16 +265,6 @@
 ;;;
 
 
-(definition (make-message-thread)
-  (let ((thread
-          (make-thread
-            (function ()
-              (process-messages))
-            'message)))
-    (thread-specific-set! thread #t)
-    thread))
-
-
 (definition (process-messages)
   (define (process-message msg)
     (send-event
@@ -289,49 +279,13 @@
     (while (PeekMessage msg NULL 0 0 PM_REMOVE)
       (process-message msg)))
   
-  (let ((port (open-event-queue QS_ALLINPUT)))
+  (let ((port (open-event-queue QS_ALLINPUT))
+        (thread (current-thread)))
     (let (loop)
       (let ((msg (read port)))
         (process-message msg))
-      (when (thread-specific (current-thread))
+      (when (thread-specific thread)
         (loop)))))
-
-
-(definition event-thread
-  (primordial-thread))
-
-
-(definition (event-thread?)
-  (eq? (current-thread) event-thread))
-
-
-(definition (setup-event-thread)
-  (thread-priority-boost-set! event-thread 1))
-
-
-(definition (process-events)
-  (setup-event-thread)
-  (let ((thread (make-message-thread)))
-    (thread-start! thread)
-    (unwind-protect
-        (let (loop)
-          (let ((thunk (thread-receive)))
-            (thunk)
-            (loop)))
-      (thread-specific-set! thread #f))))
-
-
-(definition (send-event thunk)
-  (if (event-thread?)
-      (thunk)
-    (let ((mutex (make-mutex)))
-      (mutex-lock! mutex)
-      (thread-send event-thread
-        (function ()
-          (unwind-protect
-              (thunk)
-            (mutex-unlock! mutex))))
-      (mutex-wait mutex))))
 
 
 ;;;

@@ -968,7 +968,7 @@
 (definition (call-with-catch type handler thunk)
   (call/ec
     (function (cont)
-      (with-jazz-exception-catcher
+      (with-propagatable-exception-catcher
         (function (exception propagate debug)
           (if (is? exception type)
               (cont (handler exception))
@@ -993,20 +993,6 @@
         (function (exc)
           (recursive-error (format "Recursive error: {a}" (exception-reason exc))))
         thunk))))
-
-
-(definition (with-debuggee-exception-handler thunk)
-  (with-exception-handler
-    (function (exc)
-      (let* ((process (get-process))
-             (debugger (and process (get-controller-debugger~ process))))
-        (if (not debugger)
-            (default-exception-handler exc)
-          (continuation-capture
-            (function (continuation)
-              (let ((reason (exception-reason exc)))
-                (invoke-controller-debugger~ process 'exception reason continuation)))))))
-    thunk))
 
 
 (definition (break (reason #f))

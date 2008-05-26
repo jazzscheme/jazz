@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Marc Feeley
 ;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
@@ -55,11 +56,11 @@
 
 
 ;;;
-;;;; Control
+;;;; Propagatable
 ;;;
 
 
-(define (jazz.with-jazz-exception-catcher handler thunk)
+(define (jazz.with-propagatable-exception-catcher handler thunk)
   ;; Calls "thunk" and returns whatever "thunk" returns, unless
   ;; it raises an exception. In that case the handler is called
   ;; with 3 arguments:

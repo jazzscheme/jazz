@@ -736,7 +736,9 @@
     (set! controller-register (get-register~ controller-process))
     (set! controller-debugger (find-object~ controller-register 'debugger))
     (setup-local-debuggee)
-    (attach-debuggee~ controller-debugger local-debuggee))
+    (attach-debuggee~ controller-debugger local-debuggee)
+    @wait-well-debugged
+    (current-exception-handler debuggee-exception-handler))
   
   
   (method public (setup-local-debuggee)
@@ -865,7 +867,7 @@
   ;;;
   ;;;; Walk-Error
   ;;;
-      
+  
   
   @convert-error
   (method meta public virtual (present-walk-error error prefix? active-content?)
@@ -890,17 +892,21 @@
   
   
   (method public (invoke-controller-debugger kind reason continuation)
-    @w
+    (terminal 'invoke-controller-debugger)
     (let* ((thread (current-thread))
            (stop (new Debuggee-Stop thread kind reason continuation)))
       (dynamic-wind
         (function ()
-          (register-stop~ debuggee stop))
+          (terminal 'register-stop)
+          (register-stop~ local-debuggee stop))
         (function ()
-          (debuggee-stop~ debugger debuggee thread stop)
+          (terminal 'debuggee-stop)
+          (debuggee-stop~ controller-debugger local-debuggee #f stop)
+          (terminal 'loop)
           (loop~ stop))
         (function ()
-          (unregister-stop~ debuggee stop)))))
+          (terminal 'unregister-stop)
+          (unregister-stop~ local-debuggee stop)))))
 
 
   ;;;

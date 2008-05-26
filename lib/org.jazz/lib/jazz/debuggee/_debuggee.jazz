@@ -43,6 +43,26 @@
 
 
 ;;;
+;;;; Debugger
+;;;
+
+
+(definition (debuggee-exception-handler exc)
+  (let* ((process (get-process))
+         (debugger (and process (get-controller-debugger~ process))))
+    (if (not debugger)
+        (default-exception-handler exc)
+      (with-default-exception-handler
+        (function ()
+          (continuation-capture
+            (function (continuation)
+              (let ((reason (exception-reason exc)))
+                (invoke-controller-debugger~ process 'exception reason continuation))))
+          ;; for test
+          (default-exception-handler exc))))))
+
+
+;;;
 ;;;; View Debugger
 ;;;
 

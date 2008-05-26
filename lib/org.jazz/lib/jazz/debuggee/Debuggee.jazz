@@ -47,6 +47,7 @@
   
   
   (slot process)
+  (slot stops initialize '() accessors generate)
   
   
   (method (initialize process)
@@ -91,6 +92,125 @@
   
   
   ;;;
+  ;;;; State
+  ;;;
+  
+  
+  (method (get-state)
+    (let ((name (get-name)))
+      `(<debuggee> @waitreference: ,self name: ,name
+         ,@(map (function (thread)
+                  (get-thread-state thread))
+                (get-threads)))))
+  
+  
+  (method (get-threads)
+    (remove-duplicates (map (function (stop)
+                              (get-thread~ stop))
+                            stops)))
+  
+  
+  (method (register-stop stop)
+    ;(atomic-region
+      (set-stops (append stops (list stop))));)
+  
+  
+  (method (unregister-stop stop)
+    ;(atomic-region
+      (set-stops (remove! stop stops)));)
+  
+  
+  @wait
+  (method (terminate)
+    (quit))
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method (get-thread-state thread)
+    (let ((name 'thread @wait (get-name~ thread)))
+      `(<thread> @waitreference: ,thread name: ,name
+         ,@(map (function (stop)
+                  (get-stop-state stop))
+                (get-thread-stops thread)))))
+  
+  
+  (method (get-thread-stops thread)
+    (let ((queue (new-queue)))
+      (for-each (function (stop)
+                  (when (eq? (get-thread~ stop) thread)
+                    (enqueue queue stop)))
+                stops)
+      (queue-list queue)))
+  
+  
+  @convert
+  (method (break-thread thread)
+    (unimplemented 'break-thread))
+  
+  
+  @convert
+  (method (throw-thread thread name result)
+    (let ((action (function () (throw name result))))
+      (thread-post thread action)))
+  
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method (get-stop-state stop)
+    (let ((kind (get-kind~ stop))
+          (reason (get-reason~ stop))
+          (stack (get-stack~ stop)))
+      `(<stop> @waitreference: ,stop kind: ,kind reason: ,reason
+         ,@(map (function (frame)
+                  (get-frame-state frame))
+                stack))))
+  
+  
+  @convert
+  (method (restart-stop stop)
+    (let ((thread (get-thread~ stop))
+          (action (get-restart~ stop)))
+      (thread-post thread action)))
+  
+  
+  @convert
+  (method (continue-stop stop)
+    (let ((thread (get-thread~ stop))
+          (action (get-continuation~ stop)))
+      (thread-post thread action)))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (get-frame-state frame)
+    (bind (name environment variables) frame
+      `(<frame> name: ,(if (symbol? name) name (->string name))
+         ,@(map (function (variable)
+                  (get-variable-state variable))
+                variables))))
+  
+  
+  ;;;
+  ;;;; Variable
+  ;;;
+  
+  
+  (method (get-variable-state variable)
+    (bind (name . value) variable
+      `(<variable> name: ,name value: ,(->string value))))
+  
+  
+  ;;;
   ;;;; Threads
   ;;;
   
@@ -125,25 +245,6 @@
           {}
         (set-?~ Development result)
         (->string result :describe))))
-  
-  
-  @convert
-  (method (filter-packages package-names)
-    (unimplemented 'filter-packages)
-    @convert-manifest
-    (let ((fact (new List-Factory)))
-      (for-each (function (package-name)
-                  (when (in-manifest? package-name)
-                    (put~ fact (autoload package-name))))
-                package-names)
-      (get-output~ fact)))
-  
-  
-  @convert
-  (method (execute-command form process packages variables frame)
-    (if (is? process Application)
-        (privileged-execute form process packages variables frame)
-      (privileged-execute form process packages {} @to-convert variables {} @to-convert frame)))
   
   
   ;;;

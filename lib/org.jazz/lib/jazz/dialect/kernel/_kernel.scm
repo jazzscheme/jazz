@@ -527,7 +527,6 @@
 ;;;
 
 
-(native jazz.continuation-capture)
 (native jazz.get-continuation-stack)
 
 

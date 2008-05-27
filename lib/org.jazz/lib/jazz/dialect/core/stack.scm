@@ -68,7 +68,8 @@
     (define (jazz.get-frame cont)
       (list (jazz.get-frame-name cont)
             (jazz.get-frame-environment cont)
-            (jazz.get-frame-variables cont)))
+            (jazz.get-frame-variables cont)
+            (jazz.get-frame-location cont)))
     
     
     (define (jazz.get-frame-name cont)
@@ -158,6 +159,19 @@
                  (collect-locals (##continuation-locals cont) ##interaction-cte queue)
                  ##interaction-cte)))
         (jazz.queue-list queue)))
+    
+    
+    (define (jazz.get-frame-location cont)
+      (let ((locat (##continuation-locat cont)))
+        (if locat
+            (let ((file (##container->file (##locat-container locat))))
+              (if file
+                  (let* ((filepos (##position->filepos (##locat-position locat)))
+                         (line (##filepos-line filepos))
+                         (col (##filepos-col filepos)))
+                    (list file line col))
+                #f))
+          #f)))
     
     
     (define (jazz.current-repl-context)

@@ -43,6 +43,7 @@
         (jazz.debugger)
         (jazz.io)
         (jazz.jml)
+        (jazz.jrm)
         (jazz.language.jazz)
         (jazz.library)
         (jazz.literals)
@@ -50,6 +51,7 @@
         (jazz.ui)
         (jazz.ui.dialog)
         (jazz.ui.view)
+        (jazz.ui.window)
         (jazz.utilities))
 
 
@@ -195,11 +197,22 @@
   
   
   (method (on-restart evt)
-    (let ((stop (selected-stop)))
-      (let ((debuggee (get-parent~ (get-parent~ stop))))
-        (restart-stop~ (get-property~ debuggee 'reference) (get-property~ stop 'reference))
-        (sleep .1)
-        (update))))
+    (define (update-view)
+      (thread-yield!)
+      (sleep .1)
+      (update))
+    
+    (let* ((stop-node (selected-stop))
+           (thread-node (get-parent~ stop-node))
+           (debuggee-node (get-parent~ thread-node)))
+      (restart-stop~ (get-property~ debuggee-node 'reference) (get-property~ stop-node 'reference))
+      (let ((thread-proxy (get-property~ thread-node 'reference)))
+        (if (and (local-proxy? thread-proxy)
+                 (eq? (get-object~ thread-proxy) event-thread))
+            (thread-start!
+              (make-thread
+                update-view))
+          (update-view)))))
   
   
   (method (on-update evt)

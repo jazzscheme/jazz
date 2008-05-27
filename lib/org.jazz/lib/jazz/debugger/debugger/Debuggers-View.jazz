@@ -247,15 +247,25 @@
 
 
   (method (edit-frame)
+    (let ((frame (selected-frame)))
+      (if (not frame)
+          #f
+        (let ((location (get-property~ frame 'location)))
+          (if (not location)
+              #f
+            (bind (filename line col) location
+              (let ((file (new File (list filename)))
+                    (pos (new Cell line col)))
+                (edit-document~ (get-application) file selection: (new Range$Cell$ pos pos))))))))
     @convert
     (let ((frame (selected-frame)))
-      (if (null? frame)
+      (if (not frame)
           (uninstall-active-frame-indicator)
         (typecase frame
           ((Closure-Frame)
            (let* ((address (get-address~ frame))
                   (location (get-frame-location~ (get-thread~ frame) address)))
-             (if (null? location)
+             (if (not location)
                  (bell)
                (install-frame-indicator (new Jazz-Code-Location location)))))
           ((Compiled-Procedure-Frame)
@@ -306,7 +316,7 @@
     (process-frame-change (selected-frame))
     @convert
     (let ((frame (selected-frame)))
-      (when (or (null? frame)
+      (when (or (not frame)
                 (is? frame Execution-Frame)
                 (is? frame Frame-Snapshot))
         (process-frame-change frame))))
@@ -391,7 +401,7 @@
 
 
   (method (present-stack stack)
-    (let ((presented (collect-if not-null? (map present-frame stack))))
+    (let ((presented (collect-if identity (map present-frame stack))))
       (if advanced-view?
           (map (function (info)
                  (bind (frame image text) info
@@ -522,6 +532,14 @@
         ((exception) {Bitmap-Resource "ErrorStop"})
         (else {Bitmap-Resource "BreakStop"})))
     
+    (define (frame-title frame)
+      (->string (identifier-name (get-property~ frame 'name))))
+    
+    (define (frame-image frame)
+      (if (get-property~ frame 'location)
+          {Bitmap-Resource "Link"}
+        {Bitmap-Resource "FrameCompiledProcedure"}))
+    
     (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)))))
       (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
@@ -536,8 +554,8 @@
                                                      (image (stop-image stop))
                                                      (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
                                                 (for-each (function (frame)
-                                                            (let ((title (->string (identifier-name (get-property~ frame 'name))))
-                                                                  (image {Bitmap-Resource "Link"}))
+                                                            (let ((title (frame-title frame))
+                                                                  (image (frame-image frame)))
                                                               (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
                                                           (get-children~ stop))))
                                             (get-children~ thread))))
@@ -611,7 +629,7 @@
                 (title (standardize-sym sym)))
            (when title
              (let ((info (get-line-from-addr~ handler addr)))
-               (if (null? info)
+               (if (not info)
                    (new C-Frame-Snapshot thread title {} {} parameters)
                  (receive (filename line) info
                    (let ((file (new File (tokenise filename))))
@@ -619,7 +637,7 @@
         ((lisp)
          (let* ((title address)
                 (pos (find title #\period)))
-           (if (null? pos)
+           (if (not pos)
                (new Lisp-Frame-Snapshot thread title {} {} parameters)
              (let* ((model (string->symbol (subseq title 0 pos)))
                     (method-name (string->symbol (subseq title (+ pos 1) (find title #\period start: (+ pos 1))))))
@@ -630,7 +648,7 @@
     (let ((fact (new List-Factory))
           (get-type
             (function (frame)
-              (cond ((null? frame)
+              (cond ((not frame)
                      'none)
                     ((and (is? frame C-Frame-Snapshot)
                           (let ((title (get-title~ frame)))

@@ -38,7 +38,8 @@
 (library jazz.debuggee.Debuggee jazz
 
 
-(import (jazz.library)
+(import (jazz.debuggee.stub)
+        (jazz.library)
         (jazz.platform)
         (jazz.utilities))
 
@@ -98,16 +99,10 @@
   
   (method (get-state)
     (let ((name (get-name)))
-      `(<debuggee> @waitreference: ,self name: ,name
+      `(<debuggee> reference: ,(new Debuggee-Local-Proxy self) name: ,name
          ,@(map (function (thread)
                   (get-thread-state thread))
                 (get-threads)))))
-  
-  
-  (method (get-threads)
-    (remove-duplicates (map (function (stop)
-                              (get-thread~ stop))
-                            stops)))
   
   
   (method (register-stop stop)
@@ -131,8 +126,8 @@
   
   
   (method (get-thread-state thread)
-    (let ((name 'thread @wait (get-name~ thread)))
-      `(<thread> @waitreference: ,thread name: ,name
+    (let ((name (thread-name thread)))
+      `(<thread> reference: ,(new Debuggee-Thread-Local-Proxy thread) name: ,name
          ,@(map (function (stop)
                   (get-stop-state stop))
                 (get-thread-stops thread)))))
@@ -167,24 +162,25 @@
     (let ((kind (get-kind~ stop))
           (reason (get-reason~ stop))
           (stack (get-stack~ stop)))
-      `(<stop> @waitreference: ,stop kind: ,kind reason: ,reason
+      `(<stop> reference: ,(new Debuggee-Stop-Local-Proxy stop) kind: ,kind reason: ,reason
          ,@(map (function (frame)
                   (get-frame-state frame))
                 stack))))
   
   
-  @convert
-  (method (restart-stop stop)
-    (let ((thread (get-thread~ stop))
-          (action (get-restart~ stop)))
-      (thread-post thread action)))
+  (method (restart-stop stop-proxy)
+    (let ((thread (get-thread~ (get-object~ stop-proxy))))
+      (thread-send thread
+        (function ()
+          (let ((signal (new Stop-Signal)))
+            (when (catched? signal)
+              (throw signal)))))))
   
   
-  @convert
   (method (continue-stop stop)
     (let ((thread (get-thread~ stop))
           (action (get-continuation~ stop)))
-      (thread-post thread action)))
+      (thread-send thread action)))
   
   
   ;;;
@@ -207,7 +203,55 @@
   
   (method (get-variable-state variable)
     (bind (name . value) variable
-      `(<variable> name: ,name value: ,(->string value))))
+      `(<variable> name: ,name value: ,(->string value :reader))))
+  
+  
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  @convert
+  (method (evaluate debugger request stop frame form)
+    (let* ((thread (and stop (Debuggee-Stop.get-thread stop)))
+           (result (evaluate-form thread stop frame form)))
+      (if (void? result)
+          (display-result~ debugger request result)
+        (set-? result)
+        (display-result~ debugger request (->string result)))))
+  
+  
+  @convert
+  (definition (evaluate-form thread stop frame form)
+    (if (not thread)
+        (with-jazz-exception-handler
+          (lambda ()
+            (eval-form form)))
+      (thread-send thread
+        (lambda ()
+          (with-jazz-exception-handler
+            (lambda ()
+              (evaluate-action stop frame form)))))))
+  
+  
+  @convert
+  (definition (evaluate-action stop frame form)
+    (eval-form form))
+  
+  
+  @convert
+  (definition (eval-form form)
+    (eval `(in jazz uses (jazz.debug jazz.process jazz.rmi jazz.platform jazz.thread)
+             ,form)))
+  
+  
+  (method (evaluate-expressions module-name expressions)
+    (terminal 'evaluate-expressions module-name expressions)
+    (locate-library-declaration module-name)
+    (map (function (expr)
+           (parameterize ((requested-module-name module-name))
+             (eval expr)))
+         expressions))
   
   
   ;;;

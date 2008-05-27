@@ -273,10 +273,6 @@
         (format output "{s}" (get-name))))))
 
 
-(definition (load-source a b)
-  (unimplemented 'load-source))
-
-
 ;;;
 ;;;; Class
 ;;;
@@ -995,10 +991,29 @@
         thunk))))
 
 
+(definition (jazz-exception-handler exc)
+  (let* ((process (get-process))
+         (debugger (and process (get-controller-debugger~ process))))
+    (if (not debugger)
+        (default-exception-handler exc)
+      (with-default-exception-handler
+        (function ()
+          (continuation-capture
+            (function (continuation)
+              (let ((reason (exception-reason exc)))
+                (invoke-controller-debugger~ process 'exception reason continuation)))))))))
+
+
 (definition (break (reason #f))
   (continuation-capture
     (function (continuation)
       (invoke-controller-debugger~ (get-process) 'break reason continuation))))
+
+
+(definition (exception-reason exc)
+  (let ((output (open-output-string)))
+    (display-exception exc output)
+    (get-output-string output)))
 
 
 ;;;
@@ -4494,6 +4509,19 @@
 
 (definition public (primordial-thread?)
   (eq? (current-thread) (primordial-thread)))
+
+
+(definition public (new-thread thunk . rest)
+  (apply make-thread
+         (function ()
+           (catch Stop-Signal
+             (with-exception-handler jazz-exception-handler
+               thunk)))
+         rest))
+
+
+(definition public (get-threads)
+  (thread-group->thread-list (thread-thread-group (primordial-thread))))
 
 
 (definition public (thread-loop)

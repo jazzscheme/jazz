@@ -47,7 +47,7 @@
 
 
 ;;;
-;;;; Patch
+;;;; Source
 ;;;
 
 
@@ -65,6 +65,11 @@
 
 (definition public (register-autoclass class)
   (set-autoclass (identifier-name (type-name class)) class))
+
+
+(definition (load-source name source)
+  (load-module source)
+  (get-autoclass name))
 
 
 ;;;
@@ -186,7 +191,7 @@
                                       (else 'new)))
                         (model-name (if (or (memq? tag '(! ~)) tag-symbolic?) {} tag))
                         (name (if tag-symbolic? (string->symbol (butlast tag-name)) (get-property~ node 'name)))
-                        (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-source: (get-property~ node 'tag-source #f) properties: (extract-node-properties node)))
+                        (form (new Form textual?: #f action: action model-name: model-name name: name tag-symbolic?: tag-symbolic? tag-module: (get-property~ node 'tag-module #f) properties: (extract-node-properties node)))
                         (children (map (function (node)
                                          (node->form node form))
                                        (get-children~ node))))
@@ -207,7 +212,7 @@
 (definition (extract-node-properties node)
   (let ((fact (new List-Factory)))
     (for-each-property (function (property value)
-                         (when (not (memq? property '(name tag-symbolic? tag-source)))
+                         (when (not (memq? property '(name tag-symbolic? tag-module)))
                            (put~ fact property)
                            (put~ fact value)))
                        (get-properties~ node))
@@ -251,13 +256,13 @@
 (definition (extract-form-properties form symbolic?)
   (let ((fact (new List-Factory))
         (name (get-name~ form))
-        (tag-source (get-tag-source~ form)))
+        (tag-module (get-tag-module~ form)))
     (when (and name (not symbolic?))
       (put~ fact 'name)
       (put~ fact name))
-    (when tag-source
-      (put~ fact 'tag-source)
-      (put~ fact tag-source))
+    (when tag-module
+      (put~ fact 'tag-module)
+      (put~ fact tag-module))
     (for-each-property (function (property value)
                          (let ((name (if (property? property) (field-name property) property)))
                            (when (neq? name 'client-form)

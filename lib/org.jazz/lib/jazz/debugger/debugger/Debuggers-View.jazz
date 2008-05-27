@@ -69,7 +69,7 @@
         (<Push-Tool>        name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler :form on-open-snapshot})
         (<Separator>                         size: {Dimension 8 0})
         (<Push-Tool>        name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
-        (<Push-Tool>        name: terminate  size: {Dimension 22 22} tooltip?: #t tooltip-text: "Toplevel" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-toplevel})
+        (<Push-Tool>        name: restart    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-restart})
         (<Push-Tool>        name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
         (<Separator>                         size: {Dimension 2 0})
         (<Push-Tool>        name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
@@ -194,10 +194,10 @@
     (unimplemented 'on-continue))
   
   
-  (method (on-toplevel evt)
-    (let ((thread (selected-thread)))
-      (when thread
-        (stop~ thread)
+  (method (on-restart evt)
+    (let ((stop (selected-stop)))
+      (let ((debuggee (get-parent~ (get-parent~ stop))))
+        (restart-stop~ (get-property~ debuggee 'reference) (get-property~ stop 'reference))
         (sleep .1)
         (update))))
   
@@ -482,20 +482,44 @@
   
   
   (method (update-debuggees)
+    (define (thread-title thread)
+      (let ((name (get-property~ thread 'name)))
+        (cond ((unspecified? name) "Thread")
+              ((eq? name 'primordial) "Primordial")
+              (else (->string name)))))
+    
+    (define (thread-image thread)
+      (let ((children (get-children~ thread)))
+        (if (null? children)
+            {Bitmap-Resource "ThreadRun"}
+          (case (get-property~ (last children) 'kind)
+            ((exception) {Bitmap-Resource "ThreadError"})
+            (else {Bitmap-Resource "ThreadBreak"})))))
+    
+    (define (stop-title stop)
+      (let ((reason (get-property~ stop 'reason)))
+        (if (not reason)
+            "Break"
+          (let ((line (car (split reason "\n"))))
+            line))))
+    
+    (define (stop-image stop)
+      (case (get-property~ stop 'kind)
+        ((exception) {Bitmap-Resource "ErrorStop"})
+        (else {Bitmap-Resource "BreakStop"})))
+    
     (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)))))
       (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
                          (state (parse-jml (get-state~ debuggee)))
                          (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
                     (for-each (function (thread)
-                                (let* ((title (->string (get-property~ thread 'name)))
-                                       (state 'error (get-state~ thread))
-                                       (primordial? #t @wait (get-primordial?~ thread))
-                                       (image {Bitmap-Resource "Person"})
+                                (let* ((title (thread-title thread))
+                                       (image (thread-image thread))
                                        (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
                                   (for-each (function (stop)
-                                              (let* ((title "Stop")
-                                                     (image {Bitmap-Resource "Exception"})
+                                              (let* ((title (stop-title stop))
+                                                     (image (stop-image stop))
                                                      (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
                                                 (for-each (function (frame)
                                                             (let ((title (->string (identifier-name (get-property~ frame 'name))))

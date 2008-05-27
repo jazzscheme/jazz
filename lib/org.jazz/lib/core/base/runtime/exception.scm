@@ -74,13 +74,6 @@
         proc
         thunk))
     
-    (define (jazz.exception-reason exc)
-      (let ((output (open-output-string)))
-        (display (##exception->kind exc) output)
-        (display " -- " output)
-        (##display-exception exc output)
-        (get-output-string output)))
-    
     (define jazz.display-exception
       display-exception)
     

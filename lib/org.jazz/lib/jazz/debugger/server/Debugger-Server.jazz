@@ -42,6 +42,8 @@
         (jazz.jrm)
         (jazz.library)
         (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -181,8 +183,22 @@
   ;;;
   
   
-  (method public (debuggee-stop debuggee thread stop)
-    )
+  (method public (debuggee-stop debuggee thread stop kind reason)
+    (if (and (local-proxy? thread)
+             (eq? (get-object~ thread) (primordial-thread)))
+        (with-locked-update
+          (function ()
+            (let ((view (select-palette Debuggers-View workspace: 'debugger)))
+              (when view
+                (select-first-frame~ view stop)))))
+      (format :console #"\($\)\(color {a} {a} : {?{a}~}\)\(prompt\){%}{!}"#
+              (case kind
+                ((exception) 'Dark-Red)
+                (else 'Dark-Orange))
+              (case kind
+                ((exception) "Error")
+                (else "Break"))
+              (car (split reason "\n")))))
 
 
   (method public (debug-exception type message stack)

@@ -79,7 +79,7 @@
         (<!>                name: content    layout-type: fill
           (<Tree-Header>    name: header     shown?: #f
             (<!>            name: content
-              (<Stack-View> name: stack      multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu})))))))
+              (<Stack-View> name: stack      multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta (external-name . rest)
@@ -168,6 +168,16 @@
               (track-popup-menu menu acquired)))))))
   
   
+  (method (on-double-click evt)
+    (let ((frame (selected-frame)))
+      (if (not frame)
+          (bell)
+        (let ((name (get-property~ frame 'name)))
+          (if (not name)
+              (bell)
+            (edit-definition~ (get-application) (identifier-name name)))))))
+  
+  
   (definition Snapshot-Extensions
     '(("Crash Files" . "crash")))
   
@@ -247,6 +257,9 @@
 
 
   (method (edit-frame)
+    ;; not really usefull until the jazz macros are integrated with gambit's location system
+    ;; and also until gambit can keep location for compiled code
+    @wait
     (let ((frame (selected-frame)))
       (if (not frame)
           #f
@@ -376,9 +389,11 @@
   
   (method public (selected-stop)
     (let ((object (selected-object)))
-      (when (and (is? object JML-Node)
-                 (eq? (get-tag~ object) 'stop))
-        object)))
+      (when (is? object JML-Node)
+        (case (get-tag~ object)
+          ((stop) object)
+          ((frame) (get-parent~ object))
+          (else {})))))
   
   
   (method public (selected-frame)
@@ -533,7 +548,13 @@
         (else {Bitmap-Resource "BreakStop"})))
     
     (define (frame-title frame)
-      (->string (identifier-name (get-property~ frame 'name))))
+      (let ((name (get-property~ frame 'name)))
+        (cond ((not name)
+               "<function>")
+              ((symbol? name)
+               (present-identifier name))
+              (else
+               name))))
     
     (define (frame-image frame)
       (if (get-property~ frame 'location)

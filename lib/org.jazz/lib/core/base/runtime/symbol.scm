@@ -70,11 +70,12 @@
 
 
 (define (jazz.identifier-name identifier)
-  (let* ((str (%%symbol->string identifier))
-         (pos (jazz.string-find-reversed str #\.)))
-    (if (%%not pos)
-        identifier
-      (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str))))))
+  (%%assert (%%symbol? identifier)
+    (let* ((str (%%symbol->string identifier))
+           (pos (jazz.string-find-reversed str #\.)))
+      (if (%%not pos)
+          identifier
+        (%%string->symbol (%%substring str (%%fx+ pos 1) (%%string-length str)))))))
 
 
 ;;;

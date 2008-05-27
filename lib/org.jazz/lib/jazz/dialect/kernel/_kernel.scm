@@ -235,7 +235,7 @@
 
 (native jazz.composite-name?)
 (native jazz.compose-name)
-(native jazz.identifier-name)
+(native jazz.identifier-name <symbol>)
 
 
 ;;;

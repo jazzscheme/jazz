@@ -70,40 +70,60 @@
 
 
 ;;;
+;;;; Exception
+;;;
+
+
+(class Remote-Connection-Broke extends Exception)
+
+
+(definition (throw-remote-connection-broke)
+  (throw (new Remote-Connection-Broke)))
+
+
+;;;
 ;;;; Liveliness
 ;;;
 
 
+(definition live-timeout
+  0.5)
+
 (definition live-request
   'live?)
 
-(definition live-request-timeout
-  0.5)
-
 (definition live-response
-  'live)
+  'alive)
 
 
 (definition (remote-proxy-live? remote-proxy)
-  (let ((proxy-ior (marshall remote-proxy)))
-    (let ((host (get-host~ proxy-ior))
-          (service (get-service~ proxy-ior)))
-      (when *debug?*
-        (terminal '***remoting*** 'live? remote-proxy))
-      (call-with-tcp-client (list server-address: host port-number: service)
-        (function (port)
-          (with-exception-catcher
-            (function (exc)
-              #f)
-            (function ()
-              (write-remote-message live-request port)
-              (input-port-timeout-set! port live-request-timeout)
-              (eq? (read-remote-result port) live-response))))))))
+  (catch (Remote-Connection-Broke exc
+           #f)
+    (let ((proxy-ior (marshall remote-proxy)))
+      (let ((host (get-host~ proxy-ior))
+            (service (get-service~ proxy-ior)))
+        (when *debug?*
+          (terminal '***remoting*** 'live? remote-proxy))
+        (call-with-tcp-client (list server-address: host port-number: service)
+          (function (port)
+            (with-exception-catcher
+              (function (exc)
+                #f)
+              (function ()
+                (send-remote-message live-request port)
+                (eq? (receive-remote-result port) live-response)))))))))
 
 
 ;;;
 ;;;; Invoke
 ;;;
+
+
+(definition send-timeout
+  (make-parameter 1))
+
+(definition receive-timeout
+  (make-parameter 5))
 
 
 (definition public (send-remote method-name remote-proxy . arguments)
@@ -124,13 +144,13 @@
         (terminal '***remoting*** 'invoke kind method-name remote-proxy arguments))
       (call-with-tcp-client (list server-address: host port-number: service)
         (function (port)
-          (write-remote-message (list kind method-name proxy-ior arguments) port)
+          (send-remote-message (list kind method-name proxy-ior arguments) port)
           (case kind
             ((send)
-             (let ((err/result (read-remote-result port)))
+             (let ((received (receive-remote-result port)))
                (when *debug?*
-                 (terminal '***remoting*** 'received kind method-name '-> err/result))
-               (bind (err result) err/result
+                 (terminal '***remoting*** 'received kind method-name '-> received))
+               (bind (err result) received
                  (if err
                      (error "Remote error while executing {s}: {a}" method-name err)
                    (unmarshall result)))))
@@ -138,14 +158,16 @@
              (unspecified))))))))
 
 
-(definition (write-remote-message info port)
+(definition (send-remote-message info port)
+  (output-port-timeout-set! port (send-timeout) throw-remote-connection-broke)
   (write-port port info))
 
 
-(definition (read-remote-result port)
+(definition (receive-remote-result port)
+  (input-port-timeout-set! port (receive-timeout))
   (let ((info (read-port port)))
     (if (eof-object? info)
-        (error "Remote server unexpectedly closed connection")
+        (throw-remote-connection-broke)
       info)))
 
 
@@ -155,24 +177,20 @@
 
 
 (definition (process-remote port)
-  (let ((message (read-remote-message port)))
+  (let ((message (receive-remote-message port)))
     (if (eq? message live-request)
-        (write-remote-result live-response port)
+        (send-remote-result live-response port)
       (bind (kind method-name proxy-ior arguments) message
         (when *debug?*
           (terminal '***remoting*** 'process kind method-name proxy-ior arguments))
         (case kind
           ((send)
-           (let ((err/result (execute-remote method-name proxy-ior arguments)))
+           (let ((to-send (execute-remote method-name proxy-ior arguments)))
              (when *debug?*
-               (terminal '***remoting*** 'return kind method-name err/result))
-             (write-remote-result err/result port)))
+               (terminal '***remoting*** 'return kind method-name to-send))
+             (send-remote-result to-send port)))
           ((post)
            (dispatch-remote method-name proxy-ior arguments)))))))
-
-
-(definition (read-remote-message port)
-  (read-port port))
 
 
 (definition (execute-remote method-name proxy-ior arguments)
@@ -198,7 +216,16 @@
     (apply (dispatch local-proxy method-name) local-proxy arguments)))
 
 
-(definition (write-remote-result info port)
+(definition (receive-remote-message port)
+  (input-port-timeout-set! port (receive-timeout))
+  (let ((info (read-port port)))
+    (if (eof-object? info)
+        (throw-remote-connection-broke)
+      info)))
+
+
+(definition (send-remote-result info port)
+  (output-port-timeout-set! port (send-timeout) throw-remote-connection-broke)
   (write-port port info))
 
 

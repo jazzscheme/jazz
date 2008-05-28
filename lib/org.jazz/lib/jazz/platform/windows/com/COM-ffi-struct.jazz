@@ -1,0 +1,214 @@
+
+;; certaines fonctions C modifient les parametres passes.
+{
+	IUnknown* coptr;
+	foo(&coptr);
+	return coptr;
+}
+;; Plutot que d'allouer un buffer, on passe par u32vect
+;; mais le resultat doit etre reconvertit dans le bon type foreign
+
+;; Evidemment, si on pouvait tout faire direct en C...
+
+(c-lambda (IUnknown*) (c-values HRESULT IUnknown*)
+#<<end-c-code
+{
+	typedef HRESULT (*ProcType)(IUnknown*, IUnknown**);
+	ProcType fn = (*(ProcType**)___arg1)[22];
+	
+	IUnknown* coptr = NULL;
+	___result1 = (*fn)(___arg1, &coptr);
+	___result2 = coptr;
+}
+end-c-code
+)
+;; ou ___result1 et ___result2 sont auto-boxes
+;; et places dans un values tel que defini par le c-lambda
+
+
+;;;
+;;;; COM & foreign - example
+;;;
+
+
+(definition (typed-foreign->ulong type foreign) (unimplemented))
+(definition (ulong->typed-foreign type ulong) (unimplemented))
+
+
+(definition IUnknown*-enref
+  (let ((decast (c-function (IUnknown*) ulong "___result = (unsigned long) ___arg1;"))
+        (decast2 (function (coptr) (typed-foreign->ulong 'IUnknown* coptr))))
+    (function (coptr)
+      (let ((coptr* (make-u32vect 1)))
+        (u32vect-set! coptr* 0 (decast coptr))
+        coptr*))))
+
+
+(definition IUnknown*-deref
+  (let ((encast (c-function (ulong) IUnknown* "___result = (IUnknown*) ___arg1;"))
+        (encast2 (function (u) (ulong->typed-foreign 'IUnknown* u))))
+    (function (coptr*)
+      (encast (u32vect-ref coptr* 0)))))
+
+
+(definition ffi-COM-foo-IUnknown*
+  (let ((proc (c-function (IUnknown* U32PTR) HRESULT ""
+                ; #<<end-c-code
+                ; {typedef HRESULT (*ProcType)(IUnknown*, IUnknown**);
+                ;  ProcType fn = (*(ProcType**)___arg1)[22];
+                ;  ___result = (*fn)(___arg1, (IUnknown**)___arg2);
+                ; }
+                ; end-c-code
+                )))
+    (function (coptr)
+      (let ((low$1 (IUnknown*-enref #f)))
+        (let ((res (proc coptr low$1)))
+          (let ((out$1 (IUnknown*-deref low$1)))
+            (values res out$1)))))))
+
+
+;;;
+;;;; direct ffi
+;;;
+
+
+(definition (recast-int->ulong ulong) (unimplemented))
+(definition (recast-unlong->int int) (unimplemented))
+
+
+(definition INT-enref
+  (let ((decast (c-function (int) ulong "___result = *(unsigned long*) &___arg1;"))
+        (decast2 recast-int->ulong))
+    (function (int)
+      (let ((int* (make-u32vect 1)))
+        (u32vect-set! int* 0 (decast int))
+        int*))))
+
+
+(definition INT-deref
+  (let ((encast (c-function (ulong) int "___result = *(signed int*) &___arg1;"))
+        (encast2 recast-ulong->int))
+    (function (int*)
+      (encast (u32vect-ref int* 0)))))
+
+
+(definition ffi-foo-INT
+  (let ((proc (c-function (U32PTR) HRESULT "___result = foo((INT*)___arg1);")))
+    (function ()
+      (let ((low$1 (INT-enref 0)))
+        (let ((res (proc low$1)))
+          (let ((out$1 (INT-deref low$1)))
+            out$1))))))
+
+
+;; ici encore, on contourne la non-mutabilite de ___arg1 en passant le u32vect
+;; sous forme de pointeur. Le meme probleme arrive avec les structures,
+;; comme pour GUID si dessous.
+
+
+;;;
+;;;; GUID
+;;;
+
+
+;; GUID est alloue par malloc, et non sous le controle du gc. Encore un fois
+;; a cause de la non-mutabilite de ___arg1. Je pense pouvoir retourner le controle
+;; en definissant un type d'acces direct au pointeur comme pour u32vect.
+;; Comme ce type serait generique, il faudrait valider le type du foreign.
+
+;; Mais c'est dangereux si le foreign est deplace. Par exemple GUID-Data4-ref
+;; retourne un pointeur vers Data4[8], lequel deviendrait invalide si le GUID
+;; est deplace en memoire.
+
+
+(definition (typed-foreign? type foreign) (unimplemented))
+
+
+(definition GUID-Data1-set!
+  (c-function (GUID* DWORD) "___arg1->Data1 = ___arg2;"))
+
+
+(definition $$GUID-Data1-set!
+  (c-function (FOREIGNPTR DWORD) "((GUID*)___arg1)->Data1 = ___arg2;"))
+
+
+(definition (GUID-Data1-set! guid value)
+  (if (typed-foreign? 'GUID guid)
+      ($$GUID-Data1-set! guid value)
+    (error "not a GUID")))
+
+
+(definition (zero-fill str n)
+  (let ((len (string-length str)))
+    (if (> n len)
+        (string-append (make-string (- n len) #\0) str)
+      str)))
+
+
+(c-structure GUID
+  (DWORD Data1)
+  (WORD Data2)
+  (WORD Data3)
+  (byte Data4 8))
+
+
+(definition GUID-make
+  (c-function () GUID* "___result = (GUID*) malloc(sizeof(GUID));"))
+
+
+(definition GUID-free
+  (c-function (GUID*) void "free"))
+
+
+(definition (GUID-set! guid str)
+  (GUID-Data1-set! guid (string->number (substring str 0 8) 16))
+  (GUID-Data2-set! guid (string->number (substring str 9 13) 16))
+  (GUID-Data3-set! guid (string->number (substring str 14 18) 16))
+  (let ((data4+ (GUID-Data4-ref guid))
+        (string->byte (lambda (offset)
+                        (string->number (substring str offset (+ 2 offset)) 16))))
+    (for-each (lambda (n byte) (byte*-set! data4+ n byte))
+              (naturals 0 8)
+              (map string->byte '(19 21 24 26 28 30 32 34)))))
+
+
+(definition (GUID-ref guid)
+  (let* ((proc (lambda (i n)
+                 (zero-fill (number->string i 16) n)))
+         (data4+ (GUID-Data4-ref guid))
+         (proc4 (lambda (n) (proc (byte*-ref data4+ n) 2))))
+    (apply string-append
+           (proc (GUID-Data1-ref guid) 8) "-"
+           (proc (GUID-Data2-ref guid) 4) "-"
+           (proc (GUID-Data3-ref guid) 4) "-"
+           (proc4 0) (proc4 1) "-"
+           (map proc4 (naturals 2 8)))))
+
+
+(definition (GUID-encode str)
+  (let ((guid (GUID-make)))
+    (GUID-set! guid str)
+    guid))
+
+
+(definition (GUID-decode guid)
+  (let ((str (GUID-ref guid)))
+    (GUID-free guid)
+    str))
+
+
+(definition (CoCreateInstance class interface)
+  (let ((class-guid (GUID-encode class))
+        (interface-guid (GUID-encode interface))
+        (coptr* (IUnknown*-enref #f))
+        (proc (c-function (GUID* IUnknown* DWORD GUID* LPVOID*) HRESULT "CoCreateInstance")))
+    (validate-hresult (proc class-guid #f CLSCTX_SERVER interface-guid coptr*))
+    (GUID-free class-guid)
+    (GUID-free interface-guid)
+    (IUnknown*-deref coptr*)))
+
+
+(definition (ado)
+  (initialize-com)
+  (let ((connection (CoCreateInstance "00000514-0000-0010-8000-00aa006d2ea4" "00000550-0000-0010-8000-00aa006d2ea4")))
+    (CoRelease coptr)))

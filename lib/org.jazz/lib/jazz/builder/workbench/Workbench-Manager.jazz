@@ -63,10 +63,9 @@
   (form
     (<install>                                     size: {Dimension 650 400} layout-type: border
       (<Layout-View>      name: tools
-        @convert
-        (<Push-Combo>     name: build
-          (<!>            name: body               portfolio: :icons image-name: {Bitmap-Resource "Build"} tooltip?: #t tooltip-text: "Build" action-handler: {Event-Handler :form on-build-current})
-          (<!>            name: pick               action-handler: {Event-Handler :form on-policies-menu}))
+        (<Push-Combo>     name: configure
+          (<!>            name: body               portfolio: :icons image-name: {Bitmap-Resource "Configure"} tooltip?: #t tooltip-text: "Configure" action-handler: {Event-Handler :form on-configure})
+          (<!>            name: pick               action-handler: {Event-Handler :form on-configurations-menu}))
         (<Push-Tool>      name: highlight-document size: {Dimension 22 22} tooltip?: #t tooltip-text: "Highlight Document" image-name: {Bitmap-Resource "Synchronize"} portfolio: :icons action-handler: {Event-Handler :form on-highlight-document}))
       (<Workbench-Editor> name: descendants        location: center
         (<!>              name: scroller           flat?: #t)
@@ -133,20 +132,31 @@
     (set-shown?~ (locate-component '(descendants header)) #f)
     (set-editor~ (locate 'descendants) self)
     (add-exit-listener~ (get-application) self)
-    (setup-active-policy)
     (set-client (get-workbench)))
   
 
-  (method (conclude rest)
-    (nextmethod rest)
+  (method (client-activate)
+    (setup-active-configuration)
     (setup-active-product))
   
   
-  (method (setup-active-policy)
+  (method (setup-workbench-title configuration)
+    (let ((host (get-host))
+          (root (get-root))
+          (title
+            (if (not configuration)
+                "Workbench"
+              (format "Workbench - {a}" (get-name~ configuration)))))
+      (set-title~ host title)
+      (invalidate-view~ root)))
+  
+  
+  (method (setup-active-configuration)
     (let* ((pref (get-preferences 'build))
-           (policy (get-active-policy~ pref)))
-      (when policy
-        (set-current-policy policy))))
+           (active (get-active-configuration~ pref))
+           (configuration (essay active (child~ (child~ pref 'configurations) active))))
+      (setup-workbench-title configuration)
+      (set-current-configuration configuration)))
   
   
   (method (setup-active-product)
@@ -204,11 +214,11 @@
       ((#\return) (launch-selection))))
   
   
-  (method (on-policies-menu evt)
+  (method (on-configurations-menu evt)
     (let* ((sender (get-sender~ evt))
            (combo (get-combo~ sender))
            (pos (new Point 0 (get-height~ (get-size~ sender)))))
-      (track-popup-menu~ sender (new Policies-Menu) pos initiator: combo)))
+      (track-popup-menu~ sender (new Configurations-Menu client: self) pos initiator: combo)))
   
   
   (method (on-highlight-document evt)
@@ -743,7 +753,7 @@
       
   
   (method (debug-product product)
-    (debug-product~ (get-application) (get-name~ product) configuration: 'release))
+    (debug-product~ (get-application) (get-name~ product)))
   
   
   ;;;
@@ -761,7 +771,7 @@
 
   
   (method (run-product product)
-    (run-product~ (get-application) (get-name~ product) configuration: 'release))
+    (run-product~ (get-application) (get-name~ product)))
   
   
   ;;;
@@ -868,7 +878,7 @@
     (if (is-not? product Product)
         (bell)
       (let ((name (get-name~ product)))
-        (launch-runtime~ (get-application) configuration: 'release arguments: (list "-build" (->string name))))
+        (launch-runtime~ (get-application) arguments: (list "-build" (->string name))))
       @old
       (let ((log? #t @wait (get-selected?~ (locate 'log?)))
             (force-link? #f @wait (get-selected?~ (locate 'force-link?))))
@@ -1011,14 +1021,9 @@
         (set-visible?~ (locate~ menu 'import-directory) #f))))
   
   
-  (method (install-policy policy)
-    (set-current-policy policy)
-    (let* ((tree (get-tree))
-           (cell {Cell 0 0})
-           (node (get-cell-data~ tree cell)))
-      @waiting
-      (set-title~ node (format "Workbench - {a}" policy))
-      (invalidate-cell~ tree cell)))
+  (method (install-configuration configuration)
+    (set-current-configuration configuration)
+    (setup-workbench-title configuration))
   
   
   ;;;
@@ -1097,29 +1102,27 @@
 
 
 ;;;
-;;;; Policies-Menu
+;;;; Configurations-Menu
 ;;;
 
 
-(class Policies-Menu extends Context-Menu
+(class Configurations-Menu extends Context-Menu
   
   
   (method (finish rest)
     (nextmethod rest)
-    (let* ((pref (get-preferences '(build policies)))
-           (policies (get-children~ pref)))
-      (for-each (function (policy)
-                  (let ((name (get-name~ policy))
-                        (title (get-title~ policy)))
-                    (new Check-Item parent: self checked?: (eq? name Current-Policy) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list policy: name)))))
-                policies)))
+    (let ((configurations (get-children~ (get-preferences '(build configurations)))))
+      (for-each (function (configuration)
+                  (let* ((name (get-name~ configuration))
+                         (title (either (get-title~ configuration) (->string name))))
+                    (new Check-Item parent: self checked?: (eq? configuration (get-current-configuration)) title: title action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list configuration: configuration)))))
+                configurations)))
   
   
   (method (on-action evt)
-    @convert
     (let ((appl (get-application))
-          (policy (get-property~ evt policy:)))
-      (install-policy policy))))
+          (configuration (get-property~ evt configuration:)))
+      (install-configuration~ client configuration))))
 
 
 ;;;

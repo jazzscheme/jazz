@@ -90,24 +90,18 @@
   
   (method (find-class class-name (workspace: workspace {}) (error?: error? #t))
     (let* ((appl (get-application))
-           (toplevel-name (extract-toplevel-name class-name))
-           (source (find-class-source toplevel-name)))
+           (source (find-class-source class-name)))
       (either (edit-document~ appl source workspace: workspace visible?: #f)
               (when error?
                 (signal (new Location-Error kind: 'unknown location: class-name))))))
   
   
   (method (find-class-source class-name)
+    (let ((resource (find-module-src class-name)))
+      (if (not resource)
+          {}
+        (resource-pathname resource)))
     #f
     @convert
     (either (get-manifest-source class-name)
-            (get-source~ (get-profile~ (get-application)) class-name)))
-  
-  
-  ;; a bit of a temporary patch to dive in the metaclass name...
-  (method (extract-toplevel-name class-name)
-    (let* ((str (symbol->string class-name))
-           (pos (find str #\~)))
-      (if (not pos)
-          class-name
-        (string->symbol (subseq str 0 pos)))))))
+            (get-source~ (get-profile~ (get-application)) class-name)))))

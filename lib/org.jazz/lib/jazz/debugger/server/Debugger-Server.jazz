@@ -184,21 +184,31 @@
   
   
   (method public (debuggee-stop debuggee thread stop kind reason)
-    (if (and (local-proxy? thread)
+    (if (and #f ;; until the error shows in full in the debugger in like a tooltip
+             (local-proxy? thread)
              (eq? (get-object~ thread) (primordial-thread)))
         (with-locked-update
           (function ()
             (let ((view (select-palette Debuggers-View workspace: 'debugger)))
               (when view
                 (select-first-frame~ view stop)))))
-      (format :console #"\($\)\(color {a} {a} : {?{a}~}\)\(prompt\){%}{!}"#
-              (case kind
-                ((exception) 'Dark-Red)
-                (else 'Dark-Orange))
-              (case kind
-                ((exception) "Error")
-                (else "Break"))
-              (car (split reason "\n")))))
+      (let ((lines (split reason "\n")))
+        (format :console #"\($\)\(color {a} {a} : {?{a}~}\){%}{!}"#
+                (case kind
+                  ((exception) 'Dark-Red)
+                  (else 'Dark-Orange))
+                (case kind
+                  ((exception) "Error")
+                  (else "Break"))
+                (car lines))
+        (for-each (function (line)
+                    (format :console #"\($\)\(color {a} {?{a}~}\){%}{!}"#
+                      (case kind
+                        ((exception) 'Dark-Red)
+                        (else 'Dark-Orange))
+                      line))
+                  (cdr lines)))
+      (format :console #"\(prompt\){%}{!}"#)))
 
 
   (method public (debug-exception type message stack)

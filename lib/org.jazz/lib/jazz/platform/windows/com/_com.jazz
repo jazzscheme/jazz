@@ -74,6 +74,20 @@
 ;;;
 
 
+(class COM-Exception extends Exception
+  
+  
+  (slot code)
+  
+  
+  (method (initialize code)
+    (set! code~self code))
+  
+  
+  (method public (get-code)
+    code))
+
+
 (c-type HRESULT (native unsigned-long))
 
 
@@ -92,7 +106,7 @@
     ((#x800a0d5d)
      (error "ERROR - wrong value type" hresult))
     (else
-     (error (string-append "ERROR - " (number->string hresult 16))))))
+     (throw (new COM-Exception hresult)))))
 
 
 ;;;
@@ -489,6 +503,30 @@
 
 
 ;;;
+;;;; SAFEARRAYBOUND
+;;;
+
+
+(c-structure SAFEARRAYBOUND
+  (ULONG cElements)
+  (LONG lLbound))
+
+
+;;;
+;;;; SAFEARRAY
+;;;
+
+
+(c-structure SAFEARRAY
+  (USHORT cDims)
+  (USHORT fFeatures)
+  (ULONG cbElements)
+  (ULONG cLocks)
+  (PVOID pvData)
+  (SAFEARRAYBOUND rgsabound 1))
+
+
+;;;
 ;;;; VARIANT
 ;;;
 
@@ -504,6 +542,7 @@
   (float fltVal)
   (double dblVal)
   (VARIANT_BOOL boolVal)
+  (SAFEARRAY* parray)
   (SCODE scode)
   (CY cyVal)
   (BSTR bstrVal)
@@ -576,7 +615,16 @@
     ((#x400B) ; VT_BOOL + VT_BYREF
      (/= 0 (short*-ref (VARIANT-pboolVal-ref variant) 0)))
     ((#x2011)
-     (list 'unimplemented 'timestamp???))
+     (let* ((safearray (VARIANT-parray-ref variant))
+            (bound (SAFEARRAY-rgsabound-ref safearray))
+            (array (void*->byte* (SAFEARRAY-pvData-ref safearray)))
+            (size (SAFEARRAYBOUND-cElements-ref bound))
+            (vector (make-u8vector size)))
+       (let (loop (i 0))
+         (when (< i size)
+           (u8vector-set! vector i (byte*-ref array i))
+           (loop (+ i 1))))
+       vector))
     (else
      ;; VARIANT-punkVal-ref dangerous
      (error "Unknown variant type: {s}" (VARIANT-vt-ref variant)))))

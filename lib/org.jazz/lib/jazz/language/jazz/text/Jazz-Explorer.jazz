@@ -431,12 +431,19 @@
   
   
   (method (walk-native context declaration keyword expression doc line walk-expressions?)
+    (define (parse-identifier str)
+      (let ((pos (find str #\. reversed?: #t)))
+        (if (not pos)
+            str
+          (substring str (+ pos 1) (string-length str)))))
+    
     (let ((entry context))
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
       (forward-whites)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+        (let ((name (parse-identifier (get-marked))))
+          (set! entry (declaration context start end name (symbol-documented? name doc)))))
       (when walk-expressions?
         (walk-expressions entry expression))
       entry))

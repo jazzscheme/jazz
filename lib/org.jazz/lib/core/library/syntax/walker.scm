@@ -330,7 +330,7 @@
 
 (define (jazz.parse-exported-symbol library-declaration name)
   (if (jazz.composite-name? name)
-      (values (jazz.last (jazz.split-identifier name)) name)
+      (values (jazz.identifier-name name) name)
     (values name name)))
 
 

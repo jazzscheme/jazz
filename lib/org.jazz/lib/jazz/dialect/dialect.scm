@@ -2042,15 +2042,16 @@
 
 (define jazz.method-stub-modifiers
   '(((private protected public) . private)
-    ((send post) . send)))
+    ((send post) . send)
+    ((reference value) . reference)))
 
 
 (define (jazz.parse-method-stub walker resume declaration rest)
-  (receive (access invocation rest) (jazz.parse-modifiers walker resume declaration jazz.method-stub-modifiers rest)
+  (receive (access invocation passage rest) (jazz.parse-modifiers walker resume declaration jazz.method-stub-modifiers rest)
     (let* ((signature (%%car rest))
            (name (%%car signature))
            (parameters (%%cdr signature)))
-      (values name jazz.Any access invocation parameters))))
+      (values name jazz.Any access invocation passage parameters))))
 
 
 (define (jazz.expand-remotable-stub walker resume declaration environment . rest)
@@ -2077,39 +2078,67 @@
                    (jazz.enqueue positional parameter)
                    (iter (%%cdr scan))))))))
     
+    (define (parse-value-keyword name passage)
+      (case passage
+        ((reference)
+         #f)
+        ((value)
+         (let* ((str (%%symbol->string name))
+                (len (%%string-length str)))
+           (%%assert (and (%%fx> len 4) (%%string=? (%%substring str 0 4) "get-"))
+             (jazz.string->keyword (%%substring str 4 len)))))))
+    
     (let ((interface-class (add name "-Stub-Interface"))
           (stub-interface (add name "-Stub"))
           (local-class (add name "-Local-Proxy"))
           (remote-class (add name "-Remote-Proxy"))
           (proxies (jazz.new-queue))
+          (values (jazz.new-queue))
           (locals (jazz.new-queue))
           (remotes (jazz.new-queue)))
       (for-each (lambda (method-form)
                   (%%assert (%%eq? (%%car method-form) 'method)
-                    (receive (name type access invocation parameters) (jazz.parse-method-stub walker resume declaration (%%cdr method-form))
+                    (receive (name type access invocation passage parameters) (jazz.parse-method-stub walker resume declaration (%%cdr method-form))
                       (receive (parameters positional rest) (parse-parameters parameters)
                         (let ((invoker (case invocation ((send) 'send-remote) ((post) 'post-remote)))
-                              (dispatch (%%string->symbol (%%string-append (%%symbol->string name) "~"))))
+                              (dispatch (%%string->symbol (%%string-append (%%symbol->string name) "~")))
+                              (value-keyword (parse-value-keyword name passage)))
                           (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
-                          (jazz.enqueue locals `(method (,name ,@parameters) ,(if rest `(apply (~ ,name object) ,@positional ,rest) `(,dispatch object ,@positional))))
-                          (jazz.enqueue remotes `(method (,name ,@parameters) ,(if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional)))))))))
+                          (%%when value-keyword
+                            (jazz.enqueue values value-keyword)
+                            (jazz.enqueue values `(,name)))
+                          (jazz.enqueue locals `(method (,name ,@parameters)
+                                                  ,(if rest `(apply (~ ,name object) ,@positional ,rest) `(,dispatch object ,@positional))))
+                          (jazz.enqueue remotes `(method (,name ,@parameters)
+                                                   ,(let ((call (if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional))))
+                                                      (if value-keyword
+                                                          `(proxy-value ,value-keyword (function () ,call))
+                                                        call)))))))))
                 body)
-      `(begin
-         (class private ,interface-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub-Interface") 'Stub-Interface)
-           (method (local-class)
-             ,local-class)
-           (method (remote-class)
-             ,remote-class))
-         (interface ,access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
-           ,@(jazz.queue-list proxies))
-         (class private ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
-           (method (stub-interface)
-             ,stub-interface)
-           ,@(jazz.queue-list locals))
-         (class private ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
-           (method (stub-interface)
-             ,stub-interface)
-           ,@(jazz.queue-list remotes))))))
+      (let* ((values-list (jazz.queue-list values))
+             (values-method
+               (if (%%null? values-list)
+                   '()
+                 `((method (proxy-values)
+                     (append (list ,@values-list)
+                             (nextmethod)))))))
+        `(begin
+           (class private ,interface-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub-Interface") 'Stub-Interface)
+             (method (local-class)
+               ,local-class)
+             (method (remote-class)
+               ,remote-class))
+           (interface ,access ,stub-interface extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Stub") 'Remotable-Stub) metaclass ,interface-class
+             ,@(jazz.queue-list proxies))
+           (class private ,local-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Local-Proxy") 'Local-Proxy) implements ,stub-interface
+             (method (stub-interface)
+               ,stub-interface)
+             ,@values-method
+             ,@(jazz.queue-list locals))
+           (class private ,remote-class extends ,(if (jazz.specified? ascendant-name) (add ascendant-name "-Remote-Proxy") 'Remote-Proxy) implements ,stub-interface
+             (method (stub-interface)
+               ,stub-interface)
+             ,@(jazz.queue-list remotes)))))))
 
 
 ;;;

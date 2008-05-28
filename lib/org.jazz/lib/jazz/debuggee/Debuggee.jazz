@@ -97,12 +97,10 @@
   ;;;
   
   
-  (method (get-state)
-    (let ((name (get-name)))
-      `(<debuggee> reference: ,(new Debuggee-Local-Proxy self) name: ,name
-         ,@(map (function (thread)
-                  (get-thread-state thread))
-                (get-threads)))))
+  (method (get-threads)
+    (map (function (thread)
+           (new Debuggee-Thread-Local-Proxy thread))
+         (current-threads)))
   
   
   (method (register-stop stop)
@@ -125,19 +123,11 @@
   ;;;
   
   
-  (method (get-thread-state thread)
-    (let ((name (thread-name thread)))
-      `(<thread> reference: ,(new Debuggee-Thread-Local-Proxy thread) name: ,name
-         ,@(map (function (stop)
-                  (get-stop-state stop))
-                (get-thread-stops thread)))))
-  
-  
   (method (get-thread-stops thread)
     (let ((queue (new-queue)))
       (for-each (function (stop)
                   (when (eq? (get-thread~ stop) thread)
-                    (enqueue queue stop)))
+                    (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
                 stops)
       (queue-list queue)))
   
@@ -158,16 +148,6 @@
   ;;;
   
   
-  (method (get-stop-state stop)
-    (let ((kind (get-kind~ stop))
-          (reason (get-reason~ stop))
-          (stack (get-stack~ stop)))
-      `(<stop> reference: ,(new Debuggee-Stop-Local-Proxy stop) kind: ,kind reason: ,reason
-         ,@(map (function (frame)
-                  (get-frame-state frame))
-                stack))))
-  
-  
   (method (restart-stop stop-proxy)
     (let ((thread (get-thread~ (get-object~ stop-proxy))))
       (thread-send thread
@@ -181,29 +161,6 @@
     (let ((thread (get-thread~ stop))
           (action (get-continuation~ stop)))
       (thread-send thread action)))
-  
-  
-  ;;;
-  ;;;; Frame
-  ;;;
-  
-  
-  (method (get-frame-state frame)
-    (bind (name environment variables location) frame
-      `(<frame> name: ,name location: ,location
-         ,@(map (function (variable)
-                  (get-variable-state variable))
-                variables))))
-  
-  
-  ;;;
-  ;;;; Variable
-  ;;;
-  
-  
-  (method (get-variable-state variable)
-    (bind (name . value) variable
-      `(<variable> name: ,name value: ,(->string value :reader))))
   
   
   ;;;
@@ -261,7 +218,7 @@
   
   (method public (get-process-threads)
     @convert
-    (map new-thread (get-threads)))
+    (map new-thread (current-threads)))
   
   
   (method public (get-primordial-thread)

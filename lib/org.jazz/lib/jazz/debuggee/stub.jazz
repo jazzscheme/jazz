@@ -38,7 +38,12 @@
 (library jazz.debuggee.stub jazz
 
 
-(import (jazz.jrm))
+(import (jazz.debuggee)
+        (jazz.jrm))
+
+
+(definition (local-debuggee-object)
+  (get-object~ (get-local-debuggee~ (get-process))))
 
 
 ;;;
@@ -55,7 +60,7 @@
   (method public post (exit))
   (method public send (get-process))
   (method public send (get-toplevel-hwnd))
-  (method public send (get-state))
+  (method public send (get-threads))
   (method public send (register-stop stop))
   (method public send (unregister-stop stop))
   (method public post (restart-stop stop))
@@ -70,7 +75,15 @@
 ;;;
 
 
-(remotable-stub Debuggee-Thread)
+(remotable-stub Debuggee-Thread
+  
+  
+  (method public send value (get-name)
+    (thread-name object))
+  
+  
+  (method public send value (get-stops)
+    (get-thread-stops~ (local-debuggee-object) object)))
 
 
 ;;;
@@ -78,4 +91,36 @@
 ;;;
 
 
-(remotable-stub Debuggee-Stop))
+(remotable-stub Debuggee-Stop
+  
+  
+  (method public send value (get-kind))
+  (method public send value (get-reason))
+  
+  
+  (method public send value (get-frames)
+    (map get-frame-state (get-stack~ object))))
+
+
+(definition (get-frame-state frame)
+  (bind (name environment variables location) frame
+    (let ((frame (new Debuggee-Frame name location (map get-variable-state variables))))
+      (new Debuggee-Frame-Local-Proxy frame))))
+
+
+(definition (get-variable-state variable)
+  (bind (name . value) variable
+    (cons name (->string value :reader))))
+
+
+;;;
+;;;; Debuggee-Frame
+;;;
+
+
+(remotable-stub Debuggee-Frame
+  
+  
+  (method public send value (get-name))
+  (method public send value (get-location))
+  (method public send value (get-variables))))

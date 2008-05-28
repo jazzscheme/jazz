@@ -113,13 +113,16 @@
     
     
     (define (jazz.read-literal re c)
-      (let ((start-pos (##readenv-current-filepos re)))
-        (read-char (macro-readenv-port re))
-        (let ((lst (##build-list re #t start-pos #\})))
-          (macro-readenv-wrap re
-            (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
-                #f
-              (jazz.construct-literal (map ##desourcify lst)))))))
+      (let ((port (macro-readenv-port re))
+            (start-pos (##readenv-current-filepos re)))
+        (read-char port)
+        (if (%%eqv? (peek-char port) #\@)
+            (jazz.error "Trying to read an unreadable literal")
+          (let ((lst (##build-list re #t start-pos #\})))
+            (macro-readenv-wrap re
+              (if (or (jazz.parse-read?) (jazz.in-expression-comment?))
+                  #f
+                (jazz.construct-literal (map ##desourcify lst))))))))
     
     
     (define (jazz.read-comment re c)

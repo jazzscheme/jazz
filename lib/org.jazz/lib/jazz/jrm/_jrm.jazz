@@ -46,6 +46,9 @@
 (definition *debug?*
   #f)
 
+(definition *debug-arguments?*
+  #f)
+
 (definition *debug-locally?*
   #f)
 
@@ -141,7 +144,7 @@
     (let ((host (get-host~ proxy-ior))
           (service (get-service~ proxy-ior)))
       (when *debug?*
-        (terminal '***remoting*** 'invoke kind method-name remote-proxy arguments))
+        (terminal '***remoting*** 'invoke kind method-name remote-proxy (and *debug-arguments?* arguments)))
       (call-with-tcp-client (list server-address: host port-number: service)
         (function (port)
           (send-remote-message (list kind method-name proxy-ior arguments) port)
@@ -182,7 +185,7 @@
         (send-remote-result live-response port)
       (bind (kind method-name proxy-ior arguments) message
         (when *debug?*
-          (terminal '***remoting*** 'process kind method-name proxy-ior arguments))
+          (terminal '***remoting*** 'process kind method-name proxy-ior (and *debug-arguments?* arguments)))
         (case kind
           ((send)
            (let ((to-send (execute-remote method-name proxy-ior arguments)))
@@ -274,7 +277,7 @@
       (listening-port~ server)
       (identifier-name (get-name~ (stub-interface~ local-proxy)))
       (local-proxy->reference local-proxy)
-      (proxy-values~ local-proxy))))
+      (marshall (proxy-values~ local-proxy)))))
 
 
 (definition (unmarshall-local-ior stub-interface ior)
@@ -301,7 +304,7 @@
 
 (definition (unmarshall-remote-ior stub-interface ior)
   (let ((remote-class (remote-class~ stub-interface)))
-    (new remote-class ior)))
+    (new remote-class ior (unmarshall (get-values~ ior)))))
 
 
 ;;;

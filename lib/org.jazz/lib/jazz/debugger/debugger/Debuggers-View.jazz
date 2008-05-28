@@ -172,7 +172,7 @@
     (let ((frame (selected-frame)))
       (if (not frame)
           (bell)
-        (let ((name (get-property~ frame 'name)))
+        (let ((name (get-name~ frame)))
           (if (not name)
               (bell)
             (edit-definition~ (get-application) (identifier-name name)))))))
@@ -212,17 +212,16 @@
       (sleep .1)
       (update))
     
-    (let* ((stop-node (selected-stop))
-           (thread-node (get-parent~ stop-node))
-           (debuggee-node (get-parent~ thread-node)))
-      (restart-stop~ (get-property~ debuggee-node 'reference) (get-property~ stop-node 'reference))
-      (let ((thread-proxy (get-property~ thread-node 'reference)))
-        (if (and (local-proxy? thread-proxy)
-                 (eq? (get-object~ thread-proxy) event-thread))
-            (thread-start!
-              (make-thread
-                update-view))
-          (update-view)))))
+    (let* ((stop (selected-stop))
+           (thread (selected-thread))
+           (debuggee (selected-debuggee)))
+      (restart-stop~ debuggee stop)
+      (if (and (local-proxy? thread)
+               (eq? (get-object~ thread) event-thread))
+          (thread-start!
+            (make-thread
+              update-view))
+        (update-view))))
   
   
   (method (on-update evt)
@@ -263,7 +262,7 @@
     (let ((frame (selected-frame)))
       (if (not frame)
           #f
-        (let ((location (get-property~ frame 'location)))
+        (let ((location (get-location~ frame)))
           (if (not location)
               #f
             (bind (filename line col) location
@@ -370,6 +369,15 @@
   
   
   (method public (selected-debuggee)
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debuggee-Stub) object)
+            ((Debuggee-Thread-Stub) (get-user-data~ (get-father~ row)))
+            ((Debuggee-Stop-Stub) (get-user-data~ (get-father~ (get-father~ row))))
+            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ (get-father~ (get-father~ row)))))
+            (else {})))))
     @convert/wait
     (let ((object (selected-object)))
       (typecase object
@@ -381,33 +389,45 @@
   
   
   (method public (selected-thread)
-    (let ((object (selected-object)))
-      (when (and (is? object JML-Node)
-                 (eq? (get-tag~ object) 'thread))
-        object)))
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debuggee-Thread-Stub) object)
+            ((Debuggee-Stop-Stub) (get-user-data~ (get-father~ row)))
+            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ (get-father~ row))))
+            (else {}))))))
   
   
   (method public (selected-stop)
-    (let ((object (selected-object)))
-      (when (is? object JML-Node)
-        (case (get-tag~ object)
-          ((stop) object)
-          ((frame) (get-parent~ object))
-          (else {})))))
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debuggee-Stop-Stub) object)
+            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ row)))
+            (else {}))))))
   
   
   (method public (selected-frame)
-    (let ((object (selected-object)))
-      (when (and (is? object JML-Node)
-                 (eq? (get-tag~ object) 'frame))
-        object)))
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (when (is? object Debuggee-Frame-Stub)
+            object)))))
   
   
   (method public (selected-object)
+    (let ((row (selected-row)))
+      (when row
+        (get-user-data~ row))))
+  
+  
+  (method (selected-row)
     (let* ((tree (locate 'stack))
            (n (get-single-selection~ tree)))
       (when n
-        (get-user-data~ (get-row~ tree n)))))
+        (get-row~ tree n))))
   
   
   ;;;
@@ -522,33 +542,33 @@
   
   (method (update-debuggees)
     (define (thread-title thread)
-      (let ((name (get-property~ thread 'name)))
+      (let ((name (get-name~ thread)))
         (cond ((unspecified? name) "Thread")
               ((eq? name 'primordial) "Primordial")
               (else (->string name)))))
     
     (define (thread-image thread)
-      (let ((children (get-children~ thread)))
-        (if (null? children)
+      (let ((stops (get-stops~ thread)))
+        (if (null? stops)
             {Bitmap-Resource "ThreadRun"}
-          (case (get-property~ (last children) 'kind)
+          (case (get-kind~ (last stops))
             ((exception) {Bitmap-Resource "ThreadError"})
             (else {Bitmap-Resource "ThreadBreak"})))))
     
     (define (stop-title stop)
-      (let ((reason (get-property~ stop 'reason)))
+      (let ((reason (get-reason~ stop)))
         (if (not reason)
             "Break"
           (let ((line (car (split reason "\n"))))
             line))))
     
     (define (stop-image stop)
-      (case (get-property~ stop 'kind)
+      (case (get-kind~ stop)
         ((exception) {Bitmap-Resource "ErrorStop"})
         (else {Bitmap-Resource "BreakStop"})))
     
     (define (frame-title frame)
-      (let ((name (get-property~ frame 'name)))
+      (let ((name (get-name~ frame)))
         (cond ((not name)
                "<function>")
               ((symbol? name)
@@ -557,14 +577,13 @@
                name))))
     
     (define (frame-image frame)
-      (if (get-property~ frame 'location)
+      (if (get-location~ frame)
           {Bitmap-Resource "Link"}
         {Bitmap-Resource "FrameCompiledProcedure"}))
     
-    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)) validate?: #t)))
+    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)) validate?: #f)))
       (for-each (function (debuggee)
                   (let* ((title (get-name~ debuggee))
-                         (state (parse-jml (get-state~ debuggee)))
                          (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
                     (for-each (function (thread)
                                 (let* ((title (thread-title thread))
@@ -578,9 +597,9 @@
                                                             (let ((title (frame-title frame))
                                                                   (image (frame-image frame)))
                                                               (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
-                                                          (get-children~ stop))))
-                                            (get-children~ thread))))
-                              (get-children~ state))))
+                                                          (get-frames~ stop))))
+                                            (get-stops~ thread))))
+                              (get-threads~ debuggee))))
                 debuggees)))
   
   

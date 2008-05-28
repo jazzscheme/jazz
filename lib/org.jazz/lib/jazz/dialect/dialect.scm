@@ -2050,8 +2050,9 @@
   (receive (access invocation passage rest) (jazz.parse-modifiers walker resume declaration jazz.method-stub-modifiers rest)
     (let* ((signature (%%car rest))
            (name (%%car signature))
-           (parameters (%%cdr signature)))
-      (values name jazz.Any access invocation passage parameters))))
+           (parameters (%%cdr signature))
+           (body (%%cdr rest)))
+      (values name jazz.Any access invocation passage parameters body))))
 
 
 (define (jazz.expand-remotable-stub walker resume declaration environment . rest)
@@ -2098,7 +2099,7 @@
           (remotes (jazz.new-queue)))
       (for-each (lambda (method-form)
                   (%%assert (%%eq? (%%car method-form) 'method)
-                    (receive (name type access invocation passage parameters) (jazz.parse-method-stub walker resume declaration (%%cdr method-form))
+                    (receive (name type access invocation passage parameters body) (jazz.parse-method-stub walker resume declaration (%%cdr method-form))
                       (receive (parameters positional rest) (parse-parameters parameters)
                         (let ((invoker (case invocation ((send) 'send-remote) ((post) 'post-remote)))
                               (dispatch (%%string->symbol (%%string-append (%%symbol->string name) "~")))
@@ -2108,7 +2109,9 @@
                             (jazz.enqueue values value-keyword)
                             (jazz.enqueue values `(,name)))
                           (jazz.enqueue locals `(method (,name ,@parameters)
-                                                  ,(if rest `(apply (~ ,name object) ,@positional ,rest) `(,dispatch object ,@positional))))
+                                                  ,@(cond ((%%not-null? body) body)
+                                                          (rest `((apply (~ ,name object) ,@positional ,rest)))
+                                                          (else `((,dispatch object ,@positional))))))
                           (jazz.enqueue remotes `(method (,name ,@parameters)
                                                    ,(let ((call (if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional))))
                                                       (if value-keyword

@@ -617,6 +617,7 @@
 (native jazz.thread-group->thread-group-vector)
 (native jazz.thread-group->thread-list)
 (native jazz.thread-group->thread-vector)
+(native jazz.thread-interrupt!)
 (native jazz.mutex?)
 (native jazz.make-mutex)
 (native jazz.mutex-name)

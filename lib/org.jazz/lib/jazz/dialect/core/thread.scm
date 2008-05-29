@@ -66,7 +66,10 @@
     (define jazz.thread-group->thread-group-list thread-group->thread-group-list)
     (define jazz.thread-group->thread-group-vector thread-group->thread-group-vector)
     (define jazz.thread-group->thread-list thread-group->thread-list)
-    (define jazz.thread-group->thread-vector thread-group->thread-vector))
+    (define jazz.thread-group->thread-vector thread-group->thread-vector)
+    
+    (define (jazz.thread-interrupt! thread action)
+      (##thread-interrupt! thread action)))
   
   (else))
 

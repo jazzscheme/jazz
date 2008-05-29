@@ -195,7 +195,10 @@
   
   
   (method (on-break evt)
-    (unimplemented 'on-break))
+    (let ((thread (selected-thread))
+          (debuggee (selected-debuggee)))
+      (break-thread~ thread)
+      (refresh-thread thread)))
   
   
   (method (on-continue evt)
@@ -203,21 +206,11 @@
   
   
   (method (on-restart evt)
-    (define (update-view)
-      (thread-yield!)
-      (sleep .1)
-      (update))
-    
     (let* ((stop (selected-stop))
            (thread (selected-thread))
            (debuggee (selected-debuggee)))
       (restart-stop~ debuggee stop)
-      (if (and (local-proxy? thread)
-               (eq? (get-object~ thread) event-thread))
-          (thread-start!
-            (make-thread
-              update-view))
-        (update-view))))
+      (refresh-thread thread)))
   
   
   (method (on-update evt)
@@ -232,6 +225,21 @@
         (uninstall-active-frame-indicator))
       (update)
       (frame-change)))
+  
+  
+  (method (refresh)
+    (thread-yield!)
+    (sleep .1)
+    (update))
+    
+  
+  (method (refresh-thread thread)
+    (if (and (local-proxy? thread)
+             (eq? (get-object~ thread) event-thread))
+        (thread-start!
+          (make-thread
+            refresh))
+      (refresh)))
 
   
   ;;;

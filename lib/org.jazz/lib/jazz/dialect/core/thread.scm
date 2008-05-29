@@ -69,7 +69,9 @@
     (define jazz.thread-group->thread-vector thread-group->thread-vector)
     
     (define (jazz.thread-interrupt! thread action)
-      (##thread-interrupt! thread action)))
+      (if (eq? thread (current-thread))
+          (action)
+        (##thread-interrupt! thread action))))
   
   (else))
 

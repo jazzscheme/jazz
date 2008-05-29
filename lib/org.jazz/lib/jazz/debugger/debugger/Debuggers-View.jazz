@@ -197,20 +197,27 @@
   (method (on-break evt)
     (let ((thread (selected-thread))
           (debuggee (selected-debuggee)))
-      (break-thread~ thread)
-      (refresh-thread thread)))
+      (with-refresh-thread thread
+        (function ()
+          (break-thread~ debuggee thread)))))
   
   
   (method (on-continue evt)
-    (unimplemented 'on-continue))
+    (let* ((stop (selected-stop))
+           (thread (selected-thread))
+           (debuggee (selected-debuggee)))
+      (with-refresh-thread thread
+        (function ()
+          (continue-stop~ debuggee stop)))))
   
   
   (method (on-restart evt)
     (let* ((stop (selected-stop))
            (thread (selected-thread))
            (debuggee (selected-debuggee)))
-      (restart-stop~ debuggee stop)
-      (refresh-thread thread)))
+      (with-refresh-thread thread
+        (function ()
+          (restart-stop~ debuggee stop)))))
   
   
   (method (on-update evt)
@@ -231,15 +238,22 @@
     (thread-yield!)
     (sleep .1)
     (update))
-    
   
-  (method (refresh-thread thread)
-    (if (and (local-proxy? thread)
-             (eq? (get-object~ thread) event-thread))
-        (thread-start!
-          (make-thread
-            refresh))
+  
+  (method (with-refresh-thread thread thunk)
+    (if (event-thread-local-proxy? thread)
+        (begin
+          (thread-start!
+            (make-thread
+              refresh))
+          (thunk))
+      (thunk)
       (refresh)))
+  
+  
+  (definition (event-thread-local-proxy? object)
+    (and (local-proxy? object)
+         (eq? (get-object~ object) event-thread)))
 
   
   ;;;

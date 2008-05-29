@@ -141,10 +141,6 @@
 
   (method public (set-snapshots value)
     (set! snapshots value))
-  
-  
-  (method (show-c-frames?)
-    (get-selected?~ (locate 'c-frames)))
 
   
   ;;;
@@ -225,7 +221,8 @@
   
   
   (method (on-update evt)
-    (update))
+    (let ((validate-liveness? (get-shift?~ evt)))
+      (update validate-liveness?: validate-liveness?)))
 
 
   (method (on-level-change evt)
@@ -235,15 +232,6 @@
         (uninstall-active-frame-indicator))
       (update)
       (frame-change)))
-  
-  
-  (method (on-toggle-c-frames evt)
-    (let ((tree (locate 'stack)))
-      (with-preserved-selection~ tree
-        (function ()
-          (update))
-        use: 'data
-        test: equal?)))
 
   
   ;;;
@@ -320,8 +308,8 @@
       (set! frame-indicator {})))
 
 
-  (method protected (update)
-    (update~ (locate 'stack) snapshots))
+  (method protected (update (validate-liveness?: validate-liveness? #t))
+    (update~ (locate 'stack) snapshots validate-liveness?: validate-liveness?))
   
   
   (method (frame-change)
@@ -531,16 +519,16 @@
       (<Tree-Node-Column> title: "Process/Thread" width: 431 toplevel-controls?: #t)))
   
   
-  (method public (update snapshots)
+  (method public (update snapshots (validate-liveness?: validate-liveness? #t))
     (with-update-locked
       (function ()
         (remove-every-row)
-        (update-debuggees)
+        (update-debuggees validate-liveness?: validate-liveness?)
         (update-debuggers)
         (update-snapshots snapshots))))
   
   
-  (method (update-debuggees)
+  (method (update-debuggees (validate-liveness?: validate-liveness? #t))
     (define (thread-title thread)
       (let ((name (get-name~ thread)))
         (cond ((unspecified? name) "Thread")
@@ -581,25 +569,27 @@
           {Bitmap-Resource "Link"}
         {Bitmap-Resource "FrameCompiledProcedure"}))
     
-    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)) validate?: #f)))
+    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)) validate-liveness?: validate-liveness?)))
       (for-each (function (debuggee)
-                  (let* ((title (get-name~ debuggee))
-                         (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
-                    (for-each (function (thread)
-                                (let* ((title (thread-title thread))
-                                       (image (thread-image thread))
-                                       (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                                  (for-each (function (stop)
-                                              (let* ((title (stop-title stop))
-                                                     (image (stop-image stop))
-                                                     (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
-                                                (for-each (function (frame)
-                                                            (let ((title (frame-title frame))
-                                                                  (image (frame-image frame)))
-                                                              (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
-                                                          (get-frames~ stop))))
-                                            (get-stops~ thread))))
-                              (get-threads~ debuggee))))
+                  (if (not (live?~ debuggee))
+                      (add-row children: (list (new Tree-Node title: (get-name~ debuggee) image: {Bitmap-Resource "ProcessDead"})) user-data: debuggee)
+                    (let* ((title (get-name~ debuggee))
+                           (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
+                      (for-each (function (thread)
+                                  (let* ((title (thread-title thread))
+                                         (image (thread-image thread))
+                                         (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
+                                    (for-each (function (stop)
+                                                (let* ((title (stop-title stop))
+                                                       (image (stop-image stop))
+                                                       (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                                  (for-each (function (frame)
+                                                              (let ((title (frame-title frame))
+                                                                    (image (frame-image frame)))
+                                                                (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
+                                                            (get-frames~ stop))))
+                                              (get-stops~ thread))))
+                                (get-threads~ debuggee)))))
                 debuggees)))
   
   

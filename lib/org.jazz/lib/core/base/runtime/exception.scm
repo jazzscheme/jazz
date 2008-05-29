@@ -64,15 +64,16 @@
     (define jazz.current-exception-handler
       current-exception-handler)
     
-    (define (jazz.with-exception-handler proc thunk)
-      (with-exception-handler
-        proc
-        thunk))
+    (define jazz.with-exception-handler
+      with-exception-handler)
     
-    (define (jazz.with-exception-catcher proc thunk)
-      (with-exception-catcher
-        proc
-        thunk))
+    (define jazz.with-exception-catcher
+      with-exception-catcher)
+    
+    (define (jazz.exception-reason exc)
+      (let ((output (open-output-string)))
+        (jazz.display-exception exc output)
+        (get-output-string output)))
     
     (define jazz.display-exception
       display-exception)

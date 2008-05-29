@@ -41,6 +41,7 @@
 (import (jazz.builder)
         (jazz.builder.workbench)
         (jazz.console)
+        (jazz.development)
         (jazz.ide)
         (jazz.io)
         (jazz.jrm)
@@ -359,6 +360,49 @@
       ((search)    (apply (~ new-frame Jedi-Search) properties))
       ((jazz-text) (apply (~ new-frame Jazz-Text-View) properties))
       (else (nextmethod class properties))))
+
+  
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (method (eval-expressions expressions)
+    (let ((module (get-profile-module))
+          (profile (get-profile))
+          (name (identifier-name (type-name (class-of profile)))))
+      (map (function (form)
+             (parameterize ((jazz.requested-module-name module))
+               (eval
+                 `(library ,module jazz
+                    (import (jazz.development)
+                            (jazz.io)
+                            (jazz.io.protocol)
+                            (jazz.jml)
+                            (jazz.library)
+                            (jazz.literals)
+                            (jazz.media)
+                            (jazz.network)
+                            (jazz.platform)
+                            (jazz.profile)
+                            (jazz.repository.git)
+                            (jazz.runtime)
+                            (jazz.system)
+                            (jazz.ui)
+                            (jazz.ui.development)
+                            (jazz.ui.dialog)
+                            (jazz.ui.view)
+                            (jazz.ui.window)
+                            (jazz.utilities)
+                            (jedi)
+                            (test)
+                            (time))
+                    (class ,name extends Profile
+                      (method (evaluate)
+                        ,form))
+                    (set-? (evaluate~ (get-profile~ (get-application)))))))
+             (->string ? :reader))
+           expressions)))
 
   
   ;;;

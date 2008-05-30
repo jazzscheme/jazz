@@ -576,28 +576,29 @@
 ;; Note that we need to implement every type that can potentially be used by Jazz code
 ;; so that really means every type if we want to be a superset of the underlying scheme
 (define (jazz.class-of-native expr)
-  (cond ((%%boolean? expr)     jazz.Boolean)
-        ((%%char? expr)        jazz.Char)
-        ((%%fixnum? expr)      jazz.Fixnum)
-        ((%%flonum? expr)      jazz.Flonum)
-        ((%%integer? expr)     jazz.Integer)
-        ((%%rational? expr)    jazz.Rational)
-        ((%%real? expr)        jazz.Real)
-        ((%%complex? expr)     jazz.Complex)
-        ((%%number? expr)      jazz.Number)
-        ((%%null? expr)        jazz.Null)
-        ((%%pair? expr)        jazz.Pair)
-        ((%%string? expr)      jazz.String)
-        ((%%vector? expr)      jazz.Vector)
-        ((%%u8vector? expr)    jazz.U8Vector)
-        ((%%symbol? expr)      jazz.Symbol)
-        ((%%keyword? expr)     jazz.Keyword)
-        ((%%port? expr)        jazz.Port)
-        ((%%procedure? expr)   jazz.Procedure)
-        ((%%foreign? expr)     jazz.Foreign)
-        ((%%values? expr)      jazz.Values)
-        ((%%eof-object? expr)  jazz.EOF)
-        ((%%unspecified? expr) jazz.Unspecified)
+  (cond ((%%boolean? expr)      jazz.Boolean)
+        ((%%char? expr)         jazz.Char)
+        ((%%fixnum? expr)       jazz.Fixnum)
+        ((%%flonum? expr)       jazz.Flonum)
+        ((%%integer? expr)      jazz.Integer)
+        ((%%rational? expr)     jazz.Rational)
+        ((%%real? expr)         jazz.Real)
+        ((%%complex? expr)      jazz.Complex)
+        ((%%number? expr)       jazz.Number)
+        ((%%null? expr)         jazz.Null)
+        ((%%pair? expr)         jazz.Pair)
+        ((%%string? expr)       jazz.String)
+        ((%%vector? expr)       jazz.Vector)
+        ((%%u8vector? expr)     jazz.U8Vector)
+        ((%%symbol? expr)       jazz.Symbol)
+        ((%%keyword? expr)      jazz.Keyword)
+        ((%%port? expr)         jazz.Port)
+        ((%%continuation? expr) jazz.Continuation)
+        ((%%procedure? expr)    jazz.Procedure)
+        ((%%foreign? expr)      jazz.Foreign)
+        ((%%values? expr)       jazz.Values)
+        ((%%eof-object? expr)   jazz.EOF)
+        ((%%unspecified? expr)  jazz.Unspecified)
         (else
          (or (jazz.usertype expr)
              (jazz.error "Unable to get class of {s}" expr)))))
@@ -1193,6 +1194,35 @@
 
 
 ;;;
+;;;; Continuation
+;;;
+
+
+(jazz.define-class-runtime jazz.Continuation-Class)
+
+
+(jazz.define-method (jazz.of-type? (jazz.Continuation-Class class) object)
+  (%%continuation? object))
+
+
+(jazz.define-method (jazz.emit-specifier (jazz.Continuation-Class class))
+  'continuation)
+
+
+(jazz.define-method (jazz.emit-test (jazz.Continuation-Class type) value source-declaration environment)
+  `(%%continuation? ,value))
+
+
+(jazz.encapsulate-class jazz.Continuation-Class)
+
+
+(jazz.define-class-runtime jazz.Continuation)
+
+
+(jazz.encapsulate-class jazz.Continuation)
+
+
+;;;
 ;;;; Procedure
 ;;;
 
@@ -1505,19 +1535,20 @@
     (define jazz.thread-type
       (##structure-type (current-thread)))
     
-    (%%vector-set! jazz.subtypes (macro-subtype-vector)    jazz.Vector)
-    (%%vector-set! jazz.subtypes (macro-subtype-pair)      jazz.Pair)
-    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)    jazz.Rational)
-    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)    jazz.Complex)
-    (%%vector-set! jazz.subtypes (macro-subtype-symbol)    jazz.Symbol)
-    (%%vector-set! jazz.subtypes (macro-subtype-keyword)   jazz.Keyword)
-    (%%vector-set! jazz.subtypes (macro-subtype-procedure) jazz.Procedure)
-    (%%vector-set! jazz.subtypes (macro-subtype-string)    jazz.String)
-    (%%vector-set! jazz.subtypes (macro-subtype-flonum)    jazz.Flonum)
-    (%%vector-set! jazz.subtypes (macro-subtype-bignum)    jazz.Rational)
-    (%%vector-set! jazz.subtypes (macro-subtype-foreign)   jazz.Foreign)
-    (%%vector-set! jazz.subtypes (macro-subtype-u8vector)  jazz.U8Vector)
-    (%%vector-set! jazz.subtypes (macro-subtype-boxvalues) jazz.Values)
+    (%%vector-set! jazz.subtypes (macro-subtype-vector)       jazz.Vector)
+    (%%vector-set! jazz.subtypes (macro-subtype-pair)         jazz.Pair)
+    (%%vector-set! jazz.subtypes (macro-subtype-ratnum)       jazz.Rational)
+    (%%vector-set! jazz.subtypes (macro-subtype-cpxnum)       jazz.Complex)
+    (%%vector-set! jazz.subtypes (macro-subtype-symbol)       jazz.Symbol)
+    (%%vector-set! jazz.subtypes (macro-subtype-keyword)      jazz.Keyword)
+    (%%vector-set! jazz.subtypes (macro-subtype-continuation) jazz.Continuation)
+    (%%vector-set! jazz.subtypes (macro-subtype-procedure)    jazz.Procedure)
+    (%%vector-set! jazz.subtypes (macro-subtype-string)       jazz.String)
+    (%%vector-set! jazz.subtypes (macro-subtype-flonum)       jazz.Flonum)
+    (%%vector-set! jazz.subtypes (macro-subtype-bignum)       jazz.Rational)
+    (%%vector-set! jazz.subtypes (macro-subtype-foreign)      jazz.Foreign)
+    (%%vector-set! jazz.subtypes (macro-subtype-u8vector)     jazz.U8Vector)
+    (%%vector-set! jazz.subtypes (macro-subtype-boxvalues)    jazz.Values)
     
     (%%vector-set! jazz.specialtypes 0 jazz.Boolean)
     (%%vector-set! jazz.specialtypes 1 jazz.Boolean)

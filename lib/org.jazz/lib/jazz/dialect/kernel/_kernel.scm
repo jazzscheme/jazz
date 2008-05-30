@@ -103,6 +103,7 @@
 ;;;
 
 
+(native continuation?)
 (native jazz.continuation-capture)
 (native jazz.continuation-graft)
 (native jazz.continuation-return)

@@ -98,6 +98,11 @@
 
 (cond-expand
   (gambit
+   (jazz.define-macro (%%continuation? obj)
+     (if jazz.debug-core?
+         `(continuation? ,obj)
+       `(##continuation? ,obj)))
+   
    (jazz.define-macro (%%procedure? obj)
      (if jazz.debug-core?
          `(procedure? ,obj)

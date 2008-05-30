@@ -82,9 +82,6 @@
       display-continuation-backtrace)
     
     (define (jazz.raise obj)
-      (raise obj))
-    
-    (define (jazz.gambit-exception-handler exc)
-      #f))
+      (raise obj)))
   
   (else)))

@@ -41,18 +41,55 @@
 
 
 ;;;
-;;;; Default
+;;;; Debugger
 ;;;
 
 
-(define jazz.default-exception-handler
-  (jazz.current-exception-handler))
+(define (jazz.get-exception-debugger)
+  ##primordial-exception-handler-hook)
+
+(define (jazz.set-exception-debugger hook)
+  (set! ##primordial-exception-handler-hook hook))
 
 
-(define (jazz.with-default-exception-handler thunk)
-  (jazz.with-exception-handler
-    jazz.default-exception-handler
+;;;
+;;;; System
+;;;
+
+
+(define (jazz.system-exception-debugger exc)
+  (jazz.setup-terminal)
+  (##repl-exception-handler-hook exc))
+
+(define (jazz.system-exception-handler exc)
+  (jazz.setup-terminal)
+  (##repl-exception-handler-hook exc ##thread-end-with-uncaught-exception!))
+
+(define (jazz.with-system-exception-handler thunk)
+  (jazz.with-exception-handler jazz.system-exception-handler
     thunk))
+
+
+;;;
+;;;; Terminal
+;;;
+
+
+(define (jazz.setup-terminal)
+  (if (tty? (repl-output-port))
+      (begin
+        (jazz.set-terminal-title)
+        (jazz.bring-terminal-to-front))))
+
+
+(define (jazz.set-terminal-title)
+  (display "\033]0;Terminal\007" (repl-output-port)))
+
+(define (jazz.bring-terminal-to-front)
+  (display "\033[5t" (repl-output-port)))
+
+(define (jazz.clear-terminal)
+  (display "\033[H\033[J" (repl-output-port)))
 
 
 ;;;

@@ -156,11 +156,14 @@
 (native jazz.exception-reason)
 (native jazz.display-exception)
 (native jazz.display-continuation-backtrace)
-(native jazz.default-exception-handler)
+(native jazz.get-exception-debugger)
+(native jazz.set-exception-debugger)
+(native jazz.system-exception-debugger)
+(native jazz.system-exception-handler)
 (native jazz.current-exception-handler)
 (native jazz.with-exception-handler)
 (native jazz.with-exception-catcher)
-(native jazz.with-default-exception-handler)
+(native jazz.with-system-exception-handler)
 (native jazz.with-propagatable-exception-catcher)
 (native jazz.dump-exception)
 (native jazz.raise)
@@ -588,6 +591,16 @@
 (native jazz.eq-hash)
 (native jazz.eqv-hash)
 (native jazz.equal-hash)
+
+
+;;;
+;;;; Terminal
+;;;
+
+
+(native jazz.set-terminal-title)
+(native jazz.bring-terminal-to-front)
+(native jazz.clear-terminal)
 
 
 ;;;

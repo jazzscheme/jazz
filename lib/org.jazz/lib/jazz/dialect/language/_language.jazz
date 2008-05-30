@@ -981,22 +981,16 @@
   (boolean (find-catch exception)))
 
 
-@convert/wait
-(definition (with-safe-exception-handler thunk)
-  (continuation-capture
-    (function (recursive-error)
-      (with-exception-handler
-        (function (exc)
-          (continuation-return recursive-error (format "Recursive error: {a}" (exception-reason exc))))
-        thunk))))
+(definition (jazz-exception-debugger exc other)
+  (jazz-exception-handler exc))
 
 
 (definition (jazz-exception-handler exc)
   (let* ((process (get-process))
          (debugger (and process (get-controller-debugger~ process) (get-loop-running?~ process))))
     (if (not debugger)
-        (default-exception-handler exc)
-      (with-default-exception-handler
+        (system-exception-handler exc)
+      (with-system-exception-handler
         (function ()
           (continuation-capture
             (function (continuation)
@@ -4519,15 +4513,6 @@
 
 (definition  primordial-thread-continuation
   (make-primordial-thread-continuation))
-
-
-(definition public (new-thread thunk . rest)
-  (apply make-thread
-         (function ()
-           (catch Stop-Signal
-             (with-jazz-exception-handler
-               thunk)))
-         rest))
 
 
 (definition public (current-threads)

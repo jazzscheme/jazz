@@ -850,12 +850,12 @@
       (display jazz.prompt console)
       (force-output console)
       (let ((command (read-line console)))
-        (call/cc
+        (continuation-capture
           (lambda (stop)
             (with-exception-handler
               (lambda (exc)
                 (jazz.debug-exception exc console #t jazz.debug-build-system?)
-                (stop #f))
+                (continuation-return stop #f))
               (lambda ()
                 (jazz.process-command command console)))))
         (loop)))))

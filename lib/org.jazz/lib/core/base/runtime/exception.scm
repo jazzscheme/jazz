@@ -45,11 +45,11 @@
       current-exception-handler)
     
     (define (jazz.with-exception-handler proc thunk)
-      (call/cc
+      (continuation-capture
         (lambda (return)
           (with-exception-handler
             (lambda (exc)
-              (return (proc exc)))
+              (continuation-return return (proc exc)))
             thunk))))
     
     (define (jazz.exception-reason exc)
@@ -82,6 +82,9 @@
       display-continuation-backtrace)
     
     (define (jazz.raise obj)
-      (raise obj)))
+      (raise obj))
+    
+    (define (jazz.gambit-exception-handler exc)
+      #f))
   
   (else)))

@@ -2225,7 +2225,7 @@
 
 (define (jazz.with-annotated-frame variables proc)
   (let ((reset #f))
-    (call/cc
+    (continuation-capture
       (lambda (k)
         (set! reset k)))
     (proc (jazz.new-annotated-frame variables reset))))
@@ -2290,7 +2290,7 @@
             (%%set-annotated-variable-type variable jazz.Any)
             ;;(jazz.debug 'reset (%%get-lexical-binding-name (%%get-annotated-variable-variable variable)) actual-type new-type extended-type)
             (let ((reset (%%get-annotated-frame-reset frame)))
-              (reset #f))))))))
+              (continuation-return reset #f))))))))
 
 
 (define (jazz.extend-type type1 type2)
@@ -2359,7 +2359,7 @@
 (define (jazz.walker-error walker resume error)
   (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
   (if (and resume jazz.delay-reporting?)
-      (resume (jazz.unspecified))
+      (continuation-return resume (jazz.unspecified))
     (jazz.validate-walk-problems walker)))
 
 
@@ -2644,7 +2644,7 @@
 (define (jazz.walk-namespace walker resume declaration environment form-list)
   (let ((queue (jazz.new-queue)))
     (for-each (lambda (form)
-                (call/cc
+                (continuation-capture
                   (lambda (resume)
                     (jazz.cond-expand form
                       (lambda (expr expr?)
@@ -2758,7 +2758,7 @@
 (define (jazz.walk-declarations walker resume declaration environment forms)
   (define (walk forms)
     (for-each (lambda (form)
-                (call/cc
+                (continuation-capture
                   (lambda (resume)
                     (jazz.cond-expand form
                       (lambda (expr expr?)
@@ -4298,7 +4298,7 @@
 (define (jazz.walk-list walker resume declaration environment form-list)
   (let ((queue (jazz.new-queue)))
     (for-each (lambda (form)
-                (call/cc
+                (continuation-capture
                   (lambda (resume)
                     (jazz.enqueue queue (jazz.walk walker resume declaration environment form)))))
               form-list)

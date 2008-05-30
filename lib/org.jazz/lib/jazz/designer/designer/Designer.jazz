@@ -786,7 +786,7 @@
   
   (method public (find-owner component (property {}))
     (let ((ancestry (component-ancestry component)))
-      (call/ec
+      (continuation-capture
         (function (return)
           (iterate-branch-spine~ reference
             (function (owner form)
@@ -795,7 +795,7 @@
                   (when (and form
                              (or (and (not property) (eq? (get-action~ form) 'new))
                                  (and property (has-property?~ form property))))
-                    (return owner))))))
+                    (continuation-return return owner))))))
           {}))))
   
   
@@ -804,34 +804,34 @@
         (values {} {})
       (let ((lower (get-installed-branches~ (either branch reference)))
             (ancestry (component-ancestry component)))
-        (call/ec
+        (continuation-capture
           (function (return)
             (for-each (function (branch)
                         (let ((client-form (get-client-form~ branch)))
                           (when client-form
                             (let ((form (owned-form client-form ancestry)))
                               (when (and form (has-property?~ form property))
-                                (return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
+                                (continuation-return return (values form (owned-form (get-restore-form~ branch) ancestry))))))))
                       lower)
             (values {} {}))))))
   
   
   (method (owned-form form ancestry)
-    (call/ec
+    (continuation-capture
       (function (return)
         (for-each (function (cpn)
                     (let ((children (get-children~ form))
                           (cpn-form (get-form~ cpn)))
                       (if (not cpn-form)
-                          (return {})
+                          (continuation-return return {})
                         (if (memq? cpn-form children)
                             (set! form cpn-form)
                           (let ((name (get-name~ cpn)))
                             (if (not name)
-                                (return {})
+                                (continuation-return return {})
                               (let ((subform (find-in children name key: form-name test: equal?)))
                                 (if (not subform)
-                                    (return {})
+                                    (continuation-return return {})
                                   (set! form subform)))))))))
                   ancestry)
         form)))

@@ -68,12 +68,12 @@
            number)))
    
    (define (jazz.serial->object number . rest)
-     (call/cc
+     (continuation-capture
        (lambda (return)
          (%%iterate-table jazz.serialized-objects
            (lambda (key value)
              (if (%%fx= value number)
-                 (return key))))
+                 (continuation-return return key))))
          (if (%%null? rest)
              (jazz.error "Unbound serial number: {s}" number)
            (%%car rest))))))))

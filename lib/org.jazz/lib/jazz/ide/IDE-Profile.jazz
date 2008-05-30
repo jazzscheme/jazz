@@ -122,7 +122,7 @@
   (method (find-document class-name)
     (unless (get-manifest-source class-name)
       (let ((target (->string class-name)))
-        (call/ec
+        (continuation-capture
           (function (return)
             (for-each (function (frame)
                         (when (is? frame Host-Frame)
@@ -134,7 +134,7 @@
                                         (ext (get-extension~ moniker)))
                                     (when (and (= base target)
                                                (ci=? ext "jazz"))
-                                      (return moniker)))))))))
+                                      (continuation-return return moniker)))))))))
                       (get-children~ (get-stage)))
             {})))))
   
@@ -142,12 +142,12 @@
   @wait
   (method (find-file class-name)
     (let ((name (tie "{class-name}.jazz")))
-      (call/ec
+      (continuation-capture
         (function (return)
           (for-each (function (dir)
                       (let ((file (new-file~ dir name)))
                         (when (exists?~ file)
-                          (return file))))
+                          (continuation-return return file))))
                     (source-directories))
           {}))))
   
@@ -160,7 +160,7 @@
   @wait
   (method (find-zipped class-name)
     (let ((target (format "{a}.jazz" class-name)))
-      (call/ec
+      (continuation-capture
         (function (return)
           (for-each (function (zip)
                       (when (exists?~ zip)
@@ -168,7 +168,7 @@
                           (iterate-files~ unzip
                             (function (entry size)
                               (when (= (extract-name entry) target)
-                                (return (new Zipped zip entry)))))
+                                (continuation-return return (new Zipped zip entry)))))
                           {})))
                     (source-zips))
           {}))))

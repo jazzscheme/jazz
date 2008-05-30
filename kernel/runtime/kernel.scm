@@ -538,13 +538,13 @@
 
 (define (jazz.find-module-src module-name . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
-    (call/cc
+    (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
           (lambda (package path)
             (let ((src (jazz.package-find-src package path)))
               (if src
-                  (return src)))))
+                  (continuation-return return src)))))
         (if error?
             (jazz.error "Unable to find module: {s}" module-name)
           #f)))))
@@ -553,7 +553,7 @@
 (define (jazz.with-module-src/bin module-name proc)
   (let ((src #f)
         (bin #f))
-    (call/cc
+    (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
           (lambda (package path)
@@ -562,7 +562,7 @@
             (if (%%not src)
                 (set! src (jazz.package-find-src package path)))
             (if src
-                (return #f))))))
+                (continuation-return return #f))))))
     (let ((manifest (and bin (jazz.load-manifest bin))))
       (let ((bin-uptodate?
               (and bin (or (%%not src)

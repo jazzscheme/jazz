@@ -954,7 +954,7 @@
 
 
 (definition (call-with-catch type handler thunk)
-  (call/ec
+  (continuation-capture
     (function (cont)
       (parameterize ((exceptions-catched (cons (cons type (cons handler cont)) (exceptions-catched))))
         (thunk)))))
@@ -962,12 +962,12 @@
 
 @new-buggy-the-is?-can-receive-objects-that-are-not-valid-jazz-objects
 (definition (call-with-catch type handler thunk)
-  (call/ec
+  (continuation-capture
     (function (cont)
       (with-propagatable-exception-catcher
         (function (exception propagate debug)
           (if (is? exception type)
-              (cont (handler exception))
+              (continuation-return cont (handler exception))
             (propagate)))
         thunk))))
 
@@ -983,11 +983,11 @@
 
 @convert/wait
 (definition (with-safe-exception-handler thunk)
-  (call/cc
+  (continuation-capture
     (function (recursive-error)
       (with-exception-handler
         (function (exc)
-          (recursive-error (format "Recursive error: {a}" (exception-reason exc))))
+          (continuation-return recursive-error (format "Recursive error: {a}" (exception-reason exc))))
         thunk))))
 
 
@@ -1031,7 +1031,7 @@
     (if catch
         (let ((handler (cadr catch))
               (cont (cddr catch)))
-          (cont (handler exception)))
+          (continuation-return cont (handler exception)))
       (error "No catch found for {s}" exception))))
 
 
@@ -1048,10 +1048,6 @@
 
 
 (definition signal throw)
-
-
-(definition public inline (call/ec proc)
-  (call/cc proc))
 
 
 ;;;
@@ -1447,14 +1443,14 @@
 
 (definition public (contiguous-range lst)
   (when (not-null? lst)
-    (call/ec
+    (continuation-capture
       (function (return)
         (let* ((first (car lst))
                (second first))
           (for-each (function (n)
                       (if (= n (+ second 1))
                           (set! second n)
-                        (return {})))
+                        (continuation-return return {})))
                     (cdr lst))
           (cons first second))))))
 
@@ -2093,12 +2089,12 @@
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
       (when start
         (set-position~ iterator start))
-      (call/ec
+      (continuation-capture
         (function (exit)
           (iterate iterator
                    (function (object)
                      (when (apply-test test target (apply-key key object))
-                       (exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
+                       (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
           {})))))
 
 
@@ -2119,12 +2115,12 @@
     (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
       (when start
         (set-position~ iterator start))
-      (call/ec
+      (continuation-capture
         (function (exit)
           (iterate iterator
                    (function (object)
                      (when (apply-test test target (apply-key key object))
-                       (exit object))))
+                       (continuation-return exit object))))
           {})))))
 
 
@@ -2144,7 +2140,7 @@
         (count 0))
     (when start
       (set-position~ iterator start))
-    (call/ec
+    (continuation-capture
       (function (exit)
         (iterate iterator
                  (function (object)
@@ -2154,8 +2150,8 @@
                           (decrease! count)
                           (when (< count 0)
                             (case return
-                              ((item) (exit object))
-                              ((position) (exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
+                              ((item) (continuation-return exit object))
+                              ((position) (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
                               (else (error "Unknown return type: {t}" return))))))))
         {}))))
 
@@ -2163,7 +2159,7 @@
 (definition public (find-if predicate <procedure> seq <Object> (key: key {}) (start: start {}) (reversed?: reversed? #f) (return: return 'item))
   (if (and (null/pair? seq) (not reversed?))
       (find-if-list predicate seq key (either start 0) return)
-    (call/ec
+    (continuation-capture
       (function (exit)
         (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
           (when start
@@ -2172,8 +2168,8 @@
                    (function (object)
                      (when (predicate (apply-key key object))
                        (case return
-                         ((item) (exit object))
-                         ((position) (exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
+                         ((item) (continuation-return exit object))
+                         ((position) (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))
                          (else (error "Unknown return type: {t}" return)))))))
         {}))))
 
@@ -2183,7 +2179,7 @@
       (list-find seq target key test (either start 0) 'position)
     (if (and (string? seq) (not start))
         (string-find seq target reversed?)
-      (call/ec
+      (continuation-capture
         (function (exit)
           (let ((iterator <Iterator> (if reversed? (explore seq direction: 'backward) (iterate-sequence seq))))
             (when start
@@ -2191,39 +2187,39 @@
             (iterate iterator
                      (function (object)
                        (when (apply-test test target (apply-key key object))
-                         (exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
+                         (continuation-return exit (if reversed? (get-position~ iterator) (- (get-position~ iterator) 1))))))
             {}))))))
 
 
 (definition public (skip predicate <procedure> seq <Object> (key: key {}) (start: start 0))
-  (call/ec
+  (continuation-capture
     (function (return)
       (let ((iterator (iterate-sequence seq)))
         (set-position~ iterator start)
         (iterate iterator
                  (function (object)
                    (when (not (predicate (apply-key key object)))
-                     (return (- (get-position~ iterator) 1)))))
+                     (continuation-return return (- (get-position~ iterator) 1)))))
         (get-position~ iterator)))))
 
 
 (definition public (some? predicate <procedure> seq <Object> (key: key {}))
-  (call/ec
+  (continuation-capture
     (function (return)
       (iterate (iterate-sequence seq)
                (function (object)
                  (when (predicate (apply-key key object))
-                   (return #t))))
+                   (continuation-return return #t))))
       #f)))
 
 
 (definition public (every? predicate <procedure> seq <Object> (key: key {}))
-  (call/ec
+  (continuation-capture
     (function (return)
       (iterate (iterate-sequence seq)
                (function (object)
                  (when (not (predicate (apply-key key object)))
-                   (return #f))))
+                   (continuation-return return #f))))
       #t)))
 
 
@@ -2378,14 +2374,14 @@
 
 
 (definition public (mismatch target <Object> seq <Object> (test: test equal?))
-  (call/ec
+  (continuation-capture
     (function (return)
       (let ((srce (iterate-sequence seq))
             (targ (iterate-sequence target))
             (pos 0))
         (while (not (done?~ srce))
           (when (or (done?~ targ) (not (test (get-next~ srce) (get-next~ targ))))
-            (return pos))
+            (continuation-return return pos))
           (increase! pos))
         (if (done?~ targ)
             {}
@@ -2408,13 +2404,13 @@
 
 
 (definition public (prefix? target <Object> seq <Object>)
-  (call/ec
+  (continuation-capture
     (function (return)
       (let ((targ (iterate-sequence target))
             (iter (iterate-sequence seq)))
         (while (and (not (done?~ targ)) (not (done?~ iter)))
           (when (/= (get-next~ targ) (get-next~ iter))
-            (return #f)))
+            (continuation-return return #f)))
         (done?~ targ)))))
 
 
@@ -3291,13 +3287,13 @@
 
 (definition public (uniform lst (key: key {}) (test: test {}))
   (when lst
-    (call/ec
+    (continuation-capture
       (function (return)
         (let ((first (apply-key key (car lst))))
           (for-each (function (object)
                       (let ((value (apply-key key object)))
                         (unless (apply-test test first value)
-                          (return {}))))
+                          (continuation-return return {}))))
                     (cdr lst))
           first)))))
 
@@ -4407,7 +4403,7 @@
 
 
 (definition public (wi= s1 <Object> s2 <Object>)
-  (call/ec
+  (continuation-capture
     (function (return)
       (let* ((n1 <fx> 0)
              (n2 <fx> 0)
@@ -4435,14 +4431,14 @@
             (set! w2? #f))
           (set! s? #f)
           (cond ((and d1? d2?)
-                 (return #t))
+                 (continuation-return return #t))
                 ((and (eq? w1? w2?) (not d1?) (not d2?) (eqv? (element s1 n1) (element s2 n2)))
                  (increase! n1)
                  (increase! n2)
                  (set! d1? (>= n1 l1))
                  (set! d2? (>= n2 l2)))
                 (else
-                 (return #f))))
+                 (continuation-return return #f))))
         (and d1? d2?)))))
 
 
@@ -4509,6 +4505,20 @@
 
 (definition public (primordial-thread?)
   (eq? (current-thread) (primordial-thread)))
+
+
+(definition (make-primordial-thread-continuation)
+  (thread-join!
+    (thread-start!
+      (make-thread
+        (lambda ()
+          (continuation-capture
+            (lambda (cont)
+              cont)))))))
+
+
+(definition  primordial-thread-continuation
+  (make-primordial-thread-continuation))
 
 
 (definition public (new-thread thunk . rest)

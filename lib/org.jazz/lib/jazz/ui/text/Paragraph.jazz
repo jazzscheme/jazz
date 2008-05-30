@@ -169,12 +169,12 @@
   
   
   (method public (get-run col <fx>) <Run+>
-    (call/ec
+    (continuation-capture
       (function (return)
         (for-each-run runs
           (function (run <Run> offset <fx> limit <fx>)
             (when (and (> col offset) (<= col limit))
-              (return run))))
+              (continuation-return return run))))
         {})))
   
   
@@ -527,12 +527,12 @@
   
   
   (method (find-propagatable-style runs <list>)
-    (call/ec
+    (continuation-capture
       (function (return)
         (for-each-reversed (function (run <Run>)
                              (let ((style (get-style~ run)))
                                (when (propagate?~ style)
-                                 (return style))))
+                                 (continuation-return return style))))
                            runs)
         (get-default-style~ parent))))
   
@@ -562,36 +562,36 @@
   
   (method protected (view->col view <Point>) <fx>
     (let ((view (new Point (- (get-h~ view) (get-left-margin~ format)) (get-v~ view))))
-      (call/ec
+      (continuation-capture
         (function (return)
           (for-each (function (line <Line>)
                       (let ((col (view->col~ line view)))
                         (when col
-                          (return (+ (get-offset~ line) col)))))
+                          (continuation-return return (+ (get-offset~ line) col)))))
                     lines)
           (get-length)))))
   
   
   (method protected (col->view col <fx>) <Point>
     (let ((last (last lines)))
-      (call/ec
+      (continuation-capture
         (function (return)
           (for-each (function (line <Line>)
                       (let* ((strict? (neq? line last))
                              (view (col->view~ line (- col (get-offset~ line)) strict?)))
                         (when view
-                          (return (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view))))))
+                          (continuation-return return (new Point (+ (paragraph-left) (get-h~ view)) (get-v~ view))))))
                     lines)))))
   
   
   (method protected (col->text col <fx>) <Cell>
     (let ((last {}))
-      (call/ec
+      (continuation-capture
         (function (return)
           (for-each (function (line <Line>)
                       (let ((text (col->text~ line col)))
                         (when text
-                          (return text)))
+                          (continuation-return return text)))
                       (set! last line))
                     lines)
           (new Cell (get-rank~ last) (get-length~ last))))))

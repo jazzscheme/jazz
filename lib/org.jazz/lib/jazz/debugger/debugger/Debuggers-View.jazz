@@ -339,18 +339,8 @@
     @convert
     (let ((frame (selected-frame)))
       (when (or (not frame)
-                (is? frame Execution-Frame)
                 (is? frame Frame-Snapshot))
         (process-frame-change frame))))
-
-
-  (method (collect-presented stack)
-    @convert
-    (collect-if (function (frame)
-                  (or (is? frame Closure-Frame)
-                      (is? frame Proxy-Frame)
-                      (is? frame Compiled-Procedure-Frame)))
-                stack))
   
   
   (method public (select-first-frame from)
@@ -545,9 +535,10 @@
     (with-update-locked
       (function ()
         (remove-every-row)
-        (update-debuggees validate-liveness?: validate-liveness?)
-        (update-debuggers)
-        (update-snapshots snapshots))))
+        (with-system-exception-handler
+          (function ()
+            (update-debuggees validate-liveness?: validate-liveness?)
+            (update-snapshots snapshots))))))
   
   
   (method (update-debuggees (validate-liveness?: validate-liveness? #t))
@@ -615,32 +606,6 @@
                 debuggees)))
   
   
-  ;; the new generic framework that should integrate the other two
-  (method (update-debuggers)
-    @convert
-    (let ((debuggers (get-debuggers)))
-      (for-each (function (debugger)
-                  (let* ((process (get-process~ debugger))
-                         (title (present~ process))
-                         (threads (get-threads~ process))
-                         (debugger-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debugger)))
-                    (for-each (function (thread)
-                                (let* ((title (present~ thread))
-                                       (state (get-state~ thread))
-                                       (primordial? (get-primordial?~ thread))
-                                       (image (case state ((break) {Bitmap-Resource "ThreadBreak"}) ((error) {Bitmap-Resource "ThreadError"}) (else {Bitmap-Resource "ThreadRun"})))
-                                       (thread-row (add-row father: debugger-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                                  (when (neq? state 'run)
-                                    (let ((frames (get-frames~ thread)))
-                                      (for-each (function (frame)
-                                                  (let ((title (present~ frame))
-                                                        (image (get-image~ frame)))
-                                                    (add-row father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
-                                                frames)))))
-                              threads)))
-                debuggers)))
-  
-  
   (method (update-snapshots snapshots)
     @convert
     (for-each (function (snapshot)
@@ -693,44 +658,7 @@
                (new Lisp-Frame-Snapshot thread title {} {} parameters)
              (let* ((model (string->symbol (subseq title 0 pos)))
                     (method-name (string->symbol (subseq title (+ pos 1) (find title #\period start: (+ pos 1))))))
-               (new Lisp-Frame-Snapshot thread title model method-name parameters))))))))
-  
-  
-  (method (coalesce-frames thread frames)
-    (let ((fact (new List-Factory))
-          (get-type
-            (function (frame)
-              (cond ((not frame)
-                     'none)
-                    ((and (is? frame C-Frame-Snapshot)
-                          (let ((title (get-title~ frame)))
-                            (or (starts-with? title "JCompiledClosure::")
-                                (starts-with? title "JCompiledExternal::"))))
-                     'eval)
-                    ((is? frame C-Frame-Snapshot)
-                     'c)
-                    ((is? frame Lisp-Frame-Snapshot)
-                     'lisp)
-                    (else
-                     'other)))))
-      (while (not-null? frames)
-        (let ((first (car frames)))
-          (set! frames (cdr frames))
-          (when first
-            (let* ((second (car frames))
-                   (third (cadr frames))
-                   (f (get-type first))
-                   (s (get-type second))
-                   (t (get-type third)))
-              (cond ((and (eq? f 'lisp) (memq? s '(none c)) (eq? t 'eval))
-                     (put~ fact (new Coalesced-Frames-Snapshot thread first second third))
-                     (set! frames (cddr frames)))
-                    ((and (eq? f 'c) (eq? s 'eval))
-                     (put~ fact (new Coalesced-Frames-Snapshot thread {} first second))
-                     (set! frames (cdr frames)))
-                    (else
-                     (put~ fact first)))))))
-      (get-output~ fact))))
+               (new Lisp-Frame-Snapshot thread title model method-name parameters)))))))))
 
 
 ;;;

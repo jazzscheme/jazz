@@ -36,19 +36,19 @@
 
 
 (module jazz.dialect.core.continuation
-  
-  
+
+
 (cond-expand
   (gambit
-    (define (jazz.continuation-capture proc)
-      (##continuation-capture proc))
+    (define jazz.continuation-capture
+      ##continuation-capture)
     
     
-    (define (jazz.continuation-graft cont thunk)
-      (##continuation-graft cont thunk))
+    (define jazz.continuation-graft
+      ##continuation-graft)
     
     
-    (define (jazz.continuation-return cont result)
-      (##continuation-return cont result)))
+    (define jazz.continuation-return
+      ##continuation-return))
   
   (else)))

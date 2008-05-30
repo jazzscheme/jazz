@@ -1930,7 +1930,11 @@
         (cond ((%%eq? category-declaration root-category-declaration)
                (jazz.walk-error walker resume declaration "Method already exists: {s}" name))
               ((and root-category-declaration (%%neq? propagation 'inherited))
-               (jazz.walk-error walker resume declaration "Cannot rebase inherited method {s}" name))
+               (case (%%get-method-declaration-propagation root-method-declaration)
+                 ((final inherited)
+                  (jazz.walk-error walker resume declaration "Cannot redefine method {s}" name))
+                 ((virtual chained)
+                  (jazz.walk-error walker resume declaration "Method already virtual: {s}" name))))
               ((and (%%not root-category-declaration) (%%class-is? category-declaration jazz.Interface-Declaration) (%%neq? propagation 'virtual))
                (jazz.walk-error walker resume declaration "Interface method must be virtual {s}" name))
               (else

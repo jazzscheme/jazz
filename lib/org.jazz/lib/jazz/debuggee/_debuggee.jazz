@@ -39,7 +39,122 @@
 
 
 (export (jazz.debuggee.autoload))
-(import (jazz.debuggee.autoload))
+(import (jazz.debuggee.autoload)
+        (jazz.debuggee.stub)
+        (jazz.jrm)
+        (jazz.jrm.register.stub)
+        (jazz.system.process.stub))
+
+
+;;;
+;;;; Local
+;;;
+
+
+(definition local-debuggee
+  {})
+
+
+(definition public (get-local-debuggee)
+  local-debuggee)
+
+
+(definition public (setup-local-debuggee)
+  (when (not local-debuggee)
+    (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee (get-process))))))
+
+
+;;;
+;;;; Controller
+;;;
+
+
+(definition controller-debugger
+  {})
+
+
+(definition public (get-controller-debugger)
+  controller-debugger)
+
+
+(definition public (attach-to-controller register)
+  (detach-from-controller)
+  (set! controller-debugger (require-object~ register 'debugger))
+  (setup-local-debuggee)
+  (attach-debuggee~ controller-debugger local-debuggee)
+  (set-exception-debugger jazz-exception-debugger))
+
+
+(definition public (detach-from-controller)
+  (when controller-debugger
+    (detach-from-debugger)
+    (set! local-debuggee {})))
+
+
+(definition public (detach-from-debugger)
+  (when controller-debugger
+    (when (live?~ controller-debugger)
+      (detach-debuggee~ controller-debugger local-debuggee))
+    (set! controller-debugger {})))
+
+
+;;;
+;;;; Stops
+;;;
+
+
+(definition *stops*
+  '())
+
+(definition stops-mutex
+  (make-mutex 'stops))
+
+
+(definition (register-stop stop)
+  (mutex-lock! stops-mutex)
+  (set! *stops* (append *stops* (list stop)))
+  (mutex-unlock! stops-mutex))
+
+
+(definition (unregister-stop stop)
+  (mutex-lock! stops-mutex)
+  (set! *stops* (remove! stop *stops*))
+  (mutex-unlock! stops-mutex))
+
+
+(definition (get-thread-stops thread)
+  (let ((queue (new-queue)))
+    (for-each (function (stop)
+                (when (eq? (get-thread~ stop) thread)
+                  (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
+              *stops*)
+    (queue-list queue)))
+
+
+;;;
+;;;; Exception
+;;;
+
+
+(definition (jazz-exception-debugger exc other)
+  (jazz-exception-handler exc))
+
+
+(definition (jazz-exception-handler exc)
+  (let ((debugger (get-controller-debugger)))
+    (if (not debugger)
+        (system-exception-handler exc)
+      (with-system-exception-handler
+        (function ()
+          (continuation-capture
+            (function (continuation)
+              (let ((reason (exception-reason exc)))
+                (invoke-debugger~ (get-process) 'exception reason continuation)))))))))
+
+
+(definition (with-jazz-exception-handler thunk)
+  (with-exception-handler jazz-exception-handler
+    thunk))
 
 
 ;;;

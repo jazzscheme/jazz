@@ -38,7 +38,8 @@
 (library jazz.debuggee.Debuggee jazz
 
 
-(import (jazz.debuggee.stub)
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
         (jazz.library)
         (jazz.platform)
         (jazz.utilities))
@@ -48,7 +49,6 @@
   
   
   (slot process)
-  (slot stops initialize '() accessors generate)
   
   
   (method (initialize process)
@@ -83,10 +83,6 @@
   ;;;
   
   
-  (method public (get-process)
-    (get-local-process~ process))
-  
-  
   (method public (get-toplevel-hwnd)
     @convert
     (get-handle~ (get-toplevel)))
@@ -99,18 +95,8 @@
   
   (method (get-threads)
     (map (function (thread)
-           (new Debuggee-Thread-Local-Proxy thread))
+           (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
          (current-threads)))
-  
-  
-  (method (register-stop stop)
-    ;(atomic-region
-      (set-stops (append stops (list stop))));)
-  
-  
-  (method (unregister-stop stop)
-    ;(atomic-region
-      (set-stops (remove! stop stops)));)
   
   
   @wait
@@ -123,17 +109,8 @@
   ;;;
   
   
-  (method (get-thread-stops thread)
-    (let ((queue (new-queue)))
-      (for-each (function (stop)
-                  (when (eq? (get-thread~ stop) thread)
-                    (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
-                stops)
-      (queue-list queue)))
-  
-  
   (method (break-thread thread-proxy)
-    (let ((thread (get-object~ thread-proxy)))
+    (let ((thread (get-thread~ (get-object~ thread-proxy))))
       (thread-interrupt! thread
         (function ()
           (break)))))
@@ -208,7 +185,7 @@
   
   
   (method (eval-expressions expressions)
-    (eval-expressions~ (get-object~ (get-process)) expressions))
+    (eval-expressions~ (get-process) expressions))
   
   
   (method (evaluate-expressions module-name expressions)

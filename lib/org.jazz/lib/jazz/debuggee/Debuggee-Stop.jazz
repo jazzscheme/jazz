@@ -39,7 +39,9 @@
 (library jazz.debuggee.Debuggee-Stop jazz
 
 
-(import (jazz.library)
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.library)
         (jazz.utilities))
 
 
@@ -65,6 +67,26 @@
   (definition (skip-system-frames stack)
     ;; skip the ##dynamic-env-bind frame
     (cdr stack))
+  
+  
+  ;;;
+  ;;;; Stack
+  ;;;
+  
+  
+  (method public (get-frames)
+    (map get-frame-state stack))
+  
+  
+  (definition (get-frame-state frame)
+    (bind (name environment variables location) frame
+      (let ((frame (new Debuggee-Frame name location (map get-variable-state variables))))
+        (new Debuggee-Frame-Local-Proxy frame))))
+  
+  
+  (definition (get-variable-state variable)
+    (bind (name . value) variable
+      (cons name (->string value :reader))))
   
   
   ;;;

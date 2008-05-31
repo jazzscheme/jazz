@@ -38,7 +38,7 @@
 (library jazz.jrm.register.Register jazz
 
 
-(import (jazz.jrm)
+(import (jazz.jrm.register.stub)
         (jazz.library)
         (jazz.utilities))
 
@@ -46,15 +46,22 @@
 (class Register extends Object
   
   
-  (slot objects initialize '())
+  ;; this is a temporary way of breaking circulariry with
+  ;; jazz.debuggee until we have hierarchycal modules
+  (method meta public (new-local-proxy)
+    (new Register-Local-Proxy (new self)))
   
   
-  (method public (find-object name (error?: error? #t))
-    (let ((info (assq name objects)))
-      (if info
-          (cdr info)
-        (when error?
-          (error "Unable to find {t} in register" name)))))
+  (slot objects initialize (make-table test: eq?))
+  
+  
+  (method public (find-object name)
+    (table-ref objects name #f))
+  
+  
+  (method public (require-object name)
+    (either (find-object name)
+            (error "Unable to find {t} in register" name)))
   
   
   ;;;
@@ -63,17 +70,18 @@
   
   
   (method public (register-object name object (error?: error? #t))
-    (if (find-object name error?: #f)
-        (when error?
-          (error "Object {t} is already registered" name))
-      (set! objects (cons (cons name object) objects))
-      name))
+    (if (find-object name)
+        (if error?
+            (error "Object {t} is already registered" name)
+          #f)
+      (table-set! objects name object)
+      #t))
   
   
   (method public (unregister-object name (error?: error? #t))
-    (let ((pair (assq name objects)))
-      (if (not pair)
-          (when error?
-            (error "Object {t} is not registered" name))
-        (set! objects (remove! pair objects))
-        name)))))
+    (if (not (find-object name))
+        (if error?
+            (error "Object {t} is not registered" name)
+          #f)
+      (table-clear objects name)
+      #t))))

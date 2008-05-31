@@ -308,24 +308,27 @@
 
 
 ;;;
-;;;; IOR
+;;;; Register
 ;;;
 
 
-(definition (local-proxy->reference local-proxy)
-  (let ((process (get-process)))
-    (cond ((proxy=? local-proxy (get-local-process~ process)) 'process)
-          ((proxy=? local-proxy (get-local-register~ process)) 'register)
-          ((proxy=? local-proxy (get-local-debugger~ process)) 'debugger)
-          (else (object->serial-number (get-object~ local-proxy))))))
+(definition local-register
+  {})
 
 
-(definition (reference->local-proxy stub-interface reference)
-  (let ((process (get-process)))
-    (cond ((eq? reference 'process) (get-local-process~ process))
-          ((eq? reference 'register) (get-local-register~ process))
-          ((eq? reference 'debugger) (get-local-debugger~ process))
-          (else (new (local-class~ stub-interface) (serial-number->object reference))))))
+(definition public (get-local-register)
+  (when (not local-register)
+    (set! local-register (new-local-proxy~ Register)))
+  local-register)
+
+
+(definition public (new-remote-register host port)
+  (unmarshall (new IOR host port 'Register-Stub #f '())))
+
+
+;;;
+;;;; IOR
+;;;
 
 
 (definition public (ior? object)
@@ -354,6 +357,18 @@
 
 (definition (reference=? x y)
   (eqv? x y))
+
+
+(definition (local-proxy->reference local-proxy)
+  (if (proxy=? local-proxy local-register)
+      #f
+    (object->serial-number (get-object~ local-proxy))))
+
+
+(definition (reference->local-proxy stub-interface reference)
+  (if (not reference)
+      local-register
+    (new (local-class~ stub-interface) (serial-number->object reference))))
 
 
 (definition public (unmarshall-ior ior)

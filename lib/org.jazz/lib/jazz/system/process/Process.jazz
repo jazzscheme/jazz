@@ -63,12 +63,6 @@
   (slot loop-running?        initialize #f)
   (slot loop-exit            initialize {})
   (slot remoting-server      initialize {})
-  (slot local-process        initialize {})
-  (slot local-register       initialize {})
-  (slot local-debuggee       initialize {})
-  (slot controller-process   initialize {})
-  (slot controller-register  initialize {})
-  (slot controller-debugger  initialize {})
   (slot router-server        initialize {})
   (slot console-input        initialize {})
   (slot console-output       initialize {})
@@ -644,33 +638,8 @@
 
 
   ;;;
-  ;;;; Local Process
+  ;;;; Register
   ;;;
-  
-  
-  (method public (get-local-process)
-    (when (not local-process)
-      (set! local-process (new-local-process)))
-    local-process)
-
-  
-  (method protected virtual (new-local-process)
-    (new Process-Local-Proxy self))
-
-
-  ;;;
-  ;;;; Local Register
-  ;;;
-  
-  
-  (method public (get-local-register)
-    (when (not local-register)
-      (set! local-register (new-local-register)))
-    local-register)
-
-  
-  (method protected virtual (new-local-register)
-    (new Register-Local-Proxy (new Register)))
   
   
   (method protected virtual (register-base-objects)
@@ -702,84 +671,22 @@
     (if (not interpreted?)
         (unimplemented 'launch-router-server)
       (launch-process app: "Router" homedir: "Products/org.jazz.opt/Products/Router/Distribution" wait-ready: "JAZZ.ROUTER")))
-
-
-  ;;;
-  ;;;; Controller
-  ;;;
-  
-
-  (method public (get-controller-process)
-    controller-process)
-  
-
-  (method public (get-controller-register)
-    controller-register)
   
   
-  (method protected virtual (setup-controller)
-    (when (command-argument "controllerhost")
-      (attach-to-controller (new-controller-process))))
-  
-  
-  (method protected virtual (new-controller-process)
-    (let* ((host (string->host (command-argument "controllerhost")))
-           (port (string->port (command-argument "controllerport")))
-           (stub 'Process-Stub)
-           (ior (new IOR host port stub 'process '())))
-      (unmarshall ior)))
-
-  
-  (method public (attach-to-controller ct)
-    (detach-from-controller)
-    (set! controller-process ct)
-    (set! controller-register (get-register~ controller-process))
-    (set! controller-debugger (find-object~ controller-register 'debugger))
-    (setup-local-debuggee)
-    (attach-debuggee~ controller-debugger local-debuggee)
-    (set-exception-debugger jazz-exception-debugger))
-  
-  
-  (method public (setup-local-debuggee)
-    (when (not local-debuggee)
-      (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee self)))))
-  
-  
-  (method public (detach-from-controller)
-    (when controller-process
-      (detach-from-debugger)
-      (set! controller-process {})
-      (set! controller-register {})
-      (set! local-debuggee {})))
-
-
   ;;;
   ;;;; Debugger
   ;;;
-
-
-  (method public (get-controller-debugger)
-    controller-debugger)
   
   
   (method public virtual (get-local-debugger)
     {})
   
   
-  (method public (detach-from-debugger)
-    (when controller-debugger
-      (when (live?~ controller-debugger)
-        (detach-debuggee~ controller-debugger local-debuggee))
-      (set! controller-debugger {})))
-
-
-  ;;;
-  ;;;; Debuggee
-  ;;;
-  
-  
-  (method public (get-local-debuggee)
-    local-debuggee)
+  (method protected virtual (setup-controller)
+    (when (command-argument "controllerhost")
+      (let ((host (string->host (command-argument "controllerhost")))
+            (port (string->port (command-argument "controllerport"))))
+        (attach-to-controller (new-remote-register host port)))))
   
   
   ;;;
@@ -895,14 +802,14 @@
            (stop (new Debuggee-Stop thread kind reason continuation)))
       (dynamic-wind
         (function ()
-          (register-stop~ local-debuggee stop))
+          (register-stop stop))
         (function ()
-          (let ((thread-proxy (new Debuggee-Thread-Local-Proxy thread))
+          (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
                 (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
             (debuggee-stop~ controller-debugger local-debuggee thread-proxy stop-proxy kind reason))
           (debuggee-loop stop))
         (function ()
-          (unregister-stop~ local-debuggee stop)))))
+          (unregister-stop stop)))))
   
   
   (method protected virtual (debuggee-loop stop)

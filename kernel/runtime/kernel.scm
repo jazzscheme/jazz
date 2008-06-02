@@ -616,7 +616,10 @@
   (jazz.load-product-definition name)
   (let ((run (%%product-run (jazz.get-registered-product name))))
     (if run
-        (run)
+        (begin
+          (jazz.load-module 'jazz.debuggee)
+          (jazz.load-module 'jazz.debugger.debuggers.jazz)
+          (run))
       (jazz.error "Product is not runnable: {s}" name))))
 
 

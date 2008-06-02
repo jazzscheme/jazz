@@ -77,9 +77,9 @@
   controller-debugger)
 
 
-(definition public (attach-to-controller register)
+(definition public (attach-to-controller controller-register)
   (detach-from-controller)
-  (set! controller-debugger (require-object~ register 'debugger))
+  (set! controller-debugger (require-object~ controller-register 'debugger))
   (setup-local-debuggee)
   (attach-debuggee~ controller-debugger local-debuggee)
   (set-exception-debugger jazz-exception-debugger))
@@ -106,20 +106,26 @@
 (definition *stops*
   '())
 
+
 (definition stops-mutex
   (make-mutex 'stops))
 
+(definition (with-stops-mutex thunk)
+  (mutex-lock! stops-mutex)
+  (thunk)
+  (mutex-unlock! stops-mutex))
+
 
 (definition (register-stop stop)
-  (mutex-lock! stops-mutex)
-  (set! *stops* (append *stops* (list stop)))
-  (mutex-unlock! stops-mutex))
+  (with-stops-mutex
+    (function ()
+      (set! *stops* (append *stops* (list stop))))))
 
 
 (definition (unregister-stop stop)
-  (mutex-lock! stops-mutex)
-  (set! *stops* (remove! stop *stops*))
-  (mutex-unlock! stops-mutex))
+  (with-stops-mutex
+    (function ()
+      (set! *stops* (remove! stop *stops*)))))
 
 
 (definition (get-thread-stops thread)

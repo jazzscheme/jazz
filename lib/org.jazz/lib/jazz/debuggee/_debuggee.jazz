@@ -51,17 +51,17 @@
 ;;;
 
 
-(definition local-debuggee
+(definition local-process
   {})
 
 
-(definition public (get-local-debuggee)
-  local-debuggee)
+(definition public (get-local-process)
+  local-process)
 
 
-(definition public (setup-local-debuggee)
-  (when (not local-debuggee)
-    (set! local-debuggee (new Debuggee-Local-Proxy (new Debuggee (get-process))))))
+(definition public (setup-local-process)
+  (when (not local-process)
+    (set! local-process (new Debuggee-Process-Local-Proxy (new Debuggee-Process (get-process))))))
 
 
 ;;;
@@ -77,24 +77,24 @@
   controller-debugger)
 
 
-(definition public (attach-to-controller controller-register)
-  (detach-from-controller)
+(definition public (attach-process-to-controller controller-register)
+  (detach-process-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
-  (setup-local-debuggee)
-  (attach-debuggee~ controller-debugger local-debuggee)
-  (set-exception-debugger jazz-exception-debugger))
+  (setup-local-process)
+  (attach-process~ controller-debugger local-process)
+  @w(set-exception-debugger jazz-exception-debugger))
 
 
-(definition public (detach-from-controller)
+(definition public (detach-process-from-controller)
   (when controller-debugger
     (detach-from-debugger)
-    (set! local-debuggee {})))
+    (set! local-process {})))
 
 
 (definition public (detach-from-debugger)
   (when controller-debugger
     (when (live?~ controller-debugger)
-      (detach-debuggee~ controller-debugger local-debuggee))
+      (detach-process~ controller-debugger local-process))
     (set! controller-debugger {})))
 
 
@@ -107,13 +107,12 @@
   '())
 
 
-(definition stops-mutex
-  (make-mutex 'stops))
-
-(definition (with-stops-mutex thunk)
-  (mutex-lock! stops-mutex)
-  (thunk)
-  (mutex-unlock! stops-mutex))
+(definition with-stops-mutex
+  (let ((mutex (make-mutex 'stops)))
+    (lambda (thunk)
+      (mutex-lock! mutex)
+      (thunk)
+      (mutex-unlock! mutex))))
 
 
 (definition (register-stop stop)

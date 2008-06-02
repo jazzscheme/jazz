@@ -82,7 +82,7 @@
     (nextmethod rest)
     (when (not (get-caption-base~ toplevel))
       (set-caption-base~ toplevel (process-title)))
-    (setup-debugger-server))
+    (start-jazz-debugger))
 
 
   (method (prepare-workbench)
@@ -339,7 +339,7 @@
   
   (method (register-base-objects)
     (nextmethod)
-    (register-object~ (get-local-register) 'debugger local-debugger))
+    (register-object~ (get-local-register) 'debugger (new Jazz-Debugger-Local-Proxy local-debugger)))
 
   
   ;;;
@@ -350,7 +350,7 @@
   (method (setup-controller)
     (if (command-argument "controllerhost")
         (nextmethod)
-      (attach-to-controller (get-local-register))))
+      (attach-process-to-controller (get-local-register))))
 
   
   ;;;
@@ -362,13 +362,14 @@
     local-debugger)
 
   
-  (method (setup-debugger-server)
-    (set! local-debugger (new Jazz-Debugger-Local-Proxy (new Jazz-Debugger))))
+  (method (start-jazz-debugger)
+    (set! local-debugger (new Jazz-Debugger))
+    (register-debugger local-debugger))
   
   
   (method (detach-debugger-processes)
     (when local-debugger
-      (detach-debuggees~ local-debugger)))
+      (detach-processes~ local-debugger)))
   
   
   (method (present-thread-stack file)
@@ -378,21 +379,6 @@
   
   (method (select-debugger)
     (apply-preferences~ (get-preferences '(workspaces debugger))))
-  
-  
-  ;;;
-  ;;;; Debuggee
-  ;;;
-  
-  
-  (method public (present-debuggee debuggee)
-    (let ((name (get-name~ debuggee)))
-      (if (local-proxy? debuggee)
-          name
-        (let ((host (get-host~ (get-ior~ debuggee))))
-          (if (host=? host (listening-host~ (get-remoting-server~ (get-process))))
-              name
-            (format "{a} at {a}" name (host->string host)))))))
 
 
   ;;;

@@ -38,7 +38,8 @@
 (library jazz.ide.IDE-Status jazz
 
 
-(import (jazz.ide)
+(import (jazz.debugger)
+        (jazz.ide)
         (jazz.jml)
         (jazz.jrm)
         (jazz.library)
@@ -113,30 +114,29 @@
   
   (method (install rest)
     (nextmethod rest)
-    (insert-debuggees))
+    (insert-processes))
   
   
-  (method (insert-debuggees)
-    (let* ((appl (get-application))
-           (debugger (get-local-debugger~ appl))
-           (selected (get-selected-debuggee~ debugger))
-           (debuggees (get-debuggees~ debugger validate-liveness?: #t)))
-      (for-each (function (debuggee)
-                  (insert-debuggee debuggee (proxy=? debuggee selected)))
-                debuggees)))
+  (method (insert-processes)
+    (let* ((debugger (get-local-debugger~ (get-process)))
+           (selected (get-selected-debugger-process))
+           (processes (get-processes~ debugger validate-liveness?: #t)))
+      (for-each (function (process)
+                  (insert-process process (debugger-process=? process selected)))
+                processes)))
   
   
-  (method (insert-debuggee debuggee selected?)
-    (let* ((title (present-debuggee~ (get-application) debuggee))
-           (icon (get-icon~ debuggee))
-           (item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list debuggee: debuggee)))))
+  (method (insert-process process selected?)
+    (let* ((title (present~ process))
+           (icon (get-icon~ process))
+           (item (new Radio-Item parent: self title: title icon: icon action-handler: (new Event-Handler target: self method-name: 'on-action properties: (list process: process)))))
       (when selected?
         (set-selected?~ item #t))))
   
   
   (method (on-action evt)
-    (let ((debuggee (get-property~ evt debuggee:)))
-      (select-debuggee~ (get-local-debugger~ (get-application)) debuggee))))
+    (let ((process (get-property~ evt process:)))
+      (select-debugger-process process))))
 
 
 ;;;

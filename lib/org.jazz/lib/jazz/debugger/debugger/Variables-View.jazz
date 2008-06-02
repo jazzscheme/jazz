@@ -51,8 +51,8 @@
 (class Variables-View extends Layout-View
 
   
-  (property debuggee initialize {} getter get-debuggee setter set-debuggee)
-  (property frame    initialize {} getter get-frame    setter set-frame)
+  (property process initialize {} getter get-process setter set-process)
+  (property frame   initialize {} getter get-frame   setter set-frame)
 
 
   (form
@@ -115,12 +115,12 @@
   ;;;
 
 
-  (method public (get-debuggee)
-    (get-debuggee~ (locate 'variables)))
+  (method public (get-process)
+    (get-process~ (locate 'variables)))
 
 
-  (method public (set-debuggee debuggee)
-    (set-debuggee~ (locate 'variables) debuggee))
+  (method public (set-process process)
+    (set-process~ (locate 'variables) process))
 
 
   (method public (get-frame)
@@ -144,15 +144,15 @@
   
   (method public (on-frame-change evt)
     (let ((frame (get-property~ evt frame:)))
-      (set-debuggee {})
+      (set-process {})
       (set-frame frame)
       @convert
       (typecase frame
         ((Frame-Snapshot)
-         (set-debuggee {})
+         (set-process {})
          (set-frame frame))
         (else
-         (set-debuggee {})
+         (set-process {})
          (set-frame {}))))))
 
 
@@ -165,9 +165,10 @@
   
   
   (method (inspect data kind)
-    (if (is? data Debuggee-Frame-Stub)
+    (if (is? data Debugged-Frame)
         (map (function (variable)
-               (bind (name . value) variable
+               (let ((name (get-variable-name~ data variable))
+                     (value (get-variable-value~ data variable)))
                  (list name #f value #f #f)))
              (get-variables~ data))
     (case kind

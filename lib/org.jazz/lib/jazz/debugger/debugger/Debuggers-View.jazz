@@ -73,6 +73,8 @@
         (<Push-Tool>        name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
         (<Push-Tool>        name: restart    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-restart})
         (<Push-Tool>        name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
+        (<Separator>                         size: {Dimension 5 0})
+        (<Toggle-Tool>      name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-detailed})
         (<Separator>                         size: {Dimension 2 0})
         (<Push-Tool>        name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
       (<Scroller-View>      name: scroller   location: center vscroll?: #t flat?: #t
@@ -141,6 +143,10 @@
 
   (method public (set-snapshots value)
     (set! snapshots value))
+  
+  
+  (method (show-detailed?)
+    (get-selected?~ (locate 'detailed)))
 
   
   ;;;
@@ -179,6 +185,17 @@
               (edit-definition~ (get-application) (identifier-name name))))))))
   
   
+  (method (on-toggle-detailed evt)
+    (update)
+    @convert
+    (let ((tree (locate 'stack)))
+      (with-preserved-selection~ tree
+        (function dynamic ()
+          (update))
+        :use 'data
+        :test equal?)))
+  
+  
   (definition Snapshot-Extensions
     '(("Crash Files" . "crash")))
   
@@ -201,28 +218,28 @@
   
   (method (on-break evt)
     (let ((thread (selected-thread))
-          (debuggee (selected-debuggee)))
-      (with-refresh-thread thread
+          (process (selected-process)))
+      (with-thread-refresh thread
         (function ()
-          (break-thread~ debuggee thread)))))
+          (break-thread~ process thread)))))
   
   
   (method (on-continue evt)
     (let* ((stop (selected-stop))
            (thread (selected-thread))
-           (debuggee (selected-debuggee)))
-      (with-refresh-thread thread
+           (process (selected-process)))
+      (with-thread-refresh thread
         (function ()
-          (continue-stop~ debuggee stop)))))
+          (continue-stop~ process stop)))))
   
   
   (method (on-restart evt)
     (let* ((stop (selected-stop))
            (thread (selected-thread))
-           (debuggee (selected-debuggee)))
-      (with-refresh-thread thread
+           (process (selected-process)))
+      (with-thread-refresh thread
         (function ()
-          (restart-stop~ debuggee stop)))))
+          (restart-stop~ process stop)))))
   
   
   (method (on-update evt)
@@ -245,7 +262,7 @@
     (update))
   
   
-  (method (with-refresh-thread thread thunk)
+  (method (with-thread-refresh thread thunk)
     (if (event-thread-local-proxy? thread)
         (begin
           (thread-start!
@@ -256,9 +273,11 @@
       (refresh)))
   
   
-  (definition (event-thread-local-proxy? thread-proxy)
-    (and (is? thread-proxy Debuggee-Thread-Local-Proxy)
-         (eq? (get-thread~ (get-object~ thread-proxy)) event-thread)))
+  (definition (event-thread-local-proxy? thread)
+    (when (eq? (get-debugger~ thread) (get-local-debugger~ (get-process)))
+      (let ((thread-proxy (get-object~ thread)))
+        (and (is? thread-proxy Debuggee-Thread-Local-Proxy)
+             (eq? (get-thread~ (get-object~ thread-proxy)) event-thread)))))
 
   
   ;;;
@@ -336,7 +355,8 @@
 
 
   (method protected (update (validate-liveness?: validate-liveness? #t))
-    (update~ (locate 'stack) snapshots validate-liveness?: validate-liveness?))
+    (let ((detailed? (show-detailed?)))
+      (update~ (locate 'stack) snapshots validate-liveness?: validate-liveness? detailed?: detailed?)))
   
   
   (method (frame-change)
@@ -373,15 +393,15 @@
   ;;;
   
   
-  (method public (selected-debuggee)
+  (method public (selected-process)
     (let ((row (selected-row)))
       (when row
         (let ((object (get-user-data~ row)))
           (typecase object
-            ((Debuggee-Stub) object)
-            ((Debuggee-Thread-Stub) (get-user-data~ (get-father~ row)))
-            ((Debuggee-Stop-Stub) (get-user-data~ (get-father~ (get-father~ row))))
-            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ (get-father~ (get-father~ row)))))
+            ((Debugged-Process) object)
+            ((Debugged-Thread) (get-user-data~ (get-father~ row)))
+            ((Debugged-Stop) (get-user-data~ (get-father~ (get-father~ row))))
+            ((Debugged-Frame) (get-user-data~ (get-father~ (get-father~ (get-father~ row)))))
             (else {})))))
     @convert/wait
     (let ((object (selected-object)))
@@ -398,9 +418,9 @@
       (when row
         (let ((object (get-user-data~ row)))
           (typecase object
-            ((Debuggee-Thread-Stub) object)
-            ((Debuggee-Stop-Stub) (get-user-data~ (get-father~ row)))
-            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ (get-father~ row))))
+            ((Debugged-Thread) object)
+            ((Debugged-Stop) (get-user-data~ (get-father~ row)))
+            ((Debugged-Frame) (get-user-data~ (get-father~ (get-father~ row))))
             (else {}))))))
   
   
@@ -409,8 +429,8 @@
       (when row
         (let ((object (get-user-data~ row)))
           (typecase object
-            ((Debuggee-Stop-Stub) object)
-            ((Debuggee-Frame-Stub) (get-user-data~ (get-father~ row)))
+            ((Debugged-Stop) object)
+            ((Debugged-Frame) (get-user-data~ (get-father~ row)))
             (else {}))))))
   
   
@@ -418,7 +438,7 @@
     (let ((row (selected-row)))
       (when row
         (let ((object (get-user-data~ row)))
-          (when (is? object Debuggee-Frame-Stub)
+          (when (is? object Debugged-Frame)
             object)))))
   
   
@@ -475,7 +495,7 @@
   
   (method (new-context-menu object)
     (typecase object
-      ((Debuggee-Stub) (new Debuggee-Menu client: self))
+      ((Debugged-Process) (new Process-Menu client: self))
       @waiting-as-the-only-item-is-not-implemented-atm
       ((Debuggee-Thread-Remotable) (new Thread-Menu))
       @convert/wait
@@ -487,7 +507,7 @@
       (else {})))
   
   
-  (method (exit-selected-debuggee)
+  (method (exit-selected-process)
     (let ((object (selected-object)))
       (exit~ object)
       (sleep .1)
@@ -500,10 +520,10 @@
       (update)))
   
   
-  (method (select-debuggee-toplevel)
+  (method (select-process-toplevel)
     @convert
-    (let* ((debuggee (selected-debuggee))
-           (toplevel-hwnd (get-toplevel-hwnd~ debuggee)))
+    (let* ((process (selected-process))
+           (toplevel-hwnd (get-toplevel-hwnd~ process)))
       (select-foreground-window toplevel-hwnd)))
   
   
@@ -536,25 +556,28 @@
       (<Tree-Node-Column> title: "Process/Thread" width: 431 toplevel-controls?: #t)))
   
   
-  (method public (update snapshots (validate-liveness?: validate-liveness? #t))
+  (method public (update snapshots (validate-liveness?: validate-liveness? #t) (detailed?: detailed? #f))
     (with-update-locked
       (function ()
         (remove-every-row)
         (with-system-exception-handler
           (function ()
-            (update-debuggees validate-liveness?: validate-liveness?)
+            (update-processes validate-liveness?: validate-liveness? detailed?: detailed?)
             (update-snapshots snapshots))))))
   
   
-  (method (update-debuggees (validate-liveness?: validate-liveness? #t))
+  (method (update-processes (validate-liveness?: validate-liveness? #t) (detailed?: detailed? #f))
+    (define (effective-name name)
+      (cond ((unspecified? name) "Thread")
+            ((eq? name 'primordial) "Primordial")
+            (else (->string name))))
+    
     (define (thread-title thread)
-      (let ((name (get-name~ thread))
+      (let ((name (effective-name (get-name~ thread)))
             (state (get-state~ thread)))
-        (format "{a} - {a}"
-                (cond ((unspecified? name) "Thread")
-                      ((eq? name 'primordial) "Primordial")
-                      (else (->string name)))
-                state)))
+        (if (not detailed?)
+            (->string name)
+          (format "{a} - {a}" name state))))
     
     (define (thread-image thread)
       (let ((stops (get-stops~ thread)))
@@ -590,28 +613,29 @@
           {Bitmap-Resource "Link"}
         {Bitmap-Resource "FrameCompiledProcedure"}))
     
-    (let ((debuggees (get-debuggees~ (get-local-debugger~ (get-application)) validate-liveness?: validate-liveness?)))
-      (for-each (function (debuggee)
-                  (if (not (live?~ debuggee))
-                      (add-row children: (list (new Tree-Node title: (get-name~ debuggee) image: {Bitmap-Resource "ProcessDead"})) user-data: debuggee)
-                    (let* ((title (get-name~ debuggee))
-                           (debuggee-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: debuggee)))
-                      (for-each (function (thread)
-                                  (let* ((title (thread-title thread))
-                                         (image (thread-image thread))
-                                         (thread-row (add-row father: debuggee-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                                    (for-each (function (stop)
-                                                (let* ((title (stop-title stop))
-                                                       (image (stop-image stop))
-                                                       (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
-                                                  (for-each (function (frame)
-                                                              (let ((title (frame-title frame))
-                                                                    (image (frame-image frame)))
-                                                                (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
-                                                            (get-frames~ stop))))
-                                              (get-stops~ thread))))
-                                (get-threads~ debuggee)))))
-                debuggees)))
+    (for-each (function (debugger)
+                (for-each (function (process)
+                            (if (not (live?~ process))
+                                (add-row children: (list (new Tree-Node title: (get-name~ process) image: {Bitmap-Resource "ProcessDead"})) user-data: process)
+                              (let* ((title (get-name~ process))
+                                     (process-row (add-row state: 'expanded children: (list (new Tree-Node title: title image: {Bitmap-Resource "Process"})) user-data: process)))
+                                (for-each (function (thread)
+                                            (let* ((title (thread-title thread))
+                                                   (image (thread-image thread))
+                                                   (thread-row (add-row father: process-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
+                                              (for-each (function (stop)
+                                                          (let* ((title (stop-title stop))
+                                                                 (image (stop-image stop))
+                                                                 (stop-row (add-row father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                                            (for-each (function (frame)
+                                                                        (let ((title (frame-title frame))
+                                                                              (image (frame-image frame)))
+                                                                          (add-row father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: frame)))
+                                                                      (get-frames~ stop))))
+                                                        (get-stops~ thread))))
+                                          (get-threads~ process)))))
+                          (get-processes~ (get-local-debugger~ (get-application)) validate-liveness?: validate-liveness?)))
+              (get-debuggers)))
   
   
   (method (update-snapshots snapshots)
@@ -670,11 +694,11 @@
 
 
 ;;;
-;;;; Debuggee-Menu
+;;;; Process-Menu
 ;;;
 
 
-(class Debuggee-Menu extends Context-Menu
+(class Process-Menu extends Context-Menu
   
   
   (form
@@ -685,11 +709,11 @@
   
   
   (method (on-select evt)
-    (select-debuggee-toplevel~ client))
+    (select-process-toplevel~ client))
   
   
   (method (on-exit evt)
-    (exit-selected-debuggee~ client)))
+    (exit-selected-process~ client)))
 
 
 ;;;

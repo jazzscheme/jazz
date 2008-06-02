@@ -51,30 +51,140 @@
 
 
 (class Jazz-Debugger extends Debugger
+
+  
+  (slot processes initialize '())
   
   
-  (slot debuggees         initialize '())
-  (slot selected-debuggee initialize {})
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-debuggees (validate-liveness?: validate-liveness? #f))
+  (method (get-processes (validate-liveness?: validate-liveness? #f))
     (when validate-liveness?
-      (validate-debuggees))
-    debuggees)
+      (validate-processes))
+    processes)
   
   
-  (method public (get-selected-debuggee)
-    selected-debuggee)
+  ;;;
+  ;;;; Process
+  ;;;
   
   
-  (method public (set-selected-debuggee debuggee)
-    (set! selected-debuggee debuggee)
-    {})
+  (method (process-live? process)
+    (live?~ (get-object~ process)))
+  
+  
+  (method (get-process-name process)
+    (get-name~ (get-object~ process)))
+  
+  
+  (method (get-process-icon process)
+    (get-icon~ (get-object~ process)))
+  
+  
+  (method (present-process process)
+    (let ((proxy (get-object~ process)))
+      (let ((name (get-name~ proxy)))
+        (if (local-proxy? proxy)
+            name
+          (let ((host (get-host~ (get-ior~ proxy))))
+            (if (host=? host (listening-host~ (get-remoting-server~ (get-process))))
+                name
+              (format "{a} at {a}" name (host->string host))))))))
+  
+  
+  (method (get-threads process)
+    (map (function (thread-proxy)
+           (new Debugged-Thread self thread-proxy))
+         (get-threads~ (get-object~ process))))
+  
+  
+  (method (eval-expressions process expressions)
+    (eval-expressions~ (get-object~ process) expressions))
+  
+  
+  (method (evaluate-expressions process module-name expressions)
+    (evaluate-expressions~ (get-object~ process) module-name expressions))
+  
+  
+  (method (detach-process process)
+    (detach-from-controller~ (get-object~ process)))
+  
+  
+  (method (exit-process process)
+    (exit~ (get-object~ process)))
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method (get-thread-name thread)
+    (get-name~ (get-object~ thread)))
+  
+  
+  (method (get-thread-state thread)
+    (get-state~ (get-object~ thread)))
+  
+  
+  (method (get-thread-stops thread)
+    (map (function (stop-proxy)
+           (new Debugged-Stop self stop-proxy))
+         (get-stops~ (get-object~ thread))))
+  
+  
+  (method (break-thread process thread)
+    (break-thread~ (get-object~ process) (get-object~ thread)))
+  
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method (get-stop-kind stop)
+    (get-kind~ (get-object~ stop)))
+  
+  
+  (method (get-stop-reason stop)
+    (get-reason~ (get-object~ stop)))
+  
+  
+  (method (get-stop-frames stop)
+    (map (function (frame-proxy)
+           (new Debugged-Frame self frame-proxy))
+         (get-frames~ (get-object~ stop))))
+
+  
+  (method (restart-stop process stop)
+    (restart-stop~ (get-object~ process) (get-object~ stop)))
+  
+  
+  (method (continue-stop process stop)
+    (continue-stop~ (get-object~ process) (get-object~ stop)))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (get-frame-name frame)
+    (get-name~ (get-object~ frame)))
+  
+  
+  (method (get-frame-location frame)
+    (get-location~ (get-object~ frame)))
+  
+  
+  (method (get-frame-variables frame)
+    (get-variables~ (get-object~ frame)))
+  
+  
+  (method (get-frame-variable-name frame variable)
+    (car variable))
+  
+  
+  (method (get-frame-variable-value frame variable)
+    (cdr variable))
   
   
   ;;;
@@ -89,49 +199,28 @@
   ;;;
   ;;;; Process
   ;;;
+  
+  
+  (method (process=? x y)
+    (proxy=? (get-object~ x) (get-object~ y)))
 
 
-  (method public (attach-debuggee debuggee)
-    (unless (member? debuggee debuggees test: proxy=?)
-      (set! debuggees (append! debuggees (list debuggee)))
-      (when (not selected-debuggee)
-        (select-debuggee debuggee))
-      {}))
+  (method public (attach-process process-proxy)
+    (let ((process (new Debugged-Process self process-proxy)))
+      (unless (member? process processes test: process=?)
+        (set! processes (append! processes (list process)))
+        (when (not (get-selected-debugger-process))
+          (select-debugger-process process))
+        {})))
 
 
-  (method public (detach-debuggee debuggee)
-    (when (member? debuggee debuggees test: proxy=?)
-      (set! debuggees (remove! debuggee debuggees test: proxy=?))
-      (when (proxy=? debuggee selected-debuggee)
-        (select-debuggee (and (not-null? debuggees) (car debuggees))))
-      {}))
-  
-  
-  ;;;
-  ;;;; Selected
-  ;;;
-  
-  
-  (method public (select-debuggee debuggee)
-    (when (not (proxy=? debuggee selected-debuggee))
-      (set! selected-debuggee debuggee)
-      (let* ((appl (get-application))
-             (icon (essay debuggee (get-icon~ debuggee)))
-             (status (get-status-bar~ appl)))
-        (when status
-          (let ((item (locate-component~ status 'debugger)))
-            (when item
-              (set-icon~ item icon))))
-        (let ((presented (essay debuggee (present-debuggee~ appl debuggee))))
-          (user-message (format "{a} selected" (if (not debuggee) "None" presented)))))
-      {}))
-  
-  
-  (method public (select-next)
-    (let* ((rank (find debuggees selected-debuggee test: proxy=?))
-           (debuggee (element debuggees (modulo (+ rank 1) (length debuggees)))))
-      (select-debuggee debuggee)
-      {}))
+  (method public (detach-process process-proxy)
+    (let ((process (new Debugged-Process self process-proxy)))
+      (when (member? process processes test: process=?)
+        (set! processes (remove! process processes test: process=?))
+        (when (process=? process (get-selected-debugger-process))
+          (select-debugger-process (and (not-null? processes) (car processes))))
+        {})))
   
   
   ;;;
@@ -139,15 +228,16 @@
   ;;;
   
   
-  (method (validate-debuggees)
-    (set! debuggees (collect-if valid-debuggee? debuggees))
-    (when (not (member? selected-debuggee debuggees test: proxy=?))
-      (select-debuggee (and (not-null? debuggees) (car debuggees)))))
+  (method (validate-processes)
+    (set! processes (collect-if valid-process? processes))
+    (when (not (member? (get-selected-debugger-process) processes test: process=?))
+      (select-debugger-process (and (not-null? processes) (car processes)))))
   
   
-  (method (valid-debuggee? debuggee)
-    (or (is? debuggee Local-Proxy)
-        (live?~ debuggee)))
+  (method (valid-process? process)
+    (let ((proxy (get-object~ process)))
+      (or (is? proxy Local-Proxy)
+          (live?~ proxy))))
   
   
   ;;;
@@ -155,13 +245,14 @@
   ;;;
   
   
-  (method public (detach-debuggees)
-    (validate-debuggees)
-    (let ((local-debuggee (get-local-debuggee)))
-      (for-each (function (debuggee)
-                  (when (not (proxy=? debuggee local-debuggee))
-                    (detach-from-controller~ debuggee)))
-                debuggees))
+  (method public (detach-processes)
+    (validate-processes)
+    (let ((local-process (get-local-process)))
+      (for-each (function (process)
+                  (let ((proxy (get-object~ process)))
+                    (when (not (proxy=? proxy local-process))
+                      (detach-from-controller~ proxy))))
+                processes))
     {})
   
   
@@ -185,7 +276,7 @@
   ;;;
   
   
-  (method public (debuggee-stop debuggee thread stop kind reason)
+  (method public (debuggee-stop process thread stop kind reason)
     (if (and #f ;; until the error shows in full in the debugger in like a tooltip
              (local-proxy? thread)
              (eq? (get-object~ thread) (primordial-thread)))

@@ -58,14 +58,94 @@
 ;;;
 
 
+(definition *debuggers*
+  '())
+
 (definition *current-debugger*
-  #f)
+  {})
+
+
+(definition with-debuggers-mutex
+  (let ((mutex (make-mutex 'debuggers)))
+    (lambda (thunk)
+      (mutex-lock! mutex)
+      (thunk)
+      (mutex-unlock! mutex))))
+
+
+(definition (register-debugger debugger)
+  (with-debuggers-mutex
+    (function ()
+      (set! *debuggers* (append *debuggers* (list debugger))))))
+
+
+(definition (unregister-debugger debugger)
+  (with-debuggers-mutex
+    (function ()
+      (set! *debuggers* (remove! debugger *debuggers*)))))
+
+
+(definition public (get-debuggers)
+  *debuggers*)
 
 
 (definition public (current-debugger)
   (when (not *current-debugger*)
     (set! *current-debugger* (new Debugger)))
   *current-debugger*)
+
+
+;;;
+;;;; Process
+;;;
+
+
+(definition public (debugger-process=? x y)
+  (let ((dx (essay x (get-debugger~ x)))
+        (dy (essay y (get-debugger~ y))))
+    (and (eq? dx dy)
+         (process=?~ dx x y))))
+
+
+;;;
+;;;; Selected
+;;;
+
+
+(definition *selected-debugger-process*
+  {})
+
+
+(definition public (get-selected-debugger-process)
+  *selected-debugger-process*)
+
+
+(definition public (set-selected-debugger-process process)
+  (set! *selected-debugger-process* process)
+  {})
+
+
+(definition public (select-debugger-process process)
+  (when (not (debugger-process=? process *selected-debugger-process*))
+    (set! *selected-debugger-process* process)
+    (let* ((appl (get-application))
+           (icon (essay process (get-icon~ process)))
+           (status (get-status-bar~ appl)))
+      (when status
+        (let ((item (locate-component~ status 'debugger)))
+          (when item
+            (set-icon~ item icon))))
+      (let ((presented (essay process (present~ process))))
+        (user-message (format "{a} selected" (if (not process) "None" presented)))))
+    {}))
+
+
+(definition public (select-next-debugger-process)
+  @convert
+  (let* ((rank (find processes *selected-debugger-process* test: debugger-process=?))
+         (process (element processes (modulo (+ rank 1) (length processes)))))
+    (select-debugger-process process)
+    {}))
 
 
 ;;;
@@ -106,7 +186,7 @@
 ;;;
 
 
-(definition public (break-exception debuggee exception frame accountable)
+(definition public (break-exception process exception frame accountable)
   @convert
   (let* ((message       (get-message~ exception))
          (closure-frame (essay frame (frame-toplevel-closure-frame frame)))
@@ -115,7 +195,7 @@
     (let* ((process (get-process))
            (controller-debugger (get-controller-debugger))
            (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
-      (select-debuggee~ controller-debugger debuggee)
+      (select-debugger-process~ controller-debugger process)
       (select-foreground-window controller-toplevel-hwnd))
     (break-action type: 'error message: message location: location frame: frame)))
 
@@ -248,8 +328,8 @@
 ;;;
 
 
-(definition public (on-next-debuggee evt)
-  (select-next~ (get-local-debugger~ (get-application))))
+(definition public (on-next-process evt)
+  (select-next-debugger-process))
 
 
 ;;;

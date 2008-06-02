@@ -40,6 +40,10 @@
 
 (cond-expand
   (gambit
+    (define jazz.continuation?
+      ##continuation?)
+    
+    
     (define jazz.continuation-capture
       ##continuation-capture)
     

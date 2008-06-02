@@ -100,7 +100,8 @@
   (gambit
    (jazz.define-macro (%%continuation? obj)
      (if jazz.debug-core?
-         `(continuation? ,obj)
+         ;; until gambit has an official continuation? primitive
+         `(##continuation? ,obj)
        `(##continuation? ,obj)))
    
    (jazz.define-macro (%%procedure? obj)

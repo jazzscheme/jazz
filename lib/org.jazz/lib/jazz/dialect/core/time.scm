@@ -38,6 +38,10 @@
 (module jazz.dialect.core.time
 
 
+(define jazz.current-systime current-time)
+(define jazz.systime? time?)
+(define jazz.systime->seconds time->seconds)
+(define jazz.seconds->systime seconds->time)
 (define jazz.process-times process-times)
 (define jazz.cpu-time cpu-time)
 (define jazz.real-time real-time))

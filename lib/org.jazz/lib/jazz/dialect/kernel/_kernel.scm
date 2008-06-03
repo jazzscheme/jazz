@@ -276,6 +276,7 @@
 (native jazz.jazz-source)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
+(native jazz.jazz-debugger?)
 (native jazz.reset-packages)
 (native jazz.register-product)
 (native jazz.get-registered-product)
@@ -484,7 +485,6 @@
 (native jazz.dispatch)
 (native jazz.find-dispatch)
 (native jazz.call-into-abstract)
-(native jazz.debug?)
 
 
 ;;;
@@ -642,6 +642,7 @@
 (native jazz.thread-state-normally-terminated-result)
 (native jazz.thread-state-normally-terminated?)
 (native jazz.thread-state-uninitialized?)
+(native jazz.pristine-thread-continuation)
 (native jazz.mutex?)
 (native jazz.make-mutex)
 (native jazz.mutex-name)

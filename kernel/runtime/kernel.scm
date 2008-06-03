@@ -114,6 +114,20 @@
 
 
 ;;;
+;;;; Exception
+;;;
+
+
+(define jazz.pristine-thread-continuation
+  (thread-join!
+    (thread-start!
+      (make-thread
+        (lambda ()
+          (continuation-capture
+            (lambda (cont)
+              cont)))))))
+
+;;;
 ;;;; Error
 ;;;
 
@@ -275,6 +289,10 @@
 
 (define (jazz.jazz-profile)
   jazz.profile)
+
+
+(define (jazz.jazz-debugger?)
+  jazz.debugger?)
 
 
 ;;;

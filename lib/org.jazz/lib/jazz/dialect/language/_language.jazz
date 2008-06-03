@@ -4472,18 +4472,16 @@
   (eq? (current-thread) (primordial-thread)))
 
 
-(definition (make-primordial-thread-continuation)
-  (thread-join!
-    (thread-start!
-      (make-thread
-        (lambda ()
-          (continuation-capture
-            (lambda (cont)
-              cont)))))))
+(definition public (make-pristine-thread thunk . rest)
+  (apply make-thread
+         (lambda ()
+           (continuation-graft pristine-thread-continuation
+             thunk))
+         rest))
 
 
-(definition  primordial-thread-continuation
-  (make-primordial-thread-continuation))
+(definition public (new-thread . rest)
+  (apply make-pristine-thread rest))
 
 
 (definition public (top-threads)
@@ -4527,6 +4525,10 @@
                 (mutex-unlock! mutex))))
         (mutex-lock! mutex)
         (thread-receive)))))
+
+
+(definition public (thread-exit)
+  (continuation-return pristine-thread-continuation #f))
 
 
 ;;;

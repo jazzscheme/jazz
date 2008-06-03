@@ -49,7 +49,8 @@
         (jazz.ui.window.platform.windows (cond windows))
         (jazz.ui.window.platform.x11     (cond x11))
         (jazz.debuggee)
-        (jazz.library))
+        (jazz.library)
+        (jazz.utilities))
 
 
 ;;;
@@ -125,7 +126,7 @@
 
 (definition (make-message-thread)
   (let ((thread
-          (make-thread
+          (new-thread
             (function ()
               (process-messages))
             "Message Pump")))
@@ -144,8 +145,10 @@
     (unwind-protect
         (let (loop)
           (let ((thunk (thread-receive)))
-            (with-jazz-exception-handler
-              thunk)
+            (if (jazz-debugger?)
+                (with-jazz-exception-handler
+                  thunk)
+              (thunk))
             (loop)))
       (thread-specific-set! thread #f))))
 

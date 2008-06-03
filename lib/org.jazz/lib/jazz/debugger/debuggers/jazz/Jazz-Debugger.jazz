@@ -73,11 +73,61 @@
     (when validate-liveness?
       (validate-processes))
     processes)
+
+
+  (method public (attach-process process-proxy)
+    (let ((process (new Debugged-Process self process-proxy)))
+      (unless (member? process processes test: process=?)
+        (set! processes (append! processes (list process)))
+        (when (not (get-selected-debugger-process))
+          (select-debugger-process process))
+        {})))
+
+
+  (method public (detach-process process-proxy)
+    (let ((process (new Debugged-Process self process-proxy)))
+      (when (member? process processes test: process=?)
+        (set! processes (remove! process processes test: process=?))
+        (when (process=? process (get-selected-debugger-process))
+          (select-debugger-process (and (not-null? processes) (car processes))))
+        {})))
+  
+  
+  (method public (detach-processes)
+    (validate-processes)
+    (let ((local-process (get-local-process)))
+      (for-each (function (process)
+                  (let ((proxy (get-object~ process)))
+                    (when (not (proxy=? proxy local-process))
+                      (detach~ proxy))))
+                processes))
+    {})
+  
+  
+  ;;;
+  ;;;; Validate
+  ;;;
+  
+  
+  (method (validate-processes)
+    (set! processes (collect-if valid-process? processes))
+    (when (not (member? (get-selected-debugger-process) processes test: process=?))
+      (select-debugger-process (and (not-null? processes) (car processes)))))
+  
+  
+  (method (valid-process? process)
+    (let ((proxy (get-object~ process)))
+      (or (is? proxy Local-Proxy)
+          (live?~ proxy))))
   
   
   ;;;
   ;;;; Process
   ;;;
+  
+  
+  (method (process=? x y)
+    (proxy=? (get-object~ x) (get-object~ y)))
   
   
   (method (process-live? process)
@@ -115,11 +165,11 @@
     (evaluate-expressions~ (get-object~ process) expressions))
   
   
-  (method (detach-process process)
-    (detach-from-controller~ (get-object~ process)))
+  (method (process-detach process)
+    (detach~ (get-object~ process)))
   
   
-  (method (exit-process process)
+  (method (process-exit process)
     (exit~ (get-object~ process)))
   
   
@@ -201,66 +251,6 @@
   
   (method public (get-toplevel-hwnd)
     (get-handle~ (get-toplevel)))
-  
-  
-  ;;;
-  ;;;; Process
-  ;;;
-  
-  
-  (method (process=? x y)
-    (proxy=? (get-object~ x) (get-object~ y)))
-
-
-  (method public (attach-process process-proxy)
-    (let ((process (new Debugged-Process self process-proxy)))
-      (unless (member? process processes test: process=?)
-        (set! processes (append! processes (list process)))
-        (when (not (get-selected-debugger-process))
-          (select-debugger-process process))
-        {})))
-
-
-  (method public (detach-process process-proxy)
-    (let ((process (new Debugged-Process self process-proxy)))
-      (when (member? process processes test: process=?)
-        (set! processes (remove! process processes test: process=?))
-        (when (process=? process (get-selected-debugger-process))
-          (select-debugger-process (and (not-null? processes) (car processes))))
-        {})))
-  
-  
-  ;;;
-  ;;;; Validate
-  ;;;
-  
-  
-  (method (validate-processes)
-    (set! processes (collect-if valid-process? processes))
-    (when (not (member? (get-selected-debugger-process) processes test: process=?))
-      (select-debugger-process (and (not-null? processes) (car processes)))))
-  
-  
-  (method (valid-process? process)
-    (let ((proxy (get-object~ process)))
-      (or (is? proxy Local-Proxy)
-          (live?~ proxy))))
-  
-  
-  ;;;
-  ;;;; Close
-  ;;;
-  
-  
-  (method public (detach-processes)
-    (validate-processes)
-    (let ((local-process (get-local-process)))
-      (for-each (function (process)
-                  (let ((proxy (get-object~ process)))
-                    (when (not (proxy=? proxy local-process))
-                      (detach-from-controller~ proxy))))
-                processes))
-    {})
   
   
   ;;;

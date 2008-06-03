@@ -81,6 +81,7 @@
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
   (setup-local-process)
+  (setup-console-ports)
   (attach-process~ controller-debugger local-process)
   (set-exception-debugger jazz-exception-debugger))
 
@@ -134,6 +135,29 @@
                   (enqueue queue (new Debuggee-Stop-Local-Proxy stop))))
               *stops*)
     (queue-list queue)))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition (setup-console-ports)
+  (receive (head tail) (open-string-pipe)
+    (start-console-pump tail)
+    (set-console-input {})
+    (set-console-output head)))
+
+
+(definition (start-console-pump port)
+  (thread-start!
+    (make-thread
+      (function ()
+        (let (iterate)
+          (let ((line (read-line port)))
+            (console-output~ controller-debugger line)
+            (iterate))))
+      "Console Pump")))
 
 
 ;;;

@@ -99,11 +99,6 @@
          (top-threads)))
   
   
-  @wait
-  (method (terminate)
-    (quit))
-  
-  
   ;;;
   ;;;; Thread
   ;;;
@@ -114,12 +109,6 @@
       (thread-interrupt! thread
         (function ()
           (break)))))
-  
-  
-  @convert
-  (method (throw-thread thread name result)
-    (let ((action (function () (throw name result))))
-      (thread-post thread action)))
   
   
   ;;;
@@ -151,40 +140,6 @@
   ;;;
   
   
-  @convert
-  (method (evaluate debugger request stop frame form)
-    (let* ((thread (and stop (Debuggee-Stop.get-thread stop)))
-           (result (evaluate-form thread stop frame form)))
-      (if (void? result)
-          (display-result~ debugger request result)
-        (set-? result)
-        (display-result~ debugger request (->string result)))))
-  
-  
-  @convert
-  (definition (evaluate-form thread stop frame form)
-    (if (not thread)
-        (with-jazz-exception-handler
-          (lambda ()
-            (eval-form form)))
-      (thread-send thread
-        (lambda ()
-          (with-jazz-exception-handler
-            (lambda ()
-              (evaluate-action stop frame form)))))))
-  
-  
-  @convert
-  (definition (evaluate-action stop frame form)
-    (eval-form form))
-  
-  
-  @convert
-  (definition (eval-form form)
-    (eval `(in jazz uses (jazz.debug jazz.process jazz.rmi jazz.platform jazz.thread)
-             ,form)))
-  
-  
   (method (eval-expressions expressions)
     (eval-expressions~ (get-process) expressions))
   
@@ -199,64 +154,10 @@
   
   
   ;;;
-  ;;;; Threads
-  ;;;
-  
-  
-  (method public (get-process-threads)
-    @convert
-    (map new-thread (top-threads)))
-  
-  
-  (method public (get-primordial-thread)
-    @convert
-    (new-thread (primordial-thread)))
-  
-  
-  @conflict
-  (method (new-thread thread)
-    @convert
-    (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread (new Debuggee-Local-Proxy self) thread)))
-  
-  
-  ;;;
-  ;;;; Console
-  ;;;
-  
-  
-  @convert
-  (method public remote (execute command object package-names variables frame)
-    (let* ((form (read-string-element command))
-           (packages (filter-packages package-names))
-           (object (either object process)) ;; until remote implementation completed
-           (result (execute-command form object packages variables frame)))
-      (if (not result)
-          {}
-        (set-?~ Development result)
-        (->string result :describe))))
-  
-  
-  ;;;
   ;;;; Inspector
   ;;;
   
   
   @convert
   (method public remote (inspect serial kind)
-    (inspect-value (serial->object serial)))
-  
-  
-  ;;;
-  ;;;; Memory
-  ;;;
-  
-  
-  @convert
-  (method public remote (memory-statistics)
-    (statistics))
-  
-  
-  @convert
-  (method public remote (trigger-gc)
-    (gc)
-    {})))
+    (inspect-value (serial->object serial)))))

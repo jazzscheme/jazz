@@ -38,7 +38,8 @@
 (library jazz.debugger.debuggers.jazz.Jazz-Debugger jazz
 
 
-(import (jazz.debuggee)
+(import (jazz.console)
+        (jazz.debuggee)
         (jazz.debugger)
         (jazz.jrm)
         (jazz.library)
@@ -62,7 +63,7 @@
   
   
   (method (start-debugger)
-    )
+    (setup-console-ports))
   
   
   (method (stop-debugger)
@@ -242,6 +243,32 @@
   
   (method (frame-variable-value frame variable)
     (cdr variable))
+  
+  
+  ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (method (setup-console-ports)
+    (receive (head tail) (open-string-pipe)
+      (start-console-pump tail)
+      (set-console-input {})
+      (set-console-output head)))
+  
+  
+  (method (start-console-pump port)
+    (thread-start!
+      (make-thread
+        (function ()
+          (let ((text (get-console-text)))
+            (let (iterate)
+              (let ((line (read-line port)))
+                (send-event
+                  (function ()
+                    (insert-formatted-line~ text line))))
+              (iterate))))
+        "Console Pump")))
   
   
   ;;;

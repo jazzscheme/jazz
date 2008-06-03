@@ -144,11 +144,6 @@
       (nextmethod rest)
       @convert/wait
       (display-boot-time launch-time)))
-  
-  
-  (method (conclude-process rest)
-    (nextmethod rest)
-    (setup-console-ports))
 
   
   ;;;
@@ -162,32 +157,6 @@
   
   (method (default-bindings)
     (new Jedi-Bindings))
-
-  
-  ;;;
-  ;;;; Console
-  ;;;
-  
-  
-  (method (setup-console-ports)
-    (receive (head tail) (open-string-pipe)
-      (start-console-pump tail)
-      (set! console-input {})
-      (set! console-output head)))
-  
-  
-  (method (start-console-pump port)
-    (thread-start!
-      (make-thread
-        (function ()
-          (let ((text (get-console-text)))
-            (let (iterate)
-              (let ((line (read-line port)))
-                (send-event
-                  (function ()
-                    (insert-formatted-line~ text line))))
-              (iterate))))
-        "Console Pump")))
 
   
   ;;;
@@ -445,6 +414,7 @@
   
   (method public (launch-product product (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     (when debug?
+      (start-remoting-server)
       (start-jazz-debugger))
     (let* ((runtime-arg        (list "-:m250000,h1000000"))
            (product-arg        (list "-run" (->string product)))

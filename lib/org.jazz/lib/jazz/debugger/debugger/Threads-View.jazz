@@ -1,0 +1,422 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Threads View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debugger.Threads-View jazz
+
+
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.debugger)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.jrm)
+        (jazz.language.jazz)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Threads-View extends Layout-View
+
+
+  (property process initialize {} getter get-process setter set-process)
+  
+
+  (form
+    (<install>                                 layout-type: border
+      (<Layout-View>          name: tools
+        (<Push-Tool>          name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
+        (<Push-Tool>          name: restart    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Stop"} portfolio: :icons action-handler: {Event-Handler :form on-restart})
+        (<Push-Tool>          name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
+        (<Separator>                           size: {Dimension 5 0})
+        (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-detailed})
+        (<Separator>                           size: {Dimension 2 0})
+        (<Push-Tool>          name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
+      (<Scroller-View>        name: scroller   location: center vscroll?: #t flat?: #t
+        (<!>                  name: content    layout-type: fill
+          (<Tree-Header>      name: header     shown?: #f
+            (<!>              name: content
+              (<Threads-Tree> name: threads      multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-threads #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+
+  
+  (method meta (external-name . rest)
+    'threads-view)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta (host-icon)
+    {Bitmap-Resource "Person"})
+  
+  
+  (method meta (host-title)
+    "Threads")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (locate 'threads)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (let ((listener (new Event-Handler target: self method-name: 'on-level-change)))
+      (add-level-change-listener~ (get-loop~ (get-application)) listener))
+    (update))
+
+
+  (method (destroy)
+    (remove-level-change-listener~ (get-loop~ (get-application)) self)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+
+
+  (method public (get-process)
+    process)
+
+
+  (method public (set-process value)
+    (when (not (debugged=? process value))
+      (set! process value)
+      (update)))
+  
+  
+  (method (show-detailed?)
+    (get-selected?~ (locate 'detailed)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (function ()
+          (let ((menu (new-context-menu (selected-object))))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (method (on-double-click evt)
+    )
+  
+  
+  (method (on-toggle-detailed evt)
+    (update))
+
+
+  (method (on-select-threads evt)
+    (stop-change))
+  
+  
+  (method (on-break evt)
+    (let ((thread (selected-thread)))
+      (with-thread-refresh thread
+        (function ()
+          (break-thread~ process (get-object~ thread))))))
+  
+  
+  (method (on-continue evt)
+    (let* ((stop (selected-stop))
+           (thread (selected-thread)))
+      (with-thread-refresh thread
+        (function ()
+          (continue-stop~ process (get-object~ stop))))))
+  
+  
+  (method (on-restart evt)
+    (let* ((stop (selected-stop))
+           (thread (selected-thread)))
+      (with-thread-refresh thread
+        (function ()
+          (restart-stop~ process (get-object~ stop))))))
+  
+  
+  (method (on-update evt)
+    (update))
+  
+  
+  (method (refresh)
+    (thread-yield!)
+    (sleep .1)
+    (update))
+  
+  
+  (method (with-thread-refresh thread thunk)
+    (if (event-thread-local-proxy? thread)
+        (begin
+          (thread-start!
+            (new-thread
+              refresh))
+          (thunk))
+      (thunk)
+      (refresh)))
+  
+  
+  (method (event-thread-local-proxy? thread)
+    (when (eq? (get-debugger~ thread) (get-local-debugger~ (get-application)))
+      (let ((thread-proxy (get-object~ thread)))
+        (and (is? thread-proxy Debuggee-Thread-Local-Proxy)
+             (eq? (get-thread~ (get-object~ thread-proxy)) event-thread)))))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (with-preserving-update tree thunk)
+    (with-preserved-selection~ tree
+      thunk
+      use: 'data
+      test: debugged=?))
+
+
+  (method protected (update)
+    (with-update-locked
+      (function ()
+        (with-system-exception-handler
+          (function ()
+            (let ((detailed? (show-detailed?))
+                  (tree (locate 'threads)))
+              (with-preserving-update tree
+                (function ()
+                  (remove-every-row~ tree)
+                  (update-threads tree detailed?: detailed?)))))))))
+  
+  
+  (method (update-threads tree (detailed?: detailed? #f))
+    (define (debugged-threads debugger threads)
+      (map (function (object)
+             (new Debugged-Thread debugger object))
+           threads))
+    
+    (define (debugged-stops debugger stops)
+      (map (function (object)
+             (new Debugged-Stop debugger object))
+           stops))
+    
+    (define (effective-name name)
+      (cond ((unspecified? name) "Thread")
+            ((eq? name 'primordial) "Primordial")
+            (else (->string name))))
+    
+    (define (thread-title thread)
+      (let ((name (effective-name (get-name~ thread)))
+            (state (get-state~ thread)))
+        (if (not detailed?)
+            (->string name)
+          (format "{a} - {a}" name state))))
+    
+    (define (thread-image thread)
+      (let ((stops (get-stops~ thread)))
+        (if (null? stops)
+            {Bitmap-Resource "ThreadRun"}
+          (case (get-kind~ (last stops))
+            ((exception) {Bitmap-Resource "ThreadError"})
+            (else {Bitmap-Resource "ThreadBreak"})))))
+    
+    (define (stop-title stop)
+      (let ((reason (get-reason~ stop)))
+        (if (not reason)
+            "Break"
+          (let ((line (car (split reason "\n"))))
+            line))))
+    
+    (define (stop-image stop)
+      (case (get-kind~ stop)
+        ((exception) {Bitmap-Resource "ErrorStop"})
+        (else {Bitmap-Resource "BreakStop"})))
+    
+    (when process
+      (let ((debugger (get-debugger~ process)))
+        (for-each (function (thread)
+                    (let* ((title (thread-title thread))
+                           (image (thread-image thread))
+                           (thread-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
+                      (for-each (function (stop)
+                                  (let ((title (stop-title stop))
+                                        (image (stop-image stop)))
+                                    (add-row~ tree father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                (debugged-stops debugger (get-stops~ thread)))))
+                  (debugged-threads debugger (get-threads~ process))))))
+
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method (stop-change)
+    (set-stop~ (get-frames-view) (selected-stop)))
+  
+  
+  (method public (select-first-frame from)
+    (update)
+    @convert
+    (let ((tree (locate 'threads))
+          (passed? #f))
+      (continuation-capture
+        (function (return)
+          (for-each-visible-row~ tree
+            (function (row rank)
+              (let ((frame (get-user-data~ row)))
+                (when (and (is? frame Execution-Frame)
+                           (= (get-address~ frame) from))
+                  (set! passed? #t))
+                (when (is? frame Closure-Frame)
+                  (set-single-selection~ tree rank)
+                  (frame-change)
+                  (edit-frame)
+                  (continuation-return return)))))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method public (selected-thread)
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debugged-Thread) object)
+            ((Debugged-Stop) (get-user-data~ (get-father~ row)))
+            (else {}))))))
+  
+  
+  (method public (selected-stop)
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debugged-Stop) object)
+            (else {}))))))
+  
+  
+  (method public (selected-object)
+    (let ((row (selected-row)))
+      (when row
+        (get-user-data~ row))))
+  
+  
+  (method (selected-row)
+    (let* ((tree (locate 'threads))
+           (n (get-single-selection~ tree)))
+      (when n
+        (get-row~ tree n))))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (new-context-menu object)
+    (typecase object
+      @waiting-as-the-only-item-is-not-implemented-atm
+      ((Debuggee-Thread-Remotable) (new Thread-Menu))
+      (else {}))))
+
+
+;;;
+;;;; Threads-Tree
+;;;
+
+
+(class Threads-Tree extends Tree-View
+  
+  
+  (form
+    (<install>            portfolio: :icons
+      (<Tree-Node-Column> title: "Thread" width: 431 toplevel-controls?: #f))))
+
+
+(register-autoclass Threads-Tree)
+
+
+;;;
+;;;; Thread-Menu
+;;;
+
+
+(class Thread-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: break title: "&Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})))
+  
+  
+  (method (on-break evt)
+    )))

@@ -1,0 +1,367 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Processes View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debugger.Processes-View jazz
+
+
+(import (jazz.debuggee)
+        (jazz.debuggee.stub)
+        (jazz.debugger)
+        (jazz.io)
+        (jazz.jml)
+        (jazz.jrm)
+        (jazz.language.jazz)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Processes-View extends Layout-View
+
+
+  (property snapshots initialize '() accessors generate)
+  
+
+  (form
+    (<install>                                   layout-type: border
+      (<Layout-View>            name: tools
+        @wait
+        (<Push-Tool>            name: open       size: {Dimension 22 22} tooltip?: #t tooltip-text: "Open Snapshot" image-name: {Bitmap-Resource "Open"} portfolio: :icons action-handler: {Event-Handler :form on-open-snapshot})
+        @wait
+        (<Separator>                             size: {Dimension 2 0})
+        (<Push-Tool>            name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
+      (<Scroller-View>          name: scroller   location: center vscroll?: #t flat?: #t
+        (<!>                    name: content    layout-type: fill
+          (<Tree-Header>        name: header     shown?: #f
+            (<!>                name: content
+              (<Processes-Tree> name: processes  multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-processes #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+
+  
+  (method meta (external-name . rest)
+    'processes-view)
+
+  
+  ;;;
+  ;;;; Host
+  ;;;
+  
+  
+  (method meta (host-icon)
+    {Bitmap-Resource "Process"})
+  
+  
+  (method meta (host-title)
+    "Processes")
+  
+  
+  ;;;
+  ;;;; Docked
+  ;;;
+  
+  
+  (method (get-tools-view)
+    (locate 'tools))
+  
+  
+  (method (focus-default)
+    (let ((tree (locate 'processes)))
+      (acquire-focus~ tree)))
+
+  
+  ;;;
+  ;;;; Component
+  ;;;
+
+
+  (method (install rest)
+    (nextmethod rest)
+    (let ((listener (new Event-Handler target: self method-name: 'on-level-change)))
+      (add-level-change-listener~ (get-loop~ (get-application)) listener))
+    (update))
+
+
+  (method (destroy)
+    (remove-level-change-listener~ (get-loop~ (get-application)) self)
+    (nextmethod))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (resize dh dv)
+    (nextmethod dh dv)
+    (size-figure~ (locate 'scroller) dh dv))
+  
+  
+  (method (on-context-menu evt)
+    (let* ((sender (get-sender~ evt))
+           (pos (get-position~ evt))
+           (acquired (acquire sender pos)))
+      (with-context-click~ sender pos
+        (function ()
+          (let ((menu (new-context-menu (selected-object))))
+            (when menu
+              (track-popup-menu menu acquired)))))))
+  
+  
+  (method (on-double-click evt)
+    )
+  
+  
+  (definition Snapshot-Extensions
+    '(("Crash Files" . "crash")))
+  
+  
+  (method (on-open-snapshot evt)
+    (with-cursor :wait
+      (function ()
+        (let ((file (if (get-shift?~ evt)
+                        (with-preserved-current-directory
+                          (function ()
+                            (choose-file directory: {Directory Install} extensions: Snapshot-Extensions)))
+                      (choose-file extensions: Snapshot-Extensions))))
+          (open-snapshot file)))))
+
+
+  (method (on-select-processes evt)
+    (process-change))
+  
+  
+  (method (on-update evt)
+    (let ((validate-liveness? (get-shift?~ evt)))
+      (update validate-liveness?: validate-liveness?)))
+  
+  
+  (method (process-change)
+    (set-process~ (get-threads-view) (selected-process)))
+
+  
+  ;;;
+  ;;;; Update
+  ;;;
+  
+  
+  (method (with-preserving-update tree thunk)
+    (with-preserved-selection~ tree
+      thunk
+      use: 'data
+      test: debugged=?))
+
+
+  (method protected (update (validate-liveness?: validate-liveness? #t))
+    (with-update-locked
+      (function ()
+        (with-system-exception-handler
+          (function ()
+            (let ((tree (locate 'processes)))
+              (with-preserving-update tree
+                (function ()
+                  (remove-every-row~ tree)
+                  (update-processes tree validate-liveness?: validate-liveness?)
+                  @convert (update-snapshots tree snapshots)))))))))
+  
+  
+  (method (update-processes tree (validate-liveness?: validate-liveness? #t))
+    (for-each (function (debugger)
+                (for-each (function (process)
+                            (let ((live? (live?~ process)))
+                              (let ((title (get-name~ process))
+                                    (image (if live? {Bitmap-Resource "Process"} {Bitmap-Resource "ProcessDead"}))
+                                    (debugged (new Debugged-Process debugger process)))
+                                (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: debugged))))
+                          (get-processes~ debugger validate-liveness?: validate-liveness?)))
+              (get-debuggers)))
+
+  
+  ;;;
+  ;;;; Edition
+  ;;;
+  
+  
+  (method public (select-first-frame from)
+    (update)
+    @convert
+    (let ((tree (locate 'processes))
+          (passed? #f))
+      (continuation-capture
+        (function (return)
+          (for-each-visible-row~ tree
+            (function (row rank)
+              (let ((frame (get-user-data~ row)))
+                (when (and (is? frame Execution-Frame)
+                           (= (get-address~ frame) from))
+                  (set! passed? #t))
+                (when (is? frame Closure-Frame)
+                  (set-single-selection~ tree rank)
+                  (frame-change)
+                  (edit-frame)
+                  (continuation-return return)))))))))
+  
+  
+  ;;;
+  ;;;; Selection
+  ;;;
+  
+  
+  (method public (selected-process)
+    (selected-object))
+  
+  
+  (method public (selected-object)
+    (let ((row (selected-row)))
+      (when row
+        (get-user-data~ row))))
+  
+  
+  (method (selected-row)
+    (let* ((tree (locate 'processes))
+           (n (get-single-selection~ tree)))
+      (when n
+        (get-row~ tree n))))
+  
+  
+  ;;;
+  ;;;; Menu
+  ;;;
+  
+  
+  (method (new-context-menu object)
+    (typecase object
+      ((Debugged-Process) (new Process-Menu client: self))
+      @convert/wait
+      ((Pair) (new Snapshot-Menu))
+      (else {})))
+  
+  
+  (method (exit-selected-process)
+    (let ((object (selected-object)))
+      (exit~ object)
+      (sleep .1)
+      (update)))
+  
+  
+  (method (close-selected-snapshot)
+    (let ((object (selected-object)))
+      (set! snapshots (remove! object snapshots))
+      (update)))
+  
+  
+  (method (select-process-toplevel)
+    @convert
+    (let* ((process (selected-process))
+           (toplevel-hwnd (get-toplevel-hwnd~ process)))
+      (select-foreground-window toplevel-hwnd)))
+  
+  
+  (method public (open-snapshot file . rest)
+    (call-with-input-file (list path: (parse~ file) eol-encoding: 'cr-lf)
+      (function (reader)
+        (let* ((snapshot (read reader))
+               (crash-file? (ci=? (get-extension~ file) "crash"))
+               (executable (essay crash-file? (new-file~ (get-directory~ file) (format "{a}.exe" (get-process~ snapshot))))))
+          (unless (or (not crash-file?) (exists?~ executable))
+            (error "Unable to locate snapshot executable: {t}" executable))
+          (add-snapshot snapshot file executable)))))
+  
+  
+  (method public (add-snapshot snapshot file executable)
+    (set! snapshots (cons (list snapshot file executable) snapshots))
+    (update)))
+
+
+;;;
+;;;; Processes-Tree
+;;;
+
+
+(class Processes-Tree extends Tree-View
+  
+  
+  (form
+    (<install>            portfolio: :icons
+      (<Tree-Node-Column> title: "Process" width: 431 toplevel-controls?: #f))))
+
+
+(register-autoclass Processes-Tree)
+
+
+;;;
+;;;; Process-Menu
+;;;
+
+
+(class Process-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler :form on-select})
+      (<Separator-Item>)
+      (<Label-Item>     name: exit   title: "E&xit" action-handler: {Event-Handler :form on-exit})))
+  
+  
+  (method (on-select evt)
+    (select-process-toplevel~ client))
+  
+  
+  (method (on-exit evt)
+    (exit-selected-process~ client)))
+
+
+;;;
+;;;; Snapshot-Menu
+;;;
+
+
+(class Snapshot-Menu extends Context-Menu
+  
+  
+  (form
+    (<install>
+      (<Label-Item> name: close title: "&Close" action-handler: {Event-Handler :form on-close})))
+  
+  
+  (method (on-close evt)
+    @convert
+    (close-selected-snapshot))))

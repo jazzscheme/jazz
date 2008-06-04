@@ -96,63 +96,71 @@
 
 
 ;;;
+;;;; Debugged
+;;;
+
+
+(definition public (debugged=? x y)
+  (or (and (not x) (not y))
+      (and x
+           y
+           (let ((dx (get-debugger~ x))
+                 (dy (get-debugger~ y)))
+             (and (eq? dx dy)
+                  (same?~ x y))))))
+
+
+;;;
 ;;;; Process
 ;;;
 
 
-(definition public (debugger-process=? x y)
-  (let ((dx (essay x (get-debugger~ x)))
-        (dy (essay y (get-debugger~ y))))
-    (and (eq? dx dy)
-         (process=?~ dx x y))))
-
-
-(definition public (collect-debugger-processes (validate-liveness?: validate-liveness? #f))
+(definition public (collect-debugged-processes (validate-liveness?: validate-liveness? #f))
   (let ((queue (new-queue)))
     (for-each (function (debugger)
-                (enqueue-list queue (get-processes~ debugger validate-liveness?: validate-liveness?)))
+                (for-each (function (process)
+                            (enqueue queue (new Debugged-Process debugger process)))
+                          (get-processes~ debugger validate-liveness?: validate-liveness?)))
               (get-debuggers))
     (queue-list queue)))
 
 
 ;;;
-;;;; Selected
+;;;; Debugged
 ;;;
 
 
-(definition *selected-debugger-process*
+(definition *debugged-process*
   {})
 
 
-(definition public (get-selected-debugger-process)
-  *selected-debugger-process*)
+(definition public (get-debugged-process)
+  *debugged-process*)
 
 
-(definition public (set-selected-debugger-process process)
-  (set! *selected-debugger-process* process)
+(definition public (set-debugged-process process)
+  (set! *debugged-process* process)
   {})
 
 
-(definition public (select-debugger-process process)
-  (when (not (debugger-process=? process *selected-debugger-process*))
-    (set! *selected-debugger-process* process)
-    (let* ((appl (get-application))
-           (icon (essay process (get-icon~ process)))
-           (status (get-status-bar~ appl)))
+(definition public (select-debugged-process process)
+  (when (not (debugged=? process *debugged-process*))
+    (set! *debugged-process* process)
+    (let ((status (get-status-bar~ (get-application))))
       (when status
         (let ((item (locate-component~ status 'debugger)))
           (when item
-            (set-icon~ item icon))))
+            (set-icon~ item (essay process (get-icon~ process))))))
       (let ((presented (essay process (present~ process))))
         (user-message (format "{a} selected" (if (not process) "None" presented)))))
     {}))
 
 
-(definition public (select-next-debugger-process)
+(definition public (select-next-debugged-process)
   @convert
-  (let* ((rank (find processes *selected-debugger-process* test: debugger-process=?))
+  (let* ((rank (find processes *debugged-process* test: debugged=?))
          (process (element processes (modulo (+ rank 1) (length processes)))))
-    (select-debugger-process process)
+    (select-debugged-process process)
     {}))
 
 
@@ -203,7 +211,7 @@
     (let* ((process (get-process))
            (controller-debugger (get-controller-debugger))
            (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
-      (select-debugger-process~ controller-debugger process)
+      (select-debugged-process~ controller-debugger process)
       (select-foreground-window controller-toplevel-hwnd))
     (break-action type: 'error message: message location: location frame: frame)))
 
@@ -307,8 +315,16 @@
   )
 
 
-(definition public (on-debuggers evt)
-  (select-palette Debuggers-View workspace: 'debugger focus?: #t))
+(definition public (on-processes evt)
+  (select-palette Processes-View workspace: 'debugger focus?: #t))
+
+
+(definition public (on-threads evt)
+  (select-palette Threads-View workspace: 'debugger focus?: #t))
+
+
+(definition public (on-frames evt)
+  (select-palette Frames-View workspace: 'debugger focus?: #t))
 
 
 (definition public (on-variables evt)
@@ -337,7 +353,7 @@
 
 
 (definition public (on-next-process evt)
-  (select-next-debugger-process))
+  (select-next-debugged-process))
 
 
 ;;;
@@ -345,8 +361,16 @@
 ;;;
 
 
-(definition public (get-debuggers-view)
-  (get-guest~ (singleton-docked Debuggers-View {})))
+(definition public (get-processes-view)
+  (get-guest~ (singleton-docked Processes-View {})))
+
+
+(definition public (get-threads-view)
+  (get-guest~ (singleton-docked Threads-View {})))
+
+
+(definition public (get-frames-view)
+  (get-guest~ (singleton-docked Frames-View {})))
 
 
 ;;;
@@ -356,7 +380,7 @@
 
 (definition public (active-frame)
   (let ((appl (get-application)))
-    (let ((view (find-palette Debuggers-View)))
+    (let ((view (find-palette Processes-View)))
       (either (essay view (selected-frame~ view))
               (get-frame~ (get-loop~ (get-application)))))))
 
@@ -403,7 +427,7 @@
           (set! break-indicator location)))
       (with-locked-update
         (function ()
-          (let ((view (select-palette Debuggers-View workspace: 'debugger)))
+          (let ((view (select-palette Processes-View workspace: 'debugger)))
             (when view
               (select-first-frame~ view frame))))))))
 

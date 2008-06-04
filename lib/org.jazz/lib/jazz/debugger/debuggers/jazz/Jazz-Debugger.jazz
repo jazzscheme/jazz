@@ -77,30 +77,28 @@
 
 
   (method public (attach-process process-proxy)
-    (let ((process (new Debugged-Process self process-proxy)))
-      (unless (member? process processes test: process=?)
-        (set! processes (append! processes (list process)))
-        (when (not (get-selected-debugger-process))
-          (select-debugger-process process))
-        {})))
+    (unless (member? process-proxy processes test: process=?)
+      (set! processes (append! processes (list process-proxy)))
+      (when (not (get-debugged-process))
+        (select-debugged-process (new Debugged-Process self process-proxy)))
+      {}))
 
 
   (method public (detach-process process-proxy)
-    (let ((process (new Debugged-Process self process-proxy)))
-      (when (member? process processes test: process=?)
-        (set! processes (remove! process processes test: process=?))
-        (when (process=? process (get-selected-debugger-process))
-          (select-debugger-process (and (not-null? processes) (car processes))))
-        {})))
+    (when (member? process-proxy processes test: process=?)
+      (set! processes (remove! process-proxy processes test: process=?))
+      (let ((debugged-process (get-debugged-process)))
+        (when (and debugged-process (process=? process-proxy (get-object~ debugged-process)))
+          (select-debugged-process (and (not-null? processes) (new Debugged-Process self (car processes))))))
+      {}))
   
   
   (method public (detach-processes)
     (validate-processes)
     (let ((local-process (get-local-process)))
-      (for-each (function (process)
-                  (let ((proxy (get-object~ process)))
-                    (when (not (proxy=? proxy local-process))
-                      (detach~ proxy))))
+      (for-each (function (process-proxy)
+                  (when (not (proxy=? process-proxy local-process))
+                    (detach~ process-proxy)))
                 processes))
     {})
   
@@ -111,15 +109,12 @@
   
   
   (method (validate-processes)
-    (set! processes (collect-if valid-process? processes))
-    (when (not (member? (get-selected-debugger-process) processes test: process=?))
-      (select-debugger-process (and (not-null? processes) (car processes)))))
+    (set! processes (collect-if valid-process? processes)))
   
   
-  (method (valid-process? process)
-    (let ((proxy (get-object~ process)))
-      (or (is? proxy Local-Proxy)
-          (live?~ proxy))))
+  (method (valid-process? process-proxy)
+    (or (is? process-proxy Local-Proxy)
+        (live?~ process-proxy)))
   
   
   ;;;
@@ -128,50 +123,49 @@
   
   
   (method (process=? x y)
-    (proxy=? (get-object~ x) (get-object~ y)))
+    (proxy=? x y))
   
   
-  (method (process-live? process)
-    (live?~ (get-object~ process)))
+  (method (process-live? process-proxy)
+    (live?~ process-proxy))
   
   
-  (method (process-name process)
-    (get-name~ (get-object~ process)))
+  (method (process-name process-proxy)
+    (get-name~ process-proxy))
   
   
-  (method (process-icon process)
-    (get-icon~ (get-object~ process)))
+  (method (process-icon process-proxy)
+    (get-icon~ process-proxy))
   
   
-  (method (process-threads process)
-    (get-threads~ (get-object~ process)))
+  (method (process-threads process-proxy)
+    (get-threads~ process-proxy))
   
   
-  (method (present-process process)
-    (let ((proxy (get-object~ process)))
-      (let ((name (get-name~ proxy)))
-        (if (local-proxy? proxy)
-            name
-          (let ((host (get-host~ (get-ior~ proxy))))
-            (if (host=? host (listening-host~ (get-remoting-server~ (get-process))))
-                name
-              (format "{a} at {a}" name (host->string host))))))))
+  (method (present-process process-proxy)
+    (let ((name (get-name~ process-proxy)))
+      (if (local-proxy? process-proxy)
+          name
+        (let ((host (get-host~ (get-ior~ process-proxy))))
+          (if (host=? host (listening-host~ (get-remoting-server~ (get-process))))
+              name
+            (format "{a} at {a}" name (host->string host)))))))
   
   
-  (method (eval-expressions process expressions)
-    (eval-expressions~ (get-object~ process) expressions))
+  (method (eval-expressions process-proxy expressions)
+    (eval-expressions~ process-proxy expressions))
   
   
-  (method (evaluate-expressions process expressions)
-    (evaluate-expressions~ (get-object~ process) expressions))
+  (method (evaluate-expressions process-proxy expressions)
+    (evaluate-expressions~ process-proxy expressions))
   
   
-  (method (process-detach process)
-    (detach~ (get-object~ process)))
+  (method (process-detach process-proxy)
+    (detach~ process-proxy))
   
   
-  (method (process-exit process)
-    (exit~ (get-object~ process)))
+  (method (process-exit process-proxy)
+    (exit~ process-proxy))
   
   
   ;;;
@@ -179,20 +173,24 @@
   ;;;
   
   
-  (method (thread-name thread)
-    (get-name~ (get-object~ thread)))
+  (method (thread=? x y)
+    (proxy=? x y))
   
   
-  (method (thread-state thread)
-    (get-state~ (get-object~ thread)))
+  (method (thread-name thread-proxy)
+    (get-name~ thread-proxy))
   
   
-  (method (thread-stops thread)
-    (get-stops~ (get-object~ thread)))
+  (method (thread-state thread-proxy)
+    (get-state~ thread-proxy))
   
   
-  (method (break-thread process thread)
-    (break-thread~ (get-object~ process) (get-object~ thread)))
+  (method (thread-stops thread-proxy)
+    (get-stops~ thread-proxy))
+  
+  
+  (method (break-thread process-proxy thread-proxy)
+    (break-thread~ process-proxy thread-proxy))
   
   
   ;;;
@@ -200,24 +198,28 @@
   ;;;
   
   
-  (method (stop-kind stop)
-    (get-kind~ (get-object~ stop)))
+  (method (stop=? x y)
+    (proxy=? x y))
   
   
-  (method (stop-reason stop)
-    (get-reason~ (get-object~ stop)))
+  (method (stop-kind stop-proxy)
+    (get-kind~ stop-proxy))
   
   
-  (method (stop-frames stop)
-    (get-frames~ (get-object~ stop)))
+  (method (stop-reason stop-proxy)
+    (get-reason~ stop-proxy))
+  
+  
+  (method (stop-frames stop-proxy)
+    (get-frames~ stop-proxy))
 
   
-  (method (restart-stop process stop)
-    (restart-stop~ (get-object~ process) (get-object~ stop)))
+  (method (restart-stop process-proxy stop-proxy)
+    (restart-stop~ process-proxy stop-proxy))
   
   
-  (method (continue-stop process stop)
-    (continue-stop~ (get-object~ process) (get-object~ stop)))
+  (method (continue-stop process-proxy stop-proxy)
+    (continue-stop~ process-proxy stop-proxy))
   
   
   ;;;
@@ -225,23 +227,27 @@
   ;;;
   
   
-  (method (frame-name frame)
-    (get-name~ (get-object~ frame)))
+  (method (frame=? x y)
+    (proxy=? x y))
   
   
-  (method (frame-location frame)
-    (get-location~ (get-object~ frame)))
+  (method (frame-name frame-proxy)
+    (get-name~ frame-proxy))
   
   
-  (method (frame-variables frame)
-    (get-variables~ (get-object~ frame)))
+  (method (frame-location frame-proxy)
+    (get-location~ frame-proxy))
   
   
-  (method (frame-variable-name frame variable)
+  (method (frame-variables frame-proxy)
+    (get-variables~ frame-proxy))
+  
+  
+  (method (frame-variable-name frame-proxy variable)
     (car variable))
   
   
-  (method (frame-variable-value frame variable)
+  (method (frame-variable-value frame-proxy variable)
     (cdr variable))
   
   
@@ -282,15 +288,15 @@
   ;;;
   
   
-  (method public (debuggee-stop process thread stop kind reason)
+  (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
     (if (and #f ;; until the error shows in full in the debugger in like a tooltip
-             (local-proxy? thread)
-             (eq? (get-object~ thread) (primordial-thread)))
+             (local-proxy? thread-proxy)
+             (eq? (get-object~ thread-proxy) (primordial-thread)))
         (with-locked-update
           (function ()
-            (let ((view (select-palette Debuggers-View workspace: 'debugger)))
+            (let ((view (select-palette Processes-View workspace: 'debugger)))
               (when view
-                (select-first-frame~ view stop)))))
+                (select-first-frame~ view stop-proxy)))))
       (bell)
       (let ((reason (either reason (case kind ((exception) "Error") (else "Break")))))
         (let ((lines (split reason "\n")))

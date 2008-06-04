@@ -2921,20 +2921,16 @@
 ;;;
 
 
-(define jazz.function-modifiers
-  '(((dynamic indefinite) . indefinite)))
-
-
 (define (jazz.parse-function walker resume declaration form)
-  (receive (extent rest) (jazz.parse-modifiers walker resume declaration jazz.function-modifiers (%%cdr form))
-    (let* ((parameters (%%car rest))
-           (body (%%cdr rest))
-           (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
-      (values extent parameters effective-body))))
+  (let* ((rest (%%cdr form))
+         (parameters (%%car rest))
+         (body (%%cdr rest))
+         (effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
+    (values parameters effective-body)))
 
 
 (define (jazz.walk-function walker resume declaration environment form)
-  (receive (extent parameters body) (jazz.parse-function walker resume declaration form)
+  (receive (parameters body) (jazz.parse-function walker resume declaration form)
     (jazz.walk-lambda walker resume declaration environment
      `(lambda ,parameters
         ,@body))))

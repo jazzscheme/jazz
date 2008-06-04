@@ -636,6 +636,11 @@
     (if run
         (begin
           (jazz.load-module 'jazz.debuggee)
+          (jazz.load-module 'jazz.debuggee.Debuggee-Frame)
+          (jazz.load-module 'jazz.debuggee.Debuggee-Process)
+          (jazz.load-module 'jazz.debuggee.Debuggee-Stop)
+          (jazz.load-module 'jazz.debuggee.Debuggee-Thread)
+          (jazz.load-module 'jazz.debuggee.stub)
           (jazz.load-module 'jazz.debugger.debuggers.jazz)
           (run))
       (jazz.error "Product is not runnable: {s}" name))))

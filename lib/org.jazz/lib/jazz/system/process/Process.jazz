@@ -39,7 +39,6 @@
 
 
 (import (jazz.debuggee)
-        (jazz.debuggee.stub)
         (jazz.debugger)
         (jazz.designer)
         (jazz.development)
@@ -62,7 +61,6 @@
   (slot loop                 initialize {})
   (slot loop-running?        initialize #f)
   (slot loop-exit            initialize {})
-  (slot remoting-server      initialize {})
   (slot router-server        initialize {})
   (slot preferences-root     initialize {})
   (slot preferences-designer initialize {})
@@ -559,50 +557,13 @@
   ;;;
   
   
-  ;; For some users, starting the remoting server can trigger a firewall that will
-  ;; pop a dialog asking for user confirmation (even when listening to localhost!).
-  (method protected virtual (start-remoting-server?)
-    #f)
-  
-  
   (method protected virtual (start-servers)
-    (when (or (start-remoting-server?) (command-argument "debug"))
-      (start-remoting-server)))
+    @started-on-demand
+    (start-remoting-server))
   
   
   (method protected virtual (stop-servers)
     (stop-remoting-server))
-  
-  
-  ;;;
-  ;;;; Remoting Server
-  ;;;
-  
-  
-  (method public virtual (remoting-server-host)
-    {})
-  
-  (method public virtual (remoting-server-port)
-    {})
-  
-  
-  (method public (get-remoting-server)
-    remoting-server)
-  
-  
-  (method protected (start-remoting-server)
-    (unless remoting-server
-      (let ((server (new Remoting-Server name: "Remoting" host: Remoting-Host service: Remoting-Service)))
-        (start~ server)
-        (if (wait-started~ server error?: #f)
-            (set! remoting-server server)
-          (error "Unable to start remoting server")))))
-  
-  
-  (method protected (stop-remoting-server)
-    (when remoting-server
-      (stop~ remoting-server)
-      (set! remoting-server {})))
 
 
   ;;;
@@ -665,13 +626,10 @@
   
   (method public virtual (get-local-debugger)
     {})
+
   
-  
-  (method protected virtual (setup-controller)
-    (when (command-argument "controllerhost")
-      (let ((host (string->host (command-argument "controllerhost")))
-            (port (string->port (command-argument "controllerport"))))
-        (attach-to-controller (new-remote-register host port)))))
+  (method public virtual (setup-controller)
+    )
   
   
   ;;;
@@ -780,21 +738,6 @@
   ;;;
   ;;;; Debug
   ;;;
-  
-  
-  (method public (invoke-debugger kind reason continuation)
-    (let* ((thread (current-thread))
-           (stop (new Debuggee-Stop thread kind reason continuation)))
-      (dynamic-wind
-        (function ()
-          (register-stop stop))
-        (function ()
-          (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
-                (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-            (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason))
-          (debuggee-loop stop))
-        (function ()
-          (unregister-stop stop)))))
   
   
   (method protected virtual (debuggee-loop stop)

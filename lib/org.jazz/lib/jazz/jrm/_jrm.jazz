@@ -39,8 +39,7 @@
 
 
 (export (jazz.jrm.autoload))
-(import (jazz.jrm.autoload)
-        (jazz.io))
+(import (jazz.jrm.autoload))
 
 
 (definition *debug?*
@@ -65,11 +64,36 @@
   'any)
 
 
+(definition remoting-server
+  {})
+
+
+(definition public (get-remoting-server)
+  remoting-server)
+
+(definition public (set-remoting-server server)
+  (set! remoting-server server))
+
+
 (definition public (require-remoting-server)
-  (let ((server (get-remoting-server~ (get-process))))
-    (if (not server)
-        (error "Unable to complete operation because the remoting server is not running")
-      server)))
+  (if (not remoting-server)
+      (error "Unable to complete operation because the remoting server is not running")
+    remoting-server))
+
+
+(definition public (start-remoting-server)
+  (unless remoting-server
+    (let ((server (new Remoting-Server name: "Remoting" host: Remoting-Host service: Remoting-Service)))
+      (start~ server)
+      (if (wait-started~ server error?: #f)
+          (set! remoting-server server)
+        (error "Unable to start remoting server")))))
+
+
+(definition public (stop-remoting-server)
+  (when remoting-server
+    (stop~ remoting-server)
+    (set! remoting-server {})))
 
 
 ;;;

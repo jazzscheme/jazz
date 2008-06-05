@@ -568,6 +568,9 @@
 ;;;
 
 
+(native jazz.switch?)
+(native jazz.switch-name)
+(native jazz.command-argument)
 (native jazz.open-process)
 (native jazz.process-status)
 (native jazz.exit)

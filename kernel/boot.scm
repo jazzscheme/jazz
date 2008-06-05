@@ -62,3 +62,4 @@
 
 
 (jazz.load-kernel)
+(jazz.main)

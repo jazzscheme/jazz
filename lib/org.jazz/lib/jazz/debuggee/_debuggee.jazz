@@ -42,8 +42,7 @@
 (import (jazz.debuggee.autoload)
         (jazz.debuggee.stub)
         (jazz.jrm)
-        (jazz.jrm.register.stub)
-        (jazz.system.process.stub))
+        (jazz.jrm.register.stub))
 
 
 ;;;
@@ -83,8 +82,7 @@
   (setup-local-process)
   (setup-console-ports)
   (attach-process~ controller-debugger local-process)
-  (when (jazz-debugger?)
-    (set-exception-debugger jazz-exception-debugger)))
+  (set-exception-debugger jazz-exception-debugger))
 
 
 (definition public (detach-from-controller)
@@ -98,6 +96,15 @@
     (when (live?~ controller-debugger)
       (detach-process~ controller-debugger local-process))
     (set! controller-debugger {})))
+
+
+(definition (setup-debuggee)
+  (when (command-argument "debug")
+    (start-remoting-server))
+  (when (command-argument "controllerhost")
+    (let ((host (string->host (command-argument "controllerhost")))
+          (port (string->port (command-argument "controllerport"))))
+      (attach-to-controller (new-remote-register host port)))))
 
 
 ;;;
@@ -172,19 +179,52 @@
 
 (definition (jazz-exception-handler exc)
   (let ((debugger (get-controller-debugger)))
-    (if (not debugger)
+    (if (or (not debugger) (not (jazz-debugger?)))
         (system-exception-handler exc)
       (with-system-exception-handler
         (function ()
           (continuation-capture
             (function (continuation)
               (let ((reason (exception-reason exc)))
-                (invoke-debugger~ (get-process) 'exception reason continuation)))))))))
+                (invoke-debugger 'exception reason continuation)))))))))
 
 
 (definition (with-jazz-exception-handler thunk)
   (with-exception-handler jazz-exception-handler
     thunk))
+
+
+(definition (break (reason {}))
+  (continuation-capture
+    (function (continuation)
+      (invoke-debugger 'break reason continuation))))
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+(definition (invoke-debugger kind reason continuation)
+  (let* ((thread (current-thread))
+         (stop (new Debuggee-Stop thread kind reason continuation)))
+    (dynamic-wind
+      (function ()
+        (register-stop stop))
+      (function ()
+        (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
+              (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
+          (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason))
+        (let ((process (get-process)))
+          (if (not process)
+              (debuggee-loop stop)
+            (debuggee-loop~ process stop))))
+      (function ()
+        (unregister-stop stop)))))
+
+
+(definition (debuggee-loop stop)
+  (loop~ stop))
 
 
 ;;;

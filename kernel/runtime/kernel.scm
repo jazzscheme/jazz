@@ -589,6 +589,25 @@
 
 
 ;;;
+;;;; Debug
+;;;
+
+
+(define (jazz.setup-debuggee)
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'jazz)
+  (jazz.load-module 'jazz.debuggee)
+  (jazz.load-module 'jazz.debuggee.Debuggee-Frame)
+  (jazz.load-module 'jazz.debuggee.Debuggee-Process)
+  (jazz.load-module 'jazz.debuggee.Debuggee-Stop)
+  (jazz.load-module 'jazz.debuggee.Debuggee-Thread)
+  (jazz.load-module 'jazz.debuggee.stub)
+  (jazz.load-module 'jazz.debugger.debuggers.jazz.stub)
+  (jazz.load-module 'jazz.debugger.debuggers.jazz.stub-autoload)
+  (jazz.load-module 'jazz.debuggee.setup))
+
+
+;;;
 ;;;; Product
 ;;;
 
@@ -631,18 +650,11 @@
 
 
 (define (jazz.run-product name)
+  (jazz.setup-debuggee)
   (jazz.load-product-definition name)
   (let ((run (%%product-run (jazz.get-registered-product name))))
     (if run
-        (begin
-          (jazz.load-module 'jazz.debuggee)
-          (jazz.load-module 'jazz.debuggee.Debuggee-Frame)
-          (jazz.load-module 'jazz.debuggee.Debuggee-Process)
-          (jazz.load-module 'jazz.debuggee.Debuggee-Stop)
-          (jazz.load-module 'jazz.debuggee.Debuggee-Thread)
-          (jazz.load-module 'jazz.debuggee.stub)
-          (jazz.load-module 'jazz.debugger.debuggers.jazz)
-          (run))
+        (run)
       (jazz.error "Product is not runnable: {s}" name))))
 
 

@@ -74,18 +74,37 @@
 ;;;
 
 
+(definition S_OK
+  0)
+
+(definition S_FALSE
+  1)
+
+
 (class COM-Exception extends Exception
   
   
   (slot code)
+  (slot message)
   
   
-  (method (initialize code)
-    (set! code~self code))
+  (method (initialize code message)
+    (set! code~self code)
+    (set! message~self message))
   
   
-  (method public (get-code)
-    code))
+  (method (print printer readably)
+    (print-unreadable self printer
+      (function (printer)
+        (format printer "#x{x}{? {a}~}" code message))))
+  
+  
+  (method (get-code)
+    code)
+  
+  
+  (method (get-message)
+    (either message (format "COM exception (#x{x})" code))))
 
 
 (c-type HRESULT (native unsigned-long))
@@ -106,7 +125,32 @@
     ((#x800a0d5d)
      (error "ERROR - wrong value type" hresult))
     (else
-     (throw (new COM-Exception hresult)))))
+     (throw (new COM-Exception hresult {})))))
+
+
+(definition (validate-hresult2 hresult iunknown refiid)
+  (case hresult
+    ((0 1) ; S_OK or S_FALSE
+     hresult)
+    (else
+     (let ((message (extract-errorinfo-message hresult iunknown refiid)))
+       (if message
+           (throw (new COM-Exception hresult message))
+         (validate-hresult hresult))))))
+
+
+(definition (extract-errorinfo-message hresult iunknown refiid)
+  (receive (result isupport) (CoQueryNoValidate iunknown (cointerface-guid ISupportErrorInfo))
+    (when (= result S_OK)
+      (prog1
+          (when (= (ISupportErrorInfo$InterfaceSupportsErrorInfo isupport refiid) S_OK)
+            (let ((ierror (GetErrorInfo)))
+              (when ierror
+                (receive (result message) (IErrorInfo$GetDescription ierror)
+                  (CoRelease ierror)
+                  (when (= result S_OK)
+                    (BSTR-decode message))))))
+        (CoRelease isupport)))))
 
 
 ;;;
@@ -358,7 +402,7 @@
 
 
 (coexternal 0 HRESULT (CoQuery (in GUID) (out IUnknown**)))
-(coexternal 0 ULONG (CoQueryNoValidate (in GUID) (out IUnknown**)))
+(coexternal 0 ULONG (CoQueryNoValidate (in GUID*) (out IUnknown**)))
 (coexternal 1 ULONG (CoAddRef))
 (coexternal 2 ULONG (CoRelease))
 
@@ -686,11 +730,21 @@
   (cointerface "1CF2B120-547D-101B-8E65-08002B2BD119"))
 
 
-(coexternal 3 HRESULT (IErrorInfo$GetGUID (OUT GUID*)))
-(coexternal 4 HRESULT (IErrorInfo$GetSource (OUT BSTR*)))
-(coexternal 5 HRESULT (IErrorInfo$GetDescription (OUT BSTR*)))
-(coexternal 6 HRESULT (IErrorInfo$GetHelpFile (OUT BSTR*)))
-(coexternal 7 HRESULT (IErrorInfo$GetHelpContext (OUT DWORD*)))
+(coexternal 3 ULONG (IErrorInfo$GetGUID (out GUID*)))
+(coexternal 4 ULONG (IErrorInfo$GetSource (out BSTR*)))
+(coexternal 5 ULONG (IErrorInfo$GetDescription (out BSTR*)))
+(coexternal 6 ULONG (IErrorInfo$GetHelpFile (out BSTR*)))
+(coexternal 7 ULONG (IErrorInfo$GetHelpContext (out DWORD*)))
+
+
+(definition (GetErrorInfo)
+  (let* ((ptr (IUnknown**-make))
+         (result ((c-function (IUnknown**) HRESULT
+                    "___result = GetErrorInfo(0,(IErrorInfo**)___arg1);")
+                  ptr)))
+    (if (= result S_OK)
+        (IUnknown*-deref ptr)
+      #f)))
 
 
 ;;;
@@ -702,4 +756,4 @@
   (cointerface "DF0B3D60-548F-101B-8E65-08002B2BD119"))
   
   
-(coexternal 3 HRESULT (ISupportErrorInfo$InterfaceSupportsErrorInfo (IN GUID*))))
+(coexternal 3 ULONG (ISupportErrorInfo$InterfaceSupportsErrorInfo (in GUID*))))

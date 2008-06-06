@@ -2204,8 +2204,9 @@
 
 
 ;; (coexternal 22 VT_HRESULT (OpenDatabase (in VT_BSTR) (in VT_VARIANT) (in VT_VARIANT) (in VT_VARIANT) (out VT_PTR VT_UNKNOWN)))
-(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature)
+(define (jazz.expand-coexternal walker resume declaration environment offset result-type signature . rest)
   (let* ((name (car signature))
+         (refiid (if (%%null? rest) #f (%%car rest)))
          (resolve-declaration (lambda (type) (if (symbol? type)
                                                  (jazz.resolve-c-type-reference walker resume declaration environment type)
                                                (jazz.walk-error walker resume declaration "Illegal parameter type in coexternal {s}: {s}" name type)))))
@@ -2217,7 +2218,7 @@
         (if (jazz.every? (lambda (resolved) (%%class-is? resolved jazz.C-Type-Declaration)) (cons resolved-result resolved-params))
             `(begin
                (definition ,lowlevel-name ,(jazz.emit-com-function offset resolved-result resolved-params))
-               (definition ,name ,(jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions))))))))
+               (definition ,name ,(jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions refiid))))))))
 
 
 (define (jazz.emit-com-function offset resolved-result resolved-params)
@@ -2250,7 +2251,7 @@
                   ");}")))
 
 
-(define (jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions)
+(define (jazz.emit-coexternal hresult? lowlevel-name resolved-params resolved-directions refiid)
   (define (generate-in resolved-param resolved-direction order)
     (if (eq? resolved-direction 'out)
         #f
@@ -2301,7 +2302,9 @@
                  ;;(jazz.debug ',lowlevel-name coptr ,@(generate-cotype-transform generate-low))
                  (let ((result (,lowlevel-name coptr ,@(generate-cotype-transform generate-low))))
                    ,(if hresult?
-                        '(validate-hresult result)
+                        (if refiid
+                            `(validate-hresult2 result coptr ,refiid)
+                          `(validate-hresult result))
                       '(begin))
                    (let (,@(generate-cotype-transform generate-ref))
                      (begin

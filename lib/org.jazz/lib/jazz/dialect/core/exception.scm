@@ -93,38 +93,29 @@
 
 
 ;;;
-;;;; Propagatable
+;;;; Filter
 ;;;
 
 
-(define (jazz.with-propagatable-exception-catcher handler thunk)
-  ;; Calls "thunk" and returns whatever "thunk" returns, unless
-  ;; it raises an exception. In that case the handler is called
-  ;; with 3 arguments:
+(define (jazz.with-exception-filter handler thunk)
+  ;; Calls thunk and returns whatever thunk returns, unless
+  ;; it raises an exception. In that case handler is called
+  ;; with 2 arguments:
   ;; 1 - the exception that was raised
-  ;; 2 - the propagate procedure
-  ;; 3 - the debug procedure
-  (##continuation-capture
-    (lambda (catcher-cont)
+  ;; 2 - the propagation procedure
+  (%%continuation-capture
+    (lambda (filter-cont)
       (with-exception-handler
         (lambda (exc)
-          (##continuation-capture
+          (%%continuation-capture
             (lambda (raise-cont)
-              (##continuation-graft
-                catcher-cont
+              (%%continuation-graft
+                filter-cont
                 (lambda ()
                   (handler exc
                            (lambda ()
-                             (let ((eh (current-exception-handler)))
-                               (##continuation-graft
+                             (let ((handler (current-exception-handler)))
+                               (%%continuation-graft
                                  raise-cont
-                                 (lambda () (eh exc)))))
-                           (lambda ()
-                             (##display-exception-in-context
-                               exc
-                               raise-cont
-                               (repl-output-port))
-                             (##continuation-graft
-                               raise-cont
-                               ##repl))))))))
+                                 (lambda () (handler exc)))))))))))
         thunk)))))

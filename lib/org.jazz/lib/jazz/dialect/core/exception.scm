@@ -41,15 +41,19 @@
 
 
 ;;;
-;;;; Debugger
+;;;; Hook
 ;;;
 
 
-(define (jazz.get-exception-debugger)
+(define (jazz.get-exception-hook)
   ##primordial-exception-handler-hook)
 
-(define (jazz.set-exception-debugger hook)
+(define (jazz.set-exception-hook hook)
   (set! ##primordial-exception-handler-hook hook))
+
+
+(define (jazz.invoke-exception-hook hook exc)
+  (hook exc ##thread-end-with-uncaught-exception!))
 
 
 ;;;
@@ -57,17 +61,9 @@
 ;;;
 
 
-(define (jazz.system-exception-debugger exc)
+(define (jazz.system-exception-hook exc other)
   (jazz.setup-terminal)
-  (##repl-exception-handler-hook exc))
-
-(define (jazz.system-exception-handler exc)
-  (jazz.setup-terminal)
-  (##repl-exception-handler-hook exc ##thread-end-with-uncaught-exception!))
-
-(define (jazz.with-system-exception-handler thunk)
-  (jazz.with-exception-handler jazz.system-exception-handler
-    thunk))
+  (##repl-exception-handler-hook exc other))
 
 
 ;;;

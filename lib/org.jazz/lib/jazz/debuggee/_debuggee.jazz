@@ -82,7 +82,8 @@
   (setup-local-process)
   (setup-console-ports)
   (attach-process~ controller-debugger local-process)
-  (set-exception-debugger jazz-exception-debugger))
+  (set-exception-debugger jazz-exception-debugger)
+  (set-exception-hook exception-debugger-hook))
 
 
 (definition public (detach-from-controller)
@@ -173,15 +174,11 @@
 ;;;
 
 
-(definition (jazz-exception-debugger exc other)
-  (jazz-exception-handler exc))
-
-
-(definition (jazz-exception-handler exc)
+(definition (jazz-exception-debugger exc)
   (let ((debugger (get-controller-debugger)))
     (if (or (not debugger) (not (jazz-debugger?)))
-        (system-exception-handler exc)
-      (with-system-exception-handler
+        (invoke-exception-hook system-exception-hook exc)
+      (with-system-exception-debugger
         (function ()
           (continuation-capture
             (function (continuation)
@@ -189,8 +186,8 @@
                 (invoke-debugger 'exception reason continuation)))))))))
 
 
-(definition (with-jazz-exception-handler thunk)
-  (with-exception-handler jazz-exception-handler
+(definition (with-jazz-exception-debugger thunk)
+  (with-exception-debugger jazz-exception-debugger
     thunk))
 
 

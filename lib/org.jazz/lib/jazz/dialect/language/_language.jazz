@@ -796,8 +796,40 @@
 ;;;
 
 
-(definition exceptions-catched
-  (make-parameter '()))
+(definition (exception-debugger-hook exc other)
+  (let ((exception-debugger (either (current-exception-debugger) *exception-debugger*)))
+    (if exception-debugger
+        (exception-debugger exc)
+      (system-exception-hook exc other))))
+
+
+(definition *exception-debugger*
+  {})
+
+
+(definition (get-exception-debugger)
+  *exception-debugger*)
+
+(definition (set-exception-debugger exception-debugger)
+  (set! *exception-debugger* exception-debugger))
+
+
+(definition current-exception-debugger
+  (make-parameter {}))
+
+
+(definition (with-exception-debugger exception-debugger thunk)
+  (parameterize ((current-exception-debugger exception-debugger))
+    (thunk)))
+
+
+(definition (system-exception-debugger exc)
+  (invoke-exception-hook system-exception-hook exc))
+
+
+(definition (with-system-exception-debugger thunk)
+  (with-exception-debugger system-exception-debugger
+    thunk))
 
 
 (class Exception extends Object
@@ -953,29 +985,24 @@
 (class Stop-Signal extends Signal)
 
 
-@new-buggy-the-is?-can-receive-objects-that-are-not-valid-jazz-objects
-(definition (call-with-catch type handler thunk)
-  (continuation-capture
-    (function (cont)
-      (parameterize ((exceptions-catched (cons (cons type (cons handler cont)) (exceptions-catched))))
-        (thunk)))))
-
-
 (definition (call-with-catch type handler thunk)
   (with-exception-filter
     (function (exception)
-      (is? exception type))
+      ;; we have to be carefull as we can potentially receive system exceptions
+      (and (object? exception)
+           (is? exception type)))
     handler
     thunk))
 
 
+;; convert to restarts
 (definition public (find-catch exception)
-  (associate exception (exceptions-catched)
-    test: is?))
+  {})
 
 
+;; convert to restarts
 (definition public inline (catched? exception)
-  (boolean (find-catch exception)))
+  #f)
 
 
 ;;;
@@ -985,16 +1012,6 @@
 
 (definition public (throw exception)
   (raise exception))
-
-
-@new
-(definition public (throw exception)
-  (let ((catch (find-catch exception)))
-    (if catch
-        (let ((handler (cadr catch))
-              (cont (cddr catch)))
-          (continuation-return cont (handler exception)))
-      (error "No catch found for {s}" exception))))
 
 
 (definition public inline (throw-toplevel)
@@ -4509,14 +4526,16 @@
 
 (definition public (make-pristine-thread thunk . rest)
   (apply make-thread
-         (lambda ()
+         (function ()
            (continuation-graft pristine-thread-continuation
              thunk))
          rest))
 
 
-(definition public (new-thread . rest)
-  (apply make-pristine-thread rest))
+(definition public (new-thread thunk . rest)
+  (apply make-pristine-thread
+         thunk
+         rest))
 
 
 (definition public (top-threads)

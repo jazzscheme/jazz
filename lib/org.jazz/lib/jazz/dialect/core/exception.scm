@@ -97,20 +97,52 @@
 ;;;
 
 
-(define (jazz.with-exception-filter handler thunk)
+(define (jazz.with-exception-filter filter catcher thunk)
+  (let ((previous-handler (current-exception-handler)))
+    (%%continuation-capture
+      (lambda (catcher-cont)
+        (with-exception-handler
+          (lambda (exc)
+            (if (with-exception-handler
+                  (lambda (filter-exc)
+                    (%%continuation-graft catcher-cont
+                      (lambda ()
+                        (previous-handler filter-exc))))
+                  (lambda ()
+                    (filter exc)))
+                (%%continuation-graft catcher-cont
+                  (lambda ()
+                    (catcher exc)))
+              (previous-handler exc)))
+          thunk)))))
+
+
+;;;
+;;;; Propagater
+;;;
+
+
+(define (jazz.with-exception-propagater handler thunk)
   ;; Calls thunk and returns whatever thunk returns, unless
   ;; it raises an exception. In that case handler is called
   ;; with 2 arguments:
   ;; 1 - the exception that was raised
   ;; 2 - the propagation procedure
+  ;; Note that the implementation will execute the handler
+  ;; in the initial continuation in case the handler itself
+  ;; generates an exception. If the propagation is not called
+  ;; it will 'rewind to the future' before invoking the current
+  ;; exception handler. This means that this mecanism can only
+  ;; be used with purely functional code or with code that
+  ;; properly obeys the dynamic wind / unwind laws.
   (%%continuation-capture
-    (lambda (filter-cont)
+    (lambda (catcher-cont)
       (with-exception-handler
         (lambda (exc)
           (%%continuation-capture
             (lambda (raise-cont)
               (%%continuation-graft
-                filter-cont
+                catcher-cont
                 (lambda ()
                   (handler exc
                            (lambda ()

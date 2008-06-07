@@ -953,6 +953,7 @@
 (class Stop-Signal extends Signal)
 
 
+@new-buggy-the-is?-can-receive-objects-that-are-not-valid-jazz-objects
 (definition (call-with-catch type handler thunk)
   (continuation-capture
     (function (cont)
@@ -960,16 +961,12 @@
         (thunk)))))
 
 
-@new-buggy-the-is?-can-receive-objects-that-are-not-valid-jazz-objects
 (definition (call-with-catch type handler thunk)
-  (continuation-capture
-    (function (cont)
-      (with-exception-filter
-        (function (exception propagate)
-          (if (is? exception type)
-              (continuation-return cont (handler exception))
-            (propagate)))
-        thunk))))
+  (with-exception-filter
+    (function (exception)
+      (is? exception type))
+    handler
+    thunk))
 
 
 (definition public (find-catch exception)
@@ -986,11 +983,11 @@
 ;;;
 
 
-@new
 (definition public (throw exception)
   (raise exception))
 
 
+@new
 (definition public (throw exception)
   (let ((catch (find-catch exception)))
     (if catch
@@ -1013,6 +1010,51 @@
 
 
 (definition signal throw)
+
+
+;;;
+;;;; Restart
+;;;
+
+
+(class Restart extends Object
+  
+  
+  (slot message getter generate)
+  (slot handler getter generate)
+  
+  
+  (method (initialize message handler)
+    (nextmethod)
+    (set! message~self message)
+    (set! handler~self handler)))
+
+
+(definition current-restarts
+  (make-parameter '()))
+
+
+(definition (make-restart message handler))
+
+
+(definition (with-restart-handler message handler thunk)
+  (parameterize ((current-restarts (cons (new Restart message handler) (current-restarts))))
+    (thunk)))
+
+
+(definition (with-restart-catcher message catcher thunk)
+  (continuation-capture
+    (function (catcher-cont)
+      (with-restart-handler message
+        (function ()
+          (continuation-return catcher-cont
+            (catcher)))
+        thunk))))
+
+
+(definition (invoke-restart restart)
+  (let ((handler (get-handler~ restart)))
+    (handler)))
 
 
 ;;;

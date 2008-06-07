@@ -78,12 +78,12 @@
                  (function () ,@protection)))
 
 
-;; @macro (catch X (f)) @expansion (call-with-catch X (lambda (x) x) (lambda () (f)))
+;; @macro (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
 ;; @macro (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
 (syntax (catch type . body)
   (cond ((symbol? type)
-         `(call-with-catch ,type (lambda (x) x)
+         `(call-with-catch ,type (lambda (exc) exc)
             (lambda ()
               ,@body)))
         ((pair? type)
@@ -91,7 +91,7 @@
             (lambda ()
               ,@body)))
         (else
-         (error "Ill-formed type in catch, {t}" type))))
+         (error "Ill-formed type in catch: {t}" type))))
 
 
 (syntax (~ name object)

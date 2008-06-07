@@ -165,6 +165,7 @@
 (native jazz.with-exception-handler)
 (native jazz.with-exception-catcher)
 (native jazz.with-exception-filter)
+(native jazz.with-exception-propagater)
 (native jazz.with-system-exception-handler)
 (native jazz.dump-exception)
 (native jazz.raise)

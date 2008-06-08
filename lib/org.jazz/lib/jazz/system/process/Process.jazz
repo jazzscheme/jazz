@@ -429,18 +429,19 @@
   (method public virtual (run-loop)
     (with-restart-catcher 'exit-process "Exit Process" {}
       (function ()
-        (catch Toplevel-Signal
-          (catch Cancel-Signal
-            (continuation-capture
-              (lambda (cont)
-                (with-repl-context cont
-                  (lambda ()
-                    (start-loop))))))))))
+        (catch Cancel-Signal
+          (continuation-capture
+            (lambda (cont)
+              (with-repl-context cont
+                (lambda ()
+                  (start-loop)))))))))
   
   
   (method public (resume-loop)
-    (resume-loop-action)
-    (throw-stop))
+    (let ((restart (find-restart 'resume-loop)))
+      (when restart
+        (resume-loop-action)
+        (invoke-restart restart))))
   
   
   (method public virtual (resume-loop-action)
@@ -840,6 +841,7 @@
   
   
   (method public (stop-debugging)
+    @old
     (throw-stop))
   
   

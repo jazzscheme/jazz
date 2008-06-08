@@ -114,17 +114,20 @@
   
   
   (method (with-error-reporting request thunk)
-    (with-exception-catcher
-      (function (exc)
-        (display (exception-reason exc))
-        (pretty-print (execution-stack depth: 5 variables?: #t))
-        (let ((html '(<html>
-                       (<head>
-                         (<title> "Error"))
-                       (<body>
-                         (<h3> "Error")))))
-          (request-response request html code: 'server-error)))
-      thunk)
+    (continuation-capture
+      (function (return)
+        (with-exception-handler
+          (function (exc)
+            (display (exception-reason exc))
+            (pretty-print (execution-stack depth: 5 variables?: #t))
+            (let ((html '(<html>
+                           (<head>
+                             (<title> "Error"))
+                           (<body>
+                             (<h3> "Error")))))
+              (request-response request html code: 'server-error))
+            (return))
+          thunk)))
     @convert
     (let ((html {}))
       (call-with-catch Exception

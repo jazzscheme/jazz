@@ -204,7 +204,8 @@
 
 (definition (invoke-debugger kind reason continuation)
   (let* ((thread (current-thread))
-         (stop (new Debuggee-Stop thread kind reason continuation)))
+         (restarts (compute-restarts thread))
+         (stop (new Debuggee-Stop thread kind reason continuation restarts)))
     (dynamic-wind
       (function ()
         (register-stop stop))
@@ -218,6 +219,17 @@
             (debuggee-loop~ process stop))))
       (function ()
         (unregister-stop stop)))))
+
+
+(definition (compute-restarts thread)
+  (let ((previous-stops (get-thread-stops thread))
+        (all-restarts (current-restarts)))
+    (map (function (restart)
+           (new Debuggee-Restart-Local-Proxy (new Debuggee-Restart thread restart)))
+         (if (null? previous-stops)
+             all-restarts
+           (let ((skip (apply max (map (function (stop) (length (get-restarts~ stop))) previous-stops))))
+             (subseq all-restarts 0 (- (length all-restarts) skip)))))))
 
 
 (definition (debuggee-loop stop)

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Status Break Listener
+;;;; Debugged Restart
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,47 +35,33 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.view.Status-Break-Listener jazz
+(library jazz.debugger.debugged.Debugged-Restart jazz
 
 
-(import (jazz.library)
-        (jazz.literals)
-        (jazz.ui)
-        (jazz.utilities))
+(import (jazz.debugger))
 
 
-(class Status-Break-Listener extends Object
-    
-  
-  (constant Break-Color {Color name: Orange})
-  (constant Error-Color {Color red: 225 green: 30 blue: 30})
-
-
-  (method (initialize)
-    (nextmethod)
-    (let ((listener (new Event-Handler target: self method-name: 'on-level-change)))
-      (add-level-change-listener~ (get-loop~ (get-application)) listener)))
-
-
-  (method (destroy)
-    (remove-level-change-listener~ (get-loop~ (get-application)) self)
-    (nextmethod))
-
-
-  (method (on-level-change evt)
-    (let* ((loop (get-sender~ evt))
-           (level (get-level~ loop))
-           (type  (get-type~ loop))
-           (status (get-status-bar~ (get-application))))
-      (when status
-        (for-each (function (child)
-                    (set-background~ child (break-color level type)))
-                  (get-children~ status)))))
+(class Debugged-Restart extends Debugged
   
   
-  (method (break-color level type)
-    (if (= level 0)
-        {Color name: Medium}
-      (case type
-        ((break) Break-Color)
-        (else Error-Color))))))
+  ;;;
+  ;;;; Equality
+  ;;;
+  
+  
+  (method (same? debugged)
+    (and (is? debugged Debugged-Restart)
+         (restart=?~ debugger reference (get-reference~ debugged))))
+  
+  
+  ;;;
+  ;;;; Delegation
+  ;;;
+  
+  
+  (method public (get-name)
+    (restart-name~ debugger reference))
+  
+  
+  (method public (get-message)
+    (restart-message~ debugger reference))))

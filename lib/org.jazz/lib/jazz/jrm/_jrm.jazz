@@ -223,17 +223,19 @@
 (definition (execute-remote method-name proxy-ior arguments)
   (if *debug-locally?*
       (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))
-    (with-exception-catcher
-      (function (exc)
-        (continuation-capture
-          (function (cont)
-            (when *debug?*
-              (terminal '***remoting*** 'exception)
-              (display-exception exc)
-              (display-continuation-backtrace cont))
-            (list (exception-reason exc) #f))))
-      (function ()
-        (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))))))
+    (continuation-capture
+      (function (return)
+        (with-exception-handler
+          (function (exc)
+            (continuation-capture
+              (function (cont)
+                (when *debug?*
+                  (terminal '***remoting*** 'exception)
+                  (display-exception exc)
+                  (display-continuation-backtrace cont))
+                (return (list (exception-reason exc) #f)))))
+          (function ()
+            (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))))))))
 
 
 (definition (dispatch-remote method-name proxy-ior arguments)

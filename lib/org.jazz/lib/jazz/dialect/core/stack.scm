@@ -48,10 +48,6 @@
     (include "~~/lib/_gambit#.scm")
     
     
-    (define (jazz.continuation-capture proc)
-      (##continuation-capture proc))
-    
-    
     (define (jazz.get-continuation-stack cont depth)
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)

@@ -144,10 +144,12 @@
     (thread-start! thread)
     (unwind-protect
         (let (loop)
-          (let ((thunk (thread-receive)))
-            (with-jazz-exception-debugger
-              thunk)
-            (loop)))
+          (with-restart-catcher 'resume-loop "Resume event loop" {}
+            (function ()
+              (let ((thunk (thread-receive)))
+                (with-jazz-exception-debugger
+                  thunk))))
+          (loop))
       (thread-specific-set! thread #f))))
 
 

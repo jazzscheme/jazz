@@ -58,31 +58,14 @@
 (class Process extends Object
 
 
-  (slot loop                 initialize {})
-  (slot loop-running?        initialize #f)
-  (slot loop-exit            initialize {})
-  (slot router-server        initialize {})
   (slot preferences-root     initialize {})
   (slot preferences-designer initialize {})
   (slot context              initialize {})
-  (slot logger               initialize {})
 
   
   ;;;
   ;;;; Access
   ;;;
-
-
-  (method public (get-loop)
-    loop)
-  
-  
-  (method public (get-loop-running?)
-    loop-running?)
-  
-  
-  (method public (set-loop-running? flag)
-    (set! loop-running? flag))
   
   
   (method public (get-preferences-root)
@@ -191,7 +174,6 @@
   (method (finalize-phase rest)
     (finalize-environment rest)
     (start-servers)
-    (setup-loop)
     (finalize-process rest)
     (setup-profile rest))
 
@@ -273,9 +255,9 @@
     (focus-exit)
     (preserve-environment)
     (close-environment)
-    (let ((signal (new Exit-Signal status: status)))
-      (if (catched? signal)
-          (throw signal)
+    (let ((restart (find-restart 'exit-process)))
+      (if restart
+          (invoke-restart restart status)
         (exit status))))
 
   ;;;
@@ -444,15 +426,16 @@
   ;;;
   
   
-  (method (setup-loop)
-    (set! loop (new Toplevel-Loop)))
-  
-  
   (method public virtual (run-loop)
-    (continuation-capture
-      (function (exit)
-        (set! loop-exit exit)
-        (toplevel-loop~ loop))))
+    (with-restart-catcher 'exit-process "Exit Process" {}
+      (function ()
+        (catch Toplevel-Signal
+          (catch Cancel-Signal
+            (continuation-capture
+              (lambda (cont)
+                (with-repl-context cont
+                  (lambda ()
+                    (start-loop))))))))))
   
   
   (method public (resume-loop)
@@ -462,24 +445,12 @@
   
   (method public virtual (resume-loop-action)
     )
-  
-  
-  (method public (call-start-loop)
-    (set-loop-running? #t)
-    (start-loop))
 
 
   (method public virtual (start-loop)
-    (while #t
-      (relinquish-process)))
-  
-  
-  (method public (stop-loop)
-    (if (not loop-exit)
-        (error "Loop is not running")
-      (let ((exit loop-exit))
-        (set! loop-exit #f)
-        (continuation-return exit))))
+    (let (loop)
+      (relinquish-process)
+      (loop)))
 
 
   ;;;
@@ -590,33 +561,6 @@
   
   (method protected virtual (register-base-objects)
     )
-
-
-  ;;;
-  ;;;; Router Server
-  ;;;
-  
-  
-  (method public (get-router-server)
-    (when (and router-server (not (live?~ router-server)))
-      (set! router-server {}))
-    (unless router-server
-      (set! router-server (locate-router-server)))
-    router-server)
-  
-  
-  (method (locate-router-server)
-    (let ((server (unmarshall {IOR {Host name: "localhost"} router-remoting-server Router-Server-Remotable () ()})))
-      (when (not (live?~ server))
-        (unless (launch-router-server interpreted?: #t)
-          (error "Unable to launch router process")))
-      server))
-  
-  
-  (method (launch-router-server (interpreted?: interpreted? #f))
-    (if (not interpreted?)
-        (unimplemented 'launch-router-server)
-      (launch-process app: "Router" homedir: "Products/org.jazz.opt/Products/Router/Distribution" wait-ready: "JAZZ.ROUTER")))
   
   
   ;;;
@@ -754,6 +698,7 @@
   
   
   (method (process-exception exception frame accountable)
+    @old-stuff (
     (exception-reported)
     (log-execution-context exception)
     (cond ((not loop-running?)
@@ -762,7 +707,7 @@
            (exit-process))
           (else
            (log-exception exception)
-           (report-exception exception frame accountable))))
+           (report-exception exception frame accountable)))))
   
   
   (method protected virtual (exception-reported)

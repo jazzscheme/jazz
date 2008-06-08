@@ -49,15 +49,17 @@
   (slot kind         accessors generate)
   (slot reason       accessors generate)
   (slot continuation accessors generate)
+  (slot restarts     accessors generate)
   (slot stack        accessors generate)
   
   
-  (method (initialize thread kind reason continuation)
+  (method (initialize thread kind reason continuation restarts)
     (nextmethod)
     (set! thread~self thread)
     (set! kind~self kind)
     (set! reason~self reason)
     (set! continuation~self continuation)
+    (set! restarts~self restarts)
     (set! stack~self (skip-system-frames (get-continuation-stack continuation #f))))
   
   
@@ -66,18 +68,25 @@
     (cdr stack))
   
   
+  (method public (get-id)
+    (object->serial self))
+  
+  
   ;;;
-  ;;;; Stack
+  ;;;; Frames
   ;;;
   
   
   (method public (get-frames)
-    (map get-frame-state stack))
+    (map (function (id frame)
+           (get-frame-state id frame))
+         (naturals 0 (length stack))
+         stack))
   
   
-  (definition (get-frame-state frame)
+  (definition (get-frame-state id frame)
     (bind (name environment variables location) frame
-      (let ((frame (new Debuggee-Frame name location (map get-variable-state variables))))
+      (let ((frame (new Debuggee-Frame id name location (map get-variable-state variables))))
         (new Debuggee-Frame-Local-Proxy frame))))
   
   

@@ -53,6 +53,10 @@
     (set! process~self process))
   
   
+  (method public (get-id)
+    (object->serial process))
+  
+  
   (method public (get-name)
     ;; temp quicky
     (if (not process)
@@ -118,18 +122,22 @@
   
   
   ;;;
-  ;;;; Stop
+  ;;;; Restart
   ;;;
   
   
-  (method (restart-stop stop-proxy)
-    (let ((thread (get-thread~ (get-object~ stop-proxy))))
-      (thread-send thread
-        (function ()
-          (let ((signal (new Stop-Signal)))
-            (if (catched? signal)
-                (throw signal)
-              (thread-exit)))))))
+  (method (restart-stop restart-proxy)
+    (let ((debuggee-restart (get-object~ restart-proxy)))
+      (let ((thread (get-thread~ debuggee-restart))
+            (restart (get-restart~ debuggee-restart)))
+        (thread-send thread
+          (function ()
+            (invoke-restart restart))))))
+  
+  
+  ;;;
+  ;;;; Stop
+  ;;;
   
   
   (method (continue-stop stop-proxy)

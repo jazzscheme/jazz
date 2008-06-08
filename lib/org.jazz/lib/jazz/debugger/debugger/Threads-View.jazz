@@ -68,7 +68,7 @@
         (<Push-Tool>          name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
         (<Push-Tool>          name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Run"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
         (<Separator>                           size: {Dimension 5 0})
-        (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information?" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-detailed})
+        (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-detailed})
         (<Separator>                           size: {Dimension 2 0})
         (<Push-Tool>          name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
       (<Scroller-View>        name: scroller   location: center vscroll?: #t flat?: #t
@@ -116,14 +116,7 @@
 
   (method (install rest)
     (nextmethod rest)
-    (let ((listener (new Event-Handler target: self method-name: 'on-level-change)))
-      (add-level-change-listener~ (get-loop~ (get-application)) listener))
     (update))
-
-
-  (method (destroy)
-    (remove-level-change-listener~ (get-loop~ (get-application)) self)
-    (nextmethod))
 
   
   ;;;
@@ -178,14 +171,6 @@
     (stop-change))
   
   
-  (method (on-restart evt)
-    (let* ((stop (selected-stop))
-           (thread (selected-thread)))
-      (with-thread-refresh thread
-        (function ()
-          (restart-stop~ process (get-reference~ stop))))))
-  
-  
   (method (on-break evt)
     (let ((thread (selected-thread)))
       (with-thread-refresh thread
@@ -227,6 +212,13 @@
       (let ((thread-proxy (get-reference~ thread)))
         (and (is? thread-proxy Debuggee-Thread-Local-Proxy)
              (eq? (get-thread~ (get-object~ thread-proxy)) event-thread)))))
+  
+  
+  (method (restart-stop restart)
+    (let ((thread (selected-thread)))
+      (with-thread-refresh thread
+        (function ()
+          (restart-stop~ process restart)))))
 
   
   ;;;
@@ -238,7 +230,8 @@
     (with-preserved-selection~ tree
       thunk
       use: 'data
-      test: debugged=?))
+      test: debugged=?
+      generate-event?: #t))
 
 
   (method protected (update)
@@ -259,6 +252,11 @@
       (map (function (object)
              (new Debugged-Thread debugger object))
            threads))
+    
+    (define (debugged-restarts debugger restarts)
+      (map (function (object)
+             (new Debugged-Restart debugger object))
+           restarts))
     
     (define (debugged-stops debugger stops)
       (map (function (object)
@@ -306,7 +304,7 @@
                       (for-each (function (stop)
                                   (let ((title (stop-title stop))
                                         (image (stop-image stop)))
-                                    (add-row~ tree father: thread-row state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                    (add-row~ tree father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: stop)))
                                 (debugged-stops debugger (get-stops~ thread)))))
                   (debugged-threads debugger (get-threads~ process))))))
 
@@ -351,7 +349,17 @@
         (let ((object (get-user-data~ row)))
           (typecase object
             ((Debugged-Thread) object)
+            ((Debugged-Restart) (get-user-data~ (get-father~ row)))
             ((Debugged-Stop) (get-user-data~ (get-father~ row)))
+            (else {}))))))
+  
+  
+  (method public (selected-restart)
+    (let ((row (selected-row)))
+      (when row
+        (let ((object (get-user-data~ row)))
+          (typecase object
+            ((Debugged-Restart) object)
             (else {}))))))
   
   
@@ -384,9 +392,22 @@
   
   (method (new-context-menu object)
     (typecase object
-      @waiting-as-the-only-item-is-not-implemented-atm
-      ((Debuggee-Thread-Remotable) (new Thread-Menu))
-      (else {}))))
+      ((Debugged-Thread) (new Thread-Menu))
+      ((Debugged-Stop) (new-stop-menu object))
+      (else {})))
+  
+  
+  (method (new-stop-menu stop)
+    (let ((menu (new Stop-Menu)))
+      (for-each (function (restart)
+                  (let ((title (get-message~ restart))
+                        (icon {Bitmap-Resource "Export"}))
+                    (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (function (event) (restart-stop restart))))))
+                (reverse (get-restarts~ stop)))
+      (new Separator-Item parent: menu)
+      (new Label-Item parent: menu title: "&Continue" icon: {Bitmap-Resource "Run"} action-handler: {Event-Handler :form on-continue})
+      (layout-menu~ menu)
+      menu)))
 
 
 ;;;
@@ -419,4 +440,16 @@
   
   
   (method (on-break evt)
+    ))
+
+
+;;;
+;;;; Stop-Menu
+;;;
+
+
+(class Stop-Menu extends Context-Menu
+  
+  
+  (method (on-continue evt)
     )))

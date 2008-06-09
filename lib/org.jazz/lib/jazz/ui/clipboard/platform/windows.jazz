@@ -47,10 +47,10 @@
 ;;;
 
 
-(definition public (get-clipboard-text)
+(definition public (get-clipboard-text (format: format CF_UNICODETEXT))
   (with-opened-clipboard
     (function ()
-      (let ((u8vect (GetClipboardText)))
+      (let ((u8vect (GetClipboardText (get-clipboard-format format))))
         (if (not (u8vector? u8vect))
             #f
           (call-with-input-u8vector (list init: u8vect char-encoding: 'UCS-2 eol-encoding: 'cr-lf)
@@ -58,13 +58,13 @@
               (read-line input #f))))))))
 
 
-(definition public (set-clipboard-text text)
+(definition public (set-clipboard-text text (format: format CF_UNICODETEXT))
   (with-opened-clipboard
     (function ()
       (let ((output (open-output-u8vector (list char-encoding: 'UCS-2 eol-encoding: 'cr-lf))))
         (display text output)
         (let ((u8vect (get-output-u8vector output)))
-          (SetClipboardText u8vect))))
+          (SetClipboardText u8vect (get-clipboard-format format)))))
     empty?: #t))
 
 
@@ -122,12 +122,15 @@
     (table-set! Formats name id)))
 
 
-(definition public (clipboard-format-available? format)
-  (define (get-format format)
+(definition (get-clipboard-format format)
+  (if (integer? format)
+      format
     (either (table-ref Formats format #f)
-            (error "Unknown clipboard format: {t}" format)))
-  
-  (member? (get-format format) (available-clipboard-formats)))
+            (error "Unknown clipboard format: {t}" format))))
+
+
+(definition public (clipboard-format-available? format)
+  (member? (get-clipboard-format format) (available-clipboard-formats)))
 
 
 (definition public (available-clipboard-formats)

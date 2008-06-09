@@ -39,6 +39,7 @@
 
 
 (import (jazz.catalog)
+        (jazz.io)
         (jazz.language.jazz)
         (jazz.library)
         (jazz.utilities))
@@ -47,18 +48,33 @@
 (class Jazz-Code-Location extends Code-Location
 
 
-  (slot location)
+  (slot module-name)
+  (slot sublocation)
 
 
-  (method (initialize loc)
+  (method (initialize location)
     (nextmethod)
-    (set! location loc))
+    (setup-location location))
+  
+  
+  (method (setup-location location)
+    (let (iterate (path (split-identifier (car location)))
+                  (sub (cdr location)))
+      (if (null? path)
+          (signal (new Location-Error kind: 'unknown location: location))
+        (let ((name (apply compose-name path)))
+          (if (find-module-src name #f)
+              (begin
+                (set! module-name name)
+                (set! sublocation sub))
+            (iterate (butlast path)
+                     (cons (last path) sub)))))))
   
   
   (method (print printer readably)
     (print-unreadable self printer
       (function (printer)
-        (format printer "{s}" location))))
+        (format printer "{s} {l}" module-name sublocation))))
 
 
   (method (edit (workspace: workspace {}) (activate-focus?: activate-focus? #t) (error?: error? #t))
@@ -75,33 +91,27 @@
   
   
   (method public (find-source)
-    (bind (class-name . sublocation) location
-      (find-class-source class-name)))
+    (find-module-source module-name))
   
   
   (method public (find-location (workspace: workspace {}) (error?: error? #t))
-    (bind (class-name . sublocation) location
-      (let ((frame (find-class class-name workspace: workspace error?: error?)))
-        (when frame
-          (let* ((text  (get-guest~ frame))
-                 (range (location-range~ text sublocation toplevel-location: location)))
-            (values frame text range))))))
+    (let ((frame (find-class module-name workspace: workspace error?: error?)))
+      (when frame
+        (let* ((text  (get-guest~ frame))
+               (range (location-range~ text sublocation @convert toplevel-location: @convert location)))
+          (values frame text range)))))
   
   
-  (method (find-class class-name (workspace: workspace {}) (error?: error? #t))
+  (method (find-class module-name (workspace: workspace {}) (error?: error? #t))
     (let* ((appl (get-application))
-           (source (find-class-source class-name)))
+           (source (find-module-source module-name)))
       (either (edit-document~ appl source workspace: workspace visible?: #f)
               (when error?
-                (signal (new Location-Error kind: 'unknown location: class-name))))))
+                (signal (new Location-Error kind: 'unknown location: module-name))))))
   
   
-  (method (find-class-source class-name)
-    (let ((resource (find-module-src class-name)))
+  (method (find-module-source module-name)
+    (let ((resource (find-module-src module-name #f)))
       (if (not resource)
           {}
-        (resource-pathname resource)))
-    #f
-    @convert
-    (either (get-manifest-source class-name)
-            (get-source~ (get-profile~ (get-application)) class-name)))))
+        (anchorize~ (new File (tokenise (resource-pathname resource)))))))))

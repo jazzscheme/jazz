@@ -241,6 +241,7 @@
 (native jazz.composite-name?)
 (native jazz.compose-name)
 (native jazz.identifier-name <symbol>)
+(native jazz.split-identifier)
 
 
 ;;;

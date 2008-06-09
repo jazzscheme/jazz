@@ -69,7 +69,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu})))))))
 
   
   (method meta (external-name . rest)
@@ -137,21 +137,6 @@
           (let ((menu (new-context-menu (selected-frame))))
             (when menu
               (track-popup-menu menu acquired)))))))
-  
-  
-  (method (on-double-click evt)
-    (let ((frame (selected-frame)))
-      (if (not frame)
-          (bell)
-        (let ((name (get-name~ frame)))
-          (if (not name)
-              (bell)
-            ;; this needs an edit-definition that understands module names
-            ;; the starts-with? heuristic is a quick fix for usability
-            (if (and (starts-with? (symbol->string name) "jazz.")
-                     (not (find (symbol->string name) #\. start: 5)))
-                (edit-definition~ (get-application) name)
-              (edit-definition~ (get-application) (identifier-name name))))))))
 
 
   (method (on-select-stack evt)
@@ -223,6 +208,15 @@
 
 
   (method (edit-frame)
+    (let ((frame (selected-frame)))
+      (when frame
+        (let ((name (get-name~ frame)))
+          (if (not name)
+              (bell)
+            (let ((location (new Jazz-Code-Location (list name))))
+              (catch (Location-Error err
+                       (bell))
+                (edit~ location activate-focus?: #f)))))))
     ;; not really usefull until the jazz macros are integrated with gambit's location system
     ;; and also until gambit can keep location for compiled code
     @wait

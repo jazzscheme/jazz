@@ -789,35 +789,20 @@
   
   
   (method public (compile-moniker moniker)
+    (compile-file moniker #f)
+    @temp
     (let* ((workbench (get-workbench))
-           (product-file (find-source~ workbench moniker)))
-      (if (not product-file)
+           (project-file (find-source~ workbench moniker)))
+      (if (not project-file)
           (error "Unable to find {t} in workbench" moniker)
-        (compile-file moniker product-file))))
+        (compile-file moniker project-file))))
   
   
-  (method (compile-file moniker product-file)
-    (let ((proc
-           (function (thread)
-             (let ((product (get-product~ product-file)))
-               (prepare-maps~ product)
-               (prepare-directories~ product)
-               (user-message "Compiling {a}..." moniker)
-               (let ((output (get-output-log))
-                     (timer (new Timer)))
-                 (clear-results~ output)
-                 (select-results~ output)
-                 (select-palette Output-Log)
-                 (build~ product-file product {} {} output force?: #t)
-                 (user-message "Done in {a}" (get-duration-in-seconds~ timer)))))))
-      (proc {})
-      (unimplemented)
-      @convert-thread
-      (new Thread
-        name: "File Compiler"
-        information: file
-        context: self
-        execute: proc)))
+  (method (compile-file moniker project-file)
+    (let ((name (find-module-name (parse~ moniker))))
+      (if (not name)
+          (bell)
+        (launch-runtime~ (get-application) arguments: (list "-compile" (->string name)) show-console?: #t))))
   
   
   ;;;
@@ -878,12 +863,8 @@
     (if (is-not? product Product)
         (bell)
       (let ((name (get-name~ product)))
-        (launch-runtime~ (get-application) arguments: (list "-build" (->string name)) show-console?: #t))
-      @old
-      (let ((log? #t @wait (get-selected?~ (locate 'log?)))
-            (force-link? #f @wait (get-selected?~ (locate 'force-link?))))
-        (build~ product log?: log? force-link?: force-link?))))
-    
+        (launch-runtime~ (get-application) arguments: (list "-build" (->string name)) show-console?: #t))))
+  
   
   ;;;
   ;;;; Clean

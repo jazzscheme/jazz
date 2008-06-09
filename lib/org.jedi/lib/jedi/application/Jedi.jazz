@@ -534,14 +534,22 @@
   
   (method public (update-product-actions)
     (let ((product (get-active-product))
+          @wait
           (project-file (let ((guest (current-document)))
                           (when (and guest (is? guest Document))
                             (let ((moniker (get-moniker~ (get-controller~ guest))))
                               (when moniker
                                 (let ((workbench (get-workbench)))
-                                  (find-source~ workbench moniker))))))))
+                                  (find-source~ workbench moniker)))))))
+          ;; quicky as this should probably be a test on the above project-file
+          ;; so files from different languages can be build in their own ways
+          (module-name (let ((guest (current-document)))
+                         (when (and guest (is? guest Document))
+                           (let ((moniker (get-moniker~ (get-controller~ guest))))
+                             (when moniker
+                               (find-module-name (parse~ moniker))))))))
       (set-action-enabled? {Action jedi edit-product} product)
-      (set-action-enabled? {Action jedi compile-file} (and product project-file))
+      (set-action-enabled? {Action jedi compile-file} (and @wait product module-name @wait project-file))
       (set-action-enabled? {Action jedi build-product} product)
       (set-action-enabled? {Action jedi view-product-log} product)
       (set-action-enabled? {Action jedi run-product} product)

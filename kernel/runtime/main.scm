@@ -292,6 +292,18 @@
 
 
 ;;;
+;;;; Compile
+;;;
+
+
+(define (jazz.compile name)
+  (jazz.load-module 'core.library)
+  (jazz.load-module 'core.module.build)
+  (jazz.load-platform)
+  (jazz.compile-module name))
+
+
+;;;
 ;;;; Jazz
 ;;;
 
@@ -470,7 +482,15 @@
                    (cont (##reverse rev-options) args))))
         (cont (##reverse rev-options) args))))
   
-  (split-command-line (%%cdr (command-line)) '() '("run" "build")
+  (define (with-debug-exception-handler thunk)
+    (let ((current-handler (current-exception-handler)))
+      (with-exception-handler
+        (lambda (exc)
+          (jazz.debug-exception exc (console-port) jazz.debug-build? jazz.debug-build?)
+          (current-handler exc))
+        thunk)))
+  
+  (split-command-line (%%cdr (command-line)) '() '("run" "build" "compile")
     (lambda (options remaining)
       (define (get-option name)
         (let ((pair (%%assoc name options)))
@@ -479,19 +499,20 @@
             #f)))
       
       (let ((run (get-option "run"))
-            (build (get-option "build")))
+            (build (get-option "build"))
+            (compile (get-option "compile")))
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))
               (build
-                (let ((current-handler (current-exception-handler)))
-                  (with-exception-handler
-                    (lambda (exc)
-                      (jazz.debug-exception exc (console-port) jazz.debug-build? jazz.debug-build?)
-                      (current-handler exc))
-                    (lambda ()
-                      (jazz.build (%%string->symbol build))))))
+                (with-debug-exception-handler
+                  (lambda ()
+                    (jazz.build (%%string->symbol build)))))
+              (compile
+                (with-debug-exception-handler
+                  (lambda ()
+                    (jazz.compile (%%string->symbol compile)))))
               (else
                (jazz.repl-main #f)))))))
 

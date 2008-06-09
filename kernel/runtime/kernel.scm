@@ -511,6 +511,46 @@
               (else (jazz.error "Unable to find autoload {s} in package {s}" name module-name)))))))
 
 
+(define (jazz.find-resource pathname)
+  (let iter-repo ((repositories jazz.Repositories))
+    (if (%%null? repositories)
+        #f
+      (let iter ((packages (jazz.repository-packages (%%car repositories))))
+        (if (%%null? packages)
+            (iter-repo (%%cdr repositories))
+          (let ((package (%%car packages)))
+            (let ((package-pathname (jazz.package-pathname package "")))
+              (let ((pathname-length (%%string-length pathname))
+                    (package-length (%%string-length package-pathname)))
+                (if (and (%%fx<= package-length pathname-length)
+                         (%%string=? (%%substring pathname 0 package-length) package-pathname))
+                    (let ((extension (jazz.pathname-extension pathname))
+                          (path (%%substring pathname package-length pathname-length)))
+                      ;; remove extension
+                      (if path
+                          (set! path (%%substring path 0 (%%fx- (%%string-length path) (%%fx+ 1 (%%string-length extension))))))
+                      ;; remove redundant underscore prefixed name
+                      (let ((len (%%string-length path))
+                            (pos (jazz.string-find-reversed path #\/)))
+                        (if pos
+                            (let ((name-pos (%%fx+ pos 2)))
+                              (if (and (%%fx< name-pos len) (%%eqv? (%%string-ref path (%%fx+ pos 1)) #\_))
+                                  (let* ((name (%%substring path name-pos len))
+                                         (name-length (%%string-length name))
+                                         (previous-pos (%%fx- pos name-length)))
+                                    (if (and (%%fx>= previous-pos 0) (%%string=? (%%substring path previous-pos pos) name))
+                                        (set! path (%%substring path 0 pos))))))))
+                      (%%make-resource package path extension))
+                  (iter (%%cdr packages)))))))))))
+
+
+(define (jazz.find-module-name pathname)
+  (let ((resource (jazz.find-resource pathname)))
+    (if resource
+        (jazz.path->name (%%resource-path resource))
+      #f)))
+
+
 ;;;
 ;;;; Module
 ;;;

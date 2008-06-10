@@ -52,7 +52,7 @@
   
   
   (slot state initialize 'stopped)
-  (slot mutex initialize (make-mutex))
+  (slot mutex initialize (make-mutex 'pulse))
   
   
   (method (initialize period execute . rest)
@@ -71,6 +71,19 @@
   
   
   ;;;
+  ;;;; Lock
+  ;;;
+  
+  
+  (method public (with-lock thunk)
+    (prog1
+        (begin
+          (mutex-lock! mutex)
+          (thunk))
+      (mutex-unlock! mutex)))
+  
+  
+  ;;;
   ;;;; State
   ;;;
   
@@ -79,15 +92,15 @@
   
   
   (method (get-state)
-    (mutex-lock! mutex)
-    (prog1 state
-      (mutex-unlock! mutex)))
+    (with-lock
+      (function ()
+        state)))
   
   
   (method (set-state value)
-    (mutex-lock! mutex)
-    (set! state value)
-    (mutex-unlock! mutex))
+    (with-lock
+      (function ()
+        (set! state value))))
   
   
   ;;;

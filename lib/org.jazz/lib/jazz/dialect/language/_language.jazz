@@ -2920,12 +2920,6 @@
   
   (method (print output detail)
     (write self output))
-
-
-  (method (compare-object obj)
-    (if (equal? self obj)
-        :equal
-      :not-equal))
   
   
   (method (copy-object deep?)
@@ -2991,13 +2985,39 @@
 (class Null-Class extends List-Class)
 
 
-(class primitive Null metaclass Null-Class extends List)
+(class primitive Null metaclass Null-Class extends List
+
+
+  (method (compare-object obj)
+    (if (null? obj)
+        :equal
+      :not-equal)))
 
 
 (class Pair-Class extends List-Class)
 
 
-(class primitive Pair metaclass Pair-Class extends List)
+(class primitive Pair metaclass Pair-Class extends List
+
+
+  (method (compare-object obj)
+    (if (pair? obj)
+        (case (compare (car self) (car obj))
+          ((:less) :less)
+          ((:greater) :greater)
+          ((:equal)
+           (let ((left (cdr self))
+                 (right (cdr obj)))
+             (cond ((and (null? left) (null? right))
+                    :equal)
+                   ((null? left)
+                    :less)
+                   ((null? right)
+                    :greater)
+                   (else
+                    (compare left right)))))
+          (else :not-equal))
+      :not-equal)))
 
 
 (specialize inline (element list <list> n <int>) <any>

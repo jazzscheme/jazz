@@ -945,7 +945,7 @@
 
 
 (define jazz.Load-Mutex
-  (make-mutex 'Load-Mutex))
+  (make-mutex 'load))
 
 (define jazz.Load-Thread
   #f)

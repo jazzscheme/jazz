@@ -450,7 +450,8 @@
   (method protected (import-pathnames project pathnames parent)
     (when (validate-pathnames project pathnames)
       (for-each (function (pathname)
-                  (import-pathname project pathname parent #f))
+                  (let ((component (import-pathname project pathname parent #f)))
+                    (process-refresh~ designer component 'descendants)))
                 (sort nu<? pathnames key: (function (pathname) (get-name~ pathname))))
       (let ((count (length pathnames)))
         (user-message "{a} file{a} imported"
@@ -471,8 +472,15 @@
                (iterate-directory~ pathname
                  (function (pathname)
                    (import-pathname project pathname subgroup #t))
-                 files?: #t
+                 files?: #f
                  directories?: #t
+                 sort?: #t
+                 recursive?: #f)
+               (iterate-directory~ pathname
+                 (function (pathname)
+                   (import-pathname project pathname subgroup #t))
+                 files?: #t
+                 directories?: #f
                  sort?: #t
                  recursive?: #f)
                subgroup))))
@@ -623,6 +631,7 @@
   
   
   (method (validate-pathnames project pathnames)
+    @convert-to-checking-conflicts-with-an-understanding-of-the-module-hierarchy
     (validate
       (function (report)
         (letrec ((workbench (get-workbench))
@@ -658,10 +667,10 @@
           (let* ((count (length already-defined))
                  (max-displayed 10)
                  (too-many? (> count max-displayed))
-                 (header (format "{a} import problem{a} detected. The following category{a} {a} already defined:"
+                 (header (format "{a} import problem{a} detected. The following categor{a} {a} already defined:"
                                  count
                                  (format-plural count)
-                                 (format-plural count)
+                                 (format-y/ies count)
                                  (format-is/are count)))
                  (text
                   `(,header

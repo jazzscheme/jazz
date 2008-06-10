@@ -104,8 +104,20 @@
       (butlast (get-list~ source)))))
 
 
-(definition public (new-alias name path)
-  (table-set! (get-aliases) name path))
+(definition public (register-alias name path)
+  (define (expand-up path)
+    (let ((dir (anchorize~ (get-parent~ (new Directory (list (car path))))))
+          (sub (cddr path)))
+      (append (get-list~ dir) sub)))
+  
+  (define (process-up path)
+    (if (and (pair? path)
+             (>= (length path) 2)
+             (eq? (second path) :up))
+        (process-up (expand-up path))
+      path))
+  
+  (set-alias name (process-up path)))
 
 
 (definition public (set-alias name path)
@@ -121,8 +133,10 @@
   (let ((original object))
     (letrec ((validate
                (function (object)
-                 (cond ((not object))
-                       ((string? object))
+                 (cond ((null? object))
+                       ((string? object)
+                        (when (equal? object "..")
+                          (error "Usage of .. syntax is not permitted in jazz pathnames")))
                        ((symbol? object))
                        ((pair? object)
                         (if (pair? (car object))
@@ -388,7 +402,6 @@
   
   (method (initialize lst)
     (nextmethod)
-    @convert
     (validate-component lst)
     (set-list lst))
   
@@ -519,9 +532,7 @@
     (let ((effective-path (if (= (length path) 1) (expand) path)))
       (if (or (null? effective-path) (null? (cdr effective-path)))
           #f
-        (if (equal? (last effective-path) "..")
-            (new Directory (append effective-path (list "..")))
-          (new Directory (butlast effective-path))))))
+        (new Directory (butlast effective-path)))))
   
   
   (method public (get-brother name)

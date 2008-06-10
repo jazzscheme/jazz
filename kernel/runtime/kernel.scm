@@ -128,10 +128,6 @@
               cont)))))))
 
 
-(define (jazz.invoke-current-exception-debugger exc)
-  (##primordial-exception-handler-hook exc ##thread-end-with-uncaught-exception!))
-
-
 ;;;
 ;;;; Error
 ;;;
@@ -704,7 +700,7 @@
       (jazz.error "Unable to find registered product: {s}" name)))
 
 
-(define (jazz.load-product-definition name)
+(define (jazz.get-product name)
   (let ((module (jazz.find-product-module name)))
     (if module
         (begin
@@ -715,63 +711,36 @@
       (jazz.error "Unable to find product: {s}" name))))
 
 
-;; We do not setup the debuggee up front as it sends information when
-;; attaching itself to the debugger and we want to delay this so it can
-;; give more complete information when the product is correctly found
-(define (jazz.with-product-definition name proc)
-  (define system-handler
-    (current-exception-handler))
-  
-  (define (with-system-handler thunk)
-    (with-exception-handler system-handler
-      thunk))
-  
-  (define (product-handler exc)
-    (with-system-handler
-      (lambda ()
-        (set! jazz.product-name name)
-        (jazz.setup-debuggee)))
-    (jazz.invoke-current-exception-debugger exc))
-  
-  (define (with-product-handler thunk)
-    (with-exception-handler product-handler
-      thunk))
-  
-  (let ((product (with-product-handler
-                   (lambda ()
-                     (jazz.load-product-definition name)))))
+(define (jazz.setup-product name)
+  (set! jazz.product-name name)
+  (jazz.setup-debuggee)
+  (let ((product (jazz.get-product name)))
     (set! jazz.product-name name)
     (set! jazz.product-title (%%product-title product))
     (set! jazz.product-icon (%%product-icon product))
-    (jazz.setup-debuggee)
-    (proc product)))
+    (jazz.load-module 'jazz.debuggee.update)
+    product))
 
 
 (define (jazz.run-product name)
-  (jazz.with-product-definition name
-    (lambda (product)
-      (let ((run (%%product-run product)))
-        (if run
-            (run)
-          (jazz.error "Product is not runnable: {s}" name))))))
+  (let ((run (%%product-run (jazz.setup-product name))))
+    (if run
+        (run)
+      (jazz.error "Product is not runnable: {s}" name))))
 
 
 (define (jazz.update-product name)
-  (jazz.with-product-definition name
-    (lambda (product)
-      (let ((update (%%product-update product)))
-        (if update
-            (update)
-          (jazz.error "Product is not updateable: {s}" name))))))
+  (let ((update (%%product-update (jazz.setup-product name))))
+    (if update
+        (update)
+      (jazz.error "Product is not updateable: {s}" name))))
 
 
 (define (jazz.build-product name)
-  (jazz.with-product-definition name
-    (lambda (product)
-      (let ((build (%%product-build product)))
-        (if build
-            (build)
-          (jazz.error "Product is not buildable: {s}" name))))))
+  (let ((build (%%product-build (jazz.setup-product name))))
+    (if build
+        (build)
+      (jazz.error "Product is not buildable: {s}" name))))
 
 
 ;;;

@@ -48,10 +48,12 @@
   
   
   (slot table)
+  (slot state accessors generate)
   
   
-  (method (initialize table (values '()))
+  (method (initialize table state)
     (nextmethod)
+    (set! state~self state)
     (set! table~self table))
   
   
@@ -69,16 +71,56 @@
   ;;;
   
   
+  (method public virtual (get-values))
+  (method public virtual (get identifier))
+  
+  
   (method public (save connection (user: user {}))
-    (execute~ connection (save-statement user)))
+    (let ((statement (save-statement user)))
+      (when statement
+        (execute~ connection statement))))
   
   
   (method (save-statement user)
-    (let ((name (get-name~ table))
-          (columns (join (map (function (column) (get-name~ column)) (get-columns~ table)) ", "))
-          (values (join (map format-value values) ", "))
-          (user (if user (format "{a}." user) "")))
-      (tie "insert into {user}{name}({columns}) values ({values})")))
+    (case state
+      ((update) (update-statement user))
+      ((insert) (insert-statement user))
+      ((delete) (delete-statement user))
+      (else #f)))
+
+
+  (method (insert-statement user)
+    (let* ((columns (collect (function (column) (and (not (auto?~ column)) (format-column (get-name~ column)))) (get-columns~ table)))
+           (values (map (function (name) (format-value (get name))) columns)))
+      (let ((name (get-name~ table))
+            (columns (join columns ", "))
+            (values (join values ", "))
+            (user (if user (format "{a}." user) "")))
+        (tie "insert into {user}[{name}]({columns}) values ({values})"))))
+  
+  
+  (method (update-statement user)
+    (let* ((primary-key (get-name~ (get-primary-key~ table)))
+           (columns (collect (function (column) (let ((name (get-name~ column)))
+                                                  (and (not (auto?~ column)) (not (equal? name primary-key)) (format-column name)))) 
+                             (get-columns~ table)))
+           (values (map (function (name) (format-value (get name))) columns)))
+      (let ((name (get-name~ table))
+            (columns+values (join (map (function (column value) (string-append (get-name~ column) "=" (format-value value))) columns values) ", "))
+            (primary-value (format-value (get primary-key)))
+            (user (if user (format "{a}." user) "")))
+        (tie "update {user}[{name}] set {columns+values} where {primary-key}={primary-value}"))))
+  
+  
+  (method (delete-statement user)
+    (let* ((name (get-name~ table))
+           (primary-key (get-name~ (get-primary-key~ table)))
+           (primary-value (format-value (get primary-key))))
+      (tie "delete from [{name}] where ({primary-key}={primary-value})")))
+  
+  
+  (method (format-column name)
+    (string-append "[" name "]"))
   
   
   (method (format-value value)

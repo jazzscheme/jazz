@@ -50,8 +50,8 @@
   (slot values)
   
   
-  (method (initialize table (values '()))
-    (nextmethod table)
+  (method (initialize table state values)
+    (nextmethod table state)
     (set! values~self (either values (map (function (column) {}) (get-columns~ table)))))
   
   
@@ -66,7 +66,7 @@
   ;;;
   
   
-  (method public (get-values)
+  (method (get-values)
     values)
   
   
@@ -75,7 +75,7 @@
   ;;;
   
   
-  (method public (get name/rank)
+  (method (get name/rank)
     (cond ((integer? name/rank)
            (element values name/rank))
           ((string? name/rank)
@@ -93,15 +93,11 @@
   
   
   (method public (set name value)
-    (continuation-capture
-      (function (return)
-        (let ((columns (get-columns~ table))
-              (scan values))
-          (while (and columns scan)
-            (let ((column (car columns)))
-              (when (ci=? (get-name~ column) name)
+    (let (iterate (columns (get-columns~ table))
+                  (scan values))
+      (if (and columns scan)
+          (let ((column (car columns)))
+            (if (ci=? (get-name~ column) name)
                 (set-car! scan value)
-                (continuation-return return)))
-            (set! columns (cdr columns))
-            (set! scan (cdr scan))))))
-    (error "Unknown column: {t}" name))))
+              (iterate (cdr columns) (cdr scan))))
+        (error "Unknown column: {t}" name))))))

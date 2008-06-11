@@ -1,6 +1,7 @@
 (package org.jazz
   
   (root "lib")
+  (products (test test.product))
   (export core.base
           core.class
           core.exception

@@ -124,6 +124,7 @@
 (native jazz.log-string)
 (native jazz.log-newline)
 (native jazz.close-log)
+(native generate-proper-tail-calls)
 
 
 ;;;

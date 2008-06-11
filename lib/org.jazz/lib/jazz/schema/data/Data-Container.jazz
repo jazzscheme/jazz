@@ -41,7 +41,8 @@
 
 (import (jazz.library)
         (jazz.schema)
-        (jazz.utilities))
+        (jazz.utilities)
+        (time))
 
 
 (class Data-Container extends Object
@@ -77,11 +78,14 @@
   
   (method public (save connection (user: user {}))
     (let ((statement (save-statement user)))
-      (when statement
-        (execute~ connection statement))))
+      (debug statement)
+      (if statement
+          (execute~ connection statement)
+        #t)))
   
   
   (method (save-statement user)
+    (debug state)
     (case state
       ((update) (update-statement user))
       ((insert) (insert-statement user))
@@ -89,33 +93,35 @@
       (else #f)))
 
 
-  (method (insert-statement user)
-    (let* ((columns (collect (function (column) (and (not (auto-generate?~ column)) (format-column (get-name~ column)))) (get-columns~ table)))
+
+  (method virtual (insert-statement user)
+    (let* ((columns (collect (function (column) (essay (not (auto?~ column)) (get-name~ column))) (get-columns~ table)))
            (values (map (function (name) (format-value (get name))) columns)))
       (let ((name (get-name~ table))
-            (columns (join columns ", "))
+            (columns (join (map format-column columns) ", "))
             (values (join values ", "))
             (user (if user (format "{a}." user) "")))
         (tie "insert into {user}[{name}]({columns}) values ({values})"))))
   
   
-  (method (update-statement user)
+  (method virtual (update-statement user)
     (let* ((primary-key (get-name~ (get-primary-key~ table)))
-           (columns (collect (function (column)
+           (primary-value (format-value (get primary-key)))
+           (columns (collect (function (column) 
                                (let ((name (get-name~ column)))
-                                 (essay (not (auto-generate?~ column))
-                                        (not (equal? name primary-key))
-                                        (format-column name))))
+                                 (essay (not (auto?~ column)) 
+                                        (not (equal? name primary-key)) 
+                                        name))) 
                              (get-columns~ table)))
-           (values (map (function (name) (format-value (get name))) columns)))
+           (values (map (function (name) (get name)) columns)))
       (let ((name (get-name~ table))
-            (columns+values (join (map (function (column value) (string-append (get-name~ column) "=" (format-value value))) columns values) ", "))
-            (primary-value (format-value (get primary-key)))
+            (primary-key (format-column primary-key))
+            (columns+values (join (map (function (column value) (string-append (format-column column) "=" (format-value value))) columns values) ", "))
             (user (if user (format "{a}." user) "")))
-        (tie "update {user}[{name}] set {columns+values} where {primary-key}={primary-value}"))))
+        (tie "update {user}[{name}] set {columns+values} where ({primary-key}={primary-value})"))))
   
   
-  (method (delete-statement user)
+  (method virtual (delete-statement user)
     (let* ((name (get-name~ table))
            (primary-key (get-name~ (get-primary-key~ table)))
            (primary-value (format-value (get primary-key))))
@@ -126,7 +132,19 @@
     (string-append "[" name "]"))
   
   
+  (method (sanitize-string str)
+    (let (iterate (i 0) (result str))
+      (let ((size (string-length result)))
+        (if (< i size)
+            (if (eq? (string-ref result i) #\')
+                (iterate (+ i 2) (string-append (substring result 0 i) "''" (substring result (+ i 1) size))) 
+              (iterate (+ i 1) result))
+          result))))
+  
+  
   (method (format-value value)
-    (cond ((string? value) (format "'{a}'" value))
+    (cond ((null? value) "NULL")
+          ((string? value) (string-append "'" (sanitize-string value) "'"))
           ((boolean? value) (if value "1" "0"))
+          ((date? value) (string-append "'" (present-date-day value) "'"))
           (else (->string value))))))

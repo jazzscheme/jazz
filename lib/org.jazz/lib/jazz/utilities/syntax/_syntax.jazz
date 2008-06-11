@@ -1,0 +1,96 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Utilities Syntax
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.utilities.syntax jazz
+
+
+(macro public (datacontainer form)
+  (bind (name . fields) form
+    (let ((table (generate-symbol "table"))
+          (rank 1))
+      `(class ,name extends Data-Container
+         ,@(map (function (field)
+                  (increase! rank)
+                  `(attribute (:location (,name ,rank))
+                     (slot ,field)))
+                fields)
+         (definition (initialize ,table ,@fields)
+           (nextmethod ,table)
+           ,@(map (function (field)
+                    (let ((access (string->symbol (format "{a}~self" field))))
+                      `(set! ,access ,field)))
+                  fields))))))
+
+
+(macro public (tie . objects)
+  (define (tie-list objects)
+    #f
+    @a
+    (new Syntax-Expansion
+      (car objects)))
+  (define (put c out)
+    (when (memq? c '(#\~ #\{))
+      (display "~" out))
+    (format out "{c}" c))
+  (define (process-string control out out-parameters)
+    (bind (command . arguments) (read-delimited control "tie parameter" #\})
+      (if (not (symbol? command))
+          (error "Sorry, tie currently only accepts variables as parameters: {t}" command)
+        (if (not arguments)
+            (display "{a}" out)
+          (format out "~{{l}}" arguments))
+        (put~ out-parameters command))))
+  (define (tie-string objects)
+    (call-with-input-string (apply append objects)
+       (lambda (control)
+         (let ((out (open-output-string))
+               (out-parameters (new List-Factory)))
+           (let (iterate)
+             (let ((c (read-char control)))
+               (when (not (eof-object? c))
+                     (case c
+                       ((#\~) (put (read-char control) out))
+                       ((#\{) (process-string control out out-parameters))
+                       (else (put c out)))
+                     (iterate))))
+           (cons 'format (cons :string (cons (get-output-string out) (get-output~ out-parameters))))))))
+  
+  (typecase (car objects)
+    ((String) (tie-string objects))
+    @a
+    ((List)   (tie-list   objects))
+    (else   (error "Unable to tie: {t}" (car objects))))))

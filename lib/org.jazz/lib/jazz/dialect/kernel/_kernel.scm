@@ -284,6 +284,7 @@
 (native jazz.current-product-name)
 (native jazz.current-product-title)
 (native jazz.current-product-icon)
+(native jazz.current-product-information-set!)
 (native jazz.run-product)
 (native jazz.update-product)
 (native jazz.build-product)

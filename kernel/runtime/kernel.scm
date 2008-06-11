@@ -691,6 +691,13 @@
   jazz.product-icon)
 
 
+;; for testing
+(define (jazz.current-product-information-set! name title icon)
+  (set! jazz.product-name name)
+  (set! jazz.product-title title)
+  (set! jazz.product-icon icon))
+
+
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
   (table-set! jazz.Products-Table name (%%make-product name title icon run update build)))
 

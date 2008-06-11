@@ -671,31 +671,30 @@
   (make-table test: eq?))
 
 
-(define jazz.product-name
+(define jazz.process-name
   #f)
 
-(define jazz.product-title
+(define jazz.process-title
   #f)
 
-(define jazz.product-icon
+(define jazz.process-icon
   #f)
 
 
-(define (jazz.current-product-name)
-  jazz.product-name)
+(define (jazz.current-process-name)
+  jazz.process-name)
 
-(define (jazz.current-product-title)
-  jazz.product-title)
+(define (jazz.current-process-title)
+  jazz.process-title)
 
-(define (jazz.current-product-icon)
-  jazz.product-icon)
+(define (jazz.current-process-icon)
+  jazz.process-icon)
 
 
-;; for testing
-(define (jazz.current-product-information-set! name title icon)
-  (set! jazz.product-name name)
-  (set! jazz.product-title title)
-  (set! jazz.product-icon icon))
+(define (jazz.current-process-information-set! name title icon)
+  (set! jazz.process-name name)
+  (set! jazz.process-title title)
+  (set! jazz.process-icon icon))
 
 
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
@@ -719,12 +718,12 @@
 
 
 (define (jazz.setup-product name)
-  (set! jazz.product-name name)
+  (set! jazz.process-name name)
   (jazz.setup-debuggee)
   (let ((product (jazz.get-product name)))
-    (set! jazz.product-name name)
-    (set! jazz.product-title (%%product-title product))
-    (set! jazz.product-icon (%%product-icon product))
+    (set! jazz.process-name name)
+    (set! jazz.process-title (%%product-title product))
+    (set! jazz.process-icon (%%product-icon product))
     (jazz.load-module 'jazz.debuggee.update)
     product))
 

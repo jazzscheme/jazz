@@ -399,12 +399,14 @@
 
 
 (jazz.define-class jazz.C-Type-Declaration jazz.Declaration (name type access compatibility attributes toplevel parent locator) jazz.Object-Class jazz.allocate-c-type-declaration
-  ((kind         %%get-c-type-declaration-kind        ())
-   (expansion    %%get-c-type-declaration-expansion   ())
-   (references   %%get-c-type-declaration-references  ())
-   (c-to-scheme  %%get-c-type-declaration-c-to-scheme ())
-   (scheme-to-c  %%get-c-type-declaration-scheme-to-c ())
-   (declare      %%get-c-type-declaration-declare     ())))
+  ((kind          %%get-c-type-declaration-kind          ())
+   (expansion     %%get-c-type-declaration-expansion     ())
+   (base-type     %%get-c-type-declaration-base-type     ())
+   (pointer-types %%get-c-type-declaration-pointer-types %%set-c-type-declaration-pointer-types)
+   (references    %%get-c-type-declaration-references    ())
+   (c-to-scheme   %%get-c-type-declaration-c-to-scheme   ())
+   (scheme-to-c   %%get-c-type-declaration-scheme-to-c   ())
+   (declare       %%get-c-type-declaration-declare       ())))
 
 
 ;;;

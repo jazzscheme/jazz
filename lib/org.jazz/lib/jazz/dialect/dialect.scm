@@ -2557,13 +2557,15 @@
 (define (jazz.walk-c-type-declaration walker resume declaration environment form)
   (receive (name type access compatibility c-type c-to-scheme scheme-to-c declare) (jazz.parse-c-type walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
-        (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment c-type)
+        (receive (kind expansion base-type-declaration references) (jazz.resolve-c-type walker resume declaration environment c-type)
           (let ((references (if declare
                                 (if (%%string? expansion)
                                     (%%cons (jazz.resolve-named-c-declare-reference walker resume declaration environment declare) references)
                                   (jazz.walk-error walker resume declaration "{s} defined with c-to-scheme and scheme-to-c but expansion is not a string: {s}" name expansion))
                               references)))
-            (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion references c-to-scheme scheme-to-c declare)))
+            (let ((new-declaration (jazz.new-c-type-declaration name type access compatibility '() declaration kind expansion base-type-declaration references c-to-scheme scheme-to-c declare)))
+              (%%when base-type-declaration
+                (%%set-c-type-declaration-pointer-types base-type-declaration (cons new-declaration (%%get-c-type-declaration-pointer-types base-type-declaration))))
               (let ((effective-declaration (jazz.add-declaration-child walker resume declaration new-declaration)))
                 effective-declaration))))
       (jazz.walk-error walker resume declaration "C types can only be defined inside libraries: {s}" name))))
@@ -2580,37 +2582,44 @@
       (cond ((%%symbol? type)
              (let ((c-type-declaration (jazz.resolve-c-type-reference walker resume declaration environment type)))
                (jazz.enqueue queue c-type-declaration)
-               (values 'alias (%%get-declaration-locator c-type-declaration))))
+               (values 'alias (%%get-declaration-locator c-type-declaration) #f)))
             ((%%string? type)
-             (values 'type type))
+             #;
+             (jazz.debug type)
+             (values 'type type #f))
             ((%%pair? type)
              (case (%%car type)
                ((native)
-                (values 'native (%%cadr type)))
+                (values 'native (%%cadr type) #f))
                ((type)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  (values 'type `(type ,c-string ,@tag-rest))))
+                  (values 'type `(type ,c-string ,@tag-rest) #f)))
                ((pointer)
                 (jazz.bind (base-type . tag-rest) (%%cdr type)
-                  (values 'pointer `(pointer ,(resolve-expansion base-type) ,@tag-rest))))
+                  (values 'pointer `(pointer ,(resolve-expansion base-type) ,@tag-rest)
+                    (and (%%symbol? base-type) (jazz.resolve-c-type-reference walker resume declaration environment base-type)))))
                ((function)
                 (jazz.bind (parameter-types result-type) (%%cdr type)
-                  (values 'function `(function ,(map resolve-expansion parameter-types) ,(resolve-expansion result-type)))))
+                  (values 'function `(function ,(map resolve-expansion parameter-types) ,(resolve-expansion result-type)) #f)))
                ((struct)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  (values 'struct `(struct ,c-string ,@tag-rest))))
+                  #;
+                  (jazz.debug type)
+                  (values 'struct `(struct ,c-string ,@tag-rest) #f)))
                ((union)
                 (jazz.bind (c-string . tag-rest) (%%cdr type)
-                  (values 'union `(union ,c-string ,@tag-rest))))))
+                  #;
+                  (jazz.debug type)
+                  (values 'union `(union ,c-string ,@tag-rest) #f)))))
             (else
              (jazz.error "Ill-formed c-type: {s}" type))))
                 
     (define (resolve-expansion type)
-      (receive (kind expansion) (resolve type)
+      (receive (kind expansion base-type-declaration) (resolve type)
         expansion))
     
-    (receive (kind expansion) (resolve type)
-      (values kind expansion (jazz.queue-list queue)))))
+    (receive (kind expansion base-type-declaration) (resolve type)
+      (values kind expansion base-type-declaration (jazz.queue-list queue)))))
 
 
 (define (jazz.resolve-c-type-reference walker resume declaration environment symbol)
@@ -2621,7 +2630,7 @@
 
 
 (define (jazz.expand-c-type-reference walker resume declaration environment type)
-  (receive (kind expansion references) (jazz.resolve-c-type walker resume declaration environment type)
+  (receive (kind expansion base-type-declaration references) (jazz.resolve-c-type walker resume declaration environment type)
     (let ((library-declaration (%%get-declaration-toplevel declaration)))
       (%%set-library-declaration-references library-declaration (%%append (%%get-library-declaration-references library-declaration) references))
       expansion)))
@@ -2692,17 +2701,14 @@
     (%%eq? (%%string-ref str (%%fx- lgt 1)) #\*)))
 
 
-(define (jazz.build-method-symbol struct-string . rest)
-  (%%string->symbol (apply string-append struct-string "-" (map symbol->string rest))))
+(define (jazz.build-method-symbol struct . rest)
+  (%%string->symbol (apply string-append (symbol->string struct) "-" (map symbol->string rest))))
 
 
 (define (jazz.parse-structure-name name)
   (if (%%symbol? name)
-      (values name (%%symbol->string name) #f)
-    (values (%%car name) (%%cadr name) (let ((rest (%%cddr name)))
-                                         (if (%%null? rest)
-                                             #f
-                                           (%%car rest))))))
+      (values name (%%symbol->string name) '())
+    (values (%%car name) (%%cadr name) (%%cddr name))))
 
 
   (define (jazz.kind+type walker resume declaration environment type)
@@ -2717,13 +2723,19 @@
   (define (jazz.expand-accessor walker resume declaration environment clause struct)
     (let ((type (%%car clause))
           (id   (%%cadr clause))
-          (size (if (%%null? (%%cddr clause)) #f 
-                  (let ((size (%%car (%%cddr clause))))
-                    (if (memq size '(embed pointer not-pointer))
-                        #f
-                      size)))))
+          (size (let ((clause-rest (%%cddr clause)))
+                  (and (%%not (%%null? clause-rest))
+                       (%%car clause-rest)))))
+      (%%when (and size (%%not (%%integer? size)) (%%not (%%symbol? size)))
+        (jazz.walk-error walker resume declaration "Illegal clause size in {a}: {a}" struct clause))
       (receive (kind expansion) (jazz.kind+type walker resume declaration environment type)
         (let ((id-string (%%symbol->string id)))
+          @indev
+          (let ((getter-string "todo"))
+            (let ((getter `(definition ,(jazz.build-method-symbol struct id '-ref)
+                                       (c-function (struct*) ,type ,(%%string-append getter-string id-string ";")))
+                          ))
+              ))
           (let ((getter-string 
                   (if size
                       (if (or (%%eq? expansion 'char)
@@ -2733,8 +2745,12 @@
                     (case kind
                       ((native)
                        (%%string-append "___result = ___arg1->" id-string ";"))
+                      (else
+                       (%%string-append "___result_voidstar = ___arg1->" id-string ";"))
+                      #;
                       ((pointer function)
                        (%%string-append "___result_voidstar = ___arg1->" id-string ";"))
+                      #;
                       ((type struct union)
                        (%%string-append "___result_voidstar = &___arg1->" id-string ";")))))
                 (setter-string
@@ -2756,39 +2772,37 @@
                         (else
                          (%%string-append "___arg1->" id-string " = ___arg2;")))))
             (let* ((struct* (jazz.build-pointer-symbol struct))
-                   (struct-string (%%symbol->string struct))
                    (type* (jazz.build-pointer-symbol type))
                    (type (cond ((and size (%%eq? expansion 'char)) '(native char-string))
                                ((and size (%%eq? expansion 'wchar_t)) '(native wchar_t-string))
                                (size type*) 
                                ((%%memq kind '(type struct union)) type*)
                                (else type))))
-              (let ((getter `(definition ,(jazz.build-method-symbol struct-string id '-ref)
+              (let ((getter `(definition ,(jazz.build-method-symbol struct id '-ref)
                                          (c-function (,struct*) ,type ,getter-string)))
                     (setter (and setter-string
-                                 `(definition ,(jazz.build-method-symbol struct-string id '-set!)
+                                 `(definition ,(jazz.build-method-symbol struct id '-set!)
                                               (c-function (,struct* ,type) (native void) ,setter-string)))))
                 (values getter setter))))))))
   
 (define (jazz.expand-structure/union walker resume declaration environment name clauses)
-  (receive (struct c-struct-string tag) (jazz.parse-structure-name name)
-    (let ((struct-string (%%symbol->string struct))
-          (struct* (jazz.build-pointer-symbol struct))
+  (receive (struct c-struct-string tag-rest) (jazz.parse-structure-name name)
+    (let ((struct* (jazz.build-pointer-symbol struct))
           (sizeof (%%string-append "sizeof(" c-struct-string ")"))
-          (tag* (if tag (jazz.build-pointer-symbol tag) #f)))
+          (tag*-rest (if (null? tag-rest) '() (cons (jazz.build-pointer-symbol (car tag-rest)) (cdr tag-rest)))))
       (define (expand-accessor clause)
         (receive (getter setter) (jazz.expand-accessor walker resume declaration environment clause struct)
           (if setter
               (%%list getter setter)
             (%%list getter))))
       `(begin
-         (c-type ,struct ,(if tag (%%list 'type c-struct-string tag) (%%list 'type c-struct-string)))
-         (c-type ,struct* ,(if tag (%%list 'pointer struct tag*) (%%list 'pointer struct)))
-         (definition ,(jazz.build-method-symbol struct-string 'make)
+         (c-type ,struct (type ,c-struct-string ,@tag-rest))
+         (c-type ,struct* (pointer ,struct ,@tag*-rest))
+         (definition ,(jazz.build-method-symbol struct 'make)
                      (c-function () ,struct* ,(%%string-append "___result_voidstar = calloc(1," sizeof ");")))
-         (definition ,(jazz.build-method-symbol struct-string 'free)
+         (definition ,(jazz.build-method-symbol struct 'free)
                      (c-function (,struct*) (native void) "free(___arg1);"))
-         (definition ,(jazz.build-method-symbol struct-string 'sizeof)
+         (definition ,(jazz.build-method-symbol struct 'sizeof)
                      (c-function () (native unsigned-int) ,(%%string-append "___result = " sizeof ";")))
          ,@(apply append (map expand-accessor clauses))))))
 
@@ -2823,8 +2837,7 @@
 @old
 (define (jazz.expand-structure/union walker resume declaration environment name clauses)
   (receive (struct c-struct-string tag) (jazz.parse-structure-name name)
-    (let ((struct-string (%%symbol->string struct))
-          (struct* (jazz.build-pointer-symbol struct))
+    (let ((struct* (jazz.build-pointer-symbol struct))
           (sizeof (%%string-append "sizeof(" c-struct-string ")"))
           (tag* (if tag (jazz.build-pointer-symbol tag) #f)))
       (define (expand-accessor clause)
@@ -2848,22 +2861,22 @@
                                        (let* ((type-string (%%symbol->string type))
                                               (base-type-string (%%substring type-string 0 (%%fx- (%%string-length type-string) 1))))
                                          (%%string-append "memcpy(___arg1->" member-string ", ___arg2, " size "*" "sizeof(" base-type-string "));"))))))
-            (let ((ref `(definition ,(jazz.build-method-symbol struct-string member '-ref)
+            (let ((ref `(definition ,(jazz.build-method-symbol struct member '-ref)
                                     (c-function (,struct*) ,type ,getter-string))))
               (if embed?
                   (%%list ref)
                 (%%list ref
-                        `(definition ,(jazz.build-method-symbol struct-string member '-set!)
+                        `(definition ,(jazz.build-method-symbol struct member '-set!)
                                      (c-function (,struct* ,type) (native void) ,setter-string))))))))
       
       `(begin
          (c-type ,struct ,(if tag (%%list 'type c-struct-string tag) (%%list 'type c-struct-string)))
          (c-type ,struct* ,(if tag (%%list 'pointer struct tag*) (%%list 'pointer struct)))
-         (definition ,(jazz.build-method-symbol struct-string 'make)
+         (definition ,(jazz.build-method-symbol struct 'make)
                      (c-function () ,struct* ,(%%string-append "___result_voidstar = calloc(1," sizeof ");")))
-         (definition ,(jazz.build-method-symbol struct-string 'free)
+         (definition ,(jazz.build-method-symbol struct 'free)
                      (c-function (,struct*) (native void) "free(___arg1);"))
-         (definition ,(jazz.build-method-symbol struct-string 'sizeof)
+         (definition ,(jazz.build-method-symbol struct 'sizeof)
                      (c-function () (native unsigned-int) ,(%%string-append "___result = " sizeof ";")))
          ,@(apply append (map expand-accessor clauses))))))
 
@@ -2874,13 +2887,12 @@
 
 (define (jazz.expand-c-structure-array walker resume declaration environment name . rest)
   (let* ((struct name)
-         (struct-string (%%symbol->string struct))
          (struct* (jazz.build-pointer-symbol struct))
-         (c-struct-string (if (%%not (%%null? rest)) (%%car rest) struct-string)))
+         (c-struct-string (if (%%not (%%null? rest)) (%%car rest) (%%symbol->string struct))))
     `(begin
-       (definition ,(jazz.build-method-symbol struct-string 'array-make)
+       (definition ,(jazz.build-method-symbol struct 'array-make)
          (c-function (int) ,struct* ,(%%string-append "___result = calloc(___arg1,sizeof(" c-struct-string "));")))
-       (definition ,(jazz.build-method-symbol struct-string 'array-element)
+       (definition ,(jazz.build-method-symbol struct 'array-element)
          (c-function (,struct* int) ,struct* ,(%%string-append "___result = ___arg1+___arg2;"))))))
 
 

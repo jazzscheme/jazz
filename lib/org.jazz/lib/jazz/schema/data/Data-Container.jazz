@@ -78,14 +78,12 @@
   
   (method public (save connection (user: user {}))
     (let ((statement (save-statement user)))
-      (debug statement)
       (if statement
           (execute~ connection statement)
         #t)))
   
   
   (method (save-statement user)
-    (debug state)
     (case state
       ((update) (update-statement user))
       ((insert) (insert-statement user))
@@ -122,10 +120,11 @@
   
   
   (method virtual (delete-statement user)
-    (let* ((name (get-name~ table))
-           (primary-key (get-name~ (get-primary-key~ table)))
-           (primary-value (format-value (get primary-key))))
-      (tie "delete from [{name}] where ({primary-key}={primary-value})")))
+    (let ((name (get-name~ table))
+          (primary-key (get-name~ (get-primary-key~ table))))
+      (let ((primary-value (format-value (get primary-key)))
+            (primary-key (format-column primary-key)))
+        (tie "delete from [{name}] where ({primary-key}={primary-value})"))))
   
   
   (method (format-column name)
@@ -143,8 +142,9 @@
   
   
   (method (format-value value)
-    (cond ((null? value) "NULL")
+    (cond ((nil? value) "NULL")
           ((string? value) (string-append "'" (sanitize-string value) "'"))
           ((boolean? value) (if value "1" "0"))
           ((date? value) (string-append "'" (present-date-day value) "'"))
-          (else (->string value))))))
+          ((number? value) (number->string value))
+          (else (error "Unsupported type"))))))

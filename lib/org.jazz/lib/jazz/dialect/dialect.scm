@@ -2745,12 +2745,11 @@
                     (case kind
                       ((native)
                        (%%string-append "___result = ___arg1->" id-string ";"))
+                      #;
                       (else
                        (%%string-append "___result_voidstar = ___arg1->" id-string ";"))
-                      #;
                       ((pointer function)
                        (%%string-append "___result_voidstar = ___arg1->" id-string ";"))
-                      #;
                       ((type struct union)
                        (%%string-append "___result_voidstar = &___arg1->" id-string ";")))))
                 (setter-string

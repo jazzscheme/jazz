@@ -40,6 +40,7 @@
 
 (export (jazz.debugger.autoload))
 (import (jazz.debugger.autoload)
+        (jazz.console)
         (jazz.debuggee)
         (jazz.jrm)
         (jazz.language.jazz)
@@ -195,6 +196,49 @@
   (when (table-ref Once-Executes name #f)
     (table-set! Once-Executes name {})
     (proc)))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(definition public (register-debugger-console process-proxy)
+  (let ((console (if (local-proxy? process-proxy)
+                     (get-console-text)
+                   (register-console~ (get-console-manager) select?: #t))))
+    (setup-debugger-console-ports console process-proxy)
+    (object->serial console)))
+
+
+(definition public (unregister-debugger-console console)
+  (let ((text (serial->object console)))
+    (unregister-console~ (get-console-manager) text)))
+
+
+(definition public (debugger-console-output console line)
+  (let ((text (serial->object console)))
+    (send-event
+      (function ()
+        (insert-formatted-line~ text line))))
+  {})
+
+
+(definition (setup-debugger-console-ports console process-proxy)
+  (receive (head tail) (open-string-pipe)
+    (set-console-port~ console tail)
+    (start-debugger-console-pump head process-proxy)))
+
+
+(definition (start-debugger-console-pump port process-proxy)
+  (thread-start!
+    (new-thread
+      (function ()
+        (let (iterate)
+          (let ((line (read-line port)))
+            (console-input~ process-proxy line)
+            (iterate))))
+      "Debugger Console Pump")))
 
 
 ;;;

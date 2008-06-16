@@ -373,51 +373,6 @@
             (set! header (format "({a}{%}{a}" declaration-header header))
             (set! footer (format "{a})" footer)))))
       (values module-name header footer)))
-  
-  
-  @convert
-  (method protected virtual (on-evaluate evt)
-    (with-safe-explore
-      (function ()
-        (let ((range (current-definition-range)))
-          (when range
-            (with-cursor :wait
-              (function ()
-                (remove-highlights range)
-                (sleep .1)
-                (let ((info (current-toplevel-info))
-                      (forms (read-text-forms range)))
-                  (when forms
-                    (let ((classes (current-classes range)))
-                      (when classes
-                        (let ((toplevel (car classes)))
-                          (if (and (get-modified?) (not (category-loaded? toplevel)))
-                              (let ((code (message-box (format "Do you want to save {s}?{%}{%}Because this category has not yet been loaded in memory, it needs to be saved to disk for correct evaluation." toplevel)
-                                                       type: 'confirmation)))
-                                (case code
-                                  ((yes)
-                                   (save)
-                                   (autoload toplevel))
-                                  ((no))
-                                  ((cancel)
-                                   (throw-cancel))))
-                            (receive (in category-info) info
-                              (bind (category kind meta? name keywords) category-info
-                                (let ((appl (get-application))
-                                      (class (location-class classes load?: #t))
-                                      (imports (getf keywords 'uses)))
-                                  (evaluate-forms range forms class (if (pair? imports) imports (list imports)))))))))))))))))))
-  
-  
-  @convert
-  (method (evaluate-forms range forms class packages)
-    (let ((names (evaluate-code range forms class packages)))
-      (user-message "Evaluated: {l detail: :human}" names)
-      (let ((console (get-console-text)))
-        (when console
-          (evaluation-break~ console)
-          (display-evaluation~ console names #f)
-          (fresh-prompt~ console)))))
 
 
   ;;;
@@ -734,7 +689,7 @@
 
   
   (method (show-arguments)
-    @wait-fucking-intermitent-bug-fix
+    @convert
     (when (empty-selection?)
       (let ((expl (new Jazz-Explorer self start: (get-start) end: (get-end))))
         (when (and (backward-expr~ expl)
@@ -745,6 +700,7 @@
   
   
   (method (show-method-arguments expl)
+    @convert
     (let ((name (get-marked~ expl))
           (info (current-toplevel-info)))
       (when info
@@ -845,6 +801,7 @@
   
   
   (method public (current-class-form)
+    @convert
     (let ((range (with-safe-explore (function () (current-definition-range)))))
       (when range
         (let ((info (current-toplevel-info))
@@ -863,13 +820,6 @@
   ;;;; Category
   ;;;
   
-
-  (method protected virtual (current-toplevel-info)
-    (let* ((expl (new Jazz-Explorer self end: (text-beginning)))
-           (in (forward-in~ expl))
-           (category (forward-category~ expl)))
-      (values in category)))
-  
   
   (method (current-classes range)
     (let ((expl (new Jazz-Explorer self range: range))
@@ -884,6 +834,7 @@
   
   
   (method (current-category-name)
+    @convert
     (receive (in category-info) (current-toplevel-info)
       (bind (category kind meta? name keywords) category-info
         name)))

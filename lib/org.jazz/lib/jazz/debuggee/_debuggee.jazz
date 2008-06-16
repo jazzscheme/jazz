@@ -80,7 +80,7 @@
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
   (setup-local-process)
-  (setup-console-ports)
+  (setup-debuggee-console-ports)
   (attach-process~ controller-debugger local-process)
   (set-exception-debugger jazz-exception-debugger)
   (set-exception-hook exception-debugger-hook))
@@ -156,22 +156,62 @@
 ;;;
 
 
-(definition (setup-console-ports)
+(definition *debuggee-console-port*
+  {})
+
+
+(definition (debuggee-console-port)
+  *debuggee-console-port*)
+
+(definition (set-debuggee-console-port port)
+  (set! *debuggee-console-port* port))
+
+
+(definition (setup-debuggee-console-ports)
   (receive (head tail) (open-string-pipe)
-    (start-console-pump head)
-    (set-console-input tail)
-    (set-console-output tail)))
+    (set-debuggee-console-port head)
+    (set-console-input-port tail)
+    (set-console-output-port tail)
+    (start-debuggee-console-pump)
+    (start-repl-thread)))
 
 
-(definition (start-console-pump port)
-  (thread-start!
-    (new-thread
-      (function ()
-        (let (iterate)
-          (let ((line (read-line port)))
-            (console-output~ controller-debugger line)
-            (iterate))))
-      "Console Pump")))
+(definition (start-debuggee-console-pump)
+  (let ((port (debuggee-console-port))
+        (console (register-console~ controller-debugger local-process)))
+    (thread-start!
+      (new-thread
+        (function ()
+          (let (iterate)
+            (let ((line (read-line port)))
+              (console-output~ controller-debugger console line)
+              (iterate))))
+        "Debuggee Console Pump"))))
+
+
+(definition (start-repl-thread)
+  (let ((port (console-input-port)))
+    (thread-start!
+      (new-thread
+        (function ()
+          (let (iterate)
+            (with-restart-catcher 'resume-repl "Resume repl" {}
+              (function ()
+                (read-eval-print port)))
+            (iterate)))
+        "Repl"))))
+
+
+(definition (read-eval-print port)
+  (format port #"\($\)\(color Dark-Red {a}\)\(prompt\){%}{!}"#
+    (evaluate (read port))))
+
+
+(definition (evaluate expr)
+  (let ((process (get-process)))
+    (if (not process)
+        "Error: Process not yet started"
+      (car (eval-expressions~ process (list expr))))))
 
 
 ;;;

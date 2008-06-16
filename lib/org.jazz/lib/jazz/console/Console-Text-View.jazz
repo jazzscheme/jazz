@@ -39,6 +39,7 @@
 
 
 (import (jazz.console)
+        (jazz.debugger)
         (jazz.ide)
         (jazz.jml)
         (jazz.language.jazz)
@@ -57,7 +58,7 @@
   (slot last-inserted  initialize {})
   (slot inserted-where initialize {})
   (slot prompt         initialize "> ")
-  (slot console-printer)
+  (slot console-port   initialize {} accessors generate)
     
   
   (form
@@ -74,12 +75,6 @@
 
   (method (default-console?)
     #t)
-  
-  
-  (method (install rest)
-    (nextmethod rest)
-    @convert-text-printer
-    (set! console-printer (new Text-Printer self)))
    
 
   ;;;
@@ -215,6 +210,7 @@
           (set! evaluating? #t)
           (eval-from-prompt))
       (set! evaluating? #f)
+      @old
       (fresh-prompt)))
 
   
@@ -223,12 +219,17 @@
       (when info
         (receive (range command) info
           (set-caret (text-ending))
+          @old
           (insert-newline)
           (unless (empty-string? command)
-            (display-evaluation (eval-command range {} command #t) #t))))))
+            (display command console-port)
+            (newline console-port)
+            (force-output console-port)
+            @old
+            (display-evaluation (eval-command command #t) #t))))))
   
   
-  (method public virtual (eval-command range name command console?)
+  (method public virtual (eval-command command console?)
     )
   
   
@@ -238,6 +239,7 @@
   
   (method public virtual (display-evaluation results console?)
     (evaluation-break)
+    @convert
     (for-each (function (result)
                 (with-colored-output (eval-color)
                   (function ()

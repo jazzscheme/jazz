@@ -39,17 +39,60 @@
 
 
 (import (jazz.library)
+        (jazz.literals)
         (jazz.ui))
 
 
 (class Workspace-Button extends Radio-Tool
   
   
+  (property notify? initialize #f accessors generate)
+  
+  
+  (method public (notify)
+    (set! notify? #t)
+    (invalidate-view))
+  
+  
   ;;;
   ;;;; Drawing
   ;;;
+  
+  
+  (definition notification-border
+    {Color name: Dark-Red})
+  
+  (definition notification-start
+    {Color name: Light-Red})
+  
+  (definition notification-end
+    {Color name: Red})
 
 
-  @wait
   (method (draw-frame surface)
-    )))
+    (if notify?
+        (let* ((rect (get-bounds))
+               (left (get-left~ rect))
+               (top (get-top~ rect))
+               (right (- (get-right~ rect) 1))
+               (bottom (- (get-bottom~ rect) 1)))
+          (frame-rect~ surface (get-bounds) notification-border)
+          (set-pen~ surface (new Pen color: {Color name: Medium}))
+          (pixel-to~ surface left top)
+          (pixel-to~ surface right top)
+          (pixel-to~ surface left bottom)
+          (pixel-to~ surface right bottom))
+      (nextmethod surface)))
+  
+  
+  (method (draw-background surface context)
+    (if notify?
+        (let* ((rect (get-bounds))
+               (left (get-left~ rect))
+               (top (get-top~ rect))
+               (right (get-right~ rect))
+               (bottom (get-bottom~ rect))
+               (mid (fxfloor/ (- bottom top) 2)))
+          (gradient-fill~ surface (new Rect left top right mid) notification-start notification-end direction: 'vertical)
+          (gradient-fill~ surface (new Rect left mid right bottom) notification-end notification-start direction: 'vertical))
+      (nextmethod surface context)))))

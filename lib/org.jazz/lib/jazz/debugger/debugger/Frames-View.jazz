@@ -69,7 +69,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu})))))))
+              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta (external-name . rest)
@@ -137,10 +137,15 @@
           (let ((menu (new-context-menu (selected-frame))))
             (when menu
               (track-popup-menu menu acquired)))))))
+  
+  
+  (method (on-double-click evt)
+    (edit-frame activate-focus?: #t))
 
 
   (method (on-select-stack evt)
     (frame-change)
+    @wait-too-slow-for-now-to-be-on-select
     (edit-frame))
   
   
@@ -207,7 +212,7 @@
     {})
 
 
-  (method (edit-frame)
+  (method (edit-frame (activate-focus?: activate-focus? #f))
     (let ((frame (selected-frame)))
       (when frame
         (let ((name (get-name~ frame)))
@@ -216,7 +221,7 @@
             (catch (Location-Error err
                      (bell))
               (let ((location (new Jazz-Code-Location (list name))))
-                (edit~ location activate-focus?: #f)))))))
+                (edit~ location activate-focus?: activate-focus?)))))))
     ;; not really usefull until the jazz macros are integrated with gambit's location system
     ;; and also until gambit can keep location for compiled code
     @wait

@@ -41,8 +41,8 @@
 (import (jazz.console)
         (jazz.jml)
         (jazz.library)
-        (jazz.ui)
         (jazz.literals)
+        (jazz.ui)
         (jazz.utilities))
 
 
@@ -50,21 +50,19 @@
 
 
   (form
-    (<install>                                size: {Dimension 650 400} layout-type: border
-      (<Layout-View>           name: tools
+    (<install>                                  size: {Dimension 650 400} layout-type: border
+      (<Layout-View>             name: tools
         @convert
-        (<Push-Combo>          name: detail
-          (<!>                 name: body     portfolio: :icons image-name: {Bitmap-Resource "PrintDetail"} tooltip?: #t tooltip-text: "Print Detail" action-handler: {Event-Handler :form on-print-detail-menu})
-          (<!>                 name: pick     action-handler: {Event-Handler :form on-print-detail-menu}))
-        (<Push-Tool>           name: clear    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear Console" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-clear-console}))
-      (<Scroller-View>         name: scroller location: center vscroll?: #t hscroll?: #t flat?: #t
-        (<!>                   name: content
-          (<Console-Text-View> name: text)))))
-  
-  
-  (method (install-in-host host)
-    (nextmethod host)
-    (display-banner~ (get-text)))
+        (<Push-Combo>            name: detail
+          (<!>                   name: body     portfolio: :icons image-name: {Bitmap-Resource "PrintDetail"} tooltip?: #t tooltip-text: "Print Detail" action-handler: {Event-Handler :form on-print-detail-menu})
+          (<!>                   name: pick     action-handler: {Event-Handler :form on-print-detail-menu}))
+        (<Radio-Tool>                           title: "Jedi" auto-size?: #t location: head selected?: #t image-name: {Bitmap-Resource "Process"} portfolio: :icons)
+        (<Radio-Tool>                           title: "Debuggee" auto-size?: #t location: head selected?: #f image-name: {Bitmap-Resource "Process"} portfolio: :icons)
+        (<Radio-Tool>                           title: "Emilie" auto-size?: #t location: head selected?: #f image-name: {Bitmap-Resource "Process"} portfolio: :icons)
+        (<Separator>                            location: tail)
+        (<Push-Tool>             name: clear    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear Console" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-clear-console}))
+      (<Pad-View>                name: pad      location: center
+        (<Console-View>                         location: selection))))
     
   
   (method meta (external-name . rest)
@@ -96,10 +94,35 @@
   ;;;
   ;;;; Access
   ;;;
+  
+  
+  (method (get-pad)
+    (locate 'pad))
 
   
   (method public (get-text)
-    (locate 'text))
+    (get-text~ (get-selection~ (get-pad))))
+  
+  
+  ;;;
+  ;;;; Register
+  ;;;
+  
+  
+  (method (register-console (select?: select? #f))
+    (let ((pad (get-pad))
+          (view (new Console-View)))
+      (let ((text (get-text~ view)))
+        (display-banner~ text)
+        (add-view~ pad view)
+        (when select?
+          (set-selection~ pad view))
+        (layout-view~ pad)
+        text)))
+  
+  
+  (method (unregister-console console)
+    (remove-view~ (get-pad) (get-parent~ (get-parent~ console))))
   
   
   ;;;
@@ -130,6 +153,27 @@
     (let ((text (get-text)))
       (clear-console~ text)
       (acquire-focus~ text))))
+
+
+;;;
+;;;; Console-View
+;;;
+
+
+(class Console-View extends Scroller-View
+  
+  
+  (form
+    (<install>                             vscroll?: #t hscroll?: #t flat?: #t
+      (<!>                   name: content
+        (<Console-Text-View> name: text))))
+  
+  
+  (method (get-text)
+    (locate 'text)))
+
+
+(register-autoclass Console-View)
 
 
 ;;;

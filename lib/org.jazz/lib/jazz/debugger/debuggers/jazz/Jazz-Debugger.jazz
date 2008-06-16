@@ -41,9 +41,11 @@
 (import (jazz.console)
         (jazz.debuggee)
         (jazz.debugger)
+        (jazz.io)
         (jazz.jrm)
         (jazz.library)
         (jazz.literals)
+        (jazz.media)
         (jazz.platform)
         (jazz.ui)
         (jazz.ui.view)
@@ -288,12 +290,16 @@
   ;;;
   
   
-  (method public (console-output line)
-    (let ((text (get-console-text)))
-      (send-event
-        (function ()
-          (insert-formatted-line~ text line))))
-    {})
+  (method public (register-console process-proxy)
+    (register-debugger-console process-proxy))
+  
+  
+  (method public (unregister-console console)
+    (unregister-debugger-console console))
+  
+  
+  (method public (console-output console line)
+    (debugger-console-output console line))
   
   
   ;;;
@@ -320,6 +326,10 @@
   ;;;
   
   
+  (definition debugger-sound
+    {File org.jazz "lib" "jazz" "resources" "sounds" "Debugger.wav"})
+  
+  
   (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
     (if (and #f ;; until the error shows in full in the debugger in like a tooltip
              (local-proxy? thread-proxy)
@@ -329,7 +339,11 @@
             (let ((view (select-palette Processes-View workspace: 'debugger)))
               (when view
                 (select-first-frame~ view stop-proxy)))))
-      (bell)
+      (play-sound debugger-sound)
+      (let* ((toolbar (find-toolbar~ (get-application)))
+             (button (locate-component~ toolbar 'debugger)))
+        (notify~ button))
+      @w
       (let ((reason (either reason (case kind ((exception) "Error") (else "Break")))))
         (let ((lines (split reason "\n")))
           (format :console #"\($\)\(color {a} {a} : {?{a}~}\){%}{!}"#

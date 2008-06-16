@@ -44,8 +44,6 @@
         (jazz.jml)
         (jazz.language.jazz)
         (jazz.library)
-        (jazz.platform)
-        (jazz.ui)
         (jazz.utilities))
 
 
@@ -71,98 +69,12 @@
   ;;;
   
   
-  (method (eval-command range name command console?)
+  (method (eval-command command console?)
     (let* ((appl (get-application))
            (module (get-profile-module~ appl))
            (profile (get-profile~ appl))
            (name (identifier-name (type-name (class-of profile))))
-           (forms (read-text-forms range string: command console?: #t)))
+           (forms (read-text-forms {} string: command console?: #t)))
       (if (and (not-null? forms) (console-command~ profile (car forms) (cdr forms)))
           {}
-        (let ((debugged (get-debugged-process)))
-          (if debugged
-              (eval-expressions~ debugged forms)
-            (map (function (form)
-                   (parameterize ((jazz.requested-module-name module))
-                     (eval
-                       `(library ,module jazz
-                        (import (jazz.development)
-                                (jazz.io)
-                                (jazz.io.protocol)
-                                (jazz.jml)
-                                (jazz.library)
-                                (jazz.literals)
-                                (jazz.media)
-                                (jazz.network)
-                                (jazz.platform)
-                                (jazz.profile)
-                                (jazz.repository.git)
-                                (jazz.runtime)
-                                (jazz.system)
-                                (jazz.ui)
-                                (jazz.ui.development)
-                                (jazz.ui.dialog)
-                                (jazz.ui.view)
-                                (jazz.ui.window)
-                                (jazz.utilities)
-                                (jedi)
-                                (test)
-                                (time))
-                        (class ,name extends Profile
-                          (method (evaluate)
-                            ,form))
-                        (set-? (evaluate~ (get-profile~ (get-application)))))))
-                   (->string ? :reader))
-                 forms))))))
-  
-  
-  (method (evaluate-form? form)
-    (and (pair? form)
-         (memq? (car form) '(class interface package enumeration structure external winexternal coexternal definition method comethod macro syntax))))
-  
-  
-  (method (execute-form form object packages variables frame)
-    (unimplemented 'execute-form)
-    @convert
-    (let* ((appl (get-application))
-           (debugger (get-local-debugger~ appl))
-           (process (essay debugger (get-selected-debuggee~ debugger)))
-           (pref (get-preferences '(tools console)))
-           (detail (get-print-detail~ pref)))
-      ;; until implemented remotly...
-      (if (or #t (null? process) (> (get-level~ (get-loop~ appl)) 0))
-          @new-unified-evaluate/execute
-          (let ((result (evaluate (list form) object (class-of object) packages)))
-            (if (not result)
-                {}
-              (set-? result)
-              (->string result detail)))
-          (let ((evaluate? (evaluate-form? form)))
-            (if evaluate?
-                (car (evaluate (list form) object (class-of object) packages))
-              (let* ((anonymous (list (list 'function '() form)))
-                     (result (privileged-execute anonymous object packages variables frame 'Console)))
-                (if (not result)
-                    {}
-                  (set-? result)
-                  (->string result detail)))))
-        (if (is? process Local-Proxy)
-            (execute~ process (get-string (current-command-range)) object (map type-name packages) variables frame)
-          (execute~ process (get-string (current-command-range)) {} (map type-name packages) {} {})))))
-  
-
-  (method (current-toplevel-info)
-    (unimplemented 'current-toplevel-info)
-    @convert
-    (values {}
-            (list (either Interactive-Object (get-profile~ (get-application)))
-                  extends: (list Language
-                                 Utilities
-                                 Development
-                                 Utilities
-                                 System
-                                 Windows
-                                 WinKernel
-                                 WinUser
-                                 WinGDI
-                                 WinDlg))))))
+        (eval-expressions~ (get-debugged-process) forms))))))

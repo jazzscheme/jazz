@@ -124,34 +124,25 @@
 ;;;
 
 
-(definition (make-message-thread)
-  (let ((thread
-          (new-thread
-            (function ()
-              (process-messages))
-            "Message Pump")))
-    (thread-specific-set! thread #t)
-    thread))
-
-
 (definition (setup-event-thread)
   (thread-priority-boost-set! event-thread 1))
 
 
 (definition (process-events)
   (setup-event-thread)
-  (let ((thread (make-message-thread)))
-    (thread-start! thread)
-    (unwind-protect
-        (let (loop)
-          (with-restart-catcher 'resume-loop "Resume event loop" {}
-            (function ()
-              (catch Cancel-Signal
-                (let ((thunk (thread-receive)))
-                  (with-jazz-exception-debugger
-                    thunk)))))
-          (loop))
-      (thread-specific-set! thread #f))))
+  (with-threaded-loop
+    "Message Pump"
+    (function ()
+      (process-messages))
+    (function ()
+      (let (loop)
+        (with-restart-catcher 'resume-loop "Resume event loop" {}
+          (function ()
+            (catch Cancel-Signal
+              (let ((thunk (thread-receive)))
+                (with-jazz-exception-debugger
+                  thunk)))))
+        (loop)))))
 
 
 ;;;

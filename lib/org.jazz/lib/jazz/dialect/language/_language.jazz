@@ -5387,8 +5387,42 @@
 
 
 (definition (print-real r precision (printer (current-output-port)))
-  ;; quick fix
-  (display r printer))
+  (let* ((str (number->string (exact->inexact r)))
+             (dot-index (find str #\.))
+             (pre-str (substring str 0 dot-index))
+             (frac-str (substring str (+ dot-index 1) (string-length str)))
+             (frac-len (string-length frac-str)))
+        (cond ((= precision frac-len)
+               (display str printer))
+              ((< frac-len precision)
+               (display (string-append pre-str "." frac-str (make-string (- precision frac-len) #\0)) printer))
+              (else
+               (let* ((first-part (substring frac-str 0 precision))
+                      (last-part  (substring frac-str precision frac-len))
+                      (temp-str
+                        (let* ((str (number->string
+                                     (round (string->number
+                                              (string-append first-part "." last-part)))))
+                               ;; minus 1 to ignore the dot
+                               (len (- (string-length str) 1)))
+                          ;; if precision is 0 we don't need to do anything
+                          (if (or (= precision len) (= precision 0))
+                              str
+                            (string-append (make-string (- precision len) #\0) str))))
+                      (dot-pos (find temp-str #\.))
+                      (carry?
+                        (and (> dot-pos precision)
+                             (> (round (string->number
+                                         (string-append "0." frac-str)))
+                                0)))
+                      (new-frac
+                        (substring temp-str 0 precision)))
+                 (display (string-append
+                            (if carry? (number->string (+ 1 (string->number pre-str))) pre-str)
+                            "."
+                            new-frac)
+                          printer))))))
+           
 
 
 (definition (print-list list separator last-separator before after detail (printer (current-output-port)))

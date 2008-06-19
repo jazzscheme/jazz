@@ -226,6 +226,13 @@
   ;;;
   
   
+  (definition System-Threads
+    '("Message Pump"
+      "Debuggee Console Pump"
+      "Debugger Console Pump"
+      "Repl"))
+  
+  
   (method (with-preserving-update tree thunk)
     (with-preserved-selection~ tree
       thunk
@@ -263,13 +270,8 @@
              (new Debugged-Stop debugger object))
            stops))
     
-    (define (effective-name name)
-      (cond ((unspecified? name) "Thread")
-            ((eq? name 'primordial) "Primordial")
-            (else (->string name))))
-    
     (define (thread-title thread)
-      (let ((name (effective-name (get-name~ thread)))
+      (let ((name (present-thread-name (get-name~ thread)))
             (state (get-state~ thread)))
         (if (not detailed?)
             (->string name)
@@ -298,14 +300,16 @@
     (when process
       (let ((debugger (get-debugger~ process)))
         (for-each (function (thread)
-                    (let* ((title (thread-title thread))
-                           (image (thread-image thread))
-                           (thread-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                      (for-each (function (stop)
-                                  (let ((title (stop-title stop))
-                                        (image (stop-image stop)))
-                                    (add-row~ tree father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: stop)))
-                                (debugged-stops debugger (get-stops~ thread)))))
+                    (let ((title (thread-title thread))
+                          (image (thread-image thread)))
+                      ;; quicky until a cleaner solution
+                      (when (not (member? title System-Threads test: equal?))
+                        (let ((thread-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
+                          (for-each (function (stop)
+                                      (let ((title (stop-title stop))
+                                            (image (stop-image stop)))
+                                        (add-row~ tree father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                                    (debugged-stops debugger (get-stops~ thread)))))))
                   (debugged-threads debugger (get-threads~ process))))))
 
   

@@ -43,6 +43,7 @@
         (jazz.library)
         (jazz.literals)
         (jazz.ui)
+        (jazz.ui.window)
         (jazz.utilities))
 
 
@@ -107,24 +108,34 @@
   
   
   (method (register-console title)
-    (let ((pad (get-pad))
-          (view (new Console-View)))
-      (let ((text (get-text~ view))
-            (select? (not (get-selection~ pad))))
-        (display-banner~ text)
-        (add-view~ pad view)
-        (when select?
-          (set-selection~ pad view))
-        (layout-view~ pad)
-        (let ((tool (new Console-Button title: title auto-size?: #t location: 'head image-name: {Bitmap-Resource "Process"} portfolio: :icons)))
-          (add-tool~ (get-root) tool)
+    (let ((tool (new Console-Button title: title auto-size?: #t location: 'head image-name: {Bitmap-Resource "Process"} portfolio: :icons)))
+      (add-tool~ (get-root) tool)
+      (let ((pad (get-pad))
+            (view (new Console-View button: tool)))
+        (let ((text (get-text~ view))
+              (select? (not (get-selection~ pad))))
+          (display-banner~ text)
+          (add-view~ pad view)
           (when select?
-            (set-selected?~ tool #t)))
-        text)))
+            (set-selection~ pad view))
+          (layout-view~ pad)
+          (set-action-handler~ tool
+            (new Event-Handler
+              execute: (function (event)
+                         (set-selection~ pad view)
+                         (acquire-focus~ text))))
+          (when select?
+            (set-selected?~ tool #t))
+          text))))
   
   
   (method (unregister-console console)
-    (remove-view~ (get-pad) (get-parent~ (get-parent~ console))))
+    (let ((console (get-parent~ (get-parent~ console))))
+      (remove-tool~ (get-root) (get-button~ console))
+      (remove-view~ (get-pad) console))
+    (send-event
+      (function ()
+        (invalidate-window~ (get-player)))))
   
   
   ;;;
@@ -163,6 +174,9 @@
 
 
 (class Console-View extends Scroller-View
+  
+  
+  (property button initialize {} getter generate)
   
   
   (form

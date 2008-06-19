@@ -141,11 +141,18 @@
   ;;;
   
   
-  (method (console-input line)
-    (let ((port (debuggee-console-port)))
+  (method (console-input thread-proxy line)
+    (define (feed-input port)
       (display line port)
       (newline port)
       (force-output port))
+    
+    (if (not thread-proxy)
+        (feed-input (console-pump-port))
+      (let ((thread (get-thread~ (get-object~ thread-proxy))))
+        (thread-execute thread
+          (function ()
+            (feed-input (current-repl-pump-port))))))
     {})
   
   

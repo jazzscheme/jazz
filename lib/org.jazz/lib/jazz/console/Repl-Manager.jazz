@@ -46,23 +46,11 @@
         (jazz.utilities))
 
 
-(class Repl-Manager extends Layout-View
-
-
-  (form
-    (<install>                                  size: {Dimension 650 400} layout-type: border
-      (<Layout-View>             name: tools
-        @convert
-        (<Push-Combo>            name: detail
-          (<!>                   name: body     portfolio: :icons image-name: {Bitmap-Resource "PrintDetail"} tooltip?: #t tooltip-text: "Print Detail" action-handler: {Event-Handler :form on-print-detail-menu})
-          (<!>                   name: pick     action-handler: {Event-Handler :form on-print-detail-menu}))
-        (<Separator>                            location: tail)
-        (<Push-Tool>             name: clear    size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Clear Console" image-name: {Bitmap-Resource "Clear"} portfolio: :icons action-handler: {Event-Handler :form on-clear-console}))
-      (<Pad-View>                name: pad      location: center)))
+(class Repl-Manager extends Console-Manager
     
   
   (method meta (external-name . rest)
-    'console-manager)
+    'repl-manager)
 
   
   ;;;
@@ -75,142 +63,4 @@
   
   
   (method meta (host-title)
-    "Repl")
-
-  
-  ;;;
-  ;;;; Docked
-  ;;;
-  
-  
-  (method (get-tools-view)
-    (locate 'tools))
-  
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method (get-pad)
-    (locate 'pad))
-
-  
-  (method public (get-text)
-    (let ((console (get-selection~ (get-pad))))
-      (essay console (get-text~ console))))
-  
-  
-  ;;;
-  ;;;; Register
-  ;;;
-  
-  
-  (method (register-console title)
-    (let ((pad (get-pad))
-          (view (new Console-View)))
-      (let ((text (get-text~ view))
-            (select? (not (get-selection~ pad))))
-        (display-banner~ text)
-        (add-view~ pad view)
-        (when select?
-          (set-selection~ pad view))
-        (layout-view~ pad)
-        (let ((tool (new Console-Button title: title auto-size?: #t location: 'head image-name: {Bitmap-Resource "Process"} portfolio: :icons)))
-          (add-tool~ (get-root) tool)
-          (when select?
-            (set-selected?~ tool #t)))
-        text)))
-  
-  
-  (method (unregister-console console)
-    (remove-view~ (get-pad) (get-parent~ (get-parent~ console))))
-  
-  
-  ;;;
-  ;;;; Events
-  ;;;
-
-
-  (method (on-print-detail-menu evt)
-    (let* ((sender (get-sender~ evt))
-           (combo (typecase sender ((Push-Icon) (get-combo~ sender)) ((Combo-Button) (get-combo~ sender))))
-           (pos (new Point 0 (get-height~ (get-size~ sender))))
-           (menu (new Print-Detail-Menu client: self))
-           (pref (get-preferences '(tools console)))
-           (detail (get-print-detail~ pref)))
-      (set-checked?~ (child~ menu detail) #t)
-      (layout-menu~ menu)
-      (track-popup-menu~ sender menu pos initiator: combo)))
-
-
-  (method (on-print-detail evt)
-    (let ((pref (get-preferences '(tools console)))
-          (detail (get-property~ evt detail:)))
-      (set-preference pref 'print-detail detail)
-      (user-message "Print detail set to {a}" detail)))
-  
-  
-  (method (on-clear-console evt)
-    (let ((text (get-text)))
-      (clear-console~ text)
-      (acquire-focus~ text))))
-
-
-;;;
-;;;; Console-View
-;;;
-
-
-(class Console-View extends Scroller-View
-  
-  
-  (form
-    (<install>                             vscroll?: #t hscroll?: #t flat?: #t
-      (<!>                   name: content
-        (<Console-Text-View> name: text))))
-  
-  
-  (method (get-text)
-    (locate 'text)))
-
-
-(register-autoclass Console-View)
-
-
-;;;
-;;;; Console-Button
-;;;
-
-
-(class Console-Button extends Radio-Tool
-
-
-  (method (draw-frame surface)
-    (nextmethod surface)
-    (let* ((rect (get-bounds))
-           (left (get-left~ rect))
-           (top (get-top~ rect))
-           (right (- (get-right~ rect) 1))
-           (bottom (- (get-bottom~ rect) 1)))
-      (set-pen~ surface (new Pen color: {Color name: Medium}))
-      (pixel-to~ surface left top)
-      (pixel-to~ surface right top)
-      (pixel-to~ surface left bottom)
-      (pixel-to~ surface right bottom))))
-
-
-;;;
-;;;; Print-Detail-Menu
-;;;
-
-
-(class Print-Detail-Menu extends Context-Menu
-  
-  
-  (form
-    (<install>
-      (<Check-Item> name: :human    title: "&Human" action-handler: {Event-Handler (:form :client) on-print-detail detail: :human})
-      (<Check-Item> name: :text     title: "&Textual" action-handler: {Event-Handler (:form :client) on-print-detail detail: :text})
-      (<Check-Item> name: :reader   title: "&Reader" action-handler: {Event-Handler (:form :client) on-print-detail detail: :reader})
-      (<Check-Item> name: :describe title: "&Describe" action-handler: {Event-Handler (:form :client) on-print-detail detail: :describe})))))
+    "Repl")))

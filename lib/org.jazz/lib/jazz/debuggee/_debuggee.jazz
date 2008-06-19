@@ -156,38 +156,42 @@
 ;;;
 
 
-(definition *debuggee-console-port*
+(definition *console-pump-port*
   {})
 
 
-(definition (debuggee-console-port)
-  *debuggee-console-port*)
+(definition (console-pump-port)
+  *console-pump-port*)
 
-(definition (set-debuggee-console-port port)
-  (set! *debuggee-console-port* port))
+(definition (set-console-pump-port port)
+  (set! *console-pump-port* port))
 
 
 (definition (make-debuggee-console)
   (receive (head tail) (open-string-pipe)
-    (let ((console (register-console~ controller-debugger local-process)))
-      (start-debuggee-console-pump console head)
-      (set-debuggee-console-port head)
-      tail)))
+    (let ((console (register-console~ controller-debugger local-process {})))
+      (start-debuggee-console-pump console tail)
+      (set-console-pump-port tail)
+      head)))
 
 
 (definition current-repl-port
   (make-parameter {}))
 
+(definition current-repl-pump-port
+  (make-parameter {}))
 
-(definition (with-repl-port thunk)
+
+(definition (with-repl-port thread-proxy thunk)
   (if (current-repl-port)
       (thunk)
     (receive (head tail) (open-string-pipe)
-      (let ((console (register-console~ controller-debugger local-process)))
+      (let ((console (register-console~ controller-debugger local-process thread-proxy)))
         (unwind-protect
             (begin
-              (start-debuggee-console-pump console head)
-              (parameterize ((current-repl-port head))
+              (start-debuggee-console-pump console tail)
+              (parameterize ((current-repl-port head)
+                             (current-repl-pump-port tail))
                 (thunk)))
           (when controller-debugger
             (unregister-console~ controller-debugger console)))))))
@@ -214,22 +218,26 @@
 ;;;
 
 
-(definition (start-repl-thread)
-  (let ((port (console-input-port)))
-    (thread-start!
-      (new-thread
-        (function ()
-          (let (iterate)
-            (with-restart-catcher 'resume-repl "Resume repl" {}
-              (function ()
-                (read-eval-print port)))
-            (iterate)))
-        "Repl"))))
+(definition (start-repl-thread thread port)
+  (thread-start!
+    (new-thread
+      (function ()
+        (let (iterate)
+          (read-eval-print thread port)
+          (iterate)))
+      "Repl")))
 
 
-(definition (read-eval-print port)
-  (format port #"\($\)\(color Dark-Red {a}\)\(prompt\){%}{!}"#
-    (evaluate (read port))))
+(definition (read-eval-print thread port)
+  (define (print result)
+    (format port #"\($\)\(color Dark-Red {a}\){%}{!}"# result))
+  
+  (let ((expr (read port)))
+    (thread-execute thread
+      (function ()
+        (unwind-protect
+            (print (evaluate expr))
+          (format port #"\(prompt\){%}{!}"#))))))
 
 
 (definition (evaluate expr)
@@ -282,11 +290,14 @@
       (function ()
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-          (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason))
-        (let ((process (get-process)))
-          (if (not process)
-              (debuggee-loop)
-            (process-debuggee-loop~ process))))
+          (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
+          (with-repl-port thread-proxy
+            (function ()
+              (start-repl-thread thread (current-repl-port))
+              (let ((process (get-process)))
+                (if (not process)
+                    (debuggee-loop)
+                  (process-debuggee-loop~ process)))))))
       (function ()
         (unregister-stop stop)))))
 
@@ -303,16 +314,13 @@
 
 
 (definition (debuggee-loop)
-  (with-repl-port
-    (function ()
-      (let (loop)
+  (let (loop)
+    (with-restart-catcher 'resume-loop "Resume loop" {}
+      (function ()
         (let ((thunk (thread-receive)))
-          (with-restart-catcher 'resume-loop "Resume loop" {}
-            (function ()
-              (let ((thunk (thread-receive)))
-                (with-jazz-exception-debugger
-                  thunk)))))
-        (loop)))))
+          (with-jazz-exception-debugger
+            thunk))))
+    (loop)))
 
 
 ;;;

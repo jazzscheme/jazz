@@ -41,6 +41,8 @@
 (import (jazz.debuggee)
         (jazz.debuggee.stub)
         (jazz.debugger)
+        ;; to test eval-within
+        (jazz.development)
         (jazz.io)
         (jazz.jml)
         (jazz.jrm)
@@ -58,7 +60,9 @@
 (class Frames-View extends Layout-View
   
   
-  (property stop initialize {})
+  (property process initialize {} accessors generate)
+  (property thread  initialize {} accessors generate)
+  (property stop    initialize {})
   
 
   (form
@@ -69,7 +73,7 @@
         (<!>                 name: content    layout-type: fill
           (<Tree-Header>     name: header     shown?: #f
             (<!>             name: content
-              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-stack #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Frames-Tree> name: frames     multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-frame #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta (external-name . rest)
@@ -143,7 +147,13 @@
     (edit-frame activate-focus?: #t))
 
 
-  (method (on-select-stack evt)
+  (method (on-select-frame evt)
+    (let ((frame (selected-frame)))
+      (set-repl-frame~ thread (essay frame (get-reference~ frame)))
+      ;; to test eval-within
+      (when frame
+        (let ((cont (serial->object (get-continuation~ (get-reference~ frame)))))
+          (set-%c cont))))
     (frame-change)
     @wait-too-slow-for-now-to-be-on-select
     (edit-frame))

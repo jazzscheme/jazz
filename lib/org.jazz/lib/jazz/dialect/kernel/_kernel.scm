@@ -469,6 +469,7 @@
 (native jazz.with-repl-context)
 (native jazz.inspect-repl-context)
 (native jazz.repl)
+(native jazz.eval-within)
 
 
 ;;;

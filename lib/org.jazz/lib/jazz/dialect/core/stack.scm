@@ -62,7 +62,8 @@
     
     
     (define (jazz.get-frame cont)
-      (list (jazz.get-frame-name cont)
+      (list cont
+            (jazz.get-frame-name cont)
             (jazz.get-frame-environment cont)
             (jazz.get-frame-variables cont)
             (jazz.get-frame-location cont)))
@@ -212,6 +213,26 @@
       (begin
         (##repl)
         #f))
+    
+    
+    ;;;
+    ;;;; Eval
+    ;;;
+    
+    
+    (define (jazz.eval-within expr cont)
+      (continuation-capture
+        (lambda (return)
+          (##eval-within
+            expr
+            cont
+            (macro-current-repl-context)
+            (lambda (results)
+              (call-with-values
+                (lambda ()
+                  results)
+                (lambda results
+                  (continuation-return return (car results)))))))))
     
     
     ;;;

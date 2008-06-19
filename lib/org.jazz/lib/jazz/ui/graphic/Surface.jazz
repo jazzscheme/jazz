@@ -493,12 +493,12 @@
                (pattern (case direction
                           ((horizontal)
                            (let ((mid (fxfloor/ (- bottom top) 2)))
-                             (cairo_pattern_create_linear (cast <fl> left) (cast <fl> mid) (cast <fl> right) (cast <fl> mid))))
+                             (create-linear-pattern left mid right mid)))
                           ((vertical)
                            (let ((mid (fxfloor/ (- right left) 2)))
-                             (cairo_pattern_create_linear (cast <fl> mid) (cast <fl> top) (cast <fl> mid) (cast <fl> bottom)))))))
-          (add-color-stop-rgb pattern 0 start)
-          (add-color-stop-rgb pattern 1 end)
+                             (create-linear-pattern mid top mid bottom))))))
+          (add-color-stop pattern 0 start)
+          (add-color-stop pattern 1 end)
           (draw-rectangle rect)
           (cairo_set_source context pattern)
           (fill)
@@ -918,7 +918,7 @@
       (function ()
         (set-line-width 1)
         (set-color color)
-        (draw-rectangle 
+        (draw-rectangle
           (new Rect 
             (+ (get-left~ rect) 0.5)
             (+ (get-top~ rect) 0.5)
@@ -946,6 +946,43 @@
         (if (not color)
             (dispatch Color (get-name~ object))
           color))))
+  
+  
+  ;;;
+  ;;;; Primitives
+  ;;;
+  
+  
+  (method public (cairo-move-to h <fl> v <fl>)
+    (cairo_move_to context h v))
+  
+  
+  (method public (cairo-line-to h <fl> v <fl>)
+    (cairo_line_to context h v))
+  
+  
+  (method public (arc hc vc radius angle1 angle2)
+    (cairo_arc context (cast <fl> hc) (cast <fl> vc) (cast <fl> radius) (cast <fl> angle1) (cast <fl> angle2)))
+  
+  
+  (method public (curve-to-relative dx1 dy1 dx2 dy2 dx3 dy3)
+    (cairo_rel_curve_to context (cast <fl> dx1) (cast <fl> dy1) (cast <fl> dx2) (cast <fl> dy2) (cast <fl> dx3) (cast <fl> dy3)))
+  
+  
+  (method public (close-path)
+    (cairo_close_path context))
+  
+  
+  (method public (create-linear-pattern sh sv eh ev)
+    (cairo_pattern_create_linear (cast <fl> sh) (cast <fl> sv) (cast <fl> eh) (cast <fl> ev)))
+  
+  
+  (method public (set-source pattern)
+    (cairo_set_source context pattern))
+  
+  
+  (method public (scale sh sv)
+    (cairo_scale context (exact->inexact sh) (exact->inexact sv)))
   
   
   ;;;
@@ -1018,13 +1055,17 @@
     (cairo_stroke_preserve context))
   
   
-  (method public (paint)
-    (cairo_paint context))
-  
-  
   (method public (fill)
     (cairo_fill context))
   
+  
+  (method public (fill-preserve)
+    (cairo_fill_preserve context))
+    
+  
+  (method public (paint)
+    (cairo_paint context))
+
   
   (method public (draw-rectangle rect <Rect>)
     (let ((x (get-left~ rect))
@@ -1032,10 +1073,10 @@
           (w (- (get-right~ rect) (get-left~ rect)))
           (h (- (get-bottom~ rect) (get-top~ rect))))
       (cairo_rectangle context
-                      (cast <fl> x)
-                      (cast <fl> y)
-                      (cast <fl> w)
-                      (cast <fl> h))))
+                       (cast <fl> x)
+                       (cast <fl> y)
+                       (cast <fl> w)
+                       (cast <fl> h))))
   
   
   (method public (set-color color <Color>)
@@ -1048,7 +1089,7 @@
         (cairo_set_source_rgba context r g b a))))
   
   
-  (method (add-color-stop-rgb pattern offset color)
+  (method (add-color-stop pattern offset color)
     (let ((red (/ (get-red~ color) 255))
           (green (/ (get-green~ color) 255))
           (blue (/ (get-blue~ color) 255)))

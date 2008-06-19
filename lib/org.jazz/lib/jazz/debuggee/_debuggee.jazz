@@ -80,7 +80,7 @@
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
   (setup-local-process)
-  (setup-debuggee-console-ports)
+  (set-console-make make-debuggee-console)
   (attach-process~ controller-debugger local-process)
   (set-exception-debugger jazz-exception-debugger)
   (set-exception-hook exception-debugger-hook))
@@ -124,7 +124,7 @@
 
 (definition with-stops-mutex
   (let ((mutex (make-mutex 'stops)))
-    (lambda (thunk)
+    (function (thunk)
       (mutex-lock! mutex)
       (thunk)
       (mutex-unlock! mutex))))
@@ -167,26 +167,51 @@
   (set! *debuggee-console-port* port))
 
 
-(definition (setup-debuggee-console-ports)
+(definition (make-debuggee-console)
   (receive (head tail) (open-string-pipe)
-    (set-debuggee-console-port head)
-    (set-console-input-port tail)
-    (set-console-output-port tail)
-    (start-debuggee-console-pump)
-    (start-repl-thread)))
+    (let ((console (register-console~ controller-debugger local-process)))
+      (start-debuggee-console-pump console head)
+      (set-debuggee-console-port head)
+      tail)))
 
 
-(definition (start-debuggee-console-pump)
-  (let ((port (debuggee-console-port))
-        (console (register-console~ controller-debugger local-process)))
-    (thread-start!
-      (new-thread
-        (function ()
-          (let (iterate)
-            (let ((line (read-line port)))
-              (console-output~ controller-debugger console line)
-              (iterate))))
-        "Debuggee Console Pump"))))
+(definition current-repl-port
+  (make-parameter {}))
+
+
+(definition (with-repl-port thunk)
+  (if (current-repl-port)
+      (thunk)
+    (receive (head tail) (open-string-pipe)
+      (let ((console (register-console~ controller-debugger local-process)))
+        (unwind-protect
+            (begin
+              (start-debuggee-console-pump console head)
+              (parameterize ((current-repl-port head))
+                (thunk)))
+          (when controller-debugger
+            (unregister-console~ controller-debugger console)))))))
+
+
+;;;
+;;;; Pump
+;;;
+
+
+(definition (start-debuggee-console-pump console port)
+  (thread-start!
+    (new-thread
+      (function ()
+        (let (iterate)
+          (let ((line (read-line port)))
+            (console-output~ controller-debugger console line)
+            (iterate))))
+      "Debuggee Console Pump")))
+
+
+;;;
+;;;; Repl
+;;;
 
 
 (definition (start-repl-thread)
@@ -260,8 +285,8 @@
           (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason))
         (let ((process (get-process)))
           (if (not process)
-              (debuggee-loop stop)
-            (debuggee-loop~ process stop))))
+              (debuggee-loop)
+            (process-debuggee-loop~ process))))
       (function ()
         (unregister-stop stop)))))
 
@@ -277,8 +302,17 @@
              (subseq all-restarts 0 (- (length all-restarts) skip)))))))
 
 
-(definition (debuggee-loop stop)
-  (loop~ stop))
+(definition (debuggee-loop)
+  (with-repl-port
+    (function ()
+      (let (loop)
+        (let ((thunk (thread-receive)))
+          (with-restart-catcher 'resume-loop "Resume loop" {}
+            (function ()
+              (let ((thunk (thread-receive)))
+                (with-jazz-exception-debugger
+                  thunk)))))
+        (loop)))))
 
 
 ;;;

@@ -62,7 +62,7 @@
       (<Push-Tool>   name: close size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Close" image-name: {Bitmap-Resource "Close"} portfolio: :icons action-handler: {Event-Handler :root on-close})))
   
   
-  ;; super patch until workspace completion
+  ;; super patch of not showing the close box until it is all functional
   (method (super-patch-application?)
     #t)
   
@@ -81,7 +81,7 @@
   (method (size-change size)
     (nextmethod size)
     (invalidate-top)
-    (invalidate-border insets: {Rect 2 2 2 2}))
+    (invalidate-border))
   
   
   ;; This version which is not complete really closes the docked.
@@ -184,6 +184,14 @@
           (layout-view~ guest)))))
   
   
+  (method public (add-tool tool)
+    (let ((tools (locate 'tools)))
+      (set-parent~ tool tools)
+      (layout-view~ tools)
+      (set-size~ tools (new Dimension (tools-width (get-children~ tools)) 22))
+      (layout-view)))
+  
+  
   (method (tools-width tools)
     (let ((total 0))
       (for-each (function (tool)
@@ -233,13 +241,13 @@
              (when close
                (set-visible?~ close #t))
              (set-position~ content {Point 1 25})
-             (set-size~ content (new Dimension (- width 4) (- height 28))))
+             (set-size~ content (new Dimension (- width 2) (- height 26))))
             (else
              (set-visible?~ tools #f)
              (when close
                (set-visible?~ close #f))
              (set-position~ content {Point 1 1})
-             (set-size~ content (new Dimension (- width 4) (- height 4)))))))
+             (set-size~ content (new Dimension (- width 2) (- height 2)))))))
   
   
   (method (layout-tools width)
@@ -247,7 +255,7 @@
            (size (get-size~ tools))
            (close-width (if (super-patch-application?) 0 22)))
       (set-position~ tools (new Point (max (- width 3 close-width (get-width~ size)) 0)
-                                                                 2))))
+                                2))))
 
 
   ;;;
@@ -288,17 +296,10 @@
   
   
   (definition Active-Colors
-    (list {Color red: 0 green: 84 blue: 227} {Color red: 61 green: 149 blue: 255}))
+    (list {Color red: 0 green: 84 blue: 227} {Color red: 28 green: 113 blue: 255}))
   
-  
-  (definition Frame-Dark-Brush
+  (definition Frame-Color
     {Color red: 128 green: 128 blue: 128})
-  
-  (definition Frame-Medium-Pen
-    (new Pen color: {Color red: 142 green: 142 blue: 142}))
-  
-  (definition Frame-Light-Pen
-    (new Pen color: {Color red: 160 green: 160 blue: 160}))
 
   
   (method (draw surface context update lh lv)
@@ -311,30 +312,100 @@
              (width (get-width))
              (height (get-height))
              (focused? (eq? self (get-focused-root))))
-        (frame-rect~ surface (new Rect (get-left~ bounds) (get-top~ bounds) (- (get-right~ bounds) 2) (- (get-bottom~ bounds) 2)) Frame-Dark-Brush)
-        (set-pen~ surface {Pen name: Light})
-        (line~ surface 1 1 (- width 3) 1)
-        (line~ surface 1 1 1 24)
-        (when caption?
-          (if focused?
-              (gradient-fill~ surface caption (first Active-Colors) (second Active-Colors))
-            (fill-rect~ surface caption {Color name: Medium}))
-          (draw-image~ (get-icons-cache~ (get-application)) surface context icon 4 5)
-          (let ((o (collect-others host)))
-          (when o
-            (set-pen~ surface (if focused? {Pen name: White} {Pen name: Black}))
-            (draw-arrow-tip~ surface 24 12 3 'down))
-          (set-font~ surface {Font name: Default-GUI})
-          (set-text-color~ surface (if focused? {Color name: White} {Color name: Black}))
-          (draw-text~ surface (if o 35 22) 7 title)
-          (set-pen~ surface {Pen name: Dark})
-          (line~ surface 1 24 (- width 3) 24)))
-        (set-pen~ surface Frame-Medium-Pen)
-        (line~ surface (- width 2) 1 (- width 2) height)
-        (line~ surface 1 (- height 2) width (- height 2))
-        (set-pen~ surface Frame-Light-Pen)
-        (line~ surface (- width 1) 2 (- width 1) (- height 1))
-        (line~ surface 2 (- height 1) (- width 1) (- height 1)))))
+        (frame-rect~ surface bounds Frame-Color)
+        (let* ((h 1)
+               (all (collect-all))
+               (first (first all))
+               (last (last all)))
+          (for-each (function (docked)
+                      (let* ((guest (get-guest~ docked))
+                             (title (get-title~ docked))
+                             (icon (host-icon~ (class-of guest)))
+                             (first? (eq? docked first))
+                             (last? (eq? docked last))
+                             (selected? (eq? docked host)))
+                        (let ((width (get-text-width~ surface title)))
+                          (let* ((left (- h .5))
+                                 (top .5)
+                                 (width (+ width 37))
+                                 (height 24)
+                                 (right (+ left width))
+                                 (bottom (+ top height))
+                                 (pi 3.14159265358979323846))
+                            (when (and selected? focused?)
+                              (gradient-fill~ surface (new Rect h 1 (+ h width) 24) {Color red: 225 green: 234 blue: 252} {Color red: 153 green: 186 blue: 243} direction: 'vertical)
+                            (set-color~ surface {Color name: Dark})
+                            (set-line-width~ surface 1)
+                            (when (not first?)
+                              (cairo-move-to~ surface left bottom)
+                              (cairo-line-to~ surface left 1)
+                              (stroke~ surface))
+                              (cairo-move-to~ surface right 1)
+                              (cairo-line-to~ surface right bottom)
+                              (stroke~ surface))
+                            (draw-image~ (get-icons-cache~ (get-application)) surface context icon (+ h 3) 5)
+                            (set-font~ surface {Font name: Default-GUI})
+                            (set-text-color~ surface {Color name: Black})
+                            (draw-text~ surface (+ h 21) 7 title)
+                            (increase! h width)))))
+                    all))
+        (set-color~ surface {Color name: Dark})
+        (set-line-width~ surface 1)
+        (line~ surface 1 24 (- width 1) 24))))
+
+  
+  @rounded
+  (method (draw surface context update lh lv)
+    (let ((bounds (get-bounds))
+          (caption (new Rect 2 2 (get-h~ (get-position~ (locate 'tools))) 24)))
+      (let* ((host player)
+             (guest (get-guest~ host))
+             (icon (host-icon~ (class-of guest)))
+             (title (localize (get-title~ host)))
+             (width (get-width))
+             (height (get-height))
+             (focused? (eq? self (get-focused-root))))
+        (frame-rect~ surface bounds {Color name: Dark})
+        (let ((h 1))
+          (for-each (function (docked)
+                      (let* ((guest (get-guest~ docked))
+                             (title (get-title~ docked))
+                             (icon (host-icon~ (class-of guest)))
+                             (selected? (eq? docked host)))
+                        (let ((width (get-text-width~ surface title)))
+                          (let* ((left (- h .5))
+                                 (top .5)
+                                 (width (+ width 13))
+                                 (height 24)
+                                 (right (+ left width))
+                                 (bottom (+ top height))
+                                 (pi 3.14159265358979323846))
+                              (when (and selected? focused?)
+                            (let ((pattern (let ((mid (+ left (fxfloor/ width 2))))
+                                             (create-linear-pattern~ surface mid top mid (+ top height)))))
+                              (add-color-stop~ surface pattern 0 {Color red: 225 green: 234 blue: 252})
+                              (add-color-stop~ surface pattern 1 {Color red: 153 green: 186 blue: 243})
+                              (set-source~ surface pattern)
+                              (cairo-move-to~ surface left bottom)
+                              (cairo-line-to~ surface left (+ top 5))
+                              (arc~ surface (+ left 5) (+ top 5) 5 pi (* pi 1.5))
+                              (cairo-line-to~ surface (- right 2) top)
+                              (curve-to-relative~ surface 15 5 15 15 30 height)
+                              (close-path~ surface)
+                              (when (and selected? focused?)
+                                (fill-preserve~ surface))
+                              (set-color~ surface {Color name: Dark})
+                              (set-line-width~ surface 1)
+                              (stroke~ surface)))
+                            (draw-image~ (get-icons-cache~ (get-application)) surface context icon (+ h 2) 5)
+                            (set-font~ surface {Font name: Default-GUI})
+                            (set-text-color~ surface {Color name: Black})
+                            (draw-text~ surface (+ h 20) 7 title)
+                            (increase! h (+ width 30))))))
+                    (collect-all)))
+        (set-color~ surface {Color name: Dark})
+        (set-line-width~ surface 1)
+        (line~ surface 1 24 (- width 3) 24))))
   
 
   ;;;
@@ -397,6 +468,13 @@
                     others)
           (layout-menu~ menu)
           (track-popup-menu menu {Point 2 25})))))
+  
+  
+  (method (collect-all)
+    (let ((pad (get-parent~ player)))
+      (if (is? pad Pad-Window)
+          (get-children~ pad)
+        (list player))))
   
   
   (method (collect-others host)

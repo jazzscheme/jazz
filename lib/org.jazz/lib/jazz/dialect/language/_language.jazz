@@ -5291,30 +5291,47 @@
 ;;;
 
 
-(definition *console-input-port*
+(definition *console-port*
   {})
 
-(definition *console-output-port*
+(definition *console-mutex*
+  (make-mutex 'console))
+
+(definition *console-make*
   {})
+
+
+(definition (get-console-make)
+  *console-make*)
+
+(definition (set-console-make proc)
+  (set! *console-make* proc))
+
+(definition (make-console)
+  (*console-make*))
+
+
+(definition (get-console-port)
+  (unwind-protect
+      (begin
+        (mutex-lock! *console-mutex*)
+        (either *console-port*
+                (let ((console (make-console)))
+                  (set! *console-port* console)
+                  console)))
+    (mutex-unlock! *console-mutex*)))
 
 
 (definition public (console-input-port)
-  *console-input-port*)
-
-(definition public (set-console-input-port port)
-  (set! *console-input-port* port))
-
+  (get-console-port))
 
 (definition public (console-output-port)
-  *console-output-port*)
-
-(definition public (set-console-output-port port)
-  (set! *console-output-port* port))
+  (get-console-port))
 
 
 (definition public (force-console)
-  (when *console-output-port*
-    (force-output *console-output-port*)))
+  (when *console-port*
+    (force-output *console-port*)))
 
 
 ;;;

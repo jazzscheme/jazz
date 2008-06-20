@@ -58,6 +58,17 @@
 
 
 ;;;
+;;;; Box
+;;;
+
+
+(native box?)
+(native box)
+(native unbox)
+(native set-box!)
+
+
+;;;
 ;;;; Build
 ;;;
 
@@ -473,7 +484,7 @@
 (native jazz.with-repl-context)
 (native jazz.inspect-repl-context)
 (native jazz.repl)
-(native jazz.eval-within)
+(native jazz.eval-within-no-winding)
 
 
 ;;;

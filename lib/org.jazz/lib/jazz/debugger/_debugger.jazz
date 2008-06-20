@@ -218,6 +218,10 @@
 
 (definition public (unregister-debugger-console console)
   (let ((text (serial->object console)))
+    (let ((pump (get-console-pump~ text)))
+      (when pump
+        (thread-interrupt! pump
+          thread-exit)))
     (unregister-console~ (get-console-text-manager text) text)))
 
 
@@ -232,7 +236,7 @@
 (definition (setup-debugger-console-ports console process-proxy thread-proxy)
   (receive (head tail) (open-string-pipe)
     (set-console-port~ console head)
-    (start-debugger-console-pump tail process-proxy thread-proxy)))
+    (set-console-pump~ console (start-debugger-console-pump tail process-proxy thread-proxy))))
 
 
 (definition (start-debugger-console-pump port process-proxy thread-proxy)

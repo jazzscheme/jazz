@@ -189,20 +189,34 @@
   (if (current-repl-port)
       (thunk)
     (receive (head tail) (open-string-pipe)
-      (let ((console (register-console~ controller-debugger local-process thread-proxy)))
-        (unwind-protect
-            (begin
-              (start-debuggee-console-pump console tail)
+      (with-console thread-proxy
+        (function (console)
+          (with-debuggee-console-pump console tail
+            (function ()
               (parameterize ((current-repl-port head)
                              (current-repl-pump-port tail))
-                (thunk)))
-          (when controller-debugger
-            (unregister-console~ controller-debugger console)))))))
+                (thunk)))))))))
+
+
+(definition (with-console thread-proxy proc)
+  (let ((console (register-console~ controller-debugger local-process thread-proxy)))
+    (unwind-protect
+        (proc console)
+      (when controller-debugger
+        (unregister-console~ controller-debugger console)))))
 
 
 ;;;
 ;;;; Pump
 ;;;
+
+
+(definition (with-debuggee-console-pump console port thunk)
+  (let ((thread (start-debuggee-console-pump console port)))
+    (unwind-protect
+        (thunk)
+      (thread-interrupt! thread
+        thread-exit))))
 
 
 (definition (start-debuggee-console-pump console port)
@@ -219,6 +233,14 @@
 ;;;
 ;;;; Repl
 ;;;
+
+
+(definition (with-repl-thread thread port thunk)
+  (let ((thread (start-repl-thread thread port)))
+    (unwind-protect
+        (thunk)
+      (thread-interrupt! thread
+        thread-exit))))
 
 
 (definition (start-repl-thread thread port)
@@ -296,11 +318,12 @@
           (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
           (with-repl-port thread-proxy
             (function ()
-              (start-repl-thread thread (current-repl-port))
-              (let ((process (get-process)))
-                (if (not process)
-                    (debuggee-loop)
-                  (process-debuggee-loop~ process)))))))
+              (with-repl-thread thread (current-repl-port)
+                (function ()
+                  (let ((process (get-process)))
+                    (if (not process)
+                        (debuggee-loop)
+                      (process-debuggee-loop~ process)))))))))
       (function ()
         (unregister-stop stop)))))
 

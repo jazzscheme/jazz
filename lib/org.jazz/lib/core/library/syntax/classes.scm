@@ -466,12 +466,40 @@
 
 
 ;;;
+;;;; Walk Problem
+;;;
+
+
+(jazz.define-class jazz.Walk-Problem jazz.Error (message) jazz.Object-Class ()
+  ((location %%get-walk-problem-location ())))
+
+
+;;;
+;;;; Walk Problems
+;;;
+
+
+(jazz.define-class jazz.Walk-Problems jazz.Error (message) jazz.Object-Class jazz.allocate-walk-problems
+  ((warnings %%get-walk-problems-warnings ())
+   (errors   %%get-walk-problems-errors   ())))
+
+
+;;;
+;;;; Walk Warning
+;;;
+
+
+(jazz.define-class jazz.Walk-Warning jazz.Walk-Problem (message location) jazz.Object-Class jazz.allocate-walk-warning
+  ())
+
+
+;;;
 ;;;; Walk Error
 ;;;
 
 
-(jazz.define-class jazz.Walk-Error jazz.Error (message) jazz.Object-Class jazz.allocate-walk-error
-  ((location %%get-walk-error-location ())))
+(jazz.define-class jazz.Walk-Error jazz.Walk-Problem (message location) jazz.Object-Class jazz.allocate-walk-error
+  ())
 
 
 ;;;

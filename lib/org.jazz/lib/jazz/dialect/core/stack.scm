@@ -220,10 +220,36 @@
     ;;;
     
     
-    (define (jazz.eval-within expr cont)
+    ;; copy-pasted from gambit's repl to changed to no-windind
+    (define (eval-within-no-winding src cont repl-context receiver)
+      
+      (define (run c rte)
+        (##continuation-graft-no-winding
+          cont
+          (lambda ()
+            (macro-dynamic-bind repl-context
+              repl-context
+              (lambda ()
+                (receiver
+                  (let ((rte rte))
+                    (macro-code-run c))))))))
+      
+      (if (##interp-continuation? cont)
+          (let* (($code (##interp-continuation-code cont))
+                 (cte (macro-code-cte $code))
+                 (rte (##interp-continuation-rte cont)))
+            (run (##compile-inner cte
+                                  (##sourcify src (##make-source #f #f)))
+                 rte))
+        (run (##compile-top ##interaction-cte
+                            (##sourcify src (##make-source #f #f)))
+             #f)))
+    
+    
+    (define (jazz.eval-within-no-winding expr cont)
       (continuation-capture
         (lambda (return)
-          (##eval-within
+          (eval-within-no-winding
             expr
             cont
             (macro-current-repl-context)

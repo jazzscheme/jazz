@@ -70,11 +70,6 @@
     (define jazz.with-exception-catcher
       with-exception-catcher)
     
-    (define (jazz.exception-reason exc)
-      (let ((output (open-output-string)))
-        (jazz.display-exception exc output)
-        (get-output-string output)))
-    
     (define jazz.display-exception
       display-exception)
     

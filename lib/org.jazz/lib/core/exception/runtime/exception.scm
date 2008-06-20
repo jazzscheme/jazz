@@ -42,6 +42,27 @@
 
 
 (jazz.define-virtual-runtime (jazz.present-exception (jazz.Exception exception)))
+(jazz.define-virtual-runtime (jazz.get-details (jazz.Exception exception)))
 
 
-(jazz.encapsulate-class jazz.Exception))
+(jazz.define-method (jazz.present-exception (jazz.Exception exception))
+  #f)
+
+(jazz.define-method (jazz.get-details (jazz.Exception exception))
+  #f)
+
+
+(jazz.encapsulate-class jazz.Exception)
+
+
+(define (jazz.exception-reason exc)
+  (let ((output (open-output-string)))
+    (jazz.display-exception exc output)
+    (get-output-string output)))
+
+
+(define (jazz.exception-details exc)
+  (if (and (%%object? exc)
+           (%%is? exc jazz.Exception))
+      (jazz.get-details exc)
+    #f)))

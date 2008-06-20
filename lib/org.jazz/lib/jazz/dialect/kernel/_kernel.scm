@@ -156,6 +156,7 @@
 
 
 (native jazz.exception-reason)
+(native jazz.exception-details)
 (native jazz.display-exception)
 (native jazz.display-continuation-backtrace)
 (native jazz.get-exception-hook)
@@ -169,6 +170,8 @@
 (native jazz.with-exception-propagater)
 (native jazz.dump-exception)
 (native jazz.raise)
+(native jazz.present-exception)
+(native jazz.get-details)
 
 
 ;;;

@@ -285,8 +285,9 @@
         (function ()
           (continuation-capture
             (function (continuation)
-              (let ((reason (exception-reason exc)))
-                (invoke-debugger 'exception reason continuation)))))))))
+              (let ((reason (exception-reason exc))
+                    (details (exception-details exc)))
+                (invoke-debugger 'exception reason details continuation)))))))))
 
 
 (definition (with-jazz-exception-debugger thunk)
@@ -297,7 +298,7 @@
 (definition (break (reason {}))
   (continuation-capture
     (function (continuation)
-      (invoke-debugger 'break reason continuation))))
+      (invoke-debugger 'break reason {} continuation))))
 
 
 ;;;
@@ -305,10 +306,10 @@
 ;;;
 
 
-(definition (invoke-debugger kind reason continuation)
+(definition (invoke-debugger kind reason details continuation)
   (let* ((thread (current-thread))
          (restarts (compute-restarts thread))
-         (stop (new Debuggee-Stop thread kind reason continuation restarts)))
+         (stop (new Debuggee-Stop thread kind reason details continuation restarts)))
     (dynamic-wind
       (function ()
         (register-stop stop))

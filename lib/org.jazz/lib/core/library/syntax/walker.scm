@@ -1660,6 +1660,58 @@
 
 
 ;;;
+;;;; Walk Problem
+;;;
+
+
+(jazz.define-class-runtime jazz.Walk-Problem)
+
+
+(jazz.encapsulate-class jazz.Walk-Problem)
+
+
+;;;
+;;;; Walk Problems
+;;;
+
+
+(jazz.define-class-runtime jazz.Walk-Problems)
+
+
+(define (jazz.new-walk-problems message warnings errors)
+  (jazz.allocate-walk-problems jazz.Walk-Problems message warnings errors))
+
+
+(jazz.define-method (jazz.get-details (jazz.Walk-Problems problems))
+  (let ((queue (jazz.new-queue)))
+    (for-each (lambda (warning)
+                (jazz.enqueue queue (jazz.present-exception warning)))
+              (%%get-walk-problems-warnings problems))
+    (for-each (lambda (error)
+                (jazz.enqueue queue (jazz.present-exception error)))
+              (%%get-walk-problems-errors problems))
+    (jazz.queue-list queue)))
+
+
+(jazz.encapsulate-class jazz.Walk-Problems)
+
+
+;;;
+;;;; Walk Warning
+;;;
+
+
+(jazz.define-class-runtime jazz.Walk-Warning)
+
+
+(define (jazz.new-walk-warning location message)
+  (jazz.allocate-walk-warning jazz.Walk-Warning message location))
+
+
+(jazz.encapsulate-class jazz.Walk-Warning)
+
+
+;;;
 ;;;; Walk Error
 ;;;
 
@@ -1669,10 +1721,6 @@
 
 (define (jazz.new-walk-error location message)
   (jazz.allocate-walk-error jazz.Walk-Error message location))
-
-
-(jazz.define-method (jazz.present-exception (jazz.Walk-Error error))
-  (%%get-error-message error))
 
 
 (jazz.encapsulate-class jazz.Walk-Error)
@@ -2339,7 +2387,7 @@
 (define (jazz.walk-warning walker declaration fmt-string . rest)
   (let ((location (jazz.walk-location walker declaration))
         (message (apply jazz.format fmt-string rest)))
-    (jazz.walker-warning walker (jazz.new-walk-error location message))))
+    (jazz.walker-warning walker (jazz.new-walk-warning location message))))
 
 
 (define (jazz.walk-error walker resume declaration fmt-string . rest)
@@ -2376,17 +2424,18 @@
                     (jazz.bind (module-locator . all) partition
                       (jazz.format output "  In {a}" (or module-locator "<console>"))
                       (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
-                        (for-each (lambda (exception)
-                                    (let ((locator (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-error-location exception)))))
+                        (for-each (lambda (problem)
+                                    (let ((locator (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-problem-location problem)))))
                                       (jazz.format output "{%}    At {a}: {a}"
                                                    (if (%%fx= (%%string-length locator) prefix)
                                                        ""
                                                      (%%substring locator (%%fx+ prefix 1) (%%string-length locator)))
-                                                   (jazz.present-exception exception))))
+                                                   (jazz.present-exception problem))))
                                   all))))
                   (jazz.partition all (lambda (error)
-                                        (%%get-walk-location-module-locator (%%get-walk-error-location error)))))
-        (jazz.error "{a}" (get-output-string output))))))
+                                        (%%get-walk-location-module-locator (%%get-walk-problem-location error)))))
+        (let ((message (get-output-string output)))
+          (raise (jazz.new-walk-problems message warnings errors)))))))
 
 
 ;;;

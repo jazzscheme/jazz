@@ -295,6 +295,9 @@
 (define (jazz.jazz-debugger?)
   jazz.debugger?)
 
+(define (jazz.jazz-set-debugger? flag)
+  (set! jazz.debugger? flag))
+
 
 ;;;
 ;;;; Repository

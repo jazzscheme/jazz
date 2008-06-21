@@ -269,7 +269,21 @@
   (let ((process (get-process)))
     (if (not process)
         "Error: Process not yet started"
-      (car (eval-expressions~ process (list expr))))))
+      ;; quick test
+      (if (current-repl-frame)
+          (eval-in-frame expr)
+        (car (eval-expressions~ process (list expr)))))))
+
+
+(definition (eval-in-frame expr)
+  (let ((box (current-repl-frame)))
+    (if (not box)
+        (eval expr)
+      (let ((frame (unbox box)))
+        (if (not frame)
+            (eval expr)
+          (let ((cont (serial->object (get-continuation~ frame))))
+            (eval-within-no-winding expr cont)))))))
 
 
 ;;;
@@ -310,9 +324,13 @@
   (let* ((thread (current-thread))
          (restarts (compute-restarts thread))
          (stop (new Debuggee-Stop thread kind reason details continuation restarts)))
+    ;; this call was in the before thunk of the dynamic-wind, but it was causing
+    ;; problems in the debugger because it got called multiple times during eval
+    ;; (pending an explanation on continuation-graft-no-winding from marc)
+    (register-stop stop)
     (dynamic-wind
       (function ()
-        (register-stop stop))
+        )
       (function ()
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
@@ -321,10 +339,11 @@
             (function ()
               (with-repl-thread thread (current-repl-port)
                 (function ()
-                  (let ((process (get-process)))
-                    (if (not process)
-                        (debuggee-loop)
-                      (process-debuggee-loop~ process)))))))))
+                  (parameterize ((current-repl-frame (box {})))
+                    (let ((process (get-process)))
+                      (if (not process)
+                          (debuggee-loop)
+                        (process-debuggee-loop~ process))))))))))
       (function ()
         (unregister-stop stop)))))
 

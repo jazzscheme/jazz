@@ -61,8 +61,7 @@
   
   
   (property process initialize {} accessors generate)
-  (property thread  initialize {} accessors generate)
-  (property stop    initialize {})
+  (property thread  initialize {})
   
 
   (form
@@ -112,13 +111,13 @@
   ;;;
   
   
-  (method public (get-stop)
-    stop)
+  (method public (get-thread)
+    thread)
   
   
-  (method public (set-stop value)
-    (when (not (debugged=? stop value))
-      (set! stop value)
+  (method public (set-thread value)
+    (when (not (debugged=? thread value))
+      (set! thread value)
       (update)))
 
   
@@ -148,7 +147,7 @@
 
 
   (method (on-select-frame evt)
-    (when thread
+    (when (and thread (get-active-stop~ thread))
       (let ((frame (selected-frame)))
         (set-repl-frame~ thread (essay frame (get-reference~ frame)))))
     (frame-change)
@@ -196,14 +195,16 @@
               (with-preserving-update tree
                 (function ()
                   (remove-every-row~ tree)
-                  (when stop
-                    (let ((debugger (get-debugger~ stop)))
-                      (for-each (function (frame)
-                                  (let ((title (frame-title frame))
-                                        (image (frame-image frame))
-                                        (debugged (new Debugged-Frame debugger frame)))
-                                    (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: debugged)))
-                                (get-frames~ stop))))))))))))
+                  (when thread
+                    (let ((debugger (get-debugger~ thread)))
+                      (let ((stop (get-active-stop~ thread)))
+                        (when stop
+                          (for-each (function (frame)
+                                      (let ((title (frame-title frame))
+                                            (image (frame-image frame))
+                                            (debugged (new Debugged-Frame debugger frame)))
+                                        (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: debugged)))
+                                    (get-frames~ stop))))))))))))))
 
   
   ;;;

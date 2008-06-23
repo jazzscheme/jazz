@@ -60,7 +60,7 @@
 (class Details-View extends Layout-View
   
   
-  (property stop initialize {})
+  (property thread initialize {})
   
 
   (form
@@ -110,12 +110,12 @@
   ;;;
   
   
-  (method public (get-stop)
-    stop)
+  (method public (get-thread)
+    thread)
   
   
-  (method public (set-stop value)
-    (set! stop value)
+  (method public (set-thread value)
+    (set! thread value)
     (update))
 
   
@@ -156,20 +156,50 @@
 
 
   (method protected (update)
+    (define (debugged-stops debugger stops)
+      (map (function (object)
+             (new Debugged-Stop debugger object))
+           stops))
+    
+    (define (debugged-active-stop debugger)
+      (let ((object (get-active-stop~ thread)))
+        (if (not object)
+            {}
+          (new Debugged-Stop debugger object))))
+    
+    (define (stop-title stop)
+      (let ((reason (get-reason~ stop)))
+        (if (not reason)
+            "Break"
+          (let ((line (car (split reason "\n"))))
+            line))))
+    
+    (define (stop-image stop)
+      (case (get-kind~ stop)
+        ((exception) {Bitmap-Resource "ErrorStop"})
+        (else {Bitmap-Resource "BreakStop"})))
+    
     (with-update-locked
       (function ()
         (with-system-exception-debugger
           (function ()
             (let ((tree (locate 'details)))
               (remove-every-row~ tree)
-              (when stop
-                (let ((details (get-details~ stop)))
-                  (when details
-                    (for-each (function (detail)
-                                (let ((title detail)
-                                      (image {Bitmap-Resource "Green"}))
-                                  (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: detail)))
-                              details))))))))))
+              (when thread
+                (let ((debugger (get-debugger~ thread)))
+                  (let ((active (debugged-active-stop debugger)))
+                    (for-each (function (stop)
+                                (let ((title (stop-title stop))
+                                      (image (stop-image stop)))
+                                  (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop))
+                                        (details (get-details~ stop)))
+                                    (when (and details active (debugged=? stop active))
+                                      (for-each (function (detail)
+                                                  (let ((title detail)
+                                                        (image {Bitmap-Resource "Green"}))
+                                                    (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+                                                details)))))
+                              (debugged-stops debugger (get-stops~ thread))))))))))))
   
   
   ;;;

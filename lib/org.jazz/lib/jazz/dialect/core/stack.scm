@@ -258,7 +258,7 @@
                 (lambda ()
                   results)
                 (lambda results
-                  (continuation-return return (car results)))))))))
+                  (##continuation-return-no-winding return (car results)))))))))
     
     
     ;;;

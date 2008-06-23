@@ -64,9 +64,9 @@
   (form
     (<install>                                 layout-type: border
       (<Layout-View>          name: tools
-        (<Push-Tool>          name: restart    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart})
         (<Push-Tool>          name: break      size: {Dimension 22 22} tooltip?: #t tooltip-text: "Break" image-name: {Bitmap-Resource "Break"} portfolio: :icons action-handler: {Event-Handler :form on-break})
         (<Push-Tool>          name: continue   size: {Dimension 22 22} tooltip?: #t tooltip-text: "Continue" image-name: {Bitmap-Resource "Continue"} portfolio: :icons action-handler: {Event-Handler :form on-continue})
+        (<Push-Tool>          name: restart    size: {Dimension 22 22} tooltip?: #t tooltip-text: "Restart" image-name: {Bitmap-Resource "Restart"} portfolio: :icons action-handler: {Event-Handler :form on-restart})
         (<Separator>                           size: {Dimension 5 0})
         (<Toggle-Tool>        name: detailed   size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Show Detailed Information" image-name: {Bitmap-Resource "Info"} portfolio: :icons action-handler: {Event-Handler :form on-toggle-detailed})
         (<Separator>                           size: {Dimension 2 0})
@@ -88,7 +88,7 @@
   
   
   (method meta (host-icon)
-    {Bitmap-Resource "Person"})
+    {Bitmap-Resource "Threads"})
   
   
   (method meta (host-title)
@@ -154,7 +154,7 @@
            (acquired (acquire sender pos)))
       (with-context-click~ sender pos
         (function ()
-          (let ((menu (new-context-menu (selected-object))))
+          (let ((menu (new-context-menu (selected-thread))))
             (when menu
               (track-popup-menu menu acquired)))))))
   
@@ -168,7 +168,8 @@
 
 
   (method (on-select-threads evt)
-    (stop-change))
+    (update-tools)
+    (thread-change))
   
   
   (method (on-break evt)
@@ -179,11 +180,11 @@
   
   
   (method (on-continue evt)
-    (let* ((stop (selected-stop))
-           (thread (selected-thread)))
-      (with-thread-refresh thread
-        (function ()
-          (continue-stop~ process (get-reference~ stop))))))
+    (let ((thread (selected-thread)))
+      (let ((stop (get-active-stop~ thread)))
+        (with-thread-refresh thread
+          (function ()
+            (continue-stop~ process stop))))))
   
   
   (method (on-update evt)
@@ -219,7 +220,21 @@
       (with-thread-refresh thread
         (function ()
           (restart-stop~ process restart)))))
-
+  
+  
+  (method (update-tools)
+    (define (enable restart break continue)
+      (set-enabled?~ (locate 'restart) restart)
+      (set-enabled?~ (locate 'break) break)
+      (set-enabled?~ (locate 'continue) continue))
+    
+    (let ((thread (selected-thread)))
+      (if (not thread)
+          (enable #f #f #f)
+        (let ((stop (get-active-stop~ thread)))
+          (if (not stop)
+              (enable #f #t #f)
+            (enable #t #f (eq? (get-kind~ stop) 'break)))))))
   
   ;;;
   ;;;; Update
@@ -260,24 +275,16 @@
              (new Debugged-Thread debugger object))
            threads))
     
-    (define (debugged-restarts debugger restarts)
-      (map (function (object)
-             (new Debugged-Restart debugger object))
-           restarts))
-    
-    (define (debugged-stops debugger stops)
-      (map (function (object)
-             (new Debugged-Stop debugger object))
-           stops))
-    
-    (define (thread-title thread)
+    (define (thread-title thread stop)
       (let ((name (present-thread-name (get-name~ thread)))
             (state (get-state~ thread)))
         (if (not detailed?)
-            (->string name)
+            (if stop
+                (format "{a} - {a}" name (stop-title stop))
+              (->string name))
           (format "{a} - {a}" name state))))
     
-    (define (thread-image thread)
+    (define (thread-image thread stop)
       (let ((stops (get-stops~ thread)))
         (if (null? stops)
             {Bitmap-Resource "ThreadRun"}
@@ -300,16 +307,12 @@
     (when process
       (let ((debugger (get-debugger~ process)))
         (for-each (function (thread)
-                    (let ((title (thread-title thread))
-                          (image (thread-image thread)))
-                      ;; quicky until a cleaner solution
-                      (when (not (member? title System-Threads test: equal?))
-                        (let ((thread-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))
-                          (for-each (function (stop)
-                                      (let ((title (stop-title stop))
-                                            (image (stop-image stop)))
-                                        (add-row~ tree father: thread-row children: (list (new Tree-Node title: title image: image)) user-data: stop)))
-                                    (debugged-stops debugger (get-stops~ thread)))))))
+                    (let ((stop (get-active-stop~ thread)))
+                      (let ((title (thread-title thread stop))
+                            (image (thread-image thread stop)))
+                        ;; quicky until a cleaner solution
+                        (when (not (member? title System-Threads test: equal?))
+                          (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: thread)))))
                   (debugged-threads debugger (get-threads~ process))))))
 
   
@@ -318,13 +321,13 @@
   ;;;
   
   
-  (method (stop-change)
-    (let ((view (get-frames-view)))
-      (set-process~ view process)
-      (set-thread~ view (selected-thread))
-      (set-stop~ view (selected-stop)))
-    (let ((view (get-details-view)))
-      (set-stop~ view (selected-stop))))
+  (method (thread-change)
+    (let ((thread (selected-thread)))
+      (let ((view (get-frames-view)))
+        (set-process~ view process)
+        (set-thread~ view thread))
+      (let ((view (get-details-view)))
+        (set-thread~ view thread))))
   
   
   (method public (select-first-frame from)
@@ -354,35 +357,6 @@
   (method public (selected-thread)
     (let ((row (selected-row)))
       (when row
-        (let ((object (get-user-data~ row)))
-          (typecase object
-            ((Debugged-Thread) object)
-            ((Debugged-Restart) (get-user-data~ (get-father~ row)))
-            ((Debugged-Stop) (get-user-data~ (get-father~ row)))
-            (else {}))))))
-  
-  
-  (method public (selected-restart)
-    (let ((row (selected-row)))
-      (when row
-        (let ((object (get-user-data~ row)))
-          (typecase object
-            ((Debugged-Restart) object)
-            (else {}))))))
-  
-  
-  (method public (selected-stop)
-    (let ((row (selected-row)))
-      (when row
-        (let ((object (get-user-data~ row)))
-          (typecase object
-            ((Debugged-Stop) object)
-            (else {}))))))
-  
-  
-  (method public (selected-object)
-    (let ((row (selected-row)))
-      (when row
         (get-user-data~ row))))
   
   
@@ -400,20 +374,22 @@
   
   (method (new-context-menu object)
     (typecase object
-      ((Debugged-Thread) (new Thread-Menu))
-      ((Debugged-Stop) (new-stop-menu object))
+      ((Debugged-Thread) (new-thread-menu object))
       (else {})))
   
   
-  (method (new-stop-menu stop)
-    (let ((menu (new Stop-Menu)))
-      (for-each (function (restart)
-                  (let ((title (get-message~ restart))
-                        (icon {Bitmap-Resource "Restart"}))
-                    (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (function (event) (restart-stop restart))))))
-                (reverse (get-restarts~ stop)))
-      (new Separator-Item parent: menu)
-      (new Label-Item parent: menu title: "&Continue" icon: {Bitmap-Resource "Continue"} action-handler: {Event-Handler :form on-continue})
+  (method (new-thread-menu thread)
+    (let ((menu (new Thread-Menu))
+          (stop (get-active-stop~ thread)))
+      (if (not stop)
+          (new Label-Item parent: menu title: "&Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})
+        (for-each (function (restart)
+                    (let ((title (get-message~ restart))
+                          (icon {Bitmap-Resource "Restart"}))
+                      (new Label-Item parent: menu title: title icon: icon action-handler: (new Event-Handler execute: (function (event) (restart-stop restart))))))
+                  (reverse (get-restarts~ stop)))
+        (new Separator-Item parent: menu)
+        (new Label-Item parent: menu title: "&Continue" icon: {Bitmap-Resource "Continue"} action-handler: {Event-Handler :form on-continue}))
       (cleanup-separators~ menu)
       (layout-menu~ menu)
       menu)))
@@ -440,25 +416,4 @@
 ;;;
 
 
-(class Thread-Menu extends Context-Menu
-  
-  
-  (form
-    (<install>
-      (<Label-Item> name: break title: "&Break" icon: {Bitmap-Resource "Break"} action-handler: {Event-Handler :form on-break})))
-  
-  
-  (method (on-break evt)
-    ))
-
-
-;;;
-;;;; Stop-Menu
-;;;
-
-
-(class Stop-Menu extends Context-Menu
-  
-  
-  (method (on-continue evt)
-    )))
+(class Thread-Menu extends Context-Menu))

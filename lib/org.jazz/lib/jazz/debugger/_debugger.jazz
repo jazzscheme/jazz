@@ -127,42 +127,24 @@
 
 
 ;;;
-;;;; Debugged
+;;;; Selected
 ;;;
 
 
-(definition *debugged-process*
+(definition *selected-process*
   {})
 
 
-(definition public (get-debugged-process)
-  *debugged-process*)
+(definition public (get-selected-process)
+  *selected-process*)
 
 
-(definition public (set-debugged-process process)
-  (set! *debugged-process* process)
-  {})
-
-
-(definition public (select-debugged-process process)
-  (when (not (debugged=? process *debugged-process*))
-    (set! *debugged-process* process)
-    (let ((status (get-status-bar~ (get-application))))
-      (when status
-        (let ((item (locate-component~ status 'debugger)))
-          (when item
-            (set-icon~ item (essay process (get-icon~ process))))))
-      (let ((presented (essay process (present~ process))))
-        (user-message (format "{a} selected" (if (not process) "None" presented)))))
-    {}))
-
-
-(definition public (select-next-debugged-process)
-  @convert
-  (let* ((rank (find processes *debugged-process* test: debugged=?))
-         (process (element processes (modulo (+ rank 1) (length processes)))))
-    (select-debugged-process process)
-    {}))
+(definition public (set-selected-process process)
+  (when (not (debugged=? process *selected-process*))
+    (set! *selected-process* process)
+    (let ((view (get-processes-view)))
+      (when view
+        (update~ view)))))
 
 
 ;;;
@@ -264,7 +246,7 @@
     (let* ((process (get-process))
            (controller-debugger (get-controller-debugger))
            (controller-toplevel-hwnd (get-toplevel-hwnd~ controller-debugger)))
-      (select-debugged-process~ controller-debugger process)
+      (set-selected-process~ controller-debugger process)
       (select-foreground-window controller-toplevel-hwnd))
     (break-action type: 'error message: message location: location frame: frame)))
 
@@ -374,15 +356,6 @@
 
 (definition public (debugging?)
   (/= (get-level~ (get-loop~ (get-application))) 0))
-
-
-;;;
-;;;; Debuggee
-;;;
-
-
-(definition public (on-next-process evt)
-  (select-next-debugged-process))
 
 
 ;;;

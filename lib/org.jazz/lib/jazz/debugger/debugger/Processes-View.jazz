@@ -162,8 +162,7 @@
   
   
   (method (on-update evt)
-    (let ((validate-liveness? (get-shift?~ evt)))
-      (update validate-liveness?: validate-liveness?)))
+    (update))
   
   
   (method (process-change)
@@ -183,7 +182,7 @@
       generate-event?: #t))
 
 
-  (method protected (update (validate-liveness?: validate-liveness? #t))
+  (method protected (update)
     (with-update-locked
       (function ()
         (with-system-exception-debugger
@@ -192,20 +191,31 @@
               (with-preserving-update tree
                 (function ()
                   (remove-every-row~ tree)
-                  (update-processes tree validate-liveness?: validate-liveness?)
+                  (update-processes tree)
                   @convert (update-snapshots tree snapshots)))))))))
   
   
-  (method (update-processes tree (validate-liveness?: validate-liveness? #t))
-    (for-each (function (debugger)
-                (for-each (function (process)
-                            (let ((live? (live?~ process))
-                                  (debugged (new Debugged-Process debugger process)))
-                              (let ((title (get-title~ debugged))
-                                    (image (if live? {Bitmap-Resource "Process"} {Bitmap-Resource "ProcessDead"})))
-                                (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: (and live? debugged)))))
-                          (get-processes~ debugger validate-liveness?: validate-liveness?)))
-              (get-debuggers)))
+  (method (update-processes tree)
+    (let ((selected-process (get-selected-process)))
+      (define (process-title process live?)
+        (get-title~ process))
+      
+      (define (process-image process live?)
+        (if live?
+            (if (and selected-process (debugged=? process selected-process))
+                {Bitmap-Resource "Find"}
+              {Bitmap-Resource "Process"})
+          {Bitmap-Resource "ProcessDead"}))
+    
+      (for-each (function (debugger)
+                  (for-each (function (process)
+                              (let ((live? (live?~ process))
+                                    (debugged (new Debugged-Process debugger process)))
+                                (let ((title (process-title debugged live?))
+                                      (image (process-image debugged live?)))
+                                  (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: (and live? debugged)))))
+                            (get-processes~ debugger validate-liveness?: #t)))
+                (get-debuggers))))
 
   
   ;;;
@@ -254,14 +264,13 @@
         (get-row~ tree n))))
   
   
-  (method (highlight-process debugger process-proxy)
-    (let ((debugged (new Debugged-Process debugger process-proxy))
-          (tree (locate 'processes)))
+  (method (highlight-process process)
+    (let ((tree (locate 'processes)))
       (continuation-capture
         (function (return)
           (for-each-row~ tree
             (function (row rank)
-              (when (debugged=? (get-user-data~ row) debugged)
+              (when (debugged=? (get-user-data~ row) process)
                 (let ((cell (new Cell (row-rank~ tree row) 0)))
                   (let ((data (get-cell-data~ tree cell)))
                     (set-frame-color~ data {Color name: Dark-Red})
@@ -296,8 +305,13 @@
       (update)))
   
   
+  (method (select-process)
+    (let ((process (selected-process)))
+      (set-selected-process process)))
+  
+  
+  @convert/wait
   (method (select-process-toplevel)
-    @convert
     (let* ((process (selected-process))
            (toplevel-hwnd (get-toplevel-hwnd~ process)))
       (select-foreground-window toplevel-hwnd)))
@@ -345,12 +359,21 @@
   
   (form
     (<install>
-      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler :form on-select})
+      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Find"} action-handler: {Event-Handler :form on-select})
+      (<Separator-Item>)
+      @wait
+      (<Label-Item>     name: select-toplevel title: "&Select Toplevel" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler :form on-select-toplevel})
+      @wait
       (<Separator-Item>)
       (<Label-Item>     name: exit   title: "E&xit" action-handler: {Event-Handler :form on-exit})))
   
   
   (method (on-select evt)
+    (select-process~ client))
+  
+  
+  @wait
+  (method (on-select-toplevel evt)
     (select-process-toplevel~ client))
   
   

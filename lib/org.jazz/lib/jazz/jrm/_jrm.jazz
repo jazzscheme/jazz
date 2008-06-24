@@ -157,6 +157,10 @@
   (invoke-remote 'send method-name remote-proxy arguments))
 
 
+(definition public (sync-remote method-name remote-proxy . arguments)
+  (invoke-remote 'sync method-name remote-proxy arguments))
+
+
 (definition public (post-remote method-name remote-proxy . arguments)
   (invoke-remote 'post method-name remote-proxy arguments))
 
@@ -181,6 +185,14 @@
                  (if err
                      (error "Remote error while executing {s}: {a}" method-name err)
                    (unmarshall result)))))
+            ((sync)
+             (let ((received (receive-remote-result port)))
+               (when *debug?*
+                 (terminal '***remoting*** 'received kind method-name '-> received))
+               (bind (err result) received
+                 (if err
+                     (error "Remote error while executing {s}: {a}" method-name err)
+                   (unspecified)))))
             ((post)
              (unspecified))))))))
 
@@ -212,17 +224,22 @@
           (terminal '***remoting*** 'process kind method-name proxy-ior (and *debug-arguments?* arguments)))
         (case kind
           ((send)
-           (let ((to-send (execute-remote method-name proxy-ior arguments)))
+           (receive (err result) (execute-remote method-name proxy-ior arguments)
              (when *debug?*
-               (terminal '***remoting*** 'return kind method-name to-send))
-             (send-remote-result to-send port)))
+               (terminal '***remoting*** 'return kind method-name err result))
+             (send-remote-result (list err (marshall result)) port)))
+          ((sync)
+           (receive (err result) (execute-remote method-name proxy-ior arguments)
+             (when *debug?*
+               (terminal '***remoting*** 'return kind method-name err result))
+             (send-remote-result (list err (marshall (unspecified))) port)))
           ((post)
            (dispatch-remote method-name proxy-ior arguments)))))))
 
 
 (definition (execute-remote method-name proxy-ior arguments)
   (if *debug-locally?*
-      (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))
+      (values #f (dispatch-remote method-name proxy-ior arguments))
     (continuation-capture
       (function (return)
         (with-exception-handler
@@ -233,9 +250,9 @@
                   (terminal '***remoting*** 'exception)
                   (display-exception exc)
                   (display-continuation-backtrace cont))
-                (return (list (exception-reason exc) #f)))))
+                (return (values (exception-reason exc) #f)))))
           (function ()
-            (list #f (marshall (dispatch-remote method-name proxy-ior arguments)))))))))
+            (values #f (dispatch-remote method-name proxy-ior arguments))))))))
 
 
 (definition (dispatch-remote method-name proxy-ior arguments)
@@ -444,34 +461,6 @@
 ;;;
 
 
-(definition (validate-marshallable object)
-  (cond ((null? object)
-         )
-        ((number? object)
-         )
-        ((string? object)
-         )
-        ((symbol? object)
-         )
-        ((keyword? object)
-         )
-        ((eq? object #f)
-         )
-        ((eq? object #t)
-         )
-        ((unspecified? object)
-         )
-        ((ior? object)
-         )
-        ((proxy? object)
-         )
-        ((pair? object)
-         (validate-marshallable (car object))
-         (validate-marshallable (cdr object)))
-        (else
-         (error "Unable to marshall: {s}" object))))
-
-
 (definition (marshall object)
   (cond ((null? object)
          object)
@@ -497,7 +486,7 @@
          (cons (marshall (car object))
                (marshall (cdr object))))
         (else
-         object)))
+         (error "Unable to marshall: {s}" object))))
 
 
 ;;;
@@ -528,7 +517,7 @@
          (cons (unmarshall (car object))
                (unmarshall (cdr object))))
         (else
-         object)))
+         (error "Unable to unmarshall: {s}" object))))
 
 
 ;;;

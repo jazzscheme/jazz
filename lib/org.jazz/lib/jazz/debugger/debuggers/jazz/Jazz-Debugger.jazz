@@ -347,47 +347,11 @@
   
   
   (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
-    (if (and #f ;; until the error shows in full in the debugger in like a tooltip
-             (local-proxy? thread-proxy)
-             (eq? (get-object~ thread-proxy) (primordial-thread)))
-        (with-locked-update
-          (function ()
-            (let ((view (select-palette Processes-View workspace: 'debugger)))
-              (when view
-                (select-first-frame~ view stop-proxy)))))
-      (play-sound debugger-sound)
-      (when (neq? (get-name~ (selected-workspace)) 'debugger)
-        (let* ((toolbar (find-toolbar~ (get-application)))
-               (button (locate-component~ toolbar 'debugger)))
-          (notify~ button)))
-      @w
-      (let ((reason (either reason (case kind ((exception) "Error") (else "Break")))))
-        (let ((lines (split reason "\n")))
-          (format :console #"\($\)\(color {a} {a} : {?{a}~}\){%}{!}"#
-                  (case kind
-                    ((exception) 'Dark-Red)
-                    (else 'Dark-Orange))
-                  (case kind
-                    ((exception) "Error")
-                    (else "Break"))
-                  (car lines))
-          (for-each (function (line)
-                      (format :console #"\($\)\(color {a} {?{a}~}\){%}{!}"#
-                              (case kind
-                                ((exception) 'Dark-Red)
-                                (else 'Dark-Orange))
-                              line))
-                    (cdr lines))))))
-
-
-  (method public (debug-exception type message stack)
-    (when (eq? (present-exception type message) 'yes)
-      (message-box stack)
-      {}))
-
-
-  (method (present-exception type message)
-    (message-box (format "{a}: {a}" type message)
-                 type: 'error
-                 yes: "Debug"
-                 cancel: "Ignore"))))
+    ;;(terminal process-proxy thread-proxy stop-proxy kind reason)
+    (play-sound debugger-sound)
+    (when (neq? (get-name~ (selected-workspace)) 'debugger)
+      (let* ((toolbar (find-toolbar~ (get-application)))
+             (button (locate-component~ toolbar 'debugger)))
+        (notify~ button)))
+    @w
+    (highlight-process~ (get-processes-view) self process-proxy))))

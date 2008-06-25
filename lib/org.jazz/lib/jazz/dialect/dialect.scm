@@ -2049,7 +2049,7 @@
 
 (define jazz.method-stub-modifiers
   '(((private protected public) . private)
-    ((send sync post) . send)
+    ((post exec call) . call)
     ((reference value) . reference)))
 
 
@@ -2108,9 +2108,9 @@
                   (%%assert (%%eq? (%%car method-form) 'method)
                     (receive (name type access invocation passage parameters body) (jazz.parse-method-stub walker resume declaration (%%cdr method-form))
                       (receive (parameters positional rest) (parse-parameters parameters)
-                        (let ((invoker (case invocation ((send) 'send-remote) ((sync) 'sync-remote) ((post) 'post-remote)))
+                        (let ((invoker (case invocation ((post) 'post-remote) ((exec) 'exec-remote) ((call) 'call-remote)))
                               (dispatch (%%string->symbol (%%string-append (%%symbol->string name) "~")))
-                              (local-result (case invocation ((sync post) '((unspecified))) (else '())))
+                              (local-result (case invocation ((post exec) '((unspecified))) ((call) '())))
                               (value-keyword (parse-value-keyword name passage)))
                           (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
                           (%%when value-keyword

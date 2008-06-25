@@ -153,16 +153,16 @@
   (make-parameter 5))
 
 
-(definition public (send-remote method-name remote-proxy . arguments)
-  (invoke-remote 'send method-name remote-proxy arguments))
-
-
-(definition public (sync-remote method-name remote-proxy . arguments)
-  (invoke-remote 'sync method-name remote-proxy arguments))
-
-
 (definition public (post-remote method-name remote-proxy . arguments)
   (invoke-remote 'post method-name remote-proxy arguments))
+
+
+(definition public (exec-remote method-name remote-proxy . arguments)
+  (invoke-remote 'exec method-name remote-proxy arguments))
+
+
+(definition public (call-remote method-name remote-proxy . arguments)
+  (invoke-remote 'call method-name remote-proxy arguments))
 
 
 (definition (invoke-remote kind method-name remote-proxy arguments)
@@ -177,15 +177,9 @@
         (function (port)
           (send-remote-message (list kind method-name proxy-ior arguments) port)
           (case kind
-            ((send)
-             (let ((received (receive-remote-result port)))
-               (when *debug?*
-                 (terminal '***remoting*** 'received kind method-name '-> received))
-               (bind (err result) received
-                 (if err
-                     (error "Remote error while executing {s}: {a}" method-name err)
-                   (unmarshall result)))))
-            ((sync)
+            ((post)
+             (unspecified))
+            ((exec)
              (let ((received (receive-remote-result port)))
                (when *debug?*
                  (terminal '***remoting*** 'received kind method-name '-> received))
@@ -193,8 +187,14 @@
                  (if err
                      (error "Remote error while executing {s}: {a}" method-name err)
                    (unspecified)))))
-            ((post)
-             (unspecified))))))))
+            ((call)
+             (let ((received (receive-remote-result port)))
+               (when *debug?*
+                 (terminal '***remoting*** 'received kind method-name '-> received))
+               (bind (err result) received
+                 (if err
+                     (error "Remote error while executing {s}: {a}" method-name err)
+                   (unmarshall result)))))))))))
 
 
 (definition (send-remote-message info port)
@@ -223,18 +223,18 @@
         (when *debug?*
           (terminal '***remoting*** 'process kind method-name proxy-ior (and *debug-arguments?* arguments)))
         (case kind
-          ((send)
-           (receive (err result) (execute-remote method-name proxy-ior arguments)
-             (when *debug?*
-               (terminal '***remoting*** 'return kind method-name err result))
-             (send-remote-result (list err (marshall result)) port)))
-          ((sync)
+          ((post)
+           (dispatch-remote method-name proxy-ior arguments))
+          ((exec)
            (receive (err result) (execute-remote method-name proxy-ior arguments)
              (when *debug?*
                (terminal '***remoting*** 'return kind method-name err result))
              (send-remote-result (list err (marshall (unspecified))) port)))
-          ((post)
-           (dispatch-remote method-name proxy-ior arguments)))))))
+          ((call)
+           (receive (err result) (execute-remote method-name proxy-ior arguments)
+             (when *debug?*
+               (terminal '***remoting*** 'return kind method-name err result))
+             (send-remote-result (list err (marshall result)) port))))))))
 
 
 (definition (execute-remote method-name proxy-ior arguments)

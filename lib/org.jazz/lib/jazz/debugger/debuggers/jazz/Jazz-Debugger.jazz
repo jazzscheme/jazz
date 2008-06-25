@@ -83,14 +83,16 @@
     (unless (member? process-proxy processes test: process=?)
       (set! processes (append! processes (list process-proxy)))
       (when (not (get-selected-process))
-        (set-selected-process (new Debugged-Process self process-proxy)))))
+        (set-selected-process (new Debugged-Process self process-proxy)))
+      (update~ (get-processes-view))))
   
   
   (method (update-process process-proxy)
     (when (remote-proxy? process-proxy)
       (let ((actual (find-in processes process-proxy test: process=?)))
         (when (and actual (remote-proxy? actual))
-          (set-values~ actual (get-values~ process-proxy))))))
+          (set-values~ actual (get-values~ process-proxy))
+          (update~ (get-processes-view))))))
 
 
   (method (detach-process process-proxy)
@@ -98,7 +100,8 @@
       (set! processes (remove! process-proxy processes test: process=?))
       (let ((selected-process (get-selected-process)))
         (when (and selected-process (process=? process-proxy (get-reference~ selected-process)))
-          (set-selected-process (and (not-null? processes) (new Debugged-Process self (car processes))))))))
+          (set-selected-process (and (not-null? processes) (new Debugged-Process self (car processes))))))
+      (update~ (get-processes-view))))
   
   
   (method (detach-processes)
@@ -343,10 +346,32 @@
   
   
   (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
-    ;;(terminal process-proxy thread-proxy stop-proxy kind reason)
-    (play-sound debugger-sound)
-    (when (neq? (get-name~ (selected-workspace)) 'debugger)
-      (let* ((toolbar (find-toolbar~ (get-application)))
-             (button (locate-component~ toolbar 'debugger)))
-        (notify~ button)))
-    (highlight-process~ (get-processes-view) (new Debugged-Process self process-proxy)))))
+    (send-event
+      (function ()
+        (play-sound debugger-sound)
+        (with-locked-update
+          (function ()
+            (let ((button (locate-component~ (find-toolbar~ (get-application)) 'debugger))
+                  (visit? (neq? (get-name~ (selected-workspace)) 'debugger))
+                  (problem? #t))
+              (notify~ button visit? problem?))
+            (let ((processes-view (get-processes-view))
+                  (process (new Debugged-Process self process-proxy))
+                  (threads-view (get-threads-view))
+                  (thread (new Debugged-Thread self thread-proxy))
+                  (frames-view (get-frames-view)))
+              (set-debugged-visit? process #t)
+              (set-debugged-problem? process #t)
+              (set-debugged-visit? thread #t)
+              (set-debugged-problem? thread #t)
+              (highlight-process~ processes-view process)
+              (let ((selection (selected-process~ processes-view)))
+                (when (or (not selection) (debugged=? process selection))
+                  (if (not selection)
+                      (set-selected-process~ processes-view process)
+                    (process-change~ processes-view))
+                  (let ((selection (selected-thread~ threads-view)))
+                    (when (or (not selection) (debugged=? thread selection))
+                      (if (not selection)
+                          (set-selected-thread~ threads-view thread)
+                        (thread-change~ threads-view))))))))))))))

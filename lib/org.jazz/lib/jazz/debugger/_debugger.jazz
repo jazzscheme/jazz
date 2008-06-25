@@ -112,18 +112,33 @@
 
 
 ;;;
-;;;; Process
+;;;; State
 ;;;
 
 
-(definition public (collect-debugged-processes (validate-liveness?: validate-liveness? #f))
-  (let ((queue (new-queue)))
-    (for-each (function (debugger)
-                (for-each (function (process)
-                            (enqueue queue (new Debugged-Process debugger process)))
-                          (get-processes~ debugger validate-liveness?: validate-liveness?)))
-              (get-debuggers))
-    (queue-list queue)))
+(definition *debugged-states*
+  (make-table test: debugged=?))
+
+
+(definition (get-debugged-state debugged)
+  (either (table-ref *debugged-states* debugged {})
+          (let ((state (cons #f #f)))
+            (table-set! *debugged-states* debugged state)
+            state)))
+
+
+(definition public (get-debugged-visit? debugged)
+  (car (get-debugged-state debugged)))
+
+(definition public (set-debugged-visit? debugged flag)
+  (set-car! (get-debugged-state debugged) flag))
+
+
+(definition public (get-debugged-problem? debugged)
+  (cdr (get-debugged-state debugged)))
+
+(definition public (set-debugged-problem? debugged flag)
+  (set-cdr! (get-debugged-state debugged) flag))
 
 
 ;;;

@@ -73,7 +73,7 @@
         (<!>                    name: content    layout-type: fill
           (<Tree-Header>        name: header     shown?: #f
             (<!>                name: content
-              (<Processes-Tree> name: processes  multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-processes #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
+              (<Processes-Tree> name: processes  multiple-selection?: #f selection-mode: row selection-handler: {Selection-Handler :form on-select-process #t} context-menu-handler: {Event-Handler :form on-context-menu} double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta (external-name . rest)
@@ -139,7 +139,9 @@
   
   
   (method (on-double-click evt)
-    )
+    (let ((process (selected-process)))
+      (when process
+        (select-process))))
   
   
   (definition Snapshot-Extensions
@@ -157,16 +159,21 @@
           (open-snapshot file)))))
 
 
-  (method (on-select-processes evt)
+  (method (on-select-process evt)
     (process-change))
   
   
   (method (on-update evt)
-    (update))
+    (let ((keep-only-live? (get-shift?~ evt)))
+      (update keep-only-live?: keep-only-live?)))
   
   
   (method (process-change)
-    (set-process~ (get-threads-view) (selected-process)))
+    (let ((process (selected-process)))
+      (when process
+        (set-debugged-visit? process #f)
+        (highlight-process process))
+      (set-process~ (get-threads-view) process)))
 
   
   ;;;
@@ -182,7 +189,7 @@
       generate-event?: #t))
 
 
-  (method protected (update)
+  (method protected (update (keep-only-live?: keep-only-live? #t))
     (with-update-locked
       (function ()
         (with-system-exception-debugger
@@ -191,11 +198,11 @@
               (with-preserving-update tree
                 (function ()
                   (remove-every-row~ tree)
-                  (update-processes tree)
+                  (update-processes tree keep-only-live?)
                   @convert (update-snapshots tree snapshots)))))))))
   
   
-  (method (update-processes tree)
+  (method (update-processes tree keep-only-live?)
     (let ((selected-process (get-selected-process)))
       (define (process-title process live?)
         (get-title~ process))
@@ -203,43 +210,31 @@
       (define (process-image process live?)
         (if live?
             (if (and selected-process (debugged=? process selected-process))
-                {Bitmap-Resource "Find"}
+                {Bitmap-Resource "Script"}
               {Bitmap-Resource "Process"})
           {Bitmap-Resource "ProcessDead"}))
+      
+      (define (process-frame-color process)
+        (if (get-debugged-problem? process)
+            {Color name: Dark-Red}
+          {}))
+      
+      (define (process-background process)
+        (if (get-debugged-visit? process)
+            {Color name: Light-Red}
+          {}))
     
       (for-each (function (debugger)
                   (for-each (function (process)
                               (let ((live? (live?~ process))
                                     (debugged (new Debugged-Process debugger process)))
                                 (let ((title (process-title debugged live?))
-                                      (image (process-image debugged live?)))
-                                  (add-row~ tree children: (list (new Tree-Node title: title image: image)) user-data: (and live? debugged)))))
-                            (get-processes~ debugger validate-liveness?: #t)))
+                                      (image (process-image debugged live?))
+                                      (frame-color (process-frame-color debugged))
+                                      (background (process-background debugged)))
+                                  (add-row~ tree children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: (and live? debugged)))))
+                            (get-processes~ debugger validate-liveness?: keep-only-live?)))
                 (get-debuggers))))
-
-  
-  ;;;
-  ;;;; Edition
-  ;;;
-  
-  
-  (method public (select-first-frame from)
-    @convert
-    (let ((tree (locate 'processes))
-          (passed? #f))
-      (continuation-capture
-        (function (return)
-          (for-each-visible-row~ tree
-            (function (row rank)
-              (let ((frame (get-user-data~ row)))
-                (when (and (is? frame Execution-Frame)
-                           (= (get-address~ frame) from))
-                  (set! passed? #t))
-                (when (is? frame Closure-Frame)
-                  (set-single-selection~ tree rank)
-                  (frame-change)
-                  (edit-frame)
-                  (continuation-return return)))))))))
   
   
   ;;;
@@ -264,19 +259,32 @@
         (get-row~ tree n))))
   
   
+  (method (set-selected-process process)
+    (let ((tree (locate 'processes)))
+      (let ((row (process-row tree process)))
+        (when row
+          (set-single-selection~ tree (row-rank~ tree row))))))
+  
+  
+  (method (process-row tree process)
+    (continuation-capture
+      (function (return)
+        (for-each-row~ tree
+          (function (row rank)
+            (when (debugged=? (get-user-data~ row) process)
+              (continuation-return return row))))
+        {})))
+  
+  
   (method (highlight-process process)
     (let ((tree (locate 'processes)))
-      (continuation-capture
-        (function (return)
-          (for-each-row~ tree
-            (function (row rank)
-              (when (debugged=? (get-user-data~ row) process)
-                (let ((cell (new Cell (row-rank~ tree row) 0)))
-                  (let ((data (get-cell-data~ tree cell)))
-                    (set-frame-color~ data {Color name: Dark-Red})
-                    (set-background~ data {Color name: Light-Red}))
-                  (invalidate-cell~ tree cell))
-                (continuation-return return))))))))
+      (let ((row (process-row tree process)))
+        (when row
+          (let ((cell (new Cell (row-rank~ tree row) 0)))
+            (let ((data (get-cell-data~ tree cell)))
+              (set-frame-color~ data (if (get-debugged-problem? process) {Color name: Dark-Red} #f))
+              (set-background~ data (if (get-debugged-visit? process) {Color name: Light-Red} #f)))
+            (invalidate-cell~ tree cell))))))
   
   
   ;;;
@@ -359,7 +367,7 @@
   
   (form
     (<install>
-      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Find"} action-handler: {Event-Handler :form on-select})
+      (<Label-Item>     name: select title: "&Select" icon: {Bitmap-Resource "Script"} action-handler: {Event-Handler :form on-select})
       (<Separator-Item>)
       @wait
       (<Label-Item>     name: select-toplevel title: "&Select Toplevel" icon: {Bitmap-Resource "Select"} action-handler: {Event-Handler :form on-select-toplevel})

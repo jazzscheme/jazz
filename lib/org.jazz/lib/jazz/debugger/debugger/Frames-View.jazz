@@ -116,9 +116,8 @@
   
   
   (method public (set-thread value)
-    (when (not (debugged=? thread value))
-      (set! thread value)
-      (update)))
+    (set! thread value)
+    (update))
 
   
   ;;;
@@ -303,23 +302,10 @@
         (process-frame-change frame))))
   
   
-  (method public (select-first-frame from)
-    @convert
-    (let ((tree (locate 'frames))
-          (passed? #f))
-      (continuation-capture
-        (function (return)
-          (for-each-visible-row~ tree
-            (function (row rank)
-              (let ((frame (get-user-data~ row)))
-                (when (and (is? frame Execution-Frame)
-                           (= (get-address~ frame) from))
-                  (set! passed? #t))
-                (when (is? frame Closure-Frame)
-                  (set-single-selection~ tree rank)
-                  (frame-change)
-                  (edit-frame)
-                  (continuation-return return)))))))))
+  (method public (select-first-frame)
+    (let ((tree (locate 'frames)))
+      (when (and (not (get-single-selection~ tree)) (> (get-visible-count~ tree) 0))
+        (set-single-selection~ tree 0))))
   
   
   ;;;

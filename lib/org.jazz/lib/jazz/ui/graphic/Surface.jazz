@@ -483,22 +483,24 @@
           (do (fill-rect rect color))))
   
   
-  (method public (gradient-fill rect <Rect> start end (direction: direction 'horizontal))
+  (method public (gradient-fill rect <Rect> stops (direction: direction 'horizontal))
     (with-saved-context
       (function ()
         (let* ((left (get-left~ rect))
                (top (get-top~ rect))
                (right (get-right~ rect))
                (bottom (get-bottom~ rect))
+               (horzmid (fxfloor/ (- right left) 2))
+               (vertmid (fxfloor/ (- bottom top) 2))
                (pattern (case direction
                           ((horizontal)
-                           (let ((mid (fxfloor/ (- bottom top) 2)))
-                             (create-linear-pattern left mid right mid)))
+                           (create-linear-pattern left vertmid right vertmid))
                           ((vertical)
-                           (let ((mid (fxfloor/ (- right left) 2)))
-                             (create-linear-pattern mid top mid bottom))))))
-          (add-color-stop pattern 0 start)
-          (add-color-stop pattern 1 end)
+                           (create-linear-pattern horzmid top horzmid bottom)))))
+          (for-each (function (stop)
+                      (bind (offset color) stop
+                        (add-color-stop pattern offset color)))
+                    stops)
           (draw-rectangle rect)
           (cairo_set_source context pattern)
           (fill)

@@ -4598,10 +4598,16 @@
         (loop)))))
 
 
-(definition public (thread-execute thread thunk)
+(definition public (thread-post thread name thunk)
   (if (eq? thread (current-thread))
       (thunk)
-    (let ((mutex (make-mutex)))
+    (thread-send thread thunk)))
+
+
+(definition public (thread-execute thread name thunk)
+  (if (eq? thread (current-thread))
+      (thunk)
+    (let ((mutex (make-mutex name)))
       (mutex-lock! mutex)
       (thread-send thread
         (function ()
@@ -4611,11 +4617,11 @@
       (mutex-lock! mutex))))
 
 
-(definition public (thread-delegate thread thunk)
+(definition public (thread-delegate thread name thunk)
   (let ((delegator (current-thread)))
     (if (eq? thread delegator)
         (thunk)
-      (let ((mutex (make-mutex)))
+      (let ((mutex (make-mutex name)))
         (mutex-lock! mutex)
         (thread-send thread
           (function ()

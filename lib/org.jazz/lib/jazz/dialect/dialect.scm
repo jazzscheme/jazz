@@ -2110,6 +2110,7 @@
                       (receive (parameters positional rest) (parse-parameters parameters)
                         (let ((invoker (case invocation ((send) 'send-remote) ((sync) 'sync-remote) ((post) 'post-remote)))
                               (dispatch (%%string->symbol (%%string-append (%%symbol->string name) "~")))
+                              (local-result (case invocation ((sync post) '((unspecified))) (else '())))
                               (value-keyword (parse-value-keyword name passage)))
                           (jazz.enqueue proxies `(method ,access virtual abstract (,name ,@parameters)))
                           (%%when value-keyword
@@ -2117,8 +2118,8 @@
                             (jazz.enqueue values `(,name)))
                           (jazz.enqueue locals `(method (,name ,@parameters)
                                                   ,@(cond ((%%not-null? body) body)
-                                                          (rest `((apply (~ ,name object) ,@positional ,rest)))
-                                                          (else `((,dispatch object ,@positional))))))
+                                                          (rest `((apply (~ ,name object) ,@positional ,rest) ,@local-result))
+                                                          (else `((,dispatch object ,@positional) ,@local-result)))))
                           (jazz.enqueue remotes `(method (,name ,@parameters)
                                                    ,(let ((call (if rest `(apply ,invoker ',name self ,@positional ,rest) `(,invoker ',name self ,@positional))))
                                                       (if value-keyword

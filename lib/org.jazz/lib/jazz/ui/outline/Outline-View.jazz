@@ -65,9 +65,7 @@
   
   
   (slot protected root-row                      initialize {})
-  (slot protected first-displayed               initialize {})    ;; first row that is displayed even if partially
-  (slot protected first-displayed-rank   <fx>   initialize 0)     ;; first displayed row's rank
-  (slot protected first-displayed-offset <fx>   initialize 0)     ;; amount of scroll that would be needed to uncover a partially displayed row
+  (slot protected outline                       initialize {})
   (slot protected visible-count          <fx>   initialize 0)
   (slot protected visible-height         <fx>   initialize 0)
   (slot protected visible-width          <fx>   initialize 0)
@@ -95,6 +93,7 @@
   
   (method (setup-outline)
     (set! root-row (new (row-class)))
+    (set! outline (new Display-Outline row-spacing root-row))
     (set-parent~ root-row self)
     (set-father~ root-row {})
     (set-level~ root-row -1)
@@ -115,6 +114,14 @@
   ;;;
   ;;;; Access
   ;;;
+  
+  
+  (method public (get-root-row)
+    root-row)
+  
+  
+  (method public (get-outline)
+    outline)
 
 
   (method public (get-default-row-height)
@@ -323,9 +330,9 @@
   
   
   (method (draw-rows surface context update lh <fx> lv <fx> top bottom sh <fx> sv <fx> sc <fl> sc? <bool>)
-    (let ((row first-displayed)
-          (rank <fx> first-displayed-rank)
-          (rt <fx> (- top-padding first-displayed-offset))
+    (let ((row (get-first-displayed~ outline))
+          (rank <fx> (get-first-displayed-rank~ outline))
+          (rt <fx> (- top-padding (get-first-displayed-offset~ outline)))
           (width <fx> (get-width)))
       (while (and row (< rt bottom))
         (let* ((height <fx> (get-height~ row))
@@ -493,9 +500,6 @@
     (set! visible-count 0)
     (set! visible-height 0)
     (set! visible-width 0)
-    (set! first-displayed {})
-    (set! first-displayed-rank 0)
-    (set! first-displayed-offset 0)
     (set! selection '())
     (when scroller
       (set-position {Point 0 0})
@@ -513,26 +517,7 @@
   
   
   (method (update-displayed)
-    (let ((row (first-visible-son~ root-row))
-          (rank <fx> 0)
-          (v <fx> (get-display-v)))
-      (when row
-        (let ((bottom <fx> (- v (get-height~ row))))
-          (while (> bottom 0)
-            (let ((next (get-next~ row)))
-              (if (not next)
-                  (set! bottom 0)
-                (set! row next)
-                (increase! rank)
-                (set! v (- bottom row-spacing))
-                (set! bottom (- v (get-height~ row))))))))
-      (set! first-displayed row)
-      (set! first-displayed-rank rank)
-      (set! first-displayed-offset (if row v 0))))
-  
-  
-  (method public (get-root-row)
-    root-row)
+    (update-displayed~ outline (get-display-v)))
   
   
   (method public (first-row)
@@ -540,14 +525,10 @@
   
   
   (method public (get-row n <fx>) <Outline-Row>
-    ;; the first test is necessary because an update lock will stop update-displayed...
-    (if (and (not update-locked?) first-displayed (>= n first-displayed-rank))
-        (get-displayed-row (- n first-displayed-rank))
-      (let ((row root-row))
-        (while (and row (>= n 0))
-          (set! row (get-next~ row))
-          (decrease! n))
-        row)))
+    ;; this test is necessary because an update lock will stop update-displayed...
+    (if (not update-locked?)
+        (get-row-from~ outline root-row (+ n 1))
+      (get-row~ outline n)))
   
   
   (method public (get-visible-row n)
@@ -564,14 +545,6 @@
   (method (get-row-classic n)
     (let ((row root-row))
       (while (and row (>= n 0))
-        (set! row (get-next~ row))
-        (decrease! n))
-      row))
-  
-  
-  (method (get-displayed-row n)
-    (let ((row first-displayed))
-      (while (and row (> n 0))
         (set! row (get-next~ row))
         (decrease! n))
       row))
@@ -1013,46 +986,7 @@
   
   
   (method (follow v)
-    ;; This is a patch for a bug I don't want to debug as the whole
-    ;; approach about first-displayed needs to be rethought completly
-    ;; See the Outline-View.follow Bug.jazz file to reproduce it...
-    (let ((succeeded?
-            (cond ((> v 0) (follow-forward v))
-                  ((< v 0) (follow-backward (- v))))))
-      (when (not succeeded?)
-        (update-displayed))))
-  
-  
-  (method (follow-forward v)
-    (while (> v 0)
-      (let* ((height (+ (get-height~ first-displayed) row-spacing))
-             (remaining (- height first-displayed-offset)))
-        (if (< v remaining)
-            (begin
-              (increase! first-displayed-offset v)
-              (set! v 0))
-          (set! first-displayed (get-next~ first-displayed))
-          (increase! first-displayed-rank)
-          (decrease! v remaining)
-          (set! first-displayed-offset 0))))
-    #t)
-  
-  
-  (method (follow-backward v)
-    (continuation-capture
-      (function (return)
-        (while (> v 0)
-          (if (<= v first-displayed-offset)
-              (begin
-                (decrease! first-displayed-offset v)
-                (set! v 0))
-            (set! first-displayed (get-previous~ first-displayed))
-            (if (not first-displayed)
-                (continuation-return return #f)
-              (decrease! first-displayed-rank)
-              (decrease! v (+ first-displayed-offset 1))
-              (set! first-displayed-offset (- (+ (get-height~ first-displayed) row-spacing) 1)))))
-        #t)))
+    (follow~ outline (get-display-v) v))
 
 
   (method public virtual (ensure-displayed . rest)
@@ -1116,13 +1050,13 @@
 
 
   (method protected (v->row v)
-    (when first-displayed
+    (when (get-first-displayed~ outline)
       (let* ((scrolled (get-scrolled-v))
              (displayed? (>= v (- scrolled)))
              (v (if displayed? (+ v scrolled) v))
-             (row (if displayed? first-displayed (first-row)))
-             (rank (if displayed? first-displayed-rank 0))
-             (top (if displayed? (- first-displayed-offset) 0))
+             (row (if displayed? (get-first-displayed~ outline) (first-row)))
+             (rank (if displayed? (get-first-displayed-rank~ outline) 0))
+             (top (if displayed? (- (get-first-displayed-offset~ outline)) 0))
              (bottom (+ top (get-height~ row) row-spacing)))
         (while (and row (or (< v top) (>= v bottom)))
           (increase! rank)
@@ -1136,13 +1070,13 @@
 
   ;; Should unify with v->row...
   (method protected (v->row-extended v)
-    (when first-displayed
+    (when (get-first-displayed~ outline)
       (let* ((scrolled (get-scrolled-v))
              (displayed? (>= v (- scrolled)))
              (v (if displayed? (+ v scrolled) v))
-             (row (if displayed? first-displayed (first-row)))
-             (rank (if displayed? first-displayed-rank 0))
-             (top (if displayed? (- first-displayed-offset) 0))
+             (row (if displayed? (get-first-displayed~ outline) (first-row)))
+             (rank (if displayed? (get-first-displayed-rank~ outline) 0))
+             (top (if displayed? (- (get-first-displayed-offset~ outline)) 0))
              (bottom (+ top (get-height~ row) row-spacing)))
         (while (and row (or (< v top) (>= v bottom)))
           (increase! rank)

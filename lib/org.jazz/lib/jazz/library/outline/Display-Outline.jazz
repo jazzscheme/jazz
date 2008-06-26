@@ -57,7 +57,27 @@
   (method (get-row n)
     (if (and first-displayed (>= n first-displayed-rank))
         (get-row-from first-displayed (- n first-displayed-rank))
-      (get-row-from root-row (+ n 1))))
+      (nextmethod n)))
+
+
+  (method (call-with-v->row v scrolled proc)
+    (if first-displayed
+        (let* ((displayed? (>= v (- scrolled)))
+               (v (if displayed? (+ v scrolled) v))
+               (row (if displayed? first-displayed (first-row)))
+               (rank (if displayed? first-displayed-rank 0))
+               (top (if displayed? (- first-displayed-offset) 0))
+               (bottom (+ top (get-height~ row) row-spacing)))
+          (while (and row (or (< v top) (>= v bottom)))
+            (increase! rank)
+            (set! row (get-next~ row))
+            (when row
+              (set! top bottom)
+              (set! bottom (+ top (get-height~ row) row-spacing))))
+          (if (and row (< v (- bottom row-spacing)))
+              (proc rank (- v top) (- bottom top))
+            (proc {} {} {})))
+      (proc {} {} {})))
   
   
   ;;;

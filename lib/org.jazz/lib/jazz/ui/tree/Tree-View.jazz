@@ -1024,17 +1024,16 @@
   
   
   (method (get-reorder-target drag-drop pos)
-    (let ((info (view->tree-extended pos)))
-      (when info
-        (receive (cell v height) info
-          (when cell
-            (let* ((rank (get-row~ cell))
-                   (quarter (get-row-quarter v height))
-                   (current (get-target~ drag-drop))
-                   (row (get-row rank)))
-              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
-                  current
-                (get-row-reorder-target drag-drop row quarter))))))))
+    (call-with-view->tree pos
+      (function (cell v height)
+        (when cell
+          (let* ((rank (get-row~ cell))
+                 (quarter (get-row-quarter v height))
+                 (current (get-target~ drag-drop))
+                 (row (get-row rank)))
+            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (eqv? quarter (get-quarter~ current)))
+                current
+              (get-row-reorder-target drag-drop row quarter)))))))
   
   
   (method (get-row-quarter v height)
@@ -1064,30 +1063,28 @@
   
   
   (method protected (get-tree-row-target drag-drop pos)
-    (let ((info (view->tree-extended pos)))
-      (when info
-        (receive (cell v height) info
-          (when cell
-            (let ((row (get-row (get-row~ cell)))
-                  (current (get-target~ drag-drop)))
-              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
-                  current
-                (get-row-target drag-drop row))))))))
+    (call-with-view->tree pos
+      (function (cell v height)
+        (when cell
+          (let ((row (get-row (get-row~ cell)))
+                (current (get-target~ drag-drop)))
+            (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)))
+                current
+              (get-row-target drag-drop row)))))))
   
     
   (method public (get-tree-cell-target drag-drop pos)
-    (let ((info (view->tree-extended pos)))
-      (when info
-        (receive (cell v height) info
-          (when cell
-            (let ((row (get-row (get-row~ cell)))
-                  (col (get-col~ cell))
-                  (source (get-source~ drag-drop))
-                  (current (get-target~ drag-drop)))
-              (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
-                (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
-                    current
-                  (get-cell-target drag-drop row col)))))))))
+    (call-with-view->tree pos
+      (function (cell v height)
+        (when cell
+          (let ((row (get-row (get-row~ cell)))
+                (col (get-col~ cell))
+                (source (get-source~ drag-drop))
+                (current (get-target~ drag-drop)))
+            (when (or (neq? (get-view~ source) self) (neq? (get-row~ source) row) (/= (get-col~ source) col))
+              (if (and current (eq? self (get-view~ current)) (eq? row (get-row~ current)) (= col (get-col~ current)))
+                  current
+                (get-cell-target drag-drop row col))))))))
   
   
   (method protected virtual (get-row-target drag-drop row)
@@ -2085,16 +2082,18 @@
               cell))))))
 
 
-  ;; Should unify with view->tree...
-  (method public (view->tree-extended pos <Point>)
-    (let ((info (v->row-extended (get-v~ pos))))
-      (when info
-        (receive (row v height) info
-          (let ((col (h->col (get-h~ pos))))
-            (when (and row col (>= row 0))
-              (let ((cell (new Cell row col)))
-                (when (cell-visible? cell)
-                  (values cell v height)))))))))
+  (method public (call-with-view->tree pos <Point> proc)
+    (call-with-v->row (get-v~ pos)
+      (function (row v height)
+        (if row
+            (let ((col (h->col (get-h~ pos))))
+              (if (and row col (>= row 0))
+                  (let ((cell (new Cell row col)))
+                    (if (cell-visible? cell)
+                        (proc cell v height)
+                      (proc {} {} {})))
+                (proc {} {} {})))
+          (proc {} {} {})))))
 
 
   (method public (tree->view cell)

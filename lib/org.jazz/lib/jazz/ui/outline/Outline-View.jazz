@@ -351,9 +351,6 @@
   
   
   (method (draw-row surface context update lh <fx> lv <fx> row rank sh sv sc sc?)
-    @debug-painting
-    (when (eq? self (get-%~ Development))
-      (log-entry name: "draw-row"))
     (let* ((width (get-width))
            (height (get-height~ row))
            (total-height (+ height row-spacing))
@@ -1050,42 +1047,14 @@
 
 
   (method protected (v->row v)
-    (when (get-first-displayed~ outline)
-      (let* ((scrolled (get-scrolled-v))
-             (displayed? (>= v (- scrolled)))
-             (v (if displayed? (+ v scrolled) v))
-             (row (if displayed? (get-first-displayed~ outline) (first-row)))
-             (rank (if displayed? (get-first-displayed-rank~ outline) 0))
-             (top (if displayed? (- (get-first-displayed-offset~ outline)) 0))
-             (bottom (+ top (get-height~ row) row-spacing)))
-        (while (and row (or (< v top) (>= v bottom)))
-          (increase! rank)
-          (set! row (get-next~ row))
-          (when row
-            (set! top bottom)
-            (set! bottom (+ top (get-height~ row) row-spacing))))
-        (when (and row (< v (- bottom row-spacing)))
-          rank))))
+    (call-with-v->row v
+      (function (rank v height)
+        rank)))
 
 
-  ;; Should unify with v->row...
-  (method protected (v->row-extended v)
-    (when (get-first-displayed~ outline)
-      (let* ((scrolled (get-scrolled-v))
-             (displayed? (>= v (- scrolled)))
-             (v (if displayed? (+ v scrolled) v))
-             (row (if displayed? (get-first-displayed~ outline) (first-row)))
-             (rank (if displayed? (get-first-displayed-rank~ outline) 0))
-             (top (if displayed? (- (get-first-displayed-offset~ outline)) 0))
-             (bottom (+ top (get-height~ row) row-spacing)))
-        (while (and row (or (< v top) (>= v bottom)))
-          (increase! rank)
-          (set! row (get-next~ row))
-          (when row
-            (set! top bottom)
-            (set! bottom (+ top (get-height~ row) row-spacing))))
-        (when (and row (< v (- bottom row-spacing)))
-          (values rank (- v top) (- bottom top))))))
+  (method protected (call-with-v->row v proc)
+    (call-with-v->row~ outline v (get-scrolled-v)
+      proc))
 
 
   ;;;

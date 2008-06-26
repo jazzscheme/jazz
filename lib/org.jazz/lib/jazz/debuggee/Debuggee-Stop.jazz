@@ -66,14 +66,15 @@
     (set! details~self details)
     (set! continuation~self continuation)
     (set! restarts~self restarts)
-    (set! stack~self (skip-system-frames (get-continuation-stack continuation #f))))
+    (set! stack~self (collect-continuation-stack continuation)))
   
   
-  (definition (skip-system-frames stack)
-    (collect-if (function (frame)
-                  (let ((name (second frame)))
-                    (not (memq name system-frames))))
-                stack))
+  (definition (collect-continuation-stack cont)
+    (collect (function (cont)
+               (let ((name (get-continuation-name cont)))
+                 (when (not (memq name system-frames))
+                   (list cont name))))
+             (get-continuation-stack cont 1000)))
   
   
   (method public (get-id)
@@ -87,22 +88,12 @@
   
   (method public (get-frames)
     (map (function (id frame)
-           (get-frame-state id frame))
+           (make-frame id frame))
          (naturals 0 (length stack))
          stack))
   
   
-  (definition (get-frame-state id frame)
-    (bind (continuation name environment variables location) frame
-      (let ((frame (new Debuggee-Frame id (object->serial continuation) name location (map get-variable-state variables))))
-        (new Debuggee-Frame-Local-Proxy frame))))
-  
-  
-  (definition (get-variable-state variable)
-    (bind (name . value) variable
-      (cons name (with-exception-catcher
-                   (function (exc)
-                     ;; add the exception reason somehow!?
-                     "<unprintable object>")
-                   (function ()
-                     (->string value :reader))))))))
+  (definition (make-frame id frame)
+    (bind (cont name) frame
+      (let ((frame (new Debuggee-Frame id (object->serial cont) name)))
+        (new Debuggee-Frame-Local-Proxy frame))))))

@@ -52,24 +52,16 @@
       (let ((queue (jazz.new-queue)))
         (let iter ((d 0)
                    (cont cont))
-          (if (or (not depth) (< d depth))
+          (if (or (not depth) (##fixnum.< d depth))
               (and cont
                    (begin
-                     (jazz.enqueue queue (jazz.get-frame cont))
-                     (iter (+ d 1)
+                     (jazz.enqueue queue cont)
+                     (iter (##fixnum.+ d 1)
                            (##continuation-next-frame cont #f))))))
         (jazz.queue-list queue)))
     
     
-    (define (jazz.get-frame cont)
-      (list cont
-            (jazz.get-frame-name cont)
-            (jazz.get-frame-environment cont)
-            (jazz.get-frame-variables cont)
-            (jazz.get-frame-location cont)))
-    
-    
-    (define (jazz.get-frame-name cont)
+    (define (jazz.get-continuation-name cont)
       (let ((creator (##continuation-creator cont)))
         (if creator
             (##procedure-name creator)
@@ -84,7 +76,7 @@
                             (##inverse-eval-in-env val (##cte-parent-cte cte))))))
     
     
-    (define (jazz.get-frame-environment cont)
+    (define (jazz.get-continuation-dynamic-environment cont)
       
       (define (collect-parameters lst cte queue)
         (let iter ((lst lst))
@@ -111,7 +103,7 @@
         (jazz.queue-list queue)))
     
     
-    (define (jazz.get-frame-variables cont)
+    (define (jazz.get-continuation-lexical-environment cont)
       
       (define (collect-rte cte rte queue)
         (let loop1 ((c cte)
@@ -158,7 +150,7 @@
         (jazz.queue-list queue)))
     
     
-    (define (jazz.get-frame-location cont)
+    (define (jazz.get-continuation-location cont)
       (let ((locat (##continuation-locat cont)))
         (if locat
             (let ((file (##container->file (##locat-container locat))))

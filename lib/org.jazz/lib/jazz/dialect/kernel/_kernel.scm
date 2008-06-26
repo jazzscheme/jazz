@@ -556,6 +556,10 @@
 
 
 (native jazz.get-continuation-stack)
+(native jazz.get-continuation-name)
+(native jazz.get-continuation-dynamic-environment)
+(native jazz.get-continuation-lexical-environment)
+(native jazz.get-continuation-location)
 
 
 ;;;

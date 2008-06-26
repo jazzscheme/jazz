@@ -1884,20 +1884,21 @@
 ;;;
 
 
-(definition public (continuation-stack cont (depth: depth #f) (environment?: environment? #f) (variables?: variables? #f))
+(definition public (continuation-stack cont (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
   (let ((stack (get-continuation-stack cont depth)))
-    (map (function (info)
-           (bind (continuation name environment variables location) info
-             (cond ((and (not environment?) (not variables?))
+    (map (function (cont)
+           (let ((name (get-continuation-name cont)))
+             (cond ((and (not dynamic-environment?) (not lexical-environment?))
                     name)
-                   ((not environment?)
-                    (cons name variables))
+                   ((not dynamic-environment?)
+                    (cons name (get-continuation-lexical-environment cont)))
                    (else
-                    (cons name (append environment variables))))))
+                    (cons name (append (get-continuation-dynamic-environment cont)
+                                       (get-continuation-lexical-environment cont)))))))
          stack)))
 
 
-(definition public (execution-stack (depth: depth #f) (environment?: environment? #f) (variables?: variables? #f))
+(definition public (execution-stack (dynamic-environment?: dynamic-environment? #f) (lexical-environment?: lexical-environment? #f) (depth: depth #f))
   (continuation-capture
     (function (cont)
-      (continuation-stack cont depth: depth environment?: environment? variables?: variables?)))))
+      (continuation-stack cont dynamic-environment?: dynamic-environment? lexical-environment?: lexical-environment? depth: depth)))))

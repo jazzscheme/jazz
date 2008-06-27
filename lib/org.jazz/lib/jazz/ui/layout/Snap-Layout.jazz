@@ -1,0 +1,103 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Snap Layout
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.layout.Snap-Layout jazz
+
+
+(import (jazz.library)
+        (jazz.ui)
+        (jazz.utilities))
+
+
+(class Snap-Layout extends Layout
+  
+  
+  (property insets        <Rect> initialize {Rect 0 0 0 0} accessors generate)
+  (property justification        initialize 'center        accessors generate)
+  (property padding       <fx>   initialize 0              accessors generate)
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+
+
+  (method (layout layout figures width height)
+    (let ((visibles (collect-if (function (figure) (and (is? figure Figure) (get-visible?~ figure))) figures))
+          (center   (find-child-located~ layout 'center))
+          (ch       (fxfloor/ width 2))
+          (cv       (fxfloor/ height 2)))
+      (let ((left   ch)
+            (top    cv)
+            (right  ch)
+            (bottom cv)
+            (width  0)
+            (height 0))
+        (when center
+          (set! width (get-width~ center))
+          (set! height (get-height~ center))
+          (let ((hw (fxfloor/ width 2))
+                (hh (fxfloor/ height 2)))
+            (set! left (- ch hw))
+            (set! top (- ch hh))
+            (set! right (+ ch hw))
+            (set! bottom (+ cv hh))
+            (set-position~ center (new Point left top))))
+        (for-each (function (figure)
+                    (let ((w (get-width~ figure))
+                          (h (get-height~ figure)))
+                      (case (get-location~ figure)
+                        ((north) (set-position~ figure (new Point (+ left (justify w width 'center)) (- top padding h))))
+                        ((south) (set-position~ figure (new Point (+ left (justify w width 'center)) (+ bottom padding))))
+                        ((west) (set-position~ figure (new Point (- left padding w) (+ top (justify h height 'center)))))
+                        ((east) (set-position~ figure (new Point (+ right padding) (+ top (justify h height 'center))))))))
+                  visibles)
+        (when (eq? justification 'fit)
+          (for-each (function (figure)
+                      (set! left (min left (get-left~ figure)))
+                      (set! top (min top (get-top~ figure)))
+                      (set! right (max right (get-right~ figure)))
+                      (set! bottom (max bottom (get-bottom~ figure))))
+                    visibles)
+          (let ((l (get-left~ insets))
+                (t (get-top~ insets))
+                (r (get-right~ insets))
+                (b (get-bottom~ insets)))
+            (for-each (function (figure)
+                        (move-figure~ figure (+ (- left) l) (+ (- top) t)))
+                      visibles)
+            (set-size-noevent~ layout (new Dimension (+ l (- right left) r) (+ t (- bottom top) b))))))))))

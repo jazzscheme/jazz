@@ -90,6 +90,38 @@
     "Workbench")
   
   
+  (method (install-in-host host)
+    (setup-active-configuration)
+    (setup-active-product))
+  
+  
+  (method (setup-workbench-title configuration)
+    (let ((host (get-host))
+          (root (get-root))
+          (title
+            (if (not configuration)
+                "Workbench"
+              (format "Workbench - {a}" (get-name~ configuration)))))
+      (set-title~ host title)
+      (invalidate-view~ root)))
+  
+  
+  (method (setup-active-configuration)
+    (let* ((pref (get-preferences 'build))
+           (active (get-active-configuration~ pref))
+           (configuration (essay active (child~ (child~ pref 'configurations) active))))
+      (setup-workbench-title configuration)
+      (set-current-configuration configuration)))
+  
+  
+  (method (setup-active-product)
+    (let* ((pref (get-preferences 'build))
+           (product (get-active-product~ pref))
+           (workbench (get-workbench)))
+      (when (and product workbench)
+        (activate-product (find-product~ workbench product)))))
+  
+  
   ;;;
   ;;;; Docked
   ;;;
@@ -133,38 +165,6 @@
     (set-editor~ (locate 'descendants) self)
     (add-exit-listener~ (get-application) self)
     (set-client (get-workbench)))
-  
-
-  (method (client-activate)
-    (setup-active-configuration)
-    (setup-active-product))
-  
-  
-  (method (setup-workbench-title configuration)
-    (let ((host (get-host))
-          (root (get-root))
-          (title
-            (if (not configuration)
-                "Workbench"
-              (format "Workbench - {a}" (get-name~ configuration)))))
-      (set-title~ host title)
-      (invalidate-view~ root)))
-  
-  
-  (method (setup-active-configuration)
-    (let* ((pref (get-preferences 'build))
-           (active (get-active-configuration~ pref))
-           (configuration (essay active (child~ (child~ pref 'configurations) active))))
-      (setup-workbench-title configuration)
-      (set-current-configuration configuration)))
-  
-  
-  (method (setup-active-product)
-    (let* ((pref (get-preferences 'build))
-           (product (get-active-product~ pref))
-           (workbench (get-workbench)))
-      (when (and product workbench)
-        (activate-product (find-product~ workbench product)))))
   
   
   (method (get-designer-class)

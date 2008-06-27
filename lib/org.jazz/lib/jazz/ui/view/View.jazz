@@ -766,20 +766,31 @@
   (method public virtual (fit-size)
     )
   
+  
+  (method (invaled-size sz)
+    (when (and player (is? parent View))
+      (let ((old (get-bounds))
+            (new (size-rect sz)))
+        (acquire~ parent self (rect-union old new)))))
+  
 
   (method (set-size sz <Dimension>)
     (when (/= sz size)
-      (let ((inval? (and player (is? parent View))))
-        (let* ((old (essay inval? (get-bounds)))
-               (new (essay inval? (size-rect sz)))
-               (rect (essay inval? (rect-union old new)))
-               (acquired (essay inval? (acquire~ parent self rect))))
-          (set! size sz)
-          (size-change size)
-          (unless scroller
-            (content-size-change size))
-          (when inval?
-            (invalidate-rect~ parent acquired))))))
+      (let ((invaled-size (invaled-size sz)))
+        (set! size sz)
+        (size-change size)
+        (unless scroller
+          (content-size-change size))
+        (when invaled-size
+          (invalidate-rect~ parent invaled-size)))))
+  
+  
+  (method (set-size-noevent sz <Dimension>)
+    (when (/= sz size)
+      (let ((invaled-size (invaled-size sz)))
+        (set! size sz)
+        (when invaled-size
+          (invalidate-rect~ parent invaled-size)))))
   
   
   (method public (set-preferred-size)

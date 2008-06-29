@@ -687,16 +687,19 @@
 (define (jazz.current-process-name)
   jazz.process-name)
 
+(define (jazz.current-process-name-set! name)
+  (set! jazz.process-name name))
+
 (define (jazz.current-process-title)
   jazz.process-title)
+
+(define (jazz.current-process-title-set! title)
+  (set! jazz.process-title title))
 
 (define (jazz.current-process-icon)
   jazz.process-icon)
 
-
-(define (jazz.current-process-information-set! name title icon)
-  (set! jazz.process-name name)
-  (set! jazz.process-title title)
+(define (jazz.current-process-icon-set! icon)
   (set! jazz.process-icon icon))
 
 

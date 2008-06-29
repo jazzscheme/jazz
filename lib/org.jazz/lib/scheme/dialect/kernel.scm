@@ -194,12 +194,12 @@
 (native reverse <list:list>)
 (native list-tail <list:list>)
 (native list-ref <list:object>)
-(native memq <list:list+>)
-(native memv <list:list+>)
-(native member <list:list+>)
-(native assq <list:pair+>)
-(native assv <list:pair+>)
-(native assoc <list:pair+>)
+(native memq <object^list:list+>)
+(native memv <object^list:list+>)
+(native member <object^list:list+>)
+(native assq <object^list:pair+>)
+(native assv <object^list:pair+>)
+(native assoc <object^list:pair+>)
 
 
 ;;;

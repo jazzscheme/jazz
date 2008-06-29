@@ -97,6 +97,7 @@
 
   (method (detach-process process-proxy)
     (when (member? process-proxy processes test: process=?)
+      (close-process-debugger-resources (new Debugged-Process self process-proxy))
       (set! processes (remove! process-proxy processes test: process=?))
       (let ((focused-process (get-focused-process)))
         (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
@@ -119,7 +120,13 @@
   
   
   (method (validate-processes)
-    (set! processes (collect-if valid-process? processes)))
+    (let ((valid (new-queue)))
+      (for-each (function (process)
+                  (if (valid-process? process)
+                      (enqueue valid process)
+                    (close-process-debugger-resources (new Debugged-Process self process))))
+                processes)
+      (set! processes (queue-list valid))))
   
   
   (method (valid-process? process-proxy)
@@ -307,15 +314,24 @@
   
   
   (method public (register-console process-proxy thread-proxy)
-    (register-debugger-console process-proxy thread-proxy))
+    (let ((process (new Debugged-Process self process-proxy))
+          (text (register-debugger-console process-proxy thread-proxy)))
+      (let ((console (new Debugger-Resource
+                        process
+                        text
+                        (function ()
+                          (unregister-debugger-console text)))))
+        (register-debugger-resource process console)
+        (object->serial console))))
   
   
-  (method public (unregister-console console)
-    (unregister-debugger-console console))
+  (method public (unregister-console resource)
+    (close-resource~ (serial->object resource)))
   
   
-  (method public (console-output console line)
-    (debugger-console-output console line))
+  (method public (console-output resource line)
+    (let ((text (get-reference~ (serial->object resource))))
+      (debugger-console-output text line)))
   
   
   ;;;

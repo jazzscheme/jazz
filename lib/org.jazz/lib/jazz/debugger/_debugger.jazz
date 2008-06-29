@@ -112,6 +112,36 @@
 
 
 ;;;
+;;;; Resources
+;;;
+
+
+(definition *debugger-resources*
+  (make-table test: debugged=?))
+
+
+(definition (get-debugger-resources process)
+  (table-ref *debugger-resources* process '()))
+
+(definition (set-debugger-resources process resources)
+  (table-set! *debugger-resources* process resources))
+
+
+(definition (register-debugger-resource process resource)
+  (set-debugger-resources process (cons resource (get-debugger-resources process))))
+
+(definition (unregister-debugger-resource process resource)
+  (set-debugger-resources process (remove! resource (get-debugger-resources process))))
+
+
+(definition (close-process-debugger-resources process)
+  (for-each (function (resource)
+              (close-resource~ resource))
+            (get-debugger-resources process))
+  (table-clear *debugger-resources* process))
+
+
+;;;
 ;;;; State
 ;;;
 
@@ -211,32 +241,29 @@
         (format "{a} {a}" process-title (present-thread-name (get-name~ thread-proxy))))))
   
   (let ((manager (if (not thread-proxy) (get-console-manager) (get-repl-manager))))
-    (let ((console (register-console~ manager (present))))
-      (setup-debugger-console-ports console process-proxy thread-proxy)
-      (object->serial console))))
+    (let ((text (register-console~ manager (present))))
+      (setup-debugger-console-ports text process-proxy thread-proxy)
+      text)))
 
 
-(definition public (unregister-debugger-console console)
-  (let ((text (serial->object console)))
-    (let ((pump (get-console-pump~ text)))
-      (when pump
-        (thread-interrupt! pump
-          thread-exit)))
-    (unregister-console~ (get-console-text-manager text) text)))
+(definition public (unregister-debugger-console text)
+  (let ((pump (get-console-pump~ text)))
+    (when pump
+      (thread-interrupt! pump
+                         thread-exit)))
+  (unregister-console~ (get-console-text-manager text) text))
 
 
-(definition public (debugger-console-output console line)
-  (let ((text (serial->object console)))
-    (send-event
-      (function ()
-        (insert-formatted-line~ text line))))
-  {})
+(definition public (debugger-console-output text line)
+  (send-event
+    (function ()
+      (insert-formatted-line~ text line))))
 
 
-(definition (setup-debugger-console-ports console process-proxy thread-proxy)
+(definition (setup-debugger-console-ports text process-proxy thread-proxy)
   (receive (head tail) (open-string-pipe)
-    (set-console-port~ console head)
-    (set-console-pump~ console (start-debugger-console-pump tail process-proxy thread-proxy))))
+    (set-console-port~ text head)
+    (set-console-pump~ text (start-debugger-console-pump tail process-proxy thread-proxy))))
 
 
 (definition (start-debugger-console-pump port process-proxy thread-proxy)

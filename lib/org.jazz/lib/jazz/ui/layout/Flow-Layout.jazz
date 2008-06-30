@@ -46,8 +46,9 @@
 (class Flow-Layout extends Layout
   
   
-  (property insets  <Rect> initialize {Rect 0 0 0 0} accessors generate)
-  (property padding <fx>   initialize 0              accessors generate)
+  (property insets        <Rect> initialize {Rect 0 0 0 0} accessors generate)
+  (property justification        initialize 'horizontal    accessors generate)
+  (property padding       <fx>   initialize 0              accessors generate)
   
   
   ;;;
@@ -55,7 +56,45 @@
   ;;;
 
 
+  ;; todo: unify layout-vertical/horizontal
   (method (layout figures width height . rest)
+    (case justification
+      ((vertical)
+       (layout-vertical figures width height))
+      (else
+       (layout-horizontal figures width height))))
+  
+  
+  (method (layout-vertical figures width height)
+    (let ((head (rect-position insets))
+          (tail (new Point (get-left~ insets) (- height (get-bottom~ insets)))))
+      (for-each (function (figure <Figure>)
+                  (receive (where offset) (standardize-location (get-location~ figure))
+                    (when (and (get-visible?~ figure) (eq? where 'head))
+                      (let ((size (get-size~ figure)))
+                        (set-position~ figure (+ head (new Point 0 offset)))
+                        (when size
+                          (increase! head (new Point 0 (+ (get-height~ size) padding))))))))
+                figures)
+      (for-each-reversed (function (figure <Figure>)
+                           (receive (where offset) (standardize-location (get-location~ figure))
+                             (when (and (get-visible?~ figure) (eq? where 'tail))
+                               (let* ((size (get-size~ figure))
+                                      (height (get-height~ size)))
+                                 (when (> (get-v~ (- tail height)) (get-v~ head))
+                                   (set-position~ figure (+ (- tail (new Point 0 height)) (new Point 0 offset)))
+                                   (when size
+                                     (decrease! tail (new Point 0 (+ height padding)))))))))
+                         figures)
+      (for-each (function (figure <Figure>)
+                  (receive (where offset) (standardize-location (get-location~ figure))
+                    (when (and (get-visible?~ figure) (eq? where 'center))
+                      (set-position~ figure (+ head (new Point 0 offset)))
+                      (set-size~ figure (new Dimension (get-width~ figure) (- (get-v~ tail) (get-v~ head)))))))
+                figures)))
+  
+  
+  (method (layout-horizontal figures width height)
     (let ((head (rect-position insets))
           (tail (new Point (- width (get-right~ insets)) (get-top~ insets))))
       (for-each (function (figure <Figure>)
@@ -64,7 +103,7 @@
                       (let ((size (get-size~ figure)))
                         (set-position~ figure (+ head (new Point 0 offset)))
                         (when size
-                          (increase! head (+ (get-width~ size) padding)))))))
+                          (increase! head (new Point (+ (get-width~ size) padding) 0)))))))
                 figures)
       (for-each-reversed (function (figure <Figure>)
                            (receive (where offset) (standardize-location (get-location~ figure))
@@ -74,7 +113,7 @@
                                  (when (> (get-h~ (- tail width)) (get-h~ head))
                                    (set-position~ figure (+ (- tail width) (new Point 0 offset)))
                                    (when size
-                                     (decrease! tail (+ width padding))))))))
+                                     (decrease! tail (new Point (+ width padding) 0))))))))
                          figures)
       (for-each (function (figure <Figure>)
                   (receive (where offset) (standardize-location (get-location~ figure))

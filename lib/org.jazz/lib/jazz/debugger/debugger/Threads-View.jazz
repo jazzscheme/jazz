@@ -260,7 +260,10 @@
               (with-preserving-update tree
                 (function ()
                   (remove-every-row~ tree)
-                  (update-threads tree detailed?: detailed?)))))))))
+                  (let ((problem? (update-threads tree detailed?: detailed?)))
+                    (when process
+                      (set-debugged-problem? process problem?)
+                      (highlight-process~ (get-processes-view) process)))))))))))
   
   
   (method (update-threads tree (detailed?: detailed? #f))
@@ -285,12 +288,12 @@
           ((exception) {Bitmap-Resource "ThreadError"})
           (else {Bitmap-Resource "ThreadBreak"}))))
     
-    (define (thread-frame-color thread stop)
-      (if stop
+    (define (thread-frame-color thread)
+      (if (get-debugged-problem? thread)
           {Color name: Dark-Red}
         {}))
     
-    (define (thread-background thread stop)
+    (define (thread-background thread)
       (if (get-debugged-visit? thread)
           (get-visit-highlight)
         {}))
@@ -303,17 +306,22 @@
             line))))
     
     (when process
-      (let ((debugger (get-debugger~ process)))
+      (let ((debugger (get-debugger~ process))
+            (problem? #f))
         (for-each (function (thread)
                     (let ((stop (get-active-stop~ thread)))
+                      (set-debugged-problem? thread (boolean stop))
                       (let ((title (thread-title thread stop))
                             (image (thread-image thread stop))
-                            (frame-color (thread-frame-color thread stop))
-                            (background (thread-background thread stop)))
+                            (frame-color (thread-frame-color thread))
+                            (background (thread-background thread)))
                         ;; quicky until a cleaner solution
                         (when (not (member? title System-Threads test: equal?))
+                          (when stop
+                            (set! problem? #t))
                           (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image frame-color: frame-color background: background)) user-data: thread)))))
-                  (debugged-threads debugger (get-threads~ process))))))
+                  (debugged-threads debugger (get-threads~ process)))
+        problem?)))
 
   
   ;;;

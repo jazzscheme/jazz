@@ -243,7 +243,7 @@
   
   
   (method (git arguments (output (current-output-port)))
-    (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory)))))
+    (let ((port (open-process (list path: "git" arguments: arguments directory: (parse~ directory) show-console: #f))))
       (if (not output)
           port
         (pipe port output)
@@ -338,9 +338,11 @@
                   (let ((filename (extract-name path)))
                     (let ((base (extract-base filename))
                           (extension (extract-extension filename)))
-                      (call-with-output-file (string-append "C:/Merge/" base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)
-                        (function (output)
-                          (git-show (string-append commit ":" path) output)))))
+                      (let ((file (new File (list "C:" "Merge" (string-append base "_v" (format "{a width: 3 justify: :right padding: #\\0}" (number->string version)) "_" commit "." extension)))))
+                        (create-directories~ file)
+                        (call-with-output-file (parse~ file)
+                          (function (output)
+                            (git-show (string-append commit ":" path) output))))))
                   (increase! version))
                 (reverse history))
       (user-message "Done")))

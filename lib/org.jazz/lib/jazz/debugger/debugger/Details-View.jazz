@@ -179,6 +179,10 @@
         ((exception) {Bitmap-Resource "ErrorStop"})
         (else {Bitmap-Resource "BreakStop"})))
     
+    (define (stop-reason-lines stop)
+      (let ((reason (either (get-reason~ stop) "Break")))
+        (split reason "\n")))
+    
     (with-update-locked
       (function ()
         (with-system-exception-debugger
@@ -193,12 +197,19 @@
                                       (image (stop-image stop)))
                                   (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop))
                                         (details (get-details~ stop)))
-                                    (when (and details active (debugged=? stop active))
-                                      (for-each (function (detail)
-                                                  (let ((title detail)
-                                                        (image {Bitmap-Resource "Green"}))
-                                                    (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: detail)))
-                                                details)))))
+                                    (when (and active (debugged=? stop active))
+                                      (if details
+                                          (for-each (function (detail)
+                                                      (let ((title detail)
+                                                            (image {Bitmap-Resource "Green"}))
+                                                        (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+                                                    details)
+                                        (for-each (function (line)
+                                                    (when (not (empty-string? line))
+                                                      (let ((title line)
+                                                            (image {Bitmap-Resource "Green"}))
+                                                        (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
+                                                  (cdr (stop-reason-lines stop))))))))
                               (debugged-stops debugger (get-stops~ thread))))))))))))
   
   

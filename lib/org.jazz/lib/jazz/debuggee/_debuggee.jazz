@@ -237,24 +237,24 @@
 
 
 (definition (with-repl-thread thread port thunk)
-  (let ((thread (start-repl-thread thread port)))
+  (let ((thread (start-repl-thread thread port #t)))
     (unwind-protect
         (thunk)
       (thread-interrupt! thread
         thread-exit))))
 
 
-(definition (start-repl-thread thread port)
+(definition (start-repl-thread thread port (use-repl-frame? #f))
   (thread-start!
     (new-thread
       (function ()
         (let (iterate)
-          (read-eval-print thread port)
+          (read-eval-print thread port use-repl-frame?)
           (iterate)))
       "Repl")))
 
 
-(definition (read-eval-print thread port)
+(definition (read-eval-print thread port use-repl-frame?)
   (define (print result)
     (format port #"\($\)\(color Dark-Red {a}\){%}{!}"# result))
   
@@ -262,16 +262,17 @@
     (thread-execute thread 'read-eval-print
       (function ()
         (unwind-protect
-            (print (evaluate expr))
+            (print (parameterize ((jazz.walk-for 'eval))
+                     (evaluate expr use-repl-frame?)))
           (format port #"\(prompt\){%}{!}"#))))))
 
 
-(definition (evaluate expr)
+(definition (evaluate expr use-repl-frame?)
   (let ((process (get-process)))
     (if (not process)
         "Error: Process not yet started"
       ;; quick test
-      (if (current-repl-frame)
+      (if (and use-repl-frame? (current-repl-frame))
           (eval-in-frame expr)
         (car (eval-expressions~ process (list expr)))))))
 

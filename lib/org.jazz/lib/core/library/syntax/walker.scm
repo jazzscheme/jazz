@@ -522,7 +522,9 @@
         (autoloads-expansion (jazz.expand-library-autoloads declaration environment))
         (locator (%%get-declaration-locator declaration)))
     `(begin
-       ,@(jazz.declares 'library)
+       ,@(case (jazz.walk-for)
+           ((eval) '())
+           (else (jazz.declares 'library)))
        ,@(let ((queue (jazz.new-queue)))
            (let ((dialect-name (%%get-library-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'core)

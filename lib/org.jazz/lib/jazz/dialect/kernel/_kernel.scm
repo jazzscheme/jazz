@@ -312,6 +312,7 @@
 (native jazz.get-environment)
 (native jazz.get-environment-module)
 (native jazz.load-all)
+(native jazz.walk-for)
 
 
 ;;;

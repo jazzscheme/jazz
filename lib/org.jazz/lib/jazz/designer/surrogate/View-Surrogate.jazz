@@ -232,12 +232,22 @@
   
   (method (draw-surrogate-frame surface)
     (when (and (show-frames?~ editor) (eq? (outer-client) client))
-      (let ((color Unselected-Color)
-            (outside (get-bounds~ client)))
-        (frame-rect~ surface outside color)
-        (when (eq? client (get-reference~ editor))
-          (let ((inside (inflate-rect outside -1 -1)))
-            (frame-rect~ surface inside color))))))
+      (let ((selection (get-selection~ editor)))
+        (define (outer-view view)
+          (outer-client~ (get-surrogate~ view)))
+        
+        (define (frame-color)
+          (let ((rank (find selection client key: outer-view)))
+            (if (not rank)
+                Unselected-Color
+              (element Selected-Colors (min rank 2)))))
+        
+        (let ((color (frame-color))
+              (outside (get-bounds~ client)))
+          (frame-rect~ surface outside color)
+          (when (eq? client (get-reference~ editor))
+            (let ((inside (inflate-rect outside -1 -1)))
+              (frame-rect~ surface inside color)))))))
   
   
   (method public virtual (draw-selected surface rank)

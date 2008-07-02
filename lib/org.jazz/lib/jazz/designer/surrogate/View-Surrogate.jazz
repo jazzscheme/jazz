@@ -232,9 +232,8 @@
   
   
   (method (draw-surrogate-selected surface)
-    (let ((selection (get-selection~ editor)))
-      (when (and (not-null? selection) (eq? client (car selection)))
-        (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.2}))))
+    (when (memq client (get-selection~ editor))
+      (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.15})))
   
   
   (method (draw-surrogate-frame surface)
@@ -331,20 +330,21 @@
     (let ((mode (get-mode~ editor)))
       (if (eq? mode 'rect)
           (set-cursor :cross)
-        (let ((part (if (size-client?) (find-resize-part pos (get-size~ client)) {})))
-          (if (not part)
-              (if (eq? client (get-client~ editor))
-                  (if (get-mouse-down?)
-                      (if dragging?
-                          (set-cursor :closed-hand)
-                        (set-cursor :cross))
-                    (case mode
-                      ((select) (set-cursor :arrow))
-                      ((grab) (set-cursor :opened-hand))))
-                (if (move-client?)
-                    (set-cursor :all)
-                  (set-cursor :arrow)))
-            (set-cursor (get-resize-cursor part)))))))
+        (let ((outer (outer-client~ (get-surrogate~ client))))
+          (let ((part (either current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))))
+            (if (not part)
+                (if (eq? outer (get-client~ editor))
+                    (if (get-mouse-down?)
+                        (if dragging?
+                            (set-cursor :closed-hand)
+                          (set-cursor :cross))
+                      (case mode
+                        ((select) (set-cursor :arrow))
+                        ((grab) (set-cursor :opened-hand))))
+                  (if (move-client?)
+                      (set-cursor :all)
+                    (set-cursor :arrow)))
+              (set-cursor (get-resize-cursor part))))))))
 
 
   ;;;
@@ -439,12 +439,13 @@
               (set! start-position pos)
               (acquire-capture~ client))
           (select)
-          (when (and (move-client?) (some-movable? (get-selection~ editor)))
-            (set! processing? #t)
-            (set! current-part (if (size-client?) (find-resize-part pos (get-size~ client)) {}))
-            (set! start-position (to-desktop~ client pos))
-            (set! old-position start-position)
-            (acquire-capture~ client)))))
+          (let ((outer (outer-client~ (get-surrogate~ client))))
+            (when (and (move-client?~ (get-surrogate~ outer)) (some-movable? (get-selection~ editor)))
+              (set! processing? #t)
+              (set! current-part (if (size-client?~ (get-surrogate~ outer)) (find-resize-part (acquire~ outer client pos) (get-size~ outer)) {}))
+              (set! start-position (to-desktop~ client pos))
+              (set! old-position start-position)
+              (acquire-capture~ client))))))
     (acquire-focus~ client))
   
   
@@ -475,9 +476,11 @@
     (cond
       (dragging?
        (release-capture~ client)
+       (set! current-part {})
        (set! dragging? #f))
       (processing?
        (release-capture~ client)
+       (set! current-part {})
        (set! processing? #f)
        (verify-position/size))))
   
@@ -758,6 +761,8 @@
       (bring-to-front~ client)
       (when focus?
         (acquire-focus~ client)))
+    ;; temp for client apps
+    (user-message "{a} selected" client)
     (redraw-border)
     (redraw-view~ client))
   

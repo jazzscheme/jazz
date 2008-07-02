@@ -49,7 +49,7 @@
     
     
     (define (jazz.make-jazz-readtable)
-      (let ((readtable (##readtable-copy ##main-readtable)))
+      (let ((readtable (readtable-max-unescaped-char-set (##readtable-copy ##main-readtable) #\U0010ffff)))
         (jazz.jazzify-readtable! readtable)
         readtable))
     

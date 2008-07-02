@@ -211,6 +211,7 @@
   
   (method public virtual (draw surface)
     (draw-showed-property surface)
+    (draw-surrogate-selected surface)
     (draw-surrogate-frame surface))
   
   
@@ -230,6 +231,12 @@
           (draw-text~ surface (+ (get-h~ pos) 3) (+ (get-v~ pos) 2) string)))))
   
   
+  (method (draw-surrogate-selected surface)
+    (let ((selection (get-selection~ editor)))
+      (when (and (not-null? selection) (eq? client (car selection)))
+        (fill-rect~ surface (get-bounds~ client) {Color name: Dark-Purple alpha: 0.2}))))
+  
+  
   (method (draw-surrogate-frame surface)
     (when (and (show-frames?~ editor) (eq? (outer-client) client))
       (let ((selection (get-selection~ editor)))
@@ -242,12 +249,15 @@
                 Unselected-Color
               (element Selected-Colors (min rank 2)))))
         
-        (let ((color (frame-color))
-              (outside (get-bounds~ client)))
-          (frame-rect~ surface outside color)
-          (when (eq? client (get-reference~ editor))
-            (let ((inside (inflate-rect outside -1 -1)))
-              (frame-rect~ surface inside color)))))))
+        ;; temp as this is not very nice for client apps
+        (if (eq? client (get-reference~ editor))
+            {}
+          (let ((color (frame-color))
+                (outside (get-bounds~ client)))
+            (frame-rect~ surface outside color)
+            (when (eq? client (get-reference~ editor))
+              (let ((inside (inflate-rect outside -1 -1)))
+                (frame-rect~ surface inside color))))))))
   
   
   (method public virtual (draw-selected surface rank)
@@ -748,11 +758,13 @@
       (bring-to-front~ client)
       (when focus?
         (acquire-focus~ client)))
-    (redraw-border))
+    (redraw-border)
+    (redraw-view~ client))
   
   
   (method (unselect)
-    (redraw-border)))
+    (redraw-border)
+    (redraw-view~ client)))
 
 
 ;;;

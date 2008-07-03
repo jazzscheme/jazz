@@ -159,6 +159,7 @@
 
 
 (native jazz.enumerator?)
+(native jazz.enumerator->symbol)
 
 
 ;;;

@@ -117,4 +117,9 @@
 
 (define (jazz.enumerator? obj)
   (and (%%symbol? obj)
-       (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:))))
+       (%%eqv? (%%string-ref (%%symbol->string obj) 0) #\:)))
+
+
+(define (jazz.enumerator->symbol obj)
+  (let ((name (%%symbol->string obj)))
+    (%%string->symbol (%%substring name 1 (%%string-length name))))))

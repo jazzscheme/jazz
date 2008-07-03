@@ -1900,7 +1900,25 @@
   (method (scrollee-width)
     (if wrap?
         (either wrap-width (max (get-display-width) visible-width))
-      (max (get-display-width) 8000)))
+      (max (get-display-width)
+           (if (dynamic-scrollee-width?)
+               (+ left-padding (calculate-scrollee-width) left-padding)
+             4000))))
+  
+  
+  ;; until we maintain it incrementally
+  (method (dynamic-scrollee-width?)
+    (<= visible-count 16))
+  
+  
+  (method (calculate-scrollee-width)
+    (let ((width 0))
+      (for-each-paragraph
+        (function (row <fx> paragraph <Paragraph>)
+          (let ((paragraph-width (compute-width~ paragraph)))
+            (when (> paragraph-width width)
+              (set! width paragraph-width)))))
+      width))
   
   
   ;;;
@@ -2392,7 +2410,7 @@
       ;; this has to be done, but possibly the right approach is
       ;; to have an invalid scrollee flag... set by the various row methods...
       ;; or maybe the fucking row-height can all be cleaned up!!!
-      (when wrap?
+      (when (or wrap? (dynamic-scrollee-width?))
         (layout-scrollee))
       (when (/= delta 0)
         (let ((size (get-size)))

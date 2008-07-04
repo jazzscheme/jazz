@@ -256,15 +256,29 @@
   ;;;; Exit
   ;;;
   
+  
+  ;; this is definitly a quick fix until a better solution
+  (definition exiting?
+    #f)
+  
+  
+  (method public (exiting-process?)
+    exiting?)
+  
 
   (method public (exit-process (status 0))
-    (focus-exit)
-    (preserve-environment)
-    (close-environment)
-    (let ((restart (find-restart 'exit-process)))
-      (if restart
-          (invoke-restart restart status)
-        (exit status))))
+    (let ((preserved exiting?))
+      (unwind-protect
+          (begin
+            (set! exiting? #t)
+            (focus-exit)
+            (preserve-environment)
+            (close-environment)
+            (let ((restart (find-restart 'exit-process)))
+              (if restart
+                  (invoke-restart restart status)
+                (exit status))))
+        (set! exiting? preserved))))
 
   ;;;
   ;;;; Alias

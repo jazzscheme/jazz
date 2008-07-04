@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Number Editor
+;;;; Text Entry
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,40 +35,74 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.designer.edt.Number-Edt jazz
+(library jazz.designer.entry.Text-Entry jazz
 
 
 (import (jazz.designer)
+        (jazz.jml)
         (jazz.library)
+        (jazz.literals)
+        (jazz.system)
         (jazz.ui)
-        (jazz.utilities))
+        (jazz.ui.view)
+        (jazz.utilities)
+        (time))
 
 
-(class Number-Edt extends Property-Edt
+(class Text-Entry extends Property-Entry
   
   
-  (property width  initialize 100 accessors generate)
-  (property height initialize 19  accessors generate)
+  (form
+    (<install>
+      (<Border-View>           name: border  border-type: edge style: entry
+        (<Scroller-View>                     hscroll?: #f vscroll?: #f
+          (<!>                 name: content layout-type: fill
+            (<Entry-Text-View> name: text))))))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'text) self))
   
   
   ;;;
-  ;;;; Entry
+  ;;;; Tab
   ;;;
   
   
-  (method (setup-entry view client)
-    (set-editor~ view self)
-    (if editable?
-        (new Number-Entry parent: view size: (new Dimension width height))
-      (new Label-View parent: view size: (new Dimension width height))))
+  (method (tab-view)
+    (locate 'text))
   
   
-  (method (set-value view value)
-    (if editable?
-        (nextmethod view value)
-      (set-title~ (get-entry~ view) (if (nil? value) "" (number->string value)))))
+  ;;;
+  ;;;; Validate
+  ;;;
   
   
-  (method (set-modified? view flag)
-    (when editable?
-      (nextmethod view)))))
+  (method (validate domain)
+    (let ((content (get-string-content~ (locate 'text))))
+      (if (and (empty-string? content)
+               (not (get-nullable?~ domain)))
+          (new Property-Violation message: "This field is mandatory")
+        {})))
+  
+  
+  (method (set-violation violation)
+    (let ((border (locate 'border)))
+      (if (not violation)
+          (set-border-type~ border 'edge)
+        (set-border-type~ border 'solid)
+        (set-border-color~ border {Color name: Red}))))
+  
+  
+  ;;;
+  ;;;; Value
+  ;;;
+  
+  
+  (method (get-modified?)
+    (get-modified?~ (locate 'text)))
+  
+  
+  (method (set-modified? value)
+    (set-modified?~ (locate 'text) value))))

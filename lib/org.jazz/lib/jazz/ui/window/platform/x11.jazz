@@ -341,35 +341,37 @@
 (definition expose-store (make-table))
 
 
+(definition (process-message msg)
+  (send-event
+    (function ()
+      (let* ((any-event (XEvent-xany-ref msg))
+             (handle (XAnyEvent-window-ref any-event)))
+        (let ((window (get-window handle))
+              (wparam 0)
+              (lparam 0))
+          (when window
+            (call-dispatch-message~ window msg wparam lparam)))))))
+
+
+(definition (process-expose)
+  (send-event
+    (function ()
+      (iterate-table expose-store
+        (function (win region)
+          (table-set! expose-store win)
+          (when region
+            (paint~ win region)))))))
+
+
 (definition (process-messages)
-  (define (process-message msg)
-    (send-event
-      (function ()
-        (let* ((any-event (XEvent-xany-ref msg))
-               (handle (XAnyEvent-window-ref any-event)))
-          (let ((window (get-window handle))
-                (wparam 0)
-                (lparam 0))
-            (when window
-              (call-dispatch-message~ window msg wparam lparam)))))))
-  
-  (define (process-expose)
-    (send-event
-      (function ()
-        (iterate-table expose-store
-           (function (win region)
-             (table-set! expose-store win)
-             (when region
-               (paint~ win region)))))))
-  
   (with ((msg (XEvent-make)))
     (let loop ()
-      (XNextEvent default-x11-display msg)
-      (process-message msg)
-      (when (= 0 (XPending default-x11-display))
-        (process-expose))
-      (when (thread-loop? (current-thread))
-        (loop)))))
+         (XNextEvent default-x11-display msg)
+         (process-message msg)
+         (when (= 0 (XPending default-x11-display))
+           (process-expose))
+         (when (thread-loop? (current-thread))
+           (loop)))))
 
 
 (definition (process-window-message window msg)
@@ -630,32 +632,36 @@
 
 
 (definition (platform-get-position-in-root handle)
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (let* ((x (XWindowAttributes-x-ref infos))
-           (y (XWindowAttributes-y-ref infos)))
-      (receive (x y) (XTranslateCoordinates default-x11-display handle (XRootWindow default-x11-display (XDefaultScreen default-x11-display)) x y)
-        (new Point x y)))))
+  (let ((pt (platform-get-position handle #f)))
+    (platform-translate-to-root handle pt)))
 
 
 (definition (platform-get-position handle parent-handle)
+  (either (essay *locked-update*
+		 (table-ref position-store (get-window handle) #f))
   (let ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
     (let* ((x (XWindowAttributes-x-ref infos))
            (y (XWindowAttributes-y-ref infos)))
-      (new Point x y))))
+      (new Point x y)))))
 
 
 (definition (platform-set-position handle pos)
   (if *locked-update*
       (add-position-action (get-window handle) pos)
-      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))))
+      (let ((event (XEvent-make)))
+	(XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
+	(XWindowEvent default-x11-display handle StructureNotifyMask event)
+	(process-message event)
+	(XEvent-free event))))
   
 
 (definition (platform-get-size handle)
+  (either (essay *locked-update*
+		 (table-ref size-store (get-window handle) #f))
   (with ((infos (XWindowAttributes-make)))
     (XGetWindowAttributes default-x11-display handle infos)
-    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
+    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
 
 
 (definition (platform-get-window-size handle)
@@ -665,11 +671,11 @@
 (definition (platform-set-window-size handle size)
   (if *locked-update*
       (add-size-action (get-window handle) size)
-    (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))))
-
-
-(definition (platform-set-position-size handle pos size)
-  (XMoveResizeWindow default-x11-display handle (get-h~ pos) (get-v~ pos) (get-width~ size) (get-height~ size)))
+    (let ((event (XEvent-make)))
+	(XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
+	(XWindowEvent default-x11-display handle StructureNotifyMask event)
+	(process-message event)
+	(XEvent-free event))))
 
 
 (definition (platform-set-bounds handle rect)
@@ -679,12 +685,12 @@
 
 
 (definition (platform-get-rect handle parent-handle)
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (let* ((l (XWindowAttributes-x-ref infos))
-           (t (XWindowAttributes-y-ref infos))
-           (r (+ l (XWindowAttributes-width-ref infos)))
-           (b (+ t (XWindowAttributes-height-ref infos))))
+  (let ((position (platform-get-position handle parent-handle))
+	(size     (platform-get-size handle)))
+    (let* ((l (get-h~ position))
+	   (t (get-v~ position))
+	   (r (+ l (get-width~ size)))
+	   (b (+ t (get-height~ size))))
       (new Rect l t r b))))
 
 
@@ -868,9 +874,9 @@
     (function (window position)
       (let ((handle (get-handle~ window)))
         (when (get-visible?~ window) (hide-window handle))
-	(platform-set-position handle position)))
+	(platform-set-position handle position)
         (table-set! position-store window)
-        (when (get-visible?~ window) (show-window handle)))
+        (when (get-visible?~ window) (show-window handle)))))
   (iterate-table size-store
     (function (window size)
       (let ((handle (get-handle~ window)))

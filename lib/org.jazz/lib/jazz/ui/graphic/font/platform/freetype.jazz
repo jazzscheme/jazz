@@ -42,12 +42,32 @@
         (jazz.platform.freetype))
 
 
-(definition freetype-font-table (make-table))
+;;;
+;;;; Paths
+;;;
+
+
+(definition freetype-font-table
+  (make-table))
+
+
+(definition (get-freetype-font name)
+  (either (table-ref freetype-font-table name #f)
+          (error "Unknown freetype font: {s}" name)))
+
+(definition (set-freetype-font name paths)
+  (table-set! freetype-font-table name paths))
 
 
 (table-set! freetype-font-table 'vera-sans  '("Vera.ttf" "VeraBd.ttf" "VeraIt.ttf" "VeraBI.ttf"))
 (table-set! freetype-font-table 'vera-mono  '("VeraMono.ttf" "VeraMoBd.ttf" "VeraMoIt.ttf" "VeraMoBI.ttf"))
 (table-set! freetype-font-table 'vera-serif '("VeraSe.ttf" "VeraSeBd.ttf" "VeraSe.ttf" "VeraSeBd.ttf"))
+
+
+;;;
+;;;; Font
+;;;
+
 
 (definition (create-font-handle (name: name {})
                                 (height: height {})
@@ -55,7 +75,7 @@
                                 (bold?: bold? #f)
                                 (italic?: italic? #f)
                                 (underline?: underline? #f))
-  (let* ((paths (table-ref freetype-font-table font-name))
+  (let* ((paths (get-freetype-font font-name))
          (index (cond ((and bold? italic?) 3)
                       (italic? 2)
                       (bold? 1)
@@ -65,6 +85,11 @@
       (when (/= 0 (FT_New_Face ft-library (string-append jazz-source "etc/fonts/" path) 0 face))
         (error "In font face creation"))
       face)))
+
+
+;;;
+;;;; Cairo
+;;;
 
 
 (definition (create-cairo-font-handle handle)

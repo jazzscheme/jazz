@@ -183,7 +183,7 @@
 (definition public (tokenise-patch filename <string>)
   (let ((lst (split (normalize-filename filename) "/")))
     (if (empty-string? (car lst))
-        (cons 'Root (remove-empty-strings (cdr lst)))
+        (remove-empty-strings (cdr lst))
       (remove-empty-strings lst))))
 
 
@@ -199,7 +199,7 @@
   (let* ((size (GetTempPath 0 NULL))
          (path (make-string size)))
     (GetTempPath size path)
-    (new Directory (list 'Root path))))
+    (new Directory (tokenise-windows path))))
 
 
 ;;;
@@ -387,10 +387,6 @@
       "/")))
 
 
-(definition root-prefix
-  "/")
-
-
 (class Pathname-Class extends (:class Moniker))
 
 
@@ -414,8 +410,6 @@
         (letrec ((parse
                    (function (path)
                      (cond ((null? path))
-                           ((eq? path 'Root)
-                            (display root-prefix printer))
                            ((string? path)
                             (if first?
                                 (set! first? #f)
@@ -485,7 +479,6 @@
       (letrec ((expand
                 (function (object)
                   (cond ((eq? object #t))
-                        ((eq? object 'Root))
                         ((string? object) (put~ fact object))
                         ((symbol? object) (expand (get-alias object)))
                         ((pair? object)
@@ -509,9 +502,7 @@
   
   (method (effective-name lst)
     (let ((name (last lst)))
-      (cond ((eq? name 'Root)
-             root-prefix)
-            ((symbol? name)
+      (cond ((symbol? name)
              (effective-name (get-alias name)))
             (else
              name))))
@@ -675,7 +666,7 @@
       (let ((filename (make-string MAX_PATH)))
         (GetTempFileName (parse~ directory) prefix 0 filename)
         (adjust-string filename)
-        (new File (list 'Root filename))))))
+        (new File (tokenise-windows filename))))))
 
 
 (class File metaclass File-Class extends Pathname

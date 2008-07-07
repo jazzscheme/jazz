@@ -74,6 +74,10 @@
   (definition public Inactive-Selection-Color
     {Color name: Unfocused-Selection})
   
+
+  (definition public Completion-Color
+    {Color red: 128 green: 240 blue: 240})
+
   
   (definition Caret-Pen
     {Pen name: Black})
@@ -94,6 +98,7 @@
   (property protected show-unfocused-selection?      initialize #t                       getter get-show-unfocused-selection? setter set-show-unfocused-selection?)
   (property protected active-selection-color         initialize Active-Selection-Color   getter get-active-selection-color    setter set-active-selection-color)
   (property protected inactive-selection-color       initialize Inactive-Selection-Color getter get-inactive-selection-color  setter set-inactive-selection-color)
+  (property protected completion-color               initialize Completion-Color         getter get-completion-color          setter set-completion-color)
   (property protected caret-pen                      initialize Caret-Pen                getter get-caret-pen                 setter set-caret-pen)
   (property protected char-encoding                  initialize {}                       getter get-char-encoding             setter set-char-encoding)
   ;; this property is a temp optimisation because the lisp explorer does its job by creating a jazz text-view
@@ -110,6 +115,7 @@
   (slot protected caret-pulse           initialize {})
   (slot protected caret-visible?        initialize #f)
   (slot protected has-focus?            initialize #f)
+  (slot protected completion-active?    initialize #f)
   (slot protected text-listeners        initialize '())
   (slot protected undoer                initialize (new Undoer self))
   (slot protected user-tabs             initialize '())
@@ -258,6 +264,15 @@
   
   (method public (set-inactive-selection-color value)
     (set! inactive-selection-color value)
+    (invalidate-view))
+
+
+  (method public (get-completion-color)
+    completion-color)
+
+
+  (method public (set-completion-color value)
+    (set! completion-color value)
     (invalidate-view))
   
   
@@ -452,6 +467,7 @@
     (show-text-cursor)
     (set! has-focus? #f)
     (hide-caret)
+    (end-completion)
     (when (has-selection?)
       (invalidate-selection selection)))
   
@@ -618,12 +634,19 @@
   (method (return-press key)
     (when accepts-returns?
       (insert-newline)))
+
+
+  (method (escape-press key)
+    (remove-completion))
   
   
   (method (tab-press key modifiers)
-    (if (not accepts-returns?)
-        (navigate-view (shift-key? modifiers))
-      (insert-char #\tab)))
+    (cond ((has-completion?)
+           (end-completion))
+          ((not accepts-returns?)
+           (navigate-view (shift-key? modifiers)))
+          (else
+           (insert-char #\tab))))
   
   
   (method public virtual (char-press key translated)
@@ -1437,7 +1460,9 @@
   
   
   (method protected virtual (get-selection-color)
-    active-selection-color)
+    (if completion-active?
+        completion-color
+      active-selection-color))
   
   
   (method protected virtual (get-inactive-selection-color)
@@ -2191,6 +2216,7 @@
   
   
   (method public (insert-char c)
+    (end-completion)
     (insert-string (string c)))
   
   
@@ -2215,7 +2241,7 @@
       (toggle-bulleted row)))
   
   
-  (method public virtual (insert-newline)
+  (method public (insert-newline)
     (insert-string "\n"))
   
   
@@ -3977,11 +4003,28 @@
   ;;;
   ;;;; Completion
   ;;;
+  
+  
+  (method protected (has-completion?)
+    (and completion-active? (has-selection?)))
 
 
-  (method public virtual (set-completion range <Range$Cell$>)
+  (method protected (set-completion range)
+    (set! completion-active? #t)
     (set-selection range))
   
+
+  (method (remove-completion)
+    (when completion-active?
+      (replace-selection (list ""))
+      (set! completion-active? #f)))
+
+
+  (method protected (end-completion)
+    (when completion-active?
+      (set! completion-active? #f)
+      (set-caret (get-end))))
+
   
   ;;;
   ;;;; Find

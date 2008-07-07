@@ -52,16 +52,8 @@
 
 
 (class Code-Text-View extends Text-View
-
-
-  (constant Completion-Color
-    {Color red: 128 green: 240 blue: 240})
-
-
-  (property completion-color initialize Completion-Color getter get-completion-color setter set-completion-color)
   
   
-  (slot completion-active?   initialize #f)
   (slot mouse-copy-selection initialize {})
   
   
@@ -85,29 +77,15 @@
   ;;;
   ;;;; Access
   ;;;
-
-
-  (method public (get-completion-color)
-    completion-color)
-
-
-  (method public (set-completion-color value)
-    (set! completion-color value)
-    (invalidate-view))
-
-
-  (method (escape-press key)
-    (remove-completion))
     
 
   (method (tab-press key modifiers)
-    (if (has-completion?)
-        (end-completion)
-      (if (not accepts-returns?)
-          (navigate-view (shift-key? modifiers))
-        (if (or (empty-selection?) (= (get-row~ (get-start)) (get-row~ (get-end))))
-            (insert-char #\tab)
-          (tabulate)))))
+    (if (or (has-completion?)
+            (not accepts-returns?))
+        (nextmethod key modifiers)
+      (if (or (empty-selection?) (= (get-row~ (get-start)) (get-row~ (get-end))))
+          (insert-char #\tab)
+        (tabulate))))
 
   
   (method (backspace-press key (word?: word? #f))
@@ -123,16 +101,6 @@
     (flash-matching-character)
     (when (eqv? key #\space)
       (show-arguments)))
-  
-  
-  (method (insert-newline)
-    (end-completion)
-    (nextmethod))
-
-
-  (method (focus-lose window view)
-    (nextmethod window view)
-    (end-completion))
 
 
   @replaced-to-make-mouse-copy-on-drag-up-work
@@ -686,12 +654,6 @@
     '())
 
 
-  (method (get-selection-color)
-    (if (not completion-active?)
-        (nextmethod)
-      completion-color))
-
-
   (method (back-symbol pos postfix)
     (when (or (not (text-constituent?~ syntax (get-char (if (has-selection?) (get-end) pos))))
               @dont-understand-this-test-that-makes-completion-kick-in-in-the-middle-of-words (not postfix))
@@ -807,27 +769,6 @@
               (replace-text (new Range$Cell$ (previous-cell (get-start)) (get-end)) (list string))
             (insert-string string))
           (set-completion (new Range$Cell$ (if inserted? (next-cell pos) pos) (+ pos (cast <fx> (cardinality string)))))))))
-  
-  
-  (method protected (has-completion?)
-    (and completion-active? (has-selection?)))
-
-
-  (method (set-completion range)
-    (set! completion-active? #t)
-    (set-selection range))
-
-
-  (method (remove-completion)
-    (when completion-active?
-      (replace-selection (list ""))
-      (set! completion-active? #f)))
-
-
-  (method protected (end-completion)
-    (when completion-active?
-      (set! completion-active? #f)
-      (set-caret (get-end))))
   
   
   (method protected (convert-completion)

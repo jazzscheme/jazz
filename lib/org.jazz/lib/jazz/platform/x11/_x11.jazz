@@ -49,6 +49,7 @@
 (c-include "<string.h>")
 (c-include "<unistd.h>")
 
+
 (constant None                     #x00000000)
 (constant PointerRoot              1)
 (constant CopyFromParent           #x00000000)
@@ -596,6 +597,19 @@
   (XSelectionEvent xselection))
 
 
+(c-structure XErrorEvent
+  (int type)
+  (Display* display)
+  (ulong serial)
+  (uchar error_code)
+  (uchar request_code)
+  (uchar minor_code)
+  (XID resourceid))
+
+
+(c-type XERRORPROC (function (Display* XErrorEvent*) int))
+
+
 ;;;
 ;;;; Functions
 ;;;
@@ -634,12 +648,20 @@
 (c-external ulong        (XWhitePixel            Display* int))
 (c-external void         (XMoveResizeWindow      Display* Window int int uint uint))
 (c-external void         (XLowerWindow           Display* Window))
+(c-external void         (XSetErrorHandler       XERRORPROC))
 (c-external int          (getpid))
 
 
 ;;;
 ;;;; Custom functions
 ;;;
+
+
+(definition XGetErrorText
+  (c-function (Display* int) char-string
+               "char buffer[255];
+                XGetErrorText(___arg1, ___arg2, buffer, 255);
+                ___result = buffer;"))
 
 
 (definition (XWindowEvent display window mask event)
@@ -806,7 +828,34 @@
      XSendEvent( ___arg1, ___arg3, 0, 0L, &xev );"))
      
 
-(definition default-x11-display (XOpenDisplay #f))
+(definition default-x11-display
+  #f)
+
+(definition public (get-default-x11-display)
+  default-x11-display)
+
+(definition public (set-default-x11-display display)
+  (set! default-x11-display display))
+
+
+(definition public (synchronize-x11 flag)
+  (XSynchronize default-x11-display flag))
+
+
+;;;
+;;;; Error functions
+;;;
+
+
+(definition x11-error-handler
+  #f)
+
+(definition public (x11-set-error-handler proc)
+  (set! x11-error-handler proc)
+  (XSetErrorHandler x11-call-error-handler))
+
+(c-definition (x11-call-error-handler display error) (Display* XErrorEvent*) int "x11_call_error_handler" ""
+  (x11-error-handler display error))
 
 
 ;;;
@@ -816,6 +865,7 @@
 
 (definition public (relinquish-process)
   )
+
 
 (definition public (GetCurrentProcessId)
   (getpid)))

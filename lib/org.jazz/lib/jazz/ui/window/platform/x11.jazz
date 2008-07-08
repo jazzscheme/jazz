@@ -268,10 +268,6 @@
     (let ((handle (create-handle window rest)))
       (if (not handle)
           (error "Unable to create x11 window")
-        (XSelectInput 
-          default-x11-display 
-          handle 
-          (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
         handle))))
 
 
@@ -285,19 +281,25 @@
     (XSetWindowAttributes-override_redirect-set! attr (is? window Popup))
     (if (is? window Desktop)
         (platform-get-desktop)
-      (XCreateWindow 
-        default-x11-display
-        parent
-        0
-        0
-        500
-        500
-        0
-        CopyFromParent
-        InputOutput
-        visual
-        (+ CWBitGravity CWOverrideRedirect)
-        attr))))
+      (let ((handle
+              (XCreateWindow 
+                default-x11-display
+                parent
+                0
+                0
+                500
+                500
+                0
+                CopyFromParent
+                InputOutput
+                visual
+                (+ CWBitGravity CWOverrideRedirect)
+                attr)))
+        (XSelectInput 
+          default-x11-display 
+          handle 
+          (+ FocusChangeMask ButtonReleaseMask ButtonPressMask StructureNotifyMask ExposureMask PointerMotionMask KeyPressMask))
+        handle))))
 
 
 (definition (destroy-window window)
@@ -640,30 +642,30 @@
 
 (definition (platform-get-position handle parent-handle)
   (either (essay *locked-update*
-		 (table-ref position-store (get-window handle) #f))
-  (let ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (let* ((x (XWindowAttributes-x-ref infos))
-           (y (XWindowAttributes-y-ref infos)))
-      (new Point x y)))))
+                 (table-ref position-store (get-window handle) #f))
+          (let ((infos (XWindowAttributes-make)))
+            (XGetWindowAttributes default-x11-display handle infos)
+            (let* ((x (XWindowAttributes-x-ref infos))
+                   (y (XWindowAttributes-y-ref infos)))
+              (new Point x y)))))
 
 
 (definition (platform-set-position handle pos)
   (if *locked-update*
       (add-position-action (get-window handle) pos)
-      (let ((event (XEvent-make)))
-	(XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
-	(XWindowEvent default-x11-display handle StructureNotifyMask event)
-	(process-message event)
-	(XEvent-free event))))
+    (let ((event (XEvent-make)))
+      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
+      (XWindowEvent default-x11-display handle StructureNotifyMask event)
+      (process-message event)
+      (XEvent-free event))))
   
 
 (definition (platform-get-size handle)
   (either (essay *locked-update*
-		 (table-ref size-store (get-window handle) #f))
-  (with ((infos (XWindowAttributes-make)))
-    (XGetWindowAttributes default-x11-display handle infos)
-    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
+                 (table-ref size-store (get-window handle) #f))
+          (with ((infos (XWindowAttributes-make)))
+            (XGetWindowAttributes default-x11-display handle infos)
+            (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
 
 
 (definition (platform-get-window-size handle)
@@ -674,10 +676,10 @@
   (if *locked-update*
       (add-size-action (get-window handle) size)
     (let ((event (XEvent-make)))
-	(XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
-	(XWindowEvent default-x11-display handle StructureNotifyMask event)
-	(process-message event)
-	(XEvent-free event))))
+      (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
+      (XWindowEvent default-x11-display handle StructureNotifyMask event)
+      (process-message event)
+      (XEvent-free event))))
 
 
 (definition (platform-set-bounds handle rect)

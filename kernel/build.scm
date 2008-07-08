@@ -405,7 +405,7 @@
 
 (define (jazz.guess-windowing platform)
   (case platform
-    ((mac) 'carbon)
+    ((mac) 'x11) ;; until carbon is ready
     ((windows) #f)
     ((unix) 'x11)))
 

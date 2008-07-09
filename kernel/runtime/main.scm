@@ -184,6 +184,15 @@
 
 
 (cond-expand
+ (mac
+  (define (jazz.build-clipboard)
+    (jazz.compile-module 'jazz.platform.carbon.carbon-types ld-options: "-framework Carbon")
+    (jazz.compile-module 'jazz.platform.carbon.clipboard ld-options: "-framework Carbon")))
+ (else
+  (define (jazz.build-clipboard) #f)))
+
+
+(cond-expand
   (carbon
     (define (jazz.build-platform)
       (jazz.load-module 'core.library)
@@ -191,7 +200,8 @@
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
-      (jazz.build-carbon)))
+      (jazz.build-carbon)
+      (jazz.build-clipboard)))
   (windows
     (define (jazz.build-platform)
       (let ((install jazz.install)
@@ -223,7 +233,8 @@
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
-      (jazz.build-x11))))
+      (jazz.build-x11)
+      (jazz.build-clipboard))))
 
 
 (define (jazz.load-literals)

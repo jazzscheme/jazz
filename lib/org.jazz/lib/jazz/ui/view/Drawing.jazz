@@ -358,9 +358,9 @@
   ;;;
   
   
-  (method public (find-drawing pos <Point>)
+  (method public (find-drawing pos <Point> (ignore: ignore {}))
     (when (in-drawing? pos size)
-      (either (find-subdrawing pos)
+      (either (find-subdrawing pos ignore)
               (unless (get-transparent?)
                 self))))
   
@@ -369,7 +369,7 @@
     (in-size? pos size))
   
   
-  (method protected virtual (find-subdrawing pos <Point>)
+  (method protected virtual (find-subdrawing pos <Point> ignore)
     (continuation-capture
       (function (return)
         (for-each-drawing-reversed
@@ -383,7 +383,7 @@
                                                 (fxround (/ (get-h~ delta) scaling))
                                                 (fxround (/ (get-v~ delta) scaling)))))
                                   (find-drawing~ view scaled))))))
-                (when found
+                (when (and found (or (not ignore) (not (memq? found ignore))))
                   (continuation-return return found))))))
         {})))
 
@@ -430,12 +430,9 @@
               (clipper (get-bounds)))
           (setup-clipper~ offscreen clipper)
           (paint-drawing offscreen context update lh lv sh sv sc sc?)
-          (let ((overlay (get-overlay)))
-            (when overlay
-              (draw-overlay~ overlay self offscreen (get-width~ size) (get-height~ size))))
+          (bit-blit~ offscreen surface size: size)
+          @not-converted-to-cairo
           (let ((effect (get-effect)))
-            (bit-blit~ offscreen surface size: size)
-            @not-converted-to-cairo
             (if (not effect)
               (let ((lie (new Point lh lv)))
                 (animate~ effect offscreen surface lie size))
@@ -539,15 +536,15 @@
 
 
   ;;;
-  ;;;; Overlay
+  ;;;; Layer
   ;;;
   
   
-  (method public virtual (get-overlay)
+  (method public virtual (get-layer)
     {})
   
   
-  (method public virtual (set-overlay value)
+  (method public virtual (set-layer value)
     )
 
 

@@ -390,11 +390,10 @@
               (region (new Rect left top right bottom))
               (old-region (table-ref expose-store window #f)))
          (unless (nu=? region {Rect 0 0 0 0})
-	     (if old-region
-                 (table-set! expose-store window (rect-union old-region region))
-               (table-set! expose-store window region))
-             processed)))
-      
+           (if old-region
+               (table-set! expose-store window (rect-union old-region region))
+             (table-set! expose-store window region))
+           processed)))
       
       ((= type ButtonPress)
        (let* ((msg (XEvent-xbutton-ref msg))
@@ -404,22 +403,21 @@
          (cond ((= button Button1)
                 (let ((click (time->seconds (current-time))))
                   (if (< (- click last-click) 0.2)
-		      (begin
-			(double-click~ window h v)
-			(set! last-click 0))
+                      (begin
+                        (double-click~ window h v)
+                        (set! last-click 0))
                     (mouse-down~ window h v)
-		    (set! last-click click))))
+                    (set! last-click click))))
                ((= button Button2)
                 (middle-mouse-down~ window h v))
                ((= button Button3)
                 (right-mouse-down~ window h v)
                 (let ((pt (acquire-point (platform-get-desktop) window (new Point h v))))
                   (call-context-menu~ window (get-h~ pt) (get-v~ pt))))
-               ((= button Button4)
+               ((or (= button Button4) (= button Button6))
                 (mouse-wheel~ window 120))
-               ((= button Button5)
+               ((or (= button Button5) (= button Button7))
                 (mouse-wheel~ window -120)))))
-      
       
       ((= type ButtonRelease)
        (let* ((msg (XEvent-xbutton-ref msg))
@@ -433,7 +431,6 @@
                ((= button Button3)
                 (right-mouse-up~ window h v)))))
       
-      
       ((= type FocusIn)
        (let* ((msg (XEvent-xfocus-ref msg))
               (detail (XFocusChangeEvent-detail-ref msg)))
@@ -443,7 +440,6 @@
            (call-focus-gain~ window)
            (on-activate-app~ window 1))))
       
-
       ((= type FocusOut)
        (let* ((msg (XEvent-xfocus-ref msg))
               (detail (XFocusChangeEvent-detail-ref msg)))
@@ -452,14 +448,12 @@
                    (= detail NotifyNonlinear))
            (call-focus-lose~ window #f))))
       
-
       ((= type MotionNotify)
        (let* ((msg (XEvent-xmotion-ref msg))
               (h (XMotionEvent-x-ref msg))
               (v (XMotionEvent-y-ref msg)))
          (mouse-move~ window h v)))
       
-
       ((= type KeyPress)
        (let* ((msg (XEvent-xkey-ref msg))
               (keycode (XKeyEvent-keycode-ref msg))
@@ -475,8 +469,7 @@
                (if (and key (char? key))
                    (call-key-press~ window key)
                  unprocessed))))))
-
-
+      
       ((= type ConfigureNotify)
        (let* ((msg (XEvent-xconfigure-ref msg))
               (width (XConfigureEvent-width-ref msg))
@@ -491,7 +484,6 @@
          (unless (nu=? prev-pos (new Point x y))
            (call-position-change~ window x y))))
       
-
       ((= type SelectionRequest)
        (let* ((msg (XEvent-xselectionrequest-ref msg))
               (requestor (XSelectionRequestEvent-requestor-ref msg))
@@ -500,15 +492,15 @@
               (property  (XSelectionRequestEvent-property-ref  msg)))
          (XSendClipboardString default-x11-display (get-handle~ window) requestor selection target property)))
       
-      (else                      unprocessed))))
+      (else unprocessed))))
 
 
 (definition (translate-shortcut mods keycode)
   (let* ((keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) 1))
-         (key    (or (assv-value keysym Symbolic-Keys #f) (integer->char keysym)))
-         (app  (get-application)))
+         (key (or (assv-value keysym Symbolic-Keys #f) (integer->char keysym)))
+         (app (get-application)))
     (if (and key app)
-      (dispatch-shortcut~ app (new Shortcut mods key))
+        (dispatch-shortcut~ app (new Shortcut mods key))
       #f)))
 
 

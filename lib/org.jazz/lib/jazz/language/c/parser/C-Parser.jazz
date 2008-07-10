@@ -53,7 +53,8 @@
   
   (method (parse-definitions file)
     (let ((lines (load-lines~ file char-encoding: char-encoding))
-          (fact (new List-Factory)))
+          (fact (new List-Factory))
+          (function-heuristic (get-heuristic 'c-function)))
       (when (member? (get-extension~ file) '("c" "cpp"))
         (put~ fact (new C-Category-Entry (get-base~ file))))
       (for-each (function (line n)
@@ -63,9 +64,11 @@
                   (let ((include (find-include line n)))
                     (when include
                       (put~ fact include)))
-                  (let ((export (find-gambit-export line n)))
-                    (when export
-                      (put~ fact export))))
+                  (case function-heuristic
+                    ((gambit)
+                     (let ((export (find-gambit-export line n)))
+                       (when export
+                         (put~ fact export))))))
                 lines
                 (naturals 0 (length lines)))
       (get-output~ fact)))
@@ -113,10 +116,15 @@
                    (col (skip (function (c) (or (c-constituent? c) (eqv? c #\period))) line start: start)))
               (when (and (> col start) (< col len) (eqv? (element line col) #\double-quote))
                 (new C-Include-Entry (subseq line start col) n start))))))))
-      
+  
 
   ;;;
-  ;;;; ___EXP_FUNC
+  ;;;; Open-Brace Heuristic
+  ;;;
+  
+
+  ;;;
+  ;;;; Gambit Heuristic
   ;;;
   
   

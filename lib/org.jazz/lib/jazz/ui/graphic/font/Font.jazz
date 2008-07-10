@@ -48,19 +48,20 @@
 (class Font extends Object
   
   
-  (slot name       initialize {})
-  (slot font-name  initialize {})
-  (slot point-size initialize {})
-  (slot color      initialize {})
-  (slot bold?      initialize #f)
-  (slot italic?    initialize #f)
-  (slot underline? initialize #f)
-  (slot monospace? initialize #f)
-  (slot handle     initialize {})
-  (slot source     initialize {})
-  (slot metrics    initialize {})
-  (slot all-widths initialize {})
-  (slot cairo-font initialize {})
+  (slot name        initialize {})
+  (slot font-name   initialize {})
+  (slot point-size  initialize {})
+  (slot color       initialize {})
+  (slot bold?       initialize #f)
+  (slot italic?     initialize #f)
+  (slot underline?  initialize #f)
+  (slot monospace?  initialize #f)
+  (slot handle      initialize {})
+  (slot source      initialize {})
+  (slot metrics     initialize {})
+  (slot all-widths  initialize {})
+  (slot cairo-font  initialize {})
+  (slot scaled-font initialize {})
   
   
   (method (initialize (name: name {})
@@ -84,10 +85,22 @@
     (set! monospace?~self monospace?)
     (set! handle~self (create-font-handle font-name: font-name point-size: point-size bold?: bold? italic?: italic? underline?: underline?))
     (set! cairo-font~self (create-cairo-font-handle handle~self))
+    (set! scaled-font (create-cairo-scaled-font cairo-font point-size))
     (cairo-add-font self))
+  
+  
+  (method (create-cairo-scaled-font font-face point-size)
+    (let ((matrix (cairo_matrix_t-make))
+          (ctm (cairo_matrix_t-make))
+          (options (cairo_font_options_create)))
+      (cairo_matrix_init_scale matrix (exact->inexact point-size) (exact->inexact point-size))
+      (cairo_matrix_init_identity ctm)
+      (prog1 (cairo_scaled_font_create font-face matrix ctm options)
+        (cairo_font_options_destroy options))))
 
 
   (method (destroy)
+    (cairo_scaled_font_destroy scaled-font)
     (destroy-cairo-font-handle cairo-font)
     (destroy-font-handle handle)
     (nextmethod))
@@ -185,6 +198,10 @@
 
   (method public (get-cairo-font)
     cairo-font)
+  
+
+  (method public (get-scaled-font)
+    scaled-font)
   
 
   (method (get-handle)

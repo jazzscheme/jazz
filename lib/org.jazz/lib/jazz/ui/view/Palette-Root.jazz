@@ -128,24 +128,39 @@
   ;;;
   
   
-  (method (layout)
-    (let* ((bounds (get-bounds))
-           (top 4)
-           (right (- (get-right~ bounds) 4)))
-      (layout-buttons)
-      (let ((content (get-content)))
-        (set-position~ content {Point 4 23})
-        (set-size~ content (new Dimension (- (get-width) 8) (- (get-height) 27))))))
+  (cond-expand
+    (windows
+      (method (layout)
+        (let* ((bounds (get-bounds))
+               (top 4)
+               (right (- (get-right~ bounds) 4)))
+          (layout-buttons)
+          (let ((content (get-content)))
+            (set-position~ content {Point 4 23})
+            (set-size~ content (new Dimension (- (get-width) 8) (- (get-height) 27)))))))
+    (else
+      (method (layout)
+        (layout-buttons)
+        (let ((content (get-content)))
+          (set-position~ content {Point 0 0})
+          (set-size~ content (get-size))))))
   
   
-  (method (layout-buttons)
-    (let* ((border (buttons-border))
-           (top border)
-           (bounds (get-bounds))
-           (right (- (get-right~ bounds) border)))
-      (set-rect~ (locate 'minimize) (minimize-rect top right))
-      (set-rect~ (locate 'maximize) (maximize-rect top right))
-      (set-rect~ (locate 'close) (close-rect top right))))
+  (cond-expand
+    (windows
+      (method (layout-buttons)
+        (let* ((border (buttons-border))
+               (top border)
+               (bounds (get-bounds))
+               (right (- (get-right~ bounds) border)))
+          (set-rect~ (locate 'minimize) (minimize-rect top right))
+          (set-rect~ (locate 'maximize) (maximize-rect top right))
+          (set-rect~ (locate 'close) (close-rect top right)))))
+    (else
+      (method (layout-buttons)
+        (set-visible?~ (locate 'minimize) #f)
+        (set-visible?~ (locate 'maximize) #f)
+        (set-visible?~ (locate 'close) #f))))
   
   
   (method protected virtual (buttons-border)
@@ -182,8 +197,13 @@
     #t)
   
   
-  (method (caption-visible?)
-    #t)
+  (cond-expand
+    (windows
+      (method (caption-visible?)
+        #t))
+    (else
+     (method (caption-visible?)
+       #f)))
 
 
   ;;;
@@ -191,11 +211,14 @@
   ;;;
 
   
-  (method (draw surface context update lh lv)
-    (let* ((bounds (get-bounds))
-           (caption (new Rect 4 4 (- (get-right~ bounds) 4) 22)))
-      (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle)
-      (draw-caption surface context)))
+  (cond-expand
+    (windows
+      (method (draw surface context update lh lv)
+        (let* ((bounds (get-bounds))
+               (caption (new Rect 4 4 (- (get-right~ bounds) 4) 22)))
+          (draw-edge~ surface bounds inner: 'raised outer: 'raised edges: 'rectangle)
+          (draw-caption surface context))))
+    (else))
   
   
   (method (title-offset)

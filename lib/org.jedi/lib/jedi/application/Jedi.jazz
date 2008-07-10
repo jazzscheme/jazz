@@ -428,11 +428,8 @@
   ;;;
   
   
-  (method public (find-runtime configuration)
-    (case (get-safety~ (either configuration (get-current-configuration)))
-      ((core) {File Jazz "bin" "GambitWindowsCore" "jazz"})
-      ((debug) {File Jazz "bin" "GambitWindowsDebug" "jazz"})
-      ((release) {File Jazz "bin" "GambitWindowsRelease" "jazz"})))
+  (method (find-runtime configuration)
+    (new-file~ (find-install-directory configuration) (list "jazz")))
   
   
   (method public (launch-runtime (configuration: configuration {}) (arguments: arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
@@ -451,6 +448,57 @@
           stdout-redirection: #f
           stderr-redirection: #f
           show-console: show-console?))))
+
+  
+  ;;;
+  ;;;; Install
+  ;;;
+  
+  
+  (definition (system-name system)
+    (case system
+      ((gambit) "Gambit")))
+  
+  
+  (definition (platform-name platform)
+    (case platform
+      ((mac) "Mac")
+      ((windows) "Windows")
+      ((unix) "Unix")))
+  
+  
+  (definition (windowing-name windowing)
+    (if (not windowing)
+        ""
+      (case windowing
+        ((carbon) "Carbon")
+        ((x11) "X11"))))
+  
+  
+  (definition (safety-name safety)
+    (case safety
+      ((core) "Core")
+      ((debug) "Debug")
+      ((release) "Release")))
+  
+  
+  (definition (source-option-name options)
+    (if (memq 'source options)
+        "Source"
+      ""))
+  
+  
+  (definition (find-install-directory configuration)
+    (let ((configuration (either configuration (get-current-configuration))))
+      (either (get-install~ configuration)
+              (new Directory
+                (list 'Jazz "bin"
+                  (string-append
+                    (system-name (get-system~ configuration))
+                    (platform-name (get-platform~ configuration))
+                    (windowing-name (get-windowing~ configuration))
+                    (safety-name (get-safety~ configuration))
+                    (source-option-name (get-options~ configuration))))))))
 
 
   ;;;

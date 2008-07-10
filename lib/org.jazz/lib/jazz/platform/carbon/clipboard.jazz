@@ -58,23 +58,23 @@
 
 
 (definition public (carbon-set-clipboard-text text)
-  (let ((func (c-function (PasteboardRef UTF-16-string) void
+  (let ((func (c-function (PasteboardRef scheme-object) void
                   "CFDataRef textData = NULL;
-                   int size = wcslen((wchar_t*)___arg2)*2;
-                   printf(\"%d\\n\", size);
+                   int len = (___INT(___U8VECTORLENGTH(___arg2))) - 2;
+                   ___U8 *vec = ___CAST(___U8*, ___BODY_AS(___arg2, ___tSUBTYPED)) + 2;
                    PasteboardClear(___arg1);
                    PasteboardSynchronize(___arg1);
-                   textData = CFDataCreate( kCFAllocatorDefault, (UInt8*)___arg2, size );
+                   textData = CFDataCreate( kCFAllocatorDefault, vec, len );
                    PasteboardPutItemFlavor( ___arg1, (PasteboardItemID)1, CFSTR(\"public.utf16-plain-text\"), textData, 0 );")))
     (func *clipboard* text)))
                    
   
 (definition public (carbon-get-clipboard-text)
-   (let ((func (c-function (PasteboardRef) UTF-16-string
+   (let ((func (c-function (PasteboardRef) scheme-object
                  "OSStatus err;
-                  char dataText[4096];   
+                  ___SCMOBJ r = ___FIX(___UNKNOWN_ERR);
+                  ___U8 *vec;   
                   ItemCount itemCount;
-                  UInt32 textIndex = 0;
                   PasteboardSynchronize( ___arg1 );
                   PasteboardGetItemCount( ___arg1, &itemCount );
                   if (itemCount >= 1) {
@@ -94,9 +94,11 @@
                             if( UTTypeConformsTo(flavorType, CFSTR(\"public.utf16-plain-text\")) ) {
                                 PasteboardCopyItemFlavorData( ___arg1, itemID, flavorType, &flavorData );
                                 flavorDataSize = CFDataGetLength( flavorData );
+                                r = ___EXT(___alloc_scmobj) (___sU8VECTOR, flavorDataSize+1, ___STILL);
+                                vec = ___CAST(___U8*, ___BODY_AS(r, ___tSUBTYPED));
                                 for( dataIndex = 0; dataIndex <= flavorDataSize; dataIndex++ ) {
                                      char byte = *(CFDataGetBytePtr( flavorData ) + dataIndex);
-                                     dataText[textIndex++] = byte;
+                                     vec[dataIndex] = byte;
                                 }
                                 CFRelease( flavorData );
                                 break;
@@ -104,7 +106,5 @@
                         }
                         CFRelease( flavorTypeArray );
                   }
-                  dataText[textIndex] = 0;
-                  dataText[textIndex+1] = 0;
-                  ___result = (UInt16*)dataText;")))
+                  ___result = r;")))
      (func *clipboard*))))

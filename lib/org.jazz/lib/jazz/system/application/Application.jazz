@@ -1916,31 +1916,40 @@
   
   
   (method public (on-find evt)
-    (update-search 'tab 'active-window))
+    (update-search 'text 'active-window))
   
   
-  (method public (on-find-in-files evt)
-    (update-search 'radio 'jazz-files))
+  (method public (on-find-in-text evt)
+    (update-search 'text {}))
   
   
-  (method (update-search navigate domain)
+  (method public (on-find-in-directories evt)
+    (update-search 'directories {}))
+  
+  
+  (method public (on-find-in-projects evt)
+    (update-search 'projects {}))
+  
+  
+  (method (update-search tab domain)
     (let* ((focus (get-focus))
            (internal? (is? focus Tree-Embedded-Search-Text-View))
            (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) {}))
            (palette (get-search-manager))
            (manager (get-guest~ palette))
+           (tab-view (locate~ manager 'tab))
            (search (get-search~ manager)))
-      (when (eq? navigate 'tab)
-        (let ((tree (get-targets-tree~ search)))
-          (end-edition~ tree)))
-      (when (eq? (get-window-focus) palette)
-        (case navigate
-          ((tab)
-           (next-tab~ search))
-          ((radio)
-           (next-radio~ search))))
+      (if (and (not domain)
+               (eq? (get-window-focus) palette)
+               (or (not tab) (eq? tab (get-selection-name~ tab-view))))
+          (next-radio~ search)
+        (when tab
+          (set-selection-name~ tab-view tab)
+          (when domain
+            (set-search-domain~ search domain))))
       (when (not (get-visible?~ palette))
-        (bring-search-with-domain palette manager 'text domain))
+        (bring-to-front~ palette)
+        (set-visible?~ palette #t))
       (for-each (function (search)
                   (let ((targets (get-search-targets~ search)))
                     (unless (or (not string)
@@ -1948,7 +1957,7 @@
                                      (equal? string (first (first targets)))))
                       (set-search-targets~ search (list (list string ""))))))
                 (get-searches~ manager))
-      (when (or (not internal?) (eq? navigate 'tab))
+      (when (not internal?)
         (select-search~ (get-search~ manager)))))
   
   
@@ -1958,14 +1967,6 @@
            (search (get-search~ manager))
            (tree (get-targets-tree~ search)))
       (end-edition~ tree)))
-  
-  
-  (method (bring-search-with-domain palette manager tab domain)
-    (set-selection-name~ (locate~ manager 'tab) tab)
-    (let ((search (get-search~ manager)))
-      (set-search-domain~ search domain)
-      (bring-to-front~ palette)
-      (set-visible?~ palette #t)))
 
 
   (method public (on-edit-next evt)

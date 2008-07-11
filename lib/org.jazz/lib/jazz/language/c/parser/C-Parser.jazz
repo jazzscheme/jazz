@@ -52,25 +52,29 @@
   
   
   (method (parse-definitions file)
-    (let ((lines (load-lines~ file char-encoding: char-encoding))
+    (let ((lines (list->vector (load-lines~ file char-encoding: char-encoding char-encoding-errors: #f)))
           (fact (new List-Factory))
           (function-heuristic (get-heuristic 'c-function)))
       (when (member? (get-extension~ file) '("c" "cpp"))
         (put~ fact (new C-Category-Entry (get-base~ file))))
-      (for-each (function (line n)
-                  (let ((define (find-define line n)))
-                    (when define
-                      (put~ fact define)))
-                  (let ((include (find-include line n)))
-                    (when include
-                      (put~ fact include)))
-                  (case function-heuristic
-                    ((gambit)
-                     (let ((export (find-gambit-export line n)))
-                       (when export
-                         (put~ fact export))))))
-                lines
-                (naturals 0 (length lines)))
+      (loop (for n from 0 below (cardinality lines))
+            (do
+              (let ((line (vector-ref lines n)))
+                (let ((define (find-define line n)))
+                  (when define
+                    (put~ fact define)))
+                (let ((include (find-include line n)))
+                  (when include
+                    (put~ fact include)))
+                (case function-heuristic
+                  ((open-brace)
+                   (let ((function (find-open-brace-function lines line n)))
+                     (when function
+                       (put~ fact function))))
+                  ((gambit)
+                   (let ((function (find-gambit-function line n)))
+                     (when function
+                       (put~ fact function))))))))
       (get-output~ fact)))
   
 
@@ -122,21 +126,37 @@
   ;;;; Open-Brace Heuristic
   ;;;
   
+  
+  (method (find-open-brace-function lines line n)
+    (let ((len (string-length line)))
+      (when (and (> len 0)
+                 (eqv? (string-ref line 0) #\{))
+        (continuation-capture
+          (function (return)
+            (loop (for i from (- n 1) downto 0)
+                  (do
+                    (let ((line (vector-ref lines i)))
+                      (let ((end (skip c-constituent? line)))
+                        (when (> end 0)
+                          (continuation-return return
+                            (new C-Export-Entry (subseq line 0 end) i 0)))))))
+            {})))))
+  
 
   ;;;
   ;;;; Gambit Heuristic
   ;;;
   
   
-  (constant gambit-export
+  (constant gambit-function
     "___EXP_FUNC")
   
   
-  (method (find-gambit-export line n)
+  (method (find-gambit-function line n)
     (let ((len (string-length line))
           (col (skip-whitespace line)))
-      (when (search line gambit-export start: col)
-        (let* ((start (+ col (string-length gambit-export)))
+      (when (search line gambit-function start: col)
+        (let* ((start (+ col (string-length gambit-function)))
                (col (skip (function (c) (not (eqv? c #\comma))) line start: start)))
           (when (and col (< col len))
             (let* ((start (skip-whitespace line start: (+ col 1)))

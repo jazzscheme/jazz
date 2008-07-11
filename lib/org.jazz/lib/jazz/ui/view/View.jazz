@@ -1901,7 +1901,9 @@
         (when view
           (when (neq? view (get-mouse-in))
             (when (get-mouse-in)
-              (call-mouse-leave~ (get-mouse-in)))
+              (call-mouse-leave~ (get-mouse-in))
+              (unless (or (is? (get-player~ view) Tooltip) (in-tooltip? pos))
+                (cancel-tooltip-tracking~ (get-mouse-in))))
             (set-mouse-in view)
             (when (get-mouse-in)
               (call-mouse-enter~ (get-mouse-in))))
@@ -2063,8 +2065,7 @@
   
   (method (call-mouse-leave)
     (cancel-hovering)
-    (unless (or (is? player Tooltip) @was-this-really-usefull? (in-tooltip? pos))
-      (cancel-tooltip-tracking))
+    (close-self-tooltip)
     (if mouse-leave-handler
         (invoke~ mouse-leave-handler self (new Mouse-Event :mouse-leave self {}))
       (mouse-leave)))
@@ -2281,6 +2282,11 @@
           (set-size~ view (nu+ (get-size~ text-view) {Dimension 2 2}))
           view)
       (new Tooltip-Label title: text)))
+  
+  
+  (method (close-self-tooltip)
+    (when (and Current-Tooltip-Context (eq? self (get-view~ Current-Tooltip-Context)))
+      (close-tooltip)))
   
   
   (method (close-tooltip)

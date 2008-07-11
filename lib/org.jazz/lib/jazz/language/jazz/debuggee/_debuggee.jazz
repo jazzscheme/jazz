@@ -102,12 +102,12 @@
             (set! Highlight-Figure? highlight-figure?)
             (set! Report-Figure? report-figure?)
             (set! Obscure-Unhighlighted? obscure-unhighlighted?)
-            (for-each (function (window)
-                        (when (and (or (not include) (memq? window include))
-                                   (or (not exclude) (not (memq? window exclude))))
-                          (install-overlays window click menu highlight tooltips?)
-                          (invalidate-window~ window)
-                          (set! All-Pickers (cons window All-Pickers))))
+            (for-each (function (overlapped)
+                        (when (and (or (not include) (memq? overlapped include))
+                                   (or (not exclude) (not (memq? overlapped exclude))))
+                          (install-overlays overlapped click menu highlight tooltips?)
+                          (invalidate-window~ overlapped)
+                          (set! All-Pickers (cons overlapped All-Pickers))))
                       windows)
             (simulate-mouse-move)
             (set! In-Pick? #t)))))))
@@ -118,29 +118,37 @@
   (set-escape-handler end-pick))
 
 
-(definition (install-overlays window click menu highlight tooltips?)
-  (for-each-descendant~ window
-    (function (window level)
-      (when (and (is? window View-Player) (get-visible?~ window))
-        (let ((root (get-root~ window)))
-          (new Picker-Overlay
-            parent: root
-            position: {Point 0 0}
-            size: (get-size~ root)
-            click: click
-            menu: menu
-            highlight: highlight
-            tooltips?: tooltips?))))))
+(definition (install-overlays overlapped click menu highlight tooltips?)
+  (for-each-window overlapped
+    (function (window)
+      (let ((root (get-root~ window)))
+        (new Picker-Overlay
+          parent: root
+          position: {Point 0 0}
+          size: (get-size~ root)
+          click: click
+          menu: menu
+          highlight: highlight
+          tooltips?: tooltips?)))))
 
 
-(definition (remove-overlays window)
-  (for-each-descendant~ window
+(definition (remove-overlays overlapped)
+  (for-each-window overlapped
+    (function (window)
+      (let ((root (get-root~ window)))
+        (let ((overlay (find-type~ root Picker-Overlay)))
+          (when overlay
+            (close~ overlay)))))))
+
+
+(definition (for-each-window overlapped proc)
+  (for-each-descendant~ overlapped
     (function (window level)
-      (when (and (is? window View-Player) (get-visible?~ window))
-        (let ((root (get-root~ window)))
-          (let ((overlay (find-type~ root Picker-Overlay)))
-            (when overlay
-              (close~ overlay))))))))
+      (when (and ;; because on windows overlapped can be descendants of the toplevel
+                 ;; this test is necessary to not process those overlapped twice
+                 (or (eq? window overlapped) (is-not? window Overlapped))
+                 (is? window View-Player) (get-visible?~ window))
+        (proc window)))))
 
 
 (definition (simulate-mouse-move)
@@ -160,9 +168,9 @@
           (set! Highlighted-Row-Rect row-rect))))))
 
 
-(definition (find-picker window)
+(definition (find-picker overlapped)
   (find-if (function (picker)
-             (eq? picker window))
+             (eq? picker overlapped))
            All-Pickers))
 
 

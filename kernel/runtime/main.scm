@@ -394,7 +394,6 @@
     jazz.system
     jazz.system.application
     jazz.system.process
-    jazz.test
     jazz.ui
     jazz.ui.activity
     jazz.ui.clipboard

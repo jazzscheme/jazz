@@ -94,11 +94,11 @@
 (cond-expand
   (carbon
     (define (jazz.build-cairo)
-      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
         (if (< minor 4)
             (jazz.error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-                (ld-flags (jazz.pkg-config-libs "cairo")))
+          (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
+                (ld-flags (jazz.pkg-config-libs "cairo-ft")))
             (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
             (jazz.compile-module 'jazz.platform.cairo.cairo-carbon   cc-options: cc-flags ld-options: ld-flags)
             (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags))))))
@@ -109,11 +109,11 @@
         (jazz.compile-module 'jazz.platform.cairo cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo")))))
   (x11
     (define (jazz.build-cairo)
-      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo"))
+      (receive (major minor build) (jazz.parse-dot-version (jazz.pkg-config-version "cairo-ft"))
         (if (< minor 4)
             (jazz.error "Cairo 1.4 or higher needed")
-          (let ((cc-flags (jazz.pkg-config-cflags "cairo"))
-                (ld-flags (jazz.pkg-config-libs "cairo")))
+          (let ((cc-flags (jazz.pkg-config-cflags "cairo-ft"))
+                (ld-flags (jazz.pkg-config-libs "cairo-ft")))
             (jazz.compile-module 'jazz.platform.cairo                cc-options: cc-flags ld-options: ld-flags)
             (jazz.compile-module 'jazz.platform.cairo.cairo-x11      cc-options: cc-flags ld-options: ld-flags)
             (jazz.compile-module 'jazz.platform.cairo.cairo-freetype cc-options: cc-flags ld-options: ld-flags)))))))
@@ -254,7 +254,7 @@
 
 
 (define (jazz.parse-dot-version version)
-  (let ((version (map string->number (jazz.split-string (jazz.pkg-config-version "cairo") #\.))))
+  (let ((version (map string->number (jazz.split-string version #\.))))
     (let ((major (car version))
           (minor (cadr version))
           (build (caddr version)))

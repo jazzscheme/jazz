@@ -59,17 +59,23 @@
 ;;;
 
 
-(definition public Current-Configuration
-  {})
+(definition (build-preferences)
+  (get-preferences 'build))
 
 
-(definition public (get-current-configuration)
-  Current-Configuration)
+(definition public (require-active-configuration)
+  (either (get-active-configuration)
+          (error "No active configuration")))
 
 
-(definition public (set-current-configuration configuration)
-  (set! Current-Configuration configuration))
+(definition public (get-active-configuration)
+  (let ((pref (build-preferences)))
+    (let ((active (get-active-configuration~ pref)))
+      (if (not active)
+          {}
+        (find-in (get-configurations~ pref) active key: (function (configuration) (get-name~ configuration)))))))
 
 
-(definition public (current-configuration)
-  (get-preferences (list 'build 'configurations Current-Configuration))))
+(definition public (set-active-configuration configuration)
+  (let ((pref (build-preferences)))
+    (set-preferences-property~ (get-process) pref 'active-configuration (essay configuration (get-name~ configuration))))))

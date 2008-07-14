@@ -559,15 +559,11 @@
 ;;;
 
 
-(cond-expand
-  (windows
-    (define gsc-path "gsc"))
-  (else
-    (define gsc-path "gsc-script")))
-
-
 (define (jazz.build-recursive target configuration)
-  (let ((configuration-name (jazz.configuration-name configuration)))
+  (let ((configuration-name (jazz.configuration-name configuration))
+        (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
+                      "gsc"
+                    "gsc-script")))
     (let ((target-argument (symbol->string target))
           (configuration-argument (if configuration-name (symbol->string configuration-name) "#f")))
       (jazz.execute-process gsc-path (list "-:dq-" "build" target-argument configuration-argument)))))

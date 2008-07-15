@@ -53,7 +53,7 @@
   (slot heuristics)
   (slot recursive?)
   (slot references?)
-  (slot content)
+  (slot content-index)
   (slot definitions-index)
   (slot references-index)
 
@@ -66,7 +66,7 @@
     (set! heuristics~self heuristics)
     (set! recursive?~self recursive?)
     (set! references?~self references?)
-    (set! content~self (make-table test: equal?))
+    (set! content-index~self (make-table test: equal?))
     (set! definitions-index~self (make-table test: equal?))
     (set! references-index~self (make-table test: equal?)))
 
@@ -100,8 +100,8 @@
     references?)
   
   
-  (method public (get-content)
-    content)
+  (method public (get-content-index)
+    content-index)
   
   
   (method public (get-definitions-index)
@@ -113,7 +113,7 @@
   
   
   (method public (get-file-definitions name)
-    (table-ref content name '()))
+    (table-ref content-index name '()))
   
   
   (method (get-file-entry file)
@@ -123,7 +123,7 @@
   
   
   (method public (get-statistics)
-    (let ((f (count-file-entries content))
+    (let ((f (count-file-entries content-index))
           (d (table-length definitions-index))
           (r (table-length references-index)))
       (format "{a} file{a}, {a} definition{a}, {a} reference{a}"
@@ -132,9 +132,9 @@
               r (format-plural r))))
   
   
-  (method (count-file-entries content)
+  (method (count-file-entries content-index)
     (let ((count 0))
-      (iterate-table content
+      (iterate-table content-index
         (function (name file-entries)
           (increase! count (length file-entries))))
       count))
@@ -154,7 +154,7 @@
   
   
   (method (add-entry name entry)
-    (table-add content name entry))
+    (table-add content-index name entry))
 
 
   ;;;
@@ -179,7 +179,7 @@
     (when (and (not loaded?) (get-active?) (exists?~ file))
       (when report?
         (user-message "Loading Catalog..."))
-      (load-table content file #t)
+      (load-table content-index file #t)
       (update-catalog-indexes report?)
       (set! loaded? #t)
       (when report?
@@ -189,7 +189,7 @@
   (method (update-catalog-indexes report?)
     (when report?
       (user-message "Updating Indexes..."))
-    (iterate-table content
+    (iterate-table content-index
       (function (class-name definitions)
         (for-each (function (file-definition)
                     (set-catalog~ file-definition self)
@@ -211,14 +211,14 @@
 
 
   (method (save-content)
-    (let* ((all (table-keys/values content))
+    (let* ((all (table-keys/values content-index))
            (sorted (sort string<? all key: car)))
       (create-directories~ file)
       (call-with-output-file (parse~ file)
         (function (printer)
           (for-each (function (info)
                       (bind (name . definitions) info
-                        (when definitions
+                        (when (not-null? definitions)
                           (format printer "{s}{%}" name)
                           (format printer " (")
                           (let ((first? #t))
@@ -264,7 +264,7 @@
   
   
   (method (reset-marks)
-    (iterate-table content
+    (iterate-table content-index
       (function (class-name definitions)
         (for-each (function (file-definition)
                     (set-marked?~ file-definition #f))
@@ -324,7 +324,7 @@
     (let ((extension (get-extension~ file))
           (extensions (get-extensions)))
       (and (or (not extensions) (member? extension extensions test: ci=?))
-           (not-null? (get-parser-class extension)))))
+           (get-parser-class extension))))
 
   
   (method (scan-file file time)
@@ -356,7 +356,7 @@
   
   
   (method (sweep)
-    (sweep-table content marked? #t)
+    (sweep-table content-index marked? #t)
     (sweep-table definitions-index marked? #f)
     (sweep-table references-index marked? #f))
   

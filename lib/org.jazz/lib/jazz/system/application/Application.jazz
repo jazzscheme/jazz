@@ -405,7 +405,11 @@
   
   
   (method (standard-profile-module name)
-    (compose-name 'profile (string->symbol name)))
+    (string->symbol (format "profile.{a}" name)))
+  
+  
+  (method (standard-project-module name)
+    (string->symbol (format "profile.{a}.{a}-Project" (downcase name) name)))
   
   
   (method (system-profile-module)
@@ -432,14 +436,19 @@
   
   (method (install-new-profile name)
     (let ((expander (new Template-Expander))
-          (associations (list (cons 'module profile-module) (cons 'profile name)))
+          (associations (list (cons 'module profile-module)
+                              (cons 'profile name)
+                              (cons 'project-module (standard-project-module name))
+                              (cons 'project-title (downcase name))))
           (directory (new Directory (list 'Profiles name))))
       (create-directories~ directory)
       (copy-jazzini {File User ".jazzini"} expander associations)
       (copy-profiles-package {File Profiles-Package "profiles.pck"} expander associations)
       (copy-profile-settings directory expander associations)
       (let ((file (new-file~ directory (format "_{a}.jazz" name))))
-        (copy-profile file expander associations))))
+        (copy-profile file expander associations))
+      (let ((file (new-file~ directory (format "{a}-Project.jazz" name))))
+        (copy-project file expander associations))))
   
   
   (method (copy-jazzini file expander associations)
@@ -464,7 +473,12 @@
   
   
   (method (copy-profile file expander associations)
-    (let ((template {File Launch "defaults" "lib" "profiles" "profile" "default" "_default.jazz"}))
+    (let ((template {File Launch "defaults" "lib" "profiles" "profile" "default" "default-profile.jazz"}))
+      (copy-template template file expander associations)))
+  
+  
+  (method (copy-project file expander associations)
+    (let ((template {File Launch "defaults" "lib" "profiles" "profile" "default" "default-project.jazz"}))
       (copy-template template file expander associations)))
   
   

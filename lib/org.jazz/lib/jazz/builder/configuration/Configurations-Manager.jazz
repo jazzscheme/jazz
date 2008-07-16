@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Catalogs Manager
+;;;; Configurations Manager
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,11 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.catalog.tools.Catalogs-Manager jazz
+(library jazz.build.configuration.Configurations-Manager jazz
 
 
-(import (jazz.catalog)
-        (jazz.jml)
+(import (jazz.jml)
         (jazz.library)
         (jazz.literals)
         (jazz.system)
@@ -48,25 +47,29 @@
         (jazz.utilities))
 
 
-(class Catalogs-Manager extends View
+(class Configurations-Manager extends View
 
 
   (form
-    (<install>                                               size: {Dimension 603 514}
-      (<Push-Button>                   name: update          title: "Update" position: {Point 499 7} size: {Dimension 100 22} action-handler: {Event-Handler :form on-update} default?: #t)
-      (<Border-View>                   name: catalogs-border position: {Point 2 35} size: {Dimension 599 477} border-type: edge style: entry
-        (<Scroller-View>                                     vscroll?: #t
-          (<!>                         name: content         layout-type: fill
-            (<Tree-Header>                                   style: document
+    (<install>                                              size: {Dimension 603 514}
+      (<Push-Button>                   name: update         title: "Update" position: {Point 499 7} size: {Dimension 100 22} action-handler: {Event-Handler :form on-update} default?: #t)
+      (<Border-View>                   name: border         position: {Point 2 35} size: {Dimension 599 477} border-type: edge style: entry
+        (<Scroller-View>                                    vscroll?: #t
+          (<!>                         name: content        layout-type: fill
+            (<Tree-Header>                                  style: document
               (<!>                     name: content
-                (<Tree-View>           name: catalogs        filled-column: name selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
-                  (<Tree-Node-Column>  name: name            title: "Name" width: 150 toplevel-controls?: #f display-images?: #f)
-                  (<Tree-Label-Column> name: references?     title: "References?" width: 100)
-                  (<Tree-Label-Column> name: statistics      title: "Statistics" width: 250)))))))))
+                (<Tree-View>           name: configurations filled-column: name selection-handler: {Event-Handler :form on-selection-change} double-click-handler: {Event-Handler :form on-double-click} multiple-selection?: #t
+                  (<Tree-Node-Column>  name: name           title: "Name" width: 150 toplevel-controls?: #f display-images?: #f)
+                  (<Tree-Label-Column> name: system         title: "System" width: 100)
+                  (<Tree-Label-Column> name: platform       title: "Platform" width: 250)
+                  (<Tree-Label-Column> name: windowing      title: "Windowing" width: 100)
+                  (<Tree-Label-Column> name: safety         title: "Safety" width: 100)
+                  (<Tree-Label-Column> name: options        title: "Options" width: 100)
+                  (<Tree-Label-Column> name: install        title: "Install" width: 100)))))))))
   
   
   (method meta (external-name . rest)
-    'catalogs-manager)
+    'configurations-manager)
   
   
   ;;;
@@ -76,7 +79,7 @@
   
   (method (finish initargs)
     (nextmethod initargs)
-    (view-catalogs)
+    (view-configurations)
     (update-buttons))
     
   
@@ -86,11 +89,11 @@
     
   
   (method meta (host-icon)
-    {Bitmap-Resource "Repository"})
+    {Bitmap-Resource "Project"})
   
   
   (method meta (host-title)
-    "Catalogs Manager")
+    "Configurations Manager")
   
   
   (method meta (host-position)
@@ -113,13 +116,7 @@
   (method (resize dh dv)
     (nextmethod dh dv)
     (move-figure~ (locate 'update) dh 0)
-    (size-figure~ (locate 'catalogs-border) dh dv))
-  
-  
-  (method (on-change-active evt)
-    (let* ((sender (get-sender~ evt))
-           (catalog (get-user-data~ sender)))
-      (set-active?~ catalog (get-checked?~ sender))))
+    (size-figure~ (locate 'border) dh dv))
   
   
   (method (on-selection-change evt)
@@ -131,20 +128,18 @@
   ;;;
 
 
-  (method public (view-catalogs)
-    (let ((tree (locate 'catalogs)))
+  (method public (view-configurations)
+    (let ((tree (locate 'configurations)))
       (with-update-locked~ tree
         (function ()
           (remove-every-row~ tree)
-          (for-each (function (catalog)
+          (for-each (function (configuration)
                       (let ((handler (new Event-Handler target: self method-name: 'on-change-active)))
-                        (let (@wait-project-catalogs
-                              (c0 (new Check-Box title: (->string (get-name~ catalog)) checked?: (get-active?~ catalog) user-data: catalog content-change-handler: handler))
-                              (c0 (new Tree-Node title: (->string (get-name~ catalog))))
-                              (c1 (new Tree-Label title: (->string (get-references?~ catalog))))
-                              (c2 (new Tree-Label title: (get-statistics~ catalog))))
-                          (add-row~ tree children: (list c0 c1 c2) user-data: catalog))))
-                    (get-indexed-catalogs))))))
+                        (let ((c0 (new Tree-Node title: (->string (get-name~ configuration))))
+                              (c1 (new Tree-Label title: (->string (get-references?~ configuration))))
+                              (c2 (new Tree-Label title: (get-statistics~ configuration))))
+                          (add-row~ tree children: (list c0 c1 c2) user-data: configuration))))
+                    (get-indexed-configurations))))))
   
   
   (method (get-indexed-catalogs)
@@ -163,14 +158,14 @@
     (let ((sender (get-sender~ evt))
           (alt? (get-alt?~ evt)))
       (case (get-name~ sender)
-        ((catalogs)
+        ((configurations)
          (with-cursor :wait
            (function ()
              (update-selection)))))))
   
   
   (method (update-selection)
-    (let* ((tree (locate 'catalogs))
+    (let* ((tree (locate 'configurations))
            (selection (get-selection~ tree)))
       (define (effective-selection selection)
         (if (null? selection)
@@ -178,33 +173,15 @@
           selection))
       
       (for-each (function (row)
-                  (let ((catalog (get-user-data~ (get-row~ tree row))))
-                    (update~ catalog)
+                  (let ((configuration (get-user-data~ (get-row~ tree row))))
+                    (update~ configuration)
                     (let ((cell (new Cell row 2)))
-                      (set-title~ (get-cell-data~ tree cell) (get-statistics~ catalog))
+                      (set-title~ (get-cell-data~ tree cell) (get-statistics~ configuration))
                       (invalidate-cell~ tree cell))))
                 (effective-selection selection))))
   
   
   (method (update-buttons)
-    (let ((tree (locate 'catalogs)))
+    (let ((tree (locate 'configurations)))
       (let ((count (get-row-count~ tree)))
-        (set-enabled?~ (locate 'update) (> count 0)))))
-  
-
-  ;;;
-  ;;;; Session
-  ;;;
-  
-  
-  (method (confirm-close . rest)
-    (save-session))
-  
-  
-  (method (save-session)
-    @to-convert
-    (let ((info
-           (list (external-name)
-                 position: (get-position)
-                 size:     (get-size))))
-      (push-property~ properties 'Opened-Windows info)))))
+        (set-enabled?~ (locate 'update) (> count 0)))))))

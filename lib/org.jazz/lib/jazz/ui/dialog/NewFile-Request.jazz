@@ -129,19 +129,20 @@
   
   
   (method (validate-dialog)
-    @w
-    (if (exists?~ result)
-        (let ((code (message-box (format "Overwrite existing {a}?" (get-name~ result))
+    (let ((newfile (get-newfile)))
+      (when (exists?~ newfile)
+        (let ((code (message-box (format "Overwrite existing {a}?" (get-name~ newfile))
                                  type: 'confirmation)))
-          (case code
-            ((yes) (nextmethod result))
-            ((no) (throw-cancel))
-            ((cancel) (throw-cancel))))
-      (nextmethod result)))
+          (when (memq? code '(no cancel))
+            (throw-cancel))))))
   
   
   (method (get-modal-result)
     (set-current-directory directory)
+    (get-newfile))
+  
+  
+  (method (get-newfile)
     (let ((content (get-string-content~ (locate 'filename))))
       (let ((filename
               (if (and default-extension (not (search content ".")))

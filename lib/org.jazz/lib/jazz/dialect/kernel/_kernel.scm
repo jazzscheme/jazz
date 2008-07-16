@@ -391,6 +391,7 @@
 (native jazz.file-modification-time)
 (native jazz.file-rename)
 (native jazz.current-directory)
+(native jazz.current-directory-set!)
 (native jazz.directory-create)
 (native jazz.directory-content)
 (native jazz.directory-delete)

@@ -42,7 +42,12 @@
   (gambit
     (define jazz.pathname-expand path-expand)
     (define jazz.file-rename rename-file)
-    (define jazz.current-directory current-directory)
-    (define jazz.directory-delete delete-directory))
+    (define jazz.directory-delete delete-directory)
+    
+    (define (jazz.current-directory)
+      (jazz.pathname-normalize (current-directory)))
+    
+    (define (jazz.current-directory-set! dir)
+      (current-directory dir)))
   
   (else)))

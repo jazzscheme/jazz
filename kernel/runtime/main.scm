@@ -444,6 +444,10 @@
 ;;;
 
 
+(define jazz.debug?
+  #f)
+
+
 (define jazz.debug-build?
   #f)
 
@@ -500,7 +504,7 @@
           (current-handler exc))
         thunk)))
   
-  (split-command-line (%%cdr (command-line)) '() '("run" "build" "compile")
+  (split-command-line (%%cdr (command-line)) '() '("run" "build" "compile" "debug")
     (lambda (options remaining)
       (define (get-option name)
         (let ((pair (%%assoc name options)))
@@ -510,7 +514,9 @@
       
       (let ((run (get-option "run"))
             (build (get-option "build"))
-            (compile (get-option "compile")))
+            (compile (get-option "compile"))
+            (debug? (get-option "debug")))
+        (set! jazz.debug? debug?)
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product

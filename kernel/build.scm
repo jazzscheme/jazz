@@ -618,6 +618,8 @@
                   (newline output)
                   (jazz.print-variable 'jazz.product #f output)
                   (newline output)
+                  (jazz.print-variable 'jazz.version jazz.version output)
+                  (newline output)
                   (jazz.print-variable 'jazz.install "." output)
                   (newline output)
                   (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)

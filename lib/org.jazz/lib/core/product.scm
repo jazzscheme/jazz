@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Product
+;;;; Core Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,24 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library test.product jazz
-
-
-;;;
-;;;; Run
-;;;
-
-
-(definition (run)
-  (load-module 'test))
-
-
-;;;
-;;;; Update
-;;;
-
-
-(definition (update))
+(module core.product
 
 
 ;;;
@@ -60,7 +43,14 @@
 ;;;
 
 
-(definition (build))
+(define (build)
+  (jazz.load-module 'core.library)
+  (jazz.build-module 'core.base)
+  (jazz.build-module 'core.class)
+  (jazz.build-module 'core.generic)
+  (jazz.build-module 'core.library)
+  (jazz.build-module 'core.module)
+  (jazz.build-module 'statprof))
 
 
 ;;;
@@ -68,9 +58,5 @@
 ;;;
 
 
-(register-product 'test
-  title: "Test"
-  icon: "Jedi"
-  run: run
-  update: update
+(jazz.register-product 'core
   build: build))

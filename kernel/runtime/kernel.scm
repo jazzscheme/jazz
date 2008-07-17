@@ -348,7 +348,8 @@
 
 (define (jazz.register-repository directory #!key (name #f))
   (let ((repository (%%make-repository name (jazz.pathname-normalize directory))))
-    (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))))
+    (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))
+    (jazz.install-repository-packages repository)))
 
 
 (define (jazz.find-repository name)
@@ -370,10 +371,18 @@
   (or (%%repository-packages-table repository)
       (let ((table (%%make-table test: eq?)))
         (%%repository-packages-table-set! repository table)
-        (for-each (lambda (package)
-                    (%%table-set! table (%%package-name package) package))
-                  (jazz.repository-discover-packages repository))
+        (let ((packages (jazz.repository-discover-packages repository)))
+          (for-each (lambda (package)
+                      (%%table-set! table (%%package-name package) package))
+                    packages))
         table)))
+
+
+(define (jazz.install-repository-packages repository)
+  (let ((table (jazz.repository-packages-table repository)))
+    (%%iterate-table table
+      (lambda (name package)
+        (jazz.install-package package)))))
 
 
 (define (jazz.repository-packages repository)
@@ -423,11 +432,19 @@
               (alist (%%cddr form)))
           (if (%%eq? name package-name)
               (let ((root (assq 'root alist))
+                    (install (assq 'install alist))
                     (products (assq 'products alist)))
                 (jazz.make-package repository name
                   (if root (%%cadr root) #f)
+                  (if install (%%cadr install) #f)
                   (if products (%%cdr products) '())))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
+
+
+(define (jazz.install-package package)
+  (let ((install (%%package-install package)))
+    (if install
+        (jazz.load-module install))))
 
 
 (define (jazz.inspect-install)
@@ -460,11 +477,11 @@
   "pck")
 
 
-(define (jazz.make-package repository name root products)
+(define (jazz.make-package repository name root install products)
   (let ((path (if (%%not root)
                   (%%symbol->string name)
                 (%%string-append (%%symbol->string name) "/" root))))
-    (%%make-package repository name root path products)))
+    (%%make-package repository name root path install products)))
 
 
 (define (jazz.package-pathname package path)
@@ -732,14 +749,17 @@
 
 
 (define (jazz.setup-product name)
-  (set! jazz.process-name name)
-  (jazz.setup-debuggee)
-  (let ((product (jazz.get-product name)))
-    (set! jazz.process-name name)
-    (set! jazz.process-title (%%product-title product))
-    (set! jazz.process-icon (%%product-icon product))
-    (jazz.load-module 'jazz.debuggee.update)
-    product))
+  (if (not jazz.debug?)
+      (jazz.get-product name)
+    (begin
+      (set! jazz.process-name name)
+      (jazz.setup-debuggee)
+      (let ((product (jazz.get-product name)))
+        (set! jazz.process-name name)
+        (set! jazz.process-title (%%product-title product))
+        (set! jazz.process-icon (%%product-icon product))
+        (jazz.load-module 'jazz.debuggee.update)
+        product))))
 
 
 (define (jazz.run-product name)
@@ -1087,24 +1107,15 @@
 
 
 (define (jazz.with-extension-reader extension thunk)
-  (let ((reader-info (jazz.get-extension-reader extension)))
-    (if reader-info
-        (let ((dialect-name (%%car reader-info))
-              (readtable-getter (%%cdr reader-info)))
-          (jazz.load-module dialect-name)
-          (parameterize ((current-readtable (readtable-getter)))
-            (thunk)))
+  (let ((readtable-getter (jazz.get-extension-reader extension)))
+    (if readtable-getter
+        (parameterize ((current-readtable (readtable-getter)))
+          (thunk))
       (thunk))))
 
 
-(define (jazz.register-reader-extension dialect-name readtable-getter extension)
-  (%%table-set! jazz.Extension-Readers extension (%%cons dialect-name readtable-getter)))
-
-
-(define (jazz.register-reader-extensions dialect-name readtable-getter extensions)
-  (for-each (lambda (extension)
-              (jazz.register-reader-extension dialect-name readtable-getter extension))
-            extensions))
+(define (jazz.register-reader-extension extension readtable-getter)
+  (%%table-set! jazz.Extension-Readers extension readtable-getter))
 
 
 ;;;
@@ -1118,7 +1129,10 @@
 (jazz.define-variable jazz.jazz-readtable)
 
 
-(jazz.register-reader-extensions 'jazz.dialect (lambda () jazz.jazz-readtable) '("jazz"))
+(jazz.register-reader-extension "jazz"
+  (lambda ()
+    (jazz.load-module 'jazz.dialect)
+    jazz.jazz-readtable))
 
 
 (if (file-exists? "~/.jazz/.jazzini")

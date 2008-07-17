@@ -163,7 +163,8 @@
                      (iter))))))))
     
     
-    (set! jazz.jazz-readtable (jazz.make-jazz-readtable))
+    (define jazz.jazz-readtable
+      (jazz.make-jazz-readtable))
     
     
     (define (jazz.with-jazz-readtable thunk)

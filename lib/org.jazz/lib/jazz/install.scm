@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Test Product
+;;;; Jazz Install
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,42 +35,13 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library test.product jazz
+(module jazz.install
 
 
-;;;
-;;;; Run
-;;;
+(require (core.library))
 
 
-(definition (run)
-  (load-module 'test))
-
-
-;;;
-;;;; Update
-;;;
-
-
-(definition (update))
-
-
-;;;
-;;;; Build
-;;;
-
-
-(definition (build))
-
-
-;;;
-;;;; Register
-;;;
-
-
-(register-product 'test
-  title: "Test"
-  icon: "Jedi"
-  run: run
-  update: update
-  build: build))
+(jazz.register-reader-extension "titi"
+  (lambda ()
+    (jazz.load-module 'jazz.dialect.reader)
+    jazz.jazz-readtable)))

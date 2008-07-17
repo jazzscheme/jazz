@@ -1,7 +1,10 @@
 (package org.jazz
   
   (root "lib")
-  (products (test test.product))
+  (install jazz.install)
+  (products (core core.product)
+            (jazz jazz.product)
+            (test test.product))
   (export core.base
           core.class
           core.exception

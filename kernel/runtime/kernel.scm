@@ -342,6 +342,10 @@
   (jazz.make-repositories))
 
 
+(define (jazz.get-repositories)
+  jazz.Repositories)
+
+
 (define (jazz.register-repository directory #!key (name #f))
   (let ((repository (%%make-repository name (jazz.pathname-normalize directory))))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))))
@@ -401,6 +405,16 @@
       '())))
 
 
+(define (jazz.repository-add-package repository package)
+  (let ((table (jazz.repository-packages-table repository)))
+    (%%table-set! table (%%package-name package) package)))
+
+
+(define (jazz.repository-remove-package repository package)
+  (let ((table (jazz.repository-packages-table repository)))
+    (%%table-clear table (%%package-name package))))
+
+
 (define (jazz.load-package repository package-name package-pathname)
   (call-with-input-file (list path: package-pathname eol-encoding: 'cr-lf)
     (lambda (input)
@@ -414,12 +428,6 @@
                   (if root (%%cadr root) #f)
                   (if products (%%cdr products) '())))
             (jazz.error "Package at {s} is defining: {s}" package-pathname name)))))))
-
-
-(define (jazz.reset-packages)
-  (for-each (lambda (repository)
-              (%%repository-packages-table-set! repository #f))
-            jazz.Repositories))
 
 
 (define (jazz.inspect-install)

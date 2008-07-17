@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Repository Preferences
+;;;; Synchronizing with a Depot
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,81 +35,68 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.repository.preference.Repository-Preferences jazz
+(library jazz.groupware.compare.Synchronize-Depots jazz
 
 
-(import (jazz.designer)
-        (jazz.io)
+(import (jazz.groupware)
         (jazz.jml)
         (jazz.library)
-        (jazz.repository)
-        (jazz.ui)
+        (jazz.literals)
         (jazz.utilities))
 
 
-(class Repository-Preferences extends Preferences
-  
+(class Synchronize-Depots extends Compare-Directories
 
-  (property active? initialize #t accessors generate)
-  
-  
+
   (form
-    (<install> title: "Repository" icon: {Bitmap-Resource "Repository"}))
-
-
+    (<install>
+      (<!>     name: mode
+        (<!>   name: backup title: "Get Latest" size: {Dimension 100 12}))))
+  
+  
   ;;;
-  ;;;; Repository
-  ;;;
-  
-  
-  (method public virtual (repository-class)
-    {})
-  
-  
-  (method public virtual (install-preferences designer initargs)
-    )
-
-
-  ;;;
-  ;;;; Designer
+  ;;;; Host
   ;;;
   
   
-  (method meta (get-class-presentation)
-    "Repository")
+  (method meta (host-title)
+    "Depot Synchronizer")
   
   
-  (method meta (get-class-image)
-    {Bitmap-Resource "Repository"})
+  ;;;
+  ;;;; Compare
+  ;;;
   
   
-  (method meta (get-name-mandatory?)
-    #t)
+  (method (get-directories)
+    (let ((item (require-right-moniker)))
+      (values (get-pathname~ item) item)))
   
   
-  (method meta (get-name-unicity?)
-    #t)
+  (method (new-comparer)
+    (new Depot-Synchronizer))
   
   
-  (method meta (presentation->name presentation)
-    presentation)
+  ;;;
+  ;;;; Result
+  ;;;
+    
   
+  ;; This is really a get-latest-action...
+  (method (backup-action date file file-date item item-date)
+    (when item
+      (if (not file)
+          'copy-left
+        (when (read-only?~ file)
+          'copy-left))))
+
   
-  (method meta (name->presentation name)
-    name)
-  
-  
-  (method meta (property-presentation property)
-    (case (field-name property)
-      ((active?) "Active")
-      (else (nextmethod property))))
-  
-  
-  (method (get-row-instance property)
-    (case (field-name property)
-      ((active?) (new Boolean-Row))
-      (else (nextmethod property))))
-  
-  
-  (method (get-categorized-properties)
-    '(active?))))
+  (method (merge-action base-date file file-date item item-date)
+    (when item
+      (if (not file)
+          'copy-right
+        (let ((status (get-status~ item)))
+          (if (eq? status 'checked-out-me)
+              'copy-right
+            (when (read-only?~ file)
+              'copy-right))))))))

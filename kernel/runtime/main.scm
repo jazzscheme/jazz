@@ -347,6 +347,7 @@
     jazz.database
     jazz.debuggee
     jazz.debugger
+    jazz.depot
     jazz.designer
     jazz.development
     jazz.doc
@@ -386,7 +387,6 @@
     jazz.platform.literals
     jazz.profile
     jazz.recorder
-    jazz.repository
     jazz.resources
     jazz.runtime
     jazz.schema

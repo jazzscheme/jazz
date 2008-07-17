@@ -295,6 +295,7 @@
 (native jazz.jazz-profile)
 (native jazz.jazz-debugger?)
 (native jazz.jazz-set-debugger?)
+(native jazz.find-repository)
 (native jazz.reset-packages)
 (native jazz.register-product)
 (native jazz.get-registered-product)

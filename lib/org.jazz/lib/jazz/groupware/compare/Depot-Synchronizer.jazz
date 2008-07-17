@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Synchronizing with a Repository
+;;;; Synchronizing with a Depot
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,68 +35,73 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.groupware.compare.Synchronize-Repositories jazz
+(library jazz.groupware.compare.Depot-Synchronizer jazz
 
 
-(import (jazz.groupware)
-        (jazz.jml)
+(import (jazz.depot)
+        (jazz.groupware)
         (jazz.library)
-        (jazz.literals)
         (jazz.utilities))
 
 
-(class Synchronize-Repositories extends Compare-Directories
-
-
-  (form
-    (<install>
-      (<!>     name: mode
-        (<!>   name: backup title: "Get Latest" size: {Dimension 100 12}))))
+(class Depot-Synchronizer extends Directory-Comparer
   
   
   ;;;
-  ;;;; Host
+  ;;;; Feedback
   ;;;
   
   
-  (method meta (host-title)
-    "Repository Synchronizer")
+  (method (leaf-feedback leaf1 leaf2 feedback)
+    (feedback (get-moniker~ leaf1) (get-moniker~ leaf2)))
   
   
   ;;;
-  ;;;; Compare
-  ;;;
-  
-  
-  (method (get-directories)
-    (let ((item (require-right-moniker)))
-      (values (get-pathname~ item) item)))
-  
-  
-  (method (new-comparer)
-    (new Repository-Synchronizer))
-  
-  
-  ;;;
-  ;;;; Result
+  ;;;; Item
   ;;;
     
   
-  ;; This is really a get-latest-action...
-  (method (backup-action date file file-date item item-date)
-    (when item
-      (if (not file)
-          'copy-left
-        (when (read-only?~ file)
-          'copy-left))))
+  (method (create-item moniker)
+    (make-item moniker (get-name~ moniker) {}))
 
   
-  (method (merge-action base-date file file-date item item-date)
-    (when item
-      (if (not file)
-          'copy-right
-        (let ((status (get-status~ item)))
-          (if (eq? status 'checked-out-me)
-              'copy-right
-            (when (read-only?~ file)
-              'copy-right))))))))
+  (method (get-item-content item kind)
+    (let ((moniker (get-moniker~ item)))
+      (if (is-not? moniker Depot-Moniker)
+          (nextmethod item kind)
+        (let ((children (get-children~ moniker nodes?: (= kind 'nodes) leaves?: (= kind 'leaves))))
+          (map (function (moniker)
+                 (make-item moniker
+                            (get-name~ moniker)
+                            {}))
+               children)))))
+  
+  
+  (method (get-item-type item)
+    ;; should dispatch to the item moniker...
+    (cond ((is? (get-moniker~ item) Depot-Moniker)
+           (if (get-product~ (get-moniker~ item))
+               'node
+             'leaf))
+          (else
+           (nextmethod item))))
+  
+  
+  ;;;
+  ;;;; Utilities
+  ;;;
+  
+  
+  (method (new-entry parent kind left left-value right right-value)
+    (unless (and (= kind 'leaf) left right)
+      (nextmethod parent kind left left-value right right-value)))
+  
+  
+  (method (different? file item check-algorithm)
+    (is-different~ (get-moniker~ item) (get-moniker~ file)))
+  
+  
+  (method (collect-item? item content ignored-nodes ignored-leaves ignored-extensions)
+    (and (nextmethod item content ignored-nodes ignored-leaves ignored-extensions)
+         (let ((name (get-name~ item)))
+           (/= name "vssver.scc"))))))

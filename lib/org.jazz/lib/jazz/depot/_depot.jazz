@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Repository
+;;;; Depot
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,14 +35,14 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.repository jazz
+(library jazz.depot jazz
 
 
-(export (jazz.repository.autoload))
-(import (jazz.repository.autoload))
+(export (jazz.depot.autoload))
+(import (jazz.depot.autoload))
 
 
-(definition Repositories
+(definition Depots
   (make-table test: equal?))
 
 
@@ -53,105 +53,105 @@
 
 (definition (preferences)
   (let ((appl (get-application)))
-    (get-repositories-preferences~ appl)))
+    (get-depots-preferences~ appl)))
 
 
-(definition (repository-preferences name (pref (preferences)))
+(definition (depot-preferences name (pref (preferences)))
   (when pref
     (find-component~ pref name)))
 
 
 (definition public (reload-preferences pref)
   (let ((name (get-name~ pref)))
-    (remove-repository name error?: #f)))
+    (remove-depot name error?: #f)))
 
 
 (definition public (remove-preferences pref)
   (let ((name (get-name~ pref)))
-    (remove-repository name error?: #f)))
+    (remove-depot name error?: #f)))
 
 
 ;;;
-;;;; Repositories
+;;;; Depots
 ;;;
 
 
-(definition (add-repository pref)
+(definition (add-depot pref)
   (let ((name (get-name~ pref)))
-    (when (get-repository name)
-      (remove-repository name))
-    (let ((repository (instantiate-preferences pref)))
-      (table-set! Repositories name repository))))
+    (when (get-depot name)
+      (remove-depot name))
+    (let ((depot (instantiate-preferences pref)))
+      (table-set! Depots name depot))))
 
 
-(definition (remove-repository name (error?: error? #t))
-  (if (not (get-repository name))
+(definition (remove-depot name (error?: error? #t))
+  (if (not (get-depot name))
       (when error?
-        (error "Unable to find repository {a}" name))
-    (table-clear Repositories name)))
+        (error "Unable to find depot {a}" name))
+    (table-clear Depots name)))
 
 
 ;;;
-;;;; Active Repository
+;;;; Active Depot
 ;;;
 
 
-(definition public (require-repository (name {}))
-  (either (get-repository name)
+(definition public (require-depot (name {}))
+  (either (get-depot name)
           (if (null? name)
-              (error "No repository is currently active")
-            (error "Unable to find repository: {t}" name))))
+              (error "No depot is currently active")
+            (error "Unable to find depot: {t}" name))))
 
 
-(definition public (get-repository (name {}))
+(definition public (get-depot (name {}))
   (let* ((pref (preferences))
          (name (either name (essay pref (get-active~ pref)))))
     (when name
-      (either (table-ref Repositories name #f)
-              (let ((pref (repository-preferences name pref)))
+      (either (table-ref Depots name #f)
+              (let ((pref (depot-preferences name pref)))
                 (when (and pref (get-active?~ pref))
-                  (let ((repository (instantiate-preferences pref)))
-                    (table-set! Repositories name repository))))))))
+                  (let ((depot (instantiate-preferences pref)))
+                    (table-set! Depots name depot))))))))
 
 
 ;;;
-;;;; New Repository
+;;;; New Depot
 ;;;
 
 
 (definition public (instantiate-preferences pref)
   (let ((appl (get-application))
-        (class (repository-class~ pref))
+        (class (depot-class~ pref))
         (name (get-name~ pref)))
-    (new-repository~ class pref name)))
+    (new-depot~ class pref name)))
 
 
-(definition public (new-repository class pref name)
+(definition public (new-depot class pref name)
   (new class name: name))
 
 
 ;;;
-;;;; Repositories
+;;;; Depots
 ;;;
 
 
-(definition public (for-each-repository-preferences proc)
+(definition public (for-each-depot-preferences proc)
   (let ((pref (preferences)))
     (when pref
       (for-each proc (get-children~ pref)))))
 
 
-(definition public (find-repository pathname)
+(definition public (find-depot pathname)
   (continuation-capture
     (function (return)
-      (for-each-repository-preferences
+      (for-each-depot-preferences
         (function (pref)
-          (when (in-repository?~ pref pathname)
-            (continuation-return return (get-repository (get-name~ pref))))))
+          (when (in-depot?~ pref pathname)
+            (continuation-return return (get-depot (get-name~ pref))))))
       {})))
 
 
 (definition public (find-moniker pathname)
-  (let ((repository (find-repository pathname)))
-    (essay repository
-           (new Repository-Moniker repository (file->path~ repository pathname))))))
+  (let ((depot (find-depot pathname)))
+    (essay depot
+           (new Depot-Moniker depot (file->path~ depot pathname))))))

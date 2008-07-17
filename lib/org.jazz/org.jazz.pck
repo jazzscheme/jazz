@@ -12,6 +12,7 @@
           jazz.build
           jazz.catalog
           jazz.console
+          jazz.depot
           jazz.development
           jazz.groupware
           jazz.ide
@@ -27,7 +28,6 @@
           jazz.platform
           jazz.profile
           jazz.recorder
-          jazz.repository
           jazz.resources
           jazz.runtime
           jazz.system

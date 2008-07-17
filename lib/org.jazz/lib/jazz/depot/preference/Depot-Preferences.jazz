@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Synchronizing with a Repository
+;;;; Depot Preferences
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,73 +35,81 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.groupware.compare.Repository-Synchronizer jazz
+(library jazz.depot.preference.Depot-Preferences jazz
 
 
-(import (jazz.groupware)
+(import (jazz.depot)
+        (jazz.designer)
+        (jazz.io)
+        (jazz.jml)
         (jazz.library)
-        (jazz.repository)
+        (jazz.ui)
         (jazz.utilities))
 
 
-(class Repository-Synchronizer extends Directory-Comparer
+(class Depot-Preferences extends Preferences
   
-  
-  ;;;
-  ;;;; Feedback
-  ;;;
-  
-  
-  (method (leaf-feedback leaf1 leaf2 feedback)
-    (feedback (get-moniker~ leaf1) (get-moniker~ leaf2)))
-  
-  
-  ;;;
-  ;;;; Item
-  ;;;
-    
-  
-  (method (create-item moniker)
-    (make-item moniker (get-name~ moniker) {}))
 
-  
-  (method (get-item-content item kind)
-    (let ((moniker (get-moniker~ item)))
-      (if (is-not? moniker Repository-Moniker)
-          (nextmethod item kind)
-        (let ((children (get-children~ moniker nodes?: (= kind 'nodes) leaves?: (= kind 'leaves))))
-          (map (function (moniker)
-                 (make-item moniker
-                            (get-name~ moniker)
-                            {}))
-               children)))))
+  (property active? initialize #t accessors generate)
   
   
-  (method (get-item-type item)
-    ;; should dispatch to the item moniker...
-    (cond ((is? (get-moniker~ item) Repository-Moniker)
-           (if (get-product~ (get-moniker~ item))
-               'node
-             'leaf))
-          (else
-           (nextmethod item))))
-  
-  
+  (form
+    (<install> title: "Depot" icon: {Bitmap-Resource "Repository"}))
+
+
   ;;;
-  ;;;; Utilities
+  ;;;; Depot
   ;;;
   
   
-  (method (new-entry parent kind left left-value right right-value)
-    (unless (and (= kind 'leaf) left right)
-      (nextmethod parent kind left left-value right right-value)))
+  (method public virtual (depot-class)
+    {})
   
   
-  (method (different? file item check-algorithm)
-    (is-different~ (get-moniker~ item) (get-moniker~ file)))
+  (method public virtual (install-preferences designer initargs)
+    )
+
+
+  ;;;
+  ;;;; Designer
+  ;;;
   
   
-  (method (collect-item? item content ignored-nodes ignored-leaves ignored-extensions)
-    (and (nextmethod item content ignored-nodes ignored-leaves ignored-extensions)
-         (let ((name (get-name~ item)))
-           (/= name "vssver.scc"))))))
+  (method meta (get-class-presentation)
+    "Depot")
+  
+  
+  (method meta (get-class-image)
+    {Bitmap-Resource "Repository"})
+  
+  
+  (method meta (get-name-mandatory?)
+    #t)
+  
+  
+  (method meta (get-name-unicity?)
+    #t)
+  
+  
+  (method meta (presentation->name presentation)
+    presentation)
+  
+  
+  (method meta (name->presentation name)
+    name)
+  
+  
+  (method meta (property-presentation property)
+    (case (field-name property)
+      ((active?) "Active")
+      (else (nextmethod property))))
+  
+  
+  (method (get-row-instance property)
+    (case (field-name property)
+      ((active?) (new Boolean-Row))
+      (else (nextmethod property))))
+  
+  
+  (method (get-categorized-properties)
+    '(active?))))

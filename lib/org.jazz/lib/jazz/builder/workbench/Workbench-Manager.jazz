@@ -583,24 +583,20 @@
         (let ((fact (new List-Factory))
               (component-name
                (function (component)
-                 (if (is? component Project-Group)
-                     (get-name~ component)
-                   (get-name~ (get-manifest-source (type-name (class-of component)))))))
+                 (get-name~ component)))
               (pathname-name
                (function (pathname)
                  (get-name~ pathname))))
           (letrec ((fold
                     (function (component pathname path)
-                      (let ((children (collect-if (function (child)
-                                                    (is-not? child Product-Dependencies))
-                                                  (get-children~ component)))
+                      (let ((children (get-children~ component))
                             (content (get-content~ pathname)))
                         (merge-ordered (function (what key left right)
                                          (let ((path (cons key path)))
                                            (case what
-                                             (:left (put~ fact (list what path)))
-                                             (:right (put~ fact (list what path)))
-                                             (:same
+                                             ((:left) (put~ fact (list what path)))
+                                             ((:right) (put~ fact (list what path)))
+                                             ((:same)
                                               (when (directory? right)
                                                 (fold left right path))))))
                                        (sort ci<? children key: component-name)
@@ -997,6 +993,7 @@
   
   (method (new-product-menu object)
     (let ((menu (new Product-Menu client: (get-tree))))
+      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
       (update-group/project-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1005,8 +1002,10 @@
   
   (method (new-project-menu object)
     (let ((menu (new Project-Menu client: (get-tree))))
+      @wait
       (when (is? object Workbench)
         (set-visible?~ (locate~ menu 'synchronize-content) #f))
+      (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
       (update-group/project-menu menu)
       (cleanup-separators~ menu)
       (layout-menu~ menu)
@@ -1140,6 +1139,7 @@
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
+      @wait
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut))))
 
@@ -1161,6 +1161,7 @@
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
+      @wait
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut)
       (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Bitmap-Resource "Repository"} action: {Action workbench-manager update-catalog})

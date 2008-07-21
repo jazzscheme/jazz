@@ -447,9 +447,11 @@
 (define jazz.debug?
   #f)
 
-
 (define jazz.debug-build?
   #f)
+
+(define jazz.initialization-file
+  "~/.jazz/.jazzini")
 
 
 (define (jazz.main)
@@ -496,6 +498,10 @@
                    (cont (##reverse rev-options) args))))
         (cont (##reverse rev-options) args))))
   
+  (define (process-initialization-file)
+    (if (file-exists? jazz.initialization-file)
+        (jazz.load jazz.initialization-file)))
+  
   (define (with-debug-exception-handler thunk)
     (let ((current-handler (current-exception-handler)))
       (with-exception-handler
@@ -517,6 +523,8 @@
             (compile (get-option "compile"))
             (debug? (get-option "debug")))
         (set! jazz.debug? debug?)
+        (process-initialization-file)
+        (jazz.install-repositories)
         (cond (run
                (jazz.run-product (%%string->symbol run)))
               (jazz.product

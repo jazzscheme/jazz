@@ -38,10 +38,8 @@
 (module jazz.install
 
 
-(require (core.library))
-
-
-(jazz.register-reader-extension "titi"
+(jazz.register-reader-extension "jazz"
   (lambda ()
-    (jazz.load-module 'jazz.dialect.reader)
+    (jazz.load-module 'core.library)
+    (jazz.load-module 'jazz.dialect)
     jazz.jazz-readtable)))

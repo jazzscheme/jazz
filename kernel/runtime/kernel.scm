@@ -349,7 +349,7 @@
 (define (jazz.register-repository directory #!key (name #f))
   (let ((repository (%%make-repository name (jazz.pathname-normalize directory))))
     (set! jazz.Repositories (%%append jazz.Repositories (%%list repository)))
-    (jazz.install-repository-packages repository)))
+    (jazz.install-repository repository)))
 
 
 (define (jazz.find-repository name)
@@ -378,7 +378,11 @@
         table)))
 
 
-(define (jazz.install-repository-packages repository)
+(define (jazz.install-repositories)
+  (for-each jazz.install-repository jazz.Repositories))
+
+
+(define (jazz.install-repository repository)
   (let ((table (jazz.repository-packages-table repository)))
     (%%iterate-table table
       (lambda (name package)
@@ -1116,24 +1120,3 @@
 
 (define (jazz.register-reader-extension extension readtable-getter)
   (%%table-set! jazz.Extension-Readers extension readtable-getter))
-
-
-;;;
-;;;; Init
-;;;
-
-
-;; should probably be the packages that register reader extensions...
-
-
-(jazz.define-variable jazz.jazz-readtable)
-
-
-(jazz.register-reader-extension "jazz"
-  (lambda ()
-    (jazz.load-module 'jazz.dialect)
-    jazz.jazz-readtable))
-
-
-(if (file-exists? "~/.jazz/.jazzini")
-    (jazz.load "~/.jazz/.jazzini"))

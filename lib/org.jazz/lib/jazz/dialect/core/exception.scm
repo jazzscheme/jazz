@@ -130,7 +130,7 @@
   ;; it will 'rewind to the future' before invoking the current
   ;; exception handler. This means that this mecanism can only
   ;; be used with purely functional code or with code that
-  ;; properly obeys the dynamic wind / unwind laws.
+  ;; properly obeys the dynamic wind / unwind semantics.
   (%%continuation-capture
     (lambda (catcher-cont)
       (with-exception-handler

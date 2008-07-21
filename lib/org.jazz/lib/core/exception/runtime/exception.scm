@@ -46,7 +46,9 @@
 
 
 (jazz.define-method (jazz.present-exception (jazz.Exception exception))
-  #f)
+  (let ((output (open-output-string)))
+    (jazz.format output "This exception was raised: {s}" exception)
+    (get-output-string output)))
 
 (jazz.define-method (jazz.get-details (jazz.Exception exception))
   #f)
@@ -56,9 +58,12 @@
 
 
 (define (jazz.exception-reason exc)
-  (let ((output (open-output-string)))
-    (jazz.display-exception exc output)
-    (get-output-string output)))
+  (if (and (%%object? exc)
+           (%%is? exc jazz.Exception))
+      (jazz.present-exception exc)
+    (let ((output (open-output-string)))
+      (jazz.display-exception exc output)
+      (get-output-string output))))
 
 
 (define (jazz.exception-details exc)

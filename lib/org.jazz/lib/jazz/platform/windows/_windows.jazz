@@ -51,7 +51,8 @@
         (jazz.platform.windows.WinDlg)
         (jazz.platform.windows.WinPerf))
 
-(import (jazz.platform.windows.WinKernel))
+(import (jazz.platform.windows.WinKernel)
+        (jazz.platform.windows.WinUser))
 
 
 ;;;
@@ -60,4 +61,28 @@
 
 
 (definition public (relinquish-process)
-  (thread-yield!)))
+  (thread-yield!))
+
+
+;;;
+;;;; Message
+;;;
+
+
+(definition (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f)) rest
+    (let ((title
+            (or title (case type
+                        ((error) "Error")
+                        ((problem) "Problem")
+                        ((message) "Message")
+                        ((question) "Question")
+                        ((confirmation) "Confirmation"))))
+          (flags
+            (case type
+              ((error) (bitwise-ior MB_OKCANCEL MB_ICONERROR))
+              ((problem) (bitwise-ior MB_OK MB_ICONERROR))
+              ((message) (bitwise-ior MB_OK MB_ICONINFORMATION))
+              ((question) (bitwise-ior MB_YESNO MB_ICONWARNING))
+              ((confirmation) (bitwise-ior MB_YESNOCANCEL MB_ICONWARNING)))))
+      (MessageBox #f text title flags)))))

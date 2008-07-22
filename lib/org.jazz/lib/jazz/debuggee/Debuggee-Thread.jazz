@@ -61,40 +61,7 @@
   
   
   (method public (get-state)
-    (let ((port (open-output-string)))
-      (define (write-timeout to)
-        (display " " port)
-        (let ((expiry (- (systime->seconds to) (systime->seconds (current-systime)))))
-          (display (/ (round (* 10.0 expiry)) 10.0)
-                   port))
-        (display "s" port))
-      
-      (let ((state (thread-state thread)))
-        (cond ((thread-state-uninitialized? state)
-               (format port "Uninitialized"))
-              ((thread-state-initialized? state)
-               (format port "Initialized"))
-              ((thread-state-normally-terminated? state)
-               (format port "Normally terminated"))
-              ((thread-state-abnormally-terminated? state)
-               (format port "Abnormally terminated"))
-              ((thread-state-active? state)
-               (let ((wf (thread-state-active-waiting-for state))
-                     (to (thread-state-active-timeout state)))
-                 (cond (wf
-                         (format port "Waiting ")
-                         (write wf port)
-                         (when to
-                           (write-timeout to)))
-                       (to
-                         (format port "Sleeping")
-                         (write-timeout to))
-                       (else
-                        (format port "Running")))))
-              (else
-               (write state port))))
-      
-      (get-output-string port)))
+    (present-thread-state (thread-state thread)))
   
   
   (method public (get-stops)

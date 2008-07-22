@@ -40,7 +40,8 @@
 
 (import (jazz.library)
         (jazz.literals)
-        (jazz.ui))
+        (jazz.ui)
+        (jazz.utilities))
 
 
 (class Workspace-Button extends Radio-Tool
@@ -51,7 +52,7 @@
   
   
   ;;;
-  ;;;; Drawing
+  ;;;; Notify
   ;;;
   
   
@@ -71,6 +72,17 @@
     (set! visit?~self visit?)
     (set! problem?~self problem?)
     (invalidate-view))
+
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (preferred-size)
+    (if (not title)
+        (default-size)
+      (new Dimension (+ 32 (text-width~ font (localize title))) 22)))
   
   
   ;;;
@@ -103,6 +115,19 @@
           (pixel-to~ surface right bottom))
       (nextmethod surface)))
   
+
+  (method (draw-tool surface context)
+    (let ((offset (if (or selected? (eq? (get-state) 'pushed)) 2 1)))
+      (if (not title)
+          (draw~ image surface context offset offset enabled?: (get-enabled?))
+        (let* ((offset (if (or selected? (eq? (get-state) 'pushed)) 1 0))
+               (title (localize title))
+               (extent (nu+ {Dimension 24 0} (get-text-extent~ surface title)))
+               (center (justify extent (get-size) '(center center))))
+          (draw~ image surface context (+ offset (get-h~ center)) offset enabled?: (get-enabled?))
+          (set-text-color~ surface {Color name: Black})
+          (draw-text~ surface (+ (+ 20 offset) (get-h~ center)) (+ offset (get-v~ center)) title enabled?)))))
+
   
   (method (draw-background surface context)
     (if visit?

@@ -4571,6 +4571,57 @@
   (thread-group->thread-list (thread-thread-group (primordial-thread))))
 
 
+(definition public (present-thread-name name)
+  (cond ((or (not name) (unspecified? name)) "Thread")
+        ((eq? name 'primordial) "Primordial")
+        (else (->string name))))
+
+
+(definition public (present-thread-state state)
+  (let ((port (open-output-string)))
+    (define (write-timeout to)
+      (display " " port)
+      (let ((expiry (- (systime->seconds to) (systime->seconds (current-systime)))))
+        (display (/ (round (* 10.0 expiry)) 10.0)
+                 port))
+      (display "s" port))
+    
+    (cond ((thread-state-uninitialized? state)
+           (format port "Uninitialized"))
+          ((thread-state-initialized? state)
+           (format port "Initialized"))
+          ((thread-state-normally-terminated? state)
+           (format port "Normally terminated"))
+          ((thread-state-abnormally-terminated? state)
+           (format port "Abnormally terminated"))
+          ((thread-state-active? state)
+           (let ((wf (thread-state-active-waiting-for state))
+                 (to (thread-state-active-timeout state)))
+             (cond (wf
+                    (format port "Waiting ")
+                    (write wf port)
+                    (when to
+                      (write-timeout to)))
+                   (to
+                    (format port "Sleeping")
+                    (write-timeout to))
+                   (else
+                    (format port "Running")))))
+          (else
+           (write state port)))
+    
+    (get-output-string port)))
+
+
+(definition public (present-object object)
+  (with-exception-catcher
+    (function (exc)
+      ;; add the exception reason somehow!?
+      "<unprintable object>")
+    (function ()
+      (->string object :reader))))
+
+
 (definition public (thread-loop? thread)
   (thread-specific thread))
 

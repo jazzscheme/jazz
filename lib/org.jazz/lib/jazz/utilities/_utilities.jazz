@@ -49,6 +49,7 @@
         (jazz.utilities.platform.x11     (cond x11))
         (jazz.io)
         (jazz.library)
+        (jazz.platform)
         (jazz.ui)
         (time))
 
@@ -760,7 +761,7 @@
   '("lisp"))
 
 (definition public Jazz-Extensions
-  '("jazz" "jcat" "jml" "mnf" "pck"))
+  '("jazz" "jcat" "jml" "mnf" "pck" "snapshot"))
 
 (definition public C-Extensions
   '("c" "cpp" "h" "hpp"))
@@ -1924,12 +1925,8 @@
 
 
 ;;;
-;;;; Message Box
+;;;; Message
 ;;;
-
-
-(definition (system-message text . rest)
-  (debug text))
 
 
 (definition public (message-box text . rest)
@@ -1967,6 +1964,131 @@
                             (get-children~ action-list))))
               actions-list)
     (get-output~ fact)))
+
+
+;;;
+;;;; Snapshot
+;;;
+
+
+(definition *snapshots-directory*
+  {Directory User})
+
+
+(definition public (snapshot-process . rest)
+  (let ((file (timestamped-file *snapshots-directory* {} "snapshot")))
+    (create-directories~ file)
+    (call-with-output-file (parse~ file)
+      (function (printer)
+        (apply print-process-snapshot printer rest)))
+    file))
+
+
+(definition public (print-process-snapshot printer (continuation: continuation {}) (exception: exception {}))
+  (define (print-process)
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; PROCESS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  process: {s}{%}" (either (current-process-present) "{}"))
+    (format printer "  date: {s}{%}" (present-date (current-date))))
+  
+  (define (print-exception)
+    (when exception
+      (format printer "{%}")
+      (format printer "  ;;;{%}")
+      (format printer "  ;;;; EXCEPTION{%}")
+      (format printer "  ;;;{%}{%}")
+      (format printer "  exception:{%}")
+      (format printer "  ~{Exception-Snapshot{%}")
+      (format printer "   reason: {s}}{%}" (exception-reason exception))))
+  
+  (define (print-threads)
+    (format printer "{%}")
+    (format printer "  ;;;{%}")
+    (format printer "  ;;;; THREADS{%}")
+    (format printer "  ;;;{%}{%}")
+    (format printer "  threads:{%}")
+    (format printer "  (")
+    (if continuation
+        (print-thread (current-thread) continuation)
+      (continuation-capture
+        (function (continuation)
+          (print-thread (current-thread) continuation))))
+    (loop (for thread in (top-threads))
+          (do (when (neq? thread (current-thread))
+                (format printer "{%}{%}   ")
+                (print-thread thread {}))))
+    (format printer ")"))
+  
+  (define (print-thread thread continuation)
+    (format printer "~{Thread-Snapshot{%}")
+    (format printer "    name: {s}{%}" (present-thread-name (thread-name thread)))
+    (format printer "    state: {s}" (present-thread-state (thread-state thread)))
+    (when continuation
+      (format printer "{%}")
+      (format printer "    stack:{%}")
+      (format printer "    (")
+      (print-stack continuation)
+      (format printer ")"))
+    (format printer "}"))
+  
+  (define (print-stack continuation)
+    (let ((stack (get-continuation-stack continuation #f)))
+      (loop (for first? first #t then #f)
+            (for cont in stack)
+            (do (when (not first?)
+                  (format printer "{%}     "))
+                (let ((name (get-continuation-name cont))
+                      (variables (get-continuation-lexical-environment cont)))
+                  (format printer "({a}" name)
+                  (loop (for variable in variables)
+                        (do (format printer "{%}       ")
+                            (bind (name . value) variable
+                              (format printer "({s} {s})" name (present-object value)))))
+                  (format printer ")"))))))
+  
+  (format printer "~{Process-Snapshot{%}{%}")
+  (print-process)
+  (print-exception)
+  (print-threads)
+  (format printer "}{%}"))
+
+
+(definition public (snapshot-exception-debugger (feedback: feedback {}))
+  (function (exception)
+    (with-system-exception-debugger
+      (function ()
+        (continuation-capture
+          (function (continuation)
+            (let ((snapshot (snapshot-process continuation: continuation exception: exception)))
+              (when feedback
+                (feedback exception snapshot)))))
+        (exit 1)))))
+
+
+(definition public (application-exception-debugger)
+  (snapshot-exception-debugger
+    feedback:
+    (function (exception snapshot)
+      (let ((process (get-process)))
+        (system-message (format "{a} {a}:{%}{%}{a}.{%}{a}.{%}{%}{a}{%}    {a}{a}"
+                                (localize {Locales english: "An unexpected problem occured while executing" french: "Une erreur imprévue s'est produite lors de l'exécution de"})
+                                (current-process-present)
+                                (localize {Locales english: "This will terminate the application immediately" french: "Ceci entraine la terminaision immédiate de l'application"})
+                                (localize {Locales english: "Unsaved work currently in progress will be lost" french: "Tout travaux en cours non sauvegardés seront perdus"})
+                                (localize {Locales english: "A log file has been generated at" french: "Un fichier de log a été généré à"})
+                                (parse~ snapshot)
+                                (if process
+                                    (let ((email (process-email~ process)))
+                                      (if email
+                                          (format "{%}{%}{a}{%}{a}: {a}."
+                                                  (localize {Locales english: "Help us fix this problem by sending the log file and any comments" french: "Aidez nous à corriger ce problème en fesant parvenir le fichier de log"})
+                                                  (localize {Locales english: "about how the problem occured to" french: "ainsi que tout commentaires explicatifs à"})
+                                                  email)
+                                        ""))
+                                  ""))
+                        title: (localize {Locales english: "Application Error" french: "Erreur d'application"})
+                        type: 'problem)))))
 
 
 ;;;

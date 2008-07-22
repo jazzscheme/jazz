@@ -800,14 +800,16 @@
   (is? object File))
 
 
-(definition public (timestamped-file directory base ext)
-  (let* ((dir (parse~ directory))
-         (path (tokenise-filename (timestamped-filename dir base ext))))
-    (new File path)))
-
-
-(definition (timestamped-filename dir base ext)
-  (unimplemented))
+(definition public (timestamped-file dir base ext)
+  ;; if dir doesn't exists or is read-only we should provide a secondary dir that is always writable
+  (let ((prefix (if base (format "{a}_" base) ""))
+        (timestamp (date->string (current-date) "~Y-~m-~d_~H-~M-~S")))
+    (let (iterate (n 0))
+      (let ((suffix (if (= n 0) "" (format "_{a}" n))))
+        (let ((file (new-file~ dir (format "{a}{a}{a}.{a}" prefix timestamp suffix ext))))
+          (if (exists?~ file)
+              (iterate (+ n 1))
+            file))))))
 
 
 ;;;

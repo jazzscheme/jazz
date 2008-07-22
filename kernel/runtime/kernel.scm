@@ -732,6 +732,14 @@
   (set! jazz.process-icon icon))
 
 
+(define (jazz.current-process-present)
+  (or (jazz.current-process-title)
+      (let ((name (jazz.current-process-name)))
+        (if name
+            (symbol->string name)
+          #f))))
+
+
 (define (jazz.register-product name #!key (title #f) (icon #f) (run #f) (update #f) (build #f))
   (table-set! jazz.Products-Table name (%%make-product name title icon run update build)))
 

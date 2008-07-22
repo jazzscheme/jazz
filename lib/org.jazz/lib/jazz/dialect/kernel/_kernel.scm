@@ -308,6 +308,7 @@
 (native jazz.current-process-title-set!)
 (native jazz.current-process-icon)
 (native jazz.current-process-icon-set!)
+(native jazz.current-process-present)
 (native jazz.run-product)
 (native jazz.update-product)
 (native jazz.build-product)

@@ -281,7 +281,8 @@
   ;; in the message queue, we need to process those before calling open-event-queue
   (with ((msg (MSG-make)))
     (while (PeekMessage msg NULL 0 0 PM_REMOVE)
-      (process-message msg)))
+      (process-message msg))
+    (MSG-free msg))
   
   (let ((port (open-event-queue QS_ALLINPUT))
         (thread (current-thread)))
@@ -569,7 +570,8 @@
     (TRACKMOUSEEVENT-dwFlags-set! rec flags)
     (TRACKMOUSEEVENT-hwndTrack-set! rec handle)
     (TRACKMOUSEEVENT-dwHoverTime-set! rec time)
-    (TrackMouseEvent rec)))
+    (TrackMouseEvent rec)
+    (TRACKMOUSEEVENT-free rec)))
 
 
 ;;;
@@ -619,19 +621,22 @@
     (error "No window handle"))
   (let ((acquired (point->POINT shape)))
     (MapWindowPoints (get-handle~ window) handle acquired 1)
-    (POINT->point acquired)))
+    (prog1 (POINT->point acquired)
+      (POINT-free acquired))))
 
 
 (definition (acquire-rect handle window shape)
   (let ((acquired (rect->RECT shape)))
     (MapWindowPoints (get-handle~ window) handle (RECT->POINTS acquired) 2)
-    (RECT->rect acquired)))
+    (prog1 (RECT->rect acquired)
+      (RECT-free acquired))))
 
 
 (definition (platform-translate-to-root handle pt)
   (with ((pos (point->POINT pt)))
     (MapWindowPoints handle NULL pos 1)
-    (new Point (POINT-x-ref pos) (POINT-y-ref pos))))
+    (prog1 (new Point (POINT-x-ref pos) (POINT-y-ref pos))
+      (POINT-free pos))))
 
 
 (definition (platform-get-position handle parent-handle) <Point>
@@ -737,14 +742,17 @@
   (let ((flags (bitwise-ior (if erase? SW_ERASE 0) SW_INVALIDATE)))
     (with ((rect (rect->RECT rect))
            (clip-rect (rect->RECT clip-rect)))
-      (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags))))
+      (prog1 (ScrollWindowEx handle dh dv rect clip-rect NULL NULL flags)
+        (RECT-free rect)
+        (RECT-free clip-rect)))))
 
 
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
   (when handle
     (with ((rect (rect->RECT rect)))
-      (InvalidateRect handle rect erase?))))
+      (prog1 (InvalidateRect handle rect erase?)
+        (RECT-free rect)))))
 
 
 (definition (platform-invalidate-region handle region erase?)
@@ -766,7 +774,8 @@
     ;; toplevel would redraw it's children. Hope it doesn't break any code...
     (let ((flags (bitwise-ior RDW_ERASENOW RDW_UPDATENOW RDW_INVALIDATE RDW_ALLCHILDREN)))
       (with ((rect (if (not rect) NULL (rect->RECT rect))))
-        (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)))))
+        (prog1 (RedrawWindow handle rect (if region (get-handle~ region) NULL) flags)
+          (when rect (RECT-free rect)))))))
 
 
 (definition (platform-get-update-rect handle)

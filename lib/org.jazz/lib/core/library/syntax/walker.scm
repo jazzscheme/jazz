@@ -526,6 +526,7 @@
            ((eval) '())
            (else (jazz.declares 'library)))
        ,@(let ((queue (jazz.new-queue)))
+           (jazz.enqueue queue `(jazz.load-module 'core.library))
            (let ((dialect-name (%%get-library-declaration-dialect-name declaration)))
              (%%when (%%neq? dialect-name 'core)
                (jazz.enqueue queue `(jazz.load-module ',dialect-name))))
@@ -578,9 +579,9 @@
            (else
             '()))
        ,@references-expansion
+       ,@autoloads-expansion
        ,@literals-expansion
        ,@variables-expansion
-       ,@autoloads-expansion
        ,@body-expansion
        (jazz.module-loaded ',locator))))
 

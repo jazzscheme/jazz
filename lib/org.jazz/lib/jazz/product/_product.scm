@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Platform Literals
+;;;; Jazz Product
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,9 +35,23 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.platform.literals jazz
+(module jazz.product
 
 
-(require (jazz.platform.literals.colors)
-         (jazz.platform.literals.pens)
-         (jazz.platform.literals.fonts)))
+;;;
+;;;; Build
+;;;
+
+
+(define (jazz.build-jazz)
+  (jazz.build-product 'core)
+  (jazz.build-module 'jazz))
+
+
+;;;
+;;;; Register
+;;;
+
+
+(jazz.register-product 'jazz
+  build: jazz.build-jazz))

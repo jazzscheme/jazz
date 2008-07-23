@@ -753,8 +753,6 @@
   (let ((module (jazz.find-product-module name)))
     (if module
         (begin
-          ;; not 100% correct quicky
-          (jazz.load-platform)
           (jazz.load-module module)
           (jazz.get-registered-product name))
       (jazz.error "Unable to find product: {s}" name))))

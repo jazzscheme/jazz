@@ -4,6 +4,8 @@
   (install jazz.install)
   (products (core core.product)
             (jazz jazz.product)
+            (platform jazz.product.platform)
+            (all jazz.product.all)
             (test test.product))
   (export core.base
           core.class

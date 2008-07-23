@@ -43,7 +43,7 @@
 ;;;
 
 
-(define (build)
+(define (jazz.build-core)
   (jazz.load-module 'core.library)
   (jazz.build-module 'core.base)
   (jazz.build-module 'core.class)
@@ -59,4 +59,4 @@
 
 
 (jazz.register-product 'core
-  build: build))
+  build: jazz.build-core))

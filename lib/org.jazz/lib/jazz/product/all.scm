@@ -50,6 +50,7 @@
     jazz.catalog
     jazz.console
     jazz.database
+    jazz.database.providers.ado
     jazz.debuggee
     jazz.debugger
     jazz.depot
@@ -59,6 +60,7 @@
     jazz.dialect
     jazz.groupware
     jazz.ide
+    jazz.install
     jazz.io
     jazz.jml
     jazz.jrm
@@ -106,10 +108,14 @@
     jazz.ui.graphic.font
     jazz.ui.history
     jazz.ui.image
+    jazz.ui.literals.colors
+    jazz.ui.literals.fonts
+    jazz.ui.literals.pens
     jazz.ui.login
     jazz.ui.look
     jazz.ui.menu
     jazz.ui.offscreen
+    jazz.ui.print
     jazz.ui.resizer
     jazz.ui.view
     jazz.ui.window
@@ -127,7 +133,8 @@
   
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
-  (jazz.load-platform)
+  (jazz.build-product 'platform)
+  
   (for-each compile jazz.All-Modules))
 
 
@@ -144,7 +151,7 @@
   
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
-  (jazz.load-platform)
+  
   (for-each load jazz.All-Modules))
 
 

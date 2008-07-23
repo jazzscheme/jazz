@@ -39,32 +39,6 @@
 
 
 ;;;
-;;;; Global
-;;;
-
-
-(cond-expand
-  (chicken
-    (require 'lolevel)
-
-    (define (jazz.global-variable? symbol)
-      (global-bound? symbol))
-    
-    (define (jazz.global-value symbol)
-      (global-ref symbol)))
-  
-  (gambit
-    (define (jazz.global-variable? symbol)
-      (and (##global-var? symbol)
-           (%%not (##unbound? (##global-var-ref symbol)))))
-    
-    (define (jazz.global-value symbol)
-      (##global-var-ref symbol)))
-  
-  (else))
-
-
-;;;
 ;;;; Identifier
 ;;;
 

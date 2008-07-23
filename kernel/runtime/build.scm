@@ -382,14 +382,18 @@
                   (jazz.create-directory subdir feedback: feedback))))))))
 
 
-(define (jazz.pathname-normalize path)
-  (let ((len (%%string-length path)))
-    (let ((dir? (jazz.string-ends-with? path #\/)))
-      (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
-        (let ((slashified (jazz.string-replace normalized #\\ #\/)))
-          (if (and dir? (%%not (jazz.string-ends-with? slashified #\/)))
-              (%%string-append slashified "/")
-            slashified))))))
+(define (jazz.pathname-normalize path #!optional (error? #t))
+  (if (%%not (jazz.pathname-exists? path))
+      (if error?
+          (jazz.error "No such directory: {s}" path)
+        #f)
+    (let ((len (%%string-length path)))
+      (let ((dir? (jazz.string-ends-with? path #\/)))
+        (let ((normalized (path-normalize (if dir? (%%substring path 0 (%%fx- len 1)) path))))
+          (let ((slashified (jazz.string-replace normalized #\\ #\/)))
+            (if (and dir? (%%not (jazz.string-ends-with? slashified #\/)))
+                (%%string-append slashified "/")
+              slashified)))))))
 
 
 (define (jazz.relativise-directory dir basedir)

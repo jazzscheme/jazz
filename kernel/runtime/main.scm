@@ -58,32 +58,6 @@
 
 
 ;;;
-;;;; Platform
-;;;
-
-
-(define (jazz.load-literals)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.literals))
-
-
-(define (jazz.load-platform)
-  (jazz.load-literals)
-  (jazz.load-module 'jazz.platform))
-
-
-;;;
-;;;; Build
-;;;
-
-
-(define (jazz.build name)
-  (case name
-    (else (jazz.build-product name))))
-
-
-;;;
 ;;;; Compile
 ;;;
 
@@ -91,7 +65,6 @@
 (define (jazz.compile name)
   (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
-  (jazz.load-platform)
   (jazz.compile-module name))
 
 
@@ -188,7 +161,7 @@
               (build
                (with-debug-exception-handler
                  (lambda ()
-                   (jazz.build (%%string->symbol build)))))
+                   (jazz.build-product (%%string->symbol build)))))
               (compile
                (with-debug-exception-handler
                  (lambda ()

@@ -151,8 +151,7 @@
 (cond-expand
   (carbon
     (define (jazz.build-platform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
+      (jazz.build-product 'jazz)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -175,8 +174,7 @@
           (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (copy-platform-files)
-        (jazz.load-module 'core.library)
-        (jazz.load-module 'scheme.dialect)
+        (jazz.build-product 'jazz)
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
@@ -184,26 +182,12 @@
         (jazz.build-com))))
   (x11
     (define (jazz.build-platform)
-      (jazz.load-module 'core.library)
-      (jazz.load-module 'scheme.dialect)
+      (jazz.build-product 'jazz)
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
       (jazz.build-x11)
       (jazz.build-clipboard))))
-
-
-#;
-(define (jazz.load-literals)
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'jazz)
-  (jazz.load-module 'jazz.literals))
-
-
-#;
-(define (jazz.load-platform)
-  (jazz.load-literals)
-  (jazz.load-module 'jazz.platform))
 
 
 (define (jazz.quote-jazz-gcc-pathname suffix)

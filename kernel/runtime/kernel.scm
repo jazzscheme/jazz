@@ -189,6 +189,32 @@
 
 
 ;;;
+;;;; Symbol
+;;;
+
+
+(cond-expand
+  (chicken
+    (require 'lolevel)
+
+    (define (jazz.global-variable? symbol)
+      (global-bound? symbol))
+    
+    (define (jazz.global-value symbol)
+      (global-ref symbol)))
+  
+  (gambit
+    (define (jazz.global-variable? symbol)
+      (and (##global-var? symbol)
+           (%%not (##unbound? (##global-var-ref symbol)))))
+    
+    (define (jazz.global-value symbol)
+      (##global-var-ref symbol)))
+  
+  (else))
+
+
+;;;
 ;;;; Pathname
 ;;;
 
@@ -226,6 +252,9 @@
   (gambit
     (define jazz.pathname-type
       file-type)
+    
+    (define jazz.pathname-exists?
+      file-exists?)
     
     (define jazz.file-exists?
       file-exists?)
@@ -280,8 +309,8 @@
   ;; when the install directory is a subdirectory of the source use a .. notation
   (if (and (%%fx>= (%%string-length jazz.source) 3)
            (%%string=? (%%substring jazz.source 0 3) "../"))
-      (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source))
-    (jazz.pathname-normalize jazz.source)))
+      (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source) #f)
+    (jazz.pathname-normalize jazz.source #f)))
 
 
 (define (jazz.jazz-product)
@@ -305,7 +334,7 @@
 
 
 (define (jazz.make-repository name dirname dir subdir #!key (error? #t))
-  (if (jazz.directory-exists? dir)
+  (if (and dir (jazz.directory-exists? dir))
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
         (%%make-repository name directory))
     (if error?
@@ -965,7 +994,7 @@
                   (lambda ()
                     (jazz.load-resource src))))
               (else
-               (jazz.error "Unable find find module: {s}" module-name)))))))
+               (jazz.error "Unable to find module: {s}" module-name)))))))
 
 
 ;;;

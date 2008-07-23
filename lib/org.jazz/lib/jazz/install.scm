@@ -41,12 +41,13 @@
 (jazz.register-reader-extension "jazz"
   (lambda ()
     (define (register-literal name module constructor-name)
-      (jazz.register-literal-constructor name
-        (let ((constructor #f))
-          (lambda rest
-            (if (not constructor)
-                (set! constructor (jazz.module-autoload module constructor-name)))
-            (apply constructor rest)))))
+      ((jazz.global-value 'jazz.register-literal-constructor)
+       name
+       (let ((constructor #f))
+         (lambda rest
+           (if (not constructor)
+               (set! constructor (jazz.module-autoload module constructor-name)))
+           (apply constructor rest)))))
     
     (jazz.load-module 'core.library)
     (jazz.load-module 'jazz.dialect)
@@ -88,4 +89,4 @@
     (register-literal 'Lisp-File-Entry   'jazz.literals 'construct-lisp-file-entry)
     (register-literal 'Lisp-Entry        'jazz.literals 'construct-lisp-entry)
     
-    jazz.jazz-readtable)))
+    (jazz.global-value 'jazz.jazz-readtable))))

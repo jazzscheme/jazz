@@ -547,10 +547,6 @@
 (define (jazz.make-target target configuration)
   (case target
     ((kernel) (jazz.make-kernel configuration))
-    ((core) (jazz.make-core configuration))
-    ((jazz) (jazz.make-jazz configuration))
-    ((platform) (jazz.make-platform configuration))
-    ((all) (jazz.make-all configuration))
     (else (jazz.make-product target configuration))))
 
 
@@ -644,11 +640,16 @@
 
 
 ;;;
-;;;; Jazz
+;;;; Product
 ;;;
 
 
-(define (jazz.jazz-make target configuration)
+(define (jazz.make-product product configuration)
+  (jazz.make-kernel configuration)
+  (jazz.product-make product configuration))
+
+
+(define (jazz.product-make product configuration)
   (let ((install (jazz.install-directory configuration))
         (platform (jazz.configuration-platform configuration)))
     (define (install-file path)
@@ -661,40 +662,8 @@
         (else
          "./jazz")))
     
-    (jazz.feedback "making {a}" target)
-    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string target)) install)))
-
-
-(define (jazz.make-core configuration)
-  (jazz.make-kernel configuration)
-  (jazz.jazz-make 'core configuration))
-
-
-(define (jazz.make-jazz configuration)
-  (jazz.make-core configuration)
-  (jazz.jazz-make 'jazz configuration))
-
-
-(define (jazz.make-platform configuration)
-  (jazz.make-jazz configuration)
-  (jazz.jazz-make 'platform configuration))
-
-
-(define (jazz.make-product target configuration)
-  ;; not 100% correct as it should really be jazz.make-jazz but this has to be
-  ;; consistent with jazz.load-product-definition which is temporarely patched
-  (jazz.make-platform configuration)
-  (jazz.jazz-make target configuration))
-
-
-;;;
-;;;; All
-;;;
-
-
-(define (jazz.make-all configuration)
-  (jazz.make-platform configuration)
-  (jazz.jazz-make 'all configuration))
+    (jazz.feedback "making {a}" product)
+    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string product)) install)))
 
 
 ;;;

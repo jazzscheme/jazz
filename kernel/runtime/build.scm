@@ -347,6 +347,10 @@
   #f)
 
 
+(define jazz.pathname-exists?
+  file-exists?)
+
+
 (define (jazz.copy-file src dst #!key (feedback #f))
   (if (jazz.file-needs-update? src dst)
       (begin

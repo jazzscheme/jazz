@@ -253,9 +253,6 @@
     (define jazz.pathname-type
       file-type)
     
-    (define jazz.pathname-exists?
-      file-exists?)
-    
     (define jazz.file-exists?
       file-exists?)
     

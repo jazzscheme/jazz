@@ -4676,18 +4676,11 @@
         (mutex-lock! mutex)
         (thread-send thread
           (function ()
-              (unwind-protect
-                  (thread-send delegator
-                    (function ()
-                      (continuation-capture
-                        (function (return)
-                          (with-exception-handler
-                            (function (exc)
-                              (return (exception-reason exc)))
-                            thunk)))))
-                (mutex-unlock! mutex))))
+            (unwind-protect
+                (mutex-specific-set! mutex (thunk))
+              (mutex-unlock! mutex))))
         (mutex-lock! mutex)
-        (thread-receive)))))
+        (mutex-specific mutex)))))
 
 
 (definition public (thread-exit)

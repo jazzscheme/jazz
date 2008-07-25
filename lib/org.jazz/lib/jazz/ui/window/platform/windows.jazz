@@ -271,7 +271,7 @@
 
 (definition (process-messages)
   (define (process-message msg)
-    (send-event
+    (execute-event
       (function ()
         (unless (translate-shortcut msg)
           (TranslateMessage msg)
@@ -477,15 +477,17 @@
 
 (set-process-hwnd-message
   (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
-    (let ((window (get-window hwnd)))
-      (when (and (not window) (get-in-creation))
-        (set! window (get-in-creation))
-        (set-handle~ window hwnd)
-        (set-window hwnd window)
-        (set-in-creation {}))
-      (if (not window)
-          (DefWindowProc hwnd msg wparam lparam)
-        (dispatch-message window msg wparam lparam)))))
+    (call-event
+      (function ()
+        (let ((window (get-window hwnd)))
+          (when (and (not window) (get-in-creation))
+            (set! window (get-in-creation))
+            (set-handle~ window hwnd)
+            (set-window hwnd window)
+            (set-in-creation {}))
+          (if (not window)
+              (DefWindowProc hwnd msg wparam lparam)
+            (dispatch-message window msg wparam lparam)))))))
 
 
 ;;;

@@ -91,7 +91,7 @@
                     (newline output)
                     (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)))
+                    (jazz.print-variable 'jazz.source (if source (jazz.relativise-directory source install) #f) output)))
                 #t)
             #f)))
       

@@ -71,8 +71,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety options install)
-  (vector 'configuration name system platform windowing safety options install))
+(define (jazz.make-configuration name system platform windowing safety options install source)
+  (vector 'configuration name system platform windowing safety options install source))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -95,6 +95,9 @@
 (define (jazz.configuration-install configuration)
   (vector-ref configuration 7))
 
+(define (jazz.configuration-source configuration)
+  (vector-ref configuration 8))
+
 
 (define (jazz.new-configuration
           #!key
@@ -104,7 +107,8 @@
           (windowing #f)
           (safety #f)
           (options '())
-          (install #f))
+          (install #f)
+          (source #t))
   (jazz.make-configuration
     (jazz.validate-name name)
     (jazz.validate-system system)
@@ -112,7 +116,8 @@
     (jazz.validate-windowing windowing)
     (jazz.validate-safety safety)
     (jazz.validate-options options)
-    (jazz.validate-install install)))
+    (jazz.validate-install install)
+    (jazz.validate-source source)))
 
 
 ;;;
@@ -223,7 +228,8 @@
               (windowing (jazz.configuration-windowing configuration))
               (safety (jazz.configuration-safety configuration))
               (options (jazz.configuration-options configuration))
-              (install (jazz.configuration-install configuration)))
+              (install (jazz.configuration-install configuration))
+              (source (jazz.configuration-source configuration)))
           (display "(" output)
           (if name
               (print-property name: name))
@@ -236,6 +242,8 @@
               (print-property options: options))
           (if install
               (print-property install: install))
+          (if (not (eqv? source #t))
+              (print-property source: source))
           (display ")" output)
           (newline output)))
       
@@ -249,7 +257,8 @@
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
-        (install (jazz.configuration-install configuration)))
+        (install (jazz.configuration-install configuration))
+        (source (jazz.configuration-source configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
     (jazz.feedback "  system: {s}" system)
     (jazz.feedback "  platform: {s}" platform)
@@ -259,7 +268,9 @@
     (if (not (null? options))
         (jazz.feedback "  options: {s}" options))
     (if install
-        (jazz.feedback "  install: {s}" install))))
+        (jazz.feedback "  install: {s}" install))
+    (if (not (eqv? source #t))
+        (jazz.feedback "  source: {s}" source))))
 
 
 ;;;
@@ -275,14 +286,16 @@
           (windowing #f)
           (safety #f)
           (options '())
-          (install #f))
+          (install #f)
+          (source #t))
   (let* ((name (jazz.require-name name))
          (system (jazz.require-system system))
          (platform (jazz.require-platform platform))
          (windowing (jazz.require-windowing platform windowing))
          (safety (jazz.require-safety safety))
          (options (jazz.require-options options))
-         (install (jazz.require-install install)))
+         (install (jazz.require-install install))
+         (source (jazz.require-source source)))
     (let ((configuration
             (jazz.new-configuration
               name: name
@@ -291,7 +304,8 @@
               windowing: windowing
               safety: safety
               options: options
-              install: install)))
+              install: install
+              source: source)))
       (jazz.register-configuration configuration)
       (jazz.describe-configuration configuration))))
 
@@ -519,6 +533,28 @@
 
 
 ;;;
+;;;; Source
+;;;
+
+
+(define (jazz.require-source source)
+  source)
+
+
+(define (jazz.validate-source source)
+  (if (or (eqv? source #f)
+          (eqv? source #t))
+      source
+    (jazz.error "Invalid source: {s}" source)))
+
+
+(define (jazz.source-directory configuration)
+  (if (not (jazz.configuration-source configuration))
+      #f
+    "./"))
+
+
+;;;
 ;;;; Make
 ;;;
 
@@ -590,7 +626,7 @@
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (install (jazz.install-directory configuration))
-        (source "./"))
+        (source (jazz.source-directory configuration)))
     (define (install-file path)
       (string-append install path))
     
@@ -618,7 +654,7 @@
                   (newline output)
                   (jazz.print-variable 'jazz.install "." output)
                   (newline output)
-                  (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                  (jazz.print-variable 'jazz.source (if source (jazz.relativise-directory source install) #f) output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.source \"kernel/boot\"))" output)
@@ -872,7 +908,7 @@
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
   (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [install:]" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [install:] [source:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)
   (jazz.print "  quit" output))

@@ -269,6 +269,11 @@
 ;;;
 
 
+;; temp patch to minimize problems until a fix is found
+(definition egad
+  (make-parameter #f))
+
+
 (definition (process-messages)
   (define (process-message msg)
     (execute-event
@@ -284,7 +289,8 @@
       (process-message msg))
     (MSG-free msg))
   
-  (let ((port (open-event-queue QS_ALLINPUT))
+  (let ((port (parameterize ((egad #t))
+                (open-event-queue QS_ALLINPUT)))
         (thread (current-thread)))
     (let (loop)
       (let ((msg (read port)))
@@ -477,18 +483,20 @@
 
 (set-process-hwnd-message
   (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
-    ;; buggy yet
-    (;call-event
-      (function ()
-        (let ((window (get-window hwnd)))
-          (when (and (not window) (get-in-creation))
-            (set! window (get-in-creation))
-            (set-handle~ window hwnd)
-            (set-window hwnd window)
-            (set-in-creation {}))
-          (if (not window)
-              (DefWindowProc hwnd msg wparam lparam)
-            (dispatch-message window msg wparam lparam)))))))
+    (define (process)
+      (let ((window (get-window hwnd)))
+        (when (and (not window) (get-in-creation))
+          (set! window (get-in-creation))
+          (set-handle~ window hwnd)
+          (set-window hwnd window)
+          (set-in-creation {}))
+        (if (not window)
+            (DefWindowProc hwnd msg wparam lparam)
+          (dispatch-message window msg wparam lparam))))
+    
+    (if egad
+        (process)
+      (call-event process))))
 
 
 ;;;

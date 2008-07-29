@@ -49,6 +49,7 @@
           (options jazz.options)
           (install jazz.install)
           (source jazz.source)
+          (source? jazz.source?)
           (kernel? #f)
           (console? #f)
           (feedback jazz.feedback))
@@ -91,7 +92,9 @@
                     (newline output)
                     (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source (if source (jazz.relativise-directory source install) #f) output)))
+                    (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                    (newline output)
+                    (jazz.print-variable 'jazz.source? source? output)))
                 #t)
             #f)))
       

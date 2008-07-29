@@ -303,11 +303,14 @@
 
 
 (define jazz.jazz-source
-  ;; when the install directory is a subdirectory of the source use a .. notation
-  (if (and (%%fx>= (%%string-length jazz.source) 3)
-           (%%string=? (%%substring jazz.source 0 3) "../"))
-      (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source) #f)
-    (jazz.pathname-normalize jazz.source #f)))
+  ;; kernel always needs source access to build
+  (if (or jazz.source? (not jazz.product))
+      ;; when the install directory is a subdirectory of the source use a .. notation
+      (if (and (%%fx>= (%%string-length jazz.source) 3)
+               (%%string=? (%%substring jazz.source 0 3) "../"))
+          (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source) #f)
+        (jazz.pathname-normalize jazz.source #f))
+    #f))
 
 
 (define (jazz.jazz-product)

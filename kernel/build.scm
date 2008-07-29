@@ -548,12 +548,6 @@
     (jazz.error "Invalid source: {s}" source)))
 
 
-(define (jazz.source-directory configuration)
-  (if (not (jazz.configuration-source configuration))
-      #f
-    "./"))
-
-
 ;;;
 ;;;; Make
 ;;;
@@ -626,7 +620,8 @@
         (safety (jazz.configuration-safety configuration))
         (options (jazz.configuration-options configuration))
         (install (jazz.install-directory configuration))
-        (source (jazz.source-directory configuration)))
+        (source "./")
+        (source? (jazz.configuration-source configuration)))
     (define (install-file path)
       (string-append install path))
     
@@ -654,7 +649,9 @@
                   (newline output)
                   (jazz.print-variable 'jazz.install "." output)
                   (newline output)
-                  (jazz.print-variable 'jazz.source (if source (jazz.relativise-directory source install) #f) output)
+                  (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
+                  (newline output)
+                  (jazz.print-variable 'jazz.source? source? output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.source \"kernel/boot\"))" output)
@@ -668,6 +665,7 @@
       options:   options
       install:   install
       source:    source
+      source?:   source?
       kernel?:   #t
       console?:  #t)
     

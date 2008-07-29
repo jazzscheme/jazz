@@ -422,16 +422,18 @@
 
 
 (define (jazz.walk-if walker resume declaration environment form)
-  (let ((test (%%cadr form))
-        (yes (%%car (%%cddr form)))
-        (no (%%cdr (%%cddr form))))
-    (jazz.new-if (jazz.walk walker resume declaration environment test)
-                 (jazz.walk walker resume declaration environment yes)
-                 (jazz.walk walker resume declaration environment
-                   (cons 'begin
-                         (if (%%null? no)
-                             '((unspecified))
-                           no))))))
+  (if (< (length form) 3)
+      (jazz.walk-error walker resume declaration "Ill-formed if: {s}" form) 
+    (let ((test (%%cadr form))
+          (yes (%%car (%%cddr form)))
+          (no (%%cdr (%%cddr form))))
+      (jazz.new-if (jazz.walk walker resume declaration environment test)
+                   (jazz.walk walker resume declaration environment yes)
+                   (jazz.walk walker resume declaration environment
+                     (cons 'begin
+                           (if (%%null? no)
+                               '((unspecified))
+                             no)))))))
 
 
 (define (jazz.walk-cond walker resume declaration environment form)

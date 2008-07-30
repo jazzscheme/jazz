@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Enumeration Domains
+;;;; Entry Combo Text View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,63 +35,40 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.designer.domain.Enumeration-Domain jazz
+(library jazz.ui.view.Entry-Combo-Text-View jazz
 
 
-(import (jazz.designer)
+(import (jazz.jml)
         (jazz.library)
+        (jazz.ui)
         (jazz.utilities))
 
 
-(class Enumeration-Domain extends Domain
+(class Entry-Combo-Text-View extends Combo-Text-View
   
   
-  (attributes (nullable?)
-    (width   initialize 100)
-    (choices initialize '())
-    (strict? initialize #f))
+  (property editor initialize {} accessors generate)
   
   
-  ;;;
-  ;;;; Validation
-  ;;;
+  (form
+    (<install> default-style: {Text-Style name: Default font: {Font name: Label}} left-padding: 2 top-padding: 2 accepts-returns?: #f show-unfocused-selection?: #f))
   
   
-  (method (validate-value property value component root client context manager)
-    (when (not (member? value choices key: car))
-      (add-violation~ manager (new Integrity-Violation message: (format "Value must be one of {a}: {t}" (join (map present-choice choices) ", ") value) property: property) component root client)))
+  (method (focus-gain)
+    (nextmethod)
+    (when editor
+      (let ((manager (get-manager~ editor)))
+        (when manager
+          (editor-focus-gain~ manager editor)))))
   
   
-  (method (present-choice choice)
-    (if (not (cdr choice))
-        (car choice)
-      (localize (cadr choice))))
+  (method (focus-lose window view)
+    (nextmethod window view)
+    (when editor
+      (let ((manager (get-manager~ editor)))
+        (when manager
+          (editor-focus-lose~ manager editor window view)))))
   
   
-  ;;;
-  ;;;; Presentation
-  ;;;
-  
-  
-  (method (present value)
-    (if (not value)
-        "{}"
-      (let ((pair (assq value choices)))
-        (if (not pair)
-            value
-          (localize (cadr pair))))))
-  
-  
-  ;;;
-  ;;;; Entry
-  ;;;
-  
-  
-  (method (setup-entry view client)
-    (let ((entry (new Enumeration-Entry parent: view size: (new Dimension width 19) domain: self)))
-      (set-choices~ (locate~ entry 'combo) choices)))
-  
-  
-  (method (setup-list-entry view client)
-    (let ((entry (new Enumeration-List-Entry parent: view domain: self)))
-      (setup~ entry client choices)))))
+  (method (get-context-menu)
+    (new-text-context-menu))))

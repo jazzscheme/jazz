@@ -51,15 +51,47 @@
   
   (form
     (<install>
-      (<Border-View> name: border border-type: edge style: entry
-        (<Combo-Box> name: combo  condensed?: #t
-          (<!>       name: body   left-padding: 2 top-padding: 2 default-style: {Text-Style name: Default font: {Font name: Label}})))))
+      (<Border-View>       name: border border-type: edge style: entry
+        (<Entry-Combo-Box> name: combo  condensed?: #t
+          (<!>             name: body   left-padding: 2 top-padding: 2 default-style: {Text-Style name: Default font: {Font name: Label}})))))
   
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (set-editor~ (locate '(combo body)) self))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method (tab-view)
+    (locate '(combo body)))
+  
+  
+  ;;;
+  ;;;; Validation
+  ;;;
   
   
   (method (validate domain)
-    {})
+    (if (get-strict?~ domain)
+        (let ((choices (get-choices~ domain)))
+          (if (and (valid-value?~ (locate 'combo))
+                   (member? (get-value) choices key: car))
+              {}
+            (new Property-Violation message: "Not part of this domain")))
+      {}))
   
+  
+  (method (set-violation violation)
+    (let ((border (locate 'border)))
+      (if (not violation)
+          (set-border-type~ border 'edge)
+        (set-border-type~ border 'solid)
+        (set-border-color~ border {Color red: 240 green: 0 blue: 0}))))
+    
   
   ;;;
   ;;;; Value

@@ -2589,6 +2589,9 @@
   (receive (name type access compatibility c-type as-type declare c-to-scheme scheme-to-c) (jazz.parse-c-type walker resume declaration (%%cdr form))
     (if (%%class-is? declaration jazz.Library-Declaration)
         (receive (kind expansion parent-type-declaration references) (jazz.resolve-c-type walker resume declaration environment c-type)
+          #;
+          (%%when (and (%%eq? kind 'alias) as-type)
+            (jazz.walk-error walker resume declaration "C type alias cannot override as-* declaration: {s}" name))
           (let ((expansion (cond ((%%not c-to-scheme)
                                   expansion)
                                  ((and (%%string? c-to-scheme) (%%string? scheme-to-c) (%%eq? kind 'type) (%%null? (%%cddr expansion)))
@@ -2832,7 +2835,7 @@
          (c-type ,struct (type ,c-struct-string ,@tag-rest) as-block)
          (c-type ,struct* (pointer ,struct ,@tag*-rest))
          (definition ,(jazz.build-method-symbol struct 'make)
-                     (c-function () ,struct* ,(%%string-append "___result = calloc(1," sizeof ");")))
+                     (c-function () ,struct* ,(%%string-append "___result_voidstar = calloc(1," sizeof ");")))
          (definition ,(jazz.build-method-symbol struct 'free)
                      (c-function (,struct*) (native void) "free(___arg1);"))
          (definition ,(jazz.build-method-symbol struct 'sizeof)

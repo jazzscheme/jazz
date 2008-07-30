@@ -41,7 +41,16 @@
 (jazz.define-class-runtime jazz.Exception)
 
 
+(jazz.define-method (jazz.print-object (jazz.Exception exception) output detail)
+  (let ((message (jazz.get-message exception)))
+    (jazz.format output "#<exception #{a}" (jazz.object->serial exception))
+    (if message
+        (jazz.format output " {s}" message))
+    (jazz.format output ">")))
+
+
 (jazz.define-virtual-runtime (jazz.present-exception (jazz.Exception exception)))
+(jazz.define-virtual-runtime (jazz.get-message (jazz.Exception exception)))
 (jazz.define-virtual-runtime (jazz.get-details (jazz.Exception exception)))
 
 
@@ -49,6 +58,9 @@
   (let ((output (open-output-string)))
     (jazz.format output "This exception was raised: {s}" exception)
     (get-output-string output)))
+
+(jazz.define-method (jazz.get-message (jazz.Exception exception))
+  #f)
 
 (jazz.define-method (jazz.get-details (jazz.Exception exception))
   #f)

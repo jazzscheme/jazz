@@ -47,6 +47,9 @@
   ())
 
 
+(jazz.define-virtual (jazz.print-object (jazz.Object object) output detail))
+
+
 ;;;
 ;;;; Type
 ;;;

@@ -45,6 +45,10 @@
   (jazz.allocate-error jazz.Error message))
 
 
+(jazz.define-method (jazz.get-message (jazz.Error error))
+  (%%get-error-message error))
+
+
 (jazz.define-method (jazz.present-exception (jazz.Error error))
   (%%get-error-message error))
 

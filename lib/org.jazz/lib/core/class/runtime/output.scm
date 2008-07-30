@@ -38,12 +38,6 @@
 (module core.class.runtime.output
 
 
-(define jazz.dialect.language.Object.print
-  #f)
-
-(set! jazz.dialect.language.Object.print #f)
-
-
 (define jazz.output-mode
   ':reader)
 
@@ -81,9 +75,8 @@
          (jazz.output-list value output detail))
         ((jazz.primitive? value)
          (jazz.print value output detail))
-        ((and jazz.use-print? jazz.dialect.language.Object.print)
-         ;; the rank of print is known to be 2 as it is the third method of Object
-         ((%%class-dispatch value 0 2) value output detail))
+        (jazz.use-print?
+         (jazz.print-object value output detail))
         (else
          (jazz.write-jazz output value))))
 
@@ -139,20 +132,6 @@
 
 
 (cond-expand
-  (gambit
-    (set! jazz.write-jazz
-          (lambda (port obj)
-            (if (and jazz.use-print? jazz.dialect.language.Object.print)
-                ;; the rank of print is known to be 2 as it is the third method of Object
-                ((%%class-dispatch obj 0 2) obj port ':reader)
-              (let ((serial (object->serial-number obj)))
-                (display "#<jazz #" port)
-                (display serial port)
-                (display ">" port))))))
-  (else))
-
-
-(cond-expand
   (chicken
     (define (jazz.pretty-print expr . rest)
       (apply pretty-print expr rest)))
@@ -164,4 +143,39 @@
   (else
    (define (jazz.pretty-print expr . rest)
      (display expr)
-     (newline)))))
+     (newline))))
+
+
+;;;
+;;;; Jazz
+;;;
+
+
+(define jazz.dialect.language.Object.print
+  #f)
+
+(set! jazz.dialect.language.Object.print #f)
+
+
+(set! jazz.print-jazz
+      (lambda (object output detail)
+        (if jazz.dialect.language.Object.print
+            ;; the rank of print is known to be 2 as it is the third method of Object
+            ((%%class-dispatch object 0 2) object output detail)
+          (let ((serial (object->serial-number object)))
+            (display "#<jazz #" output)
+            (display serial output)
+            (display ">" output)))))
+
+
+(cond-expand
+  (gambit
+    (set! jazz.write-jazz
+          (lambda (port obj)
+            (if jazz.use-print?
+                (jazz.print-object obj port ':reader)
+              (let ((serial (object->serial-number obj)))
+                (display "#<jazz #" port)
+                (display serial port)
+                (display ">" port))))))
+  (else)))

@@ -43,6 +43,7 @@
 
 
 (jazz.define-virtual (jazz.present-exception (jazz.Exception exception)))
+(jazz.define-virtual (jazz.get-message (jazz.Exception exception)))
 (jazz.define-virtual (jazz.get-details (jazz.Exception exception)))
 
 

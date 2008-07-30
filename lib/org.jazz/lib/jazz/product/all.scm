@@ -135,6 +135,8 @@
   (jazz.load-module 'core.module.build)
   (jazz.build-product 'platform)
   
+  (jazz.feedback "making all")
+  
   (for-each compile jazz.All-Modules))
 
 

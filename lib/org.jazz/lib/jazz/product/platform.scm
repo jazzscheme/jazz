@@ -152,6 +152,7 @@
   (carbon
     (define (jazz.build-platform)
       (jazz.build-product 'jazz)
+      (jazz.feedback "making platform")
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -175,6 +176,7 @@
         
         (copy-platform-files)
         (jazz.build-product 'jazz)
+        (jazz.feedback "making platform")
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
@@ -183,6 +185,7 @@
   (x11
     (define (jazz.build-platform)
       (jazz.build-product 'jazz)
+      (jazz.feedback "making platform")
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

@@ -284,6 +284,7 @@
 ;;;
 
 
+(native jazz.build-feedback)
 (native jazz.boot-directory)
 (native jazz.jazz-version)
 (native jazz.jazz-install)

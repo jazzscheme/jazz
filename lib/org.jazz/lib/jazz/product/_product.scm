@@ -45,6 +45,7 @@
 
 (define (jazz.build-jazz)
   (jazz.build-product 'core)
+  (jazz.feedback "making jazz")
   (jazz.build-module 'jazz))
 
 

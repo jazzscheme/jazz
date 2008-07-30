@@ -697,7 +697,6 @@
         (else
          "./jazz")))
     
-    (jazz.feedback "making {a}" product)
     (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string product)) install)))
 
 

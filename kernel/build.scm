@@ -658,16 +658,17 @@
                   (newline output)))))))
     
     (jazz.build-executable #f
-      system:    system
-      platform:  platform
-      windowing: windowing
-      safety:    safety
-      options:   options
-      install:   install
-      source:    source
-      source?:   source?
-      kernel?:   #t
-      console?:  #t)
+      system:       system
+      platform:     platform
+      windowing:    windowing
+      safety:       safety
+      options:      options
+      install:      install
+      source:       source
+      source?:      source?
+      kernel?:      #t
+      console?:     #t
+      minimum-heap: 100000)
     
     (if (memq 'interpret options)
         (generate-gambcini))))

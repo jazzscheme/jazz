@@ -1,4 +1,3 @@
-#!gsi -:dar,m250000,t8,f8,-8
 ;;;==============
 ;;;  JazzScheme
 ;;;==============
@@ -83,7 +82,7 @@
   "~/.jazz/.jazzini")
 
 
-(define (jazz.main)
+(define (jazz.process-main)
   (define (warn-missing-argument-for-option opt)
     (jazz.repl-main
       (lambda (output-port)
@@ -184,6 +183,3 @@
       (newline output-port)
       (force-output output-port)
       #f)))
-
-
-(##main-set! jazz.main)

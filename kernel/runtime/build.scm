@@ -52,6 +52,8 @@
           (source? jazz.source?)
           (kernel? #f)
           (console? #f)
+          (minimum-heap #f)
+          (maximum-heap #f)
           (feedback jazz.feedback))
   (let ((product-name (if (not product) "jazz" (symbol->string product))))
     (let ((product-dir (string-append install "build/_products/" product-name "/")))
@@ -69,7 +71,7 @@
             (apply feedback fmt-string rest)))
       
       (define (generate-architecture)
-        (let ((file (product-file "architecture.scm")))
+        (let ((file (product-file "_architecture.scm")))
           (if (not (file-exists? file))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -80,7 +82,7 @@
             #f)))
       
       (define (generate-product)
-        (let ((file (product-file "product.scm")))
+        (let ((file (product-file "_product.scm")))
           (if (not (file-exists? file))
               (begin
                 (feedback-message "; generating {a}..." file)
@@ -95,6 +97,34 @@
                     (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
                     (newline output)
                     (jazz.print-variable 'jazz.source? source? output)))
+                #t)
+            #f)))
+      
+      (define (generate-main)
+        (let ((file (product-file "_main.scm")))
+          (if (not (file-exists? file))
+              (begin
+                (feedback-message "; generating {a}..." file)
+                (call-with-output-file file
+                  (lambda (output)
+                    (display "#!gsi -:dar,t8,f8,-8" output)
+                    (if minimum-heap
+                        (begin
+                          (display ",m" output)
+                          (display minimum-heap output)))
+                    (if maximum-heap
+                        (begin
+                          (display ",h" output)
+                          (display maximum-heap output)))
+                    (newline output)
+                    (newline output)
+                    (display "(define (jazz.main)" output)
+                    (newline output)
+                    (display "  (jazz.process-main))" output)
+                    (newline output)
+                    (newline output)
+                    (display "(##main-set! jazz.main)" output)
+                    (newline output)))
                 #t)
             #f)))
       
@@ -113,6 +143,7 @@
       (define (compile-kernel)
         (let ((architecture? (generate-architecture))
               (product? (generate-product))
+              (main? (generate-main))
               (latest #f))
           (define (compile-file name dir output)
             (let ((src (string-append dir name ".scm"))
@@ -136,7 +167,7 @@
           (if kernel?
               (begin
                 ;; load architecture
-                (load (product-file "architecture"))
+                (load (product-file "_architecture"))
                 
                 ;; load syntax
                 (load (source-file "kernel/syntax/macros"))
@@ -147,9 +178,12 @@
                 (load (source-file "kernel/syntax/runtime"))))
           
           (if architecture?
-              (compile-file "architecture" product-dir product-dir))
+              (compile-file "_architecture" product-dir product-dir))
           (if product?
-              (compile-file "product" product-dir product-dir))
+              (compile-file "_product" product-dir product-dir))
+          (if main?
+              (compile-file "_main" product-dir product-dir))
+          
           (compile-kernel-file "syntax/" "macros")
           (compile-kernel-file "syntax/" "features")
           (compile-kernel-file "syntax/" "declares")
@@ -168,8 +202,8 @@
                     (> latest (time->seconds (file-last-modification-time link-file))))
                 (begin
                   (feedback-message "; linking kernel...")
-                  (link-incremental (list (product-file "architecture")
-                                          (product-file "product")
+                  (link-incremental (list (product-file "_architecture")
+                                          (product-file "_product")
                                           (install-file "build/_kernel/syntax/macros")
                                           (install-file "build/_kernel/syntax/features")
                                           (install-file "build/_kernel/syntax/declares")
@@ -181,7 +215,8 @@
                                           (install-file "build/_kernel/runtime/install")
                                           (install-file "build/_kernel/runtime/digest")
                                           (install-file "build/_kernel/runtime/kernel")
-                                          (install-file "build/_kernel/runtime/main"))
+                                          (install-file "build/_kernel/runtime/main")
+                                          (product-file "_main"))
                                     output: link-file
                                     base: "~~/lib/_gambcgsc")
                   #t)
@@ -223,8 +258,8 @@
         (feedback-message "; linking executable...")
         (jazz.execute-process
           "gcc"
-          `(,(jazz.quote-gcc-pathname (product-file "architecture.c") platform)
-            ,(jazz.quote-gcc-pathname (product-file "product.c") platform)
+          `(,(jazz.quote-gcc-pathname (product-file "_architecture.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/macros.c") platform)
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/features.c") platform)
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/syntax/declares.c") platform)
@@ -237,6 +272,7 @@
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/digest.c") platform)
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/kernel.c") platform)
             ,(jazz.quote-gcc-pathname (install-file "build/_kernel/runtime/main.c") platform)
+            ,(jazz.quote-gcc-pathname (product-file "_main.c") platform)
             ,(jazz.quote-gcc-pathname (product-file (string-append product-name ".c")) platform)
             ,@(resource-files)
             ,(string-append "-I" (jazz.quote-gcc-pathname (path-expand "~~/include") platform))

@@ -47,6 +47,7 @@
         (jazz.io)
         (jazz.platform)
         (jazz.platform.cairo)
+        (jazz.platform.types)
         (jazz.system)
         (jazz.ui)
         (jazz.ui.window.platform.independant)
@@ -269,11 +270,6 @@
 ;;;
 
 
-;; temp patch to minimize problems until a fix is found
-(definition egad
-  (make-parameter #f))
-
-
 (definition (process-messages)
   (define (process-message msg)
     (execute-event
@@ -289,8 +285,7 @@
       (process-message msg))
     (MSG-free msg))
   
-  (let ((port (parameterize ((egad #t))
-                (open-event-queue QS_ALLINPUT)))
+  (let ((port (open-event-queue QS_ALLINPUT))
         (thread (current-thread)))
     (let (loop)
       (let ((msg (read port)))
@@ -298,6 +293,45 @@
         (MSG-free msg))
       (when (thread-loop? thread)
         (loop)))))
+
+
+;;;
+;;;; Dispatch
+;;;
+
+
+;; to catch interleaved call / return sequences in the c to scheme callbacks asap
+;@debug
+(definition *callback-level*
+  0)
+
+
+(set-process-hwnd-message
+  (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
+    (define (process)
+      (let ((window (get-window hwnd)))
+        (when (and (not window) (get-in-creation))
+          (set! window (get-in-creation))
+          (set-handle~ window hwnd)
+          (set-window hwnd window)
+          (set-in-creation {}))
+        (if (not window)
+            (DefWindowProc hwnd msg wparam lparam)
+          (dispatch-message window msg wparam lparam))))
+    
+    (process)
+    @w (call-event process)
+    
+    ;@debug
+    (let ((level *callback-level*))
+      (increase! *callback-level*)
+      (prog1 (call-event process)
+        (decrease! *callback-level*)
+        (when (/= level *callback-level*)
+          (terminal 'interleaved-problem-detected (current-thread) level *callback-level* hwnd msg wparam lparam)
+          (terminal (execution-stack))
+          (bring-terminal-to-front)
+          (repl))))))
 
 
 ;;;
@@ -474,29 +508,6 @@
      @not-correct-to-call-set-fullscreen?
      (when (is? window Toplevel)
        (set-fullscreen?~ window #t)))))
-
-
-;;;
-;;;; Dispatch
-;;;
-
-
-(set-process-hwnd-message
-  (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
-    (define (process)
-      (let ((window (get-window hwnd)))
-        (when (and (not window) (get-in-creation))
-          (set! window (get-in-creation))
-          (set-handle~ window hwnd)
-          (set-window hwnd window)
-          (set-in-creation {}))
-        (if (not window)
-            (DefWindowProc hwnd msg wparam lparam)
-          (dispatch-message window msg wparam lparam))))
-    
-    (if egad
-        (process)
-      (call-event process))))
 
 
 ;;;

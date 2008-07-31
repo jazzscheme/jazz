@@ -936,6 +936,15 @@
 
 
 ;;;
+;;;; Declare
+;;;
+
+
+(jazz.define-class jazz.Declare jazz.Expression (type) jazz.Object-Class jazz.allocate-declare
+  ((declarations %%get-declare-declarations ())))
+
+
+;;;
 ;;;; C Include
 ;;;
 

@@ -4125,6 +4125,32 @@
 
 
 ;;;
+;;;; Declare
+;;;
+
+
+(jazz.define-class-runtime jazz.Declare)
+
+
+(define (jazz.new-declare declarations)
+  (jazz.allocate-declare jazz.Declare #f declarations))
+
+
+(jazz.define-method (jazz.emit-expression (jazz.Declare expression) declaration environment)
+  (let ((declarations (%%get-declare-declarations expression)))
+    (jazz.new-code
+      `(declare ,@declarations)
+      jazz.Any)))
+
+
+(jazz.define-method (jazz.fold-expression (jazz.Declare expression) f k s)
+  #f)
+
+
+(jazz.encapsulate-class jazz.Declare)
+
+
+;;;
 ;;;; C Include
 ;;;
 

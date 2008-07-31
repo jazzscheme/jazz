@@ -87,19 +87,19 @@
 ;;;
 
 
-(jazz.define-macro (%%atomic-region . rest)
-  (apply jazz.expand-atomic-region rest))
+(jazz.define-macro (%%atomic . rest)
+  (apply jazz.expand-atomic rest))
 
 
 (cond-expand
   (gambit
-    (define (jazz.expand-atomic-region . body)
+    (define (jazz.expand-atomic . body)
       `(let ()
          (declare (not interrupts-enabled))
          ,@body)))
 
   (else
-   (define (jazz.expand-atomic-region . body)
+   (define (jazz.expand-atomic . body)
      `(begin
         ,@body))))
 

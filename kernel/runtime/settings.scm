@@ -43,16 +43,16 @@
 ;;;
 
 
-(define jazz.load-verbose?
+(jazz.define-variable jazz.load-verbose?
   #f)
 
-(define jazz.parse-verbose?
+(jazz.define-variable jazz.parse-verbose?
   #f)
 
-(define jazz.done-verbose?
+(jazz.define-variable jazz.done-verbose?
   #f)
 
-(define jazz.compile-verbose?
+(jazz.define-variable jazz.compile-verbose?
   #f)
 
 
@@ -62,11 +62,11 @@
 
 
 ;; code walker warnings
-(define jazz.warnings?
+(jazz.define-variable jazz.warnings?
   #f)
 
 ;; Set to #f to debug the walker itself
-(define jazz.delay-reporting?
+(jazz.define-variable jazz.delay-reporting?
   #t)
 
 
@@ -76,7 +76,7 @@
 
 
 ;; Print Jazz objects by calling their print method?
-(define jazz.use-print?
+(jazz.define-variable jazz.use-print?
   #t)
 
 
@@ -87,18 +87,18 @@
 
 (cond-expand
   (release
-    (define jazz.inline-definitions?
+    (jazz.define-variable jazz.inline-definitions?
       #t))
   (else
-   (define jazz.inline-definitions?
+   (jazz.define-variable jazz.inline-definitions?
       #f)))
 
 
-(define jazz.debug-specializers
+(jazz.define-variable jazz.debug-specializers
   '())
 
 
-(define jazz.debugger?
+(jazz.define-variable jazz.debugger?
   #t)
 
 
@@ -107,7 +107,7 @@
 ;;;
 
 
-(define jazz.profile-walker?
+(jazz.define-variable jazz.profile-walker?
   #f)
 
 
@@ -116,10 +116,10 @@
 ;;;
 
 
-(define jazz.profile
+(jazz.define-variable jazz.profile
   #f)
 
 
 ;; to enable timing loading of jedi
-(define jazz.run-loop?
+(jazz.define-variable jazz.run-loop?
   #t)

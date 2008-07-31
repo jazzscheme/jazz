@@ -57,11 +57,7 @@
 
 
 (define jazz.compile-options
-  (let ((base-options
-          (if (%%memq jazz.safety '(core debug))
-              '(debug-environments)
-            ;; should probably remove when the core is very stable
-            '(debug-environments))))
+  (let ((base-options '(debug-environments)))
     (if (%%memq 'source jazz.options)
         (cons 'debug-source base-options)
       base-options)))

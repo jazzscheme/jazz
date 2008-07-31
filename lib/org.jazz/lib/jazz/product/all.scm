@@ -51,6 +51,7 @@
     jazz.console
     jazz.database
     jazz.database.providers.ado
+    jazz.database.providers.sqlserver
     jazz.debuggee
     jazz.debugger
     jazz.depot

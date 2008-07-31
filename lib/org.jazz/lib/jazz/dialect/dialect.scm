@@ -837,7 +837,8 @@
     (jazz.new-special-form '%property       jazz.walk-%slot)
     (jazz.new-special-form 'method          jazz.walk-method)
 
-    (jazz.new-special-form 'atomic-region   jazz.walk-atomic-region)
+    (jazz.new-macro-form   'atomic          jazz.expand-atomic)
+    (jazz.new-special-form 'declare         jazz.walk-declare)
     (jazz.new-special-form 'c-include       jazz.walk-c-include)
     (jazz.new-special-form 'c-declare       jazz.walk-c-declare)
     (jazz.new-special-form 'c-initialize    jazz.walk-c-initialize)
@@ -2446,15 +2447,14 @@
 
 
 ;;;
-;;;; Atomic Region
+;;;; Atomic
 ;;;
 
 
-(define (jazz.walk-atomic-region walker resume declaration environment form)
-  (let ((body (%%cdr form)))
-    `(let ()
-       (declare (not interrupts-enabled))
-       ,@(jazz.walk-body walker resume declaration environment body))))
+(define (jazz.expand-atomic walker resume declaration environment . body)
+  `(let ()
+     (declare (not interrupts-enabled))
+     ,@body))
 
 
 ;;;
@@ -2465,6 +2465,15 @@
 (define (jazz.expand-optimize walker resume declaration environment parameters . body)
   `(begin
      ,@body))
+
+
+;;;
+;;;; Declare
+;;;
+
+
+(define (jazz.walk-declare walker resume declaration environment declarations)
+  (jazz.new-declare declarations))
 
 
 ;;;

@@ -45,62 +45,36 @@
 (class Pulse extends Object
   
   
-  (property period  initialize {} accessors generate)
   (property delay   initialize {} accessors generate)
-  (property repeat  initialize {} accessors generate)
+  (property period  initialize {} accessors generate)
+  (property repeat? initialize {} accessors generate)
   (property execute initialize {} accessors generate)
   
   
-  (slot state initialize 'stopped)
-  (slot mutex initialize (make-mutex 'pulse))
+  (slot thread initialize {})
+  (slot mutex  initialize (make-mutex))
   
   
   (method (initialize period execute . rest)
-    (bind-keywords ((delay #f) (repeat 'always)) rest
+    (bind-keywords ((delay #f) (repeat? #t)) rest
       (nextmethod)
       (set! period~self period)
       (set! delay~self delay)
-      (set! repeat~self repeat)
+      (set! repeat?~self repeat?)
       (set! execute~self execute)
-      (start-loop)))
+      (set! thread~self (start-loop))))
   
   
   (method (destroy)
-    (stop-loop)
+    (mutex-lock! mutex)
+    (when thread
+      (let ((thread thread~self))
+        (set! thread~self {})
+        (mutex-unlock! mutex)
+        (thread-interrupt! thread
+                           thread-exit)))
+    (mutex-unlock! mutex)
     (nextmethod))
-  
-  
-  ;;;
-  ;;;; Lock
-  ;;;
-  
-  
-  (method public (with-lock thunk)
-    (prog1
-        (begin
-          (mutex-lock! mutex)
-          (thunk))
-      (mutex-unlock! mutex)))
-  
-  
-  ;;;
-  ;;;; State
-  ;;;
-  
-  
-  ;; stopped pulsing stopping
-  
-  
-  (method (get-state)
-    (with-lock
-      (function ()
-        state)))
-  
-  
-  (method (set-state value)
-    (with-lock
-      (function ()
-        (set! state value))))
   
   
   ;;;
@@ -112,17 +86,9 @@
     (thread-start!
       (new-thread
         (function ()
-          (when (neq? (get-state) 'stopping)
-            (set-state 'pulsing)
-            (let (loop (timeout (either delay period)))
-              (sleep timeout)
-              (when (neq? (get-state) 'stopping)
-                (execute)
-                (when (eq? repeat 'always)
-                  (loop period))))
-            (set-state 'stopped)))
-        "Pulse")))
-  
-  
-  (method (stop-loop)
-    (set-state 'stopping))))
+          (let (loop (timeout (either delay period)))
+            (sleep timeout)
+            (execute)
+            (when repeat?
+              (loop period))))
+        "Pulse")))))

@@ -72,10 +72,10 @@
 ;;;
 
 
-(define jazz.debug?
+(jazz.define-variable jazz.debug?
   #f)
 
-(define jazz.debug-build?
+(jazz.define-variable jazz.debug-build?
   #f)
 
 (define jazz.initialization-file

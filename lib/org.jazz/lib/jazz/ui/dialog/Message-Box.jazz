@@ -166,6 +166,7 @@
   (method public (process-box text
                               (type: type 'message)
                               (title: title {})
+                              (size: size {})
                               (icon: icon {})
                               (content: content {})
                               (sound: sound 'default)
@@ -194,8 +195,8 @@
         (when (and yes (not (member? 'yes actions key: second)))
           (set! actions (cons (list yes 'yes) actions)))
         (let* ((default-button (either default-button (second (first actions))))
-               (size (layout-box text selection title icon content actions default-button)))
-          (layout-dialog dialog title size)
+               (dialog-size (layout-box text selection title size icon content actions default-button)))
+          (layout-dialog dialog title dialog-size)
           (play-sound sound)
           (process-modal~ dialog)))))
   
@@ -226,7 +227,7 @@
     6)
   
   
-  (method protected virtual (layout-box text selection title icon content actions default)
+  (method protected virtual (layout-box text selection title size icon content actions default)
     (let* (@wait (icon-view (locate 'icon))
            (text-view (locate 'text))
            (scroller-view (locate 'scroller))
@@ -238,10 +239,10 @@
       (set-text~ text-view text)
       (when selection
         (set-selection~ text-view selection))
-      (let ((width (min (max (compute-width~ text-view) (max buttons-width 208)) 500)))
+      (let ((width (if size (get-width~ size) (min (max (compute-width~ text-view) (max buttons-width 208)) 500))))
         (size-border width 100)
         (let ((text-height (get-visible-height~ text-view))
-              (height (min (max (get-visible-height~ text-view) (if content 0 36)) 200)))
+              (height (if size (get-height~ size) (min (max (get-visible-height~ text-view) (if content 0 36)) 200))))
           (size-border width height)
           (let ((bottom (get-bottom~ border-view)))
             (when content
@@ -253,7 +254,7 @@
             (let ((dialog-width (+ width 68))
                   (dialog-height (+ height 58)))
               @wait (set-icon~ icon-view icon)
-              (let ((overflow? (> text-height 200)))
+              (let ((overflow? (> text-height height)))
                 (when overflow?
                   (set-border-type~ border-view 'solid)))
               (let ((h (+ (center buttons-width dialog-width) 1))

@@ -75,8 +75,6 @@
          (jazz.output-list value output detail))
         ((jazz.primitive? value)
          (jazz.print value output detail))
-        (jazz.use-print?
-         (jazz.print-object value output detail))
         (else
          (jazz.write-jazz output value))))
 
@@ -157,25 +155,18 @@
 (set! jazz.dialect.language.Object.print #f)
 
 
-(set! jazz.print-jazz
-      (lambda (object output detail)
-        (if jazz.dialect.language.Object.print
-            ;; the rank of print is known to be 2 as it is the third method of Object
-            ((%%class-dispatch object 0 2) object output detail)
-          (let ((serial (object->serial-number object)))
-            (display "#<jazz #" output)
-            (display serial output)
-            (display ">" output)))))
+(define (jazz.print-jazz object output detail)
+  (if jazz.use-print?
+      (if jazz.dialect.language.Object.print
+          ;; the rank of print is known to be 2 as it is the third method of Object
+          ((%%class-dispatch object 0 2) object output detail)
+        (jazz.print-object object output detail))
+    (jazz.print-serial object output)))
 
 
 (cond-expand
   (gambit
     (set! jazz.write-jazz
-          (lambda (port obj)
-            (if jazz.use-print?
-                (jazz.print-object obj port ':reader)
-              (let ((serial (object->serial-number obj)))
-                (display "#<jazz #" port)
-                (display serial port)
-                (display ">" port))))))
+          (lambda (port object)
+            (jazz.print-jazz object port jazz.output-mode))))
   (else)))

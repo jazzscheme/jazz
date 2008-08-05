@@ -390,17 +390,18 @@
     (%%symbol->string (%%get-category-name class))))
 
 
-(define jazz.print-jazz
-  #f)
-
-(set! jazz.print-jazz #f)
-
-
 (jazz.define-virtual-runtime (jazz.print-object (jazz.Object object) output detail))
 
 
 (jazz.define-method (jazz.print-object (jazz.Object object) output detail)
-  (jazz.print-jazz object output detail))
+  (jazz.print-serial object output))
+
+
+(define (jazz.print-serial object output)
+  (let ((serial (object->serial-number object)))
+    (display "#<jazz #" output)
+    (display serial output)
+    (display ">" output)))
 
 
 (jazz.encapsulate-class jazz.Object)

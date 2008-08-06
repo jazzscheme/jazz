@@ -120,6 +120,7 @@
     (jazz.compile-module 'jazz.platform.windows.WinShell    cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinCtrl     cc-options: base-windows-cc-options ld-options: "-mwindows")
     (jazz.compile-module 'jazz.platform.windows.WinDlg      cc-options: base-windows-cc-options ld-options: "-mwindows")
+    (jazz.compile-module 'jazz.platform.windows.Crash       cc-options: base-windows-cc-options ld-options: "-mwindows" options: '(keep-c))
     (jazz.compile-module 'jazz.platform.windows.WinPerf     cc-options: (string-append "-I" windows-include-path " " base-windows-cc-options) ld-options: (string-append "-L" windows-lib-path " -mwindows -lpdh"))
     (jazz.compile-module 'jazz.platform.cairo.cairo-windows cc-options: (string-append "-I" cairo-include-path) ld-options: (string-append "-L" cairo-lib-path " -lcairo"))
     (jazz.compile-module 'jazz.system.platform.windows)))

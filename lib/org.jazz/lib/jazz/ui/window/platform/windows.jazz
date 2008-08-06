@@ -291,7 +291,7 @@
       (let ((msg (read port)))
         (process-message msg)
         (MSG-free msg))
-      (when (thread-loop? thread)
+      (when (or (get-events-single-threaded?) (thread-loop? thread))
         (loop)))))
 
 
@@ -310,35 +310,49 @@
   (make-condition 'callback-thread-condition))
 
 
-(set-process-hwnd-message
-  (function (hwnd <foreign> msg <int> wparam <int> lparam <int>)
-    (define (process)
-      (let ((window (get-window hwnd)))
-        (when (and (not window) (get-in-creation))
-          (set! window (get-in-creation))
-          (set-handle~ window hwnd)
-          (set-window hwnd window)
-          (set-in-creation {}))
-        (if (not window)
-            (DefWindowProc hwnd msg wparam lparam)
-          (dispatch-message window msg wparam lparam))))
-    
-    (let ((level (begin
-                   (mutex-lock! callback-thread-mutex)
-                   (increase! callback-level)
-                   (prog1 callback-level
-                     (mutex-unlock! callback-thread-mutex)))))
-      (unwind-protect
-          (call-event process)
-        (let (iterate)
-          (mutex-lock! callback-thread-mutex)
-          (if (= level callback-level)
-              (begin
-                (decrease! callback-level)
-                (mutex-unlock! callback-thread-mutex))
-            (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
-            (mutex-unlock! callback-thread-mutex callback-thread-condition)
-            (iterate)))))))
+(definition *events-single-threaded?*
+  #f)
+
+(definition (get-events-single-threaded?)
+  *events-single-threaded?*)
+
+(definition (set-events-single-threaded? flag)
+  (set! *events-single-threaded?* flag))
+
+
+(definition (message-callback hwnd <foreign> msg <int> wparam <int> lparam <int>)
+  (define (process)
+    (let ((window (get-window hwnd)))
+      (when (and (not window) (get-in-creation))
+        (set! window (get-in-creation))
+        (set-handle~ window hwnd)
+        (set-window hwnd window)
+        (set-in-creation {}))
+      (if (not window)
+          (DefWindowProc hwnd msg wparam lparam)
+        (dispatch-message window msg wparam lparam))))
+  
+  (if (get-events-single-threaded?)
+      (process)
+  (let ((level (begin
+                 (mutex-lock! callback-thread-mutex)
+                 (increase! callback-level)
+                 (prog1 callback-level
+                   (mutex-unlock! callback-thread-mutex)))))
+    (unwind-protect
+        (call-event process)
+      (let (iterate)
+        (mutex-lock! callback-thread-mutex)
+        (if (= level callback-level)
+            (begin
+              (decrease! callback-level)
+              (mutex-unlock! callback-thread-mutex))
+          (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
+          (mutex-unlock! callback-thread-mutex callback-thread-condition)
+          (iterate)))))))
+
+
+(set-process-hwnd-message message-callback)
 
 
 ;;;

@@ -70,6 +70,7 @@
     jazz.language.commonlisp
     jazz.language.csharp
     jazz.language.css
+    jazz.language.diff
     jazz.language.html
     jazz.language.java
     jazz.language.javascript

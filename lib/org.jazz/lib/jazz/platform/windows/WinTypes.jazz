@@ -74,8 +74,8 @@
 (c-type VOID         (native void))
 (c-type PVOID        (pointer VOID))
 (c-type LPVOID       (pointer VOID))
-(c-type PCVOID       (pointer VOID) as-const-pointer)
-(c-type LPCVOID      (pointer VOID) as-const-pointer)
+(c-type PCVOID       PVOID as-const-pointer)
+(c-type LPCVOID      PVOID as-const-pointer)
 
 ;;;
 ;;;; WinNT - include
@@ -205,7 +205,7 @@
 (c-type LPARAM        LONG_PTR)
 (c-type LRESULT       LONG_PTR)
 (c-type HRESULT       LONG)
-(c-type ATOM          WORD)
+(c-type ATOM          WORD) ; should accept wstr
 (c-type HGLOBAL       HANDLE)
 (c-type HLOCAL        HANDLE)
 (c-type GLOBALHANDLE  HANDLE)
@@ -287,65 +287,6 @@
 (c-type LONG*         (pointer LONG))
 (c-type WCHAR*        (pointer WCHAR))
 (c-type DWORD*        (pointer DWORD))
-
-
-
-(named-c-declare ATOM/STRING-declare
-
-#<<c-declare-end
-           
-typedef wchar_t*  ATOM_STRING;
-
-___SCMOBJ SCMOBJ_to_ATOM_STRING (___SCMOBJ src, ATOM_STRING *dst, int arg_num)
-{
-  ___SCMOBJ ___temp; // for STRINGP
-  ___SCMOBJ ___err = ___FIX(___NO_ERR);
-  if (___STRINGP(src))
-  {
-    ___err = ___EXT(___SCMOBJ_to_WCHARSTRING)(src,dst,arg_num);
-  }
-  else if (___FIXNUMP(src))
-  {
-    unsigned short us = 0;
-    ___err = ___EXT(___SCMOBJ_to_USHORT)(src,&us,arg_num);
-    *dst = (ATOM_STRING) (unsigned long) us;
-  }
-  else
-    ___err = ___FIX(___UNKNOWN_ERR);
-  
-  return ___err;
-}
-
-void ___release_ATOM_STRING (___SCMOBJ src, ATOM_STRING dst, int arg_num)
-{
-  ___SCMOBJ ___temp; // for STRINGP
-  if (___STRINGP(src))
-  {
-    ___EXT(___release_string)(dst);
-  }
-}
-
-#define ___BEGIN_CFUN_SCMOBJ_to_ATOM_STRING(src,dst,i) \
-if ((___err = SCMOBJ_to_ATOM_STRING (src, &dst, i)) == ___FIX(___NO_ERR)) {
-#define ___END_CFUN_SCMOBJ_to_ATOM_STRING(src,dst,i) ___release_ATOM_STRING(src,dst,i);}
-
-#define ___BEGIN_CFUN_ATOM_STRING_to_SCMOBJ(src,dst) \
-if ((___err = ___FIX(___UNKNOWN_ERR)) == ___FIX(___NO_ERR)) {
-#define ___END_CFUN_ATOM_STRING_to_SCMOBJ(src,dst) }
-
-#define ___BEGIN_SFUN_ATOM_STRING_to_SCMOBJ(src,dst,i) \
-if ((___err = ___FIX(___UNKNOWN_ERR)) == ___FIX(___NO_ERR)) {
-#define ___END_SFUN_ATOM_STRING_to_SCMOBJ(src,dst,i) }
-
-#define ___BEGIN_SFUN_SCMOBJ_to_ATOM_STRING(src,dst) \
-{ ___err = ___FIX(___UNKNOWN_ERR);
-#define ___END_SFUN_SCMOBJ_to_ATOM_STRING(src,dst) }
-
-c-declare-end
-)
-
-(c-type ATOM/STRING  (type "ATOM_STRING") as-const-pointer ATOM/STRING-declare "ATOM_STRING_to_SCMOBJ" "SCMOBJ_to_ATOM_STRING")
-
 
 (definition WCHAR-array-make (c-function (INT) WCHAR* "___result_voidstar = calloc(___arg1,sizeof(WCHAR));"))
 (definition WCHAR-array-ref  (c-function (WCHAR* INT) WCHAR "___result = ___arg1[___arg2];"))

@@ -43,14 +43,188 @@
         (jazz.utilities))
 
 
-(c-type LPEXCEPTION_POINTERS (type "LPEXCEPTION_POINTERS"))
+;;;
+;;;; Crash
+;;;
 
 
-(c-definition (ExceptionFilter pointers) (LPEXCEPTION_POINTERS) LONG "exceptionfilter" ""
-  (snapshot-process)
-  0)
+(c-declare "const DWORD PROCESS_FAILURE = (DWORD) 0xE0000001L;")
+
+
+(definition crash-process
+  (c-function () VOID
+    "RaiseException(PROCESS_FAILURE, EXCEPTION_NONCONTINUABLE , 0, NULL);"))
+
+
+;;;
+;;;; Filter
+;;;
+
+
+(c-definition (SnapshotProcess) () VOID "snapshot_process" ""
+  (snapshot-process))
+
+
+(c-declare #<<END-OF-CRASH
+#define ANSISIZE 512
+#define UNICODESIZE 512
+
+static TCHAR Crashfile[_MAX_FNAME];
+static TCHAR Module[_MAX_PATH];
+static TCHAR Drive[_MAX_DRIVE];
+static TCHAR Filename[_MAX_FNAME];
+static TCHAR Directory[_MAX_DIR];
+
+static SYSTEMTIME SystemTime;
+
+static CHAR AnsiLog[ANSISIZE];
+static TCHAR UnicodeLog[UNICODESIZE];
+
+static void internal_error(int exitCode)
+{
+    ExitProcess(exitCode);
+}
+
+static LPWSTR exception_description(int code)
+{
+    switch (code)
+    {
+        case EXCEPTION_ACCESS_VIOLATION:
+            return L"Access violation";
+
+        case EXCEPTION_DATATYPE_MISALIGNMENT:
+            return L"Datatype misalignment";
+
+        case EXCEPTION_FLT_DIVIDE_BY_ZERO:
+            return L"Division by zero";
+
+        case EXCEPTION_ILLEGAL_INSTRUCTION:
+            return L"Illegal instruction";
+
+        case EXCEPTION_STACK_OVERFLOW:
+            return L"Stack overflow";
+
+        default:
+            return NULL;
+    }
+}
+
+static void log_printf(HANDLE handle, LPWSTR fmt, ...)
+{
+    va_list    args;
+    
+    va_start(args, fmt);
+    wvsprintf(UnicodeLog, fmt, args);
+    va_end(args);
+    
+    int size = wcslen(UnicodeLog);
+
+    WideCharToMultiByte(CP_ACP, 0, UnicodeLog, -1, AnsiLog, size + 1, NULL, NULL);
+
+    DWORD len, written;
+
+    len = strlen(AnsiLog);
+
+    WriteFile(handle, AnsiLog, len, &written, NULL);
+
+    if (written != len)
+        internal_error(-4);
+}
+
+static void log_error(HANDLE handle, LPEXCEPTION_RECORD record)
+{
+    LPWSTR desc = exception_description(record->ExceptionCode);
+    
+    log_printf(handle, L"error: ");
+    if (desc)
+        log_printf(handle, L"%s", desc);
+    else
+        log_printf(handle, L"0x%.2x", record->ExceptionCode);
+}
+
+static BOOL filename_exists(LPWSTR filename)
+{
+    return GetFileAttributes(filename) != INVALID_FILE_ATTRIBUTES;
+}
+
+static void timestamped_filename(LPWSTR buffer, LPWSTR dir, LPWSTR ext)
+{
+    INT    n = 0;
+    TCHAR  suffix[8];
+    BOOL   done;
+    
+    done = FALSE;
+    while (! done)
+    {
+        SYSTEMTIME    st;
+    
+        GetLocalTime(&st);
+        
+        if (n == 0)
+            wsprintf(suffix, L"");
+        else
+            wsprintf(suffix, L"_%d", n);
+        
+        wsprintf(buffer, L"%s\\%04d-%02d-%02d_%02d-%02d-%02d%s.%s", dir, st.wYear, st.wMonth, st.wDay, st.wHour, st.wMinute, st.wSecond, suffix, ext);
+    
+        if (! filename_exists(buffer))
+            done = TRUE;
+        else
+            n++;
+    }
+}
+
+static void fill_crashfile()
+{
+    TCHAR    dir[_MAX_PATH];
+    
+    GetModuleFileName(NULL, Module, _MAX_PATH);
+
+    _wsplitpath(Module, Drive, Directory, NULL, NULL);
+    Directory[wcslen(Directory) - 1] = 0;
+
+    wsprintf(dir, L"%s%s", Drive, Directory);
+    
+    timestamped_filename(Crashfile, dir, L"crash");
+}
+
+static void snapshot_exception(LPEXCEPTION_RECORD record, PCONTEXT context)
+{
+    fill_crashfile();
+
+    HANDLE handle = CreateFile(Crashfile, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (handle == INVALID_HANDLE_VALUE)
+        internal_error(-2);
+
+    GetModuleFileName(NULL, Module, _MAX_PATH);
+    _wsplitpath(Module, NULL, NULL, Filename, NULL);
+
+    log_printf(handle, L"process: %s\r\n", Filename);
+    GetLocalTime(&SystemTime);
+    log_printf(handle, L"date: %d/%d/%d %d:%d:%.2d\r\n", SystemTime.wYear, SystemTime.wMonth, SystemTime.wDay, SystemTime.wHour, SystemTime.wMinute, SystemTime.wSecond);
+    log_printf(handle, L"\r\n");
+
+    log_error(handle, record);
+    log_printf(handle, L"\r\n");
+
+    CloseHandle(handle);
+}
+
+static LONG WINAPI unhandled_exception_filter(LPEXCEPTION_POINTERS info)
+{
+    LPEXCEPTION_RECORD record = info->ExceptionRecord;
+    PCONTEXT context = info->ContextRecord;
+
+    snapshot_exception(record, context);
+    snapshot_process();
+ 
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+END-OF-CRASH
+)
 
 
 (definition setup-crash
   (c-function () VOID
-    "SetUnhandledExceptionFilter( exceptionfilter );")))
+    "SetUnhandledExceptionFilter( unhandled_exception_filter );")))

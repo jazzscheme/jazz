@@ -76,13 +76,22 @@
   
   
   (method (validate domain)
-    (if (get-strict?~ domain)
-        (let ((choices (get-choices~ domain)))
-          (if (and (valid-value?~ (locate 'combo))
-                   (member? (get-value) choices key: car))
-              {}
-            (new Property-Violation message: "Not part of this domain")))
-      {}))
+    (let ((choices (get-choices~ domain)))
+      (if (and (get-strict?~ domain)
+               (not (and (valid-value?~ (locate 'combo))
+                         (member? (get-value) choices key: car))))
+          (new Property-Violation message: "Not part of this domain")
+        (let ((value (get-value)))
+          (cond
+            ((nil? value)
+             (if (get-nullable?~ domain)
+                 {}
+               (new Property-Violation message: "This field is mandatory")))
+            ((and (string? value)
+                  (> (string-length value) (get-limit~ domain)))
+             (new Property-Violation message: "Longer than limit"))
+            (else
+             {}))))))
   
   
   (method (set-violation violation)

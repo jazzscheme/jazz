@@ -41,19 +41,39 @@
 (import (jazz.designer)
         (jazz.jml)
         (jazz.library)
-        (jazz.utilities))
+        (jazz.utilities)
+        (jazz.ui))
 
 
 (class Boolean-Entry extends Property-Entry
   
   
   (form
-    (<install>                    auto-size?: #t
-      (<Check-Box> name: checkbox focusable?: #t)))
+    (<install>                          auto-size?: #t
+      (<Entry-Check-Box> name: checkbox focusable?: #t)))
   
   
   (method (preferred-size)
     {Dimension 16 16})
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (set-editor~ (locate 'checkbox) self))
+  
+  
+  ;;;
+  ;;;; Tab
+  ;;;
+  
+  
+  (method (tab-view)
+    (locate 'checkbox))
+  
+  
+  ;;;
+  ;;;; Validate
+  ;;;
   
   
   (method (validate domain)
@@ -78,4 +98,34 @@
   
   
   (method (set-modified? value)
-    (set-modified?~ (locate 'checkbox) value))))
+    (set-modified?~ (locate 'checkbox) value)))
+
+
+;;;
+;;;; Check-Box
+;;;
+
+
+(class Entry-Check-Box extends Check-Box
+  
+  
+  (property editor initialize {} accessors generate)
+  
+  
+  (method (focus-gain)
+    (nextmethod)
+    (when editor
+      (let ((manager (get-manager~ editor)))
+        (when manager
+          (editor-focus-gain~ manager editor)))))
+  
+  
+  (method (focus-lose window view)
+    (nextmethod window view)
+    (when editor
+      (let ((manager (get-manager~ editor)))
+        (when manager
+          (editor-focus-lose~ manager editor window view))))))
+
+
+(register-autoclass Entry-Check-Box))

@@ -93,6 +93,7 @@
     jazz.media
     jazz.network
     jazz.platform
+    jazz.platform.crash
     jazz.profile
     jazz.recorder
     jazz.resources

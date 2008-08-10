@@ -306,10 +306,10 @@
   
   (let ((msg (MSG-make)))
     (let (loop)
-      (GetMessage msg NULL 0 0)
-      (process-message msg)
-      (thunk)
-      (loop))
+      (when (GetMessage msg NULL 0 0)
+        (process-message msg)
+        (thunk)
+        (loop)))
     (MSG-free msg)))
 
 
@@ -588,12 +588,6 @@
 ;;;
 ;;;; Toplevel
 ;;;
-
-
-(definition (get-toplevel)
-  (let ((appl (get-application)))
-    (when appl
-      (get-toplevel~ appl))))
 
 
 (definition (get-toplevel-hwnd)
@@ -982,6 +976,31 @@
 (definition public (show-cursor)
   (while (< (ShowCursor #t) 0)
     ))
+
+
+;;;
+;;;; System Message
+;;;
+
+
+(definition public (system-message text . rest)
+  (bind-keywords ((type 'message) (title #f)) rest
+    (let ((handle (get-toplevel-hwnd))
+          (title
+            (or title (case type
+                        ((error) "Error")
+                        ((problem) "Problem")
+                        ((message) "Message")
+                        ((question) "Question")
+                        ((confirmation) "Confirmation"))))
+          (flags
+            (case type
+              ((error) (bitwise-ior MB_OKCANCEL MB_ICONERROR))
+              ((problem) (bitwise-ior MB_OK MB_ICONERROR))
+              ((message) (bitwise-ior MB_OK MB_ICONINFORMATION))
+              ((question) (bitwise-ior MB_YESNO MB_ICONWARNING))
+              ((confirmation) (bitwise-ior MB_YESNOCANCEL MB_ICONWARNING)))))
+      (MessageBox handle text title (bitwise-ior MB_TASKMODAL flags)))))
 
 
 ;;;

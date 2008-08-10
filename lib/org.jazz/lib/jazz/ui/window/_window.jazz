@@ -50,6 +50,7 @@
         (jazz.ui.window.platform.x11     (cond x11))
         (jazz.debuggee)
         (jazz.library)
+        (jazz.platform)
         (jazz.utilities))
 
 
@@ -125,33 +126,45 @@
 
 
 (definition (setup-events)
-  (thread-priority-boost-set! event-thread 1))
+  (if (get-events-single-threaded?)
+      (SetTimer (get-toplevel-hwnd) 0 10 NULL)
+    (thread-priority-boost-set! event-thread 1)))
 
 
 (definition (process-events)
   (if (get-events-single-threaded?)
       (process-events-single-threaded)
-  (setup-events)
-  (let ((pump (new-thread (function ()
-                            (process-messages))
-                          "Message Pump")))
-    (thread-start-loop pump)
-    (thread-start! pump)
-    (unwind-protect
-        (let (loop)
-          (with-restart-catcher 'resume-loop "Resume event loop" {}
-            (function ()
-              (catch Cancel-Signal
-                (let ((thunk (thread-receive)))
-                  (with-exception-debugger (get-exception-debugger)
-                    thunk)))))
-          (loop))
-      (thread-stop-loop pump)))))
+    (let ((pump (new-thread (function ()
+                              (process-messages))
+                            "Message Pump")))
+      (thread-start-loop pump)
+      (thread-start! pump)
+      (unwind-protect
+          (let (loop)
+            (with-restart-catcher 'resume-loop "Resume event loop" {}
+              (function ()
+                (catch Cancel-Signal
+                  (let ((thunk (thread-receive)))
+                    (with-exception-debugger (get-exception-debugger)
+                      thunk)))))
+            (loop))
+        (thread-stop-loop pump)))))
 
 
 (definition (process-events-single-threaded)
-  (catch Cancel-Signal
-    (process-messages)))
+  (let (loop)
+    (with-restart-catcher 'resume-loop "Resume event loop" {}
+      (function ()
+        (catch Cancel-Signal
+          (process-messages-single-threaded
+            (function ()
+              (let (loop)
+                (let ((thunk (thread-receive 0 #f)))
+                  (when thunk
+                    (with-exception-debugger (get-exception-debugger)
+                      thunk)
+                    (loop)))))))))
+    (loop)))
 
 
 ;;;

@@ -278,9 +278,12 @@
           (TranslateMessage msg)
           (DispatchMessage msg)))))
   
+  ;; put back here to see if moving it before the read was the cause of many
+  ;; intermittent bugs
+  
   ;; because MsgWaitForMultipleObjects will *not* remove messages already present
-  ;; in the message queue, we need to process those before calling open-event-queue
-  (with ((msg (MSG-make)))
+  ;; in the message queue, we need to process those before the blocking call to read
+  (let ((msg (MSG-make)))
     (while (PeekMessage msg NULL 0 0 PM_REMOVE)
       (process-message msg))
     (MSG-free msg))
@@ -291,8 +294,23 @@
       (let ((msg (read port)))
         (process-message msg)
         (MSG-free msg))
-      (when (or (get-events-single-threaded?) (thread-loop? thread))
+      (when (thread-loop? thread)
         (loop)))))
+
+
+(definition (process-messages-single-threaded thunk)
+  (define (process-message msg)
+    (unless (translate-shortcut msg)
+      (TranslateMessage msg)
+      (DispatchMessage msg)))
+  
+  (let ((msg (MSG-make)))
+    (let (loop)
+      (GetMessage msg NULL 0 0)
+      (process-message msg)
+      (thunk)
+      (loop))
+    (MSG-free msg)))
 
 
 ;;;
@@ -333,24 +351,24 @@
         (dispatch-message window msg wparam lparam))))
   
   (if (get-events-single-threaded?)
-      (process)
-  (let ((level (begin
-                 (mutex-lock! callback-thread-mutex)
-                 (increase! callback-level)
-                 (prog1 callback-level
-                   (mutex-unlock! callback-thread-mutex)))))
-    (unwind-protect
-        (call-event process)
-      (let (iterate)
-        (mutex-lock! callback-thread-mutex)
-        (if (= level callback-level)
-            (begin
-              (decrease! callback-level)
-              (mutex-unlock! callback-thread-mutex))
-          @debug
-          (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
-          (mutex-unlock! callback-thread-mutex callback-thread-condition)
-          (iterate)))))))
+      (call-event process)
+    (let ((level (begin
+                   (mutex-lock! callback-thread-mutex)
+                   (increase! callback-level)
+                   (prog1 callback-level
+                     (mutex-unlock! callback-thread-mutex)))))
+      (unwind-protect
+          (call-event process)
+        (let (iterate)
+          (mutex-lock! callback-thread-mutex)
+          (if (= level callback-level)
+              (begin
+                (decrease! callback-level)
+                (mutex-unlock! callback-thread-mutex))
+            @debug
+            (terminal 'interleaved-problem-detected (current-thread) level callback-level hwnd msg wparam lparam)
+            (mutex-unlock! callback-thread-mutex callback-thread-condition)
+            (iterate)))))))
 
 
 (set-process-hwnd-message message-callback)
@@ -501,6 +519,7 @@
     ((WM_KILLFOCUS)       (call-focus-lose~ window wparam))
     ((WM_DROPFILES)       (drop-files~ window wparam))
     ((WM_SETTINGCHANGE)   (settings-change window wparam))
+    ((WM_TIMER)           (timer-pulse))
     (else                 unprocessed)))
 
 
@@ -535,6 +554,10 @@
      @not-correct-to-call-set-fullscreen?
      (when (is? window Toplevel)
        (set-fullscreen?~ window #t)))))
+
+
+(definition (timer-pulse)
+  (thread-yield!))
 
 
 ;;;

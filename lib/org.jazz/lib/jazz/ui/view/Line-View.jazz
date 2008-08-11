@@ -50,6 +50,7 @@
   (property from  initialize {} getter get-from  setter set-from)
   (property to    initialize {} getter get-to    setter set-to)
   (property color initialize {} getter get-color setter set-color)
+  (property style initialize 'solid getter generate setter set-style)
 
   
   ;;;
@@ -84,6 +85,11 @@
     (invalidate-view))
   
 
+  (method public (set-style value)
+    (set! style value)
+    (invalidate-view))
+  
+  
   ;;;
   ;;;; Mouse
   ;;;
@@ -115,7 +121,9 @@
       (let ((color (line-color)))
         (with-closed ((pen (line-pen color)))
           (set-pen~ surface pen)
-          (line~ surface (get-h~ from) (get-v~ from) (get-h~ to) (get-v~ to))))))
+          (line~ surface (get-h~ from) (get-v~ from) (get-h~ to) (get-v~ to))
+          (when (eq? style 'alternate)
+            (set-pen~ surface (new Pen width: (line-width) color: color)))))))
   
   
   (method protected virtual (line-width)
@@ -127,7 +135,10 @@
   
   
   (method protected virtual (line-pen color)
-    (new Pen width: (line-width) color: color))
+    (case style
+      ((solid) (new Pen width: (line-width) color: color))
+      ((alternate) (new Pen width: (line-width) color: color style: 'alternate))
+      (else (error "Unrecognized style"))))
 
 
   ;;;

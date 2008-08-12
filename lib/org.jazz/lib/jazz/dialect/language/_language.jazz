@@ -809,6 +809,47 @@
 
 
 ;;;
+;;;; Diacritic
+;;;
+
+
+;; putting the uppercase chars here is a quick fix until
+;; we add diacritic awareness to upcase and downcase
+(definition Diacritic-Equivalences
+  '((#\a #\à #\â #\A #\À #\Â)
+    (#\c #\ç #\C #\Ç)
+    (#\e #\é #\è #\ê #\ë #\E #\É #\È #\Ê #\Ë)
+    (#\i #\î #\ï #\I #\Î #\Ï)
+    (#\o #\ô #\O #\Ô)
+    (#\u #\ù #\û #\U #\Ù #\Û)))
+
+
+(definition (make-diacritic-table equivalences)
+  (let ((table (make-table test: eqv?)))
+    (for-each (function (equivalences)
+                (for-each (function (char)
+                            (table-set! table char equivalences))
+                          equivalences))
+              equivalences)
+    table))
+
+(definition Diacritic-Table
+  (make-diacritic-table Diacritic-Equivalences))
+
+
+(definition (di=? x y)
+  (or (ci=? x y)
+      (memv? y (table-ref Diacritic-Table x '()))))
+
+
+(definition (string-di=? x y)
+  (and (= (string-length x) (string-length y))
+       (loop (for a in-sequence x)
+             (for b in-sequence y)
+             (every (di=? a b)))))
+
+
+;;;
 ;;;; Exception
 ;;;
 
@@ -2443,13 +2484,13 @@
           pos)))))
 
 
-(definition public (prefix sequences <Object>)
+(definition public (prefix sequences <Object> (test: test equal?))
   (if (null? sequences)
       '()
     (let ((ref (car sequences))
           (min <Object> {}))
       (for-each (function (object)
-                  (let ((n (mismatch object ref)))
+                  (let ((n (mismatch object ref test: test)))
                     (when (and n (or (not min) (< n min)))
                       (set! min n))))
                 (cdr sequences))
@@ -4533,13 +4574,13 @@
       (subseq string 0 (+ pos 1)))))
 
 
-(definition (compare-n x y max)
+(definition (compare-n x y max (test: test eqv?))
   (let ((xlen (string-length x))
         (ylen (string-length y)))
     (let (iter (n 0))
       (if (>= n max)
           #t
-        (if (or (>= n xlen) (>= n ylen) (not (eqv? (string-ref x n) (string-ref y n))))
+        (if (or (>= n xlen) (>= n ylen) (not (test (string-ref x n) (string-ref y n))))
             #f
           (iter (+ n 1)))))))
 

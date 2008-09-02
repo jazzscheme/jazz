@@ -361,7 +361,7 @@
   
   (method public (run-product product (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
     ;; should probably try and launch a built executable of the product if present
-    (launch-product product
+    (launch~ product
       configuration: configuration
       debug?: #f
       profile: profile
@@ -377,7 +377,7 @@
 
 
   (method public (debug-product product (configuration: configuration {}) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    (launch-product product
+    (launch~ product
       configuration: configuration
       debug?: #t
       profile: profile
@@ -385,122 +385,6 @@
       command-arguments: command-arguments
       show-console?: show-console?
       wait?: wait))
-
-  
-  ;;;
-  ;;;; Launch
-  ;;;
-  
-  
-  (method public (launch-product product (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    (when debug?
-      (start-remoting-server)
-      (start-jazz-debugger))
-    ;; TODO: finish the experimental interpreted? to be able
-    ;; to launch a product using a fully interpreted kernel
-    (let* ((interpreted?       #f)
-           (runtime-arg        (if interpreted? (list "-:dar,m250000,t8,f8,-8,h1000000") (list "-:m250000,h1000000")))
-           (product-arg        (list "-run" (->string product)))
-           (debug-arg          (if debug? (list "-debug" "#t") '()))
-           (controllerhost-arg (if debug? (list "-controllerhost" (host->string (listening-host~ (get-remoting-server)))) '()))
-           (controllerport-arg (if debug? (list "-controllerport" (port->string (listening-port~ (get-remoting-server)))) '()))
-           (profile-arg        (if profile (list "-profile" (->string profile)) '()))
-           (action-arg         (if command-action (list command-action) '()))
-           (arguments-arg      (if command-arguments command-arguments '()))
-           (arguments          (append runtime-arg action-arg product-arg debug-arg controllerhost-arg controllerport-arg profile-arg arguments-arg))
-           (executable         (if interpreted? {File Jazz "bin" "GambitWindowsDebug" "gsc"} (find-runtime configuration))))
-      (save-all)
-      @debug
-      (debug executable arguments)
-      (open-process
-        (list
-          path: (if interpreted? (get-name~ executable) (parse~ executable))
-          directory: (parse~ (get-parent~ executable))
-          arguments: arguments
-          ;; this is not yet quite what we want as an access to the terminal
-          ;; will not dynamically show the console when using show-console: #f
-          stdin-redirection: #f
-          stdout-redirection: #f
-          stderr-redirection: #f
-          show-console: show-console?))))
-
-  
-  ;;;
-  ;;;; Runtime
-  ;;;
-  
-  
-  (method (find-runtime configuration)
-    (new-file~ (find-install-directory configuration) (list "jazz")))
-  
-  
-  (method public (launch-runtime (configuration: configuration {}) (arguments: arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    (let* ((runtime-arg   (list "-:m250000,h1000000"))
-           (arguments-arg (if arguments arguments '()))
-           (arguments     (append runtime-arg arguments-arg))
-           (executable    (find-runtime configuration)))
-      @debug
-      (debug executable arguments)
-      (open-process
-        (list
-          path: (parse~ executable)
-          arguments: arguments
-          directory: (parse~ (get-parent~ executable))
-          stdin-redirection: #f
-          stdout-redirection: #f
-          stderr-redirection: #f
-          show-console: show-console?))))
-
-  
-  ;;;
-  ;;;; Install
-  ;;;
-  
-  
-  (definition (system-name system)
-    (case system
-      ((gambit) "Gambit")))
-  
-  
-  (definition (platform-name platform)
-    (case platform
-      ((mac) "Mac")
-      ((windows) "Windows")
-      ((unix) "Unix")))
-  
-  
-  (definition (windowing-name windowing)
-    (if (not windowing)
-        ""
-      (case windowing
-        ((carbon) "Carbon")
-        ((x11) "X11"))))
-  
-  
-  (definition (safety-name safety)
-    (case safety
-      ((core) "Core")
-      ((debug) "Debug")
-      ((release) "Release")))
-  
-  
-  (definition (source-option-name options)
-    (if (memq 'source options)
-        "Source"
-      ""))
-  
-  
-  (definition (find-install-directory configuration)
-    (let ((configuration (either configuration (require-active-configuration))))
-      (either (get-install~ configuration)
-              (new Directory
-                (list 'Jazz "bin"
-                  (string-append
-                    (system-name (get-system~ configuration))
-                    (platform-name (get-platform~ configuration))
-                    (windowing-name (get-windowing~ configuration))
-                    (safety-name (get-safety~ configuration))
-                    (source-option-name (get-options~ configuration))))))))
 
 
   ;;;

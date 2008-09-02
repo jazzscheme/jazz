@@ -1,0 +1,165 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Products
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debuggers.jazz.Jazz-Product jazz
+
+
+(import (jazz.builder)
+        (jazz.builder.workbench)
+        (jazz.io)
+        (jazz.jrm)
+        (jazz.utilities))
+
+
+(class Jazz-Product extends Product
+
+
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method (launch (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (let ((ide (get-process)))
+      (when debug?
+        (start-remoting-server)
+        (start-jazz-debugger~ ide))
+      ;; TODO: finish the experimental interpreted? to be able
+      ;; to launch a product using a fully interpreted kernel
+      (let* ((interpreted?       #f)
+             (runtime-arg        (if interpreted? (list "-:dar,m250000,t8,f8,-8,h1000000") (list "-:m250000,h1000000")))
+             (product-arg        (list "-run" (->string name)))
+             (debug-arg          (if debug? (list "-debug" "#t") '()))
+             (controllerhost-arg (if debug? (list "-controllerhost" (host->string (listening-host~ (get-remoting-server)))) '()))
+             (controllerport-arg (if debug? (list "-controllerport" (port->string (listening-port~ (get-remoting-server)))) '()))
+             (profile-arg        (if profile (list "-profile" (->string profile)) '()))
+             (action-arg         (if command-action (list command-action) '()))
+             (arguments-arg      (if command-arguments command-arguments '()))
+             (arguments          (append runtime-arg action-arg product-arg debug-arg controllerhost-arg controllerport-arg profile-arg arguments-arg))
+             (executable         (if interpreted? {File Jazz "bin" "GambitWindowsDebug" "gsc"} (find-runtime configuration))))
+        (save-all~ ide)
+        @debug
+        (debug executable arguments)
+        (open-process
+          (list
+            path: (if interpreted? (get-name~ executable) (parse~ executable))
+            directory: (parse~ (get-parent~ executable))
+            arguments: arguments
+            ;; this is not yet quite what we want as an access to the terminal
+            ;; will not dynamically show the console when using show-console: #f
+            stdin-redirection: #f
+            stdout-redirection: #f
+            stderr-redirection: #f
+            show-console: show-console?)))))
+
+  
+  ;;;
+  ;;;; Runtime
+  ;;;
+  
+  
+  (method (find-runtime configuration)
+    (new-file~ (find-install-directory configuration) (list "jazz")))
+  
+  
+  (method public (launch-runtime (configuration: configuration {}) (arguments: arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
+    (let* ((runtime-arg   (list "-:m250000,h1000000"))
+           (arguments-arg (if arguments arguments '()))
+           (arguments     (append runtime-arg arguments-arg))
+           (executable    (find-runtime configuration)))
+      @debug
+      (debug executable arguments)
+      (open-process
+        (list
+          path: (parse~ executable)
+          arguments: arguments
+          directory: (parse~ (get-parent~ executable))
+          stdin-redirection: #f
+          stdout-redirection: #f
+          stderr-redirection: #f
+          show-console: show-console?))))
+
+  
+  ;;;
+  ;;;; Install
+  ;;;
+  
+  
+  (definition (system-name system)
+    (case system
+      ((gambit) "Gambit")))
+  
+  
+  (definition (platform-name platform)
+    (case platform
+      ((mac) "Mac")
+      ((windows) "Windows")
+      ((unix) "Unix")))
+  
+  
+  (definition (windowing-name windowing)
+    (if (not windowing)
+        ""
+      (case windowing
+        ((carbon) "Carbon")
+        ((x11) "X11"))))
+  
+  
+  (definition (safety-name safety)
+    (case safety
+      ((core) "Core")
+      ((debug) "Debug")
+      ((release) "Release")))
+  
+  
+  (definition (source-option-name options)
+    (if (memq 'source options)
+        "Source"
+      ""))
+  
+  
+  (definition (find-install-directory configuration)
+    (let ((configuration (either configuration (require-active-configuration))))
+      (either (get-install~ configuration)
+              (new Directory
+                (list 'Jazz "bin"
+                  (string-append
+                    (system-name (get-system~ configuration))
+                    (platform-name (get-platform~ configuration))
+                    (windowing-name (get-windowing~ configuration))
+                    (safety-name (get-safety~ configuration))
+                    (source-option-name (get-options~ configuration))))))))))

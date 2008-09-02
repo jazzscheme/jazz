@@ -356,7 +356,10 @@
         (dispatch-message window msg wparam lparam))))
   
   (if (get-events-single-threaded?)
-      (call-event process)
+      (if (primordial-thread?)
+          (process)
+        (snapshot-process reason: "Message callback from non-primordial thread")
+        (exit 1))
     (let ((level (begin
                    (mutex-lock! callback-thread-mutex)
                    (increase! callback-level)

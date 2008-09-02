@@ -83,7 +83,7 @@
     (unless (member? process-proxy processes test: process=?)
       (set! processes (append! processes (list process-proxy)))
       (when (not (get-focused-process))
-        (focus-process (new Debugged-Process self process-proxy)))
+        (focus-process (new Debugged-Process self process-proxy process-proxy)))
       (update~ (get-processes-view))))
   
   
@@ -97,11 +97,11 @@
 
   (method (detach-process process-proxy)
     (when (member? process-proxy processes test: process=?)
-      (close-process-debugger-resources (new Debugged-Process self process-proxy))
+      (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
       (set! processes (remove! process-proxy processes test: process=?))
       (let ((focused-process (get-focused-process)))
         (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
-          (focus-process (and (not-null? processes) (new Debugged-Process self (car processes))))))
+          (focus-process (and (not-null? processes) (new Debugged-Process self (car processes) (car processes))))))
       (update~ (get-processes-view))))
   
   
@@ -124,7 +124,7 @@
       (for-each (function (process)
                   (if (valid-process? process)
                       (enqueue valid process)
-                    (close-process-debugger-resources (new Debugged-Process self process))))
+                    (close-process-debugger-resources (new Debugged-Process self process process))))
                 processes)
       (set! processes (queue-list valid))))
   
@@ -190,25 +190,25 @@
   ;;;
   
   
-  (method (thread=? x y)
+  (method (thread=? x-process x y-process y)
     (and (proxy-server=? x y)
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method (thread-name thread-proxy)
+  (method (thread-name process-proxy thread-proxy)
     (get-name~ thread-proxy))
   
   
-  (method (thread-state thread-proxy)
+  (method (thread-state process-proxy thread-proxy)
     (get-state~ thread-proxy))
   
   
-  (method (thread-stops thread-proxy)
+  (method (thread-stops process-proxy thread-proxy)
     (get-stops~ thread-proxy))
   
   
-  (method (thread-active-stop thread-proxy)
-    (let ((stops (thread-stops thread-proxy)))
+  (method (thread-active-stop process-proxy thread-proxy)
+    (let ((stops (thread-stops process-proxy thread-proxy)))
       (if (null? stops)
           {}
         (last stops))))
@@ -218,7 +218,7 @@
     (break-thread~ process-proxy thread-proxy))
   
   
-  (method (set-repl-frame thread-proxy frame-proxy)
+  (method (set-repl-frame process-proxy thread-proxy frame-proxy)
     (set-repl-frame~ thread-proxy frame-proxy))
     
   
@@ -227,16 +227,16 @@
   ;;;
   
   
-  (method (restart=? x y)
+  (method (restart=? x-process x y-process y)
     (and (proxy-server=? x y)
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method (restart-name restart-proxy)
+  (method (restart-name process-proxy restart-proxy)
     (get-name~ restart-proxy))
   
   
-  (method (restart-message restart-proxy)
+  (method (restart-message process-proxy restart-proxy)
     (get-message~ restart-proxy))
 
   
@@ -249,28 +249,28 @@
   ;;;
   
   
-  (method (stop=? x y)
+  (method (stop=? x-process x y-process y)
     (and (proxy-server=? x y)
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method (stop-kind stop-proxy)
+  (method (stop-kind process-proxy stop-proxy)
     (get-kind~ stop-proxy))
   
   
-  (method (stop-reason stop-proxy)
+  (method (stop-reason process-proxy stop-proxy)
     (get-reason~ stop-proxy))
   
   
-  (method (stop-details stop-proxy)
+  (method (stop-details process-proxy stop-proxy)
     (get-details~ stop-proxy))
   
   
-  (method (stop-restarts stop-proxy)
+  (method (stop-restarts process-proxy stop-proxy)
     (get-restarts~ stop-proxy))
   
   
-  (method (stop-frames stop-proxy)
+  (method (stop-frames process-proxy stop-proxy)
     (get-frames~ stop-proxy))
   
   
@@ -283,28 +283,28 @@
   ;;;
   
   
-  (method (frame=? x y)
+  (method (frame=? x-process x y-process y)
     (and (proxy-server=? x y)
          (= (get-id~ x) (get-id~ y))))
   
   
-  (method (frame-name frame-proxy)
+  (method (frame-name process-proxy frame-proxy)
     (get-name~ frame-proxy))
   
   
-  (method (frame-location frame-proxy)
+  (method (frame-location process-proxy frame-proxy)
     (get-location~ frame-proxy))
   
   
-  (method (frame-variables frame-proxy)
+  (method (frame-variables process-proxy frame-proxy)
     (get-variables~ frame-proxy))
   
   
-  (method (frame-variable-name frame-proxy variable)
+  (method (frame-variable-name process-proxy frame-proxy variable)
     (car variable))
   
   
-  (method (frame-variable-value frame-proxy variable)
+  (method (frame-variable-value process-proxy frame-proxy variable)
     (cdr variable))
   
   
@@ -314,15 +314,17 @@
   
   
   (method public (register-console process-proxy thread-proxy)
-    (let ((process (new Debugged-Process self process-proxy))
-          (text (register-debugger-console process-proxy thread-proxy)))
-      (let ((console (new Debugger-Resource
-                        process
-                        text
-                        (function ()
-                          (unregister-debugger-console text)))))
-        (register-debugger-resource process console)
-        (object->serial console))))
+    (call-event
+      (function ()
+        (let ((process (new Debugged-Process self process-proxy process-proxy))
+              (text (register-debugger-console process-proxy thread-proxy)))
+          (let ((console (new Debugger-Resource
+                           process
+                           text
+                           (function ()
+                             (unregister-debugger-console text)))))
+            (register-debugger-resource process console)
+            (object->serial console))))))
   
   
   (method public (unregister-console resource)
@@ -372,9 +374,9 @@
                   (problem? #t))
               (notify~ button visit? problem?))
             (let ((processes-view (get-processes-view))
-                  (process (new Debugged-Process self process-proxy))
+                  (process (new Debugged-Process self process-proxy process-proxy))
                   (threads-view (get-threads-view))
-                  (thread (new Debugged-Thread self thread-proxy))
+                  (thread (new Debugged-Thread self process-proxy thread-proxy))
                   (frames-view (get-frames-view)))
               (set-debugged-visit? process #t)
               (set-debugged-problem? process #t)

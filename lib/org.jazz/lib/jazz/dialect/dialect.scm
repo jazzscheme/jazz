@@ -62,7 +62,7 @@
   (let ((value (%%get-definition-declaration-value declaration)))
     (if (%%class-is? value jazz.Lambda)
         (if (and (%%eq? (%%get-definition-declaration-expansion declaration) 'inline)
-                 (or jazz.inline-definitions? (jazz.untyped-inline-definition? value)))
+                 (or (jazz.inline-definitions?) (jazz.untyped-inline-definition? value)))
             (let ((signature (%%get-lambda-signature value))
                   (body (%%get-lambda-body value)))
               (if (jazz.only-positional? signature)
@@ -1243,7 +1243,7 @@
       (let ((method-declaration (lookup-method object-code)))
         (if (%%not method-declaration)
             (begin
-              (if (and jazz.warnings? (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
+              (if (and (jazz.warnings?) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration)))
                   (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'find 'dispatch 'method name))
               #f)
         method-declaration)))

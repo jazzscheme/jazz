@@ -38,15 +38,6 @@
 (module core.base.syntax.runtime
 
 
-(define jazz.generate-symbol
-  (let ((unique 0))
-    (lambda rest
-      (let ((prefix (if (%%null? rest) "sym" (%%car rest))))
-        (let ((name (%%string-append "__" prefix (%%number->string unique))))
-          (set! unique (%%fx+ unique 1))
-          (%%string->symbol name))))))
-
-
 (define (jazz.with-expression-value expr proc)
   (if (symbol? expr)
       (proc expr)

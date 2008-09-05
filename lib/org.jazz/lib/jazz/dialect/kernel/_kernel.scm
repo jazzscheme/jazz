@@ -292,7 +292,6 @@
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
 (native jazz.jazz-debugger?)
-(native jazz.jazz-set-debugger?)
 (native jazz.get-repositories)
 (native jazz.find-repository)
 (native jazz.repository-add-package)

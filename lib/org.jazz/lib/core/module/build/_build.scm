@@ -79,7 +79,7 @@
               (let ((manifest-resource (%%make-resource build-package path jazz.Manifest-Extension))
                     (manifest-digest (jazz.resource-digest src)))
                 (jazz.save-manifest manifest-resource (%%make-manifest manifest-name manifest-digest)))))
-          (if jazz.compile-verbose?
+          (if (jazz.compile-verbose?)
               (let ((before (time->seconds (current-time))))
                 (compile)
                 (let ((after (time->seconds (current-time))))

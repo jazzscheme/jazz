@@ -2405,13 +2405,13 @@
 
 
 (define (jazz.walker-warning walker warning)
-  (if jazz.warnings?
+  (if (jazz.warnings?)
       (%%set-walker-warnings walker (%%append (%%get-walker-warnings walker) (%%list warning)))))
 
 
 (define (jazz.walker-error walker resume error)
   (%%set-walker-errors walker (%%append (%%get-walker-errors walker) (%%list error)))
-  (if (and resume jazz.delay-reporting?)
+  (if (and resume (jazz.delay-reporting?))
       (continuation-return resume (jazz.unspecified))
     (jazz.validate-walk-problems walker)))
 
@@ -3549,7 +3549,7 @@
                   (let iter ((scan specializers))
                     (if (%%null? scan)
                         (begin
-                          (%%when (and jazz.warnings? (%%not (%%null? specializers)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                          (%%when (and (jazz.warnings?) (%%not (%%null? specializers)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
                                        ;; quicky to suppress duplicate warnings as for the moment those are both primitive and specialize
                                        (%%not (%%memq locator '(scheme.dialect.kernel.=
                                                                 scheme.dialect.kernel.<
@@ -3562,7 +3562,7 @@
                                                                 scheme.dialect.kernel./))))
                             (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding)))
                           ;; for debugging
-                          (%%when (%%memq (%%get-lexical-binding-name binding) jazz.debug-specializers)
+                          (%%when (%%memq (%%get-lexical-binding-name binding) (jazz.debug-specializers))
                             (jazz.debug 'Warning: 'In (%%get-declaration-locator declaration) 'unable 'to 'match 'call 'to 'specialized (%%get-lexical-binding-name binding) 'on types))
                           #f)
                       (let ((specializer (%%car scan)))
@@ -3696,7 +3696,7 @@
         (let iter ((scan patterns))
           (if (%%null? scan)
               (begin
-                (%%when (and jazz.warnings? (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
+                (%%when (and (jazz.warnings?) (%%not (%%null? patterns)) (%%get-library-declaration-declares (%%get-declaration-toplevel declaration))
                              ;; a bit extreme for now
                              (%%not (%%memq locator '(scheme.dialect.kernel.car
                                                       scheme.dialect.kernel.cdr))))
@@ -5185,7 +5185,7 @@
               ((library)
                (jazz.parse-library-declaration (%%cdr form)))))))
       
-      (jazz.with-verbose jazz.parse-verbose? "parsing" source
+      (jazz.with-verbose (jazz.parse-verbose?) "parsing" source
         (lambda ()
           (load-declaration))))))
 

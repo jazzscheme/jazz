@@ -1,3 +1,3 @@
 (package org.jazz.website
   
-  (root "lib"))
+  (root "src"))

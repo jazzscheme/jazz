@@ -1,4 +1,4 @@
 (package org.jedi
   
-  (root "lib")
+  (root "src")
   (products (jedi jedi.product)))

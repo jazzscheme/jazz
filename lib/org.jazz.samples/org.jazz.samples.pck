@@ -1,4 +1,4 @@
 (package org.jazz.samples
   
-  (root "lib")
+  (root "src")
   (products (world world)))

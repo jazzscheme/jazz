@@ -96,7 +96,6 @@
     jazz.platform.crash
     jazz.profile
     jazz.recorder
-    jazz.resources
     jazz.runtime
     jazz.schema
     jazz.snow

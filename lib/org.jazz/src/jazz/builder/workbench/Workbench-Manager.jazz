@@ -189,17 +189,11 @@
   
   
   (method (child-add child parent)
-    @convert
     (when (is? child Project)
-      (project-add~ designer child)
-      (let* ((workbench (get-workbench))
-             (parent-project (if (is? parent Project) parent (find-ascendant~ parent Project)))
-             (parent-designer (if (eq? parent-project workbench) designer (get-project-designer~ designer parent-project))))
-        (set-tag-module~ parent-designer child (get-manifest-source (type-name (class-of child)))))))
+      (project-add~ designer child)))
   
   
   (method (child-remove child)
-    @convert
     (when (is? child Project)
       (project-remove~ designer child)))
 
@@ -392,17 +386,20 @@
   (method (install-project file parent descendant?)
     (let ((parent-project (ascendant-project parent)))
       (when (validate-pathnames parent-project (list file))
-        (let* ((name (string->symbol (get-base~ file)))
-               (module (find-pathname-module (parse~ file)))
-               (class (load-class name file))
-               (workbench (get-workbench)))
-          (if (not (subtype? class Project))
-              (error "The file \"{a}\" does not contain a Project class" (get-name~ file))
-            (let ((project (new class workbench: workbench parent: parent)))
-              (add-child~ designer project parent)
-              (reorder-component~ (get-tree) project)
-              (user-message "{s} installed" (get-presentation~ project))
-              project))))))
+        (let ((name (string->symbol (get-base~ file)))
+              (module (find-pathname-module (parse~ file))))
+          (if (not module)
+              (error "Invalid project file: \"{a}\"" (get-name~ file))
+            (let ((class (load-class name module))
+                  (workbench (get-workbench)))
+              (if (not (subtype? class Project))
+                  (error "The file \"{a}\" does not contain a Project class" (get-name~ file))
+                (let ((project (new class workbench: workbench parent: parent)))
+                  (add-child~ designer project parent)
+                  (set-tag-module~ designer project module)
+                  (reorder-component~ (get-tree) project)
+                  (user-message "{s} installed" (get-presentation~ project))
+                  project))))))))
 
   
   ;;;

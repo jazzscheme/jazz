@@ -340,7 +340,7 @@
 
 
 (define jazz.Build-Repository
-  (jazz.make-repository 'build "Build" jazz.jazz-install "build/"))
+  (jazz.make-repository 'build "Build" jazz.jazz-install "lib/"))
 
 (define jazz.Install-Repository
   (jazz.make-repository 'install "Install" jazz.jazz-install "lib/"))

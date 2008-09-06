@@ -309,7 +309,7 @@
 (native jazz.run-product)
 (native jazz.update-product)
 (native jazz.build-product)
-(native jazz.find-module-name)
+(native jazz.find-pathname-module)
 (native jazz.find-module-src)
 (native jazz.module-autoload)
 (native jazz.get-environment)

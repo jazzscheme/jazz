@@ -599,7 +599,7 @@
                   (iter (%%cdr packages)))))))))))
 
 
-(define (jazz.find-module-name pathname)
+(define (jazz.find-pathname-module pathname)
   (let ((resource (jazz.find-resource pathname)))
     (if resource
         (jazz.path->name (%%resource-path resource))

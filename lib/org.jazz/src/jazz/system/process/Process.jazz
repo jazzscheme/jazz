@@ -1,0 +1,877 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Processes
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.system.process.Process jazz
+
+
+(import (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.designer)
+        (jazz.development)
+        (jazz.io)
+        (jazz.jrm)
+        (jazz.jrm.register.stub)
+        (jazz.library)
+        (jazz.library.component)
+        (jazz.network)
+        (jazz.platform)
+        (jazz.platform.crash)
+        (jazz.system)
+        (jazz.system.process)
+        (jazz.system.process.stub)
+        (jazz.utilities))
+
+
+(class Process extends Object
+
+
+  (slot preferences-root     initialize {})
+  (slot preferences-designer initialize {})
+  (slot context              initialize {})
+
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-preferences-root)
+    preferences-root)
+  
+  
+  (method public (get-preferences-designer)
+    preferences-designer)
+  
+  
+  (method public virtual (process-name)
+    "Process")
+  
+  
+  (method public virtual (process-owner)
+    {})
+  
+  
+  (method public virtual (process-copyright)
+    {})
+  
+  
+  (method public virtual (process-licensee)
+    {})
+  
+  
+  (method public virtual (process-icon)
+    "Jazz")
+  
+
+  (method public virtual (process-version)
+    {Version 1 0 0})
+  
+  
+  (method public virtual (process-email)
+    {})
+  
+  
+  (method public virtual (process-actions)
+    '())
+  
+  
+  (method public virtual (process-event-source)
+    (either (argument/property "event-source" 'EventSource)
+            (process-name)))
+  
+  
+  ;;;
+  ;;;; Startup
+  ;;;
+  
+  
+  (method public virtual (boot-environment rest)
+    (update-debuggee)
+    (initialize-aliases)
+    (register-versions)
+    (prepare-phase rest)
+    (start-phase rest)
+    (finalize-phase rest)
+    (finish-phase rest)
+    (conclude-phase rest)
+    (activate-process)
+    (when (run-loop?)
+      (run-loop)))
+  
+  
+  (method (update-debuggee)
+    (current-process-title-set! (process-name))
+    (current-process-icon-set! (process-icon))
+    (update-debuggee-process))
+  
+  
+  (method (register-versions)
+    @unimplemented
+    (register-crash-info windows-version: {} (present~ (get-windows-version))))
+  
+  
+  (method (prepare-phase rest)
+    (prepare-aliases)
+    (prepare-environment rest)
+    (prepare-preferences rest)
+    (prepare-profile-aliases)
+    (prepare-workbench)
+    (prepare-manifests)
+    (prepare-process rest))
+
+
+  (method protected virtual (prepare-environment rest)
+    (set-process self))
+
+
+  (method (prepare-preferences rest)
+    (setup-preferences))
+
+  
+  (method public virtual (prepare-process rest)
+    (setup-crash-handler))
+  
+  
+  (method (start-phase rest)
+    (start-environment rest)
+    (start-process rest))
+
+
+  (method protected virtual (start-environment rest)
+    )
+  
+  
+  (method public virtual (start-process rest)
+    )
+  
+  
+  (method (finalize-phase rest)
+    (finalize-environment rest)
+    (start-servers)
+    (finalize-process rest)
+    (setup-profile rest))
+
+
+  (method protected virtual (finalize-environment rest)
+    )
+  
+  
+  (method public virtual (finalize-process rest)
+    )
+
+  
+  (method public virtual (setup-profile rest)
+    )
+    
+  
+  (method (finish-phase rest)
+    (finish-environment rest)
+    (finish-process rest))
+  
+  
+  (method protected virtual (finish-environment rest)
+    (register-base-objects))
+  
+  
+  (method public virtual (finish-process rest)
+    )
+    
+  
+  (method (conclude-phase rest)
+    (conclude-environment rest)
+    (conclude-process rest))
+  
+  
+  (method protected virtual (conclude-environment rest)
+    )
+  
+  
+  (method public virtual (conclude-process rest)
+    )
+  
+  
+  ;;;
+  ;;;; Environment
+  ;;;
+  
+  
+  (method public virtual (preserve-environment)
+    )
+  
+  
+  (method public virtual (close-environment)
+    (close-preferences)
+    (detach-from-controller)
+    (stop-servers))
+  
+  
+  (method virtual (close-preferences)
+    (when preferences-designer
+      (save~ preferences-designer)))
+  
+  
+  ;;;
+  ;;;; Toplevel
+  ;;;
+  
+  
+  (method public virtual (get-toplevel)
+    {})
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method public virtual (focus-exit)
+    )
+  
+  
+  ;;;
+  ;;;; Exit
+  ;;;
+  
+  
+  ;; this is definitly a quick fix until a better solution
+  (definition exiting?
+    #f)
+  
+  
+  (method public (exiting-process?)
+    exiting?)
+  
+
+  (method public (exit-process (status 0))
+    (let ((preserved exiting?))
+      (unwind-protect
+          (begin
+            (set! exiting? #t)
+            (focus-exit)
+            (preserve-environment)
+            (close-environment)
+            (let ((restart (find-restart 'exit-process)))
+              (if restart
+                  (invoke-restart restart status)
+                (exit status))))
+        (set! exiting? preserved))))
+
+  ;;;
+  ;;;; Alias
+  ;;;
+  
+  
+  (method public virtual (process-alias name)
+    (case name
+      ((:process) self)
+      (else {})))
+  
+  
+  ;;;
+  ;;;; Context
+  ;;;
+  
+  
+  (method public (get-context)
+    context)
+  
+  
+  (method public (set-context ctx)
+    (set! context ctx)
+    (context-update))
+  
+  
+  ;; Ugly hardcoding updates for now as the right approach
+  ;; is not clear... Maybe the preferences setters do the
+  ;; updates themselves or maybe objects interesseted in beeing
+  ;; notified about preferences changes register themselves
+  ;; for designer events that could be sent when the context is changed.
+  (method protected virtual (context-update)
+    (modify-preferences)
+    (modify-favorites)
+    (modify-connections)
+    (modify-toolbox))
+  
+  
+  (method (modify-preferences)
+    (let* ((pref (get-preferences {}))
+           (designer (get-preferences-designer))
+           (branch (find-component~ pref context)))
+      (set-active-branch~ pref branch)))
+  
+  
+  (method (modify-favorites)
+    @wait
+    (when (in-manifest? 'Favorites-Manager)
+      (modify-editor (get-guest~ (singleton-docked Favorites-Manager {})))))
+  
+  
+  (method (modify-connections)
+    @wait
+    (when (in-manifest? 'SQL-Connections-Manager)
+      (modify-editor (get-guest~ (singleton-docked SQL-Connections-Manager {})))))
+  
+  
+  (method (modify-toolbox)
+    @wait
+    (when (in-manifest? 'Toolbox-Manager)
+      (modify-editor (get-guest~ (singleton-docked Toolbox-Manager {})))))
+  
+  
+  (method (modify-editor editor)
+    (let* ((client (get-client~ editor))
+           (branch (find-component~ client context)))
+      (set-active-branch~ client branch)
+      (set-client~ editor {})
+      (set-client~ editor client)))
+  
+  
+  (method public (install-context component)
+    (when context
+      (let ((branch (find-child~ component context)))
+        (when branch
+          (set-active-branch~ component branch)))))
+  
+  
+  ;;;
+  ;;;; Preferences
+  ;;;
+  
+  
+  (method protected virtual (preferences-file)
+    {File Profile "settings" "Preferences.jml"})
+  
+  
+  (method public (setup-preferences)
+    (set! preferences-root (load-preferences))
+    (set! preferences-designer (new Designer form: (get-form~ preferences-root) reference: preferences-root))
+    (set! context (preferences-context))
+    (install-context preferences-root)
+    (let ((directory (get-current-directory~ preferences-root)))
+      (when (and directory (exists?~ directory))
+        (set-current-directory directory))))
+  
+  
+  (method protected virtual (load-preferences)
+    (let ((file (preferences-file)))
+      (if (and (find-alias 'Profile) (exists?~ file))
+          (instantiate~ (read-from-file file))
+        (default-preferences))))
+  
+  
+  (method protected virtual (default-preferences)
+    (new Process-Preferences))
+  
+  
+  (method (preferences-context)
+    (let ((arg (command-argument "context")))
+      (cond (arg (string->symbol arg))
+            (preferences-root (get-active-context~ preferences-root))
+            (else {}))))
+  
+  
+  (method public (apply-preferences preferences (client {}))
+    (apply-preferences~ preferences client))
+  
+  
+  (method public (save-preferences preferences (client {}))
+    (save-preferences~ preferences (get-preferences-designer) client))
+
+  
+  (method public (set-preferences-property preferences property value)
+    (set-property~ preferences (get-preferences-designer) property value))
+  
+  
+  (method public virtual (get-preferences-rights)
+    {})
+  
+  
+  ;;;
+  ;;;; Persistence
+  ;;;
+  
+  
+  (method public virtual (persist-usernames?)
+    #f)
+  
+  
+  (method public virtual (persist-passwords?)
+    #f)
+  
+  
+  ;;;
+  ;;;; Versions
+  ;;;
+  
+  
+  (method public virtual (mandatory-version what)
+    {})
+
+  
+  ;;;
+  ;;;; Readyness
+  ;;;
+  
+  
+  @windows-specific
+  (method protected (signal-readyness name)
+    (let ((handle (OpenEvent EVENT_MODIFY_STATE #f name)))
+      (when handle
+        (SetEvent handle))))
+
+  
+  ;;;
+  ;;;; Loop
+  ;;;
+  
+  
+  (method public virtual (run-loop)
+    (with-restart-catcher 'exit-process "Exit Process" {}
+      (function ()
+        (continuation-capture
+          (lambda (cont)
+            (with-repl-context cont
+              (lambda ()
+                (start-loop))))))))
+  
+  
+  (method public (resume-loop)
+    (let ((restart (find-restart 'resume-loop)))
+      (when restart
+        (resume-loop-action)
+        (invoke-restart restart))))
+  
+  
+  (method public virtual (resume-loop-action)
+    )
+
+
+  (method public virtual (start-loop)
+    (let (loop)
+      (relinquish-process)
+      (loop)))
+
+
+  ;;;
+  ;;;; Feedback
+  ;;;
+
+  
+  (method protected virtual (user-feedback message)
+    )
+
+
+  ;;;
+  ;;;; System
+  ;;;
+  
+  
+  (method public virtual (system-title)
+    "JazzScheme Process")
+
+
+  ;;;
+  ;;;; Aliases
+  ;;;
+  
+  
+  (method protected virtual (prepare-aliases)
+    )
+  
+  
+  (method public virtual (prepare-profile-aliases)
+    (let ((pref (get-preferences 'aliases error?: #f)))
+      (when pref
+        (let ((aliases (get-children~ pref)))
+          (for-each (function (pref)
+                      (let ((alias (get-alias~ pref))
+                            (directory (get-directory~ pref)))
+                        (when directory
+                          (register-alias alias (get-list~ directory)))))
+                    aliases)))))
+  
+  
+  (method public virtual (resolve-alias name)
+    {})
+
+
+  ;;;
+  ;;;; Message
+  ;;;
+  
+  
+  (method public virtual (show-box text rest)
+    (apply system-message text rest))
+
+
+  ;;;
+  ;;;; Workbench
+  ;;;
+  
+  
+  (method public virtual (prepare-workbench)
+    )
+
+
+  ;;;
+  ;;;; Manifests
+  ;;;
+  
+  
+  (method public virtual (prepare-manifests)
+    )
+  
+  
+  ;;;
+  ;;;; Servers
+  ;;;
+  
+  
+  (method protected virtual (start-servers)
+    @started-on-demand
+    (start-remoting-server))
+  
+  
+  (method protected virtual (stop-servers)
+    (stop-remoting-server))
+
+
+  ;;;
+  ;;;; Stub
+  ;;;
+  
+  
+  (method public (get-name)
+    (process-name))
+  
+  
+  (method public (get-icon)
+    (process-icon))
+  
+  
+  (method public (get-register)
+    local-register)
+
+
+  ;;;
+  ;;;; Register
+  ;;;
+  
+  
+  (method protected virtual (register-base-objects)
+    )
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method public virtual (get-local-debugger)
+    {})
+  
+  
+  ;;;
+  ;;;; Launch
+  ;;;
+  
+  
+  (method public (launch-process (app: app {})
+                                 (homedir: homedir {})
+                                 (profile: profile {})
+                                 (command-action: command-action {})
+                                 (command-arguments: command-arguments '())
+                                 (debug?: debug? #f)
+                                 (wait-ready: wait-ready {})
+                                 (wait-ready-timeout: wait-ready-timeout 5000))
+    @convert
+    (let* ((root          (parse~ {Directory Jazz}))
+           (launcher      (parse~ {File Install "Launcher.exe"}))
+           (homedir-arg   (if homedir (format " /homedir \"{a}/{a}\"" root homedir) ""))
+           (rootdir-arg   (format " /rootdir \"{a}\"" root))
+           (app-arg       (format " /app {a}" app))
+           (profile-arg   (format " /profile {a}" profile))
+           (action-arg    (if command-action (format " {a}" command-action) ""))
+           (arguments-arg (if command-arguments (format " {a}" command-arguments) ""))
+           (command       (format "\"{a}\"{a}{a}{a}{a}{a}{a}" launcher action-arg homedir-arg rootdir-arg app-arg profile-arg arguments-arg)))
+      (create-process command wait-ready: wait-ready wait-ready-timeout: wait-ready-timeout wait?: #f)))
+
+
+  ;;;
+  ;;;; Error
+  ;;;
+  
+  
+  ;; A quick fix for the fact these methods must be handled differently
+  ;; if the process is an application or if it's a pure process that will
+  ;; not have the classes to implement them using a graphical interface...
+  
+  
+  @convert-error
+  (method meta public (present-error error prefix? active-content?)
+    (typecase error
+      ((Read-Error) (present-read-error error prefix? active-content?))
+      ((Walk-Error) (present-walk-error error prefix? active-content?))
+      (else (present-generic-error error prefix? active-content?))))
+  
+  
+  @convert-error
+  (method meta public virtual abstract (log-error error output)
+    )
+  
+  
+  @convert-error
+  (method meta public virtual abstract (edit-error error)
+    )
+  
+  
+  @convert-error
+  (method meta public virtual abstract (edit-error-child error info)
+    )
+  
+  
+  @convert-error
+  (method meta public virtual (present-generic-error error prefix? active-content?)
+    (let ((message (get-message~ error)))
+      (list
+        (if (not prefix?)
+            message
+          (format "{a}: {a}" (type-name (class-of error)) message)))))
+
+
+  ;;;
+  ;;;; Read-Error
+  ;;;
+
+  
+  @convert-error
+  (method meta public virtual (present-read-error error prefix? active-content?)
+    (let* ((source (get-source~ error))
+           (header (format "Read error found in {a}" (if (string? source) "string" (get-base~ source))))
+           (message (get-message~ error)))
+      (format "{a}{%}{%}{a}" header message)))
+
+
+  ;;;
+  ;;;; Walk-Error
+  ;;;
+  
+  
+  @convert-error
+  (method meta public virtual (present-walk-error error prefix? active-content?)
+    (let* ((problems (get-problems~ error))
+           (count (length problems))
+           (header (format "{a} walk error{a} found in {a}"
+                           count
+                           (format-plural count)
+                           (get-category-name~ error)))
+           (printer (open-output-string)))
+      (format printer "{a}{%}" header)
+      (for-each (function (problem)
+                  (let ((message (walk-problem-message problem)))
+                    (format printer "{%}{a}" message)))
+                problems)
+      (get-output-string printer)))
+
+
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method protected virtual (process-debuggee-loop)
+    (debuggee-loop))
+
+
+  ;;;
+  ;;;; Debug
+  ;;;
+  
+  
+  (method (process-exception exception frame accountable)
+    @old-stuff (
+    (exception-reported)
+    (log-execution-context exception)
+    (cond ((not loop-running?)
+           (dump-stack exception: exception)
+           (present-exception exception type: 'message)
+           (exit-process))
+          (else
+           (log-exception exception)
+           (report-exception exception frame accountable)))))
+  
+  
+  (method protected virtual (exception-reported)
+    )
+  
+  
+  (method protected virtual (log-exception exception)
+    )
+  
+  
+  (method (log-execution-context exception)
+    @convert
+    (let ((context (get-execution-context)))
+      (when context
+        (let ((stack (get-execution-stack))
+              (reporter (get-reporter~ context)))
+          (when reporter
+            (let ((message (present-message~ exception prefix?: prefix?)))
+              (report-execution-context message stack reporter)))))))
+
+  
+  ;;;
+  ;;;; Eval
+  ;;;
+  
+  
+  (method protected virtual (eval-expressions expressions)
+    (let ((module 'jazz.system.process.Process)
+          (name 'Process))
+      (map (function (form)
+             (parameterize ((jazz.requested-module-name module))
+               (eval
+                 `(library ,module jazz
+                    (import (jazz.development)
+                            (jazz.io)
+                            (jazz.io.protocol)
+                            (jazz.jml)
+                            (jazz.library)
+                            (jazz.literals)
+                            (jazz.media)
+                            (jazz.network)
+                            (jazz.platform)
+                            (jazz.profile)
+                            (jazz.runtime)
+                            (jazz.system)
+                            (jazz.ui)
+                            (jazz.ui.development)
+                            (jazz.ui.dialog)
+                            (jazz.ui.view)
+                            (jazz.ui.window)
+                            (jazz.utilities))
+                    (class ,name extends Object
+                      (method (evaluate)
+                        ,form))
+                    (set-? (evaluate~ (get-process))))))
+             (->string ? :reader))
+           expressions)))
+
+  
+  ;;;
+  ;;;; Log
+  ;;;
+  
+  
+  @convert
+  (method (report-execution-context message execution-stack reporter)
+    (unimplemented 'report-execution-context)
+    @convert-error(
+    (set-message~ reporter "")
+    (set-message~ reporter "*** Error ***")
+    (set-message~ reporter "")
+    (set-message~ reporter message)
+    (set-message~ reporter "")
+    (for-each (function (node)
+                (let ((title (get-title~ node))
+                      (details (get-details~ node)))
+                  (set-message~ reporter title)
+                  (for-each (function (detail)
+                              (user-message~ reporter "- {a}" detail))
+                            details)))
+              execution-stack)
+    (set-message~ reporter "")
+    (set-message~ reporter "*************")
+    (set-message~ reporter "")))
+  
+  
+  @convert
+  (method protected virtual (report-exception exception frame accountable)
+    (unimplemented 'report-exception)
+    @convert-error
+    (typecase exception
+      ((Read-Error)
+       (report-read-error exception))
+      ((Walk-Error)
+       (report-walk-error exception))
+      (else
+       (case (present-exception exception)
+         ((cancel)
+          (stop-debugging))
+         ((yes)
+          (cond ((not controller-debugger)
+                 (dump-stack exception: exception)
+                 (throw-stop))
+                ((not (primordial-thread?))
+                 (present-thread-stack (dump-stack exception: exception))
+                 (throw-stop))
+                (else
+                 (invoke-debugger exception frame accountable))))))))
+
+
+  @convert
+  (method (present-exception exception (type: type 'error) (prefix?: prefix? #t))
+    (if (get-execution-context)
+        (present-execution-context exception type prefix?)
+      (let* ((message (present-message~ exception prefix?: prefix?))
+             (yes (case type ((message) "OK") (else "Debug")))
+             (cancel (case type ((message) {}) (else "Ignore"))))
+        (message-box message
+                     type: type
+                     yes: yes
+                     cancel: cancel))))
+  
+  
+  @convert
+  (method protected virtual (present-execution-context exception type prefix?)
+    )
+  
+  
+  @convert
+  (method protected virtual (report-read-error exception)
+    (let* ((message (present-message~ exception))
+           (code (message-box message
+                              title: "Read Error")))
+      (stop-debugging)))
+  
+  
+  @convert
+  (method protected virtual (report-walk-error exception)
+    (let* ((message (present-message~ exception))
+           (code (message-box message
+                              title: "Walk Error")))
+      (stop-debugging)))))

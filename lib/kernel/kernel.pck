@@ -1,3 +1,0 @@
-(package kernel
-  
-  (root "lib"))

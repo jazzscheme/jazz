@@ -1,3 +1,3 @@
 (package contrib.statprof
   
-  (root "lib"))
+  (root "src"))

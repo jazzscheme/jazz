@@ -72,12 +72,6 @@
 ;;;
 
 
-(jazz.define-variable jazz.debug?
-  #f)
-
-(jazz.define-variable jazz.debug-build?
-  #f)
-
 (define jazz.initialization-file
   "~/.jazz/.jazzini")
 
@@ -134,7 +128,7 @@
     (let ((current-handler (current-exception-handler)))
       (with-exception-handler
         (lambda (exc)
-          (jazz.debug-exception exc (console-port) jazz.debug-build? jazz.debug-build?)
+          (jazz.debug-exception exc (console-port) (jazz.debug-build?) (jazz.debug-build?))
           (current-handler exc))
         thunk)))
   
@@ -150,7 +144,7 @@
             (build (get-option "build"))
             (compile (get-option "compile"))
             (debug? (get-option "debug")))
-        (set! jazz.debug? debug?)
+        (jazz.debug? debug?)
         (process-initialization-file)
         (jazz.install-repositories)
         (cond (run

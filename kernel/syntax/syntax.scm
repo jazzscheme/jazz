@@ -64,6 +64,36 @@
 
 
 ;;;
+;;;; Macro
+;;;
+
+
+(define jazz.generate-symbol
+  (let ((unique 0))
+    (lambda rest
+      (let ((prefix (if (%%null? rest) "sym" (%%car rest))))
+        (let ((name (%%string-append "__" prefix (%%number->string unique))))
+          (set! unique (%%fx+ unique 1))
+          (%%string->symbol name))))))
+
+
+;;;
+;;;; Setting
+;;;
+
+
+(jazz.define-macro (jazz.define-setting name . rest)
+  (let ((expr (if (%%null? rest) #f (%%car rest)))
+        (global (jazz.generate-symbol (symbol->string name))))
+    `(begin
+       (define ,global ,expr)
+       (define (,name . rest)
+         (if (%%null? rest)
+             ,global
+           (set! ,global (%%car rest)))))))
+
+
+;;;
 ;;;; Variable
 ;;;
 

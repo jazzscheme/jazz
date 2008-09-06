@@ -7,7 +7,6 @@ DONE
 - Would it be difficult to support compiling define-macro? It forces me to always separate the code into 2 files when
   I want the expander to be compiled and it is very annoying: possible by using the underlying code used by define-macro
 - Is it possible to explicitly pass (macro-absent)? : no
-- Is there a way to add Jazz's 2 initialized and destroyed bits to Jazz objects without paying a penalty : not really
 - It would be nice if compile-file had an option of not generating the .o1 when using options like -expansion
 - Can statprof be used on compiled code? yes but better if compiled with -debug
 - Is statprof really reliable in that it reaches all the code? : yes
@@ -84,6 +83,22 @@ DONE
 - How can we in Gambit specify runtime options like -:m500000 when building an application? : #!gsi -:dr,m250000 at the top of the main module
 - If i interrupt a build with ctrl-c and try to quit with ,q the process now hangs on windows : i need to manage correctly 
 - Is there a peek on object ports? - no because as every scheme object is valid in an object port, peek would have to way of returning <not found>
+- How to implement ports to direct output into the jazz console
+- Try and understand with Marc why read can correctly read a point in Jazz and why even with a with-jazz-readtable a #\at cannot be read.
+  - with it fix who-calls of forward-simple-expr with wrapping the read in find-expression with a with-jazz-readtable
+- It would be possible to link statically at any level into .o1 or .exe by preserving the gambit linking info but keeping the .c and by keeping the compile
+  code into the .o.
+- Need a way to use write with UTF-8 char-encoding
+- Need a way to start a tcp server and let the stack find an available port
+- Can we safely rely on the meroon type to always exist to get the extra bit we need in Jazz to implement the initialized feature?
+- How does force-output work? For instance why does (format :terminal "aaa{%}") display directly and (format :console "aaa{%}")
+  takes a (force-output) to work
+  - Based on that understanding maybe add format directives to force output or insert newline / force output (maybe {!})
+- Can a thread terminate itself cleanly by invoking like the initial continuation of the thread!?
+- Now that we can select threads, is there a way to do the same thing as ctrl-c in a specific thread?
+- What is the idea behind having ##primordial-exception-handler-hook and is it the right approach to set it to a jazz hook that will revert to calling
+  (##repl-exception-handler-hook exc ##thread-end-with-uncaught-exception!).
+  By delegating that way, the hook is really the default handler that can be changed on the fly so it will work even for threads aleady created.
 
 
 SNOW
@@ -109,7 +124,6 @@ TODO
 * Ask Marc about the thing I don't understand about hashtable resizing performance cost. Also, if resize is really so fast then it would indicate that table-merge! is thus so slow and could then be optimized alot
 * Is there anything in Gambit for read-only flag of files and setting attributes and modification-time.
 * Validate with Marc that my test.ptm is correct even if running tptm followed by ##gc doesn't really bring the memory back to where it was...
-* Expose also the underlying get the frame etc ...
 * Could define-runtime-macro be exported? (integrate my version somehow!?)
 * Integrate my version of define-runtime-cond-expand-feature !?
 * Why does the (debug) option doesn't seem to work for the kernel?
@@ -117,52 +131,19 @@ TODO
 * Could we compile using a precompiled header for gambit.h for faster builds?
 * compile-file option to suppress .o1 generation
 * still-obj-refcount
-* Marc needs to fix the problems with opening ports of u8vector so i can use one with eol-encoding: 'cr-lf to split the
-  clipboard correctly on windows
 * Marc is thinking about always using / as path separator and only externalizing to the platform separator on demand
-* Something is not uniform... When an error occurs and a repl is started, ctrl-d will come back to previous state wheras when it's from Jedi and a new
-  repl is started, there is no way to exit the repl and get back to previous state. I implement it with my ,r command but there is something not uniform
-  in this...
 * Finish all that is necessary so a jazz binary release without gambit installed can still compile out of the box
-* Any function to get a list of the threads
-* Any functions to suspend / resume a thread. Usefull for a thread debugger
-* OHHHHHHHHHHHHHHHHHHHHHH if i do my generate-disabled test from jedi and it pops the console i do not see the error messages but if i do from a jedi started
-  from a gsc console i do arrrrrrrrrr. Also, why does it not work with open-process and works ok with shell-command ?
-* Another problem is that shell-command on windows when in jedi will show the shell-command's console. We need control over showing or not
 * I dont understand condition variables. How does a thread block on one? And how does the variable know what threads to unblock when doing a broadcast?
-* What does Marc think about my windows timer approach to unblocking the gambit threads. And who can a gambit multi-platform timer mecanism be implemented?
-* Another difficulty is that if a gambit thread errors, the primordial jedi thread will consume all keyboard events maybe debugging impossible
+* Another difficulty is that if a gambit thread errors, the primordial jedi thread will consume all keyboard events making debugging impossible
 * Could we consider that (path-normalize "a/") should not error just like (path-normalize "a")
-* Look at my Pulse code with Marc to improve it: should not consume resources when idle (now it sleeps the period in a loop) and it would be nice to guaranty
-  that a start will sleep exactly the period before the first pulse
-* Would the best way to implement window events be to have a thread on waiting on events and the main thread waiting on os events and have only one being processed
-  at a time using a mutex?
-
-
 * Need a solution to class-of for ports
-- How to implement ports to direct output into the jazz console
 * We will need a multi-platform solution to event management that works also on X11 and MacOS
 * Any idea why current-instance is always returning 0? If we can fix this, I could include the icon in the executable
-- Would be nice to fix the closing the Windows gsc console through the close box crashing
-- If some syntax for unreadable objects was taken so that for example #<blabla #2> is read exactly as #2, then it would elegantly solve the problem of seeing
+* Would be nice to fix the closing the Windows gsc console through the close box crashing
+* If some syntax for unreadable objects was taken so that for example #<blabla #2> is read exactly as #2, then it would elegantly solve the problem of seeing
   output with literals containing unreadable objects. For example you could paste (length '(#<blabla #2> #<blublu #3>))
 * Look at integrating my ,r into gambit and also at doing it the right way as (car 1) ,r (car 1) will have no stack the second time
-- Can we safely rely on the meroon type to always exist to get the extra bit we need in Jazz to implement the initialized feature?
-- Could the functionality to add to the repl-result-history be exported so that Jazz's console be consistant with the Gambit one.
-- Try and understand with Marc why read can correctly read a point in Jazz and why even with a with-jazz-readtable a #\at cannot be read.
-  - with it fix who-calls of forward-simple-expr with wrapping the read in find-expression with a with-jazz-readtable
-* How does force-output work? For instance why does (format :terminal "aaa{%}") display directly and (format :console "aaa{%}")
-  takes a (force-output) to work
-  - Based on that understanding maybe add format directives to force output or insert newline / force output (maybe {!})
-* Review all the event system code with marc as it is so critical.
-* The new thread-group->... are clearly badly named using -> instead of just -
-
-- It would be possible to link statically at any level into .o1 or .exe by preserving the gambit linking info but keeping the .c and by keeping the compile
-  code into the .o.
-
-- Need a way to use write with UTF-8 char-encoding
-- Need a way to start a tcp server and let the stack find an available port
-
+* Could the functionality to add to the repl-result-history be exported so that Jazz's console be consistant with the Gambit one.
 * Does creating a parameter have performance costs outside of it's own usage?
 * Ask marc to really explain the difference between with-exception-handler and with-exception-catcher. Is it ok to use catcher to return something
   from the exception handler and what happens when you return a value form the exception handler when using a with-exception-handler?
@@ -170,36 +151,21 @@ TODO
   previous behavior no?
 * Need explicit catchable errors for everything that can happen to a TCP connection to implement a robust remote debugging system.
 * Look at my thread-loop/... code with marc.
-* Are there ways to do some standard stuff when a thread starts like setting the exception handler? Especially as setting the current-handler is local
-  to the current thread...
-- Can a thread terminate itself cleanly by invoking like the initial continuation of the thread!?
-- Now that we can select threads, is there a way to do the same thing as ctrl-c in a specific thread?
 * How can we get continuation location info for compiled code and more generaly we have to start thinking on how to implement the old jazz
   full featured location system.
-* Ahhh the thing that make capturing an thread's initial continuation work is that dynamic-wind will execute the after whenever the execution
-  leaves the dynamic extent of the thunk!!!
 * In all my inter-thread/process communication it is not always clear whether i should use a dynamic-wind or a with-exception-handler or both
   to protect the caller waiting on proper return from the callee.
 * Is there a way to lock a port or to get the same behavior where ideally i want my repl's print to not be inter-spliced with user prints (or maybe the
   repl's print communication atomically directly with the debugger's console-output remote method!?)
-
-* What is the idea behind having ##primordial-exception-handler-hook and is it the right approach to set it to a jazz hook that will revert to calling
-  (##repl-exception-handler-hook exc ##thread-end-with-uncaught-exception!).
-  Ah i think i get it. By delegating that way, the hook is really the default handler that can be changed on the fly so it will work even for threads aleady
-  created.
-
 * There is something a bit broken in Scheme's way of giving access to continuations as function calls no? as every programmer is so used to a function call
   returning a value when this is absolutly not a function call and will never return! I think this is one of the big barrier to understanding continuations, this
   deeply ingrained reflex that (f ...) is a function call of f that will return a value.
-
 * There is something really annoying about never knowing when you see a frame and you see local variables if you will be able to evaluate code that refers to them.
   It would be really important to be able to access those variables all the time even within compiled code even if only in read-only mode...
 * For the process snapshot, are there any functions to get info about the current state of the memory and/or garbage collector?
-
 * What are the pros and cons of using a SetTimer approach to wake up Gambit's threading system?
 * Is setting the SetTimer events-heartbeat to 1 milliseconds like the Gambit heartbeat a good idea?
 
 
 NOTES
-* Got to really start looking into forming people to Gambit as I am now convinced Gambit's will stay Jazz's platform even if Marc would stop
-  work on it for any reason.
+* Got to really start forming people to Gambit.

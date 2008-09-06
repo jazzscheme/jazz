@@ -1,6 +1,6 @@
 (package org.jazz
   
-  (root "lib")
+  (root "src")
   (install jazz.install)
   (products (core core.product)
             (jazz jazz.product)
@@ -33,7 +33,6 @@
           jazz.platform
           jazz.profile
           jazz.recorder
-          jazz.resources
           jazz.runtime
           jazz.system
           jazz.ui

@@ -1,4 +1,4 @@
 (package org.jazz.report
   
-  (root "lib")
+  (root "src")
   (products (report report.product)))

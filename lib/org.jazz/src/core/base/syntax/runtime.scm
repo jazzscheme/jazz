@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Runtime Settings
+;;;; Syntax Runtime
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,103 +35,21 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz.kernel-declare)
+(module core.base.syntax.runtime
 
 
-;;;
-;;;; Verbose
-;;;
+(define (jazz.with-expression-value expr proc)
+  (if (symbol? expr)
+      (proc expr)
+    (let ((value (jazz.generate-symbol "val")))
+      `(let ((,value ,expr))
+         ,(proc value)))))
 
 
-(jazz.define-setting jazz.load-verbose?
-  #f)
-
-(jazz.define-setting jazz.parse-verbose?
-  #f)
-
-(jazz.define-setting jazz.done-verbose?
-  #f)
-
-(jazz.define-setting jazz.compile-verbose?
-  #f)
-
-
-;;;
-;;;; Walker
-;;;
-
-
-;; code walker warnings
-(jazz.define-setting jazz.warnings?
-  #f)
-
-;; Set to #f to debug the walker itself
-(jazz.define-setting jazz.delay-reporting?
-  #t)
-
-
-;;;
-;;;; Print
-;;;
-
-
-;; Print Jazz objects by calling their print method?
-(jazz.define-setting jazz.use-print?
-  #t)
-
-
-;;;
-;;;; Walker
-;;;
-
-
-(jazz.define-setting jazz.debug?
-  #f)
-
-(jazz.define-setting jazz.debug-build?
-  #f)
-
-
-;;;
-;;;; Debug
-;;;
-
-
-(cond-expand
-  (release
-   (jazz.define-setting jazz.inline-definitions?
-     #t))
-  (else
-   (jazz.define-setting jazz.inline-definitions?
-      #f)))
-
-
-(jazz.define-setting jazz.debug-specializers
-  '())
-
-
-(jazz.define-setting jazz.debugger?
-  #t)
-
-
-;;;
-;;;; Profile
-;;;
-
-
-(jazz.define-setting jazz.profile-walker?
-  #f)
-
-
-;;;
-;;;; Product
-;;;
-
-
-(jazz.define-setting jazz.profile
-  #f)
-
-
-;; to enable timing loading of jedi
-(jazz.define-setting jazz.run-loop?
-  #t)
+(define (jazz.simplify-begin form)
+  (if (and (%%pair? form)
+           (%%eq? (%%car form) 'begin)
+           (%%pair? (%%cdr form))
+           (%%null? (%%cddr form)))
+      (%%cadr form)
+    form)))

@@ -1,3 +1,3 @@
 (package contrib.r4rstest
   
-  (root "lib"))
+  (root "src"))

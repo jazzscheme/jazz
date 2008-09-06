@@ -317,15 +317,12 @@
   jazz.product)
 
 
-(define (jazz.jazz-profile)
+(define jazz.jazz-profile
   jazz.profile)
 
 
-(define (jazz.jazz-debugger?)
+(define jazz.jazz-debugger?
   jazz.debugger?)
-
-(define (jazz.jazz-set-debugger? flag)
-  (set! jazz.debugger? flag))
 
 
 ;;;
@@ -343,7 +340,7 @@
 
 
 (define jazz.Build-Repository
-  (jazz.make-repository 'build "Build" jazz.jazz-install "build/"))
+  (jazz.make-repository 'build "Build" jazz.jazz-install "lib/"))
 
 (define jazz.Install-Repository
   (jazz.make-repository 'install "Install" jazz.jazz-install "lib/"))
@@ -788,7 +785,7 @@
 
 
 (define (jazz.setup-product name)
-  (if (not jazz.debug?)
+  (if (not (jazz.debug?))
       (jazz.get-product name)
     (begin
       (set! jazz.process-name name)
@@ -941,7 +938,7 @@
 
 (define (jazz.load-resource resource . rest)
   (let ((quiet? (if (null? rest) #f (car rest))))
-    (jazz.with-verbose jazz.load-verbose? "loading" (jazz.resource-package-pathname resource)
+    (jazz.with-verbose (jazz.load-verbose?) "loading" (jazz.resource-package-pathname resource)
       (lambda ()
         (jazz.load (jazz.resource-pathname resource) quiet?)))))
 
@@ -970,7 +967,7 @@
         (let ((result
                 (parameterize ((jazz.load-indent (+ (jazz.load-indent) 2)))
                   (proc))))
-          (if jazz.done-verbose?
+          (if (jazz.done-verbose?)
               (verbose-done))
           result))
     (proc)))

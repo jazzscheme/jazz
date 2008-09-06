@@ -1,0 +1,259 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Text Search
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.search.Text-Search jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.activity)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Text-Search extends Search-View
+
+  
+  (form
+    (<install>
+      (<!>              name: domain         title: "Recherche de textes"
+        (<content~>
+          (<Radio-Button> name: active-window  title: "Active Window" position: {Point 13 14} size: {Dimension 120 18})
+          (<Radio-Button> name: jazz-files     title: "Jazz Files" position: {Point 13 34} size: {Dimension 120 18})
+          (<Radio-Button> name: user-files     title: "User Files" position: {Point 13 54} size: {Dimension 120 18})))))
+  
+
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((pref (get-preferences '(tools search-manager))))
+      (let ((label (get-user-label~ pref)))
+        (when label
+          (set-title~ (locate 'user-files) label)))))
+  
+
+  ;;;
+  ;;;; Domains
+  ;;;
+
+  
+  (method (get-search-domains)
+    '(active-window
+      jazz-files
+      user-files))
+  
+  
+  (method (get-active-window-domain)
+    'active-window)
+
+
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method (search-targets targets)
+    (case (get-search-domain)
+      ((active-window)
+       (search-active-window targets))
+      (else
+       (search-threaded targets)
+       @convert
+       (new Thread
+         name: "Search"
+         context: self
+         execute: (function (thread)
+                    (search-threaded targets))))))
+  
+  
+  (method synchronized (search-threaded targets)
+    (let* ((reporter (new User-Reporter) @convert (get-search-reporter (count-files)))
+           (found (search targets reporter)))
+      (let ((results (get-results)))
+        (set-mode~ results 'text)
+        (add-results~ results found (get-search-targets))
+        (select-results~ results))
+      (when reporter
+        (let ((manager (get-activity-manager)))
+          (unregister-activity~ manager reporter)
+          (close-manager~ manager)))))
+
+
+  (method (search targets reporter)
+    (case (get-search-domain)
+      ((jazz-files) (search-jazz-files targets reporter))
+      ((user-files) (search-user-files targets reporter))))
+  
+  
+  ;; this constituent test should be determined by the file type
+  (method (get-constituent-test)
+    (case (get-search-domain)
+      ((jazz-files) jazz-constituent?)
+      ((user-files) jazz-constituent?)
+      (else (nextmethod))))
+
+
+  ;;;
+  ;;;; Session
+  ;;;
+  
+  
+  (method (set-session-properties config)
+    (nextmethod config)
+    (set-search-domain (get-active-domain~ config)))
+
+
+  ;;;
+  ;;;; Reporting
+  ;;;
+  
+  
+  (definition Jazz-Count
+    {})
+  
+  
+  (method (count-jazz-files)
+    (unless Jazz-Count
+      (set! Jazz-Count (count-jazz-directories)))
+    Jazz-Count)
+  
+  
+  (method (count-jazz-directories)
+    (let ((count 0)
+          (directories (filter-existing (default-search-directories)))
+          (extensions (default-search-extensions)))
+      (for-each (function (directory)
+                  (iterate-directory~ directory
+                    (function (file)
+                      (when (member? (get-extension~ file) extensions test: ci=?)
+                        (increase! count)))
+                    ignored-directories: '(".git" ".hg" "bin")))
+                directories)
+      count))
+  
+  
+  (definition User-Count
+    {})
+  
+  
+  (method (count-user-files)
+    (let ((pref (get-preferences '(tools search-manager))))
+      (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
+            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
+        (let ((count
+                (function ()
+                  (let ((count 0))
+                    (for-each (function (directory)
+                                (iterate-directory~ directory
+                                  (function (file)
+                                    (when (member? (get-extension~ file) extensions)
+                                      (increase! count)))))
+                              directories)
+                    count))))
+          (unless User-Count
+            (set! User-Count (count)))
+          User-Count))))
+  
+  
+  (method (count-files)
+    (case (get-search-domain)
+      ((jazz-files) (count-jazz-files))
+      ((user-files) (count-user-files))))
+  
+  
+  (method (filter-existing directories)
+    (collect-if (function (dir)
+                  (exists?~ dir))
+                directories))
+  
+  
+  (method (default-search-directories)
+    (list (cond ((is-alias? 'Jazz)
+                 {Directory Jazz})
+                (else
+                 {Directory Install}))
+          {Directory User}))
+  
+  
+  (method (default-search-extensions)
+    '("scm" "sch" "ss" "gambcini" "jazzini"
+      "lisp"
+      "jazz" "jml" "pck"
+      "c" "cpp" "h" "hpp"
+      "java"))
+  
+  
+  (method (setup-search-reporter reporter count)
+    (set-range~ reporter (new Range 1 count))
+    (set-pos~ reporter 1)
+    (set-step~ reporter 1))
+
+
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method (search-active-window targets)
+    (let ((frames (get-windows~ (get-stage))))
+      (when (>= (length frames) 1)
+        (let ((frame (car frames)))
+          (when (is? frame Host-Frame)
+            (let ((guest (get-guest~ frame)))
+              (when (is? guest Text-View)
+                (set-caret~ guest (get-start~ guest))
+                (find-forward guest targets #f)
+                (bring-to-front~ frame)
+                (acquire-focus~ guest))))))))
+  
+  
+  (method (search-jazz-files targets reporter)
+    (let ((factory (new List-Factory)))
+      (search-in-directories targets (filter-existing (default-search-directories)) (default-search-extensions) (get-expression?) factory reporter)
+      (get-output~ factory)))
+  
+  
+  (method (search-user-files targets reporter)
+    (let ((factory (new List-Factory))
+          (pref (get-preferences '(tools search-manager))))
+      (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
+            (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
+        (search-in-directories targets directories extensions (get-expression?) factory reporter)
+        (get-output~ factory))))))

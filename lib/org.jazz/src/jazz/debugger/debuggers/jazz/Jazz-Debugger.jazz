@@ -1,0 +1,395 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Jazz Debugger
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.debugger.debuggers.jazz.Jazz-Debugger jazz
+
+
+(import (jazz.console)
+        (jazz.debuggee)
+        (jazz.debugger)
+        (jazz.io)
+        (jazz.jrm)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.media)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace)
+        (jazz.utilities))
+
+
+(class Jazz-Debugger extends Debugger
+
+  
+  (slot processes initialize '())
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (method (start-debugger)
+    )
+  
+  
+  (method (stop-debugger)
+    )
+  
+  
+  (method (get-processes (validate-liveness?: validate-liveness? #f))
+    (when validate-liveness?
+      (validate-processes))
+    processes)
+
+
+  (method (attach-process process-proxy)
+    (unless (member? process-proxy processes test: process=?)
+      (set! processes (append! processes (list process-proxy)))
+      (when (not (get-focused-process))
+        (focus-process (new Debugged-Process self process-proxy process-proxy)))
+      (update~ (get-processes-view))))
+  
+  
+  (method (update-process process-proxy)
+    (when (remote-proxy? process-proxy)
+      (let ((actual (find-in processes process-proxy test: process=?)))
+        (when (and actual (remote-proxy? actual))
+          (set-values~ actual (get-values~ process-proxy))
+          (update~ (get-processes-view))))))
+
+
+  (method (detach-process process-proxy)
+    (when (member? process-proxy processes test: process=?)
+      (close-process-debugger-resources (new Debugged-Process self process-proxy process-proxy))
+      (set! processes (remove! process-proxy processes test: process=?))
+      (let ((focused-process (get-focused-process)))
+        (when (and focused-process (process=? process-proxy (get-reference~ focused-process)))
+          (focus-process (and (not-null? processes) (new Debugged-Process self (car processes) (car processes))))))
+      (update~ (get-processes-view))))
+  
+  
+  (method (detach-processes)
+    (validate-processes)
+    (let ((local-process (get-local-process)))
+      (for-each (function (process-proxy)
+                  (when (not (proxy=? process-proxy local-process))
+                    (detach-process~ process-proxy)))
+                processes)))
+  
+  
+  ;;;
+  ;;;; Validate
+  ;;;
+  
+  
+  (method (validate-processes)
+    (let ((valid (new-queue)))
+      (for-each (function (process)
+                  (if (valid-process? process)
+                      (enqueue valid process)
+                    (close-process-debugger-resources (new Debugged-Process self process process))))
+                processes)
+      (set! processes (queue-list valid))))
+  
+  
+  (method (valid-process? process-proxy)
+    (or (is? process-proxy Local-Proxy)
+        (live?~ process-proxy)))
+  
+  
+  ;;;
+  ;;;; Process
+  ;;;
+  
+  
+  (method (process=? x y)
+    (proxy-server=? x y))
+  
+  
+  (method (process-live? process-proxy)
+    (live?~ process-proxy))
+  
+  
+  (method (process-title process-proxy)
+    (get-title~ process-proxy))
+  
+  
+  (method (process-icon process-proxy)
+    (get-icon~ process-proxy))
+  
+  
+  (method (process-threads process-proxy)
+    (get-threads~ process-proxy))
+  
+  
+  (method (present-process process-proxy)
+    (let ((title (either (get-title~ process-proxy) "Process")))
+      (if (local-proxy? process-proxy)
+          title
+        (let ((host (get-host~ (get-ior~ process-proxy))))
+          (if (host=? host (listening-host~ (get-remoting-server)))
+              title
+            (format "{a} at {a}" title (host->string host)))))))
+  
+  
+  (method (eval-expressions process-proxy expressions)
+    (eval-expressions~ process-proxy expressions))
+  
+  
+  (method (evaluate-expressions process-proxy module-name expressions)
+    (evaluate-expressions~ process-proxy module-name expressions))
+  
+  
+  (method (process-detach process-proxy)
+    (detach-process~ process-proxy))
+  
+  
+  (method (process-exit process-proxy)
+    (exit-process~ process-proxy))
+  
+  
+  ;;;
+  ;;;; Thread
+  ;;;
+  
+  
+  (method (thread=? x-process x y-process y)
+    (and (proxy-server=? x y)
+         (= (get-id~ x) (get-id~ y))))
+  
+  
+  (method (thread-name process-proxy thread-proxy)
+    (get-name~ thread-proxy))
+  
+  
+  (method (thread-state process-proxy thread-proxy)
+    (get-state~ thread-proxy))
+  
+  
+  (method (thread-stops process-proxy thread-proxy)
+    (get-stops~ thread-proxy))
+  
+  
+  (method (thread-active-stop process-proxy thread-proxy)
+    (let ((stops (thread-stops process-proxy thread-proxy)))
+      (if (null? stops)
+          {}
+        (last stops))))
+  
+  
+  (method (break-thread process-proxy thread-proxy)
+    (break-thread~ process-proxy thread-proxy))
+  
+  
+  (method (set-repl-frame process-proxy thread-proxy frame-proxy)
+    (set-repl-frame~ thread-proxy frame-proxy))
+    
+  
+  ;;;
+  ;;;; Restart
+  ;;;
+  
+  
+  (method (restart=? x-process x y-process y)
+    (and (proxy-server=? x y)
+         (= (get-id~ x) (get-id~ y))))
+  
+  
+  (method (restart-name process-proxy restart-proxy)
+    (get-name~ restart-proxy))
+  
+  
+  (method (restart-message process-proxy restart-proxy)
+    (get-message~ restart-proxy))
+
+  
+  (method (restart-stop process-proxy restart-proxy)
+    (restart-stop~ process-proxy restart-proxy))
+
+  
+  ;;;
+  ;;;; Stop
+  ;;;
+  
+  
+  (method (stop=? x-process x y-process y)
+    (and (proxy-server=? x y)
+         (= (get-id~ x) (get-id~ y))))
+  
+  
+  (method (stop-kind process-proxy stop-proxy)
+    (get-kind~ stop-proxy))
+  
+  
+  (method (stop-reason process-proxy stop-proxy)
+    (get-reason~ stop-proxy))
+  
+  
+  (method (stop-details process-proxy stop-proxy)
+    (get-details~ stop-proxy))
+  
+  
+  (method (stop-restarts process-proxy stop-proxy)
+    (get-restarts~ stop-proxy))
+  
+  
+  (method (stop-frames process-proxy stop-proxy)
+    (get-frames~ stop-proxy))
+  
+  
+  (method (continue-stop process-proxy stop-proxy)
+    (continue-stop~ process-proxy stop-proxy))
+  
+  
+  ;;;
+  ;;;; Frame
+  ;;;
+  
+  
+  (method (frame=? x-process x y-process y)
+    (and (proxy-server=? x y)
+         (= (get-id~ x) (get-id~ y))))
+  
+  
+  (method (frame-name process-proxy frame-proxy)
+    (get-name~ frame-proxy))
+  
+  
+  (method (frame-location process-proxy frame-proxy)
+    (get-location~ frame-proxy))
+  
+  
+  (method (frame-variables process-proxy frame-proxy)
+    (get-variables~ frame-proxy))
+  
+  
+  (method (frame-variable-name process-proxy frame-proxy variable)
+    (car variable))
+  
+  
+  (method (frame-variable-value process-proxy frame-proxy variable)
+    (cdr variable))
+  
+  
+  ;;;
+  ;;;; Console
+  ;;;
+  
+  
+  (method public (register-console process-proxy thread-proxy)
+    (call-event
+      (function ()
+        (let ((process (new Debugged-Process self process-proxy process-proxy))
+              (text (register-debugger-console process-proxy thread-proxy)))
+          (let ((console (new Debugger-Resource
+                           process
+                           text
+                           (function ()
+                             (unregister-debugger-console text)))))
+            (register-debugger-resource process console)
+            (object->serial console))))))
+  
+  
+  (method public (unregister-console resource)
+    (close-resource~ (serial->object resource)))
+  
+  
+  (method public (console-output resource line)
+    (let ((text (get-reference~ (serial->object resource))))
+      (debugger-console-output text line)))
+  
+  
+  ;;;
+  ;;;; Window
+  ;;;
+  
+  
+  (method public (get-toplevel-hwnd)
+    (get-handle~ (get-toplevel)))
+  
+  
+  ;;;
+  ;;;; Debugging
+  ;;;
+  
+  
+  (method public (status-message message)
+    (user-message message))
+  
+  
+  ;;;
+  ;;;; Debuggee
+  ;;;
+  
+  
+  (definition debugger-sound
+    {File org.jazz "resources" "sounds" "Debugger.wav"})
+  
+  
+  (method public (debuggee-stop process-proxy thread-proxy stop-proxy kind reason)
+    (execute-event
+      (function ()
+        (play-sound debugger-sound)
+        (with-locked-update
+          (function ()
+            (let ((button (locate-component~ (find-toolbar~ (get-application)) 'debugger))
+                  (visit? (neq? (get-name~ (selected-workspace)) 'debugger))
+                  (problem? #t))
+              (notify~ button visit? problem?))
+            (let ((processes-view (get-processes-view))
+                  (process (new Debugged-Process self process-proxy process-proxy))
+                  (threads-view (get-threads-view))
+                  (thread (new Debugged-Thread self process-proxy thread-proxy))
+                  (frames-view (get-frames-view)))
+              (set-debugged-visit? process #t)
+              (set-debugged-problem? process #t)
+              (set-debugged-visit? thread #t)
+              (set-debugged-problem? thread #t)
+              (highlight-process~ processes-view process)
+              (let ((selection (selected-process~ processes-view)))
+                (when (or (not selection) (debugged=? process selection))
+                  (if (not selection)
+                      (set-selected-process~ processes-view process)
+                    (process-change~ processes-view))
+                  (let ((selection (selected-thread~ threads-view)))
+                    (when (or (not selection) (debugged=? thread selection))
+                      (if (not selection)
+                          (set-selected-thread~ threads-view thread)
+                        (thread-change~ threads-view))))))))))))))

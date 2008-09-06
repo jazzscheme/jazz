@@ -339,9 +339,6 @@
       #f)))
 
 
-(define jazz.Build-Repository
-  (jazz.make-repository 'build "Build" jazz.jazz-install "lib/"))
-
 (define jazz.Install-Repository
   (jazz.make-repository 'install "Install" jazz.jazz-install "lib/"))
 
@@ -358,8 +355,7 @@
         (%%list repository)
       '()))
   
-  `(,@(listify jazz.Build-Repository)
-    ,@(listify jazz.Install-Repository)
+  `(,@(listify jazz.Install-Repository)
     ,@(listify jazz.Jazz-Repository)
     ,@(listify jazz.User-Repository)))
 
@@ -1002,7 +998,7 @@
 (define (jazz.resource-build-dir resource)
   (let ((package (%%resource-package resource))
         (dir (jazz.pathname-dir (%%resource-path resource))))
-    (jazz.repository-pathname jazz.Build-Repository
+    (jazz.repository-pathname jazz.Install-Repository
       (if dir
           (%%string-append (%%package-path package) "/" dir)
         (%%package-path package)))))

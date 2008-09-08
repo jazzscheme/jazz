@@ -330,7 +330,9 @@
 ;;;
 
 
-(define (jazz.make-repository name dirname dir subdir #!key (error? #t))
+(define (jazz.make-repository name dirname dir subdir #!key (create? #f) (error? #t))
+  (if (and dir (%%not (jazz.directory-exists? dir)))
+      (jazz.directory-create dir))
   (if (and dir (jazz.directory-exists? dir))
       (let ((directory (%%string-append (jazz.pathname-normalize dir) subdir)))
         (%%make-repository name directory))
@@ -346,7 +348,7 @@
   (jazz.make-repository 'jazz "Jazz" jazz.jazz-source "lib/" error?: #f))
 
 (define jazz.User-Repository
-  (jazz.make-repository 'user "User" "~/" ".jazz/lib/"))
+  (jazz.make-repository 'user "User" "~/" ".jazz/lib/" create?: #t))
 
 
 (define (jazz.make-repositories)

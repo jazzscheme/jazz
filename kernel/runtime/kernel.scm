@@ -856,12 +856,17 @@
 
 (define (jazz.make-product name)
   (let ((install jazz.jazz-install)
+        (platform jazz.platform)
         (made '()))
     (define (install-file path)
       (%%string-append install path))
     
     (define (jazz-path)
-      (install-file "jazz"))
+      (case platform
+        ((windows)
+         (install-file "jazz"))
+        (else
+         "./jazz")))
     
     (define (build name)
       (jazz.execute-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))

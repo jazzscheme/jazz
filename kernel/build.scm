@@ -685,19 +685,14 @@
 
 
 (define (jazz.product-make product configuration)
-  (let ((install (jazz.install-directory configuration))
-        (platform (jazz.configuration-platform configuration)))
+  (let ((install (jazz.install-directory configuration)))
     (define (install-file path)
       (string-append install path))
     
     (define (jazz-path)
-      (case platform
-        ((windows)
-         (install-file "jazz"))
-        (else
-         "./jazz")))
+      (install-file "jazz"))
     
-    (jazz.execute-process (jazz-path) (list "-:dq-" "-build" (symbol->string product)) install)))
+    (jazz.execute-process (jazz-path) (list "-:dq-" "-make" (symbol->string product)) install)))
 
 
 ;;;

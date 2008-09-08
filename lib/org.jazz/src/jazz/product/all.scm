@@ -133,12 +133,6 @@
       (lambda (module-name declaration phase)
         (jazz.compile-module module-name))))
   
-  (jazz.load-module 'core.library)
-  (jazz.load-module 'core.module.build)
-  (jazz.build-product 'platform)
-  
-  (jazz.feedback "making all")
-  
   (for-each compile jazz.All-Modules))
 
 

@@ -707,7 +707,7 @@
 ;;;
 
 
-(define (jazz.find-product-module name)
+(define (jazz.find-product-descriptor name)
   (let iter-repo ((repositories jazz.Repositories))
     (if (%%null? repositories)
         #f
@@ -717,8 +717,36 @@
           (let ((package (%%car packages)))
             (let ((pair (%%assq name (%%package-products package))))
               (if pair
-                  (%%cadr pair)
+                  pair
                 (iter (%%cdr packages))))))))))
+
+
+(define (jazz.product-descriptor-module descriptor)
+  (let ((pair (%%assq 'module (%%cdr descriptor))))
+    (if pair
+        (%%cadr pair)
+      #f)))
+
+
+(define (jazz.product-descriptor-dependencies descriptor)
+  (let ((pair (%%assq 'dependencies (%%cdr descriptor))))
+    (if pair
+        (%%cdr pair)
+      '())))
+
+
+(define (jazz.find-product-module name)
+  (let ((descriptor (jazz.find-product-descriptor name)))
+    (if (%%not descriptor)
+        #f
+      (jazz.product-descriptor-module descriptor))))
+
+
+(define (jazz.find-product-dependencies name)
+  (let ((descriptor (jazz.find-product-descriptor name)))
+    (if (%%not descriptor)
+        #f
+      (jazz.product-descriptor-dependencies descriptor))))
 
 
 (define jazz.Products-Table
@@ -771,6 +799,13 @@
       (jazz.error "Unable to find registered product: {s}" name)))
 
 
+(define (jazz.get-product-descriptor name)
+  (let ((descriptor (jazz.find-product-descriptor name)))
+    (if descriptor
+        descriptor
+      (jazz.error "Unable to find product: {s}" name))))
+
+
 (define (jazz.get-product name)
   (let ((module (jazz.find-product-module name)))
     (if module
@@ -811,8 +846,34 @@
 (define (jazz.build-product name)
   (let ((build (%%product-build (jazz.setup-product name))))
     (if build
-        (build)
+        (begin
+          (jazz.feedback "making {a}" name)
+          (jazz.load-module 'core.library)
+          (jazz.load-module 'core.module.build)
+          (build))
       (jazz.error "Product is not buildable: {s}" name))))
+
+
+(define (jazz.make-product name)
+  (let ((install jazz.jazz-install)
+        (made '()))
+    (define (install-file path)
+      (%%string-append install path))
+    
+    (define (jazz-path)
+      (install-file "jazz"))
+    
+    (define (build name)
+      (jazz.execute-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))
+    
+    (define (make name)
+      (if (%%not (%%memq name made))
+          (let ((descriptor (jazz.get-product-descriptor name)))
+            (for-each make (jazz.product-descriptor-dependencies descriptor))
+            (build name)
+            (set! made (%%cons name made)))))
+    
+    (make name)))
 
 
 ;;;

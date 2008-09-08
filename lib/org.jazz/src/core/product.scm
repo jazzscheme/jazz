@@ -44,8 +44,6 @@
 
 
 (define (jazz.build-core)
-  (jazz.feedback "making core")
-  (jazz.load-module 'core.library)
   (jazz.build-module 'core.base)
   (jazz.build-module 'core.class)
   (jazz.build-module 'core.generic)

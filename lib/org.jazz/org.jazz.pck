@@ -2,11 +2,11 @@
   
   (root "src")
   (install jazz.install)
-  (products (core core.product)
-            (jazz jazz.product)
-            (platform jazz.product.platform)
-            (all jazz.product.all)
-            (test test.product))
+  (products (core (module core.product))
+            (jazz (module jazz.product) (dependencies core))
+            (platform (module jazz.product.platform) (dependencies jazz))
+            (all (module jazz.product.all) (dependencies platform))
+            (test (module test.product)))
   (export core.base
           core.class
           core.exception

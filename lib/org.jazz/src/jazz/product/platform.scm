@@ -152,8 +152,6 @@
 (cond-expand
   (carbon
     (define (jazz.build-platform)
-      (jazz.build-product 'jazz)
-      (jazz.feedback "making platform")
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)
@@ -176,8 +174,6 @@
           (jazz.copy-file (source-file "foreign/pixman/lib/windows/libpixman-1-0.dll") (install-file "libpixman-1-0.dll") feedback: jazz.feedback))
         
         (copy-platform-files)
-        (jazz.build-product 'jazz)
-        (jazz.feedback "making platform")
         (jazz.build-types)
         (jazz.build-cairo)
         (jazz.build-font)
@@ -185,8 +181,6 @@
         (jazz.build-com))))
   (x11
     (define (jazz.build-platform)
-      (jazz.build-product 'jazz)
-      (jazz.feedback "making platform")
       (jazz.build-types)
       (jazz.build-cairo)
       (jazz.build-font)

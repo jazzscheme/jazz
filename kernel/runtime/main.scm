@@ -48,10 +48,12 @@
 
 
 (define (jazz.compile-module . rest)
+  (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
   (apply jazz.compile-module-internal rest))
 
 (define (jazz.build-module . rest)
+  (jazz.load-module 'core.library)
   (jazz.load-module 'core.module.build)
   (apply jazz.build-module-internal rest))
 
@@ -132,7 +134,7 @@
           (current-handler exc))
         thunk)))
   
-  (split-command-line (%%cdr (command-line)) '() '("run" "build" "compile" "debug")
+  (split-command-line (%%cdr (command-line)) '() '("run" "make" "build" "compile" "debug")
     (lambda (options remaining)
       (define (get-option name)
         (let ((pair (%%assoc name options)))
@@ -141,6 +143,7 @@
             #f)))
       
       (let ((run (get-option "run"))
+            (make (get-option "make"))
             (build (get-option "build"))
             (compile (get-option "compile"))
             (debug? (get-option "debug")))
@@ -155,6 +158,10 @@
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.build-product (%%string->symbol build)))))
+              (make
+               (with-debug-exception-handler
+                 (lambda ()
+                   (jazz.make-product (%%string->symbol make)))))
               (compile
                (with-debug-exception-handler
                  (lambda ()

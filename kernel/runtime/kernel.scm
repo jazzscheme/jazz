@@ -818,7 +818,7 @@
 
 
 (define (jazz.setup-product name)
-  (if (not (jazz.debug?))
+  (if (not jazz.debug?)
       (jazz.get-product name)
     (begin
       (set! jazz.process-name name)

@@ -85,9 +85,6 @@
 ;;;
 
 
-(jazz.define-setting jazz.debug?
-  #f)
-
 (jazz.define-setting jazz.debug-build?
   #f)
 

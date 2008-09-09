@@ -74,6 +74,9 @@
 ;;;
 
 
+(define jazz.debug?
+  #f)
+
 (define jazz.initialization-file
   "~/.jazz/.jazzini")
 
@@ -147,7 +150,7 @@
             (build (get-option "build"))
             (compile (get-option "compile"))
             (debug? (get-option "debug")))
-        (jazz.debug? debug?)
+        (set! jazz.debug? debug?)
         (process-initialization-file)
         (jazz.install-repositories)
         (cond (run

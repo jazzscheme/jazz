@@ -1,3 +1,5 @@
 (package gambit.examples
   
-  (products (dc (module dc))))
+  (root "src")
+  (products (dc (module gambit.distr-comp))
+            (ring (module gambit.ring))))

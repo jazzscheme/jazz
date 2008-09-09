@@ -667,8 +667,7 @@
       source:       source
       source?:      source?
       kernel?:      #t
-      console?:     #t
-      minimum-heap: 100000)
+      console?:     #t)
     
     (if (memq 'interpret options)
         (generate-gambcini))))

@@ -47,6 +47,7 @@
   '(jazz
     jazz.build
     jazz.builder
+    jazz.builder.workbench
     jazz.catalog
     jazz.console
     jazz.database
@@ -54,6 +55,8 @@
     jazz.database.providers.sqlserver
     jazz.debuggee
     jazz.debugger
+    jazz.debugger.debuggers.gambit
+    jazz.debugger.debuggers.jazz
     jazz.depot
     jazz.designer
     jazz.development

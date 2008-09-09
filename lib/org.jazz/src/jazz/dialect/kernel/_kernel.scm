@@ -286,6 +286,11 @@
 
 (native jazz.build-feedback)
 (native jazz.boot-directory)
+(native jazz.jazz-system)
+(native jazz.jazz-platform)
+(native jazz.jazz-windowing)
+(native jazz.jazz-safety)
+(native jazz.jazz-options)
 (native jazz.jazz-version)
 (native jazz.jazz-install)
 (native jazz.jazz-source)

@@ -288,6 +288,27 @@
 
 
 ;;;
+;;;; Configuration
+;;;
+
+
+(define jazz.jazz-system
+  jazz.system)
+
+(define jazz.jazz-platform
+  jazz.platform)
+
+(define jazz.jazz-windowing
+  jazz.windowing)
+
+(define jazz.jazz-safety
+  jazz.safety)
+
+(define jazz.jazz-options
+  jazz.options)
+
+
+;;;
 ;;;; Product
 ;;;
 

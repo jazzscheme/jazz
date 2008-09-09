@@ -228,9 +228,9 @@
   
   
   (method (on-install-project evt)
-    (let* ((default-directory? (get-shift?~ evt))
+    (let* ((current-directory? (get-shift?~ evt))
            (parent (selected-object))
-           (file (with-import-directory default-directory? parent
+           (file (with-import-directory current-directory? parent
                    (function (directory)
                      (choose-file extensions: '(("Jazz Files" . "jazz")) directory: directory)))))
       (install-project file parent #f)))
@@ -419,10 +419,10 @@
         (known-extension-frame-class~ (get-application) ext))))
   
   
-  (method (import-directory default-directory?)
+  (method (import-directory current-directory?)
     (let* ((parent (selected-object))
            (project (ascendant-project parent))
-           (directory (with-import-directory default-directory? parent
+           (directory (with-import-directory current-directory? parent
                         (function (directory)
                           (choose-directory directory: directory))))
            (count (count-files~ directory filter: (function (file) (import-filter? project file)) max-count: MaxFiles-Warning)))
@@ -434,10 +434,10 @@
                         (parse~ directory))))))
   
   
-  (method (import-files default-directory?)
+  (method (import-files current-directory?)
     (let* ((parent (selected-object))
            (project (ascendant-project parent))
-           (files (with-import-directory default-directory? parent
+           (files (with-import-directory current-directory? parent
                     (function (directory)
                       (choose-file multiple-selection?: #t directory: directory)))))
       (import-pathnames project files parent)))
@@ -462,9 +462,9 @@
          (let ((project-file (new-file~ pathname (format "{a}.jazz" name))))
            (if (and (exists?~ project-file) (determine-project-file? project-file))
                (install-project project-file parent #t)
-             (let ((subgroup (new Project-Group name: name)))
+             (let ((subgroup (new Project-Group directory: pathname)))
                (add-child~ designer subgroup parent design-events?: (not descendant?) descendant?: descendant?)
-               (set-name~ designer subgroup name design-events?: (not descendant?))
+               (set-property~ designer subgroup 'directory pathname design-events?: (not descendant?))
                (iterate-directory~ pathname
                  (function (pathname)
                    (import-pathname project pathname subgroup #t))
@@ -513,32 +513,24 @@
   
   
   (method (default-import-directory object (must-exist?: must-exist? #t))
-    #f
-    @convert
     (letrec ((default
                (function (object)
                  (typecase object
                    ((Workbench)
                     {Directory Jazz})
                    ((Project)
-                    (let ((source (get-manifest-source (type-name (class-of object)))))
-                      (get-parent~ source)))
+                    {})
                    ((Project-Group)
                     (get-directory~ object))
                    (else
-                    (let ((parent-dir (default (get-parent~ object))))
-                      (when parent-dir
-                        (let ((dir (new Directory (append (get-list~ parent-dir) (list (get-name~ object))))))
-                          (if (or (not must-exist?) (exists?~ dir))
-                              dir
-                            parent-dir)))))))))
+                    {})))))
       (let ((dir (default object)))
         (when dir
           (anchorize~ dir)))))
   
   
-  (method (with-import-directory default-directory? object proc)
-    (let ((default-directory (essay default-directory? (default-import-directory object))))
+  (method (with-import-directory current-directory? object proc)
+    (let ((default-directory (essay (not current-directory?) (default-import-directory object))))
       (if (and default-directory (exists?~ default-directory))
           (with-preserved-current-directory
             (function ()
@@ -569,9 +561,10 @@
   
   
   (method (synchronize-content)
+    @wait-complete
     (let* ((object (selected-object))
            (project (ascendant-project object))
-           (directory {Directory Jazz "kernel"} @for-test (default-import-directory object must-exist?: #f)))
+           (directory (default-import-directory object must-exist?: #f)))
       (if (not (exists?~ directory))
           (error "Directory {s} not found" directory)
         (let ((fact (new List-Factory))
@@ -996,6 +989,7 @@
   
   (method (new-project-menu object)
     (let ((menu (new Project-Menu client: (get-tree))))
+      @wait-complete
       (when (is? object Workbench)
         (set-visible?~ (locate~ menu 'synchronize-content) #f))
       (set-visible?~ (locate~ menu 'update-catalog) (get-catalog?~ object))
@@ -1132,6 +1126,7 @@
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
+      @wait-complete
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut))))
 
@@ -1153,6 +1148,7 @@
       (<Label-Item>     name: install-project     title: "Install Project..." before: cut icon: {Bitmap-Resource "Import"} action: {Action workbench-manager install-project})
       (<Label-Item>     name: import-files        title: "Import Files..." before: cut action: {Action workbench-manager import-files})
       (<Label-Item>     name: import-directory    title: "Import Directory..." before: cut action: {Action workbench-manager import-directory})
+      @wait-complete
       (<Label-Item>     name: synchronize-content title: "Synchronize Content..." before: cut action: {Action workbench-manager synchronize-content})
       (<Separator-Item>                           before: cut)
       (<Label-Item>     name: update-catalog      title: "Update Catalog" before: cut icon: {Bitmap-Resource "Repository"} action: {Action workbench-manager update-catalog})
@@ -1184,9 +1180,4 @@
   (form
     (<install>
       (<Label-Item>     name: edit title: "Edit" before: cut default?: #t icon: {Bitmap-Resource "Edit"} action: {Action workbench-manager launch})
-      (<Separator-Item>            before: cut)))
-  
-  
-  (method (on-properties evt)
-    @convert
-    (show-properties))))
+      (<Separator-Item>            before: cut)))))

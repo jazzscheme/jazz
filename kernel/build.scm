@@ -960,6 +960,9 @@
 (define jazz.safety
   'debug)
 
+(define jazz.options
+  '())
+
 
 (load "kernel/syntax/macros")
 (load "kernel/syntax/features")

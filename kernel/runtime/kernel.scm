@@ -581,10 +581,10 @@
                     (package-length (%%string-length package-pathname)))
                 (if (and (%%fx<= package-length pathname-length)
                          (%%string=? (%%substring pathname 0 package-length) package-pathname))
-                    (let ((extension (jazz.pathname-extension pathname))
-                          (path (%%substring pathname package-length pathname-length)))
+                    (let* ((path (%%substring pathname package-length pathname-length))
+                           (extension (and path (jazz.pathname-extension path))))
                       ;; remove extension
-                      (if path
+                      (if extension
                           (set! path (%%substring path 0 (%%fx- (%%string-length path) (%%fx+ 1 (%%string-length extension))))))
                       ;; remove redundant underscore prefixed name
                       (let ((len (%%string-length path))

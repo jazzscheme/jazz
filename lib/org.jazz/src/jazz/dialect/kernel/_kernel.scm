@@ -238,6 +238,14 @@
 
 
 ;;;
+;;;; Gambit
+;;;
+
+
+(native compile-file)
+
+
+;;;
 ;;;; Host
 ;;;
 

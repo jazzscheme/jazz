@@ -40,12 +40,31 @@
 
 (import (jazz.builder)
         (jazz.builder.workbench)
+        (jazz.debugger)
+        (jazz.debugger.debuggers.gambit)
         (jazz.io)
         (jazz.jrm)
         (jazz.utilities))
 
 
 (class Gambit-Product extends Product
+  
+  
+  ;;;
+  ;;;; Debugger
+  ;;;
+  
+  
+  (definition started?
+    #f)
+  
+  
+  (method (start-debugger)
+    (when (not started?)
+      (let ((debugger (new Gambit-Debugger)))
+        (start-debugger~ debugger)
+        (register-debugger debugger))
+      (set! started? #t)))
 
 
   ;;;
@@ -54,4 +73,13 @@
   
   
   (method (launch (configuration: configuration {}) (debug?: debug? #f) (profile: profile {}) (command-action: command-action {}) (command-arguments: command-arguments {}) (show-console?: show-console? #f) (wait?: wait? #f))
-    )))
+    (start-debugger)
+    (open-process
+      (list
+        path: "gsi"
+        directory: "c:/"
+        arguments: (list "-:dar" "-debug")
+        stdin-redirection: #f
+        stdout-redirection: #f
+        stderr-redirection: #f
+        show-console: #t)))))

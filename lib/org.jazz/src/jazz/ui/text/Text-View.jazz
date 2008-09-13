@@ -305,11 +305,6 @@
     '(text))
   
   
-  ;;;
-  ;;;; Host
-  ;;;
-  
-  
   (method (install-in-host host)
     (nextmethod host)
     (install-in-host~ (get-controller) host))
@@ -323,6 +318,51 @@
   (method (focus-actions)
     (cons (find-actions 'text)
           (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Emacs
+  ;;;
+  
+  
+  (method (on-emacs-move-upward evt)
+    (up-arrow-move #f #f))
+  
+  
+  (method (on-emacs-move-downward evt)
+    (down-arrow-move #f #f))
+  
+  
+  (method (on-emacs-move-forward-char evt)
+    (right-arrow-move #f #f))
+  
+  
+  (method (on-emacs-move-backward-char evt)
+    (left-arrow-move #f #f))
+  
+  
+  (method (on-emacs-delete-char evt)
+    (delete-action #f))
+  
+  
+  (method (on-emacs-prior evt)
+    (prior-page #f))
+  
+  
+  (method (on-emacs-next evt)
+    (next-page #f))
+  
+  
+  (method (on-emacs-center-caret evt)
+    (center-caret))
+  
+  
+  (method (on-emacs-home evt)
+    (goto-home #f #f))
+  
+  
+  (method (on-emacs-end evt)
+    (goto-end #f #f))
   
   
   ;;;
@@ -1203,34 +1243,40 @@
   
   
   (method public (on-home evt)
-    (let ((document? (get-property~ evt document?:))
-          (extend? (get-property~ evt extend?:)))
-      (reset-virtual)
-      (if document?
-          (if extend?
-              (change-selection (text-beginning))
-            (set-caret (text-beginning)))
-        (let* ((pos (selection-tail 'backward))
-               (row (get-row~ pos))
-               (col (home-column row))
-               (start (new Cell row (if (= (get-col~ pos) col) 0 col))))
-          (if extend?
-              (change-selection start)
-            (set-caret start))
-          (ensure-scrolled-left)))
-      (process-selection-change)))
+    (goto-home (get-property~ evt document?:)
+               (get-property~ evt extend?:)))
+  
+  
+  (method public (goto-home document? extend?)
+    (reset-virtual)
+    (if document?
+        (if extend?
+            (change-selection (text-beginning))
+          (set-caret (text-beginning)))
+      (let* ((pos (selection-tail 'backward))
+             (row (get-row~ pos))
+             (col (home-column row))
+             (start (new Cell row (if (= (get-col~ pos) col) 0 col))))
+        (if extend?
+            (change-selection start)
+          (set-caret start))
+        (ensure-scrolled-left)))
+    (process-selection-change))
   
   
   (method public (on-end evt)
-    (let ((document? (get-property~ evt document?:))
-          (extend? (get-property~ evt extend?:)))
-      (reset-virtual)
-      (if document?
-          (if extend?
-              (change-selection (text-ending))
-            (set-caret (text-ending)))
-        (goto-paragraph-end extend-selection?: extend?))
-      (process-selection-change)))
+    (goto-end (get-property~ evt document?:)
+              (get-property~ evt extend?:)))
+  
+  
+  (method public (goto-end document? extend?)
+    (reset-virtual)
+    (if document?
+        (if extend?
+            (change-selection (text-ending))
+          (set-caret (text-ending)))
+      (goto-paragraph-end extend-selection?: extend?))
+    (process-selection-change))
   
   
   (method public (goto-paragraph-end (extend-selection?: extend-selection? #f))

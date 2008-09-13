@@ -1,0 +1,284 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Gomoku Pages
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.gomoku.Gomoku-Pages jazz
+
+
+(import (jazz.jml)
+        (jazz.network)
+        (jazz.sample.game)
+        (jazz.sample.gomoku)
+        (jazz.utilities))
+
+
+(class Gomoku-Pages extends Game-Pages
+  
+  
+  (definition Pattern-Associations
+    '(("Gomoku" (<gomoku>))))
+  
+  
+  (method (get-pattern-associations)
+    Pattern-Associations)
+  
+  
+  ;;;
+  ;;;; Gomoku
+  ;;;
+  
+  
+  (method (new-game size)
+    (case size
+      ((small) (new Gomoku-Game rows: 9 columns: 9))
+      ((medium) (new Gomoku-Game rows: 13 columns: 13))
+      ((large) (new Gomoku-Game rows: 19 columns: 19))))
+  
+  
+  (method (effective-size value)
+    (if (not value)
+        'small
+      (cond ((nu=? value "small")
+             'small)
+            ((nu=? value "medium")
+             'medium)
+            ((nu=? value "large")
+             'large))))
+  
+  
+  (method (effective-move game value)
+    (cond ((or (not value) (empty-string? value))
+           #f)
+          ((equal? value "one")
+           'one)
+          ((equal? value "all")
+           'all)
+          (else
+           (deserialize-move game value))))
+
+  
+  (method (create-players game players)
+    (cond ((nu=? players "hh") (list (new Gomoku-Human game BLACK) (new Gomoku-Human game WHITE)))
+          ((nu=? players "hc") (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
+          ((nu=? players "ch") (list (new Gomoku-AI game BLACK) (new Gomoku-Human game WHITE)))
+          ((nu=? players "cc") (list (new Gomoku-AI game BLACK) (new Gomoku-AI game WHITE)))))
+
+  
+  (pattern (gomoku node)
+    (let ((request (get-request)))
+      (let ((size (effective-size (get-parameter~ request "size" error?: #f)))
+            (players (effective-players (get-parameter~ request "players" error?: #f)))
+            (current (effective-current (get-parameter~ request "current" error?: #f))))
+        (let ((game (new-game size)))
+          (let ((goto (effective-goto game (get-parameter~ request "goto" error?: #f))))
+            (register-players~ game (create-players game players))
+            (deserialize-game request game goto current)
+            (let ((move (effective-move game (get-parameter~ request "move" error?: #f)))
+                  (all-computers? (every? (function (player) (computer?~ player)) (get-players~ game))))
+              (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
+                (play-players game move)))
+            (let ((status (get-status~ game))
+                  (backward (get-backward-moves~ game))
+                  (forward (get-forward-moves~ game))
+                  (next-player (get-next-player~ game))
+                  (second-player (get-second-player~ game))
+                  (prefix (case size
+                            ((small) "large")
+                            ((medium) "medium")
+                            ((large) "small"))))
+              (let ((last-move (if (null? backward) #f (last backward)))
+                    (current (- (length backward) 1)))
+              `(<html>
+                 (<head>
+                   (<link> type: "text/css" href: "css/gomoku.css" rel: "stylesheet")
+                   (<script> type: "text/javascript" src: "scripts/client.js")
+                   (<script> type: "text/javascript" src: "scripts/gomoku.js")
+                   (<title> "Gomoku"))
+                 (<body> background: "backgrounds/wood.jpg"
+                   (<form> name: "Form" method: "POST"
+                     (<input> type: "hidden" name: "size" value: ,(symbol->string size))
+                     (<input> type: "hidden" name: "players" value: ,players)
+                     (<input> type: "hidden" name: "current" value: ,(->string (- (length backward) 1)))
+                     ,@(serialize-game game)
+                     (<input> type: "hidden" name: "move")
+                     (<input> type: "hidden" name: "goto"))
+                   (<table>
+                     (<tr>
+                       (<td> width: 30)
+                       (<td>
+                         (<center> (<h2> "Welcome to Gomoku")))
+                       (<td> width: 10)
+                       (<td> width: 70)
+                       (<td> width: 26)
+                       (<td>
+                         (<a> class: "games" href: "/" "Back to Games")))
+                     (<tr>
+                       (<td>)
+                       (<td> valign: "top"
+                         (<table> cellspacing: "0" cellpadding: "0"
+                           ,@(let ((last-row (- (get-board-rows~ game) 1))
+                                   (last-col (- (get-board-columns~ game) 1)))
+                               (loop (for row from 0 to last-row)
+                                     (with vert (cond ((= row 0) "top")
+                                                      ((= row last-row) "bottom")
+                                                      (else "center")))
+                                     (collect
+                                       `(<tr>
+                                          ,@(cons `(<td> ,(present-row game row))
+                                                  (loop (for col from 0 to last-col)
+                                                        (with horz (cond ((= col 0) "left")
+                                                                         ((= col last-col) "right")
+                                                                         (else "center")))
+                                                        (collect
+                                                          (let* ((square (get-square~ game row col))
+                                                                 (token (get-token~ square))
+                                                                 (name (if (and (moku-square? size row col) (= token EMPTY)) "moku" (format "{a}{a}" vert horz)))
+                                                                 (image (format "images/gomoku/{a}/{a}_{a}{a}.png"
+                                                                                prefix
+                                                                                (cond ((= token EMPTY) "empty")
+                                                                                      ((= token WHITE) "white")
+                                                                                      ((= token BLACK) "black"))
+                                                                                name
+                                                                                (if (eq? square last-move)
+                                                                                    "_glow"
+                                                                                  ""))))
+                                                            `(<td>
+                                                               ,(if (and (eqv? status 'play) (= token EMPTY) (human?~ next-player))
+                                                                    `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'Gomoku');" (serialize-move square))
+                                                                       (<img> src: ,image))
+                                                                  `(<img> src: ,image)))))))))))
+                           (<tr>
+                             (<td>)
+                             ,@(loop (for col from 0 below (get-board-columns~ game))
+                                     (collect
+                                       `(<td> align: "center" valign: "top" ,(present-col game col)))))
+                           (<tr>
+                             (<td> align: "center" colspan: ,(->string (+ 1 (get-board-columns~ game)))
+                               ,@(case status
+                                   ((win)
+                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                                   ((draw)
+                                    `((<h2> class: "status" "Draw!")))
+                                   (else
+                                    '()))))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           (<br>)
+                           ,@(let ((rank 0))
+                               (map (function (move)
+                                      (prog1 `(<span>
+                                                (<a> href: "#" onclick: ,(format "gotoMove('{a}', 'Form', 'Gomoku');" rank)
+                                                  ,(let ((text (present-move game move)))
+                                                     (if (= rank current)
+                                                         `(<b> ,text)
+                                                       text)))
+                                                ,@(if (= (modulo rank 2) 1)
+                                                      `((<br>))
+                                                    `("&nbsp;")))
+                                        (increase! rank)))
+                                    (append backward forward)))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           (<br>)
+                           (<a> class: "new_game" href: ,(format "Gomoku?size={a}&players={a}" size players) "New game")
+                           (<br>)
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=small&players={a}" players) "9x9")
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=medium&players={a}" players) "13x13")
+                           @waiting-performance
+                           (<a> class: "game_size" href: ,(format "Gomoku?size=large&players={a}" players) "19x19")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Players")
+                           (<a> href: ,(format "Gomoku?size={a}&players=hh" size) "Human vs Human") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=hc" size) "Human vs Computer") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=ch" size) "Computer vs Human") (<br>)
+                           (<a> href: ,(format "Gomoku?size={a}&players=cc" size) "Computer vs Computer")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Controls")
+                           ,@(if (not-null? backward)
+                                 `((<a> href: "#" onclick: ,(format "gotoMove('{a}', 'Form', 'Gomoku');" (- current 1)) "Backward")
+                                   "&nbsp;")
+                               '())
+                           ,@(if (not-null? forward)
+                                 `((<a> href: "#" onclick: ,(format "gotoMove('{a}', 'Form', 'Gomoku');" (+ current 1)) "Forward")
+                                   (<br>))
+                               '())
+                           ,@(if (or (not-null? backward) (not-null? forward))
+                                 `((<br>)
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<a> href: "#" onclick: "playMove('one', 'Form', 'Gomoku');" "Play One")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player) (computer?~ second-player))
+                                 `((<a> href: "#" onclick: "playMove('all', 'Form', 'Gomoku');" "Play All")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<br>))
+                               '())
+                           (<br>)
+                           (<h2> "Credits")
+                           (<b> (<i> "Joel Cartier (my 11 year old son)")) (<br>)
+                           (<b> (<i> "Guillaume Cartier")) (<br>)
+                           (<br>)
+                           "Made with"
+                           (<a> class: "credits" href: "http://www.jazzscheme.org" "JazzScheme")))))
+                   ,@(debug-info))))))))))
+  
+  
+  ;;;
+  ;;;; Serialization
+  ;;;
+  
+  
+  (method (serialize-move move)
+    (let ((row (get-row~ move))
+          (col (get-col~ move)))
+      (format "{s},{s}" row col)))
+  
+  
+  (method (deserialize-move game value)
+    (let ((pos (search value ",")))
+      (let ((row (string->number (substring value 0 pos)))
+            (col (string->number (substring value (+ pos 1) (cardinality value)))))
+        (get-square~ game row col))))))

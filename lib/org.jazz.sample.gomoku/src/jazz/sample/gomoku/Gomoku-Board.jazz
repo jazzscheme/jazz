@@ -1,0 +1,341 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Gomoku
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Joel Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.gomoku.Gomoku-Board jazz
+
+
+(import (jazz.io)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.literals)
+        (jazz.media)
+        (jazz.platform)
+        (jazz.sample.game)
+        (jazz.sample.gomoku)
+        (jazz.system)
+        (jazz.system.application)
+        (jazz.ui)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities)
+        (time))
+
+
+;;;
+;;;; Board
+;;;
+
+    
+(class Gomoku-Board extends View
+  
+  
+  (slot game           getter generate)
+
+  ;; drawing
+  (slot square-offset  initialize 100)
+  (slot square-width   initialize 50)
+  (slot square-spacing initialize 20)
+  (slot line-pen       initialize {Pen name: Black})
+  (slot black-color    initialize {Color name: Black})
+  (slot white-color    initialize {Color name: White})
+
+  
+  (method meta (host-icon)
+    {Bitmap-Resource "MsgUser"})
+  
+  
+  (method meta (host-title)
+    "Gomoku")
+  
+  
+  (method meta (host-position)
+    {Point 50 10})
+  
+  
+  (method meta (host-size)
+    {Dimension 700 640})
+  
+  
+  (method (focus-default)
+    (acquire-focus~ self))
+  
+  
+  (method (finish rest)
+    (nextmethod rest)
+    (let ((size 'small)
+          (rows #f)
+          (columns #f))
+      (case size
+        ((small)
+         (set! rows 9)
+         (set! columns 9)
+         (set! square-width 35)
+         (set! square-spacing 12))
+        ((medium)
+         (set! rows 13)
+         (set! columns 13)
+         (set! square-width 35)
+         (set! square-spacing 12))
+        ((large)
+         (set! rows 19)
+         (set! columns 19)
+         (set! square-width 24)
+         (set! square-spacing 9)))
+      (set! game (new Gomoku-Game rows: rows columns: columns))
+      (register-players~ game (list (new Gomoku-Human game BLACK) (new Gomoku-AI game WHITE)))
+      (initialize-board)))
+  
+  
+  (method (destroy)
+    @fix-bug
+    (close-ambiance)
+    (nextmethod))
+  
+  
+  (method (initialize-board)
+    (invalidate-view)
+    @wait
+    (cond ((eq? who HUMAN)
+           (invalidate-view))
+          ((eq? who COMPUTER)
+           (let ((move (computer-move~ game)))
+             (play-move game move)))))
+  
+  
+  ;;;
+  ;;;; Play
+  ;;;
+  
+  
+  (method (play-move move)
+    (board-play move)
+    (when (eq? (get-status~ game) 'play)
+      (let ((player (get-next-player~ game)))
+        (when (computer?~ player)
+          (let ((move (computer-move~ player)))
+            (board-play move)))))
+    @move-to-board
+    (cond ((eq? who HUMAN) (play-victory))
+          ((eq? who COMPUTER) (play-defeat))))
+  
+  
+  (method (board-play move)
+    (play-move~ game move)
+    (invalidate-view))
+  
+  
+  (method (draw surface context update lh lv)
+    (fill-rect~ surface (get-bounds) {Color name: Dark-Blue})
+    (set-text-color~ surface {Color name: Yellow})
+    (set-font~ surface {Font name: Heading0})
+    (draw-text~ surface square-offset 30 "Welcome to Gomoku")
+    (let ((status (get-status~ game)))
+      (when status
+        (let* ((total-width (+ square-width square-spacing))
+               (half-width (fxfloor/ square-width 2))
+               (total-board (- (* total-width (get-board-rows~ game)) half-width square-spacing)))
+          (set-pen~ surface line-pen)
+          (loop (for n from 0 below (get-board-rows~ game))
+                (line~ surface (+ square-offset (* n total-width) half-width) (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board))
+                (line~ surface (+ square-offset half-width) (+ square-offset (* n total-width) half-width) (+ square-offset total-board) (+ square-offset (* n total-width) half-width)))
+          (loop (for row from 0 below (get-board-rows~ game))
+                (loop (for col from 0 below (get-board-columns~ game))
+                      (let ((token (get-token~ (get-square~ game row col)))
+                            (rect (new Rect (+ square-offset (* col total-width)) (+ square-offset (* row total-width)) (+ square-offset (* col total-width) square-width) (+ square-offset (* row total-width) square-width))))
+                        (cond ((eq? token BLACK)
+                               (ellipse~ surface rect black-color black-color))
+                              ((eq? token WHITE)
+                               (ellipse~ surface rect white-color white-color)))))))
+        (case status
+          ((win)
+           (draw-status surface (format "{a} wins!!!" (present~ (get-winner~ game))) {Color name: Yellow}))
+          ((draw)
+           (draw-status surface "Draw!" {Color name: Yellow}))))))
+  
+  
+  (method (draw-status surface message color)
+    (set-text-color~ surface color)
+    (set-font~ surface {Font name: Heading0})
+    (draw-text~ surface 100 530 message))
+  
+  
+  (method (cursor-update pos)
+    (let ((square (legal-sqr pos)))
+      (set-cursor (if square :finger :arrow))))
+  
+  
+  (method (mouse-down pos)
+    (let ((square (legal-sqr pos)))
+      (when square
+        (play-move square))))
+  
+  
+  (method (legal-sqr pos)
+    (if (eq? (get-status~ game) 'play)
+        (let ((h (get-h~ pos))
+              (v (get-v~ pos))
+              (total-width (+ square-width square-spacing)))
+          (if (and (>= h square-offset)
+                   (< h (+ square-offset (* (get-board-columns~ game) total-width) (- square-spacing)))
+                   (>= v square-offset)
+                   (< v (+ square-offset (* (get-board-rows~ game) total-width) (- square-spacing))))
+              (let ((row (truncate (/ (- v 90) total-width)))
+                    (col (truncate (/ (- h 90) total-width))))
+                (let ((square (get-square~ game row col)))
+                  (if square
+                      (if (eq? (get-token~ square) EMPTY)
+                          square
+                        #f)
+                    #f)))
+            #f))
+      #f))
+  
+  
+  @wait
+  (method (restart-game who)
+    (initialize-game self who))
+  
+  
+  (method (set-search-depth depth)
+    (set-search-depth~ game depth)
+    (when (get-last-move~ game)
+      (let ((who (* (get-current-next~ game) -1)))
+        (let ((delta (evaluate-move-delta~ game (get-last-move~ game) who)))
+          (set-token~ (get-last-move~ game) EMPTY)
+          (board-play~ game (get-last-move~ game))
+          (set-current-eval~ game (- (get-current-eval~ game) delta))
+          (computer-move~ game)
+          (board-unplay~ game (get-last-move~ game))
+          (set-token~ (get-last-move~ game) who)
+          (set-current-eval~ game (+ (get-current-eval~ game) delta)))))
+    (invalidate-view))
+  
+  
+  (method (play-computer)
+    (when (eq? (get-status~ game) 'play)
+      (let ((move (computer-move~ game)))
+        (play-move~ game move))))
+  
+  
+  (method (key-press c)
+    (case c
+      @wait
+      ((#\p) (restart-game (or (get-who-starts~ game) HUMAN)))
+      @wait
+      ((#\h) (restart-game HUMAN))
+      @wait
+      ((#\c) (restart-game COMPUTER))
+      @wait
+      ((#\l) (load-board self))
+      ((#\q) (exit))
+      ((#\1) (set-search-depth 1))
+      ((#\2) (set-search-depth 2))
+      ((#\3) (set-search-depth 3))
+      ((#\4) (set-search-depth 4))
+      ((#\5) (set-search-depth 5))
+      ((#\6) (set-search-depth 6))
+      ((#\7) (set-search-depth 7))
+      ((#\8) (set-search-depth 8))
+      ((#\9) (set-search-depth 9))
+      ((#\space) (play-computer)))))
+
+
+;;;
+;;;; Media
+;;;
+
+
+(definition play-intro?
+  #f)
+
+(definition play-ambiance?
+  #t)
+
+
+(definition intro-directory
+  {Directory Home "jazz" "app" "gomoku" "media" "intro"})
+
+(definition ambiance-directory
+  {Directory Home "jazz" "app" "gomoku" "media" "ambiance"})
+
+(definition victory-directory
+  {Directory Home "jazz" "app" "gomoku" "media" "victory"})
+
+(definition defeat-directory
+  {Directory Home "jazz" "app" "gomoku" "media" "defeat"})
+
+
+(definition (play-intro)
+  (when play-intro?
+    (let ((sound (random-file intro-directory "wav")))
+      (when sound
+        (play-sound sound asynchronous?: #f)))))
+
+
+(definition (play-ambiance)
+  (when play-ambiance?
+    (let ((music (random-file ambiance-directory "mp3")))
+      (when music
+        (open-music music "ambiance")
+        (play-music "ambiance")))))
+
+(definition (close-ambiance)
+  (close-music "ambiance"))
+
+
+(definition (play-victory)
+  (let ((sound (random-file victory-directory "wav")))
+    (when sound
+      (play-sound sound))))
+
+(definition (play-defeat)
+  (let ((sound (random-file defeat-directory "wav")))
+    (when sound
+      (play-sound sound))))
+
+
+(definition (random-file directory extension)
+  (if (exists?~ directory)
+      (let ((files
+              (collect-files~ directory
+                (lambda (file)
+                  (ci=? (get-extension~ file) extension)))))
+        (if (not-null? files)
+            (random-element files)
+          #f))
+    #f)))

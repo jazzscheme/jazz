@@ -352,7 +352,7 @@
     (let ((parent (either (selected-object) (get-workbench))))
       (when (or (is? parent Project-Group)
                 (is? parent Project))
-        (let ((default-directory (either (default-import-directory parent must-exist?: #f) {Directory Profile})))
+        (let ((default-directory (either (default-import-directory parent must-exist?: #f) (get-current-directory))))
           (when (or (exists?~ default-directory)
                     (= (message-box (format "Directory {l} does not exist. Create?" (get-list~ default-directory)) type: 'question) 'yes))
             (create-directories~ default-directory)
@@ -391,7 +391,7 @@
         (let ((name (string->symbol (get-base~ file)))
               (module (find-pathname-module (parse~ file))))
           (if (not module)
-              (error "Invalid project file: \"{a}\"" (get-name~ file))
+              (error "Unable to find module associated to project file: \"{a}\"" (get-name~ file))
             (let ((class (load-class name module))
                   (workbench (get-workbench)))
               (if (not (subtype? class Project))
@@ -400,6 +400,7 @@
                   (add-child~ designer project parent)
                   (set-tag-module~ designer project parent module)
                   (reorder-component~ (get-tree) project)
+                  (load-catalog~ workbench project)
                   (user-message "{s} installed" (get-presentation~ project))
                   project))))))))
 
@@ -417,7 +418,9 @@
     (let ((ext (get-extension~ file))
           (extensions (effective-include-extensions (get-include-extensions~ project))))
       (if extensions
-          (member? ext extensions test: ci=?)
+          (or (member? ext extensions test: ci=?)
+              ;; special case for those annoying extensionless files
+              (member? (get-name~ file) '("README" "INSTALL")))
         (known-extension-frame-class~ (get-application) ext))))
   
   
@@ -518,8 +521,6 @@
     (letrec ((default
                (function (object)
                  (typecase object
-                   ((Workbench)
-                    {Directory Jazz})
                    ((Project)
                     {})
                    ((Project-Directory)

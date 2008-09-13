@@ -1,0 +1,237 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; C4 Pages
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.c4.C4-Pages jazz
+
+
+(import (jazz.development)
+        (jazz.jml)
+        (jazz.network)
+        (jazz.sample.c4)
+        (jazz.sample.game)
+        (jazz.utilities))
+
+
+(class C4-Pages extends Game-Pages
+  
+  
+  (definition Pattern-Associations
+    '(("C4" (<c4>))))
+  
+  
+  (method (get-pattern-associations)
+    Pattern-Associations)
+  
+  
+  ;;;
+  ;;;; C4
+  ;;;
+  
+  
+  (method (new-game)
+    (new C4-Game))
+  
+  
+  (method (effective-move game value)
+    (cond ((or (not value) (empty-string? value))
+           #f)
+          ((equal? value "one")
+           'one)
+          ((equal? value "all")
+           'all)
+          (else
+           (available-move~ game (deserialize-col game value)))))
+
+  
+  (method (create-players game players)
+    (cond ((nu=? players "hh") (list (new C4-Human game RED) (new C4-Human game GREEN)))
+          ((nu=? players "hc") (list (new C4-Human game RED) (new C4-AI game GREEN)))
+          ((nu=? players "ch") (list (new C4-AI game RED) (new C4-Human game GREEN)))
+          ((nu=? players "cc") (list (new C4-AI game RED) (new C4-AI game GREEN)))))
+
+
+  (pattern (c4 node)
+    (let ((request (get-request)))
+      (let ((players (effective-players (get-parameter~ request "players" error?: #f)))
+            (current (effective-current (get-parameter~ request "current" error?: #f))))
+        (let ((game (new-game)))
+          (let ((goto (effective-goto game (get-parameter~ request "goto" error?: #f))))
+            (register-players~ game (create-players game players))
+            (deserialize-game request game goto current)
+            (let ((move (effective-move game (get-parameter~ request "move" error?: #f)))
+                  (all-computers? (every? (function (player) (computer?~ player)) (get-players~ game))))
+              (when (and (not goto) (or (not all-computers?) (not-null? (get-backward-moves~ game)) (memq? move '(one all))))
+                (play-players game move)))
+            (let ((status (get-status~ game))
+                  (backward (get-backward-moves~ game))
+                  (forward (get-forward-moves~ game))
+                  (next-player (get-next-player~ game))
+                  (second-player (get-second-player~ game)))
+              `(<html>
+                 (<head>
+                   (<link> type: "text/css" href: "css/c4.css" rel: "stylesheet")
+                   (<script> type: "text/javascript" src: "scripts/client.js")
+                   (<script> type: "text/javascript" src: "scripts/c4.js")
+                   (<title> "Connect 4"))
+                 (<body> background: "backgrounds/britestar.jpg"
+                   (<form> name: "Form" method: "POST"
+                     (<input> type: "hidden" name: "players" value: ,players)
+                     (<input> type: "hidden" name: "current" value: ,(->string (- (length backward) 1)))
+                     ,@(serialize-game game)
+                     (<input> type: "hidden" name: "move")
+                     (<input> type: "hidden" name: "goto"))
+                   (<table> id: "maintable"
+                     (<tr>
+                       (<td> width: 30)
+                       (<td>
+                         (<center> (<h2> "Welcome to Connect 4")))
+                       (<td> width: 30)
+                       (<td>)
+                       (<td> width: 26)
+                       (<td>
+                         (<a> class: "games" href: "/" "Back to Games")))
+                     (<tr>
+                       (<td>)
+                       (<td> valign: "top"
+                         (<table> cellspacing: "0" cellpadding: "0"
+                           ,@(loop (for row from 0 below (get-board-rows~ game))
+                                   (collect
+                                     `(<tr>
+                                        ,@(cons `(<td> ,(present-row game row))
+                                                (loop (for col from 0 below (get-board-columns~ game))
+                                                      (collect
+                                                        (let* ((square (get-square~ game row col))
+                                                               (token (get-token~ square))
+                                                               (image (format "images/c4/{a}.png"
+                                                                              (cond ((= token EMPTY) "empty")
+                                                                                    ((= token GREEN) "green")
+                                                                                    ((= token RED) "red")))))
+                                                          `(<td>
+                                                             ,(if (and (eqv? status 'play) (= token EMPTY) (human?~ next-player))
+                                                                  `(<a> href: "#" onclick: ,(format "playMove('{a}', 'Form', 'C4');" (serialize-col col))
+                                                                     (<img> src: ,image))
+                                                                `(<img> src: ,image))))))))))
+                           (<tr>
+                             (<td>)
+                             ,@(loop (for col from 0 below (get-board-columns~ game))
+                                     (collect
+                                       `(<td> align: "center" valign: "top" ,(present-col game col)))))
+                           (<tr>
+                             (<td> align: "center" colspan: "8"
+                               ,@(case status
+                                   ((win)
+                                    `((<h2> class: "status" ,(format "{a} wins!!!" (present~ (get-winner~ game))))))
+                                   ((draw)
+                                    `((<h2> class: "status" "Draw!")))
+                                   (else
+                                    '()))))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<a> href: "#" onclick: "playMove('one', 'Form', 'C4');" "Play One")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player) (computer?~ second-player))
+                                 `((<a> href: "#" onclick: "playMove('all', 'Form', 'C4');" "Play All")
+                                   (<br>))
+                               '())
+                           ,@(if (and (eqv? status 'play) (computer?~ next-player))
+                                 `((<br>))
+                               '())
+                           ,@(let ((rank 0)
+                                   (current (- (length backward) 1)))
+                               (map (function (move)
+                                      (prog1 `(<span>
+                                                (<a> href: "#" onclick: ,(format "gotoMove('{a}', 'Form', 'C4');" rank)
+                                                  ,(let ((text (present-move game move)))
+                                                     (if (= rank current)
+                                                         `(<b> ,text)
+                                                       text)))
+                                                ,@(if (= (modulo rank 2) 1)
+                                                      `((<br>))
+                                                    `("&nbsp;")))
+                                        (increase! rank)))
+                                    (append backward forward)))))
+                       (<td>)
+                       (<td> valign: "top"
+                         (<span>
+                           (<br>)
+                           (<a> class: "new_game" href: ,(format "C4?players={a}" players) "New game")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Players")
+                           (<a> href: "C4?players=hh" "Human vs Human") (<br>)
+                           (<a> href: "C4?players=hc" "Human vs Computer") (<br>)
+                           (<a> href: "C4?players=ch" "Computer vs Human") (<br>)
+                           (<a> href: "C4?players=cc" "Computer vs Computer")
+                           (<br>)
+                           (<br>)
+                           (<h2> "Credits")
+                           (<b> (<i> "Joel Cartier (my 11 year old son)")) (<br>)
+                           (<b> (<i> "Guillaume Cartier")) (<br>)
+                           (<br>)
+                           "Made with"
+                           (<a> class: "credits" href: "http://www.jazzscheme.org" "JazzScheme"))))))
+                   ,@(debug-info))))))))
+  
+  
+  ;;;
+  ;;;; Serialization
+  ;;;
+  
+  
+  (method (serialize-col col)
+    (number->string col))
+  
+  
+  (method (deserialize-col game value)
+    (string->number value))
+  
+  
+  (method (serialize-move move)
+    (let ((row (get-row~ move))
+          (col (get-col~ move)))
+      (format "{s},{s}" row col)))
+  
+  
+  (method (deserialize-move game value)
+    (let ((pos (search value ",")))
+      (let ((row (string->number (substring value 0 pos)))
+            (col (string->number (substring value (+ pos 1) (cardinality value)))))
+        (get-square~ game row col))))))

@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(jazz.kernel-declare)
+(jazz.kernel-declares)
 
 
 (cond-expand

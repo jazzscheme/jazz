@@ -1,0 +1,3 @@
+(package gambit
+  
+  (root "src"))

@@ -38,7 +38,110 @@
 (library jazz.debugger.debuggers.gambit.Gambit-Debugger jazz
 
 
-(import (jazz.debugger))
+(import (gambit)
+        (jazz.console)
+        (jazz.debugger)
+        (jazz.utilities))
+
+
+;;;
+;;;; Console
+;;;
+
+
+(define console-no
+  1)
+
+
+(define (open-console-window)
+  (let ((manager (get-console-manager))
+        (title (format "Gambit {s}" console-no)))
+    (increase! console-no)
+    (setup-debugger-console-ports (register-console~ manager title banner?: #f))))
+
+
+(define (setup-debugger-console-ports text)
+  (receive (head tail) (open-string-pipe)
+    (set-console-port~ text head)
+    (start-console-pump text head)
+    tail))
+
+
+;;;
+;;;; Debugger
+;;;
+
+
+(define rdi
+  #f)
+
+(define (rdi-function fn)
+  (case fn
+    ((register-console)
+     rdi-register-console)
+    ((console-output)
+     rdi-console-output)
+    (else
+     (error "unknown function"))))
+
+;;;-----------------------------------------------------------------------------
+
+(define rdi-console-table (make-table))
+
+(define (rdi-register-console console-id)
+  (let ((console-port (open-console-window)))
+    (table-set! rdi-console-table console-id console-port)
+    (rdi-console-input-pump-start! console-id console-port)
+    #f))
+
+(define (rdi-console-output console-id output)
+  (let ((console-port
+         (table-ref rdi-console-table console-id #f)))
+    (if console-port
+        (begin
+          (display output console-port)
+          (force-output console-port))))
+  #t)
+
+(define (read-substring-blocking-for-1 str start end port)
+  (if (< start end)
+      (begin
+        (input-port-timeout-set! port +inf.0) ;; block for the first byte
+        (let ((n (read-substring str start (+ start 1) port)))
+          (input-port-timeout-set! port -inf.0) ;; don't block for the rest
+          (if (= n 1)
+              (+ 1 (read-substring str (+ start 1) end port))
+              n)))
+      0))
+
+(define (rdi-console-input-pump-start! console-id console-port)
+  (thread-start!
+   (make-thread
+    (lambda ()
+      (let* ((buflen 1000)
+             (buf (make-string buflen)))
+        (let loop ()
+          (let ((n (read-substring-blocking-for-1 buf 0 buflen console-port)))
+            (if (> n 0)
+                (let ((str (substring buf 0 n)))
+                  (rdi-remote-call rdi
+                                   'console-input
+                                   console-id
+                                   str)
+                  (loop))))))))))
+
+(define (gambit-start-debugger)
+  (rdi-init rdi-function)
+  (thread-start!
+    (make-thread
+      (lambda ()
+        (set! rdi (rdi-create-server #f))
+        (rdi-force-connection rdi)))))
+
+
+;;;
+;;;; Jazz
+;;;
 
 
 (class Gambit-Debugger extends Debugger
@@ -50,7 +153,8 @@
   
   
   (method (start-debugger)
-    )
+    (user-message "Starting gambit debugger...")
+    (gambit-start-debugger))
   
   
   (method (stop-debugger)

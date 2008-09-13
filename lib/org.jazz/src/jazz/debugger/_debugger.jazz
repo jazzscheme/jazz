@@ -39,7 +39,8 @@
 
 
 (export (jazz.debugger.autoload))
-(import (jazz.debugger.autoload)
+(import (gambit)
+        (jazz.debugger.autoload)
         (jazz.console)
         (jazz.debuggee)
         (jazz.jrm)
@@ -271,6 +272,35 @@
             (console-input~ process-proxy thread-proxy line)
             (iterate))))
       "Debugger Console Pump")))
+
+
+;; new stuff for gambit
+(definition (start-console-pump text console-port)
+  (thread-start!
+   (make-thread
+    (lambda ()
+      (let* ((buflen 1000)
+             (buf (make-string buflen)))
+        (let loop ()
+          (let ((n (read-substring-blocking-for-1 buf 0 buflen console-port)))
+            (if (> n 0)
+                (let ((str (substring buf 0 n)))
+                  (execute-event
+                    (function ()
+                      (insert-string~ text str)))
+                  (loop))))))))))
+
+
+(definition (read-substring-blocking-for-1 str start end port)
+  (if (< start end)
+      (begin
+        (input-port-timeout-set! port +inf.0) ;; block for the first byte
+        (let ((n (read-substring str start (+ start 1) port)))
+          (input-port-timeout-set! port -inf.0) ;; don't block for the rest
+          (if (= n 1)
+              (+ 1 (read-substring str (+ start 1) end port))
+              n)))
+      0))
 
 
 ;;;

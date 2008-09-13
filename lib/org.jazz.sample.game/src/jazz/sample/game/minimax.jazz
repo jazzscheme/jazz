@@ -1,0 +1,156 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Minimax Algorithm
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.game.minimax jazz
+
+
+(import (time))
+
+
+(proclaim (optimize))
+
+
+;;;
+;;;; Statistics
+;;;
+
+
+(class Minimax-Statistics extends Object
+  
+  
+  (slot last-eval                   initialize #f accessors generate)
+  (slot last-evaluations            initialize #f accessors generate)
+  (slot last-evaluations-count <fx> initialize 0  accessors generate)
+  (slot last-time                   initialize #f accessors generate)
+  
+  
+  (method (increase-last-evaluations-count)
+    (increase! last-evaluations-count)))
+
+
+;;;
+;;;; Algorithm
+;;;
+
+
+(definition Default-Search-Depth
+  4)
+
+
+(definition (minimax me
+                     iterate-candidates
+                     play
+                     unplay
+                     evaluate-position
+                     evaluate-move-delta
+                     (current-eval: current-eval 0)
+                     (search-depth: search-depth Default-Search-Depth))
+  
+  (let ((statistics (new Minimax-Statistics)))
+    
+    (define (best-move)
+      (let ((best '())
+            (best-eval #f)
+            (best-test (if (= me 1) > <))
+            (evals '()))
+        (iterate-candidates me gather-candidates
+          (function (move)
+            (let ((eval (evaluate-move move me current-eval 1)))
+              (set! evals (cons eval evals))
+              (cond ;; as good
+                    ((and best-eval (= eval best-eval))
+                     (set! best (cons move best)))
+                    ;; better
+                    ((or (not best-eval) (best-test eval best-eval))
+                     (set! best (list move))
+                     (set! best-eval eval))))))
+        (set-last-eval~ statistics best-eval)
+        (set-last-evaluations~ statistics (reverse evals))
+        (random-element best)))
+    
+    
+    (define (gather-candidates token iterate-moves max-candidates)
+      (let ((all '())
+            (nb 0))
+        (iterate-moves
+          (function (move)
+            (play move token)
+            (set! all (cons (cons move (evaluate-move-delta move token)) all))
+            (set! nb (+ nb 1))
+            (unplay move)))
+        (let ((best-test (if (= token 1) > <)))
+          (map car (subseq (sort best-test all key: cdr) 0 (min max-candidates nb))))))
+  
+    
+    (define (evaluate-move move token <fx> eval <fx> depth <fx>) <fx>
+      (play move token)
+      (increase-last-evaluations-count~ statistics)
+      (let ((delta (evaluate-move-delta move token)))
+        (let ((new-eval (+ eval delta)))
+          @validate-incremental-evaluation
+          (let ((position-eval (evaluate-position)))
+            (when (/= new-eval position-eval)
+              (error "Invalid incremental evaluation: new={a}, position={a}" new-eval position-eval)))
+          (let ((best-eval
+                  (if (> (* new-eval token) 900000)
+                      new-eval
+                    (evaluate token new-eval depth))))
+            (unplay move)
+            best-eval))))
+    
+    
+    (define (evaluate token <fx> eval <fx> depth <fx>) <fx>
+      (if (= depth search-depth)
+          eval
+        (evaluate-best token eval depth)))
+    
+    
+    (define (evaluate-best token <fx> eval <fx> depth <fx>) <fx>
+      (let ((best-eval 10000000))
+        (iterate-candidates token gather-candidates
+          (function (move)
+            (let ((eval (evaluate-move move (* token -1) eval (+ depth 1))))
+              (let ((normalized-eval (* (cast <fx> eval) token)))
+                (when (< normalized-eval best-eval)
+                  (set! best-eval normalized-eval))))))
+        (* best-eval token)))
+    
+    
+    (best-move)))
+
+
+(proclaim (not optimize)))

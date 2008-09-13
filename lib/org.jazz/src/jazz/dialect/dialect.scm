@@ -2472,8 +2472,9 @@
 ;;;
 
 
-(define (jazz.walk-declare walker resume declaration environment declarations)
-  (jazz.new-declare declarations))
+(define (jazz.walk-declare walker resume declaration environment form)
+  (let ((declarations (%%cdr form)))
+    (jazz.new-declare declarations)))
 
 
 ;;;

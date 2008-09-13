@@ -1,0 +1,173 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Gomoku AI
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Joel Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;    Guillaume Cartier
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.sample.gomoku.Gomoku-AI jazz
+
+
+(import (jazz.sample.game.minimax)
+        (jazz.sample.gomoku)
+        (time))
+
+
+(proclaim (optimize))
+
+
+(class Gomoku-AI extends Gomoku-Player
+  
+  
+  (slot current-eval <fx> initialize 0            accessors generate)
+  (slot all-lines         initialize #f           accessors generate)
+  (slot search-depth <fx> initialize Search-Depth accessors generate)
+
+  
+  (method (initialize game me)
+    (nextmethod game me)
+    (setup-lines))
+  
+  
+  (method (player-kind)
+    'computer)
+  
+  
+  (method (move-played move token)
+    (set! current-eval (+ current-eval (evaluate-move-delta move token))))
+
+  
+  (method (computer-move)
+    (minimax me
+             iterate-candidates
+             play
+             unplay
+             evaluate-position
+             evaluate-move-delta
+             current-eval: current-eval
+             search-depth: search-depth))
+  
+  
+  (method (iterate-moves proc)
+    (loop (for move in (get-available-moves~ game))
+          (proc move)))
+  
+  
+  (method (iterate-candidates token gather-candidates proc)
+    (for-each proc (gather-candidates token iterate-moves Candidates)))
+  
+  
+  (method (play move token)
+    (play~ game move token))
+  
+  
+  (method (unplay move)
+    (unplay~ game move))
+  
+  
+  ;;;
+  ;;;; Evaluation
+  ;;;
+  
+  
+  (method (evaluate-position) <fx>
+    (let ((total 0))
+      (loop (for line in all-lines)
+            (increase! total (evaluate-line line)))
+      total))
+  
+  
+  (method (evaluate-line line <Line>) <fx>
+    (let ((me-count (count-token~ line me))
+          (opponent-count (count-token~ line opponent)))
+      (if (and (> me-count 0)
+               (> opponent-count 0))
+          0
+        (+ (evaluate-count me-count me)
+           (evaluate-count opponent-count opponent)))))
+  
+  
+  (method (evaluate-move-delta square <Square> token <fx>) <fx>
+    (let ((total 0))
+      (loop (for line in (get-lines~ square))
+            (let ((who-count (count-token~ line token))
+                  (other-count (count-token~ line (* token -1))))
+              (let ((delta <fx>
+                      (cond ((and (> who-count 1) (> other-count 0))
+                             0)
+                            ((= other-count 0)
+                             (evaluate-line-delta who-count token))
+                            (else
+                             (evaluate-count other-count token)))))
+                (set! total (+ total delta)))))
+      total))
+  
+  
+  (method (evaluate-line-delta count <fx> token <fx>) <fx>
+    (* (cast <fx> (case count
+                    ((5) 990000)
+                    ((4) 9000)
+                    ((3) 900)
+                    ((2) 90)
+                    ((1) 10)))
+       token))
+  
+  
+  (method (evaluate-count count <fx> token <fx>) <fx>
+    (* (cast <fx> (case count
+                    ((5) 1000000)
+                    ((4) 10000)
+                    ((3) 1000)
+                    ((2) 100)
+                    ((1) 10)
+                    ((0) 0)))
+       token))
+  
+  
+  ;;;
+  ;;;; Lines
+  ;;;
+  
+  
+  (method (setup-lines)
+    (set! all-lines '())
+    (loop (for rank from 0 below (get-board-size~ game))
+          (let ((square (board-ref~ game rank)))
+            (for-each (lambda (line)
+                        (when (not (member? line all-lines test: line=?))
+                          (set! all-lines (cons line all-lines))))
+                      (get-lines~ square))))))
+  
+  
+(proclaim (not optimize)))

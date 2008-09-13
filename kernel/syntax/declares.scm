@@ -37,13 +37,16 @@
 
 (cond-expand
   (gambit
-    (jazz.define-macro (jazz.kernel-declare)
+    (jazz.define-macro (jazz.kernel-declares)
       `(declare (block)
                 (standard-bindings)
                 (extended-bindings)
-                 ,@(if jazz.debug-user?
-                       '()
-                     '((not safe))))))
+                ,@(if jazz.debug-core?
+                      '((not proper-tail-calls))
+                    '())
+                ,@(if jazz.debug-user?
+                      '()
+                    '((not safe))))))
   
   (else))
 
@@ -62,6 +65,8 @@
                  ;; inlining can have a huge impact on compilation time
                  ;; and really bloat the size of the generated .o1 file
                  (not inline)
+                 ;; a test
+                 (not proper-tail-calls)
                  ,@(if jazz.debug-user?
                        ;; safe and inlining primitives at the same time
                        ;; is really costly on compilation time

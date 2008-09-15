@@ -38,7 +38,9 @@
 (cond-expand
   (gambit
     (jazz.define-macro (jazz.kernel-declares)
-      `(declare (block)
+      `(declare ,@(if jazz.debug-core?
+                      '()
+                    '((block)))
                 (standard-bindings)
                 (extended-bindings)
                 ,@(if jazz.debug-core?
@@ -60,14 +62,21 @@
                             (eq? jazz.safety 'release))
                        '((block))
                      '())
+                 
                  (standard-bindings)
                  (extended-bindings)
+                 
                  ;; inlining can have a huge impact on compilation time
                  ;; and really bloat the size of the generated .o1 file
                  (not inline)
                  (inlining-limit 0)
                  
-                 ;; a test
+                 ;; those should be removed in a new distribution safety
+                 ;; where the code is fully debugged. or even better be
+                 ;; only be done in debug if we can obtain a close enough
+                 ;; performance between a built debug and a built release
+                 ;; (at the moment the difference is around 8 times due
+                 ;; mainly to the safe declare)
                  (not proper-tail-calls)
                  (not lambda-lift)
                  

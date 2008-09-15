@@ -150,7 +150,7 @@
                   (dst (string-append output name ".c")))
               (if (jazz.file-needs-update? src dst)
                   (let ((path (string-append dir name))
-                        (options (if (eq? safety 'release) '() '(debug))))
+                        (options '(debug-environments)))
                     (feedback-message "; compiling {a}..." path)
                     (compile-file-to-c path options: options output: output)))
               (let ((seconds (time->seconds (file-last-modification-time dst))))

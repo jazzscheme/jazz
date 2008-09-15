@@ -65,8 +65,12 @@
                  ;; inlining can have a huge impact on compilation time
                  ;; and really bloat the size of the generated .o1 file
                  (not inline)
+                 (inlining-limit 0)
+                 
                  ;; a test
                  (not proper-tail-calls)
+                 (not lambda-lift)
+                 
                  ,@(if jazz.debug-user?
                        ;; safe and inlining primitives at the same time
                        ;; is really costly on compilation time

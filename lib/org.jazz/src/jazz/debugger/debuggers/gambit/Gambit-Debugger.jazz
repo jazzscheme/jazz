@@ -49,18 +49,20 @@
 ;;;
 
 
-(define console-no
+(definition console-no
   1)
 
 
-(define (open-console-window)
+(definition (open-console-window)
   (let ((manager (get-console-manager))
         (title (format "Gambit {s}" console-no)))
     (increase! console-no)
-    (setup-debugger-console-ports (register-console~ manager title banner?: #f))))
+    (setup-debugger-console-ports (register-console~ manager title
+                                    banner: "Gambit"
+                                    prompt: "> "))))
 
 
-(define (setup-debugger-console-ports text)
+(definition (setup-debugger-console-ports text)
   (receive (head tail) (open-string-pipe)
     (set-console-port~ text head)
     (start-console-pump text head)
@@ -72,10 +74,10 @@
 ;;;
 
 
-(define rdi
+(definition rdi
   #f)
 
-(define (rdi-function fn)
+(definition (rdi-function fn)
   (case fn
     ((register-console)
      rdi-register-console)
@@ -84,17 +86,15 @@
     (else
      (error "unknown function"))))
 
-;;;-----------------------------------------------------------------------------
+(definition rdi-console-table (make-table))
 
-(define rdi-console-table (make-table))
-
-(define (rdi-register-console console-id)
+(definition (rdi-register-console console-id)
   (let ((console-port (open-console-window)))
     (table-set! rdi-console-table console-id console-port)
     (rdi-console-input-pump-start! console-id console-port)
     #f))
 
-(define (rdi-console-output console-id output)
+(definition (rdi-console-output console-id output)
   (let ((console-port
          (table-ref rdi-console-table console-id #f)))
     (if console-port
@@ -103,7 +103,7 @@
           (force-output console-port))))
   #t)
 
-(define (read-substring-blocking-for-1 str start end port)
+(definition (read-substring-blocking-for-1 str start end port)
   (if (< start end)
       (begin
         (input-port-timeout-set! port +inf.0) ;; block for the first byte
@@ -114,7 +114,7 @@
               n)))
       0))
 
-(define (rdi-console-input-pump-start! console-id console-port)
+(definition (rdi-console-input-pump-start! console-id console-port)
   (thread-start!
    (make-thread
     (lambda ()
@@ -130,7 +130,7 @@
                                    str)
                   (loop))))))))))
 
-(define (gambit-start-debugger)
+(definition (gambit-start-debugger)
   (rdi-init rdi-function)
   (thread-start!
     (make-thread

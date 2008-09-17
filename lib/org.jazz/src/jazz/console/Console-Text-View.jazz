@@ -57,10 +57,11 @@
   (slot evaluating?    initialize #f)
   (slot last-inserted  initialize {})
   (slot inserted-where initialize {})
-  (slot prompt         initialize "> ")
+  (slot banner         initialize {} accessors generate)
+  (slot prompt         initialize {} accessors generate)
   (slot console-port   initialize {} accessors generate)
   (slot console-pump   initialize {} accessors generate)
-    
+  
   
   (form
     (<install> wrap?: #t left-padding: 2 default-style: {Text-Style name: Default font: {Font name: Code}}))
@@ -176,24 +177,6 @@
   (method public (set-selection range . rest)
     (apply nextmethod range rest)
     (set! inserted-where {}))
-    
-
-  ;;;
-  ;;;; Banner
-  ;;;
-
-  
-  (method public virtual (display-banner)
-    (let ((appl (get-application))
-          (start (get-start)))
-      (insert-string (format "{a} {a}{%}{%}" (process-name~ appl) (present~ (process-version~ appl))))
-      (colorize Banner-Color start)
-      (display-prompt)))
-  
-  
-  (method public (clear-console)
-    (clear-all)
-    (display-banner))
 
 
   ;;;
@@ -315,23 +298,38 @@
   
   (method (process-formatted-directive directive input)
     (case directive
+      ((banner)
+       (display-banner))
       ((prompt)
        (fresh-prompt))
       (else
        (nextmethod directive input))))
+    
+
+  ;;;
+  ;;;; Banner
+  ;;;
+
+  
+  (method public virtual (display-banner)
+    (when banner
+      (let ((appl (get-application))
+            (start (get-start)))
+        (insert-string banner)
+        (colorize Banner-Color start)
+        (insert-newline)
+        (insert-newline)
+        (display-prompt))))
+  
+  
+  (method public (clear-console)
+    (clear-all)
+    (display-banner))
 
 
   ;;;
   ;;;; Prompt
   ;;;
-  
-  
-  (method public (get-prompt)
-    prompt)
-  
-  
-  (method public (set-prompt value)
-    (set! prompt value))
 
 
   (method public (fresh-prompt (force?: force? #f))
@@ -357,13 +355,14 @@
 
 
   (method protected (display-prompt)
-    (let ((start (get-start))
-          (prompt (current-prompt)))
-      (insert-string prompt)
-      (colorize Prompt-Color start (+ start (- (string-length prompt) 1)))
-      (colorize Expression-Color (get-end))
-      (prompt-at-end)
-      (update-view)))
+    (when prompt
+      (let ((start (get-start))
+            (prompt (current-prompt)))
+        (insert-string prompt)
+        (colorize Prompt-Color start (+ start (- (string-length prompt) 1)))
+        (colorize Expression-Color (get-end))
+        (prompt-at-end)
+        (update-view))))
   
   
   ;;;

@@ -157,14 +157,14 @@
                (jazz.run-product (%%string->symbol run)))
               (jazz.product
                (jazz.run-product jazz.product))
-              (build
-               (with-debug-exception-handler
-                 (lambda ()
-                   (jazz.build-product (%%string->symbol build)))))
               (make
                (with-debug-exception-handler
                  (lambda ()
                    (jazz.make-product (%%string->symbol make)))))
+              (build
+               (with-debug-exception-handler
+                 (lambda ()
+                   (jazz.build-product (%%string->symbol build)))))
               (compile
                (with-debug-exception-handler
                  (lambda ()

@@ -96,6 +96,4 @@
       (if (not readtable)
           (set! readtable (make-readtable)))
       
-      readtable)))
-
-((jazz.get-extension-reader "jazz")))
+      readtable))))

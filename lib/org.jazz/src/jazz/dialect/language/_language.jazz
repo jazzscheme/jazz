@@ -5242,6 +5242,31 @@
       (write-subu8vector u8vector 0 size port))))
 
 
+(definition (read-substring-blocking-for-1 str start end port)
+  (if (< start end)
+      (begin
+        ;; block for the first byte
+        (input-port-timeout-set! port +inf.0)
+        (let ((n (read-substring str start (+ start 1) port)))
+          ;; don't block for the rest
+          (input-port-timeout-set! port -inf.0)
+          (if (= n 1)
+              (+ 1 (read-substring str (+ start 1) end port))
+            n)))
+    0))
+
+
+(definition (start-pump port proc)
+  (let ((size 1000))
+    (let ((buffer (make-string size)))
+      (let (iterate)
+        (let ((n (read-substring-blocking-for-1 buffer 0 size port)))
+          (when (> n 0)
+            (let ((str (substring buffer 0 n)))
+              (proc str)
+              (iterate))))))))
+
+
 ;;;
 ;;;; Input
 ;;;
@@ -5400,35 +5425,16 @@
 ;;;
 
 
-(definition *console-port*
-  {})
-
-(definition *console-mutex*
-  (make-mutex 'console))
-
-(definition *console-make*
+(definition *console-port-getter*
   {})
 
 
-(definition (get-console-make)
-  *console-make*)
-
-(definition (set-console-make proc)
-  (set! *console-make* proc))
-
-(definition (make-console)
-  (*console-make*))
+(definition (set-console-port-getter getter)
+  (set! *console-port-getter* getter))
 
 
 (definition (get-console-port)
-  (unwind-protect
-      (begin
-        (mutex-lock! *console-mutex*)
-        (either *console-port*
-                (let ((console (make-console)))
-                  (set! *console-port* console)
-                  console)))
-    (mutex-unlock! *console-mutex*)))
+  (*console-port-getter*))
 
 
 (definition public (console-input-port)
@@ -5439,8 +5445,7 @@
 
 
 (definition public (force-console)
-  (when *console-port*
-    (force-output *console-port*)))
+  (force-output (get-console-port)))
 
 
 ;;;
@@ -5457,7 +5462,7 @@
     ((:terminal)
      (proc (current-output-port)))
     ((:console)
-     (proc (console-output-port)))
+     (proc (*console-port-getter*)))
     (else
      (proc printer))))
 

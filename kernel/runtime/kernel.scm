@@ -785,6 +785,9 @@
 (define jazz.process-icon
   #f)
 
+(define jazz.process-version
+  #f)
+
 
 (define (jazz.current-process-name)
   jazz.process-name)
@@ -803,6 +806,12 @@
 
 (define (jazz.current-process-icon-set! icon)
   (set! jazz.process-icon icon))
+
+(define (jazz.current-process-version)
+  jazz.process-version)
+
+(define (jazz.current-process-version-set! version)
+  (set! jazz.process-version version))
 
 
 (define (jazz.current-process-present)

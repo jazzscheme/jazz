@@ -54,7 +54,6 @@
   (slot protected string <string>               accessors generate)
   (slot protected runs   <list>                 accessors generate)
   (slot protected lines  <list>                 accessors generate)
-  (slot protected walk-state                    accessors generate) ;; for SLC experiments on syntax coloring
   
   
   (method (print printer readably)
@@ -184,9 +183,8 @@
       (car runs)))
   
   
-  (method protected (range-runs start <fx> end <fx+>)
-    (let ((end <fx> (either end (cardinality string)))
-          (fact (new List-Factory))
+  (method protected (range-runs start <fx> end <fx>)
+    (let ((fact (new List-Factory))
           (make
            (function (run <Run> s <fx> e <fx>)
              (new Run (subseq! string s e) (get-style~ run)))))
@@ -489,7 +487,10 @@
            (delta (- inserted (- end start)))
            (before (range-runs 0 start))
            (after (range-runs end (get-length)))
-           (style (if (not-null? before) (find-propagatable-style before) (get-style~ text 'Default))))
+           (style (if (and (not-null? before)
+                           (propagate-styles?~ text))
+                      (find-propagatable-style before)
+                    (get-default-style~ text))))
       (set! string (replace-subseq! string start end str))
       (let* ((replacement (new Run (subseq! string start new-end) style))
              (replacement-list (if (> (get-length~ replacement) 0) (list replacement) '())))

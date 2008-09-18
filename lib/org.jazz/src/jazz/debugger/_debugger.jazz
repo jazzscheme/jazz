@@ -230,15 +230,15 @@
 ;;;
 
 
-(definition public (register-debugger-console process-proxy thread-proxy (banner: banner {}) (prompt: prompt {}))
+(definition public (register-debugger-console process-proxy thread-proxy)
   (define (present)
     (let ((process-title (get-title~ process-proxy)))
       (if (not thread-proxy)
           process-title
         (format "{a} {a}" process-title (present-thread-name (get-name~ thread-proxy))))))
   
-  (let ((manager (if (not thread-proxy) (get-console-manager) (get-repl-manager))))
-    (let ((text (register-console~ manager (present) banner: banner prompt: prompt)))
+  (let ((manager (get-console-manager)))
+    (let ((text (register-console~ manager (present))))
       (setup-debugger-console-ports text process-proxy thread-proxy)
       text)))
 
@@ -251,9 +251,12 @@
   (unregister-console~ (get-console-text-manager text) text))
 
 
-(definition public (debugger-console-output text line)
+(definition public (debugger-console-output text str)
   (execute-event
     (function ()
+      (set-caret~ text (text-ending~ text))
+      (insert-styled~ text str 'Output)
+      @waiting-console-tests
       (insert-formatted-line~ text line))))
 
 
@@ -267,40 +270,10 @@
   (thread-start!
     (new-thread
       (function ()
-        (let (iterate)
-          (let ((line (read-line port)))
-            (console-input~ process-proxy thread-proxy line)
-            (iterate))))
+        (start-pump port
+          (function (str)
+            (console-input~ process-proxy thread-proxy str))))
       "Debugger Console Pump")))
-
-
-;; new stuff for gambit
-(definition (start-console-pump text console-port)
-  (thread-start!
-   (make-thread
-    (lambda ()
-      (let* ((buflen 1000)
-             (buf (make-string buflen)))
-        (let loop ()
-          (let ((n (read-substring-blocking-for-1 buf 0 buflen console-port)))
-            (if (> n 0)
-                (let ((str (substring buf 0 n)))
-                  (execute-event
-                    (function ()
-                      (insert-string~ text str)))
-                  (loop))))))))))
-
-
-(definition (read-substring-blocking-for-1 str start end port)
-  (if (< start end)
-      (begin
-        (input-port-timeout-set! port +inf.0) ;; block for the first byte
-        (let ((n (read-substring str start (+ start 1) port)))
-          (input-port-timeout-set! port -inf.0) ;; don't block for the rest
-          (if (= n 1)
-              (+ 1 (read-substring str (+ start 1) end port))
-              n)))
-      0))
 
 
 ;;;

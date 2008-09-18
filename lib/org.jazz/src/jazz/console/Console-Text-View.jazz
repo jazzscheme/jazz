@@ -54,7 +54,6 @@
 (class Console-Text-View extends IDE-Text-View
 
 
-  (slot evaluating?    initialize #f)
   (slot last-inserted  initialize {})
   (slot inserted-where initialize {})
   (slot banner         initialize {} accessors generate)
@@ -64,7 +63,7 @@
   
   
   (form
-    (<install> wrap?: #t left-padding: 2 default-style: {Text-Style name: Default font: {Font name: Code}}))
+    (<install> wrap?: #t left-padding: 2))
 
   
   (method meta (external-name . rest)
@@ -77,7 +76,26 @@
 
   (method (default-console?)
     #t)
+  
+  
+  (method (propagate-styles?)
+    #f)
    
+  
+  (method (install rest)
+    (nextmethod rest)
+    (let ((pref (preferences)))
+      (add-style (new Text-Style name: 'Base font: {Font name: Code}))
+      (add-style (new Text-Style name: 'Banner base: 'Base color: (get-banner-color~ pref)))
+      (add-style (new Text-Style name: 'Entry  base: 'Base color: (get-entry-color~ pref)))
+      (add-style (new Text-Style name: 'Input  base: 'Base color: (get-input-color~ pref)))
+      (add-style (new Text-Style name: 'Output base: 'Base color: (get-output-color~ pref)))
+      (set-default-style (get-style 'Entry))))
+
+  
+  (method (preferences)
+    (get-preferences '(documents console-text)))
+
 
   ;;;
   ;;;; Host
@@ -117,10 +135,12 @@
   
   
   (method (on-fresh-prompt evt)
-    (fresh-prompt force?: #t))
+    (fresh-prompt))
   
   
   (method (on-evaluate evt)
+    (console-evaluate)
+    @convert (
     (set! completion-active? #f)
     (let* ((pos (get-start))
            (prompt (previous-prompt pos)))
@@ -131,7 +151,7 @@
               (console-evaluate)
             (fresh-prompt)
             (when (= (get-row~ pos) (get-row~ prompt))
-              (insert-string (prompt-command prompt))))))))
+              (insert-string (prompt-command prompt)))))))))
   
   
   (method (on-insert-previous evt)
@@ -185,13 +205,9 @@
   
   
   (method (console-evaluate)
-    (unwind-protect
-        (begin
-          (set! evaluating? #t)
-          (set-caret (text-ending))
-          (insert-newline)
-          (eval-from-prompt))
-      (set! evaluating? #f)))
+    (set-caret (text-ending))
+    (insert-newline)
+    (eval-from-prompt))
 
   
   (method (eval-from-prompt)
@@ -200,8 +216,8 @@
         (receive (range command) info
           (unless (empty-string? command)
             (display command console-port)
-            (newline console-port)
-            (force-output console-port))))))
+            (force-output console-port)
+            (set-style range (get-style 'Input)))))))
   
   
   (method public virtual (eval-command command console?)
@@ -312,6 +328,7 @@
 
   
   (method public virtual (display-banner)
+    @convert (
     (when banner
       (let ((appl (get-application))
             (start (get-start)))
@@ -319,7 +336,7 @@
         (colorize Banner-Color start)
         (insert-newline)
         (insert-newline)
-        (display-prompt))))
+        (display-prompt)))))
   
   
   (method public (clear-console)
@@ -332,22 +349,25 @@
   ;;;
 
 
-  (method public (fresh-prompt (force?: force? #f))
-    (when (or force? (not evaluating?))
-      (prompt-at-end)
-      (set-caret (text-ending))
-      (let ((pos (get-end)))
-        (unless (at-prompt? pos)
-          (when (/= (get-col~ pos) 0)
-            (insert-newline))
-          (display-prompt)))))
+  (method public (fresh-prompt)
+    (set-caret (text-ending))
+    @convert (
+    (prompt-at-end)
+    (set-caret (text-ending))
+    (let ((pos (get-end)))
+      (unless (at-prompt? pos)
+        (when (/= (get-col~ pos) 0)
+          (insert-newline))
+        (display-prompt)))))
   
   
   (method (at-prompt? pos)
+    #f
+    @convert (
     (let ((row (get-row~ pos))
           (col (get-col~ pos))
           (prompt (current-prompt)))
-      (and (= col (string-length prompt)) (string=? (paragraph-string row) (current-prompt)))))
+      (and (= col (string-length prompt)) (string=? (paragraph-string row) (current-prompt))))))
   
   
   (method (current-prompt)
@@ -436,10 +456,10 @@
   
   
   (method protected (current-command-range)
-    (let* ((end (text-ending))
-           (prompt (previous-prompt end)))
-      (when prompt
-        (new Range$Cell$ prompt end))))
+    (let ((pos (text-ending)))
+      (let ((explorer (new (explorer-class) self start: pos end: pos)))
+        (select-style~ explorer 'Entry)
+        (get-range~ explorer))))
   
   
   (method (prompt-command prompt)

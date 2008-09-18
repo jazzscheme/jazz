@@ -78,6 +78,12 @@
 
 
 (definition (panel-loop server)
+  (define input
+    (console-input-port))
+  
+  (define output
+    (console-output-port))
+  
   (define (process-command command)
     (call-with-input-string command
       (lambda (input)
@@ -95,52 +101,121 @@
             (else (error "Unknown command: {s}" command)))))))
   
   (define (start-command arguments)
-    (start-server server))
+    (start-server))
   
   (define (stop-command arguments)
-    (stop-server server))
+    (stop-server))
   
   (define (restart-command arguments)
-    (restart-server server))
+    (restart-server))
   
   (define (info-command arguments)
-    (server-info server))
+    (server-info))
   
   (define (pages-command arguments)
-    (server-pages server))
+    (server-pages))
   
   (define (debug-command arguments)
-    (server-debug server
-                  (if (null? arguments)
+    (server-debug (if (null? arguments)
                       (not (get-debug?~ server))
                     (car arguments))))
   
   (define (help-command arguments)
-    (format :console "Commands are{%}")
-    (format :console "  start        : Start the server{%}")
-    (format :console "  stop         : Stop the server{%}")
-    (format :console "  restart      : Restart the server{%}")
-    (format :console "  info         : Show server information{%}")
-    (format :console "  pages        : Show dynamic pages associations{%}")
-    (format :console "  debug [flag] : Toggle or set debugging to flag{%}")
-    (format :console "  help or ?    : Display available commands{%}")
-    (format :console "  quit         : Quit the server panel{%}")
-    (force-output))
+    (format output "Commands are{%}")
+    (format output "  start        : Start the server{%}")
+    (format output "  stop         : Stop the server{%}")
+    (format output "  restart      : Restart the server{%}")
+    (format output "  info         : Show server information{%}")
+    (format output "  pages        : Show dynamic pages associations{%}")
+    (format output "  debug [flag] : Toggle or set debugging to flag{%}")
+    (format output "  help or ?    : Display available commands{%}")
+    (format output "  quit         : Quit the server panel{%}")
+    (force-output output))
   
   (define (quit-command arguments)
     (exit))
   
-  (format :console "Game Server {a}{%}{%}" version)
-  (force-output)
+  ;;;
+  ;;;; Server
+  ;;;
   
-  (start-server server)
+  (define (start-server)
+    (let ((state (get-state~ server)))
+      (case state
+        ((stopped)
+         (start~ server)
+         (if (not (wait-started~ server error?: #f))
+             (error "Unable to start server")
+           (format output "Server started{%}")))
+        (else
+         (format output "Server is {s}{%}" state)))))
+  
+  (define (stop-server)
+    (let ((state (get-state~ server)))
+      (case state
+        ((started)
+         (stop~ server)
+         (if (not (wait-stopped~ server error?: #f))
+             (error "Unable to stop server")
+           (format output "Server stopped{%}")))
+        (else
+         (format output "Server is {s}{%}" state)))))
+  
+  (define (restart-server)
+    (let ((state (get-state~ server)))
+      (case state
+        ((stopped started)
+         (restart~ server)
+         (if (not (wait-started~ server error?: #f))
+             (error "Unable to restart server")
+           (format output "Server restarted{%}")))
+        (else
+         (format output "Server is {s}{%}" state)))))
+  
+  (define (server-info)
+    (format output "Server {a}{%}" (get-state~ server))
+    (format output "  name                    : {a}{%}" (server-name~ server))
+    (format output "  class                   : {a}{%}" (type-name (class-of server)))
+    (format output "  host                    : {a}{%}" (server-host~ server))
+    (format output "  service                 : {a}{%}" (server-service~ server))
+    (format output "  root-directory          : {a}{%}" (get-root-directory~ server))
+    (format output "  default-resource        : {a}{%}" (get-default-resource~ server))
+    (format output "  unauthentified-resource : {a}{%}" (get-unauthentified-resource~ server))
+    (format output "  hits                    : {a}{%}" (get-hits~ server))
+    (format output "  debug?                  : {a}{%}" (get-debug?~ server)))
+  
+  (define (server-pages)
+    (format output "Dynamic pages associations{%}")
+    (let ((associations (get-pages-associations~ server)))
+      (when (not-null? associations)
+        (let ((max (apply max (map string-length (map car associations)))))
+          (for-each (lambda (info)
+                      (bind (resource class) info
+                        (format output "  {a}{a} : {a}{%}"
+                          resource
+                          (make-string (- max (string-length resource)) #\space)
+                          class)))
+                    associations)))))
+  
+  (define (server-debug debug?)
+    (set-debug?~ server debug?)
+    (format output "Server {a}being debugged{%}" (if debug? "" "not ")))
+  
+  ;;;
+  ;;;; Panel
+  ;;;
+  
+  (format output "Game Server {a}{%}{%}" version)
+  (force-output output)
+  
+  (start-server)
   
   (let (loop (newline? #t))
     (when newline?
-      (newline))
-    (display prompt)
-    (force-output)
-    (let ((command (read-line)))
+      (newline output))
+    (display prompt output)
+    (force-output output)
+    (let ((command (read-line input)))
       (if (empty-string? command)
           (loop #f)
         (continuation-capture
@@ -155,77 +230,4 @@
                 (continuation-return stop #f))
               (lambda ()
                 (process-command command)))))
-        (loop #t)))))
-
-
-;;;
-;;;; Server
-;;;
-
-
-(definition (start-server server)
-  (let ((state (get-state~ server)))
-    (case state
-      ((stopped)
-       (start~ server)
-       (if (not (wait-started~ server error?: #f))
-           (error "Unable to start server")
-         (format :console "Server started{%}")))
-      (else
-       (format :console "Server is {s}{%}" state)))))
-
-
-(definition (stop-server server)
-  (let ((state (get-state~ server)))
-    (case state
-      ((started)
-       (stop~ server)
-       (if (not (wait-stopped~ server error?: #f))
-           (error "Unable to stop server")
-         (format :console "Server stopped{%}")))
-      (else
-       (format :console "Server is {s}{%}" state)))))
-
-
-(definition (restart-server server)
-  (let ((state (get-state~ server)))
-    (case state
-      ((stopped started)
-       (restart~ server)
-       (if (not (wait-started~ server error?: #f))
-           (error "Unable to restart server")
-         (format :console "Server restarted{%}")))
-      (else
-       (format :console "Server is {s}{%}" state)))))
-
-
-(definition (server-info server)
-  (format :console "Server {a}{%}" (get-state~ server))
-  (format :console "  name                    : {a}{%}" (server-name~ server))
-  (format :console "  class                   : {a}{%}" (type-name (class-of server)))
-  (format :console "  host                    : {a}{%}" (server-host~ server))
-  (format :console "  service                 : {a}{%}" (server-service~ server))
-  (format :console "  root-directory          : {a}{%}" (get-root-directory~ server))
-  (format :console "  default-resource        : {a}{%}" (get-default-resource~ server))
-  (format :console "  unauthentified-resource : {a}{%}" (get-unauthentified-resource~ server))
-  (format :console "  hits                    : {a}{%}" (get-hits~ server))
-  (format :console "  debug?                  : {a}{%}" (get-debug?~ server)))
-
-
-(definition (server-pages server)
-  (format :console "Dynamic pages associations{%}")
-  (let ((associations (get-pages-associations~ server)))
-    (when (not-null? associations)
-      (let ((max (apply max (map string-length (map car associations)))))
-        (for-each (lambda (info)
-                    (bind (resource class) info
-                      (format :console "  {a}{a} : {a}{%}"
-                        resource
-                        (make-string (- max (string-length resource)) #\space)
-                        class)))
-                  associations)))))
-
-
-(definition (server-debug server debug?)
-  (set-debug?~ server debug?)
-  (format :console "Server {a}being debugged{%}" (if debug? "" "not "))))
+        (loop #t))))))

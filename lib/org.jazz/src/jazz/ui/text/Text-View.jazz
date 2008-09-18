@@ -90,8 +90,8 @@
   (property protected editable?                      initialize #t                       getter get-editable?                 setter set-editable?)
   (property protected selectable?                    initialize #t                       getter get-selectable?               setter set-selectable?)
   (property protected wrap?                          initialize #f                       getter get-wrap?                     setter set-wrap?)
-  (property protected default-format                 initialize (new-default-format)     getter get-default-format            setter set-default-format)
-  (property protected default-style                  initialize (new-default-style)      getter get-default-style             setter set-default-style)
+  (property protected default-format                 initialize #f                       getter get-default-format            setter set-default-format)
+  (property protected default-style                  initialize #f                       getter get-default-style             setter set-default-style)
   (property protected paragraph-spacing         <fx> initialize 0                        getter get-paragraph-spacing         setter set-paragraph-spacing)
   (property protected accepts-returns?               initialize #t                       getter get-accepts-returns?          setter set-accepts-returns?)
   (property protected focus-selects-all?             initialize #f                       getter get-focus-selects-all?        setter set-focus-selects-all?)
@@ -140,11 +140,17 @@
   (method (current-history-item));;abstract
   
   
-  (method (install rest)
+  (method (prepare rest)
     (nextmethod rest)
-    (set! syntax (new-syntax))
+    (set! default-format (new-default-format))
+    (set! default-style (new-default-style))
     (add-format (get-default-format))
     (add-style (get-default-style)))
+  
+  
+  (method (install rest)
+    (nextmethod rest)
+    (set! syntax (new-syntax)))
     
   
   (method (install-child form creator creator-branch restore-form)
@@ -185,11 +191,11 @@
   
   
   (method (new-default-format)
-    (new Format name: 'Default))
+    (new Format name: 'Default domain: formats))
   
   
   (method (new-default-style)
-    (new Text-Style name: 'Default font: {Font name: Label}))
+    (new Text-Style name: 'Default domain: styles font: {Font name: Label}))
   
   
   ;;;
@@ -778,13 +784,13 @@
      string
      (if (empty-string? string)
          '()
-       (list (new Run (subseq! string 0 (cast <fx> (cardinality string))) (get-style 'Default))))))
+       (list (new Run (subseq! string 0 (cast <fx> (cardinality string))) (get-default-style))))))
   
   
   (method (make-paragraph format string <string> runs)
     (let ((paragraph (new Paragraph)))
       (set-parent~ paragraph self)
-      (set-format~ paragraph (either format (get-format 'Default)))
+      (set-format~ paragraph (either format (get-default-format)))
       (set-string~ paragraph string)
       (set-runs~ paragraph runs)
       (set-father~ paragraph root-row)
@@ -1463,9 +1469,9 @@
   (method (range-region range <Range$Cell$> dh dv sc (top: top {}) (bottom: bottom {}))
     (let ((region (new Region)))
       (for-each-range range
-                      (function (paragraph start end)
-                        (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
-                          (combine!~ region sub 'or))))
+        (function (paragraph start end)
+          (with-closed ((sub (range-region~ paragraph left-padding start end dh dv sc)))
+            (combine!~ region sub 'or))))
       region))
   
   
@@ -1531,6 +1537,14 @@
                     (cond ((= n beginning) (proc paragraph (get-col~ start) {}))
                           ((= n limit) (proc paragraph {} (get-col~ end)))
                           (else (proc paragraph {} {}))))))))))
+  
+  
+  (method (for-each-range-exact range <Range$Cell$> proc)
+    (for-each-range range
+      (function (paragraph start end)
+        (proc paragraph
+              (either start 0)
+              (either end (get-length~ paragraph))))))
   
   
   ;;;
@@ -2507,7 +2521,7 @@
            (bottom      (get-bottom~ last-par))
            (paragraphs  (strings->paragraphs first-par strings))
            (first-runs  (range-runs~ first-par 0 (get-col~ start)))
-           (last-runs   (range-runs~ last-par (get-col~ end) {}))
+           (last-runs   (range-runs~ last-par (get-col~ end) (get-length~ last-par)))
            (last-length (cardinality (cast <string> (last strings))))
            (caret-row   (+ sr inserted -1))
            (caret-col   (+ (if (= inserted 1) (get-col~ start) 0) last-length)))
@@ -3302,19 +3316,8 @@
   
   
   (method public (set-style range <Range$Cell$> style <Style>)
-    @debug
-    (let ((info
-           (function (s)
-             (cons (get-name~ s)
-                   (cons (get-base~ s)
-                         (map (function (property)
-                                (get-value~ s property))
-                              (get-properties~ s)))))))
-      (debug (info style))
-      (debug (map info (collect-type Info-Style (get-content~ styles)))
-             (similar~ styles style)))
     (let ((style (intern-style style)))
-      (for-each-range range
+      (for-each-range-exact range
         (function (paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph {} paragraph)))
@@ -3324,7 +3327,7 @@
   
   
   (method public (set-text-alignment range <Range$Cell$> alignment)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (set-text-alignment~ paragraph start end alignment)
         (wrap-paragraph {} paragraph)))
@@ -3334,7 +3337,7 @@
   
   
   (method public (set-text-font range <Range$Cell$> font <Font>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (set-text-font~ paragraph start end font)
         (wrap-paragraph {} paragraph)))
@@ -3345,7 +3348,7 @@
   
   (method public (set-text-style range <Range$Cell$> style <Style>)
     (let ((style (intern-style style)))
-      (for-each-range range
+      (for-each-range-exact range
         (function (paragraph start end)
           (set-style~ paragraph start end style)
           (wrap-paragraph {} paragraph)
@@ -3354,7 +3357,7 @@
   
   
   (method public (set-text-color range <Range$Cell$> color <Color>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (set-text-color~ paragraph start end color)
         (wrap-paragraph {} paragraph)
@@ -3363,7 +3366,7 @@
   
   
   (method public (set-highlight-color range <Range$Cell$> color <Color>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (set-highlight-color~ paragraph start end color)
         (wrap-paragraph {} paragraph)
@@ -3372,7 +3375,7 @@
   
   
   (method public (toggle-bold range <Range$Cell$>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (toggle-bold~ paragraph start end)
         (wrap-paragraph {} paragraph)
@@ -3380,7 +3383,7 @@
   
   
   (method public (toggle-italic range <Range$Cell$>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (toggle-italic~ paragraph start end)
         (wrap-paragraph {} paragraph)
@@ -3388,7 +3391,7 @@
   
   
   (method public (toggle-underline range <Range$Cell$>)
-    (for-each-range range
+    (for-each-range-exact range
       (function (paragraph start end)
         (toggle-underline~ paragraph start end)
         (wrap-paragraph {} paragraph)
@@ -3419,6 +3422,7 @@
   
   (method public (set-default-format value)
     (set! default-format value)
+    (set-domain~ default-format formats)
     (setup-format (copy default-format)))
   
   
@@ -3487,7 +3491,12 @@
   
   (method public (set-default-style value)
     (set! default-style value)
+    (set-domain~ default-style styles)
     (setup-style (copy default-style)))
+  
+  
+  (method public virtual (propagate-styles?)
+    #t)
   
   
   ;; temp quicky necessary because in an empty text the first
@@ -3604,7 +3613,7 @@
                (bind-optionals ((rank {})) (cdr info)
                  (let* ((limit (+ offset (cast <fx> (cardinality str))))
                         (subseq (subseq! string offset limit))
-                        (style (if (not rank) (get-style 'Default) (reference-style styles rank))))
+                        (style (if (not rank) (get-default-style) (reference-style styles rank))))
                    (set! offset limit)
                    (new Run subseq style)))))
            infos)))
@@ -3854,7 +3863,7 @@
   (method public (get-style-at pos <Cell>) <Style>
     (let ((run (get-run-at pos)))
       (if (not run)
-          (get-style 'Default)
+          (get-default-style)
         (get-style~ run))))
   
   
@@ -4033,7 +4042,7 @@
   
   
   (method public (set-selection-font-name name)
-    (for-each-range (get-selection)
+    (for-each-range-exact (get-selection)
       (function (paragraph start end)
         (set-font-name~ paragraph start end name)
         (wrap-paragraph {} paragraph)))
@@ -4043,7 +4052,7 @@
   
   
   (method public (set-selection-point-size size)
-    (for-each-range (get-selection)
+    (for-each-range-exact (get-selection)
       (function (paragraph start end)
         (set-point-size~ paragraph start end size)
         (wrap-paragraph {} paragraph)))

@@ -80,7 +80,7 @@
   (detach-from-controller)
   (set! controller-debugger (require-object~ controller-register 'debugger))
   (setup-local-process)
-  (set-console-make make-debuggee-console)
+  (set-console-port-getter console-port-getter)
   (attach-process~ controller-debugger local-process)
   (set-exception-debugger jazz-exception-debugger)
   (set-exception-hook exception-debugger-hook))
@@ -156,54 +156,46 @@
 ;;;
 
 
-(definition *console-pump-port*
-  {})
+(definition *consoles*
+  (make-table test: eq?))
 
 
-(definition (console-pump-port)
-  *console-pump-port*)
+(definition with-consoles-mutex
+  (let ((mutex (make-mutex 'consoles)))
+    (function (thunk)
+      (mutex-lock! mutex)
+      (prog1 (thunk)
+        (mutex-unlock! mutex)))))
 
-(definition (set-console-pump-port port)
-  (set! *console-pump-port* port))
+
+(definition (thread-console thread)
+  (with-consoles-mutex
+    (function ()
+      (either (table-ref *consoles* thread #f)
+              (let ((console (make-debuggee-console (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))))
+                (table-set! *consoles* thread console)
+                console)))))
+
+(definition (thread-console-pump-port thread)
+  (third (thread-console thread)))
+
+(definition (thread-console-port thread)
+  (fourth (thread-console thread)))
 
 
-(definition (make-debuggee-console)
+(definition (current-console)
+  (thread-console (current-thread)))
+
+
+(definition (make-debuggee-console thread-proxy)
   (receive (head tail) (open-string-pipe)
-    (let ((console (register-console~ controller-debugger local-process {})))
-      (start-debuggee-console-pump console tail)
-      (set-console-pump-port tail)
-      head)))
+    (let ((console (register-console~ controller-debugger local-process thread-proxy)))
+      (let ((pump (start-debuggee-console-pump console tail)))
+        (list console pump tail head)))))
 
 
-(definition current-repl-port
-  (make-parameter {}))
-
-(definition current-repl-pump-port
-  (make-parameter {}))
-
-(definition current-repl-frame
-  (make-parameter {}))
-
-
-(definition (with-repl-port thread-proxy thunk)
-  (if (current-repl-port)
-      (thunk)
-    (receive (head tail) (open-string-pipe)
-      (with-console thread-proxy
-        (function (console)
-          (with-debuggee-console-pump console tail
-            (function ()
-              (parameterize ((current-repl-port head)
-                             (current-repl-pump-port tail))
-                (thunk)))))))))
-
-
-(definition (with-console thread-proxy proc)
-  (let ((console (register-console~ controller-debugger local-process thread-proxy)))
-    (unwind-protect
-        (proc console)
-      (when controller-debugger
-        (unregister-console~ controller-debugger console)))))
+(definition (console-port-getter)
+  (fourth (current-console)))
 
 
 ;;;
@@ -211,29 +203,29 @@
 ;;;
 
 
-(definition (with-debuggee-console-pump console port thunk)
-  (let ((thread (start-debuggee-console-pump console port)))
-    (unwind-protect
-        (thunk)
-      (thread-interrupt! thread
-        thread-exit))))
-
-
 (definition (start-debuggee-console-pump console port)
   (thread-start!
     (new-thread
       (function ()
-        (let (iterate)
-          (let ((line (read-line port)))
+        (start-pump port
+          (function (str)
             (when controller-debugger
-              (console-output~ controller-debugger console line))
-            (iterate))))
+              (console-output~ controller-debugger console str)))))
       "Debuggee Console Pump")))
+
+
+(definition (stop-debuggee-console-pump thread)
+  (thread-interrupt! thread
+    thread-exit))
 
 
 ;;;
 ;;;; Repl
 ;;;
+
+
+(definition current-repl-frame
+  (make-parameter {}))
 
 
 (definition (with-repl-thread thread port thunk)
@@ -248,24 +240,38 @@
   (thread-start!
     (new-thread
       (function ()
-        (declare (proper-tail-calls))
-        (let (iterate)
-          (read-eval-print thread port use-repl-frame?)
-          (iterate)))
+        (display-banner port)
+        (read-eval-print-loop thread port use-repl-frame?))
       "Repl")))
 
 
-(definition (read-eval-print thread port use-repl-frame?)
-  (define (print result)
-    (format port #"\($\)\(color Dark-Red {a}\){%}{!}"# result))
+(definition (display-banner port)
+  (define (process-banner)
+    (format "{a} {a}"
+            (current-process-title)
+            (current-process-version)))
   
+  (format port "{a}{%}{%}> " (process-banner))
+  (force-output port))
+
+
+(definition (read-eval-print-loop thread port use-repl-frame?)
+  (declare (proper-tail-calls))
+  (let (iterate)
+    (read-eval-print thread port use-repl-frame?)
+    (iterate)))
+
+
+(definition (read-eval-print thread port use-repl-frame?)
   (let ((expr (read port)))
-    (thread-execute thread 'read-eval-print
-      (function ()
-        (unwind-protect
-            (print (parameterize ((jazz.walk-for 'eval))
-                     (evaluate expr use-repl-frame?)))
-          (format port #"\(prompt\){%}{!}"#))))))
+    (let ((result
+            (thread-call thread 'evaluate
+              (function ()
+                (parameterize ((jazz.walk-for 'eval))
+                  (evaluate expr use-repl-frame?))))))
+      (format port "{a}{%}" result)
+      (format port "> ")
+      (force-output port))))
 
 
 (definition (evaluate expr use-repl-frame?)
@@ -333,16 +339,14 @@
       (function ()
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-          (with-repl-port thread-proxy
+          (with-repl-thread thread (get-console-port)
             (function ()
-              (with-repl-thread thread (current-repl-port)
-                (function ()
-                  (parameterize ((current-repl-frame (box {})))
-                    (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
-                    (let ((process (get-process)))
-                      (if (not process)
-                          (debuggee-loop)
-                        (process-debuggee-loop~ process))))))))))
+              (parameterize ((current-repl-frame (box {})))
+                (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
+                (let ((process (get-process)))
+                  (if (not process)
+                      (debuggee-loop)
+                    (process-debuggee-loop~ process))))))))
       (function ()
         (unregister-stop stop)))))
 

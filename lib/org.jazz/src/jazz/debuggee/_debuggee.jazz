@@ -224,62 +224,73 @@
 ;;;
 
 
+(definition current-repl-level
+  (make-parameter 0))
+
 (definition current-repl-frame
   (make-parameter {}))
 
 
-(definition (with-repl-thread thread port thunk)
-  (let ((thread (start-repl-thread thread port #t)))
+(definition (with-repl-thread thread port level thunk)
+  (let ((thread (start-repl-thread thread port level)))
     (unwind-protect
         (thunk)
       (thread-interrupt! thread
         thread-exit))))
 
 
-(definition (start-repl-thread thread port (use-repl-frame? #f))
+(definition (start-repl-thread thread port (level 0))
   (thread-start!
     (new-thread
       (function ()
-        (display-banner port)
-        (read-eval-print-loop thread port use-repl-frame?))
+        (when (= level 0)
+          (display-banner port))
+        (display-prompt port level)
+        (read-eval-print-loop thread port level))
       "Repl")))
 
 
 (definition (display-banner port)
-  (define (process-banner)
-    (format "{a} {a}"
-            (current-process-title)
-            (current-process-version)))
-  
-  (format port "{a}{%}{%}> " (process-banner))
+  (format port "{a} {a}{%}{%}"
+          (current-process-title)
+          (current-process-version))
   (force-output port))
 
 
-(definition (read-eval-print-loop thread port use-repl-frame?)
+(definition (display-prompt port level)
+  (when (> level 0)
+    (format port "{a}" level))
+  (format port "> ")
+  (force-output port))
+
+
+(definition (read-eval-print-loop thread port level)
   (declare (proper-tail-calls))
   (let (iterate)
-    (read-eval-print thread port use-repl-frame?)
+    (read-eval-print thread port level)
     (iterate)))
 
 
-(definition (read-eval-print thread port use-repl-frame?)
+(definition (read-eval-print thread port level)
   (let ((expr (read port)))
     (let ((result
             (thread-call thread 'evaluate
               (function ()
                 (parameterize ((jazz.walk-for 'eval))
-                  (evaluate expr use-repl-frame?))))))
-      (format port "{a}{%}" result)
-      (format port "> ")
+                  (evaluate expr level))))))
+      (when (thread-call-result? result)
+        (format port "{a}" result))
+      (format port "{%}")
+      (display-prompt port level)
       (force-output port))))
 
 
-(definition (evaluate expr use-repl-frame?)
+(definition (evaluate expr level)
   (let ((process (get-process)))
     (if (not process)
         "Error: Process not yet started"
       ;; quick test
-      (if (and use-repl-frame? (current-repl-frame))
+      (if #f @convert (and (> level 0) (current-repl-frame))
           (eval-in-frame expr)
         (car (eval-expressions~ process (list expr)))))))
 
@@ -331,6 +342,8 @@
 
 (definition (invoke-debugger kind reason details continuation)
   (let* ((thread (current-thread))
+         (port (get-console-port))
+         (level (+ (current-repl-level) 1))
          (restarts (compute-restarts thread))
          (stop (new Debuggee-Stop thread kind reason details continuation restarts)))
     (dynamic-wind
@@ -339,14 +352,15 @@
       (function ()
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
-          (with-repl-thread thread (get-console-port)
-            (function ()
-              (parameterize ((current-repl-frame (box {})))
-                (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
-                (let ((process (get-process)))
-                  (if (not process)
-                      (debuggee-loop)
-                    (process-debuggee-loop~ process))))))))
+          (parameterize ((current-repl-level level))
+            (with-repl-thread thread port level
+              (function ()
+                (parameterize ((current-repl-frame (box {})))
+                  (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)
+                  (let ((process (get-process)))
+                    (if (not process)
+                        (debuggee-loop)
+                      (process-debuggee-loop~ process)))))))))
       (function ()
         (unregister-stop stop)))))
 

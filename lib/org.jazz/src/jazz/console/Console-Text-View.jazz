@@ -200,6 +200,29 @@
 
 
   ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method protected (backward-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (backward-style~ explorer predicate)
+      (get-range~ explorer)))
+  
+  
+  (method protected (forward-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (forward-style~ explorer predicate)
+      (get-range~ explorer)))
+  
+  
+  (method protected (select-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (select-style~ explorer predicate)
+      (get-range~ explorer)))
+
+
+  ;;;
   ;;;; Eval
   ;;;
   
@@ -327,7 +350,9 @@
   ;;;
 
   
-  (method public virtual (display-banner)
+  (method public (display-banner banner)
+    (when banner
+      (insert-styled banner 'Output))
     @convert (
     (when banner
       (let ((appl (get-application))
@@ -340,8 +365,15 @@
   
   
   (method public (clear-console)
-    (clear-all)
-    (display-banner))
+    (let ((banner (or banner (determine-banner))))
+      (clear-all)
+      (display-banner banner)))
+  
+  
+  (method (determine-banner)
+    (let ((range (forward-style (text-beginning) (function (style) (inherits?~ style 'Output)))))
+      (when range
+        (get-string range))))
 
 
   ;;;
@@ -350,7 +382,10 @@
 
 
   (method public (fresh-prompt)
-    (set-caret (text-ending))
+    (let ((ending (text-ending)))
+      (set-caret ending)
+      (let ((range (backward-style ending (function (style) (not (inherits?~ style 'Output))))))
+        (set-style range (get-style 'Output))))
     @convert (
     (prompt-at-end)
     (set-caret (text-ending))
@@ -456,10 +491,9 @@
   
   
   (method protected (current-command-range)
-    (let ((pos (text-ending)))
-      (let ((explorer (new (explorer-class) self start: pos end: pos)))
-        (select-style~ explorer 'Entry)
-        (get-range~ explorer))))
+    (select-style (text-ending)
+      (function (style)
+        (inherits?~ style 'Entry))))
   
   
   (method (prompt-command prompt)

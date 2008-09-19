@@ -4720,12 +4720,21 @@
       (mutex-lock! mutex))))
 
 
+(definition thread-call-noresult
+  (list 'thread-call-noresult))
+
+
+(definition public (thread-call-result? result)
+  (neq? result thread-call-noresult))
+
+
 (definition public (thread-call thread name thunk)
   (let ((delegator (current-thread)))
     (if (eq? thread delegator)
         (thunk)
       (let ((mutex (make-mutex name)))
         (mutex-lock! mutex)
+        (mutex-specific-set! mutex thread-call-noresult)
         (thread-send thread
           (function ()
             (unwind-protect

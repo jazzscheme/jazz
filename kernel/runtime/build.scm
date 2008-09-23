@@ -256,7 +256,7 @@
       
       (define (link-executable)
         (feedback-message "; linking executable...")
-        (jazz.execute-process
+        (jazz.call-process
           "gcc"
           `(,(jazz.quote-gcc-pathname (product-file "_architecture.c") platform)
             ,(jazz.quote-gcc-pathname (product-file "_product.c") platform)
@@ -476,7 +476,7 @@
 ;;;
 
 
-(define (jazz.execute-process path arguments #!optional (directory #f))
+(define (jazz.call-process path arguments #!optional (directory #f))
   (let ((port (open-process
                 (%%list
                   path: path

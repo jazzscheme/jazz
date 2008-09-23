@@ -592,7 +592,7 @@
           (gsc-path (if (eq? (jazz.configuration-platform configuration) 'windows)
                         "gsc"
                       "gsc-script")))
-      (jazz.execute-process gsc-path (list "-:dq-" "build" target-argument configuration-argument)))))
+      (jazz.call-process gsc-path (list "-:dq-" "build" target-argument configuration-argument)))))
 
 
 (define (jazz.build target configuration-name)
@@ -696,7 +696,7 @@
         (else
          "./jazz")))
     
-    (jazz.execute-process (jazz-path) (list "-:dq-" "-make" (symbol->string product)) install)))
+    (jazz.call-process (jazz-path) (list "-:dq-" "-make" (symbol->string product)) install)))
 
 
 ;;;

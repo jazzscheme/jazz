@@ -86,7 +86,6 @@
     (nextmethod rest)
     (let ((pref (preferences)))
       (add-style (new Text-Style name: 'Base font: {Font name: Code}))
-      (add-style (new Text-Style name: 'Banner base: 'Base color: (get-banner-color~ pref)))
       (add-style (new Text-Style name: 'Entry  base: 'Base color: (get-entry-color~ pref)))
       (add-style (new Text-Style name: 'Input  base: 'Base color: (get-input-color~ pref)))
       (add-style (new Text-Style name: 'Output base: 'Base color: (get-output-color~ pref)))
@@ -157,13 +156,13 @@
   (method (on-insert-previous evt)
     (if (has-completion?)
         (end-completion)
-      (insert-previous-expression)))
+      (insert-previous-entry)))
   
   
   (method (on-insert-next evt)
     (if (has-completion?)
         (end-completion)
-      (insert-next-expression)))
+      (insert-next-entry)))
   
   
   (method (mouse-down pos)
@@ -175,8 +174,8 @@
     (if (has-completion?)
         (end-completion)
       (if (shift-key? modifiers)
-          (insert-next-expression)
-        (insert-previous-expression))))
+          (insert-next-entry)
+        (insert-previous-entry))))
   
   
   (method (scrollee-size)
@@ -241,48 +240,6 @@
             (display command console-port)
             (force-output console-port)
             (set-style range (get-style 'Input)))))))
-  
-  
-  (method public virtual (eval-command command console?)
-    )
-  
-  
-  (method public virtual (eval-commands range names commands console?)
-    )
-  
-  
-  (method public virtual (display-evaluation results console?)
-    (evaluation-break)
-    @convert
-    (for-each (function (result)
-                (with-colored-output (eval-color)
-                  (function ()
-                    (print-evaluation result console-printer)))
-                @convert-console-printer
-                (fresh-line console-printer))
-              results))
-  
-  
-  (method public virtual (print-evaluation result console-printer)
-    (unless (unspecified? result)
-      (insert-line result #t)
-      @convert-console-printer
-      (display result console-printer)))
-  
-  
-  (method public (with-colored-output color proc)
-    (let ((start (get-start)))
-      (proc)
-      (colorize color start)
-      (for-each (function (row)
-                  (colorize color (new Cell row 0)))
-                (naturals (+ (get-row~ start) 1) (+ (get-row~ (get-start)) 1)))))
-  
-  
-  (method public (evaluation-break)
-    (set-caret (text-ending))
-    @convert-console-printer
-    (fresh-line console-printer))
 
 
   ;;;
@@ -504,22 +461,19 @@
       (get-string (new Range$Cell$ prompt pos))))
 
   
-  (method (insert-previous-expression)
-    (let ((done? #f))
-      (while (not done?)
-        (if (not (backward-prompt))
-            (set! done? #t)
-          (let ((command (prompt-command last-inserted)))
-            (unless (empty-string? command)
-              (when inserted-where
-                (set-selection inserted-where))
-              (let ((start (get-start)))
-                (insert-string command)
-                (set! inserted-where (new Range start (get-start))))
-              (set! done? #t)))))))
+  (method (insert-previous-entry)
+    (let* ((current (either last-inserted (backward-style (text-ending) (function (style) (not (inherits?~ style 'Output))))))
+           (previous-end (backward-style current (function (style) (inherits?~ style 'Output))))
+           (previous-start (backward-style previous-end (function (style) (not (inherits?~ style 'Output)))))
+           (previous (get-string (new Range previous-start previous-end))))
+      (when inserted-where
+        (set-selection inserted-where))
+      (let ((start (get-start)))
+        (insert-string previous)
+        (set! inserted-where (new Range start (get-start))))))
 
   
-  (method (insert-next-expression)
+  (method (insert-next-entry)
     (let ((done? #f))
       (while (not done?)
         (if (not (forward-prompt))

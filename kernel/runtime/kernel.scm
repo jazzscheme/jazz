@@ -901,7 +901,7 @@
          "./jazz")))
     
     (define (build name)
-      (jazz.execute-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))
+      (jazz.call-process (jazz-path) (%%list "-:dq-" "-build" (%%symbol->string name)) install))
     
     (define (make name)
       (if (%%not (%%memq name made))

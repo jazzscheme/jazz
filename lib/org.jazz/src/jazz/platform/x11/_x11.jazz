@@ -396,6 +396,21 @@
 
 
 ;;;
+;;;; WM_DELETE_WINDOW atom
+;;;
+
+
+(definition wm-delete-window-atom {})
+
+
+(definition (set-wm-delete-window-atom atom)
+  (set! wm-delete-window-atom atom))
+
+
+(definition (get-wm-delete-window-atom)
+  wm-delete-window-atom)
+
+;;;
 ;;;; Attributes structure
 ;;;
 
@@ -473,8 +488,18 @@
   (uint state)
   (uint button)
   (Bool same_screen))
+  
 
-
+(c-structure XClientMessageEvent 
+  (int type)
+  (ulong serial)
+  (Bool send_event)
+  (Display* display)
+  (Window window)
+  (Atom message_type)
+  (int format))
+  
+  
 (c-structure XKeyEvent 
   (int type)
   (ulong serial)
@@ -596,7 +621,8 @@
   (XConfigureEvent xconfigure)
   (XSelectionClearEvent xselectionclear)
   (XSelectionRequestEvent xselectionrequest)
-  (XSelectionEvent xselection))
+  (XSelectionEvent xselection)
+  (XClientMessageEvent xclient))
 
 
 (c-structure XErrorEvent
@@ -651,12 +677,22 @@
 (c-external void         (XMoveResizeWindow      Display* Window int int uint uint))
 (c-external void         (XLowerWindow           Display* Window))
 (c-external void         (XSetErrorHandler       XERRORPROC))
+(c-external Atom         (XInternAtom            Display* char-string Bool))
 (c-external int          (getpid))
 
 
 ;;;
 ;;;; Custom functions
 ;;;
+
+
+(definition ProcessClientMessage
+  (c-function (Display* XClientMessageEvent*) Bool
+    "Atom wm_delete_window = XInternAtom(___arg1, \"WM_DELETE_WINDOW\", False);
+     if( ___arg2->data.l[0] == wm_delete_window )
+       ___result = True;
+     else
+       ___result = False;"))
 
 
 (definition (XWindowEvent display window mask event)
@@ -837,6 +873,11 @@
     "char buffer[255];
      XGetErrorText(___arg1, ___arg2, buffer, 255);
      ___result = buffer;"))
+
+
+(definition XSetWMProtocols
+  (c-function (Display* Window Atom) void
+    "XSetWMProtocols( ___arg1, ___arg2, &___arg3, 1 );"))
 
 
 ;;;

@@ -156,26 +156,21 @@
   (method (on-insert-previous evt)
     (if (has-completion?)
         (end-completion)
-      (insert-previous-entry)))
+      (insert-previous-block)))
   
   
   (method (on-insert-next evt)
     (if (has-completion?)
         (end-completion)
-      (insert-next-entry)))
-  
-  
-  (method (mouse-down pos)
-    (nextmethod pos)
-    (prompt-at-end))
+      (insert-next-block)))
 
 
   (method (tab-press key modifiers)
     (if (has-completion?)
         (end-completion)
       (if (shift-key? modifiers)
-          (insert-next-entry)
-        (insert-previous-entry))))
+          (insert-next-block)
+        (insert-previous-block))))
   
   
   (method (scrollee-size)
@@ -199,29 +194,6 @@
 
 
   ;;;
-  ;;;; Style
-  ;;;
-  
-  
-  (method protected (backward-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
-      (backward-style~ explorer predicate)
-      (get-range~ explorer)))
-  
-  
-  (method protected (forward-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
-      (forward-style~ explorer predicate)
-      (get-range~ explorer)))
-  
-  
-  (method protected (select-style pos predicate)
-    (let ((explorer (new (explorer-class) self start: pos end: pos)))
-      (select-style~ explorer predicate)
-      (get-range~ explorer)))
-
-
-  ;;;
   ;;;; Eval
   ;;;
   
@@ -233,13 +205,18 @@
 
   
   (method (eval-from-prompt)
-    (let ((info (current-command)))
-      (when info
-        (receive (range command) info
-          (unless (empty-string? command)
-            (display command console-port)
-            (force-output console-port)
-            (set-style range (get-style 'Input)))))))
+    (let ((range (current-command)))
+      (let ((command (get-string range)))
+        (unless (empty-string? command)
+          (display command console-port)
+          (force-output console-port)
+          (set-style range (get-style 'Input))))))
+  
+  
+  (method (current-command)
+    (select-style (text-ending)
+      (function (style)
+        (inherits?~ style 'Entry))))
 
 
   ;;;
@@ -300,6 +277,29 @@
        (fresh-prompt))
       (else
        (nextmethod directive input))))
+
+
+  ;;;
+  ;;;; Style
+  ;;;
+  
+  
+  (method protected (backward-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (backward-style~ explorer predicate)
+      (get-range~ explorer)))
+  
+  
+  (method protected (forward-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (forward-style~ explorer predicate)
+      (get-range~ explorer)))
+  
+  
+  (method protected (select-style pos predicate)
+    (let ((explorer (new (explorer-class) self start: pos end: pos)))
+      (select-style~ explorer predicate)
+      (get-range~ explorer)))
     
 
   ;;;
@@ -339,162 +339,52 @@
 
 
   (method public (fresh-prompt)
-    (let ((ending (text-ending)))
-      (set-caret ending)
-      (let ((range (backward-style ending (function (style) (not (inherits?~ style 'Output))))))
-        (set-style range (get-style 'Output))))
-    @convert (
-    (prompt-at-end)
-    (set-caret (text-ending))
-    (let ((pos (get-end)))
-      (unless (at-prompt? pos)
-        (when (/= (get-col~ pos) 0)
-          (insert-newline))
-        (display-prompt)))))
-  
-  
-  (method (at-prompt? pos)
-    #f
-    @convert (
-    (let ((row (get-row~ pos))
-          (col (get-col~ pos))
-          (prompt (current-prompt)))
-      (and (= col (string-length prompt)) (string=? (paragraph-string row) (current-prompt))))))
-  
-  
-  (method (current-prompt)
-    prompt)
-
-
-  (method protected (display-prompt)
-    (when prompt
-      (let ((start (get-start))
-            (prompt (current-prompt)))
-        (insert-string prompt)
-        (colorize Prompt-Color start (+ start (- (string-length prompt) 1)))
-        (colorize Expression-Color (get-end))
-        (prompt-at-end)
-        (update-view))))
+    (set-style (last-block) (get-style 'Output))
+    (set-caret (text-ending)))
   
   
   ;;;
   ;;;; Navigation
   ;;;
-
-
-  (method public (prompt-at-end)
-    (set! last-inserted (get-end))
-    (set! inserted-where {}))
   
   
-  @w
+  (method (next-block block)
+    (let* ((next-start (get-end~ (forward-style (get-end~ block) (function (style) (inherits?~ style 'Output)))))
+           (next-end (get-end~ (forward-style next-start (function (style) (not (inherits?~ style 'Output)))))))
+      (new Range next-start next-end)))
+  
+  
   (method (previous-block block)
-    (let* ((previous-end (backward-style (get-start~ block) (function (style) (inherits?~ style 'Output))))
-           (previous-start (backward-style previous-end (function (style) (not (inherits?~ style 'Output))))))
+    (let* ((previous-end (get-start~ (backward-style (get-start~ block) (function (style) (inherits?~ style 'Output)))))
+           (previous-start (get-start~ (backward-style previous-end (function (style) (not (inherits?~ style 'Output)))))))
       (new Range previous-start previous-end)))
-
-
-  (method (previous-prompt pos)
-    (let* ((found? #f)
-           (expl (new Jazz-Explorer self start: pos end: pos))
-           (prompt (current-prompt))
-           (len (string-length prompt)))
-      (while (not (or found? (at-beginning?~ expl)))
-        (let ((cr (char-backward~ expl len))
-              (c1 (char-backward~ expl 1))
-              (c0 (char-backward~ expl 0)))
-          (if (and (eqv? c0 #\space)
-                   (eqv? c1 #\>)
-                   (or (not cr) (eqv? cr #\newline)))
-              (set! found? #t)
-            (backward~ expl))))
-      (essay found? (get-start~ expl))))
   
   
-  (method (next-prompt pos)
-    (let* ((found? #f)
-           (expl (new Jazz-Explorer self start: pos end: pos))
-           (prompt (current-prompt))
-           (len (string-length prompt)))
-      (while (not (or found? (at-ending?~ expl)))
-        (let ((cr (char-forward~ expl 0))
-              (c1 (char-forward~ expl (- len 1)))
-              (c2 (char-forward~ expl (- len 0))))
-          (if (and (eqv? cr #\newline)
-                   (eqv? c1 #\>)
-                   (eqv? c2 #\space))
-              (set! found? #t)
-            (forward~ expl))))
-      (when found?
-        (let ((prompt (next-pos~ expl (get-end~ expl) (+ len 1))))
-          (when (< (get-row~ prompt) (get-limit))
-            prompt)))))
-  
-  
-  (method (last-prompt)
-    (let ((pos (text-ending)))
-      (previous-prompt pos)))
-  
-  
-  (method (backward-prompt)
-    (let ((previous (previous-prompt (previous-cell last-inserted))))
-      (when previous
-        (set! last-inserted previous))))
-  
-  
-  (method (forward-prompt)
-    (let ((next (next-prompt last-inserted)))
-      (when next
-        (set! last-inserted next))))
-  
-  
-  (method (current-command)
-    (let ((range (current-command-range)))
-      (when range
-        (values range (get-string range)))))
-  
-  
-  (method protected (current-command-range)
-    (select-style (text-ending)
-      (function (style)
-        (inherits?~ style 'Entry))))
-  
-  
-  (method (prompt-command prompt)
-    (let ((end (text-ending))
-          (pos prompt))
-      (while (and (cell< pos end) (not (eqv? (get-char pos) #\newline)))
-        (set! pos (next-cell pos)))
-      (get-string (new Range$Cell$ prompt pos))))
+  (method (last-block)
+    (let ((ending (text-ending)))
+      (backward-style ending (function (style) (not (inherits?~ style 'Output))))))
 
   
-  (method (insert-previous-entry)
-    @convert
-    (let* ((current (either last-inserted (backward-style (text-ending) (function (style) (not (inherits?~ style 'Output))))))
-           (previous-end (backward-style current (function (style) (inherits?~ style 'Output))))
-           (previous-start (backward-style previous-end (function (style) (not (inherits?~ style 'Output)))))
-           (previous (get-string (new Range previous-start previous-end))))
+  (method (insert-previous-block)
+    (let* ((current (either last-inserted (last-block)))
+           (previous (previous-block current)))
       (when inserted-where
         (set-selection inserted-where))
       (let ((start (get-start)))
-        (insert-string previous)
+        (insert-string (remove-enclosing #\newline (get-string previous)))
+        (set! last-inserted previous)
         (set! inserted-where (new Range start (get-start))))))
 
   
-  (method (insert-next-entry)
-    @convert
-    (let ((done? #f))
-      (while (not done?)
-        (if (not (forward-prompt))
-            (set! done? #t)
-          (let ((command (prompt-command last-inserted)))
-            (unless (empty-string? command)
-              (when inserted-where
-                (set-selection inserted-where))
-              (let ((start (get-start)))
-                (insert-string command)
-                (set! inserted-where (new Range start (get-start))))
-              (set! done? #t))))))))
+  (method (insert-next-block)
+    (let* ((current (either last-inserted (last-block)))
+           (next (next-block current)))
+      (when inserted-where
+        (set-selection inserted-where))
+      (let ((start (get-start)))
+        (insert-string (remove-enclosing #\newline (get-string next)))
+        (set! last-inserted next)
+        (set! inserted-where (new Range start (get-start)))))))
 
 
 ;;;

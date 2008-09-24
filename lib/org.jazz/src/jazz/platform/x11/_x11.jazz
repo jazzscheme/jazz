@@ -679,11 +679,35 @@
 (c-external void         (XSetErrorHandler       XERRORPROC))
 (c-external Atom         (XInternAtom            Display* char-string Bool))
 (c-external int          (getpid))
+(c-external int          (ConnectionNumber       Display*))
 
 
 ;;;
 ;;;; Custom functions
 ;;;
+
+
+
+(definition select
+  (c-function (int fd_set* fd_set* fd_set* long long) int
+    "struct timeval time;
+     time.tv_sec = ___arg5;
+     time.tv_usec = ___arg6;
+     ___result = select( ___arg1, ___arg2, ___arg3, ___arg4, &time );"))
+
+
+(definition (setup-fdset . fds)
+  (let ((alloc-fdset (c-function () fd_set*
+                       "fd_set *set = malloc(sizeof(fd_set));
+                        FD_ZERO(set);
+                        ___result_voidstar = set;"))
+        (set-fdset (c-function (int fd_set*) void
+                     "FD_SET(___arg1, ___arg2);")))
+     (let ((set (alloc-fdset)))
+       (for-each (function (fd)
+                   (set-fdset fd set))
+                 fds)
+       set)))
 
 
 (definition ProcessClientMessage

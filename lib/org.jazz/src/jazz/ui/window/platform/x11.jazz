@@ -370,7 +370,7 @@
 
 
 (definition (process-messages)
-  (with ((msg (XEvent-make)))
+  (let* ((msg (XEvent-make)))
     (let (loop)
       (XNextEvent default-x11-display msg)
       (process-message msg)
@@ -380,15 +380,19 @@
         (loop)))))
 
 
-
 (definition (process-messages-single-threaded thunk)
-  (with ((msg (XEvent-make)))
+  (with ((msg (XEvent-make))
+         (display-fd (ConnectionNumber (get-default-x11-display)))
+         (fdset (setup-fdset display-fd)))
     (let (loop)
-      (XNextEvent default-x11-display msg)
-      (process-message msg)
+      (select (+ display-fd 1) fdset #f #f 0 1000)
+      (if (= 0 (XPending default-x11-display))
+          (thread-yield!)
+        (XNextEvent default-x11-display msg)
+        (process-message msg)
+        (when (= 0 (XPending default-x11-display))
+          (process-expose)))
       (thunk)
-      (when (= 0 (XPending default-x11-display))
-        (process-expose))
       (when (thread-loop? (current-thread))
         (loop)))))
 

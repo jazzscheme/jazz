@@ -49,7 +49,7 @@
 
 
 (define jazz.gambit-stamp
-  1221132758)
+  1222269350)
 
 
 (define (jazz.validate-version)

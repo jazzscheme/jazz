@@ -38,7 +38,7 @@
 (module jazz.install
 
 
-(jazz.register-reader-extension "jazz"
+(define jazz.install-jazz-literals
   (let ((readtable #f))
     (lambda ()
       (define (register-literal name module constructor-name)
@@ -50,7 +50,7 @@
                  (set! constructor (jazz.module-autoload module constructor-name)))
              (apply constructor rest)))))
       
-      (define (make-readtable)
+      (define (install-literals)
         (jazz.load-module 'core.library)
         (jazz.load-module 'jazz.dialect)
         
@@ -94,6 +94,9 @@
         (jazz.global-value 'jazz.jazz-readtable))
         
       (if (not readtable)
-          (set! readtable (make-readtable)))
+          (set! readtable (install-literals)))
       
-      readtable))))
+      readtable)))
+
+
+(jazz.register-reader-extension "jazz" jazz.install-jazz-literals))

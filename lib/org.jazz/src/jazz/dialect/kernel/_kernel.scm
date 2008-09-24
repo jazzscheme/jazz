@@ -452,6 +452,7 @@
 (native jazz.read-line)
 (native jazz.read-proper-line)
 (native jazz.read-all)
+(native jazz.install-jazz-literals)
 (native jazz.jazz-readtable)
 (native jazz.with-jazz-readtable)
 (native jazz.print)

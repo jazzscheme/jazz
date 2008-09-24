@@ -44,7 +44,8 @@
 
 
 (define jazz.All-Modules
-  '(jazz
+  '(gambit
+    jazz
     jazz.build
     jazz.builder
     jazz.builder.workbench

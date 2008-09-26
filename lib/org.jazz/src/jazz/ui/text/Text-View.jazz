@@ -108,7 +108,8 @@
   
   (slot protected syntax                initialize {})
   (slot protected selection-anchor      initialize {})
-  (slot protected selecting?            initialize #f)
+  (slot protected locked-anchor?        initialize #f)
+  (slot protected mouse-selecting?      initialize #f)
   (slot protected selection-mode        initialize 'char)
   (slot protected virtual-h             initialize {})
   (slot protected caret-position        initialize {})
@@ -975,7 +976,8 @@
         (set-focus self)
         (when pos
           (acquire-capture)
-          (set! selecting? #t)
+          (unlock-anchor)
+          (set! mouse-selecting? #t)
           (set! selection-mode 'char)
           (unless (or (shift-down?) (not focus?))
             (reset-selection pos))
@@ -992,7 +994,7 @@
   
   
   (method (drag-move view)
-    (when selecting?
+    (when mouse-selecting?
       (drag-move-action view)))
   
   
@@ -1003,7 +1005,7 @@
   
   
   (method (drag-up view . rest)
-    (when selecting?
+    (when mouse-selecting?
       (let ((alt?     (alt-down?))
             (control? (control-down?))
             (shift?   (shift-down?))
@@ -1011,7 +1013,7 @@
         (release-capture)
         (kill-autoscroll)
         (drag-select view #t)
-        (set! selecting? #f)
+        (set! mouse-selecting? #f)
         (set! previous-pos {})
         (update-caret)
         (when (empty-selection?) (ensure-displayed))
@@ -1057,7 +1059,7 @@
                 (function ()
                   (when (outer-expr~ expl)
                     (set-selection (get-range~ expl) set-anchor?: #t))
-                  (set! selecting? #t)
+                  (set! mouse-selecting? #t)
                   (set! selection-mode 'word)
                   (reset-virtual)
                   (set! previous-pos pos))))))
@@ -1215,7 +1217,7 @@
   
   (method public (on-home evt)
     (goto-home (get-property~ evt document?:)
-               (get-property~ evt extend?:)))
+               (or locked-anchor? (get-property~ evt extend?:))))
   
   
   (method public (goto-home document? extend?)
@@ -1237,7 +1239,7 @@
   
   (method public (on-end evt)
     (goto-end (get-property~ evt document?:)
-              (get-property~ evt extend?:)))
+              (or locked-anchor? (get-property~ evt extend?:))))
   
   
   (method public (goto-end document? extend?)
@@ -1262,7 +1264,7 @@
     (if arrow-press-handler
         (invoke~ arrow-press-handler self evt)
       (let ((direction (get-property~ evt direction:))
-            (extend? (get-property~ evt extend?:))
+            (extend? (or locked-anchor? (get-property~ evt extend?:)))
             (word? (get-property~ evt word?:))
             (scroll? (get-property~ evt scroll?:)))
         (case direction
@@ -1637,7 +1639,7 @@
   
   (method public (on-jump-mark evt)
     (when mark
-      (if (get-property~ evt extend?:)
+      (if (or locked-anchor? (get-property~ evt extend?:))
           (set-selection (new Range$Cell$
                            (minimum (list (get-start~ selection-anchor) (get-start~ mark)))
                            (maximum (list (get-end~ selection-anchor) (get-end~ mark)))))
@@ -1696,7 +1698,7 @@
       (update-caret)
       (when ensure-displayed?
         ;; To allow forward mouse drag scrolling.
-        (unless selecting?
+        (unless mouse-selecting?
           (ensure-displayed)))
       (unless (and mouse-down? (eq? (get-mouse-in) self))
         (update-focus-actions~ (get-application)))))
@@ -1754,6 +1756,14 @@
   
   (method public (set-selection-anchor range)
     (set! selection-anchor (copy range)))
+  
+  
+  (method public (lock-anchor)
+    (set! locked-anchor? #t))
+  
+  
+  (method public (unlock-anchor)
+    (set! locked-anchor? #f))
   
   
   ;; The selection change up to a specified position
@@ -1933,6 +1943,14 @@
   
   
   (proclaim (not optimize))
+  
+  
+  (method public (on-lock-anchor evt)
+    (lock-anchor))
+  
+  
+  (method public (on-unlock-anchor evt)
+    (unlock-anchor))
   
   
   ;;;

@@ -156,9 +156,13 @@
     (cardinality (paragraph-string n)))
   
   
-  (method (get-char pos <Cell>) <char+>
-    (when (in-text? pos)
-      (get-char~ text pos)))
+  (method public (get-char pos <Cell>) <char>
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
+      (let ((string (get-string~ (get-paragraph row))))
+        (if (< col (cast <fx> (cardinality string)))
+            (element string col)
+          #\newline))))
 
 
   (method public (get-range-string start <Cell> end <Cell>) <string>
@@ -172,7 +176,7 @@
   ;; a quicky for now: will skip the quote in front of a symbol
   ;; the right thing would probably for backward-expr not to include the quote
   (method public (get-symbol-string) <string>
-    (if (eqv? (get-char~ text start) #\quote)
+    (if (eqv? (get-char start) #\quote)
         (get-range-string (+ start 1) end)
       (get-marked)))
   
@@ -199,27 +203,32 @@
 
 
   (method (next! pos <Cell>) <bool>
-    (cond ((< (get-col~ pos) (paragraph-length (get-row~ pos)))
-           (increase-col~ pos)
-           #t)
-          ((< (get-row~ pos) limit)
-           (increase-row~ pos)
-           (set-col~ pos 0)
-           #t)
-          (else
-           #f)))
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
+      (cond ((< col (paragraph-length row))
+             (increase-col~ pos)
+             #t)
+            ((< row limit)
+             (set-row~ pos (+ row 1))
+             (set-col~ pos 0)
+             #t)
+            (else
+             #f))))
 
 
   (method (previous! pos <Cell>) <bool>
-    (cond ((> (get-col~ pos) 0)
-           (increase-col~ pos -1)
-           #t)
-          ((> (get-row~ pos) 0)
-           (increase-row~ pos -1)
-           (set-col~ pos (paragraph-length (get-row~ pos)))
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
+      (cond ((> col 0)
+             (increase-col~ pos -1)
+             #t)
+          ((> row 0)
+           (let ((previous-row (- row 1)))
+             (set-row~ pos previous-row)
+             (set-col~ pos (paragraph-length previous-row)))
            #t)
           (else
-           #f)))
+           #f))))
 
 
   (method (next-cell! pos <Cell>)
@@ -231,13 +240,27 @@
     (when (previous! pos)
       pos))
   
-
-  (method (next-pos pos <Cell> offset <fx>) <Cell>
-    (next~ text pos offset))
-
-
-  (method (previous-pos pos <Cell> offset <fx>) <Cell>
-    (previous~ text pos offset))
+  
+  (method (next-pos pos <Cell> offset <fx>) <Cell+>
+    (let ((pos (copy pos)))
+      (let (iterate (offset offset))
+        (cond ((<= offset 0)
+               pos)
+              ((next! pos)
+               (iterate (- offset 1)))
+              (else
+               {})))))
+  
+  
+  (method (previous-pos pos <Cell> offset <fx>) <Cell+>
+    (let ((pos (copy pos)))
+      (let (iterate (offset offset))
+        (cond ((<= offset 0)
+               pos)
+              ((previous! pos)
+               (iterate (- offset 1)))
+              (else
+               {})))))
 
   
   (method (forward)
@@ -248,24 +271,24 @@
     (previous! start))
   
   
-  (method public (char-forward offset <fx>) <char+>
-    (next-char end offset))
-  
-  
   (method public (next-char pos <Cell> offset <fx>) <char+>
     (let ((pos (next-pos pos offset)))
       (when (and pos (next-in-text? pos))
-        (get-char~ text pos))))
+        (get-char pos))))
   
   
-  (method public (char-backward offset <fx>) <char+>
-    (previous-char start offset))
+  (method public inline (char-forward offset <fx>) <char+>
+    (next-char end offset))
   
 
   (method public (previous-char pos <Cell> offset <fx>) <char+>
     (let ((pos (previous-pos pos (+ offset 1))))
       (when pos
-        (get-char~ text pos))))
+        (get-char pos))))
+  
+  
+  (method public inline (char-backward offset <fx>) <char+>
+    (previous-char start offset))
   
   
   (method (in-text? pos <Cell>) <bool>

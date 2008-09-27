@@ -125,7 +125,7 @@
   (slot protected formats               initialize (new Exemplar-Domain))
   (slot protected styles                initialize (new Exemplar-Domain))
   (slot protected controller            initialize {})
-  (slot protected previous-pos          initialize {})
+  (slot protected previous-position     initialize {})
   (slot protected autoscroll-pulse      initialize #f)
   (slot protected wrap-width            initialize {})
   (slot protected wrap-patch            initialize {})
@@ -990,7 +990,7 @@
                   (set-caret pos))
                 (update-caret)))
             (reset-virtual)
-            (set! previous-pos pos))))))
+            (set! previous-position pos))))))
   
   
   (method (drag-move view)
@@ -1014,7 +1014,7 @@
         (kill-autoscroll)
         (drag-select view #t)
         (set! mouse-selecting? #f)
-        (set! previous-pos {})
+        (set! previous-position {})
         (update-caret)
         (when (empty-selection?) (ensure-displayed))
         (set! selection-mode 'char)
@@ -1033,7 +1033,7 @@
                  (< (get-h~ view) (paragraph-left~ (get-paragraph (get-row~ pos))))
                  (cell>= pos (get-end~ selection-anchor)))
         (set! pos (get-end~ (selection-line (get-row~ pos)))))
-      (when (and pos #t @parameterized-fix-me (/= pos previous-pos))
+      (when (and pos #t @parameterized-fix-me (/= pos previous-position))
         (let* ((range (selection-range pos))
                (parts (range-difference range selection))
                (player (get-player))
@@ -1045,7 +1045,7 @@
                 (if final?
                     (invalidate-region~ player region #t)
                   (redraw-window~ player region: region)
-                  (set! previous-pos pos)))))))))
+                  (set! previous-position pos)))))))))
   
   
   (method (double-click view)
@@ -1062,7 +1062,7 @@
                   (set! mouse-selecting? #t)
                   (set! selection-mode 'word)
                   (reset-virtual)
-                  (set! previous-pos pos))))))
+                  (set! previous-position pos))))))
       (call-mouse-down view)))
   
   
@@ -1710,11 +1710,11 @@
   
   
   (method public inline (get-start) <Cell>
-    (get-start~ selection))
+    (get-start~ (cast <Range$Cell$> selection)))
   
   
   (method public inline (get-end) <Cell>
-    (get-end~ selection))
+    (get-end~ (cast <Range$Cell$> selection)))
   
   
   (method public inline (get-selection) <Range$Cell$>
@@ -1866,10 +1866,12 @@
   
   
   (method public (get-char pos <Cell>) <char>
-    (let ((par (get-paragraph (get-row~ pos))))
-      (if (< (get-col~ pos) (get-length~ par))
-          (element (get-string~ par) (get-col~ pos))
-        #\newline)))
+    (let ((row (get-row~ pos))
+          (col (get-col~ pos)))
+      (let ((string (get-string~ (get-paragraph row))))
+        (if (< col (cardinality string))
+            (element string col)
+          #\newline))))
   
   
   (method public (get-string range <Range$Cell$>) <string>
@@ -1921,7 +1923,7 @@
       (get-string (get-selection))))
   
   
-  (method public (next pos <Cell> offset <fx>) <Cell+>
+  (method public (next-pos pos <Cell> offset <fx>) <Cell+>
     (let ((pos (copy pos)))
       (let (iterate (offset offset))
         (cond ((<= offset 0)
@@ -1932,7 +1934,7 @@
                {})))))
   
   
-  (method public (previous pos <Cell> offset <fx>) <Cell+>
+  (method public (previous-pos pos <Cell> offset <fx>) <Cell+>
     (let ((pos (copy pos)))
       (let (iterate (offset offset))
         (cond ((<= offset 0)

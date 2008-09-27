@@ -68,8 +68,8 @@
   
   ;; simple cache to speed up getting many times
   ;; in a row the comment column for the same row
-  (slot find-comment-last-row initialize {})
-  (slot find-comment-last-col initialize {})
+  (slot find-comment-last-row <fx+> initialize {})
+  (slot find-comment-last-col <fx+> initialize {})
   
   
   (constant Composites
@@ -140,11 +140,10 @@
     (backward-whites)
     (set-end start)
     (let ((c0 (char-backward 0))
-          (c1 (char-backward 1))
-          (c2 (char-backward 2)))
-      (if (and (eqv? c1 #\|) (eqv? c0 #\sharp))
+          (c1 (char-backward 1)))
+      (if (and (eqv? c0 #\sharp) (eqv? c1 #\|))
           (backward-delimited-string)
-        (if (and (eqv? c2 #\#) (eqv? c1 #\\))
+        (if (and (eqv? c1 #\\) (eqv? (char-backward 2) #\#))
             (backward-scheme-char)
           (let ((found (backward-simple-expr)))
             (when found
@@ -291,15 +290,14 @@
   
   (method private (forward-sharp)
     (forward)
-    (let ((c0 (char-forward 0))
-          (c1 (char-forward 1)))
+    (let ((c0 (char-forward 0)))
       (cond ((memq? c0 '(#\t #\f))
              (forward)
              (set! kind 'boolean)
              kind)
             ((eqv? c0 #\")
              (forward-delimited-string))
-            ((and (eqv? c0 #\<) (eqv? c1 #\<))
+            ((and (eqv? c0 #\<) (eqv? (char-forward 1) #\<))
              (forward-named-string))
             ((eqv? c0 #\\)
              (forward-scheme-char))
@@ -483,9 +481,8 @@
     (let ((end (get-end)))
       (set-end (get-start))
       (forward-whites)
-      (let ((c0 (char-forward 0))
-            (c1 (char-forward 1)))
-        (cond ((and (eqv? c0 #\comma) (eqv? c1 #\at))
+      (let ((c0 (char-forward 0)))
+        (cond ((and (eqv? c0 #\comma) (eqv? (char-forward 1) #\at))
                (forward)
                (forward)
                (set! kind 'unquote-splicing)
@@ -559,7 +556,7 @@
     )
 
   
-  (method public (forward-whites)
+  (method public (forward-whites) <void>
     (let (iterate)
       (let ((c (char-forward 0)))
         (when (and c (or (whitespace? c) (eqv? c #\semi-colon)))
@@ -571,7 +568,7 @@
               (iterate)))))))
 
   
-  (method public (backward-whites)
+  (method public (backward-whites) <void>
     (let (iterate)
       (let (iterate)
         (let ((c (char-backward 0)))
@@ -581,7 +578,7 @@
         (iterate))))
 
   
-  (method (backward-lisp-comment)
+  (method (backward-lisp-comment) <bool>
     (let ((start-row (get-row~ start))
           (start-col (get-col~ start)))
       (let ((col (if (eqv? start-row find-comment-last-row)
@@ -595,7 +592,7 @@
           #t))))
   
   
-  (method (find-lisp-comment row)
+  (method (find-lisp-comment row <fx>) <fx+>
     (let ((max-col (paragraph-length row))
           (preserved-end (copy end))
           (result #f))
@@ -603,19 +600,23 @@
       (let ((result
               (let (iterate)
                 (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
-                  (let ((c0 (char-forward 0))
-                        (c1 (char-forward 1)))
+                  (let ((c0 (char-forward 0)))
                     (cond ((eqv? c0 #\")
                            (forward-string)
                            (iterate))
-                          ((and (eqv? c0 #\#) (eqv? c1 #\|))
-                           (forward)
-                           (forward-delimited-string)
-                           (iterate))
-                          ((and (eqv? c0 #\#) (eqv? c1 #\\))
-                           (forward)
-                           (forward-scheme-char)
-                           (iterate))
+                          ((eqv? c0 #\#)
+                           (let ((c1 (char-forward 1)))
+                             (cond ((eqv? c1 #\|)
+                                    (forward)
+                                    (forward-delimited-string)
+                                    (iterate))
+                                   ((eqv? c1 #\\)
+                                    (forward)
+                                    (forward-scheme-char)
+                                    (iterate))
+                                   (else
+                                    (forward)
+                                    (iterate)))))
                           ((eqv? c0 #\;)
                            (get-col~ end))
                           (else

@@ -41,11 +41,14 @@
       `(declare ,@(if jazz.debug-core?
                       '()
                     '((block)))
+                
                 (standard-bindings)
                 (extended-bindings)
+                
                 ,@(if jazz.debug-core?
                       '((not proper-tail-calls))
                     '())
+                
                 ,@(if jazz.debug-user?
                       '()
                     '((not safe))))))

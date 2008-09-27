@@ -462,24 +462,24 @@
 
   
   (method (walk-definition context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
-      (let ((line (get-row~ end)))
-        (keyword context start end)
-        (walk-modifiers context declaration keyword expression doc line)
-        (forward-whites)
-        (when (= (get-row~ end) line)
-          (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
-            (cond ((not list?)
-                   (when (and (forward-expr) (eq? kind 'symbol))
-                     (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
-                  (else
-                   (enter-list)
-                   (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-                     (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-                   (walk-parameters entry declaration keyword expression doc line)
-                   (exit-list))))
-          (when walk-expressions?
-            (walk-expressions entry expression 'code #f))))
+    (let ((entry context)
+          (line (get-row~ end)))
+      (keyword context start end)
+      (walk-modifiers context declaration keyword expression doc line)
+      (forward-whites)
+      (when (= (get-row~ end) line)
+        (let ((list? (eqv? (char-forward 0) #\open-parenthesis)))
+          (cond ((not list?)
+                 (when (and (forward-expr) (eq? kind 'symbol))
+                   (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))))
+                (else
+                 (enter-list)
+                 (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
+                   (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
+                 (walk-parameters entry declaration keyword expression doc line)
+                 (exit-list))))
+        (when walk-expressions?
+          (walk-expressions entry expression 'code #f)))
       entry))
   
   
@@ -540,17 +540,20 @@
   
   
   (method (walk-slot context declaration keyword expression doc line walk-expressions?)
-    (let ((entry context))
+    (let ((entry context)
+          (line (get-row~ end)))
       (keyword context start end)
       (walk-modifiers context declaration keyword expression doc line)
-      (when (and (forward-expr) (eq? kind 'symbol))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
-        (while (forward-expr)
-          (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) '(initialize getter setter accessors)))
-              (keyword entry start end)
-            (walk-expression entry expression 'code #f))))
-      (when walk-expressions?
-        (walk-expressions entry expression))
+      (forward-whites)
+      (when (= (get-row~ end) line)
+        (when (and (forward-expr) (eq? kind 'symbol))
+          (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+          (while (forward-expr)
+            (if (and (eq? kind 'symbol) (memq? (find-marked-symbol) '(initialize getter setter accessors)))
+                (keyword entry start end)
+              (walk-expression entry expression 'code #f))))
+        (when walk-expressions?
+          (walk-expressions entry expression)))
       entry))
   
   

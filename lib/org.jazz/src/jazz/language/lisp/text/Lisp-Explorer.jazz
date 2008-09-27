@@ -66,6 +66,12 @@
 (class Lisp-Explorer extends Code-Explorer
   
   
+  ;; simple cache to speed up getting many times
+  ;; in a row the comment column for the same row
+  (slot find-comment-last-row initialize {})
+  (slot find-comment-last-col initialize {})
+  
+  
   (constant Composites
     '((#\open-parenthesis #\close-parenthesis list)
       (#\open-bracket     #\close-bracket     reference)
@@ -576,21 +582,27 @@
 
   
   (method (backward-lisp-comment)
-    (let ((col (find-lisp-comment)))
-      (when col
-        (set-col~ start col)
-        #t)))
-  
-  
-  (method (find-lisp-comment)
     (let ((start-row (get-row~ start))
-          (start-col (get-col~ start))
-          (preserved-end (essay end (copy end)))
+          (start-col (get-col~ start)))
+      (let ((col (if (eqv? start-row find-comment-last-row)
+                     find-comment-last-col
+                   (let ((col (find-lisp-comment start-row)))
+                     (set! find-comment-last-row start-row)
+                     (set! find-comment-last-col col)
+                     col))))
+        (when (and col (< col start-col))
+          (set-col~ start col)
+          #t))))
+  
+  
+  (method (find-lisp-comment row)
+    (let ((max-col (paragraph-length row))
+          (preserved-end (copy end))
           (result #f))
-      (set-end (new Cell start-row 0))
+      (set-end (new Cell row 0))
       (let ((result
               (let (iterate)
-                (when (and (= (get-row~ end) start-row) (< (get-col~ end) start-col))
+                (when (and (= (get-row~ end) row) (< (get-col~ end) max-col))
                   (let ((c0 (char-forward 0))
                         (c1 (char-forward 1)))
                     (cond ((eqv? c0 #\")

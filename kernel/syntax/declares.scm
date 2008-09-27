@@ -62,7 +62,7 @@
       `((declare ;; block is only really usefull for modules coded in a
                  ;; style where control remains mostly inside the module
                  ,@(if (and (eq? kind 'module)
-                            (eq? jazz.safety 'release))
+                            (eq? jazz.kernel-safety 'release))
                        '((block))
                      '())
                  
@@ -80,8 +80,10 @@
                  ;; performance between a built debug and a built release
                  ;; (at the moment the difference is around 8 times due
                  ;; mainly to the safe declare)
-                 (not proper-tail-calls)
-                 (not lambda-lift)
+                 ,@(if jazz.kernel-optimize?
+                       '()
+                     '((not proper-tail-calls)
+                       (not lambda-lift)))
                  
                  ,@(if jazz.debug-user?
                        ;; safe and inlining primitives at the same time

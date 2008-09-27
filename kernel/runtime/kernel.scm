@@ -288,48 +288,23 @@
 
 
 ;;;
-;;;; Configuration
-;;;
-
-
-(define jazz.jazz-system
-  jazz.system)
-
-(define jazz.jazz-platform
-  jazz.platform)
-
-(define jazz.jazz-windowing
-  jazz.windowing)
-
-(define jazz.jazz-safety
-  jazz.safety)
-
-(define jazz.jazz-options
-  jazz.options)
-
-
-;;;
 ;;;; Product
 ;;;
 
 
-(define (jazz.jazz-version)
-  jazz.version)
-
-
-(define jazz.jazz-install
+(define jazz.kernel-install
   (if jazz.executable-directory
       (jazz.executable-directory)
     (jazz.pathname-normalize jazz.install)))
 
 
-(define jazz.jazz-source
+(define jazz.kernel-source
   ;; kernel always needs source access to build
   (if (or jazz.source? (not jazz.product))
       ;; when the install directory is a subdirectory of the source use a .. notation
       (if (and (%%fx>= (%%string-length jazz.source) 3)
                (%%string=? (%%substring jazz.source 0 3) "../"))
-          (jazz.pathname-normalize (%%string-append jazz.jazz-install jazz.source) #f)
+          (jazz.pathname-normalize (%%string-append jazz.kernel-install jazz.source) #f)
         (jazz.pathname-normalize jazz.source #f))
     #f))
 
@@ -363,10 +338,10 @@
 
 
 (define jazz.Install-Repository
-  (jazz.make-repository 'install "Install" jazz.jazz-install "lib/"))
+  (jazz.make-repository 'install "Install" jazz.kernel-install "lib/"))
 
 (define jazz.Jazz-Repository
-  (jazz.make-repository 'jazz "Jazz" jazz.jazz-source "lib/" error?: #f))
+  (jazz.make-repository 'jazz "Jazz" jazz.kernel-source "lib/" error?: #f))
 
 (define jazz.User-Repository
   (jazz.make-repository 'user "User" "~/" ".jazz/lib/" create?: #t))
@@ -887,8 +862,8 @@
 
 
 (define (jazz.make-product name)
-  (let ((install jazz.jazz-install)
-        (platform jazz.platform)
+  (let ((install jazz.kernel-install)
+        (platform jazz.kernel-platform)
         (made '()))
     (define (install-file path)
       (%%string-append install path))

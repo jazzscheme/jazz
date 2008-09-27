@@ -40,7 +40,7 @@
 ;;;
 
 
-(define jazz.version
+(define jazz.kernel-version
   "2.0b1")
 
 
@@ -71,8 +71,8 @@
 ;;;
 
 
-(define (jazz.make-configuration name system platform windowing safety options install source)
-  (vector 'configuration name system platform windowing safety options install source))
+(define (jazz.make-configuration name system platform windowing safety optimize? include-source? interpret? install source)
+  (vector 'configuration name system platform windowing safety optimize? include-source? interpret? install source))
 
 (define (jazz.configuration-name configuration)
   (vector-ref configuration 1))
@@ -89,14 +89,20 @@
 (define (jazz.configuration-safety configuration)
   (vector-ref configuration 5))
 
-(define (jazz.configuration-options configuration)
+(define (jazz.configuration-optimize? configuration)
   (vector-ref configuration 6))
 
-(define (jazz.configuration-install configuration)
+(define (jazz.configuration-include-source? configuration)
   (vector-ref configuration 7))
 
-(define (jazz.configuration-source configuration)
+(define (jazz.configuration-interpret? configuration)
   (vector-ref configuration 8))
+
+(define (jazz.configuration-install configuration)
+  (vector-ref configuration 9))
+
+(define (jazz.configuration-source configuration)
+  (vector-ref configuration 10))
 
 
 (define (jazz.new-configuration
@@ -106,7 +112,9 @@
           (platform #f)
           (windowing #f)
           (safety #f)
-          (options '())
+          (optimize? #t)
+          (include-source? #f)
+          (interpret? #f)
           (install #f)
           (source #t))
   (jazz.make-configuration
@@ -115,7 +123,9 @@
     (jazz.validate-platform platform)
     (jazz.validate-windowing windowing)
     (jazz.validate-safety safety)
-    (jazz.validate-options options)
+    (jazz.validate-optimize? optimize?)
+    (jazz.validate-include-source? include-source?)
+    (jazz.validate-interpret? interpret?)
     (jazz.validate-install install)
     (jazz.validate-source source)))
 
@@ -227,7 +237,9 @@
               (platform (jazz.configuration-platform configuration))
               (windowing (jazz.configuration-windowing configuration))
               (safety (jazz.configuration-safety configuration))
-              (options (jazz.configuration-options configuration))
+              (optimize? (jazz.configuration-optimize? configuration))
+              (include-source? (jazz.configuration-include-source? configuration))
+              (interpret? (jazz.configuration-interpret? configuration))
               (install (jazz.configuration-install configuration))
               (source (jazz.configuration-source configuration)))
           (display "(" output)
@@ -238,8 +250,12 @@
           (if windowing
               (print-property windowing: windowing))
           (print-property safety: safety)
-          (if (not (null? options))
-              (print-property options: options))
+          (if (not optimize?)
+              (print-property optimize?: optimize?))
+          (if include-source?
+              (print-property include-source?: include-source?))
+          (if interpret?
+              (print-property interpret?: interpret?))
           (if install
               (print-property install: install))
           (if (not (eqv? source #t))
@@ -256,7 +272,9 @@
         (platform (jazz.configuration-platform configuration))
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
-        (options (jazz.configuration-options configuration))
+        (optimize? (jazz.configuration-optimize? configuration))
+        (include-source? (jazz.configuration-include-source? configuration))
+        (interpret? (jazz.configuration-interpret? configuration))
         (install (jazz.configuration-install configuration))
         (source (jazz.configuration-source configuration)))
     (jazz.feedback "{a}" (or name "<default>"))
@@ -265,8 +283,12 @@
     (if windowing
         (jazz.feedback "  windowing: {s}" windowing))
     (jazz.feedback "  safety: {s}" safety)
-    (if (not (null? options))
-        (jazz.feedback "  options: {s}" options))
+    (if (not optimize?)
+        (jazz.feedback "  optimize?: {s}" optimize?))
+    (if include-source?
+        (jazz.feedback "  include-source?: {s}" include-source?))
+    (if interpret?
+        (jazz.feedback "  interpret?: {s}" interpret?))
     (if install
         (jazz.feedback "  install: {s}" install))
     (if (not (eqv? source #t))
@@ -285,7 +307,9 @@
           (platform #f)
           (windowing #f)
           (safety #f)
-          (options '())
+          (optimize? #t)
+          (include-source? #f)
+          (interpret? #f)
           (install #f)
           (source #t))
   (let* ((name (jazz.require-name name))
@@ -293,7 +317,9 @@
          (platform (jazz.require-platform platform))
          (windowing (jazz.require-windowing platform windowing))
          (safety (jazz.require-safety safety))
-         (options (jazz.require-options options))
+         (optimize? (jazz.require-optimize? optimize?))
+         (include-source? (jazz.require-include-source? include-source?))
+         (interpret? (jazz.require-interpret? interpret?))
          (install (jazz.require-install install))
          (source (jazz.require-source source)))
     (let ((configuration
@@ -303,7 +329,9 @@
               platform: platform
               windowing: windowing
               safety: safety
-              options: options
+              optimize?: optimize?
+              include-source?: include-source?
+              interpret?: interpret?
               install: install
               source: source)))
       (jazz.register-configuration configuration)
@@ -470,34 +498,63 @@
 
 
 ;;;
-;;;; Options
+;;;; Optimize
 ;;;
 
 
-(define jazz.valid-options
-  '(source
-    interpret))
+(define jazz.valid-optimize
+  '(#f
+    #t))
 
 
-(define (jazz.require-options options)
-  options)
+(define (jazz.require-optimize? optimize)
+  optimize)
 
 
-(define (jazz.validate-options options)
-  (if (list? options)
-      (begin
-        (for-each (lambda (option)
-                    (if (not (memq option jazz.valid-options))
-                        (jazz.error "Invalid option: {s}" option)))
-                  options)
-        options)
-    (jazz.error "Invalid options: {s}" options)))
+(define (jazz.validate-optimize? optimize)
+  (if (memq optimize jazz.valid-optimize)
+      optimize
+    (jazz.error "Invalid optimize?: {s}" optimize)))
 
 
-(define (jazz.source-option-name options)
-  (if (memq 'source options)
-      "Source"
-    ""))
+;;;
+;;;; Include-Source
+;;;
+
+
+(define jazz.valid-include-source
+  '(#f
+    #t))
+
+
+(define (jazz.require-include-source? include-source)
+  include-source)
+
+
+(define (jazz.validate-include-source? include-source)
+  (if (memq include-source jazz.valid-include-source)
+      include-source
+    (jazz.error "Invalid include-source?: {s}" include-source)))
+
+
+;;;
+;;;; Interpret
+;;;
+
+
+(define jazz.valid-interpret
+  '(#f
+    #t))
+
+
+(define (jazz.require-interpret? interpret)
+  interpret)
+
+
+(define (jazz.validate-interpret? interpret)
+  (if (memq interpret jazz.valid-interpret)
+      interpret
+    (jazz.error "Invalid interpret?: {s}" interpret)))
 
 
 ;;;
@@ -528,7 +585,6 @@
                      (jazz.platform-name (jazz.configuration-platform configuration))
                      (jazz.windowing-name (jazz.configuration-windowing configuration))
                      (jazz.safety-name (jazz.configuration-safety configuration))
-                     (jazz.source-option-name (jazz.configuration-options configuration))
                      "/")))
 
 
@@ -618,7 +674,9 @@
         (platform (jazz.configuration-platform configuration))
         (windowing (jazz.configuration-windowing configuration))
         (safety (jazz.configuration-safety configuration))
-        (options (jazz.configuration-options configuration))
+        (optimize? (jazz.configuration-optimize? configuration))
+        (include-source? (jazz.configuration-include-source? configuration))
+        (interpret? (jazz.configuration-interpret? configuration))
         (install (jazz.install-directory configuration))
         (source "./")
         (source? (jazz.configuration-source configuration)))
@@ -641,11 +699,11 @@
                   (jazz.print ";;;" output)
                   (newline output)
                   (newline output)
-                  (jazz.print-architecture system platform windowing safety options output)
+                  (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? output)
                   (newline output)
                   (jazz.print-variable 'jazz.product #f output)
                   (newline output)
-                  (jazz.print-variable 'jazz.version jazz.version output)
+                  (jazz.print-variable 'jazz.kernel-version jazz.kernel-version output)
                   (newline output)
                   (jazz.print-variable 'jazz.install "." output)
                   (newline output)
@@ -658,18 +716,20 @@
                   (newline output)))))))
     
     (jazz.build-executable #f
-      system:       system
-      platform:     platform
-      windowing:    windowing
-      safety:       safety
-      options:      options
-      install:      install
-      source:       source
-      source?:      source?
-      kernel?:      #t
-      console?:     #t)
+      system:          system
+      platform:        platform
+      windowing:       windowing
+      safety:          safety
+      optimize?:       optimize?
+      include-source?: include-source?
+      interpret?:      interpret?
+      install:         install
+      source:          source
+      source?:         source?
+      kernel?:         #t
+      console?:        #t)
     
-    (if (memq 'interpret options)
+    (if interpret?
         (generate-gambcini))))
 
 
@@ -850,7 +910,7 @@
 
 (define (jazz.build-system-repl)
   (let ((console (console-port)))
-    (jazz.print (jazz.format "Jazz {a} Build System" jazz.version) console)
+    (jazz.print (jazz.format "Jazz {a} Build System" jazz.kernel-version) console)
     (force-output console)
     (let loop ()
       (newline console)
@@ -905,7 +965,7 @@
   (jazz.print "Commands are" output)
   (jazz.print "  list" output)
   (jazz.print "  delete [configuration]" output)
-  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [options:] [install:] [source:]" output)
+  (jazz.print "  configure [name:] [system:] [platform:] [windowing:] [safety:] [optimize?:] [include-source?:] [interpret?:] [install:] [source:]" output)
   (jazz.print "  make [target]" output)
   (jazz.print "  help or ?" output)
   (jazz.print "  quit" output))
@@ -948,20 +1008,26 @@
 ;;;
 
 
-(define jazz.system
+(define jazz.kernel-system
   'gambit)
 
-(define jazz.platform
+(define jazz.kernel-platform
   #f)
 
-(define jazz.windowing
+(define jazz.kernel-windowing
   #f)
 
-(define jazz.safety
+(define jazz.kernel-safety
   'debug)
 
-(define jazz.options
-  '())
+(define jazz.kernel-optimize?
+  #t)
+
+(define jazz.kernel-include-source?
+  #f)
+
+(define jazz.kernel-interpret?
+  #f)
 
 
 (load "kernel/syntax/macros")

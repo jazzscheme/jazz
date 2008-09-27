@@ -42,11 +42,13 @@
 
 (define (jazz.build-executable product
           #!key
-          (system jazz.system)
-          (platform jazz.platform)
-          (windowing jazz.windowing)
-          (safety jazz.safety)
-          (options jazz.options)
+          (system jazz.kernel-system)
+          (platform jazz.kernel-platform)
+          (windowing jazz.kernel-windowing)
+          (safety jazz.kernel-safety)
+          (optimize? jazz.kernel-optimize?)
+          (include-source? jazz.kernel-include-source?)
+          (interpret? jazz.kernel-interpret?)
           (install jazz.install)
           (source jazz.source)
           (source? jazz.source?)
@@ -77,7 +79,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety options output)))
+                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? output)))
                 #t)
             #f)))
       
@@ -90,7 +92,7 @@
                   (lambda (output)
                     (jazz.print-variable 'jazz.product product output)
                     (newline output)
-                    (jazz.print-variable 'jazz.version jazz.version output)
+                    (jazz.print-variable 'jazz.kernel-version jazz.kernel-version output)
                     (newline output)
                     (jazz.print-variable 'jazz.install (jazz.pathname-normalize install) output)
                     (newline output)
@@ -297,16 +299,20 @@
           (link-executable)))))
 
 
-(define (jazz.print-architecture system platform windowing safety options output)
-  (jazz.print-variable 'jazz.system system output)
+(define (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? output)
+  (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
-  (jazz.print-variable 'jazz.platform platform output)
+  (jazz.print-variable 'jazz.kernel-platform platform output)
   (newline output)
-  (jazz.print-variable 'jazz.windowing windowing output)
+  (jazz.print-variable 'jazz.kernel-windowing windowing output)
   (newline output)
-  (jazz.print-variable 'jazz.safety safety output)
+  (jazz.print-variable 'jazz.kernel-safety safety output)
   (newline output)
-  (jazz.print-variable 'jazz.options options output))
+  (jazz.print-variable 'jazz.kernel-optimize? optimize? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-include-source? include-source? output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-interpret? interpret? output))
 
 
 (define (jazz.print-variable variable value output)

@@ -189,7 +189,7 @@
 
 
 (define (jazz.quote-jazz-gcc-pathname suffix)
-  (jazz.quote-gcc-pathname (path-expand (string-append jazz.jazz-source suffix)) jazz.platform))
+  (jazz.quote-gcc-pathname (path-expand (string-append jazz.kernel-source suffix)) jazz.kernel-platform))
 
 
 (define (jazz.parse-dot-version version)

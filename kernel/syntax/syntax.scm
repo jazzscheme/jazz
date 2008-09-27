@@ -58,7 +58,7 @@
 
 (define jazz.compile-options
   (let ((base-options '(debug-environments)))
-    (if (%%memq 'source jazz.options)
+    (if jazz.kernel-include-source?
         (cons 'debug-source base-options)
       base-options)))
 

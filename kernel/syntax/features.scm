@@ -41,7 +41,7 @@
 
 
 (define-macro (jazz.install-features)
-  (let ((features (list jazz.system jazz.platform jazz.windowing jazz.safety)))
+  (let ((features (list jazz.kernel-system jazz.kernel-platform jazz.kernel-windowing jazz.kernel-safety)))
     (for-each (lambda (feature)
                 (if feature
                     (set! ##cond-expand-features (##cons feature ##cond-expand-features))))
@@ -61,7 +61,7 @@
 
 
 (define jazz.debug-core?
-  (eq? jazz.safety 'core))
+  (eq? jazz.kernel-safety 'core))
 
 (define jazz.debug-user?
-  (not (eq? jazz.safety 'release)))
+  (not (eq? jazz.kernel-safety 'release)))

@@ -21,6 +21,7 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
+;;;    Guillaume Cartier
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -343,7 +344,8 @@
 ;;;
 
 
-(definition (setup-events))
+(definition (setup-events)
+  )
 
 
 (definition expose-store (make-table))
@@ -399,128 +401,150 @@
         (loop)))))
 
 
+;;;
+;;;; Process
+;;;
+
+
 (definition (process-window-message window msg)
-  (let ((type (XEvent-type-ref msg)))
-    (cond
-      ((= type Expose)      
-       (let* ((msg (XEvent-xexpose-ref msg))
-              (left (XExposeEvent-x-ref msg))
-              (top  (XExposeEvent-y-ref msg))
-              (right (+ left (XExposeEvent-width-ref msg)))
-              (bottom (+ top (XExposeEvent-height-ref msg)))
-              (region (new Rect left top right bottom))
-              (old-region (table-ref expose-store window #f)))
-         (unless (nu=? region {Rect 0 0 0 0})
-           (if old-region
-               (table-set! expose-store window (rect-union old-region region))
-             (table-set! expose-store window region))
-           processed)))
-      
-      ((= type ButtonPress)
-       (let* ((msg (XEvent-xbutton-ref msg))
-              (h (XButtonEvent-x-ref msg))
-              (v (XButtonEvent-y-ref msg))
-              (button (XButtonEvent-button-ref msg)))
-         (cond ((= button Button1)
-                (let ((click (time->seconds (current-time))))
-                  (if (< (- click last-click) 0.2)
-                      (begin
-                        (double-click~ window h v)
-                        (set! last-click 0))
-                    (mouse-down~ window h v)
-                    (set! last-click click))))
-               ((= button Button2)
-                (middle-mouse-down~ window h v))
-               ((= button Button3)
-                (right-mouse-down~ window h v)
-                (let ((pt (acquire-point (platform-get-desktop) window (new Point h v))))
-                  (call-context-menu~ window (get-h~ pt) (get-v~ pt))))
-               ((or (= button Button4) (= button Button6))
-                (mouse-wheel~ window h v 120))
-               ((or (= button Button5) (= button Button7))
-                (mouse-wheel~ window h v -120)))))
-      
-      ((= type ButtonRelease)
-       (let* ((msg (XEvent-xbutton-ref msg))
-              (h (XButtonEvent-x-ref msg))
-              (v (XButtonEvent-y-ref msg))
-              (button (XButtonEvent-button-ref msg)))
-         (cond ((= button Button1)
-                (mouse-up~ window h v))
-               ((= button Button2)
-                (middle-mouse-up~ window h v))
-               ((= button Button3)
-                (right-mouse-up~ window h v)))))
-      
-      ((= type FocusIn)
-       (let* ((msg (XEvent-xfocus-ref msg))
-              (detail (XFocusChangeEvent-detail-ref msg)))
-         (when (or (= detail NotifyAncestor)
-                   (= detail NotifyInferior)
-                   (= detail NotifyNonlinear))
-           (call-focus-gain~ window)
-           (on-activate-app~ window 1))))
-      
-      ((= type FocusOut)
-       (let* ((msg (XEvent-xfocus-ref msg))
-              (detail (XFocusChangeEvent-detail-ref msg)))
-         (when (or (= detail NotifyAncestor)
-                   (= detail NotifyInferior)
-                   (= detail NotifyNonlinear))
-           (call-focus-lose~ window #f))))
-      
-      ((= type MotionNotify)
-       (let* ((msg (XEvent-xmotion-ref msg))
-              (h (XMotionEvent-x-ref msg))
-              (v (XMotionEvent-y-ref msg)))
-         (mouse-move~ window h v)))
-      
-      ((= type KeyPress)
-       (let* ((msg (XEvent-xkey-ref msg))
-              (keycode (XKeyEvent-keycode-ref msg))
-              (state (XKeyEvent-state-ref msg))
-              (mod  '()))
-         (when (bit-set? ShiftMask state) (set! mod (cons :shift mod)))
-         (when (bit-set? ControlMask state) (set! mod (cons :control mod)))
-         (when (bit-set? (alt-key) state) (set! mod (cons :alt mod)))
-         (unless (translate-shortcut mod keycode)
-           (let* ((keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) (if (memq :shift mod) 1 0)))
-                  (key (or (assv-value keysym Symbolic-Keys #f) (integer->char keysym))))
-             (let ((key (if (eq? key 'Space) #\space key)))
-               (if (and key (char? key))
-                   (call-key-press~ window key)
-                 unprocessed))))))
-      
-      ((= type ConfigureNotify)
-       (let* ((msg (XEvent-xconfigure-ref msg))
-              (width (XConfigureEvent-width-ref msg))
-              (height (XConfigureEvent-height-ref msg))
-              (x (XConfigureEvent-x-ref msg))
-              (y (XConfigureEvent-y-ref msg))
-              (prev-size (get-previous-size~ window))
-              (prev-pos (get-previous-position~ window)))
-         (unless (nu=? prev-size (new Dimension width height))
-           (table-set! expose-store window)
-           (call-size-change~ window width height))
-         (unless (nu=? prev-pos (new Point x y))
-           (call-position-change~ window x y))))
-      
-      ((= type SelectionRequest)
-       (let* ((msg (XEvent-xselectionrequest-ref msg))
-              (requestor (XSelectionRequestEvent-requestor-ref msg))
-              (selection (XSelectionRequestEvent-selection-ref msg))
-              (target    (XSelectionRequestEvent-target-ref    msg))
-              (property  (XSelectionRequestEvent-property-ref  msg)))
-         (XSendClipboardString default-x11-display (get-handle~ window) requestor selection target property)))
-      
-      
-      ((= type ClientMessage)
-       (let* ((msg (XEvent-xclient-ref msg)))
-         (if (ProcessClientMessage (get-default-x11-display) msg)
-             (on-close~ window {}))))
-      
-      
-      (else unprocessed))))
+  (ecase (XEvent-type-ref msg)
+    ((Expose)           (process-expose-message window msg))
+    ((ButtonPress)      (process-button-press-message window msg))
+    ((ButtonRelease)    (process-button-release-message window msg))
+    ((FocusIn)          (process-focus-in-message window msg))
+    ((FocusOut)         (process-focus-in-message window msg))
+    ((MotionNotify)     (process-motion-notify-message window msg))
+    ((KeyPress)         (process-key-press-message window msg))
+    ((ConfigureNotify)  (process-configure-notify-message window msg))
+    ((SelectionRequest) (process-selection-request-message window msg))
+    ((ClientMessage)    (process-client-message-message window msg))
+    (else               unprocessed)))
+
+
+(definition (process-expose-message window msg)
+  (let* ((msg (XEvent-xexpose-ref msg))
+         (left (XExposeEvent-x-ref msg))
+         (top  (XExposeEvent-y-ref msg))
+         (right (+ left (XExposeEvent-width-ref msg)))
+         (bottom (+ top (XExposeEvent-height-ref msg)))
+         (region (new Rect left top right bottom))
+         (old-region (table-ref expose-store window #f)))
+    (unless (nu=? region {Rect 0 0 0 0})
+      (if old-region
+          (table-set! expose-store window (rect-union old-region region))
+        (table-set! expose-store window region))
+      processed)))
+
+
+(definition (process-button-press-message window msg)
+  (let* ((msg (XEvent-xbutton-ref msg))
+         (h (XButtonEvent-x-ref msg))
+         (v (XButtonEvent-y-ref msg))
+         (button (XButtonEvent-button-ref msg)))
+    (cond ((= button Button1)
+           (let ((click (time->seconds (current-time))))
+             (if (< (- click last-click) 0.2)
+                 (begin
+                   (double-click~ window h v)
+                   (set! last-click 0))
+               (mouse-down~ window h v)
+               (set! last-click click))))
+          ((= button Button2)
+           (middle-mouse-down~ window h v))
+          ((= button Button3)
+           (right-mouse-down~ window h v)
+           (let ((pt (acquire-point (platform-get-desktop) window (new Point h v))))
+             (call-context-menu~ window (get-h~ pt) (get-v~ pt))))
+          ((or (= button Button4) (= button Button6))
+           (mouse-wheel~ window h v 120))
+          ((or (= button Button5) (= button Button7))
+           (mouse-wheel~ window h v -120)))))
+
+
+(definition (process-button-release-message window msg)
+  (let* ((msg (XEvent-xbutton-ref msg))
+         (h (XButtonEvent-x-ref msg))
+         (v (XButtonEvent-y-ref msg))
+         (button (XButtonEvent-button-ref msg)))
+    (cond ((= button Button1)
+           (mouse-up~ window h v))
+          ((= button Button2)
+           (middle-mouse-up~ window h v))
+          ((= button Button3)
+           (right-mouse-up~ window h v)))))
+
+
+(definition (process-focus-in-message window msg)
+  (let* ((msg (XEvent-xfocus-ref msg))
+         (detail (XFocusChangeEvent-detail-ref msg)))
+    (when (or (= detail NotifyAncestor)
+              (= detail NotifyInferior)
+              (= detail NotifyNonlinear))
+      (call-focus-gain~ window)
+      (on-activate-app~ window 1))))
+
+
+(definition (process-focus-out-message window msg)
+  (let* ((msg (XEvent-xfocus-ref msg))
+         (detail (XFocusChangeEvent-detail-ref msg)))
+    (when (or (= detail NotifyAncestor)
+              (= detail NotifyInferior)
+              (= detail NotifyNonlinear))
+      (call-focus-lose~ window #f))))
+
+
+(definition (process-motion-notify-message window msg)
+  (let* ((msg (XEvent-xmotion-ref msg))
+         (h (XMotionEvent-x-ref msg))
+         (v (XMotionEvent-y-ref msg)))
+    (mouse-move~ window h v)))
+
+
+(definition (process-key-press-message window msg)
+  (let* ((msg (XEvent-xkey-ref msg))
+         (keycode (XKeyEvent-keycode-ref msg))
+         (state (XKeyEvent-state-ref msg))
+         (mod  '()))
+    (when (bit-set? ShiftMask state) (set! mod (cons :shift mod)))
+    (when (bit-set? ControlMask state) (set! mod (cons :control mod)))
+    (when (bit-set? (alt-key) state) (set! mod (cons :alt mod)))
+    (unless (translate-shortcut mod keycode)
+      (let* ((keysym (XKeycodeToKeysym default-x11-display (integer->char keycode) (if (memq :shift mod) 1 0)))
+             (key (or (assv-value keysym Symbolic-Keys #f) (integer->char keysym))))
+        (let ((key (if (eq? key 'Space) #\space key)))
+          (if (and key (char? key))
+              (call-key-press~ window key)
+            unprocessed))))))
+
+
+(definition (process-configure-notify-message window msg)
+  (let* ((msg (XEvent-xconfigure-ref msg))
+         (width (XConfigureEvent-width-ref msg))
+         (height (XConfigureEvent-height-ref msg))
+         (x (XConfigureEvent-x-ref msg))
+         (y (XConfigureEvent-y-ref msg))
+         (prev-size (get-previous-size~ window))
+         (prev-pos (get-previous-position~ window)))
+    (unless (nu=? prev-size (new Dimension width height))
+      (table-set! expose-store window)
+      (call-size-change~ window width height))
+    (unless (nu=? prev-pos (new Point x y))
+      (call-position-change~ window x y))))
+
+
+(definition (process-selection-request-message window msg)
+  (let* ((msg (XEvent-xselectionrequest-ref msg))
+         (requestor (XSelectionRequestEvent-requestor-ref msg))
+         (selection (XSelectionRequestEvent-selection-ref msg))
+         (target    (XSelectionRequestEvent-target-ref    msg))
+         (property  (XSelectionRequestEvent-property-ref  msg)))
+    (XSendClipboardString default-x11-display (get-handle~ window) requestor selection target property)))
+
+
+(definition (process-client-message-message window msg)
+  (let* ((msg (XEvent-xclient-ref msg)))
+    (if (ProcessClientMessage (get-default-x11-display) msg)
+        (on-close~ window {}))))
 
 
 (definition (translate-shortcut mods keycode)

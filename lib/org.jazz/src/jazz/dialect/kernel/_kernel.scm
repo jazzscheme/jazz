@@ -669,6 +669,7 @@
 (native jazz.current-thread)
 (native jazz.thread?)
 (native jazz.make-thread)
+(native jazz.make-root-thread)
 (native jazz.thread-name)
 (native jazz.thread-specific)
 (native jazz.thread-specific-set!)

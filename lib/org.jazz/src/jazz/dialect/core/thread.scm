@@ -48,6 +48,7 @@
     (define jazz.current-thread current-thread)
     (define jazz.thread? thread?)
     (define jazz.make-thread make-thread)
+    (define jazz.make-root-thread make-root-thread)
     (define jazz.thread-name thread-name)
     (define jazz.thread-specific thread-specific)
     (define jazz.thread-specific-set! thread-specific-set!)

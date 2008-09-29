@@ -399,11 +399,18 @@
   
   (method (walk-modifiers context declaration keyword expression doc line)
     (let ((old (copy end)))
-      (while (and (eq? (forward-expr) 'symbol)
-                  (memq? (find-marked-symbol) (get-modifiers))
-                  (or (not line) (= (get-row~ end) line)))
-        (keyword context start end)
-        (set! old (copy end)))
+      (let (iterate)
+        (forward-whites)
+        (set-start end)
+        (let ((c0 (char-forward 0)))
+          (when (and c0
+                     (jazz-constituent? c0)
+                     (or (not line) (= (get-row~ end) line)))
+            (forward-constituent)
+            (when (memq? (find-marked-symbol) (get-modifiers))
+              (keyword context start end)
+              (set! old (copy end))
+              (iterate)))))
       (set! end old)))
   
   
@@ -516,11 +523,12 @@
       (walk-modifiers context declaration keyword expression doc line)
       (enter-list)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-parameters entry declaration keyword expression doc line)
-      (exit-list)
-      (when walk-expressions?
-        (walk-expressions entry expression))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (when (or (not line) (= (get-row~ end) line))
+          (walk-parameters entry declaration keyword expression doc line)
+          (exit-list)
+          (when walk-expressions?
+            (walk-expressions entry expression))))
       entry))
   
   
@@ -530,11 +538,13 @@
       (walk-modifiers context declaration keyword expression doc line)
       (enter-list)
       (when (and (forward-expr) (eq? kind 'symbol) (or (not line) (= (get-row~ end) line)))
-        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc))))
-      (walk-parameters entry declaration keyword expression doc line)
-      (exit-list)
-      (when walk-expressions?
-        (walk-expressions entry expression 'code #f))
+        (set! entry (declaration context start end (get-marked) (symbol-documented? (find-marked-symbol) doc)))
+        (forward-whites)
+        (when (or (not line) (= (get-row~ end) line))
+          (walk-parameters entry declaration keyword expression doc line)
+          (exit-list)
+          (when walk-expressions?
+            (walk-expressions entry expression 'code #f))))
       entry))
   
   

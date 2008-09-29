@@ -1,0 +1,183 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Command Text-View
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ide.Command-Text-View jazz
+
+
+(import (jazz.ide)
+        (jazz.jml)
+        (jazz.library)
+        (jazz.platform)
+        (jazz.ui)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Command-Text-View extends IDE-Text-View
+  
+  
+  (slot mode             initialize {} getter generate)
+  (slot target           initialize {} getter generate)
+  (slot search-context   initialize {})
+  (slot search-positions initialize '())
+  (slot search-pristine? initialize #t)
+  
+  
+  (form
+    (<install>
+      focus-selects-all?: #t
+      show-unfocused-selection?: #f
+      accepts-returns?: #f
+      left-padding: 2
+      top-padding: 2
+      tooltip?: #t
+      tooltip-text: "Command Shell"))
+  
+  
+  ;;;
+  ;;;; Mode
+  ;;;
+  
+  
+  (method public (select-mode value)
+    (case value
+      ((search-forward) (set-search-forward-mode))
+      ((search-backward) (set-search-backward-mode))
+      (else (set! mode {})))
+    (acquire-focus))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-gain old)
+    (nextmethod old)
+    (set! target old)
+    (user-message "{s}" old))
+  
+  
+  (method (focus-actions)
+    (cons (case mode
+            ((search-forward search-backward) (find-actions 'command-search))
+            (else (find-actions 'command-execute)))
+          (nextmethod)))
+  
+  
+  ;;;
+  ;;;; Keyboard
+  ;;;
+  
+  
+  (method (key-press key)
+    (case mode
+      ((search-forward search-backward)
+       (search-key key))
+      (else
+       (nextmethod key))))
+  
+  
+  (method (backspace-press key (word?: word? #f))
+    (nextmethod key word?: word?))
+  
+  
+  ;;;
+  ;;;; Execute
+  ;;;
+  
+  
+  (method (on-done evt)
+    (when target
+      (acquire-focus~ target)))
+  
+  
+  ;;;
+  ;;;; Search
+  ;;;
+  
+  
+  (method (set-search-forward-mode)
+    (set! mode 'search-forward)
+    (set! search-pristine? #t))
+  
+  
+  (method (set-search-backward-mode)
+    (set! mode 'search-backward)
+    (set! search-pristine? #t))
+  
+  
+  (method (augment-search key)
+    (if search-pristine?
+        (begin
+          (set! search-pristine? #f)
+          (set! search-context (make-search-context (format "{c}" key))))
+     (set! search-context (make-search-context (string-append (get-target~ search-context) (format "{c}" key))))))
+  
+  
+  (method (search-key key)
+    (augment-search key)
+    (case mode
+      ((search-forward) (search-forward))
+      ((search-backward) (search-backward))))
+  
+  
+  (method (on-search-forward evt)
+    (search-forward))
+  
+  
+  (method (search-forward)
+    (let ((contexts (list search-context)))
+      (select-next~ target contexts start: (get-start~ target))))
+  
+  
+  (method (on-search-backward evt)
+    (search-backward))
+  
+  
+  (method (search-backward)
+    (let ((contexts (list search-context)))
+      (select-previous~ target contexts start: (get-end~ target))))
+  
+  
+  (method (on-search-finish evt)
+    (when target
+      (set-caret~ target
+        (case mode
+          ((search-forward) (get-end~ target))
+          ((search-backward) (get-start~ target))))
+      (acquire-focus~ target)))))

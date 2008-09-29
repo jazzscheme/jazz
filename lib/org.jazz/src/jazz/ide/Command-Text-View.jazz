@@ -51,9 +51,9 @@
   
   
   (slot mode             initialize {} getter generate)
-  (slot target           initialize {} getter generate)
+  (slot client           initialize {} getter generate)
   (slot search-context   initialize {})
-  (slot search-positions initialize '())
+  (slot search-ranges    initialize '())
   (slot search-pristine? initialize #t)
   
   
@@ -69,16 +69,12 @@
   
   
   ;;;
-  ;;;; Mode
+  ;;;; Text
   ;;;
   
   
-  (method public (select-mode value)
-    (case value
-      ((search-forward) (set-search-forward-mode))
-      ((search-backward) (set-search-backward-mode))
-      (else (set! mode {})))
-    (acquire-focus))
+  (method (auto-complete?)
+    #f)
   
   
   ;;;
@@ -88,8 +84,7 @@
   
   (method (focus-gain old)
     (nextmethod old)
-    (set! target old)
-    (user-message "{s}" old))
+    (set! client old))
   
   
   (method (focus-actions)
@@ -105,15 +100,30 @@
   
   
   (method (key-press key)
+    (nextmethod key)
     (case mode
       ((search-forward search-backward)
-       (search-key key))
-      (else
-       (nextmethod key))))
+       (search mode #f))))
   
   
   (method (backspace-press key (word?: word? #f))
-    (nextmethod key word?: word?))
+    (nextmethod key word?: word?)
+    (case mode
+      ((search-forward search-backward)
+       (search mode #f))))
+  
+  
+  ;;;
+  ;;;; Mode
+  ;;;
+  
+  
+  (method public (select-mode value)
+    (case value
+      ((search-forward) (select-mode-search-forward))
+      ((search-backward) (select-mode-search-backward))
+      (else (select-mode-execute)))
+    (acquire-focus))
   
   
   ;;;
@@ -121,63 +131,105 @@
   ;;;
   
   
+  (method (select-mode-execute)
+    (set! mode 'execute))
+  
+  
   (method (on-done evt)
-    (when target
-      (acquire-focus~ target)))
+    (when client
+      (acquire-focus~ client)))
   
   
   ;;;
   ;;;; Search
   ;;;
+    
   
-  
-  (method (set-search-forward-mode)
+  (method (select-mode-search-forward)
     (set! mode 'search-forward)
     (set! search-pristine? #t))
   
   
-  (method (set-search-backward-mode)
+  (method (select-mode-search-backward)
     (set! mode 'search-backward)
     (set! search-pristine? #t))
   
   
-  (method (augment-search key)
-    (if search-pristine?
-        (begin
-          (set! search-pristine? #f)
-          (set! search-context (make-search-context (format "{c}" key))))
-     (set! search-context (make-search-context (string-append (get-target~ search-context) (format "{c}" key))))))
-  
-  
-  (method (search-key key)
-    (augment-search key)
-    (case mode
-      ((search-forward) (search-forward))
-      ((search-backward) (search-backward))))
-  
-  
   (method (on-search-forward evt)
-    (search-forward))
-  
-  
-  (method (search-forward)
-    (let ((contexts (list search-context)))
-      (select-next~ target contexts start: (get-start~ target))))
+    (search 'search-forward #t)
+    (set-caret (text-ending)))
   
   
   (method (on-search-backward evt)
-    (search-backward))
-  
-  
-  (method (search-backward)
-    (let ((contexts (list search-context)))
-      (select-previous~ target contexts start: (get-end~ target))))
+    (search 'search-backward #t)
+    (set-caret (text-ending)))
   
   
   (method (on-search-finish evt)
-    (when target
-      (set-caret~ target
+    (search-finish))
+
+  
+  (method (search direction again?)
+    (when search-pristine?
+      (set! search-context (make-search-context ""))
+      (set! search-ranges (list (get-selection~ client)))
+      (set! search-pristine? #f))
+    (let ((content (get-string-content))
+          (target (get-target~ search-context)))
+      (let ((prefix (prefix (list content target))))
+        (reset-prefix (cardinality prefix))
+          (let ((suffix (subseq content (cardinality prefix) (cardinality content))))
+            (if (and (empty-string? suffix) (not again?))
+                (set-selection~ client (last search-ranges))
+              (for-each (function (key)
+                          (search-key key direction))
+                        suffix)
+              (when again?
+                (search-key {} direction)))))))
+  
+  
+  (method (search-pos range direction)
+    (case direction
+      ((search-forward) (get-start~ range))
+      ((search-backward) (get-end~ range))))
+  
+  
+  (method (reset-prefix len)
+    (set-target~ search-context (subseq (get-target~ search-context) 0 len))
+    (set! search-ranges (subseq search-ranges 0 (+ len 1))))
+  
+  
+  (method (search-key key direction)
+    (let ((target (if (not key)
+                      (get-target~ search-context)
+                    (concatenate (get-target~ search-context) (format "{c}" key))))
+          (last-range (last search-ranges)))
+      (let ((pos (case direction
+                   ((search-forward) (if (not key) (get-end~ last-range) (get-start~ last-range)))
+                   ((search-backward) (if (not key) (get-start~ last-range) (nu+ (get-start~ last-range) (cardinality target))))))
+            (reverse? (eq? direction 'search-backward)))
+        (set-target~ search-context target)
+        (let ((found (text-multisearch~ client (list search-context) start: pos reverse?: reverse?)))
+          (define (update-range range)
+            (if (not key)
+                (let ((pair (last-pair search-ranges)))
+                  (set-car! pair range))
+              (set! search-ranges (append search-ranges (list range)))))
+          
+          (if (not found)
+              (begin
+                (update-range last-range)
+                (bell))
+            (bind (context . pos) found
+              (let ((range (new Range$Cell$ pos (nu+ pos (cardinality target)))))
+                (update-range range)
+                (set-selection~ client range))))))))
+  
+  
+  (method (search-finish)
+    (when client
+      (set-caret~ client
         (case mode
-          ((search-forward) (get-end~ target))
-          ((search-backward) (get-start~ target))))
-      (acquire-focus~ target)))))
+          ((search-forward) (get-end~ client))
+          ((search-backward) (get-start~ client))))
+      (acquire-focus~ client)))))

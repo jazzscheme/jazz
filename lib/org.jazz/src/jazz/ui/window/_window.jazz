@@ -130,11 +130,10 @@
   (declare (proper-tail-calls))
   (if (get-events-single-threaded?)
       (process-events-single-threaded)
-    (let ((pump (new-thread (function ()
-                              (process-messages))
-                            "Message Pump")))
-      (thread-start-loop pump)
-      (thread-start! pump)
+    (let ((pump (prime-message-pump)))
+      (when pump
+        (thread-start-loop pump)
+        (thread-start! pump))
       (unwind-protect
           (let (loop)
             (with-restart-catcher 'resume-loop "Resume event loop" {}
@@ -144,7 +143,8 @@
                     (with-exception-debugger (get-exception-debugger)
                       thunk)))))
             (loop))
-        (thread-stop-loop pump)))))
+        (when pump
+          (thread-stop-loop pump))))))
 
 
 (definition (process-events-single-threaded)

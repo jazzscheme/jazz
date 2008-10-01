@@ -188,7 +188,7 @@
 
 
 (definition (make-debuggee-console thread-proxy)
-  (receive (head tail) (open-string-pipe)
+  (receive (head tail) (open-string-pipe (list permanent-close: #f))
     (let ((console (register-console~ controller-debugger local-process thread-proxy)))
       (let ((pump (start-debuggee-console-pump console tail)))
         (list console pump tail head)))))
@@ -273,18 +273,24 @@
 
 (definition (read-eval-print thread port level)
   (let ((expr (read port)))
-    (let ((result
-            (if (eof-object? expr)
-                'end-of-file!!!
-            (thread-call thread 'evaluate
-              (function ()
-                (parameterize ((jazz.walk-for 'eval))
-                  (evaluate expr level)))))))
-      (when (thread-call-result? result)
-        (format port "{a}" result))
-      (format port "{%}")
-      (display-prompt port level)
-      (force-output port))))
+    (if (eof-object? expr)
+        (thread-post thread 'resume-loop
+          (function ()
+            (let ((restarts (find-restarts 'resume-loop)))
+              (when (> (length restarts) 1)
+                ;; skip the current resume-loop restart
+                (let ((restart (second restarts)))
+                  (invoke-restart restart))))))
+      (let ((result
+              (thread-call thread 'evaluate
+                (function ()
+                  (parameterize ((jazz.walk-for 'eval))
+                    (evaluate expr level))))))
+        (when (thread-call-result? result)
+          (format port "{a}" result))
+        (format port "{%}")
+        (display-prompt port level)
+        (force-output port)))))
 
 
 (definition (evaluate expr level)

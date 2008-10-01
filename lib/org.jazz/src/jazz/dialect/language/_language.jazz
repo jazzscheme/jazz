@@ -5253,29 +5253,52 @@
       (write-subu8vector u8vector 0 size port))))
 
 
-(definition (read-substring-blocking-for-1 str start end port)
-  (if (< start end)
-      (begin
-        ;; block for the first byte
-        (input-port-timeout-set! port +inf.0)
-        (let ((n (read-substring str start (+ start 1) port)))
-          ;; don't block for the rest
-          (input-port-timeout-set! port -inf.0)
-          (if (= n 1)
-              (+ 1 (read-substring str (+ start 1) end port))
-            n)))
-    0))
+;; this shoud be included in the gambit runtime
+(class Permanent-Port extends Object
+  
+  
+  (slot port getter generate)
+  (slot eof? getter generate)
+  
+  
+  (method (initialize port)
+    (nextmethod)
+    (set! port~self port)
+    (set! eof?~self #f)))
 
 
-(definition (start-pump port proc)
+(definition (read-substring-blocking-for-1 str start end permanent-port)
+  (cond ((get-eof?~ permanent-port)
+         (set-eof?~ permanent-port #f)
+         0) ;; reached end-of-file
+        ((< start end)
+         (let ((port (get-port~ permanent-port)))
+           ;; block for the first byte
+           (input-port-timeout-set! port +inf.0)
+           (let ((n (read-substring str start (+ start 1) port)))
+             ;; don't block for the rest
+             (if (and (= n 1) (< (+ start 1) end))
+                 (let ((to? #f))
+                   (input-port-timeout-set! port -inf.0 (lambda () (set! to? #t) #f))
+                   (let ((len (read-substring str (+ start 1) end port)))
+                     (if (and (= len 0) (not to?))
+                         (set-eof?~ permanent-port #t))
+                     (+ n len)))
+               n))))
+        (else
+         0)))
+
+
+(definition (start-pump permanent-port proc)
   (let ((size 1000))
     (let ((buffer (make-string size)))
       (let (iterate)
-        (let ((n (read-substring-blocking-for-1 buffer 0 size port)))
-          (when (> n 0)
-            (let ((str (substring buffer 0 n)))
-              (proc str)
-              (iterate))))))))
+        (let ((n (read-substring-blocking-for-1 buffer 0 size permanent-port)))
+          (proc (if (> n 0)
+                    (substring buffer 0 n)
+                  ;; eof
+                  {}))
+          (iterate))))))
 
 
 ;;;

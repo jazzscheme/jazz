@@ -47,7 +47,7 @@
   
   
   (definition Generate-Manual?
-    #f)
+    #t)
   
   
   (slot anchors      initialize (make-table test: eq?))
@@ -216,8 +216,7 @@
   
   
   (method (manual-output section)
-    ;; the either is a quick try. not sure if it is ok
-    (let* ((paths (either (get-property~ section 'projects) '()))
+    (let* ((paths (get-property~ section 'projects '()))
            (projects (apply append (map find-docs paths)))
            (toc-anchors (make-table test: eq?))
            (content (manual-content-output projects))
@@ -294,14 +293,14 @@
   
   (method (output-manual-form doc output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p> class: "form-definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
     (put~ output `(<p>))
     (output-doc-description doc output))
   
   
   (method (output-manual-syntax doc output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
     (put~ output `(<p>))
     (output-doc-description doc output))
   
@@ -336,7 +335,7 @@
   
   (method (output-manual-method doc output)
     (output-anchor doc output)
-    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(get-parameters~ doc))))
+    (put~ output `(<p> class: "definition" (<b> ,(get-effective-title~ doc)) " " (<i> ,(either (get-parameters~ doc) ""))))
     (put~ output `(<p>))
     (output-doc-description doc output)
     (output-doc-examples doc output))
@@ -351,7 +350,7 @@
   
   (method (output-doc-examples doc output)
     (let ((examples (get-examples~ doc)))
-      (when examples
+      (when (not-null? examples)
         (put~ output `(<p>))
         (put~ output `(<p> "Examples"))
         (put~ output `(<node>
@@ -389,8 +388,6 @@
   
   
   (method (find-docs path)
-    '()
-    @convert
     (let* ((appl (get-application))
            (cataloguer (get-documentation-cataloguer~ appl))
            (docs (new List-Factory)))
@@ -449,7 +446,7 @@
       `(<div>
          (<div> class: ,(format "summary{a}" level) (<a> href: ,anchor ,text))
          ,@(if (null? children)
-               {}
+               '()
              `((<div>
                  ,@(map (function (child rank)
                           (doc-summary-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
@@ -502,7 +499,7 @@
       `(<div>
          (<div> class: ,(format "{a}{a}" toc-prefix level) (<a> name: ,toc-anchor href: ,anchor ,text))
          ,@(if (null? children)
-               {}
+               '()
              `((<div>
                  ,@(map (function (child rank)
                           (doc-toc-output toc-anchors child (+ level 1) (cons (+ rank 1) path)))
@@ -540,7 +537,7 @@
   
   (method (index-output)
     (user-message "Generating Index...")
-    (let ((letters (sort < (letters-partition) key: car))
+    (let ((letters (sort nu<? (letters-partition) key: car))
            (letter-anchors (make-table test: eq?))
            (output (new List-Factory)))
       (for-each (function (letter)
@@ -576,7 +573,7 @@
           (when (get-name~ doc)
             (let ((title (get-effective-title~ doc)))
               (set! lst (cons (list doc anchor title) lst))))))
-      (sort < lst key: third)))
+      (sort nu<? lst key: third)))
   
   
   (method (index-navigator letters letter-anchors)

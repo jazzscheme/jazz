@@ -930,24 +930,27 @@
 
 
 (definition (process-window-actions)
-  (iterate-table position-store
-                 (function (window position)
-                   (let ((handle (get-handle~ window))
-                         (focus (platform-get-focus)))
-                     (when (get-visible?~ window) (hide-window handle))
-                     (platform-set-position handle position)
-                     (table-set! position-store window)
-                     (when (get-visible?~ window) (show-window handle))
-                     (when (neq? focus (platform-get-focus)) (platform-set-focus focus)))))
-  (iterate-table size-store
-                 (function (window size)
-                   (let ((handle (get-handle~ window))
-                         (focus (platform-get-focus)))
-                     (when (get-visible?~ window) (hide-window handle))
-                     (platform-set-window-size handle size)
-                     (table-set! size-store window)
-                     (when (get-visible?~ window) (show-window handle))
-                     (when (neq? focus (platform-get-focus)) (platform-set-focus focus))))))
+  (let ((focus (platform-get-focus)))
+    (iterate-table position-store
+                   (function (window position)
+                     (let ((handle (get-handle~ window)))
+                       (when (get-visible?~ window)
+                         (hide-window handle))
+                       (platform-set-position handle position)
+                       (table-set! position-store window)
+                       (when (get-visible?~ window)
+                         (show-window handle)))))
+    (iterate-table size-store
+                   (function (window size)
+                     (let ((handle (get-handle~ window)))
+                       (when (get-visible?~ window)
+                         (hide-window handle))
+                       (platform-set-window-size handle size)
+                       (table-set! size-store window)
+                       (when (get-visible?~ window)
+                         (show-window handle)))))
+    (when (neq? focus (platform-get-focus))
+      (platform-set-focus focus))))
 
 
 ;;;
@@ -1043,7 +1046,17 @@
 
 (definition public (get-work-area) <Rect>
   (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
-    (new Rect 0 0 (get-width~ size) (get-height~ size))))
+    (new Rect 0 0 (get-width~ size) (- (get-height~ size) (get-dock-height)))))
+
+
+;; until we find an api to get either the dock size or the effective screen size
+(cond-expand
+  (mac
+    (definition (get-dock-height)
+      128))
+  (else
+    (definition (get-dock-height)
+      0)))
 
 
 ;;;

@@ -377,6 +377,7 @@
 (native jazz.new)
 (native jazz.class-of)
 (native jazz.object?)
+(native jazz.type?)
 (native jazz.category?)
 (native jazz.interface?)
 (native jazz.method?)

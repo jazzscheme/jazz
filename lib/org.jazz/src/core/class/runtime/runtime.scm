@@ -144,7 +144,8 @@
 
 
 (define (jazz.subtype? target type)
-  (%%boolean (%%subtype? target type)))
+  (%%assert (jazz.type? type)
+    (%%boolean (%%subtype? target type))))
 
 
 (define (jazz.subcategory? target category)
@@ -474,7 +475,8 @@
 
 
 (define (jazz.type? object)
-  (%%is? object jazz.Type))
+  (and (%%object? object)
+       (%%is? object jazz.Type)))
 
 
 (jazz.encapsulate-class jazz.Type)

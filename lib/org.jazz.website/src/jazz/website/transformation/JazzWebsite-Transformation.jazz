@@ -47,7 +47,7 @@
   
   
   (definition Generate-Manual?
-    #f)
+    #t)
   
   
   (slot anchors      initialize (make-table test: eq?))
@@ -141,7 +141,7 @@
   (method (process-section section sections pages)
     (user-message "Generating {a}..." (get-property~ section 'name))
     (let ((html (section-output section sections)))
-      (when (or Generate-Manual? (neq? (get-property~ section 'name) 'manual))
+      (when (or Generate-Manual? (not (get-property~ section 'manual? #f)))
         (put~ pages `(<page> path: ,(format "{a}" (section-path section))
                                    ,html)))))
   
@@ -155,6 +155,7 @@
   
   (method (section-output section sections)
     (let ((title (get-property~ section 'title)))
+      (debug (get-property~ section 'name #f) (get-property~ section 'manual? #f))
       `(<html>
          (<head>
            (<link> href: "css/master.css" rel: "stylesheet" type: "text/css")
@@ -164,7 +165,7 @@
             (<h1> id: "title" "JazzScheme")
             (<div> id: "sectionnav" ,@(navigation-output section sections))
             (<div> id: "content"
-              ,@(if (eq? (get-property~ section 'name) 'manual)
+              ,@(if (get-property~ section 'manual? #f)
                     (manual-output section)
                   (section-content-output section))
               (<div> id: "footer"

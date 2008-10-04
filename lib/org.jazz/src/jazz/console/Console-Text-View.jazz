@@ -54,7 +54,7 @@
 (class Console-Text-View extends IDE-Text-View
 
 
-  (slot last-inserted  initialize {})
+  (slot inserted-rank  initialize {})
   (slot inserted-where initialize {})
   (slot banner         initialize {} accessors generate)
   (slot prompt         initialize {} accessors generate)
@@ -89,6 +89,7 @@
       (add-style (new Text-Style name: 'Entry  base: 'Base color: (get-entry-color~ pref)))
       (add-style (new Text-Style name: 'Input  base: 'Base color: (get-input-color~ pref)))
       (add-style (new Text-Style name: 'Output base: 'Base color: (get-output-color~ pref)))
+      (add-style (new Text-Style name: 'Comment base: 'Base color: (get-comment-color~ pref)))
       (set-default-style (get-style 'Entry))))
 
   
@@ -140,7 +141,6 @@
   (method (on-evaluate evt)
     (console-evaluate)
     @convert (
-    (set! completion-active? #f)
     (let* ((pos (get-start))
            (prompt (previous-prompt pos)))
       (if (not prompt)
@@ -154,23 +154,11 @@
   
   
   (method (on-insert-previous evt)
-    (if (has-completion?)
-        (end-completion)
-      (insert-previous-block)))
+    (insert-previous-block))
   
   
   (method (on-insert-next evt)
-    (if (has-completion?)
-        (end-completion)
-      (insert-next-block)))
-
-
-  (method (tab-press key modifiers)
-    (if (has-completion?)
-        (end-completion)
-      (if (shift-key? modifiers)
-          (insert-next-block)
-        (insert-previous-block))))
+    (insert-next-block))
   
   
   (method (delete-char)
@@ -221,7 +209,8 @@
         (unless (empty-string? command)
           (display command console-port)
           (force-output console-port)
-          (set-style range (get-style 'Input))))))
+          (set-style range (get-style 'Input))
+          (reset-inserted)))))
   
   
   (method (current-command)
@@ -350,7 +339,7 @@
 
 
   (method public (fresh-prompt)
-    (set-style (last-block) (get-style 'Output))
+    (set-style (last-block) (get-style 'Comment))
     (set-caret (text-ending)))
   
   
@@ -359,43 +348,74 @@
   ;;;
   
   
+  (method (reset-inserted)
+    (set! inserted-rank {})
+    (set! inserted-where {}))
+  
+  
+  (definition (text-style? style)
+    (or (inherits?~ style 'Output)
+        (inherits?~ style 'Comment)))
+  
+  
+  (definition (user-style? style)
+    (not (text-style? style)))
+  
+  
   (method (next-block block)
-    (let* ((next-start (get-end~ (forward-style (get-end~ block) (function (style) (inherits?~ style 'Output)))))
-           (next-end (get-end~ (forward-style next-start (function (style) (not (inherits?~ style 'Output)))))))
+    (let* ((next-start (get-end~ (forward-style (get-end~ block) text-style?)))
+           (next-end (get-end~ (forward-style next-start user-style?))))
       (new Range next-start next-end)))
   
   
   (method (previous-block block)
-    (let* ((previous-end (get-start~ (backward-style (get-start~ block) (function (style) (inherits?~ style 'Output)))))
-           (previous-start (get-start~ (backward-style previous-end (function (style) (not (inherits?~ style 'Output)))))))
+    (let* ((previous-end (get-start~ (backward-style (get-start~ block) text-style?)))
+           (previous-start (get-start~ (backward-style previous-end user-style?))))
       (new Range previous-start previous-end)))
   
   
   (method (last-block)
     (let ((ending (text-ending)))
-      (backward-style ending (function (style) (not (inherits?~ style 'Output))))))
+      (backward-style ending user-style?)))
+  
+  
+  (method (find-block rank)
+    (let (iterate (block (last-block)) (n rank))
+      (if (<= n 0)
+          block
+        (iterate (previous-block block) (- n 1)))))
+  
+  
+  (method (empty-block? block)
+    (nu=? (get-start~ block)
+          (get-end~ block)))
 
   
   (method (insert-previous-block)
-    (let* ((current (either last-inserted (last-block)))
-           (previous (previous-block current)))
-      (when inserted-where
-        (set-selection inserted-where))
-      (let ((start (get-start)))
-        (insert-string (remove-enclosing #\newline (get-string previous)))
-        (set! last-inserted previous)
-        (set! inserted-where (new Range start (get-start))))))
+    (let* ((current (either inserted-rank 0))
+           (previous (+ current 1))
+           (block (find-block previous)))
+      (unless (empty-block? block)
+        (when inserted-where
+          (set-selection inserted-where))
+        (let ((start (get-start)))
+          (insert-string (remove-enclosing #\newline (get-string block)))
+          (set! inserted-rank previous)
+          (set! inserted-where (new Range start (get-start)))))))
 
   
   (method (insert-next-block)
-    (let* ((current (either last-inserted (last-block)))
-           (next (next-block current)))
-      (when inserted-where
-        (set-selection inserted-where))
-      (let ((start (get-start)))
-        (insert-string (remove-enclosing #\newline (get-string next)))
-        (set! last-inserted next)
-        (set! inserted-where (new Range start (get-start)))))))
+    (let* ((current (either inserted-rank 0))
+           (next (- current 1)))
+      (when (> next 0)
+        (let ((block (find-block next)))
+          (unless (empty-block? block)
+            (when inserted-where
+              (set-selection inserted-where))
+            (let ((start (get-start)))
+              (insert-string (remove-enclosing #\newline (get-string (find-block next))))
+              (set! inserted-rank next)
+              (set! inserted-where (new Range start (get-start))))))))))
 
 
 ;;;
@@ -412,6 +432,7 @@
       (<Label-Item>     name: fresh-prompt     title: "Fresh Prompt" action: {Action console-text fresh-prompt})
       (<Separator-Item>)
       (<Label-Item>     name: edit-definitions title: "Edit Definitions" icon: {Bitmap-Resource "Edit"} action: {Action code-text edit-definitions})
+      (<Label-Item>     name: edit-references  title: "Edit References" action: {Action code-text edit-references})
       (<Separator-Item>)
       (<Label-Item>     name: insert-previous  title: "Insert Previous" icon: {Bitmap-Resource "FindBackward"} action: {Action console-text insert-previous})
       (<Label-Item>     name: insert-next      title: "Insert Next" icon: {Bitmap-Resource "FindForward"} action: {Action console-text insert-next})))))

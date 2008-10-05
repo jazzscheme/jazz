@@ -50,5 +50,7 @@
   (jazz.error "{s} expected: {s}" type value))
 
 
-(define (jazz.dispatch-error value type)
-  (jazz.error "Inconsistent dispatch: {s} is not of the expected {s} type" value type)))
+(define (jazz.dispatch-error field value type)
+  (if field
+      (jazz.error "Inconsistent dispatch on {a}: {s} is not of the expected {s} type" (%%get-field-name field) value type)
+    (jazz.error "Inconsistent dispatch: {s} is not of the expected {s} type" value type))))

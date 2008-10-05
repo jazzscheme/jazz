@@ -1176,17 +1176,17 @@
 
 
 (define (jazz.final-dispatch object field ignore type)
-  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error field object type)
     (%%final-dispatch object (%%get-method-implementation field))))
 
 
 (define (jazz.class-dispatch object class-level implementation-rank type)
-  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
     (%%class-dispatch object class-level implementation-rank)))
 
 
 (define (jazz.interface-dispatch object interface-rank implementation-rank type)
-  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error object type)
+  (%%debug-assertion (%%category-is? object type) (jazz.dispatch-error #f object type)
     (%%interface-dispatch object interface-rank implementation-rank)))
 
 

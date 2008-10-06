@@ -82,4 +82,20 @@
   (if (and (%%object? exc)
            (%%is? exc jazz.Exception))
       (jazz.get-details exc)
-    #f)))
+    #f))
+
+
+;;;
+;;;; Hook
+;;;
+
+
+(let ((previous-hook ##display-exception-hook))
+  (set! ##display-exception-hook
+        (lambda (exc port)
+          (if (and (%%object? exc)
+                   (%%is? exc jazz.Exception))
+              (begin
+                (display (jazz.present-exception exc) port)
+                (newline port))
+            (previous-hook exc port))))))

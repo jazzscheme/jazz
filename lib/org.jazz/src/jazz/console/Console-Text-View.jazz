@@ -140,18 +140,14 @@
   
   
   (method (on-evaluate evt)
-    (console-evaluate)
-    @convert (
-    (let* ((pos (get-start))
-           (prompt (previous-prompt pos)))
-      (if (not prompt)
-          (fresh-prompt)
-        (let ((last (last-prompt)))
-          (if (nu=? prompt last)
-              (console-evaluate)
-            (fresh-prompt)
-            (when (= (get-row~ pos) (get-row~ prompt))
-              (insert-string (prompt-command prompt)))))))))
+    (let ((block (block-at (get-end))))
+      (cond ((empty-block? block)
+             (set-caret (text-ending)))
+            ((nu=? block (last-block))
+             (console-evaluate))
+            (else
+             (set-caret (text-ending))
+             (insert-string (remove-enclosing #\newline (get-string block)))))))
   
   
   (method (on-insert-previous evt)
@@ -234,7 +230,7 @@
   
   
   (method (home-column row)
-    (if (and (>= (paragraph-length row) 2) (= (get-string (new Range$Cell$ (new Cell row 0) (new Cell row 2))) "> "))
+    (if (and (>= (paragraph-length row) 2) (= (get-string (new-range (new Cell row 0) (new Cell row 2))) "> "))
         2
       0))
 
@@ -363,16 +359,22 @@
     (not (text-style? style)))
   
   
+  (method (block-at pos)
+    (new-range
+      (get-start~ (backward-style pos user-style?))
+      (get-end~ (forward-style pos user-style?))))
+  
+  
   (method (next-block block)
     (let* ((next-start (get-end~ (forward-style (get-end~ block) text-style?)))
            (next-end (get-end~ (forward-style next-start user-style?))))
-      (new Range next-start next-end)))
+      (new-range next-start next-end)))
   
   
   (method (previous-block block)
     (let* ((previous-end (get-start~ (backward-style (get-start~ block) text-style?)))
            (previous-start (get-start~ (backward-style previous-end user-style?))))
-      (new Range previous-start previous-end)))
+      (new-range previous-start previous-end)))
   
   
   (method (last-block)
@@ -402,7 +404,7 @@
         (let ((start (get-start)))
           (insert-string (remove-enclosing #\newline (get-string block)))
           (set! inserted-rank previous)
-          (set! inserted-where (new Range start (get-start)))))))
+          (set! inserted-where (new-range start (get-start)))))))
 
   
   (method (insert-next-block)
@@ -416,7 +418,7 @@
             (let ((start (get-start)))
               (insert-string (remove-enclosing #\newline (get-string (find-block next))))
               (set! inserted-rank next)
-              (set! inserted-where (new Range start (get-start))))))))))
+              (set! inserted-where (new-range start (get-start))))))))))
 
 
 ;;;

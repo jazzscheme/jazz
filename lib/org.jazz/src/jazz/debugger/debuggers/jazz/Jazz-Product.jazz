@@ -69,16 +69,12 @@
              (debug-arg          (if debug? (list "-debug" "#t") '()))
              (controllerhost-arg (if debug? (list "-controllerhost" (host->string (listening-host~ (get-remoting-server)))) '()))
              (controllerport-arg (if debug? (list "-controllerport" (port->string (listening-port~ (get-remoting-server)))) '()))
+             (profile            (either profile (default-profile)))
              (profile-arg        (if profile (list "-profile" (->string profile)) '()))
              (action-arg         (if command-action (list command-action) '()))
              (arguments-arg      (if command-arguments command-arguments '()))
              (arguments          (append runtime-arg action-arg product-arg debug-arg controllerhost-arg controllerport-arg profile-arg arguments-arg))
-             (executable         (cond (interpreted?
-                                        (actual-runtime~ ide safety: 'debug))
-                                       ((not configuration)
-                                        (actual-runtime~ ide))
-                                       (else
-                                        (find-runtime~ ide configuration)))))
+             (executable         (find-executable configuration interpreted?)))
         (save-all~ ide)
         @debug
         (debug executable arguments)
@@ -93,6 +89,20 @@
             stdout-redirection: #f
             stderr-redirection: #f
             show-console: show-console?)))))
+  
+  
+  (method protected virtual (default-profile)
+    {})
+  
+  
+  (method protected virtual (find-executable configuration interpreted?)
+    (let ((ide (get-process)))
+      (cond (interpreted?
+              (actual-runtime~ ide safety: 'debug))
+            ((not configuration)
+             (actual-runtime~ ide))
+            (else
+             (find-runtime~ ide configuration)))))
 
 
   ;;;

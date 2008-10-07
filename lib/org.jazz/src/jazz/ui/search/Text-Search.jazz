@@ -63,10 +63,17 @@
 
   (method (finish rest)
     (nextmethod rest)
-    (let ((pref (get-preferences '(tools search-manager))))
+    (let ((pref (preferences)))
+      (let ((label (get-jazz-label~ pref)))
+        (when label
+          (set-title~ (locate 'jazz-files) label)))
       (let ((label (get-user-label~ pref)))
         (when label
           (set-title~ (locate 'user-files) label)))))
+  
+  
+  (method (preferences)
+    (get-preferences '(tools search-manager text)))
   
 
   ;;;
@@ -156,17 +163,18 @@
   
   
   (method (count-jazz-directories)
-    (let ((count 0)
-          (directories (filter-existing (default-search-directories)))
-          (extensions (default-search-extensions)))
-      (for-each (function (directory)
-                  (iterate-directory~ directory
-                    (function (file)
-                      (when (member? (get-extension~ file) extensions test: ci=?)
-                        (increase! count)))
-                    ignored-directories: '(".git" ".hg" "bin")))
-                directories)
-      count))
+    (let ((pref (preferences)))
+      (let ((count 0)
+            (directories (filter-existing (either (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (either (get-jazz-extensions~ pref) (default-search-extensions))))
+        (for-each (function (directory)
+                    (iterate-directory~ directory
+                      (function (file)
+                        (when (member? (get-extension~ file) extensions test: ci=?)
+                          (increase! count)))
+                      ignored-directories: '(".git" ".hg" "bin")))
+                  directories)
+        count)))
   
   
   (definition User-Count
@@ -174,7 +182,7 @@
   
   
   (method (count-user-files)
-    (let ((pref (get-preferences '(tools search-manager))))
+    (let ((pref (preferences)))
       (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
             (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
         (let ((count
@@ -245,14 +253,17 @@
   
   
   (method (search-jazz-files targets reporter)
-    (let ((factory (new List-Factory)))
-      (search-in-directories targets (filter-existing (default-search-directories)) (default-search-extensions) (get-expression?) factory reporter)
-      (get-output~ factory)))
+    (let ((factory (new List-Factory))
+          (pref (preferences)))
+      (let ((directories (filter-existing (either (get-jazz-directories~ pref) (default-search-directories))))
+            (extensions (either (get-jazz-extensions~ pref) (default-search-extensions))))
+        (search-in-directories targets directories extensions (get-expression?) factory reporter)
+        (get-output~ factory))))
   
   
   (method (search-user-files targets reporter)
     (let ((factory (new List-Factory))
-          (pref (get-preferences '(tools search-manager))))
+          (pref (preferences)))
       (let ((directories (filter-existing (either (get-user-directories~ pref) (default-search-directories))))
             (extensions (either (get-user-extensions~ pref) (default-search-extensions))))
         (search-in-directories targets directories extensions (get-expression?) factory reporter)

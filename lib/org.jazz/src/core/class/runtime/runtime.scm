@@ -219,8 +219,17 @@
                                 (let* ((rank (%%get-interface-rank category))
                                        (size (%%get-category-virtual-size category)))
                                   (%%when (%%not (%%vector-ref vtable rank))
-                                    (%%vector-set! vtable rank (%%make-vector size jazz.call-into-abstract))))))
-        (%%get-category-ancestors class))
+                                    (let ((category-vtable (%%make-vector size jazz.call-into-incoherent))
+                                          (class-name (%%get-category-name class))
+                                          (category-name (%%get-category-name category)))
+                                      (%%iterate-table (%%get-category-fields category)
+                                                       (lambda (field-name field)
+                                                         (%%when (%%is? field jazz.Method)
+                                                           (%%vector-set! category-vtable 
+                                                                          (%%get-method-implementation-rank field)
+                                                                          (lambda rest (jazz.call-into-abstract class-name field-name))))))
+                                      (%%vector-set! vtable rank category-vtable))))))
+                            (%%get-category-ancestors class))
       (%%set-class-interface-table class vtable))))
 
 
@@ -2027,8 +2036,12 @@
                      (%%get-category-descendants category))))))
 
 
-(define (jazz.call-into-abstract . rest)
-  (error "Cannot call an abstract method"))
+(define (jazz.call-into-incoherent . rest)
+  (jazz.error "Dispatch table contains non-method, parameters are {l}" rest))
+
+
+(define (jazz.call-into-abstract class method)
+  (jazz.error "Cannot call abstract method {s} in {s}" method class))
 
 
 (jazz.encapsulate-class jazz.Method-Node)

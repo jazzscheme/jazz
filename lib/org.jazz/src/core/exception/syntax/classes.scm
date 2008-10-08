@@ -60,6 +60,7 @@
 (jazz.define-class jazz.Exception-Detail jazz.Object () jazz.Object-Class jazz.allocate-exception-detail
   ((icon     %%get-exception-detail-icon     ())
    (title    %%get-exception-detail-title    ())
+   (location %%get-exception-detail-location ())
    (children %%get-exception-detail-children ())))
 
 

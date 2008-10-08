@@ -1688,23 +1688,23 @@
 (jazz.define-method (jazz.get-detail (jazz.Walk-Problems problems))
   (define (add-details problems queue)
     (for-each (lambda (problem)
-                (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception problem) '())))
+                (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception problem) #f '())))
               problems))
   
-  (jazz.new-exception-detail "ErrorStop" "Walk problems encountered:"
+  (jazz.new-exception-detail "ErrorStop" "Walk problems encountered:" #f
     (let ((all (%%append (%%get-walk-problems-warnings problems)
                          (%%get-walk-problems-errors problems))))
       (map (lambda (partition)
              (jazz.bind (module-locator . problems) partition
                (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
-                 (jazz.new-exception-detail "Document" (or module-locator "<console>")
+                 (jazz.new-exception-detail "Document" (or module-locator "<console>") #f
                    (let ((module-details (jazz.new-queue)))
                      (for-each (lambda (partition)
                                  (jazz.bind (declaration-locator . problems) partition
                                    (if (%%fx= (%%string-length declaration-locator) prefix)
                                        (add-details problems module-details)
                                      (jazz.enqueue module-details
-                                       (jazz.new-exception-detail "Project" (%%substring declaration-locator (%%fx+ prefix 1) (%%string-length declaration-locator))
+                                       (jazz.new-exception-detail "Project" (%%substring declaration-locator (%%fx+ prefix 1) (%%string-length declaration-locator)) #f
                                          (let ((declaration-details (jazz.new-queue)))
                                            (add-details problems declaration-details)
                                            (jazz.queue-list declaration-details)))))))

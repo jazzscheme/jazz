@@ -82,8 +82,8 @@
 (jazz.define-class-runtime jazz.Exception-Detail)
 
 
-(define (jazz.new-exception-detail icon title children)
-  (jazz.allocate-exception-detail jazz.Exception-Detail icon title children))
+(define (jazz.new-exception-detail icon title location children)
+  (jazz.allocate-exception-detail jazz.Exception-Detail icon title location children))
 
 
 (jazz.encapsulate-class jazz.Exception-Detail)

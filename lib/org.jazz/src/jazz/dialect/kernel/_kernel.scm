@@ -165,7 +165,7 @@
 
 
 (native jazz.exception-reason)
-(native jazz.exception-details)
+(native jazz.exception-detail)
 (native jazz.display-exception)
 (native jazz.display-continuation-backtrace)
 (native jazz.get-exception-hook)
@@ -180,7 +180,7 @@
 (native jazz.dump-exception)
 (native jazz.raise)
 (native jazz.present-exception)
-(native jazz.get-details)
+(native jazz.get-detail)
 
 
 ;;;
@@ -306,7 +306,7 @@
 (native jazz.kernel-source)
 (native jazz.jazz-product)
 (native jazz.jazz-profile)
-(native jazz.jazz-debugger?)
+(native jazz.use-debugger?)
 (native jazz.get-repositories)
 (native jazz.find-repository)
 (native jazz.repository-add-package)

@@ -1685,15 +1685,16 @@
   (jazz.allocate-walk-problems jazz.Walk-Problems message warnings errors))
 
 
-(jazz.define-method (jazz.get-details (jazz.Walk-Problems problems))
-  (let ((queue (jazz.new-queue)))
-    (for-each (lambda (warning)
-                (jazz.enqueue queue (jazz.present-exception warning)))
-              (%%get-walk-problems-warnings problems))
-    (for-each (lambda (error)
-                (jazz.enqueue queue (jazz.present-exception error)))
-              (%%get-walk-problems-errors problems))
-    (jazz.queue-list queue)))
+(jazz.define-method (jazz.get-detail (jazz.Walk-Problems problems))
+  (jazz.new-exception-detail "ErrorStop" "Walk problems encountered:"
+    (let ((queue (jazz.new-queue)))
+      (for-each (lambda (warning)
+                  (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception warning) '())))
+                (%%get-walk-problems-warnings problems))
+      (for-each (lambda (error)
+                  (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception error) '())))
+                (%%get-walk-problems-errors problems))
+      (jazz.queue-list queue))))
 
 
 (jazz.encapsulate-class jazz.Walk-Problems)

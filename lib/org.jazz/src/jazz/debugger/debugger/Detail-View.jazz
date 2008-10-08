@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Details View
+;;;; Detail View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.debugger.debugger.Details-View jazz
+(library jazz.debugger.debugger.Detail-View jazz
 
 
 (import (jazz.debuggee)
@@ -57,25 +57,25 @@
         (jazz.utilities))
 
 
-(class Details-View extends Layout-View
+(class Detail-View extends Layout-View
   
   
   (property thread initialize {})
   
 
   (form
-    (<install>                                 layout-type: border
-      (<Layout-View>          name: tools
-        (<Push-Tool>          name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
-      (<Scroller-View>        name: scroller   location: center vscroll?: #t flat?: #t
-        (<!>                  name: content    layout-type: fill
-          (<Tree-Header>      name: header     shown?: #f
-            (<!>              name: content
-              (<Details-Tree> name: details    multiple-selection?: #f selection-mode: row double-click-handler: {Event-Handler :form on-double-click})))))))
+    (<install>                                layout-type: border
+      (<Layout-View>         name: tools
+        (<Push-Tool>         name: update     size: {Dimension 22 22} location: tail tooltip?: #t tooltip-text: "Refresh" image-name: {Bitmap-Resource "Refresh"} portfolio: :icons action-handler: {Event-Handler :form on-update}))
+      (<Scroller-View>       name: scroller   location: center vscroll?: #t flat?: #t
+        (<!>                 name: content    layout-type: fill
+          (<Tree-Header>     name: header     shown?: #f
+            (<!>             name: content
+              (<Detail-Tree> name: detail     multiple-selection?: #f selection-mode: row double-click-handler: {Event-Handler :form on-double-click})))))))
 
   
   (method meta (external-name . rest)
-    'details-view)
+    'detail-view)
 
   
   ;;;
@@ -88,7 +88,7 @@
   
   
   (method meta (host-title)
-    "Details")
+    "Detail")
   
   
   ;;;
@@ -101,7 +101,7 @@
   
   
   (method (focus-default)
-    (let ((tree (locate 'details)))
+    (let ((tree (locate 'detail)))
       (acquire-focus~ tree)))
 
   
@@ -183,35 +183,38 @@
       (let ((reason (either (get-reason~ stop) "Break")))
         (split reason "\n")))
     
+    (define (insert-detail tree father detail)
+      (let ((title (get-title~ detail))
+            (icon (get-icon~ detail)))
+        (let ((image (if icon (new Bitmap-Resource icon) {})))
+          (let ((row (add-row~ tree father: father state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: detail)))
+            (for-each (function (subdetail)
+                        (insert-detail tree row subdetail))
+                      (get-children~ detail))))))
+    
     (with-update-locked
       (function ()
         (with-system-exception-debugger
           (function ()
-            (let ((tree (locate 'details)))
+            (let ((tree (locate 'detail)))
               (remove-every-row~ tree)
               (when thread
                 (let ((debugger (get-debugger~ thread))
                       (process (get-process~ thread)))
-                  (let ((active (debugged-active-stop debugger process)))
-                    (for-each (function (stop)
-                                (let ((title (stop-title stop))
-                                      (image (stop-image stop)))
-                                  (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop))
-                                        (details (get-details~ stop)))
-                                    (when (and active (debugged=? stop active))
-                                      (if details
-                                          (for-each (function (detail)
-                                                      (let ((title detail)
-                                                            (image {Bitmap-Resource "Green"}))
-                                                        (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image)) user-data: detail)))
-                                                    details)
-                                        (for-each (function (line)
-                                                    (when (not (empty-string? line))
-                                                      (let ((title line)
-                                                            (image {Bitmap-Resource "Green"}))
-                                                        (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
-                                                  (cdr (stop-reason-lines stop))))))))
-                              (debugged-stops debugger process (get-stops~ thread))))))))))))
+                  (let ((stop (debugged-active-stop debugger process)))
+                    (when stop
+                      (let ((title (stop-title stop))
+                            (image (stop-image stop))
+                            (detail (get-detail~ stop)))
+                        (if detail
+                            (insert-detail tree {} detail)
+                          (let ((stop-row (add-row~ tree state: 'expanded children: (list (new Tree-Node title: title image: image)) user-data: stop)))
+                            (for-each (function (line)
+                                        (when (not (empty-string? line))
+                                          (let ((title line)
+                                                (image {Bitmap-Resource "Green"}))
+                                            (add-row~ tree father: stop-row children: (list (new Tree-Node title: title image: image))))))
+                                      (cdr (stop-reason-lines stop))))))))))))))))
   
   
   ;;;
@@ -244,11 +247,11 @@
 
 
 ;;;
-;;;; Details-Tree
+;;;; Detail-Tree
 ;;;
 
 
-(class Details-Tree extends Tree-View
+(class Detail-Tree extends Tree-View
   
   
   (form
@@ -256,4 +259,4 @@
       (<Tree-Node-Column> title: "Frame" width: 431 toplevel-controls?: #f))))
 
 
-(register-autoclass Details-Tree))
+(register-autoclass Detail-Tree))

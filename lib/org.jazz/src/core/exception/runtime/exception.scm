@@ -38,6 +38,11 @@
 (module core.exception.runtime.exception
 
 
+;;;
+;;;; Exception
+;;;
+
+
 (jazz.define-class-runtime jazz.Exception)
 
 
@@ -51,7 +56,7 @@
 
 (jazz.define-virtual-runtime (jazz.present-exception (jazz.Exception exception)))
 (jazz.define-virtual-runtime (jazz.get-message (jazz.Exception exception)))
-(jazz.define-virtual-runtime (jazz.get-details (jazz.Exception exception)))
+(jazz.define-virtual-runtime (jazz.get-detail (jazz.Exception exception)))
 
 
 (jazz.define-method (jazz.present-exception (jazz.Exception exception))
@@ -62,31 +67,48 @@
 (jazz.define-method (jazz.get-message (jazz.Exception exception))
   #f)
 
-(jazz.define-method (jazz.get-details (jazz.Exception exception))
+(jazz.define-method (jazz.get-detail (jazz.Exception exception))
   #f)
 
 
 (jazz.encapsulate-class jazz.Exception)
 
 
+;;;
+;;;; Exception Detail
+;;;
+
+
+(jazz.define-class-runtime jazz.Exception-Detail)
+
+
+(define (jazz.new-exception-detail icon title children)
+  (jazz.allocate-exception-detail jazz.Exception-Detail icon title children))
+
+
+(jazz.encapsulate-class jazz.Exception-Detail)
+
+
+;;;
+;;;; Scheme
+;;;
+
+
 (define (jazz.exception-reason exc)
-  (if (and (%%object? exc)
-           (%%is? exc jazz.Exception))
-      (jazz.present-exception exc)
-    (let ((output (open-output-string)))
-      (jazz.display-exception exc output)
-      (get-output-string output))))
+  (let ((output (open-output-string)))
+    (jazz.display-exception exc output)
+    (get-output-string output)))
 
 
-(define (jazz.exception-details exc)
+(define (jazz.exception-detail exc)
   (if (and (%%object? exc)
            (%%is? exc jazz.Exception))
-      (jazz.get-details exc)
+      (jazz.get-detail exc)
     #f))
 
 
 ;;;
-;;;; Hook
+;;;; Gambit Hook
 ;;;
 
 

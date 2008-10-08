@@ -107,7 +107,7 @@
   '())
 
 
-(jazz.define-setting jazz.debugger?
+(jazz.define-setting jazz.use-debugger?
   #t)
 
 

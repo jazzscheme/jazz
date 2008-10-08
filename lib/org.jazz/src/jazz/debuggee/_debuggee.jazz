@@ -231,20 +231,22 @@
   (make-parameter {}))
 
 
-(definition (with-repl-thread thread port level thunk)
-  (let ((thread (start-repl-thread thread port level)))
+(definition (with-repl-thread thread reason port level thunk)
+  (let ((thread (start-repl-thread thread reason port level)))
     (unwind-protect
         (thunk)
       (thread-interrupt! thread
         thread-exit))))
 
 
-(definition (start-repl-thread thread port (level 0))
+(definition (start-repl-thread thread reason port (level 0))
   (thread-start!
     (new-thread
       (function ()
         (when (= level 0)
           (display-banner port))
+        (when reason
+          (display reason port))
         (display-prompt port level)
         (read-eval-print-loop thread port level))
       "Repl")))
@@ -321,15 +323,15 @@
 
 (definition (jazz-exception-debugger exc)
   (let ((debugger (get-controller-debugger)))
-    (if (or (not debugger) (not (jazz-debugger?)))
+    (if (or (not debugger) (not (use-debugger?)))
         (invoke-exception-hook system-exception-hook exc)
       (with-system-exception-debugger
         (function ()
           (continuation-capture
             (function (continuation)
               (let ((reason (exception-reason exc))
-                    (details (exception-details exc)))
-                (invoke-debugger 'exception reason details continuation)))))))))
+                    (detail (exception-detail exc)))
+                (invoke-debugger 'exception reason detail continuation)))))))))
 
 
 (definition (with-jazz-exception-debugger thunk)
@@ -348,12 +350,12 @@
 ;;;
 
 
-(definition (invoke-debugger kind reason details continuation)
+(definition (invoke-debugger kind reason detail continuation)
   (let* ((thread (current-thread))
          (port (get-console-port))
          (level (+ (current-repl-level) 1))
          (restarts (compute-restarts thread))
-         (stop (new Debuggee-Stop thread kind reason details continuation restarts)))
+         (stop (new Debuggee-Stop thread kind reason detail continuation restarts)))
     (dynamic-wind
       (function ()
         (register-stop stop))
@@ -361,7 +363,7 @@
         (let ((thread-proxy (new Debuggee-Thread-Local-Proxy (new Debuggee-Thread thread)))
               (stop-proxy (new Debuggee-Stop-Local-Proxy stop)))
           (parameterize ((current-repl-level level))
-            (with-repl-thread thread port level
+            (with-repl-thread thread reason port level
               (function ()
                 (parameterize ((current-repl-frame (box {})))
                   (debuggee-stop~ controller-debugger local-process thread-proxy stop-proxy kind reason)

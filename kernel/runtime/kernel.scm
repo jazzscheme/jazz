@@ -317,10 +317,6 @@
   jazz.profile)
 
 
-(define jazz.jazz-debugger?
-  jazz.debugger?)
-
-
 ;;;
 ;;;; Repository
 ;;;

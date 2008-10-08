@@ -119,14 +119,14 @@
       '())))
 
 
-(define (jazz.partition lst key)
+(define (jazz.partition lst key associate)
   (let iter ((scan lst))
     (if (%%null? scan)
         '()
       (let* ((partition (iter (%%cdr scan)))
              (element (%%car scan))
              (category (key element))
-             (set (assv category partition)))
+             (set (associate category partition)))
         (if (%%not set)
             (%%cons (%%cons category (%%list element)) partition)
           (begin

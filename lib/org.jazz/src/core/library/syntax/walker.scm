@@ -1686,15 +1686,31 @@
 
 
 (jazz.define-method (jazz.get-detail (jazz.Walk-Problems problems))
+  (define (add-details problems queue)
+    (for-each (lambda (problem)
+                (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception problem) '())))
+              problems))
+  
   (jazz.new-exception-detail "ErrorStop" "Walk problems encountered:"
-    (let ((queue (jazz.new-queue)))
-      (for-each (lambda (warning)
-                  (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception warning) '())))
-                (%%get-walk-problems-warnings problems))
-      (for-each (lambda (error)
-                  (jazz.enqueue queue (jazz.new-exception-detail "Green" (jazz.present-exception error) '())))
-                (%%get-walk-problems-errors problems))
-      (jazz.queue-list queue))))
+    (let ((all (%%append (%%get-walk-problems-warnings problems)
+                         (%%get-walk-problems-errors problems))))
+      (map (lambda (partition)
+             (jazz.bind (module-locator . problems) partition
+               (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
+                 (jazz.new-exception-detail "Document" (or module-locator "<console>")
+                   (let ((module-details (jazz.new-queue)))
+                     (for-each (lambda (partition)
+                                 (jazz.bind (declaration-locator . problems) partition
+                                   (if (%%fx= (%%string-length declaration-locator) prefix)
+                                       (add-details problems module-details)
+                                     (jazz.enqueue module-details
+                                       (jazz.new-exception-detail "Project" (%%substring declaration-locator (%%fx+ prefix 1) (%%string-length declaration-locator))
+                                         (let ((declaration-details (jazz.new-queue)))
+                                           (add-details problems declaration-details)
+                                           (jazz.queue-list declaration-details)))))))
+                               (jazz.partition-walk-problems-declaration problems))
+                     (jazz.queue-list module-details))))))
+           (jazz.partition-walk-problems-module all)))))
 
 
 (jazz.encapsulate-class jazz.Walk-Problems)
@@ -2425,21 +2441,38 @@
             (all (%%append warnings errors)))
         (jazz.format output "Walk problems encountered:{%}")
         (for-each (lambda (partition)
-                    (jazz.bind (module-locator . all) partition
+                    (jazz.bind (module-locator . problems) partition
                       (jazz.format output "  In {a}" (or module-locator "<console>"))
                       (let ((prefix (if (%%not module-locator) -1 (%%string-length (%%symbol->string module-locator)))))
-                        (for-each (lambda (problem)
-                                    (let ((locator (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-problem-location problem)))))
-                                      (jazz.format output "{%}    At {a}: {a}"
-                                                   (if (%%fx= (%%string-length locator) prefix)
-                                                       ""
-                                                     (%%substring locator (%%fx+ prefix 1) (%%string-length locator)))
-                                                   (jazz.present-exception problem))))
-                                  all))))
-                  (jazz.partition all (lambda (error)
-                                        (%%get-walk-location-module-locator (%%get-walk-problem-location error)))))
+                        (for-each (lambda (partition)
+                                    (jazz.bind (declaration-locator . problems) partition
+                                      (let ((toplevel? (%%fx= (%%string-length declaration-locator) prefix)))
+                                        (if (%%not toplevel?)
+                                            (jazz.format output "{%}    At {a}"
+                                              (%%substring declaration-locator (%%fx+ prefix 1) (%%string-length declaration-locator))))
+                                        (for-each (lambda (problem)
+                                                    (jazz.format output "{%}{a}    {a}"
+                                                      (if toplevel? "" "  ")
+                                                      (jazz.present-exception problem)))
+                                                  problems))))
+                                  (jazz.partition-walk-problems-declaration problems)))))
+                  (jazz.partition-walk-problems-module all))
         (let ((message (get-output-string output)))
           (raise (jazz.new-walk-problems message warnings errors)))))))
+
+
+(define (jazz.partition-walk-problems-module problems)
+  (jazz.partition problems
+                  (lambda (problem)
+                    (%%get-walk-location-module-locator (%%get-walk-problem-location problem)))
+                  assv))
+
+
+(define (jazz.partition-walk-problems-declaration problems)
+  (jazz.partition problems
+                  (lambda (problem)
+                    (%%symbol->string (%%get-walk-location-declaration-locator (%%get-walk-problem-location problem))))
+                  assoc))
 
 
 ;;;
@@ -2609,7 +2642,7 @@
 
 
 (define (jazz.walk-library-exports walker exports)
-  (let ((partition (jazz.partition exports symbol?)))
+  (let ((partition (jazz.partition exports symbol? assv)))
     (let ((symbols-exports (assq #t partition))
           (library-exports (assq #f partition)))
       (%%append (if symbols-exports

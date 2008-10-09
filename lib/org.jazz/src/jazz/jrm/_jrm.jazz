@@ -384,6 +384,11 @@
 ;;;
 
 
+;; Need to think about how the objects should be GC protected
+(definition *Temp-Mega-Patch*
+  '())
+
+
 (definition public (ior? object)
   (is? object IOR))
 
@@ -420,13 +425,15 @@
 (definition (local-proxy->reference local-proxy)
   (if (proxy=? local-proxy local-register)
       #f
-    (object->serial-number (get-object~ local-proxy))))
+    (let ((object (get-object~ local-proxy)))
+      (set! *Temp-Mega-Patch* (cons object *Temp-Mega-Patch*))
+      (object->serial object))))
 
 
 (definition (reference->local-proxy stub-interface reference)
   (if (not reference)
       local-register
-    (new (local-class~ stub-interface) (serial-number->object reference))))
+    (new (local-class~ stub-interface) (serial->object reference))))
 
 
 (definition public (unmarshall-ior ior)

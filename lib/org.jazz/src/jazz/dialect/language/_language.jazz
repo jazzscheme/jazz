@@ -4733,16 +4733,42 @@
 
 (definition public (thread-loop)
   (let (loop)
-    (let ((thunk (thread-receive)))
+    (let ((thunk (thread-read)))
       (thunk)
       (when (thread-loop?)
         (loop)))))
 
 
+(definition thread-ports
+  (make-table test: eq? weak-keys: #t))
+
+(definition thread-ports-mutex
+  (make-mutex 'thread-ports))
+
+(definition (get-thread-port thread)
+  (mutex-lock! thread-ports-mutex)
+  (prog1 (either (table-ref thread-ports thread #f)
+                 (let ((port (open-vector)))
+                   (table-set! thread-ports thread port)
+                   port))
+    (mutex-unlock! thread-ports-mutex)))
+
+(definition (thread-write thread value)
+  (write value (get-thread-port thread)))
+
+(definition (thread-read)
+  (read (get-thread-port (current-thread))))
+
+(definition (thread-read-non-blocking)
+  (let ((thread-port (get-thread-port (current-thread))))
+    (input-port-timeout-set! thread-port 0)
+    (read thread-port)))
+
+
 (definition public (thread-post thread name thunk)
   (if (eq? thread (current-thread))
       (thunk)
-    (thread-send thread thunk)))
+    (thread-write thread thunk)))
 
 
 (definition public (thread-execute thread name thunk)
@@ -4750,7 +4776,7 @@
       (thunk)
     (let ((mutex (make-mutex name)))
       (mutex-lock! mutex)
-      (thread-send thread
+      (thread-write thread
         (function ()
           (unwind-protect
               (thunk)
@@ -4773,7 +4799,7 @@
       (let ((mutex (make-mutex name)))
         (mutex-lock! mutex)
         (mutex-specific-set! mutex thread-call-noresult)
-        (thread-send thread
+        (thread-write thread
           (function ()
             (unwind-protect
                 (mutex-specific-set! mutex (thunk))

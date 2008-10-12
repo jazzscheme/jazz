@@ -18,10 +18,18 @@
               (thread-send neighbor message)
               (loop (- j 1)))))))
 
+    (define (buggy-action)
+      (let ((neighbor (thread-receive)))
+        (let loop ((j m))
+          (if (> jj 0)
+            (let ((message (thread-receive)))
+              (thread-send neighbor message)
+              (loop (- j 1)))))))
+
     (let loop ((i n) (processes '()))
       (if (> i 0)
           (loop (- i 1)
-                (cons (make-thread action) processes))
+                (cons (make-thread (if (= i 60) buggy-action action)) processes))
           processes)))
 
   (let* ((point1
@@ -132,3 +140,6 @@
               (display m)
               (display " times.\n")
               (time (joes-challenge n m)))))))
+
+(main "100")
+(thread-sleep! 2)

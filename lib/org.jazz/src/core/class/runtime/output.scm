@@ -125,6 +125,10 @@
   jazz.debug-string)
 
 
+(define (jazz.terminal-port)
+  (console-port))
+
+
 (define (jazz.bootstrap-output-value value output)
   (display (jazz.->string value) output))
 

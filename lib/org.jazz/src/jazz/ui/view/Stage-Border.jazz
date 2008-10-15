@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Host Sheet
+;;;; Stage Border
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,18 +35,78 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.hosting.Host-Sheet jazz
+(library jazz.ui.view.Stage-Border jazz
 
 
-(import (jazz.jml)
-        (jazz.library)
+(import (jazz.library)
+        (jazz.literals)
         (jazz.ui)
         (jazz.utilities))
 
 
-(class Host-Sheet extends Tab-Sheet
+(class Stage-Border extends View
+
+  
+  (method (install rest)
+    (nextmethod rest)
+    (new Stage @ZOO (stage-class~ (get-parent~ parent)) parent: self name: 'stage))
   
   
-  (form
-    (<install>
-      (<!>     name: content layout-type: fill)))))
+  (method (size-change size)
+    (nextmethod size)
+    (layout-stage size))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-stage)
+    (child 'stage))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method public (maximize)
+    (layout-stage (get-size)))
+  
+  
+  (method public (restore)
+    (layout-stage (get-size)))
+  
+  
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout-stage size <Dimension>)
+    (let* ((stage (get-stage))
+           (maximized? (get-maximized?~ stage))
+           (fullscreen? (get-fullscreen?~ stage))
+           (width (if fullscreen? 0 (if maximized? 1 2))))
+      (set-position~ stage (new Point width width))
+      (set-size~ stage (- size (new Dimension (+ width width) (+ width width))))))
+  
+  
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  (definition Frame-Color
+    {Color red: 128 green: 128 blue: 128})
+  
+  
+  (method (draw surface context update lh lv)
+    (let ((bounds (get-bounds)))
+      (frame-rect~ surface (new Rect 0 0 (get-right~ bounds) (get-bottom~ bounds)) Frame-Color)
+      (let* ((stage (get-stage))
+             (maximized? (get-maximized?~ stage))
+             (fullscreen? (get-fullscreen?~ stage)))
+        (unless (or maximized? fullscreen?)
+          (frame-rect~ surface (new Rect 1 1 (- (get-right~ bounds) 1) (- (get-bottom~ bounds) 1)) {Color name: White})))))))

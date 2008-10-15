@@ -1,0 +1,183 @@
+;;;==============
+;;;  JazzScheme
+;;;==============
+;;;
+;;;; Dialog Host
+;;;
+;;;  The contents of this file are subject to the Mozilla Public License Version
+;;;  1.1 (the "License"); you may not use this file except in compliance with
+;;;  the License. You may obtain a copy of the License at
+;;;  http://www.mozilla.org/MPL/
+;;;
+;;;  Software distributed under the License is distributed on an "AS IS" basis,
+;;;  WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
+;;;  for the specific language governing rights and limitations under the
+;;;  License.
+;;;
+;;;  The Original Code is JazzScheme.
+;;;
+;;;  The Initial Developer of the Original Code is Guillaume Cartier.
+;;;  Portions created by the Initial Developer are Copyright (C) 1996-2008
+;;;  the Initial Developer. All Rights Reserved.
+;;;
+;;;  Contributor(s):
+;;;
+;;;  Alternatively, the contents of this file may be used under the terms of
+;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
+;;;  case the provisions of the GPL are applicable instead of those above. If
+;;;  you wish to allow use of your version of this file only under the terms of
+;;;  the GPL, and not to allow others to use your version of this file under the
+;;;  terms of the MPL, indicate your decision by deleting the provisions above
+;;;  and replace them with the notice and other provisions required by the GPL.
+;;;  If you do not delete the provisions above, a recipient may use your version
+;;;  of this file under the terms of any one of the MPL or the GPL.
+;;;
+;;;  See www.jazzscheme.org for details.
+
+
+(library jazz.ui.hosting.Dialog-Host jazz
+
+
+(import (jazz.ui)
+        (jazz.ui.dialog)
+        (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.utilities))
+
+
+(class Dialog-Host extends Host-View
+
+  
+  (slot modal-done?   initialize #f)
+  (slot modal-closed? initialize #f)
+  (slot modal-result  initialize {})
+  (slot modal-signal  initialize {})
+  (slot modal-action  initialize {})
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (processing-modal?)
+    (not modal-done?))
+  
+  
+  ;;;
+  ;;;; Close
+  ;;;
+  
+  
+  (method (destroy-modal)
+    (set! modal-closed? #t)
+    (set! modal-result {})
+    (set! modal-done? #t))
+
+
+  ;;;
+  ;;;; Actions
+  ;;;
+  
+
+  (method (class-actions)
+    (cons (find-actions 'dialog)
+          (nextmethod)))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+  
+  
+  (method public (on-ok evt)
+    (validate-dialog)
+    (end-modal (get-modal-result)))
+  
+
+  (method public (on-cancel evt)
+    (cancel-modal))
+
+  
+  ;;;
+  ;;;; Modal
+  ;;;
+  
+  
+  (method (validate-dialog)
+    (when guest
+      (validate-dialog~ guest)))
+  
+  
+  (method (get-modal-result)
+    (get-modal-result~ guest))
+  
+  
+  (method public (process-modal)
+    (close-popups)
+    (release-captured-view)
+    (prog1 (let* ((application (get-application))
+                  (toplevel (get-toplevel))
+                  (overlapped (either (current-modal) toplevel))
+                  (preserved (current-modal))
+                  (player (get-player)))
+             (when overlapped
+               (disable-window~ overlapped))
+             (unwind-protect
+                 (begin
+                   (set! modal-done? #f)
+                   (set-current-modal self)
+                   (when toplevel
+                     (update-windowing-actions~ application))
+                   (show~ player)
+                   (execute-event
+                     (function ()
+                       (catch Modal-Done
+                         (catch Cancel-Signal
+                           (process-events)))))
+                   (cond (modal-closed? (throw-cancel))
+                         (modal-signal (signal modal-signal))
+                         (else modal-result)))
+               (when overlapped
+                 (enable-window~ overlapped))
+               (set! modal-done? #t)
+               (set-current-modal preserved)
+               (when toplevel
+                 (update-windowing-actions~ application))
+               (close~ player)))
+      (when modal-action
+        (modal-action))))
+  
+  
+  ;;;
+  ;;;; Termination
+  ;;;
+  
+  
+  (method public (end-modal result)
+    (set! modal-closed? #f)
+    (set! modal-result result)
+    (modal-done))
+  
+  
+  (method public (signal-modal signal)
+    (set! modal-signal signal)
+    (modal-done))
+  
+  
+  (method public (cancel-modal)
+    (signal-modal (new Cancel-Signal)))
+  
+  
+  (method public (close-modal action)
+    (set! modal-closed? #f)
+    (set! modal-result {})
+    (set! modal-action action)
+    (modal-done)))
+
+
+(class Modal-Done extends Signal)
+
+
+(definition (modal-done)
+  (throw (new Modal-Done))))

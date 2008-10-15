@@ -49,13 +49,14 @@
 (class Splitter-View extends View
 
 
-  (property separator     initialize 'resize        getter get-separator     setter set-separator)
-  (property state         initialize {}             getter get-state         setter set-state)
-  (property orientation   initialize 'horz          getter get-orientation   setter set-orientation)
-  (property mode          initialize 'absolute      getter get-mode          setter set-mode)
-  (property division      initialize 100            getter get-division      setter set-division)
-  (property insets        initialize {Rect 0 0 0 0} getter get-insets        setter set-insets)
-  (property after-handler initialize {}             getter get-after-handler setter set-after-handler)
+  (property separator     initialize 'resize        accessors generate)
+  (property state         initialize {}             accessors generate)
+  (property orientation   initialize 'horz          accessors generate)
+  (property mode          initialize 'absolute      accessors generate)
+  (property division      initialize 100            accessors generate)
+  (property insets        initialize {Rect 0 0 0 0} accessors generate)
+  (property full?         initialize #f             accessors generate)
+  (property after-handler initialize {}             accessors generate)
   
   
   (slot split-layout initialize (new Split-Layout))
@@ -66,77 +67,16 @@
   
   (form
     (<install> background: {Color name: Medium}))
- 
-  
-  ;;;
-  ;;;; Access
-  ;;;
-
-
-  (method public (get-separator)
-    separator)
-
-
-  (method public (set-separator value)
-    (set! separator value))
-
-
-  (method public (get-state)
-    state)
-
-
-  (method public (set-state value)
-    (set! state value)
-    (layout-view))
-
-
-  (method public (get-orientation)
-    orientation)
-  
-
-  (method public (set-orientation value)
-    (set! orientation value)
-    (layout-view))
-
-
-  (method public (get-mode)
-    mode)
-
-
-  (method public (set-mode value)
-    (set! mode value)
-    (layout-view))
-
-
-  (method public (get-division)
-    division)
-
-
-  (method public (set-division value)
-    (set! division value)
-    (layout-view))
-
-
-  (method public (get-insets)
-    insets)
-
-
-  (method public (set-insets value)
-    (set! insets value)
-    (layout-view))
-  
-
-  (method public (get-after-handler)
-    after-handler)
-
-
-  (method public (set-after-handler value)
-    (set! after-handler value))
 
   
   ;;;
   ;;;; Layout
   ;;;
+
+
+  (method (size-change size)
+    (nextmethod size)
+    (layout-view))
 
   
   (method (layout)
@@ -144,9 +84,57 @@
            (mode (if dragging? 'absolute mode))
            (width (get-width~ size))
            (height (get-height~ size))
-           (div (if (> division 0) division (+ (case orientation ((horz) width) ((vert) height)) division -3))))
-      (set! bar-bounds (layout~ split-layout children (get-width~ size) (get-height~ size) separator: separator state: state orientation: orientation mode: mode division: div insets: insets))))
+           (div (if (or (eq? mode 'relative) (> division 0))
+                    division
+                  ;; why was this code necessary???
+                  (+ (case orientation ((horz) width) ((vert) height)) division -3))))
+      (set! bar-bounds (layout~ split-layout children width height separator: separator state: state orientation: orientation mode: mode division: div insets: insets))))
+      
   
+  @FROM-SPLITTER-WINDOW
+  (method (layout)
+    (let ((size (get-size))
+          (mode (if dragging? 'absolute mode))
+          (insets (if full? {Rect 0 0 0 0} insets)))
+      (set! bar-bounds (layout~ split-layout children (get-width~ size) (get-height~ size) separator: separator state: state orientation: orientation mode: mode division: division insets: insets))))
+
+  
+  ;;;
+  ;;;; Children
+  ;;;
+  
+  
+  (method public (remove-children)
+    (for-each (function (child)
+                (when (is? child Splitter-View)
+                  (remove-children~ child))
+                (when (is? child Pad-View)
+                  (remove-children~ child))
+                (if (is? child Splitter-View)
+                    (close~ child)
+                  (set-visible?~ child #f)
+                  (set-parent~ child {})
+                  (when (is? child Host-View)
+                    (host-deactivate~ (get-guest~ child)))))
+              children))
+  
+  
+  ;;;
+  ;;;; Workspace
+  ;;;
+  
+  
+  (method public (workspace-zoomable? view)
+    (define (get-brother view)
+      (find-if (function (child)
+                 (neq? child view))
+               children))
+    
+    (let ((brother (get-brother view)))
+      (or (is-not? brother Host-View)
+          (let ((guest (get-guest~ brother)))
+            (workspace-minimisable?~ guest)))))
+
   
   ;;;
   ;;;; Zoom
@@ -186,17 +174,45 @@
       (case orientation
         ((horz) (set-cursor :vertical-splitter))
         ((vert) (set-cursor :horizontal-splitter)))))
+
+
+  @FROM-SPLITTER-WINDOW
+  (method (cursor-update hit)
+    (cond ((neq? separator 'resize)
+           (set-cursor :arrow))
+          ((or (not hit) (not bar-bounds) (get-mouse-down?))
+           unprocessed)
+          (else
+           (let ((pos (mouse-position)))
+             (when (in-rect? pos bar-bounds)
+               (case orientation
+                 ((horz) (set-cursor :vertical-splitter))
+                 ((vert) (set-cursor :horizontal-splitter))))))))
   
 
   ;;;
-  ;;;; Drawing
+  ;;;; Draw
   ;;;
 
   
-  @waiting
+  @debug
   (method (draw surface context update lh lv)
     (when bar-bounds
       (fill-rect~ surface bar-bounds {Color name: Light-Red})))
+  
+  
+  (method (draw surface context update lh lv)
+    (when (and (eq? state 'split) bar-bounds)
+      (case separator
+        ((resize))
+        ((edge)
+         (case orientation
+           ((horz) (draw-edge~ surface bar-bounds inner: 'raised outer: 'sunken edges: '(left)))
+           ((vert) (draw-edge~ surface bar-bounds inner: 'raised outer: 'sunken edges: '(top)))))
+        ((line)
+         (case orientation
+           ((horz) (draw-edge~ surface bar-bounds inner: 'raised edges: '(left)))
+           ((vert) (draw-edge~ surface bar-bounds inner: 'raised edges: '(top))))))))
   
   
   ;;;
@@ -225,6 +241,16 @@
   ;;;
   ;;;; Mouse
   ;;;
+  
+  
+  @FROM-SPLITTER-WINDOW
+  (method (mouse-down h v)
+    (when (and (eq? separator 'resize) bar-bounds (in-rect? (new Point h v) bar-bounds))
+      (set! dragging? #t)
+      (set! previous (case orientation ((horz) h) ((vert) v)))
+      (when (eq? mode 'relative)
+        (set! division (relative->absolute division)))
+      (acquire-capture)))
   
   
   (method (mouse-down pos)

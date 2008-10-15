@@ -222,26 +222,24 @@
 
 (definition public (new-dialog guest-class . rest)
   (bind-keywords ((host-title {}) (host-sizable? #f) (host-closable? #t) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let* ((host (new (dialog-class~ guest-class) in-parent?: #f sizable?: host-sizable? closable?: host-closable? visible?: #f))
+    (let* ((player (new (dialog-class~ guest-class) sizable?: host-sizable? closable?: host-closable? visible?: #f))
+           (host (get-root~ player))
            (guest (either guest (new-guest guest-class others)))
            (size (either (host-size~ guest-class) (get-size~ guest)))
            (pos (either (host-position~ guest-class) (center-dialog size))))
-      (set-title~ host (either host-title (host-title~ guest-class) "Dialog"))
-      (set-size~ host size)
-      (set-position~ host pos)
+      (set-title~ player (either host-title (host-title~ guest-class) "Dialog"))
+      (set-size~ player size)
+      (set-position~ player pos)
       (set-guest~ host guest)
       ;; Should initialisations done here generate errors, at least
       ;; parent install is still not done at this point.
       (when initialize
         (initialize host guest))
-      ;; Wait until the last moment possible before installing in parent in case
-      ;; some errors should occur.
-      (parent-add-child~ host)
       (if (has-dialog-result?~ guest)
-          (values #f (get-modal-result~ host))
+          (values #f (get-modal-result~ player))
         (when host-visible?
-          (set-visible?~ host #t))
-        (select-foreground-window (get-handle~ host))
+          (set-visible?~ player #t))
+        (select-foreground-window (get-handle~ player))
         (values #t host)))))
 
 
@@ -249,45 +247,6 @@
   (let* ((outer (get-size~ (get-desktop)))
          (pos (center inner outer)))
     (new Point (get-h~ pos) (- (get-v~ pos) 50))))
-
-
-;;;
-;;;; Frame
-;;;
-
-
-(definition public (new-event guest-class . rest)
-  (apply new-frame guest-class rest))
-
-
-(definition public (new-frame guest-class . rest)
-  (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (frame-class~ guest-class) in-parent?: #f visible?: #f)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
-      (when host-position
-        (set-position~ host host-position))
-      (when host-size
-        (set-size~ host host-size))
-      (when host-workspace
-        (set-workspace~ host host-workspace))
-      ;; It is important to set the frame's size before installing the guest
-      ;; in order to minimize layouting by having the size right the first time!
-      (let ((guest (either guest (new-guest guest-class others))))
-        (set-guest~ host guest)
-        ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point.
-        (when initialize
-          (initialize host guest))
-        ;; Wait until the last moment possible before installing in parent in case
-        ;; some errors should occur.
-        (parent-add-child~ host)
-        (ensure-displayed~ host)
-        (when host-visible?
-          (bring-to-front~ host)
-          (set-visible?~ host #t)
-          (when host-focus?
-            (acquire-focus~ host)))
-        host))))
 
 
 ;;;
@@ -313,26 +272,24 @@
 
 (definition public (new-palette guest-class . rest)
   (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-visible? #t) (guest {}) (initialize {}) . others) rest
-    (let ((host (new (palette-class~ guest-class) in-parent?: #f visible?: #f)))
-      (set-title~ host (either host-title (host-title~ guest-class) "Palette"))
+    (let* ((player (new (palette-class~ guest-class) visible?: #f))
+           (host (get-root~ player)))
+      (set-title~ player (either host-title (host-title~ guest-class) "Palette"))
       (when host-position
-        (set-position~ host host-position))
+        (set-position~ player host-position))
       (when host-size
-        (set-size~ host host-size))
+        (set-size~ player host-size))
       ;; It is important to set the palette's size before installing the guest
       ;; in order to minimize layouting by having the size right the first time!
       (let ((guest (either guest (new-guest guest-class others))))
         (set-guest~ host guest)
         ;; Should initialisations done here generate errors, at least
-        ;; parent install is still not done at this point.
+        ;; parent install is still not done at this point
         (when initialize
           (initialize host guest))
-        ;; Wait until the last moment possible before installing in parent in case
-        ;; some errors should occur.
-        (parent-add-child~ host)
-        (layout-view~ (get-content~ (get-root~ host)))
+        (layout-view~ host)
         (when host-visible?
-          (fade-in~ host))
+          (fade-in~ player))
         host))))
 
 
@@ -372,12 +329,48 @@
 
 (definition public (new-docked guest-class . rest)
   (bind-keywords ((host-title {}) (host-location {}) . others) rest
-    (let ((host (new (docked-class~ guest-class) parent: (get-orphanage) visible?: #f)))
+    (let ((host (new Docked-Host visible?: #f)))
       (set-title~ host (either host-title (host-title~ guest-class) "Docked"))
       (when host-location
         (set-location~ host host-location))
       (set-guest~ host (new-guest guest-class others))
       host)))
+
+
+;;;
+;;;; Frame
+;;;
+
+
+(definition public (new-event guest-class . rest)
+  (apply new-frame guest-class rest))
+
+
+(definition public (new-frame guest-class . rest)
+  (bind-keywords ((host-title {}) (host-position (host-position~ guest-class)) (host-size (host-size~ guest-class)) (host-workspace {}) (host-visible? #t) (host-focus? #t) (guest {}) (initialize {}) . others) rest
+    (let ((host (new Frame-Host parent: (get-stage) visible?: #f)))
+      (set-title~ host (either host-title (host-title~ guest-class) "Frame"))
+      (when host-position
+        (set-position~ host host-position))
+      (when host-size
+        (set-size~ host host-size))
+      (when host-workspace
+        (set-workspace~ host host-workspace))
+      ;; It is important to set the frame's size before installing the guest
+      ;; in order to minimize layouting by having the size right the first time!
+      (let ((guest (either guest (new-guest guest-class others))))
+        (set-guest~ host guest)
+        ;; Should initialisations done here generate errors, at least
+        ;; parent install is still not done at this point
+        (when initialize
+          (initialize host guest))
+        (ensure-displayed~ host)
+        (when host-visible?
+          (bring-to-front~ host)
+          (set-visible?~ host #t)
+          (when host-focus?
+            (acquire-focus~ host)))
+        host))))
 
 
 ;;;
@@ -399,7 +392,7 @@
 
 (definition public (new-toolbar guest-class . rest)
   (bind-keywords ((host-title {}) (host-location {}) . others) rest
-    (let ((host (new (toolbar-class~ guest-class) parent: (get-orphanage) visible?: #f)))
+    (let ((host (new Toolbar-Host visible?: #f)))
       (set-title~ host (either host-title (host-title~ guest-class) "Toolbar"))
       (when host-location
         (set-location~ host host-location))
@@ -408,21 +401,21 @@
 
 
 ;;;
-;;;; Root
+;;;; Focused
 ;;;
 
 
-;; This is the root of the currently focused view
-(definition *focused-root*
+;; This is the host of the currently focused view
+(definition *focused-host*
   {})
 
 
-(definition public (get-focused-root)
-  *focused-root*)
+(definition public (get-focused-host)
+  *focused-host*)
 
 
-(definition public (set-focused-root focused-root)
-  (set! *focused-root* focused-root))
+(definition public (set-focused-host host)
+  (set! *focused-host* host))
 
 
 ;;;
@@ -565,12 +558,11 @@
 ;;;
 
 
-(definition public (get-workspace-splitter)
-  (find-type~ (get-toplevel) Workspace-Splitter))
-
-
 (definition public (get-workspace-preferences)
-  (get-preferences~ (get-workspace-splitter)))
+  (get-workspace-preferences~ (get-toplevel)))
+
+(definition public (set-workspace-preferences preferences)
+  (set-workspace-preferences~ (get-toplevel) preferences))
 
 
 (definition public (get-stage-border)
@@ -589,7 +581,7 @@
   (let ((toplevel (get-toplevel)))
     (when toplevel
       (either (find-type~ toplevel class)
-              (find-palette~ (get-workspace-splitter) class)))))
+              (find-palette~ (get-root~ toplevel) class)))))
 
 
 (definition public (select-palette class (name: name {}) (workspace: workspace 'home) (focus?: focus? #f))
@@ -599,12 +591,12 @@
             (when view
               (let* ((host (get-host~ view))
                      (parent (get-parent~ host)))
-                (when (is? parent Pad-Window)
+                (when (is? parent Pad-View)
                   (set-selection~ parent host))
-                (for-each-splitter (if (is? parent Splitter-Window) host parent)
-                  (function (splitter window)
+                (for-each-splitter (if (is? parent Splitter-View) host parent)
+                  (function (splitter view)
                     (when (and (eq? (get-state~ splitter) 'zoom)
-                               (neq? (get-zoomed~ splitter) window))
+                               (neq? (get-zoomed~ splitter) view))
                       (unzoom~ splitter))))
                 (when focus?
                   (acquire-focus~ host))
@@ -617,38 +609,38 @@
 
 
 (definition public (for-each-docked proc)
-  (let ((splitter (get-workspace-splitter)))
+  (let ((splitter (get-root~ (get-toplevel))))
     (for-each-palette~ splitter
       (function (palette)
-        (when (is? palette Host-Docked)
+        (when (is? palette Docked-Host)
           (proc (get-guest~ palette)))))))
 
 
-(definition public (for-each-splitter window proc)
-  (let ((splitter (get-parent~ window))
-        (splitter-class Splitter-Window))
+(definition public (for-each-splitter view proc)
+  (let ((splitter (get-parent~ view))
+        (splitter-class Splitter-View))
     (while (is? splitter splitter-class)
-      (proc splitter window)
-      (set! window splitter)
+      (proc splitter view)
+      (set! view splitter)
       (set! splitter (get-parent~ splitter)))))
 
 
 (definition public (current-frame)
   (let ((stage (get-stage)))
     (when stage
-      (first-window~ stage))))
+      (first-view~ stage))))
 
 
 (definition public (current-document)
   (let ((frame (current-frame)))
-    (when (is? frame Host-Frame)
+    (when (is? frame Frame-Host)
       (get-guest~ frame))))
 
 
 (definition public (current-guest)
-  (let ((root (get-focused-root)))
-    (when root
-      (get-guest~ root))))
+  (let ((host (get-focused-host)))
+    (when host
+      (get-guest~ host))))
 
 
 (definition public (focus-guest)
@@ -682,13 +674,19 @@
           (let ((focus *focus*))
             ;; more robust to errors in focus-lose
             (set! *focus* {})
-            (call-focus-lose~ focus player view)))
+            (call-focus-lose~ focus player view)
+            (let ((old-host (essay old (get-host~ old))))
+              (when old-host
+                (call-deactivate~ old-host)))))
         (when focus-window?
           (set-window-focus player))
         (set! *focus* {})
         (when view
           (call-focus-gain~ view old))
         (set! *focus* view)
+        (let ((host (essay view (get-host~ view))))
+          (when host
+            (call-activate~ host)))
         (process-focus-change~ (get-application) old view)))))
 
 

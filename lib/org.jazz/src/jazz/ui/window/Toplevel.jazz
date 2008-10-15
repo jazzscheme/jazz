@@ -56,9 +56,10 @@
   (property caption      initialize {} getter get-caption      setter set-caption)
 
 
-  (slot maximized?         initialize #f)
-  (slot workspace-splitter initialize {})
-  (slot site               initialize {})
+  (slot maximized?            initialize #f)
+  (slot workspace-preferences initialize {})
+  (slot stage-border          initialize {})
+  (slot site                  initialize {})
 
 
   (form
@@ -71,22 +72,13 @@
 
 
   (method (install rest)
-    (setup-workspace-splitter)
+    (setup-stage)
     (nextmethod rest))
 
   
   ;;;
   ;;;; Events
   ;;;
-
-
-  (method (size-change size)
-    (nextmethod size)
-    (when workspace-splitter
-      (let ((border (if (get-maximized?~ root) 0 4))
-            (height (caption-height)))
-        (set-position~ workspace-splitter (new Point border (+ border height)))
-        (set-size~ workspace-splitter (new Dimension (- (get-width~ size) border border) (- (get-height~ size) height border border))))))
 
 
   (method (on-activate kind)
@@ -96,16 +88,12 @@
 
   
   ;;;
-  ;;;; Workspace
+  ;;;; Root
   ;;;
-
-
-  (method (setup-workspace-splitter)
-    (set! workspace-splitter (new-workspace-splitter)))
   
   
-  (method protected virtual (new-workspace-splitter)
-    (new Workspace-Splitter parent: self state: 'zoom))
+  (method (new-root)
+    (new Splitter-View offscreen?: #t state: 'zoom))
 
   
   ;;;
@@ -113,9 +101,16 @@
   ;;;
 
 
-  (method public virtual (stage-window)
-    (when workspace-splitter
-      (get-stage~ workspace-splitter)))
+  (method (setup-stage)
+    (set! stage-border (new Stage-Border @ZOO (stage-border-class~ parent) name: 'stage-border)))
+  
+  
+  (method public (get-stage-border)
+    stage-border)
+  
+  
+  (method public (get-stage)
+    (get-stage~ stage-border))
 
 
   (method public virtual (stage-border-class)
@@ -127,21 +122,16 @@
 
   
   ;;;
-  ;;;; Root
+  ;;;; Workspace
   ;;;
   
   
-  (method (new-root)
-    (new Toplevel-Root))
-
-  
-  ;;;
-  ;;;; Access
-  ;;;
+  (method public (get-workspace-preferences)
+    workspace-preferences)
   
   
-  (method public (get-workspace-splitter)
-    workspace-splitter)
+  (method public (set-workspace-preferences preferences)
+    (set! workspace-preferences preferences))
   
   
   ;;;
@@ -167,6 +157,7 @@
       (let ((appl (get-application)))
         (if (= status 0)
             (deactivate~ appl)
+          @ZOO
           (restore-minimized~ root)
           (activate~ appl))))
     processed)
@@ -206,6 +197,7 @@
   
   
   (method public (update-bounds)
+    @ZOO
     (with-locked-update
       (function ()
         (let ((splitter (get-workspace-splitter))
@@ -217,6 +209,7 @@
                    (when fullscreen?
                      (set-position {Point 0 0})
                      (set-size size))
+                   @ZOO
                    (when splitter
                      (set-position~ splitter {Point 0 0})
                      (set-size~ splitter size))))
@@ -226,11 +219,13 @@
                     (when maximized?
                       (set-position (rect-position rect))
                       (set-size size))
-                    (when splitter
-                      (set-position~ splitter (new Point 0 caption-height))
-                      (set-size~ splitter (- size (new Dimension 0 caption-height))))))
+                   @ZOO
+                   (when splitter
+                     (set-position~ splitter (new Point 0 caption-height))
+                     (set-size~ splitter (- size (new Dimension 0 caption-height))))))
                 (else
                  (let ((size (get-size)))
+                   @ZOO
                    (when splitter
                      (set-position~ splitter (new Point 4 (+ caption-height 4)))
                      (set-size~ splitter (- size (new Dimension 8 (+ caption-height 8))))))))))))
@@ -298,6 +293,7 @@
     (let ((title (effective-title)))
       (set-title title)
       (set-title~ root title)
+      @ZOO
       (invalidate-caption~ root)))
   
   

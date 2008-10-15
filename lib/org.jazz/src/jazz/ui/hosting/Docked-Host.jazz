@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Docked Root
+;;;; Docked Host
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.view.Docked-Root jazz
+(library jazz.ui.hosting.Docked-Host jazz
 
 
 (import (jazz.jml)
@@ -48,7 +48,20 @@
         (jazz.utilities))
 
 
-(class Docked-Root extends Root-View
+(class Docked-Host extends Host-View
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-default)
+    (when guest
+      (focus-default~ guest)))
+  
+  
+  ;;;;;;;;;;;;;;;;;;; OLD ROOT CODE
     
   
   (property fullscreen? initialize #f accessors generate)
@@ -59,7 +72,7 @@
   (form
     (<install>
       (<Layout-View> name: tools size: {Dimension 0 22} layout-type: flow mouse-down-handler: {Event-Handler :form on-mouse-down})))
-    
+  
   
   ;;;
   ;;;; Events
@@ -84,22 +97,22 @@
         (function ()
           (set-visible?~ host #f)
           (set-parent~ host (get-toplevel))
-          (cond ((is? parent Splitter-Window)
-                 (let ((other (first-window~ parent)))
+          (cond ((is? parent Splitter-View)
+                 (let ((other (first-view~ parent)))
                    (when other
                      (if (is? parent Workspace-Splitter)
                          (begin
                            (set-mode~ parent 'zoom)
-                           (layout-window~ parent))
+                           (layout-view~ parent))
                        (set-location~ other (get-location~ parent))
                        (set-parent~ other grand)
                        (close~ parent)
-                       (layout-window~ grand)))))
-                ((is? parent Pad-Window)
+                       (layout-view~ grand)))))
+                ((is? parent Pad-View)
                  (close)
                  (let ((other (first-child~ parent)))
                    (set-location~ other 'selection)
-                   (layout-window~ parent))))))))
+                   (layout-view~ parent))))))))
   
   
   (method (on-close evt)
@@ -114,22 +127,22 @@
         (function ()
           (set-visible?~ host #f)
           (set-parent~ host (get-toplevel))
-          (cond ((is? parent Splitter-Window)
-                 (let ((other (first-window~ parent)))
+          (cond ((is? parent Splitter-View)
+                 (let ((other (first-view~ parent)))
                    (when other
-                     (if (is? parent Workspace-Splitter)
+                     (if #f @ZOO (is? parent Workspace-Splitter)
                          (begin
                            (set-mode~ parent 'zoom)
-                           (layout-window~ parent))
+                           (layout-view~ parent))
                        (set-location~ other (get-location~ parent))
                        (set-parent~ other grand)
                        (close~ parent)
-                       (layout-window~ grand)))))
-                ((is? parent Pad-Window)
+                       (layout-view~ grand)))))
+                ((is? parent Pad-View)
                  (close)
                  (let ((other (first-child~ parent)))
                    (set-location~ other 'selection)
-                   (layout-window~ parent))))))))
+                   (layout-view~ parent))))))))
 
   
   ;;;
@@ -137,8 +150,12 @@
   ;;;
   
   
+  (method (mouse-activate?)
+    #t)
+  
+  
   (method (mouse-activate)
-    (acquire-focus~ (get-player)))
+    (acquire-focus))
   
   
   (method (root-activate)
@@ -154,7 +171,7 @@
   ;;;
   
   
-  (method public (install-tools)
+  (method (install-tools)
     (let* ((host (get-host))
            (guest (get-guest~ host))
            (view (get-tools-view~ guest)))
@@ -217,23 +234,23 @@
   
   
   (method (layout)
-    (let ((width (get-width))
-          (height (get-height))
-          (tools (locate 'tools))
-          (content (get-content)))
-      (cond (fullscreen?
-             (set-visible?~ tools #f)
-             (set-position~ content {Point 0 0})
-             (set-size~ content (new Dimension width height)))
-            (caption?
-             (layout-tools width)
-             (set-visible?~ tools #t)
-             (set-position~ content {Point 1 25})
-             (set-size~ content (new Dimension (- width 2) (- height 26))))
-            (else
-             (set-visible?~ tools #f)
-             (set-position~ content {Point 1 1})
-             (set-size~ content (new Dimension (- width 2) (- height 2)))))))
+    (when guest
+      (let ((width (get-width))
+            (height (get-height))
+            (tools (locate 'tools)))
+        (cond (fullscreen?
+                (set-visible?~ tools #f)
+                (set-position~ guest {Point 0 0})
+                (set-size~ guest (new Dimension width height)))
+              (caption?
+                (layout-tools width)
+                (set-visible?~ tools #t)
+                (set-position~ guest {Point 1 25})
+                (set-size~ guest (new Dimension (- width 2) (- height 26))))
+              (else
+               (set-visible?~ tools #f)
+               (set-position~ guest {Point 1 1})
+               (set-size~ guest (new Dimension (- width 2) (- height 2))))))))
   
   
   (method (layout-tools width)
@@ -293,7 +310,7 @@
   (method (draw surface context update lh lv)
     (let ((host (get-host))
           (bounds (get-bounds))
-          (focused? (eq? self (get-focused-root)))
+          (focused? (eq? self (get-focused-host)))
           (all (collect-all)))
       (frame-rect~ surface bounds Frame-Color)
       (let ((h 1)
@@ -344,7 +361,7 @@
              (title (localize (get-title~ host)))
              (width (get-width))
              (height (get-height))
-             (focused? (eq? self (get-focused-root))))
+             (focused? (eq? self (get-focused-host))))
         (frame-rect~ surface bounds {Color name: Dark})
         (let ((h 1))
           (for-each (function (docked)
@@ -403,7 +420,7 @@
       (function (docked rect)
         (when (in-rect? pos rect)
           (let ((parent (get-parent~ (get-host))))
-            (when (is? parent Pad-Window)
+            (when (is? parent Pad-View)
               (set-selection~ parent docked))
             (acquire-focus~ docked))))))
   
@@ -412,7 +429,7 @@
     @wait-Font
     (let* ((host (get-host))
            (parent (get-parent~ host)))
-      (when (is? parent Pad-Window)
+      (when (is? parent Pad-View)
         (let* ((title (localize (get-title~ host)))
                (font {Font name: Label})
                (h (+ 28 (text-width~ font title))))
@@ -426,11 +443,11 @@
     (when zoomable?
       (let* ((host (get-host))
              (parent (get-parent~ host))
-             (target (if (is? parent Pad-Window) parent host)))
+             (target (if (is? parent Pad-View) parent host)))
         (if (shift-down?)
             (toggle-full-screen~ (get-application) target)
-          (let ((splitter (if (is? parent Pad-Window) (get-parent~ parent) parent)))
-            (when (is? splitter Splitter-Window)
+          (let ((splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
+            (when (is? splitter Splitter-View)
               (with-locked-update
                 (function ()
                   (if (eq? (get-state~ splitter) 'split)
@@ -461,14 +478,14 @@
   
   (method (collect-all)
     (let ((pad (get-parent~ (get-host))))
-      (if (is? pad Pad-Window)
+      (if (is? pad Pad-View)
           (get-children~ pad)
         (list (get-host)))))
   
   
   (method (collect-others host)
     (let ((pad (get-parent~ (get-host))))
-      (when (is? pad Pad-Window)
+      (when (is? pad Pad-View)
         (collect-if (function (hst)
                       (neq? hst host))
                     (get-children~ pad)))))

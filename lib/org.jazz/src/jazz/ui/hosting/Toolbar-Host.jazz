@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Toolbar Root
+;;;; Toolbar Host
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,7 +35,7 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.view.Toolbar-Root jazz
+(library jazz.ui.hosting.Toolbar-Host jazz
 
 
 (import (jazz.library)
@@ -46,7 +46,20 @@
         (jazz.utilities))
 
 
-(class Toolbar-Root extends Root-View
+(class Toolbar-Host extends Host-View
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-default)
+    (when guest
+      (focus-default~ guest)))
+  
+  
+  ;;;;;;;;;;;;;;;;; OLD ROOT CODE
 
   
   ;;;
@@ -68,22 +81,22 @@
         (function ()
           (set-visible?~ host #f)
           (set-parent~ host (get-toplevel))
-          (cond ((is? parent Splitter-Window)
-                 (let ((other (first-window~ parent)))
+          (cond ((is? parent Splitter-View)
+                 (let ((other (first-view~ parent)))
                    (when other
-                     (if (is? parent Workspace-Splitter)
+                     (if #f @ZOO (is? parent Workspace-Splitter)
                          (begin
                            (set-mode~ parent 'zoom)
-                           (layout-window~ parent))
+                           (layout-view~ parent))
                        (set-location~ other (get-location~ parent))
                        (set-parent~ other grand)
                        (close~ parent)
-                       (layout-window~ grand)))))
-                ((is? parent Pad-Window)
+                       (layout-view~ grand)))))
+                ((is? parent Pad-View)
                  (close)
                  (let ((other (first-child~ parent)))
                    (set-location~ other 'selection)
-                   (layout-window~ parent))))))))
+                   (layout-view~ parent))))))))
 
   
   ;;;
@@ -91,8 +104,12 @@
   ;;;
   
   
+  (method (mouse-activate?)
+    #f)
+  
+  
   (method (mouse-activate)
-    (acquire-focus~ (get-player)))
+    (acquire-focus))
   
   
   (method (root-activate)
@@ -109,11 +126,11 @@
   
   
   (method (layout)
-    (let ((width (get-width))
-          (height (get-height)))
-      (let ((content (get-content)))
-        (set-position~ content {Point 0 0})
-        (set-size~ content (new Dimension width height)))))
+    (when guest
+      (let ((width (get-width))
+            (height (get-height)))
+        (set-position~ guest {Point 0 0})
+        (set-size~ guest (new Dimension width height)))))
 
 
   ;;;
@@ -176,7 +193,7 @@
              (title (get-title~ host))
              (width (get-width))
              (height (get-height))
-             (focused? (eq? self (get-focused-root))))
+             (focused? (eq? self (get-focused-host))))
         (frame-rect~ surface (new Rect (get-left~ bounds) (get-top~ bounds) (- (get-right~ bounds) 2) (- (get-bottom~ bounds) 2)) Frame-Dark-Color)
         (set-pen~ surface {Pen name: Light})
         (line~ surface 1 1 (- width 3) 1)
@@ -214,7 +231,7 @@
   (method (toggle-docked pos)
     (let* ((host (get-host))
            (parent (get-parent~ host)))
-      (when (is? parent Pad-Window)
+      (when (is? parent Pad-View)
         (let* ((title (get-title~ host))
                (font {Font name: Label})
                (h (+ 28 (text-width~ font title))))
@@ -227,9 +244,9 @@
   (method (double-click pos)
     (let* ((host (get-host))
            (parent (get-parent~ host))
-           (target (if (is? parent Pad-Window) parent host))
-           (splitter (if (is? parent Pad-Window) (get-parent~ parent) parent)))
-      (when (is? splitter Splitter-Window)
+           (target (if (is? parent Pad-View) parent host))
+           (splitter (if (is? parent Pad-View) (get-parent~ parent) parent)))
+      (when (is? splitter Splitter-View)
         (with-locked-update
           (function ()
             (if (= (get-state~ splitter) 'split)
@@ -259,7 +276,7 @@
   
   (method (collect-others host)
     (let ((pad (get-parent~ (get-host))))
-      (when (is? pad Pad-Window)
+      (when (is? pad Pad-View)
         (collect-if (function (hst)
                       (/= hst host))
                     (get-children~ pad)))))

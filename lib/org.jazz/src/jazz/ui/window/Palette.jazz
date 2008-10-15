@@ -62,13 +62,69 @@
   
 
   ;;;
+  ;;;; Root
+  ;;;
+  
+  
+  (method (new-root)
+    (new Palette-Host offscreen?: #t))
+  
+  
+  ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  @OLD(
+  (method public (get-guest)
+    guest)
+  
+  
+  (method public (set-guest view)
+    (when (neq? view guest)
+      (when guest
+        (uninstall-guest))
+      (set! guest view)
+      (when guest
+        (install-guest))))
+  
+  
+  (method public (unanchor-guest)
+    (set! guest {})))
+  
+
+  ;;;
   ;;;; Events
   ;;;
 
+
+  (method (on-close evt)
+    (set-visible? #f)
+    processed)
   
-  (method (on-activate-palette)
-    (send-child-to-front~ parent self))
+  
+  ;;;
+  ;;;; Focus
+  ;;;
   
   
-  (method (on-deactivate-palette)
-    )))
+  @ZOO(
+  (method (focus-gain)
+    (nextmethod)
+    (activate-focus)
+    processed)
+  
+  
+  (method (focus-lose receiving)
+    (nextmethod receiving)
+    (deactivate-focus)
+    processed)
+    
+  
+  (method (activate-focus)
+    (set-guest-actions~ (get-application) (get-guest-actions guest))
+    (focus-activate~ guest))
+    
+  
+  (method (deactivate-focus)
+    (set-guest-actions~ (get-application) '())))))

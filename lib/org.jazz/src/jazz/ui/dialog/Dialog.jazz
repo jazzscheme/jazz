@@ -38,13 +38,8 @@
 (library jazz.ui.dialog.Dialog jazz
 
 
-(import (jazz.library)
-        (jazz.platform)
-        (jazz.ui)
-        (jazz.ui.dialog)
-        (jazz.ui.view)
-        (jazz.ui.window)
-        (jazz.utilities))
+(import (jazz.ui)
+        (jazz.ui.window))
 
 
 (class Dialog extends Overlapped
@@ -52,13 +47,10 @@
   
   (property sizable?  initialize #f getter get-sizable?  setter set-sizable?)
   (property closable? initialize #t getter get-closable? setter set-closable?)
-
   
-  (slot modal-done?   initialize #f)
-  (slot modal-closed? initialize #f)
-  (slot modal-result  initialize {})
-  (slot modal-signal  initialize {})
-  (slot modal-action  initialize {})
+  
+  (method (new-root)
+    (new Dialog-Host offscreen?: #t))
   
   
   ;;;
@@ -82,10 +74,6 @@
     (set! closable? value))
   
   
-  (method public (processing-modal?)
-    (not modal-done?))
-  
-  
   ;;;
   ;;;; Close
   ;;;
@@ -94,38 +82,45 @@
   (method (on-close evt)
     (if (not closable?)
         processed
-      (cancel-modal)))
+      (cancel-modal~ root)))
   
   
   (method (destroy)
-    (set! modal-closed? #t)
-    (set! modal-result {})
-    (set! modal-done? #t)
+    (destroy-modal~ root)
     (nextmethod))
-
-
-  ;;;
-  ;;;; Actions
-  ;;;
   
-
-  (method (class-actions)
-    (cons (find-actions 'dialog)
-          (nextmethod)))
-
+  
+  @ZOO (
+  
   
   ;;;
-  ;;;; Events
+  ;;;; Focus
   ;;;
   
   
-  (method public (on-ok evt)
-    (validate-dialog)
-    (end-modal (get-modal-result)))
+  (method (focus-gain)
+    (nextmethod)
+    (activate-focus)
+    processed)
   
-
-  (method public (on-cancel evt)
-    (cancel-modal))
+  
+  (method (focus-lose receiving)
+    (nextmethod receiving)
+    (deactivate-focus)
+    processed)
+  
+  
+  (method (focus-default)
+    (when guest
+      (focus-default~ guest)))
+    
+  
+  (method (activate-focus)
+    (set-guest-actions~ (get-application) (get-guest-actions guest)))
+  
+  
+  (method (deactivate-focus)
+    (set-guest-actions~ (get-application) '()))
 
   
   ;;;
@@ -133,78 +128,10 @@
   ;;;
   
   
-  (method public virtual (validate-dialog)
-    )
+  (method (validate-dialog)
+    (when guest
+      (validate-dialog~ guest)))
   
   
-  (method public virtual (get-modal-result)
-    {})
-  
-  
-  (method public (process-modal)
-    (close-popups)
-    (release-captured-view)
-    (prog1 (let* ((application (get-application))
-                  (toplevel (get-toplevel))
-                  (overlapped (either (current-modal) toplevel))
-                  (preserved (current-modal)))
-             (when overlapped
-               (disable-window~ overlapped))
-             (unwind-protect
-                 (begin
-                   (set! modal-done? #f)
-                   (set-current-modal self)
-                   (when toplevel
-                     (update-windowing-actions~ application))
-                   (show)
-                   (execute-event
-                     (function ()
-                       (catch Modal-Done
-                         (catch Cancel-Signal
-                           (process-events)))))
-                   (cond (modal-closed? (throw-cancel))
-                         (modal-signal (signal modal-signal))
-                         (else modal-result)))
-               (when overlapped
-                 (enable-window~ overlapped))
-               (set! modal-done? #t)
-               (set-current-modal preserved)
-               (when toplevel
-                 (update-windowing-actions~ application))
-               (close)))
-      (when modal-action
-        (modal-action))))
-  
-  
-  ;;;
-  ;;;; Termination
-  ;;;
-  
-  
-  (method public (end-modal result)
-    (set! modal-closed? #f)
-    (set! modal-result result)
-    (modal-done))
-  
-  
-  (method public (signal-modal signal)
-    (set! modal-signal signal)
-    (modal-done))
-  
-  
-  (method public (cancel-modal)
-    (signal-modal (new Cancel-Signal)))
-  
-  
-  (method public (close-modal action)
-    (set! modal-closed? #f)
-    (set! modal-result {})
-    (set! modal-action action)
-    (modal-done)))
-
-
-(class Modal-Done extends Signal)
-
-
-(definition (modal-done)
-  (throw (new Modal-Done))))
+  (method (get-modal-result)
+    (get-modal-result~ guest)))))

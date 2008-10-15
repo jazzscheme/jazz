@@ -143,6 +143,10 @@
   ;;;
   ;;;; Destruction
   ;;;
+  
+  
+  (method public virtual (close-with-confirm)
+    (close))
 
 
   (method (destroy)
@@ -222,11 +226,11 @@
   ;;;
 
 
-  (method public (get-host)
-    (get-player))
+  (method public virtual (get-host)
+    (find-ascendant Host-View))
   
   
-  (method public (get-guest)
+  (method public virtual (get-guest)
     (get-guest~ (get-host)))
   
   
@@ -266,7 +270,7 @@
   
   (method public (frame-guest?)
     (let ((host (get-host)))
-      (and (is? host Host-Frame)
+      (and (is? host Frame-Host)
            (eq? (get-guest~ host) self))))
   
   
@@ -276,23 +280,23 @@
   
   
   (method meta protected virtual (dialog-class)
-    Host-Dialog)
+    Dialog)
   
   
   (method meta protected virtual (frame-class)
-    Host-Frame)
+    Frame-Host)
   
   
   (method meta protected virtual (palette-class)
-    Host-Palette)
+    Palette)
   
   
   (method meta protected virtual (docked-class)
-    Host-Docked)
+    Docked-Host)
   
   
   (method meta protected virtual (toolbar-class)
-    Host-Toolbar)
+    Toolbar-Host)
   
   
   (method meta protected virtual (host-icon)
@@ -339,10 +343,55 @@
       (collect-if (function (name)
                     (memq? name names))
                   workspaces)))
+  
+  
+  (method public (for-each-palette proc)
+    (for-each (function (child)
+                (cond ((is? child Splitter-View)
+                       (for-each-palette~ child proc))
+                      ((is? child Pad-View)
+                       (for-each proc (get-children~ child)))
+                      (else
+                       (proc child))))
+              children))
+  
+  
+  (method public (find-palette type)
+    (continuation-capture
+      (function (return)
+        (for-each-palette
+          (function (palette)
+            (when (is? palette Host-View)
+              (let ((view (get-guest~ palette)))
+                (when (is? view type)
+                  (continuation-return return view))))))
+        {})))
+  
+  
+  (method public (find-host guest-type)
+    (find-if (function (view)
+               (and (is? view Host-View)
+                    (is? (get-guest~ view) guest-type)))
+             children))
+  
+  
+  (method public (find-guest guest-type)
+    (let ((host (find-host guest-type)))
+      (when host
+        (get-guest~ host))))
+  
+  
+  (method public (collect-guest guest-type)
+    (collect (function (view)
+               (when (is? view Host-View)
+                 (let ((guest (get-guest~ view)))
+                   (when (is? guest guest-type)
+                     guest))))
+             children))
 
 
   (method (get-frame)
-    player)
+    (get-host))
   
   
   (method public virtual (guest-icon)
@@ -959,7 +1008,7 @@
                (ws (new Page-Workspace name: 'page previous: current)))
           (apply-preferences~ ws)
           (let* ((toplevel (get-toplevel))
-                 (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Page-Toolbar)))
+                 (toolbar (find-palette~ (get-root~ toplevel) Page-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-preview) (not from-preview?))
             (layout-view~ toolbar))
           (let* ((frame (new-frame Page-Editor host-title: "Print Layout" client: client))
@@ -976,7 +1025,7 @@
                (ws (new Preview-Workspace name: 'preview previous: current pane: pane)))
           (apply-preferences~ ws)
           (let* ((toplevel (get-toplevel))
-                 (toolbar (find-palette~ (get-workspace-splitter~ toplevel) Preview-Toolbar)))
+                 (toolbar (find-palette~ (get-root~ toplevel) Preview-Toolbar)))
             (set-visible?~ (locate~ toolbar 'print-layout) (not from-layout?))
             (layout-view~ toolbar))
           (set-visible?~ frame #t)
@@ -1517,18 +1566,32 @@
 
 
   (method public (first-view)
-    (first (get-views)))
+    (let ((views (get-views)))
+      (if (null? views)
+          #f
+        (first views))))
+
+
+  (method public (second-view)
+    (let ((views (get-views)))
+      (if (>= (length views) 2)
+          (second views)
+        #f)))
 
 
   (method public (last-view)
-    (last (get-views)))
+    (let ((views (get-views)))
+      (if (null? views)
+          #f
+        (last views))))
     
   
   (method public (get-views (include-invisibles?: include-invisibles? #f))
-    (collect-if
-      (function (child)
-        (and (is? child View)
-             (or include-invisibles? (get-visible?~ child)))) (get-children)))
+    (reverse!
+      (collect-if
+        (function (child)
+          (and (is? child View)
+               (or include-invisibles? (get-visible?~ child)))) (get-children))))
   
 
   (method public (front-view?)
@@ -1879,8 +1942,9 @@
           (set-mouse-down? #t)
           (set-mouse-down-view view)
           (set-mouse-down-point acquired)
-          (when (mouse-activate?~ view)
-            (mouse-activate~ (get-root)))
+          (let ((host (get-host~ view)))
+            (when (and host (mouse-activate?~ host))
+              (mouse-activate~ host)))
           (call-mouse-down~ view acquired)
           (call-cursor-update~ view acquired)))))
 
@@ -1999,8 +2063,9 @@
           (set-mouse-down? #t)
           (set-mouse-down-view view)
           (set-mouse-down-point acquired)
-          (when (mouse-activate?~ view)
-            (mouse-activate~ (get-root)))
+          (let ((host (get-host~ view)))
+            (when (and host (mouse-activate?~ host))
+              (mouse-activate~ host)))
           (call-double-click~ view (acquire~ view self pos))))))
   
   
@@ -2454,7 +2519,8 @@
   
   
   (method public virtual (close-popups (event: event {}) (all?: all? #f) (exclude: exclude {}))
-    (close-popups~ player all?: all? exclude: exclude))
+    (when player
+      (close-popups~ player all?: all? exclude: exclude)))
   
   
   (method public virtual (popup-destroy popup)

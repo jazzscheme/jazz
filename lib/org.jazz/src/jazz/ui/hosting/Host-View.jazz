@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Host Docked
+;;;; Host View
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,23 +35,25 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.hosting.Host-Docked jazz
+(library jazz.ui.hosting.Host-View jazz
 
 
-(import (jazz.library)
+(import (jazz.jml)
+        (jazz.library)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.utilities))
 
 
-(class Host-Docked extends Docked implements View-Host
+(class Host-View extends View
+  
+  
+  (form
+    (<install> background: {Color name: Medium}))
     
   
-  (property guest initialize {} getter get-guest setter set-guest)
-  
-  
-  (method (install rest)
-    (nextmethod rest)
-    (set-layout-type~ (get-content~ root) 'fill))
+  (property content initialize {} getter get-content setter set-content)
+  (property guest   initialize {} getter get-guest   setter set-guest)
   
   
   (method (destroy-component)
@@ -66,13 +68,19 @@
         (close~ view))))
   
   
-  (method (new-root)
-    (new Docked-Root))
-  
-  
   ;;;
   ;;;; Access
   ;;;
+  
+  
+  (method public (get-content)
+    content)
+  
+  
+  (method public (set-content view)
+    (when (neq? view content)
+      (set! content view)
+      (layout-view)))
   
   
   (method public (get-guest)
@@ -83,9 +91,71 @@
     (when (neq? view guest)
       (when guest
         (uninstall-guest))
+      (when (not content)
+        (set! content view))
       (set! guest view)
       (when guest
         (install-guest))))
+
+  
+  ;;;
+  ;;;; Activation
+  ;;;
+  
+  
+  (method public (call-activate)
+    (unless (eq? (get-focused-host) self)
+      (set-focused-host self)
+      (root-activate)
+      (when guest
+        (root-activated~ guest))))
+  
+  
+  (method public (call-deactivate)
+    (let ((focused-host (get-focused-host))
+          (overlapped (get-overlapped)))
+      (when (and overlapped (eq? focused-host self))
+        (set-previously-focused-host~ overlapped focused-host)
+        (set-focused-host {})
+        (root-deactivate)
+        (when guest
+          (root-deactivated~ guest)))))
+  
+  
+  (method (mouse-activate?)
+    #f)
+  
+  
+  (method public virtual (mouse-activate)
+    )
+  
+  
+  (method public virtual (root-activate)
+    )
+  
+  
+  (method public virtual (root-deactivate)
+    )
+    
+
+  ;;;
+  ;;;; Layout
+  ;;;
+  
+  
+  (method (layout)
+    (when content
+      (set-position~ content (new Point 0 0))
+      (set-size~ content (get-size))))
+
+  
+  ;;;
+  ;;;; View
+  ;;;
+
+
+  (method (get-host)
+    self)
   
   
   ;;;
@@ -94,17 +164,26 @@
   
   
   (method (install-guest)
-    (set-parent~ guest (get-content~ root))
+    (set-parent~ guest self)
     (set-position~ guest {Point 0 0})
     (set-size~ guest (get-size))
     (set-visible?~ guest #t)
     (install-in-host~ guest self)
-    (install-tools~ root))
+    (install-tools))
   
   
   (method (uninstall-guest)
     (uninstall-from-host~ guest self)
     (close~ guest))
+
+  
+  ;;;
+  ;;;; Tools
+  ;;;
+  
+  
+  (method protected virtual (install-tools)
+    (layout-view))
   
   
   ;;;

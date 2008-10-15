@@ -181,8 +181,9 @@
     (nextmethod)
     (set-cursor :arrow)
     (splash-screen)
+    @ZOO-buggy
     (let ((pref (get-preferences {} error?: #f)))
-      (set-state~ (get-root~ toplevel) (if pref (get-toplevel-state~ pref) 'restored)))
+      (set-state~ toplevel (if pref (get-toplevel-state~ pref) 'restored)))
     (when stage
       (install-wallpaper~ stage)))
 
@@ -533,7 +534,7 @@
     (let ((stage (get-stage))
           (frame-dependent-document?
            (function (frame)
-             (and (is? frame View-Host)
+             (and (is? frame Host-View)
                   (let ((guest (get-guest~ frame)))
                     (and (is? guest Document)
                          (let ((controller (get-controller~ guest)))
@@ -662,14 +663,11 @@
   (method public virtual (deactivate)
     (close-popups~ toplevel)
     (set-mouse-in {})
-    (set! active? #f)
-    (invalidate-caption~ (get-root~ toplevel)))
+    (set! active? #f))
   
   
   (method public virtual (activate)
     (set! active? #t)
-    (when toplevel
-      (invalidate-caption~ (get-root~ toplevel)))
     ;; Necessary because verify-reloads can pop a dialog
     (if (mouse-clicked?)
         (set-delayed-mouse-action
@@ -680,12 +678,12 @@
   
   (method public (verify-reloads)
     (when stage
-      (for-each (function (window)
-                  (when (is? window Host-Frame)
-                    (let ((guest (get-guest~ window)))
+      (for-each (function (view)
+                  (when (is? view Frame-Host)
+                    (let ((guest (get-guest~ view)))
                       (when (is? guest Document)
                         (verify-reload~ (get-controller~ guest))))))
-                (get-windows~ stage include-invisibles?: #t))))
+                (get-views~ stage include-invisibles?: #t))))
   
   
   (method public (verify-reload moniker)
@@ -984,7 +982,7 @@
   (method (initialize-toplevel)
     (set! toplevel (new-toplevel))
     (ensure-displayed~ toplevel)
-    (set! stage (stage-window~ toplevel))
+    (set! stage (get-stage~ toplevel))
     (initialize-actions))
   
   
@@ -1143,7 +1141,7 @@
   (method public (find-menubar)
     (let ((menubar-class (get-menubar-class)))
       (when menubar-class
-        (find-palette~ (get-workspace-splitter~ toplevel) menubar-class))))
+        (find-palette~ (get-root~ toplevel) menubar-class))))
   
   
   (method public (update-menubar-buttons)
@@ -1201,7 +1199,6 @@
       ((:application)  self)
       ((:toplevel)     (get-toplevel))
       ((:stage)        (get-stage))
-      ((:wallpaper)    (get-root~ (get-stage)))
       ((:frame)        (current-frame))
       ((:document)     (current-document))
       ((:guest)        (current-guest))
@@ -1454,7 +1451,7 @@
   (method public (find-toolbar)
     (let ((toolbar-class (get-toolbar-class)))
       (when toolbar-class
-        (find-palette~ (get-workspace-splitter~ toplevel) toolbar-class))))
+        (find-palette~ (get-root~ toplevel) toolbar-class))))
 
 
   ;;;
@@ -1912,7 +1909,7 @@
   ;; This needs cleanup as it cannot be done for every application
   (method public (update-search-actions)
     (let* ((stage (get-stage))
-           (frames (if (not stage) '() (get-windows~ stage)))
+           (frames (if (not stage) '() (get-views~ stage)))
            (count (length frames))
            (results (get-search-results))
            (results-count (get-visible-count~ (get-tree~ results)))
@@ -1957,6 +1954,7 @@
            (internal? (is? focus Tree-Embedded-Search-Text-View))
            (string (if (and (not internal?) (is? focus Text-View)) (get-selected-string~ focus) {}))
            (palette (get-search-manager))
+           (player (get-player~ palette))
            (manager (get-guest~ palette))
            (tab-view (locate~ manager 'tab))
            (same-tab? (eq? tab (get-selection-name~ tab-view))))
@@ -1968,9 +1966,9 @@
           (set-selection-name~ tab-view tab)
           (when domain
             (set-search-domain~ (get-search~ manager) domain))))
-      (when (not (get-visible?~ palette))
-        (bring-to-front~ palette)
-        (set-visible?~ palette #t))
+      (when (not (get-visible?~ player))
+        (bring-to-front~ player)
+        (set-visible?~ player #t))
       (for-each (function (search)
                   (let ((targets (get-search-targets~ search)))
                     (unless (or (not string)
@@ -2194,7 +2192,7 @@
 
   (method public (find-document moniker)
     (find-if (function (frame)
-               (and (is? frame Host-Frame)
+               (and (is? frame Frame-Host)
                     (let ((guest (get-guest~ frame)))
                       (and (is? guest Document)
                            (let ((guest-moniker (get-moniker~ (get-controller~ guest))))
@@ -2268,20 +2266,20 @@
   
   
   (method public virtual (on-close evt)
-    (let ((frame (first-window~ stage)))
+    (let ((frame (first-view~ stage)))
       (when frame
         (validate-focus)
         (close-with-confirm~ frame))))
 
   
   (method public virtual (on-close-all evt)
-    (for-each (function (window)
-                (when (is? window Host-Frame)
-                  (let ((guest (get-guest~ window)))
+    (for-each (function (view)
+                (when (is? view Frame-Host)
+                  (let ((guest (get-guest~ view)))
                     (when (and (is? guest Document) (close-on-close-all?~ (get-controller~ guest)))
-                      (confirm-close~ window)
-                      (close~ window)))))
-              (get-windows~ stage)))
+                      (confirm-close~ view)
+                      (close~ view)))))
+              (get-views~ stage)))
         
     
   (method public virtual (on-save-all evt)
@@ -2311,7 +2309,7 @@
     (let ((save-documents
             (function (main-documents?)
               (for-each (function (window)
-                          (when (is? window Host-Frame)
+                          (when (is? window Frame-Host)
                             (let ((guest (get-guest~ window)))
                               (when (is? guest Document)
                                 (let ((controller (get-controller~ guest)))
@@ -2320,7 +2318,7 @@
                                              (xor main-documents? (dependent-document?~ controller))
                                              (get-modified?~ (get-controller~ guest)))
                                     (save~ guest)))))))
-                        (get-windows~ stage include-invisibles?: #t)))))
+                        (get-views~ stage include-invisibles?: #t)))))
       ;; saving dependent documents will make their main document modified
       (save-documents #f)
       (save-documents #t)))
@@ -2525,10 +2523,10 @@
       tooltips?: #f))
   
   
-  (method (on-capture-root evt)
+  (method (on-capture-host evt)
     (define (capture view pos)
-      (let ((root (get-root~ view)))
-        (export-picture~ root)))
+      (let ((host (get-host~ view)))
+        (export-picture~ host)))
     
     (pick-figure
       click: capture
@@ -2551,7 +2549,7 @@
   (method public (update-window-actions)
     (let ((stage (get-stage)))
       (when stage
-        (let* ((frames (get-windows~ stage))
+        (let* ((frames (get-views~ stage))
                (count (length frames))
                (in-modal? (in-modal?)))
           (set-action-enabled? {Action application close}             (and (>= count 1) (not in-modal?)))
@@ -2565,38 +2563,38 @@
           (set-action-enabled? {Action application print-layout}      (and (>= count 1) (not in-modal?)))
           (set-action-enabled? {Action application print-preview}     (and (>= count 1) (not in-modal?)))
           (set-action-enabled? {Action application print}             (and (>= count 1) (not in-modal?)))
-          (set-action-enabled? {Action application next-window}       (and (>= count 2) (not in-modal?)))
-          (set-action-enabled? {Action application previous-window}   (and (>= count 2) (not in-modal?)))
-          (set-action-enabled? {Action application current-window}    (and (>= count 1) (not in-modal?)))
+          (set-action-enabled? {Action application next-frame}        (and (>= count 2) (not in-modal?)))
+          (set-action-enabled? {Action application previous-frame}    (and (>= count 2) (not in-modal?)))
+          (set-action-enabled? {Action application current-frame}     (and (>= count 1) (not in-modal?)))
           @wait
-          (set-action-enabled? {Action application toggle-window}     (and (>= count 1) (not in-modal?)))
+          (set-action-enabled? {Action application toggle-frame}      (and (>= count 1) (not in-modal?)))
           @wait
           (set-action-enabled? {Action application cascade}           (and (>= count 1) (not in-modal?)))
           (set-action-enabled? {Action application tile-horizontally} (and (>= count 2) (not in-modal?)))
           (set-action-enabled? {Action application tile-vertically}   (and (>= count 2) (not in-modal?)))))))
   
   
-  (method public virtual (on-next-window evt)
+  (method public virtual (on-next-frame evt)
     (let* ((stage (get-stage))
-           (first (first-window~ stage)))
+           (first (first-view~ stage)))
       (send-to-back~ first)
       (acquire-focus~ (current-frame))))
   
   
-  (method public virtual (on-previous-window evt)
+  (method public virtual (on-previous-frame evt)
     (let* ((stage (get-stage))
-           (last (last-window~ stage)))
+           (last (last-view~ stage)))
       (bring-to-front~ last)
       (acquire-focus~ (current-frame))))
   
   
-  (method public virtual (on-current-window evt)
+  (method public virtual (on-current-frame evt)
     (let* ((stage (get-stage))
-           (first (first-window~ stage)))
+           (first (first-view~ stage)))
       (acquire-focus~ first)))
   
   
-  (method public virtual (on-toggle-window evt)
+  (method public virtual (on-toggle-frame evt)
     (let ((text (current-document)))
       (if (is? text Text-View)
           (toggle-text text)
@@ -2622,13 +2620,13 @@
   
   (method public virtual (on-cascade evt)
     (let* ((stage (get-stage))
-           (frames (get-windows~ stage)))
+           (frames (get-views~ stage)))
       (unimplemented 'on-cascade)))
   
   
   (method public virtual (on-tile-horizontally evt)
     (let* ((stage (get-stage))
-           (frames (get-windows~ stage))
+           (frames (get-views~ stage))
            (count (length frames))
            (width (get-width~ stage))
            (height (get-height~ stage))
@@ -2646,7 +2644,7 @@
   
   (method public virtual (on-tile-vertically evt)
     (let* ((stage (get-stage))
-           (frames (get-windows~ stage))
+           (frames (get-views~ stage))
            (count (length frames))
            (width (get-width~ stage))
            (height (get-height~ stage))
@@ -2664,8 +2662,5 @@
   
   (method public virtual (on-select-window evt)
     (let ((window (get-property~ evt window:)))
-      @windows-specific
-      (unless (is? window Palette)
-        (show-window~ window SW_RESTORE))
       (bring-to-front~ window)
       (acquire-focus~ window)))))

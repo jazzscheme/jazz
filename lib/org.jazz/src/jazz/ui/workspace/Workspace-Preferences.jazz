@@ -75,9 +75,9 @@
     (validate-focus)
     (let ((palette {}))
       (when (selected-workspace)
-        (let ((root (get-focused-root)))
-          (when (is? root Docked-Root)
-            (set! palette (get-guest~ (get-host~ root)))))
+        (let ((host (get-focused-host)))
+          (when (is? host Docked-Host)
+            (set! palette (get-guest~ host))))
         (deactivate~ (selected-workspace)))
       (unwind-protect
           (begin
@@ -95,19 +95,19 @@
     (let ((appl (get-application))
           (stage (get-stage))
           (toplevel (get-toplevel))
-          (splitter (if (*hack*) *splitter* (get-workspace-splitter)))
           (palettes '()))
       (with-locked-update
         (function ()
           (close-palettes)
           (full-screen-stage~ appl #f)
-          (let ((visibility (collect-visibility)))
+          (let ((splitter (get-root~ toplevel))
+                (visibility (collect-visibility)))
             (process-frames visibility #f)
             (for-each (function (preferences)
                         (if (is? preferences Splitter-Preferences)
                             (begin
                               (apply-to~ preferences splitter)
-                              (set-preferences~ splitter self))
+                              (set-workspace-preferences self))
                           (let* ((name (get-name~ preferences))
                                  (class (autoload name))
                                  (palette (singleton-palette~ class name)))
@@ -170,7 +170,7 @@
   
   (method (process-activation)
     (let* ((stage (get-stage))
-           (frames (get-windows~ stage)))
+           (frames (get-views~ stage)))
       (if (null? frames)
           (stage-activate~ stage)
         (for-each-docked

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Frame Root
+;;;; Frame Host
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,20 +35,265 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(library jazz.ui.view.Frame-Root jazz
+(library jazz.ui.hosting.Frame-Host jazz
 
 
 (import (jazz.jml)
         (jazz.library)
         (jazz.system)
         (jazz.ui)
-        (jazz.ui.window)
         (jazz.ui.resizer)
         (jazz.ui.view)
+        (jazz.ui.window)
+        (jazz.ui.workspace)
         (jazz.utilities))
 
 
-(class Frame-Root extends Caption-Root
+(class Frame-Host extends Caption-Host
+  
+  
+  ;;;;;;;;;;;;; FROM FRAME
+
+  
+  ;;;
+  ;;;; Initialization
+  ;;;
+  
+  
+  (method (conclude rest)
+    (nextmethod rest)
+    (destroy-mandatory))
+
+  
+  ;;;
+  ;;;; Events
+  ;;;
+
+
+  (method (close-with-confirm)
+    (close-popups)
+    (confirm-close)
+    (nextmethod))
+  
+  
+  ;;;
+  ;;;; Activate
+  ;;;
+  
+  
+  (method (activate-frame (force?: force? #f))
+    (when (or force? (neq? self (get-active-frame)))
+      (set-active-frame self)
+      (process-activation)
+      (update-windowing-actions~ (get-application))))
+
+  
+  (method (deactivate-frame)
+    (when (eq? self (get-active-frame))
+      (set-active-frame {})
+      (process-deactivation)))
+    
+
+  ;;;
+  ;;;; Overwrites
+  ;;;
+  
+  
+  (method (destroy)
+    (when (get-surrogate)
+      (remove-surrogate))
+    (let* ((was-active? (eq? self (get-active-frame)))
+           (new-active (essay was-active? (second-view~ parent))))
+      (nextmethod)
+      (when was-active?
+        (deactivate-frame)
+        (when new-active
+          (activate-frame~ new-active)
+          (acquire-focus~ new-active))))
+    (update-windowing-actions~ (get-application)))
+  
+  
+  (method (bring-to-front)
+    (nextmethod)
+    (when (get-visible?)
+      (activate-front)))
+  
+  
+  (method (send-to-back)
+    (nextmethod)
+    (activate-front))
+  
+
+  ;;;
+  ;;;; Activation
+  ;;;
+
+
+  (method (process-activation)
+    (close-popups)
+    (let ((stage (get-stage)))
+      (when (get-maximized?~ stage)
+        (set-caption~ (get-toplevel) (get-title))))
+    (unless (get-locked-activations?)
+      (for-each-docked
+        (function (view)
+          (client-activate~ view))))
+    (frame-activate))
+
+
+  (method (process-deactivation)
+    (frame-deactivate)
+    (let ((stage (get-stage)))
+      (when (null? (get-views~ stage))
+        (stage-activate~ stage))))
+  
+  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;
+  
+  
+  (slot workspace initialize {})
+
+
+  (method public (get-workspace)
+    workspace)
+
+
+  (method public (set-workspace value)
+    (set! workspace value))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method (focus-gain old)
+    (nextmethod old)
+    (activate-focus)
+    processed)
+  
+  
+  (method (focus-lose window view)
+    (nextmethod window view)
+    (deactivate-focus)
+    processed)
+  
+  
+  (method (focus-default)
+    (when guest
+      (focus-default~ guest)))
+    
+  
+  (method (activate-focus)
+    (when guest
+      (set-guest-actions~ (get-application) (get-guest-actions guest))
+      (focus-activate~ guest)))
+    
+  
+  (method (deactivate-focus)
+    (set-guest-actions~ (get-application) '()))
+
+
+  ;;;
+  ;;;; Activation
+  ;;;
+
+  
+  (method (frame-activate)
+    (nextmethod)
+    (unless (get-locked-activations?)
+      (select-workspace)))
+  
+  
+  (method (frame-deactivate)
+    (when guest
+      (frame-deactivate~ guest)))
+
+
+  ;;;
+  ;;;; Visibility
+  ;;;
+  
+  
+  (method (show)
+    (nextmethod)
+    (let ((stage (get-stage)))
+      (when (get-maximized?~ stage)
+        (maximize)
+        (maximize-bounds (get-size~ stage))
+        (maximize~ guest)))
+    (activate-front force?: #t))
+
+
+  ;;;
+  ;;;; Workspace
+  ;;;
+  
+  
+  (method public (select-workspace)
+    (when guest
+      (let ((pref (get-workspace-preferences)))
+        (when pref
+          (let ((current (get-name~ pref))
+                (workspaces
+                 (cond (workspace
+                        (list workspace))
+                       (else
+                        (effective-host-workspaces~ guest)))))
+            (when (and (not-null? workspaces) (not (memq? current workspaces)))
+              (let ((pref (get-preferences (list 'workspaces (car workspaces)) error?: #f)))
+                (when pref
+                  (apply-preferences~ pref)))))))))
+
+  
+  (method public (ensure-displayed)
+    (let ((outer (get-size~ parent))
+          (rect (get-rect)))
+      (receive (new-position new-size) (fit-within outer rect padding: 8)
+        (set-size new-size)
+        (set-position new-position))))
+  
+  
+  ;;;
+  ;;;; Maximized
+  ;;;
+  
+  
+  (method (get-effective-position)
+    (if (get-maximized?)
+        (get-preserved-position)
+      (get-position)))
+  
+  
+  (method (get-effective-size)
+    (if (get-maximized?)
+        (get-preserved-size)
+      (get-size)))
+  
+  
+  ;;;
+  ;;;; Mouse Copy
+  ;;;
+  
+  
+  (method (dispatch-mouse-copy)
+    (let ((view (mouse-view))
+          (dest (get-focus)))
+      (when (and view dest)
+        (mouse-copy~ view (mouse-position~ view) dest))))
+
+
+  ;;;
+  ;;;; Save
+  ;;;
+
+  
+  (method (confirm-close . rest)
+    (when guest
+      (confirm-close~ guest)))
+  
+  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;; OLD ROOT CODE
 
   
   (slot dragging?          initialize #f)
@@ -124,8 +369,13 @@
   ;;;
   
   
+  (method (mouse-activate?)
+    #t)
+  
+  
   (method (mouse-activate)
-    (acquire-focus~ (get-player)))
+    (bring-to-front)
+    (acquire-focus))
   
   
   (method (root-activate)
@@ -185,7 +435,7 @@
            (caption-rect (caption-rect))
            (caption-height (rect-height caption-rect)))
       (layout-buttons)
-      (let ((content (get-content)))
+      (when content
         (set-position~ content (new Point border (if caption? (+ border caption-height) 0)))
         (set-size~ content (new Dimension (- (get-width) border border) (- (get-height) border border (if caption? caption-height 0)))))))
   
@@ -231,11 +481,11 @@
   
   (method (caption-title)
     (let ((host (get-host)))
-      (get-window-title~ host)))
+      (get-title~ host)))
   
   
   (method (caption-focused?)
-    (eq? self (get-focused-root)))
+    (eq? self (get-focused-host)))
   
   
   (method (caption-visible?)
@@ -272,7 +522,7 @@
   (method (mouse-down pos)
     (let ((in-caption? (in-rect? pos (caption-rect))))
       (if (and in-caption? (control-down?))
-          (send-host-to-back)
+          (send-to-back)
         (when (moveable?)
           (let ((part (find-resize-part pos (get-size))))
             (when (or part in-caption?)
@@ -289,11 +539,12 @@
              (dh (get-h~ delta))
              (dv (get-v~ delta)))
         (if (not current-part)
-            (move-window~ player (get-h~ delta) (get-v~ delta))
+            (move-figure~ (get-host) (get-h~ delta) (get-v~ delta))
           (resize-client dh dv current-part
             (function (dh dv dwidth dheight)
               (resize-host dh dv dwidth dheight))))
-        (update-window~ (get-toplevel))
+        @ZOO
+        (update-view~ (get-toplevel))
         (set! old-position desktop-pos))))
   
   
@@ -320,13 +571,8 @@
   
   
   (method protected virtual (resize-host dh dv dwidth dheight)
-    (grow-bounds~ player dh dv dwidth dheight))
+    (grow-bounds dh dv dwidth dheight))
   
   
   (method protected virtual (toggle-maximized)
-    (toggle-maximized~ (get-stage)))
-  
-  
-  (method protected virtual (send-host-to-back)
-    (send-to-back~ player)
-    (acquire-focus~ (current-frame)))))
+    (toggle-maximized~ (get-stage)))))

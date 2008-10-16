@@ -295,6 +295,8 @@
 
 (native jazz.build-feedback)
 (native jazz.boot-directory)
+(native jazz.kernel-name)
+(native jazz.kernel-title)
 (native jazz.kernel-system)
 (native jazz.kernel-platform)
 (native jazz.kernel-windowing)

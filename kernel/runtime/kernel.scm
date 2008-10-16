@@ -612,8 +612,8 @@
           (%%make-resource package path extension)
         #f))
     
-    (or (try-extension "jazz")
-        (try-extension "scm")))
+    (or (try-extension "scm")
+        (try-extension "jazz")))
   
   (if (jazz.directory-exists? (jazz.package-pathname package path))
       (try (%%string-append path "/_" (jazz.pathname-name path)))

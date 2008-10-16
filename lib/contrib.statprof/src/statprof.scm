@@ -10,6 +10,8 @@
 
 (module statprof
 
+(declare (proper-tail-calls))
+
 ;; Buckets should probably be tables for better performance
 (define *buckets* '())
 (define *total* 0)

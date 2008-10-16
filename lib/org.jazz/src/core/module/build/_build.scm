@@ -49,7 +49,7 @@
 
 
 (define (jazz.compile-module-internal module-name #!key (options #f) (cc-options #f) (ld-options #f) (force? #f))
-  (jazz.with-module-src/bin module-name
+  (jazz.with-module-src/bin module-name #f
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-module-name module-name)
                      (jazz.requested-module-resource src))

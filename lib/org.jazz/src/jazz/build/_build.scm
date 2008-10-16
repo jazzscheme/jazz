@@ -56,7 +56,7 @@
 
 
 (define (expand-to-port library-name port)
-  (let* ((src (jazz.find-module-src library-name))
+  (let* ((src (jazz.find-module-src library-name #f))
          (source (jazz.resource-pathname src))
          (form (jazz.read-toplevel-form source #f))
          (kind (car form))

@@ -5207,7 +5207,7 @@
 
 
 (define (jazz.load-toplevel-declaration module-name)
-  (let ((src (jazz.find-module-src module-name)))
+  (let ((src (jazz.find-module-src module-name '("jazz" "scm"))))
     (let ((source (jazz.resource-pathname src)))
       (define (load-declaration)
         (let ((form (jazz.read-toplevel-form source)))

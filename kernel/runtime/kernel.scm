@@ -551,7 +551,7 @@
               (%%cdr autoload)))))))
   
   (jazz.load-module module-name)
-  (jazz.with-module-src/bin module-name
+  (jazz.with-module-src/bin module-name #f
     (lambda (src bin bin-uptodate?)
       (let ((src-autoload (find-autoload src))
             (bin-autoload (find-autoload bin)))
@@ -605,15 +605,18 @@
 ;;;
 
 
-(define (jazz.package-find-src package path)
+(define (jazz.package-find-src package path extensions)
   (define (try path)
     (define (try-extension extension)
       (if (jazz.file-exists? (jazz.package-pathname package (%%string-append path "." extension)))
           (%%make-resource package path extension)
         #f))
     
-    (or (try-extension "scm")
-        (try-extension "jazz")))
+    (let iter ((extensions (or extensions '("scm" "jazz"))))
+      (if (%%null? extensions)
+          #f
+        (or (try-extension (%%car extensions))
+            (iter (%%cdr extensions))))))
   
   (if (jazz.directory-exists? (jazz.package-pathname package path))
       (try (%%string-append path "/_" (jazz.pathname-name path)))
@@ -643,13 +646,13 @@
     (try path)))
 
 
-(define (jazz.find-module-src module-name . rest)
+(define (jazz.find-module-src module-name extensions . rest)
   (let ((error? (if (%%null? rest) #t (%%car rest))))
     (continuation-capture
       (lambda (return)
         (jazz.iterate-resources module-name
           (lambda (package path)
-            (let ((src (jazz.package-find-src package path)))
+            (let ((src (jazz.package-find-src package path extensions)))
               (if src
                   (continuation-return return src)))))
         (if error?
@@ -657,7 +660,7 @@
           #f)))))
 
 
-(define (jazz.with-module-src/bin module-name proc)
+(define (jazz.with-module-src/bin module-name extensions proc)
   (let ((src #f)
         (bin #f))
     (continuation-capture
@@ -667,7 +670,7 @@
             (if (%%not bin)
                 (set! bin (jazz.package-find-bin package path)))
             (if (%%not src)
-                (set! src (jazz.package-find-src package path)))
+                (set! src (jazz.package-find-src package path extensions)))
             (if src
                 (continuation-return return #f))))))
     (let ((manifest (and bin (jazz.load-manifest bin))))
@@ -1043,7 +1046,7 @@
 
 
 (define (jazz.load-module-src/bin module-name)
-  (jazz.with-module-src/bin module-name
+  (jazz.with-module-src/bin module-name #f
     (lambda (src bin bin-uptodate?)
       (parameterize ((jazz.requested-module-name module-name)
                      (jazz.requested-module-resource (if bin-uptodate? bin src))

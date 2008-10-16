@@ -235,6 +235,31 @@
                   (when (get-visible?~ frame)
                     (maximize-bounds~ (get-host~ frame) size)))
                 children)))
+    
+
+  ;;;
+  ;;;; Draw
+  ;;;
+  
+  
+  ;; temp until a generic solution in the painting algorithm
+  (method (draw-children surface context update lh lv sh sv sc sc?)
+    (define (draw children opaques)
+      (when (not-null? children)
+        (let ((drawing (car children)))
+          (if (not (get-visible?~ drawing))
+              (draw (cdr children) opaques)
+            (let ((pos (get-position~ drawing)))
+              (let ((lh (+ lh (get-h~ pos)))
+                    (lv (+ lv (get-v~ pos))))
+                (let ((rect (h/v/size->rect lh lv size)))
+                  (draw (cdr children) (cons rect opaques))
+                  (unless (some? (function (opaque)
+                                   (rect-in-rect? rect opaque))
+                                 opaques)
+                    (paint~ drawing surface context update lh lv sh sv sc sc?)))))))))
+    
+    (draw (reverse children) '()))
   
   
   ;;;

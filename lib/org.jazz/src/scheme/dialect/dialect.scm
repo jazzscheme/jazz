@@ -112,14 +112,15 @@
   #t)
 
 
-(jazz.define-method (jazz.walk-binding-expand-form (jazz.Define-Macro-Declaration binding) walker resume declaration environment form)
-  (let ((locator (%%get-declaration-locator binding)))
-    (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-        (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
-      (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-module (%%get-declaration-locator parent-declaration))
-        (let ((expander (jazz.need-macro locator)))
-          (%%apply expander (%%cdr form)))))))
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Define-Macro-Declaration binding) walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((locator (%%get-declaration-locator binding)))
+      (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
+          (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
+        (let ((parent-declaration (%%get-declaration-parent binding)))
+          (jazz.load-module (%%get-declaration-locator parent-declaration))
+          (let ((expander (jazz.need-macro locator)))
+            (%%apply expander (%%cdr form))))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Define-Macro-Declaration declaration) environment)

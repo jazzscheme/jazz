@@ -114,7 +114,7 @@
 (jazz.define-virtual-runtime (jazz.walk-binding-walkable? (jazz.Walk-Binding binding)))
 (jazz.define-virtual-runtime (jazz.walk-binding-walk-form (jazz.Walk-Binding binding) walker resume declaration environment form))
 (jazz.define-virtual-runtime (jazz.walk-binding-expandable? (jazz.Walk-Binding binding)))
-(jazz.define-virtual-runtime (jazz.walk-binding-expand-form (jazz.Walk-Binding binding) walker resume declaration environment form))
+(jazz.define-virtual-runtime (jazz.walk-binding-expand-form (jazz.Walk-Binding binding) walker resume declaration environment form-src))
 
 
 (jazz.define-method (jazz.walk-binding-lookup (jazz.Walk-Binding binding) symbol)
@@ -1410,14 +1410,15 @@
   #t)
 
 
-(jazz.define-method (jazz.walk-binding-expand-form (jazz.Macro-Declaration binding) walker resume declaration environment form)
-  (let ((locator (%%get-declaration-locator binding)))
-    (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
-        (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
-      (let ((parent-declaration (%%get-declaration-parent binding)))
-        (jazz.load-module (%%get-declaration-locator parent-declaration))
-        (let ((expander (jazz.need-macro locator)))
-          (%%apply expander (%%cdr form)))))))
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Macro-Declaration binding) walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((locator (%%get-declaration-locator binding)))
+      (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
+          (jazz.walk-error walker resume declaration "Macros cannot be used from within the same file: {s}" locator)
+        (let ((parent-declaration (%%get-declaration-parent binding)))
+          (jazz.load-module (%%get-declaration-locator parent-declaration))
+          (let ((expander (jazz.need-macro locator)))
+            (%%apply expander (%%cdr form))))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Macro-Declaration declaration) environment)
@@ -1459,14 +1460,14 @@
   #t)
 
 
-(jazz.define-method (jazz.walk-binding-expand-form (jazz.Syntax-Declaration binding) walker resume declaration environment form)
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Syntax-Declaration binding) walker resume declaration environment form-src)
   (let ((locator (%%get-declaration-locator binding)))
     (if (%%eq? (%%get-declaration-toplevel binding) (%%get-declaration-toplevel declaration))
         (jazz.walk-error walker resume declaration "Syntaxes cannot be used from within the same file: {s}" locator)
       (let ((parent-declaration (%%get-declaration-parent binding)))
         (jazz.load-module (%%get-declaration-locator parent-declaration))
         (let ((expander (jazz.need-macro locator)))
-          (%%apply expander (%%cdr form)))))))
+          (expander form-src))))))
 
 
 (jazz.define-method (jazz.emit-declaration (jazz.Syntax-Declaration declaration) environment)
@@ -2138,12 +2139,37 @@
   #t)
 
 
-(jazz.define-method (jazz.walk-binding-expand-form (jazz.Macro-Form binding) walker resume declaration environment form)
-  (let ((expander (%%get-macro-form-expander binding)))
-    (apply expander walker resume declaration environment (%%cdr form))))
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Macro-Form binding) walker resume declaration environment form-src)
+  (let ((form (%%desourcify form-src)))
+    (let ((expander (%%get-macro-form-expander binding)))
+      (apply expander walker resume declaration environment (%%cdr form)))))
 
 
 (jazz.encapsulate-class jazz.Macro-Form)
+
+
+;;;
+;;;; Syntax Form
+;;;
+
+
+(jazz.define-class-runtime jazz.Syntax-Form)
+
+
+(define (jazz.new-syntax-form name expander)
+  (jazz.allocate-syntax-form jazz.Syntax-Form name #f expander))
+
+
+(jazz.define-method (jazz.walk-binding-expandable? (jazz.Syntax-Form binding))
+  #t)
+
+
+(jazz.define-method (jazz.walk-binding-expand-form (jazz.Syntax-Form binding) walker resume declaration environment form-src)
+  (let ((expander (%%get-syntax-form-expander binding)))
+    (expander walker resume declaration environment form-src)))
+
+
+(jazz.encapsulate-class jazz.Syntax-Form)
 
 
 ;;;
@@ -2242,9 +2268,9 @@
 
 ;; this approach is clearly costly in memory and is just to experiment
 (define (jazz.sourcify-code code src)
-  code
   #;
-  (if (%%not src)
+  code
+  (if (or (%%not src) (%%not (%%source? src)))
       code
     (jazz.new-code (%%get-code-form code)
                    (%%get-code-type code)
@@ -2253,11 +2279,11 @@
 
 ;; temp try
 (define (jazz.sourcified-form code)
-  (%%get-code-form code)
   #;
+  (%%get-code-form code)
   (let ((form (%%get-code-form code))
         (src (%%get-code-source code)))
-    (if (%%not src)
+    (if (or (%%not src) (%%not (%%source? src)))
         form
       (%%sourcify form src))))
 
@@ -4889,7 +4915,7 @@
             (jazz.walk-binding-walk-form binding walker resume declaration environment (%%desourcify form-src))
           ;; macro
           (if (and binding (jazz.walk-binding-expandable? binding))
-              (let ((expansion (jazz.walk-binding-expand-form binding walker resume declaration environment (%%desourcify form-src))))
+              (let ((expansion (jazz.walk-binding-expand-form binding walker resume declaration environment form-src)))
                 (jazz.walk walker resume declaration environment expansion))
             ;; call
             (jazz.walk-call walker resume declaration environment binding form-src)))))))

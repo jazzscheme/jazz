@@ -38,6 +38,7 @@
 (module core.base.runtime.syntax
 
 
+(define jazz.source? %%source?)
 (define jazz.source-code %%source-code)
 (define jazz.desourcify %%desourcify)
 (define jazz.sourcify %%sourcify)

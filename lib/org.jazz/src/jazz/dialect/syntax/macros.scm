@@ -41,16 +41,16 @@
 (import (jazz.dialect.kernel.boot))
 
 
-(syntax (constant name value)
+(macro (constant name value)
   `(definition ,name ,value))
 
 
-(syntax (enumeration name . declarations)
+(macro (enumeration name . declarations)
   (let ((definitions (map (lambda (declaration) `(definition ,@declaration)) declarations)))
     `(begin ,@definitions)))
 
 
-(syntax (when test . body)
+(macro (when test . body)
   `(if ,test
        (begin
          ,@(if (null? body)
@@ -59,20 +59,20 @@
      #f))
 
 
-(syntax (unless test . body)
+(macro (unless test . body)
   `(if (not ,test)
        (begin ,@body)
      #f))
 
 
-(syntax (prog1 returned . body)
+(macro (prog1 returned . body)
   (let ((value (generate-symbol)))
     `(let ((,value ,returned))
        (begin ,@body)
        ,value)))
 
 
-(syntax (unwind-protect body . protection)
+(macro (unwind-protect body . protection)
   `(dynamic-wind (function () #f)
                  (function () ,body)
                  (function () ,@protection)))
@@ -81,7 +81,7 @@
 ;; @macro (catch X (f)) @expansion (call-with-catch X (lambda (exc) exc) (lambda () (f)))
 ;; @macro (catch (X y (g y)) (f)) @expansion (call-with-catch X (lambda (y) (g y)) (lambda () (f)))
 
-(syntax (catch type . body)
+(macro (catch type . body)
   (cond ((symbol? type)
          `(call-with-catch ,type (lambda (exc) exc)
             (lambda ()
@@ -94,7 +94,7 @@
          (error "Ill-formed type in catch: {t}" type))))
 
 
-(syntax (~ name object)
+(macro (~ name object)
   (with-expression-value object
     (lambda (obj)
       `(lambda rest

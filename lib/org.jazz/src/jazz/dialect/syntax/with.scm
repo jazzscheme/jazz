@@ -42,7 +42,7 @@
 
 
 ;; should prolly expand into a let to be consistant with the naming
-(syntax (with bindings . body)
+(macro (with bindings . body)
   `(let* ,bindings
      (prog1 (begin ,@body)
        ,@(map (lambda (binding)
@@ -52,7 +52,7 @@
 
 ;; note that this is a quick not correct solution as in (with ((rect ... rect ...)) ...)
 ;; the second rect will incorrectly refer to the first rect
-(syntax (with-closed bindings . body)
+(macro (with-closed bindings . body)
   `(let (,@(map (lambda (binding)
                   (let ((specifier (or (binding-specifier binding) '<Object>)))
                     `(,(car binding) ,specifier #f)))

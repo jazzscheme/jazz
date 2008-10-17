@@ -47,7 +47,7 @@
 ;; @macro (either code result) @expansion (if code code result)
 ;; @macro (either (f) (g) (h)) @expansion (let ((sym15 (f))) (if sym15 sym15 (let ((sym16 (g))) (if sym16 sym16 (h)))))
 
-(syntax (either . expressions)
+(macro (either . expressions)
   (if (null? expressions)
       (error "Not enough arguments for either")
     (let ((scan expressions)

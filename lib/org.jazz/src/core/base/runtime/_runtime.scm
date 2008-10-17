@@ -43,6 +43,7 @@
          (core.base.runtime.list)
          (core.base.runtime.exception)
          (core.base.runtime.error)
+         (core.base.runtime.reader)
          (core.base.runtime.serial)
          (core.base.runtime.string)
          (core.base.runtime.symbol)

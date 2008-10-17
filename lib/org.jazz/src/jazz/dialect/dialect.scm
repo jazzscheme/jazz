@@ -1357,13 +1357,13 @@
 
 (define (jazz.parse-definition walker resume declaration rest)
   (receive (access compatibility expansion rest) (jazz.parse-modifiers walker resume declaration jazz.definition-modifiers rest)
-    (if (%%symbol? (%%car rest))
-        (let ((name (%%car rest)))
+    (if (%%symbol? (%%source-code (%%car rest)))
+        (let ((name (%%source-code (%%car rest))))
           (jazz.parse-specifier (%%cdr rest)
             (lambda (specifier rest)
               (values name specifier access compatibility expansion (%%car rest) #f))))
-      (let* ((name (%%caar rest))
-             (parameters (%%cdar rest)))
+      (let* ((name (%%source-code (%%car (%%source-code (%%car rest)))))
+             (parameters (%%cdr (%%desourcify (%%car rest)))))
         (jazz.parse-specifier (%%cdr rest)
           (lambda (specifier body)
             (let ((effective-body (if (%%null? body) (%%list (%%list 'unspecified)) body)))
@@ -1388,7 +1388,7 @@
 
 
 (define (jazz.walk-definition walker resume declaration environment form-src)
-  (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (%%desourcify form-src)))
+  (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (%%source-code form-src)))
     (let* ((new-declaration (jazz.find-form-declaration declaration name))
            (new-environment (%%cons new-declaration environment)))
       (%%when (%%not (%%eq? expansion 'inline))

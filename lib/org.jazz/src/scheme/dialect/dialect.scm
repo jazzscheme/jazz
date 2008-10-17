@@ -331,14 +331,13 @@
 
 
 (define (jazz.walk-lambda walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (let ((parameters (%%cadr form)))
-      (jazz.parse-specifier (%%cddr form)
-        (lambda (specifier body)
-          (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
-            (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-              (jazz.new-lambda type signature
-                (jazz.walk-body walker resume declaration augmented-environment body)))))))))
+  (let ((parameters (%%desourcify (%%cadr form-src))))
+    (jazz.parse-specifier (%%cddr form-src)
+      (lambda (specifier body)
+        (receive (signature augmented-environment) (jazz.walk-parameters walker resume declaration environment parameters #t #t)
+          (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+            (jazz.new-lambda type signature
+              (jazz.walk-body walker resume declaration augmented-environment body))))))))
 
 
 ;;;

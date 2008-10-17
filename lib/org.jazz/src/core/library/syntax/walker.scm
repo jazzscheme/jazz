@@ -1144,7 +1144,7 @@
 
 
 (define (jazz.parse-specifier lst proc)
-  (if (and (%%pair? lst) (jazz.specifier? (%%car lst)))
+  (if (and (%%pair? lst) (jazz.specifier? (%%source-code (%%car lst))))
       (proc (%%car lst) (%%cdr lst))
     (proc #f lst)))
 
@@ -2542,7 +2542,7 @@
   (let ((partitions (map (lambda (info) (%%cons info '())) infos))
         (done? #f))
     (%%while (and (%%not-null? rest) (%%not done?))
-      (let ((target (%%car rest))
+      (let ((target (%%desourcify (%%car rest)))
             (found? #f))
         (for-each (lambda (partition)
                     (let ((allowed (%%caar partition))
@@ -2954,13 +2954,13 @@
 
 
 (define (jazz.begin-form? form)
-  (and (%%pair? form)
-       (%%eq? (%%car form) 'begin)))
+  (and (%%pair? (%%source-code form))
+       (%%eq? (%%car (%%source-code form)) 'begin)))
 
 
 (define (jazz.define-form? form)
-  (and (%%pair? form)
-       (%%eq? (%%car form) 'define)))
+  (and (%%pair? (%%source-code form))
+       (%%eq? (%%car (%%source-code form)) 'define)))
 
 
 ;;;
@@ -4528,7 +4528,7 @@
                                             (set! state substate)
                                           (if (%%neq? substate state)
                                               (jazz.error "Inconsistant internal defines")))))
-                                    (%%cdr form))
+                                    (%%cdr (%%source-code form)))
                           state))
                        ((jazz.define-form? form)
                         (set! internal-defines (%%cons form internal-defines))
@@ -4543,7 +4543,7 @@
               (let ((variables (jazz.new-queue))
                     (augmented-environment environment))
                 (for-each (lambda (internal-define)
-                            (let ((signature (%%cadr internal-define)))
+                            (let ((signature (%%cadr (%%desourcify internal-define))))
                               (let ((name (if (%%symbol? signature)
                                               signature
                                             (%%car signature))))
@@ -4560,7 +4560,7 @@
 
 
 (define (jazz.walk-internal-define walker resume declaration environment form variable)
-  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr form))
+  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (%%source-code form)))
     (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
       (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
 
@@ -5336,22 +5336,23 @@
   (make-parameter #f))
 
 
-(define (jazz.read-toplevel-form source . rest)
-  (let ((parse-read? (if (%%null? rest) #t (%%car rest))))
-    (receive (form extraneous)
-        (jazz.with-extension-reader (jazz.pathname-extension source)
-          (lambda ()
-            (call-with-input-file (list path: source eol-encoding: 'cr-lf)
-              (lambda (port)
-                (parameterize ((jazz.parse-read? parse-read?))
-                  (let ((form (read port))
-                        (extraneous (read port)))
-                    (values form extraneous)))))))
-      (if (and (%%pair? form) (%%memq (%%car form) '(module library)))
-          (if (eof-object? extraneous)
-              form
-            (jazz.error "Found extraneous expressions after {a} definition in: {a}" (%%car form) source))
-        (jazz.error "Invalid module declaration in {a}: {s}" source form)))))
+(define (jazz.read-toplevel-form source #!key (parse-read? #t) (read-source? #f))
+  (receive (form extraneous?)
+      (jazz.with-extension-reader (jazz.pathname-extension source)
+         (lambda ()
+           (call-with-input-file (list path: source eol-encoding: 'cr-lf)
+             (lambda (port)
+               (parameterize ((jazz.parse-read? parse-read?))
+                 (if (not read-source?)
+                     (let ((form (read port))
+                           (extraneous? (eof-object? (read port))))
+                       (values form extraneous?))
+                   (values (jazz.read-source port) #f)))))))
+    (if (or read-source? (and (%%pair? form) (%%memq (%%car form) '(module library))))
+        (if (%%not extraneous?)
+            form
+          (jazz.error "Found extraneous expressions after {a} definition in: {a}" (%%car form) source))
+      (jazz.error "Invalid module declaration in {a}: {s}" source form))))
 
 
 ;;;

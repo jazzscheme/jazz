@@ -307,8 +307,6 @@
 
 (definition (destroy-window window)
   (table-set! expose-store window)
-  (table-set! position-store window)
-  (table-set! size-store window)
   (when (= (get-handle~ window) (platform-get-focus))
     (call-focus-lose~ window #f))
   (let ((parent (get-parent~ window)))
@@ -405,6 +403,7 @@
           (thread-yield!)
         (XNextEvent default-x11-display msg)
         (process-message msg)
+        @a
         (process-inval-rects)
         (when (= 0 (XPending default-x11-display))
           (process-expose)))
@@ -703,31 +702,25 @@
 
 
 (definition (platform-get-position handle parent-handle)
-  (either (essay *locked-update*
-                 (table-ref position-store (get-window handle) #f))
-          (let ((infos (XWindowAttributes-make)))
-            (XGetWindowAttributes default-x11-display handle infos)
-            (let* ((x (XWindowAttributes-x-ref infos))
-                   (y (XWindowAttributes-y-ref infos)))
-              (new Point x y)))))
+  (let ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (let* ((x (XWindowAttributes-x-ref infos))
+           (y (XWindowAttributes-y-ref infos)))
+      (new Point x y))))
 
 
 (definition (platform-set-position handle pos)
-  (if *locked-update*
-      (add-position-action (get-window handle) pos)
-    (let ((event (XEvent-make)))
-      (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
-      (XWindowEvent default-x11-display handle StructureNotifyMask event)
-      (process-message event)
-      (XEvent-free event))))
+  (let ((event (XEvent-make)))
+    (XMoveWindow default-x11-display handle (get-h~ pos) (get-v~ pos))
+    (XWindowEvent default-x11-display handle StructureNotifyMask event)
+    (process-message event)
+    (XEvent-free event)))
   
 
 (definition (platform-get-size handle)
-  (either (essay *locked-update*
-                 (table-ref size-store (get-window handle) #f))
-          (with ((infos (XWindowAttributes-make)))
-            (XGetWindowAttributes default-x11-display handle infos)
-            (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos)))))
+  (with ((infos (XWindowAttributes-make)))
+    (XGetWindowAttributes default-x11-display handle infos)
+    (new Dimension (XWindowAttributes-width-ref infos) (XWindowAttributes-height-ref infos))))
 
 
 (definition (platform-get-window-size handle)
@@ -735,13 +728,11 @@
 
 
 (definition (platform-set-window-size handle size)
-  (if *locked-update*
-      (add-size-action (get-window handle) size)
-    (let ((event (XEvent-make)))
-      (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
-      (XWindowEvent default-x11-display handle StructureNotifyMask event)
-      (process-message event)
-      (XEvent-free event))))
+  (let ((event (XEvent-make)))
+    (XResizeWindow default-x11-display handle (get-width~ size) (get-height~ size))
+    (XWindowEvent default-x11-display handle StructureNotifyMask event)
+    (process-message event)
+    (XEvent-free event)))
 
 
 (definition (platform-set-bounds handle rect)
@@ -848,6 +839,21 @@
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
   (when (and handle rect)
+    (let ((window (get-window handle)))
+        (when window
+          (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
+                (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
+                (r (if (> (get-right~ rect) (get-width~ window))
+                       (get-width~ window)
+                     (get-right~ rect)))
+                (b (if (> (get-bottom~ rect) (get-height~ window))
+                       (get-height~ window)
+                     (get-bottom~ rect))))
+            (let ((w (- r l))
+                  (h (- b t)))
+              (unless (or (< w 0) (< h 0))
+                (XInvalidateRect default-x11-display handle l t w h))))))
+    @a
     (unless (nu=? rect {Rect 0 0 0 0})
       (let ((old-rect (table-ref inval-rects handle #f)))
         (table-set! inval-rects handle (if old-rect (rect-union old-rect rect) rect))))))
@@ -928,48 +934,7 @@
 ;;;
 
 
-(definition size-store (make-table))
-(definition position-store (make-table))
-
-
-(definition (add-position-action window position)
-  (table-set! position-store window position))
-
-
-(definition (add-size-action window size)
-  (table-set! size-store window size))
-
-
-(definition (platform-lock-window-update handle)
-  (if handle
-      (set! *locked-update* #f)
-    (begin 
-      (set! *locked-update* #f)
-      (process-window-actions))))
-
-
-(definition (process-window-actions)
-  (let ((focus (platform-get-focus))
-        (reshow '()))
-    (iterate-table position-store
-                   (function (window position)
-                     (let ((handle (get-handle~ window)))
-                       (when (and (get-visible?~ window) (not (memq? handle reshow)))
-                         (hide-window handle)
-                         (set! reshow (cons handle reshow)))
-                       (platform-set-position handle position)
-                       (table-set! position-store window))))
-    (iterate-table size-store
-                   (function (window size)
-                     (let ((handle (get-handle~ window)))
-                       (when (and (get-visible?~ window) (not (memq? handle reshow)))
-                         (hide-window handle)
-                         (set! reshow (cons handle reshow)))
-                       (platform-set-window-size handle size)
-                       (table-set! size-store window))))
-    (for-each show-window reshow)
-    (when (neq? focus (platform-get-focus))
-      (platform-set-focus focus))))
+(definition (platform-lock-window-update handle))
 
 
 ;;;
@@ -995,93 +960,65 @@
 
 (definition public Current-Cursor
   {})
-
-
-@unimplemented
-(definition public Cursors
-  (list
-    (list :arrow               IDC_ARROW)
-    (list :wait                IDC_WAIT)
-    (list :ibeam               IDC_IBEAM)
-    (list :cross               IDC_CROSS)
-    (list :finger              IDC_HAND)
-    (list :all                 IDC_SIZEALL)
-    (list :west-east           IDC_SIZEWE)
-    (list :no                  IDC_NO)
-    (list :move                (new Cursor-Resource "Move"))
-    (list :opened-hand         (new Cursor-Resource "OpenedHand"))
-    (list :closed-hand         (new Cursor-Resource "ClosedHand"))
-    (list :zoom                (new Cursor-Resource "Zoom"))
-    (list :zoom-in             (new Cursor-Resource "ZoomIn"))
-    (list :zoom-out            (new Cursor-Resource "ZoomOut"))
-    (list :spy                 (new Cursor-Resource "Spy"))
-    (list :left-arrow          (new Cursor-Resource "LeftArrow"))
-    (list :vertical-splitter   (new Cursor-Resource "VerticalSplitter"))
-    (list :horizontal-splitter (new Cursor-Resource "HorizontalSplitter"))))
-
-
-(definition (load-cursor cursor)
-  (unimplemented 'load-cursor))
-
-
-(definition (get-named-cursor name)
-  (unimplemented 'get-named-cursor)
-  @unimp
-  (let ((info (assq name Cursors)))
-    (if (not info)
-        (error "Unknown cursor: {t}" name)
-      (cadr info))))
-
-
-(definition public (get-cursor)
-  Current-Cursor)
-
-
-(definition public (set-cursor cursor)
-  #f
-  @unimp
-  (unless #f @to-fix-this-doesnt-work-when-switching-overlapped-windows! (= cursor Current-Cursor)
+  
+  
+  (definition (load-cursor cursor)
+    (unimplemented 'load-cursor))
+  
+  
+  (definition (get-named-cursor name)
+    (let ((info (assq name Cursors)))
+      (essay info (cadr info))))
+  
+  
+  (definition public (get-cursor)
+    Current-Cursor)
+  
+  
+  (definition public (set-cursor cursor)
+    (when (symbol? cursor)
+      (let ((cursor (get-named-cursor cursor)))
+        (when cursor
           (set! Current-Cursor cursor)
-          (let ((cursor (if (symbol? cursor) (get-named-cursor cursor) cursor)))
-            (SetCursor (load-cursor cursor)))))
-
-
-(definition public (hide-cursor)
-  #f)
-
-
-(definition public (show-cursor)
-  #f)
-
-
-;;;
-;;;; Desktop
-;;;
-
-
-(definition (platform-get-desktop)
-  (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
-
-
-(definition public (get-work-area) <Rect>
-  (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
-    (new Rect 0 0 (get-width~ size) (- (get-height~ size) (get-dock-height)))))
-
-
-;; until we find an api to get either the dock size or the effective screen size
-(cond-expand
-  (mac
-    (definition (get-dock-height)
-      128))
-  (else
-    (definition (get-dock-height)
-      0)))
-
-
-;;;
-;;;; Drag and Drop
-;;;
-
-
-(definition (platform-drop-files temp)
-  (unimplemented 'platform-drop-files)))
+          (XDefineCursor default-x11-display (get-handle~ (get-toplevel)) cursor))))) 
+  
+  
+  (definition public (hide-cursor)
+    #f)
+  
+  
+  (definition public (show-cursor)
+    #f)
+  
+  
+  ;;;
+  ;;;; Desktop
+  ;;;
+  
+  
+  (definition (platform-get-desktop)
+    (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))
+  
+  
+  (definition public (get-work-area) <Rect>
+    (let ((size (platform-get-size (XRootWindow default-x11-display (XDefaultScreen default-x11-display)))))
+      (new Rect 0 0 (get-width~ size) (- (get-height~ size) (get-dock-height)))))
+  
+  
+  ;; until we find an api to get either the dock size or the effective screen size
+  (cond-expand
+    (mac
+      (definition (get-dock-height)
+        128))
+    (else
+     (definition (get-dock-height)
+       0)))
+  
+  
+  ;;;
+  ;;;; Drag and Drop
+  ;;;
+  
+  
+  (definition (platform-drop-files temp)
+    (unimplemented 'platform-drop-files)))

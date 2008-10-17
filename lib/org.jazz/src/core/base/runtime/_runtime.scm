@@ -46,5 +46,6 @@
          (core.base.runtime.serial)
          (core.base.runtime.string)
          (core.base.runtime.symbol)
+         (core.base.runtime.syntax)
          (core.base.runtime.unspecified)
          (core.base.runtime.vector)))

@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Build
+;;;; Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -21,7 +21,6 @@
 ;;;  the Initial Developer. All Rights Reserved.
 ;;;
 ;;;  Contributor(s):
-;;;    Stephane Le Cornec
 ;;;
 ;;;  Alternatively, the contents of this file may be used under the terms of
 ;;;  the GNU General Public License Version 2 or later (the "GPL"), in which
@@ -36,35 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module jazz.build
+(module core.base.runtime.syntax
 
 
-;;;
-;;;; Expand
-;;;
-
-
-(define (expand library-name)
-  (expand-to-port library-name (current-output-port)))
-
-
-(define (expand-to-file library-name . rest)
-  (let ((filename (if (null? rest) "x.scm" (car rest))))
-    (call-with-output-file filename
-      (lambda (port)
-        (expand-to-port library-name port)))))
-
-
-(define (expand-to-port library-name port)
-  (let* ((src (jazz.find-module-src library-name #f))
-         (source (jazz.resource-pathname src))
-         (form (jazz.read-toplevel-form source #f))
-         (kind (car form))
-         (rest (cdr form)))
-    (pretty-print
-      (parameterize ((jazz.requested-module-name library-name)
-                     (jazz.requested-module-resource src))
-        (case kind
-          ((module) (jazz.expand-module (car rest) (cdr rest)))
-          ((library) (jazz.expand-library rest))))
-      port))))
+;; temp function that should not really be used
+;; except for incremental development of syntax
+(define (jazz.desourcify-list lst)
+  (map %%desourcify lst)))

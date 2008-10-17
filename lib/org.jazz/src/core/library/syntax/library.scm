@@ -38,5 +38,7 @@
 (module core.library.syntax.library
 
 
-(jazz.define-macro (library . rest)
-  (jazz.expand-library rest)))
+(jazz.define-syntax library
+  (lambda (src)
+    (let ((form (%%source-code src)))
+      (jazz.expand-library (%%cdr form))))))

@@ -374,9 +374,11 @@
     (new-file~ (find-install-directory configuration) (list "jazz")))
   
   
-  (method public (actual-runtime (system {}) (platform {}) (windowing {}) (safety {}) (optimize? #t) (include-source? #f) (interpret? #f))
+  (method public (actual-runtime (name {}) (title {}) (system {}) (platform {}) (windowing {}) (safety {}) (optimize? #t) (include-source? #f) (interpret? #f))
     (find-runtime
       (new Build-Configuration
+        name: (either name kernel-name)
+        title: (either title kernel-title)
         system: (either system kernel-system)
         platform: (either platform kernel-platform)
         windowing: (either windowing kernel-windowing)
@@ -437,15 +439,22 @@
   
   
   (definition (find-install-directory configuration)
+    (define (default-name)
+      (string-append
+        (system-name (get-system~ configuration))
+        (platform-name (get-platform~ configuration))
+        (windowing-name (get-windowing~ configuration))
+        (safety-name (get-safety~ configuration))))
+    
     (let ((configuration (either configuration (require-active-configuration))))
       (either (get-install~ configuration)
               (new Directory
                 (list 'Jazz "bin"
-                  (string-append
-                    (system-name (get-system~ configuration))
-                    (platform-name (get-platform~ configuration))
-                    (windowing-name (get-windowing~ configuration))
-                    (safety-name (get-safety~ configuration))))))))
+                  (let ((name (get-name~ configuration))
+                        (title (get-title~ configuration)))
+                    (cond (title title)
+                          (name (symbol->string name))
+                          (else (default-name)))))))))
 
 
   ;;;

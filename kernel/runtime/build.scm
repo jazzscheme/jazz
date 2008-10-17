@@ -42,6 +42,8 @@
 
 (define (jazz.build-executable product
           #!key
+          (name jazz.kernel-name)
+          (title jazz.kernel-title)
           (system jazz.kernel-system)
           (platform jazz.kernel-platform)
           (windowing jazz.kernel-windowing)
@@ -79,7 +81,7 @@
                 (feedback-message "; generating {a}..." file)
                 (call-with-output-file file
                   (lambda (output)
-                    (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? output)))
+                    (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)))
                 #t)
             #f)))
       
@@ -299,7 +301,11 @@
           (link-executable)))))
 
 
-(define (jazz.print-architecture system platform windowing safety optimize? include-source? interpret? output)
+(define (jazz.print-architecture name title system platform windowing safety optimize? include-source? interpret? output)
+  (jazz.print-variable 'jazz.kernel-name name output)
+  (newline output)
+  (jazz.print-variable 'jazz.kernel-title title output)
+  (newline output)
   (jazz.print-variable 'jazz.kernel-system system output)
   (newline output)
   (jazz.print-variable 'jazz.kernel-platform platform output)

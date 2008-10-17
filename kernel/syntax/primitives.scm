@@ -589,6 +589,9 @@
 
 (cond-expand
   (gambit
+    (define (%%source? expr)
+      (##source? expr))
+    
     (define (%%source-code expr)
       (if (##source? expr)
           (##source-code expr)

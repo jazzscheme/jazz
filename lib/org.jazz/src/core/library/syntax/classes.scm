@@ -655,6 +655,15 @@
 
 
 ;;;
+;;;; Syntax Form
+;;;
+
+
+(jazz.define-class jazz.Syntax-Form jazz.Form-Binding (name type) jazz.Object-Class jazz.allocate-syntax-form
+  ((expander %%get-syntax-form-expander ())))
+
+
+;;;
 ;;;; Annotated Variable
 ;;;
 

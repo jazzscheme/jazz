@@ -717,7 +717,7 @@
         (interpret? (jazz.configuration-interpret? configuration))
         (install (jazz.install-directory configuration))
         (source "./")
-        (source? (jazz.configuration-source configuration)))
+        (source-access? (jazz.configuration-source configuration)))
     (define (install-file path)
       (string-append install path))
     
@@ -747,7 +747,7 @@
                   (newline output)
                   (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
                   (newline output)
-                  (jazz.print-variable 'jazz.source? source? output)
+                  (jazz.print-variable 'jazz.source-access? source-access? output)
                   (newline output)
                   (newline output)
                   (display "(load (string-append jazz.source \"kernel/boot\"))" output)
@@ -765,7 +765,7 @@
       interpret?:      interpret?
       install:         install
       source:          source
-      source?:         source?
+      source-access?:  source-access?
       kernel?:         #t
       console?:        #t)
     

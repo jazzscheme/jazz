@@ -300,7 +300,7 @@
 
 (define jazz.kernel-source
   ;; kernel always needs source access to build
-  (if (or jazz.source? (not jazz.product))
+  (if (or jazz.source-access? (not jazz.product))
       ;; when the install directory is a subdirectory of the source use a .. notation
       (if (and (%%fx>= (%%string-length jazz.source) 3)
                (%%string=? (%%substring jazz.source 0 3) "../"))

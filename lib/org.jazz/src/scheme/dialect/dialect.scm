@@ -69,7 +69,8 @@
 (jazz.define-method (jazz.emit-binding-reference (jazz.Define-Declaration declaration) source-declaration environment)
   (jazz.new-code
     (%%get-declaration-locator declaration)
-    jazz.Any))
+    jazz.Any
+    #f))
 
 
 (jazz.define-method (jazz.walk-binding-validate-assignment (jazz.Define-Declaration declaration) walker resume source-declaration)
@@ -86,7 +87,8 @@
   (let ((locator (%%get-declaration-locator declaration)))
     (jazz.new-code
       `(set! ,locator ,(%%get-code-form (jazz.emit-expression value source-declaration environment)))
-      jazz.Any)))
+      jazz.Any
+      #f)))
 
 
 (jazz.encapsulate-class jazz.Define-Declaration)

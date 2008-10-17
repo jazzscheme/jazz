@@ -691,8 +691,9 @@
 
 
 (jazz.define-class jazz.Code jazz.Object () jazz.Object-Class jazz.allocate-code
-  ((form %%get-code-form ())
-   (type %%get-code-type ())))
+  ((form   %%get-code-form   ())
+   (type   %%get-code-type   ())
+   (source %%get-code-source ())))
 
 
 ;;;
@@ -712,7 +713,8 @@
 
 
 (jazz.define-class jazz.Expression jazz.Object () jazz.Object-Class ()
-  ((type %%get-expression-type ())))
+  ((type   %%get-expression-type   ())
+   (source %%get-expression-source ())))
 
 
 (jazz.define-virtual (jazz.emit-expression (jazz.Expression expression) declaration environment))
@@ -725,7 +727,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Proclaim jazz.Expression (type) jazz.Object-Class jazz.allocate-proclaim
+(jazz.define-class jazz.Proclaim jazz.Expression (type source) jazz.Object-Class jazz.allocate-proclaim
   ((optimize? %%get-proclaim-optimize? ())))
 
 
@@ -734,7 +736,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Constant jazz.Expression (type) jazz.Object-Class jazz.allocate-constant
+(jazz.define-class jazz.Constant jazz.Expression (type source) jazz.Object-Class jazz.allocate-constant
   ((expansion %%get-constant-expansion ())))
 
 
@@ -743,7 +745,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Delay jazz.Expression (type) jazz.Object-Class jazz.allocate-delay
+(jazz.define-class jazz.Delay jazz.Expression (type source) jazz.Object-Class jazz.allocate-delay
   ((expression %%get-delay-expression ())))
 
 
@@ -752,7 +754,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Quasiquote jazz.Expression (type) jazz.Object-Class jazz.allocate-quasiquote
+(jazz.define-class jazz.Quasiquote jazz.Expression (type source) jazz.Object-Class jazz.allocate-quasiquote
   ((form %%get-quasiquote-form ())))
 
 
@@ -761,7 +763,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Reference jazz.Expression (type) jazz.Object-Class jazz.allocate-reference
+(jazz.define-class jazz.Reference jazz.Expression (type source) jazz.Object-Class jazz.allocate-reference
   ((binding %%get-reference-binding ())))
 
 
@@ -770,7 +772,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Assignment jazz.Expression (type) jazz.Object-Class jazz.allocate-assignment
+(jazz.define-class jazz.Assignment jazz.Expression (type source) jazz.Object-Class jazz.allocate-assignment
   ((binding %%get-assignment-binding ())
    (value   %%get-assignment-value   ())))
 
@@ -780,7 +782,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Lambda jazz.Expression (type) jazz.Object-Class jazz.allocate-lambda
+(jazz.define-class jazz.Lambda jazz.Expression (type source) jazz.Object-Class jazz.allocate-lambda
   ((signature %%get-lambda-signature ())
    (body      %%get-lambda-body      ())))
 
@@ -790,7 +792,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Let jazz.Expression (type) jazz.Object-Class jazz.allocate-let
+(jazz.define-class jazz.Let jazz.Expression (type source) jazz.Object-Class jazz.allocate-let
   ((bindings %%get-let-bindings ())
    (body     %%get-let-body     ())))
 
@@ -800,7 +802,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Named-Let jazz.Let (type bindings body) jazz.Object-Class jazz.allocate-named-let
+(jazz.define-class jazz.Named-Let jazz.Let (type source bindings body) jazz.Object-Class jazz.allocate-named-let
   ((variable %%get-named-let-variable ())))
 
 
@@ -809,7 +811,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Letstar jazz.Expression (type) jazz.Object-Class jazz.allocate-letstar
+(jazz.define-class jazz.Letstar jazz.Expression (type source) jazz.Object-Class jazz.allocate-letstar
   ((bindings %%get-letstar-bindings ())
    (body     %%get-letstar-body     ())))
 
@@ -819,7 +821,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Letrec jazz.Expression (type) jazz.Object-Class jazz.allocate-letrec
+(jazz.define-class jazz.Letrec jazz.Expression (type source) jazz.Object-Class jazz.allocate-letrec
   ((bindings %%get-letrec-bindings ())
    (body     %%get-letrec-body     ())))
 
@@ -829,7 +831,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Receive jazz.Expression (type) jazz.Object-Class jazz.allocate-receive
+(jazz.define-class jazz.Receive jazz.Expression (type source) jazz.Object-Class jazz.allocate-receive
   ((variables  %%get-receive-variables  ())
    (expression %%get-receive-expression ())
    (body       %%get-receive-body       ())))
@@ -840,7 +842,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Body jazz.Expression (type) jazz.Object-Class jazz.allocate-body
+(jazz.define-class jazz.Body jazz.Expression (type source) jazz.Object-Class jazz.allocate-body
   ((internal-defines %%get-body-internal-defines ())
    (expressions      %%get-body-expressions      ())))
 
@@ -850,7 +852,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Internal-Define jazz.Expression (type) jazz.Object-Class jazz.allocate-internal-define
+(jazz.define-class jazz.Internal-Define jazz.Expression (type source) jazz.Object-Class jazz.allocate-internal-define
   ((variable %%get-internal-define-variable ())
    (value    %%get-internal-define-value    ())))
 
@@ -860,7 +862,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Begin jazz.Expression (type) jazz.Object-Class jazz.allocate-begin
+(jazz.define-class jazz.Begin jazz.Expression (type source) jazz.Object-Class jazz.allocate-begin
   ((expressions %%get-begin-expressions ())))
 
 
@@ -869,7 +871,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Do jazz.Expression (type) jazz.Object-Class jazz.allocate-do
+(jazz.define-class jazz.Do jazz.Expression (type source) jazz.Object-Class jazz.allocate-do
   ((bindings %%get-do-bindings ())
    (test     %%get-do-test     ())
    (result   %%get-do-result   ())
@@ -881,7 +883,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Call jazz.Expression (type) jazz.Object-Class jazz.allocate-call
+(jazz.define-class jazz.Call jazz.Expression (type source) jazz.Object-Class jazz.allocate-call
   ((operator  %%get-call-operator  ())
    (arguments %%get-call-arguments ())))
 
@@ -891,7 +893,7 @@
 ;;;
 
 
-(jazz.define-class jazz.If jazz.Expression (type) jazz.Object-Class jazz.allocate-if
+(jazz.define-class jazz.If jazz.Expression (type source) jazz.Object-Class jazz.allocate-if
   ((test %%get-if-test ())
    (yes  %%get-if-yes ())
    (no   %%get-if-no ())))
@@ -902,7 +904,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Cond jazz.Expression (type) jazz.Object-Class jazz.allocate-cond
+(jazz.define-class jazz.Cond jazz.Expression (type source) jazz.Object-Class jazz.allocate-cond
   ((clauses %%get-cond-clauses ())))
 
 
@@ -911,7 +913,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Case jazz.Expression (type) jazz.Object-Class jazz.allocate-case
+(jazz.define-class jazz.Case jazz.Expression (type source) jazz.Object-Class jazz.allocate-case
   ((target  %%get-case-target  ())
    (clauses %%get-case-clauses ())))
 
@@ -921,7 +923,7 @@
 ;;;
 
 
-(jazz.define-class jazz.And jazz.Expression (type) jazz.Object-Class jazz.allocate-and
+(jazz.define-class jazz.And jazz.Expression (type source) jazz.Object-Class jazz.allocate-and
   ((expressions %%get-and-expressions ())))
 
 
@@ -930,7 +932,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Or jazz.Expression (type) jazz.Object-Class jazz.allocate-or
+(jazz.define-class jazz.Or jazz.Expression (type source) jazz.Object-Class jazz.allocate-or
   ((expressions %%get-or-expressions ())))
 
 
@@ -939,7 +941,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Declare jazz.Expression (type) jazz.Object-Class jazz.allocate-declare
+(jazz.define-class jazz.Declare jazz.Expression (type source) jazz.Object-Class jazz.allocate-declare
   ((declarations %%get-declare-declarations ())))
 
 
@@ -948,7 +950,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Include jazz.Expression (type) jazz.Object-Class jazz.allocate-c-include
+(jazz.define-class jazz.C-Include jazz.Expression (type source) jazz.Object-Class jazz.allocate-c-include
   ((name %%get-c-include-name ())))
 
 
@@ -957,7 +959,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Declare jazz.Expression (type) jazz.Object-Class jazz.allocate-c-declare
+(jazz.define-class jazz.C-Declare jazz.Expression (type source) jazz.Object-Class jazz.allocate-c-declare
   ((code %%get-c-declare-code ())))
 
 
@@ -966,7 +968,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Initialize jazz.Expression (type) jazz.Object-Class jazz.allocate-c-initialize
+(jazz.define-class jazz.C-Initialize jazz.Expression (type source) jazz.Object-Class jazz.allocate-c-initialize
   ((code %%get-c-initialize-code ())))
 
 
@@ -975,7 +977,7 @@
 ;;;
 
 
-(jazz.define-class jazz.C-Function jazz.Expression (type) jazz.Object-Class jazz.allocate-c-function
+(jazz.define-class jazz.C-Function jazz.Expression (type source) jazz.Object-Class jazz.allocate-c-function
   ((expansion %%get-c-function-expansion ())))
 
 
@@ -984,7 +986,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Time-Special jazz.Expression (type) jazz.Object-Class jazz.allocate-time
+(jazz.define-class jazz.Time-Special jazz.Expression (type source) jazz.Object-Class jazz.allocate-time
   ((expression %%get-time-special-expression ())))
 
 

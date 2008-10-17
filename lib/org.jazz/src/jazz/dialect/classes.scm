@@ -54,7 +54,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Specialize jazz.Expression (type) jazz.Object-Class jazz.allocate-specialize
+(jazz.define-class jazz.Specialize jazz.Expression (type source) jazz.Object-Class jazz.allocate-specialize
   ())
 
 
@@ -162,7 +162,7 @@
 ;;;
 
 
-(jazz.define-class jazz.With-Self jazz.Expression (type) jazz.Object-Class jazz.allocate-with-self
+(jazz.define-class jazz.With-Self jazz.Expression (type source) jazz.Object-Class jazz.allocate-with-self
   ((body %%get-with-self-body ())))
 
 
@@ -171,7 +171,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Cast jazz.Expression (type) jazz.Object-Class jazz.allocate-cast
+(jazz.define-class jazz.Cast jazz.Expression (type source) jazz.Object-Class jazz.allocate-cast
   ((expression %%get-cast-expression ())))
 
 
@@ -180,7 +180,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Construct jazz.Expression (type) jazz.Object-Class jazz.allocate-construct
+(jazz.define-class jazz.Construct jazz.Expression (type source) jazz.Object-Class jazz.allocate-construct
   ((class  %%get-construct-class  ())
    (values %%get-construct-values ())))
 
@@ -190,7 +190,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Slot-Reference jazz.Expression (type) jazz.Object-Class jazz.allocate-slot-reference
+(jazz.define-class jazz.Slot-Reference jazz.Expression (type source) jazz.Object-Class jazz.allocate-slot-reference
   ((declaration %%get-slot-reference-declaration ())
    (name        %%get-slot-reference-name        ())
    (context     %%get-slot-reference-context     ())))
@@ -201,7 +201,7 @@
 ;;;
 
 
-(jazz.define-class jazz.Slot-Assignment jazz.Expression (type) jazz.Object-Class jazz.allocate-slot-assignment
+(jazz.define-class jazz.Slot-Assignment jazz.Expression (type source) jazz.Object-Class jazz.allocate-slot-assignment
   ((declaration %%get-slot-assignment-declaration ())
    (name        %%get-slot-assignment-name        ())
    (context     %%get-slot-assignment-context     ())
@@ -213,6 +213,6 @@
 ;;;
 
 
-(jazz.define-class jazz.Dispatch jazz.Expression (type) jazz.Object-Class jazz.allocate-dispatch
+(jazz.define-class jazz.Dispatch jazz.Expression (type source) jazz.Object-Class jazz.allocate-dispatch
   ((name      %%get-dispatch-name      ())
    (arguments %%get-dispatch-arguments ()))))

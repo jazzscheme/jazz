@@ -5345,7 +5345,7 @@
                (parameterize ((jazz.parse-read? parse-read?))
                  (if (not read-source?)
                      (let ((form (read port))
-                           (extraneous? (eof-object? (read port))))
+                           (extraneous? (%%not (%%eof-object? (read port)))))
                        (values form extraneous?))
                    (values (jazz.read-source port) #f)))))))
     (if (or read-source? (and (%%pair? form) (%%memq (%%car form) '(module library))))

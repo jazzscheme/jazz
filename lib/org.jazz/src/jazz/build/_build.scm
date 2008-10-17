@@ -54,9 +54,14 @@
 (define (expand-syntax library-name)
   (let* ((src (jazz.find-module-src library-name #f))
          (source (jazz.resource-pathname src))
-         (form (jazz.read-toplevel-form source parse-read?: #f read-source?: #t)))
+         (syntax (jazz.read-toplevel-form source parse-read?: #f read-source?: #t)))
     (pretty-print
-      form)))
+      (jazz.present-source
+        (parameterize ((jazz.requested-module-name library-name)
+                       (jazz.requested-module-resource src))
+          (case 'library ;; kind
+            ;; todo ((module) (jazz.expand-module (car rest) (cdr rest)))
+            ((library) (jazz.expand-library (%%cdr (%%source-code syntax))))))))))
 
 
 (define (expand-to-file library-name . rest)

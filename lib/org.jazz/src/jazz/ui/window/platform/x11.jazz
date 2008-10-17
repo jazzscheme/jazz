@@ -280,6 +280,7 @@
          (visual    (XDefaultVisual default-x11-display screen-no)))
     (XSetWindowAttributes-bit_gravity-set! attr StaticGravity)
     (XSetWindowAttributes-override_redirect-set! attr (is? window Popup))
+    (XSetWindowAttributes-background_pixel-set! attr (rgb-pixel default-x11-display 236 233 216))
     (if (is? window Desktop)
         (platform-get-desktop)
       (let ((handle
@@ -294,7 +295,7 @@
                 CopyFromParent
                 InputOutput
                 visual
-                (+ CWBitGravity CWOverrideRedirect)
+                (+ CWBitGravity CWOverrideRedirect CWBackPixel)
                 attr)))
         (XSetWMProtocols (get-default-x11-display) handle (get-wm-delete-window-atom))
         (XSelectInput 
@@ -404,6 +405,7 @@
           (thread-yield!)
         (XNextEvent default-x11-display msg)
         (process-message msg)
+        (process-inval-rects)
         (when (= 0 (XPending default-x11-display))
           (process-expose)))
       (thunk)
@@ -822,21 +824,33 @@
   (platform-invalidate-rect handle (platform-get-client-rect handle) #t))
 
 
+(definition inval-rects (make-table))
+
+(definition (process-inval-rects)
+  (iterate-table inval-rects
+    (function (handle rect)
+      (let ((window (get-window handle)))
+        (when window
+          (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
+                (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
+                (r (if (> (get-right~ rect) (get-width~ window))
+                       (get-width~ window)
+                     (get-right~ rect)))
+                (b (if (> (get-bottom~ rect) (get-height~ window))
+                       (get-height~ window)
+                     (get-bottom~ rect))))
+            (let ((w (- r l))
+                  (h (- b t)))
+              (unless (or (< w 0) (< h 0))
+                (XInvalidateRect default-x11-display handle l t w h))))))))
+  (set! inval-rects (make-table)))
+
 (definition (platform-invalidate-rect handle rect erase?)
   ;; is this test correct or was it a patch made during the port
-  (when handle
-    (let ((l (if (< (get-left~ rect) 0) 0 (get-left~ rect)))
-          (t (if (< (get-top~ rect) 0) 0 (get-top~ rect)))
-          (r (if (> (get-right~ rect) (get-width~ (get-window handle)))
-                 (get-width~ (get-window handle))
-               (get-right~ rect)))
-          (b (if (> (get-bottom~ rect) (get-height~ (get-window handle)))
-                 (get-height~ (get-window handle))
-               (get-bottom~ rect))))
-      (let ((w (- r l))
-            (h (- b t)))
-        (unless (or (< w 0) (< h 0))
-          (XInvalidateRect default-x11-display handle l t w h))))))
+  (when (and handle rect)
+    (unless (nu=? rect {Rect 0 0 0 0})
+      (let ((old-rect (table-ref inval-rects handle #f)))
+        (table-set! inval-rects handle (if old-rect (rect-union old-rect rect) rect))))))
 
 
 (definition (platform-invalidate-region handle region erase?)
@@ -880,6 +894,7 @@
 
 
 (definition (platform-update-window handle)
+  @a
   (paint~ (get-window handle) #f)
   @old
   (when handle
@@ -927,7 +942,7 @@
 
 (definition (platform-lock-window-update handle)
   (if handle
-      (set! *locked-update* #t)
+      (set! *locked-update* #f)
     (begin 
       (set! *locked-update* #f)
       (process-window-actions))))

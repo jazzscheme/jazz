@@ -622,6 +622,16 @@
 
 
 ;;;
+;;;; Syntax
+;;;
+
+
+(native jazz.source-code)
+(native jazz.desourcify)
+(native jazz.sourcify)
+
+
+;;;
 ;;;; System
 ;;;
 

@@ -2242,6 +2242,8 @@
 
 ;; this approach is clearly costly in memory and is just to experiment
 (define (jazz.sourcify-code code src)
+  code
+  #;
   (if (%%not src)
       code
     (jazz.new-code (%%get-code-form code)
@@ -2251,6 +2253,8 @@
 
 ;; temp try
 (define (jazz.sourcified-form code)
+  (%%get-code-form code)
+  #;
   (let ((form (%%get-code-form code))
         (src (%%get-code-source code)))
     (if (%%not src)

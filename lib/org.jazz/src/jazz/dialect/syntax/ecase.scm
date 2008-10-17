@@ -48,7 +48,7 @@
 ;;               (else 3)))
 
 
-(syntax (ecase target . clauses)
+(macro (ecase target . clauses)
   (with-expression-value target
     (lambda (symbol)
       `(cond ,@(map (lambda (clause)

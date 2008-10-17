@@ -38,6 +38,11 @@
 (module core.base.runtime.syntax
 
 
+(define jazz.source-code %%source-code)
+(define jazz.desourcify %%desourcify)
+(define jazz.sourcify %%sourcify)
+
+
 ;; temp function that should not really be used
 ;; except for incremental development of syntax
 (define (jazz.desourcify-list lst)

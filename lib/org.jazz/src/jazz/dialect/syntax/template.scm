@@ -71,6 +71,6 @@
 
 
 @w
-(syntax (instantiate-butlast type)
+(macro (instantiate-butlast type)
   `(specialize inline (butlast seq ,type) ,type
      (subseq seq 0 (- (length seq) 1)))))

@@ -130,7 +130,7 @@
       (finally (list even odd)))
 
 
-(syntax (loop . clauses)
+(macro (loop . clauses)
   (expand-loop clauses))
 
 

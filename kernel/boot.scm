@@ -62,4 +62,4 @@
 
 
 (jazz.load-kernel)
-(jazz.main)
+(jazz.process-main)

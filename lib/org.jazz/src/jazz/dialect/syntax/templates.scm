@@ -43,7 +43,7 @@
         )
 
 
-(syntax (instantiate-for-each name T)
+(macro (instantiate-for-each name T)
   `(specialize as ,name (for-each proc seq ,T)
      (let ((end (- (cardinality seq) 1)))
        (let (iterate (n 0))
@@ -52,14 +52,14 @@
            (iterate (+ n 1)))))))
 
 
-(syntax (instantiate-butlast T)
+(macro (instantiate-butlast T)
   `(specialize (butlast seq ,T) ,T
      (subseq seq 0 (- (cardinality seq) 1))))
 
 
 ;; #f should be {} when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
-(syntax (instantiate-find name T)
+(macro (instantiate-find name T)
   `(specialize as ,name (find seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f)) <int+>
      (let ((len (cardinality seq))
            (test (or test eqv?))
@@ -78,7 +78,7 @@
 
 ;; #f should be {} when this is moved into a jazz dialect file
 ;; using <fx> is not 100% correct and should also be part of the template or better have smarter inferences
-(syntax (instantiate-find-in name T)
+(macro (instantiate-find-in name T)
   `(specialize as ,name (find-in seq ,T target (key: key #f) (test: test #f) (start: start #f) (end: end #f) (reversed?: reversed? #f))
      (let ((len (cardinality seq))
            (test (or test eqv?))
@@ -96,7 +96,7 @@
 
 
 #; ;; wait
-(syntax (instantiate-search name T)
+(macro (instantiate-search name T)
   `(begin
      (definition (multisearch-impl seq <Sequence> contexts <list> start <fx+> reverse? <bool>)
        (let ((len (cardinality seq)))
@@ -206,7 +206,7 @@
                   reverse?: reverse?)))))
 
 
-(syntax (instantiate-starts-with? T)
+(macro (instantiate-starts-with? T)
   `(specialize (starts-with? seq ,T target ,T) <bool>
      (let ((slen (cardinality seq))
            (tlen (cardinality target)))
@@ -214,7 +214,7 @@
             (= (subseq seq 0 tlen) target)))))
 
 
-(syntax (instantiate-ends-with? T)
+(macro (instantiate-ends-with? T)
   `(specialize (ends-with? seq ,T target ,T) <bool>
      (let ((slen (cardinality seq))
            (tlen (cardinality target)))

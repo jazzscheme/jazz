@@ -40,5 +40,5 @@
 
 (jazz.define-syntax library
   (lambda (src)
-    (let ((form (%%source-code src)))
+    (let ((form (%%desourcify src)))
       (jazz.expand-library (%%cdr form))))))

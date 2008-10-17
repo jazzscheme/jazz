@@ -2527,36 +2527,36 @@
 
 
 (define (jazz.parse-library partial-form)
-  (let ((name (%%car partial-form))
-        (dialect-name (%%cadr partial-form))
+  (let ((name (%%source-code (%%car partial-form)))
+        (dialect-name (%%source-code (%%cadr partial-form)))
         (scan (%%cddr partial-form))
         (requires '())
         (exports '())
         (imports '()))
     (if (and (%%pair? scan)
-             (%%pair? (%%car scan))
-             (%%eq? (%%caar scan) 'require))
+             (%%pair? (%%source-code (%%car scan)))
+             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'require))
         (begin
-          (set! requires (%%cdar scan))
+          (set! requires (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
-             (%%pair? (%%car scan))
-             (%%eq? (%%caar scan) 'export))
+             (%%pair? (%%source-code (%%car scan)))
+             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'export))
         (begin
-          (set! exports (%%cdar scan))
+          (set! exports (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
     (if (and (%%pair? scan)
-             (%%pair? (%%car scan))
-             (%%eq? (%%caar scan) 'import))
+             (%%pair? (%%source-code (%%car scan)))
+             (%%eq? (%%source-code (%%car (%%source-code (%%car scan)))) 'import))
         (begin
-          (set! imports (%%cdar scan))
+          (set! imports (%%cdr (%%desourcify (%%car scan))))
           (set! scan (%%cdr scan))))
       (values name
               dialect-name
               (jazz.filter-features requires)
               (jazz.filter-features exports)
               (jazz.filter-features imports)
-              scan)))
+              (jazz.desourcify-list scan))))
 
 
 (define (jazz.parse-library-invoice specification)

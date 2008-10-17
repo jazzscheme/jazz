@@ -2,7 +2,7 @@
 ;;;  JazzScheme
 ;;;==============
 ;;;
-;;;; Libraries
+;;;; Syntax
 ;;;
 ;;;  The contents of this file are subject to the Mozilla Public License Version
 ;;;  1.1 (the "License"); you may not use this file except in compliance with
@@ -35,10 +35,10 @@
 ;;;  See www.jazzscheme.org for details.
 
 
-(module core.library.syntax.library
+(module core.base.runtime.syntax
 
 
-(jazz.define-syntax library
-  (lambda (src)
-    (let ((form (%%source-code src)))
-      (jazz.expand-library (%%cdr form))))))
+;; temp function that should not really be used
+;; except for incremental development of syntax
+(define (jazz.desourcify-list lst)
+  (map %%desourcify lst)))

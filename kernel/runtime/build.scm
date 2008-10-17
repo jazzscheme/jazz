@@ -53,7 +53,7 @@
           (interpret? jazz.kernel-interpret?)
           (install jazz.install)
           (source jazz.source)
-          (source? jazz.source?)
+          (source-access? jazz.source-access?)
           (kernel? #f)
           (console? #f)
           (minimum-heap #f)
@@ -100,7 +100,7 @@
                     (newline output)
                     (jazz.print-variable 'jazz.source (jazz.relativise-directory source install) output)
                     (newline output)
-                    (jazz.print-variable 'jazz.source? source? output)))
+                    (jazz.print-variable 'jazz.source-access? source-access? output)))
                 #t)
             #f)))
       

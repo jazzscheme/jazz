@@ -921,32 +921,6 @@
 ;;;
 
 
-(define (jazz.parse-modifiers walker resume declaration infos rest)
-  (let ((partitions (map (lambda (info) (%%cons info '())) infos))
-        (done? #f))
-    (%%while (and (%%not-null? rest) (%%not done?))
-      (let ((target (%%car rest))
-            (found? #f))
-        (for-each (lambda (partition)
-                    (let ((allowed (%%caar partition))
-                          (default (%%cdar partition)))
-                      (if (%%memq target allowed)
-                          (begin
-                            (set! found? #t)
-                            (%%set-cdr! partition (%%cons target (%%cdr partition)))))))
-                  partitions)
-        (if (%%not found?)
-            (set! done? #t)
-          (set! rest (%%cdr rest)))))
-    (%%apply values (%%append (map (lambda (partition)
-                                     (let ((modifiers (%%cdr partition)))
-                                       (cond ((%%null? modifiers) (%%cdar partition))
-                                         ((%%null? (%%cdr modifiers)) (%%car modifiers))
-                                         (else (jazz.walk-error walker resume declaration "Ambiguous modifiers: {s}" modifiers)))))
-                                   partitions)
-                              (%%list rest)))))
-
-
 (define (jazz.parse-keywords keywords rest)
   (let ((table (%%make-table test: eq?))
         (done? #f))
@@ -1414,14 +1388,13 @@
 
 
 (define (jazz.walk-definition walker resume declaration environment form-src)
-  (let ((form (%%desourcify form-src)))
-    (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr form))
-      (let* ((new-declaration (jazz.find-form-declaration declaration name))
-             (new-environment (%%cons new-declaration environment)))
-        (%%when (%%not (%%eq? expansion 'inline))
-          (%%set-definition-declaration-value new-declaration
-            (jazz.walk walker resume new-declaration new-environment value)))
-        new-declaration))))
+  (receive (name specifier access compatibility expansion value parameters) (jazz.parse-definition walker resume declaration (%%cdr (%%desourcify form-src)))
+    (let* ((new-declaration (jazz.find-form-declaration declaration name))
+           (new-environment (%%cons new-declaration environment)))
+      (%%when (%%not (%%eq? expansion 'inline))
+        (%%set-definition-declaration-value new-declaration
+          (jazz.walk walker resume new-declaration new-environment value)))
+      new-declaration)))
 
 
 ;; Until I unify signature and function type

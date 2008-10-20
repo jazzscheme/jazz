@@ -2955,12 +2955,12 @@
 
 (define (jazz.begin-form? form)
   (and (%%pair? (%%source-code form))
-       (%%eq? (%%car (%%source-code form)) 'begin)))
+       (%%eq? (%%source-code (%%car (%%source-code form))) 'begin)))
 
 
 (define (jazz.define-form? form)
   (and (%%pair? (%%source-code form))
-       (%%eq? (%%car (%%source-code form)) 'define)))
+       (%%eq? (%%source-code (%%car (%%source-code form))) 'define)))
 
 
 ;;;
@@ -4559,10 +4559,11 @@
           (iter (%%cdr scan)))))))
 
 
-(define (jazz.walk-internal-define walker resume declaration environment form variable)
-  (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (%%source-code form)))
-    (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
-      (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value)))))
+(define (jazz.walk-internal-define walker resume declaration environment form-src variable)
+  (let ((form (%%desourcify form-src)))
+    (receive (name specifier value parameters) (jazz.parse-define walker resume declaration (%%cdr (%%source-code form)))
+      (let ((type (if specifier (jazz.walk-specifier walker resume declaration environment specifier) jazz.Any)))
+        (jazz.new-internal-define variable (jazz.walk walker resume declaration environment value))))))
 
 
 (define (jazz.parse-define walker resume declaration rest)

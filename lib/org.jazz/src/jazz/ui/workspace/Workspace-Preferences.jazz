@@ -49,7 +49,7 @@
         (jazz.utilities))
 
 
-(class Workspace-Preferences extends Preferences
+(class Workspace-Preferences extends Figure-Preferences
 
 
   (property shortcut             initialize {} accessors generate)
@@ -94,8 +94,7 @@
   (method (activate palette)
     (let ((appl (get-application))
           (stage (get-stage))
-          (toplevel (get-toplevel))
-          (palettes '()))
+          (toplevel (get-toplevel)))
       (with-locked-update
         (function ()
           (close-palettes)
@@ -103,25 +102,15 @@
           (let ((splitter (get-root~ toplevel))
                 (visibility (collect-visibility)))
             (process-frames visibility #f)
-            (for-each (function (preferences)
-                        (if (is? preferences Splitter-Preferences)
-                            (begin
-                              (apply-to~ preferences splitter)
-                              (set-workspace-preferences self))
-                          (let* ((name (get-name~ preferences))
-                                 (class (autoload name))
-                                 (palette (singleton-palette~ class name)))
-                            (apply-preferences~ preferences palette)
-                            (set! palettes (cons palette palettes)))))
-                      children)
+            (let ((root-preferences (find-child-located 'root)))
+              (when root-preferences
+                (apply-preferences~ root-preferences toplevel)))
+            (set-workspace-preferences self)
             (set-selected-workspace self)
             (set-maximized?~ stage maximized?)
             (process-frames visibility #t))
           (process-activation)
           (update-menubar-buttons~ appl)
-          (for-each (function (palette)
-                      (set-visible?~ palette #t))
-                    palettes)
           (update-status)
           (process-application-event~ appl 'workspace 'activate self workspace: self)
           (if palette

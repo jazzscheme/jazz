@@ -101,12 +101,13 @@
                   (set! done? #t))))))))
 
 
-(define (jazz.debug expr . rest)
-  (display (jazz.->string expr))
-  (for-each (lambda (expr)
-              (display " ")
-              (display (jazz.->string expr)))
-            rest)
+(define (jazz.debug . rest)
+  (%%when (%%not-null? rest)
+    (display (jazz.->string (%%car rest)))
+    (for-each (lambda (expr)
+                (display " ")
+                (display (jazz.->string expr)))
+              (%%cdr rest)))
   (newline)
   (force-output))
 

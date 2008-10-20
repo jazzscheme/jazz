@@ -84,18 +84,32 @@
   (method (activate-frame (force?: force? #f))
     (when (or force? (neq? self (get-active-frame)))
       (set-active-frame self)
-      (process-activation)
+      (close-popups)
+      (let ((stage (get-stage)))
+        (when (get-maximized?~ stage)
+          (set-caption~ (get-toplevel) (get-title))))
+      (unless (get-locked-activations?)
+        (for-each-docked
+          (function (view)
+            (client-activate~ view))))
+      (unless (get-locked-activations?)
+        (select-workspace))
+      (simulate-mouse-move~ (get-player))
       (update-windowing-actions~ (get-application))))
 
   
   (method (deactivate-frame)
     (when (eq? self (get-active-frame))
       (set-active-frame {})
-      (process-deactivation)))
+      (when guest
+        (frame-deactivate~ guest))
+      (let ((stage (get-stage)))
+        (when (null? (get-views~ stage))
+          (stage-activate~ stage)))))
     
 
   ;;;
-  ;;;; Overwrites
+  ;;;; Destroy
   ;;;
   
   
@@ -111,6 +125,11 @@
           (activate-frame~ new-active)
           (acquire-focus~ new-active))))
     (update-windowing-actions~ (get-application)))
+    
+
+  ;;;
+  ;;;; Level
+  ;;;
   
   
   (method (bring-to-front)
@@ -122,30 +141,6 @@
   (method (send-to-back)
     (nextmethod)
     (activate-front))
-  
-
-  ;;;
-  ;;;; Activation
-  ;;;
-
-
-  (method (process-activation)
-    (close-popups)
-    (let ((stage (get-stage)))
-      (when (get-maximized?~ stage)
-        (set-caption~ (get-toplevel) (get-title))))
-    (unless (get-locked-activations?)
-      (for-each-docked
-        (function (view)
-          (client-activate~ view))))
-    (frame-activate))
-
-
-  (method (process-deactivation)
-    (frame-deactivate)
-    (let ((stage (get-stage)))
-      (when (null? (get-views~ stage))
-        (stage-activate~ stage))))
   
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -184,22 +179,6 @@
   (method (focus-default)
     (when guest
       (focus-default~ guest)))
-
-
-  ;;;
-  ;;;; Activation
-  ;;;
-
-  
-  (method (frame-activate)
-    (nextmethod)
-    (unless (get-locked-activations?)
-      (select-workspace)))
-  
-  
-  (method (frame-deactivate)
-    (when guest
-      (frame-deactivate~ guest)))
 
 
   ;;;

@@ -208,9 +208,14 @@
     (remove-splash-screen))
   
   
+  (method (finish-process)
+    (nextmethod)
+    (select-default-workspace)
+    (update-windowing-actions))
+  
+  
   (method (conclude-environment)
     (nextmethod)
-    (update-windowing-actions)
     (set-visible?~ toplevel #t)
     (when (run-loop?)
       (select-foreground-window (get-handle~ toplevel)))
@@ -1304,6 +1309,23 @@
   ;;;
   
   
+  (method (select-default-workspace)
+    (define (find-workspace)
+      (let ((pref (get-preferences 'workspaces error?: #f)))
+        (if (not pref)
+            (default-workspace)
+          (let ((active (get-active~ pref)))
+            (if (not active)
+                (default-workspace)
+              (child~ pref active))))))
+    
+    (apply-preferences~ (find-workspace)))
+  
+  
+  (method (default-workspace)
+    (new Default-Workspace))
+  
+  
   (method public (on-select-workspace evt)
     (select-workspace (get-property~ evt workspace:)))
   
@@ -1965,7 +1987,7 @@
            (tab-view (locate~ manager 'tab))
            (same-tab? (eq? tab (get-selection-name~ tab-view))))
       (if (and (not domain)
-               (eq? (get-window-focus) palette)
+               (eq? (get-window-focus) player)
                same-tab?)
           (next-radio~ (get-search~ manager))
         (when tab

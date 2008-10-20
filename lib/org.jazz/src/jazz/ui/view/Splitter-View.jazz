@@ -84,7 +84,7 @@
            (mode (if dragging? 'absolute mode))
            (width (get-width~ size))
            (height (get-height~ size))
-           (div (if (or (eq? mode 'relative) (> division 0))
+           (div division @??? (if (or (eq? mode 'relative) (> division 0))
                     division
                   ;; why was this code necessary???
                   (+ (case orientation ((horz) width) ((vert) height)) division -3))))
@@ -170,10 +170,11 @@
 
 
   (method (cursor-update pos)
-    (when (and bar-bounds (in-rect? pos bar-bounds))
-      (case orientation
-        ((horz) (set-cursor :vertical-splitter))
-        ((vert) (set-cursor :horizontal-splitter)))))
+    (if (and (eq? separator 'resize) bar-bounds (in-rect? pos bar-bounds))
+        (case orientation
+          ((horz) (set-cursor :vertical-splitter))
+          ((vert) (set-cursor :horizontal-splitter)))
+      (nextmethod pos)))
   
 
   ;;;
@@ -183,6 +184,7 @@
   
   @debug
   (method (draw surface context update lh lv)
+    (fill-rect~ surface (get-bounds) {Color name: Light-Purple})
     (when bar-bounds
       (fill-rect~ surface bar-bounds {Color name: Light-Red})))
   
@@ -229,22 +231,13 @@
   ;;;
   
   
-  @FROM-SPLITTER-WINDOW
-  (method (mouse-down h v)
-    (when (and (eq? separator 'resize) bar-bounds (in-rect? (new Point h v) bar-bounds))
+  (method (mouse-down pos)
+    (when (and (eq? separator 'resize) bar-bounds (in-rect? pos bar-bounds))
       (set! dragging? #t)
-      (set! previous (case orientation ((horz) h) ((vert) v)))
+      (set! previous (case orientation ((horz) (get-h~ pos)) ((vert) (get-v~ pos))))
       (when (eq? mode 'relative)
         (set! division (relative->absolute division)))
       (acquire-capture)))
-  
-  
-  (method (mouse-down pos)
-    (set! dragging? #t)
-    (set! previous (case orientation ((horz) (get-h~ pos)) ((vert) (get-v~ pos))))
-    (when (eq? mode 'relative)
-      (set! division (relative->absolute division)))
-    (acquire-capture))
   
   
   (method (drag-move pos)

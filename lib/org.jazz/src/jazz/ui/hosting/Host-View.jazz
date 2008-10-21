@@ -106,33 +106,13 @@
   ;;;
   
   
-  (method public (call-activate)
-    (root-activate)
-    (when guest
-      (root-activated~ guest)))
-  
-  
-  (method public (call-deactivate)
-    (root-deactivate)
-    (when guest
-      (root-deactivated~ guest)))
-  
-  
   (method (mouse-activate?)
     #f)
   
   
   (method public virtual (mouse-activate)
-    (focus-default))
+    (focus-host))
   
-  
-  (method public virtual (root-activate)
-    (activate-focus))
-  
-  
-  (method public virtual (root-deactivate)
-    (deactivate-focus))
-    
 
   ;;;
   ;;;; Layout
@@ -171,6 +151,49 @@
   (method (uninstall-guest)
     (uninstall-from-host~ guest self)
     (close~ guest))
+  
+  
+  ;;;
+  ;;;; Focus
+  ;;;
+  
+  
+  (method public (focus-host)
+    (cond (focused
+           (reactivate-focused))
+          (guest
+           (focus-default~ guest))
+          (else
+           (acquire-focus))))
+    
+  
+  (method public virtual (activate-focus)
+    (when guest
+      (set-guest-actions~ (get-application) (get-guest-actions guest))
+      (host-activate~ guest)))
+    
+  
+  (method public virtual (deactivate-focus)
+    (let ((focus (get-focus)))
+      (when (and focus (eq? (get-host~ focus) self))
+        (set! focused (focus-master~ focus))))
+    (set-guest-actions~ (get-application) '())
+    (when guest
+      (host-deactivate~ guest)))
+  
+  
+  (method (focus-default)
+    )
+  
+  
+  (method protected (reactivate-focused)
+    (when focused
+      (acquire-focus~ focused)))
+  
+  
+  (method protected (view-destroyed view)
+    (when (eq? focused view)
+      (set! focused {})))
 
   
   ;;;
@@ -179,38 +202,4 @@
   
   
   (method protected virtual (install-tools)
-    (layout-view))
-  
-  
-  ;;;
-  ;;;; Focus
-  ;;;
-    
-  
-  (method (activate-focus)
-    (when guest
-      (set-guest-actions~ (get-application) (get-guest-actions guest))
-      (focus-activate~ guest)))
-    
-  
-  (method (deactivate-focus)
-    (let ((focus (get-focus)))
-      (when (and focus (eq? (get-host~ focus) self))
-        (set! focused (focus-master~ focus))))
-    (set-guest-actions~ (get-application) '()))
-  
-  
-  (method (focus-default)
-    (if focused
-        (acquire-focus~ focused)
-      (when guest
-        (focus-default~ guest))))
-  
-  
-  (method protected (reactivate-focused)
-    (focus-default))
-  
-  
-  (method protected (view-destroyed view)
-    (when (eq? focused view)
-      (set! focused {})))))
+    (layout-view))))

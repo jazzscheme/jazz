@@ -109,7 +109,6 @@
   
   
   (method (close-host)
-    (validate-focus)
     (close-with-confirm~ (get-host)))
 
 
@@ -124,29 +123,27 @@
   ;;;
   
   
-  (method (activate-frame (force?: force? #f))
-    (when (or force? (neq? self (get-active-frame)))
-      (set-active-frame self)
-      (close-popups)
-      (let ((stage (get-stage)))
-        (when (get-maximized?~ stage)
-          (set-caption~ (get-toplevel) (get-title))))
-      (unless (get-locked-activations?)
-        (for-each-docked
-          (function (view)
-            (client-activate~ view))))
-      (unless (get-locked-activations?)
-        (select-workspace))
-      (simulate-mouse-move~ (get-player))
-      (update-windowing-actions~ (get-application))))
+  (method (activate-frame)
+    (close-popups)
+    (set-active-frame self)
+    (let ((stage (get-stage)))
+      (when (get-maximized?~ stage)
+        (set-caption~ (get-toplevel) (get-title))))
+    (unless (get-locked-activations?)
+      (for-each-docked
+        (function (view)
+          (client-activate~ view))))
+    (unless (get-locked-activations?)
+      (select-workspace))
+    (simulate-mouse-move~ (get-player))
+    (update-windowing-actions~ (get-application)))
 
   
   (method (deactivate-frame)
-    (when (eq? self (get-active-frame))
-      (set-active-frame {})
-      (let ((stage (get-stage)))
-        (when (null? (get-views~ stage))
-          (stage-activate~ stage)))))
+    (set-active-frame {})
+    (let ((stage (get-stage)))
+      (when (null? (get-views~ stage))
+        (stage-activate~ stage))))
     
 
   ;;;
@@ -164,7 +161,7 @@
         (deactivate-frame)
         (when new-active
           (activate-frame~ new-active)
-          (acquire-focus~ new-active))))
+          (focus-host~ new-active))))
     (update-windowing-actions~ (get-application)))
     
 
@@ -304,15 +301,15 @@
   
   (method (mouse-activate)
     (bring-to-front)
-    (focus-default))
+    (nextmethod))
   
   
-  (method (root-activate)
+  (method (activate-focus)
     (nextmethod)
     (invalidate-caption))
   
   
-  (method (root-deactivate)
+  (method (deactivate-focus)
     (nextmethod)
     (invalidate-caption))
   
@@ -323,13 +320,12 @@
   
   
   (method (maximize)
-    (unless #f @temporary-fix maximized?
-      (let ((host (get-host)))
-        (unless maximized?
-          (set! preserved-position (get-position~ host))
-          (set! preserved-size (get-size~ host)))
-        (set! maximized? #t)
-        (update-buttons))))
+    (let ((host (get-host)))
+      (unless maximized?
+        (set! preserved-position (get-position~ host))
+        (set! preserved-size (get-size~ host)))
+      (set! maximized? #t)
+      (update-buttons)))
   
   
   (method public (maximize-bounds size)
@@ -341,18 +337,17 @@
   
   
   (method (restore)
-    (when #t @temporary-fix maximized?
-      (let ((host (get-host)))
-        ;; test necessary because of temporary-fix
-        (when preserved-position
-          (set-position~ host preserved-position))
-        ;; test necessary because of temporary-fix
-        (when preserved-size
-          (set-size~ host preserved-size))
-        (set! maximized? #f)
-        (update-buttons)
-        (layout-view)
-        (invalidate-view))))
+    (let ((host (get-host)))
+      ;; test necessary because of temporary-fix
+      (when preserved-position
+        (set-position~ host preserved-position))
+      ;; test necessary because of temporary-fix
+      (when preserved-size
+        (set-size~ host preserved-size))
+      (set! maximized? #f)
+      (update-buttons)
+      (layout-view)
+      (invalidate-view)))
     
 
   ;;;

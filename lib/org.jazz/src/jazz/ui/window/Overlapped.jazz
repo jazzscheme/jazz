@@ -40,6 +40,7 @@
 
 (import (jazz.library)
         (jazz.ui)
+        (jazz.ui.view)
         (jazz.ui.window)
         (jazz.utilities))
 
@@ -50,7 +51,7 @@
   (property owner initialize {} getter get-owner setter set-owner)
   
   
-  ;; This is the host of the previously focused view
+  ;; The host of the view that was focused when we lost focus
   (slot previously-focused-host initialize {})
   
   
@@ -93,17 +94,17 @@
   ;;;
   
   
-  (method public (set-previously-focused-host host)
-    (set! previously-focused-host host))
+  (method (focus-gain)
+    (when previously-focused-host
+      (reactivate-focused~ previously-focused-host))
+    processed)
   
   
-  (cond-expand
-    (windows
-      (method public (reactivate-focus)
-        (when previously-focused-host
-          (let ((player (get-player~ previously-focused-host)))
-            (when player
-              (acquire-focus~ player))))))
-    (else
-      (method public (reactivate-focus)
-        )))))
+  (method (focus-lose receiving)
+    (let ((focus (get-focus)))
+      (when (and focus (eq? (get-player~ focus) self))
+        (let ((host (get-host~ focus)))
+          (when host
+            (set! previously-focused-host host)))
+        (set-focus {})))
+    processed)))

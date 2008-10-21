@@ -200,6 +200,21 @@
 
 
 ;;;
+;;;; Host
+;;;
+
+
+(definition public (get-focused-host)
+  (let ((focus (get-focus)))
+    (when focus
+      (get-host~ focus))))
+
+
+(definition public (focused-host? host)
+  (eq? host (get-focused-host)))
+
+
+;;;
 ;;;; Guest
 ;;;
 
@@ -397,28 +412,6 @@
         (set-location~ host host-location))
       (set-guest~ host (new-guest guest-class others))
       host)))
-
-
-;;;
-;;;; Focused
-;;;
-
-
-;; This is the host of the currently focused view
-(definition *focused-host*
-  {})
-
-
-(definition public (get-focused-host)
-  *focused-host*)
-
-
-(definition public (set-focused-host host)
-  (set! *focused-host* host))
-
-
-(definition public (focused-host? host)
-  (eq? host *focused-host*))
 
 
 ;;;
@@ -656,10 +649,6 @@
 ;;;
 
 
-;; All this and also the interaction with View-Player.call-focus-lose needs big time
-;; cleanup... Currently, a view's focus-gain definition can get called many times in a row.
-
-
 (definition *focus*
   {})
 
@@ -673,13 +662,12 @@
     (when (neq? view *focus*)
       (let ((old *focus*))
         (when *focus*
+          (let ((old-host (essay old (get-host~ old))))
+            (when old-host
+              (call-deactivate~ old-host)))
           (let ((focus *focus*))
-            ;; more robust to errors in focus-lose
             (set! *focus* {})
-            (call-focus-lose~ focus player view)
-            (let ((old-host (essay old (get-host~ old))))
-              (when old-host
-                (call-deactivate~ old-host)))))
+            (call-focus-lose~ focus player view)))
         (when focus-window?
           (set-window-focus player))
         (set! *focus* {})
@@ -698,14 +686,6 @@
       (unless (focus-validate~ focus {})
         (set-focus focus)
         (throw-cancel)))))
-
-
-(definition public (clear-focus window)
-  (when *focus*
-    (let ((old *focus*))
-      (call-focus-lose~ *focus* window {})
-      (set! *focus* {})
-      (process-focus-change~ (get-application) old {}))))
 
 
 (definition public (get-focus-actions view)

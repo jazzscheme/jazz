@@ -91,7 +91,6 @@
   (property receive-drop-handler                 initialize {} getter get-receive-drop-handler     setter set-receive-drop-handler)
   (property receive-files-handler                initialize {} getter get-receive-files-handler    setter set-receive-files-handler)
   (property context-menu-handler                 initialize {} getter get-context-menu-handler     setter set-context-menu-handler)
-  (property lost-capture-handler                 initialize {} getter get-lost-capture-handler     setter set-lost-capture-handler)
   (property key-press-handler                    initialize {} getter get-key-press-handler        setter set-key-press-handler)
   (property arrow-press-handler                  initialize {} getter get-arrow-press-handler      setter set-arrow-press-handler)
   (property escape-press-handler                 initialize {} getter get-escape-press-handler     setter set-escape-press-handler)
@@ -156,9 +155,10 @@
         (set-mouse-in {})
         (call-mouse-leave))
       (nextmethod)
-      (when player
-        (view-destroyed~ player self)
-        (set! player {}))
+      (let ((host (get-host)))
+        (when host
+          (view-destroyed~ host self)))
+      (set! player {})
       (when (is? parent View)
         (invalidate-rect~ parent rect))))
     
@@ -315,14 +315,6 @@
     {})
   
   
-  (method public virtual (frame-activate)
-    )
-  
-  
-  (method public virtual (frame-deactivate)
-    )
-  
-  
   (method public virtual (host-workspaces)
     '())
   
@@ -447,11 +439,11 @@
   ;;;
   
   
-  (method public virtual (host-activate)
+  (method public virtual (host-install)
     )
   
   
-  (method public virtual (host-deactivate)
+  (method public virtual (host-uninstall)
     )
   
   
@@ -2371,24 +2363,6 @@
 
 
   ;;;
-  ;;;; Capture
-  ;;;
-  
-  
-  (method public (get-lost-capture-handler)
-    lost-capture-handler)
-  
-  (method public (set-lost-capture-handler handler)
-    (set! lost-capture-handler handler))
-  
-  
-  (method (call-lost-capture hwnd)
-    @to-convert
-    (when lost-capture-handler
-      (invoke~ lost-capture-handler self (new Capture-Event :lost-capture self (get-window hwnd)))))
-
-
-  ;;;
   ;;;; Groups
   ;;;
   
@@ -3384,7 +3358,6 @@
       ((receive-drop-handler)    Handler-Row)
       ((receive-files-handler)   Handler-Row)
       ((context-menu-handler)    Handler-Row)
-      ((lost-capture-handler)    Handler-Row)
       ((key-press-handler)       Handler-Row)
       ((arrow-press-handler)     Handler-Row)
       ((escape-press-handler)    Handler-Row)

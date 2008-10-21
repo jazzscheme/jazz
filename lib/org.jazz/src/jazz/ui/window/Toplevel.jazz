@@ -51,28 +51,16 @@
 
   
   (property fullscreen?  initialize #f getter get-fullscreen?  setter set-fullscreen?)
-  (property caption?     initialize #t getter get-caption?     setter set-caption?)
   (property caption-base initialize {} getter get-caption-base setter set-caption-base)
   (property caption      initialize {} getter get-caption      setter set-caption)
+  (property caption?     initialize #f getter get-caption?     setter set-caption?)
 
 
-  (slot maximized?            initialize #f)
   (slot workspace-preferences initialize {})
-  (slot stage-border          initialize {})
 
 
   (form
     (<install> visible?: #f))
-
-  
-  ;;;
-  ;;;; Initialization
-  ;;;
-
-
-  (method (install rest)
-    (setup-stage)
-    (nextmethod rest))
 
   
   ;;;
@@ -96,31 +84,6 @@
 
   
   ;;;
-  ;;;; Stage
-  ;;;
-
-
-  (method (setup-stage)
-    (set! stage-border (new Stage-Border @ZOO (stage-border-class~ parent) name: 'stage-border)))
-  
-  
-  (method public (get-stage-border)
-    stage-border)
-  
-  
-  (method public (get-stage)
-    (get-stage~ stage-border))
-
-
-  (method public virtual (stage-border-class)
-    Stage-Border)
-
-
-  (method public virtual (stage-class)
-    Stage)
-
-  
-  ;;;
   ;;;; Workspace
   ;;;
   
@@ -134,19 +97,6 @@
   
   
   ;;;
-  ;;;; Focus
-  ;;;
-  
-  
-  ;; This gets called when the application is reactivated after switching to another app
-  ;; or after a modal dialog. Note that after a modal dialog, the application doesn't receive
-  ;; an activate message so it could not be used to restore the focus to what it was.
-  (method (focus-gain)
-    (reactivate-focus)
-    processed)
-  
-  
-  ;;;
   ;;;; Events
   ;;;
   
@@ -155,7 +105,7 @@
     #t)
   
   
-  (method (on-activate-app status)
+  (method (activate-app status)
     (catch Cancel-Signal
       (let ((appl (get-application)))
         (if (= status 0)
@@ -165,6 +115,7 @@
 
 
   (method (show)
+    (set-visible-flag #t)
     (let ((pref (get-preferences {} error?: #f)))
       (case (if pref (get-toplevel-state~ pref) 'restored)
         ((maximized) (show-maximized handle))
@@ -190,43 +141,7 @@
 
   (method public (set-fullscreen? value)
     (when (neq? value fullscreen?)
-      (set! fullscreen? value)
-      (update-bounds)))
-  
-  
-  (method public (update-bounds)
-    @ZOO
-    (with-locked-update
-      (function ()
-        (let ((splitter (get-workspace-splitter))
-              (maximized? (get-maximized?~ root))
-              (caption-height (caption-height)))
-          (cond ((or fullscreen? (not caption?))
-                 (let* ((desktop (get-desktop))
-                        (size (get-size~ desktop)))
-                   (when fullscreen?
-                     (set-position {Point 0 0})
-                     (set-size size))
-                   @ZOO
-                   (when splitter
-                     (set-position~ splitter {Point 0 0})
-                     (set-size~ splitter size))))
-                (maximized?
-                  (let* ((rect (get-work-area))
-                         (size (rect-size rect)))
-                    (when maximized?
-                      (set-position (rect-position rect))
-                      (set-size size))
-                   @ZOO
-                   (when splitter
-                     (set-position~ splitter (new Point 0 caption-height))
-                     (set-size~ splitter (- size (new Dimension 0 caption-height))))))
-                (else
-                 (let ((size (get-size)))
-                   @ZOO
-                   (when splitter
-                     (set-position~ splitter (new Point 4 (+ caption-height 4)))
-                     (set-size~ splitter (- size (new Dimension 8 (+ caption-height 8))))))))))))
+      (set! fullscreen? value)))
 
   
   ;;;
@@ -246,16 +161,6 @@
   ;;;
   ;;;; Caption
   ;;;
-
-
-  (method public (get-caption?)
-    caption?)
-
-
-  (method public (set-caption? value)
-    (when (neq? value caption?)
-      (set! caption? value)
-      (update-bounds)))
   
   
   (method public (get-caption)
@@ -267,19 +172,13 @@
     (invalidate-title))
   
   
-  (method public (refresh-caption)
-    (let ((frame (current-frame)))
-      (set! caption (if frame (get-window-title~ frame) {}))
-      (invalidate-title)))
+  (method public (get-caption?)
+    caption?)
   
   
-  (cond-expand
-    (windows
-      (method (caption-height)
-        22))
-    (else
-      (method (caption-height)
-        0)))
+  (method public (set-caption? value)
+    (set! caption? value)
+    (invalidate-title))
     
   
   ;;;
@@ -292,24 +191,9 @@
   
   
   (method protected virtual (effective-title)
-    (if (or (not caption) (not maximized?))
-        caption-base
+    (if (or (not caption) (not caption?))
+        (localize caption-base)
       (format "{a} - {a}" (localize caption-base) caption)))
-    
-  
-  ;;;
-  ;;;; Maximize
-  ;;;
-  
-  
-  (method public (maximize)
-    (set! maximized? #t)
-    (invalidate-title))
-  
-  
-  (method public (restore)
-    (set! maximized? #f)
-    (invalidate-title))
   
   
   ;;;

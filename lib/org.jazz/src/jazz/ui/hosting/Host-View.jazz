@@ -56,6 +56,9 @@
   (property guest   initialize {} getter get-guest   setter set-guest)
   
   
+  (slot focused initialize {})
+  
+  
   (method (destroy-component)
     (close-guest)
     (nextmethod))
@@ -104,22 +107,15 @@
   
   
   (method public (call-activate)
-    (unless (eq? (get-focused-host) self)
-      (set-focused-host self)
-      (root-activate)
-      (when guest
-        (root-activated~ guest))))
+    (root-activate)
+    (when guest
+      (root-activated~ guest)))
   
   
   (method public (call-deactivate)
-    (let ((focused-host (get-focused-host))
-          (overlapped (get-overlapped)))
-      (when (and overlapped (eq? focused-host self))
-        (set-previously-focused-host~ overlapped focused-host)
-        (set-focused-host {})
-        (root-deactivate)
-        (when guest
-          (root-deactivated~ guest)))))
+    (root-deactivate)
+    (when guest
+      (root-deactivated~ guest)))
   
   
   (method (mouse-activate?)
@@ -127,7 +123,7 @@
   
   
   (method public virtual (mouse-activate)
-    )
+    (focus-default))
   
   
   (method public virtual (root-activate)
@@ -198,9 +194,23 @@
     
   
   (method (deactivate-focus)
+    (let ((focus (get-focus)))
+      (when (and focus (eq? (get-host~ focus) self))
+        (set! focused (focus-master~ focus))))
     (set-guest-actions~ (get-application) '()))
   
   
   (method (focus-default)
-    (when guest
-      (focus-default~ guest)))))
+    (if focused
+        (acquire-focus~ focused)
+      (when guest
+        (focus-default~ guest))))
+  
+  
+  (method protected (reactivate-focused)
+    (focus-default))
+  
+  
+  (method protected (view-destroyed view)
+    (when (eq? focused view)
+      (set! focused {})))))

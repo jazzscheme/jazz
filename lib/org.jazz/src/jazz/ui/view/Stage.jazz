@@ -49,62 +49,14 @@
 
 
 (class Stage extends View
-  
-  
-  (form
-    (<install> background: {Color name: Dark}))
-  
-  
-  ;;;;;;;;;;;; OLD ROOT CODE
-
-  @ZOO (
-  
-  ;;;
-  ;;;; Events
-  ;;;
-  
-  
-  (method (size-change size)
-    (nextmethod size)
-    (invalidate-border insets: {Rect 2 2 2 2}))
-  
-  
-  (method (mouse-activate)
-    (acquire-focus))
     
-
-  ;;;
-  ;;;; Layout
-  ;;;
-  
-  
-  (method (layout)
-    (let ((width (get-width))
-          (height (get-height)))
-      (let ((content (get-content)))
-        (set-position~ content {Point 2 2})
-        (set-size~ content (new Dimension (- width 4) (- height 4))))))
-
-  
-  ;;;
-  ;;;; Backgound
-  ;;;
-
-
-  (method public virtual (install-wallpaper)
-    ))
-
-
-  ;;;;;;;;;;;;;;;;;;;;;;;
-  
   
   (slot maximized?  initialize #f)
   (slot fullscreen? initialize #f)
+
   
-  
-  (method (size-change size)
-    (nextmethod size)
-    (layout-frames size))
+  (form
+    (<install> background: {Color name: Dark}))
   
   
   ;;;
@@ -143,10 +95,9 @@
   
   
   (method public (set-maximized? value)
-    (when #t @temporary-fix (/= value maximized?)
-      (if value
-          (maximize)
-        (restore))))
+    (if value
+        (maximize)
+      (restore)))
   
   
   (method public (toggle-maximized)
@@ -154,50 +105,48 @@
   
   
   (method public (maximize)
-    (unless #f @temporary-fix maximized?
-      (with-locked-update
-        (function ()
-          (let* ((border (get-border))
-                 (toplevel (get-toplevel))
-                 (appl (get-application))
-                 (menubar (get-menubar~ appl))
-                 (current (first-view))
-                 (workspace (selected-workspace)))
-            (set! maximized? #t)
-            (when workspace
-              (set-maximized?~ workspace #t))
-            (maximize~ toplevel)
-            (for-each (function (frame)
-                        (when (get-visible?~ frame)
-                          (maximize~ (get-host~ frame))
-                          (maximize~ (get-guest~ frame))))
-                      children)
-            (maximize~ border)
-            (when menubar
-              (maximize~ menubar))
-            (when current
-              (set-caption~ toplevel (get-title~ current))))))))
+    (with-locked-update
+      (function ()
+        (let* ((border (get-border))
+               (toplevel (get-toplevel))
+               (appl (get-application))
+               (menubar (get-menubar~ appl))
+               (current (first-view))
+               (workspace (selected-workspace)))
+          (set! maximized? #t)
+          (when workspace
+            (set-maximized?~ workspace #t))
+          (set-caption?~ toplevel #t)
+          (for-each (function (frame)
+                      (when (get-visible?~ frame)
+                        (maximize~ (get-host~ frame))
+                        (maximize~ (get-guest~ frame))))
+                    children)
+          (maximize~ border)
+          (when menubar
+            (maximize~ menubar))
+          (when current
+            (set-caption~ toplevel (get-title~ current)))))))
   
   
   (method public (restore)
-    (when #t @temporary-fix maximized?
-      (with-locked-update
-        (function ()
-          (let* ((border (get-border))
-                 (toplevel (get-toplevel))
-                 (appl (get-application))
-                 (menubar (get-menubar~ appl)))
-            (set! maximized? #f)
-            (set-maximized?~ (selected-workspace) #f)
-            (restore~ toplevel)
-            (for-each (function (frame)
-                        (when (get-visible?~ frame)
-                          (restore~ (get-host~ frame))
-                          (restore~ (get-guest~ frame))))
-                      children)
-            (restore~ border)
-            (when menubar
-              (restore~ menubar)))))))
+    (with-locked-update
+      (function ()
+        (let* ((border (get-border))
+               (toplevel (get-toplevel))
+               (appl (get-application))
+               (menubar (get-menubar~ appl)))
+          (set! maximized? #f)
+          (set-maximized?~ (selected-workspace) #f)
+          (set-caption?~ toplevel #f)
+          (for-each (function (frame)
+                      (when (get-visible?~ frame)
+                        (restore~ (get-host~ frame))
+                        (restore~ (get-guest~ frame))))
+                    children)
+          (restore~ border)
+          (when menubar
+            (restore~ menubar))))))
   
   
   ;;;
@@ -220,13 +169,17 @@
 
 
   (method public virtual (install-wallpaper)
-    @ZOO
-    (install-wallpaper~ (get-root)))
+    )
   
   
   ;;;
   ;;;; Layout
   ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (layout-frames size))
   
   
   (method (layout-frames size)
@@ -242,7 +195,7 @@
   ;;;
   
   
-  ;; temp until a generic solution in the painting algorithm
+  ;; temp optimisation until a generic solution in the painting algorithm
   (method (draw-children surface context update lh lv sh sv sc sc?)
     (define (draw children opaques)
       (when (not-null? children)

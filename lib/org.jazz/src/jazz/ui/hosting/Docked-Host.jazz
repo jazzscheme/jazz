@@ -49,19 +49,6 @@
 
 
 (class Docked-Host extends Host-View
-  
-  
-  ;;;
-  ;;;; Focus
-  ;;;
-  
-  
-  (method (focus-default)
-    (when guest
-      (focus-default~ guest)))
-  
-  
-  ;;;;;;;;;;;;;;;;;;; OLD ROOT CODE
     
   
   (property fullscreen? initialize #f accessors generate)
@@ -159,10 +146,12 @@
   
   
   (method (root-activate)
+    (nextmethod)
     (invalidate-caption))
   
   
   (method (root-deactivate)
+    (nextmethod)
     (invalidate-caption))
 
   
@@ -349,65 +338,6 @@
       (set-color~ surface {Color name: Dark})
       (set-line-width~ surface 1)
       (line~ surface 1 24 (- (get-width) 1) 24)))
-
-  
-  @rounded
-  (method (draw surface context update lh lv)
-    (let ((bounds (get-bounds))
-          (caption (new Rect 2 2 (get-h~ (get-position~ (locate 'tools))) 24)))
-      (let* ((host (get-host))
-             (guest (get-guest~ host))
-             (icon (host-icon~ (class-of guest)))
-             (title (localize (get-title~ host)))
-             (width (get-width))
-             (height (get-height))
-             (focused? (eq? self (get-focused-host))))
-        (frame-rect~ surface bounds {Color name: Dark})
-        (let ((h 1))
-          (for-each (function (docked)
-                      (let* ((guest (get-guest~ docked))
-                             (title (get-title~ docked))
-                             (icon (host-icon~ (class-of guest)))
-                             (selected? (eq? docked host)))
-                        (let ((width (get-text-width~ surface title)))
-                          (let* ((left (- h .5))
-                                 (top .5)
-                                 (width (+ width 13))
-                                 (height 24)
-                                 (right (+ left width))
-                                 (bottom (+ top height))
-                                 (pi 3.14159265358979323846))
-                            (when (and selected? focused?)
-                              (let ((pattern (let ((mid (+ left (fxfloor/ width 2))))
-                                               (create-linear-pattern~ surface mid top mid (+ top height)))))
-                                (add-color-stop~ surface pattern 0 {Color red: 225 green: 234 blue: 252})
-                                (add-color-stop~ surface pattern 1 {Color red: 153 green: 186 blue: 243})
-                                (set-source~ surface pattern)
-                                (cairo-move-to~ surface left bottom)
-                                (cairo-line-to~ surface left (+ top 5))
-                                (arc~ surface (+ left 5) (+ top 5) 5 pi (* pi 1.5))
-                                (cairo-line-to~ surface (- right 2) top)
-                                (curve-to-relative~ surface 15 5 15 15 30 height)
-                                (close-path~ surface)
-                                (fill~ surface)))
-                            (set-color~ surface {Color name: Dark})
-                            (set-line-width~ surface 1)
-                            (cairo-move-to~ surface left bottom)
-                            (cairo-line-to~ surface left (+ top 5))
-                            (arc~ surface (+ left 5) (+ top 5) 5 pi (* pi 1.5))
-                            (cairo-line-to~ surface (- right 2) top)
-                            (curve-to-relative~ surface 15 5 15 15 30 height)
-                            (close-path~ surface)
-                            (stroke~ surface)
-                            (draw-image~ (get-icons-cache~ (get-application)) surface context icon (+ h 2) 5)
-                            (set-font~ surface {Font name: Label})
-                            (set-text-color~ surface {Color name: Black})
-                            (draw-text~ surface (+ h 20) 7 title)
-                            (increase! h (+ width 30))))))
-                    (collect-all)))
-        (set-color~ surface {Color name: Dark})
-        (set-line-width~ surface 1)
-        (line~ surface 1 24 (- width 3) 24))))
   
 
   ;;;
@@ -426,7 +356,6 @@
   
   
   (method (toggle-docked pos)
-    @wait-Font
     (let* ((host (get-host))
            (parent (get-parent~ host)))
       (when (is? parent Pad-View)

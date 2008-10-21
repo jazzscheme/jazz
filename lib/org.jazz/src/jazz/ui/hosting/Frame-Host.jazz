@@ -52,7 +52,18 @@
 (class Frame-Host extends Caption-Host
   
   
-  ;;;;;;;;;;;;; FROM FRAME
+  (slot dragging?          initialize #f)
+  (slot current-part)
+  (slot old-position)
+  (slot preserved-position initialize {})
+  (slot preserved-size     initialize {})
+  (slot workspace          initialize {})
+
+  
+  (form
+    (<install>
+      (<Frame-Button> name: maximize type: maximize tooltip?: #t tooltip-text: {Locales english: "Maximize" french: "Agrandir"} action-handler: {Event-Handler :form on-maximize})
+      (<Frame-Button> name: close    type: close tooltip?: #t tooltip-text: {Locales english: "Close" french: "Fermer"} action-handler: {Event-Handler :form on-close})))
 
   
   ;;;
@@ -66,8 +77,40 @@
 
   
   ;;;
+  ;;;; Access
+  ;;;
+  
+  
+  (method public (get-preserved-position)
+    preserved-position)
+  
+  
+  (method public (get-preserved-size)
+    preserved-size)
+
+  
+  ;;;
   ;;;; Events
   ;;;
+  
+  
+  (method (size-change size)
+    (nextmethod size)
+    (invalidate-caption)
+    (invalidate-border insets: {Rect 4 4 4 4}))
+  
+  
+  (method protected virtual (on-maximize evt)
+    (maximize~ (get-stage)))
+  
+  
+  (method protected virtual (on-close evt)
+    (close-host))
+  
+  
+  (method (close-host)
+    (validate-focus)
+    (close-with-confirm~ (get-host)))
 
 
   (method (close-with-confirm)
@@ -101,8 +144,6 @@
   (method (deactivate-frame)
     (when (eq? self (get-active-frame))
       (set-active-frame {})
-      (when guest
-        (frame-deactivate~ guest))
       (let ((stage (get-stage)))
         (when (null? (get-views~ stage))
           (stage-activate~ stage)))))
@@ -141,44 +182,6 @@
   (method (send-to-back)
     (nextmethod)
     (activate-front))
-  
-  
-  ;;;;;;;;;;;;;;;;;;;;;;;;;
-  
-  
-  (slot workspace initialize {})
-
-
-  (method public (get-workspace)
-    workspace)
-
-
-  (method public (set-workspace value)
-    (set! workspace value))
-  
-  
-  ;;;
-  ;;;; Focus
-  ;;;
-  
-  
-  @ZOO-from-frame
-  (method (focus-gain old)
-    (nextmethod old)
-    (activate-focus)
-    processed)
-  
-  
-  @ZOO-from-frame
-  (method (focus-lose window view)
-    (nextmethod window view)
-    (deactivate-focus)
-    processed)
-  
-  
-  (method (focus-default)
-    (when guest
-      (focus-default~ guest)))
 
 
   ;;;
@@ -199,6 +202,14 @@
   ;;;
   ;;;; Workspace
   ;;;
+  
+
+  (method public (get-workspace)
+    workspace)
+
+
+  (method public (set-workspace value)
+    (set! workspace value))
   
   
   (method public (select-workspace)
@@ -262,59 +273,6 @@
   (method (confirm-close . rest)
     (when guest
       (confirm-close~ guest)))
-  
-  
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;; OLD ROOT CODE
-
-  
-  (slot dragging?          initialize #f)
-  (slot current-part)
-  (slot old-position)
-  (slot preserved-position initialize {}) ;; the initialize {} is necessary because of the temporary-fix
-  (slot preserved-size     initialize {}) ;; the initialize {} is necessary because of the temporary-fix
-
-  
-  (form
-    (<install>
-      (<Frame-Button> name: maximize type: maximize tooltip?: #t tooltip-text: {Locales english: "Maximize" french: "Agrandir"} action-handler: {Event-Handler :form on-maximize})
-      (<Frame-Button> name: close    type: close tooltip?: #t tooltip-text: {Locales english: "Close" french: "Fermer"} action-handler: {Event-Handler :form on-close})))
-
-  
-  ;;;
-  ;;;; Access
-  ;;;
-  
-  
-  (method public (get-preserved-position)
-    preserved-position)
-  
-  
-  (method public (get-preserved-size)
-    preserved-size)
-
-  
-  ;;;
-  ;;;; Events
-  ;;;
-  
-  
-  (method (size-change size)
-    (nextmethod size)
-    (invalidate-caption)
-    (invalidate-border insets: {Rect 4 4 4 4}))
-  
-  
-  (method protected virtual (on-maximize evt)
-    (maximize~ (get-stage)))
-  
-  
-  (method protected virtual (on-close evt)
-    (close-host))
-  
-  
-  (method (close-host)
-    (validate-focus)
-    (close-with-confirm~ (get-host)))
   
   
   ;;;
@@ -516,8 +474,6 @@
           (resize-client dh dv current-part
             (function (dh dv dwidth dheight)
               (resize-host dh dv dwidth dheight))))
-        @ZOO
-        (update-view~ (get-toplevel))
         (set! old-position desktop-pos))))
   
   

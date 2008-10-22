@@ -755,34 +755,36 @@
       (jazz.with-annotated-frame (jazz.annotate-signature signature)
         (lambda (frame)
           (let ((augmented-environment (cons frame environment)))
-            (case method-call
-              ((jazz.add-method-node)
-               (let ((node (jazz.generate-symbol "node")))
-                 `(begin
-                    (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
-                      ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                      (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
-                        ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
-                    (define ,method-node-locator
-                      (,method-call ,class-locator ',name ,method-locator)))))
-              ((jazz.add-virtual-method)
-               (if (%%eq? abstraction 'abstract)
-                    `(define ,method-rank-locator
-                       (,method-call ,class-locator ',name (lambda rest (jazz.call-into-abstract ',class-locator ',name))))
+            (%%sourcify
+              (case method-call
+                ((jazz.add-method-node)
+                 (let ((node (jazz.generate-symbol "node")))
+                   `(begin
+                      (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                        ,@(jazz.emit-signature-casts signature declaration augmented-environment)
+                        (let ((nextmethod (%%get-method-node-next-implementation ,method-node-locator)))
+                          ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
+                      (define ,method-node-locator
+                        (,method-call ,class-locator ',name ,method-locator)))))
+                ((jazz.add-virtual-method)
+                 (if (%%eq? abstraction 'abstract)
+                     `(define ,method-rank-locator
+                        (,method-call ,class-locator ',name (lambda rest (jazz.call-into-abstract ',class-locator ',name))))
+                   `(begin
+                      (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
+                        ,@(jazz.emit-signature-casts signature declaration augmented-environment)
+                        (let ()
+                          ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
+                      (define ,method-rank-locator
+                        (,method-call ,class-locator ',name ,method-locator)))))
+                ((jazz.add-final-method)
                  `(begin
                     (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
                       ,@(jazz.emit-signature-casts signature declaration augmented-environment)
                       (let ()
                         ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
-                    (define ,method-rank-locator
-                      (,method-call ,class-locator ',name ,method-locator)))))
-              ((jazz.add-final-method)
-               `(begin
-                  (define (,method-locator self ,@(jazz.emit-signature signature declaration augmented-environment))
-                    ,@(jazz.emit-signature-casts signature declaration augmented-environment)
-                    (let ()
-                      ,(jazz.sourcified-form (jazz.emit-expression body declaration augmented-environment))))
-                  (,method-call ,class-locator ',name ,method-locator))))))))))
+                    (,method-call ,class-locator ',name ,method-locator))))
+              (%%get-declaration-source declaration))))))))
 
 
 (jazz.encapsulate-class jazz.Method-Declaration)
@@ -1956,6 +1958,7 @@
                    (%%when (%%not (and (%%eq? expansion 'inline) (%%eq? abstraction 'concrete)))
                      (%%set-method-declaration-signature new-declaration signature)
                      (%%set-method-declaration-body new-declaration body-expression))
+                   (%%set-declaration-source new-declaration form-src)
                    new-declaration))))))))
 
 
